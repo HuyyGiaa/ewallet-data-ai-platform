@@ -1,0 +1,39 @@
+version: "3.8"
+
+# Redpanda: Kafka-API compatible, 1 container duy nhất, không cần Zookeeper riêng.
+# Console: UI để xem topic/message trực quan khi debug (không bắt buộc dùng, chỉ tiện kiểm tra).
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.1
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://localhost:9092
+    ports:
+      - "9092:9092"   # Kafka API — dùng cho streaming_generator.py, consumer_demo.py, Debezium sink sau này
+      - "9644:9644"   # Admin API
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    restart: unless-stopped
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.6.0
+    container_name: redpanda-console
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    ports:
+      - "8080:8080"   # UI: http://localhost:8080 — xem topic, message trực quan
+    depends_on:
+      - redpanda
+    restart: unless-stopped
+
+volumes:
+  redpanda-data:

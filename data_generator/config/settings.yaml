@@ -1,0 +1,29 @@
+# Cấu hình cho Data Generator - Fintech E-Wallet
+
+n_users: 50000              # giảm so với thiết kế gốc (50000) để chạy nhanh trên máy cá nhân
+                            # tăng lại khi cần dataset lớn hơn cho demo Spark/Flink
+n_merchants: 300
+n_devices_per_user: 1
+days_history: 90
+
+# Offline problems
+skew_ratio_hour: 0.75
+skew_ratio_channel: 0.60
+duplicate_rate_offline: 0.02
+schema_change_date: "2026-05-01"
+merchant_skew_top_pct: 0.05
+merchant_skew_traffic_pct: 0.80
+channel_loyal_weight: 0.9
+
+
+# Streaming problems (dùng cho streaming_generator.py)
+base_events_per_min: 50
+burst_multiplier: 30
+burst_windows: ["12:00-12:20", "20:00-20:20"]
+late_arrival_rate: 0.12
+late_delay_min_max: [5, 1440]
+duplicate_rate_stream: 0.015
+
+random_seed: 42
+
+output_dir: "output/offline"
