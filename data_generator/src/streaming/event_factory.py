@@ -14,17 +14,9 @@ import random
 import uuid
 from datetime import datetime, timedelta
 
-from fintech_schema import TransactionType, TransactionStatus
+from data_generator.src.fintech_schema import TransactionType, TransactionStatus, TYPE_WEIGHTS
 
 from .state_loader import StreamingState
-
-# TODO: đối chiếu lại với TYPE_WEIGHTS trong offline_generator.py, sửa cho khớp
-TYPE_WEIGHTS = {
-    TransactionType.DEPOSIT: 0.2,
-    TransactionType.WITHDRAW: 0.15,
-    TransactionType.TRANSFER: 0.25,
-    TransactionType.PAYMENT: 0.4,
-}
 
 _TYPE_KEYS = list(TYPE_WEIGHTS.keys())
 _TYPE_PROBS = list(TYPE_WEIGHTS.values())
@@ -75,7 +67,6 @@ def build_event(state: StreamingState, now: datetime) -> dict:
     device_id = random.choice(user_devices) if user_devices else None
     channel = state.pick_channel(user_id)
 
-    # --- Late arrival: quyết định NGAY tại thời điểm tạo event, không xử lý sau ---
     late_rate = state.cfg.get("late_arrival_rate", 0.12)
     delay_min, delay_max = state.cfg.get("late_delay_min_max", [5, 1440])
 

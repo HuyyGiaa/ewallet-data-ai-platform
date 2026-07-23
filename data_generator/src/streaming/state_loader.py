@@ -12,7 +12,7 @@ Balance khởi đầu cho mỗi account = closing_balance mới nhất trong bal
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass
-from fintech_schema import Channel
+from data_generator.src.fintech_schema import Channel
 import random
 
 @dataclass
@@ -24,7 +24,7 @@ class StreamingState:
     other_merchants: list
     cfg: dict
     balances: dict
-    device_by_user: dict
+    devices_by_user: dict
     user_channel_pref: dict 
     
     def pick_channel(self, user_id) -> str:
