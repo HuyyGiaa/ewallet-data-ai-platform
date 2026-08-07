@@ -102,4 +102,4 @@ services:
 volumes:
   redpanda-data:
   postgres-data:
-
+  minio-data:
