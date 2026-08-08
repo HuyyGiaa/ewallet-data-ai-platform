@@ -63,7 +63,12 @@ def create_spark_session() -> SparkSession:
         )
     )
 
-    spark = configure_spark_with_delta_pip(builder).getOrCreate()
+    spark = configure_spark_with_delta_pip(
+        builder,
+        extra_packages=[
+            "org.apache.hadoop:hadoop-aws:3.4.2",
+        ],
+    ).getOrCreate()
 
     spark.sparkContext.setLogLevel("WARN")
 
