@@ -1,0 +1,406 @@
+WARNING: Using incubator modules: jdk.incubator.vector
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+26/08/09 21:46:15 WARN Utils: Your hostname, huyy-giaa-System-Product-Name, resolves to a loopback address: 127.0.1.1; using 192.168.1.10 instead (on interface enp5s0)
+26/08/09 21:46:15 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
+:: loading settings :: url = jar:file:/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/site-packages/pyspark/jars/ivy-2.5.3.jar!/org/apache/ivy/core/settings/ivysettings.xml
+Ivy Default Cache set to: /home/huyy-giaa/.ivy2.5.2/cache
+The jars for the packages stored in: /home/huyy-giaa/.ivy2.5.2/jars
+io.delta#delta-spark_4.1_2.13 added as a dependency
+org.apache.hadoop#hadoop-aws added as a dependency
+:: resolving dependencies :: org.apache.spark#spark-submit-parent-563b6f77-1fb9-47f2-8a3d-e5aca1335ad6;1.0
+	confs: [default]
+	found io.delta#delta-spark_4.1_2.13;4.3.1 in central
+	found io.delta#delta-storage;4.3.1 in central
+	found io.unitycatalog#unitycatalog-client;0.5.0 in central
+	found org.slf4j#slf4j-api;2.0.13 in central
+	found org.apache.logging.log4j#log4j-slf4j2-impl;2.25.3 in central
+	found org.apache.logging.log4j#log4j-api;2.25.3 in central
+	found com.google.code.findbugs#jsr305;3.0.2 in central
+	found io.unitycatalog#unitycatalog-hadoop;0.5.0 in central
+	found org.apache.logging.log4j#log4j-core;2.25.3 in central
+	found io.delta#delta-kernel-api;4.3.1 in central
+	found org.roaringbitmap#RoaringBitmap;0.9.25 in central
+	found com.fasterxml.jackson.core#jackson-databind;2.13.5 in central
+	found com.fasterxml.jackson.core#jackson-annotations;2.13.5 in central
+	found com.fasterxml.jackson.core#jackson-core;2.13.5 in central
+	found com.fasterxml.jackson.datatype#jackson-datatype-jdk8;2.13.5 in central
+	found org.roaringbitmap#shims;0.9.25 in central
+	found io.delta#delta-kernel-defaults;4.3.1 in central
+	found org.apache.hadoop#hadoop-client-runtime;3.4.2 in central
+	found org.apache.parquet#parquet-hadoop;1.16.0 in central
+	found org.apache.parquet#parquet-column;1.16.0 in central
+	found org.apache.parquet#parquet-common;1.16.0 in central
+	found org.apache.parquet#parquet-format-structures;1.16.0 in central
+	found javax.annotation#javax.annotation-api;1.3.2 in central
+	found org.apache.parquet#parquet-encoding;1.16.0 in central
+	found org.locationtech.jts#jts-core;1.20.0 in central
+	found org.xerial.snappy#snappy-java;1.1.10.7 in central
+	found io.airlift#aircompressor;2.0.2 in central
+	found commons-pool#commons-pool;1.6 in central
+	found com.github.luben#zstd-jni;1.5.7-3 in central
+	found org.apache.hadoop#hadoop-client-api;3.4.2 in central
+	found commons-logging#commons-logging;1.3.0 in central
+	found org.apache.parquet#parquet-jackson;1.16.0 in central
+	found io.delta#delta-kernel-unitycatalog;4.3.1 in central
+	found org.apache.hadoop#hadoop-aws;3.4.2 in central
+	found software.amazon.awssdk#bundle;2.29.52 in central
+	found software.amazon.s3.analyticsaccelerator#analyticsaccelerator-s3;1.2.1 in central
+	found org.wildfly.openssl#wildfly-openssl;2.1.4.Final in central
+:: resolution report :: resolve 386ms :: artifacts dl 7ms
+	:: modules in use:
+	com.fasterxml.jackson.core#jackson-annotations;2.13.5 from central in [default]
+	com.fasterxml.jackson.core#jackson-core;2.13.5 from central in [default]
+	com.fasterxml.jackson.core#jackson-databind;2.13.5 from central in [default]
+	com.fasterxml.jackson.datatype#jackson-datatype-jdk8;2.13.5 from central in [default]
+	com.github.luben#zstd-jni;1.5.7-3 from central in [default]
+	com.google.code.findbugs#jsr305;3.0.2 from central in [default]
+	commons-logging#commons-logging;1.3.0 from central in [default]
+	commons-pool#commons-pool;1.6 from central in [default]
+	io.airlift#aircompressor;2.0.2 from central in [default]
+	io.delta#delta-kernel-api;4.3.1 from central in [default]
+	io.delta#delta-kernel-defaults;4.3.1 from central in [default]
+	io.delta#delta-kernel-unitycatalog;4.3.1 from central in [default]
+	io.delta#delta-spark_4.1_2.13;4.3.1 from central in [default]
+	io.delta#delta-storage;4.3.1 from central in [default]
+	io.unitycatalog#unitycatalog-client;0.5.0 from central in [default]
+	io.unitycatalog#unitycatalog-hadoop;0.5.0 from central in [default]
+	javax.annotation#javax.annotation-api;1.3.2 from central in [default]
+	org.apache.hadoop#hadoop-aws;3.4.2 from central in [default]
+	org.apache.hadoop#hadoop-client-api;3.4.2 from central in [default]
+	org.apache.hadoop#hadoop-client-runtime;3.4.2 from central in [default]
+	org.apache.logging.log4j#log4j-api;2.25.3 from central in [default]
+	org.apache.logging.log4j#log4j-core;2.25.3 from central in [default]
+	org.apache.logging.log4j#log4j-slf4j2-impl;2.25.3 from central in [default]
+	org.apache.parquet#parquet-column;1.16.0 from central in [default]
+	org.apache.parquet#parquet-common;1.16.0 from central in [default]
+	org.apache.parquet#parquet-encoding;1.16.0 from central in [default]
+	org.apache.parquet#parquet-format-structures;1.16.0 from central in [default]
+	org.apache.parquet#parquet-hadoop;1.16.0 from central in [default]
+	org.apache.parquet#parquet-jackson;1.16.0 from central in [default]
+	org.locationtech.jts#jts-core;1.20.0 from central in [default]
+	org.roaringbitmap#RoaringBitmap;0.9.25 from central in [default]
+	org.roaringbitmap#shims;0.9.25 from central in [default]
+	org.slf4j#slf4j-api;2.0.13 from central in [default]
+	org.wildfly.openssl#wildfly-openssl;2.1.4.Final from central in [default]
+	org.xerial.snappy#snappy-java;1.1.10.7 from central in [default]
+	software.amazon.awssdk#bundle;2.29.52 from central in [default]
+	software.amazon.s3.analyticsaccelerator#analyticsaccelerator-s3;1.2.1 from central in [default]
+	:: evicted modules:
+	org.slf4j#slf4j-api;2.0.17 by [org.slf4j#slf4j-api;2.0.13] in [default]
+	org.slf4j#slf4j-api;1.7.36 by [org.slf4j#slf4j-api;2.0.13] in [default]
+	org.slf4j#slf4j-api;1.7.33 by [org.slf4j#slf4j-api;2.0.13] in [default]
+	org.xerial.snappy#snappy-java;1.1.10.4 by [org.xerial.snappy#snappy-java;1.1.10.7] in [default]
+	---------------------------------------------------------------------
+	|                  |            modules            ||   artifacts   |
+	|       conf       | number| search|dwnlded|evicted|| number|dwnlded|
+	---------------------------------------------------------------------
+	|      default     |   41  |   0   |   0   |   4   ||   37  |   0   |
+	---------------------------------------------------------------------
+:: retrieving :: org.apache.spark#spark-submit-parent-563b6f77-1fb9-47f2-8a3d-e5aca1335ad6
+	confs: [default]
+	0 artifacts copied, 37 already retrieved (0kB/12ms)
+26/08/09 21:46:16 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+2026-08-09 21:46:16 | INFO     | Note: NumExpr detected 20 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 16.
+2026-08-09 21:46:16 | INFO     | NumExpr defaulting to 16 threads.
+2026-08-09 21:46:19 | INFO     | 
+2026-08-09 21:46:19 | INFO     | =============== SPARK CONFIG ===============
+2026-08-09 21:46:19 | INFO     | Mode                   : optimized
+2026-08-09 21:46:19 | INFO     | Spark Version          : 4.1.1
+2026-08-09 21:46:19 | INFO     | AQE                    : true
+2026-08-09 21:46:19 | INFO     | AQE Skew Join          : true
+2026-08-09 21:46:19 | INFO     | Shuffle partitions     : 32
+2026-08-09 21:46:19 | INFO     | ============================================
+2026-08-09 21:46:19 | INFO     | Reading Delta table: s3a://silver-zone/transactions
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+2026-08-09 21:46:20 | INFO     | Reading Delta table: s3a://gold-zone/dim_merchant
+2026-08-09 21:46:20 | INFO     | 
+2026-08-09 21:46:20 | INFO     | =============== OPTIMIZED BENCHMARK ===============
+2026-08-09 21:46:24 | INFO     | 
+2026-08-09 21:46:24 | INFO     | Physical plan BEFORE execution:
+26/08/09 21:46:25 WARN SparkStringUtils: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 'spark.sql.debug.maxToStringFields'.
+[Stage 0:>                                                          (0 + 3) / 3][Stage 2:>                                                        (0 + 20) / 50][Stage 2:======================>                                 (20 + 20) / 50]                                                                                [Stage 12:>                                                       (0 + 20) / 91][Stage 12:============>                                          (20 + 20) / 91][Stage 12:============>                                          (21 + 20) / 91][Stage 12:========================>                              (40 + 20) / 91][Stage 12:==============================>                        (50 + 20) / 91][Stage 12:====================================>                  (60 + 20) / 91][Stage 12:================================================>      (80 + 11) / 91]                                                                                2026-08-09 21:46:33 | INFO     | 
+2026-08-09 21:46:33 | INFO     | Physical plan AFTER execution:
+[SPARK] Application : EWallet-Merchant-Skew-optimized
+[SPARK] Version     : 4.1.1
+[SPARK] AQE         : true
+[SPARK] Skew Join   : true
+== Physical Plan ==
+AdaptiveSparkPlan (13)
++- Project (12)
+   +- SortMergeJoin LeftOuter (11)
+      :- Sort (3)
+      :  +- Exchange (2)
+      :     +- Scan parquet  (1)
+      +- Sort (10)
+         +- HashAggregate (9)
+            +- Exchange (8)
+               +- HashAggregate (7)
+                  +- Project (6)
+                     +- Filter (5)
+                        +- Scan parquet  (4)
+
+
+(1) Scan parquet 
+Output [3]: [merchant_id#16, merchant_name#17, category#18]
+Batched: true
+Location: PreparedDeltaFileIndex [s3a://gold-zone/dim_merchant]
+ReadSchema: struct<merchant_id:string,merchant_name:string,category:string>
+
+(2) Exchange
+Input [3]: [merchant_id#16, merchant_name#17, category#18]
+Arguments: hashpartitioning(merchant_id#16, 32), ENSURE_REQUIREMENTS, [plan_id=225]
+
+(3) Sort
+Input [3]: [merchant_id#16, merchant_name#17, category#18]
+Arguments: [merchant_id#16 ASC NULLS FIRST], false, 0
+
+(4) Scan parquet 
+Output [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+Batched: true
+Location: PreparedDeltaFileIndex [s3a://silver-zone/transactions]
+PushedFilters: [IsNotNull(merchant_id)]
+ReadSchema: struct<amount:double,status:string,merchant_id:string>
+
+(5) Filter
+Input [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+Condition : isnotnull(merchant_id#11)
+
+(6) Project
+Output [3]: [merchant_id#11, amount#5, status#7]
+Input [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+
+(7) HashAggregate
+Input [3]: [merchant_id#11, amount#5, status#7]
+Keys [1]: [merchant_id#11]
+Functions [5]: [partial_count(1), partial_sum(amount#5), partial_avg(amount#5), partial_sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END), partial_sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)]
+Aggregate Attributes [6]: [count#1256L, sum#1257, sum#1258, count#1259L, sum#1260L, sum#1261L]
+Results [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+
+(8) Exchange
+Input [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Arguments: hashpartitioning(merchant_id#11, 32), ENSURE_REQUIREMENTS, [plan_id=221]
+
+(9) HashAggregate
+Input [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Keys [1]: [merchant_id#11]
+Functions [5]: [count(1), sum(amount#5), avg(amount#5), sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END), sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)]
+Aggregate Attributes [5]: [count(1)#28L, sum(amount#5)#29, avg(amount#5)#30, sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END)#31L, sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)#32L]
+Results [6]: [merchant_id#11, count(1)#28L AS transaction_count#20L, sum(amount#5)#29 AS total_amount#21, avg(amount#5)#30 AS avg_amount#22, sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END)#31L AS success_count#23L, sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)#32L AS failed_count#24L]
+
+(10) Sort
+Input [6]: [merchant_id#11, transaction_count#20L, total_amount#21, avg_amount#22, success_count#23L, failed_count#24L]
+Arguments: [merchant_id#11 ASC NULLS FIRST], false, 0
+
+(11) SortMergeJoin
+Left keys [1]: [merchant_id#16]
+Right keys [1]: [merchant_id#11]
+Join type: LeftOuter
+Join condition: None
+
+(12) Project
+Output [8]: [merchant_id#16, merchant_name#17, category#18, coalesce(transaction_count#20L, 0) AS transaction_count#34L, coalesce(nanvl(total_amount#21, null), 0.0) AS total_amount#35, coalesce(nanvl(avg_amount#22, null), 0.0) AS avg_amount#36, coalesce(success_count#23L, 0) AS success_count#37L, coalesce(failed_count#24L, 0) AS failed_count#38L]
+Input [9]: [merchant_id#16, merchant_name#17, category#18, merchant_id#11, transaction_count#20L, total_amount#21, avg_amount#22, success_count#23L, failed_count#24L]
+
+(13) AdaptiveSparkPlan
+Output [8]: [merchant_id#16, merchant_name#17, category#18, transaction_count#34L, total_amount#35, avg_amount#36, success_count#37L, failed_count#38L]
+Arguments: isFinalPlan=false
+
+
+== Physical Plan ==
+AdaptiveSparkPlan (30)
++- == Final Plan ==
+   ResultQueryStage (19)
+   +- * Project (18)
+      +- * BroadcastHashJoin LeftOuter BuildRight (17)
+         :- AQEShuffleRead (5)
+         :  +- ShuffleQueryStage (4), Statistics(sizeInBytes=36.3 KiB, rowCount=300)
+         :     +- Exchange (3)
+         :        +- * ColumnarToRow (2)
+         :           +- Scan parquet  (1)
+         +- BroadcastQueryStage (16), Statistics(sizeInBytes=1040.0 KiB, rowCount=300)
+            +- BroadcastExchange (15)
+               +- * HashAggregate (14)
+                  +- AQEShuffleRead (13)
+                     +- ShuffleQueryStage (12), Statistics(sizeInBytes=2003.0 KiB, rowCount=1.97E+4)
+                        +- Exchange (11)
+                           +- * HashAggregate (10)
+                              +- * Project (9)
+                                 +- * Filter (8)
+                                    +- * ColumnarToRow (7)
+                                       +- Scan parquet  (6)
++- == Initial Plan ==
+   Project (29)
+   +- SortMergeJoin LeftOuter (28)
+      :- Sort (21)
+      :  +- Exchange (20)
+      :     +- Scan parquet  (1)
+      +- Sort (27)
+         +- HashAggregate (26)
+            +- Exchange (25)
+               +- HashAggregate (24)
+                  +- Project (23)
+                     +- Filter (22)
+                        +- Scan parquet  (6)
+
+
+(1) Scan parquet 
+Output [3]: [merchant_id#16, merchant_name#17, category#18]
+Batched: true
+Location: PreparedDeltaFileIndex [s3a://gold-zone/dim_merchant]
+ReadSchema: struct<merchant_id:string,merchant_name:string,category:string>
+
+(2) ColumnarToRow [codegen id : 1]
+Input [3]: [merchant_id#16, merchant_name#17, category#18]
+
+(3) Exchange
+Input [3]: [merchant_id#16, merchant_name#17, category#18]
+Arguments: hashpartitioning(merchant_id#16, 32), ENSURE_REQUIREMENTS, [plan_id=238]
+
+(4) ShuffleQueryStage
+Output [3]: [merchant_id#16, merchant_name#17, category#18]
+Arguments: 0
+
+(5) AQEShuffleRead
+Input [3]: [merchant_id#16, merchant_name#17, category#18]
+Arguments: local
+
+(6) Scan parquet 
+Output [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+Batched: true
+Location: PreparedDeltaFileIndex [s3a://silver-zone/transactions]
+PushedFilters: [IsNotNull(merchant_id)]
+ReadSchema: struct<amount:double,status:string,merchant_id:string>
+
+(7) ColumnarToRow [codegen id : 2]
+Input [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+
+(8) Filter [codegen id : 2]
+Input [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+Condition : isnotnull(merchant_id#11)
+
+(9) Project [codegen id : 2]
+Output [3]: [merchant_id#11, amount#5, status#7]
+Input [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+
+(10) HashAggregate [codegen id : 2]
+Input [3]: [merchant_id#11, amount#5, status#7]
+Keys [1]: [merchant_id#11]
+Functions [5]: [partial_count(1), partial_sum(amount#5), partial_avg(amount#5), partial_sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END), partial_sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)]
+Aggregate Attributes [6]: [count#1256L, sum#1257, sum#1258, count#1259L, sum#1260L, sum#1261L]
+Results [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+
+(11) Exchange
+Input [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Arguments: hashpartitioning(merchant_id#11, 32), ENSURE_REQUIREMENTS, [plan_id=266]
+
+(12) ShuffleQueryStage
+Output [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Arguments: 1
+
+(13) AQEShuffleRead
+Input [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Arguments: coalesced
+
+(14) HashAggregate [codegen id : 3]
+Input [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Keys [1]: [merchant_id#11]
+Functions [5]: [count(1), sum(amount#5), avg(amount#5), sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END), sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)]
+Aggregate Attributes [5]: [count(1)#28L, sum(amount#5)#29, avg(amount#5)#30, sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END)#31L, sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)#32L]
+Results [6]: [merchant_id#11, count(1)#28L AS transaction_count#20L, sum(amount#5)#29 AS total_amount#21, avg(amount#5)#30 AS avg_amount#22, sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END)#31L AS success_count#23L, sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)#32L AS failed_count#24L]
+
+(15) BroadcastExchange
+Input [6]: [merchant_id#11, transaction_count#20L, total_amount#21, avg_amount#22, success_count#23L, failed_count#24L]
+Arguments: HashedRelationBroadcastMode(List(input[0, string, true]),false), [plan_id=318]
+
+(16) BroadcastQueryStage
+Output [6]: [merchant_id#11, transaction_count#20L, total_amount#21, avg_amount#22, success_count#23L, failed_count#24L]
+Arguments: 2
+
+(17) BroadcastHashJoin [codegen id : 4]
+Left keys [1]: [merchant_id#16]
+Right keys [1]: [merchant_id#11]
+Join type: LeftOuter
+Join condition: None
+
+(18) Project [codegen id : 4]
+Output [8]: [merchant_id#16, merchant_name#17, category#18, coalesce(transaction_count#20L, 0) AS transaction_count#34L, coalesce(nanvl(total_amount#21, null), 0.0) AS total_amount#35, coalesce(nanvl(avg_amount#22, null), 0.0) AS avg_amount#36, coalesce(success_count#23L, 0) AS success_count#37L, coalesce(failed_count#24L, 0) AS failed_count#38L]
+Input [9]: [merchant_id#16, merchant_name#17, category#18, merchant_id#11, transaction_count#20L, total_amount#21, avg_amount#22, success_count#23L, failed_count#24L]
+
+(19) ResultQueryStage
+Output [8]: [merchant_id#16, merchant_name#17, category#18, transaction_count#34L, total_amount#35, avg_amount#36, success_count#37L, failed_count#38L]
+Arguments: 3
+
+(20) Exchange
+Input [3]: [merchant_id#16, merchant_name#17, category#18]
+Arguments: hashpartitioning(merchant_id#16, 32), ENSURE_REQUIREMENTS, [plan_id=225]
+
+(21) Sort
+Input [3]: [merchant_id#16, merchant_name#17, category#18]
+Arguments: [merchant_id#16 ASC NULLS FIRST], false, 0
+
+(22) Filter
+Input [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+Condition : isnotnull(merchant_id#11)
+
+(23) Project
+Output [3]: [merchant_id#11, amount#5, status#7]
+Input [4]: [amount#5, status#7, merchant_id#11, event_date#15]
+
+(24) HashAggregate
+Input [3]: [merchant_id#11, amount#5, status#7]
+Keys [1]: [merchant_id#11]
+Functions [5]: [partial_count(1), partial_sum(amount#5), partial_avg(amount#5), partial_sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END), partial_sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)]
+Aggregate Attributes [6]: [count#1256L, sum#1257, sum#1258, count#1259L, sum#1260L, sum#1261L]
+Results [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+
+(25) Exchange
+Input [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Arguments: hashpartitioning(merchant_id#11, 32), ENSURE_REQUIREMENTS, [plan_id=221]
+
+(26) HashAggregate
+Input [7]: [merchant_id#11, count#1262L, sum#1263, sum#1264, count#1265L, sum#1266L, sum#1267L]
+Keys [1]: [merchant_id#11]
+Functions [5]: [count(1), sum(amount#5), avg(amount#5), sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END), sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)]
+Aggregate Attributes [5]: [count(1)#28L, sum(amount#5)#29, avg(amount#5)#30, sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END)#31L, sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)#32L]
+Results [6]: [merchant_id#11, count(1)#28L AS transaction_count#20L, sum(amount#5)#29 AS total_amount#21, avg(amount#5)#30 AS avg_amount#22, sum(CASE WHEN (status#7 = success) THEN 1 ELSE 0 END)#31L AS success_count#23L, sum(CASE WHEN (status#7 = failed) THEN 1 ELSE 0 END)#32L AS failed_count#24L]
+
+(27) Sort
+Input [6]: [merchant_id#11, transaction_count#20L, total_amount#21, avg_amount#22, success_count#23L, failed_count#24L]
+Arguments: [merchant_id#11 ASC NULLS FIRST], false, 0
+
+(28) SortMergeJoin
+Left keys [1]: [merchant_id#16]
+Right keys [1]: [merchant_id#11]
+Join type: LeftOuter
+Join condition: None
+
+(29) Project
+Output [8]: [merchant_id#16, merchant_name#17, category#18, coalesce(transaction_count#20L, 0) AS transaction_count#34L, coalesce(nanvl(total_amount#21, null), 0.0) AS total_amount#35, coalesce(nanvl(avg_amount#22, null), 0.0) AS avg_amount#36, coalesce(success_count#23L, 0) AS success_count#37L, coalesce(failed_count#24L, 0) AS failed_count#38L]
+Input [9]: [merchant_id#16, merchant_name#17, category#18, merchant_id#11, transaction_count#20L, total_amount#21, avg_amount#22, success_count#23L, failed_count#24L]
+
+(30) AdaptiveSparkPlan
+Output [8]: [merchant_id#16, merchant_name#17, category#18, transaction_count#34L, total_amount#35, avg_amount#36, success_count#37L, failed_count#38L]
+Arguments: isFinalPlan=true
+
+2026-08-09 21:46:33 | INFO     | 
+2026-08-09 21:46:33 | INFO     | ================ BENCHMARK RESULT ================
+2026-08-09 21:46:33 | INFO     | Mode                       : optimized
+2026-08-09 21:46:33 | INFO     | Result rows                : 300
+2026-08-09 21:46:33 | INFO     | Aggregated transactions    : 159,952
+2026-08-09 21:46:33 | INFO     | Aggregated total amount    : 160762044853.35
+2026-08-09 21:46:33 | INFO     | Success transactions       : 149,059
+2026-08-09 21:46:33 | INFO     | Failed transactions        : 7,889
+2026-08-09 21:46:33 | INFO     | Workload runtime           : 4.6567 seconds
+2026-08-09 21:46:33 | INFO     | ==================================================
+2026-08-09 21:46:33 | INFO     | 
+2026-08-09 21:46:33 | INFO     | Spark UI is still running.
+2026-08-09 21:46:33 | INFO     | Open: http://localhost:4040
+2026-08-09 21:46:33 | INFO     | Inspect Jobs / Stages / SQL / Environment.
+
+
+Press ENTER after finishing Spark UI inspection: 

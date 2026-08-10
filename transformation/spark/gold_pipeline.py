@@ -1,33 +1,28 @@
 """
-DP3 - Silver -> Gold.
+DP3 - Silver -> Gold Pipeline
 
-Gold Layer gồm:
+Gold schema
+-----------
+Dimensions:
+    - dim_user
+    - dim_account
+    - dim_merchant
+    - dim_device
+    - dim_date
 
-Dimensions
-----------
-- dim_user
-- dim_account
-- dim_merchant
-- dim_date
+Facts:
+    - fact_transactions
+    - fact_login_events
+    - fact_balance_snapshot
 
-Fact
-----
-- fact_transactions
+Feature:
+    - feat_user_90d
+OBT:
+    - obt_transaction_enriched
+Analytical:
+    - opt_merchant_performance
 
-Feature
--------
-- feat_user_90d
-
-Analytical table
-----------------
-- merchant_performance
-
-Nguyên tắc:
-- Chỉ đọc dữ liệu sạch từ Silver.
-- Không thực hiện data cleaning lại ở Gold.
-- Gold tập trung vào dimensional modeling, aggregation
-  và feature engineering.
-- Tất cả dữ liệu được đọc/ghi bằng Delta Lake.
+All tables are stored as Delta Lake tables in MinIO.
 """
 
 from __future__ import annotations
@@ -43,28 +38,38 @@ from pyspark.sql import functions as F
 
 from spark_session import create_spark_session
 
+
+# ============================================================
 # Paths
+# ============================================================
+
 SILVER_ROOT = "s3a://silver-zone"
 GOLD_ROOT = "s3a://gold-zone"
 
+
+# ============================================================
 # Logging
+# ============================================================
+
 logging.basicConfig(
     level=logging.INFO,
-    format=(
-        "%(asctime)s | "
-        "%(levelname)-8s | "
-        "%(message)s"
-    ),
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 logger = logging.getLogger(__name__)
 
 
+# ============================================================
 # Common IO
-def read_silver(spark, table_name: str,) -> DataFrame:
+# ============================================================
+
+def read_silver(
+    spark,
+    table_name: str,
+) -> DataFrame:
     """
-    Đọc Delta table từ Silver Layer.
+    Read one Delta table from Silver layer.
     """
 
     path = f"{SILVER_ROOT}/{table_name}"
@@ -82,9 +87,19 @@ def read_silver(spark, table_name: str,) -> DataFrame:
     )
 
 
-def write_gold(df: DataFrame, table_name: str, partition_columns: list[str] | None = None,) -> None:
+def write_gold(
+    df: DataFrame,
+    table_name: str,
+    partition_columns: list[str] | None = None,
+) -> None:
     """
-    Ghi một DataFrame xuống Gold Layer bằng Delta Lake.
+    Write one DataFrame to Gold layer as Delta Lake.
+
+    overwrite:
+        Gold tables are rebuilt from Silver on every DP3 run.
+
+    mergeSchema:
+        Allows compatible schema evolution.
     """
 
     path = f"{GOLD_ROOT}/{table_name}"
@@ -99,10 +114,7 @@ def write_gold(df: DataFrame, table_name: str, partition_columns: list[str] | No
         df.write
         .format("delta")
         .mode("overwrite")
-        .option(
-            "mergeSchema",
-            "true",
-        )
+        .option("mergeSchema", "true")
     )
 
     if partition_columns:
@@ -117,8 +129,14 @@ def write_gold(df: DataFrame, table_name: str, partition_columns: list[str] | No
         table_name,
     )
 
+
+# ============================================================
 # Dimensions
-def build_dim_user(users_df: DataFrame,) -> DataFrame:
+# ============================================================
+
+def build_dim_user(
+    users_df: DataFrame,
+) -> DataFrame:
     """
     Grain:
         1 row / user.
@@ -134,7 +152,9 @@ def build_dim_user(users_df: DataFrame,) -> DataFrame:
     )
 
 
-def build_dim_account(accounts_df: DataFrame,) -> DataFrame:
+def build_dim_account(
+    accounts_df: DataFrame,
+) -> DataFrame:
     """
     Grain:
         1 row / account.
@@ -149,7 +169,9 @@ def build_dim_account(accounts_df: DataFrame,) -> DataFrame:
     )
 
 
-def build_dim_merchant(merchants_df: DataFrame,) -> DataFrame:
+def build_dim_merchant(
+    merchants_df: DataFrame,
+) -> DataFrame:
     """
     Grain:
         1 row / merchant.
@@ -162,25 +184,79 @@ def build_dim_merchant(merchants_df: DataFrame,) -> DataFrame:
     )
 
 
-def build_dim_date(transactions_df: DataFrame,) -> DataFrame:
+def build_dim_device(
+    devices_df: DataFrame,
+) -> DataFrame:
     """
-    Tạo Date Dimension từ các ngày xuất hiện trong transactions.
+    Grain:
+        1 row / device.
+    """
+
+    return devices_df.select(
+        "device_id",
+        "user_id",
+        "device_type",
+        "os",
+        "first_seen_at",
+    )
+
+
+def build_dim_date(
+    transactions_df: DataFrame,
+    login_events_df: DataFrame,
+    balance_snapshots_df: DataFrame,
+) -> DataFrame:
+    """
+    Date Dimension.
+
+    Dates are collected from all fact sources:
+        - transactions.timestamp
+        - login_events.login_ts
+        - balance_snapshots.snapshot_date
 
     Grain:
         1 row / calendar date.
     """
 
-    return (
+    transaction_dates = (
         transactions_df
         .select(
             F.to_date(
                 F.col("timestamp")
             ).alias("calendar_date")
         )
+    )
+
+    login_dates = (
+        login_events_df
+        .select(
+            F.to_date(
+                F.col("login_ts")
+            ).alias("calendar_date")
+        )
+    )
+
+    snapshot_dates = (
+        balance_snapshots_df
+        .select(
+            F.to_date(
+                F.col("snapshot_date")
+            ).alias("calendar_date")
+        )
+    )
+
+    all_dates = (
+        transaction_dates
+        .unionByName(login_dates)
+        .unionByName(snapshot_dates)
         .filter(
             F.col("calendar_date").isNotNull()
         )
         .distinct()
+    )
+
+    return (
+        all_dates
 
         .withColumn(
             "date_key",
@@ -243,17 +319,18 @@ def build_dim_date(transactions_df: DataFrame,) -> DataFrame:
             "day_of_week",
             "is_weekend",
         )
-
-        .orderBy(
-            "calendar_date"
-        )
     )
 
 
-# Fact
-def build_fact_transactions(transactions_df: DataFrame,) -> DataFrame:
+# ============================================================
+# Fact Tables
+# ============================================================
+
+def build_fact_transactions(
+    transactions_df: DataFrame,
+) -> DataFrame:
     """
-    Fact table trung tâm.
+    Transaction Fact.
 
     Grain:
         1 row / transaction.
@@ -278,9 +355,10 @@ def build_fact_transactions(transactions_df: DataFrame,) -> DataFrame:
         )
 
         .select(
+            # Primary key
             "transaction_id",
 
-            # Dimension / relationship keys
+            # Foreign / relationship keys
             "user_id",
             "account_id",
             "merchant_id",
@@ -299,23 +377,312 @@ def build_fact_transactions(transactions_df: DataFrame,) -> DataFrame:
             "old_balance",
             "new_balance",
 
-            # Temporal fields
+            # Temporal columns
             "timestamp",
             "ingested_at",
             "event_date",
         )
     )
 
-# Offline Feature Table
-def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,) -> DataFrame:
+
+def build_fact_login_events(
+    login_events_df: DataFrame,
+) -> DataFrame:
     """
-    Offline features theo user trong cửa sổ 90 ngày.
+    Login Event Fact.
+
+    Grain:
+        1 row / login attempt.
+    """
+
+    return (
+        login_events_df
+
+        .withColumn(
+            "event_date",
+            F.to_date(
+                F.col("login_ts")
+            ),
+        )
+
+        .withColumn(
+            "date_key",
+            F.date_format(
+                F.col("event_date"),
+                "yyyyMMdd",
+            ).cast("int"),
+        )
+
+        .select(
+            # Primary key
+            "login_id",
+
+            # Foreign keys
+            "user_id",
+            "device_id",
+            "date_key",
+
+            # Event information
+            "is_success",
+            "login_ts",
+            "event_date",
+        )
+    )
+
+
+def build_fact_balance_snapshot(
+    balance_snapshots_df: DataFrame,
+) -> DataFrame:
+    """
+    Periodic Snapshot Fact.
+
+    Grain:
+        1 row / account / day.
+
+    Logical composite key:
+        (account_id, snapshot_date)
+    """
+
+    return (
+        balance_snapshots_df
+
+        .withColumn(
+            "snapshot_date",
+            F.to_date(
+                F.col("snapshot_date")
+            ),
+        )
+
+        .withColumn(
+            "date_key",
+            F.date_format(
+                F.col("snapshot_date"),
+                "yyyyMMdd",
+            ).cast("int"),
+        )
+
+        .select(
+            "account_id",
+            "date_key",
+            "snapshot_date",
+            "closing_balance",
+        )
+    )
+
+# ============================================================
+# One Big Table (OBT)
+# ============================================================
+
+def build_obt_transaction_enriched(
+    fact_transactions_df: DataFrame,
+    dim_user_df: DataFrame,
+    dim_account_df: DataFrame,
+    dim_device_df: DataFrame,
+    dim_merchant_df: DataFrame,
+    dim_date_df: DataFrame,
+) -> DataFrame:
+    """
+    Denormalized transaction table for BI / analytical queries.
+
+    Grain:
+        1 row / transaction.
+
+    Purpose:
+        Join commonly-used dimension attributes into the
+        transaction fact so downstream analytical queries
+        do not need to repeatedly join many dimension tables.
+
+    All joins are LEFT JOINs to preserve every transaction.
+    """
+
+    # --------------------------------------------------------
+    # Select only useful attributes from dimensions.
+    #
+    # Rename duplicated / ambiguous columns before joining.
+    # --------------------------------------------------------
+
+    user_attrs = (
+        dim_user_df
+        .select(
+            "user_id",
+            "kyc_verified",
+            F.col("created_at").alias(
+                "user_created_at"
+            ),
+        )
+    )
+
+    account_attrs = (
+        dim_account_df
+        .select(
+            "account_id",
+            "account_type",
+            F.col("currency").alias(
+                "account_currency"
+            ),
+            F.col("created_at").alias(
+                "account_created_at"
+            ),
+        )
+    )
+
+    device_attrs = (
+        dim_device_df
+        .select(
+            "device_id",
+            "device_type",
+            "os",
+            "first_seen_at",
+        )
+    )
+
+    merchant_attrs = (
+        dim_merchant_df
+        .select(
+            "merchant_id",
+            "merchant_name",
+            F.col("category").alias(
+                "merchant_category"
+            ),
+        )
+    )
+
+    date_attrs = (
+        dim_date_df
+        .select(
+            "date_key",
+            "day_of_week",
+            "month",
+            "quarter",
+            "year",
+            "is_weekend",
+        )
+    )
+
+    # --------------------------------------------------------
+    # Fact + Dimensions
+    # --------------------------------------------------------
+
+    return (
+        fact_transactions_df
+
+        .join(
+            user_attrs,
+            on="user_id",
+            how="left",
+        )
+
+        .join(
+            account_attrs,
+            on="account_id",
+            how="left",
+        )
+
+        .join(
+            device_attrs,
+            on="device_id",
+            how="left",
+        )
+
+        .join(
+            merchant_attrs,
+            on="merchant_id",
+            how="left",
+        )
+
+        .join(
+            date_attrs,
+            on="date_key",
+            how="left",
+        )
+
+        .select(
+            # ------------------------------------------------
+            # Transaction identity
+            # ------------------------------------------------
+            "transaction_id",
+
+            # ------------------------------------------------
+            # User
+            # ------------------------------------------------
+            "user_id",
+            "kyc_verified",
+            "user_created_at",
+
+            # ------------------------------------------------
+            # Account
+            # ------------------------------------------------
+            "account_id",
+            "account_type",
+            "account_currency",
+            "account_created_at",
+
+            # ------------------------------------------------
+            # Device
+            # ------------------------------------------------
+            "device_id",
+            "device_type",
+            "os",
+            "first_seen_at",
+
+            # ------------------------------------------------
+            # Merchant
+            # ------------------------------------------------
+            "merchant_id",
+            "merchant_name",
+            "merchant_category",
+
+            # ------------------------------------------------
+            # Date
+            # ------------------------------------------------
+            "date_key",
+            "day_of_week",
+            "month",
+            "quarter",
+            "year",
+            "is_weekend",
+
+            # ------------------------------------------------
+            # Transaction attributes
+            # ------------------------------------------------
+            "type",
+            "status",
+            "channel",
+            "currency",
+
+            # ------------------------------------------------
+            # Measures
+            # ------------------------------------------------
+            "amount",
+            "old_balance",
+            "new_balance",
+
+            # ------------------------------------------------
+            # Additional relationships
+            # ------------------------------------------------
+            "counterparty_account_id",
+
+            # ------------------------------------------------
+            # Temporal columns
+            # ------------------------------------------------
+            "timestamp",
+            "ingested_at",
+            "event_date",
+        )
+    )
+# ============================================================
+# Offline Feature Table
+# ============================================================
+
+def build_feat_user_90d(
+    fact_transactions_df: DataFrame,
+    dim_user_df: DataFrame,
+) -> DataFrame:
+    """
+    Build offline user features over the latest 90-day window.
 
     Reference time:
-        timestamp mới nhất trong dataset.
-
-    Việc dùng max(timestamp) thay vì datetime.now() giúp pipeline
-    reproducible khi chạy lại cùng một dataset.
+        max(timestamp) in the dataset.
 
     Grain:
         1 row / user.
@@ -323,12 +690,18 @@ def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,
 
     reference_timestamp = (
         fact_transactions_df
+
         .agg(
-            F.max("timestamp").alias(
+            F.max(
+                "timestamp"
+            ).alias(
                 "reference_timestamp"
             )
         )
-        .first()["reference_timestamp"]
+
+        .first()[
+            "reference_timestamp"
+        ]
     )
 
     if reference_timestamp is None:
@@ -350,9 +723,14 @@ def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,
 
     transactions_90d = (
         fact_transactions_df
+
         .filter(
-            (F.col("timestamp") > F.lit(cutoff_timestamp))
-            & (
+            (
+                F.col("timestamp")
+                >= F.lit(cutoff_timestamp)
+            )
+            &
+            (
                 F.col("timestamp")
                 <= F.lit(reference_timestamp)
             )
@@ -367,7 +745,7 @@ def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,
         )
 
         .agg(
-            # Total transactions
+            # Total number of transactions
             F.count(
                 F.lit(1)
             ).alias(
@@ -397,9 +775,7 @@ def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,
                 "f_user_failed_transaction_rate_90d"
             ),
 
-            # Distinct merchants
-            # Exact count for the actual feature table.
-            # Exact vs approx will be benchmarked separately.
+            # Number of distinct merchants
             F.countDistinct(
                 "merchant_id"
             ).alias(
@@ -408,10 +784,11 @@ def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,
         )
     )
 
-    # Start from dim_user so users with zero transactions
-    # still exist in the feature table.
-    feature_table = (
+    # Start from dim_user so every user remains
+    # in the feature table.
+    return (
         dim_user_df
+
         .select(
             "user_id"
         )
@@ -444,22 +821,23 @@ def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,
         )
     )
 
-    return feature_table
 
+# ============================================================
+# Analytical Table
+# ============================================================
 
-# Merchant Analytical Table
-def build_merchant_performance(fact_transactions_df: DataFrame, dim_merchant_df: DataFrame,) -> DataFrame:
+def build_opt_merchant_performance(
+    fact_transactions_df: DataFrame,
+    dim_merchant_df: DataFrame,
+) -> DataFrame:
     """
-    Analytical table theo merchant.
+    Merchant analytical table.
 
     Grain:
         1 row / merchant.
 
-    Dataset generator cố tình tạo merchant skew:
-        80% payment traffic -> top 5% merchants.
-
-    Ta KHÔNG xử lý skew thủ công tại đây.
-    Workload này sẽ được dùng ở bước benchmark Spark sau.
+    This workload is also useful later for the
+    merchant-skew Spark benchmark.
     """
 
     merchant_metrics = (
@@ -551,14 +929,18 @@ def build_merchant_performance(fact_transactions_df: DataFrame, dim_merchant_df:
         )
     )
 
-# Utility
+
+# ============================================================
+# Write + Runtime Helper
+# ============================================================
+
 def process_gold_table(
     table_name: str,
     dataframe: DataFrame,
     partition_columns: list[str] | None = None,
 ) -> None:
     """
-    Log runtime riêng cho từng Gold table.
+    Write one Gold table and measure its write runtime.
     """
 
     started_at = time.perf_counter()
@@ -580,7 +962,11 @@ def process_gold_table(
         elapsed,
     )
 
-# DP3
+
+# ============================================================
+# DP3 Pipeline
+# ============================================================
+
 def run_gold_pipeline(
     optimized: bool = True,
 ) -> None:
@@ -611,7 +997,14 @@ def run_gold_pipeline(
             time.perf_counter()
         )
 
-        # 1. Read Silver
+        # ====================================================
+        # 1. Read all Silver tables
+        # ====================================================
+
+        logger.info(
+            "========== READ SILVER =========="
+        )
+
         users_df = read_silver(
             spark,
             "users",
@@ -627,12 +1020,30 @@ def run_gold_pipeline(
             "merchants",
         )
 
+        devices_df = read_silver(
+            spark,
+            "devices",
+        )
+
         transactions_df = read_silver(
             spark,
             "transactions",
         )
 
-        # 2. Build dimensions
+        balance_snapshots_df = read_silver(
+            spark,
+            "balance_snapshots",
+        )
+
+        login_events_df = read_silver(
+            spark,
+            "login_events",
+        )
+
+        # ====================================================
+        # 2. Dimensions
+        # ====================================================
+
         logger.info(
             "========== BUILD DIMENSIONS =========="
         )
@@ -649,8 +1060,14 @@ def run_gold_pipeline(
             merchants_df
         )
 
+        dim_device_df = build_dim_device(
+            devices_df
+        )
+
         dim_date_df = build_dim_date(
-            transactions_df
+            transactions_df,
+            login_events_df,
+            balance_snapshots_df,
         )
 
         process_gold_table(
@@ -669,18 +1086,38 @@ def run_gold_pipeline(
         )
 
         process_gold_table(
+            "dim_device",
+            dim_device_df,
+        )
+
+        process_gold_table(
             "dim_date",
             dim_date_df,
         )
 
-        # 3. Build fact
+        # ====================================================
+        # 3. Facts
+        # ====================================================
+
         logger.info(
-            "========== BUILD FACT =========="
+            "========== BUILD FACTS =========="
         )
 
         fact_transactions_df = (
             build_fact_transactions(
                 transactions_df
+            )
+        )
+
+        fact_login_events_df = (
+            build_fact_login_events(
+                login_events_df
+            )
+        )
+
+        fact_balance_snapshot_df = (
+            build_fact_balance_snapshot(
+                balance_snapshots_df
             )
         )
 
@@ -692,7 +1129,51 @@ def run_gold_pipeline(
             ],
         )
 
-        # 4. Build offline feature table
+        process_gold_table(
+            table_name="fact_login_events",
+            dataframe=fact_login_events_df,
+            partition_columns=[
+                "event_date"
+            ],
+        )
+
+        process_gold_table(
+            table_name="fact_balance_snapshot",
+            dataframe=fact_balance_snapshot_df,
+            partition_columns=[
+                "snapshot_date"
+            ],
+        )
+        # ====================================================
+        # 4. Build OBT
+        # ====================================================
+
+        logger.info(
+            "========== BUILD OBT =========="
+        )
+
+        obt_transaction_enriched_df = (
+            build_obt_transaction_enriched(
+                fact_transactions_df,
+                dim_user_df,
+                dim_account_df,
+                dim_device_df,
+                dim_merchant_df,
+                dim_date_df,
+            )
+        )
+
+        process_gold_table(
+            table_name="obt_transaction_enriched",
+            dataframe=obt_transaction_enriched_df,
+            partition_columns=[
+                "event_date"
+            ],
+        )
+        # ====================================================
+        # 5. Offline Features
+        # ====================================================
+
         logger.info(
             "========== BUILD FEATURES =========="
         )
@@ -709,24 +1190,30 @@ def run_gold_pipeline(
             feat_user_90d_df,
         )
 
-        # 5. Build merchant analytical table
+        # ====================================================
+        # 6. Analytical Output
+        # ====================================================
+
         logger.info(
-            "========== BUILD MERCHANT ANALYTICS =========="
+            "========== BUILD ANALYTICS =========="
         )
 
-        merchant_performance_df = (
-            build_merchant_performance(
+        opt_merchant_performance_df = (
+            build_opt_merchant_performance(
                 fact_transactions_df,
                 dim_merchant_df,
             )
         )
 
         process_gold_table(
-            "merchant_performance",
-            merchant_performance_df,
+            "opt_merchant_performance",
+            opt_merchant_performance_df,
         )
 
+        # ====================================================
         # Summary
+        # ====================================================
+
         elapsed = (
             time.perf_counter()
             - pipeline_started_at
@@ -743,12 +1230,15 @@ def run_gold_pipeline(
         )
 
     except Exception:
+
         logger.exception(
             "DP3 Silver -> Gold failed."
         )
+
         raise
 
     finally:
+
         if spark is not None:
             spark.stop()
 
@@ -757,12 +1247,13 @@ def run_gold_pipeline(
             )
 
 
+# ============================================================
 # CLI
+# ============================================================
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description=(
-            "DP3 Silver -> Gold Pipeline"
-        )
+        description="DP3 Silver -> Gold Pipeline"
     )
 
     parser.add_argument(
@@ -780,6 +1271,10 @@ def parse_args():
 
     return parser.parse_args()
 
+
+# ============================================================
+# Entry Point
+# ============================================================
 
 if __name__ == "__main__":
 
