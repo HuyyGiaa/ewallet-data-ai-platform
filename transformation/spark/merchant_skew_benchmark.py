@@ -1,35 +1,20 @@
 """
 Merchant Skew Benchmark
 
-Purpose
--------
-Benchmark the same merchant analytical workload under:
-
+Modes:
 1. profile
-    - Inspect the actual merchant distribution.
-    - Prove whether merchant skew exists in the dataset.
+   - Measure the real merchant distribution.
 
 2. baseline
-    - AQE OFF
-    - AQE Skew Join OFF
+   - AQE OFF
+   - AQE Skew Join OFF
 
 3. optimized
-    - AQE ON
-    - AQE Skew Join ON
+   - AQE ON
+   - AQE Skew Join ON
 
-Important
----------
-Baseline and optimized modes use exactly the same:
-    - input data
-    - filter
-    - groupBy
-    - aggregations
-    - join
-    - action
-
+Baseline and optimized use exactly the same workload.
 Only Spark optimization configuration changes.
-
-This allows a fair before/after comparison.
 """
 
 from __future__ import annotations
@@ -45,53 +30,26 @@ from pyspark.sql import functions as F
 
 from spark_session import create_spark_session
 
+# Config
+SILVER_TRANSACTIONS = "s3a://silver-zone/transactions"
+GOLD_DIM_MERCHANT = "s3a://gold-zone/dim_merchant"
 
-# ============================================================
-# Paths
-# ============================================================
-
-SILVER_TRANSACTIONS = (
-    "s3a://silver-zone/transactions"
-)
-
-GOLD_DIM_MERCHANT = (
-    "s3a://gold-zone/dim_merchant"
-)
-
-
-# ============================================================
 # Logging
-# ============================================================
-
 logging.basicConfig(
     level=logging.INFO,
-    format=(
-        "%(asctime)s | "
-        "%(levelname)-8s | "
-        "%(message)s"
-    ),
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 logger = logging.getLogger(__name__)
 
-
-# ============================================================
-# IO
-# ============================================================
-
+# Read data
 def read_delta(
     spark,
     path: str,
 ) -> DataFrame:
-    """
-    Read one Delta table.
-    """
 
-    logger.info(
-        "Reading Delta table: %s",
-        path,
-    )
+    logger.info("Reading Delta table: %s", path)
 
     return (
         spark.read
@@ -99,130 +57,65 @@ def read_delta(
         .load(path)
     )
 
-
-# ============================================================
-# Spark Configuration
-# ============================================================
-
+# Spark configuration
 def log_spark_config(
     spark,
     mode: str,
 ) -> None:
-    """
-    Print important Spark settings used by the benchmark.
-    """
 
-    logger.info("")
+    logger.info("========== SPARK CONFIG ==========")
+    logger.info("Mode: %s", mode)
+    logger.info("Spark version: %s", spark.version)
+
     logger.info(
-        "=============== SPARK CONFIG ==============="
+        "AQE: %s",
+        spark.conf.get("spark.sql.adaptive.enabled"),
     )
 
     logger.info(
-        "Mode                   : %s",
-        mode,
-    )
-
-    logger.info(
-        "Spark Version          : %s",
-        spark.version,
-    )
-
-    logger.info(
-        "AQE                    : %s",
-        spark.conf.get(
-            "spark.sql.adaptive.enabled"
-        ),
-    )
-
-    logger.info(
-        "AQE Skew Join          : %s",
+        "AQE Skew Join: %s",
         spark.conf.get(
             "spark.sql.adaptive.skewJoin.enabled"
         ),
     )
 
     logger.info(
-        "Shuffle partitions     : %s",
+        "Shuffle partitions: %s",
         spark.conf.get(
             "spark.sql.shuffle.partitions"
         ),
     )
 
-    logger.info(
-        "============================================"
-    )
-
-
-# ============================================================
-# Merchant Skew Profile
-# ============================================================
-
+# Merchant skew profile
 def profile_merchant_skew(
     transactions_df: DataFrame,
 ) -> None:
     """
-    Measure the real merchant distribution.
-
-    The goal is to verify skew from actual generated data,
-    rather than relying only on generator configuration.
+    Measure merchant transaction distribution from real data.
     """
 
-    logger.info("")
-    logger.info(
-        "Profiling merchant distribution..."
-    )
+    logger.info("========== MERCHANT SKEW PROFILE ==========")
 
-    # --------------------------------------------------------
-    # Keep only transactions that actually have a merchant.
-    # --------------------------------------------------------
-
-    merchant_transactions = (
+    merchant_rows = (
         transactions_df
+
         .filter(
-            F.col(
-                "merchant_id"
-            ).isNotNull()
+            F.col("merchant_id").isNotNull()
         )
-    )
 
-    # --------------------------------------------------------
-    # Total merchant-related transactions
-    # --------------------------------------------------------
-
-    total_transactions = (
-        merchant_transactions.count()
-    )
-
-    # --------------------------------------------------------
-    # Count transactions per merchant
-    # --------------------------------------------------------
-
-    merchant_counts_df = (
-        merchant_transactions
-
-        .groupBy(
-            "merchant_id"
-        )
+        .groupBy("merchant_id")
 
         .agg(
-            F.count(
-                F.lit(1)
-            ).alias(
+            F.count("*").alias(
                 "transaction_count"
             )
         )
 
         .orderBy(
-            F.desc(
-                "transaction_count"
-            )
+            F.desc("transaction_count")
         )
-    )
 
-    # Only around 300 merchants are expected,
-    # so collecting this small aggregated result is safe.
-    merchant_rows = (
-        merchant_counts_df.collect()
+        .collect()
     )
 
     if not merchant_rows:
@@ -235,26 +128,18 @@ def profile_merchant_skew(
         for row in merchant_rows
     ]
 
-    distinct_merchants = len(
-        counts
-    )
+    total_transactions = sum(counts)
+    distinct_merchants = len(counts)
 
-    # --------------------------------------------------------
-    # Top 5% merchants
-    # --------------------------------------------------------
-
-    top_5_percent_count = max(
+    top_5_count = max(
         1,
         math.ceil(
-            distinct_merchants
-            * 0.05
+            distinct_merchants * 0.05
         ),
     )
 
     top_5_transactions = sum(
-        counts[
-            :top_5_percent_count
-        ]
+        counts[:top_5_count]
     )
 
     top_5_share = (
@@ -263,97 +148,65 @@ def profile_merchant_skew(
         * 100
     )
 
-    # --------------------------------------------------------
-    # Distribution statistics
-    # --------------------------------------------------------
-
-    maximum_count = max(
-        counts
-    )
-
-    minimum_count = min(
-        counts
-    )
-
-    average_count = (
-        sum(counts)
-        / len(counts)
-    )
-
-    median_count = (
-        statistics.median(
-            counts
-        )
-    )
+    maximum_count = max(counts)
+    minimum_count = min(counts)
+    average_count = statistics.mean(counts)
+    median_count = statistics.median(counts)
 
     if median_count > 0:
-        max_to_median_ratio = (
+        max_median_ratio = (
             maximum_count
             / median_count
         )
     else:
-        max_to_median_ratio = (
-            float("inf")
-        )
-
-    # --------------------------------------------------------
-    # Report
-    # --------------------------------------------------------
-
-    logger.info("")
-    logger.info(
-        "=============== MERCHANT SKEW PROFILE ==============="
-    )
+        max_median_ratio = float("inf")
 
     logger.info(
-        "Merchant transactions       : %s",
+        "Merchant transactions: %s",
         f"{total_transactions:,}",
     )
 
     logger.info(
-        "Distinct merchants          : %s",
+        "Distinct merchants: %s",
         f"{distinct_merchants:,}",
     )
 
     logger.info(
-        "Top 5%% merchant count       : %s",
-        top_5_percent_count,
+        "Top 5%% merchant count: %s",
+        top_5_count,
     )
 
     logger.info(
-        "Top 5%% transaction share    : %.2f%%",
+        "Top 5%% transaction share: %.2f%%",
         top_5_share,
     )
 
     logger.info(
-        "Maximum transactions        : %s",
+        "Maximum transactions: %s",
         f"{maximum_count:,}",
     )
 
     logger.info(
-        "Average transactions        : %.2f",
+        "Average transactions: %.2f",
         average_count,
     )
 
     logger.info(
-        "Median transactions         : %.2f",
+        "Median transactions: %.2f",
         median_count,
     )
 
     logger.info(
-        "Minimum transactions        : %s",
+        "Minimum transactions: %s",
         f"{minimum_count:,}",
     )
 
     logger.info(
-        "Max / Median ratio          : %.2f",
-        max_to_median_ratio,
+        "Max / Median ratio: %.2f",
+        max_median_ratio,
     )
 
-    logger.info("")
-    logger.info(
-        "Top 10 merchants:"
-    )
+    logger.info("Top 10 merchants:")
 
     for index, row in enumerate(
         merchant_rows[:10],
@@ -366,50 +219,23 @@ def profile_merchant_skew(
             f"{row['transaction_count']:,}",
         )
 
-    logger.info(
-        "======================================================="
-    )
-
-
-# ============================================================
-# Common Merchant Workload
-# ============================================================
-
+# Common workload
 def build_merchant_workload(
     transactions_df: DataFrame,
     merchants_df: DataFrame,
 ) -> DataFrame:
     """
-    Build the workload used by BOTH baseline and optimized mode.
+    Build the exact same workload for baseline and optimized.
 
-    Grain of output:
+    Output grain:
         1 row / merchant.
-
-    Workload:
-        transactions
-            -> filter merchant transactions
-            -> groupBy merchant_id
-            -> aggregate
-            -> join dim_merchant
-
-    IMPORTANT:
-        Do not put different optimization logic here for
-        baseline and optimized modes.
-
-        Both modes must execute the same transformations.
     """
 
-    # --------------------------------------------------------
-    # Keep columns required by merchant aggregation
-    # --------------------------------------------------------
-
-    merchant_transactions = (
+    merchant_metrics = (
         transactions_df
 
         .filter(
-            F.col(
-                "merchant_id"
-            ).isNotNull()
+            F.col("merchant_id").isNotNull()
         )
 
         .select(
@@ -417,75 +243,38 @@ def build_merchant_workload(
             "amount",
             "status",
         )
-    )
 
-    # --------------------------------------------------------
-    # Merchant aggregation
-    # --------------------------------------------------------
-
-    merchant_metrics = (
-        merchant_transactions
-
-        .groupBy(
-            "merchant_id"
-        )
+        .groupBy("merchant_id")
 
         .agg(
-            # Number of transactions
-            F.count(
-                F.lit(1)
-            ).alias(
-                "transaction_count"
-            ),
+            F.count("*")
+            .alias("transaction_count"),
 
-            # Total transaction amount
-            F.sum(
-                "amount"
-            ).alias(
-                "total_amount"
-            ),
+            F.sum("amount")
+            .alias("total_amount"),
 
-            # Average transaction amount
-            F.avg(
-                "amount"
-            ).alias(
-                "avg_amount"
-            ),
+            F.avg("amount")
+            .alias("avg_amount"),
 
-            # Successful transactions
             F.sum(
                 F.when(
-                    F.col(
-                        "status"
-                    ) == "success",
+                    F.col("status") == "success",
                     1,
                 ).otherwise(0)
-            ).alias(
-                "success_count"
-            ),
+            ).alias("success_count"),
 
-            # Failed transactions
             F.sum(
                 F.when(
-                    F.col(
-                        "status"
-                    ) == "failed",
+                    F.col("status") == "failed",
                     1,
                 ).otherwise(0)
-            ).alias(
-                "failed_count"
-            ),
+            ).alias("failed_count"),
         )
     )
 
-    # --------------------------------------------------------
-    # Enrich aggregation with merchant attributes.
-    #
-    # Keep this join identical between baseline and optimized.
-    # Spark itself is allowed to choose/adapt its plan.
-    # --------------------------------------------------------
-
-    result_df = (
+    # Do not add mode-specific logic here.
+    # Baseline and optimized must execute the same query.
+    return (
         merchants_df
 
         .select(
@@ -522,40 +311,24 @@ def build_merchant_workload(
         )
     )
 
-    return result_df
 
-
-# ============================================================
-# Benchmark Workload
-# ============================================================
-
+# Run workload
 def run_merchant_workload(
     transactions_df: DataFrame,
     merchants_df: DataFrame,
     mode: str,
 ) -> None:
-    """
-    Execute the common merchant workload and measure runtime.
-    """
 
-    logger.info("")
     logger.info(
-        "=============== %s BENCHMARK ===============",
+        "========== %s BENCHMARK ==========",
         mode.upper(),
     )
 
-    result_df = (
-        build_merchant_workload(
-            transactions_df,
-            merchants_df,
-        )
+    result_df = build_merchant_workload(
+        transactions_df,
+        merchants_df,
     )
 
-    # --------------------------------------------------------
-    # Initial physical plan
-    # --------------------------------------------------------
-
-    logger.info("")
     logger.info(
         "Physical plan BEFORE execution:"
     )
@@ -564,37 +337,19 @@ def run_merchant_workload(
         mode="formatted"
     )
 
-    # --------------------------------------------------------
-    # Execute workload
-    #
-    # Spark transformations are lazy.
-    # collect() forces the complete query to run.
-    #
-    # The final output contains only ~300 merchant rows,
-    # so collecting the final result is safe here.
-    # --------------------------------------------------------
+    start = time.perf_counter()
 
-    started_at = (
-        time.perf_counter()
-    )
-
-    result_rows = (
-        result_df.collect()
-    )
+    # Final output is only about 300 merchant rows,
+    # so collect() is safe for this benchmark.
+    result_rows = result_df.collect()
 
     elapsed = (
         time.perf_counter()
-        - started_at
+        - start
     )
 
-    # --------------------------------------------------------
-    # Plan after execution.
-    #
-    # Useful when AQE is enabled because Spark may adapt
-    # parts of the execution plan using runtime statistics.
-    # --------------------------------------------------------
-
-    logger.info("")
+    # With AQE enabled, the final plan may differ
+    # from the initial plan after runtime statistics are known.
     logger.info(
         "Physical plan AFTER execution:"
     )
@@ -603,151 +358,94 @@ def run_merchant_workload(
         mode="formatted"
     )
 
-    # --------------------------------------------------------
-    # Correctness checksums
-    #
-    # Baseline and optimized must return the same results.
-    # --------------------------------------------------------
-
-    result_row_count = len(
-        result_rows
-    )
+    result_row_count = len(result_rows)
 
     aggregated_transactions = sum(
-        (
-            row["transaction_count"]
-            or 0
-        )
+        row["transaction_count"] or 0
         for row in result_rows
     )
 
     aggregated_total_amount = sum(
-        float(
-            row["total_amount"]
-            or 0.0
-        )
+        float(row["total_amount"] or 0.0)
         for row in result_rows
     )
 
     aggregated_success_count = sum(
-        (
-            row["success_count"]
-            or 0
-        )
+        row["success_count"] or 0
         for row in result_rows
     )
 
     aggregated_failed_count = sum(
-        (
-            row["failed_count"]
-            or 0
-        )
+        row["failed_count"] or 0
         for row in result_rows
     )
 
-    # --------------------------------------------------------
-    # Report
-    # --------------------------------------------------------
-
-    logger.info("")
-    logger.info(
-        "================ BENCHMARK RESULT ================"
-    )
+    logger.info("========== BENCHMARK RESULT ==========")
 
     logger.info(
-        "Mode                       : %s",
+        "Mode: %s",
         mode,
     )
 
     logger.info(
-        "Result rows                : %s",
+        "Result rows: %s",
         f"{result_row_count:,}",
     )
 
     logger.info(
-        "Aggregated transactions    : %s",
+        "Aggregated transactions: %s",
         f"{aggregated_transactions:,}",
     )
 
     logger.info(
-        "Aggregated total amount    : %.2f",
+        "Aggregated total amount: %.2f",
         aggregated_total_amount,
     )
 
     logger.info(
-        "Success transactions       : %s",
+        "Success transactions: %s",
         f"{aggregated_success_count:,}",
     )
 
     logger.info(
-        "Failed transactions        : %s",
+        "Failed transactions: %s",
         f"{aggregated_failed_count:,}",
     )
 
     logger.info(
-        "Workload runtime           : %.4f seconds",
+        "Workload runtime: %.4f seconds",
         elapsed,
     )
 
-    logger.info(
-        "=================================================="
-    )
-
-
-# ============================================================
-# Spark Session
-# ============================================================
-
+# Spark session
 def create_benchmark_spark(
     mode: str,
 ):
-    """
-    Create SparkSession for the selected benchmark mode.
-
-    profile / baseline:
-        AQE = false
-        Skew Join = false
-
-    optimized:
-        AQE = true
-        Skew Join = true
-    """
 
     optimized = (
         mode == "optimized"
     )
 
     spark = create_spark_session(
-        app_name=(
-            f"EWallet-Merchant-Skew-{mode}"
-        ),
+        app_name=f"EWallet-Merchant-Skew-{mode}",
         optimized=optimized,
     )
 
-    # Explicit settings make benchmark evidence clear
-    # even if spark_session.py defaults change later.
-
+    # Explicitly control the variables being benchmarked.
     spark.conf.set(
         "spark.sql.adaptive.enabled",
-        str(
-            optimized
-        ).lower(),
+        str(optimized).lower(),
     )
 
     spark.conf.set(
         "spark.sql.adaptive.skewJoin.enabled",
-        str(
-            optimized
-        ).lower(),
+        str(optimized).lower(),
     )
 
     return spark
 
 
-# ============================================================
-# Main Benchmark
-# ============================================================
-
+# Benchmark runner
 def run_benchmark(
     mode: str,
     keep_ui: bool,
@@ -756,15 +454,8 @@ def run_benchmark(
     spark = None
 
     try:
-
-        # ====================================================
-        # Create SparkSession
-        # ====================================================
-
-        spark = (
-            create_benchmark_spark(
-                mode
-            )
+        spark = create_benchmark_spark(
+            mode
         )
 
         log_spark_config(
@@ -772,27 +463,10 @@ def run_benchmark(
             mode,
         )
 
-        # ====================================================
-        # Read input
-        # ====================================================
-
-        transactions_df = (
-            read_delta(
-                spark,
-                SILVER_TRANSACTIONS,
-            )
+        transactions_df = read_delta(
+            spark,
+            SILVER_TRANSACTIONS,
         )
-
-        merchants_df = (
-            read_delta(
-                spark,
-                GOLD_DIM_MERCHANT,
-            )
-        )
-
-        # ====================================================
-        # Execute selected mode
-        # ====================================================
 
         if mode == "profile":
 
@@ -800,10 +474,12 @@ def run_benchmark(
                 transactions_df
             )
 
-        elif mode in (
-            "baseline",
-            "optimized",
-        ):
+        else:
+
+            merchants_df = read_delta(
+                spark,
+                GOLD_DIM_MERCHANT,
+            )
 
             run_merchant_workload(
                 transactions_df,
@@ -811,33 +487,13 @@ def run_benchmark(
                 mode,
             )
 
-        else:
-
-            raise ValueError(
-                f"Unsupported mode: {mode}"
-            )
-
-        # ====================================================
-        # Keep Spark UI alive if requested
-        # ====================================================
-
         if keep_ui:
-
-            logger.info("")
             logger.info(
-                "Spark UI is still running."
-            )
-
-            logger.info(
-                "Open: http://localhost:4040"
-            )
-
-            logger.info(
-                "Inspect Jobs / Stages / SQL / Environment."
+                "Spark UI: http://localhost:4040"
             )
 
             input(
-                "\nPress ENTER after finishing Spark UI inspection: "
+                "Press ENTER after Spark UI inspection: "
             )
 
     except Exception:
@@ -851,24 +507,17 @@ def run_benchmark(
     finally:
 
         if spark is not None:
-
             spark.stop()
-
             logger.info(
                 "SparkSession stopped."
             )
 
-
-# ============================================================
 # CLI
-# ============================================================
-
 def parse_args():
 
     parser = argparse.ArgumentParser(
         description=(
-            "E-Wallet merchant skew "
-            "Spark benchmark"
+            "E-Wallet merchant skew Spark benchmark."
         )
     )
 
@@ -881,7 +530,7 @@ def parse_args():
             "optimized",
         ],
         help=(
-            "profile: inspect merchant skew | "
+            "profile: inspect skew | "
             "baseline: AQE OFF | "
             "optimized: AQE ON"
         ),
@@ -891,18 +540,13 @@ def parse_args():
         "--keep-ui",
         action="store_true",
         help=(
-            "Keep the Spark application alive "
-            "after execution so Spark UI can be inspected."
+            "Keep Spark UI alive after execution."
         ),
     )
 
     return parser.parse_args()
 
-
-# ============================================================
-# Entry Point
-# ============================================================
-
+# Entry point
 if __name__ == "__main__":
 
     args = parse_args()
