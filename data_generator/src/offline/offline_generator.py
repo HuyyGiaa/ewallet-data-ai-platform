@@ -33,11 +33,21 @@ fake = Faker("vi_VN")
 
 PEAK_HOURS = [7, 8, 9, 12, 18, 19, 20]
 
+def load_config(config_path=None):
+    data_generator_dir = Path(__file__).resolve().parents[2]
 
-def load_config(config_path="../config/settings.yaml"):
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    full_path = BASE_DIR / config_path
-    
+    if config_path is None:
+        full_path = data_generator_dir / "config" / "settings.yaml"
+    else:
+        full_path = Path(config_path)
+
+        if not full_path.is_absolute():
+            full_path = data_generator_dir / full_path
+
+    full_path = full_path.resolve()
+
+    print(f"[CONFIG] Loading: {full_path}")
+
     with open(full_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
@@ -294,61 +304,165 @@ def apply_duplicates(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     )
     return pd.concat([df, dup_rows], ignore_index=True)
 
-# Main
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="config/settings.yaml")
+
+    parser.add_argument(
+        "--config",
+        default="config/settings.yaml",
+    )
+
     args = parser.parse_args()
 
+    # Load config
     cfg = load_config(args.config)
+
+    # Set random seed
     set_seed(cfg["random_seed"])
 
-    output_dir = cfg.get("output_dir", "output/offline")
-    os.makedirs(output_dir, exist_ok=True)
+    DATA_GENERATOR_DIR = Path(__file__).resolve().parents[2]
 
-    print(f" {cfg['n_users']} users...")
+    out_dir = (
+        DATA_GENERATOR_DIR
+        / cfg.get("output_dir", "output/offline")
+    )
+
+    out_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    print(f"{cfg['n_users']} users...")
     users_df = generate_users(cfg)
 
     print("Generate accounts...")
     accounts_df = generate_accounts(users_df)
 
-    print(f"Generate {cfg['n_merchants']} merchants...")
+    print(
+        f"Generate {cfg['n_merchants']} merchants..."
+    )
     merchants_df = generate_merchants(cfg)
 
     print("Generate devices...")
-    devices_df = generate_devices(users_df, cfg)
+    devices_df = generate_devices(
+        users_df,
+        cfg,
+    )
 
     print("Generate transactions...")
-    transactions_df = generate_transactions(accounts_df, merchants_df, devices_df, cfg)
-    print(f"      -> {len(transactions_df)} dòng trước khi chèn lỗi")
-    transactions_df = apply_skew(transactions_df, cfg)
-    transactions_df = apply_duplicates(transactions_df, cfg)
-    print(f"      -> {len(transactions_df)} dòng sau khi chèn skew + duplicate")
+    transactions_df = generate_transactions(
+        accounts_df,
+        merchants_df,
+        devices_df,
+        cfg,
+    )
 
-    print("Generate balance_snapshots từ transactions...")
-    balance_snapshots_df = generate_balance_snapshots(transactions_df)
+    print(
+        f"      -> {len(transactions_df)} "
+        "dòng trước khi chèn lỗi"
+    )
+
+    transactions_df = apply_skew(
+        transactions_df,
+        cfg,
+    )
+
+    transactions_df = apply_duplicates(
+        transactions_df,
+        cfg,
+    )
+
+    print(
+        f"      -> {len(transactions_df)} "
+        "dòng sau khi chèn skew + duplicate"
+    )
+
+    print(
+        "Generate balance_snapshots "
+        "từ transactions..."
+    )
+
+    balance_snapshots_df = (
+        generate_balance_snapshots(
+            transactions_df
+        )
+    )
 
     print("Generate login_events...")
-    login_events_df = generate_login_events(users_df, devices_df, cfg)
 
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    out_dir = BASE_DIR / cfg.get("output_dir", "output/offline")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    
-    print(f"\nĐang xuất file ra thư mục: {out_dir}")
-    
-    users_df.to_parquet(out_dir / "users.parquet", index=False)
-    accounts_df.to_parquet(out_dir / "accounts.parquet", index=False)
-    merchants_df.to_parquet(out_dir / "merchants.parquet", index=False)
-    devices_df.to_parquet(out_dir / "devices.parquet", index=False)
-    transactions_df.to_parquet(out_dir / "transactions.parquet", index=False)
-    balance_snapshots_df.to_parquet(out_dir / "balance_snapshots.parquet", index=False)
-    login_events_df.to_parquet(out_dir / "login_events.parquet", index=False)
+    login_events_df = (
+        generate_login_events(
+            users_df,
+            devices_df,
+            cfg,
+        )
+    )
 
-    print(f"\nHoàn tất. Output tại: {output_dir}/")
-    print(f"  users: {len(users_df)} | accounts: {len(accounts_df)} | merchants: {len(merchants_df)}")
-    print(f"  devices: {len(devices_df)} | transactions: {len(transactions_df)}")
-    print(f"  balance_snapshots: {len(balance_snapshots_df)} | login_events: {len(login_events_df)}")
+    print(
+        f"\nĐang xuất file ra thư mục: "
+        f"{out_dir}"
+    )
+
+    users_df.to_parquet(
+        out_dir / "users.parquet",
+        index=False,
+    )
+
+    accounts_df.to_parquet(
+        out_dir / "accounts.parquet",
+        index=False,
+    )
+
+    merchants_df.to_parquet(
+        out_dir / "merchants.parquet",
+        index=False,
+    )
+
+    devices_df.to_parquet(
+        out_dir / "devices.parquet",
+        index=False,
+    )
+
+    transactions_df.to_parquet(
+        out_dir / "transactions.parquet",
+        index=False,
+    )
+
+    balance_snapshots_df.to_parquet(
+        out_dir / "balance_snapshots.parquet",
+        index=False,
+    )
+
+    login_events_df.to_parquet(
+        out_dir / "login_events.parquet",
+        index=False,
+    )
+
+    print(
+        f"\nHoàn tất. Output tại: {out_dir}"
+    )
+
+    print(
+        f"  users: {len(users_df)}"
+        f" | accounts: {len(accounts_df)}"
+        f" | merchants: {len(merchants_df)}"
+    )
+
+    print(
+        f"  devices: {len(devices_df)}"
+        f" | transactions: {len(transactions_df)}"
+    )
+
+    print(
+        f"  balance_snapshots: "
+        f"{len(balance_snapshots_df)}"
+        f" | login_events: "
+        f"{len(login_events_df)}"
+    )
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":

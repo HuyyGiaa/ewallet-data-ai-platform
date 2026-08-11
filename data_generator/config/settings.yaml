@@ -1,6 +1,6 @@
 # Cấu hình cho Data Generator - Fintech E-Wallet
 
-n_users: 50000              # giảm so với thiết kế gốc (50000) để chạy nhanh trên máy cá nhân
+n_users: 250000              # giảm so với thiết kế gốc (50000) để chạy nhanh trên máy cá nhân
                             # tăng lại khi cần dataset lớn hơn cho demo Spark/Flink
 n_merchants: 300
 n_devices_per_user: 1

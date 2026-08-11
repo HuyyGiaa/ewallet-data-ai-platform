@@ -1,0 +1,49 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+
+# Generated data
+data_generator/output/
+offline/output/
+
+*.parquet
+
+# Runtime / benchmark logs
+output/logs/
+*.log
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+.checkpoint/
+checkpoints/
+
+# Spark temporary files
+*.crc
+_SUCCESS
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / local environment
+.env
+.env.*
+!.env.example
