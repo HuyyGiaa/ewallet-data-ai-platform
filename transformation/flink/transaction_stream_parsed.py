@@ -19,10 +19,7 @@ from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import FlinkKafkaConsumer
 
 
-# ============================================================
 # Config
-# ============================================================
-
 BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "transactions.raw"
 CONSUMER_GROUP = "flink-parsed"
@@ -34,10 +31,7 @@ KAFKA_JAR = (
 )
 
 
-# ============================================================
 # Logging
-# ============================================================
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(message)s",
@@ -47,10 +41,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
 # Environment
-# ============================================================
-
 def create_environment() -> StreamExecutionEnvironment:
 
     if not KAFKA_JAR.exists():
@@ -68,11 +59,7 @@ def create_environment() -> StreamExecutionEnvironment:
 
     return env
 
-
-# ============================================================
 # Kafka source
-# ============================================================
-
 def create_kafka_consumer() -> FlinkKafkaConsumer:
 
     consumer = FlinkKafkaConsumer(
@@ -89,10 +76,7 @@ def create_kafka_consumer() -> FlinkKafkaConsumer:
     return consumer
 
 
-# ============================================================
 # JSON parsing
-# ============================================================
-
 def parse_transaction(raw_event: str):
     """
     Convert raw Kafka JSON into the fields required
@@ -108,11 +92,7 @@ def parse_transaction(raw_event: str):
         event["timestamp"],
     )
 
-
-# ============================================================
 # Pipeline
-# ============================================================
-
 def run_pipeline() -> None:
 
     logger.info(
@@ -155,10 +135,6 @@ def run_pipeline() -> None:
         "EWallet-Flink-JSON-Parsing"
     )
 
-
-# ============================================================
 # Entry point
-# ============================================================
-
 if __name__ == "__main__":
     run_pipeline()

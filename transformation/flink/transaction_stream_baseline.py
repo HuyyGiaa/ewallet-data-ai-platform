@@ -18,11 +18,7 @@ from pyflink.common.serialization import SimpleStringSchema
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import FlinkKafkaConsumer
 
-
-# ============================================================
 # Config
-# ============================================================
-
 BOOTSTRAP_SERVERS = "localhost:9092"
 KAFKA_TOPIC = "transactions.raw"
 CONSUMER_GROUP = "flink-baseline"
@@ -33,11 +29,7 @@ KAFKA_JAR = (
     / "flink-sql-connector-kafka-3.3.0-1.19.jar"
 )
 
-
-# ============================================================
 # Logging
-# ============================================================
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(message)s",
@@ -46,11 +38,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-# ============================================================
 # Flink environment
-# ============================================================
-
 def create_environment() -> StreamExecutionEnvironment:
 
     if not KAFKA_JAR.exists():
@@ -71,11 +59,7 @@ def create_environment() -> StreamExecutionEnvironment:
 
     return env
 
-
-# ============================================================
 # Kafka source
-# ============================================================
-
 def create_kafka_consumer() -> FlinkKafkaConsumer:
 
     consumer = FlinkKafkaConsumer(
@@ -92,11 +76,7 @@ def create_kafka_consumer() -> FlinkKafkaConsumer:
 
     return consumer
 
-
-# ============================================================
 # Pipeline
-# ============================================================
-
 def run_baseline() -> None:
 
     logger.info("========== FLINK STREAMING BASELINE ==========")
@@ -124,10 +104,6 @@ def run_baseline() -> None:
         "EWallet-Flink-Streaming-Baseline"
     )
 
-
-# ============================================================
 # Entry point
-# ============================================================
-
 if __name__ == "__main__":
     run_baseline()
