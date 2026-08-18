@@ -378,9 +378,7 @@ def format_transaction(
     )
 
 
-def run_pipeline(
-    parallelism: int,
-) -> None:
+def run_pipeline(parallelism: int,) -> None:
 
     logger.info("Starting E-Wallet Flink pipeline")
 
@@ -395,9 +393,7 @@ def run_pipeline(
         DEDUP_TTL_MINUTES,
     )
 
-    env = create_environment(
-        parallelism
-    )
+    env = create_environment(parallelism)
 
     raw_stream = (
         env
