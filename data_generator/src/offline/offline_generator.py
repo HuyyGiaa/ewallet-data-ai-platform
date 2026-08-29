@@ -1,10 +1,19 @@
 """
-Data Generator chính - sinh đầy đủ 7 bảng offline cho domain Fintech E-Wallet.
+Data Generator chính - sinh đầy đủ 7 logical datasets offline
+cho domain Fintech E-Wallet.
 
-Chạy: python src/main.py --config config/settings.yaml
+Transactions được xuất thành 2 physical batches để mô phỏng
+schema evolution.
 
-Output: users.parquet, accounts.parquet, merchants.parquet, devices.parquet,
-        transactions.parquet, balance_snapshots.parquet, login_events.parquet
+Output:
+- users.parquet
+- accounts.parquet
+- merchants.parquet
+- devices.parquet
+- transactions_v1.parquet
+- transactions_v2.parquet
+- balance_snapshots.parquet
+- login_events.parquet
 """
 
 import argparse
@@ -198,8 +207,10 @@ def generate_transactions(accounts_df: pd.DataFrame, merchants_df: pd.DataFrame,
                 merchant_id = pick_merchant()
                 
             elif tx_type == TransactionType.TRANSFER:
-                other_accounts = [a for a in account_ids if a != account_id]
-                counterparty_account_id = random.choice(other_accounts) if other_accounts else None
+                if len(account_ids) > 1:
+                    counterparty_account_id = random.choice(account_ids)
+                    while counterparty_account_id == account_id:
+                        counterparty_account_id = random.choice(account_ids)
             
             if amount > old_balance:
                 new_balance = old_balance
@@ -304,6 +315,30 @@ def apply_duplicates(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     )
     return pd.concat([df, dup_rows], ignore_index=True)
 
+def split_transaction_schema_versions(df: pd.DataFrame, cfg: dict,):
+    schema_change_date = pd.Timestamp(
+        cfg["schema_change_date"]
+    )
+
+    v1 = (
+        df[df["timestamp"] < schema_change_date]
+        .drop(columns=["channel"])
+        .copy()
+    )
+
+    v2 = (
+        df[df["timestamp"] >= schema_change_date]
+        .copy()
+    )
+
+    if v1.empty or v2.empty:
+        raise ValueError(
+            "Schema evolution requires transactions "
+            "both before and after schema_change_date."
+        )
+
+    return v1, v2
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -398,6 +433,23 @@ def main():
         )
     )
 
+    transactions_v1_df, transactions_v2_df = (
+        split_transaction_schema_versions(
+            transactions_df,
+            cfg,
+        )
+    )
+
+    print(
+        f"Schema V1: {len(transactions_v1_df):,} rows | "
+        f"channel={'channel' in transactions_v1_df.columns}"
+    )
+
+    print(
+        f"Schema V2: {len(transactions_v2_df):,} rows | "
+        f"channel={'channel' in transactions_v2_df.columns}"
+    )
+
     print(
         f"\nĐang xuất file ra thư mục: "
         f"{out_dir}"
@@ -423,11 +475,16 @@ def main():
         index=False,
     )
 
-    transactions_df.to_parquet(
-        out_dir / "transactions.parquet",
+    transactions_v1_df.to_parquet(
+        out_dir / "transactions_v1.parquet",
         index=False,
     )
 
+    transactions_v2_df.to_parquet(
+        out_dir / "transactions_v2.parquet",
+        index=False,
+    )
+    
     balance_snapshots_df.to_parquet(
         out_dir / "balance_snapshots.parquet",
         index=False,
@@ -450,7 +507,13 @@ def main():
 
     print(
         f"  devices: {len(devices_df)}"
-        f" | transactions: {len(transactions_df)}"
+        f" | transactions total: {len(transactions_df)}"
+    )
+
+    
+    print(
+        f"  transactions_v1: {len(transactions_v1_df)}"
+        f" | transactions_v2: {len(transactions_v2_df)}"
     )
 
     print(
@@ -465,5 +528,3 @@ if __name__ == "__main__":
     main()
 
 
-if __name__ == "__main__":
-    main()

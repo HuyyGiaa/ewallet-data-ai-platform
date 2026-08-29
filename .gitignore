@@ -50,3 +50,9 @@ Thumbs.db
 
 # Flink connector binaries
 transformation/flink/jars/*.jar
+
+# Airflow runtime
+orchestration/airflow/logs/
+orchestration/airflow/airflow.cfg
+orchestration/airflow/airflow.db*
+orchestration/airflow/simple_auth_manager_passwords.json.generated

@@ -1,0 +1,20 @@
+source:
+  type: trino
+  config:
+    host_port: localhost:8081
+    database: delta
+    username: datahub
+
+    schema_pattern:
+      allow:
+        - "^bronze_zone$"
+        - "^silver_zone$"
+        - "^gold_zone$"
+
+    profiling:
+      enabled: false
+
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080

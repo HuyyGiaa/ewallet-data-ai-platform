@@ -705,11 +705,6 @@ def run_silver_pipeline(
 
     finally:
         if spark is not None:
-            input(
-                "\n[INFO] Open Spark UI at http://localhost:4040 "
-                "and take screenshots.\n"
-                "Press ENTER when finished..."
-            )
             spark.stop()
 
             logger.info(

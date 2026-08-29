@@ -55,7 +55,7 @@ def create_spark_session(
     builder = (
         SparkSession.builder
         .appName(app_name)
-        .master("local[*]")
+        .master("local[4]")
 
         # Delta Lake
         .config(

@@ -36,6 +36,7 @@ DELTA_STORAGE_OPTIONS = {
     "region": "us-east-1",
     "allow_http": "true",
     "allow_unsafe_rename": "true",
+    "AWS_S3_ALLOW_UNSAFE_RENAME": "true"
 }
 
 # Trino configuration
