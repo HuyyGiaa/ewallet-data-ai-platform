@@ -186,10 +186,7 @@ def normalize_dataframe(dataframe: pd.DataFrame, table_name: str, allowed_missin
     return normalized
 
 
-def dataframe_to_arrow(
-    dataframe: pd.DataFrame,
-    table_name: str,
-) -> pa.Table:
+def dataframe_to_arrow(dataframe: pd.DataFrame, table_name: str,) -> pa.Table:
     """Chuyển Pandas DataFrame sang PyArrow Table."""
     try:
         arrow_table = pa.Table.from_pandas(
@@ -225,9 +222,7 @@ def get_delta_row_count(delta_table: DeltaTable) -> int:
         ) from exc
 
 
-def write_transaction_schema_evolution(
-    bucket: str,
-) -> DeltaWriteResult:
+def write_transaction_schema_evolution(bucket: str,) -> DeltaWriteResult:
     table_name = "transactions"
     table_uri = delta_table_uri(bucket, table_name)
 
@@ -386,11 +381,7 @@ def write_transaction_schema_evolution(
         delta_version=delta_version,
     )
 
-def write_delta_table(
-    table_name: str,
-    bucket: str = BRONZE_BUCKET,
-    mode: WriteMode = "overwrite",
-) -> DeltaWriteResult:
+def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteMode = "overwrite",) -> DeltaWriteResult:
     """
     Đọc một file offline và ghi thành Delta table trên MinIO.
 
@@ -492,9 +483,7 @@ def write_delta_table(
     )
 
 
-def write_all_offline_tables(
-    mode: WriteMode = "overwrite",
-) -> list[DeltaWriteResult]:
+def write_all_offline_tables(mode: WriteMode = "overwrite",) -> list[DeltaWriteResult]:
     """
     Ghi toàn bộ bảng offline vào Bronze Layer.
 
