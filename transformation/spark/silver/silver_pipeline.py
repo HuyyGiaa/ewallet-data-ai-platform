@@ -16,7 +16,7 @@ from transformation.spark.silver.cleaners import (
     clean_merchants,
     clean_users,
 )
-from transformation.spark.silver.io import (
+from transformation.spark.silver.delta_silver_io import (
     read_bronze,
     write_silver,
 )

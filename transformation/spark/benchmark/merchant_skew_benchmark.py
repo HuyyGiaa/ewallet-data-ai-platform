@@ -28,7 +28,7 @@ import time
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from spark_session import create_spark_session
+from transformation.spark.common.spark_session import create_spark_session
 
 # Config
 SILVER_TRANSACTIONS = "s3a://silver-zone/transactions"
