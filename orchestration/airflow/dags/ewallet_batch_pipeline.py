@@ -45,7 +45,7 @@ with DAG(
             set -euo pipefail
             cd "{{ var.value.project_root }}"
             PYSPARK_SUBMIT_ARGS="--driver-memory 8g pyspark-shell" \
-            "{{ var.value.fintech_python }}" transformation/spark/silver_pipeline.py
+            "{{ var.value.fintech_python }}" -m transformation.spark.silver.silver_pipeline
         """,
     )
 
@@ -64,7 +64,7 @@ with DAG(
             set -euo pipefail
             cd "{{ var.value.project_root }}"
             PYSPARK_SUBMIT_ARGS="--driver-memory 8g pyspark-shell" \
-            "{{ var.value.fintech_python }}" transformation/spark/gold_pipeline.py
+            "{{ var.value.fintech_python }}" -m transformation.spark.gold.gold_pipeline
         """,
     )
 
