@@ -94,7 +94,7 @@ The ingestion configuration is stored in:
 
 \`\`\`text
 
-lineage/trino\_recipe.yml
+metadata/datahub/lineage/trino\_recipe.yml
 
 \`\`\`
 
@@ -122,7 +122,7 @@ The ingestion is executed with:
 
 DATAHUB\_TELEMETRY\_ENABLED=false \\
 
-python -m datahub ingest -c lineage/trino\_recipe.yml
+python -m datahub ingest -c metadata/datahub/lineage/trino\_recipe.yml
 
 \`\`\`
 
