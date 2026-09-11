@@ -1,58 +1,74 @@
-
+# =========================
 # Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-
+# =========================
 .venv/
 venv/
-env/
+*.egg-info/
+
+**/__pycache__/
+*.py[cod]
 
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
-# IDE
-.idea/
+# =========================
+# IDE / OS
+# =========================
 .vscode/
-
-# Generated data
-data_generator/output/
-offline/output/
-
-*.parquet
-
-# Runtime / benchmark logs
-output/logs/
-*.log
-
-# Spark
-spark-warehouse/
-metastore_db/
-derby.log
-
-.checkpoint/
-checkpoints/
-
-# Spark temporary files
-*.crc
-_SUCCESS
-
-# OS
+.idea/
 .DS_Store
-Thumbs.db
 
-# Secrets / local environment
+# =========================
+# Environment / secrets
+# =========================
 .env
 .env.*
 !.env.example
 
-# Flink connector binaries
-transformation/flink/jars/*.jar
+# =========================
+# Generated data
+# =========================
+output/
+**/output/
+data_generator/output/
 
+# =========================
 # Airflow runtime
-orchestration/airflow/logs/
-orchestration/airflow/airflow.cfg
-orchestration/airflow/airflow.db*
-orchestration/airflow/simple_auth_manager_passwords.json.generated
+# =========================
+**/airflow.db
+**/airflow.db-shm
+**/airflow.db-wal
+**/simple_auth_manager_passwords.json.generated
+**/airflow.cfg
+**/logs/
+
+# =========================
+# Spark runtime
+# =========================
+spark-warehouse/
+spark-events/
+**/spark-warehouse/
+**/spark-events/
+
+# =========================
+# Local Docker volumes
+# =========================
+minio-data/
+postgres-data/
+redis-data/
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# =========================
+# Misc
+# =========================
+*.log
+tmp/
+temp/

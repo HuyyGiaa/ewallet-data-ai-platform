@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Python environments
+.venv
+venv
+**/.venv
+**/venv
+
+# Python cache
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Generated data
+output
+**/output
+data_generator/output
+
+# Runtime state
+**/logs
+**/*.log
+
+**/airflow.db
+**/airflow.db-shm
+**/airflow.db-wal
+**/simple_auth_manager_passwords.json
+
+spark-warehouse
+spark-events
+**/spark-warehouse
+**/spark-events
+
+# Local Docker volumes
+minio-data
+postgres-data
+redis-data
+
+# Notebook state
+**/.ipynb_checkpoints
+
+# Tests / coverage
+.coverage
+htmlcov
+
+# OS
+.DS_Store
