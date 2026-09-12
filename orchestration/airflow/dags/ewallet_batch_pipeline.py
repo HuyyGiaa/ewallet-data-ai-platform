@@ -19,6 +19,7 @@ with DAG(
     catchup=False,
     default_args=default_args,
     tags=["ewallet", "batch"],
+    max_active_runs=1,
 ) as dag:
 
     bronze_ingestion = BashOperator(
