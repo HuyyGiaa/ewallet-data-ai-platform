@@ -1,0 +1,43 @@
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda@sha256:3387a7ac6b2307129032562bf957653de13373a2748f82de7ab588a39d50b88d
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      - --advertise-kafka-addr=INTERNAL://redpanda:29092,EXTERNAL://localhost:9092
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+      - "9644:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console@sha256:d3861522b32b73587bdec07116cd1eac544ec1339a1cc8e1bc6c6ee02b475289
+    container_name: redpanda-console
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+    ports:
+      - "8082:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redpanda-data:

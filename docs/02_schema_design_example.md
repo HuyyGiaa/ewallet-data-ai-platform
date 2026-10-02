@@ -1053,9 +1053,9 @@ Bronze
 
 -> Gold Fact
 
--> OBT
+    |-> OBT (with Gold dimensions)
 
--> Features
+    `-> Features (with dim_user)
 
 DataHub is used to visualize the implemented transaction dataset lineage.
 

@@ -12,6 +12,7 @@ Chức năng:
 from __future__ import annotations
 
 import logging
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Generator
@@ -237,6 +238,87 @@ def table_exists(
     return bool(rows and int(rows[0][0]) > 0)
 
 
+def normalize_table_location(location: str) -> str:
+    """Chuẩn hóa location để so sánh mà không phụ thuộc dấu slash cuối."""
+    return location.rstrip("/")
+
+
+def get_table_location(
+    cursor: Any,
+    schema_name: str,
+    table_name: str,
+) -> str | None:
+    """Đọc location hiện tại của một table từ SHOW CREATE TABLE."""
+    schema_name = validate_identifier(schema_name)
+    table_name = validate_identifier(table_name)
+    catalog_name = validate_identifier(TRINO_CATALOG)
+
+    if not table_exists(cursor, schema_name, table_name):
+        return None
+
+    rows = execute_sql(
+        cursor,
+        (
+            f"SHOW CREATE TABLE "
+            f"{catalog_name}.{schema_name}.{table_name}"
+        ),
+        fetch=True,
+    )
+
+    if not rows:
+        raise TrinoClientError(
+            "Không nhận được DDL cho bảng "
+            f"{catalog_name}.{schema_name}.{table_name}."
+        )
+
+    match = re.search(
+        r"(?m)^\s*location\s*=\s*'((?:[^']|'')*)'\s*,?\s*$",
+        str(rows[0][0]),
+    )
+
+    if match is None:
+        raise TrinoClientError(
+            "Không xác định được location của bảng "
+            f"{catalog_name}.{schema_name}.{table_name} từ SHOW CREATE TABLE."
+        )
+
+    return match.group(1).replace("''", "'")
+
+
+def list_schema_tables(
+    cursor: Any,
+    schema_name: str,
+) -> set[str]:
+    """Liệt kê table hiện có trong một Trino schema."""
+    schema_name = validate_identifier(schema_name)
+    catalog_name = validate_identifier(TRINO_CATALOG)
+    rows = execute_sql(
+        cursor,
+        f"SHOW TABLES FROM {catalog_name}.{schema_name}",
+        fetch=True,
+    )
+    return {str(row[0]) for row in rows}
+
+
+def verify_table_readable(
+    cursor: Any,
+    schema_name: str,
+    table_name: str,
+) -> None:
+    """Buộc Trino lập kế hoạch và đọc tối đa một dòng của table."""
+    schema_name = validate_identifier(schema_name)
+    table_name = validate_identifier(table_name)
+    catalog_name = validate_identifier(TRINO_CATALOG)
+    execute_sql(
+        cursor,
+        (
+            f"SELECT 1 FROM "
+            f"{catalog_name}.{schema_name}.{table_name} LIMIT 1"
+        ),
+        fetch=True,
+    )
+
+
 def register_delta_table(
     cursor: Any,
     table_name: str,
@@ -254,16 +336,33 @@ def register_delta_table(
     table_name = validate_identifier(table_name)
     catalog_name = validate_identifier(TRINO_CATALOG)
 
+    table_location = delta_table_uri(bucket_name, table_name)
+
     if table_exists(cursor, schema_name, table_name):
-        logger.info(
-            "Bảng đã được đăng ký, bỏ qua: %s.%s.%s",
-            catalog_name,
+        existing_location = get_table_location(
+            cursor,
             schema_name,
             table_name,
         )
-        return False
 
-    table_location = delta_table_uri(bucket_name, table_name)
+        if normalize_table_location(existing_location or "") != (
+            normalize_table_location(table_location)
+        ):
+            raise TrinoClientError(
+                "LOCATION MISMATCH cho bảng "
+                f"{catalog_name}.{schema_name}.{table_name}: "
+                f"actual={existing_location!r}, "
+                f"expected={table_location!r}"
+            )
+
+        logger.info(
+            "ALREADY PRESENT: %s.%s.%s -> %s",
+            catalog_name,
+            schema_name,
+            table_name,
+            existing_location,
+        )
+        return False
 
     sql = f"""
     CALL {catalog_name}.system.register_table(

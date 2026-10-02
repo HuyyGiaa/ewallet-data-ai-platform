@@ -72,3 +72,6 @@ redis-data/
 *.log
 tmp/
 temp/
+
+# Local AI handoff context
+E_WALLET_PROJECT_CONTEXT.md

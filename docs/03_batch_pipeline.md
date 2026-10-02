@@ -774,13 +774,9 @@ fact\_transactions
 
 4,000,000
 
-        ↓
+        ├──→ obt\_transaction\_enriched (with Gold dimensions)
 
-obt\_transaction\_enriched
-
-        ↓
-
-feat\_user\_90d
+        └──→ feat\_user\_90d (with dim\_user)
 
 \`\`\`
 
@@ -1028,7 +1024,7 @@ flattened OBT.
 
 The dimensional model provides reusable analytical entities.
 
-The OBT simplifies downstream analytical and feature workloads.
+The OBT simplifies downstream analytical workloads.
 
 **### Dataset-Based Feature Window**
 

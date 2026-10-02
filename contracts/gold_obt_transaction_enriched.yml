@@ -1,0 +1,75 @@
+contract_version: 1
+dataset: gold.obt_transaction_enriched
+layer: gold
+description: Transaction-level analytical table enriched with Gold dimensions.
+storage_location: s3a://gold-zone/obt_transaction_enriched
+grain: One row per transaction_id.
+logical_key:
+  - transaction_id
+upstream:
+  - gold.fact_transactions
+  - gold.dim_user
+  - gold.dim_account
+  - gold.dim_device
+  - gold.dim_merchant
+  - gold.dim_date
+enforced_by:
+  - validation.validate_gold
+
+columns:
+  - {name: transaction_id, type: string, nullable: false}
+  - {name: user_id, type: string, nullable: false}
+  - {name: kyc_verified, type: boolean, nullable: false}
+  - {name: user_created_at, type: timestamp, nullable: false}
+  - {name: account_id, type: string, nullable: false}
+  - {name: account_type, type: string, nullable: false}
+  - {name: account_currency, type: string, nullable: false}
+  - {name: account_created_at, type: timestamp, nullable: false}
+  - {name: device_id, type: string, nullable: false}
+  - {name: device_type, type: string, nullable: false}
+  - {name: os, type: string, nullable: false}
+  - {name: first_seen_at, type: timestamp, nullable: false}
+  - {name: merchant_id, type: string, nullable: true}
+  - {name: merchant_name, type: string, nullable: true}
+  - {name: merchant_category, type: string, nullable: true}
+  - {name: date_key, type: integer, nullable: false}
+  - {name: day_of_week, type: string, nullable: false}
+  - {name: month, type: integer, nullable: false}
+  - {name: quarter, type: integer, nullable: false}
+  - {name: year, type: integer, nullable: false}
+  - {name: is_weekend, type: boolean, nullable: false}
+  - {name: type, type: string, nullable: false}
+  - {name: status, type: string, nullable: false}
+  - {name: channel, type: string, nullable: false}
+  - {name: currency, type: string, nullable: false}
+  - {name: amount, type: double, nullable: false}
+  - {name: old_balance, type: double, nullable: false}
+  - {name: new_balance, type: double, nullable: false}
+  - {name: counterparty_account_id, type: string, nullable: true}
+  - {name: timestamp, type: timestamp, nullable: false}
+  - {name: ingested_at, type: timestamp, nullable: false}
+  - {name: event_date, type: date, nullable: false}
+
+quality_rules:
+  - expectation: Dataset is non-empty.
+    validator_rule: obt_transaction_enriched.non_empty
+  - expectation: Required transaction and enrichment columns contain no null values.
+    validator_rule: obt_transaction_enriched.required_columns_not_null
+  - expectation: transaction_id is unique.
+    validator_rule: obt_transaction_enriched.unique_key(transaction_id)
+  - expectation: amount, old_balance and new_balance are greater than or equal to 0.
+    validator_rule: obt_transaction_enriched.non_negative_metrics
+
+conditional_rules:
+  - when: merchant_id is not null
+    require_non_null: [merchant_name, merchant_category]
+    validator_rule: obt_transaction_enriched.merchant_attributes_present_when_referenced
+
+population_rules:
+  - relation: Row count equals gold.fact_transactions.
+    validator_rule: fact_transactions_count_equals_obt_transaction_enriched_count
+
+notes:
+  - LEFT JOIN enrichment preserves the fact transaction population.
+  - Merchant fields remain nullable when the transaction has no merchant reference.
+  - The validator uses row-count equality and key uniqueness rather than an exact ID-set comparison.

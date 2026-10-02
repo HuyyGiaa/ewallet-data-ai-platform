@@ -60,6 +60,40 @@ OFFLINE_TABLES = (
     "login_events",
 )
 
+SILVER_TABLES = OFFLINE_TABLES
+
+GOLD_TABLES = (
+    "dim_user",
+    "dim_account",
+    "dim_merchant",
+    "dim_device",
+    "dim_date",
+    "fact_transactions",
+    "fact_login_events",
+    "fact_balance_snapshot",
+    "obt_transaction_enriched",
+    "feat_user_90d",
+    "opt_merchant_performance",
+)
+
+TRINO_REGISTRATION_LAYERS = {
+    "bronze": {
+        "schema": BRONZE_SCHEMA,
+        "bucket": BRONZE_BUCKET,
+        "tables": OFFLINE_TABLES,
+    },
+    "silver": {
+        "schema": SILVER_SCHEMA,
+        "bucket": SILVER_BUCKET,
+        "tables": SILVER_TABLES,
+    },
+    "gold": {
+        "schema": GOLD_SCHEMA,
+        "bucket": GOLD_BUCKET,
+        "tables": GOLD_TABLES,
+    },
+}
+
 # ============================================================
 # Bronze table schema normalization
 # ============================================================

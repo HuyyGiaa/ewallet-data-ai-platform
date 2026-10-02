@@ -1,0 +1,18 @@
+services:
+  trino:
+    image: trinodb/trino@sha256:db58cc93e593a2706553745f276bb119c9810e69918be56ecde088ba7ccb0534
+    container_name: trino
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./storage/trino-conf:/etc/trino/catalog
+    depends_on:
+      minio:
+        condition: service_healthy
+    profiles: ["storage"]
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/lib/trino/bin/health-check"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+    restart: unless-stopped

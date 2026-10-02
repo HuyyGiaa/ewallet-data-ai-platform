@@ -1,5 +1,5 @@
 #!/bin/bash
-# Chạy sau khi `docker compose up -d` đã xong (đợi vài giây cho Redpanda sẵn sàng).
+# Chạy sau canonical split-Compose command trong README (đợi Redpanda sẵn sàng).
 # Cách chạy: bash create_topic.sh
 
 TOPIC="transactions.raw"

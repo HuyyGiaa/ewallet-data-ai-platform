@@ -154,6 +154,37 @@ def validate_no_null_columns(
     )
 
 
+def validate_conditional_no_null_columns(
+    df: DataFrame,
+    rule_name: str,
+    condition,
+    columns: list[str],
+) -> ValidationResult:
+
+    null_condition = F.col(
+        columns[0]
+    ).isNull()
+
+    for column_name in columns[1:]:
+        null_condition = (
+            null_condition
+            | F.col(column_name).isNull()
+        )
+
+    invalid_count = (
+        df
+        .filter(condition & null_condition)
+        .count()
+    )
+
+    return ValidationResult(
+        rule_name=rule_name,
+        passed=invalid_count == 0,
+        actual_value=invalid_count,
+        expected="0 rows missing conditionally required values",
+    )
+
+
 def validate_unique_key(
     df: DataFrame,
     table_name: str,
@@ -310,6 +341,7 @@ def validate_dimension(
     df: DataFrame,
     table_name: str,
     primary_key: str,
+    required_columns: list[str],
 ) -> list[ValidationResult]:
 
     return [
@@ -321,7 +353,7 @@ def validate_dimension(
         validate_no_null_columns(
             df,
             table_name,
-            [primary_key],
+            required_columns,
         ),
 
         validate_unique_key(
@@ -353,9 +385,18 @@ def validate_fact_transactions(
                 "transaction_id",
                 "user_id",
                 "account_id",
+                "device_id",
                 "date_key",
+                "type",
+                "status",
+                "channel",
+                "currency",
+                "amount",
+                "old_balance",
+                "new_balance",
                 "event_date",
                 "timestamp",
+                "ingested_at",
             ],
         ),
 
@@ -363,6 +404,26 @@ def validate_fact_transactions(
             df,
             "fact_transactions",
             ["transaction_id"],
+        ),
+
+        validate_conditional_no_null_columns(
+            df,
+            (
+                "fact_transactions.merchant_id_"
+                "required_for_payment"
+            ),
+            F.col("type") == "payment",
+            ["merchant_id"],
+        ),
+
+        validate_conditional_no_null_columns(
+            df,
+            (
+                "fact_transactions.counterparty_account_id_"
+                "required_for_transfer"
+            ),
+            F.col("type") == "transfer",
+            ["counterparty_account_id"],
         ),
 
         validate_non_negative(
@@ -399,6 +460,7 @@ def validate_fact_login_events(
                 "user_id",
                 "device_id",
                 "date_key",
+                "is_success",
                 "login_ts",
                 "event_date",
             ],
@@ -488,8 +550,30 @@ def validate_obt_transaction_enriched(
                 "transaction_id",
                 "user_id",
                 "account_id",
+                "kyc_verified",
+                "user_created_at",
+                "account_type",
+                "account_currency",
+                "account_created_at",
+                "device_id",
+                "device_type",
+                "os",
+                "first_seen_at",
                 "date_key",
+                "day_of_week",
+                "month",
+                "quarter",
+                "year",
+                "is_weekend",
+                "type",
+                "status",
+                "channel",
+                "currency",
+                "amount",
+                "old_balance",
+                "new_balance",
                 "timestamp",
+                "ingested_at",
                 "event_date",
             ],
         ),
@@ -502,6 +586,19 @@ def validate_obt_transaction_enriched(
             "obt_transaction_enriched",
             [
                 "transaction_id",
+            ],
+        ),
+
+        validate_conditional_no_null_columns(
+            df,
+            (
+                "obt_transaction_enriched.merchant_"
+                "attributes_present_when_referenced"
+            ),
+            F.col("merchant_id").isNotNull(),
+            [
+                "merchant_name",
+                "merchant_category",
             ],
         ),
 
@@ -540,6 +637,10 @@ def validate_feat_user_90d(
             "feat_user_90d",
             [
                 "user_id",
+                "f_user_total_transactions_90d",
+                "f_user_avg_transaction_amount_90d",
+                "f_user_failed_transaction_rate_90d",
+                "f_user_distinct_merchants_90d",
                 "event_timestamp",
                 "created_timestamp",
             ],
@@ -620,6 +721,14 @@ def validate_opt_merchant_performance(
             "opt_merchant_performance",
             [
                 "merchant_id",
+                "merchant_name",
+                "category",
+                "transaction_count",
+                "total_amount",
+                "avg_amount",
+                "success_count",
+                "failed_count",
+                "distinct_users",
             ],
         ),
 
@@ -828,6 +937,14 @@ def run_validation() -> None:
                 dim_user,
                 "dim_user",
                 "user_id",
+                [
+                    "user_id",
+                    "full_name",
+                    "email",
+                    "phone",
+                    "kyc_verified",
+                    "created_at",
+                ],
             )
         )
 
@@ -836,6 +953,13 @@ def run_validation() -> None:
                 dim_account,
                 "dim_account",
                 "account_id",
+                [
+                    "account_id",
+                    "user_id",
+                    "account_type",
+                    "currency",
+                    "created_at",
+                ],
             )
         )
 
@@ -844,6 +968,11 @@ def run_validation() -> None:
                 dim_merchant,
                 "dim_merchant",
                 "merchant_id",
+                [
+                    "merchant_id",
+                    "merchant_name",
+                    "category",
+                ],
             )
         )
 
@@ -852,6 +981,13 @@ def run_validation() -> None:
                 dim_device,
                 "dim_device",
                 "device_id",
+                [
+                    "device_id",
+                    "user_id",
+                    "device_type",
+                    "os",
+                    "first_seen_at",
+                ],
             )
         )
 
@@ -860,6 +996,16 @@ def run_validation() -> None:
                 dim_date,
                 "dim_date",
                 "date_key",
+                [
+                    "date_key",
+                    "calendar_date",
+                    "day",
+                    "month",
+                    "quarter",
+                    "year",
+                    "day_of_week",
+                    "is_weekend",
+                ],
             )
         )
 
@@ -1002,10 +1148,72 @@ def run_validation() -> None:
         ])
 
         # ====================================================
-        # Date dimension relationships
+        # Gold foreign-key relationships
         # ====================================================
 
         all_results.extend([
+            validate_foreign_key(
+                dim_account,
+                dim_user,
+                "user_id",
+                "user_id",
+                "dim_account.user_id_exists_in_dim_user",
+            ),
+
+            validate_foreign_key(
+                dim_device,
+                dim_user,
+                "user_id",
+                "user_id",
+                "dim_device.user_id_exists_in_dim_user",
+            ),
+
+            validate_foreign_key(
+                fact_transactions,
+                dim_user,
+                "user_id",
+                "user_id",
+                "fact_transactions.user_id_exists_in_dim_user",
+            ),
+
+            validate_foreign_key(
+                fact_transactions,
+                dim_account,
+                "account_id",
+                "account_id",
+                "fact_transactions.account_id_exists_in_dim_account",
+            ),
+
+            validate_foreign_key(
+                fact_transactions,
+                dim_device,
+                "device_id",
+                "device_id",
+                "fact_transactions.device_id_exists_in_dim_device",
+            ),
+
+            validate_foreign_key(
+                fact_transactions,
+                dim_merchant,
+                "merchant_id",
+                "merchant_id",
+                (
+                    "fact_transactions.merchant_id_"
+                    "exists_in_dim_merchant"
+                ),
+            ),
+
+            validate_foreign_key(
+                fact_transactions,
+                dim_account,
+                "counterparty_account_id",
+                "account_id",
+                (
+                    "fact_transactions.counterparty_account_id_"
+                    "exists_in_dim_account"
+                ),
+            ),
+
             validate_foreign_key(
                 fact_transactions,
                 dim_date,
@@ -1015,6 +1223,22 @@ def run_validation() -> None:
                     "fact_transactions.date_key_"
                     "exists_in_dim_date"
                 ),
+            ),
+
+            validate_foreign_key(
+                fact_login_events,
+                dim_user,
+                "user_id",
+                "user_id",
+                "fact_login_events.user_id_exists_in_dim_user",
+            ),
+
+            validate_foreign_key(
+                fact_login_events,
+                dim_device,
+                "device_id",
+                "device_id",
+                "fact_login_events.device_id_exists_in_dim_device",
             ),
 
             validate_foreign_key(
@@ -1030,12 +1254,42 @@ def run_validation() -> None:
 
             validate_foreign_key(
                 fact_balance_snapshot,
+                dim_account,
+                "account_id",
+                "account_id",
+                (
+                    "fact_balance_snapshot.account_id_"
+                    "exists_in_dim_account"
+                ),
+            ),
+
+            validate_foreign_key(
+                fact_balance_snapshot,
                 dim_date,
                 "date_key",
                 "date_key",
                 (
                     "fact_balance_snapshot.date_key_"
                     "exists_in_dim_date"
+                ),
+            ),
+
+            validate_foreign_key(
+                feat_user_90d,
+                dim_user,
+                "user_id",
+                "user_id",
+                "feat_user_90d.user_id_exists_in_dim_user",
+            ),
+
+            validate_foreign_key(
+                opt_merchant_performance,
+                dim_merchant,
+                "merchant_id",
+                "merchant_id",
+                (
+                    "opt_merchant_performance.merchant_id_"
+                    "exists_in_dim_merchant"
                 ),
             ),
         ])

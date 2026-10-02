@@ -53,6 +53,38 @@ def check_minio_connection(client: Minio) -> None:
         ) from exc
 
 
+def delta_log_exists(
+    client: Minio,
+    bucket_name: str,
+    table_name: str,
+) -> bool:
+    """Kiểm tra một table path có chứa Delta transaction log hay không."""
+    prefix = f"{table_name}/_delta_log/"
+
+    try:
+        return next(
+            iter(
+                client.list_objects(
+                    bucket_name,
+                    prefix=prefix,
+                    recursive=True,
+                )
+            ),
+            None,
+        ) is not None
+    except S3Error as exc:
+        raise MinioStorageError(
+            f"Không thể kiểm tra Delta log tại "
+            f"s3://{bucket_name}/{table_name}: "
+            f"{exc.code} - {exc.message}"
+        ) from exc
+    except Exception as exc:
+        raise MinioStorageError(
+            f"Không thể kiểm tra Delta log tại "
+            f"s3://{bucket_name}/{table_name}: {exc}"
+        ) from exc
+
+
 def ensure_bucket(client: Minio, bucket_name: str) -> bool:
     try:
         if client.bucket_exists(bucket_name):

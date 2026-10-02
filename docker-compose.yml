@@ -1,3 +1,5 @@
+# LEGACY / rollback only until the Task 13 final smoke test.
+# Use docker/compose.*.yml as the canonical stack.
 version: "3.8"
 
 services:
@@ -29,7 +31,7 @@ services:
     environment:
       KAFKA_BROKERS: redpanda:29092   
     ports:
-      - "8080:8080"   # UI: http://localhost:8080
+      - "8082:8080"   # UI: http://localhost:8082
     depends_on:
       - redpanda
     restart: unless-stopped
@@ -90,7 +92,7 @@ services:
     image: trinodb/trino:latest
     container_name: trino
     ports:
-      - "8081:8080"   # đổi cổng ngoài vì 8080 đã bị Redpanda Console chiếm
+      - "8081:8080"   # Trino host endpoint
     volumes:
       - ./storage/trino-conf:/etc/trino/catalog
     depends_on:

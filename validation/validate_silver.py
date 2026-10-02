@@ -57,10 +57,14 @@ def validate_non_empty(df: DataFrame, table_name: str,) -> ValidationResult:
     )
 
 
-def validate_no_null_key(df: DataFrame, table_name: str, key_columns: list[str],) -> ValidationResult:
+def validate_no_null_columns(
+    df: DataFrame,
+    table_name: str,
+    columns: list[str],
+) -> ValidationResult:
     condition = None
 
-    for column_name in key_columns:
+    for column_name in columns:
         current = F.col(column_name).isNull()
 
         if condition is None:
@@ -75,10 +79,10 @@ def validate_no_null_key(df: DataFrame, table_name: str, key_columns: list[str],
     )
 
     return ValidationResult(
-        rule_name=f"{table_name}.null_key",
+        rule_name=f"{table_name}.required_columns_not_null",
         passed=invalid_count == 0,
         actual_value=invalid_count,
-        expected="0 null-key rows",
+        expected="0 NULL required rows",
     )
 
 
@@ -99,6 +103,70 @@ def validate_unique_key(df: DataFrame, table_name: str, key_columns: list[str],)
     )
 
 
+def validate_foreign_key(
+    child_df: DataFrame,
+    parent_df: DataFrame,
+    child_column: str,
+    parent_column: str,
+    rule_name: str,
+) -> ValidationResult:
+    """Check that every non-null child key exists in the parent table."""
+
+    child_keys = (
+        child_df
+        .select(F.col(child_column).alias("fk"))
+        .filter(F.col("fk").isNotNull())
+        .distinct()
+    )
+
+    parent_keys = (
+        parent_df
+        .select(F.col(parent_column).alias("pk"))
+        .filter(F.col("pk").isNotNull())
+        .distinct()
+    )
+
+    orphan_count = (
+        child_keys
+        .join(
+            parent_keys,
+            child_keys["fk"] == parent_keys["pk"],
+            "left_anti",
+        )
+        .count()
+    )
+
+    return ValidationResult(
+        rule_name=rule_name,
+        passed=orphan_count == 0,
+        actual_value=orphan_count,
+        expected="0 orphan keys",
+    )
+
+
+def validate_conditional_not_null(
+    df: DataFrame,
+    table_name: str,
+    condition,
+    column_name: str,
+    condition_description: str,
+) -> ValidationResult:
+    invalid_count = (
+        df
+        .filter(condition & F.col(column_name).isNull())
+        .count()
+    )
+
+    return ValidationResult(
+        rule_name=(
+            f"{table_name}.{column_name}_required_"
+            f"for_{condition_description}"
+        ),
+        passed=invalid_count == 0,
+        actual_value=invalid_count,
+        expected="0 rows missing conditionally required values",
+    )
+
 def validate_transactions(df: DataFrame,) -> list[ValidationResult]:
     results = []
 
@@ -111,13 +179,24 @@ def validate_transactions(df: DataFrame,) -> list[ValidationResult]:
     )
     # 2. Required keys must not be NULL
     results.append(
-        validate_no_null_key(
+        validate_no_null_columns(
             df,
             "transactions",
             [
                 "transaction_id",
                 "account_id",
                 "user_id",
+                "device_id",
+                "type",
+                "amount",
+                "currency",
+                "status",
+                "channel",
+                "old_balance",
+                "new_balance",
+                "timestamp",
+                "ingested_at",
+                "event_date",
             ],
         )
     )
@@ -148,6 +227,60 @@ def validate_transactions(df: DataFrame,) -> list[ValidationResult]:
             expected="0 NULL channel rows",
         )
     )
+
+    valid_channels = (
+        "app",
+        "web",
+        "atm",
+        "UNKNOWN",
+    )
+
+    invalid_channel_count = (
+        df
+        .filter(~F.col("channel").isin(*valid_channels))
+        .count()
+    )
+
+    results.append(
+        ValidationResult(
+            rule_name="transactions.valid_channel",
+            passed=invalid_channel_count == 0,
+            actual_value=invalid_channel_count,
+            expected="0 invalid transaction channel rows",
+        )
+    )
+
+    invalid_currency_count = (
+        df
+        .filter(F.col("currency") != "VND")
+        .count()
+    )
+
+    results.append(
+        ValidationResult(
+            rule_name="transactions.valid_currency",
+            passed=invalid_currency_count == 0,
+            actual_value=invalid_currency_count,
+            expected="0 non-VND transaction rows",
+        )
+    )
+
+    results.extend([
+        validate_conditional_not_null(
+            df,
+            "transactions",
+            F.col("type") == "payment",
+            "merchant_id",
+            "payment",
+        ),
+        validate_conditional_not_null(
+            df,
+            "transactions",
+            F.col("type") == "transfer",
+            "counterparty_account_id",
+            "transfer",
+        ),
+    ])
 
     # 5. amount > 0
     invalid_amount_count = (
@@ -244,10 +377,17 @@ def validate_users(df: DataFrame,) -> list[ValidationResult]:
             df,
             "users",
         ),
-        validate_no_null_key(
+        validate_no_null_columns(
             df,
             "users",
-            ["user_id"],
+            [
+                "user_id",
+                "full_name",
+                "email",
+                "phone",
+                "kyc_verified",
+                "created_at",
+            ],
         ),
         validate_unique_key(
             df,
@@ -258,17 +398,20 @@ def validate_users(df: DataFrame,) -> list[ValidationResult]:
 
 
 def validate_accounts(df: DataFrame,) -> list[ValidationResult]:
-    return [
+    results = [
         validate_non_empty(
             df,
             "accounts",
         ),
-        validate_no_null_key(
+        validate_no_null_columns(
             df,
             "accounts",
             [
                 "account_id",
                 "user_id",
+                "account_type",
+                "currency",
+                "created_at",
             ],
         ),
         validate_unique_key(
@@ -278,6 +421,29 @@ def validate_accounts(df: DataFrame,) -> list[ValidationResult]:
         ),
     ]
 
+    invalid_domain_count = (
+        df
+        .filter(
+            ~F.col("account_type").isin(
+                "wallet_vnd",
+                "points",
+            )
+            | (F.col("currency") != "VND")
+        )
+        .count()
+    )
+
+    results.append(
+        ValidationResult(
+            rule_name="accounts.valid_domain",
+            passed=invalid_domain_count == 0,
+            actual_value=invalid_domain_count,
+            expected="0 invalid account_type/currency rows",
+        )
+    )
+
+    return results
+
 
 def validate_merchants(df: DataFrame,) -> list[ValidationResult]:
     return [
@@ -285,10 +451,14 @@ def validate_merchants(df: DataFrame,) -> list[ValidationResult]:
             df,
             "merchants",
         ),
-        validate_no_null_key(
+        validate_no_null_columns(
             df,
             "merchants",
-            ["merchant_id"],
+            [
+                "merchant_id",
+                "merchant_name",
+                "category",
+            ],
         ),
         validate_unique_key(
             df,
@@ -304,12 +474,15 @@ def validate_devices(df: DataFrame,) -> list[ValidationResult]:
             df,
             "devices",
         ),
-        validate_no_null_key(
+        validate_no_null_columns(
             df,
             "devices",
             [
                 "device_id",
                 "user_id",
+                "device_type",
+                "os",
+                "first_seen_at",
             ],
         ),
         validate_unique_key(
@@ -326,12 +499,13 @@ def validate_balance_snapshots(df: DataFrame,) -> list[ValidationResult]:
             df,
             "balance_snapshots",
         ),
-        validate_no_null_key(
+        validate_no_null_columns(
             df,
             "balance_snapshots",
             [
                 "account_id",
                 "snapshot_date",
+                "closing_balance",
             ],
         ),
         validate_unique_key(
@@ -370,13 +544,16 @@ def validate_login_events(df: DataFrame,) -> list[ValidationResult]:
             df,
             "login_events",
         ),
-        validate_no_null_key(
+        validate_no_null_columns(
             df,
             "login_events",
             [
                 "login_id",
                 "user_id",
                 "device_id",
+                "login_ts",
+                "login_date",
+                "is_success",
             ],
         ),
         validate_unique_key(
@@ -460,6 +637,7 @@ def run_validation() -> None:
             ),
         ]
 
+        tables = {}
         all_results = []
 
         for (
@@ -477,6 +655,8 @@ def run_validation() -> None:
                 table_name,
             )
 
+            tables[table_name] = df
+
             table_results = validator(
                 df
             )
@@ -484,6 +664,66 @@ def run_validation() -> None:
             all_results.extend(
                 table_results
             )
+
+        logger.info(
+            "========== VALIDATE RELATIONSHIPS ==========",
+        )
+
+        all_results.extend([
+            validate_foreign_key(
+                tables["accounts"], tables["users"],
+                "user_id", "user_id",
+                "accounts.user_id_exists_in_users",
+            ),
+            validate_foreign_key(
+                tables["devices"], tables["users"],
+                "user_id", "user_id",
+                "devices.user_id_exists_in_users",
+            ),
+            validate_foreign_key(
+                tables["transactions"], tables["users"],
+                "user_id", "user_id",
+                "transactions.user_id_exists_in_users",
+            ),
+            validate_foreign_key(
+                tables["transactions"], tables["accounts"],
+                "account_id", "account_id",
+                "transactions.account_id_exists_in_accounts",
+            ),
+            validate_foreign_key(
+                tables["transactions"], tables["devices"],
+                "device_id", "device_id",
+                "transactions.device_id_exists_in_devices",
+            ),
+            validate_foreign_key(
+                tables["transactions"], tables["merchants"],
+                "merchant_id", "merchant_id",
+                "transactions.merchant_id_exists_in_merchants",
+            ),
+            validate_foreign_key(
+                tables["transactions"], tables["accounts"],
+                "counterparty_account_id", "account_id",
+                (
+                    "transactions.counterparty_account_id_"
+                    "exists_in_accounts"
+                ),
+            ),
+            validate_foreign_key(
+                tables["balance_snapshots"], tables["accounts"],
+                "account_id", "account_id",
+                "balance_snapshots.account_id_exists_in_accounts",
+            ),
+            validate_foreign_key(
+                tables["login_events"], tables["users"],
+                "user_id", "user_id",
+                "login_events.user_id_exists_in_users",
+            ),
+            validate_foreign_key(
+                tables["login_events"], tables["devices"],
+                "device_id", "device_id",
+                "login_events.device_id_exists_in_devices",
+            ),
+        ])
 
         passed = log_results(
             all_results

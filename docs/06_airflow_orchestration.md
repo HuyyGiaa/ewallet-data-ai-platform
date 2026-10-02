@@ -27,6 +27,9 @@ validate_gold
 
 Each downstream task runs only when the previous task succeeds.
 
+The DAG ends at Gold validation. Trino registration and DataHub metadata,
+lineage, and assertion publication remain explicit post-pipeline operations.
+
 ## Configuration
 
 - Airflow version: 3.3.1
@@ -36,6 +39,12 @@ Each downstream task runs only when the previous task succeeds.
 - Retries: 2
 - Retry delay: 2 minutes
 - Airflow UI port: 8080
+
+DataHub GMS owns host port `8080` in the combined local environment. Airflow
+must be assigned a different host port before its UI can run alongside
+DataHub. This document records the current Airflow default; the Airflow runtime
+port change remains a separate follow-up.
+
 - `project_root` and `fintech_python` are stored as Airflow Variables
 
 ## Quality Gates
