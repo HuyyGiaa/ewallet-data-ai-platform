@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ewallet
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./data_platform/storage/scripts/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    profiles: ["ingestion"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ewallet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  kafka-connect:
+    image: debezium/connect@sha256:baa0dbbc404eb4da82e07c31482d6c63d8dc4e64c76260dd1933110235ee0809
+    container_name: kafka-connect
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: redpanda:29092
+      GROUP_ID: ewallet-connect-cluster
+      CONFIG_STORAGE_TOPIC: _connect-configs
+      OFFSET_STORAGE_TOPIC: _connect-offsets
+      STATUS_STORAGE_TOPIC: _connect-status
+    ports:
+      - "8083:8083"
+    profiles: ["ingestion"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8083/connectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

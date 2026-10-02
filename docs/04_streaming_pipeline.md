@@ -47,6 +47,14 @@ The streaming generator publishes transaction events to the
 
 PyFlink consumes these events and applies the streaming transformations.
 
+## Current implementation status
+
+This path is experimental. `streaming_pipeline.py` writes `FEATURE`,
+`DUPLICATE`, and `LATE` records to console print sinks, while
+`burst_monitor.py` prints `BURST` metrics. No streaming or CDC output is
+persisted to Bronze, Silver, or Gold, and the project does not claim
+end-to-end exactly-once delivery.
+
 ## Transaction Deduplication
 
 The generator intentionally creates duplicate transaction events.

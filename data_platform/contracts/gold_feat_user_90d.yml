@@ -1,0 +1,53 @@
+contract_version: 1
+dataset: gold.feat_user_90d
+layer: gold
+description: Offline user features calculated over the latest 90-day transaction window.
+storage_location: s3a://gold-zone/feat_user_90d
+grain: One row per user_id in gold.dim_user.
+logical_key:
+  - user_id
+upstream:
+  - gold.fact_transactions
+  - gold.dim_user
+enforced_by:
+  - data_platform.quality.validate_gold
+
+columns:
+  - {name: user_id, type: string, nullable: false}
+  - {name: f_user_total_transactions_90d, type: long, nullable: false}
+  - {name: f_user_avg_transaction_amount_90d, type: double, nullable: false}
+  - {name: f_user_failed_transaction_rate_90d, type: double, nullable: false}
+  - {name: f_user_distinct_merchants_90d, type: long, nullable: false}
+  - {name: event_timestamp, type: timestamp, nullable: false}
+  - {name: created_timestamp, type: timestamp, nullable: false}
+
+quality_rules:
+  - expectation: Dataset is non-empty.
+    validator_rule: feat_user_90d.non_empty
+  - expectation: All contract columns contain no null values.
+    validator_rule: feat_user_90d.required_columns_not_null
+  - expectation: user_id is unique.
+    validator_rule: feat_user_90d.unique_key(user_id)
+  - expectation: Transaction count, average amount and distinct merchant count are greater than or equal to 0.
+    validator_rule: feat_user_90d.non_negative_metrics
+  - expectation: Failed transaction rate is between 0 and 1 inclusive.
+    validator_rule: feat_user_90d.failed_transaction_rate_between_0_and_1
+
+foreign_keys:
+  - columns: [user_id]
+    references: gold.dim_user.user_id
+    nullable: false
+    validator_rule: feat_user_90d.user_id_exists_in_dim_user
+
+population_rules:
+  - relation: Row count equals gold.dim_user and user_id remains one row per dimension user.
+    validator_rule: dim_user_count_equals_feat_user_90d_count
+
+semantics:
+  reference_time: Maximum timestamp in gold.fact_transactions.
+  window: Inclusive interval from reference_time minus 90 days through reference_time.
+  users_without_activity: Numeric feature values are filled with zero.
+  semantic_evidence: data_platform.processing.spark.gold.feature_builder
+
+notes:
+  - Reference-time semantics are transformation behavior documented by the contract; the validator enforces the resulting population and value ranges.

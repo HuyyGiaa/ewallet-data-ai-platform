@@ -1,0 +1,1 @@
+"""DataHub assertion publication package."""

@@ -55,7 +55,7 @@ evolution.
 Therefore, the final offline output contains 8 physical Parquet files.
 
 ```text
-data_generator/output/offline/
+data_platform/generation/output/offline/
 ├── users.parquet
 ├── accounts.parquet
 ├── merchants.parquet
@@ -585,7 +585,7 @@ transactions.raw
 The streaming generator is executed with:
 
 ```bash
-python -m data_generator.src.streaming.streaming_generator
+python -m data_platform.generation.src.streaming.streaming_generator
 ```
 
 Unlike the offline generator, the streaming generator does not require
@@ -689,7 +689,7 @@ reproducible.
 The offline generator is executed from the project root:
 
 ```bash
-python -m data_generator.src.offline.offline_generator
+python -m data_platform.generation.src.offline.offline_generator
 ```
 
 The configured relative output directory:
@@ -703,7 +703,7 @@ is resolved under the `data_generator` directory.
 Therefore, generated files are stored at:
 
 ```text
-data_generator/output/offline/
+data_platform/generation/output/offline/
 ```
 
 The generated Parquet files are local source/staging data.

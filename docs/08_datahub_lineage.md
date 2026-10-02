@@ -1,689 +1,199 @@
-**# DataHub Metadata and Lineage**
+# DataHub metadata, lineage, and assertions
+
+## Scope
 
-**## Goal**
+DataHub is the metadata catalog for the E-Wallet lakehouse. It discovers the
+registered Delta tables through Trino, stores selected direct dataset lineage,
+and displays eight representative data-quality assertions. The transaction
+data remains in Delta Lake on MinIO.
 
-DataHub is used as the metadata catalog and lineage layer for the
-
-E-wallet data platform.
-
-The objective is to make the movement of transaction data across the
-
-lakehouse visible and traceable.
-
-The main lineage demonstrated in this project is:
-
-\`\`\`text
-
-Bronze transactions
-
-        ↓
-
-Silver transactions
-
-        ↓
-
-Gold fact\_transactions
-
-        ↓
-
-Gold obt\_transaction\_enriched
-
-        ↓
-
-Gold feat\_user\_90d
-
-\`\`\`
-
-This allows the project to show where a downstream analytical table or
-
-feature originates from and which upstream datasets contribute to it.
-
-**## Architecture**
-
-The metadata flow is:
-
-\`\`\`text
-
-Delta Lake tables
-
-stored in MinIO
-
-        ↓
-
-Trino
-
-        ↓
-
-DataHub ingestion
-
-        ↓
-
-DataHub Metadata Catalog
-
-        ↓
-
-Dataset Lineage
-
-\`\`\`
-
-The local services used in this integration are:
-
-\| Component | Purpose | Endpoint |
-
-\|---|---|---|
-
-\| MinIO | Delta Lake object storage | \`localhost:9000\` |
-
-\| Trino | SQL query engine and metadata source | \`localhost:8081\` |
-
-\| DataHub GMS | Metadata service | \`localhost:8080\` |
-
-\| DataHub UI | Metadata and lineage visualization | \`localhost:9002\` |
-
-DataHub does not store the transaction data itself.
-
-The actual Delta Lake data remains stored in MinIO. DataHub stores and
-
-displays metadata about those datasets.
-
-**## Trino Metadata Ingestion**
-
-DataHub ingests dataset metadata from the Trino \`delta\` catalog.
-
-The ingestion configuration is stored in:
-
-\`\`\`text
-
-lineage/trino\_recipe.yml
-
-\`\`\`
-
-The recipe limits metadata ingestion to the three lakehouse schemas:
-
-\`\`\`text
-
-bronze\_zone
-
-silver\_zone
-
-gold\_zone
-
-\`\`\`
-
-Profiling was disabled because the objective of this integration is
-
-metadata discovery and lineage visualization rather than scanning the
-
-full analytical dataset.
-
-The ingestion is executed with:
-
-\`\`\`bash
-
-DATAHUB\_TELEMETRY\_ENABLED=false \\
-
-python -m datahub ingest -c lineage/trino\_recipe.yml
-
-\`\`\`
-
-The final ingestion run completed successfully and produced metadata
-
-events for the registered Trino datasets.
-
-**## Trino Table Registration**
-
-The Delta tables physically exist in MinIO, but Trino uses its metastore
-
-to determine which tables are available through SQL.
-
-Therefore, a Delta table can exist in storage without automatically
-
-appearing in:
-
-\`\`\`sql
-
-SHOW TABLES FROM delta.\<schema>;
-
-\`\`\`
-
-For example, the Silver transaction table was registered using the
-
-Delta Lake connector:
-
-\`\`\`sql
-
-CALL delta.system.register\_table(
-
-    schema\_name => 'silver\_zone',
-
-    table\_name => 'transactions',
-
-    table\_location => 's3://silver-zone/transactions'
-
-);
-
-\`\`\`
-
-The Gold OBT and feature tables were registered in the same way.
-
-Registration does not copy or recreate the data.
-
-It only associates a logical Trino table name with the existing Delta
-
-table stored in MinIO.
-
-Conceptually:
-
-\`\`\`text
-
-delta.silver\_zone.transactions
-
-                ↓
-
-        Trino metadata
-
-                ↓
-
-s3://silver-zone/transactions
-
-                ↓
-
-        Delta transaction log
-
-        \+ Parquet data files
-
-\`\`\`
-
-This step was required before DataHub could discover the corresponding
-
-datasets through the Trino ingestion source.
-
-**## Registered Lineage Datasets**
-
-The transaction lineage uses the following DataHub assets:
-
-\| Layer | Dataset |
-
-\|---|---|
-
-\| Bronze | \`delta.bronze\_zone.transactions\` |
-
-\| Silver | \`delta.silver\_zone.transactions\` |
-
-\| Gold Fact | \`delta.gold\_zone.fact\_transactions\` |
-
-\| Gold OBT | \`delta.gold\_zone.obt\_transaction\_enriched\` |
-
-\| Gold Feature | \`delta.gold\_zone.feat\_user\_90d\` |
-
-The assets are represented in DataHub using the Trino data platform.
-
-For example:
-
-\`\`\`text
-
-urn\:li\:dataset:
-
-(
-
-    urn\:li\:dataPlatform\:trino,
-
-    delta.gold\_zone.fact\_transactions,
-
-    PROD
-
-)
-
-\`\`\`
-
-**## Dataset Lineage**
-
-The lineage relationships are:
-
-\`\`\`text
-
-delta.bronze\_zone.transactions
-
-                ↓
-
-delta.silver\_zone.transactions
-
-                ↓
-
-delta.gold\_zone.fact\_transactions
-
-                ↓
-
-delta.gold\_zone.obt\_transaction\_enriched
-
-                ↓
-
-delta.gold\_zone.feat\_user\_90d
-
-\`\`\`
-
-Each transition represents an actual transformation stage in the
-
-offline data pipeline.
-
-**### Bronze to Silver**
-
-\`\`\`text
-
-bronze\_zone.transactions
-
-        ↓
-
-silver\_zone.transactions
-
-\`\`\`
-
-Bronze preserves the ingested transaction data.
-
-The Silver transformation performs cleaning and transaction
-
-deduplication.
-
-For the final offline dataset:
-
-\`\`\`text
-
-Bronze transactions: 4,080,000
-
-Silver transactions: 4,000,000
-
-\`\`\`
-
-The difference corresponds to the duplicate transaction rows removed
-
-during Silver processing.
-
-**### Silver to Gold Fact**
-
-\`\`\`text
-
-silver\_zone.transactions
-
-        ↓
-
-gold\_zone.fact\_transactions
-
-\`\`\`
-
-The cleaned Silver transactions are transformed into the analytical
-
-transaction fact table.
-
-This table becomes one of the primary transaction datasets used by
-
-downstream analytical workloads.
-
-**### Gold Fact to OBT**
-
-\`\`\`text
-
-gold\_zone.fact\_transactions
-
-        ↓
-
-gold\_zone.obt\_transaction\_enriched
-
-\`\`\`
-
-The transaction fact is enriched with dimensional information to create
-
-an analytical One Big Table.
-
-The OBT provides a convenient flattened representation for downstream
-
-analytics and feature engineering.
-
-**### OBT to User Feature**
-
-\`\`\`text
-
-gold\_zone.obt\_transaction\_enriched
-
-        ↓
-
-gold\_zone.feat\_user\_90d
-
-\`\`\`
-
-The enriched transaction data is aggregated into user-level features.
-
-\`feat\_user\_90d\` represents a downstream feature dataset derived from
-
-historical transaction behavior.
-
-**## Lineage Implementation**
-
-The lineage relationships are created through the DataHub Python SDK.
-
-The implementation is stored in:
-
-\`\`\`text
-
-lineage/create\_lineage.py
-
-\`\`\`
-
-The script defines explicit upstream and downstream dataset
-
-relationships.
-
-Conceptually:
-
-\`\`\`python
-
-client.lineage.add\_lineage(
-
-    upstream=upstream\_dataset,
-
-    downstream=downstream\_dataset,
-
-)
-
-\`\`\`
-
-Four lineage edges are registered:
-
-\`\`\`text
-
-Bronze Transactions → Silver Transactions
-
-Silver Transactions → Gold Fact Transactions
-
-Gold Fact Transactions → Transaction OBT
-
-Transaction OBT → User 90-day Features
-
-\`\`\`
-
-The lineage relationships are based on the actual Spark transformation
-
-pipeline implemented in the project.
-
-This coursework implementation registers these relationships explicitly
-
-through the DataHub SDK rather than automatically extracting Spark job
-
-lineage.
-
-**## Data Contract Expectations**
-
-A lightweight data contract is used to describe the minimum
-
-expectations for the transaction pipeline.
-
-Important transaction fields include:
-
-\| Field | Expectation |
-
-\|---|---|
-
-\| \`transaction\_id\` | Required and unique after Silver deduplication |
-
-\| \`user\_id\` | Required for user-level processing |
-
-\| \`account\_id\` | Required for account-level transaction tracking |
-
-\| \`timestamp\` | Required business event timestamp |
-
-\| \`amount\` | Numeric transaction amount |
-
-\| \`status\` | Valid transaction status |
-
-\| \`channel\` | Transaction channel where available |
-
-Important pipeline expectations include:
-
-\`\`\`text
-
-Bronze
-
-    may contain intentional duplicates
-
-        ↓
-
-Silver
-
-    transaction\_id must be deduplicated
-
-    required transaction fields must remain valid
-
-        ↓
-
-Gold
-
-    analytical tables must preserve the expected transaction population
-
-    and transformation relationships
-
-\`\`\`
-
-These expectations are enforced primarily by the existing validation
-
-scripts rather than by DataHub itself.
-
-DataHub is used to expose the datasets and their dependencies.
-
-**## Why Lineage Is Useful**
-
-Without lineage, a downstream dataset such as:
-
-\`\`\`text
-
-feat\_user\_90d
-
-\`\`\`
-
-appears only as an isolated table.
-
-With lineage, it is possible to trace its origin:
-
-\`\`\`text
-
-feat\_user\_90d
-
-        ↑
-
-obt\_transaction\_enriched
-
-        ↑
-
-fact\_transactions
-
-        ↑
-
-silver.transactions
-
-        ↑
-
-bronze.transactions
-
-\`\`\`
-
-This is useful for several reasons.
-
-If an upstream transaction dataset changes, lineage identifies which
-
-downstream datasets may be affected.
-
-If a feature contains incorrect values, lineage helps trace the problem
-
-back through the transformation chain.
-
-Lineage also documents the architecture in a form that can be explored
-
-directly rather than relying only on static diagrams.
-
-**## Evidence**
-
-The DataHub lineage explorer successfully displays the complete
-
-transaction path across Bronze, Silver and Gold layers.
-
-![Transaction lineage]\(evidence/datahub/01\_transaction\_lineage.png)
-
-The graph shows:
-
-\`\`\`text
-
-bronze\_zone.transactions
-
-        ↓
-
-silver\_zone.transactions
-
-        ↓
-
-gold\_zone.fact\_transactions
-
-        ↓
-
-gold\_zone.obt\_transaction\_enriched
-
-        ↓
-
-gold\_zone.feat\_user\_90d
-
-\`\`\`
-
-The DataHub interface also identifies direct and indirect dependencies.
-
-For example, from \`fact\_transactions\`:
-
-\`\`\`text
-
-Direct upstream:
-
-silver\_zone.transactions
-
-Indirect upstream:
-
-bronze\_zone.transactions
-
-Direct downstream:
-
-obt\_transaction\_enriched
-
-Indirect downstream:
-
-feat\_user\_90d
-
-\`\`\`
-
-**## Design Decisions**
-
-**### Trino as the Metadata Source**
-
-Trino was selected as the DataHub ingestion source because the
-
-lakehouse tables are already exposed through the Trino Delta catalog.
-
-This avoids creating a separate metadata representation only for
-
-DataHub.
-
-The resulting path is:
-
-\`\`\`text
-
-Delta Lake / MinIO
-
-        ↓
-
-Trino catalog
-
-        ↓
-
-DataHub
-
-\`\`\`
-
-**### Explicit Lineage Registration**
-
-The coursework uses explicit SDK lineage registration.
-
-This keeps the implementation simple and makes the lineage relationships
-
-consistent with the transformations that were actually implemented.
-
-Automatic Spark lineage extraction would require additional integration
-
-and operational complexity that is not necessary for the current
-
-coursework objective.
-
-**### Limited Metadata Scope**
-
-Only the Bronze, Silver and Gold schemas relevant to the lakehouse are
-
-included in the ingestion recipe.
-
-Profiling is disabled because scanning millions of rows is unnecessary
-
-for demonstrating metadata catalog and lineage functionality.
-
-**## Trade-offs**
-
-The current lineage registration is explicit.
-
-If a new transformation is added, its lineage edge must also be added
-
-to the lineage configuration or script.
-
-A larger production system could automate lineage collection directly
-
-from Spark, SQL query history, orchestration metadata or other
-
-integrations.
-
-The current approach is intentionally smaller and easier to verify for
-
-the coursework environment.
-
-Another limitation is that DataHub depends on the tables being visible
-
-through the Trino metastore.
-
-A Delta table may physically exist in MinIO but remain undiscoverable
-
-to DataHub until it has been registered in Trino.
-
-**## Result**
-
-The DataHub integration successfully provides a metadata and lineage
-
-view of the transaction pipeline.
-
-The final demonstrated lineage is:
-
-\`\`\`text
-
-Raw / Bronze Transactions
-
-        ↓
-
-Clean Silver Transactions
-
-        ↓
-
-Gold Transaction Fact
-
-        ↓
-
-Enriched Transaction OBT
-
-        ↓
-
-90-day User Features
-
-\`\`\`
-
-This completes the metadata and lineage layer of the E-wallet data
-
-platform and provides traceability from ingested transaction data to
-
-downstream analytical features.
+DataHub is a separate local Quickstart runtime. It is not a service in the
+platform's split Compose project.
+
+## Tested local runtime
+
+| Component | Tested version or endpoint |
+|---|---|
+| Requested Quickstart series | `v1.7.0` |
+| Pinned Quickstart Compose Git ref | `v1.7.0.1` |
+| DataHub server | `v1.7.0.1` |
+| `acryl-datahub` CLI/SDK | `1.7.0.5` |
+| GMS | `http://localhost:8080` |
+| UI | `http://localhost:9002` |
+| Quickstart Kafka host listener | `localhost:9093` |
+| Quickstart Kafka internal listener | `broker:29092` |
+| Trino metadata source | `localhost:8081` |
+
+Redpanda retains host Kafka port `9092`. The pinned upstream Quickstart compose
+at Git ref `v1.7.0.1` publishes Kafka on the same port and hard-codes the
+advertised listener. The repository helper downloads that exact upstream file,
+verifies its SHA-256,
+and changes only the published and advertised host Kafka port to `9093`.
+Generated files stay in an ignored runtime cache; no `/tmp` edit is required.
+
+Select the Python interpreter containing `acryl-datahub==1.7.0.5`:
+
+```bash
+export DATAHUB_PYTHON=/path/to/datahub-environment/bin/python
+```
+
+Start and verify the runtime:
+
+```bash
+./data_platform/metadata/datahub/runtime/start_datahub.sh start
+./data_platform/metadata/datahub/runtime/start_datahub.sh check
+curl --fail http://localhost:8080/config
+```
+
+Stop containers without deleting the named Quickstart volumes:
+
+```bash
+./data_platform/metadata/datahub/runtime/start_datahub.sh stop
+```
+
+The helper never invokes `datahub docker nuke`. More details are in
+[`data_platform/metadata/datahub/runtime/README.md`](../data_platform/metadata/datahub/runtime/README.md).
+
+DataHub GMS owns host port `8080`; Redpanda Console uses `8082`. Airflow also
+defaults to `8080`, so Airflow needs a supported alternate host port when both
+runtimes are active.
+
+## Metadata flow
+
+```mermaid
+flowchart LR
+    MINIO["Delta tables on MinIO"] --> TRINO["Trino delta catalog"]
+    TRINO --> INGEST["DataHub Trino ingestion"]
+    INGEST --> CATALOG["DataHub datasets"]
+    LINEAGE["Explicit lineage publisher"] --> CATALOG
+    DQ["Read-only Trino assertion evaluation"] --> ASSERT["DataHub assertion definitions<br/>and run results"]
+    ASSERT --> CATALOG
+```
+
+### Register Delta tables in Trino
+
+A Delta path can exist in MinIO without being visible in Trino. After Spark
+produces Silver and Gold, run the metadata-only registration tool:
+
+```bash
+python3 -m data_platform.storage.scripts.register_trino_tables --layer all
+```
+
+It verifies every expected `_delta_log`, creates missing schemas, registers
+missing tables, checks existing locations, and executes lightweight readability
+queries. Re-running is safe. A location mismatch fails instead of dropping or
+re-pointing a table.
+
+### Ingest Trino metadata
+
+The recipe at `data_platform/metadata/datahub/lineage/trino_recipe.yml` includes only
+`bronze_zone`, `silver_zone`, and `gold_zone`; profiling is disabled to avoid a
+full analytical scan.
+
+```bash
+DATAHUB_TELEMETRY_ENABLED=false \
+  "$DATAHUB_PYTHON" -m datahub ingest \
+  -c data_platform/metadata/datahub/lineage/trino_recipe.yml
+```
+
+This requires Trino on `localhost:8081` and DataHub GMS on `localhost:8080`.
+
+## Selected direct lineage
+
+The publisher at `data_platform/metadata/datahub/lineage/create_lineage.py` sends ten direct
+input relationships:
+
+```mermaid
+flowchart TD
+    B["bronze_zone.transactions"] --> S["silver_zone.transactions"]
+    S --> F["gold_zone.fact_transactions"]
+    F --> O["gold_zone.obt_transaction_enriched"]
+    DU["gold_zone.dim_user"] --> O
+    DA["gold_zone.dim_account"] --> O
+    DD["gold_zone.dim_device"] --> O
+    DM["gold_zone.dim_merchant"] --> O
+    DT["gold_zone.dim_date"] --> O
+    F --> FEAT["gold_zone.feat_user_90d"]
+    DU --> FEAT
+```
+
+The feature builder reads `fact_transactions` and `dim_user` directly. The OBT
+and feature table are sibling downstream datasets; there is no OBT-to-feature
+edge.
+
+Publish the selected lineage after metadata ingestion creates the dataset
+entities:
+
+```bash
+DATAHUB_TELEMETRY_ENABLED=false \
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py
+```
+
+This script intentionally covers the main transaction path rather than every
+Gold dependency.
+
+## Selected data-quality assertions
+
+The contracts describe expectations and the Silver/Gold validators enforce the
+complete executable rule set. The DataHub publisher exposes eight selected
+checks:
+
+| Assertion | Target dataset |
+|---|---|
+| Required transaction fields contain no nulls | `silver.transactions` |
+| Transaction ID is unique | `silver.transactions` |
+| Account foreign key has no orphans | `silver.transactions` |
+| Fact population equals Silver transactions | `gold.fact_transactions` |
+| OBT population equals transaction fact | `gold.obt_transaction_enriched` |
+| OBT transaction ID is unique | `gold.obt_transaction_enriched` |
+| Feature population equals user dimension | `gold.feat_user_90d` |
+| Failed transaction rate is within `[0, 1]` | `gold.feat_user_90d` |
+
+The publisher evaluates current data with read-only Trino SQL. It does not
+change Delta tables. Each definition has a deterministic assertion URN, so a
+repeat publication updates the same eight logical definitions and records new
+timestamped run results.
+
+Run local self-tests and a no-write evaluation:
+
+```bash
+DATAHUB_TELEMETRY_ENABLED=false \
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --self-test
+
+DATAHUB_TELEMETRY_ENABLED=false \
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --dry-run
+```
+
+Publish after Trino, GMS, and the four target dataset entities are available:
+
+```bash
+DATAHUB_GMS_URL=http://localhost:8080 \
+DATAHUB_TELEMETRY_ENABLED=false \
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --publish
+```
+
+Set `DATAHUB_GMS_TOKEN` only when the target GMS requires authentication. The
+publisher validates the endpoint and all target entities before it sends any
+definition.
+
+Runtime verification against server `v1.7.0.1` published all eight definitions
+and successful run results. A second run retained exactly eight assertion URNs
+and added one result per definition, proving logical idempotency.
+
+## Evidence and limits
+
+The screenshot under `docs/evidence/datahub/01_transaction_lineage.png` proves
+an earlier working DataHub integration. It predates the corrected direct
+feature dependencies and is retained as historical evidence; the Python source
+is canonical.
+
+Current boundaries:
+
+- DataHub metadata ingestion depends on Delta tables being registered in Trino.
+- The explicit lineage script covers selected transaction datasets, not the
+  complete Gold graph.
+- The eight assertions are a selected visible subset of validator coverage.
+- Airflow does not invoke registration, metadata ingestion, lineage, or
+  assertion publication.
+- DataHub Quickstart is suitable for local coursework, not a production
+  deployment.
