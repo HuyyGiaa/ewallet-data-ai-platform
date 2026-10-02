@@ -8,6 +8,32 @@ processing, streaming and CDC experiments, analytics, quality enforcement,
 metadata, lineage, and offline features. It is the data foundation for a later
 fraud-detection phase; it is not an end-user wallet application.
 
+## Repository domains
+
+```text
+ewallet-data-ai-platform/
+├── data_platform/
+│   ├── generation/
+│   ├── ingestion/
+│   ├── processing/
+│   │   ├── spark/
+│   │   └── flink/
+│   ├── storage/
+│   ├── orchestration/
+│   ├── quality/
+│   ├── contracts/
+│   └── metadata/
+├── infra/
+│   └── docker/
+├── notebooks/
+├── docs/
+└── tests/
+```
+
+Phase 2 plans reserve an `ai_platform/` domain for `ml`, `llm`, `agents`, and
+`serving`. Those directories are not created until their first implementation
+exists.
+
 ## Architecture at a glance
 
 ```mermaid
@@ -119,7 +145,7 @@ Bronze validation intentionally does not apply Silver business cleaning.
 ### Trino
 
 Trino is the SQL query surface over the Delta tables. Spark creates the data;
-`storage/scripts/register_trino_tables.py` only registers existing Delta
+`data_platform/storage/scripts/register_trino_tables.py` only registers existing Delta
 locations in the Trino metastore. It is metadata-only, idempotent, and fails if
 an existing table points at the wrong location.
 
@@ -129,7 +155,7 @@ The three validators are executable fail-hard gates. Their rules cover schema
 and persisted readability at Bronze, cleaning and referential rules at Silver,
 and analytical grains and population relationships at Gold.
 
-The contracts under `contracts/` describe four stable interfaces:
+The contracts under `data_platform/contracts/` describe four stable interfaces:
 
 - `silver.transactions`
 - `gold.fact_transactions`
@@ -169,16 +195,16 @@ lakehouse sink or end-to-end exactly-once guarantee.
 
 | Component | Status | Source evidence |
 |---|---|---|
-| Offline synthetic generator | Implemented | `data_generator/src/offline/offline_generator.py` |
-| Bronze/Silver/Gold Delta lakehouse | Implemented and validated | `storage/scripts/init_storage.py`, `transformation/spark/`, `validation/` |
-| MinIO and Trino | Implemented and locally smoke-tested | `docker/compose.storage.yml`, `docker/compose.query.yml` |
-| Airflow batch orchestration | Implemented | `orchestration/airflow/dags/ewallet_batch_pipeline.py` |
-| Trino registration | Implemented and idempotent | `storage/scripts/register_trino_tables.py` |
-| Data contracts | Implemented for four selected datasets | `contracts/` |
-| DataHub metadata and selected lineage | Implemented and runtime-validated | `metadata/datahub/lineage/` |
-| DataHub selected assertions | Implemented; 8 definitions are idempotent | `metadata/datahub/assertions/publish_assertions.py` |
-| PostgreSQL/Debezium CDC | Implemented as a local experiment | `ingestion/debezium/connector-config.json` |
-| PyFlink stream processing | Experimental | `transformation/flink/streaming_pipeline.py`, print sinks only |
+| Offline synthetic generator | Implemented | `data_platform/generation/src/offline/offline_generator.py` |
+| Bronze/Silver/Gold Delta lakehouse | Implemented and validated | `data_platform/storage/scripts/init_storage.py`, `data_platform/processing/spark/`, `data_platform/quality/` |
+| MinIO and Trino | Implemented and locally smoke-tested | `infra/docker/compose.storage.yml`, `infra/docker/compose.query.yml` |
+| Airflow batch orchestration | Implemented | `data_platform/orchestration/airflow/dags/ewallet_batch_pipeline.py` |
+| Trino registration | Implemented and idempotent | `data_platform/storage/scripts/register_trino_tables.py` |
+| Data contracts | Implemented for four selected datasets | `data_platform/contracts/` |
+| DataHub metadata and selected lineage | Implemented and runtime-validated | `data_platform/metadata/datahub/lineage/` |
+| DataHub selected assertions | Implemented; 8 definitions are idempotent | `data_platform/metadata/datahub/assertions/publish_assertions.py` |
+| PostgreSQL/Debezium CDC | Implemented as a local experiment | `data_platform/ingestion/debezium/connector-config.json` |
+| PyFlink stream processing | Experimental | `data_platform/processing/flink/streaming_pipeline.py`, print sinks only |
 | Streaming/CDC lakehouse sink | Not implemented | No sink from Redpanda/Flink into Delta |
 | Phase 2 fraud ML/LLM/agent work | Planned | Outside the current repository phase |
 

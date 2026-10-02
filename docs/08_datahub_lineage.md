@@ -40,19 +40,19 @@ export DATAHUB_PYTHON=/path/to/datahub-environment/bin/python
 Start and verify the runtime:
 
 ```bash
-./metadata/datahub/runtime/start_datahub.sh start
-./metadata/datahub/runtime/start_datahub.sh check
+./data_platform/metadata/datahub/runtime/start_datahub.sh start
+./data_platform/metadata/datahub/runtime/start_datahub.sh check
 curl --fail http://localhost:8080/config
 ```
 
 Stop containers without deleting the named Quickstart volumes:
 
 ```bash
-./metadata/datahub/runtime/start_datahub.sh stop
+./data_platform/metadata/datahub/runtime/start_datahub.sh stop
 ```
 
 The helper never invokes `datahub docker nuke`. More details are in
-[`metadata/datahub/runtime/README.md`](../metadata/datahub/runtime/README.md).
+[`data_platform/metadata/datahub/runtime/README.md`](../data_platform/metadata/datahub/runtime/README.md).
 
 DataHub GMS owns host port `8080`; Redpanda Console uses `8082`. Airflow also
 defaults to `8080`, so Airflow needs a supported alternate host port when both
@@ -76,7 +76,7 @@ A Delta path can exist in MinIO without being visible in Trino. After Spark
 produces Silver and Gold, run the metadata-only registration tool:
 
 ```bash
-python3 storage/scripts/register_trino_tables.py --layer all
+python3 -m data_platform.storage.scripts.register_trino_tables --layer all
 ```
 
 It verifies every expected `_delta_log`, creates missing schemas, registers
@@ -86,21 +86,21 @@ re-pointing a table.
 
 ### Ingest Trino metadata
 
-The recipe at `metadata/datahub/lineage/trino_recipe.yml` includes only
+The recipe at `data_platform/metadata/datahub/lineage/trino_recipe.yml` includes only
 `bronze_zone`, `silver_zone`, and `gold_zone`; profiling is disabled to avoid a
 full analytical scan.
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" -m datahub ingest \
-  -c metadata/datahub/lineage/trino_recipe.yml
+  -c data_platform/metadata/datahub/lineage/trino_recipe.yml
 ```
 
 This requires Trino on `localhost:8081` and DataHub GMS on `localhost:8080`.
 
 ## Selected direct lineage
 
-The publisher at `metadata/datahub/lineage/create_lineage.py` sends ten direct
+The publisher at `data_platform/metadata/datahub/lineage/create_lineage.py` sends ten direct
 input relationships:
 
 ```mermaid
@@ -126,7 +126,7 @@ entities:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/lineage/create_lineage.py
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py
 ```
 
 This script intentionally covers the main transaction path rather than every
@@ -158,10 +158,10 @@ Run local self-tests and a no-write evaluation:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/assertions/publish_assertions.py --self-test
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --self-test
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/assertions/publish_assertions.py --dry-run
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --dry-run
 ```
 
 Publish after Trino, GMS, and the four target dataset entities are available:
@@ -169,7 +169,7 @@ Publish after Trino, GMS, and the four target dataset entities are available:
 ```bash
 DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/assertions/publish_assertions.py --publish
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --publish
 ```
 
 Set `DATAHUB_GMS_TOKEN` only when the target GMS requires authentication. The

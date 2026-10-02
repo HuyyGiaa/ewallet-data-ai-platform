@@ -33,7 +33,7 @@ htmlcov/
 # =========================
 output/
 **/output/
-data_generator/output/
+data_platform/generation/output/
 
 # =========================
 # Airflow runtime

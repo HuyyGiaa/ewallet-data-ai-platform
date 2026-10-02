@@ -27,7 +27,7 @@ venv
 # Generated data
 output
 **/output
-data_generator/output
+data_platform/generation/output
 
 # Runtime state
 **/logs

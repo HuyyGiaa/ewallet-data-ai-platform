@@ -70,23 +70,28 @@ hard-coded pipeline expectations. Validators and the demo query current data.
 
 ```text
 ewallet-data-ai-platform/
-├── contracts/                 # Selected versioned dataset interfaces
-├── data_generator/            # Offline and streaming synthetic generators
-├── docker/                    # Canonical split Compose files
+├── data_platform/
+│   ├── generation/            # Offline and streaming synthetic generators
+│   ├── ingestion/             # Debezium connector and Redpanda topic helper
+│   ├── processing/
+│   │   ├── spark/             # Silver and Gold batch transformations
+│   │   └── flink/             # Experimental streaming jobs
+│   ├── storage/               # MinIO, Delta, Trino config and registration
+│   ├── orchestration/         # Airflow batch DAG
+│   ├── quality/               # Bronze, Silver, and Gold validators
+│   ├── contracts/             # Selected versioned dataset interfaces
+│   └── metadata/datahub/
+│       ├── assertions/        # Eight selected DQ assertions
+│       ├── lineage/           # Trino recipe and direct lineage publisher
+│       └── runtime/           # Pinned Quickstart helper
+├── infra/docker/              # Canonical split Compose files
 ├── docs/                      # Architecture, component docs, and evidence
-├── ingestion/                 # Debezium connector and Redpanda topic helper
-├── metadata/datahub/
-│   ├── assertions/            # Eight selected DQ assertions
-│   ├── lineage/               # Trino recipe and direct lineage publisher
-│   └── runtime/               # Pinned Quickstart helper
 ├── notebooks/                 # Read-only validation and coursework demos
-├── orchestration/airflow/     # Batch DAG
-├── storage/                   # MinIO, Delta, Trino config and registration
-├── transformation/
-│   ├── flink/                 # Experimental streaming jobs
-│   └── spark/                 # Silver and Gold batch transformations
-└── validation/                # Bronze, Silver, and Gold validators
+└── tests/                     # Repository-level tests
 ```
+
+The planned Phase 2 `ai_platform/` domains (`ml`, `llm`, `agents`, and
+`serving`) are documented but are not created until implementation begins.
 
 ## Prerequisites
 
@@ -121,10 +126,10 @@ docker compose \
   --project-directory . \
   --profile ingestion \
   --profile storage \
-  -f docker/compose.messaging.yml \
-  -f docker/compose.ingestion.yml \
-  -f docker/compose.storage.yml \
-  -f docker/compose.query.yml \
+  -f infra/docker/compose.messaging.yml \
+  -f infra/docker/compose.ingestion.yml \
+  -f infra/docker/compose.storage.yml \
+  -f infra/docker/compose.query.yml \
   config
 ```
 
@@ -136,10 +141,10 @@ docker compose \
   --project-directory . \
   --profile ingestion \
   --profile storage \
-  -f docker/compose.messaging.yml \
-  -f docker/compose.ingestion.yml \
-  -f docker/compose.storage.yml \
-  -f docker/compose.query.yml \
+  -f infra/docker/compose.messaging.yml \
+  -f infra/docker/compose.ingestion.yml \
+  -f infra/docker/compose.storage.yml \
+  -f infra/docker/compose.query.yml \
   up -d
 ```
 
@@ -151,10 +156,10 @@ docker compose \
   --project-directory . \
   --profile ingestion \
   --profile storage \
-  -f docker/compose.messaging.yml \
-  -f docker/compose.ingestion.yml \
-  -f docker/compose.storage.yml \
-  -f docker/compose.query.yml \
+  -f infra/docker/compose.messaging.yml \
+  -f infra/docker/compose.ingestion.yml \
+  -f infra/docker/compose.storage.yml \
+  -f infra/docker/compose.query.yml \
   ps
 
 docker exec trino trino --execute 'SELECT 1'
@@ -170,8 +175,8 @@ docker compose \
   -p ewallet-data-ai-platform \
   --project-directory . \
   --profile ingestion \
-  -f docker/compose.messaging.yml \
-  -f docker/compose.ingestion.yml \
+  -f infra/docker/compose.messaging.yml \
+  -f infra/docker/compose.ingestion.yml \
   up -d
 ```
 
@@ -182,38 +187,39 @@ docker compose \
   -p ewallet-data-ai-platform \
   --project-directory . \
   --profile storage \
-  -f docker/compose.storage.yml \
-  -f docker/compose.query.yml \
+  -f infra/docker/compose.storage.yml \
+  -f infra/docker/compose.query.yml \
   up -d
 ```
 
 Do not run ingestion without messaging or query without storage. Do not use
-`docker compose down -v` when retaining local data. The root
-`docker-compose.yml` is deprecated rollback material until the Task 13 final
-smoke test; it is not the canonical stack.
+`docker compose down -v` when retaining local data. The former root
+`docker-compose.yml` was removed after the split configuration passed
+equivalence and runtime checks; it remains available at the `phase1-freeze`
+tag.
 
 ## Batch pipeline
 
 Generate offline source files:
 
 ```bash
-python -m data_generator.src.offline.offline_generator
+python -m data_platform.generation.src.offline.offline_generator
 ```
 
 Initialize persisted Bronze Delta tables:
 
 ```bash
-python storage/scripts/init_storage.py
-python -m validation.validate_bronze
+python -m data_platform.storage.scripts.init_storage
+python -m data_platform.quality.validate_bronze
 ```
 
 Run the remaining stages directly when Airflow is not needed:
 
 ```bash
-python -m transformation.spark.silver.silver_pipeline
-python -m validation.validate_silver
-python -m transformation.spark.gold.gold_pipeline
-python -m validation.validate_gold
+python -m data_platform.processing.spark.silver.silver_pipeline
+python -m data_platform.quality.validate_silver
+python -m data_platform.processing.spark.gold.gold_pipeline
+python -m data_platform.quality.validate_gold
 ```
 
 The Airflow DAG runs the full sequence with validation gates:
@@ -227,7 +233,7 @@ Configure the two variables used by the DAG and start Airflow with the project
 Airflow home:
 
 ```bash
-export AIRFLOW_HOME="$(pwd)/orchestration/airflow"
+export AIRFLOW_HOME="$(pwd)/data_platform/orchestration/airflow"
 airflow variables set project_root "$(pwd)"
 airflow variables set fintech_python "$(command -v python)"
 airflow standalone
@@ -253,21 +259,21 @@ They read persisted Delta data and do not repair it.
 
 Four contracts describe selected stable interfaces:
 
-- [`silver.transactions`](contracts/silver_transactions.yml)
-- [`gold.fact_transactions`](contracts/gold_fact_transactions.yml)
-- [`gold.obt_transaction_enriched`](contracts/gold_obt_transaction_enriched.yml)
-- [`gold.feat_user_90d`](contracts/gold_feat_user_90d.yml)
+- [`silver.transactions`](data_platform/contracts/silver_transactions.yml)
+- [`gold.fact_transactions`](data_platform/contracts/gold_fact_transactions.yml)
+- [`gold.obt_transaction_enriched`](data_platform/contracts/gold_obt_transaction_enriched.yml)
+- [`gold.feat_user_90d`](data_platform/contracts/gold_feat_user_90d.yml)
 
 The contracts describe transformation behavior, the validators enforce the
 full executable rule set, and DataHub exposes eight representative results.
-See [`contracts/README.md`](contracts/README.md) for syntax validation.
+See [`data_platform/contracts/README.md`](data_platform/contracts/README.md) for syntax validation.
 
 ## Register and query Delta tables with Trino
 
 After Spark creates the Delta tables, register or verify all layers:
 
 ```bash
-python3 storage/scripts/register_trino_tables.py --layer all
+python3 -m data_platform.storage.scripts.register_trino_tables --layer all
 ```
 
 This command is metadata-only and idempotent. It requires existing Delta logs,
@@ -312,15 +318,15 @@ export DATAHUB_PYTHON=/path/to/datahub-environment/bin/python
 Start and check DataHub:
 
 ```bash
-./metadata/datahub/runtime/start_datahub.sh start
-./metadata/datahub/runtime/start_datahub.sh check
+./data_platform/metadata/datahub/runtime/start_datahub.sh start
+./data_platform/metadata/datahub/runtime/start_datahub.sh check
 curl --fail http://localhost:8080/config
 ```
 
 Stop containers while preserving Quickstart volumes:
 
 ```bash
-./metadata/datahub/runtime/start_datahub.sh stop
+./data_platform/metadata/datahub/runtime/start_datahub.sh stop
 ```
 
 After Trino registration, ingest table metadata and publish direct lineage:
@@ -328,10 +334,10 @@ After Trino registration, ingest table metadata and publish direct lineage:
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" -m datahub ingest \
-  -c metadata/datahub/lineage/trino_recipe.yml
+  -c data_platform/metadata/datahub/lineage/trino_recipe.yml
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/lineage/create_lineage.py
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py
 ```
 
 Evaluate assertion logic without DataHub writes, then publish when GMS and the
@@ -339,13 +345,13 @@ target datasets are available:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/assertions/publish_assertions.py --self-test
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --self-test
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/assertions/publish_assertions.py --dry-run
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --dry-run
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" metadata/datahub/assertions/publish_assertions.py --publish
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --publish
 ```
 
 The publisher uses deterministic assertion URNs. Re-running it updates the same
@@ -358,13 +364,13 @@ The streaming generator publishes synthetic events to
 `transactions.raw` on Redpanda:
 
 ```bash
-bash ingestion/kafka/create_topic.sh
-python -m data_generator.src.streaming.streaming_generator
-python -m transformation.flink.streaming_pipeline
+bash data_platform/ingestion/kafka/create_topic.sh
+python -m data_platform.generation.src.streaming.streaming_generator
+python -m data_platform.processing.flink.streaming_pipeline
 ```
 
 The PyFlink job prints feature, duplicate, and late-event outputs. The separate
-`transformation/flink/burst_monitor.py` prints processing-time burst metrics.
+`data_platform/processing/flink/burst_monitor.py` prints processing-time burst metrics.
 Neither job has a persistent sink.
 
 The Debezium connector watches PostgreSQL `public.transactions` and publishes
