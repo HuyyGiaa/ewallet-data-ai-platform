@@ -8,9 +8,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn
 
 
-emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-
-
 def dataset(name: str) -> DatasetUrn:
     return DatasetUrn(
         platform="trino",
@@ -41,24 +38,33 @@ lineage = {
 }
 
 
-for downstream, upstreams in lineage.items():
-    emitter.emit_mcp(
-        MetadataChangeProposalWrapper(
-            entityUrn=str(downstream),
-            aspect=UpstreamLineageClass(
-                upstreams=[
-                    UpstreamClass(
-                        dataset=str(upstream),
-                        type=DatasetLineageTypeClass.TRANSFORMED,
-                    )
-                    for upstream in upstreams
-                ]
-            ),
+def publish_lineage(emitter: DatahubRestEmitter) -> None:
+    for downstream, upstreams in lineage.items():
+        emitter.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(downstream),
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=str(upstream),
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                        for upstream in upstreams
+                    ]
+                ),
+            )
         )
-    )
 
-    for upstream in upstreams:
-        print(f"{upstream} -> {downstream}")
+        for upstream in upstreams:
+            print(f"{upstream} -> {downstream}")
+
+    print("Lineage created successfully.")
 
 
-print("Lineage created successfully.")
+def main() -> None:
+    emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
+    publish_lineage(emitter)
+
+
+if __name__ == "__main__":
+    main()
