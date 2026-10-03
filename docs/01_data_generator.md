@@ -90,6 +90,18 @@ n_merchants: 300
 n_devices_per_user: 1
 days_history: 150
 
+accounts:
+  count_distribution: {1: 0.70, 2: 0.25, 3: 0.05}
+  activity_profile_order: [primary, secondary, dormant]
+  activity_weights: {primary: 1.0, secondary: 0.35, dormant: 0.08}
+
+legitimate_device_churn:
+  enabled: true
+  user_rate: 0.12
+  devices_per_selected_user: 1
+  recent_window_days: 7
+  first_transaction_age_minutes_max: 10080
+
 duplicate_rate_offline: 0.02
 generation:
   temporal:
@@ -109,9 +121,9 @@ At full scale, the configured base transaction volume remains:
 | Dataset | Rows |
 |---|---:|
 | Users | 500,000 |
-| Accounts | 500,000 |
+| Accounts | Distribution-driven; expected average 1.35 per user |
 | Merchants | 300 |
-| Devices | 500,000 |
+| Devices | 500,000 initial devices plus configured churn and takeover devices |
 | Original transactions | 4,000,000 |
 | Transactions after issue injection | 4,080,000 |
 | Fraud labels | 4,000,000 |
@@ -367,9 +379,9 @@ Fraud Generator V1 injects four controlled behavior patterns:
 
 | Scenario | Injected behavior | Intended future signal |
 |---|---|---|
-| `velocity` | Multiple transactions for one account inside a short configured event-time window | 5-minute and 1-hour transaction counts |
+| `velocity` | Multiple transactions for dominant and lower-activity accounts inside a short configured event-time window | 5-minute and 1-hour transaction counts |
 | `amount_anomaly` | Amount relative to that account's median rather than one global threshold | Account-relative amount deviation |
-| `account_takeover` | A newly observed device owned by the victim user, with a configurable relative amount/channel change | Device recency and identity behavior |
+| `account_takeover` | Targets one victim account and combines a probabilistic new device with relative amount/channel changes | Device recency, account activity, and identity behavior |
 | `merchant_burst` | Concentrated payment activity at an existing merchant | Merchant-level velocity |
 
 The label contract is:
@@ -394,6 +406,16 @@ This is controlled synthetic fraud for system and ML evaluation. It is not real
 banking fraud and is not statistically representative of real-world prevalence.
 The generator also remains a synthetic wallet model rather than a double-entry
 ledger or production accounting engine.
+
+Account multiplicity and internal activity weights are configuration-driven.
+The profile name is not persisted in `accounts`; transactions select a user and
+then one of that user's accounts using the configured weights. Legitimate device
+churn creates normal recent-device activity, so device novelty is no longer a
+fraud-only shortcut. Transactions and logins never use a device before its
+`first_seen_at`. Used churn devices and newly injected takeover devices both
+receive a configurable device-age window at their first transaction instead of
+a scenario-specific exact timestamp. Amount anomalies use only strict PRE-T
+account history (`timestamp < fraud transaction timestamp`) as their baseline.
 
 ---
 
@@ -680,6 +702,21 @@ n_merchants: 300
 n_devices_per_user: 1
 days_history: 150
 
+accounts:
+  count_distribution: {1: 0.70, 2: 0.25, 3: 0.05}
+  activity_profile_order: [primary, secondary, dormant]
+  activity_weights: {primary: 1.0, secondary: 0.35, dormant: 0.08}
+
+legitimate_device_churn:
+  enabled: true
+  user_rate: 0.12
+  devices_per_selected_user: 1
+  min_days_after_start: 7
+  min_days_before_end: 7
+  recent_window_days: 7
+  activity_weight: 0.75
+  first_transaction_age_minutes_max: 10080
+
 generation:
   temporal:
     start_timestamp: "2026-01-01T00:00:00"
@@ -719,6 +756,9 @@ fraud:
       weight: 0.25
       amount_multiplier_min: 1.5
       amount_multiplier_max: 3.0
+      new_device_probability: 0.65
+      new_device_age_minutes_min: 1
+      new_device_age_minutes_max: 10080
       change_channel_probability: 0.7
     merchant_burst:
       enabled: true
@@ -869,9 +909,9 @@ The final generator produces a controlled E-wallet workload containing:
 
 ```text
 500,000 users
-500,000 accounts
+account count driven by the configured 1/2/3-account distribution
 300 merchants
-500,000 devices
+500,000 initial devices plus legitimate churn and takeover devices
 
 4,000,000 original transactions
 4,080,000 transaction rows after duplicate injection
@@ -906,3 +946,7 @@ demonstrated in the remaining coursework.
 
 `fraud_labels` is now canonical in Bronze and Silver. Historical Gold fraud
 features, Feast, ML training, and model serving remain separate follow-up work.
+
+The F4B realism redesign has been exercised only with the isolated
+`fraud_dev` profile. The persisted canonical 4M dataset remains the pre-F4B F3
+dataset until the separate F4C canonical regeneration step.

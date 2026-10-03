@@ -6,6 +6,27 @@ n_merchants: 300
 n_devices_per_user: 1
 days_history: 150
 
+accounts:
+  count_distribution:
+    1: 0.70
+    2: 0.25
+    3: 0.05
+  activity_profile_order: [primary, secondary, dormant]
+  activity_weights:
+    primary: 1.0
+    secondary: 0.35
+    dormant: 0.08
+
+legitimate_device_churn:
+  enabled: true
+  user_rate: 0.12
+  devices_per_selected_user: 1
+  min_days_after_start: 7
+  min_days_before_end: 7
+  recent_window_days: 7
+  activity_weight: 0.75
+  first_transaction_age_minutes_max: 10080
+
 # Fixed offline event-time range. Keep days_history for the streaming generator.
 generation:
   temporal:
@@ -45,6 +66,9 @@ fraud:
       weight: 0.25
       amount_multiplier_min: 1.5
       amount_multiplier_max: 3.0
+      new_device_probability: 0.65
+      new_device_age_minutes_min: 1
+      new_device_age_minutes_max: 10080
       change_channel_probability: 0.7
     merchant_burst:
       enabled: true

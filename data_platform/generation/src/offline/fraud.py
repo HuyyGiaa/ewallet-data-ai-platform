@@ -89,6 +89,28 @@ def validate_fraud_config(cfg: dict) -> dict:
         raise ValueError(
             "fraud.scenarios.account_takeover.change_channel_probability must be in [0, 1]"
         )
+    new_device_probability = scenarios["account_takeover"].get(
+        "new_device_probability"
+    )
+    if (
+        not isinstance(new_device_probability, (int, float))
+        or not 0 <= new_device_probability <= 1
+    ):
+        raise ValueError(
+            "fraud.scenarios.account_takeover.new_device_probability must be in [0, 1]"
+        )
+    age_min = scenarios["account_takeover"].get("new_device_age_minutes_min")
+    age_max = scenarios["account_takeover"].get("new_device_age_minutes_max")
+    if not isinstance(age_min, int) or age_min < 0:
+        raise ValueError(
+            "fraud.scenarios.account_takeover.new_device_age_minutes_min "
+            "must be a non-negative integer"
+        )
+    if not isinstance(age_max, int) or age_max < age_min:
+        raise ValueError(
+            "fraud.scenarios.account_takeover.new_device_age_minutes_max "
+            "must be >= new_device_age_minutes_min"
+        )
 
     return fraud_cfg
 
@@ -165,13 +187,12 @@ def _cluster_rows(
 def _set_relative_amount(
     transactions: pd.DataFrame,
     index: int,
-    account_medians: dict[str, float],
+    baseline: float,
     minimum: float,
     maximum: float,
     rng: random.Random,
 ) -> None:
-    account_id = transactions.at[index, "account_id"]
-    baseline = max(float(account_medians.get(account_id, transactions.at[index, "amount"])), 1.0)
+    baseline = max(float(baseline), 1.0)
     amount = round(baseline * rng.uniform(float(minimum), float(maximum)), 2)
     old_balance = float(transactions.at[index, "old_balance"])
     tx_type = transactions.at[index, "type"]
@@ -190,6 +211,46 @@ def _set_relative_amount(
     transactions.at[index, "new_balance"] = new_balance
 
 
+def _historical_account_medians(transactions: pd.DataFrame) -> pd.Series:
+    """Return account medians using only rows with a strictly earlier timestamp."""
+    ordered = transactions.sort_values(
+        ["account_id", "timestamp", "transaction_id"],
+        kind="mergesort",
+    ).copy()
+    ordered["_historical_median"] = ordered.groupby("account_id")["amount"].transform(
+        lambda amounts: amounts.expanding().median().shift()
+    )
+    ordered["_historical_median"] = ordered.groupby(
+        ["account_id", "timestamp"],
+        sort=False,
+    )["_historical_median"].transform("first")
+    return ordered["_historical_median"].reindex(transactions.index)
+
+
+def _relative_amount_candidates(
+    transactions: pd.DataFrame,
+    available: set[int],
+    historical_medians: pd.Series,
+    minimum_multiplier: float,
+) -> list[int]:
+    """Find rows where a PRE-T anomaly remains visible after balance rules."""
+    eligible = []
+    for index in sorted(available):
+        baseline = historical_medians.at[index]
+        if pd.isna(baseline):
+            continue
+        tx_type = transactions.at[index, "type"]
+        status = transactions.at[index, "status"]
+        old_balance = float(transactions.at[index, "old_balance"])
+        if (
+            tx_type == "deposit"
+            or status == "failed"
+            or old_balance >= float(baseline) * float(minimum_multiplier)
+        ):
+            eligible.append(index)
+    return eligible
+
+
 def _inject_velocity(
     transactions: pd.DataFrame,
     available: set[int],
@@ -205,8 +266,33 @@ def _inject_velocity(
     grouped: dict[str, list[int]] = defaultdict(list)
     for index in sorted(available):
         grouped[str(transactions.at[index, "account_id"])].append(index)
-    pools = list(grouped.values())
-    rng.shuffle(pools)
+
+    accounts_by_user: dict[str, list[str]] = defaultdict(list)
+    for account_id, pool in grouped.items():
+        user_id = str(transactions.at[pool[0], "user_id"])
+        accounts_by_user[user_id].append(account_id)
+    dominant_accounts = {
+        max(account_ids, key=lambda account_id: len(grouped[account_id]))
+        for account_ids in accounts_by_user.values()
+    }
+    dominant_pools = [
+        pool
+        for account_id, pool in grouped.items()
+        if account_id in dominant_accounts and len(pool) >= 2
+    ]
+    secondary_pools = [
+        pool
+        for account_id, pool in grouped.items()
+        if account_id not in dominant_accounts and len(pool) >= 2
+    ]
+    rng.shuffle(dominant_pools)
+    rng.shuffle(secondary_pools)
+    pools = []
+    while dominant_pools or secondary_pools:
+        if dominant_pools:
+            pools.append(dominant_pools.pop())
+        if secondary_pools:
+            pools.append(secondary_pools.pop())
     for pool in pools:
         rng.shuffle(pool)
     queue = deque(pool for pool in pools if len(pool) >= 2)
@@ -321,6 +407,8 @@ def inject_fraud(
         "velocity_burst_durations_seconds": [],
         "merchant_burst_durations_seconds": [],
         "account_takeover_new_devices": 0,
+        "account_takeover_new_device_transactions": 0,
+        "account_takeover_target_accounts": 0,
     }
     if not fraud_cfg["enabled"] or fraud_cfg["prevalence"]["target_rate"] == 0:
         return transactions, devices, labels, metrics
@@ -358,15 +446,39 @@ def inject_fraud(
     )
     selected_by_type["velocity"] = velocity_selected
 
-    account_medians = transactions.groupby("account_id")["amount"].median().to_dict()
     amount_count = scenario_counts["amount_anomaly"]
-    amount_indices = rng.sample(sorted(available), amount_count)
     amount_cfg = fraud_cfg["scenarios"]["amount_anomaly"]
+    historical_medians = _historical_account_medians(transactions)
+    amount_candidates = _relative_amount_candidates(
+        transactions,
+        available,
+        historical_medians,
+        amount_cfg["amount_multiplier_min"],
+    )
+    if len(amount_candidates) < amount_count:
+        raise ValueError(
+            "amount_anomaly has insufficient transactions with usable PRE-T history"
+        )
+    rng.shuffle(amount_candidates)
+    amount_indices = []
+    amount_accounts = set()
+    for index in amount_candidates:
+        account_id = str(transactions.at[index, "account_id"])
+        if account_id in amount_accounts:
+            continue
+        amount_indices.append(index)
+        amount_accounts.add(account_id)
+        if len(amount_indices) == amount_count:
+            break
+    if len(amount_indices) < amount_count:
+        raise ValueError(
+            "amount_anomaly requires enough distinct accounts with usable PRE-T history"
+        )
     for index in amount_indices:
         _set_relative_amount(
             transactions,
             index,
-            account_medians,
+            historical_medians.at[index],
             amount_cfg["amount_multiplier_min"],
             amount_cfg["amount_multiplier_max"],
             rng,
@@ -375,11 +487,31 @@ def inject_fraud(
     available.difference_update(amount_indices)
 
     takeover_count = scenario_counts["account_takeover"]
-    takeover_indices = rng.sample(sorted(available), takeover_count)
     takeover_cfg = fraud_cfg["scenarios"]["account_takeover"]
-    takeover_by_user: dict[str, list[int]] = defaultdict(list)
+    takeover_medians = _historical_account_medians(transactions)
+    takeover_candidates = _relative_amount_candidates(
+        transactions,
+        available,
+        takeover_medians,
+        takeover_cfg["amount_multiplier_min"],
+    )
+    takeover_candidates = [
+        index
+        for index in takeover_candidates
+        if str(transactions.at[index, "account_id"]) not in amount_accounts
+    ]
+    if len(takeover_candidates) < takeover_count:
+        raise ValueError(
+            "account_takeover has insufficient transactions with usable PRE-T history"
+        )
+    takeover_indices = rng.sample(takeover_candidates, takeover_count)
+    takeover_by_account: dict[tuple[str, str], list[int]] = defaultdict(list)
     for index in takeover_indices:
-        takeover_by_user[str(transactions.at[index, "user_id"])].append(index)
+        key = (
+            str(transactions.at[index, "user_id"]),
+            str(transactions.at[index, "account_id"]),
+        )
+        takeover_by_account[key].append(index)
 
     device_records_by_user = {
         str(user_id): group.to_dict("records")
@@ -388,33 +520,48 @@ def inject_fraud(
     existing_device_ids = set(devices["device_id"])
     new_device_rows = []
 
-    for user_id, indices in takeover_by_user.items():
+    new_device_transaction_count = 0
+    for (user_id, _account_id), indices in takeover_by_account.items():
         templates = device_records_by_user.get(user_id, [])
         if not templates:
             raise ValueError("account_takeover requires an existing device template for the user")
-        template = rng.choice(templates)
-        new_device_id = str(uuid.UUID(int=rng.getrandbits(128), version=4))
-        while new_device_id in existing_device_ids:
+        new_device_id = None
+        if rng.random() < takeover_cfg["new_device_probability"]:
+            template = rng.choice(templates)
             new_device_id = str(uuid.UUID(int=rng.getrandbits(128), version=4))
-        existing_device_ids.add(new_device_id)
+            while new_device_id in existing_device_ids:
+                new_device_id = str(uuid.UUID(int=rng.getrandbits(128), version=4))
+            existing_device_ids.add(new_device_id)
 
-        first_seen_at = min(transactions.at[index, "timestamp"] for index in indices)
-        new_device_rows.append(
-            {
-                "device_id": new_device_id,
-                "user_id": user_id,
-                "device_type": template["device_type"],
-                "os": template["os"],
-                "first_seen_at": first_seen_at,
-            }
-        )
+            first_transaction_at = min(
+                transactions.at[index, "timestamp"] for index in indices
+            )
+            age_seconds = rng.randint(
+                takeover_cfg["new_device_age_minutes_min"] * 60,
+                takeover_cfg["new_device_age_minutes_max"] * 60,
+            )
+            first_seen_at = max(
+                start,
+                first_transaction_at - timedelta(seconds=age_seconds),
+            )
+            new_device_rows.append(
+                {
+                    "device_id": new_device_id,
+                    "user_id": user_id,
+                    "device_type": template["device_type"],
+                    "os": template["os"],
+                    "first_seen_at": first_seen_at,
+                }
+            )
+            new_device_transaction_count += len(indices)
 
         for index in indices:
-            transactions.at[index, "device_id"] = new_device_id
+            if new_device_id is not None:
+                transactions.at[index, "device_id"] = new_device_id
             _set_relative_amount(
                 transactions,
                 index,
-                account_medians,
+                takeover_medians.at[index],
                 takeover_cfg["amount_multiplier_min"],
                 takeover_cfg["amount_multiplier_max"],
                 rng,
@@ -443,6 +590,10 @@ def inject_fraud(
             "velocity_burst_durations_seconds": velocity_durations,
             "merchant_burst_durations_seconds": merchant_durations,
             "account_takeover_new_devices": len(new_device_rows),
+            "account_takeover_new_device_transactions": (
+                new_device_transaction_count
+            ),
+            "account_takeover_target_accounts": len(takeover_by_account),
         }
     )
     return transactions, devices, labels, metrics

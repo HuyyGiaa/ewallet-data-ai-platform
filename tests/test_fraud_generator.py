@@ -15,6 +15,7 @@ from data_platform.generation.src.offline.fraud import FRAUD_TYPES, validate_fra
 from data_platform.generation.src.offline.offline_generator import (
     generate_offline_datasets,
     get_temporal_config,
+    validate_behavior_config,
     write_offline_datasets,
 )
 
@@ -125,6 +126,31 @@ class FraudGeneratorContractTest(unittest.TestCase):
         self.assertGreater(len(self.transactions), self.transactions["transaction_id"].nunique())
         self.assertEqual(len(self.labels), self.transactions["transaction_id"].nunique())
 
+    def test_multi_account_ownership_and_activity_heterogeneity(self):
+        accounts = self.datasets["accounts"].copy()
+        accounts["account_position"] = accounts.groupby("user_id").cumcount()
+        accounts_per_user = accounts.groupby("user_id")["account_id"].nunique()
+        owners_per_account = accounts.groupby("account_id")["user_id"].nunique()
+
+        self.assertGreater(int((accounts_per_user > 1).sum()), 0)
+        self.assertEqual(1, int(owners_per_account.max()))
+        self.assertFalse(accounts["account_id"].duplicated().any())
+
+        counts = (
+            self.logical_transactions.groupby("account_id")
+            .size()
+            .rename("transaction_count")
+        )
+        activity = accounts.join(counts, on="account_id").fillna(
+            {"transaction_count": 0}
+        )
+        by_position = activity.groupby("account_position")["transaction_count"].mean()
+        self.assertGreater(by_position.loc[0], by_position.loc[1])
+        self.assertGreater(
+            int(activity.loc[activity["account_position"] > 0, "transaction_count"].sum()),
+            0,
+        )
+
     def test_relational_foreign_keys_and_transaction_domains(self):
         users = set(self.datasets["users"]["user_id"])
         accounts = set(self.datasets["accounts"]["account_id"])
@@ -151,6 +177,12 @@ class FraudGeneratorContractTest(unittest.TestCase):
         login_events = self.datasets["login_events"]
         self.assertTrue(
             (login_events["device_id"].map(device_owner) == login_events["user_id"]).all()
+        )
+        device_first_seen = self.datasets["devices"].set_index("device_id")[
+            "first_seen_at"
+        ]
+        self.assertTrue(
+            (login_events["login_ts"] >= login_events["device_id"].map(device_first_seen)).all()
         )
         self.assertEqual({"VND"}, set(tx["currency"]))
         self.assertTrue(set(tx["status"]).issubset({"success", "failed", "pending"}))
@@ -184,7 +216,7 @@ class FraudGeneratorContractTest(unittest.TestCase):
         self.assertTrue(consistent[joined["label"] == 0].all())
         self.assertTrue(consistent[joined["label"] == 1].all())
 
-    def test_account_takeover_uses_recent_device_owned_by_victim(self):
+    def test_legitimate_device_churn_and_mixed_takeover_recency(self):
         takeover_ids = set(
             self.labels.loc[self.labels["fraud_type"] == "account_takeover", "transaction_id"]
         )
@@ -195,10 +227,58 @@ class FraudGeneratorContractTest(unittest.TestCase):
         self.assertGreater(len(takeover), 0)
         self.assertTrue((takeover["user_id_transaction"] == takeover["user_id_device"]).all())
         self.assertTrue((takeover["first_seen_at"] <= takeover["timestamp"]).all())
-        self.assertEqual(
-            self.metrics["account_takeover_new_devices"],
-            takeover["device_id"].nunique(),
+
+        joined = self.logical_transactions.merge(
+            self.labels,
+            on="transaction_id",
+            validate="one_to_one",
+        ).merge(
+            self.datasets["devices"][["device_id", "first_seen_at"]],
+            on="device_id",
+            validate="many_to_one",
         )
+        age = joined["timestamp"] - joined["first_seen_at"]
+        recent_window = pd.Timedelta(
+            days=self.cfg["legitimate_device_churn"]["recent_window_days"]
+        )
+        normal_recent = (joined["label"].eq(0) & age.between(pd.Timedelta(0), recent_window)).sum()
+        takeover_recent = (
+            joined["fraud_type"].eq("account_takeover")
+            & age.between(pd.Timedelta(0), recent_window)
+        ).sum()
+        takeover_count = int(joined["fraud_type"].eq("account_takeover").sum())
+
+        self.assertGreater(int(normal_recent), 0)
+        self.assertGreater(int(takeover_recent), 0)
+        self.assertLess(int(takeover_recent), takeover_count)
+        self.assertEqual(0, int((age[joined["fraud_type"].eq("account_takeover")] == 0).sum()))
+        self.assertGreater(self.metrics["account_takeover_new_devices"], 0)
+        self.assertLess(
+            self.metrics["account_takeover_new_device_transactions"],
+            takeover_count,
+        )
+        self.assertGreater(self.metrics["account_takeover_target_accounts"], 0)
+        self.assertTrue((age >= pd.Timedelta(0)).all())
+
+    def test_amount_anomaly_uses_strict_pre_transaction_history(self):
+        anomalies = self.logical_transactions.merge(
+            self.labels.loc[self.labels["fraud_type"].eq("amount_anomaly")],
+            on="transaction_id",
+            validate="one_to_one",
+        )
+        minimum = self.cfg["fraud"]["scenarios"]["amount_anomaly"][
+            "amount_multiplier_min"
+        ]
+
+        for row in anomalies.itertuples(index=False):
+            history = self.logical_transactions.loc[
+                self.logical_transactions["account_id"].eq(row.account_id)
+                & self.logical_transactions["timestamp"].lt(row.timestamp)
+                & self.logical_transactions["transaction_id"].ne(row.transaction_id),
+                "amount",
+            ]
+            self.assertFalse(history.empty)
+            self.assertGreaterEqual(row.amount + 1e-6, history.median() * minimum)
 
     def test_no_target_leakage_and_timestamp_bounds(self):
         for name, dataframe in self.datasets.items():
@@ -236,6 +316,12 @@ class FraudGeneratorContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "weights must sum to 1.0"):
             validate_fraud_config(invalid)
 
+    def test_behavior_config_validation(self):
+        invalid = copy.deepcopy(self.cfg)
+        invalid["accounts"]["count_distribution"][1] = 0.50
+        with self.assertRaisesRegex(ValueError, "probabilities must sum to 1.0"):
+            validate_behavior_config(invalid)
+
     def test_velocity_events_are_concentrated(self):
         durations = self.metrics["velocity_burst_durations_seconds"]
         configured_seconds = self.cfg["fraud"]["scenarios"]["velocity"]["window_minutes"] * 60
@@ -245,6 +331,21 @@ class FraudGeneratorContractTest(unittest.TestCase):
             self.metrics["scenario_counts"]["velocity"],
             int((self.labels["fraud_type"] == "velocity").sum()),
         )
+        velocity_ids = set(
+            self.labels.loc[
+                self.labels["fraud_type"] == "velocity",
+                "transaction_id",
+            ]
+        )
+        velocity = self.logical_transactions[
+            self.logical_transactions["transaction_id"].isin(velocity_ids)
+        ]
+        accounts = self.datasets["accounts"].copy()
+        accounts["account_position"] = accounts.groupby("user_id").cumcount()
+        positions = velocity["account_id"].map(
+            accounts.set_index("account_id")["account_position"]
+        )
+        self.assertGreater(positions.nunique(), 1)
 
     def test_disabled_mode_keeps_stable_all_normal_label_output(self):
         disabled = copy.deepcopy(self.cfg)
