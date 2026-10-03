@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import sys
 from dataclasses import dataclass
 
@@ -7,18 +8,18 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.storage.scripts.config import OFFLINE_TABLES, offline_tables
 
 
 BRONZE_ROOT = "s3a://bronze-zone"
 
-BRONZE_TABLES = (
-    "users",
-    "accounts",
-    "merchants",
-    "devices",
-    "transactions",
-    "balance_snapshots",
-    "login_events",
+BRONZE_TABLES = OFFLINE_TABLES
+
+FRAUD_TYPES = (
+    "velocity",
+    "amount_anomaly",
+    "account_takeover",
+    "merchant_burst",
 )
 
 EXPECTED_TYPES = {
@@ -76,6 +77,11 @@ EXPECTED_TYPES = {
         "device_id": "string",
         "login_ts": "timestamp",
         "is_success": "boolean",
+    },
+    "fraud_labels": {
+        "transaction_id": "string",
+        "label": "numeric",
+        "fraud_type": "string",
     },
 }
 
@@ -278,6 +284,100 @@ def validate_non_empty(
     )
 
 
+def validate_fraud_labels(df: DataFrame) -> list[ValidationResult]:
+    """Validate raw fraud ground truth without repairing source values."""
+    required_nulls = df.filter(
+        F.col("transaction_id").isNull()
+        | F.col("label").isNull()
+    ).count()
+    invalid_labels = df.filter(
+        F.col("label").isNotNull()
+        & ~F.col("label").isin(0, 1)
+    ).count()
+    invalid_conditional_types = df.filter(
+        ((F.col("label") == 0) & F.col("fraud_type").isNotNull())
+        | ((F.col("label") == 1) & F.col("fraud_type").isNull())
+    ).count()
+    invalid_fraud_types = df.filter(
+        (F.col("label") == 1)
+        & F.col("fraud_type").isNotNull()
+        & ~F.col("fraud_type").isin(*FRAUD_TYPES)
+    ).count()
+    duplicate_groups = (
+        df.groupBy("transaction_id")
+        .count()
+        .filter(F.col("count") > 1)
+        .count()
+    )
+
+    return [
+        ValidationResult(
+            "fraud_labels.required_values_not_null",
+            required_nulls == 0,
+            required_nulls,
+            "0 rows with NULL transaction_id or label",
+        ),
+        ValidationResult(
+            "fraud_labels.valid_label_domain",
+            invalid_labels == 0,
+            invalid_labels,
+            "0 labels outside {0,1}",
+        ),
+        ValidationResult(
+            "fraud_labels.conditional_fraud_type",
+            invalid_conditional_types == 0,
+            invalid_conditional_types,
+            "label=0 has NULL fraud_type and label=1 has non-NULL fraud_type",
+        ),
+        ValidationResult(
+            "fraud_labels.valid_fraud_type_domain",
+            invalid_fraud_types == 0,
+            invalid_fraud_types,
+            "0 fraud types outside the controlled domain",
+        ),
+        ValidationResult(
+            "fraud_labels.unique_transaction_id",
+            duplicate_groups == 0,
+            duplicate_groups,
+            "0 duplicate transaction_id groups",
+        ),
+    ]
+
+
+def validate_fraud_label_coverage(
+    fraud_labels_df: DataFrame,
+    transactions_df: DataFrame,
+) -> list[ValidationResult]:
+    """Require exact equality with distinct Bronze transaction IDs."""
+    label_ids = fraud_labels_df.select("transaction_id").distinct()
+    transaction_ids = transactions_df.select("transaction_id").distinct()
+    orphan_labels = label_ids.join(transaction_ids, "transaction_id", "left_anti").count()
+    missing_labels = transaction_ids.join(label_ids, "transaction_id", "left_anti").count()
+    label_rows = fraud_labels_df.count()
+    transaction_count = transaction_ids.count()
+
+    return [
+        ValidationResult(
+            "fraud_labels.transaction_fk",
+            orphan_labels == 0,
+            orphan_labels,
+            "0 label IDs absent from distinct Bronze transactions",
+        ),
+        ValidationResult(
+            "fraud_labels.complete_transaction_coverage",
+            missing_labels == 0,
+            missing_labels,
+            "0 distinct Bronze transaction IDs without labels",
+        ),
+        ValidationResult(
+            "fraud_labels.population_matches_distinct_transactions",
+            label_rows == transaction_count,
+            f"labels={label_rows},distinct_transactions={transaction_count}",
+            "fraud label rows equal distinct Bronze transaction IDs",
+        ),
+    ]
+
+
 def print_result(
     result: ValidationResult,
 ) -> None:
@@ -317,10 +417,11 @@ def print_summary(
         )
 
 
-def run_validation() -> bool:
+def run_validation(include_fraud_labels: bool = False) -> bool:
     spark = None
     passed_count = 0
     failed_count = 0
+    tables: dict[str, DataFrame] = {}
 
     try:
         spark = create_spark_session(
@@ -328,7 +429,7 @@ def run_validation() -> bool:
             optimized=True,
         )
 
-        for table_name in BRONZE_TABLES:
+        for table_name in offline_tables(include_fraud_labels):
             print(
                 f"========== VALIDATE {table_name} =========="
             )
@@ -348,6 +449,7 @@ def run_validation() -> bool:
                     )
                 )
                 passed_count += 1
+                tables[table_name] = df
 
             except Exception as exc:
                 print(
@@ -374,6 +476,9 @@ def run_validation() -> bool:
                         df
                     )
                 )
+
+            if table_name == "fraud_labels":
+                results.extend(validate_fraud_labels(df))
 
             for result in results:
                 print_result(result)
@@ -418,6 +523,21 @@ def run_validation() -> bool:
                 )
                 failed_count += 1
 
+        if include_fraud_labels and {
+            "transactions",
+            "fraud_labels",
+        }.issubset(tables):
+            print("========== VALIDATE fraud_labels relationships ==========")
+            for result in validate_fraud_label_coverage(
+                tables["fraud_labels"],
+                tables["transactions"],
+            ):
+                print_result(result)
+                if result.passed:
+                    passed_count += 1
+                else:
+                    failed_count += 1
+
     except Exception as exc:
         print(
             f"ERROR | Unable to start Bronze validation: {exc}"
@@ -443,9 +563,16 @@ def run_validation() -> bool:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Validate persisted Bronze Delta data.")
+    parser.add_argument(
+        "--include-fraud-labels",
+        action="store_true",
+        help="Require and validate Bronze fraud_labels in transitional fraud mode.",
+    )
+    args = parser.parse_args()
     return (
         0
-        if run_validation()
+        if run_validation(include_fraud_labels=args.include_fraud_labels)
         else 1
     )
 

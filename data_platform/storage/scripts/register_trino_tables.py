@@ -20,6 +20,7 @@ from data_platform.storage.scripts.config import (
     TRINO_CATALOG,
     TRINO_REGISTRATION_LAYERS,
     delta_table_uri,
+    trino_registration_layers,
 )
 from data_platform.storage.scripts.minio_client import (
     MinioStorageError,
@@ -85,6 +86,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable debug logging.",
     )
+    parser.add_argument(
+        "--include-fraud-labels",
+        action="store_true",
+        help=(
+            "Require and register Bronze/Silver fraud_labels in transitional "
+            "fraud mode."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -94,12 +103,16 @@ def select_layers(layer: str) -> tuple[str, ...]:
     return (layer,)
 
 
-def verify_delta_sources(minio_client, layers: tuple[str, ...]) -> None:
+def verify_delta_sources(
+    minio_client,
+    layers: tuple[str, ...],
+    registration_layers=TRINO_REGISTRATION_LAYERS,
+) -> None:
     """Fail trước mọi metadata mutation nếu một Delta source bị thiếu."""
     missing: list[str] = []
 
     for layer in layers:
-        layer_config = TRINO_REGISTRATION_LAYERS[layer]
+        layer_config = registration_layers[layer]
         bucket = str(layer_config["bucket"])
 
         for table in layer_config["tables"]:
@@ -127,8 +140,12 @@ def verify_delta_sources(minio_client, layers: tuple[str, ...]) -> None:
         )
 
 
-def register_layer(cursor, layer: str) -> list[RegistrationResult]:
-    layer_config = TRINO_REGISTRATION_LAYERS[layer]
+def register_layer(
+    cursor,
+    layer: str,
+    registration_layers=TRINO_REGISTRATION_LAYERS,
+) -> list[RegistrationResult]:
+    layer_config = registration_layers[layer]
     schema = str(layer_config["schema"])
     bucket = str(layer_config["bucket"])
     expected_tables = set(layer_config["tables"])
@@ -212,11 +229,12 @@ def register_layer(cursor, layer: str) -> list[RegistrationResult]:
     return results
 
 
-def run(layer: str) -> int:
+def run(layer: str, include_fraud_labels: bool = False) -> int:
     layers = select_layers(layer)
+    registration_layers = trino_registration_layers(include_fraud_labels)
     minio_client = create_minio_client()
     check_minio_connection(minio_client)
-    verify_delta_sources(minio_client, layers)
+    verify_delta_sources(minio_client, layers, registration_layers)
 
     results: list[RegistrationResult] = []
 
@@ -224,7 +242,9 @@ def run(layer: str) -> int:
         check_trino_connection(cursor)
 
         for selected_layer in layers:
-            results.extend(register_layer(cursor, selected_layer))
+            results.extend(
+                register_layer(cursor, selected_layer, registration_layers)
+            )
 
     registered = sum(result.registered_now for result in results)
     already_present = len(results) - registered
@@ -243,7 +263,7 @@ def main() -> int:
     configure_logging(verbose=args.verbose)
 
     try:
-        return run(args.layer)
+        return run(args.layer, include_fraud_labels=args.include_fraud_labels)
     except (
         MinioStorageError,
         TrinoClientError,

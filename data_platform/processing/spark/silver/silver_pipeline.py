@@ -12,6 +12,7 @@ from data_platform.processing.spark.silver.cleaners import (
     clean_accounts,
     clean_balance_snapshots,
     clean_devices,
+    clean_fraud_labels,
     clean_login_events,
     clean_merchants,
     clean_users,
@@ -77,7 +78,16 @@ PIPELINES = [
 ]
 
 
-def run_silver_pipeline(optimized: bool = True,) -> None:
+def selected_pipelines(include_fraud_labels: bool = False):
+    if include_fraud_labels:
+        return PIPELINES + [("fraud_labels", clean_fraud_labels, None)]
+    return list(PIPELINES)
+
+
+def run_silver_pipeline(
+    optimized: bool = True,
+    include_fraud_labels: bool = False,
+) -> None:
     spark = None
 
     try:
@@ -97,6 +107,10 @@ def run_silver_pipeline(optimized: bool = True,) -> None:
             optimized,
         )
         logger.info(
+            "Fraud labels enabled: %s",
+            include_fraud_labels,
+        )
+        logger.info(
             "========================================="
         )
 
@@ -104,7 +118,9 @@ def run_silver_pipeline(optimized: bool = True,) -> None:
             time.perf_counter()
         )
 
-        for (table_name, cleaner, partition_columns,) in PIPELINES:
+        for (table_name, cleaner, partition_columns,) in selected_pipelines(
+            include_fraud_labels
+        ):
             logger.info("")
             logger.info(
                 "========== %s ==========",
@@ -170,6 +186,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--include-fraud-labels",
+        action="store_true",
+        help="Require Bronze fraud_labels and write Silver fraud_labels.",
+    )
+
+    parser.add_argument(
         "--mode",
         choices=[
             "baseline",
@@ -192,7 +214,8 @@ def main() -> int:
         run_silver_pipeline(
             optimized=(
                 args.mode == "optimized"
-            )
+            ),
+            include_fraud_labels=args.include_fraud_labels,
         )
         return 0
 

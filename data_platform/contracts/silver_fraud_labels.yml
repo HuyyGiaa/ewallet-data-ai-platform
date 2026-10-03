@@ -1,0 +1,59 @@
+contract_version: 1
+dataset: silver.fraud_labels
+layer: silver
+description: Synthetic fraud ground truth keyed by logical transaction ID.
+storage_location: s3a://silver-zone/fraud_labels
+grain: One row per transaction_id.
+logical_key:
+  - transaction_id
+upstream:
+  - bronze.fraud_labels
+enforced_by:
+  - data_platform.quality.validate_silver --include-fraud-labels
+
+columns:
+  - {name: transaction_id, type: string, nullable: false}
+  - {name: label, type: integer, nullable: false}
+  - {name: fraud_type, type: string, nullable: true}
+
+domain_rules:
+  - column: label
+    allowed_values: [0, 1]
+    validator_rule: fraud_labels.valid_label_domain
+  - column: fraud_type
+    allowed_values: [velocity, amount_anomaly, account_takeover, merchant_burst]
+    applies_when: label == 1
+    validator_rule: fraud_labels.valid_fraud_type_domain
+
+conditional_rules:
+  - when: label == 0
+    require_null: [fraud_type]
+    validator_rule: fraud_labels.conditional_fraud_type
+  - when: label == 1
+    require_non_null: [fraud_type]
+    validator_rule: fraud_labels.conditional_fraud_type
+
+foreign_keys:
+  - columns: [transaction_id]
+    references: silver.transactions.transaction_id
+    nullable: false
+    validator_rule: fraud_labels.transaction_fk
+
+quality_rules:
+  - expectation: Dataset is non-empty in an enabled fraud-label run.
+    validator_rule: fraud_labels.non_empty
+  - expectation: transaction_id and label contain no null values.
+    validator_rule: fraud_labels.required_columns_not_null
+  - expectation: transaction_id is unique.
+    validator_rule: fraud_labels.duplicate_key
+  - expectation: Every Silver transaction has exactly one fraud label.
+    validator_rule: fraud_labels.complete_transaction_coverage
+  - expectation: Fraud-label and Silver transaction populations are equal.
+    validator_rule: fraud_labels.population_matches_transactions
+  - expectation: Bronze and Silver fraud-label populations are equal.
+    validator_rule: fraud_labels.bronze_silver_population
+
+notes:
+  - These labels are synthetic generator ground truth, not real fraud adjudication.
+  - The contract is evaluated only in explicit fraud-enabled transition mode.
+  - No Gold fraud dataset, feature table, training dataset, or model contract is implied.

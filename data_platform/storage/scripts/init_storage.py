@@ -33,8 +33,9 @@ from dataclasses import dataclass
 from data_platform.storage.scripts.config import (
     BRONZE_BUCKET,
     BRONZE_SCHEMA,
-    OFFLINE_TABLES,
+    FRAUD_LABEL_TABLE,
     TRINO_CATALOG,
+    offline_tables,
 )
 from data_platform.storage.scripts.delta_writer import (
     DeltaWriteResult,
@@ -104,6 +105,15 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--include-fraud-labels",
+        action="store_true",
+        help=(
+            "Require and bootstrap fraud_labels as the eighth logical Bronze "
+            "dataset. Legacy mode remains the default."
+        ),
+    )
+
+    parser.add_argument(
         "--tables",
         nargs="+",
         default=None,
@@ -143,6 +153,7 @@ def parse_args() -> argparse.Namespace:
 
 def validate_selected_tables(
     selected_tables: list[str] | None,
+    include_fraud_labels: bool = False,
 ) -> list[str]:
     """
     Kiểm tra danh sách bảng người dùng truyền vào.
@@ -150,11 +161,18 @@ def validate_selected_tables(
     Returns:
         Danh sách bảng theo đúng thứ tự cần xử lý.
     """
+    supported_tables = offline_tables(include_fraud_labels)
+
     if selected_tables is None:
-        return list(OFFLINE_TABLES)
+        return list(supported_tables)
+
+    if FRAUD_LABEL_TABLE in selected_tables and not include_fraud_labels:
+        raise StorageInitializationError(
+            "fraud_labels requires explicit --include-fraud-labels mode."
+        )
 
     invalid_tables = sorted(
-        set(selected_tables).difference(OFFLINE_TABLES)
+        set(selected_tables).difference(supported_tables)
     )
 
     if invalid_tables:
@@ -162,7 +180,7 @@ def validate_selected_tables(
             "Các bảng không hợp lệ: "
             f"{', '.join(invalid_tables)}. "
             "Danh sách được hỗ trợ: "
-            f"{', '.join(OFFLINE_TABLES)}"
+            f"{', '.join(supported_tables)}"
         )
 
     # Loại trùng nhưng giữ nguyên thứ tự nhập.
@@ -368,7 +386,10 @@ def main() -> int:
     configure_logging(verbose=args.verbose)
 
     try:
-        tables = validate_selected_tables(args.tables)
+        tables = validate_selected_tables(
+            args.tables,
+            include_fraud_labels=args.include_fraud_labels,
+        )
 
         return run(
             tables=tables,

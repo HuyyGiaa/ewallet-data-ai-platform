@@ -24,11 +24,11 @@ from deltalake import DeltaTable, write_deltalake
 from data_platform.storage.scripts.config import (
     BRONZE_BUCKET,
     DELTA_STORAGE_OPTIONS,
-    OFFLINE_TABLES,
     TABLE_DATE_COLUMNS,
     TABLE_DATETIME_COLUMNS,
     TABLE_STRING_COLUMNS,
     delta_table_uri,
+    offline_tables,
     parquet_path,
 )
 
@@ -483,7 +483,10 @@ def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteM
     )
 
 
-def write_all_offline_tables(mode: WriteMode = "overwrite",) -> list[DeltaWriteResult]:
+def write_all_offline_tables(
+    mode: WriteMode = "overwrite",
+    include_fraud_labels: bool = False,
+) -> list[DeltaWriteResult]:
     """
     Ghi toàn bộ bảng offline vào Bronze Layer.
 
@@ -491,18 +494,19 @@ def write_all_offline_tables(mode: WriteMode = "overwrite",) -> list[DeltaWriteR
     có vẻ thành công nhưng thực tế chỉ ghi được một phần.
     """
     results: list[DeltaWriteResult] = []
+    selected_tables = offline_tables(include_fraud_labels)
 
     logger.info(
         "Bắt đầu ghi %d bảng offline vào bucket '%s'.",
-        len(OFFLINE_TABLES),
+        len(selected_tables),
         BRONZE_BUCKET,
     )
 
-    for position, table_name in enumerate(OFFLINE_TABLES, start=1):
+    for position, table_name in enumerate(selected_tables, start=1):
         logger.info(
             "========== [%d/%d] %s ==========",
             position,
-            len(OFFLINE_TABLES),
+            len(selected_tables),
             table_name,
         )
 
@@ -516,7 +520,7 @@ def write_all_offline_tables(mode: WriteMode = "overwrite",) -> list[DeltaWriteR
     logger.info(
         "Hoàn tất ghi %d/%d bảng vào Bronze Layer.",
         len(results),
-        len(OFFLINE_TABLES),
+        len(selected_tables),
     )
 
     return results

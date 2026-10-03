@@ -4,8 +4,13 @@
 
 DataHub is the metadata catalog for the E-Wallet lakehouse. It discovers the
 registered Delta tables through Trino, stores selected direct dataset lineage,
-and displays eight representative data-quality assertions. The transaction
-data remains in Delta Lake on MinIO.
+and displays representative data-quality assertions. The transaction data
+remains in Delta Lake on MinIO.
+
+During the F2 transition, the current canonical runtime remains at 7 Bronze,
+7 Silver, and 11 Gold tables (25 total). Fraud-enabled mode prepares 8 Bronze,
+8 Silver, and 11 Gold tables (27 total), but canonical fraud tables and
+metadata are deferred to F3.
 
 DataHub is a separate local Quickstart runtime. It is not a service in the
 platform's split Compose project.
@@ -79,6 +84,17 @@ produces Silver and Gold, run the metadata-only registration tool:
 python3 -m data_platform.storage.scripts.register_trino_tables --layer all
 ```
 
+After canonical fraud tables exist, opt into their registration explicitly:
+
+```bash
+python3 -m data_platform.storage.scripts.register_trino_tables \
+  --layer all \
+  --include-fraud-labels
+```
+
+Without the flag, the existing 25-table Phase 1 inventory remains required.
+With the flag, a missing Bronze or Silver `fraud_labels` fails preflight.
+
 It verifies every expected `_delta_log`, creates missing schemas, registers
 missing tables, checks existing locations, and executes lightweight readability
 queries. Re-running is safe. A location mismatch fails instead of dropping or
@@ -129,14 +145,24 @@ DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py
 ```
 
+The default command retains the exact Phase 1 lineage. Once both fraud
+datasets exist in canonical Trino and DataHub metadata, add the direct
+`bronze_zone.fraud_labels` to `silver_zone.fraud_labels` edge with:
+
+```bash
+DATAHUB_TELEMETRY_ENABLED=false \
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py \
+  --include-fraud-labels
+```
+
 This script intentionally covers the main transaction path rather than every
 Gold dependency.
 
 ## Selected data-quality assertions
 
 The contracts describe expectations and the Silver/Gold validators enforce the
-complete executable rule set. The DataHub publisher exposes eight selected
-checks:
+complete executable rule set. The default DataHub publisher exposes the same
+eight Phase 1 checks:
 
 | Assertion | Target dataset |
 |---|---|
@@ -153,6 +179,22 @@ The publisher evaluates current data with read-only Trino SQL. It does not
 change Delta tables. Each definition has a deterministic assertion URN, so a
 repeat publication updates the same eight logical definitions and records new
 timestamped run results.
+
+Fraud-enabled mode adds three deterministic checks for
+`silver_zone.fraud_labels`: unique `transaction_id`, required/domain/
+conditional semantics, and exact transaction coverage. Self-test can validate
+all eleven definitions without accessing Trino or DataHub:
+
+```bash
+DATAHUB_TELEMETRY_ENABLED=false \
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --self-test \
+  --include-fraud-labels
+```
+
+Do not use fraud-enabled dry-run or publish until both fraud tables exist in
+canonical Trino. F2 adds no Gold fraud copy, training dataset, Feast feature,
+or model artifact.
 
 Run local self-tests and a no-write evaluation:
 

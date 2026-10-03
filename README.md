@@ -222,6 +222,22 @@ python -m data_platform.processing.spark.gold.gold_pipeline
 python -m data_platform.quality.validate_gold
 ```
 
+Phase 2 fraud-label integration is transitional. The commands above keep the
+current canonical Phase 1 inventory (7 Bronze, 7 Silver, 11 Gold). An isolated
+or future canonical fraud-enabled run uses one opt-in consistently:
+
+```bash
+python -m data_platform.storage.scripts.init_storage --include-fraud-labels
+python -m data_platform.quality.validate_bronze --include-fraud-labels
+python -m data_platform.processing.spark.silver.silver_pipeline --include-fraud-labels
+python -m data_platform.quality.validate_silver --include-fraud-labels
+```
+
+In fraud-enabled mode, `fraud_labels` is required and flows from source
+Parquet through Bronze to a thin Silver target-truth table. It has no Gold
+copy; fraud features, a training dataset, Feast, and ML training are later
+tasks. F3 will make the 8 Bronze / 8 Silver / 11 Gold inventory canonical.
+
 The Airflow DAG runs the full sequence with validation gates:
 
 ```text
@@ -247,7 +263,8 @@ does not silently choose that port.
 ## Lakehouse layers and validation
 
 - **Bronze** preserves raw duplicates and schema-evolution nulls. Its validator
-  verifies all seven persisted tables can be scanned and have required schemas.
+  verifies all seven canonical tables can be scanned and have required schemas;
+  fraud-enabled mode requires and validates `fraud_labels` as the eighth.
 - **Silver** casts, cleans, deduplicates, normalizes `channel`, and enforces
   required fields, domains, ranges, logical keys, and foreign keys.
 - **Gold** builds dimensions, facts, the transaction OBT, 90-day user features,
@@ -257,9 +274,10 @@ does not silently choose that port.
 All validators return a non-zero exit code on validation or runtime failure.
 They read persisted Delta data and do not repair it.
 
-Four contracts describe selected stable interfaces:
+Five contracts describe selected stable interfaces:
 
 - [`silver.transactions`](data_platform/contracts/silver_transactions.yml)
+- [`silver.fraud_labels`](data_platform/contracts/silver_fraud_labels.yml)
 - [`gold.fact_transactions`](data_platform/contracts/gold_fact_transactions.yml)
 - [`gold.obt_transaction_enriched`](data_platform/contracts/gold_obt_transaction_enriched.yml)
 - [`gold.feat_user_90d`](data_platform/contracts/gold_feat_user_90d.yml)
@@ -275,6 +293,10 @@ After Spark creates the Delta tables, register or verify all layers:
 ```bash
 python3 -m data_platform.storage.scripts.register_trino_tables --layer all
 ```
+
+Keep this command for the current 25-table canonical runtime. After F3
+persists canonical fraud labels, add `--include-fraud-labels` to require and
+register the 27-table fraud-enabled inventory.
 
 This command is metadata-only and idempotent. It requires existing Delta logs,
 checks readable locations, and fails on a location mismatch. It does not copy,

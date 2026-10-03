@@ -62,6 +62,22 @@ OFFLINE_TABLES = (
 
 SILVER_TABLES = OFFLINE_TABLES
 
+FRAUD_LABEL_TABLE = "fraud_labels"
+
+
+def offline_tables(include_fraud_labels: bool = False) -> tuple[str, ...]:
+    """Return the transitional Bronze inventory for the selected mode."""
+    if include_fraud_labels:
+        return OFFLINE_TABLES + (FRAUD_LABEL_TABLE,)
+    return OFFLINE_TABLES
+
+
+def silver_tables(include_fraud_labels: bool = False) -> tuple[str, ...]:
+    """Return the transitional Silver inventory for the selected mode."""
+    if include_fraud_labels:
+        return SILVER_TABLES + (FRAUD_LABEL_TABLE,)
+    return SILVER_TABLES
+
 GOLD_TABLES = (
     "dim_user",
     "dim_account",
@@ -94,6 +110,29 @@ TRINO_REGISTRATION_LAYERS = {
     },
 }
 
+
+def trino_registration_layers(
+    include_fraud_labels: bool = False,
+) -> dict[str, dict[str, object]]:
+    """Build a registration inventory without mutating legacy constants."""
+    return {
+        "bronze": {
+            "schema": BRONZE_SCHEMA,
+            "bucket": BRONZE_BUCKET,
+            "tables": offline_tables(include_fraud_labels),
+        },
+        "silver": {
+            "schema": SILVER_SCHEMA,
+            "bucket": SILVER_BUCKET,
+            "tables": silver_tables(include_fraud_labels),
+        },
+        "gold": {
+            "schema": GOLD_SCHEMA,
+            "bucket": GOLD_BUCKET,
+            "tables": GOLD_TABLES,
+        },
+    }
+
 # ============================================================
 # Bronze table schema normalization
 # ============================================================
@@ -106,6 +145,7 @@ TABLE_DATETIME_COLUMNS = {
     "transactions": ("timestamp", "ingested_at"),
     "balance_snapshots": (),
     "login_events": ("login_ts",),
+    "fraud_labels": (),
 }
 
 TABLE_DATE_COLUMNS = {
@@ -116,6 +156,7 @@ TABLE_DATE_COLUMNS = {
     "transactions": (),
     "balance_snapshots": ("snapshot_date",),
     "login_events": (),
+    "fraud_labels": (),
 }
 
 TABLE_STRING_COLUMNS = {
@@ -161,6 +202,10 @@ TABLE_STRING_COLUMNS = {
         "login_id",
         "user_id",
         "device_id",
+    ),
+    "fraud_labels": (
+        "transaction_id",
+        "fraud_type",
     ),
 }
 
