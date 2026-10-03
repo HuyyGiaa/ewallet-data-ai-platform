@@ -1,12 +1,10 @@
-# Cấu hình cho Data Generator - Fintech E-Wallet
-
-n_users: 500000              # giảm so với thiết kế gốc (50000) để chạy nhanh trên máy cá nhân
-                            # tăng lại khi cần dataset lớn hơn cho demo Spark/Flink
-n_merchants: 300
-n_devices_per_user: 1
+# Small isolated profile for validating Fraud Generator V1.
+n_users: 120
+n_merchants: 20
+n_devices_per_user: 2
+n_transactions: 2400
 days_history: 150
 
-# Fixed offline event-time range. Keep days_history for the streaming generator.
 generation:
   temporal:
     start_timestamp: "2026-01-01T00:00:00"
@@ -16,7 +14,6 @@ schema_evolution:
   enabled: true
   cutover_timestamp: "2026-03-15T00:00:00"
 
-# Offline problems
 skew_ratio_hour: 0.75
 skew_ratio_channel: 0.60
 duplicate_rate_offline: 0.02
@@ -28,7 +25,7 @@ fraud:
   enabled: true
   random_seed: 1042
   prevalence:
-    target_rate: 0.02
+    target_rate: 0.04
   scenarios:
     velocity:
       enabled: true
@@ -52,8 +49,6 @@ fraud:
       burst_size: 5
       window_minutes: 10
 
-
-# Streaming problems (dùng cho streaming_generator.py)
 base_events_per_min: 50
 burst_multiplier: 30
 burst_windows: ["12:00-12:20", "17:20-17:40"]
@@ -62,5 +57,4 @@ late_delay_min_max: [5, 1440]
 duplicate_rate_stream: 0.015
 
 random_seed: 42
-
-output_dir: "output/offline"
+output_dir: "output/fraud_dev"

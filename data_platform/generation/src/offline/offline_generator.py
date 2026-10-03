@@ -1,9 +1,8 @@
-"""
-Data Generator chính - sinh đầy đủ 7 logical datasets offline
-cho domain Fintech E-Wallet.
+"""Offline generator for the Fintech E-Wallet domain.
 
 Transactions được xuất thành 2 physical batches để mô phỏng
-schema evolution.
+schema evolution. Fraud ground truth is exported separately and never changes
+the transaction schemas.
 
 Output:
 - users.parquet
@@ -14,19 +13,21 @@ Output:
 - transactions_v2.parquet
 - balance_snapshots.parquet
 - login_events.parquet
+- fraud_labels.parquet
 """
 
 import argparse
 import os
 import random
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import yaml
 from faker import Faker
-from pathlib import Path
 from data_platform.generation.src.fintech_schema import (
     TransactionType,
     TransactionStatus,
@@ -37,10 +38,42 @@ from data_platform.generation.src.fintech_schema import (
     TYPE_WEIGHTS,
     STATUS_WEIGHTS,
 )
+from data_platform.generation.src.offline.fraud import inject_fraud
 
 fake = Faker("vi_VN")
+_ID_RANDOM = random.Random()
 
 PEAK_HOURS = [7, 8, 9, 12, 18, 19, 20]
+
+
+@dataclass(frozen=True)
+class TemporalConfig:
+    start: datetime
+    cutover: datetime
+    end: datetime
+
+
+def get_temporal_config(cfg: dict) -> TemporalConfig:
+    """Read and validate the deterministic offline event-time boundaries."""
+    try:
+        start = datetime.fromisoformat(cfg["generation"]["temporal"]["start_timestamp"])
+        end = datetime.fromisoformat(cfg["generation"]["temporal"]["end_timestamp"])
+        schema_cfg = cfg["schema_evolution"]
+        cutover = datetime.fromisoformat(schema_cfg["cutover_timestamp"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "offline temporal configuration requires valid ISO-8601 generation start/end "
+            "and schema_evolution.cutover_timestamp"
+        ) from exc
+
+    if schema_cfg.get("enabled") is not True:
+        raise ValueError("schema_evolution.enabled must be true for V1/V2 generation")
+    if not start < cutover < end:
+        raise ValueError(
+            "offline temporal invariant failed: start_timestamp < cutover_timestamp "
+            "< end_timestamp is required"
+        )
+    return TemporalConfig(start=start, cutover=cutover, end=end)
 
 def load_config(config_path=None):
     data_generator_dir = Path(__file__).resolve().parents[2]
@@ -65,23 +98,30 @@ def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
     Faker.seed(seed)
+    _ID_RANDOM.seed(seed)
+
+
+def deterministic_uuid() -> str:
+    """Generate UUID-shaped identifiers from the reproducible base RNG."""
+    return str(uuid.UUID(int=_ID_RANDOM.getrandbits(128), version=4))
 
 
 # 1. users
 def generate_users(cfg: dict) -> pd.DataFrame:
     n = cfg["n_users"]
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=cfg["days_history"] + 365)
+    temporal = get_temporal_config(cfg)
+    start_date = temporal.start - timedelta(days=365)
+    end_date = temporal.start - timedelta(days=30)
 
     rows = []
     for _ in range(n):
         rows.append({
-            "user_id": str(uuid.uuid4()),
+            "user_id": deterministic_uuid(),
             "full_name": fake.name(),
             "email": fake.email(),
             "phone": fake.phone_number(),
             "kyc_verified": random.random() < 0.85,
-            "created_at": fake.date_time_between(start_date=start_date, end_date=end_date - timedelta(days=30)),
+            "created_at": fake.date_time_between(start_date=start_date, end_date=end_date),
         })
     return pd.DataFrame(rows)
 
@@ -91,7 +131,7 @@ def generate_accounts(users_df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for _, u in users_df.iterrows():
         rows.append({
-            "account_id": str(uuid.uuid4()),
+            "account_id": deterministic_uuid(),
             "user_id": u["user_id"],
             "account_type": AccountType.WALLET_VND.value,
             "currency": "VND",
@@ -107,7 +147,7 @@ def generate_merchants(cfg: dict) -> pd.DataFrame:
     rows = []
     for _ in range(n):
         rows.append({
-            "merchant_id": str(uuid.uuid4()),
+            "merchant_id": deterministic_uuid(),
             "merchant_name": fake.company(),
             "category": random.choice(categories),
         })
@@ -127,7 +167,7 @@ def generate_devices(users_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         for _ in range(cfg.get("n_devices_per_user", 1)):
             dtype = random.choice(device_types)
             rows.append({
-                "device_id": str(uuid.uuid4()),
+                "device_id": deterministic_uuid(),
                 "user_id": u["user_id"],
                 "device_type": dtype,
                 "os": random.choice(os_by_type[dtype]),
@@ -139,9 +179,10 @@ def generate_devices(users_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 # 5. transactions 
 def generate_transactions(accounts_df: pd.DataFrame, merchants_df: pd.DataFrame, devices_df: pd.DataFrame, cfg: dict,) -> pd.DataFrame:
     n = cfg.get("n_transactions") or len(accounts_df) * 8
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=cfg["days_history"])
-    schema_change_date = datetime.fromisoformat(cfg["schema_change_date"])
+    temporal = get_temporal_config(cfg)
+    start_date = temporal.start
+    end_date = temporal.end
+    schema_change_date = temporal.cutover
 
     account_ids = accounts_df["account_id"].tolist()
     account_to_user = dict(zip(accounts_df["account_id"], accounts_df["user_id"]))
@@ -156,15 +197,15 @@ def generate_transactions(accounts_df: pd.DataFrame, merchants_df: pd.DataFrame,
     user_ids = list(account_to_user.values())
     user_channel_pref = {
         uid: ("app" if random.random() < skew_ratio_channel else None)
-        for uid in set(user_ids)
+        for uid in sorted(set(user_ids))
     }
-    LOYAL_CHANNEL_WEIGHT = 0.9
+    loyal_channel_weight = cfg.get("channel_loyal_weight", 0.9)
     OTHER_CHANNELS = [c.value for c in Channel if c.value != "app"]
 
     def pick_channel(user_id: str) -> str:
         pref = user_channel_pref.get(user_id)
         if pref == "app":
-            if random.random() < LOYAL_CHANNEL_WEIGHT:
+            if random.random() < loyal_channel_weight:
                 return "app"
             return random.choice(OTHER_CHANNELS)
         return random.choice([c.value for c in Channel])
@@ -233,7 +274,7 @@ def generate_transactions(accounts_df: pd.DataFrame, merchants_df: pd.DataFrame,
         channel = pick_channel(user_id) if event_time >= schema_change_date else None
 
         rows.append({
-            "transaction_id": str(uuid.uuid4()),
+            "transaction_id": deterministic_uuid(),
             "account_id": account_id,
             "user_id": user_id,
             "device_id": device_id,
@@ -270,8 +311,9 @@ def generate_balance_snapshots(transactions_df: pd.DataFrame) -> pd.DataFrame:
 
 # 7. login_events
 def generate_login_events(users_df: pd.DataFrame, devices_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=cfg["days_history"])
+    temporal = get_temporal_config(cfg)
+    end_date = temporal.end
+    start_date = temporal.start
     devices_by_user = devices_df.groupby("user_id")["device_id"].apply(list).to_dict()
 
     n_logins_per_user = 15  # trung bình mỗi user login ~15 lần trong khung thời gian
@@ -282,7 +324,7 @@ def generate_login_events(users_df: pd.DataFrame, devices_df: pd.DataFrame, cfg:
             continue
         for _ in range(random.randint(1, n_logins_per_user)):
             rows.append({
-                "login_id": str(uuid.uuid4()),
+                "login_id": deterministic_uuid(),
                 "user_id": u["user_id"],
                 "device_id": random.choice(user_devices),
                 "login_ts": fake.date_time_between(start_date=start_date, end_date=end_date),
@@ -316,9 +358,7 @@ def apply_duplicates(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     return pd.concat([df, dup_rows], ignore_index=True)
 
 def split_transaction_schema_versions(df: pd.DataFrame, cfg: dict,):
-    schema_change_date = pd.Timestamp(
-        cfg["schema_change_date"]
-    )
+    schema_change_date = pd.Timestamp(get_temporal_config(cfg).cutover)
 
     v1 = (
         df[df["timestamp"] < schema_change_date]
@@ -334,56 +374,23 @@ def split_transaction_schema_versions(df: pd.DataFrame, cfg: dict,):
     if v1.empty or v2.empty:
         raise ValueError(
             "Schema evolution requires transactions "
-            "both before and after schema_change_date."
+            "both before and after schema_evolution.cutover_timestamp."
         )
 
     return v1, v2
 
-def main():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--config",
-        default="config/settings.yaml",
-    )
-
-    args = parser.parse_args()
-
-    # Load config
-    cfg = load_config(args.config)
-
-    # Set random seed
+def generate_offline_datasets(cfg: dict) -> tuple[dict[str, pd.DataFrame], dict]:
+    """Generate all offline dataframes without writing them to disk."""
+    temporal = get_temporal_config(cfg)
     set_seed(cfg["random_seed"])
-
-    DATA_GENERATOR_DIR = Path(__file__).resolve().parents[2]
-
-    out_dir = (
-        DATA_GENERATOR_DIR
-        / cfg.get("output_dir", "output/offline")
-    )
-
-    out_dir.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
     print(f"{cfg['n_users']} users...")
     users_df = generate_users(cfg)
-
     print("Generate accounts...")
     accounts_df = generate_accounts(users_df)
-
-    print(
-        f"Generate {cfg['n_merchants']} merchants..."
-    )
+    print(f"Generate {cfg['n_merchants']} merchants...")
     merchants_df = generate_merchants(cfg)
-
     print("Generate devices...")
-    devices_df = generate_devices(
-        users_df,
-        cfg,
-    )
-
+    devices_df = generate_devices(users_df, cfg)
     print("Generate transactions...")
     transactions_df = generate_transactions(
         accounts_df,
@@ -392,54 +399,35 @@ def main():
         cfg,
     )
 
-    print(
-        f"      -> {len(transactions_df)} "
-        "dòng trước khi chèn lỗi"
-    )
+    print(f"      -> {len(transactions_df)} logical rows before issue injection")
+    transactions_df = apply_skew(transactions_df, cfg)
 
-    transactions_df = apply_skew(
+    # Fraud runs after Phase 1 skew but before duplicates. At this point every
+    # transaction_id is still unique, so labels keep logical-transaction grain.
+    login_devices_df = devices_df
+    transactions_df, devices_df, fraud_labels_df, fraud_metrics = inject_fraud(
         transactions_df,
+        devices_df,
+        merchants_df,
         cfg,
+        temporal.start,
+        temporal.cutover,
+        temporal.end,
     )
-
-    transactions_df = apply_duplicates(
-        transactions_df,
-        cfg,
-    )
-
+    transactions_df = apply_duplicates(transactions_df, cfg)
     print(
-        f"      -> {len(transactions_df)} "
-        "dòng sau khi chèn skew + duplicate"
+        f"      -> {len(transactions_df)} physical rows after skew + fraud + duplicate"
     )
-
-    print(
-        "Generate balance_snapshots "
-        "từ transactions..."
-    )
-
-    balance_snapshots_df = (
-        generate_balance_snapshots(
-            transactions_df
-        )
-    )
-
+    print("Generate balance_snapshots from transactions...")
+    balance_snapshots_df = generate_balance_snapshots(transactions_df)
     print("Generate login_events...")
-
-    login_events_df = (
-        generate_login_events(
-            users_df,
-            devices_df,
-            cfg,
-        )
+    # Preserve Phase 1 login generation. Fraud-only recent devices remain valid
+    # entity rows but are not retroactively inserted into historical logins.
+    login_events_df = generate_login_events(users_df, login_devices_df, cfg)
+    transactions_v1_df, transactions_v2_df = split_transaction_schema_versions(
+        transactions_df,
+        cfg,
     )
-
-    transactions_v1_df, transactions_v2_df = (
-        split_transaction_schema_versions(
-            transactions_df,
-            cfg,
-        )
-    )
-
     print(
         f"Schema V1: {len(transactions_v1_df):,} rows | "
         f"channel={'channel' in transactions_v1_df.columns}"
@@ -450,80 +438,42 @@ def main():
         f"channel={'channel' in transactions_v2_df.columns}"
     )
 
-    print(
-        f"\nĐang xuất file ra thư mục: "
-        f"{out_dir}"
-    )
+    return {
+        "users": users_df,
+        "accounts": accounts_df,
+        "merchants": merchants_df,
+        "devices": devices_df,
+        "transactions_v1": transactions_v1_df,
+        "transactions_v2": transactions_v2_df,
+        "balance_snapshots": balance_snapshots_df,
+        "login_events": login_events_df,
+        "fraud_labels": fraud_labels_df,
+    }, fraud_metrics
 
-    users_df.to_parquet(
-        out_dir / "users.parquet",
-        index=False,
-    )
 
-    accounts_df.to_parquet(
-        out_dir / "accounts.parquet",
-        index=False,
-    )
+def write_offline_datasets(datasets: dict[str, pd.DataFrame], out_dir: Path) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for name, dataframe in datasets.items():
+        dataframe.to_parquet(out_dir / f"{name}.parquet", index=False)
 
-    merchants_df.to_parquet(
-        out_dir / "merchants.parquet",
-        index=False,
-    )
 
-    devices_df.to_parquet(
-        out_dir / "devices.parquet",
-        index=False,
-    )
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="config/settings.yaml")
+    args = parser.parse_args()
 
-    transactions_v1_df.to_parquet(
-        out_dir / "transactions_v1.parquet",
-        index=False,
-    )
+    cfg = load_config(args.config)
+    data_generator_dir = Path(__file__).resolve().parents[2]
+    out_dir = data_generator_dir / cfg.get("output_dir", "output/offline")
+    datasets, fraud_metrics = generate_offline_datasets(cfg)
 
-    transactions_v2_df.to_parquet(
-        out_dir / "transactions_v2.parquet",
-        index=False,
-    )
-    
-    balance_snapshots_df.to_parquet(
-        out_dir / "balance_snapshots.parquet",
-        index=False,
-    )
-
-    login_events_df.to_parquet(
-        out_dir / "login_events.parquet",
-        index=False,
-    )
-
-    print(
-        f"\nHoàn tất. Output tại: {out_dir}"
-    )
-
-    print(
-        f"  users: {len(users_df)}"
-        f" | accounts: {len(accounts_df)}"
-        f" | merchants: {len(merchants_df)}"
-    )
-
-    print(
-        f"  devices: {len(devices_df)}"
-        f" | transactions total: {len(transactions_df)}"
-    )
-
-    
-    print(
-        f"  transactions_v1: {len(transactions_v1_df)}"
-        f" | transactions_v2: {len(transactions_v2_df)}"
-    )
-
-    print(
-        f"  balance_snapshots: "
-        f"{len(balance_snapshots_df)}"
-        f" | login_events: "
-        f"{len(login_events_df)}"
-    )
+    print(f"\nWriting 9 physical outputs to: {out_dir}")
+    write_offline_datasets(datasets, out_dir)
+    for name, dataframe in datasets.items():
+        print(f"  {name}: {len(dataframe):,}")
+    print(f"  fraud scenario counts: {fraud_metrics['scenario_counts']}")
+    print(f"\nComplete. Output at: {out_dir}")
 
 
 if __name__ == "__main__":
     main()
-
