@@ -99,7 +99,7 @@ flowchart TD
     VG --> REG["Register existing Delta tables in Trino"]
     REG --> INGEST["Ingest Trino metadata into DataHub"]
     INGEST --> LIN["Publish selected direct lineage"]
-    LIN --> ASSERT["Evaluate and publish 8 selected assertions"]
+    LIN --> ASSERT["Evaluate and publish 11 selected assertions"]
 
     AIRFLOW["Airflow"] -.orchestrates through validate_gold.-> BR
     AIRFLOW -.-> VB
@@ -116,12 +116,14 @@ DataHub publication are explicit post-pipeline operations.
 
 ### Bronze
 
-- Ingests seven offline datasets into persisted Delta tables in MinIO.
+- Ingests eight offline datasets into persisted Delta tables in MinIO.
 - Preserves intentional transaction duplicates and historical nulls caused by
   schema evolution.
 - Merges transaction V1, which has no `channel`, with V2, which adds it.
 - Validates readability, required columns, compatible types, non-empty tables,
   and the final presence/type of `transactions.channel`.
+- Preserves `fraud_labels` at one row per logical transaction while retaining
+  intentional physical duplicates in `transactions`.
 
 Bronze validation intentionally does not apply Silver business cleaning.
 
@@ -131,7 +133,8 @@ Bronze validation intentionally does not apply Silver business cleaning.
 - Deduplicates transactions by `transaction_id`.
 - Normalizes historical missing channels to `UNKNOWN`.
 - Enforces required fields, domains, ranges, logical keys, and foreign keys.
-- Produces seven cleaned Delta tables.
+- Produces eight cleaned Delta tables, including trusted `fraud_labels` target
+  truth without copying it into Gold.
 
 ### Gold
 
@@ -155,9 +158,10 @@ The three validators are executable fail-hard gates. Their rules cover schema
 and persisted readability at Bronze, cleaning and referential rules at Silver,
 and analytical grains and population relationships at Gold.
 
-The contracts under `data_platform/contracts/` describe four stable interfaces:
+The contracts under `data_platform/contracts/` describe five stable interfaces:
 
 - `silver.transactions`
+- `silver.fraud_labels`
 - `gold.fact_transactions`
 - `gold.obt_transaction_enriched`
 - `gold.feat_user_90d`
@@ -168,15 +172,16 @@ The relationship is:
 transformation behavior -> data contract -> validator -> selected DataHub assertion
 ```
 
-The eight DataHub assertions are a visible subset of validator coverage. They
+The eleven DataHub assertions are a visible subset of validator coverage. They
 do not replace the full Silver and Gold validation suites.
 
 ### DataHub
 
 DataHub runs as a separate pinned Quickstart stack. It ingests table metadata
-from Trino, receives ten explicit direct lineage edges for the selected
-transaction path, and stores eight selected custom assertion definitions and
-their run results. DataHub does not move or transform Delta data.
+from Trino, receives eleven explicit direct lineage edges for the selected
+transaction and fraud-label paths, and stores eleven selected custom assertion
+definitions and their run results. DataHub does not move or transform Delta
+data.
 
 ### CDC and streaming
 
@@ -240,7 +245,7 @@ known local configuration follow-up rather than silently changing Airflow.
 - Flink outputs are ephemeral print sinks and do not feed the lakehouse.
 - CDC events are published to Redpanda but are not consumed into Delta.
 - DataHub Quickstart is a separate local-development runtime.
-- The eight DataHub assertions cover selected contract rules, not every
+- The eleven DataHub assertions cover selected contract rules, not every
   validator rule.
 - Local Compose files contain development credentials suitable only for the
   coursework environment.

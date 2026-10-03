@@ -72,7 +72,7 @@ n\_merchants: 300
 
 n\_devices\_per\_user: 1
 
-days\_history: 90
+days\_history: 150
 
 duplicate\_rate\_offline: 0.02
 
@@ -90,15 +90,17 @@ The generated dataset contains:
 
 \| Merchants | 300 |
 
-\| Devices | 500,000 |
+\| Devices | 519,590 |
 
 \| Transactions before duplicate injection | 4,000,000 |
 
 \| Bronze transactions after duplicate injection | 4,080,000 |
 
-\| Balance snapshots | 3,895,224 |
+\| Balance snapshots | 3,881,538 |
 
-\| Login events | 3,997,362 |
+\| Login events | 3,999,581 |
+
+\| Fraud labels | 4,000,000 |
 
 The generator intentionally introduces data characteristics that are
 
@@ -122,7 +124,7 @@ Examples include:
 
 **## Source Data**
 
-The offline generator produces seven source datasets:
+The canonical offline generator produces eight logical source datasets:
 
 \`\`\`text
 
@@ -140,13 +142,15 @@ balance\_snapshots
 
 login\_events
 
+fraud\_labels
+
 \`\`\`
 
 The files are written as Parquet under:
 
 \`\`\`text
 
-data\_generator/output/offline/
+data_platform/generation/output/offline/
 
 \`\`\`
 

@@ -15,11 +15,11 @@ rules. They are declarative specifications. The executable enforcement
 remains in `data_platform.quality.validate_silver` and
 `data_platform.quality.validate_gold`.
 
-The fraud-label contract is part of the Phase 2 transition. Static YAML
-validation always includes it, while persisted-data enforcement runs only
-with `validate_silver --include-fraud-labels`. The default validator therefore
-continues to support the current Phase 1 lakehouse, where `fraud_labels` does
-not exist yet. Explicit fraud mode treats a missing dataset as an error.
+The fraud-label contract is part of the canonical Phase 2 lakehouse. Static
+YAML validation always includes it, while persisted-data enforcement runs with
+`validate_silver --include-fraud-labels`. The default validator remains as a
+Phase 1 compatibility mode; canonical validation treats a missing fraud-label
+dataset as an error.
 
 The `nullable` values are logical contract expectations. The current Delta
 schemas expose permissive `nullable=true` metadata for every field, so the

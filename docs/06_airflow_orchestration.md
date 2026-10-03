@@ -30,6 +30,9 @@ Each downstream task runs only when the previous task succeeds.
 The DAG ends at Gold validation. Trino registration and DataHub metadata,
 lineage, and assertion publication remain explicit post-pipeline operations.
 
+The four Bronze/Silver task commands use `--include-fraud-labels`, so the
+canonical six-stage run keeps the label table synchronized with transactions.
+
 ## Configuration
 
 - Airflow version: 3.3.1
@@ -74,23 +77,34 @@ while downstream tasks remained blocked.
 
 This verified that task dependency and retry handling worked correctly.
 
-## Final Run
+## Canonical Phase 2 verification
 
-The final DAG was executed on the dataset generated from 500,000 users.
+The F3 rebuild used the six exact DAG task commands against the canonical
+dataset generated from 500,000 users. The local Airflow 3.3.1 metadata database
+requires a separate migration before a DagRun can be recorded, so F3 did not
+mutate that database solely for orchestration evidence. A read-only `DagBag`
+parse confirmed the DAG ID, six-task graph, `max_active_runs=1`, zero import
+errors, and all four required fraud flags.
 
 Dataset scale:
 
 - Users: 500,000
 - Accounts: 500,000
-- Devices: 500,000
+- Devices: 519,590
 - Bronze transactions: 4,080,000
-- Balance snapshots: 3,895,224
-- Login events: 3,997,362
+- Balance snapshots: 3,881,538
+- Login events: 3,999,581
+- Fraud labels: 4,000,000
 
-All six tasks completed successfully.
-
-Total DAG runtime was approximately **18 minutes 08 seconds**.
+All six commands completed successfully in **15 minutes 54 seconds**. This is
+manual execution of the rendered task commands, not a recorded Airflow DagRun.
 
 ## Evidence
 
-![Successful Airflow batch DAG](evidence/airflow/01_batch_dag_graph.png)
+![Historical successful Airflow batch DAG](evidence/airflow/01_batch_dag_graph.png)
+
+The screenshot is retained as earlier orchestration evidence; the F3 command
+and runtime evidence is recorded in
+[`evidence/f3_canonical_fraud_migration.json`](evidence/f3_canonical_fraud_migration.json).
+These measurements are baseline runtime evidence for later comparison, not
+optimized results.

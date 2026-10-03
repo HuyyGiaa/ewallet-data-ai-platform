@@ -27,7 +27,7 @@ with DAG(
         bash_command="""
             set -euo pipefail
             cd "{{ var.value.project_root }}"
-            "{{ var.value.fintech_python }}" -m data_platform.storage.scripts.init_storage
+            "{{ var.value.fintech_python }}" -m data_platform.storage.scripts.init_storage --include-fraud-labels
         """,
     )
 
@@ -36,7 +36,7 @@ with DAG(
         bash_command="""
             set -euo pipefail
             cd "{{ var.value.project_root }}"
-            "{{ var.value.fintech_python }}" -m data_platform.quality.validate_bronze
+            "{{ var.value.fintech_python }}" -m data_platform.quality.validate_bronze --include-fraud-labels
         """,
     )
     
@@ -46,7 +46,7 @@ with DAG(
             set -euo pipefail
             cd "{{ var.value.project_root }}"
             PYSPARK_SUBMIT_ARGS="--driver-memory 8g pyspark-shell" \
-            "{{ var.value.fintech_python }}" -m data_platform.processing.spark.silver.silver_pipeline
+            "{{ var.value.fintech_python }}" -m data_platform.processing.spark.silver.silver_pipeline --include-fraud-labels
         """,
     )
 
@@ -55,7 +55,7 @@ with DAG(
         bash_command="""
             set -euo pipefail
             cd "{{ var.value.project_root }}"
-            "{{ var.value.fintech_python }}" -m data_platform.quality.validate_silver
+            "{{ var.value.fintech_python }}" -m data_platform.quality.validate_silver --include-fraud-labels
         """,
     )
 

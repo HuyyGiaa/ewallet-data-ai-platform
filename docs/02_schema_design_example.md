@@ -114,7 +114,7 @@ Analytical:
 
 **### 1.4 Input Data Profile**
 
-The offline source contains seven datasets:
+The canonical offline source contains eight logical datasets:
 
 \| Dataset | Main Key | Main Timestamp | Purpose |
 
@@ -134,6 +134,8 @@ The offline source contains seven datasets:
 
 \| login\_events | login\_id | login\_ts | Authentication events |
 
+\| fraud\_labels | transaction\_id | - | Synthetic fraud ground truth |
+
 Final offline volume:
 
 \| Dataset | Rows |
@@ -146,13 +148,15 @@ Final offline volume:
 
 \| merchants | 300 |
 
-\| devices | 500,000 |
+\| devices | 519,590 |
 
 \| transactions (Bronze) | 4,080,000 |
 
-\| balance\_snapshots | 3,895,224 |
+\| balance\_snapshots | 3,881,538 |
 
-\| login\_events | 3,997,362 |
+\| login\_events | 3,999,581 |
+
+\| fraud\_labels | 4,000,000 |
 
 Known data characteristics/problems:
 

@@ -53,12 +53,12 @@ status, ports, and limitations.
 
 | Area | Current state |
 |---|---|
-| Offline generation | Seven deterministic synthetic datasets with duplicates, skew, and schema evolution |
+| Offline generation | Eight deterministic synthetic datasets with duplicates, skew, schema evolution, and separate fraud ground truth |
 | Lakehouse | Bronze, Silver, and Gold Delta tables on MinIO |
 | Batch processing | Spark transformations and independent fail-hard validators |
 | Analytics | Trino over registered Delta locations |
 | Orchestration | Daily Airflow DAG with serialized local Spark work |
-| Governance | Four YAML contracts; DataHub metadata, 10 direct lineage edges, and 8 selected assertions |
+| Governance | Five YAML contracts; DataHub metadata, 11 direct lineage edges, and 11 selected assertions |
 | Messaging and CDC | Redpanda plus PostgreSQL/Debezium local experiment |
 | Streaming | PyFlink deduplication, watermarks, windows, late events, and burst detection with print sinks |
 
@@ -81,7 +81,7 @@ ewallet-data-ai-platform/
 │   ├── quality/               # Bronze, Silver, and Gold validators
 │   ├── contracts/             # Selected versioned dataset interfaces
 │   └── metadata/datahub/
-│       ├── assertions/        # Eight selected DQ assertions
+│       ├── assertions/        # Eleven selected DQ assertions
 │       ├── lineage/           # Trino recipe and direct lineage publisher
 │       └── runtime/           # Pinned Quickstart helper
 ├── infra/docker/              # Canonical split Compose files
@@ -206,25 +206,25 @@ Generate offline source files:
 python -m data_platform.generation.src.offline.offline_generator
 ```
 
-Initialize persisted Bronze Delta tables:
+Initialize the canonical persisted Bronze Delta tables:
 
 ```bash
-python -m data_platform.storage.scripts.init_storage
-python -m data_platform.quality.validate_bronze
+python -m data_platform.storage.scripts.init_storage --include-fraud-labels
+python -m data_platform.quality.validate_bronze --include-fraud-labels
 ```
 
 Run the remaining stages directly when Airflow is not needed:
 
 ```bash
-python -m data_platform.processing.spark.silver.silver_pipeline
-python -m data_platform.quality.validate_silver
+python -m data_platform.processing.spark.silver.silver_pipeline --include-fraud-labels
+python -m data_platform.quality.validate_silver --include-fraud-labels
 python -m data_platform.processing.spark.gold.gold_pipeline
 python -m data_platform.quality.validate_gold
 ```
 
-Phase 2 fraud-label integration is transitional. The commands above keep the
-current canonical Phase 1 inventory (7 Bronze, 7 Silver, 11 Gold). An isolated
-or future canonical fraud-enabled run uses one opt-in consistently:
+The canonical Phase 2 workflow requires the fraud flag consistently across
+Bronze and Silver. This keeps `fraud_labels` synchronized with the same source
+transactions:
 
 ```bash
 python -m data_platform.storage.scripts.init_storage --include-fraud-labels
@@ -233,10 +233,16 @@ python -m data_platform.processing.spark.silver.silver_pipeline --include-fraud-
 python -m data_platform.quality.validate_silver --include-fraud-labels
 ```
 
-In fraud-enabled mode, `fraud_labels` is required and flows from source
+`fraud_labels` is required and flows from source
 Parquet through Bronze to a thin Silver target-truth table. It has no Gold
 copy; fraud features, a training dataset, Feast, and ML training are later
-tasks. F3 will make the 8 Bronze / 8 Silver / 11 Gold inventory canonical.
+tasks. The current canonical inventory is 8 Bronze / 8 Silver / 11 Gold.
+Running these commands without `--include-fraud-labels` remains a Phase 1
+compatibility mode and can leave canonical labels stale.
+
+F3 retained the previous local source under
+`data_platform/generation/output/offline_phase1_backup_pre_fraud/`. This is an
+ignored runtime backup for local rollback evidence and is not committed.
 
 The Airflow DAG runs the full sequence with validation gates:
 
@@ -263,8 +269,8 @@ does not silently choose that port.
 ## Lakehouse layers and validation
 
 - **Bronze** preserves raw duplicates and schema-evolution nulls. Its validator
-  verifies all seven canonical tables can be scanned and have required schemas;
-  fraud-enabled mode requires and validates `fraud_labels` as the eighth.
+  verifies all eight canonical tables can be scanned and have required schemas,
+  including `fraud_labels` at logical transaction grain.
 - **Silver** casts, cleans, deduplicates, normalizes `channel`, and enforces
   required fields, domains, ranges, logical keys, and foreign keys.
 - **Gold** builds dimensions, facts, the transaction OBT, 90-day user features,
@@ -283,7 +289,7 @@ Five contracts describe selected stable interfaces:
 - [`gold.feat_user_90d`](data_platform/contracts/gold_feat_user_90d.yml)
 
 The contracts describe transformation behavior, the validators enforce the
-full executable rule set, and DataHub exposes eight representative results.
+full executable rule set, and DataHub exposes eleven representative results.
 See [`data_platform/contracts/README.md`](data_platform/contracts/README.md) for syntax validation.
 
 ## Register and query Delta tables with Trino
@@ -291,12 +297,14 @@ See [`data_platform/contracts/README.md`](data_platform/contracts/README.md) for
 After Spark creates the Delta tables, register or verify all layers:
 
 ```bash
-python3 -m data_platform.storage.scripts.register_trino_tables --layer all
+python3 -m data_platform.storage.scripts.register_trino_tables \
+  --layer all \
+  --include-fraud-labels
 ```
 
-Keep this command for the current 25-table canonical runtime. After F3
-persists canonical fraud labels, add `--include-fraud-labels` to require and
-register the 27-table fraud-enabled inventory.
+This registers the current 27-table canonical inventory: 8 Bronze, 8 Silver,
+and 11 Gold. Omitting `--include-fraud-labels` is retained only for the
+historical Phase 1 inventory of 25 tables.
 
 This command is metadata-only and idempotent. It requires existing Delta logs,
 checks readable locations, and fails on a location mismatch. It does not copy,
@@ -359,7 +367,8 @@ DATAHUB_TELEMETRY_ENABLED=false \
   -c data_platform/metadata/datahub/lineage/trino_recipe.yml
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py \
+  --include-fraud-labels
 ```
 
 Evaluate assertion logic without DataHub writes, then publish when GMS and the
@@ -367,17 +376,20 @@ target datasets are available:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --self-test
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --self-test --include-fraud-labels
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --dry-run
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --dry-run --include-fraud-labels
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --publish
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --publish --include-fraud-labels
 ```
 
 The publisher uses deterministic assertion URNs. Re-running it updates the same
-eight logical definitions and adds timestamped run results. Airflow does not
+eleven logical definitions and adds timestamped run results. Airflow does not
 currently run Trino registration or DataHub publication.
 
 ## Streaming and CDC experiments

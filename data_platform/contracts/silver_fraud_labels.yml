@@ -55,5 +55,5 @@ quality_rules:
 
 notes:
   - These labels are synthetic generator ground truth, not real fraud adjudication.
-  - The contract is evaluated only in explicit fraud-enabled transition mode.
+  - The contract is evaluated in the canonical fraud-enabled mode; flag-free mode remains for Phase 1 compatibility.
   - No Gold fraud dataset, feature table, training dataset, or model contract is implied.

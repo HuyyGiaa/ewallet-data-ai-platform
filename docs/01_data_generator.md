@@ -904,6 +904,5 @@ Bronze/Silver/Gold batch pipeline, Spark performance experiments,
 Flink streaming pipeline, storage optimization and metadata lineage
 demonstrated in the remaining coursework.
 
-`fraud_labels` lakehouse ingestion and historical fraud feature tables are
-separate follow-up work; this generator task only prepares the source behavior
-and ground-truth contract.
+`fraud_labels` is now canonical in Bronze and Silver. Historical Gold fraud
+features, Feast, ML training, and model serving remain separate follow-up work.

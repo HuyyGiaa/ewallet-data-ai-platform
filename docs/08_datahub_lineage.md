@@ -7,10 +7,9 @@ registered Delta tables through Trino, stores selected direct dataset lineage,
 and displays representative data-quality assertions. The transaction data
 remains in Delta Lake on MinIO.
 
-During the F2 transition, the current canonical runtime remains at 7 Bronze,
-7 Silver, and 11 Gold tables (25 total). Fraud-enabled mode prepares 8 Bronze,
-8 Silver, and 11 Gold tables (27 total), but canonical fraud tables and
-metadata are deferred to F3.
+The current canonical runtime has 8 Bronze, 8 Silver, and 11 Gold tables
+(27 total). The historical Phase 1 runtime had 7 Bronze, 7 Silver, and 11 Gold
+tables (25 total).
 
 DataHub is a separate local Quickstart runtime. It is not a service in the
 platform's split Compose project.
@@ -81,19 +80,14 @@ A Delta path can exist in MinIO without being visible in Trino. After Spark
 produces Silver and Gold, run the metadata-only registration tool:
 
 ```bash
-python3 -m data_platform.storage.scripts.register_trino_tables --layer all
-```
-
-After canonical fraud tables exist, opt into their registration explicitly:
-
-```bash
 python3 -m data_platform.storage.scripts.register_trino_tables \
   --layer all \
   --include-fraud-labels
 ```
 
-Without the flag, the existing 25-table Phase 1 inventory remains required.
-With the flag, a missing Bronze or Silver `fraud_labels` fails preflight.
+Without the flag, the legacy 25-table Phase 1 inventory remains available as
+compatibility behavior. The canonical command uses the flag, and a missing
+Bronze or Silver `fraud_labels` fails preflight.
 
 It verifies every expected `_delta_log`, creates missing schemas, registers
 missing tables, checks existing locations, and executes lightweight readability
@@ -116,8 +110,9 @@ This requires Trino on `localhost:8081` and DataHub GMS on `localhost:8080`.
 
 ## Selected direct lineage
 
-The publisher at `data_platform/metadata/datahub/lineage/create_lineage.py` sends ten direct
-input relationships:
+The publisher at `data_platform/metadata/datahub/lineage/create_lineage.py`
+publishes the ten retained Phase 1 relationships plus the canonical fraud-label
+relationship shown below:
 
 ```mermaid
 flowchart TD
@@ -131,23 +126,16 @@ flowchart TD
     DT["gold_zone.dim_date"] --> O
     F --> FEAT["gold_zone.feat_user_90d"]
     DU --> FEAT
+    BF["bronze_zone.fraud_labels"] --> SF["silver_zone.fraud_labels"]
 ```
 
 The feature builder reads `fact_transactions` and `dim_user` directly. The OBT
 and feature table are sibling downstream datasets; there is no OBT-to-feature
 edge.
 
-Publish the selected lineage after metadata ingestion creates the dataset
+The canonical graph has one additional fraud-label relationship, for eleven
+direct edges in total. Publish it after metadata ingestion creates the dataset
 entities:
-
-```bash
-DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py
-```
-
-The default command retains the exact Phase 1 lineage. Once both fraud
-datasets exist in canonical Trino and DataHub metadata, add the direct
-`bronze_zone.fraud_labels` to `silver_zone.fraud_labels` edge with:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
@@ -161,8 +149,7 @@ Gold dependency.
 ## Selected data-quality assertions
 
 The contracts describe expectations and the Silver/Gold validators enforce the
-complete executable rule set. The default DataHub publisher exposes the same
-eight Phase 1 checks:
+complete executable rule set. Eight checks are retained from Phase 1:
 
 | Assertion | Target dataset |
 |---|---|
@@ -177,7 +164,7 @@ eight Phase 1 checks:
 
 The publisher evaluates current data with read-only Trino SQL. It does not
 change Delta tables. Each definition has a deterministic assertion URN, so a
-repeat publication updates the same eight logical definitions and records new
+repeat publication updates the same logical definitions and records new
 timestamped run results.
 
 Fraud-enabled mode adds three deterministic checks for
@@ -192,18 +179,20 @@ DATAHUB_TELEMETRY_ENABLED=false \
   --include-fraud-labels
 ```
 
-Do not use fraud-enabled dry-run or publish until both fraud tables exist in
-canonical Trino. F2 adds no Gold fraud copy, training dataset, Feast feature,
-or model artifact.
+Both fraud tables must exist in canonical Trino before fraud-enabled dry-run or
+publication. There is no Gold fraud copy, training dataset, Feast feature, or
+model artifact in F3.
 
-Run local self-tests and a no-write evaluation:
+Run the canonical local self-test and no-write evaluation:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --self-test
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --self-test --include-fraud-labels
 
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --dry-run
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --dry-run --include-fraud-labels
 ```
 
 Publish after Trino, GMS, and the four target dataset entities are available:
@@ -211,16 +200,18 @@ Publish after Trino, GMS, and the four target dataset entities are available:
 ```bash
 DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py --publish
+  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --publish --include-fraud-labels
 ```
 
 Set `DATAHUB_GMS_TOKEN` only when the target GMS requires authentication. The
 publisher validates the endpoint and all target entities before it sends any
 definition.
 
-Runtime verification against server `v1.7.0.1` published all eight definitions
-and successful run results. A second run retained exactly eight assertion URNs
-and added one result per definition, proving logical idempotency.
+F3 runtime verification against server `v1.7.0.1` published all eleven
+definitions and successful run results. Server read-back found exactly eleven
+unique assertion URNs, correct dataset associations, and `SUCCESS` as every
+latest result.
 
 ## Evidence and limits
 
@@ -234,7 +225,7 @@ Current boundaries:
 - DataHub metadata ingestion depends on Delta tables being registered in Trino.
 - The explicit lineage script covers selected transaction datasets, not the
   complete Gold graph.
-- The eight assertions are a selected visible subset of validator coverage.
+- The eleven assertions are a selected visible subset of validator coverage.
 - Airflow does not invoke registration, metadata ingestion, lineage, or
   assertion publication.
 - DataHub Quickstart is suitable for local coursework, not a production
