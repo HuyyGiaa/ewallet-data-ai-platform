@@ -1,0 +1,166 @@
+{
+  "phase": "F6",
+  "title": "Feast offline historical retrieval baseline",
+  "source_commit": "43cfed1449ef314c5bf8d7b8db2bde751df5a32a",
+  "measured_at": "2026-10-04",
+  "optimization_performed": false,
+  "canonical_generator_rerun": false,
+  "dependencies": {
+    "feast": "0.66.0",
+    "dask": "2026.8.0",
+    "pyarrow": "25.0.1",
+    "deltalake": "0.18.2",
+    "pandas": "2.3.3",
+    "declaration": "ai_platform/features/feast/requirements.txt"
+  },
+  "feast": {
+    "version": "0.66.0",
+    "repository": "ai_platform/features/feast/feature_repo",
+    "provider": "local",
+    "offline_store": "DaskOfflineStore with FileSource Parquet",
+    "online_store": null,
+    "entities": ["user", "account", "device", "merchant"],
+    "feature_views": {
+      "user_behavior": 9,
+      "account_behavior": 10,
+      "device_behavior": 5,
+      "merchant_behavior": 7
+    },
+    "apply": "PASS"
+  },
+  "offline_source": {
+    "chosen": "active Gold Delta snapshot exported by delta-rs and PyArrow to local Parquet",
+    "runtime_copy_created_by": "ai_platform.features.feast.sources.export_gold_to_parquet",
+    "runtime_copy_created_by_feast": false,
+    "runtime_data_versioned": false,
+    "delta_rows": {
+      "feat_user_behavior": 3999910,
+      "feat_account_behavior": 3999910,
+      "feat_device_behavior": 3999910,
+      "feat_merchant_behavior": 1600084
+    },
+    "parquet_row_parity": "PASS"
+  },
+  "timestamp_precision": {
+    "delta": "timestamp[us, tz=UTC]",
+    "parquet": "timestamp[us, tz=UTC]",
+    "feast_entity_dataframe": "UTC-aware pandas timestamp; nanosecond container retaining source microseconds",
+    "precision_loss": false,
+    "pit_safety": "PASS",
+    "tables": {
+      "feat_user_behavior": {
+        "delta_keys": 3999910,
+        "parquet_keys": 3999910,
+        "millisecond_keys": 3999910,
+        "collapsed_at_millisecond": 0,
+        "millisecond_collision_groups": 0,
+        "sub_millisecond_rows": 3956113
+      },
+      "feat_account_behavior": {
+        "delta_keys": 3999910,
+        "parquet_keys": 3999910,
+        "millisecond_keys": 3999910,
+        "collapsed_at_millisecond": 0,
+        "millisecond_collision_groups": 0,
+        "sub_millisecond_rows": 3956113
+      },
+      "feat_device_behavior": {
+        "delta_keys": 3999910,
+        "parquet_keys": 3999910,
+        "millisecond_keys": 3999910,
+        "collapsed_at_millisecond": 0,
+        "millisecond_collision_groups": 0,
+        "sub_millisecond_rows": 3956113
+      },
+      "feat_merchant_behavior": {
+        "delta_keys": 1600084,
+        "parquet_keys": 1600084,
+        "millisecond_keys": 1600073,
+        "collapsed_at_millisecond": 11,
+        "millisecond_collision_groups": 11,
+        "sub_millisecond_rows": 1570770
+      }
+    },
+    "trino": {
+      "exposed_precision": "timestamp(3)",
+      "accepted_as_canonical_feast_source": false,
+      "reason": "Millisecond projection collapses 11 distinct merchant entity/timestamp keys."
+    },
+    "focused_sub_millisecond_fixture": {
+      "timestamps_apart_microseconds": 800,
+      "retrieved_as_distinct": true,
+      "status": "PASS"
+    }
+  },
+  "point_in_time_tests": {
+    "tests_run": 8,
+    "tests_passed": 8,
+    "current_transaction_excluded": "PASS",
+    "future_transaction_excluded": "PASS",
+    "same_entity_same_timestamp_shared_snapshot": "PASS",
+    "same_timestamp_peers_excluded": "PASS",
+    "cold_start_zero_and_null_semantics": "PASS",
+    "merchant_null_non_payment_retained": "PASS",
+    "each_feature_view_matches_source_snapshot": "PASS",
+    "sub_millisecond_timestamps_remain_distinct": "PASS"
+  },
+  "canonical_sample": {
+    "selection": "deterministic bounded sample",
+    "sample_rows": 10,
+    "cases": [
+      "normal",
+      "velocity",
+      "amount_anomaly",
+      "account_takeover",
+      "merchant_burst",
+      "cold_start",
+      "multi_account_user",
+      "recent_device",
+      "payment_with_merchant",
+      "non_payment_without_merchant"
+    ],
+    "comparable_values": 310,
+    "mismatch_count": 0,
+    "labels_passed_to_feast": false,
+    "status": "PASS"
+  },
+  "benchmark": {
+    "bounded_sample_rows": 100,
+    "full_canonical_retrieval_performed": false,
+    "machine_profile": "local development machine",
+    "results": [
+      {
+        "retrieval": "single_user_behavior",
+        "entity_rows": 100,
+        "feature_columns": 9,
+        "output_rows": 100,
+        "runtime_seconds": 3.6229,
+        "rows_per_second": 27.6
+      },
+      {
+        "retrieval": "combined_four_views",
+        "entity_rows": 100,
+        "feature_columns": 31,
+        "output_rows": 100,
+        "runtime_seconds": 14.5663,
+        "rows_per_second": 6.87
+      }
+    ],
+    "peak_memory": null
+  },
+  "datahub": {
+    "existing_f5_lineage_changed": false,
+    "feast_edges_published": 0,
+    "fraud_label_to_feature_view_edges": 0,
+    "note": "F6 does not fabricate Feast metadata or ML lineage."
+  },
+  "deferred": {
+    "final_training_dataset": "NOT STARTED",
+    "ml_training": "NOT STARTED",
+    "mlflow": "NOT STARTED",
+    "kubeflow": "NOT STARTED",
+    "feast_online_redis": "NOT STARTED",
+    "flink_realtime_features": "NOT STARTED",
+    "model_serving": "NOT STARTED"
+  }
+}

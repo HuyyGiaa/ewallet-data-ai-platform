@@ -73,5 +73,9 @@ redis-data/
 tmp/
 temp/
 
+# Feast local runtime
+ai_platform/features/feast/feature_repo/data/
+ai_platform/features/feast/.venv/
+
 # Local AI handoff context
 E_WALLET_PROJECT_CONTEXT.md

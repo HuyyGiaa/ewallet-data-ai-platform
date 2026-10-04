@@ -1,4 +1,24 @@
-# Spark Performance Benchmarks
+# Performance Benchmarks
+
+## F6 Feast offline historical retrieval baseline — not optimized
+
+F6 measured deterministic bounded retrieval against the canonical Gold-derived
+Parquet adapter. It did not run a four-million-row retrieval, collect a Gold
+table to the driver, tune Dask, or claim a speedup. Both measurements used the
+same 100 entity rows on the local development machine with Feast 0.66.0.
+
+| Retrieval | Entity rows | Feature columns | Output rows | Runtime | Rows/s |
+|---|---:|---:|---:|---:|---:|
+| Single `user_behavior` FeatureView | 100 | 9 | 100 | 3.6229 s | 27.60 |
+| Combined user/account/device/merchant | 100 | 31 | 100 | 14.5663 s | 6.87 |
+
+The combined wrapper queries each real entity grain and keeps non-payment rows
+whose merchant is null. This baseline includes local FileSource scans and Dask
+point-in-time joins. No peak-memory measurement was captured. The raw source
+decision, precision audit, correctness gates, and measurements are stored in
+[`evidence/f6_feast_offline_baseline.json`](evidence/f6_feast_offline_baseline.json).
+
+**FEAST OPTIMIZATION: NOT PERFORMED.**
 
 ## F5 historical feature computation baseline — not optimized
 

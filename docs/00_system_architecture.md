@@ -25,14 +25,15 @@ ewallet-data-ai-platform/
 │   └── metadata/
 ├── infra/
 │   └── docker/
+├── ai_platform/
+│   └── features/feast/
 ├── notebooks/
 ├── docs/
 └── tests/
 ```
 
-Phase 2 plans reserve an `ai_platform/` domain for `ml`, `llm`, `agents`, and
-`serving`. Those directories are not created until their first implementation
-exists.
+Phase 2 now uses `ai_platform/features/feast/` for offline historical feature
+retrieval. Training, online serving, LLM, and agent domains are still deferred.
 
 ## Architecture at a glance
 
@@ -57,6 +58,8 @@ flowchart LR
     CONTRACTS["Versioned YAML<br/>data contracts"]
     AIRFLOW["Airflow control plane"]
     DATAHUB["DataHub<br/>catalog, lineage, assertions"]
+    ADAPTER["Microsecond-safe<br/>Parquet snapshot adapter"]
+    FEAST["Feast offline<br/>PIT retrieval"]
 
     GEN -->|offline| PQ --> BR
     BR -->|Spark| SI -->|Spark| GO
@@ -69,6 +72,7 @@ flowchart LR
     BR --> TRINO
     SI --> TRINO
     GO --> TRINO
+    GO --> ADAPTER --> FEAST
     BR --> DQ
     SI --> DQ
     GO --> DQ
@@ -112,6 +116,11 @@ flowchart TD
 The current Airflow DAG stops after Gold validation. Trino registration and
 DataHub publication are explicit post-pipeline operations.
 
+Feast is also outside the DAG. Its explicit exporter reads the active four
+Gold feature snapshots and writes ignored local Parquet runtime data while
+preserving UTC microseconds. Feast's Dask offline store retrieves point-in-time
+features from that adapter; it does not compute the Gold aggregates.
+
 ## Layer responsibilities
 
 ### Bronze
@@ -154,6 +163,16 @@ Trino is the SQL query surface over the Delta tables. Spark creates the data;
 `data_platform/storage/scripts/register_trino_tables.py` only registers existing Delta
 locations in the Trino metastore. It is metadata-only, idempotent, and fails if
 an existing table points at the wrong location.
+
+### Feast offline retrieval
+
+Feast defines four entities and four FeatureViews that map exactly to the F5
+atomic historical feature contract. A bounded entity dataframe supplies entity
+keys and `event_timestamp`; Feast returns the matching historical snapshots.
+The local Parquet adapter retains `timestamp[us, tz=UTC]`. Trino is not the
+canonical Feast source because its millisecond representation collapses 11
+distinct merchant snapshot keys. No Feast online store or materialization is
+configured. See the [Feast offline guide](ml/feast_offline.md).
 
 ### Validators and contracts
 
@@ -219,7 +238,8 @@ lakehouse sink or end-to-end exactly-once guarantee.
 | PyFlink stream processing | Experimental | `data_platform/processing/flink/streaming_pipeline.py`, print sinks only |
 | Streaming/CDC lakehouse sink | Not implemented | No sink from Redpanda/Flink into Delta |
 | Phase 2 historical fraud features | Implemented | `data_platform/processing/spark/gold/features/` |
-| Feast, fraud ML training, serving, and agent work | Planned | Outside F5 |
+| Feast offline historical retrieval | Implemented and bounded-sample validated | `ai_platform/features/feast/` |
+| Fraud training dataset, ML training, serving, and agent work | Planned | Outside F6 |
 
 ## Runtime boundaries and ports
 
@@ -259,6 +279,8 @@ known local configuration follow-up rather than silently changing Airflow.
   coursework environment.
 - Kafka Connect image-declared anonymous volumes remain technical debt.
 - Airflow needs a host-port override to coexist with DataHub GMS on `8080`.
+- Feast currently reads an explicitly refreshed local Parquet snapshot; it has
+  no incremental refresh or online serving path.
 
 Operational commands are kept in the root `README.md`; detailed component
 documentation is indexed in `docs/README.md`.

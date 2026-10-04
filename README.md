@@ -25,6 +25,7 @@ flowchart LR
     DQ["Validators + contracts"]
     AIRFLOW["Airflow"]
     DATAHUB["DataHub<br/>metadata, lineage, assertions"]
+    FEAST["Feast offline<br/>historical retrieval"]
 
     GEN -->|offline Parquet| BR
     GEN -->|streaming| RP --> FLINK
@@ -34,6 +35,7 @@ flowchart LR
     BR --> TRINO
     SI --> TRINO
     GO --> TRINO
+    GO -->|explicit Parquet snapshot adapter| FEAST
     BR --> DQ
     SI --> DQ
     GO --> DQ
@@ -59,6 +61,7 @@ status, ports, and limitations.
 | Analytics | Trino over registered Delta locations |
 | Orchestration | Daily Airflow DAG with serialized local Spark work |
 | Governance | Nine YAML contracts; DataHub metadata, 16 direct lineage edges, and 15 selected assertions |
+| Offline feature retrieval | Feast entities and four FeatureViews over a microsecond-safe Parquet snapshot adapter |
 | Messaging and CDC | Redpanda plus PostgreSQL/Debezium local experiment |
 | Streaming | PyFlink deduplication, watermarks, windows, late events, and burst detection with print sinks |
 
@@ -86,13 +89,14 @@ ewallet-data-ai-platform/
 │       ├── lineage/           # Trino recipe and direct lineage publisher
 │       └── runtime/           # Pinned Quickstart helper
 ├── infra/docker/              # Canonical split Compose files
+├── ai_platform/features/feast/ # Feast offline definitions and retrieval
 ├── docs/                      # Architecture, component docs, and evidence
 ├── notebooks/                 # Read-only validation and coursework demos
 └── tests/                     # Repository-level tests
 ```
 
-The planned Phase 2 `ai_platform/` domains (`ml`, `llm`, `agents`, and
-`serving`) are documented but are not created until implementation begins.
+The Phase 2 `ai_platform/` domain now contains Feast offline feature retrieval.
+Training, model lifecycle, online serving, LLM, and agent work remain deferred.
 
 ## Prerequisites
 
@@ -237,9 +241,11 @@ python -m data_platform.quality.validate_silver --include-fraud-labels
 `fraud_labels` is required and flows from source
 Parquet through Bronze to a thin Silver target-truth table. It has no Gold
 copy. Four point-in-time historical feature tables are built from Silver
-transactions and devices without reading labels. A training dataset, Feast,
-and ML training remain later tasks. The current canonical inventory is
-8 Bronze / 8 Silver / 15 Gold.
+transactions and devices without reading labels. Feast retrieves those Gold
+snapshots through an explicit microsecond-safe local Parquet adapter; see the
+[Feast offline guide](docs/ml/feast_offline.md). The final training dataset and
+ML training remain later tasks. The current canonical inventory is 8 Bronze /
+8 Silver / 15 Gold.
 Running these commands without `--include-fraud-labels` remains a Phase 1
 compatibility mode and can leave canonical labels stale.
 

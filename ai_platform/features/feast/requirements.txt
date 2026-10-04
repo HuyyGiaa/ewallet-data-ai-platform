@@ -1,0 +1,5 @@
+feast==0.66.0
+dask[dataframe]==2026.8.0
+pyarrow==25.0.1
+deltalake==0.18.2
+pandas==2.3.3

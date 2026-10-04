@@ -1,0 +1,10 @@
+project: ewallet_fraud
+project_description: Point-in-time historical fraud features from Gold snapshots.
+registry: data/registry.db
+provider: local
+offline_store:
+  type: dask
+online_store: null
+entity_key_serialization_version: 3
+auth:
+  type: no_auth
