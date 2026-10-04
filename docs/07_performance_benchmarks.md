@@ -1,5 +1,37 @@
 # Spark Performance Benchmarks
 
+## F5 historical feature computation baseline — not optimized
+
+F5 ran the existing optimized-mode Spark configuration for operational
+consistency, but did not tune or compare plans. These measurements are a
+feature-computation baseline, not an optimization claim. The canonical source
+generator was not rerun.
+
+| Feature job | Input rows | Output rows | Persisted partitions | Runtime |
+|---|---:|---:|---:|---:|
+| `feat_user_behavior` | 4,000,000 | 3,999,910 | 5 | 14.48 s |
+| `feat_account_behavior` | 4,000,000 | 3,999,910 | 5 | 13.45 s |
+| `feat_device_behavior` | 4,000,000 | 3,999,910 | 4 | 11.37 s |
+| `feat_merchant_behavior` | 1,600,148 raw eligible payments | 1,600,084 | 5 | 26.63 s |
+
+Spark 4.1.1 ran with `local[4]`, 8 GB driver memory, AQE and skew-join
+handling enabled, 32 shuffle partitions, and 81 Silver transaction scan
+partitions. Feature builders use microsecond range windows with the exclusive
+upper bound `T-1µs`, then collapse same-entity/same-timestamp peers into one
+snapshot. Outputs are not directory-partitioned.
+
+The merchant input contains 1,600,148 payment transactions with a non-null
+`merchant_id`. Those transactions contain 1,600,084 distinct
+`merchant_id + event_timestamp` keys, so the shared-snapshot output has
+1,600,084 rows. The smaller output is a consequence of the contracted grain;
+it is not the raw eligible-payment count.
+
+The merchant job was the slowest feature write. F5 records that bottleneck and
+does not optimize it. The final Gold pipeline rerun completed in 242.24 seconds
+(251.37 seconds wall time); independent Gold validation produced 99 PASS / 0
+FAIL in 220.61 seconds wall time. Raw evidence is stored in
+[`evidence/f5_historical_feature_baseline.json`](evidence/f5_historical_feature_baseline.json).
+
 ## F4C Spark batch baseline
 
 This is the measured **F4C BASELINE — NOT OPTIMIZED** for the canonical dataset

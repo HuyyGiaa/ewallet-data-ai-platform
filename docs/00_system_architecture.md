@@ -99,7 +99,7 @@ flowchart TD
     VG --> REG["Register existing Delta tables in Trino"]
     REG --> INGEST["Ingest Trino metadata into DataHub"]
     INGEST --> LIN["Publish selected direct lineage"]
-    LIN --> ASSERT["Evaluate and publish 11 selected assertions"]
+    LIN --> ASSERT["Evaluate and publish 15 selected assertions"]
 
     AIRFLOW["Airflow"] -.orchestrates through validate_gold.-> BR
     AIRFLOW -.-> VB
@@ -142,6 +142,9 @@ Bronze validation intentionally does not apply Silver business cleaning.
 - Builds transaction, login-event, and balance-snapshot facts.
 - Builds `obt_transaction_enriched` for flattened analytics.
 - Builds `feat_user_90d` directly from `fact_transactions` and `dim_user`.
+- Builds four event-time fraud feature tables from `silver.transactions`; the
+  device table also reads `silver.devices`. Every historical window is
+  `[T-window, T)` and excludes same-timestamp peers.
 - Builds `opt_merchant_performance` for merchant analytics.
 - Validates grain, relationships, metric ranges, and cross-layer populations.
 
@@ -158,13 +161,17 @@ The three validators are executable fail-hard gates. Their rules cover schema
 and persisted readability at Bronze, cleaning and referential rules at Silver,
 and analytical grains and population relationships at Gold.
 
-The contracts under `data_platform/contracts/` describe five stable interfaces:
+The contracts under `data_platform/contracts/` describe nine stable interfaces:
 
 - `silver.transactions`
 - `silver.fraud_labels`
 - `gold.fact_transactions`
 - `gold.obt_transaction_enriched`
 - `gold.feat_user_90d`
+- `gold.feat_user_behavior`
+- `gold.feat_account_behavior`
+- `gold.feat_device_behavior`
+- `gold.feat_merchant_behavior`
 
 The relationship is:
 
@@ -172,14 +179,14 @@ The relationship is:
 transformation behavior -> data contract -> validator -> selected DataHub assertion
 ```
 
-The eleven DataHub assertions are a visible subset of validator coverage. They
+The fifteen DataHub assertions are a visible subset of validator coverage. They
 do not replace the full Silver and Gold validation suites.
 
 ### DataHub
 
 DataHub runs as a separate pinned Quickstart stack. It ingests table metadata
-from Trino, receives eleven explicit direct lineage edges for the selected
-transaction and fraud-label paths, and stores eleven selected custom assertion
+from Trino, receives sixteen explicit direct lineage edges for the selected
+transaction, feature, and fraud-label paths, and stores fifteen selected custom assertion
 definitions and their run results. DataHub does not move or transform Delta
 data.
 
@@ -205,13 +212,14 @@ lakehouse sink or end-to-end exactly-once guarantee.
 | MinIO and Trino | Implemented and locally smoke-tested | `infra/docker/compose.storage.yml`, `infra/docker/compose.query.yml` |
 | Airflow batch orchestration | Implemented | `data_platform/orchestration/airflow/dags/ewallet_batch_pipeline.py` |
 | Trino registration | Implemented and idempotent | `data_platform/storage/scripts/register_trino_tables.py` |
-| Data contracts | Implemented for four selected datasets | `data_platform/contracts/` |
+| Data contracts | Implemented for nine selected datasets | `data_platform/contracts/` |
 | DataHub metadata and selected lineage | Implemented and runtime-validated | `data_platform/metadata/datahub/lineage/` |
-| DataHub selected assertions | Implemented; 8 definitions are idempotent | `data_platform/metadata/datahub/assertions/publish_assertions.py` |
+| DataHub selected assertions | Implemented; 15 canonical definitions are idempotent | `data_platform/metadata/datahub/assertions/publish_assertions.py` |
 | PostgreSQL/Debezium CDC | Implemented as a local experiment | `data_platform/ingestion/debezium/connector-config.json` |
 | PyFlink stream processing | Experimental | `data_platform/processing/flink/streaming_pipeline.py`, print sinks only |
 | Streaming/CDC lakehouse sink | Not implemented | No sink from Redpanda/Flink into Delta |
-| Phase 2 fraud ML/LLM/agent work | Planned | Outside the current repository phase |
+| Phase 2 historical fraud features | Implemented | `data_platform/processing/spark/gold/features/` |
+| Feast, fraud ML training, serving, and agent work | Planned | Outside F5 |
 
 ## Runtime boundaries and ports
 
@@ -245,7 +253,7 @@ known local configuration follow-up rather than silently changing Airflow.
 - Flink outputs are ephemeral print sinks and do not feed the lakehouse.
 - CDC events are published to Redpanda but are not consumed into Delta.
 - DataHub Quickstart is a separate local-development runtime.
-- The eleven DataHub assertions cover selected contract rules, not every
+- The fifteen DataHub assertions cover selected contract rules, not every
   validator rule.
 - Local Compose files contain development credentials suitable only for the
   coursework environment.

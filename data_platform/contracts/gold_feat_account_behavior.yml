@@ -1,0 +1,42 @@
+contract_version: 1
+dataset: gold.feat_account_behavior
+layer: gold
+description: Point-in-time account behavior snapshots for fraud features.
+storage_location: s3a://gold-zone/feat_account_behavior
+grain: One row per distinct account_id and event_timestamp in Silver transactions.
+logical_key: [account_id, event_timestamp]
+upstream: [silver.transactions]
+enforced_by: [data_platform.quality.validate_gold]
+columns:
+  - {name: account_id, type: string, nullable: false}
+  - {name: event_timestamp, type: timestamp, nullable: false}
+  - {name: account_tx_count_5m, type: long, nullable: false}
+  - {name: account_tx_count_1h, type: long, nullable: false}
+  - {name: account_tx_count_24h, type: long, nullable: false}
+  - {name: account_amount_sum_1h, type: double, nullable: false}
+  - {name: account_amount_sum_24h, type: double, nullable: false}
+  - {name: account_amount_observation_count_30d, type: long, nullable: false}
+  - {name: account_avg_amount_30d, type: double, nullable: true}
+  - {name: account_std_amount_30d, type: double, nullable: true}
+  - {name: account_failed_rate_24h, type: double, nullable: true}
+  - {name: account_seconds_since_last_tx, type: double, nullable: true}
+temporal_semantics:
+  window: "[T-window, T)"
+  previous_event: Greatest account timestamp strictly less than T.
+  same_timestamp: Same-account peers share one snapshot and do not observe each other.
+point_in_time_contract:
+  current_transaction_excluded: true
+  future_transactions_excluded: true
+  same_timestamp_peers_excluded: true
+null_semantics:
+  count_and_sum_without_history: 0
+  average_or_rate_without_denominator: null
+  standard_deviation_with_fewer_than_two_observations: null
+  no_previous_transaction: account_seconds_since_last_tx is null
+quality_rules:
+  - {expectation: Entity and timestamp are required and the logical key is unique., validator_rule: feat_account_behavior.unique_key(account_id,event_timestamp)}
+  - {expectation: Counts and sums are non-negative and window counts are monotonic., validator_rule: feat_account_behavior.monotonic_windows}
+  - {expectation: Non-null rates are within 0 and 1., validator_rule: feat_account_behavior.valid_rate_ranges}
+notes:
+  - Counts and sums include all historical transaction attempts; failed_rate alone uses status.
+  - Amount count, average, and standard deviation use the same historical amount observations.

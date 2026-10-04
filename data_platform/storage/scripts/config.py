@@ -89,6 +89,10 @@ GOLD_TABLES = (
     "fact_balance_snapshot",
     "obt_transaction_enriched",
     "feat_user_90d",
+    "feat_user_behavior",
+    "feat_account_behavior",
+    "feat_device_behavior",
+    "feat_merchant_behavior",
     "opt_merchant_performance",
 )
 

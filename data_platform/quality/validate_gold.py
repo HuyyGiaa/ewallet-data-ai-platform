@@ -249,6 +249,52 @@ def validate_non_negative(
     )
 
 
+def validate_zero_invalid_rows(
+    df: DataFrame,
+    rule_name: str,
+    invalid_condition,
+    expected: str,
+) -> ValidationResult:
+    invalid_count = df.filter(invalid_condition).count()
+    return ValidationResult(rule_name, invalid_count == 0, invalid_count, expected)
+
+
+def validate_historical_feature(
+    df: DataFrame,
+    table_name: str,
+    entity_column: str,
+    required_non_null: list[str],
+    non_negative_columns: list[str],
+    rate_columns: list[str],
+    monotonic_condition,
+) -> list[ValidationResult]:
+    rate_invalid = F.lit(False)
+    for column in rate_columns:
+        rate_invalid = rate_invalid | (
+            F.col(column).isNotNull()
+            & ((F.col(column) < 0) | (F.col(column) > 1))
+        )
+
+    return [
+        validate_non_empty(df, table_name),
+        validate_no_null_columns(df, table_name, required_non_null),
+        validate_unique_key(df, table_name, [entity_column, "event_timestamp"]),
+        validate_non_negative(df, table_name, non_negative_columns),
+        validate_zero_invalid_rows(
+            df,
+            f"{table_name}.valid_rate_ranges",
+            rate_invalid,
+            "0 non-null rates outside [0, 1]",
+        ),
+        validate_zero_invalid_rows(
+            df,
+            f"{table_name}.monotonic_windows",
+            monotonic_condition,
+            "0 rows with smaller-window count above larger-window count",
+        ),
+    ]
+
+
 def validate_row_count_equal(
     left_df: DataFrame,
     right_df: DataFrame,
@@ -878,6 +924,11 @@ def run_validation() -> None:
             "feat_user_90d",
         )
 
+        feat_user_behavior = read_gold(spark, "feat_user_behavior")
+        feat_account_behavior = read_gold(spark, "feat_account_behavior")
+        feat_device_behavior = read_gold(spark, "feat_device_behavior")
+        feat_merchant_behavior = read_gold(spark, "feat_merchant_behavior")
+
         opt_merchant_performance = read_gold(
             spark,
             "opt_merchant_performance",
@@ -1051,6 +1102,56 @@ def run_validation() -> None:
             )
         )
 
+        all_results.extend(validate_historical_feature(
+            feat_user_behavior, "feat_user_behavior", "user_id",
+            ["user_id", "event_timestamp", "user_tx_count_5m",
+             "user_tx_count_1h", "user_tx_count_24h", "user_amount_sum_1h",
+             "user_amount_observation_count_30d", "user_distinct_merchants_24h"],
+            ["user_tx_count_5m", "user_tx_count_1h", "user_tx_count_24h",
+             "user_amount_sum_1h", "user_amount_observation_count_30d",
+             "user_std_amount_30d", "user_distinct_merchants_24h"],
+            ["user_failed_rate_24h"],
+            (F.col("user_tx_count_5m") > F.col("user_tx_count_1h"))
+            | (F.col("user_tx_count_1h") > F.col("user_tx_count_24h")),
+        ))
+        all_results.extend(validate_historical_feature(
+            feat_account_behavior, "feat_account_behavior", "account_id",
+            ["account_id", "event_timestamp", "account_tx_count_5m",
+             "account_tx_count_1h", "account_tx_count_24h",
+             "account_amount_sum_1h", "account_amount_sum_24h",
+             "account_amount_observation_count_30d"],
+            ["account_tx_count_5m", "account_tx_count_1h",
+             "account_tx_count_24h", "account_amount_sum_1h",
+             "account_amount_sum_24h", "account_amount_observation_count_30d",
+             "account_std_amount_30d", "account_seconds_since_last_tx"],
+            ["account_failed_rate_24h"],
+            (F.col("account_tx_count_5m") > F.col("account_tx_count_1h"))
+            | (F.col("account_tx_count_1h") > F.col("account_tx_count_24h")),
+        ))
+        all_results.extend(validate_historical_feature(
+            feat_device_behavior, "feat_device_behavior", "device_id",
+            ["device_id", "event_timestamp", "device_age_seconds",
+             "device_tx_count_1h", "device_tx_count_24h", "device_amount_sum_24h"],
+            ["device_age_seconds", "device_tx_count_1h",
+             "device_tx_count_24h", "device_amount_sum_24h"],
+            ["device_failed_rate_24h"],
+            F.col("device_tx_count_1h") > F.col("device_tx_count_24h"),
+        ))
+        all_results.extend(validate_historical_feature(
+            feat_merchant_behavior, "feat_merchant_behavior", "merchant_id",
+            ["merchant_id", "event_timestamp", "merchant_tx_count_10m",
+             "merchant_tx_count_1h", "merchant_tx_count_24h",
+             "merchant_unique_users_10m", "merchant_unique_users_1h",
+             "merchant_amount_sum_1h"],
+            ["merchant_tx_count_10m", "merchant_tx_count_1h",
+             "merchant_tx_count_24h", "merchant_unique_users_10m",
+             "merchant_unique_users_1h", "merchant_amount_sum_1h"],
+            [],
+            (F.col("merchant_tx_count_10m") > F.col("merchant_tx_count_1h"))
+            | (F.col("merchant_tx_count_1h") > F.col("merchant_tx_count_24h"))
+            | (F.col("merchant_unique_users_10m") > F.col("merchant_unique_users_1h")),
+        ))
+
         all_results.extend(
             validate_opt_merchant_performance(
                 opt_merchant_performance
@@ -1144,6 +1245,28 @@ def run_validation() -> None:
                     "dim_merchant_count_equals_"
                     "opt_merchant_performance_count"
                 ),
+            ),
+            validate_row_count_equal(
+                silver_transactions.select("user_id", "timestamp").distinct(),
+                feat_user_behavior,
+                "silver.transactions_user_timestamp_population_equals_feat_user_behavior",
+            ),
+            validate_row_count_equal(
+                silver_transactions.select("account_id", "timestamp").distinct(),
+                feat_account_behavior,
+                "silver.transactions_account_timestamp_population_equals_feat_account_behavior",
+            ),
+            validate_row_count_equal(
+                silver_transactions.select("device_id", "timestamp").distinct(),
+                feat_device_behavior,
+                "silver.transactions_device_timestamp_population_equals_feat_device_behavior",
+            ),
+            validate_row_count_equal(
+                silver_transactions.filter(
+                    (F.col("type") == "payment") & F.col("merchant_id").isNotNull()
+                ).select("merchant_id", "timestamp").distinct(),
+                feat_merchant_behavior,
+                "silver.payment_merchant_timestamp_population_equals_feat_merchant_behavior",
             ),
         ])
 
@@ -1280,6 +1403,22 @@ def run_validation() -> None:
                 "user_id",
                 "user_id",
                 "feat_user_90d.user_id_exists_in_dim_user",
+            ),
+            validate_foreign_key(
+                feat_user_behavior, dim_user, "user_id", "user_id",
+                "feat_user_behavior.user_id_exists_in_dim_user",
+            ),
+            validate_foreign_key(
+                feat_account_behavior, dim_account, "account_id", "account_id",
+                "feat_account_behavior.account_id_exists_in_dim_account",
+            ),
+            validate_foreign_key(
+                feat_device_behavior, dim_device, "device_id", "device_id",
+                "feat_device_behavior.device_id_exists_in_dim_device",
+            ),
+            validate_foreign_key(
+                feat_merchant_behavior, dim_merchant, "merchant_id", "merchant_id",
+                "feat_merchant_behavior.merchant_id_exists_in_dim_merchant",
             ),
 
             validate_foreign_key(

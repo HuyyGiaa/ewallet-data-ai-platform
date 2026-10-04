@@ -7,8 +7,8 @@ registered Delta tables through Trino, stores selected direct dataset lineage,
 and displays representative data-quality assertions. The transaction data
 remains in Delta Lake on MinIO.
 
-The current canonical runtime has 8 Bronze, 8 Silver, and 11 Gold tables
-(27 total). The historical Phase 1 runtime had 7 Bronze, 7 Silver, and 11 Gold
+The current canonical runtime has 8 Bronze, 8 Silver, and 15 Gold tables
+(31 total). The historical Phase 1 runtime had 7 Bronze, 7 Silver, and 11 Gold
 tables (25 total).
 
 DataHub is a separate local Quickstart runtime. It is not a service in the
@@ -85,9 +85,10 @@ python3 -m data_platform.storage.scripts.register_trino_tables \
   --include-fraud-labels
 ```
 
-Without the flag, the legacy 25-table Phase 1 inventory remains available as
-compatibility behavior. The canonical command uses the flag, and a missing
-Bronze or Silver `fraud_labels` fails preflight.
+Without the flag, the 29-table compatibility inventory excludes fraud labels.
+The historical Phase 1 inventory had 25 tables before the four F5 feature
+tables existed. The canonical command uses the flag, and a missing Bronze or
+Silver `fraud_labels` fails preflight.
 
 It verifies every expected `_delta_log`, creates missing schemas, registers
 missing tables, checks existing locations, and executes lightweight readability
@@ -111,8 +112,8 @@ This requires Trino on `localhost:8081` and DataHub GMS on `localhost:8080`.
 ## Selected direct lineage
 
 The publisher at `data_platform/metadata/datahub/lineage/create_lineage.py`
-publishes the ten retained Phase 1 relationships plus the canonical fraud-label
-relationship shown below:
+publishes the retained transaction relationships, five implementation-derived
+feature dependencies, and the canonical fraud-label relationship shown below:
 
 ```mermaid
 flowchart TD
@@ -126,6 +127,11 @@ flowchart TD
     DT["gold_zone.dim_date"] --> O
     F --> FEAT["gold_zone.feat_user_90d"]
     DU --> FEAT
+    S --> FU["gold_zone.feat_user_behavior"]
+    S --> FA["gold_zone.feat_account_behavior"]
+    S --> FD["gold_zone.feat_device_behavior"]
+    SD["silver_zone.devices"] --> FD
+    S --> FM["gold_zone.feat_merchant_behavior"]
     BF["bronze_zone.fraud_labels"] --> SF["silver_zone.fraud_labels"]
 ```
 
@@ -133,9 +139,12 @@ The feature builder reads `fact_transactions` and `dim_user` directly. The OBT
 and feature table are sibling downstream datasets; there is no OBT-to-feature
 edge.
 
-The canonical graph has one additional fraud-label relationship, for eleven
-direct edges in total. Publish it after metadata ingestion creates the dataset
-entities:
+The F5 edges follow the actual builders: user, account, and merchant features
+read `silver.transactions`; device features additionally join `silver.devices`
+for `first_seen_at`. `silver.fraud_labels` does not participate in feature
+computation, so there is no label-to-feature edge. The canonical graph has
+sixteen direct edges and no Feast or ML edge. Publish it after metadata
+ingestion creates the dataset entities:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
@@ -170,38 +179,40 @@ timestamped run results.
 Fraud-enabled mode adds three deterministic checks for
 `silver_zone.fraud_labels`: unique `transaction_id`, required/domain/
 conditional semantics, and exact transaction coverage. Self-test can validate
-all eleven definitions without accessing Trino or DataHub:
+those eleven pre-F5 definitions. Feature-enabled mode adds one selected
+persisted-contract check per historical feature table, producing fifteen
+canonical definitions:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
   --self-test \
-  --include-fraud-labels
+  --include-fraud-labels --include-feature-tables
 ```
 
 Both fraud tables must exist in canonical Trino before fraud-enabled dry-run or
-publication. There is no Gold fraud copy, training dataset, Feast feature, or
-model artifact in F3.
+publication. There is no Gold fraud-label copy, training dataset, Feast asset,
+or model artifact in F5.
 
 Run the canonical local self-test and no-write evaluation:
 
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --self-test --include-fraud-labels
+  --self-test --include-fraud-labels --include-feature-tables
 
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --dry-run --include-fraud-labels
+  --dry-run --include-fraud-labels --include-feature-tables
 ```
 
-Publish after Trino, GMS, and the four target dataset entities are available:
+Publish after Trino, GMS, and all target dataset entities are available:
 
 ```bash
 DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --publish --include-fraud-labels
+  --publish --include-fraud-labels --include-feature-tables
 ```
 
 Set `DATAHUB_GMS_TOKEN` only when the target GMS requires authentication. The
@@ -216,6 +227,31 @@ associations, `SUCCESS` as every latest result, and zero logical duplicates.
 The measured evidence is in
 [`evidence/f4c_canonical_regeneration.json`](evidence/f4c_canonical_regeneration.json).
 
+F5 ingested 31 Trino datasets, then read every published downstream
+`upstreamLineage` aspect back from GMS. All 16 expected direct edges matched
+exactly: five belong to the four historical feature tables, zero point from
+`fraud_labels` to a feature, and zero reference Feast or ML. Fifteen selected
+assertions were evaluated and published with deterministic IDs. Read-back
+found all 15 definitions, zero logical duplicates, and `SUCCESS` for all 15
+latest run results.
+
+After the local OpenSearch index recovered from its disk-watermark read-only
+state, the DataHub UI showed the verified feature lineage; for example,
+`feat_device_behavior` displayed both `silver.transactions` and
+`silver.devices` as upstreams. The available browser evidence channel could
+not persist that capture as a repository file, so no screenshot was fabricated.
+The Mermaid graph above and
+[`evidence/f5_historical_feature_baseline.json`](evidence/f5_historical_feature_baseline.json)
+are the visual and machine-readable evidence. Trino exposes Delta timestamps at
+millisecond precision; therefore merchant grain uniqueness is enforced against
+persisted Delta by the Gold validator, while its selected Trino/DataHub
+assertion checks required fields and value ranges.
+
+Spark/Delta remains the authoritative persisted grain because it retains the
+timestamp precision used by the feature builders. F6 must audit this precision
+boundary before choosing Trino as a Feast historical source. F5 does not claim
+Feast point-in-time correctness.
+
 ## Evidence and limits
 
 The screenshot under `docs/evidence/datahub/01_transaction_lineage.png` proves
@@ -228,7 +264,7 @@ Current boundaries:
 - DataHub metadata ingestion depends on Delta tables being registered in Trino.
 - The explicit lineage script covers selected transaction datasets, not the
   complete Gold graph.
-- The eleven assertions are a selected visible subset of validator coverage.
+- The fifteen assertions are a selected visible subset of validator coverage.
 - Airflow does not invoke registration, metadata ingestion, lineage, or
   assertion publication.
 - DataHub Quickstart is suitable for local coursework, not a production

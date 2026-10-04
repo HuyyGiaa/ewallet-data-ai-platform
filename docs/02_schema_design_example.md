@@ -106,6 +106,14 @@ Feature:
 
 \- feat\_user\_90d
 
+\- feat\_user\_behavior
+
+\- feat\_account\_behavior
+
+\- feat\_device\_behavior
+
+\- feat\_merchant\_behavior
+
 Analytical:
 
 \- opt\_merchant\_performance
@@ -743,6 +751,18 @@ Feature:
 \- failed transaction rate is between 0 and 1
 
 \- event\_timestamp and created\_timestamp are present
+
+Historical fraud features:
+
+\- entity key + event\_timestamp is unique
+
+\- windows use `[T-window, T)` and same-timestamp peers share one snapshot
+
+\- counts, sums, observation counts, and standard deviations are non-negative
+
+\- nested-window counts are monotonic
+
+\- non-null failed rates are between 0 and 1
 
 OBT:
 

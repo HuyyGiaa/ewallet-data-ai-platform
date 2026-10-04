@@ -58,7 +58,7 @@ status, ports, and limitations.
 | Batch processing | Spark transformations and independent fail-hard validators |
 | Analytics | Trino over registered Delta locations |
 | Orchestration | Daily Airflow DAG with serialized local Spark work |
-| Governance | Five YAML contracts; DataHub metadata, 11 direct lineage edges, and 11 selected assertions |
+| Governance | Nine YAML contracts; DataHub metadata, 16 direct lineage edges, and 15 selected assertions |
 | Messaging and CDC | Redpanda plus PostgreSQL/Debezium local experiment |
 | Streaming | PyFlink deduplication, watermarks, windows, late events, and burst detection with print sinks |
 
@@ -236,8 +236,10 @@ python -m data_platform.quality.validate_silver --include-fraud-labels
 
 `fraud_labels` is required and flows from source
 Parquet through Bronze to a thin Silver target-truth table. It has no Gold
-copy; fraud features, a training dataset, Feast, and ML training are later
-tasks. The current canonical inventory is 8 Bronze / 8 Silver / 11 Gold.
+copy. Four point-in-time historical feature tables are built from Silver
+transactions and devices without reading labels. A training dataset, Feast,
+and ML training remain later tasks. The current canonical inventory is
+8 Bronze / 8 Silver / 15 Gold.
 Running these commands without `--include-fraud-labels` remains a Phase 1
 compatibility mode and can leave canonical labels stale.
 
@@ -278,22 +280,28 @@ does not silently choose that port.
 - **Silver** casts, cleans, deduplicates, normalizes `channel`, and enforces
   required fields, domains, ranges, logical keys, and foreign keys.
 - **Gold** builds dimensions, facts, the transaction OBT, 90-day user features,
-  and merchant analytics; its validator enforces grains, relationships, ranges,
-  and cross-layer populations.
+  four point-in-time user/account/device/merchant behavior tables, and merchant
+  analytics; its validator enforces grains, relationships, ranges, and
+  cross-layer populations.
 
 All validators return a non-zero exit code on validation or runtime failure.
 They read persisted Delta data and do not repair it.
 
-Five contracts describe selected stable interfaces:
+Nine contracts describe selected stable interfaces, including the four
+historical feature tables:
 
 - [`silver.transactions`](data_platform/contracts/silver_transactions.yml)
 - [`silver.fraud_labels`](data_platform/contracts/silver_fraud_labels.yml)
 - [`gold.fact_transactions`](data_platform/contracts/gold_fact_transactions.yml)
 - [`gold.obt_transaction_enriched`](data_platform/contracts/gold_obt_transaction_enriched.yml)
 - [`gold.feat_user_90d`](data_platform/contracts/gold_feat_user_90d.yml)
+- [`gold.feat_user_behavior`](data_platform/contracts/gold_feat_user_behavior.yml)
+- [`gold.feat_account_behavior`](data_platform/contracts/gold_feat_account_behavior.yml)
+- [`gold.feat_device_behavior`](data_platform/contracts/gold_feat_device_behavior.yml)
+- [`gold.feat_merchant_behavior`](data_platform/contracts/gold_feat_merchant_behavior.yml)
 
 The contracts describe transformation behavior, the validators enforce the
-full executable rule set, and DataHub exposes eleven representative results.
+full executable rule set, and DataHub exposes fifteen representative results.
 See [`data_platform/contracts/README.md`](data_platform/contracts/README.md) for syntax validation.
 
 ## Register and query Delta tables with Trino
@@ -306,9 +314,9 @@ python3 -m data_platform.storage.scripts.register_trino_tables \
   --include-fraud-labels
 ```
 
-This registers the current 27-table canonical inventory: 8 Bronze, 8 Silver,
-and 11 Gold. Omitting `--include-fraud-labels` is retained only for the
-historical Phase 1 inventory of 25 tables.
+This registers the current 31-table canonical inventory: 8 Bronze, 8 Silver,
+and 15 Gold. Omitting `--include-fraud-labels` retains a compatibility inventory
+of 29 tables; the historical Phase 1 inventory had 25 tables before F5.
 
 This command is metadata-only and idempotent. It requires existing Delta logs,
 checks readable locations, and fails on a location mismatch. It does not copy,
@@ -381,15 +389,15 @@ target datasets are available:
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --self-test --include-fraud-labels
+  --self-test --include-fraud-labels --include-feature-tables
 
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --dry-run --include-fraud-labels
+  --dry-run --include-fraud-labels --include-feature-tables
 
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --publish --include-fraud-labels
+  --publish --include-fraud-labels --include-feature-tables
 ```
 
 The publisher uses deterministic assertion URNs. Re-running it updates the same

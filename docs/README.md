@@ -14,7 +14,7 @@ component documents for implementation detail and recorded evidence.
 | [Airflow orchestration](06_airflow_orchestration.md) | DAG, retries, concurrency, quality gates | Operations reference |
 | [Performance benchmarks](07_performance_benchmarks.md) | Spark skew and cardinality experiments | Recorded benchmark |
 | [DataHub metadata and lineage](08_datahub_lineage.md) | Trino ingestion, direct lineage, assertions | Metadata operations |
-| [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature specification | Final design for implementation |
+| [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature contract | Implemented Gold contract; Feast remains deferred |
 
 The PNG files under `docs/evidence/` are historical run evidence. Current
 operational commands and the fresh-clone path are in the repository

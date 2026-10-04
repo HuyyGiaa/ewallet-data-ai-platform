@@ -308,14 +308,14 @@ class FraudLabelPlatformIntegrationTest(unittest.TestCase):
             "fraud_labels",
             [item[0] for item in selected_pipelines(include_fraud_labels=True)],
         )
-        self.assertEqual(11, len(GOLD_TABLES))
+        self.assertEqual(15, len(GOLD_TABLES))
         self.assertFalse(any("fraud" in table for table in GOLD_TABLES))
 
     def test_trino_registration_inventory_and_locations(self):
         legacy = trino_registration_layers()
         fraud = trino_registration_layers(include_fraud_labels=True)
-        self.assertEqual((7, 7, 11), tuple(len(legacy[x]["tables"]) for x in legacy))
-        self.assertEqual((8, 8, 11), tuple(len(fraud[x]["tables"]) for x in fraud))
+        self.assertEqual((7, 7, 15), tuple(len(legacy[x]["tables"]) for x in legacy))
+        self.assertEqual((8, 8, 15), tuple(len(fraud[x]["tables"]) for x in fraud))
         self.assertEqual(
             "s3://bronze-zone/fraud_labels",
             delta_table_uri(str(fraud["bronze"]["bucket"]), "fraud_labels"),
@@ -357,6 +357,7 @@ legacy_lineage = get_lineage()
 fraud_lineage = get_lineage(True)
 legacy_assertions = get_assertions()
 fraud_assertions = get_assertions(True)
+feature_assertions = get_assertions(True, True)
 missing_inventory_failed = False
 try:
     validate_fraud_table_inventory({"bronze_zone": set(), "silver_zone": set()})
@@ -373,6 +374,7 @@ print(json.dumps({
     ),
     "legacy_assertions": len(legacy_assertions),
     "fraud_assertions": len(fraud_assertions),
+    "feature_assertions": len(feature_assertions),
     "unique_ids": len({x.assertion_id for x in fraud_assertions}) == len(fraud_assertions),
     "stable_legacy_ids": [x.assertion_id for x in legacy_assertions]
         == [x.assertion_id for x in fraud_assertions[:len(legacy_assertions)]],
@@ -387,11 +389,12 @@ print(json.dumps({
             capture_output=True,
         )
         result = json.loads(completed.stdout.strip().splitlines()[-1])
-        self.assertEqual(10, result["legacy_edges"])
-        self.assertEqual(11, result["fraud_edges"])
+        self.assertEqual(15, result["legacy_edges"])
+        self.assertEqual(16, result["fraud_edges"])
         self.assertTrue(result["fraud_edge"])
         self.assertEqual(8, result["legacy_assertions"])
         self.assertEqual(11, result["fraud_assertions"])
+        self.assertEqual(15, result["feature_assertions"])
         self.assertTrue(result["unique_ids"])
         self.assertTrue(result["stable_legacy_ids"])
         self.assertTrue(result["missing_inventory_failed"])

@@ -16,7 +16,11 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn
 
-from data_platform.storage.scripts.config import BRONZE_SCHEMA, SILVER_SCHEMA
+from data_platform.storage.scripts.config import (
+    BRONZE_SCHEMA,
+    GOLD_SCHEMA,
+    SILVER_SCHEMA,
+)
 from data_platform.storage.scripts.trino_client import (
     check_trino_connection,
     list_schema_tables,
@@ -27,6 +31,13 @@ from data_platform.storage.scripts.trino_client import (
 FRAUD_LINEAGE_TABLES = {
     BRONZE_SCHEMA: "fraud_labels",
     SILVER_SCHEMA: "fraud_labels",
+}
+
+FEATURE_LINEAGE_TABLES = {
+    "feat_user_behavior",
+    "feat_account_behavior",
+    "feat_device_behavior",
+    "feat_merchant_behavior",
 }
 
 
@@ -56,6 +67,19 @@ BASE_LINEAGE = {
     dataset("delta.gold_zone.feat_user_90d"): [
         dataset("delta.gold_zone.fact_transactions"),
         dataset("delta.gold_zone.dim_user"),
+    ],
+    dataset("delta.gold_zone.feat_user_behavior"): [
+        dataset("delta.silver_zone.transactions"),
+    ],
+    dataset("delta.gold_zone.feat_account_behavior"): [
+        dataset("delta.silver_zone.transactions"),
+    ],
+    dataset("delta.gold_zone.feat_device_behavior"): [
+        dataset("delta.silver_zone.transactions"),
+        dataset("delta.silver_zone.devices"),
+    ],
+    dataset("delta.gold_zone.feat_merchant_behavior"): [
+        dataset("delta.silver_zone.transactions"),
     ],
 }
 
@@ -102,6 +126,18 @@ def verify_fraud_tables_registered() -> None:
     validate_fraud_table_inventory(tables_by_schema)
 
 
+def verify_feature_tables_registered() -> None:
+    with trino_cursor() as cursor:
+        check_trino_connection(cursor)
+        registered = list_schema_tables(cursor, GOLD_SCHEMA)
+    missing = sorted(FEATURE_LINEAGE_TABLES - registered)
+    if missing:
+        raise RuntimeError(
+            "Feature lineage requires registered Trino tables: "
+            + ", ".join(f"{GOLD_SCHEMA}.{table}" for table in missing)
+        )
+
+
 def publish_lineage(emitter: DatahubRestEmitter, lineage_mapping=None) -> None:
     if lineage_mapping is None:
         lineage_mapping = BASE_LINEAGE
@@ -143,6 +179,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    verify_feature_tables_registered()
     if args.include_fraud_labels:
         verify_fraud_tables_registered()
     emitter = DatahubRestEmitter(gms_server="http://localhost:8080")

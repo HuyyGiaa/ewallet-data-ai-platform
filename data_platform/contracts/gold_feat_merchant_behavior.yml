@@ -1,0 +1,34 @@
+contract_version: 1
+dataset: gold.feat_merchant_behavior
+layer: gold
+description: Point-in-time merchant behavior snapshots for payment fraud features.
+storage_location: s3a://gold-zone/feat_merchant_behavior
+grain: One row per distinct merchant_id and event_timestamp for eligible Silver payments.
+logical_key: [merchant_id, event_timestamp]
+upstream: [silver.transactions]
+population: Transactions where type is payment and merchant_id is not null.
+enforced_by: [data_platform.quality.validate_gold]
+columns:
+  - {name: merchant_id, type: string, nullable: false}
+  - {name: event_timestamp, type: timestamp, nullable: false}
+  - {name: merchant_tx_count_10m, type: long, nullable: false}
+  - {name: merchant_tx_count_1h, type: long, nullable: false}
+  - {name: merchant_tx_count_24h, type: long, nullable: false}
+  - {name: merchant_unique_users_10m, type: long, nullable: false}
+  - {name: merchant_unique_users_1h, type: long, nullable: false}
+  - {name: merchant_amount_sum_1h, type: double, nullable: false}
+  - {name: merchant_avg_amount_24h, type: double, nullable: true}
+temporal_semantics:
+  window: "[T-window, T)"
+  same_timestamp: Same-merchant peers share one snapshot and do not observe each other.
+  ordering: No transaction_id, ingested_at, or row-order tie breaker.
+point_in_time_contract:
+  current_transaction_excluded: true
+  future_transactions_excluded: true
+  same_timestamp_peers_excluded: true
+null_semantics:
+  count_and_sum_without_history: 0
+  average_without_denominator: null
+quality_rules:
+  - {expectation: Entity and timestamp are required and the logical key is unique., validator_rule: feat_merchant_behavior.unique_key(merchant_id,event_timestamp)}
+  - {expectation: Counts sums and distinct-user counts are non-negative and monotonic., validator_rule: feat_merchant_behavior.monotonic_windows}

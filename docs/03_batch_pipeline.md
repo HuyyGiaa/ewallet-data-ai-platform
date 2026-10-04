@@ -534,11 +534,19 @@ obt\_transaction\_enriched
 
 \`\`\`
 
-**### Feature Table**
+**### Feature Tables**
 
 \`\`\`text
 
 feat\_user\_90d
+
+feat\_user\_behavior
+
+feat\_account\_behavior
+
+feat\_device\_behavior
+
+feat\_merchant\_behavior
 
 \`\`\`
 
@@ -550,7 +558,7 @@ opt\_merchant\_performance
 
 \`\`\`
 
-This produces a total of 11 Gold tables.
+This produces a total of 15 Gold tables.
 
 **## Dimensional Model**
 
@@ -705,6 +713,27 @@ dataset is processed again.
 The table can later be consumed by analytical or fraud-detection
 
 workloads.
+
+**## Historical Fraud Feature Tables**
+
+F5 adds event-driven snapshots at user, account, device, and merchant grain.
+Every window uses `[T-window, T)`: the current transaction and every peer for
+the same entity at the same timestamp are excluded. Counts and sums include
+historical transaction attempts regardless of status; failure-rate features
+use historical status. Cold-start counts and sums are zero, while averages,
+rates, standard deviations with fewer than two observations, and missing
+previous-account intervals remain null according to the feature contract.
+
+The implementation dependencies are:
+
+```text
+silver.transactions -> feat_user_behavior
+silver.transactions -> feat_account_behavior
+silver.transactions + silver.devices -> feat_device_behavior
+silver.transactions (eligible payments) -> feat_merchant_behavior
+```
+
+`silver.fraud_labels` is not read during feature computation.
 
 **## Gold Validation**
 

@@ -1,0 +1,81 @@
+{
+  "phase": "F5",
+  "title": "Historical feature computation baseline",
+  "source_commit": "99ddfe708d7b3f8253e0444a966d62fcd5a655da",
+  "measured_at": "2026-10-04",
+  "optimization_performed": false,
+  "canonical_generator_rerun": false,
+  "temporal_contract": {
+    "window": "[T-window, T)",
+    "current_transaction_excluded": true,
+    "same_entity_same_timestamp_shared_snapshot": true,
+    "tie_breaker": null
+  },
+  "point_in_time_tests": {
+    "current_transaction_excluded": "PASS",
+    "future_transactions_excluded": "PASS",
+    "same_entity_same_timestamp_shared_snapshot": "PASS",
+    "same_timestamp_peers_excluded": "PASS",
+    "previous_account_event_strictly_before_t": "PASS",
+    "historical_status_only_for_failed_rate": "PASS",
+    "amount_statistics_share_observation_set": "PASS",
+    "cold_start_and_null_semantics": "PASS"
+  },
+  "spark": {
+    "version": "4.1.1",
+    "master": "local[4]",
+    "driver_memory": "8g",
+    "adaptive_query_execution": true,
+    "skew_join_optimization": true,
+    "shuffle_partitions": 32,
+    "silver_transaction_scan_partitions": 81,
+    "pipeline_runtime_seconds": 242.24,
+    "wall_runtime_seconds": 251.37,
+    "strategy": "microsecond range windows with an exclusive upper bound, followed by entity/timestamp snapshot deduplication"
+  },
+  "feature_jobs": [
+    {"table": "feat_user_behavior", "input_rows": 4000000, "output_rows": 3999910, "output_partitions": 5, "runtime_seconds": 14.48, "sources": ["silver.transactions"]},
+    {"table": "feat_account_behavior", "input_rows": 4000000, "output_rows": 3999910, "output_partitions": 5, "runtime_seconds": 13.45, "sources": ["silver.transactions"]},
+    {"table": "feat_device_behavior", "input_rows": 4000000, "output_rows": 3999910, "output_partitions": 4, "runtime_seconds": 11.37, "sources": ["silver.transactions", "silver.devices"]},
+    {"table": "feat_merchant_behavior", "raw_eligible_payment_rows": 1600148, "unique_merchant_event_timestamp_keys": 1600084, "input_population": "payment transactions with non-null merchant_id", "output_rows": 1600084, "output_partitions": 5, "runtime_seconds": 26.63, "sources": ["silver.transactions"], "note": "Output follows the merchant_id + event_timestamp snapshot grain. This is the longest F5 feature write; no optimization was performed."}
+  ],
+  "validation": {
+    "gold": {"pass": 99, "fail": 0, "wall_runtime_seconds": 220.61},
+    "focused_and_regression_tests": {"pass": 31, "fail": 0},
+    "contracts_parsed": 9,
+    "python_compile": "PASS"
+  },
+  "trino": {
+    "version": "483",
+    "inventory": {"bronze": 8, "silver": 8, "gold": 15, "total": 31},
+    "registration_first_run": {"registered": 4, "already_present": 27},
+    "registration_second_run": {"registered": 0, "already_present": 31},
+    "feature_tables_queryable": 4,
+    "timestamp_precision_note": "Trino exposes Delta event_timestamp as timestamp(3); Spark/Delta persisted-grain validation retains the finer timestamp semantics. F6 must audit timestamp precision before selecting Trino as the Feast historical source; F5 does not claim Feast point-in-time correctness."
+  },
+  "datahub": {
+    "server_version": "v1.7.0.1",
+    "cli_version": "1.7.0.5",
+    "datasets_scanned": 31,
+    "ingestion_events_produced": 147,
+    "ingestion_records_written": 149,
+    "ingestion_runtime_seconds": 9.64,
+    "direct_lineage_edges": 16,
+    "feature_lineage_edges": 5,
+    "lineage_readback": "PASS",
+    "stale_or_unexpected_edges": 0,
+    "fraud_label_to_feature_edges": 0,
+    "feast_or_ml_edges": 0,
+    "assertions": {
+      "published": 15,
+      "definitions_read_back": 15,
+      "latest_statuses_read_back": 15,
+      "success": 15,
+      "failure": 0,
+      "duplicate_logical_assertions": 0
+    },
+    "screenshot": "NOT_AVAILABLE",
+    "screenshot_reason": "The live UI was verified after OpenSearch indexing recovered, including both upstreams for feat_device_behavior, but the available browser evidence channel could not persist the capture as a repository file; no screenshot was fabricated."
+  },
+  "deferred": {"spark_optimization": "NOT PERFORMED", "feast": "NOT STARTED", "ml_training": "NOT STARTED", "model_serving": "NOT STARTED"}
+}

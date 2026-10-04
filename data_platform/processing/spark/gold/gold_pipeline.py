@@ -26,6 +26,15 @@ from data_platform.processing.spark.gold.fact_builder import (
 from data_platform.processing.spark.gold.feature_builder import (
     build_feat_user_90d,
 )
+from data_platform.processing.spark.gold.features import (
+    build_feat_account_behavior,
+    build_feat_device_behavior,
+    build_feat_merchant_behavior,
+    build_feat_user_behavior,
+)
+from data_platform.processing.spark.gold.features.validation import (
+    validate_feature_columns,
+)
 from data_platform.processing.spark.gold.delta_gold_io import (
     process_gold_table,
     read_silver,
@@ -245,6 +254,56 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             "feat_user_90d",
             feat_user_90d_df,
         )
+
+        historical_features = (
+            (
+                "feat_user_behavior",
+                build_feat_user_behavior(transactions_df),
+                (
+                    "user_id", "event_timestamp", "user_tx_count_5m",
+                    "user_tx_count_1h", "user_tx_count_24h",
+                    "user_amount_sum_1h",
+                    "user_amount_observation_count_30d",
+                    "user_avg_amount_30d", "user_std_amount_30d",
+                    "user_failed_rate_24h", "user_distinct_merchants_24h",
+                ),
+            ),
+            (
+                "feat_account_behavior",
+                build_feat_account_behavior(transactions_df),
+                (
+                    "account_id", "event_timestamp", "account_tx_count_5m",
+                    "account_tx_count_1h", "account_tx_count_24h",
+                    "account_amount_sum_1h", "account_amount_sum_24h",
+                    "account_amount_observation_count_30d",
+                    "account_avg_amount_30d", "account_std_amount_30d",
+                    "account_failed_rate_24h", "account_seconds_since_last_tx",
+                ),
+            ),
+            (
+                "feat_device_behavior",
+                build_feat_device_behavior(transactions_df, devices_df),
+                (
+                    "device_id", "event_timestamp", "device_age_seconds",
+                    "device_tx_count_1h", "device_tx_count_24h",
+                    "device_amount_sum_24h", "device_failed_rate_24h",
+                ),
+            ),
+            (
+                "feat_merchant_behavior",
+                build_feat_merchant_behavior(transactions_df),
+                (
+                    "merchant_id", "event_timestamp", "merchant_tx_count_10m",
+                    "merchant_tx_count_1h", "merchant_tx_count_24h",
+                    "merchant_unique_users_10m", "merchant_unique_users_1h",
+                    "merchant_amount_sum_1h", "merchant_avg_amount_24h",
+                ),
+            ),
+        )
+
+        for table_name, feature_df, required_columns in historical_features:
+            validate_feature_columns(feature_df, table_name, required_columns)
+            process_gold_table(table_name, feature_df)
 
         logger.info(
             "========== BUILD ANALYTICS =========="

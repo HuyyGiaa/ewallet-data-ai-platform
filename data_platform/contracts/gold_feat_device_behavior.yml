@@ -1,0 +1,32 @@
+contract_version: 1
+dataset: gold.feat_device_behavior
+layer: gold
+description: Point-in-time device behavior snapshots for fraud features.
+storage_location: s3a://gold-zone/feat_device_behavior
+grain: One row per distinct device_id and event_timestamp in Silver transactions.
+logical_key: [device_id, event_timestamp]
+upstream: [silver.transactions, silver.devices]
+enforced_by: [data_platform.quality.validate_gold]
+columns:
+  - {name: device_id, type: string, nullable: false}
+  - {name: event_timestamp, type: timestamp, nullable: false}
+  - {name: device_age_seconds, type: double, nullable: false}
+  - {name: device_tx_count_1h, type: long, nullable: false}
+  - {name: device_tx_count_24h, type: long, nullable: false}
+  - {name: device_amount_sum_24h, type: double, nullable: false}
+  - {name: device_failed_rate_24h, type: double, nullable: true}
+temporal_semantics:
+  window: "[T-window, T)"
+  device_age: max(0, T - silver.devices.first_seen_at)
+  same_timestamp: Same-device peers share one snapshot and do not observe each other.
+point_in_time_contract:
+  current_transaction_excluded: true
+  future_transactions_excluded: true
+  same_timestamp_peers_excluded: true
+null_semantics:
+  count_and_sum_without_history: 0
+  rate_without_denominator: null
+quality_rules:
+  - {expectation: Entity and timestamp are required and the logical key is unique., validator_rule: feat_device_behavior.unique_key(device_id,event_timestamp)}
+  - {expectation: Device age counts and sums are non-negative and counts are monotonic., validator_rule: feat_device_behavior.monotonic_windows}
+  - {expectation: Non-null rates are within 0 and 1., validator_rule: feat_device_behavior.valid_rate_ranges}

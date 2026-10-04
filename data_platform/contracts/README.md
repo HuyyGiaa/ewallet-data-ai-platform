@@ -1,6 +1,6 @@
 # Data Contracts
 
-This directory contains versioned contracts for five high-value datasets on
+This directory contains versioned contracts for nine high-value datasets on
 the transaction and fraud-label paths:
 
 - `silver.transactions`
@@ -8,6 +8,10 @@ the transaction and fraud-label paths:
 - `gold.fact_transactions`
 - `gold.obt_transaction_enriched`
 - `gold.feat_user_90d`
+- `gold.feat_user_behavior`
+- `gold.feat_account_behavior`
+- `gold.feat_device_behavior`
+- `gold.feat_merchant_behavior`
 
 The YAML files describe stable dataset interfaces: schema, grain, logical
 keys, required and optional fields, verified relationships, and quality

@@ -2,9 +2,10 @@
 
 ## Scope and canonical audit
 
-This document defines the final F4D design for point-in-time historical fraud
-features. It does not implement Gold tables, Feast, training, serving, or model
-preprocessing.
+This document defines the final F4D contract for point-in-time historical fraud
+features. F5 implements the four Gold tables under
+`data_platform/processing/spark/gold/features/`; Feast, training, serving, and
+model preprocessing remain outside this phase.
 
 The design was checked against the F4C canonical population: 500,000 users,
 674,383 accounts, 572,632 devices, and 4,000,000 logical transactions. The
