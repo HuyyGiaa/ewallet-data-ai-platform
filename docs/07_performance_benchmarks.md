@@ -1,5 +1,43 @@
 # Spark Performance Benchmarks
 
+## F4C Spark batch baseline
+
+This is the measured **F4C BASELINE — NOT OPTIMIZED** for the canonical dataset
+regenerated after the fraud generator realism redesign. It establishes the
+reference for a later optimization task; F4C did not tune Spark or change
+transformation logic.
+
+Dataset scale:
+
+- 500,000 users, 674,383 accounts, and 572,632 devices
+- 4,080,000 physical Bronze transaction rows and 4,000,000 logical rows
+- 4,000,000 fraud labels
+- 3,893,408 balance snapshots and 3,999,990 login events
+
+| Stage | Input / output | Runtime |
+|---|---|---:|
+| Bronze ingestion | 9 source files -> 8 Delta tables | 67.85 s |
+| Bronze validation | 8 tables; 49 PASS / 0 FAIL | 59.19 s |
+| Silver transformation | 8 Bronze -> 8 Silver; 4.08M -> 4.00M transactions | 141.55 s |
+| Silver validation | 8 tables; 53 PASS / 0 FAIL | 187.08 s |
+| Gold transformation | 7 Silver business tables -> 11 Gold tables | 193.15 s |
+| Gold validation | 67 PASS / 0 FAIL | 186.44 s |
+
+The transformations used Spark 4.1.1 with `local[4]`, 32 shuffle partitions,
+AQE and skew-join handling enabled, and the existing DAG runtime prerequisite
+`PYSPARK_SUBMIT_ARGS="--driver-memory 8g pyspark-shell"`. An initial Silver
+invocation that omitted that setting ran out of Java heap; rerunning the exact
+DAG command completed successfully. The failed 80.49-second attempt is not
+included in the successful baseline above. This prerequisite is not an
+optimization result. The Gold OBT was the longest individually logged Gold
+build at 60.71 seconds.
+
+The machine-readable counts, manifests, runtimes, configuration, warnings, and
+cross-layer checks are in
+[`evidence/f4c_canonical_regeneration.json`](evidence/f4c_canonical_regeneration.json).
+No Spark UI screenshot or derived chart was retained because the raw measured
+evidence and tables were sufficient.
+
 ## Merchant Skew
 
 ### Problem
@@ -10,7 +48,7 @@ of merchant transaction traffic.
 
 ### Dataset
 
-Final offline dataset:
+Historical Phase 1 benchmark dataset:
 
 - Users: 500,000
 - Bronze transactions: 4,080,000

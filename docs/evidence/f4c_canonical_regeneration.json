@@ -1,0 +1,1332 @@
+{
+  "airflow": {
+    "dag_id": "ewallet_batch_pipeline",
+    "fraud_flag_tasks": [
+      "bronze_ingestion",
+      "validate_bronze",
+      "silver_transformation",
+      "validate_silver"
+    ],
+    "full_dagrun_recorded": false,
+    "gold_tasks_without_fraud_flag": [
+      "gold_transformation",
+      "validate_gold"
+    ],
+    "import_errors": 0,
+    "max_active_runs": 1,
+    "note": "Exact DAG commands were executed manually; DagBag verification required no metadata DB migration.",
+    "result": "PASS",
+    "tasks": 6,
+    "version": "3.3.1"
+  },
+  "batch_rebuild": {
+    "gold_table_runtimes_seconds": {
+      "dim_account": 3.93,
+      "dim_date": 15.52,
+      "dim_device": 3.5,
+      "dim_merchant": 2.91,
+      "dim_user": 11.74,
+      "fact_balance_snapshot": 8.42,
+      "fact_login_events": 13.27,
+      "fact_transactions": 30.2,
+      "feat_user_90d": 8.52,
+      "obt_transaction_enriched": 60.71,
+      "opt_merchant_performance": 9.37
+    },
+    "result": "PASS",
+    "silver_initial_attempt": {
+      "classification": "existing DAG runtime prerequisite, not an optimization",
+      "reason": "Java heap space while writing transactions",
+      "resolution": "reran the existing Airflow DAG command with PYSPARK_SUBMIT_ARGS=--driver-memory 8g pyspark-shell",
+      "result": "FAIL",
+      "runtime_seconds": 80.49
+    },
+    "stages": [
+      {
+        "input": "9 physical Parquet outputs",
+        "output": "8 Bronze Delta tables",
+        "result": "PASS",
+        "rows": {
+          "fraud_labels": 4000000,
+          "transactions": 4080000
+        },
+        "runtime_seconds": 67.85,
+        "stage": "bronze_ingestion"
+      },
+      {
+        "input": "8 Bronze Delta tables",
+        "output": "49 PASS / 0 FAIL",
+        "result": "PASS",
+        "runtime_seconds": 59.19,
+        "stage": "bronze_validation"
+      },
+      {
+        "input": "8 Bronze Delta tables",
+        "output": "8 Silver Delta tables",
+        "result": "PASS",
+        "rows": {
+          "duplicates_removed": 80000,
+          "fraud_labels": 4000000,
+          "transactions_in": 4080000,
+          "transactions_out": 4000000
+        },
+        "runtime_seconds": 141.55,
+        "stage": "silver_transformation"
+      },
+      {
+        "input": "8 Silver Delta tables",
+        "output": "53 PASS / 0 FAIL",
+        "result": "PASS",
+        "runtime_seconds": 187.08,
+        "stage": "silver_validation"
+      },
+      {
+        "input": "7 Silver business tables",
+        "output": "11 Gold Delta tables",
+        "result": "PASS",
+        "rows": {
+          "dim_account": 674383,
+          "dim_user": 500000,
+          "fact_transactions": 4000000,
+          "obt_transaction_enriched": 4000000
+        },
+        "runtime_seconds": 193.15,
+        "stage": "gold_transformation"
+      },
+      {
+        "input": "11 Gold and 7 Silver contract tables",
+        "output": "67 PASS / 0 FAIL",
+        "result": "PASS",
+        "runtime_seconds": 186.44,
+        "stage": "gold_validation"
+      }
+    ]
+  },
+  "canonical_configuration": {
+    "account_activity_weights": {
+      "dormant": 0.08,
+      "primary": 1.0,
+      "secondary": 0.35
+    },
+    "accounts_per_user_distribution": {
+      "1": 0.7,
+      "2": 0.25,
+      "3": 0.05
+    },
+    "days_history": 150,
+    "fraud_scenarios": [
+      "velocity",
+      "amount_anomaly",
+      "account_takeover",
+      "merchant_burst"
+    ],
+    "fraud_target_rate": 0.02,
+    "legitimate_device_churn": {
+      "enabled": true,
+      "recent_window_days": 7,
+      "user_rate": 0.12
+    },
+    "merchants": 300,
+    "offline_duplicate_rate": 0.02,
+    "path": "data_platform/generation/config/settings.yaml",
+    "schema_cutover": "2026-03-15T00:00:00",
+    "temporal_range": [
+      "2026-01-01T00:00:00",
+      "2026-05-31T23:59:59"
+    ],
+    "users": 500000
+  },
+  "canonical_source_manifest": {
+    "accounts": {
+      "rows": 674383,
+      "schema": [
+        [
+          "account_id",
+          "string"
+        ],
+        [
+          "user_id",
+          "string"
+        ],
+        [
+          "account_type",
+          "string"
+        ],
+        [
+          "currency",
+          "string"
+        ],
+        [
+          "created_at",
+          "timestamp[us]"
+        ]
+      ],
+      "sha256": "b08b1df1d767a6ebcc90cbe107042772b5aa3229881b062ed8eebef7cfb9e24e",
+      "size_bytes": 47880910
+    },
+    "balance_snapshots": {
+      "rows": 3893408,
+      "schema": [
+        [
+          "account_id",
+          "string"
+        ],
+        [
+          "snapshot_date",
+          "date32[day]"
+        ],
+        [
+          "closing_balance",
+          "double"
+        ]
+      ],
+      "sha256": "f78d6072a9cc6a56f41040626aef8da7d63d87c992a1d1e9e813222e42fbe299",
+      "size_bytes": 59205219
+    },
+    "devices": {
+      "rows": 572632,
+      "schema": [
+        [
+          "device_id",
+          "string"
+        ],
+        [
+          "user_id",
+          "string"
+        ],
+        [
+          "device_type",
+          "string"
+        ],
+        [
+          "os",
+          "string"
+        ],
+        [
+          "first_seen_at",
+          "timestamp[us]"
+        ]
+      ],
+      "sha256": "300102624bd80206478a974b4de01d2bad2ad5aa51fda65c1131005155d964f9",
+      "size_bytes": 44771973
+    },
+    "fraud_labels": {
+      "rows": 4000000,
+      "schema": [
+        [
+          "transaction_id",
+          "string"
+        ],
+        [
+          "label",
+          "int8"
+        ],
+        [
+          "fraud_type",
+          "string"
+        ]
+      ],
+      "sha256": "72d138c639e29b39ccd666a95ba1670a778b60008a02c622596e43c7e74ffc7b",
+      "size_bytes": 144816702
+    },
+    "login_events": {
+      "rows": 3999990,
+      "schema": [
+        [
+          "login_id",
+          "string"
+        ],
+        [
+          "user_id",
+          "string"
+        ],
+        [
+          "device_id",
+          "string"
+        ],
+        [
+          "login_ts",
+          "timestamp[us]"
+        ],
+        [
+          "is_success",
+          "bool"
+        ]
+      ],
+      "sha256": "664d745350c74dbcc6254e992dad78d5782128a1a4b0bf2864f765824da49834",
+      "size_bytes": 231347163
+    },
+    "merchants": {
+      "rows": 300,
+      "schema": [
+        [
+          "merchant_id",
+          "string"
+        ],
+        [
+          "merchant_name",
+          "string"
+        ],
+        [
+          "category",
+          "string"
+        ]
+      ],
+      "sha256": "4dfb992946246645aeabc51b27ec31a75e45bbe348a3c5dc6549db52abaeb26e",
+      "size_bytes": 17118
+    },
+    "transactions_v1": {
+      "rows": 1970866,
+      "schema": [
+        [
+          "transaction_id",
+          "string"
+        ],
+        [
+          "account_id",
+          "string"
+        ],
+        [
+          "user_id",
+          "string"
+        ],
+        [
+          "device_id",
+          "string"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "amount",
+          "double"
+        ],
+        [
+          "currency",
+          "string"
+        ],
+        [
+          "status",
+          "string"
+        ],
+        [
+          "old_balance",
+          "double"
+        ],
+        [
+          "new_balance",
+          "double"
+        ],
+        [
+          "merchant_id",
+          "string"
+        ],
+        [
+          "counterparty_account_id",
+          "string"
+        ],
+        [
+          "timestamp",
+          "timestamp[us]"
+        ],
+        [
+          "ingested_at",
+          "timestamp[us]"
+        ]
+      ],
+      "sha256": "37a0031491d19118f58796402f89c3da28433a75c0a80b25f6e8588377257c41",
+      "size_bytes": 376968681
+    },
+    "transactions_v2": {
+      "rows": 2109134,
+      "schema": [
+        [
+          "transaction_id",
+          "string"
+        ],
+        [
+          "account_id",
+          "string"
+        ],
+        [
+          "user_id",
+          "string"
+        ],
+        [
+          "device_id",
+          "string"
+        ],
+        [
+          "type",
+          "string"
+        ],
+        [
+          "amount",
+          "double"
+        ],
+        [
+          "currency",
+          "string"
+        ],
+        [
+          "status",
+          "string"
+        ],
+        [
+          "channel",
+          "string"
+        ],
+        [
+          "old_balance",
+          "double"
+        ],
+        [
+          "new_balance",
+          "double"
+        ],
+        [
+          "merchant_id",
+          "string"
+        ],
+        [
+          "counterparty_account_id",
+          "string"
+        ],
+        [
+          "timestamp",
+          "timestamp[us]"
+        ],
+        [
+          "ingested_at",
+          "timestamp[us]"
+        ]
+      ],
+      "sha256": "edcdf12435b8b92b039adcac66407e83f1078f1d994c934537938057c2620100",
+      "size_bytes": 403920045
+    },
+    "users": {
+      "rows": 500000,
+      "schema": [
+        [
+          "user_id",
+          "string"
+        ],
+        [
+          "full_name",
+          "string"
+        ],
+        [
+          "email",
+          "string"
+        ],
+        [
+          "phone",
+          "string"
+        ],
+        [
+          "kyc_verified",
+          "bool"
+        ],
+        [
+          "created_at",
+          "timestamp[us]"
+        ]
+      ],
+      "sha256": "c0b7d7c3348ece21a2943f83a746995044a185edf4fdc84dd85737b1b9e15b85",
+      "size_bytes": 29687002
+    }
+  },
+  "datahub": {
+    "assertion_publish": {
+      "fail": 0,
+      "pass": 11,
+      "result": "PASS",
+      "runtime_seconds": 26.55
+    },
+    "cli_version": "1.7.0.5",
+    "lineage_publish": {
+      "result": "PASS",
+      "runtime_seconds": 0.96
+    },
+    "metadata_ingestion": {
+      "events_produced": 131,
+      "failures": [],
+      "records_written": 133,
+      "result": "PASS",
+      "runtime_seconds": 6.52,
+      "tables_scanned": 27,
+      "warnings": []
+    },
+    "readback": {
+      "assertions": {
+        "configured_unique_urns": 11,
+        "duplicate_logical_assertions": 0,
+        "expected": 11,
+        "found": 11,
+        "latest_success": 11,
+        "missing": [],
+        "records": [
+          {
+            "assertion_id": "silver_transactions_required_fields_non_null",
+            "assertion_urn": "urn:li:assertion:silver_transactions_required_fields_non_null",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.transactions,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "silver_transactions_unique_transaction_id",
+            "assertion_urn": "urn:li:assertion:silver_transactions_unique_transaction_id",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.transactions,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "silver_transactions_account_fk_has_no_orphans",
+            "assertion_urn": "urn:li:assertion:silver_transactions_account_fk_has_no_orphans",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.transactions,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "gold_fact_population_matches_silver_transactions",
+            "assertion_urn": "urn:li:assertion:gold_fact_population_matches_silver_transactions",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.fact_transactions,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "gold_obt_population_matches_fact_transactions",
+            "assertion_urn": "urn:li:assertion:gold_obt_population_matches_fact_transactions",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "gold_obt_unique_transaction_id",
+            "assertion_urn": "urn:li:assertion:gold_obt_unique_transaction_id",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "gold_feat_population_matches_dim_user",
+            "assertion_urn": "urn:li:assertion:gold_feat_population_matches_dim_user",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.feat_user_90d,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "gold_feat_failed_rate_between_zero_and_one",
+            "assertion_urn": "urn:li:assertion:gold_feat_failed_rate_between_zero_and_one",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.feat_user_90d,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "silver_fraud_labels_unique_transaction_id",
+            "assertion_urn": "urn:li:assertion:silver_fraud_labels_unique_transaction_id",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.fraud_labels,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "silver_fraud_labels_required_domain_semantics",
+            "assertion_urn": "urn:li:assertion:silver_fraud_labels_required_domain_semantics",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.fraud_labels,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          },
+          {
+            "assertion_id": "silver_fraud_labels_exact_transaction_coverage",
+            "assertion_urn": "urn:li:assertion:silver_fraud_labels_exact_transaction_coverage",
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.fraud_labels,PROD)",
+            "passed": true,
+            "result_type": "SUCCESS",
+            "run_status": "COMPLETE",
+            "timestamp_millis": 1791029384756
+          }
+        ]
+      },
+      "datasets": {
+        "expected": 27,
+        "found": 27,
+        "missing": []
+      },
+      "lineage": {
+        "expected_direct_edges": 11,
+        "found_expected_edges": 11,
+        "missing": [],
+        "records": [
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.transactions,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.bronze_zone.transactions,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.fact_transactions,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.transactions,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.fact_transactions,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.dim_user,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.dim_account,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.dim_device,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.dim_merchant,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.obt_transaction_enriched,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.dim_date,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.feat_user_90d,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.fact_transactions,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.feat_user_90d,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.gold_zone.dim_user,PROD)"
+          },
+          {
+            "downstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.silver_zone.fraud_labels,PROD)",
+            "upstream": "urn:li:dataset:(urn:li:dataPlatform:trino,delta.bronze_zone.fraud_labels,PROD)"
+          }
+        ]
+      },
+      "pass": true
+    },
+    "server_version": "v1.7.0.1"
+  },
+  "deferred": {
+    "feast": "NOT STARTED",
+    "historical_fraud_feature_tables": "NOT STARTED",
+    "ml_training": "NOT STARTED",
+    "model_serving": "NOT STARTED",
+    "spark_optimization": "NOT PERFORMED"
+  },
+  "documentation_audit": {
+    "audited_no_change": [
+      "docs/00_system_architecture.md",
+      "docs/04_streaming_pipeline.md",
+      "docs/05_storage_optimization.md",
+      "docs/README.md",
+      "data_platform/contracts/README.md",
+      "data_platform/metadata/datahub/runtime/README.md"
+    ],
+    "changed": [
+      "README.md",
+      "docs/01_data_generator.md",
+      "docs/02_schema_design_example.md",
+      "docs/03_batch_pipeline.md",
+      "docs/06_airflow_orchestration.md",
+      "docs/07_performance_benchmarks.md",
+      "docs/08_datahub_lineage.md"
+    ],
+    "historical_values_preserved": true,
+    "stale_current_truth_scan": "PASS"
+  },
+  "evidence_version": "f4c-canonical-regeneration-v1",
+  "generated_at_utc": "2026-10-03T21:41:59.459631+00:00",
+  "generation": {
+    "logical_datasets": 8,
+    "peak_rss_kib": 6092576,
+    "physical_outputs": 9,
+    "result": "PASS",
+    "rows": {
+      "accounts": 674383,
+      "balance_snapshots": 3893408,
+      "devices": 572632,
+      "fraud_labels": 4000000,
+      "login_events": 3999990,
+      "merchants": 300,
+      "transactions_v1": 1970866,
+      "transactions_v2": 2109134,
+      "users": 500000
+    },
+    "runtime_seconds": 1034.85,
+    "staging_directory": "data_platform/generation/output/offline_f4c_staging (renamed during cutover)",
+    "swap_operations": 0
+  },
+  "git_baseline": {
+    "branch": "feature/phase2-fraud-platform",
+    "checkpoints": {
+      "f1": "c12a45e",
+      "f2": "bdb672e",
+      "f3": "ab4d0ed",
+      "f4b": "55c1e0b",
+      "phase1_freeze": "cdf09e1"
+    },
+    "head": "55c1e0b08ad4002e0a17aa991cf52e51cc213ddd",
+    "working_tree": "CLEAN"
+  },
+  "inventory": {
+    "bronze": 8,
+    "gold": 11,
+    "silver": 8,
+    "source_logical": 8,
+    "source_physical": 9,
+    "trino": 27
+  },
+  "persisted_populations": {
+    "bronze": {
+      "accounts": 674383,
+      "balance_snapshots": 3893408,
+      "devices": 572632,
+      "fraud_labels": 4000000,
+      "login_events": 3999990,
+      "merchants": 300,
+      "transactions": 4080000,
+      "users": 500000
+    },
+    "gold": {
+      "dim_account": 674383,
+      "dim_date": 151,
+      "dim_device": 572632,
+      "dim_merchant": 300,
+      "dim_user": 500000,
+      "fact_balance_snapshot": 3893408,
+      "fact_login_events": 3999990,
+      "fact_transactions": 4000000,
+      "feat_user_90d": 500000,
+      "obt_transaction_enriched": 4000000,
+      "opt_merchant_performance": 300
+    },
+    "silver": {
+      "accounts": 674383,
+      "balance_snapshots": 3893408,
+      "devices": 572632,
+      "fraud_labels": 4000000,
+      "login_events": 3999990,
+      "merchants": 300,
+      "transactions": 4000000,
+      "users": 500000
+    }
+  },
+  "population_invariants": {
+    "bronze_distinct_transactions_equals_bronze_fraud_labels": true,
+    "silver_accounts_equals_dim_account": true,
+    "silver_balance_snapshots_equals_gold_balance_fact": true,
+    "silver_login_events_equals_gold_login_fact": true,
+    "silver_transactions_equals_gold_fact_and_obt": true,
+    "silver_transactions_equals_silver_fraud_labels": true,
+    "silver_users_equals_dim_user": true
+  },
+  "pre_f4c_canonical": {
+    "inventory": {
+      "bronze": 8,
+      "gold": 11,
+      "silver": 8,
+      "trino": 27
+    },
+    "provenance": "F3 canonical evidence; retained as historical baseline",
+    "source": {
+      "accounts": 500000,
+      "balance_snapshots": 3881538,
+      "devices": 519590,
+      "fraud_labels": 4000000,
+      "logical_datasets": 8,
+      "logical_transactions": 4000000,
+      "login_events": 3999581,
+      "physical_outputs": 9,
+      "physical_transactions": 4080000,
+      "users": 500000
+    }
+  },
+  "regression_validation": {
+    "bronze_validator": {
+      "failed": 0,
+      "passed": 49,
+      "result": "PASS"
+    },
+    "docs_relative_links": {
+      "broken": 0,
+      "checked": 48,
+      "result": "PASS"
+    },
+    "evidence_json_parse": "PASS",
+    "fraud_generator_tests": {
+      "failed": 0,
+      "passed": 16,
+      "result": "PASS",
+      "runtime_seconds": 0.61
+    },
+    "fraud_label_platform_tests": {
+      "failed": 0,
+      "passed": 9,
+      "result": "PASS",
+      "runtime_seconds": 17.88
+    },
+    "git_diff_check": "PASS",
+    "gold_validator": {
+      "failed": 0,
+      "passed": 67,
+      "result": "PASS"
+    },
+    "python_compile": {
+      "result": "PASS",
+      "scope": [
+        "data_platform",
+        "tests"
+      ]
+    },
+    "silver_validator": {
+      "failed": 0,
+      "passed": 53,
+      "result": "PASS"
+    },
+    "yaml_parse": {
+      "files": 19,
+      "result": "PASS"
+    }
+  },
+  "source_cutover": {
+    "backup_ignored": true,
+    "canonical_manifest_matches_validated_staging": true,
+    "delta_history_preserved": true,
+    "phase1_backup_preserved": true,
+    "previous_source_backup": "data_platform/generation/output/offline_f3_backup_pre_f4b",
+    "result": "PASS",
+    "strategy": "same-filesystem directory rename",
+    "vacuum_performed": false
+  },
+  "source_validation": {
+    "accounts": {
+      "activity": [
+        {
+          "accounts": 500000,
+          "mean": 7.362812,
+          "median": 7.0,
+          "normal_transactions": 3608681,
+          "profile": "primary"
+        },
+        {
+          "accounts": 149709,
+          "mean": 2.054191798756254,
+          "median": 2.0,
+          "normal_transactions": 300349,
+          "profile": "secondary"
+        },
+        {
+          "accounts": 24674,
+          "mean": 0.44836670179135935,
+          "median": 0.0,
+          "normal_transactions": 10970,
+          "profile": "dormant"
+        }
+      ],
+      "duplicate_account_ids": 0,
+      "owner_violations": 0,
+      "per_user": {
+        "1": 350291,
+        "2": 125035,
+        "3": 24674
+      },
+      "total": 674383,
+      "transaction_owner_mismatch": 0,
+      "tx_per_account": {
+        "max": 26,
+        "min": 0,
+        "p50": 6.0,
+        "p95": 12.0
+      },
+      "users_multi": 149709
+    },
+    "devices": {
+      "age": {
+        "account_takeover": {
+          "age_zero": 0,
+          "count": 20000,
+          "le_1d": 1811,
+          "le_1h": 82,
+          "le_7d": 12832,
+          "percentiles": {
+            "0.0": 73.0,
+            "0.01": 8512.83,
+            "0.05": 47131.600000000006,
+            "0.25": 237938.75,
+            "0.5": 471151.0,
+            "0.75": 17415124.230139498,
+            "0.95": 34707940.88925424,
+            "0.99": 40128983.9151114,
+            "1.0": 44440827.839045
+          }
+        },
+        "normal": {
+          "age_zero": 0,
+          "count": 3920000,
+          "le_1d": 6222,
+          "le_1h": 241,
+          "le_7d": 46602,
+          "percentiles": {
+            "0.0": 3.0,
+            "0.01": 514892.81999999995,
+            "0.05": 7048609.13330775,
+            "0.25": 15709184.782344751,
+            "0.5": 23124493.2014165,
+            "0.75": 30548717.258337,
+            "0.95": 38285236.9805651,
+            "0.99": 41769332.06143953,
+            "1.0": 44566762.671986
+          }
+        }
+      },
+      "login_before_first_seen": 0,
+      "login_owner_mismatch": 0,
+      "owner_violations": 0,
+      "per_user": {
+        "1": 428913,
+        "2": 69543,
+        "3": 1543,
+        "4": 1
+      },
+      "total": 572632,
+      "transaction_before_first_seen": 0,
+      "transaction_owner_mismatch": 0
+    },
+    "files": {
+      "accounts": {
+        "rows": 674383,
+        "schema": [
+          [
+            "account_id",
+            "string"
+          ],
+          [
+            "user_id",
+            "string"
+          ],
+          [
+            "account_type",
+            "string"
+          ],
+          [
+            "currency",
+            "string"
+          ],
+          [
+            "created_at",
+            "timestamp[us]"
+          ]
+        ],
+        "sha256": "b08b1df1d767a6ebcc90cbe107042772b5aa3229881b062ed8eebef7cfb9e24e",
+        "size_bytes": 47880910
+      },
+      "balance_snapshots": {
+        "rows": 3893408,
+        "schema": [
+          [
+            "account_id",
+            "string"
+          ],
+          [
+            "snapshot_date",
+            "date32[day]"
+          ],
+          [
+            "closing_balance",
+            "double"
+          ]
+        ],
+        "sha256": "f78d6072a9cc6a56f41040626aef8da7d63d87c992a1d1e9e813222e42fbe299",
+        "size_bytes": 59205219
+      },
+      "devices": {
+        "rows": 572632,
+        "schema": [
+          [
+            "device_id",
+            "string"
+          ],
+          [
+            "user_id",
+            "string"
+          ],
+          [
+            "device_type",
+            "string"
+          ],
+          [
+            "os",
+            "string"
+          ],
+          [
+            "first_seen_at",
+            "timestamp[us]"
+          ]
+        ],
+        "sha256": "300102624bd80206478a974b4de01d2bad2ad5aa51fda65c1131005155d964f9",
+        "size_bytes": 44771973
+      },
+      "fraud_labels": {
+        "rows": 4000000,
+        "schema": [
+          [
+            "transaction_id",
+            "string"
+          ],
+          [
+            "label",
+            "int8"
+          ],
+          [
+            "fraud_type",
+            "string"
+          ]
+        ],
+        "sha256": "72d138c639e29b39ccd666a95ba1670a778b60008a02c622596e43c7e74ffc7b",
+        "size_bytes": 144816702
+      },
+      "login_events": {
+        "rows": 3999990,
+        "schema": [
+          [
+            "login_id",
+            "string"
+          ],
+          [
+            "user_id",
+            "string"
+          ],
+          [
+            "device_id",
+            "string"
+          ],
+          [
+            "login_ts",
+            "timestamp[us]"
+          ],
+          [
+            "is_success",
+            "bool"
+          ]
+        ],
+        "sha256": "664d745350c74dbcc6254e992dad78d5782128a1a4b0bf2864f765824da49834",
+        "size_bytes": 231347163
+      },
+      "merchants": {
+        "rows": 300,
+        "schema": [
+          [
+            "merchant_id",
+            "string"
+          ],
+          [
+            "merchant_name",
+            "string"
+          ],
+          [
+            "category",
+            "string"
+          ]
+        ],
+        "sha256": "4dfb992946246645aeabc51b27ec31a75e45bbe348a3c5dc6549db52abaeb26e",
+        "size_bytes": 17118
+      },
+      "transactions_v1": {
+        "rows": 1970866,
+        "schema": [
+          [
+            "transaction_id",
+            "string"
+          ],
+          [
+            "account_id",
+            "string"
+          ],
+          [
+            "user_id",
+            "string"
+          ],
+          [
+            "device_id",
+            "string"
+          ],
+          [
+            "type",
+            "string"
+          ],
+          [
+            "amount",
+            "double"
+          ],
+          [
+            "currency",
+            "string"
+          ],
+          [
+            "status",
+            "string"
+          ],
+          [
+            "old_balance",
+            "double"
+          ],
+          [
+            "new_balance",
+            "double"
+          ],
+          [
+            "merchant_id",
+            "string"
+          ],
+          [
+            "counterparty_account_id",
+            "string"
+          ],
+          [
+            "timestamp",
+            "timestamp[us]"
+          ],
+          [
+            "ingested_at",
+            "timestamp[us]"
+          ]
+        ],
+        "sha256": "37a0031491d19118f58796402f89c3da28433a75c0a80b25f6e8588377257c41",
+        "size_bytes": 376968681
+      },
+      "transactions_v2": {
+        "rows": 2109134,
+        "schema": [
+          [
+            "transaction_id",
+            "string"
+          ],
+          [
+            "account_id",
+            "string"
+          ],
+          [
+            "user_id",
+            "string"
+          ],
+          [
+            "device_id",
+            "string"
+          ],
+          [
+            "type",
+            "string"
+          ],
+          [
+            "amount",
+            "double"
+          ],
+          [
+            "currency",
+            "string"
+          ],
+          [
+            "status",
+            "string"
+          ],
+          [
+            "channel",
+            "string"
+          ],
+          [
+            "old_balance",
+            "double"
+          ],
+          [
+            "new_balance",
+            "double"
+          ],
+          [
+            "merchant_id",
+            "string"
+          ],
+          [
+            "counterparty_account_id",
+            "string"
+          ],
+          [
+            "timestamp",
+            "timestamp[us]"
+          ],
+          [
+            "ingested_at",
+            "timestamp[us]"
+          ]
+        ],
+        "sha256": "edcdf12435b8b92b039adcac66407e83f1078f1d994c934537938057c2620100",
+        "size_bytes": 403920045
+      },
+      "users": {
+        "rows": 500000,
+        "schema": [
+          [
+            "user_id",
+            "string"
+          ],
+          [
+            "full_name",
+            "string"
+          ],
+          [
+            "email",
+            "string"
+          ],
+          [
+            "phone",
+            "string"
+          ],
+          [
+            "kyc_verified",
+            "bool"
+          ],
+          [
+            "created_at",
+            "timestamp[us]"
+          ]
+        ],
+        "sha256": "c0b7d7c3348ece21a2943f83a746995044a185edf4fdc84dd85737b1b9e15b85",
+        "size_bytes": 29687002
+      }
+    },
+    "fraud": {
+      "amount_anomaly": {
+        "count": 20000,
+        "history_median": 4.0,
+        "history_min": 1,
+        "ratio_median": 5.882008334623736,
+        "ratio_min": 4.000026025706698,
+        "usable_pre_t": 20000
+      },
+      "by_type": {
+        "account_takeover": 20000,
+        "amount_anomaly": 20000,
+        "merchant_burst": 20000,
+        "velocity": 20000
+      },
+      "fraud": 80000,
+      "normal": 3920000,
+      "normal_failed": 136229,
+      "rate": 0.02,
+      "successful_fraud": 75641
+    },
+    "invariants": {
+      "duplicate_labels": 0,
+      "invalid_balance_rows": 0,
+      "labels": 4000000,
+      "missing_labels": 0,
+      "orphan_labels": 0,
+      "target_leakage": {
+        "accounts": [],
+        "balance_snapshots": [],
+        "devices": [],
+        "login_events": [],
+        "merchants": [],
+        "transactions_v1": [],
+        "transactions_v2": [],
+        "users": []
+      },
+      "v1_has_channel": false,
+      "v1_nonempty": true,
+      "v2_has_channel": true,
+      "v2_nonempty": true
+    },
+    "passed": true,
+    "runtime_seconds": 70.49,
+    "source": {
+      "duplicate_rows": 80000,
+      "logical_datasets": 8,
+      "logical_transactions": 4000000,
+      "physical_outputs": 9,
+      "physical_transactions": 4080000
+    }
+  },
+  "spark_baseline": {
+    "adaptive_query_execution": true,
+    "classification": "F4C BASELINE - NOT OPTIMIZED",
+    "delta_spark": "4.3.1",
+    "driver_memory_for_transformations": "8g",
+    "execution_notes": [
+      "Overwrite rebuild preserved Delta history; no VACUUM was run.",
+      "Silver deduplicated 80,000 intentional physical transaction duplicates.",
+      "The first Silver attempt without the DAG driver-memory setting exhausted Java heap; the exact DAG setting completed successfully.",
+      "Gold OBT was the longest individually logged Gold build at 60.71 seconds."
+    ],
+    "master": "local[4]",
+    "optimization_performed": false,
+    "screenshot_or_chart": false,
+    "shuffle_partitions": 32,
+    "skew_join": true,
+    "spark_version": "4.1.1"
+  },
+  "trino": {
+    "counts": {
+      "bronze.fraud_labels": 4000000,
+      "bronze.transactions_distinct": 4000000,
+      "bronze.transactions_physical": 4080000,
+      "gold.dim_account": 674383,
+      "gold.dim_device": 572632,
+      "gold.dim_user": 500000,
+      "gold.fact_balance_snapshot": 3893408,
+      "gold.fact_login_events": 3999990,
+      "gold.fact_transactions": 4000000,
+      "gold.feat_user_90d": 500000,
+      "gold.obt_transaction_enriched": 4000000,
+      "silver.accounts": 674383,
+      "silver.balance_snapshots": 3893408,
+      "silver.devices": 572632,
+      "silver.fraud_labels": 4000000,
+      "silver.login_events": 3999990,
+      "silver.transactions": 4000000,
+      "silver.users": 500000
+    },
+    "inventory": {
+      "bronze": 8,
+      "gold": 11,
+      "silver": 8,
+      "total": 27
+    },
+    "registration_runs": [
+      {
+        "already_present": 27,
+        "registered": 0,
+        "result": "PASS",
+        "runtime_seconds": 5.87
+      },
+      {
+        "already_present": 27,
+        "registered": 0,
+        "result": "PASS",
+        "runtime_seconds": 5.26
+      }
+    ],
+    "result": "PASS",
+    "select_1": 1
+  }
+}

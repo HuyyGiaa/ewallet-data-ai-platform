@@ -62,9 +62,10 @@ status, ports, and limitations.
 | Messaging and CDC | Redpanda plus PostgreSQL/Debezium local experiment |
 | Streaming | PyFlink deduplication, watermarks, windows, late events, and burst detection with print sinks |
 
-The generated 500,000-user run produced 4.08 million Bronze transaction rows,
-including 80,000 intentional duplicates. These are recorded run results, not
-hard-coded pipeline expectations. Validators and the demo query current data.
+The F4C canonical 500,000-user run produced 674,383 accounts, 572,632 devices,
+and 4.08 million Bronze transaction rows, including 80,000 intentional
+duplicates. These are recorded run results, not hard-coded pipeline
+expectations. Validators and the demo query current data.
 
 ## Repository map
 
@@ -240,9 +241,12 @@ tasks. The current canonical inventory is 8 Bronze / 8 Silver / 11 Gold.
 Running these commands without `--include-fraud-labels` remains a Phase 1
 compatibility mode and can leave canonical labels stale.
 
-F3 retained the previous local source under
+F3 retained the Phase 1 source under
 `data_platform/generation/output/offline_phase1_backup_pre_fraud/`. This is an
 ignored runtime backup for local rollback evidence and is not committed.
+F4C also retained the pre-F4B F3 source under
+`data_platform/generation/output/offline_f3_backup_pre_f4b/` before replacing
+the canonical source with the validated F4B generator output.
 
 The Airflow DAG runs the full sequence with validation gates:
 

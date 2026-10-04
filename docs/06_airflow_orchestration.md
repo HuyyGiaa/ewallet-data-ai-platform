@@ -108,3 +108,14 @@ and runtime evidence is recorded in
 [`evidence/f3_canonical_fraud_migration.json`](evidence/f3_canonical_fraud_migration.json).
 These measurements are baseline runtime evidence for later comparison, not
 optimized results.
+
+## F4C canonical verification
+
+F4C executed the same six task commands manually against the regenerated F4B
+canonical source. A fresh Airflow 3.3.1 `DagBag` parse again confirmed the DAG
+ID, six-task graph, `max_active_runs=1`, zero import errors, and the fraud flag
+on the four Bronze/Silver tasks only. The current canonical populations are
+674,383 accounts, 572,632 devices, 4,080,000 physical Bronze transaction rows,
+3,893,408 balance snapshots, 3,999,990 login events, and 4,000,000 fraud
+labels. Full run and validation evidence is recorded in
+[`evidence/f4c_canonical_regeneration.json`](evidence/f4c_canonical_regeneration.json).

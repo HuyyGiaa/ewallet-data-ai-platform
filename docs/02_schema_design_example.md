@@ -144,17 +144,17 @@ Final offline volume:
 
 \| users | 500,000 |
 
-\| accounts | 500,000 |
+\| accounts | 674,383 |
 
 \| merchants | 300 |
 
-\| devices | 519,590 |
+\| devices | 572,632 |
 
 \| transactions (Bronze) | 4,080,000 |
 
-\| balance\_snapshots | 3,881,538 |
+\| balance\_snapshots | 3,893,408 |
 
-\| login\_events | 3,999,581 |
+\| login\_events | 3,999,990 |
 
 \| fraud\_labels | 4,000,000 |
 

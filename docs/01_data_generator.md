@@ -947,6 +947,10 @@ demonstrated in the remaining coursework.
 `fraud_labels` is now canonical in Bronze and Silver. Historical Gold fraud
 features, Feast, ML training, and model serving remain separate follow-up work.
 
-The F4B realism redesign has been exercised only with the isolated
-`fraud_dev` profile. The persisted canonical 4M dataset remains the pre-F4B F3
-dataset until the separate F4C canonical regeneration step.
+F4C regenerated and validated the persisted canonical dataset with the F4B
+realism model. The current run contains 674,383 accounts and 572,632 devices;
+149,709 users have more than one account. It retains 4,000,000 logical
+transactions, 80,000 intentional physical duplicates, and 80,000 fraud labels
+with `label=1` across the four configured scenarios. The measured manifest and
+validation results are in
+[`evidence/f4c_canonical_regeneration.json`](evidence/f4c_canonical_regeneration.json).

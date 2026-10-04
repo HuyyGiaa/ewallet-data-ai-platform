@@ -86,19 +86,19 @@ The generated dataset contains:
 
 \| Users | 500,000 |
 
-\| Accounts | 500,000 |
+\| Accounts | 674,383 |
 
 \| Merchants | 300 |
 
-\| Devices | 519,590 |
+\| Devices | 572,632 |
 
 \| Transactions before duplicate injection | 4,000,000 |
 
 \| Bronze transactions after duplicate injection | 4,080,000 |
 
-\| Balance snapshots | 3,881,538 |
+\| Balance snapshots | 3,893,408 |
 
-\| Login events | 3,999,581 |
+\| Login events | 3,999,990 |
 
 \| Fraud labels | 4,000,000 |
 
@@ -804,13 +804,13 @@ The final 500k-user dataset contains both schema versions:
 
 \`\`\`text
 
-Schema V1: 899,818 rows
+Schema V1: 1,970,866 rows
 
     channel column absent in the source schema
 
         ↓
 
-Schema V2: 3,180,182 rows
+Schema V2: 2,109,134 rows
 
     channel column present in the source schema
 
@@ -820,7 +820,7 @@ The two versions contain a total of:
 
 \`\`\`text
 
-899,818 + 3,180,182 = 4,080,000 Bronze transactions
+1,970,866 + 2,109,134 = 4,080,000 Bronze transactions
 
 \`\`\`
 
@@ -840,13 +840,13 @@ The final Bronze verification produced:
 
 Total rows:          4,080,000
 
-V1 rows:               899,818
+V1 rows:             1,970,866
 
-V2 rows:             3,180,182
+V2 rows:             2,109,134
 
-V1 channel NULL:       899,818
+V1 channel NULL:     1,970,866
 
-V2 channel present:  3,180,182
+V2 channel present:  2,109,134
 
 \`\`\`
 

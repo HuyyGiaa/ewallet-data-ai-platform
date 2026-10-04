@@ -208,10 +208,13 @@ Set `DATAHUB_GMS_TOKEN` only when the target GMS requires authentication. The
 publisher validates the endpoint and all target entities before it sends any
 definition.
 
-F3 runtime verification against server `v1.7.0.1` published all eleven
-definitions and successful run results. Server read-back found exactly eleven
-unique assertion URNs, correct dataset associations, and `SUCCESS` as every
-latest result.
+F4C runtime verification against server `v1.7.0.1` scanned all 27 current
+Trino datasets, read back all eleven expected direct lineage edges, and
+published all eleven assertion definitions and successful run results. Server
+read-back found eleven unique configured assertion URNs, correct dataset
+associations, `SUCCESS` as every latest result, and zero logical duplicates.
+The measured evidence is in
+[`evidence/f4c_canonical_regeneration.json`](evidence/f4c_canonical_regeneration.json).
 
 ## Evidence and limits
 
