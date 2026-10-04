@@ -147,10 +147,19 @@ allows denominator handling to be versioned with the model.
 | `amount_ratio_to_account_avg_30d` | Request `amount`, `account_avg_amount_30d` | Shared training/serving transformation |
 | `amount_zscore_account_30d` | Request `amount`, `account_avg_amount_30d`, `account_std_amount_30d` | Shared training/serving transformation |
 | `account_tx_share_1h` | `account_tx_count_1h`, `user_tx_count_1h` | Shared training/serving transformation |
-| `merchant_activity_ratio_10m_to_24h` | `merchant_tx_count_10m`, `merchant_tx_count_24h` with window-length normalization | Shared training/serving transformation |
+| `merchant_activity_rate_ratio_10m_vs_24h` | `merchant_tx_count_10m`, `merchant_tx_count_24h` with window-length normalization | Shared training/serving transformation |
 
 Ratios and z-scores return `NULL` when their denominator is absent or zero.
 Any later imputation belongs to model preprocessing, not feature computation.
+
+Before F8, F7 intentionally refined the merchant-derived name from the
+ambiguous `merchant_activity_ratio_10m_to_24h` to
+`merchant_activity_rate_ratio_10m_vs_24h`. The formula remains
+`(merchant_tx_count_10m * 144) / merchant_tx_count_24h`: approximately `1`
+means the recent ten-minute rate matches the 24-hour baseline rate, values
+above `1` indicate elevated recent activity, and much larger values indicate a
+potential merchant burst. This is an explicit semantic rename, not silent
+implementation drift.
 
 ## Leakage blacklist
 
@@ -217,7 +226,7 @@ the shared policy above.
 | Velocity | User/account counts at 5m, 1h, and 24h; account time since last transaction | `user_id`, `account_id`, `timestamp`, request amount | `account_tx_share_1h` |
 | Amount anomaly | User/account 30d observation count, average, and standard deviation; recent amount sums | Request `amount`, entity IDs, `timestamp` | User/account amount ratios and z-scores |
 | Account takeover | Device age, device counts/value/failure rate; account velocity, amount statistics, and time since last transaction | `device_id`, `account_id`, `user_id`, channel, amount, `timestamp` | Account amount ratio/z-score and account activity share |
-| Merchant burst | Merchant 10m/1h counts, unique users, 1h value, 24h count and average | Payment `merchant_id`, `user_id`, amount, `timestamp` | `merchant_activity_ratio_10m_to_24h` |
+| Merchant burst | Merchant 10m/1h counts, unique users, 1h value, 24h count and average | Payment `merchant_id`, `user_id`, amount, `timestamp` | `merchant_activity_rate_ratio_10m_vs_24h` |
 
 All four generated scenarios have observable historical and request-time
 signals. Account takeover relies on a combination: device recency alone cannot

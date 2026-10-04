@@ -184,12 +184,12 @@ collect a Gold table into pandas, Dask, or driver memory.
 
 ## Training-data boundary
 
-F6 does not create the final training dataset. A future F7 design may combine:
-
-1. request-time transaction fields;
-2. Feast historical features retrieved at the request timestamp;
-3. `silver.fraud_labels` as the supervised target;
-4. shared derived transformations such as ratios and z-scores.
+F7 now combines request-time transaction fields, Feast historical features at
+the request timestamp, `silver.fraud_labels`, and six shared derived
+transformations. Its trainable materialization is deliberately bounded at
+40,148 rows and retrieves at most 1,000 rows per Feast process. F6 still does
+not perform a four-million-row retrieval or own the generated training
+artifact. See the [fraud training dataset contract](fraud_training_dataset.md).
 
 Labels enter only after historical retrieval. No label-to-FeatureView or model
 lineage is published in DataHub. Existing F5 lineage remains unchanged.

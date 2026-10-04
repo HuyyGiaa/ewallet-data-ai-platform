@@ -1,5 +1,39 @@
 # Performance Benchmarks
 
+## F7 bounded training materialization baseline — not optimized
+
+F7 does not materialize the complete four-million-row training population on
+this machine. A 5,000-row Feast request triggered local system memory
+protection. The successful 1,000-row smoke used 6.5748 GiB peak process RSS,
+ran for 36.8422 seconds, and produced 281,346 Parquet bytes, or 281.346 bytes
+per row. This established 1,000 rows as the maximum request chunk and ruled
+out a large single-process retrieval.
+
+The final scope is a label-independent `1/100` hash sample of UTC event time.
+Its expected 40,000 rows require only about 11.25 MB at the measured smoke
+rate, preserve chronological split membership, and provide approximately 800
+natural-prevalence fraud rows. The observed selection contains 40,148 rows,
+806 fraud rows, and all four fraud scenarios in each split.
+
+| Metric | Measured value |
+|---|---:|
+| Materialized rows | 40,148 |
+| Feast request chunk | 1,000 rows maximum |
+| Output files | 41 |
+| Total checkpointed runtime | 1,959.6029 s |
+| Throughput | 20.4878 rows/s |
+| Peak process RSS | 12.3663 GiB |
+| Parquet output size | 11,382,689 bytes |
+
+Feast/Dask memory grew across repeated chunks, so the build checkpoints each
+part and restarts the process to release memory. Swap reached 8 GiB during the
+run. The generated output remains ignored runtime data. These figures describe
+a resource-safe local F7 build and do not claim full-scale throughput or an
+optimized implementation. Detailed evidence is in
+[`evidence/f7_training_dataset.json`](evidence/f7_training_dataset.json).
+
+**FULL CANONICAL MATERIALIZATION: NO.**
+
 ## F6 Feast offline historical retrieval baseline — not optimized
 
 F6 measured deterministic bounded retrieval against the canonical Gold-derived

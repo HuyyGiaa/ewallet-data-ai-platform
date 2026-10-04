@@ -77,5 +77,8 @@ temp/
 ai_platform/features/feast/feature_repo/data/
 ai_platform/features/feast/.venv/
 
+# Generated ML datasets and build manifests
+ai_platform/ml/data/
+
 # Local AI handoff context
 E_WALLET_PROJECT_CONTEXT.md

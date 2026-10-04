@@ -26,14 +26,17 @@ ewallet-data-ai-platform/
 ├── infra/
 │   └── docker/
 ├── ai_platform/
-│   └── features/feast/
+│   ├── features/feast/
+│   └── ml/training/
 ├── notebooks/
 ├── docs/
 └── tests/
 ```
 
-Phase 2 now uses `ai_platform/features/feast/` for offline historical feature
-retrieval. Training, online serving, LLM, and agent domains are still deferred.
+Phase 2 uses `ai_platform/features/feast/` for offline historical feature
+retrieval and `ai_platform/ml/training/` for the supervised dataset contract,
+derived transformations, bounded build, and validation. Model training, online
+serving, LLM, and agent domains are still deferred.
 
 ## Architecture at a glance
 
@@ -60,6 +63,8 @@ flowchart LR
     DATAHUB["DataHub<br/>catalog, lineage, assertions"]
     ADAPTER["Microsecond-safe<br/>Parquet snapshot adapter"]
     FEAST["Feast offline<br/>PIT retrieval"]
+    LABELS["Silver fraud labels"]
+    TRAIN["ML training dataset<br/>bounded build"]
 
     GEN -->|offline| PQ --> BR
     BR -->|Spark| SI -->|Spark| GO
@@ -73,6 +78,8 @@ flowchart LR
     SI --> TRINO
     GO --> TRINO
     GO --> ADAPTER --> FEAST
+    SI --> LABELS --> TRAIN
+    FEAST --> TRAIN
     BR --> DQ
     SI --> DQ
     GO --> DQ
@@ -174,6 +181,22 @@ canonical Feast source because its millisecond representation collapses 11
 distinct merchant snapshot keys. No Feast online store or materialization is
 configured. See the [Feast offline guide](ml/feast_offline.md).
 
+### Fraud training dataset
+
+F7 defines one supervised row per logical transaction at its UTC event time.
+It combines four request-time fields, 31 Feast historical features, six shared
+derived values, and the binary label joined one-to-one from
+`silver.fraud_labels`. IDs, target/evaluation metadata, and temporal split are
+kept outside the 41 model-feature columns. Current status, balance, ingestion
+time, current/future events, and same-timestamp peers are excluded.
+
+The 302-row stratified sample validates formulas and edge cases. The actual
+trainable artifact contains 40,148 rows selected by a deterministic,
+label-independent timestamp hash and is written to ignored ML-layer Parquet
+partitions. Full four-million-row materialization is rejected on this machine
+after measured memory protection, swap saturation, and limited disk headroom.
+See the [training dataset contract](ml/fraud_training_dataset.md).
+
 ### Validators and contracts
 
 The three validators are executable fail-hard gates. Their rules cover schema
@@ -239,7 +262,8 @@ lakehouse sink or end-to-end exactly-once guarantee.
 | Streaming/CDC lakehouse sink | Not implemented | No sink from Redpanda/Flink into Delta |
 | Phase 2 historical fraud features | Implemented | `data_platform/processing/spark/gold/features/` |
 | Feast offline historical retrieval | Implemented and bounded-sample validated | `ai_platform/features/feast/` |
-| Fraud training dataset, ML training, serving, and agent work | Planned | Outside F6 |
+| Fraud training dataset contract and build | Implemented; 40,148-row trainable materialization validated | `ai_platform/ml/training/` |
+| ML training, serving, and agent work | Planned | Outside F7 |
 
 ## Runtime boundaries and ports
 
@@ -281,6 +305,8 @@ known local configuration follow-up rather than silently changing Airflow.
 - Airflow needs a host-port override to coexist with DataHub GMS on `8080`.
 - Feast currently reads an explicitly refreshed local Parquet snapshot; it has
   no incremental refresh or online serving path.
+- The F7 training build is a validated 40,148-row bounded materialization. Full
+  canonical materialization exceeds measured local memory/swap capacity.
 
 Operational commands are kept in the root `README.md`; detailed component
 documentation is indexed in `docs/README.md`.

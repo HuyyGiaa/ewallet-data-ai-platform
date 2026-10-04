@@ -1,0 +1,660 @@
+{
+  "phase": "F7",
+  "title": "Point-in-time fraud training dataset design and bounded materialization",
+  "source_commit": "db9aa5bf7c5a80b9cd4b8075d2534b243fbdb21c",
+  "measured_at": "2026-10-04",
+  "optimization_performed": false,
+  "performance_label": "F7 TRAINING DATASET MATERIALIZATION BASELINE - NOT OPTIMIZED",
+  "canonical_generator_rerun": false,
+  "full_canonical_materialization": false,
+  "full_canonical_materialization_reason": "Local measured resource constraint: systemd-oomd/GNOME memory protection during a 5,000-row Feast chunk, Feast/Dask peak RSS up to 12.3663 GiB on later 1,000-row chunks, 8 GiB swap saturation, and limited root filesystem free space during preparation.",
+  "scopes": {
+    "canonical_population_rows": 4000000,
+    "correctness_sample_rows": 302,
+    "trainable_materialized_rows": 40148
+  },
+  "timezone_correction": {
+    "status": "PASS",
+    "problem": "Prior audit displayed Asia/Ho_Chi_Minh wall time and labelled it UTC.",
+    "validation_start_utc": "2026-04-16T12:14:11.022705Z",
+    "test_start_utc": "2026-05-09T02:38:44.058669Z",
+    "equivalent_local_boundaries": [
+      "2026-04-16T19:14:11.022705+07:00",
+      "2026-05-09T09:38:44.058669+07:00"
+    ],
+    "canonical_split_counts_preserved": true
+  },
+  "canonical_population": {
+    "label_integrity": {
+      "status": "PASS",
+      "transactions": 4000000,
+      "labels": 4000000,
+      "matched": 4000000,
+      "duplicate_transactions": 0,
+      "duplicate_labels": 0,
+      "invalid_labels": 0,
+      "missing_labels": 0,
+      "orphan_labels": 0
+    },
+    "splits": {
+      "train": {
+        "min_timestamp": "2025-12-31T17:00:33.392735Z",
+        "max_timestamp": "2026-04-16T12:14:10.552860Z",
+        "rows": 2799999,
+        "normal": 2746531,
+        "fraud": 53468,
+        "fraud_rate": 0.01909572110561468,
+        "fraud_types": {
+          "velocity": 13800,
+          "amount_anomaly": 12956,
+          "account_takeover": 12937,
+          "merchant_burst": 13775
+        }
+      },
+      "validation": {
+        "min_timestamp": "2026-04-16T12:14:11.022705Z",
+        "max_timestamp": "2026-05-09T02:38:43.606991Z",
+        "rows": 600000,
+        "normal": 586739,
+        "fraud": 13261,
+        "fraud_rate": 0.022101666666666665,
+        "fraud_types": {
+          "velocity": 3116,
+          "amount_anomaly": 3525,
+          "account_takeover": 3490,
+          "merchant_burst": 3130
+        }
+      },
+      "test": {
+        "min_timestamp": "2026-05-09T02:38:44.058669Z",
+        "max_timestamp": "2026-05-31T16:59:58.028566Z",
+        "rows": 600001,
+        "normal": 586730,
+        "fraud": 13271,
+        "fraud_rate": 0.022118296469505885,
+        "fraud_types": {
+          "velocity": 3084,
+          "amount_anomaly": 3519,
+          "account_takeover": 3573,
+          "merchant_burst": 3095
+        }
+      }
+    },
+    "request_time_profile": {
+      "rows": 4000000,
+      "amount": {
+        "null_count": 0,
+        "distinct_count": 3960616,
+        "min": 10000.82,
+        "max": 15792149.0
+      },
+      "type": {
+        "null_count": 0,
+        "distinct_count": 4,
+        "values": [
+          "deposit",
+          "payment",
+          "transfer",
+          "withdraw"
+        ],
+        "split_distribution": {
+          "test:deposit": 119524,
+          "test:payment": 239826,
+          "test:transfer": 150521,
+          "test:withdraw": 90130,
+          "train:deposit": 558834,
+          "train:payment": 1119706,
+          "train:transfer": 700528,
+          "train:withdraw": 420931,
+          "validation:deposit": 119740,
+          "validation:payment": 240616,
+          "validation:transfer": 149592,
+          "validation:withdraw": 90052
+        }
+      },
+      "channel": {
+        "null_count": 0,
+        "distinct_count": 4,
+        "values": [
+          "UNKNOWN",
+          "app",
+          "atm",
+          "web"
+        ],
+        "split_distribution": {
+          "test:app": 401706,
+          "test:atm": 98945,
+          "test:web": 99350,
+          "train:UNKNOWN": 1931834,
+          "train:app": 581588,
+          "train:atm": 143093,
+          "train:web": 143484,
+          "validation:app": 401484,
+          "validation:atm": 99246,
+          "validation:web": 99270
+        }
+      },
+      "merchant_present": {
+        "null_count": 0,
+        "distinct_count": 2,
+        "values": [
+          false,
+          true
+        ],
+        "split_distribution": {
+          "test:False": 360175,
+          "test:True": 239826,
+          "train:False": 1680293,
+          "train:True": 1119706,
+          "validation:False": 359384,
+          "validation:True": 240616
+        }
+      }
+    }
+  },
+  "contract": {
+    "grain": "one row per selected logical transaction_id at its UTC event_timestamp",
+    "target": "label in {0,1}",
+    "request_time_features": [
+      "amount",
+      "type",
+      "channel",
+      "merchant_present"
+    ],
+    "historical_feature_groups": {
+      "user_behavior": 9,
+      "account_behavior": 10,
+      "device_behavior": 5,
+      "merchant_behavior": 7
+    },
+    "historical_features": 31,
+    "derived_features": [
+      "amount_ratio_to_user_avg_30d",
+      "amount_zscore_user_30d",
+      "amount_ratio_to_account_avg_30d",
+      "amount_zscore_account_30d",
+      "account_tx_share_1h",
+      "merchant_activity_rate_ratio_10m_vs_24h"
+    ],
+    "model_feature_columns": 41,
+    "non_feature_metadata": [
+      "transaction_id",
+      "event_timestamp",
+      "user_id",
+      "account_id",
+      "device_id",
+      "merchant_id",
+      "label",
+      "fraud_type",
+      "split"
+    ],
+    "non_feature_columns": 9,
+    "output_columns": 50,
+    "labels_passed_to_feast": false
+  },
+  "merchant_derived_semantics": {
+    "final_name": "merchant_activity_rate_ratio_10m_vs_24h",
+    "formula": "(merchant_tx_count_10m * 144) / merchant_tx_count_24h",
+    "interpretation": {
+      "approximately_1": "recent 10-minute rate is near the 24-hour baseline rate",
+      "greater_than_1": "recent activity is above baseline",
+      "much_greater_than_1": "potential merchant burst"
+    },
+    "missing_or_zero_denominator": "NULL",
+    "silent_imputation": false,
+    "refinement": "Intentional pre-ML semantic rename; the normalized formula did not change."
+  },
+  "correctness_sample": {
+    "selection": "deterministic_bounded_stratified_sample",
+    "rows": 302,
+    "same_timestamp_peer_rows": 2,
+    "output_rows": 302,
+    "runtime_seconds": 24.0801,
+    "null_profile_scope": "302-row stratified correctness sample; not trainable or canonical statistics",
+    "null_rates": {
+      "user_behavior__user_tx_count_5m": 0.0,
+      "user_behavior__user_tx_count_1h": 0.0,
+      "user_behavior__user_tx_count_24h": 0.0,
+      "user_behavior__user_amount_sum_1h": 0.0,
+      "user_behavior__user_amount_observation_count_30d": 0.0,
+      "user_behavior__user_avg_amount_30d": 0.149007,
+      "user_behavior__user_std_amount_30d": 0.52649,
+      "user_behavior__user_failed_rate_24h": 0.824503,
+      "user_behavior__user_distinct_merchants_24h": 0.0,
+      "account_behavior__account_tx_count_5m": 0.0,
+      "account_behavior__account_tx_count_1h": 0.0,
+      "account_behavior__account_tx_count_24h": 0.0,
+      "account_behavior__account_amount_sum_1h": 0.0,
+      "account_behavior__account_amount_sum_24h": 0.0,
+      "account_behavior__account_amount_observation_count_30d": 0.0,
+      "account_behavior__account_avg_amount_30d": 0.188742,
+      "account_behavior__account_std_amount_30d": 0.569536,
+      "account_behavior__account_failed_rate_24h": 0.827815,
+      "account_behavior__account_seconds_since_last_tx": 0.046358,
+      "device_behavior__device_age_seconds": 0.0,
+      "device_behavior__device_tx_count_1h": 0.0,
+      "device_behavior__device_tx_count_24h": 0.0,
+      "device_behavior__device_amount_sum_24h": 0.0,
+      "device_behavior__device_failed_rate_24h": 0.831126,
+      "merchant_behavior__merchant_tx_count_10m": 0.496689,
+      "merchant_behavior__merchant_tx_count_1h": 0.496689,
+      "merchant_behavior__merchant_tx_count_24h": 0.496689,
+      "merchant_behavior__merchant_unique_users_10m": 0.496689,
+      "merchant_behavior__merchant_unique_users_1h": 0.496689,
+      "merchant_behavior__merchant_amount_sum_1h": 0.496689,
+      "merchant_behavior__merchant_avg_amount_24h": 0.496689,
+      "amount_ratio_to_user_avg_30d": 0.149007,
+      "amount_zscore_user_30d": 0.52649,
+      "amount_ratio_to_account_avg_30d": 0.188742,
+      "amount_zscore_account_30d": 0.569536,
+      "account_tx_share_1h": 0.850993,
+      "merchant_activity_rate_ratio_10m_vs_24h": 0.496689
+    },
+    "validation": {
+      "status": "PASS",
+      "checks": {
+        "row_count_parity": true,
+        "transaction_id_unique": true,
+        "transaction_ids_preserved": true,
+        "labels_complete": true,
+        "label_domain": true,
+        "required_columns_exact": true,
+        "forbidden_model_columns_absent": true,
+        "post_transaction_columns_absent": true,
+        "temporal_split_deterministic": true,
+        "merchant_null_rows_preserved": true,
+        "same_timestamp_peer_rows_preserved": true
+      },
+      "rows": 302,
+      "model_feature_count": 41
+    }
+  },
+  "resource_measurement": {
+    "machine_ram_gib": 30,
+    "machine_swap_gib": 8,
+    "failed_smoke": {
+      "rows": 5000,
+      "result": "FORCED STOP by local memory protection",
+      "completed_output": false
+    },
+    "successful_smoke": {
+      "rows": 1000,
+      "runtime_seconds": 36.8422,
+      "peak_process_rss_gib": 6.5748,
+      "parquet_bytes": 281346,
+      "output_directory_bytes": 287537,
+      "parquet_bytes_per_row": 281.346
+    },
+    "scope_calculation": {
+      "selection_fraction": "1/100 deterministic timestamp hash",
+      "expected_rows": 40000,
+      "expected_fraud_at_2_percent": 800,
+      "estimated_output_bytes_from_smoke": 11253840,
+      "reason": "The 1/100 label-independent timestamp hash projects about 40,000 rows, about 800 natural-prevalence fraud examples, and only 10.73 MiB of Parquet from the smoke rate. It therefore leaves the 5 GiB free-disk floor intact; 1,000-row checkpointed Feast requests and process restarts limit memory exposure below the measured unsafe 5,000-row request.",
+      "memory_safety_floor_gib": 4.0,
+      "disk_safety_floor_gib": 5.0,
+      "estimated_output_mib_from_smoke": 10.7325,
+      "observed_fraud_rows": 806,
+      "all_four_scenarios_in_each_split": true
+    },
+    "canonical_source_export": {
+      "rows": 4000000,
+      "runtime_seconds": 138.91,
+      "peak_driver_rss_gib": 0.4553,
+      "full_rows_collected_to_python": false
+    },
+    "bounded_source_export": {
+      "rows": 40148,
+      "runtime_seconds": 131.03,
+      "peak_driver_rss_gib": 0.4524
+    }
+  },
+  "sampling": {
+    "scope": "hash_bounded",
+    "sample_modulus": 100,
+    "sampling_key": "event_timestamp_us",
+    "sampling_reason": "Label-independent deterministic selection that retains all transactions sharing an event timestamp.",
+    "label_used_for_sampling": false,
+    "oversampled_fraud": false,
+    "selected_split_profile": {
+      "train": {
+        "rows": 27979,
+        "normal": 27446,
+        "fraud": 533,
+        "fraud_rate": 0.019050001787054578,
+        "min_timestamp_us": 1767200525173832,
+        "max_timestamp_us": 1776341532720192,
+        "fraud_types": {
+          "velocity": 153,
+          "account_takeover": 113,
+          "amount_anomaly": 139,
+          "merchant_burst": 128
+        }
+      },
+      "validation": {
+        "rows": 6205,
+        "normal": 6064,
+        "fraud": 141,
+        "fraud_rate": 0.022723609991941982,
+        "min_timestamp_us": 1776341673717818,
+        "max_timestamp_us": 1778294320474929,
+        "fraud_types": {
+          "merchant_burst": 29,
+          "amount_anomaly": 32,
+          "account_takeover": 43,
+          "velocity": 37
+        }
+      },
+      "test": {
+        "rows": 5964,
+        "normal": 5832,
+        "fraud": 132,
+        "fraud_rate": 0.022132796780684104,
+        "min_timestamp_us": 1778294394109618,
+        "max_timestamp_us": 1780246513962785,
+        "fraud_types": {
+          "merchant_burst": 28,
+          "account_takeover": 37,
+          "velocity": 34,
+          "amount_anomaly": 33
+        }
+      }
+    }
+  },
+  "materialization": {
+    "complete_selected_scope": true,
+    "rows": 40148,
+    "chunk_size": 1000,
+    "chunks": 41,
+    "process_strategy": "Checkpoint and restart Feast/Dask process after at most four chunks; one chunk per process for validation/test after measured pressure.",
+    "partition_strategy": "Hive-style split=train|validation|test with chunk Parquet files",
+    "runtime_seconds": 1959.6029,
+    "rows_per_second": 20.4878,
+    "output_bytes": 11382689,
+    "output_bytes_per_row": 283.5182076317625,
+    "memory": {
+      "initial_available_gib": 15.67,
+      "minimum_available_gib_observed_before_chunks": 13.11,
+      "peak_process_rss_gib": 12.3663,
+      "safety_floor_gib": 4.0
+    },
+    "full_in_memory_collect": false,
+    "trino_restarted": false,
+    "split_summary": {
+      "train": {
+        "rows": 27979,
+        "normal": 27446,
+        "fraud": 533,
+        "fraud_rate": 0.019050001787054578,
+        "min_timestamp": "2025-12-31T17:02:05.173832+00:00",
+        "max_timestamp": "2026-04-16T12:12:12.720192+00:00",
+        "fraud_types": {
+          "merchant_burst": 128,
+          "velocity": 153,
+          "amount_anomaly": 139,
+          "account_takeover": 113
+        }
+      },
+      "validation": {
+        "rows": 6205,
+        "normal": 6064,
+        "fraud": 141,
+        "fraud_rate": 0.022723609991941982,
+        "min_timestamp": "2026-04-16T12:14:33.717818+00:00",
+        "max_timestamp": "2026-05-09T02:38:40.474929+00:00",
+        "fraud_types": {
+          "account_takeover": 43,
+          "velocity": 37,
+          "merchant_burst": 29,
+          "amount_anomaly": 32
+        }
+      },
+      "test": {
+        "rows": 5964,
+        "normal": 5832,
+        "fraud": 132,
+        "fraud_rate": 0.022132796780684104,
+        "min_timestamp": "2026-05-09T02:39:54.109618+00:00",
+        "max_timestamp": "2026-05-31T16:55:13.962785+00:00",
+        "fraud_types": {
+          "amount_anomaly": 33,
+          "velocity": 34,
+          "merchant_burst": 28,
+          "account_takeover": 37
+        }
+      }
+    },
+    "null_profile_scope": "Actual 40,148-row trainable materialization",
+    "null_profile": {
+      "user_behavior__user_tx_count_5m": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "user_behavior__user_tx_count_1h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "user_behavior__user_tx_count_24h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "user_behavior__user_amount_sum_1h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "user_behavior__user_amount_observation_count_30d": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "user_behavior__user_avg_amount_30d": {
+        "null_count": 10493,
+        "null_rate": 0.26135797549068446
+      },
+      "user_behavior__user_std_amount_30d": {
+        "null_count": 23168,
+        "null_rate": 0.5770648600179337
+      },
+      "user_behavior__user_failed_rate_24h": {
+        "null_count": 37900,
+        "null_rate": 0.9440071734582046
+      },
+      "user_behavior__user_distinct_merchants_24h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "account_behavior__account_tx_count_5m": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "account_behavior__account_tx_count_1h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "account_behavior__account_tx_count_24h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "account_behavior__account_amount_sum_1h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "account_behavior__account_amount_sum_24h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "account_behavior__account_amount_observation_count_30d": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "account_behavior__account_avg_amount_30d": {
+        "null_count": 12774,
+        "null_rate": 0.31817276078509515
+      },
+      "account_behavior__account_std_amount_30d": {
+        "null_count": 25452,
+        "null_rate": 0.6339543688353093
+      },
+      "account_behavior__account_failed_rate_24h": {
+        "null_count": 38121,
+        "null_rate": 0.9495118063166285
+      },
+      "account_behavior__account_seconds_since_last_tx": {
+        "null_count": 6375,
+        "null_rate": 0.15878748630068745
+      },
+      "device_behavior__device_age_seconds": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "device_behavior__device_tx_count_1h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "device_behavior__device_tx_count_24h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "device_behavior__device_amount_sum_24h": {
+        "null_count": 0,
+        "null_rate": 0.0
+      },
+      "device_behavior__device_failed_rate_24h": {
+        "null_count": 37982,
+        "null_rate": 0.9460496164192488
+      },
+      "merchant_behavior__merchant_tx_count_10m": {
+        "null_count": 24238,
+        "null_rate": 0.6037162498754608
+      },
+      "merchant_behavior__merchant_tx_count_1h": {
+        "null_count": 24238,
+        "null_rate": 0.6037162498754608
+      },
+      "merchant_behavior__merchant_tx_count_24h": {
+        "null_count": 24238,
+        "null_rate": 0.6037162498754608
+      },
+      "merchant_behavior__merchant_unique_users_10m": {
+        "null_count": 24238,
+        "null_rate": 0.6037162498754608
+      },
+      "merchant_behavior__merchant_unique_users_1h": {
+        "null_count": 24238,
+        "null_rate": 0.6037162498754608
+      },
+      "merchant_behavior__merchant_amount_sum_1h": {
+        "null_count": 24238,
+        "null_rate": 0.6037162498754608
+      },
+      "merchant_behavior__merchant_avg_amount_24h": {
+        "null_count": 24242,
+        "null_rate": 0.6038158812394142
+      },
+      "amount_ratio_to_user_avg_30d": {
+        "null_count": 10493,
+        "null_rate": 0.26135797549068446
+      },
+      "amount_zscore_user_30d": {
+        "null_count": 23168,
+        "null_rate": 0.5770648600179337
+      },
+      "amount_ratio_to_account_avg_30d": {
+        "null_count": 12774,
+        "null_rate": 0.31817276078509515
+      },
+      "amount_zscore_account_30d": {
+        "null_count": 25452,
+        "null_rate": 0.6339543688353093
+      },
+      "account_tx_share_1h": {
+        "null_count": 39833,
+        "null_rate": 0.9921540300886719
+      },
+      "merchant_activity_rate_ratio_10m_vs_24h": {
+        "null_count": 24242,
+        "null_rate": 0.6038158812394142
+      }
+    }
+  },
+  "validation": {
+    "status": "PASS",
+    "checks": {
+      "parquet_clean_reload": true,
+      "row_count_parity": true,
+      "transaction_id_unique": true,
+      "transaction_ids_preserved": true,
+      "labels_complete_and_binary": true,
+      "split_transaction_overlap": true,
+      "chronological_ordering": true,
+      "merchant_null_rows_preserved": true,
+      "same_timestamp_rows_preserved": true,
+      "derived_formulas": true,
+      "exact_output_columns": true,
+      "exact_model_features": true,
+      "forbidden_model_columns_absent": true,
+      "post_transaction_columns_absent": true
+    },
+    "rows": 40148,
+    "files": 41,
+    "label_counts": {
+      "0": 39342,
+      "1": 806
+    },
+    "merchant_null_rows": 24238,
+    "same_timestamp_groups": 4,
+    "same_timestamp_rows": 8,
+    "split_min": {
+      "train": "2025-12-31T17:02:05.173832+00:00",
+      "validation": "2026-04-16T12:14:33.717818+00:00",
+      "test": "2026-05-09T02:39:54.109618+00:00"
+    },
+    "split_max": {
+      "train": "2026-04-16T12:12:12.720192+00:00",
+      "validation": "2026-05-09T02:38:40.474929+00:00",
+      "test": "2026-05-31T16:55:13.962785+00:00"
+    }
+  },
+  "leakage_audit": {
+    "status": "PASS",
+    "historical_rule": "[T-window, T)",
+    "current_status_included": false,
+    "current_new_balance_included": false,
+    "ingested_at_included": false,
+    "label_as_model_feature": false,
+    "fraud_type_as_model_feature": false,
+    "future_or_current_historical_events": false,
+    "same_timestamp_peer_history": false
+  },
+  "f6_regression": {
+    "feast_apply": "PASS",
+    "pit_tests": "8/8 PASS",
+    "timestamp_precision_fixture": "PASS",
+    "canonical_gold_feast_parity": "310/310",
+    "trino": "STOPPED"
+  },
+  "runtime_safety": {
+    "generated_root": "ai_platform/ml/data/",
+    "generated_data_versioned": false,
+    "feast_snapshot_changed": false,
+    "datahub_lineage_changed": false,
+    "temporary_smoke_artifact_removed": true,
+    "canonical_silver_gold_feast_data_removed": false,
+    "final_resource_snapshot": {
+      "measured_at": "2026-10-04T09:29:13.256508+00:00",
+      "memory_available_gib": 18.2582,
+      "swap_total_gib": 8.0,
+      "swap_free_gib": 0.0666,
+      "root_filesystem_free_gib": 5.8837,
+      "disk_safety_floor_gib": 5.0
+    }
+  },
+  "deferred": {
+    "full_canonical_training_materialization": "NOT RUN - LOCAL RESOURCE LIMIT",
+    "ml_training": "NOT STARTED",
+    "mlflow": "NOT STARTED",
+    "kubeflow": "NOT STARTED",
+    "feast_online_redis": "NOT STARTED",
+    "flink_realtime_features": "NOT STARTED",
+    "model_serving": "NOT STARTED"
+  }
+}

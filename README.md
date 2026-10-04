@@ -26,6 +26,7 @@ flowchart LR
     AIRFLOW["Airflow"]
     DATAHUB["DataHub<br/>metadata, lineage, assertions"]
     FEAST["Feast offline<br/>historical retrieval"]
+    TRAIN["Bounded fraud<br/>training dataset"]
 
     GEN -->|offline Parquet| BR
     GEN -->|streaming| RP --> FLINK
@@ -36,6 +37,8 @@ flowchart LR
     SI --> TRINO
     GO --> TRINO
     GO -->|explicit Parquet snapshot adapter| FEAST
+    SI -->|fraud labels + request fields| TRAIN
+    FEAST -->|PIT historical features| TRAIN
     BR --> DQ
     SI --> DQ
     GO --> DQ
@@ -62,6 +65,7 @@ status, ports, and limitations.
 | Orchestration | Daily Airflow DAG with serialized local Spark work |
 | Governance | Nine YAML contracts; DataHub metadata, 16 direct lineage edges, and 15 selected assertions |
 | Offline feature retrieval | Feast entities and four FeatureViews over a microsecond-safe Parquet snapshot adapter |
+| Fraud training dataset | One-row-per-transaction contract, shared derived transforms, chronological splits, and validated 40,148-row trainable materialization |
 | Messaging and CDC | Redpanda plus PostgreSQL/Debezium local experiment |
 | Streaming | PyFlink deduplication, watermarks, windows, late events, and burst detection with print sinks |
 
@@ -89,14 +93,18 @@ ewallet-data-ai-platform/
 │       ├── lineage/           # Trino recipe and direct lineage publisher
 │       └── runtime/           # Pinned Quickstart helper
 ├── infra/docker/              # Canonical split Compose files
-├── ai_platform/features/feast/ # Feast offline definitions and retrieval
+├── ai_platform/
+│   ├── features/feast/         # Feast offline definitions and retrieval
+│   └── ml/training/            # F7 training contract and bounded build
 ├── docs/                      # Architecture, component docs, and evidence
 ├── notebooks/                 # Read-only validation and coursework demos
 └── tests/                     # Repository-level tests
 ```
 
-The Phase 2 `ai_platform/` domain now contains Feast offline feature retrieval.
-Training, model lifecycle, online serving, LLM, and agent work remain deferred.
+The Phase 2 `ai_platform/` domain contains Feast offline feature retrieval and
+the F7 supervised training-dataset contract/build. Full canonical training
+materialization, model training and lifecycle, online serving, LLM, and agent
+work remain deferred.
 
 ## Prerequisites
 
@@ -243,9 +251,13 @@ Parquet through Bronze to a thin Silver target-truth table. It has no Gold
 copy. Four point-in-time historical feature tables are built from Silver
 transactions and devices without reading labels. Feast retrieves those Gold
 snapshots through an explicit microsecond-safe local Parquet adapter; see the
-[Feast offline guide](docs/ml/feast_offline.md). The final training dataset and
-ML training remain later tasks. The current canonical inventory is 8 Bronze /
-8 Silver / 15 Gold.
+[Feast offline guide](docs/ml/feast_offline.md). F7 combines request fields,
+Feast history, labels, and shared derived features in a deterministic 40,148-row
+ML-layer materialization; see the
+[training dataset contract](docs/ml/fraud_training_dataset.md). Full
+four-million-row materialization exceeds measured local resources, and ML
+training remains a later task.
+The current canonical inventory is 8 Bronze / 8 Silver / 15 Gold.
 Running these commands without `--include-fraud-labels` remains a Phase 1
 compatibility mode and can leave canonical labels stale.
 
