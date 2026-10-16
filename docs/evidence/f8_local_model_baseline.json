@@ -1,0 +1,218 @@
+{
+  "artifact": {
+    "directory": "ai_platform/ml/artifacts/f8_local_baseline",
+    "files": [
+      "comparison.json",
+      "comparison.csv",
+      "champion.joblib",
+      "selected_features.json",
+      "test_report.json",
+      "run_manifest.json"
+    ],
+    "model_reload_metric_parity": true,
+    "tracked": false,
+    "total_bytes": 5700704
+  },
+  "checks": {
+    "artifact_parse": "PASS",
+    "candidate_count": 6,
+    "f7_training_regression": "10/10 PASS",
+    "feast_pit_regression": "8/8 PASS",
+    "forbidden_model_columns": 0,
+    "modeling_tests": "21/21 PASS",
+    "python_compile": "PASS",
+    "test_used_for_candidate_selection": false,
+    "yaml_parse": "PASS"
+  },
+  "dataset": {
+    "feature_contract": {
+      "derived": 6,
+      "historical": 31,
+      "model_features": 41,
+      "output_columns": 50,
+      "request_time": 4
+    },
+    "input_manifest_sha256": "c36fc8b64b21e4b48be44beb2fd4dd2ff9ae272b81cd90e6b429a6b7d3650c83",
+    "splits": {
+      "test": {
+        "fraud": 132,
+        "fraud_rate": 0.022132796780684104,
+        "rows": 5964
+      },
+      "train": {
+        "fraud": 533,
+        "fraud_rate": 0.019050001787054578,
+        "rows": 27979
+      },
+      "validation": {
+        "fraud": 141,
+        "fraud_rate": 0.022723609991941982,
+        "rows": 6205
+      }
+    }
+  },
+  "deferred": {
+    "kubeflow": "NOT STARTED",
+    "kubernetes": "NOT STARTED",
+    "mlflow": "NOT STARTED",
+    "online_feast": "NOT STARTED",
+    "serving": "NOT STARTED"
+  },
+  "dependencies": {
+    "PyYAML": "6.0.3",
+    "pandas": "2.3.3",
+    "pyarrow": "25.0.1",
+    "python": "3.10.20",
+    "scikit-learn": "1.7.2"
+  },
+  "experiments": [
+    {
+      "fit_seconds": 0.21985898700040707,
+      "name": "dummy_full",
+      "output_features": 68,
+      "threshold": 0.019050001787054578,
+      "validation": {
+        "f1": 0.04443744090765837,
+        "pr_auc": 0.022723609991941982,
+        "precision": 0.022723609991941982,
+        "recall": 1.0,
+        "roc_auc": 0.5
+      }
+    },
+    {
+      "fit_seconds": 1.9574862190002023,
+      "name": "logistic_full",
+      "output_features": 68,
+      "threshold": 0.8826639505934305,
+      "validation": {
+        "f1": 0.5657370517928287,
+        "pr_auc": 0.5810030127100029,
+        "precision": 0.6454545454545455,
+        "recall": 0.5035460992907801,
+        "roc_auc": 0.9013255768259136
+      }
+    },
+    {
+      "fit_seconds": 5.069010721000268,
+      "name": "logistic_selected",
+      "output_features": 49,
+      "threshold": 0.9081149398778885,
+      "validation": {
+        "f1": 0.5702479338842975,
+        "pr_auc": 0.5823338266939103,
+        "precision": 0.6831683168316832,
+        "recall": 0.48936170212765956,
+        "roc_auc": 0.9010133048896873
+      }
+    },
+    {
+      "fit_seconds": 1.6017725649999193,
+      "name": "logistic_pca",
+      "output_features": 28,
+      "threshold": 0.7579441435083101,
+      "validation": {
+        "f1": 0.5821917808219178,
+        "pr_auc": 0.5989088867839998,
+        "precision": 0.5629139072847682,
+        "recall": 0.6028368794326241,
+        "roc_auc": 0.9058564437957297
+      }
+    },
+    {
+      "fit_seconds": 5.087193710000065,
+      "name": "random_forest_full",
+      "output_features": 68,
+      "threshold": 0.6194620499907534,
+      "validation": {
+        "f1": 0.7736625514403292,
+        "pr_auc": 0.7590286889471779,
+        "precision": 0.9215686274509803,
+        "recall": 0.6666666666666666,
+        "roc_auc": 0.9406320758247722
+      }
+    },
+    {
+      "fit_seconds": 0.5700548570002866,
+      "name": "hist_gradient_boosting_full",
+      "output_features": 68,
+      "threshold": 0.9087379529727216,
+      "validation": {
+        "f1": 0.7935222672064778,
+        "pr_auc": 0.7342605077461001,
+        "precision": 0.9245283018867925,
+        "recall": 0.6950354609929078,
+        "roc_auc": 0.9359918551993862
+      }
+    }
+  ],
+  "name": "F8 local fraud model comparison baseline",
+  "resource_measurement": {
+    "artifact_bytes": 5700704,
+    "available_memory_after": "19 GiB",
+    "free_disk_after": "2.6 GiB",
+    "internal_pipeline_seconds": 21.294115511999735,
+    "peak_rss_kib": 516704,
+    "swap_used": "0 B",
+    "system_seconds": 0.65,
+    "user_seconds": 122.89,
+    "wall_seconds": 22.65
+  },
+  "selection": {
+    "champion": "random_forest_full",
+    "primary_metric": "validation PR-AUC (average precision)",
+    "secondary_metric": "validation F1",
+    "seed": 42,
+    "threshold_rule": "maximum validation F1; then greater recall; then lower threshold"
+  },
+  "status": "PASS",
+  "test": {
+    "champion": "random_forest_full",
+    "confusion_matrix": [
+      [
+        5821,
+        11
+      ],
+      [
+        44,
+        88
+      ]
+    ],
+    "metrics": {
+      "f1": 0.7619047619047619,
+      "pr_auc": 0.7601622591231681,
+      "precision": 0.8888888888888888,
+      "recall": 0.6666666666666666,
+      "roc_auc": 0.9452706073076445
+    },
+    "rows": 5964,
+    "scenarios": {
+      "account_takeover": {
+        "detected": 14,
+        "recall": 0.3783783783783784,
+        "support": 37
+      },
+      "amount_anomaly": {
+        "detected": 31,
+        "recall": 0.9393939393939394,
+        "support": 33
+      },
+      "merchant_burst": {
+        "detected": 14,
+        "recall": 0.5,
+        "support": 28
+      },
+      "normal": {
+        "false_positive_rate": 0.0018861454046639231,
+        "false_positives": 11,
+        "support": 5832
+      },
+      "velocity": {
+        "detected": 29,
+        "recall": 0.8529411764705882,
+        "support": 34
+      }
+    },
+    "threshold": 0.6194620499907534
+  },
+  "timestamp_utc": "2026-10-16T07:39:50.606416+00:00"
+}

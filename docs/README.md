@@ -17,6 +17,7 @@ component documents for implementation detail and recorded evidence.
 | [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature contract | Implemented Gold contract |
 | [Feast offline retrieval](ml/feast_offline.md) | Entities, FeatureViews, source adapter, precision, PIT retrieval, and limits | Implemented bounded offline retrieval |
 | [Fraud training dataset](ml/fraud_training_dataset.md) | Supervised row contract, leakage boundary, temporal splits, and reproducible build | Implemented 40,148-row trainable materialization |
+| [Local fraud modeling](ml/fraud_modeling.md) | Preprocessing, feature selection/extraction, six-model comparison, validation selection, and test evidence | Implemented F8 local baseline |
 
 The PNG files under `docs/evidence/` are historical run evidence. Current
 operational commands and the fresh-clone path are in the repository

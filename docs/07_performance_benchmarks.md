@@ -1,5 +1,31 @@
 # Performance Benchmarks
 
+## F8 local fraud model comparison baseline — not optimized
+
+F8 trained six bounded local experiments on the 40,148-row F7 materialization.
+The end-to-end CLI completed in 22.65 seconds wall time, reached 516,704 KiB
+peak RSS (about 505 MiB), used no swap, and produced 5,700,704 artifact bytes.
+The run is a workflow and reproducibility baseline, not a hyperparameter or
+accuracy optimization exercise.
+
+| Experiment | Representation | Output features | Validation PR-AUC | F1 | Fit time |
+|---|---|---:|---:|---:|---:|
+| Dummy | Full | 68 | 0.022724 | 0.044437 | 0.220 s |
+| Logistic Regression | Full | 68 | 0.581003 | 0.565737 | 1.957 s |
+| Logistic Regression | L1 selected | 49 | 0.582334 | 0.570248 | 5.069 s |
+| Logistic Regression | PCA | 28 | 0.598909 | 0.582192 | 1.602 s |
+| Random Forest | Full | 68 | **0.759029** | 0.773663 | 5.087 s |
+| Histogram Gradient Boosting | Full | 68 | 0.734261 | **0.793522** | 0.570 s |
+
+Random Forest was selected by the predeclared validation PR-AUC rule. At its
+validation-selected threshold, the untouched test split produced PR-AUC
+0.760162, ROC-AUC 0.945271, precision 0.888889, recall 0.666667, and F1
+0.761905. Detailed pipeline semantics and scenario results are in
+[`ml/fraud_modeling.md`](ml/fraud_modeling.md); machine-readable measurements
+are in [`evidence/f8_local_model_baseline.json`](evidence/f8_local_model_baseline.json).
+
+**MLFLOW / KUBEFLOW INTEGRATION: NOT STARTED.**
+
 ## F7 bounded training materialization baseline — not optimized
 
 F7 does not materialize the complete four-million-row training population on
