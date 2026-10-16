@@ -1,5 +1,6 @@
 {
   "artifact": {
+    "configuration_embedded": true,
     "directory": "ai_platform/ml/artifacts/f8_local_baseline",
     "files": [
       "comparison.json",
@@ -10,8 +11,8 @@
       "run_manifest.json"
     ],
     "model_reload_metric_parity": true,
-    "tracked": false,
-    "total_bytes": 5700704
+    "total_bytes": 5705432,
+    "tracked": false
   },
   "checks": {
     "artifact_parse": "PASS",
@@ -21,6 +22,8 @@
     "forbidden_model_columns": 0,
     "modeling_tests": "21/21 PASS",
     "python_compile": "PASS",
+    "runtime_configuration_provenance": "PASS",
+    "selected_feature_audit": "49 selected / 19 removed",
     "test_used_for_candidate_selection": false,
     "yaml_parse": "PASS"
   },
@@ -67,7 +70,7 @@
   },
   "experiments": [
     {
-      "fit_seconds": 0.21985898700040707,
+      "fit_seconds": 0.21771609900042677,
       "name": "dummy_full",
       "output_features": 68,
       "threshold": 0.019050001787054578,
@@ -80,7 +83,7 @@
       }
     },
     {
-      "fit_seconds": 1.9574862190002023,
+      "fit_seconds": 1.8266366850002669,
       "name": "logistic_full",
       "output_features": 68,
       "threshold": 0.8826639505934305,
@@ -93,7 +96,7 @@
       }
     },
     {
-      "fit_seconds": 5.069010721000268,
+      "fit_seconds": 6.122923081999943,
       "name": "logistic_selected",
       "output_features": 49,
       "threshold": 0.9081149398778885,
@@ -106,7 +109,7 @@
       }
     },
     {
-      "fit_seconds": 1.6017725649999193,
+      "fit_seconds": 1.202012312000079,
       "name": "logistic_pca",
       "output_features": 28,
       "threshold": 0.7579441435083101,
@@ -119,7 +122,7 @@
       }
     },
     {
-      "fit_seconds": 5.087193710000065,
+      "fit_seconds": 5.331783677999738,
       "name": "random_forest_full",
       "output_features": 68,
       "threshold": 0.6194620499907534,
@@ -132,7 +135,7 @@
       }
     },
     {
-      "fit_seconds": 0.5700548570002866,
+      "fit_seconds": 0.5980182960001912,
       "name": "hist_gradient_boosting_full",
       "output_features": 68,
       "threshold": 0.9087379529727216,
@@ -147,15 +150,15 @@
   ],
   "name": "F8 local fraud model comparison baseline",
   "resource_measurement": {
-    "artifact_bytes": 5700704,
+    "artifact_bytes": 5705432,
     "available_memory_after": "19 GiB",
-    "free_disk_after": "2.6 GiB",
-    "internal_pipeline_seconds": 21.294115511999735,
-    "peak_rss_kib": 516704,
+    "free_disk_after": "2.4 GiB",
+    "internal_pipeline_seconds": 22.30598734100022,
+    "peak_rss_kib": 523496,
     "swap_used": "0 B",
-    "system_seconds": 0.65,
-    "user_seconds": 122.89,
-    "wall_seconds": 22.65
+    "system_seconds": 0.7,
+    "user_seconds": 119.64,
+    "wall_seconds": 23.59
   },
   "selection": {
     "champion": "random_forest_full",
@@ -214,5 +217,5 @@
     },
     "threshold": 0.6194620499907534
   },
-  "timestamp_utc": "2026-10-16T07:39:50.606416+00:00"
+  "timestamp_utc": "2026-10-16T07:46:16.005637+00:00"
 }

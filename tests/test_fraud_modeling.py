@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -324,6 +325,12 @@ class FraudModelingFeatureTest(unittest.TestCase):
             selected_summary["output_feature_count"],
             len(selected_summary["selected_feature_names"]),
         )
+        self.assertGreater(len(selected_summary["removed_feature_names"]), 0)
+        self.assertEqual(
+            full_summary["output_feature_count"],
+            len(selected_summary["selected_feature_names"])
+            + len(selected_summary["removed_feature_names"]),
+        )
 
     def test_pca_strategy_retains_requested_train_variance_and_categorical_signals(self):
         X, y = feature_frame()
@@ -554,6 +561,15 @@ candidates:
             self.assertTrue((output / "champion.joblib").is_file())
             champion = joblib.load(output / "champion.joblib")
             self.assertTrue(hasattr(champion, "predict_proba"))
+            comparison = json.loads((output / "comparison.json").read_text())
+            manifest = json.loads((output / "run_manifest.json").read_text())
+            self.assertEqual("random_forest", comparison[4]["estimator"])
+            self.assertEqual(5, comparison[4]["parameters"]["n_estimators"])
+            self.assertEqual(0.95, manifest["configuration"]["pca_variance"])
+            self.assertEqual(
+                "prior",
+                manifest["configuration"]["candidates"][0]["params"]["strategy"],
+            )
 
 if __name__ == "__main__":
     unittest.main()

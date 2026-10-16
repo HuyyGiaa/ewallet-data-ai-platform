@@ -99,7 +99,14 @@ def transformed_feature_summary(fitted: Pipeline) -> dict[str, object]:
         "output_feature_names": names,
     }
     if "selector" in fitted.named_steps:
+        preprocess_names = fitted.named_steps["preprocess"].get_feature_names_out()
+        candidate_names = fitted.named_steps["variance"].get_feature_names_out(
+            preprocess_names
+        )
+        selected_mask = fitted.named_steps["selector"].get_support()
         summary["selected_feature_names"] = names
+        summary["removed_feature_names"] = candidate_names[~selected_mask].tolist()
+        summary["pre_selection_feature_count"] = int(len(candidate_names))
     numeric = fitted.named_steps["preprocess"].named_transformers_["numeric"]
     if "pca" in numeric.named_steps:
         pca = numeric.named_steps["pca"]

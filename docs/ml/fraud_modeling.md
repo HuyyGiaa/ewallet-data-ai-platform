@@ -59,6 +59,10 @@ Three representations are exercised:
 Selection and PCA demonstrate reproducible feature-pipeline capabilities. They
 are not accuracy optimization claims.
 
+The selected-feature artifact records both sides of the L1 decision: 49
+retained transformed features and 19 removed transformed features. This makes
+the reduction reviewable without refitting the selector.
+
 ## Measured local baseline
 
 The run used Python 3.10.20, Pandas 2.3.3, PyArrow 25.0.1,
@@ -66,12 +70,12 @@ scikit-learn 1.7.2, PyYAML 6.0.3, and seed 42.
 
 | Experiment | Representation | Output features | Validation PR-AUC | Precision | Recall | F1 | Fit time |
 |---|---|---:|---:|---:|---:|---:|---:|
-| Dummy | Full | 68 | 0.022724 | 0.022724 | 1.000000 | 0.044437 | 0.220 s |
-| Logistic Regression | Full | 68 | 0.581003 | 0.645455 | 0.503546 | 0.565737 | 1.957 s |
-| Logistic Regression | L1 selected | 49 | 0.582334 | 0.683168 | 0.489362 | 0.570248 | 5.069 s |
-| Logistic Regression | PCA | 28 | 0.598909 | 0.562914 | 0.602837 | 0.582192 | 1.602 s |
-| Random Forest | Full | 68 | **0.759029** | 0.921569 | 0.666667 | 0.773663 | 5.087 s |
-| Histogram Gradient Boosting | Full | 68 | 0.734261 | 0.924528 | 0.695035 | **0.793522** | 0.570 s |
+| Dummy | Full | 68 | 0.022724 | 0.022724 | 1.000000 | 0.044437 | 0.218 s |
+| Logistic Regression | Full | 68 | 0.581003 | 0.645455 | 0.503546 | 0.565737 | 1.827 s |
+| Logistic Regression | L1 selected | 49 | 0.582334 | 0.683168 | 0.489362 | 0.570248 | 6.123 s |
+| Logistic Regression | PCA | 28 | 0.598909 | 0.562914 | 0.602837 | 0.582192 | 1.202 s |
+| Random Forest | Full | 68 | **0.759029** | 0.921569 | 0.666667 | 0.773663 | 5.332 s |
+| Histogram Gradient Boosting | Full | 68 | 0.734261 | 0.924528 | 0.695035 | **0.793522** | 0.598 s |
 
 Random Forest is the champion because the contracted ranking metric is
 validation PR-AUC. Histogram Gradient Boosting has the best validation F1, but
@@ -109,8 +113,8 @@ this test isolation.
 
 ## Runtime and artifacts
 
-The measured command completed in 22.65 seconds wall time, reached 516,704 KiB
-peak RSS (about 505 MiB), used no swap, and wrote 5,700,704 bytes of artifacts.
+The measured command completed in 23.59 seconds wall time, reached 523,496 KiB
+peak RSS (about 511 MiB), used no swap, and wrote 5,705,432 bytes of artifacts.
 This is a bounded local baseline, not an optimized-throughput claim.
 
 Run from the repository root:
@@ -137,6 +141,10 @@ The publisher writes to a temporary sibling directory, verifies every JSON,
 CSV, and model artifact, then promotes the complete set. Reloading
 `champion.joblib` reproduced the recorded test metrics exactly. Re-running F8
 replaces only this artifact directory and never modifies the F7 dataset.
+`comparison.json` stores each estimator, representation, and hyperparameters;
+`run_manifest.json` embeds the validated seed, transformation settings, and
+full candidate configuration so a prior run remains interpretable if the
+tracked YAML later changes.
 
 Machine-readable measured evidence is stored in
 [`../evidence/f8_local_model_baseline.json`](../evidence/f8_local_model_baseline.json).

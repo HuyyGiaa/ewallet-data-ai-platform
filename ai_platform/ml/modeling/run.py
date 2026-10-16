@@ -165,10 +165,33 @@ def run_comparison(config: F8Config) -> RunResult:
         "candidate_order": configured_order,
         "champion": champion_result.name,
         "total_seconds": float(total_seconds),
+        "configuration": {
+            "seed": config.seed,
+            "pca_variance": config.pca_variance,
+            "selector_c": config.selector_c,
+            "candidates": [
+                {
+                    "name": candidate.name,
+                    "estimator": candidate.estimator,
+                    "strategy": candidate.strategy,
+                    "params": candidate.params,
+                }
+                for candidate in config.candidates
+            ],
+        },
     }
+    artifact_comparison = [
+        {
+            **result.as_dict(),
+            "estimator": candidate.estimator,
+            "strategy": candidate.strategy,
+            "parameters": candidate.params,
+        }
+        for result, candidate in zip(comparison, config.candidates, strict=True)
+    ]
     output = publish_artifacts(
         ArtifactPayload(
-            comparison=[result.as_dict() for result in comparison],
+            comparison=artifact_comparison,
             champion_pipeline=champion_pipeline,
             selected_features=feature_reports,
             test_report=test_report,
