@@ -27,6 +27,7 @@ flowchart LR
     DATAHUB["DataHub<br/>metadata, lineage, assertions"]
     FEAST["Feast offline<br/>historical retrieval"]
     TRAIN["Bounded fraud<br/>training dataset"]
+    MODEL["Random Forest<br/>fraud baseline"]
 
     GEN -->|offline Parquet| BR
     GEN -->|streaming| RP --> FLINK
@@ -39,6 +40,7 @@ flowchart LR
     GO -->|explicit Parquet snapshot adapter| FEAST
     SI -->|fraud labels + request fields| TRAIN
     FEAST -->|PIT historical features| TRAIN
+    TRAIN --> MODEL
     BR --> DQ
     SI --> DQ
     GO --> DQ
@@ -66,6 +68,7 @@ status, ports, and limitations.
 | Governance | Nine YAML contracts; DataHub metadata, 16 direct lineage edges, and 15 selected assertions |
 | Offline feature retrieval | Feast entities and four FeatureViews over a microsecond-safe Parquet snapshot adapter |
 | Fraud training dataset | One-row-per-transaction contract, shared derived transforms, chronological splits, and validated 40,148-row trainable materialization |
+| Fraud modeling | One active Random Forest pipeline with train-fitted preprocessing, validation-selected threshold, isolated test evaluation, and reloadable artifacts |
 | Messaging and CDC | Redpanda plus PostgreSQL/Debezium local experiment |
 | Streaming | PyFlink deduplication, watermarks, windows, late events, and burst detection with print sinks |
 
@@ -95,16 +98,18 @@ ewallet-data-ai-platform/
 ├── infra/docker/              # Canonical split Compose files
 ├── ai_platform/
 │   ├── features/feast/         # Feast offline definitions and retrieval
-│   └── ml/training/            # F7 training contract and bounded build
+│   └── ml/
+│       ├── training/           # F7 training contract and bounded build
+│       └── modeling/           # F8 active Random Forest baseline
 ├── docs/                      # Architecture, component docs, and evidence
 ├── notebooks/                 # Read-only validation and coursework demos
 └── tests/                     # Repository-level tests
 ```
 
-The Phase 2 `ai_platform/` domain contains Feast offline feature retrieval and
-the F7 supervised training-dataset contract/build. Full canonical training
-materialization, model training and lifecycle, online serving, LLM, and agent
-work remain deferred.
+The Phase 2 `ai_platform/` domain contains Feast offline feature retrieval, the
+F7 supervised training-dataset contract/build, and the F8 bounded Random Forest
+baseline. Full canonical training materialization, MLflow lifecycle tracking,
+online serving, LLM, and agent work remain deferred.
 
 ## Prerequisites
 

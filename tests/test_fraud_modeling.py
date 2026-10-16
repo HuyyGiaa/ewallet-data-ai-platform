@@ -8,28 +8,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import joblib
-from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
+import yaml
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 
-from ai_platform.ml.modeling.config import CandidateConfig, load_config
+from ai_platform.ml.modeling.config import load_config
 from ai_platform.ml.modeling.artifacts import ArtifactPayload, publish_artifacts
 from ai_platform.ml.modeling.data import load_dataset, prepare_modeling_splits
 from ai_platform.ml.modeling.evaluation import (
-    CandidateResult,
     choose_threshold,
     evaluate_scores,
     scenario_report,
-    select_champion,
 )
-from ai_platform.ml.modeling.features import (
-    FeatureStrategy,
-    build_feature_transformer,
-    transformed_feature_summary,
-)
-from ai_platform.ml.modeling.models import build_candidate
-from ai_platform.ml.modeling.run import run_comparison
+from ai_platform.ml.modeling.features import build_feature_transformer
 from ai_platform.ml.training.contract import (
     FORBIDDEN_MODEL_COLUMNS,
     MODEL_FEATURE_COLUMNS,
@@ -127,8 +118,35 @@ def write_large_modeling_dataset(root: Path, rows: int = 60) -> None:
     )
 
 
+class FraudModelingSingleModelContractTest(unittest.TestCase):
+    def test_checked_in_config_declares_only_random_forest_full(self):
+        raw = yaml.safe_load(
+            Path("ai_platform/ml/config/f8_baseline.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertNotIn("candidates", raw)
+        self.assertNotIn("pca_variance", raw)
+        self.assertNotIn("selector_c", raw)
+        self.assertEqual(
+            {
+                "name": "random_forest_full",
+                "estimator": "random_forest",
+                "strategy": "full",
+                "params": {
+                    "n_estimators": 200,
+                    "max_depth": 12,
+                    "min_samples_leaf": 2,
+                    "n_jobs": 1,
+                },
+            },
+            raw["model"],
+        )
+
+
 class FraudModelingConfigTest(unittest.TestCase):
-    def test_load_config_resolves_paths_and_six_ordered_candidates(self):
+    def test_load_config_resolves_paths_and_single_model(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             config_path = root / "f8.yaml"
@@ -137,33 +155,11 @@ class FraudModelingConfigTest(unittest.TestCase):
 dataset_path: data/trainable
 output_path: runtime/f8
 seed: 42
-pca_variance: 0.95
-selector_c: 0.1
-candidates:
-  - name: dummy_full
-    estimator: dummy
-    strategy: full
-    params: {strategy: prior}
-  - name: logistic_full
-    estimator: logistic
-    strategy: full
-    params: {C: 1.0, max_iter: 500}
-  - name: logistic_selected
-    estimator: logistic
-    strategy: selected
-    params: {C: 1.0, max_iter: 500}
-  - name: logistic_pca
-    estimator: logistic
-    strategy: pca
-    params: {C: 1.0, max_iter: 500}
-  - name: random_forest_full
-    estimator: random_forest
-    strategy: full
-    params: {n_estimators: 50, max_depth: 8, n_jobs: 1}
-  - name: hist_gradient_boosting_full
-    estimator: hist_gradient_boosting
-    strategy: full
-    params: {max_iter: 50, max_depth: 6, learning_rate: 0.1}
+model:
+  name: random_forest_full
+  estimator: random_forest
+  strategy: full
+  params: {n_estimators: 50, max_depth: 8, min_samples_leaf: 2, n_jobs: 1}
 """.strip()
                 + "\n",
                 encoding="utf-8",
@@ -174,19 +170,31 @@ candidates:
             self.assertEqual(root / "data/trainable", config.dataset_path)
             self.assertEqual(root / "runtime/f8", config.output_path)
             self.assertEqual(42, config.seed)
-            self.assertEqual(0.95, config.pca_variance)
-            self.assertEqual(0.1, config.selector_c)
-            self.assertEqual(
-                [
-                    "dummy_full",
-                    "logistic_full",
-                    "logistic_selected",
-                    "logistic_pca",
-                    "random_forest_full",
-                    "hist_gradient_boosting_full",
-                ],
-                [candidate.name for candidate in config.candidates],
+            self.assertEqual("random_forest_full", config.model.name)
+            self.assertEqual("random_forest", config.model.estimator)
+            self.assertEqual("full", config.model.strategy)
+            self.assertEqual(50, config.model.params["n_estimators"])
+
+    def test_load_config_rejects_non_random_forest_model(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config_path = root / "f8.yaml"
+            config_path.write_text(
+                """
+dataset_path: data/trainable
+output_path: runtime/f8
+seed: 42
+model:
+  name: logistic_full
+  estimator: logistic
+  strategy: full
+  params: {C: 1.0}
+""".lstrip(),
+                encoding="utf-8",
             )
+
+            with self.assertRaisesRegex(ValueError, "random_forest"):
+                load_config(config_path, repo_root=root)
 
 
 class FraudModelingDataTest(unittest.TestCase):
@@ -288,11 +296,7 @@ class FraudModelingFeatureTest(unittest.TestCase):
         validation = train.iloc[[0]].copy()
         validation.loc[:, "type"] = "cash_out"
         validation.loc[:, "channel"] = "new_channel"
-        strategy = FeatureStrategy(
-            name="full", scale_numeric=True, selector_c=0.1, pca_variance=0.95
-        )
-
-        transformer = build_feature_transformer(strategy, seed=42)
+        transformer = build_feature_transformer()
         transformed_train = transformer.fit_transform(train, pd.Series([0, 1, 0]))
         transformed_validation = transformer.transform(validation)
 
@@ -302,99 +306,23 @@ class FraudModelingFeatureTest(unittest.TestCase):
         self.assertTrue(np.isfinite(transformed_train).all())
         self.assertTrue(np.isfinite(transformed_validation).all())
 
-    def test_selected_strategy_records_retained_original_transformed_features(self):
-        X, y = feature_frame()
-        full = build_feature_transformer(
-            FeatureStrategy("full", True, 0.1, 0.95), seed=42
-        )
-        selected = build_feature_transformer(
-            FeatureStrategy("selected", True, 0.1, 0.95), seed=42
-        )
-
-        full.fit(X, y)
-        selected.fit(X, y)
-        full_summary = transformed_feature_summary(full)
-        selected_summary = transformed_feature_summary(selected)
-
-        self.assertGreater(selected_summary["output_feature_count"], 0)
-        self.assertLess(
-            selected_summary["output_feature_count"],
-            full_summary["output_feature_count"],
-        )
-        self.assertEqual(
-            selected_summary["output_feature_count"],
-            len(selected_summary["selected_feature_names"]),
-        )
-        self.assertGreater(len(selected_summary["removed_feature_names"]), 0)
-        self.assertEqual(
-            full_summary["output_feature_count"],
-            len(selected_summary["selected_feature_names"])
-            + len(selected_summary["removed_feature_names"]),
-        )
-
-    def test_pca_strategy_retains_requested_train_variance_and_categorical_signals(self):
-        X, y = feature_frame()
-        transformer = build_feature_transformer(
-            FeatureStrategy("pca", True, 0.1, 0.95), seed=42
-        )
-
-        transformed = transformer.fit_transform(X, y)
-        summary = transformed_feature_summary(transformer)
-
-        self.assertEqual(len(X), transformed.shape[0])
-        self.assertGreaterEqual(summary["pca_explained_variance"], 0.95)
-        self.assertGreater(summary["pca_component_count"], 0)
-        self.assertTrue(
-            any("categorical__" in name for name in summary["output_feature_names"])
-        )
 
 
 class FraudModelingModelTest(unittest.TestCase):
-    def test_build_candidates_returns_all_six_deterministic_estimators(self):
+    def test_build_model_returns_configured_deterministic_random_forest(self):
+        from ai_platform.ml.modeling.models import build_model
+
         config = load_config(
             Path("ai_platform/ml/config/f8_baseline.yaml"), repo_root=Path.cwd()
         )
-        pipelines = [
-            build_candidate(
-                candidate,
-                seed=config.seed,
-                selector_c=config.selector_c,
-                pca_variance=config.pca_variance,
-            )
-            for candidate in config.candidates
-        ]
+        pipeline = build_model(config.model, seed=config.seed)
 
-        self.assertTrue(all(isinstance(pipeline, Pipeline) for pipeline in pipelines))
-        self.assertEqual(
-            [
-                DummyClassifier,
-                LogisticRegression,
-                LogisticRegression,
-                LogisticRegression,
-                RandomForestClassifier,
-                HistGradientBoostingClassifier,
-            ],
-            [type(pipeline.named_steps["estimator"]) for pipeline in pipelines],
-        )
-        for pipeline in pipelines[1:]:
-            self.assertEqual(42, pipeline.named_steps["estimator"].random_state)
-        self.assertEqual(200, pipelines[4].named_steps["estimator"].n_estimators)
-        self.assertEqual(150, pipelines[5].named_steps["estimator"].max_iter)
-
-    def test_build_candidate_rejects_pca_for_tree_estimators(self):
-        for estimator in ("random_forest", "hist_gradient_boosting"):
-            with self.subTest(estimator=estimator), self.assertRaisesRegex(
-                ValueError, "requires logistic"
-            ):
-                build_candidate(
-                    CandidateConfig(
-                        name=f"{estimator}_pca",
-                        estimator=estimator,
-                        strategy="pca",
-                        params={},
-                    ),
-                    seed=42,
-                )
+        self.assertIsInstance(pipeline, Pipeline)
+        estimator = pipeline.named_steps["estimator"]
+        self.assertIsInstance(estimator, RandomForestClassifier)
+        self.assertEqual(42, estimator.random_state)
+        self.assertEqual(200, estimator.n_estimators)
+        self.assertEqual(12, estimator.max_depth)
 
 
 class FraudModelingEvaluationTest(unittest.TestCase):
@@ -441,62 +369,33 @@ class FraudModelingEvaluationTest(unittest.TestCase):
         self.assertEqual(1, report["normal"]["false_positives"])
         self.assertEqual(0.5, report["normal"]["false_positive_rate"])
 
-    def test_select_champion_uses_validation_results_only(self):
-        results = [
-            CandidateResult(
-                name="first",
-                threshold=0.3,
-                validation_metrics={"pr_auc": 0.7, "f1": 0.8},
-                feature_summary={},
-                fit_seconds=1.0,
-                predict_seconds=0.1,
-            ),
-            CandidateResult(
-                name="second",
-                threshold=0.4,
-                validation_metrics={"pr_auc": 0.8, "f1": 0.7},
-                feature_summary={},
-                fit_seconds=1.0,
-                predict_seconds=0.1,
-            ),
-        ]
-        champion = select_champion(results, ["first", "second"])
-        self.assertEqual("second", champion.name)
-
-
 class UnserializableArtifact:
     def __getstate__(self):
         raise TypeError("cannot serialize test artifact")
 
 
 class FraudModelingArtifactTest(unittest.TestCase):
-    def artifact_payload(self, champion_pipeline) -> ArtifactPayload:
+    def artifact_payload(self, model_pipeline) -> ArtifactPayload:
         return ArtifactPayload(
-            comparison=[
-                {
-                    "name": "logistic_full",
-                    "threshold": 0.4,
-                    "validation_metrics": {"pr_auc": 0.8, "f1": 0.7},
-                    "feature_summary": {"output_feature_count": 4},
-                    "fit_seconds": 0.1,
-                    "predict_seconds": 0.01,
-                }
-            ],
-            champion_pipeline=champion_pipeline,
-            selected_features={"logistic_full": ["amount"]},
-            test_report={"champion": "logistic_full", "pr_auc": 0.75},
+            model_pipeline=model_pipeline,
+            validation_report={
+                "model": "random_forest_full",
+                "threshold": 0.4,
+                "metrics": {"pr_auc": 0.8, "f1": 0.7},
+            },
+            test_report={"model": "random_forest_full", "pr_auc": 0.75},
+            feature_summary={"input_feature_count": 41, "output_feature_count": 4},
             run_manifest={"input_manifest_sha256": "abc123", "seed": 42},
         )
 
     def test_publish_artifacts_creates_complete_reloadable_run(self):
+        from ai_platform.ml.modeling.models import build_model
+
         X, y = feature_frame()
         config = load_config(
             Path("ai_platform/ml/config/f8_baseline.yaml"), repo_root=Path.cwd()
         )
-        candidate = next(
-            item for item in config.candidates if item.name == "logistic_full"
-        )
-        pipeline = build_candidate(candidate, seed=42)
+        pipeline = build_model(config.model, seed=config.seed)
         pipeline.fit(X, y)
         expected = pipeline.predict_proba(X)[:, 1]
 
@@ -507,16 +406,15 @@ class FraudModelingArtifactTest(unittest.TestCase):
             self.assertEqual(output, published)
             self.assertEqual(
                 {
-                    "comparison.json",
-                    "comparison.csv",
-                    "champion.joblib",
-                    "selected_features.json",
+                    "model.joblib",
+                    "validation_report.json",
                     "test_report.json",
+                    "feature_summary.json",
                     "run_manifest.json",
                 },
                 {path.name for path in output.iterdir()},
             )
-            loaded = joblib.load(output / "champion.joblib")
+            loaded = joblib.load(output / "model.joblib")
             np.testing.assert_allclose(expected, loaded.predict_proba(X)[:, 1])
 
     def test_publish_failure_leaves_no_completed_output(self):
@@ -530,7 +428,9 @@ class FraudModelingArtifactTest(unittest.TestCase):
 
 
 class FraudModelingRunTest(unittest.TestCase):
-    def test_run_comparison_executes_six_candidates_and_tests_one_champion(self):
+    def test_run_training_fits_and_publishes_single_random_forest(self):
+        from ai_platform.ml.modeling.run import run_training
+
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             dataset = root / "dataset"
@@ -542,49 +442,31 @@ class FraudModelingRunTest(unittest.TestCase):
 dataset_path: {dataset}
 output_path: {output}
 seed: 42
-pca_variance: 0.95
-selector_c: 0.1
-candidates:
-  - {{name: dummy_full, estimator: dummy, strategy: full, params: {{strategy: prior}}}}
-  - {{name: logistic_full, estimator: logistic, strategy: full, params: {{C: 1.0, max_iter: 200}}}}
-  - {{name: logistic_selected, estimator: logistic, strategy: selected, params: {{C: 1.0, max_iter: 200}}}}
-  - {{name: logistic_pca, estimator: logistic, strategy: pca, params: {{C: 1.0, max_iter: 200}}}}
-  - {{name: random_forest_full, estimator: random_forest, strategy: full, params: {{n_estimators: 5, max_depth: 3, min_samples_leaf: 1, n_jobs: 1}}}}
-  - {{name: hist_gradient_boosting_full, estimator: hist_gradient_boosting, strategy: full, params: {{max_iter: 5, max_leaf_nodes: 7, learning_rate: 0.1, l2_regularization: 0.1}}}}
+model:
+  name: random_forest_full
+  estimator: random_forest
+  strategy: full
+  params: {{n_estimators: 5, max_depth: 3, min_samples_leaf: 1, n_jobs: 1}}
 """.lstrip(),
                 encoding="utf-8",
             )
             config = load_config(config_path, repo_root=root)
 
-            result = run_comparison(config)
+            result = run_training(config)
 
-            self.assertEqual(6, len(result.comparison))
-            self.assertEqual(
-                [candidate.name for candidate in config.candidates],
-                [candidate.name for candidate in result.comparison],
+            self.assertEqual("random_forest_full", result.validation_report["model"])
+            self.assertEqual("random_forest_full", result.test_report["model"])
+            self.assertGreater(result.validation_report["fit_seconds"], 0)
+            self.assertGreater(result.validation_report["predict_seconds"], 0)
+            self.assertGreater(result.total_seconds, 0)
+            self.assertTrue((output / "model.joblib").is_file())
+            model = joblib.load(output / "model.joblib")
+            self.assertIsInstance(
+                model.named_steps["estimator"], RandomForestClassifier
             )
-            self.assertIn(
-                result.test_report["champion"],
-                [candidate.name for candidate in result.comparison],
-            )
-            self.assertTrue(
-                all(candidate.fit_seconds > 0 for candidate in result.comparison)
-            )
-            self.assertTrue(
-                all(candidate.predict_seconds > 0 for candidate in result.comparison)
-            )
-            self.assertTrue((output / "champion.joblib").is_file())
-            champion = joblib.load(output / "champion.joblib")
-            self.assertTrue(hasattr(champion, "predict_proba"))
-            comparison = json.loads((output / "comparison.json").read_text())
             manifest = json.loads((output / "run_manifest.json").read_text())
-            self.assertEqual("random_forest", comparison[4]["estimator"])
-            self.assertEqual(5, comparison[4]["parameters"]["n_estimators"])
-            self.assertEqual(0.95, manifest["configuration"]["pca_variance"])
-            self.assertEqual(
-                "prior",
-                manifest["configuration"]["candidates"][0]["params"]["strategy"],
-            )
+            self.assertEqual("random_forest", manifest["configuration"]["model"]["estimator"])
+            self.assertEqual(5, manifest["configuration"]["model"]["params"]["n_estimators"])
 
 if __name__ == "__main__":
     unittest.main()

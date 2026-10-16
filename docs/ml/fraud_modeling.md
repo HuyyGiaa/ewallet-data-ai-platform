@@ -1,30 +1,28 @@
-# Local fraud model comparison
+# Random Forest fraud baseline
 
-F8 provides a reproducible local training and comparison pipeline for the
-bounded point-in-time-correct dataset produced by F7. Its purpose is to prove
-the complete feature-to-model workflow before experiment tracking or cluster
-orchestration is introduced. MLflow, Kubeflow, Kubernetes, online Feast, and
-model serving are not part of this baseline.
+F8 trains one active model, `random_forest_full`, on the bounded,
+point-in-time-correct dataset produced by F7. Earlier F8 experiments compared
+six estimator/representation combinations. Random Forest achieved the best
+contracted selection metric, validation PR-AUC, so the losing implementations
+were retired from active source and configuration.
 
-## Data flow and leakage boundary
+## Active data flow
 
 ```mermaid
 flowchart LR
     DATA["F7 trainable dataset<br/>50 columns"]
     CHECK["Contract validation<br/>three temporal splits"]
     X["41 model features"]
-    FEATURE["Full / L1 selection / PCA"]
-    MODELS["Six active candidate experiments"]
-    VALIDATION["Validation PR-AUC<br/>threshold by max F1"]
-    TEST["One champion<br/>one test evaluation"]
-    ARTIFACTS["Ignored local artifacts"]
+    PREP["Median + missing indicators<br/>categorical one-hot"]
+    RF["Random Forest<br/>200 trees"]
+    VALIDATION["Validation threshold<br/>maximum F1"]
+    TEST["One test evaluation"]
+    ARTIFACTS["Five ignored runtime artifacts"]
 
-    DATA --> CHECK --> X --> FEATURE --> MODELS
-    MODELS --> VALIDATION --> TEST --> ARTIFACTS
+    DATA --> CHECK --> X --> PREP --> RF --> VALIDATION --> TEST --> ARTIFACTS
 ```
 
-The loader reads the existing F7 partitions without recomputing their temporal
-boundaries:
+The loader preserves the three chronological F7 partitions:
 
 | Split | Rows | Normal | Fraud | Fraud rate |
 |---|---:|---:|---:|---:|
@@ -32,93 +30,53 @@ boundaries:
 | Validation | 6,205 | 6,064 | 141 | 2.272361% |
 | Test | 5,964 | 5,832 | 132 | 2.213280% |
 
-The 41 raw inputs are the four request-time values, 31 historical Feast
-features, and six shared derived features defined by the F7 contract. IDs,
-`label`, `fraud_type`, `split`, outcomes, balances, and ingestion timestamps do
-not enter any estimator. `fraud_type` is retained only to report scenario
-recall after prediction.
+The 41 model inputs contain four request-time values, 31 historical Feast
+features, and six shared derived features. IDs, `label`, `fraud_type`, `split`,
+outcomes, balances, and ingestion timestamps never enter the estimator.
+`fraud_type` remains available only for post-prediction scenario reporting.
 
-All preprocessing is fitted on train. Validation selects each candidate's
-threshold by maximum F1 and ranks candidates by PR-AUC. Test is not consulted
-until the validation champion is fixed.
+Preprocessing is fitted on train. Numeric nulls use train medians and explicit
+missing indicators. `type` and `channel` use most-frequent imputation and
+one-hot encoding with unknown categories ignored at inference. Constant
+transformed columns are removed. Random Forest does not require numeric
+standardization, L1 selection, or PCA.
 
-## Feature processing experiments
+The model is fitted once on train. Validation chooses its classification
+threshold by maximum F1, then greater recall, then lower threshold. The test
+partition is evaluated once after the threshold is fixed.
 
-Numeric values use median imputation with missing indicators so cold-history
-nulls remain observable. Logistic paths standardize numeric values. `type` and
-`channel` use most-frequent imputation and one-hot encoding with unknown values
-ignored at transform time.
+## Why Random Forest is the active model
 
-Three representations are exercised:
+The following is **historical selection evidence**, not the current runtime
+matrix:
 
-- **Full:** preprocessed contract plus removal of constant transformed columns.
-- **Selected:** train-only L1 logistic `SelectFromModel` after preprocessing.
-- **PCA:** train-only numeric PCA retaining at least 95% variance while
-  categorical one-hot signals remain outside PCA.
-
-Selection and PCA demonstrate reproducible feature-pipeline capabilities. They
-are not accuracy optimization claims.
-
-The active PCA representation is paired only with Logistic Regression. A
-follow-up experiment paired PCA with both tree estimators, but those variants
-were retired from active configuration after validation degraded.
-
-The selected-feature artifact records both sides of the L1 decision: 49
-retained transformed features and 19 removed transformed features. This makes
-the reduction reviewable without refitting the selector.
-
-## Measured local baseline
-
-The run used Python 3.10.20, Pandas 2.3.3, PyArrow 25.0.1,
-scikit-learn 1.7.2, PyYAML 6.0.3, and seed 42.
-
-| Experiment | Representation | Output features | Validation PR-AUC | Precision | Recall | F1 | Fit time |
-|---|---|---:|---:|---:|---:|---:|---:|
-| Dummy | Full | 68 | 0.022724 | 0.022724 | 1.000000 | 0.044437 | 0.214 s |
-| Logistic Regression | Full | 68 | 0.581003 | 0.645455 | 0.503546 | 0.565737 | 2.182 s |
-| Logistic Regression | L1 selected | 49 | 0.582334 | 0.683168 | 0.489362 | 0.570248 | 5.687 s |
-| Logistic Regression | PCA | 28 | 0.598909 | 0.562914 | 0.602837 | 0.582192 | 0.934 s |
-| Random Forest | Full | 68 | **0.759029** | 0.921569 | 0.666667 | 0.773663 | 5.466 s |
-| Histogram Gradient Boosting | Full | 68 | 0.734261 | 0.924528 | 0.695035 | **0.793522** | 0.658 s |
-
-Random Forest is the champion because the contracted ranking metric is
-validation PR-AUC. Histogram Gradient Boosting has the best validation F1, but
-F1 is the secondary ordering metric. This difference illustrates why a
-pipeline must declare its selection rule before reading results.
-
-### Retired PCA tree experiment
-
-The same bounded dataset was used to test PCA with both tree estimators before
-removing those candidates from active code and configuration:
-
-| Model | Representation | Output features | Validation PR-AUC | F1 | Fit time |
+| Historical experiment | Representation | Output features | Validation PR-AUC | F1 | Fit time |
 |---|---|---:|---:|---:|---:|
-| Random Forest | Full | 68 | **0.759029** | **0.773663** | 5.127 s |
-| Random Forest | PCA | 28 | 0.695045 | 0.692607 | 15.047 s |
-| Histogram Gradient Boosting | Full | 68 | **0.734261** | **0.793522** | 0.552 s |
-| Histogram Gradient Boosting | PCA | 28 | 0.697866 | 0.717131 | 0.690 s |
+| Dummy | Full | 68 | 0.022724 | 0.044437 | 0.214 s |
+| Logistic Regression | Full | 68 | 0.581003 | 0.565737 | 2.182 s |
+| Logistic Regression | L1 selected | 49 | 0.582334 | 0.570248 | 5.687 s |
+| Logistic Regression | PCA | 28 | 0.598909 | 0.582192 | 0.934 s |
+| **Random Forest** | **Full** | **68** | **0.759029** | 0.773663 | 5.466 s |
+| Histogram Gradient Boosting | Full | 68 | 0.734261 | **0.793522** | 0.658 s |
 
-PCA reduced validation PR-AUC for both tree estimators and made Random Forest
-substantially slower. The decision used validation results only; the test
-partition was not used to decide retirement. Machine-readable evidence is in
+Random Forest won because validation PR-AUC was declared as the primary metric
+before results were read. Histogram Gradient Boosting had higher validation
+F1, but F1 was secondary. The machine-readable historical comparison is in
+[`../evidence/f8_multi_model_experiment.json`](../evidence/f8_multi_model_experiment.json).
+The retired PCA-tree follow-up remains in
 [`../evidence/f8_pca_tree_experiment.json`](../evidence/f8_pca_tree_experiment.json).
 
-At the validation-selected Random Forest threshold `0.6194620499907534`, the
-untouched test partition produced:
+## Active measured result
 
-| Metric | Test value |
-|---|---:|
-| PR-AUC | 0.760162 |
-| ROC-AUC | 0.945271 |
-| Precision | 0.888889 |
-| Recall | 0.666667 |
-| F1 | 0.761905 |
-| True negatives | 5,821 |
-| False positives | 11 |
-| False negatives | 44 |
-| True positives | 88 |
+The refactored baseline reproduced the former champion exactly at validation
+threshold `0.6194620499907534`:
 
-Scenario recall exposes behavior hidden by aggregate metrics:
+| Population | PR-AUC | ROC-AUC | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|---:|
+| Validation | 0.759029 | 0.940632 | 0.921569 | 0.666667 | 0.773663 |
+| Test | 0.760162 | 0.945271 | 0.888889 | 0.666667 | 0.761905 |
+
+Test scenario recall remains:
 
 | Scenario | Detected / support | Recall |
 |---|---:|---:|
@@ -127,17 +85,10 @@ Scenario recall exposes behavior hidden by aggregate metrics:
 | `account_takeover` | 14 / 37 | 0.378378 |
 | `merchant_burst` | 14 / 28 | 0.500000 |
 
-The model performs much less strongly on account takeover and merchant burst.
-F8 records this rather than tuning against the test partition. Any later model
-or feature improvement must choose parameters on train/validation and preserve
-this test isolation.
+Account takeover and merchant burst remain the weakest scenarios. Improving
+them later must use train/validation evidence without tuning against test.
 
 ## Runtime and artifacts
-
-The measured active command completed in 22.67 seconds wall time, reached
-520,748 KiB peak RSS (about 509 MiB), used no swap, and wrote 5,705,427 bytes
-of artifacts.
-This is a bounded local baseline, not an optimized-throughput claim.
 
 Run from the repository root:
 
@@ -147,34 +98,34 @@ PYTHONPATH=. ai_platform/ml/.venv/bin/python \
   --config ai_platform/ml/config/f8_baseline.yaml
 ```
 
+The measured refactored command completed in 6.51 seconds wall time, reached
+467,432 KiB peak RSS, used no swap, and wrote 5,654,339 bytes. The old
+six-pipeline run took 22.67 seconds. These are bounded local measurements, not
+full-scale throughput claims.
+
 Generated output is ignored under
 `ai_platform/ml/artifacts/f8_local_baseline/`:
 
 ```text
-comparison.json
-comparison.csv
-champion.joblib
-selected_features.json
+model.joblib
+validation_report.json
 test_report.json
+feature_summary.json
 run_manifest.json
 ```
 
-The publisher writes to a temporary sibling directory, verifies every JSON,
-CSV, and model artifact, then promotes the complete set. Reloading
-`champion.joblib` reproduced the recorded test metrics exactly. Re-running F8
-replaces only this artifact directory and never modifies the F7 dataset.
-`comparison.json` stores each estimator, representation, and hyperparameters;
-`run_manifest.json` embeds the validated seed, transformation settings, and
-full candidate configuration so a prior run remains interpretable if the
-tracked YAML later changes.
+The publisher writes to a temporary sibling directory, parses every JSON,
+reloads the model, and atomically promotes the complete set. The manifest
+stores the input fingerprint, split statistics, seed, Random Forest parameters,
+dependency versions, and exact artifact inventory. Re-running F8 replaces only
+this ignored artifact directory and never modifies the F7 dataset.
 
-Machine-readable measured evidence is stored in
+Machine-readable active evidence is stored in
 [`../evidence/f8_local_model_baseline.json`](../evidence/f8_local_model_baseline.json).
 
 ## Deferred platform integration
 
-MLflow comes next after this baseline is reviewed. It will track the same
-candidate parameters, metrics, feature summaries, and artifacts without
-changing training semantics. Kubeflow follows only after the local and MLflow
-paths are stable; its components will package the already proven validation,
-training, evaluation, and publication steps for Kubernetes execution.
+MLflow Tracking and Model Registry come next. They will record this single
+active model's configuration, validation/test metrics, data fingerprint, and
+artifacts without changing training semantics. Feast Online, API serving,
+Kubernetes, and Kubeflow remain separate later stages.

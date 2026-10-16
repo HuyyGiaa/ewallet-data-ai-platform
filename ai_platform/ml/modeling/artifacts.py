@@ -1,4 +1,4 @@
-"""Atomic runtime artifact publication for local F8 runs."""
+"""Atomic runtime artifact publication for the active F8 model."""
 
 from __future__ import annotations
 
@@ -12,25 +12,23 @@ from importlib.metadata import version
 from pathlib import Path
 
 import joblib
-import pandas as pd
 
 
 ARTIFACT_NAMES = (
-    "comparison.json",
-    "comparison.csv",
-    "champion.joblib",
-    "selected_features.json",
+    "model.joblib",
+    "validation_report.json",
     "test_report.json",
+    "feature_summary.json",
     "run_manifest.json",
 )
 
 
 @dataclass(frozen=True)
 class ArtifactPayload:
-    comparison: list[dict[str, object]]
-    champion_pipeline: object
-    selected_features: dict[str, object]
+    model_pipeline: object
+    validation_report: dict[str, object]
     test_report: dict[str, object]
+    feature_summary: dict[str, object]
     run_manifest: dict[str, object]
 
 
@@ -41,42 +39,18 @@ def _write_json(path: Path, value: object) -> None:
     )
 
 
-def _comparison_rows(comparison: list[dict[str, object]]) -> list[dict[str, object]]:
-    rows = []
-    for candidate in comparison:
-        metrics = candidate["validation_metrics"]
-        features = candidate["feature_summary"]
-        rows.append(
-            {
-                "name": candidate["name"],
-                "threshold": candidate["threshold"],
-                "input_features": 41,
-                "output_features": features["output_feature_count"],
-                "pr_auc": metrics["pr_auc"],
-                "roc_auc": metrics.get("roc_auc"),
-                "precision": metrics.get("precision"),
-                "recall": metrics.get("recall"),
-                "f1": metrics["f1"],
-                "fit_seconds": candidate["fit_seconds"],
-                "predict_seconds": candidate["predict_seconds"],
-            }
-        )
-    return rows
-
-
 def _verify_staged(directory: Path) -> None:
     actual = {path.name for path in directory.iterdir()}
     if actual != set(ARTIFACT_NAMES):
         raise ValueError(f"Incomplete artifact inventory: {sorted(actual)}")
     for name in (
-        "comparison.json",
-        "selected_features.json",
+        "validation_report.json",
         "test_report.json",
+        "feature_summary.json",
         "run_manifest.json",
     ):
         json.loads((directory / name).read_text(encoding="utf-8"))
-    pd.read_csv(directory / "comparison.csv")
-    joblib.load(directory / "champion.joblib")
+    joblib.load(directory / "model.joblib")
 
 
 def publish_artifacts(payload: ArtifactPayload, output_dir: Path) -> Path:
@@ -88,13 +62,10 @@ def publish_artifacts(payload: ArtifactPayload, output_dir: Path) -> Path:
     )
     backup: Path | None = None
     try:
-        _write_json(staged / "comparison.json", payload.comparison)
-        pd.DataFrame(_comparison_rows(payload.comparison)).to_csv(
-            staged / "comparison.csv", index=False
-        )
-        joblib.dump(payload.champion_pipeline, staged / "champion.joblib")
-        _write_json(staged / "selected_features.json", payload.selected_features)
+        joblib.dump(payload.model_pipeline, staged / "model.joblib")
+        _write_json(staged / "validation_report.json", payload.validation_report)
         _write_json(staged / "test_report.json", payload.test_report)
+        _write_json(staged / "feature_summary.json", payload.feature_summary)
         manifest = dict(payload.run_manifest)
         manifest["dependencies"] = {
             package: version(package)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -51,26 +50,6 @@ class MetricReport:
             "recall": self.recall,
             "f1": self.f1,
             "confusion_matrix": self.confusion_matrix,
-        }
-
-
-@dataclass(frozen=True)
-class CandidateResult:
-    name: str
-    threshold: float
-    validation_metrics: dict[str, float | list[list[int]]]
-    feature_summary: dict[str, object]
-    fit_seconds: float
-    predict_seconds: float
-
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "name": self.name,
-            "threshold": self.threshold,
-            "validation_metrics": self.validation_metrics,
-            "feature_summary": self.feature_summary,
-            "fit_seconds": self.fit_seconds,
-            "predict_seconds": self.predict_seconds,
         }
 
 
@@ -145,22 +124,3 @@ def scenario_report(
         ),
     }
     return result
-
-
-def select_champion(
-    results: Sequence[CandidateResult], configured_order: Sequence[str]
-) -> CandidateResult:
-    if not results:
-        raise ValueError("No candidate results to rank")
-    order = {name: index for index, name in enumerate(configured_order)}
-    unknown = [result.name for result in results if result.name not in order]
-    if unknown:
-        raise ValueError(f"Candidate results missing from configured order: {unknown}")
-    return max(
-        results,
-        key=lambda result: (
-            float(result.validation_metrics["pr_auc"]),
-            float(result.validation_metrics["f1"]),
-            -order[result.name],
-        ),
-    )

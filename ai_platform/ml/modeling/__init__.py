@@ -1,1 +1,1 @@
-"""Local fraud-model comparison pipeline."""
+"""Local Random Forest fraud-model baseline."""
