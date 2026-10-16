@@ -11,12 +11,12 @@
       "run_manifest.json"
     ],
     "model_reload_metric_parity": true,
-    "total_bytes": 5711781,
+    "total_bytes": 5705427,
     "tracked": false
   },
   "checks": {
     "artifact_parse": "PASS",
-    "candidate_count": 8,
+    "candidate_count": 6,
     "f7_training_regression": "10/10 PASS",
     "feast_pit_regression": "8/8 PASS",
     "forbidden_model_columns": 0,
@@ -70,7 +70,7 @@
   },
   "experiments": [
     {
-      "fit_seconds": 0.22386637499948847,
+      "fit_seconds": 0.21403498300060164,
       "name": "dummy_full",
       "output_features": 68,
       "threshold": 0.019050001787054578,
@@ -83,7 +83,7 @@
       }
     },
     {
-      "fit_seconds": 1.9569179600002826,
+      "fit_seconds": 2.182149070999003,
       "name": "logistic_full",
       "output_features": 68,
       "threshold": 0.8826639505934305,
@@ -96,7 +96,7 @@
       }
     },
     {
-      "fit_seconds": 5.327445810999961,
+      "fit_seconds": 5.687437760998364,
       "name": "logistic_selected",
       "output_features": 49,
       "threshold": 0.9081149398778885,
@@ -109,7 +109,7 @@
       }
     },
     {
-      "fit_seconds": 1.1201721750003344,
+      "fit_seconds": 0.93391358900044,
       "name": "logistic_pca",
       "output_features": 28,
       "threshold": 0.7579441435083101,
@@ -122,7 +122,7 @@
       }
     },
     {
-      "fit_seconds": 5.126952716999767,
+      "fit_seconds": 5.466497245999562,
       "name": "random_forest_full",
       "output_features": 68,
       "threshold": 0.6194620499907534,
@@ -135,20 +135,7 @@
       }
     },
     {
-      "fit_seconds": 15.046660235000672,
-      "name": "random_forest_pca",
-      "output_features": 28,
-      "threshold": 0.33678560972768906,
-      "validation": {
-        "f1": 0.6926070038910506,
-        "pr_auc": 0.6950449209073548,
-        "precision": 0.7672413793103449,
-        "recall": 0.6312056737588653,
-        "roc_auc": 0.9112644791257322
-      }
-    },
-    {
-      "fit_seconds": 0.5516527070003576,
+      "fit_seconds": 0.6576761430005718,
       "name": "hist_gradient_boosting_full",
       "output_features": 68,
       "threshold": 0.9087379529727216,
@@ -159,32 +146,19 @@
         "recall": 0.6950354609929078,
         "roc_auc": 0.9359918551993862
       }
-    },
-    {
-      "fit_seconds": 0.6901047080000353,
-      "name": "hist_gradient_boosting_pca",
-      "output_features": 28,
-      "threshold": 0.79047382518335,
-      "validation": {
-        "f1": 0.7171314741035857,
-        "pr_auc": 0.6978659532117685,
-        "precision": 0.8181818181818182,
-        "recall": 0.6382978723404256,
-        "roc_auc": 0.9027512678006699
-      }
     }
   ],
   "name": "F8 local fraud model comparison baseline",
   "resource_measurement": {
-    "artifact_bytes": 5711781,
+    "artifact_bytes": 5705427,
     "available_memory_after": "19 GiB",
     "free_disk_after": "2.4 GiB",
-    "internal_pipeline_seconds": 36.95654244300022,
-    "peak_rss_kib": 511072,
+    "internal_pipeline_seconds": 21.557566544999645,
+    "peak_rss_kib": 520748,
     "swap_used": "0 B",
-    "system_seconds": 0.7,
-    "user_seconds": 145.74,
-    "wall_seconds": 38.21
+    "system_seconds": 0.64,
+    "user_seconds": 121.81,
+    "wall_seconds": 22.67
   },
   "selection": {
     "champion": "random_forest_full",
@@ -243,5 +217,5 @@
     },
     "threshold": 0.6194620499907534
   },
-  "timestamp_utc": "2026-10-16T08:05:03.792101+00:00"
+  "timestamp_utc": "2026-10-16T11:15:25.822060+00:00"
 }

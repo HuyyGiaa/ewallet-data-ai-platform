@@ -2,22 +2,20 @@
 
 ## F8 local fraud model comparison baseline — not optimized
 
-F8 trained eight bounded local experiments on the 40,148-row F7 materialization.
-The end-to-end CLI completed in 38.21 seconds wall time, reached 511,072 KiB
-peak RSS (about 499 MiB), used no swap, and produced 5,711,781 artifact bytes.
+F8 trained six active bounded experiments on the 40,148-row F7 materialization.
+The end-to-end CLI completed in 22.67 seconds wall time, reached 520,748 KiB
+peak RSS (about 509 MiB), used no swap, and produced 5,705,427 artifact bytes.
 The run is a workflow and reproducibility baseline, not a hyperparameter or
 accuracy optimization exercise.
 
 | Experiment | Representation | Output features | Validation PR-AUC | F1 | Fit time |
 |---|---|---:|---:|---:|---:|
-| Dummy | Full | 68 | 0.022724 | 0.044437 | 0.224 s |
-| Logistic Regression | Full | 68 | 0.581003 | 0.565737 | 1.957 s |
-| Logistic Regression | L1 selected | 49 | 0.582334 | 0.570248 | 5.327 s |
-| Logistic Regression | PCA | 28 | 0.598909 | 0.582192 | 1.120 s |
-| Random Forest | Full | 68 | **0.759029** | 0.773663 | 5.127 s |
-| Random Forest | PCA | 28 | 0.695045 | 0.692607 | 15.047 s |
-| Histogram Gradient Boosting | Full | 68 | 0.734261 | **0.793522** | 0.552 s |
-| Histogram Gradient Boosting | PCA | 28 | 0.697866 | 0.717131 | 0.690 s |
+| Dummy | Full | 68 | 0.022724 | 0.044437 | 0.214 s |
+| Logistic Regression | Full | 68 | 0.581003 | 0.565737 | 2.182 s |
+| Logistic Regression | L1 selected | 49 | 0.582334 | 0.570248 | 5.687 s |
+| Logistic Regression | PCA | 28 | 0.598909 | 0.582192 | 0.934 s |
+| Random Forest | Full | 68 | **0.759029** | 0.773663 | 5.466 s |
+| Histogram Gradient Boosting | Full | 68 | 0.734261 | **0.793522** | 0.658 s |
 
 Random Forest was selected by the predeclared validation PR-AUC rule. At its
 validation-selected threshold, the untouched test split produced PR-AUC
@@ -26,9 +24,11 @@ validation-selected threshold, the untouched test split produced PR-AUC
 [`ml/fraud_modeling.md`](ml/fraud_modeling.md); machine-readable measurements
 are in [`evidence/f8_local_model_baseline.json`](evidence/f8_local_model_baseline.json).
 
-PCA reduced both tree models' validation PR-AUC. It also increased Random
-Forest fit time from 5.127 to 15.047 seconds, so the measured champion remains
-the full-feature Random Forest rather than a PCA tree pipeline.
+PCA tree variants were measured separately and then removed from the active
+matrix. Random Forest PCA reached 0.695045 validation PR-AUC versus 0.759029
+for full features and fit in 15.047 versus 5.127 seconds. Histogram Gradient
+Boosting PCA reached 0.697866 versus 0.734261. The decision evidence is stored
+in [`evidence/f8_pca_tree_experiment.json`](evidence/f8_pca_tree_experiment.json).
 
 **MLFLOW / KUBEFLOW INTEGRATION: NOT STARTED.**
 

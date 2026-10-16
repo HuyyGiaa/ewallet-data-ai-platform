@@ -13,7 +13,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassif
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 
-from ai_platform.ml.modeling.config import load_config
+from ai_platform.ml.modeling.config import CandidateConfig, load_config
 from ai_platform.ml.modeling.artifacts import ArtifactPayload, publish_artifacts
 from ai_platform.ml.modeling.data import load_dataset, prepare_modeling_splits
 from ai_platform.ml.modeling.evaluation import (
@@ -128,7 +128,7 @@ def write_large_modeling_dataset(root: Path, rows: int = 60) -> None:
 
 
 class FraudModelingConfigTest(unittest.TestCase):
-    def test_load_config_resolves_paths_and_eight_ordered_candidates(self):
+    def test_load_config_resolves_paths_and_six_ordered_candidates(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             config_path = root / "f8.yaml"
@@ -160,17 +160,9 @@ candidates:
     estimator: random_forest
     strategy: full
     params: {n_estimators: 50, max_depth: 8, n_jobs: 1}
-  - name: random_forest_pca
-    estimator: random_forest
-    strategy: pca
-    params: {n_estimators: 50, max_depth: 8, n_jobs: 1}
   - name: hist_gradient_boosting_full
     estimator: hist_gradient_boosting
     strategy: full
-    params: {max_iter: 50, max_depth: 6, learning_rate: 0.1}
-  - name: hist_gradient_boosting_pca
-    estimator: hist_gradient_boosting
-    strategy: pca
     params: {max_iter: 50, max_depth: 6, learning_rate: 0.1}
 """.strip()
                 + "\n",
@@ -191,9 +183,7 @@ candidates:
                     "logistic_selected",
                     "logistic_pca",
                     "random_forest_full",
-                    "random_forest_pca",
                     "hist_gradient_boosting_full",
-                    "hist_gradient_boosting_pca",
                 ],
                 [candidate.name for candidate in config.candidates],
             )
@@ -360,7 +350,7 @@ class FraudModelingFeatureTest(unittest.TestCase):
 
 
 class FraudModelingModelTest(unittest.TestCase):
-    def test_build_candidates_returns_all_eight_deterministic_estimators(self):
+    def test_build_candidates_returns_all_six_deterministic_estimators(self):
         config = load_config(
             Path("ai_platform/ml/config/f8_baseline.yaml"), repo_root=Path.cwd()
         )
@@ -382,8 +372,6 @@ class FraudModelingModelTest(unittest.TestCase):
                 LogisticRegression,
                 LogisticRegression,
                 RandomForestClassifier,
-                RandomForestClassifier,
-                HistGradientBoostingClassifier,
                 HistGradientBoostingClassifier,
             ],
             [type(pipeline.named_steps["estimator"]) for pipeline in pipelines],
@@ -391,15 +379,22 @@ class FraudModelingModelTest(unittest.TestCase):
         for pipeline in pipelines[1:]:
             self.assertEqual(42, pipeline.named_steps["estimator"].random_state)
         self.assertEqual(200, pipelines[4].named_steps["estimator"].n_estimators)
-        self.assertEqual(200, pipelines[5].named_steps["estimator"].n_estimators)
-        self.assertEqual(150, pipelines[6].named_steps["estimator"].max_iter)
-        self.assertEqual(150, pipelines[7].named_steps["estimator"].max_iter)
-        for index in (5, 7):
-            numeric = pipelines[index].named_steps["features"].named_steps[
-                "preprocess"
-            ].transformers[0][1]
-            self.assertIn("scaler", numeric.named_steps)
-            self.assertIn("pca", numeric.named_steps)
+        self.assertEqual(150, pipelines[5].named_steps["estimator"].max_iter)
+
+    def test_build_candidate_rejects_pca_for_tree_estimators(self):
+        for estimator in ("random_forest", "hist_gradient_boosting"):
+            with self.subTest(estimator=estimator), self.assertRaisesRegex(
+                ValueError, "requires logistic"
+            ):
+                build_candidate(
+                    CandidateConfig(
+                        name=f"{estimator}_pca",
+                        estimator=estimator,
+                        strategy="pca",
+                        params={},
+                    ),
+                    seed=42,
+                )
 
 
 class FraudModelingEvaluationTest(unittest.TestCase):
@@ -535,7 +530,7 @@ class FraudModelingArtifactTest(unittest.TestCase):
 
 
 class FraudModelingRunTest(unittest.TestCase):
-    def test_run_comparison_executes_eight_candidates_and_tests_one_champion(self):
+    def test_run_comparison_executes_six_candidates_and_tests_one_champion(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             dataset = root / "dataset"
@@ -555,9 +550,7 @@ candidates:
   - {{name: logistic_selected, estimator: logistic, strategy: selected, params: {{C: 1.0, max_iter: 200}}}}
   - {{name: logistic_pca, estimator: logistic, strategy: pca, params: {{C: 1.0, max_iter: 200}}}}
   - {{name: random_forest_full, estimator: random_forest, strategy: full, params: {{n_estimators: 5, max_depth: 3, min_samples_leaf: 1, n_jobs: 1}}}}
-  - {{name: random_forest_pca, estimator: random_forest, strategy: pca, params: {{n_estimators: 5, max_depth: 3, min_samples_leaf: 1, n_jobs: 1}}}}
   - {{name: hist_gradient_boosting_full, estimator: hist_gradient_boosting, strategy: full, params: {{max_iter: 5, max_leaf_nodes: 7, learning_rate: 0.1, l2_regularization: 0.1}}}}
-  - {{name: hist_gradient_boosting_pca, estimator: hist_gradient_boosting, strategy: pca, params: {{max_iter: 5, max_leaf_nodes: 7, learning_rate: 0.1, l2_regularization: 0.1}}}}
 """.lstrip(),
                 encoding="utf-8",
             )
@@ -565,7 +558,7 @@ candidates:
 
             result = run_comparison(config)
 
-            self.assertEqual(8, len(result.comparison))
+            self.assertEqual(6, len(result.comparison))
             self.assertEqual(
                 [candidate.name for candidate in config.candidates],
                 [candidate.name for candidate in result.comparison],
