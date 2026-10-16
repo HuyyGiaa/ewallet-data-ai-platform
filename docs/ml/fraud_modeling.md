@@ -14,7 +14,7 @@ flowchart LR
     CHECK["Contract validation<br/>three temporal splits"]
     X["41 model features"]
     FEATURE["Full / L1 selection / PCA"]
-    MODELS["Six candidate experiments"]
+    MODELS["Eight candidate experiments"]
     VALIDATION["Validation PR-AUC<br/>threshold by max F1"]
     TEST["One champion<br/>one test evaluation"]
     ARTIFACTS["Ignored local artifacts"]
@@ -59,6 +59,10 @@ Three representations are exercised:
 Selection and PCA demonstrate reproducible feature-pipeline capabilities. They
 are not accuracy optimization claims.
 
+PCA is paired with Logistic Regression, Random Forest, and Histogram Gradient
+Boosting. The two tree comparisons use the same estimator hyperparameters as
+their full-feature counterparts, isolating the effect of the representation.
+
 The selected-feature artifact records both sides of the L1 decision: 49
 retained transformed features and 19 removed transformed features. This makes
 the reduction reviewable without refitting the selector.
@@ -70,17 +74,24 @@ scikit-learn 1.7.2, PyYAML 6.0.3, and seed 42.
 
 | Experiment | Representation | Output features | Validation PR-AUC | Precision | Recall | F1 | Fit time |
 |---|---|---:|---:|---:|---:|---:|---:|
-| Dummy | Full | 68 | 0.022724 | 0.022724 | 1.000000 | 0.044437 | 0.218 s |
-| Logistic Regression | Full | 68 | 0.581003 | 0.645455 | 0.503546 | 0.565737 | 1.827 s |
-| Logistic Regression | L1 selected | 49 | 0.582334 | 0.683168 | 0.489362 | 0.570248 | 6.123 s |
-| Logistic Regression | PCA | 28 | 0.598909 | 0.562914 | 0.602837 | 0.582192 | 1.202 s |
-| Random Forest | Full | 68 | **0.759029** | 0.921569 | 0.666667 | 0.773663 | 5.332 s |
-| Histogram Gradient Boosting | Full | 68 | 0.734261 | 0.924528 | 0.695035 | **0.793522** | 0.598 s |
+| Dummy | Full | 68 | 0.022724 | 0.022724 | 1.000000 | 0.044437 | 0.224 s |
+| Logistic Regression | Full | 68 | 0.581003 | 0.645455 | 0.503546 | 0.565737 | 1.957 s |
+| Logistic Regression | L1 selected | 49 | 0.582334 | 0.683168 | 0.489362 | 0.570248 | 5.327 s |
+| Logistic Regression | PCA | 28 | 0.598909 | 0.562914 | 0.602837 | 0.582192 | 1.120 s |
+| Random Forest | Full | 68 | **0.759029** | 0.921569 | 0.666667 | 0.773663 | 5.127 s |
+| Random Forest | PCA | 28 | 0.695045 | 0.767241 | 0.631206 | 0.692607 | 15.047 s |
+| Histogram Gradient Boosting | Full | 68 | 0.734261 | 0.924528 | 0.695035 | **0.793522** | 0.552 s |
+| Histogram Gradient Boosting | PCA | 28 | 0.697866 | 0.818182 | 0.638298 | 0.717131 | 0.690 s |
 
 Random Forest is the champion because the contracted ranking metric is
 validation PR-AUC. Histogram Gradient Boosting has the best validation F1, but
 F1 is the secondary ordering metric. This difference illustrates why a
 pipeline must declare its selection rule before reading results.
+
+PCA did not improve either tree model. Random Forest validation PR-AUC fell
+from 0.759029 to 0.695045 and its fit time rose from 5.127 to 15.047 seconds.
+Histogram Gradient Boosting fell from 0.734261 to 0.697866. The measured
+baseline therefore keeps full transformed features for the tree champion.
 
 At the validation-selected Random Forest threshold `0.6194620499907534`, the
 untouched test partition produced:
@@ -113,8 +124,8 @@ this test isolation.
 
 ## Runtime and artifacts
 
-The measured command completed in 23.59 seconds wall time, reached 523,496 KiB
-peak RSS (about 511 MiB), used no swap, and wrote 5,705,432 bytes of artifacts.
+The measured command completed in 38.21 seconds wall time, reached 511,072 KiB
+peak RSS (about 499 MiB), used no swap, and wrote 5,711,781 bytes of artifacts.
 This is a bounded local baseline, not an optimized-throughput claim.
 
 Run from the repository root:

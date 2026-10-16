@@ -118,7 +118,9 @@ The fixed experiment matrix is intentionally small:
 | `logistic_selected` | selected | `LogisticRegression` |
 | `logistic_pca` | pca | `LogisticRegression` |
 | `random_forest_full` | full | `RandomForestClassifier` |
+| `random_forest_pca` | pca | `RandomForestClassifier` |
 | `hist_gradient_boosting_full` | full | `HistGradientBoostingClassifier` |
+| `hist_gradient_boosting_pca` | pca | `HistGradientBoostingClassifier` |
 
 All stochastic components use seed 42. Candidate settings favor bounded local
 runtime and reproducibility over broad tuning. F8 does not perform grid search,
@@ -213,7 +215,8 @@ reload, and `git diff --check`.
 
 F8 local model comparison is complete when:
 
-- all six configured experiments run from one command;
+- all eight configured experiments run from one command, including PCA paired
+  with Random Forest and Histogram Gradient Boosting;
 - no forbidden or diagnostic column enters any estimator;
 - preprocessing, selection, and extraction fit only train data;
 - validation alone selects thresholds and champion;

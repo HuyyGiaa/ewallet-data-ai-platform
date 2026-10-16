@@ -44,13 +44,15 @@ def build_candidate(
     pca_variance: float = 0.95,
 ) -> Pipeline:
     """Build one serializable feature-and-estimator pipeline."""
-    if candidate.strategy in {"selected", "pca"} and candidate.estimator != "logistic":
+    if candidate.strategy == "selected" and candidate.estimator != "logistic":
         raise ValueError(
             f"Feature strategy {candidate.strategy} requires logistic estimator"
         )
     feature_strategy = FeatureStrategy(
         name=candidate.strategy,
-        scale_numeric=candidate.estimator == "logistic",
+        scale_numeric=(
+            candidate.estimator == "logistic" or candidate.strategy == "pca"
+        ),
         selector_c=selector_c,
         pca_variance=pca_variance,
     )

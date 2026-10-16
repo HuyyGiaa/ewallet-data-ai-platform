@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and run a reproducible local fraud-model comparison that validates the F7 dataset, compares six model/feature experiments, chooses a champion on validation PR-AUC, evaluates it once on test, and writes reviewable artifacts.
+**Goal:** Build and run a reproducible local fraud-model comparison that validates the F7 dataset, compares eight model/feature experiments, chooses a champion on validation PR-AUC, evaluates it once on test, and writes reviewable artifacts.
 
 **Architecture:** A versioned YAML config drives focused modules under `ai_platform/ml/modeling`. The loader enforces the existing 50-column F7 contract; scikit-learn pipelines own preprocessing, selection/extraction, and estimation; validation-only evaluation chooses thresholds and the champion; an atomic artifact publisher writes the fitted champion and measured reports. Tests use small real Pandas/Parquet fixtures, while the final integration run uses the ignored 40,148-row dataset.
 
@@ -47,7 +47,7 @@
 
 - [ ] **Step 1: Write the failing configuration test**
 
-Add `FraudModelingConfigTest.test_load_config_resolves_paths_and_six_ordered_candidates`. Use a temporary YAML with literal relative paths and assert resolved paths, seed 42, PCA variance 0.95, and exact candidate order `dummy_full`, `logistic_full`, `logistic_selected`, `logistic_pca`, `random_forest_full`, `hist_gradient_boosting_full`.
+Add `FraudModelingConfigTest.test_load_config_resolves_paths_and_eight_ordered_candidates`. Use a temporary YAML with literal relative paths and assert resolved paths, seed 42, PCA variance 0.95, and exact configured candidate order.
 
 - [ ] **Step 2: Run the configuration test and verify RED**
 
@@ -198,7 +198,7 @@ git commit -m "feat: add fraud feature processing strategies"
 
 - [ ] **Step 1: Write failing candidate-construction test**
 
-`test_build_candidates_returns_all_six_deterministic_estimators` asserts real estimator classes, configured bounded parameters, seed propagation, and that every candidate is a single serializable scikit-learn pipeline.
+`test_build_candidates_returns_all_eight_deterministic_estimators` asserts real estimator classes, configured bounded parameters, seed propagation, and that every candidate is a single serializable scikit-learn pipeline.
 
 - [ ] **Step 2: Run it and verify RED**
 
@@ -265,7 +265,7 @@ Expected: `OK`.
 
 - [ ] **Step 5: Write failing end-to-end synthetic CLI test**
 
-Run `run_comparison` on a deterministic temporary three-split Parquet fixture large enough for all six candidates. Assert all six validation results, configured ordering, exactly one test report for the selected champion, non-zero measured durations, and a reloadable champion.
+Run `run_comparison` on a deterministic temporary three-split Parquet fixture large enough for all eight candidates. Assert all eight validation results, configured ordering, exactly one test report for the selected champion, non-zero measured durations, and a reloadable champion.
 
 - [ ] **Step 6: Run integration test and verify RED**
 
@@ -328,7 +328,7 @@ deliberately does not install Feast. Expected: all pass.
 Run:
 `PYTHONPATH=. ai_platform/ml/.venv/bin/python -m ai_platform.ml.modeling.run --config ai_platform/ml/config/f8_baseline.yaml`
 
-Expected: six validation rows, one champion test report, exit 0, no Spark/Feast/Trino/Kubernetes process started.
+Expected: eight validation rows, one champion test report, exit 0, no Spark/Feast/Trino/Kubernetes process started.
 
 - [ ] **Step 4: Verify runtime artifacts and resource behavior**
 
@@ -336,7 +336,7 @@ Parse every JSON/CSV, load `champion.joblib`, reproduce test probabilities/metri
 
 - [ ] **Step 5: Write measured docs/evidence**
 
-Document the data flow, six experiments, feature selection/PCA semantics, exact validation comparison, champion threshold, final test metrics/scenario recall, runtime, artifact lifecycle, and the deferred MLflow/Kubeflow path. Evidence values come only from runtime artifacts.
+Document the data flow, eight experiments, feature selection/PCA semantics, exact validation comparison, champion threshold, final test metrics/scenario recall, runtime, artifact lifecycle, and the deferred MLflow/Kubeflow path. Evidence values come only from runtime artifacts.
 
 - [ ] **Step 6: Run final repository validation**
 
