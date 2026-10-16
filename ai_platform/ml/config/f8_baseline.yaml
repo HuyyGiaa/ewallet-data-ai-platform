@@ -1,0 +1,51 @@
+dataset_path: ai_platform/ml/data/fraud_training_v1/trainable_dataset
+output_path: ai_platform/ml/artifacts/f8_local_baseline
+seed: 42
+pca_variance: 0.95
+selector_c: 0.1
+
+candidates:
+  - name: dummy_full
+    estimator: dummy
+    strategy: full
+    params:
+      strategy: prior
+
+  - name: logistic_full
+    estimator: logistic
+    strategy: full
+    params:
+      C: 1.0
+      max_iter: 1000
+
+  - name: logistic_selected
+    estimator: logistic
+    strategy: selected
+    params:
+      C: 1.0
+      max_iter: 1000
+
+  - name: logistic_pca
+    estimator: logistic
+    strategy: pca
+    params:
+      C: 1.0
+      max_iter: 1000
+
+  - name: random_forest_full
+    estimator: random_forest
+    strategy: full
+    params:
+      n_estimators: 200
+      max_depth: 12
+      min_samples_leaf: 2
+      n_jobs: 1
+
+  - name: hist_gradient_boosting_full
+    estimator: hist_gradient_boosting
+    strategy: full
+    params:
+      max_iter: 150
+      max_leaf_nodes: 31
+      learning_rate: 0.1
+      l2_regularization: 0.1
