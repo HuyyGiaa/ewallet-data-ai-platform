@@ -6,14 +6,26 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 
 from ai_platform.ml.modeling.config import load_config
 from ai_platform.ml.modeling.data import load_dataset, prepare_modeling_splits
+from ai_platform.ml.modeling.evaluation import (
+    CandidateResult,
+    choose_threshold,
+    evaluate_scores,
+    scenario_report,
+    select_champion,
+)
 from ai_platform.ml.modeling.features import (
     FeatureStrategy,
     build_feature_transformer,
     transformed_feature_summary,
 )
+from ai_platform.ml.modeling.models import build_candidate
 from ai_platform.ml.training.contract import (
     FORBIDDEN_MODEL_COLUMNS,
     MODEL_FEATURE_COLUMNS,
@@ -291,6 +303,106 @@ class FraudModelingFeatureTest(unittest.TestCase):
         self.assertTrue(
             any("categorical__" in name for name in summary["output_feature_names"])
         )
+
+
+class FraudModelingModelTest(unittest.TestCase):
+    def test_build_candidates_returns_all_six_deterministic_estimators(self):
+        config = load_config(
+            Path("ai_platform/ml/config/f8_baseline.yaml"), repo_root=Path.cwd()
+        )
+        pipelines = [
+            build_candidate(
+                candidate,
+                seed=config.seed,
+                selector_c=config.selector_c,
+                pca_variance=config.pca_variance,
+            )
+            for candidate in config.candidates
+        ]
+
+        self.assertTrue(all(isinstance(pipeline, Pipeline) for pipeline in pipelines))
+        self.assertEqual(
+            [
+                DummyClassifier,
+                LogisticRegression,
+                LogisticRegression,
+                LogisticRegression,
+                RandomForestClassifier,
+                HistGradientBoostingClassifier,
+            ],
+            [type(pipeline.named_steps["estimator"]) for pipeline in pipelines],
+        )
+        for pipeline in pipelines[1:]:
+            self.assertEqual(42, pipeline.named_steps["estimator"].random_state)
+        self.assertEqual(200, pipelines[4].named_steps["estimator"].n_estimators)
+        self.assertEqual(150, pipelines[5].named_steps["estimator"].max_iter)
+
+
+class FraudModelingEvaluationTest(unittest.TestCase):
+    def test_threshold_maximizes_validation_f1(self):
+        result = choose_threshold(
+            np.array([0, 1, 1, 0]), np.array([0.1, 0.4, 0.8, 0.3])
+        )
+        self.assertEqual(0.4, result.threshold)
+        self.assertEqual(1.0, result.f1)
+        self.assertEqual(1.0, result.recall)
+
+    def test_threshold_tie_prefers_recall_then_lower_threshold(self):
+        result = choose_threshold(
+            np.array([0, 1, 0, 0, 1]), np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+        )
+        self.assertEqual(0.2, result.threshold)
+        self.assertEqual(1.0, result.recall)
+
+    def test_score_metrics_are_hand_checkable(self):
+        report = evaluate_scores(
+            np.array([0, 0, 1, 1]),
+            np.array([0.1, 0.4, 0.35, 0.8]),
+            threshold=0.35,
+        )
+        self.assertAlmostEqual(0.8333333333333333, report.pr_auc)
+        self.assertAlmostEqual(0.75, report.roc_auc)
+        self.assertAlmostEqual(2 / 3, report.precision)
+        self.assertEqual(1.0, report.recall)
+        self.assertAlmostEqual(0.8, report.f1)
+        self.assertEqual([[1, 1], [0, 2]], report.confusion_matrix)
+
+    def test_scenario_report_includes_zero_support_and_false_positives(self):
+        report = scenario_report(
+            y_true=np.array([0, 0, 1, 1, 1]),
+            predictions=np.array([0, 1, 1, 0, 1]),
+            fraud_types=pd.Series(
+                [None, None, "velocity", "amount_anomaly", "velocity"]
+            ),
+        )
+        self.assertEqual(2, report["velocity"]["support"])
+        self.assertEqual(1.0, report["velocity"]["recall"])
+        self.assertEqual(0.0, report["amount_anomaly"]["recall"])
+        self.assertIsNone(report["account_takeover"]["recall"])
+        self.assertEqual(1, report["normal"]["false_positives"])
+        self.assertEqual(0.5, report["normal"]["false_positive_rate"])
+
+    def test_select_champion_uses_validation_results_only(self):
+        results = [
+            CandidateResult(
+                name="first",
+                threshold=0.3,
+                validation_metrics={"pr_auc": 0.7, "f1": 0.8},
+                feature_summary={},
+                fit_seconds=1.0,
+                predict_seconds=0.1,
+            ),
+            CandidateResult(
+                name="second",
+                threshold=0.4,
+                validation_metrics={"pr_auc": 0.8, "f1": 0.7},
+                feature_summary={},
+                fit_seconds=1.0,
+                predict_seconds=0.1,
+            ),
+        ]
+        champion = select_champion(results, ["first", "second"])
+        self.assertEqual("second", champion.name)
 
 if __name__ == "__main__":
     unittest.main()
