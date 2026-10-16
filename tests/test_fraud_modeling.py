@@ -4,10 +4,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from ai_platform.ml.modeling.config import load_config
 from ai_platform.ml.modeling.data import load_dataset, prepare_modeling_splits
+from ai_platform.ml.modeling.features import (
+    FeatureStrategy,
+    build_feature_transformer,
+    transformed_feature_summary,
+)
 from ai_platform.ml.training.contract import (
     FORBIDDEN_MODEL_COLUMNS,
     MODEL_FEATURE_COLUMNS,
@@ -55,6 +61,20 @@ def overwrite_split(root: Path, split: str, frame: pd.DataFrame) -> None:
     for part in path.glob("*.parquet"):
         part.unlink()
     frame.to_parquet(path / "part-00000.parquet")
+
+
+def feature_frame(rows: int = 60) -> tuple[pd.DataFrame, pd.Series]:
+    y = pd.Series(([0, 1] * (rows // 2)) + ([0] if rows % 2 else []))
+    index = np.arange(rows, dtype=float)
+    values = {}
+    for position, column in enumerate(MODEL_FEATURE_COLUMNS):
+        if column not in {"type", "channel"}:
+            values[column] = index * (position + 1) / max(rows, 1)
+    values["amount"] = y.to_numpy(dtype=float) * 100.0 + index * 0.001
+    values["merchant_present"] = (index % 3 != 0)
+    values["type"] = np.where(index % 2 == 0, "payment", "transfer")
+    values["channel"] = np.where(index % 3 == 0, "app", "web")
+    return pd.DataFrame(values)[list(MODEL_FEATURE_COLUMNS)], y
 
 
 class FraudModelingConfigTest(unittest.TestCase):
@@ -209,6 +229,68 @@ class FraudModelingDataTest(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "classes"):
                 load_dataset(root)
+
+
+class FraudModelingFeatureTest(unittest.TestCase):
+    def test_preprocessor_adds_missing_indicators_and_handles_unknown_categories(self):
+        train = modeling_frame("train", "train")[list(MODEL_FEATURE_COLUMNS)]
+        train.loc[0, "user_behavior__user_failed_rate_24h"] = np.nan
+        validation = train.iloc[[0]].copy()
+        validation.loc[:, "type"] = "cash_out"
+        validation.loc[:, "channel"] = "new_channel"
+        strategy = FeatureStrategy(
+            name="full", scale_numeric=True, selector_c=0.1, pca_variance=0.95
+        )
+
+        transformer = build_feature_transformer(strategy, seed=42)
+        transformed_train = transformer.fit_transform(train, pd.Series([0, 1, 0]))
+        transformed_validation = transformer.transform(validation)
+
+        self.assertEqual(3, transformed_train.shape[0])
+        self.assertEqual(1, transformed_validation.shape[0])
+        self.assertGreater(transformed_train.shape[1], len(MODEL_FEATURE_COLUMNS))
+        self.assertTrue(np.isfinite(transformed_train).all())
+        self.assertTrue(np.isfinite(transformed_validation).all())
+
+    def test_selected_strategy_records_retained_original_transformed_features(self):
+        X, y = feature_frame()
+        full = build_feature_transformer(
+            FeatureStrategy("full", True, 0.1, 0.95), seed=42
+        )
+        selected = build_feature_transformer(
+            FeatureStrategy("selected", True, 0.1, 0.95), seed=42
+        )
+
+        full.fit(X, y)
+        selected.fit(X, y)
+        full_summary = transformed_feature_summary(full)
+        selected_summary = transformed_feature_summary(selected)
+
+        self.assertGreater(selected_summary["output_feature_count"], 0)
+        self.assertLess(
+            selected_summary["output_feature_count"],
+            full_summary["output_feature_count"],
+        )
+        self.assertEqual(
+            selected_summary["output_feature_count"],
+            len(selected_summary["selected_feature_names"]),
+        )
+
+    def test_pca_strategy_retains_requested_train_variance_and_categorical_signals(self):
+        X, y = feature_frame()
+        transformer = build_feature_transformer(
+            FeatureStrategy("pca", True, 0.1, 0.95), seed=42
+        )
+
+        transformed = transformer.fit_transform(X, y)
+        summary = transformed_feature_summary(transformer)
+
+        self.assertEqual(len(X), transformed.shape[0])
+        self.assertGreaterEqual(summary["pca_explained_variance"], 0.95)
+        self.assertGreater(summary["pca_component_count"], 0)
+        self.assertTrue(
+            any("categorical__" in name for name in summary["output_feature_names"])
+        )
 
 if __name__ == "__main__":
     unittest.main()
