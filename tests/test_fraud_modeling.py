@@ -6,12 +6,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import joblib
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 
 from ai_platform.ml.modeling.config import load_config
+from ai_platform.ml.modeling.artifacts import ArtifactPayload, publish_artifacts
 from ai_platform.ml.modeling.data import load_dataset, prepare_modeling_splits
 from ai_platform.ml.modeling.evaluation import (
     CandidateResult,
@@ -26,6 +28,7 @@ from ai_platform.ml.modeling.features import (
     transformed_feature_summary,
 )
 from ai_platform.ml.modeling.models import build_candidate
+from ai_platform.ml.modeling.run import run_comparison
 from ai_platform.ml.training.contract import (
     FORBIDDEN_MODEL_COLUMNS,
     MODEL_FEATURE_COLUMNS,
@@ -87,6 +90,40 @@ def feature_frame(rows: int = 60) -> tuple[pd.DataFrame, pd.Series]:
     values["type"] = np.where(index % 2 == 0, "payment", "transfer")
     values["channel"] = np.where(index % 3 == 0, "app", "web")
     return pd.DataFrame(values)[list(MODEL_FEATURE_COLUMNS)], y
+
+
+def write_large_modeling_dataset(root: Path, rows: int = 60) -> None:
+    scenarios = ("velocity", "amount_anomaly", "account_takeover", "merchant_burst")
+    for split in ("train", "validation", "test"):
+        X, y = feature_frame(rows)
+        fraud_types = []
+        scenario_index = 0
+        for label in y:
+            if label:
+                fraud_types.append(scenarios[scenario_index % len(scenarios)])
+                scenario_index += 1
+            else:
+                fraud_types.append(None)
+        metadata = pd.DataFrame(
+            {
+                "transaction_id": [f"{split}-tx-{index}" for index in range(rows)],
+                "event_timestamp": pd.date_range(
+                    "2026-01-01", periods=rows, freq="s", tz="UTC"
+                ),
+                "user_id": [f"{split}-u-{index}" for index in range(rows)],
+                "account_id": [f"{split}-a-{index}" for index in range(rows)],
+                "device_id": [f"{split}-d-{index}" for index in range(rows)],
+                "merchant_id": [f"{split}-m-{index}" for index in range(rows)],
+                "label": y,
+                "fraud_type": fraud_types,
+                "split": split,
+            }
+        )
+        frame = pd.concat([metadata, X], axis=1)[list(OUTPUT_COLUMNS)]
+        overwrite_split(root, split, frame)
+    (root / "manifest.json").write_text(
+        '{"dataset": "synthetic-f8-test"}\n', encoding="utf-8"
+    )
 
 
 class FraudModelingConfigTest(unittest.TestCase):
@@ -403,6 +440,120 @@ class FraudModelingEvaluationTest(unittest.TestCase):
         ]
         champion = select_champion(results, ["first", "second"])
         self.assertEqual("second", champion.name)
+
+
+class UnserializableArtifact:
+    def __getstate__(self):
+        raise TypeError("cannot serialize test artifact")
+
+
+class FraudModelingArtifactTest(unittest.TestCase):
+    def artifact_payload(self, champion_pipeline) -> ArtifactPayload:
+        return ArtifactPayload(
+            comparison=[
+                {
+                    "name": "logistic_full",
+                    "threshold": 0.4,
+                    "validation_metrics": {"pr_auc": 0.8, "f1": 0.7},
+                    "feature_summary": {"output_feature_count": 4},
+                    "fit_seconds": 0.1,
+                    "predict_seconds": 0.01,
+                }
+            ],
+            champion_pipeline=champion_pipeline,
+            selected_features={"logistic_full": ["amount"]},
+            test_report={"champion": "logistic_full", "pr_auc": 0.75},
+            run_manifest={"input_manifest_sha256": "abc123", "seed": 42},
+        )
+
+    def test_publish_artifacts_creates_complete_reloadable_run(self):
+        X, y = feature_frame()
+        config = load_config(
+            Path("ai_platform/ml/config/f8_baseline.yaml"), repo_root=Path.cwd()
+        )
+        candidate = next(
+            item for item in config.candidates if item.name == "logistic_full"
+        )
+        pipeline = build_candidate(candidate, seed=42)
+        pipeline.fit(X, y)
+        expected = pipeline.predict_proba(X)[:, 1]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "artifacts"
+            published = publish_artifacts(self.artifact_payload(pipeline), output)
+
+            self.assertEqual(output, published)
+            self.assertEqual(
+                {
+                    "comparison.json",
+                    "comparison.csv",
+                    "champion.joblib",
+                    "selected_features.json",
+                    "test_report.json",
+                    "run_manifest.json",
+                },
+                {path.name for path in output.iterdir()},
+            )
+            loaded = joblib.load(output / "champion.joblib")
+            np.testing.assert_allclose(expected, loaded.predict_proba(X)[:, 1])
+
+    def test_publish_failure_leaves_no_completed_output(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "artifacts"
+            with self.assertRaisesRegex(TypeError, "cannot serialize"):
+                publish_artifacts(
+                    self.artifact_payload(UnserializableArtifact()), output
+                )
+            self.assertFalse(output.exists())
+
+
+class FraudModelingRunTest(unittest.TestCase):
+    def test_run_comparison_executes_six_candidates_and_tests_one_champion(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dataset = root / "dataset"
+            output = root / "artifacts"
+            write_large_modeling_dataset(dataset)
+            config_path = root / "f8.yaml"
+            config_path.write_text(
+                f"""
+dataset_path: {dataset}
+output_path: {output}
+seed: 42
+pca_variance: 0.95
+selector_c: 0.1
+candidates:
+  - {{name: dummy_full, estimator: dummy, strategy: full, params: {{strategy: prior}}}}
+  - {{name: logistic_full, estimator: logistic, strategy: full, params: {{C: 1.0, max_iter: 200}}}}
+  - {{name: logistic_selected, estimator: logistic, strategy: selected, params: {{C: 1.0, max_iter: 200}}}}
+  - {{name: logistic_pca, estimator: logistic, strategy: pca, params: {{C: 1.0, max_iter: 200}}}}
+  - {{name: random_forest_full, estimator: random_forest, strategy: full, params: {{n_estimators: 5, max_depth: 3, min_samples_leaf: 1, n_jobs: 1}}}}
+  - {{name: hist_gradient_boosting_full, estimator: hist_gradient_boosting, strategy: full, params: {{max_iter: 5, max_leaf_nodes: 7, learning_rate: 0.1, l2_regularization: 0.1}}}}
+""".lstrip(),
+                encoding="utf-8",
+            )
+            config = load_config(config_path, repo_root=root)
+
+            result = run_comparison(config)
+
+            self.assertEqual(6, len(result.comparison))
+            self.assertEqual(
+                [candidate.name for candidate in config.candidates],
+                [candidate.name for candidate in result.comparison],
+            )
+            self.assertIn(
+                result.test_report["champion"],
+                [candidate.name for candidate in result.comparison],
+            )
+            self.assertTrue(
+                all(candidate.fit_seconds > 0 for candidate in result.comparison)
+            )
+            self.assertTrue(
+                all(candidate.predict_seconds > 0 for candidate in result.comparison)
+            )
+            self.assertTrue((output / "champion.joblib").is_file())
+            champion = joblib.load(output / "champion.joblib")
+            self.assertTrue(hasattr(champion, "predict_proba"))
 
 if __name__ == "__main__":
     unittest.main()
