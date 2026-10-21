@@ -13,6 +13,30 @@ captured with the configuration stated in their own sections. They have not
 been relabelled as cloud or 100 GB results. New 100 GB baseline and optimized
 evidence will be recorded only after measured GCP runs complete.
 
+The benchmark entrypoints now resolve their Delta inputs from the same runtime
+profile used to create Spark. This keeps the measured query unchanged while
+allowing the input to move from local MinIO to GCS:
+
+```bash
+# Merchant-key distribution and AQE/skew comparison
+python -m data_platform.processing.spark.benchmark.merchant_skew_benchmark \
+  --environment dev --mode profile
+python -m data_platform.processing.spark.benchmark.merchant_skew_benchmark \
+  --environment dev --mode baseline
+python -m data_platform.processing.spark.benchmark.merchant_skew_benchmark \
+  --environment dev --mode optimized
+
+# Exact and approximate high-cardinality aggregation
+python -m data_platform.processing.spark.benchmark.high_cardinality_benchmark \
+  --environment dev --mode exact
+python -m data_platform.processing.spark.benchmark.high_cardinality_benchmark \
+  --environment dev --mode approx --rsd 0.05
+```
+
+Use `gcp` only when the canonical cloud data is ready. At this checkpoint the
+100 GB cloud benchmark is **NOT RUN**; all numeric results below remain the
+historical measurements identified in their sections.
+
 ## F8 local fraud model comparison baseline — not optimized
 
 F8 trained six active bounded experiments on the 40,148-row F7 materialization.

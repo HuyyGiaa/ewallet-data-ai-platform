@@ -5,6 +5,7 @@ import logging
 import sys
 import time
 
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import (
     create_spark_session,
 )
@@ -87,13 +88,16 @@ def selected_pipelines(include_fraud_labels: bool = False):
 def run_silver_pipeline(
     optimized: bool = True,
     include_fraud_labels: bool = False,
+    runtime_config: RuntimeConfig | None = None,
 ) -> None:
     spark = None
+    config = runtime_config or load_runtime_config()
 
     try:
         spark = create_spark_session(
             app_name="EWallet-DP2-Silver",
             optimized=optimized,
+            runtime_config=config,
         )
 
         logger.info(
@@ -110,6 +114,7 @@ def run_silver_pipeline(
             "Fraud labels enabled: %s",
             include_fraud_labels,
         )
+        logger.info("Environment: %s", config.environment)
         logger.info(
             "========================================="
         )
@@ -130,6 +135,7 @@ def run_silver_pipeline(
             bronze_df = read_bronze(
                 spark,
                 table_name,
+                storage=config.storage,
             )
 
             silver_df = cleaner(
@@ -152,10 +158,11 @@ def run_silver_pipeline(
                 df=silver_df,
                 table_name=table_name,
                 partition_columns=partition_columns,
+                storage=config.storage,
             )
 
         elapsed = time.perf_counter() - pipeline_started_at
-        
+
 
         logger.info("")
         logger.info(
@@ -180,9 +187,16 @@ def run_silver_pipeline(
             )
 
 
-def parse_args():
+def parse_args(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         description="DP2 Bronze -> Silver Pipeline"
+    )
+
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime storage and Spark profile (default: local).",
     )
 
     parser.add_argument(
@@ -204,18 +218,20 @@ def parse_args():
         ),
     )
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
 
     try:
+        config = load_runtime_config(args.environment)
         run_silver_pipeline(
             optimized=(
                 args.mode == "optimized"
             ),
             include_fraud_labels=args.include_fraud_labels,
+            runtime_config=config,
         )
         return 0
 

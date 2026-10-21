@@ -60,6 +60,40 @@ Gold Validation
 
 Airflow orchestrates the same sequence as one batch DAG.
 
+**## Runtime Profile and Delta Table Resolution**
+
+Silver and Gold transformation logic is shared across all environments. The
+selected runtime profile supplies both the Spark settings and the physical
+storage roots:
+
+| Environment | Physical storage | Intended use |
+|---|---|---|
+| `local` | MinIO through `s3a://` | Existing local development stack |
+| `dev` | GCS development prefixes | Small cloud validation runs |
+| `gcp` | Canonical GCS prefixes | Measured cloud pipeline runs |
+
+The pipeline resolves a logical table at runtime. For example,
+`silver.transactions` becomes
+`<selected silver_root>/transactions`, while `gold.dim_merchant` becomes
+`<selected gold_root>/dim_merchant`. The same loaded configuration object is
+passed to the Spark session and the Delta read/write boundary, so compute and
+storage cannot silently select different environments.
+
+Run the transformations with an explicit profile:
+
+```bash
+python -m data_platform.processing.spark.silver.silver_pipeline \
+  --environment dev --mode optimized --include-fraud-labels
+
+python -m data_platform.processing.spark.gold.gold_pipeline \
+  --environment dev --mode optimized
+```
+
+Replacing `dev` with `local` or `gcp` changes infrastructure configuration;
+it does not change cleaning rules, table schemas, historical-feature
+semantics, or Gold business transformations. The GCP 100 GB execution is
+**NOT RUN** at this refactor checkpoint.
+
 **## Final Offline Dataset**
 
 The final coursework dataset was generated with:

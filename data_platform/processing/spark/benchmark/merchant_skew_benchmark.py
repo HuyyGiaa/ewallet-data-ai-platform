@@ -24,15 +24,13 @@ import logging
 import math
 import statistics
 import time
+from urllib.parse import urlsplit
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
-
-# Config
-SILVER_TRANSACTIONS = "s3a://silver-zone/transactions"
-GOLD_DIM_MERCHANT = "s3a://gold-zone/dim_merchant"
 
 # Logging
 logging.basicConfig(
@@ -43,13 +41,21 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
+def redacted_uri(uri: str) -> str:
+    parsed = urlsplit(uri)
+    if parsed.scheme in {"gs", "s3a"}:
+        return f"{parsed.scheme}://<redacted>{parsed.path}"
+    return uri
+
+
 # Read data
 def read_delta(
     spark,
     path: str,
 ) -> DataFrame:
 
-    logger.info("Reading Delta table: %s", path)
+    logger.info("Reading Delta table: %s", redacted_uri(path))
 
     return (
         spark.read
@@ -420,6 +426,7 @@ def run_merchant_workload(
 # Spark session
 def create_benchmark_spark(
     mode: str,
+    runtime_config: RuntimeConfig,
 ):
 
     optimized = (
@@ -429,6 +436,7 @@ def create_benchmark_spark(
     spark = create_spark_session(
         app_name=f"EWallet-Merchant-Skew-{mode}",
         optimized=optimized,
+        runtime_config=runtime_config,
     )
 
     # Explicitly control the variables being benchmarked.
@@ -449,23 +457,27 @@ def create_benchmark_spark(
 def run_benchmark(
     mode: str,
     keep_ui: bool,
+    runtime_config: RuntimeConfig | None = None,
 ) -> None:
 
     spark = None
+    config = runtime_config or load_runtime_config()
 
     try:
         spark = create_benchmark_spark(
-            mode
+            mode,
+            config,
         )
 
         log_spark_config(
             spark,
             mode,
         )
+        logger.info("Environment: %s", config.environment)
 
         transactions_df = read_delta(
             spark,
-            SILVER_TRANSACTIONS,
+            config.storage.table_uri("silver", "transactions"),
         )
 
         if mode == "profile":
@@ -478,7 +490,7 @@ def run_benchmark(
 
             merchants_df = read_delta(
                 spark,
-                GOLD_DIM_MERCHANT,
+                config.storage.table_uri("gold", "dim_merchant"),
             )
 
             run_merchant_workload(
@@ -513,12 +525,19 @@ def run_benchmark(
             )
 
 # CLI
-def parse_args():
+def parse_args(argv: list[str] | None = None):
 
     parser = argparse.ArgumentParser(
         description=(
             "E-Wallet merchant skew Spark benchmark."
         )
+    )
+
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime storage and Spark profile (default: local).",
     )
 
     parser.add_argument(
@@ -544,14 +563,20 @@ def parse_args():
         ),
     )
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
-# Entry point
-if __name__ == "__main__":
 
-    args = parse_args()
-
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    config = load_runtime_config(args.environment)
     run_benchmark(
         mode=args.mode,
         keep_ui=args.keep_ui,
+        runtime_config=config,
     )
+    return 0
+
+
+# Entry point
+if __name__ == "__main__":
+    raise SystemExit(main())
