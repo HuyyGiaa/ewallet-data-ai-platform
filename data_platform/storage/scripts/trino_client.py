@@ -20,12 +20,11 @@ from typing import Any, Generator
 from trino.dbapi import Connection, connect
 from trino.exceptions import Error
 
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.storage.scripts.config import (
     BRONZE_BUCKET,
     BRONZE_SCHEMA,
     TRINO_CATALOG,
-    TRINO_HOST,
-    TRINO_PORT,
     TRINO_USER,
     delta_table_uri,
 )
@@ -73,19 +72,28 @@ def escape_sql_string(value: str) -> str:
     return value.replace("'", "''")
 
 
-def create_trino_connection() -> Connection:
+def create_trino_connection(
+    runtime_config: RuntimeConfig | None = None,
+) -> Connection:
     """Tạo kết nối tới Trino chạy trên máy host."""
+    config = runtime_config or load_runtime_config()
+    host = config.services.trino_host
+    port = config.services.trino_port
+    if host is None or port is None:
+        raise TrinoClientError(
+            f"Trino is not configured for environment {config.environment!r}."
+        )
     logger.info(
         "Kết nối Trino tại %s:%d, catalog=%s.",
-        TRINO_HOST,
-        TRINO_PORT,
+        host,
+        port,
         TRINO_CATALOG,
     )
 
     try:
         return connect(
-            host=TRINO_HOST,
-            port=TRINO_PORT,
+            host=host,
+            port=port,
             user=TRINO_USER,
             catalog=TRINO_CATALOG,
             http_scheme="http",
@@ -93,12 +101,14 @@ def create_trino_connection() -> Connection:
     except Exception as exc:
         raise TrinoClientError(
             f"Không thể tạo kết nối Trino tại "
-            f"{TRINO_HOST}:{TRINO_PORT}: {exc}"
+            f"{host}:{port}: {exc}"
         ) from exc
 
 
 @contextmanager
-def trino_cursor() -> Generator[Any, None, None]:
+def trino_cursor(
+    runtime_config: RuntimeConfig | None = None,
+) -> Generator[Any, None, None]:
     """
     Context manager đóng cursor và connection sau khi sử dụng.
     """
@@ -106,7 +116,7 @@ def trino_cursor() -> Generator[Any, None, None]:
     cursor = None
 
     try:
-        connection = create_trino_connection()
+        connection = create_trino_connection(runtime_config)
         cursor = connection.cursor()
         yield cursor
 
@@ -187,7 +197,9 @@ def check_trino_connection(cursor: Any) -> None:
 def ensure_schema(
     cursor: Any,
     schema_name: str,
-    bucket_name: str,
+    bucket_name: str | None = None,
+    *,
+    location_root: str | None = None,
 ) -> None:
     """
     Tạo schema nếu chưa tồn tại.
@@ -197,7 +209,11 @@ def ensure_schema(
     schema_name = validate_identifier(schema_name)
     catalog_name = validate_identifier(TRINO_CATALOG)
 
-    schema_location = f"s3://{bucket_name}/"
+    if location_root is None:
+        if bucket_name is None:
+            raise ValueError("bucket_name or location_root is required")
+        location_root = f"s3://{bucket_name}"
+    schema_location = f"{location_root.rstrip('/')}/"
 
     sql = f"""
     CREATE SCHEMA IF NOT EXISTS
@@ -324,6 +340,8 @@ def register_delta_table(
     table_name: str,
     schema_name: str = BRONZE_SCHEMA,
     bucket_name: str = BRONZE_BUCKET,
+    *,
+    table_location: str | None = None,
 ) -> bool:
     """
     Đăng ký một Delta table đã tồn tại vào Trino.
@@ -336,7 +354,8 @@ def register_delta_table(
     table_name = validate_identifier(table_name)
     catalog_name = validate_identifier(TRINO_CATALOG)
 
-    table_location = delta_table_uri(bucket_name, table_name)
+    if table_location is None:
+        table_location = delta_table_uri(bucket_name, table_name)
 
     if table_exists(cursor, schema_name, table_name):
         existing_location = get_table_location(
@@ -428,6 +447,9 @@ def register_and_verify_table(
     schema_name: str = BRONZE_SCHEMA,
     bucket_name: str = BRONZE_BUCKET,
     ensure_schema_exists: bool = True,
+    *,
+    table_location: str | None = None,
+    schema_location_root: str | None = None,
 ) -> TrinoTableResult:
     """
     Đăng ký Delta table và xác minh số dòng qua Trino.
@@ -437,6 +459,7 @@ def register_and_verify_table(
             cursor=cursor,
             schema_name=schema_name,
             bucket_name=bucket_name,
+            location_root=schema_location_root,
         )
 
     registered_now = register_delta_table(
@@ -444,6 +467,7 @@ def register_and_verify_table(
         table_name=table_name,
         schema_name=schema_name,
         bucket_name=bucket_name,
+        table_location=table_location,
     )
 
     row_count = count_table_rows(
@@ -462,7 +486,7 @@ def register_and_verify_table(
         catalog=TRINO_CATALOG,
         schema=schema_name,
         table=table_name,
-        location=delta_table_uri(bucket_name, table_name),
+        location=table_location or delta_table_uri(bucket_name, table_name),
         row_count=row_count,
         registered_now=registered_now,
     )

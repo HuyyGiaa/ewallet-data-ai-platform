@@ -15,11 +15,13 @@ import argparse
 import logging
 import sys
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.storage.scripts.config import (
     TRINO_CATALOG,
-    TRINO_REGISTRATION_LAYERS,
-    delta_table_uri,
+    registration_table_uri,
+    require_local_runtime,
     trino_registration_layers,
 )
 from data_platform.storage.scripts.minio_client import (
@@ -69,11 +71,17 @@ def configure_logging(verbose: bool = False) -> None:
         logging.getLogger("trino").setLevel(logging.WARNING)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Register existing Bronze, Silver, and Gold Delta tables in Trino."
         )
+    )
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime profile; this command only accepts local.",
     )
     parser.add_argument(
         "--layer",
@@ -94,29 +102,29 @@ def parse_args() -> argparse.Namespace:
             "fraud mode."
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def select_layers(layer: str) -> tuple[str, ...]:
     if layer == "all":
-        return tuple(TRINO_REGISTRATION_LAYERS)
+        return ("bronze", "silver", "gold")
     return (layer,)
 
 
 def verify_delta_sources(
     minio_client,
     layers: tuple[str, ...],
-    registration_layers=TRINO_REGISTRATION_LAYERS,
+    registration_layers,
 ) -> None:
     """Fail trước mọi metadata mutation nếu một Delta source bị thiếu."""
     missing: list[str] = []
 
     for layer in layers:
         layer_config = registration_layers[layer]
-        bucket = str(layer_config["bucket"])
+        bucket = urlsplit(str(layer_config["root"])).netloc
 
         for table in layer_config["tables"]:
-            location = delta_table_uri(bucket, table)
+            location = registration_table_uri(layer_config, table)
 
             if delta_log_exists(minio_client, bucket, table):
                 logger.info(
@@ -143,27 +151,27 @@ def verify_delta_sources(
 def register_layer(
     cursor,
     layer: str,
-    registration_layers=TRINO_REGISTRATION_LAYERS,
+    registration_layers,
 ) -> list[RegistrationResult]:
     layer_config = registration_layers[layer]
     schema = str(layer_config["schema"])
-    bucket = str(layer_config["bucket"])
+    root = str(layer_config["root"])
     expected_tables = set(layer_config["tables"])
     results: list[RegistrationResult] = []
 
     ensure_schema(
         cursor=cursor,
         schema_name=schema,
-        bucket_name=bucket,
+        location_root=root,
     )
 
     for table in layer_config["tables"]:
-        expected_location = delta_table_uri(bucket, table)
+        expected_location = registration_table_uri(layer_config, table)
         registered_now = register_delta_table(
             cursor=cursor,
             table_name=table,
             schema_name=schema,
-            bucket_name=bucket,
+            table_location=expected_location,
         )
         actual_location = get_table_location(cursor, schema, table)
 
@@ -229,16 +237,25 @@ def register_layer(
     return results
 
 
-def run(layer: str, include_fraud_labels: bool = False) -> int:
+def run(
+    layer: str,
+    include_fraud_labels: bool = False,
+    runtime_config: RuntimeConfig | None = None,
+) -> int:
+    config = runtime_config or load_runtime_config()
+    require_local_runtime(config, "register_trino_tables")
     layers = select_layers(layer)
-    registration_layers = trino_registration_layers(include_fraud_labels)
-    minio_client = create_minio_client()
+    registration_layers = trino_registration_layers(
+        include_fraud_labels,
+        runtime_config=config,
+    )
+    minio_client = create_minio_client(config)
     check_minio_connection(minio_client)
     verify_delta_sources(minio_client, layers, registration_layers)
 
     results: list[RegistrationResult] = []
 
-    with trino_cursor() as cursor:
+    with trino_cursor(config) as cursor:
         check_trino_connection(cursor)
 
         for selected_layer in layers:
@@ -258,12 +275,22 @@ def run(layer: str, include_fraud_labels: bool = False) -> int:
     return 0
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     configure_logging(verbose=args.verbose)
 
     try:
-        return run(args.layer, include_fraud_labels=args.include_fraud_labels)
+        if args.environment != "local":
+            raise RuntimeError(
+                "register_trino_tables is a local-only command; "
+                f"selected environment={args.environment!r}"
+            )
+        config = load_runtime_config(args.environment)
+        return run(
+            args.layer,
+            include_fraud_labels=args.include_fraud_labels,
+            runtime_config=config,
+        )
     except (
         MinioStorageError,
         TrinoClientError,

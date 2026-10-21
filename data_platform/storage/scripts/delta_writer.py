@@ -21,15 +21,16 @@ import pandas as pd
 import pyarrow as pa
 from deltalake import DeltaTable, write_deltalake
 
+from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
 from data_platform.storage.scripts.config import (
-    BRONZE_BUCKET,
-    DELTA_STORAGE_OPTIONS,
     TABLE_DATE_COLUMNS,
     TABLE_DATETIME_COLUMNS,
     TABLE_STRING_COLUMNS,
-    delta_table_uri,
+    deltalake_storage_options,
     offline_tables,
     parquet_path,
+    require_local_runtime,
+    storage_table_uri,
 )
 
 
@@ -77,9 +78,14 @@ def validate_source_file(table_name: str, source_path: Path) -> None:
         )
 
 
-def read_offline_table(table_name: str,source_path: Path | None = None,) -> pd.DataFrame:
+def read_offline_table(
+    table_name: str,
+    source_path: Path | None = None,
+    *,
+    storage: StorageConfig | None = None,
+) -> pd.DataFrame:
     if source_path is None:
-        source_path = parquet_path(table_name)
+        source_path = parquet_path(table_name, storage)
 
     validate_source_file(table_name, source_path)
 
@@ -222,11 +228,19 @@ def get_delta_row_count(delta_table: DeltaTable) -> int:
         ) from exc
 
 
-def write_transaction_schema_evolution(bucket: str,) -> DeltaWriteResult:
+def write_transaction_schema_evolution(
+    runtime_config: RuntimeConfig,
+) -> DeltaWriteResult:
     table_name = "transactions"
-    table_uri = delta_table_uri(bucket, table_name)
+    table_uri = storage_table_uri(
+        runtime_config.storage,
+        "bronze",
+        table_name,
+        delta_rs=True,
+    )
+    storage_options = deltalake_storage_options(runtime_config)
 
-    source_dir = parquet_path(table_name).parent
+    source_dir = parquet_path(table_name, runtime_config.storage).parent
     v1_path = source_dir / "transactions_v1.parquet"
     v2_path = source_dir / "transactions_v2.parquet"
 
@@ -273,7 +287,7 @@ def write_transaction_schema_evolution(bucket: str,) -> DeltaWriteResult:
             mode="overwrite",
             schema_mode="overwrite",
             engine="rust",
-            storage_options=DELTA_STORAGE_OPTIONS,
+            storage_options=storage_options,
         )
     except Exception as exc:
         raise DeltaWriterError(
@@ -282,7 +296,7 @@ def write_transaction_schema_evolution(bucket: str,) -> DeltaWriteResult:
 
     delta_after_v1 = DeltaTable(
         table_uri,
-        storage_options=DELTA_STORAGE_OPTIONS,
+        storage_options=storage_options,
     )
 
     logger.info(
@@ -336,7 +350,7 @@ def write_transaction_schema_evolution(bucket: str,) -> DeltaWriteResult:
             mode="append",
             schema_mode="merge",
             engine="rust",
-            storage_options=DELTA_STORAGE_OPTIONS,
+            storage_options=storage_options,
         )
     except Exception as exc:
         raise DeltaWriterError(
@@ -349,7 +363,7 @@ def write_transaction_schema_evolution(bucket: str,) -> DeltaWriteResult:
 
     delta_table = DeltaTable(
         table_uri,
-        storage_options=DELTA_STORAGE_OPTIONS,
+        storage_options=storage_options,
     )
 
     delta_rows = get_delta_row_count(delta_table)
@@ -381,16 +395,18 @@ def write_transaction_schema_evolution(bucket: str,) -> DeltaWriteResult:
         delta_version=delta_version,
     )
 
-def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteMode = "overwrite",) -> DeltaWriteResult:
+def write_delta_table(
+    table_name: str,
+    mode: WriteMode = "overwrite",
+    *,
+    runtime_config: RuntimeConfig | None = None,
+) -> DeltaWriteResult:
     """
     Đọc một file offline và ghi thành Delta table trên MinIO.
 
     Args:
         table_name:
             Tên bảng, đồng thời là tên file Parquet không có phần mở rộng.
-
-        bucket:
-            Bucket đích trên MinIO.
 
         mode:
             overwrite: ghi lại toàn bộ bảng, phù hợp cho bootstrap offline.
@@ -399,6 +415,10 @@ def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteM
     Returns:
         DeltaWriteResult chứa thông tin xác minh sau khi ghi.
     """
+    config = runtime_config or load_runtime_config()
+    require_local_runtime(config, "delta_writer")
+    storage_options = deltalake_storage_options(config)
+
     if table_name == "transactions":
         if mode != "overwrite":
             raise DeltaWriterError(
@@ -407,12 +427,17 @@ def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteM
             )
 
         return write_transaction_schema_evolution(
-            bucket=bucket,
-        )    
-    source_path = parquet_path(table_name)
-    table_uri = delta_table_uri(bucket, table_name)
+            runtime_config=config,
+        )
+    source_path = parquet_path(table_name, config.storage)
+    table_uri = storage_table_uri(
+        config.storage,
+        "bronze",
+        table_name,
+        delta_rs=True,
+    )
 
-    dataframe = read_offline_table(table_name)
+    dataframe = read_offline_table(table_name, storage=config.storage)
     normalized_dataframe = normalize_dataframe(dataframe, table_name)
     arrow_table = dataframe_to_arrow(normalized_dataframe, table_name)
 
@@ -428,7 +453,7 @@ def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteM
             "table_or_uri": table_uri,
             "data": arrow_table,
             "mode": mode,
-            "storage_options": DELTA_STORAGE_OPTIONS,
+            "storage_options": storage_options,
             "engine": "rust",
         }
 
@@ -446,7 +471,7 @@ def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteM
     try:
         delta_table = DeltaTable(
             table_uri,
-            storage_options=DELTA_STORAGE_OPTIONS,
+            storage_options=storage_options,
         )
 
         delta_rows = get_delta_row_count(delta_table)
@@ -486,6 +511,7 @@ def write_delta_table(table_name: str, bucket: str = BRONZE_BUCKET, mode: WriteM
 def write_all_offline_tables(
     mode: WriteMode = "overwrite",
     include_fraud_labels: bool = False,
+    runtime_config: RuntimeConfig | None = None,
 ) -> list[DeltaWriteResult]:
     """
     Ghi toàn bộ bảng offline vào Bronze Layer.
@@ -495,11 +521,13 @@ def write_all_offline_tables(
     """
     results: list[DeltaWriteResult] = []
     selected_tables = offline_tables(include_fraud_labels)
+    config = runtime_config or load_runtime_config()
+    require_local_runtime(config, "delta_writer")
 
     logger.info(
         "Bắt đầu ghi %d bảng offline vào bucket '%s'.",
         len(selected_tables),
-        BRONZE_BUCKET,
+        config.storage.bronze_root,
     )
 
     for position, table_name in enumerate(selected_tables, start=1):
@@ -512,8 +540,8 @@ def write_all_offline_tables(
 
         result = write_delta_table(
             table_name=table_name,
-            bucket=BRONZE_BUCKET,
             mode=mode,
+            runtime_config=config,
         )
         results.append(result)
 

@@ -5,16 +5,15 @@ Các hàm quản lý bucket MinIO cho Storage Layer.
 from __future__ import annotations
 
 import logging
+from urllib.parse import urlsplit
 
 from minio import Minio
 from minio.error import S3Error
 
+from data_platform.config import RuntimeConfig
 from data_platform.storage.scripts.config import (
-    MINIO_ACCESS_KEY,
-    MINIO_ENDPOINT,
-    MINIO_SECRET_KEY,
-    MINIO_SECURE,
-    REQUIRED_BUCKETS,
+    local_bucket_names,
+    require_local_runtime,
 )
 
 
@@ -25,14 +24,26 @@ class MinioStorageError(RuntimeError):
     """Lỗi kết nối hoặc thao tác với MinIO."""
 
 
-def create_minio_client() -> Minio:
-    logger.info("Khởi tạo MinIO client tại %s", MINIO_ENDPOINT)
+def create_minio_client(runtime_config: RuntimeConfig) -> Minio:
+    require_local_runtime(runtime_config, "MinIO client")
+    options = runtime_config.storage.options
+    endpoint_url = options.get("spark.hadoop.fs.s3a.endpoint")
+    access_key = options.get("spark.hadoop.fs.s3a.access.key")
+    secret_key = options.get("spark.hadoop.fs.s3a.secret.key")
+    if not endpoint_url or not access_key or not secret_key:
+        raise MinioStorageError(
+            "Local runtime profile must configure MinIO endpoint and credentials."
+        )
+    parsed = urlsplit(endpoint_url)
+    endpoint = parsed.netloc or parsed.path
+    secure = parsed.scheme == "https"
+    logger.info("Khởi tạo MinIO client tại %s", endpoint)
 
     return Minio(
-        endpoint=MINIO_ENDPOINT,
-        access_key=MINIO_ACCESS_KEY,
-        secret_key=MINIO_SECRET_KEY,
-        secure=MINIO_SECURE,
+        endpoint=endpoint,
+        access_key=access_key,
+        secret_key=secret_key,
+        secure=secure,
     )
 
 
@@ -49,7 +60,7 @@ def check_minio_connection(client: Minio) -> None:
         ) from exc
     except Exception as exc:
         raise MinioStorageError(
-            f"Không thể kết nối MinIO tại {MINIO_ENDPOINT}: {exc}"
+            f"Không thể kết nối MinIO: {exc}"
         ) from exc
 
 
@@ -106,16 +117,20 @@ def ensure_bucket(client: Minio, bucket_name: str) -> bool:
         ) from exc
 
 
-def ensure_required_buckets(client: Minio) -> None:
+def ensure_required_buckets(
+    client: Minio,
+    runtime_config: RuntimeConfig,
+) -> None:
     """Kiểm tra và tạo toàn bộ bucket cần thiết cho Lakehouse."""
     created_count = 0
+    required_buckets = local_bucket_names(runtime_config.storage)
 
-    for bucket_name in REQUIRED_BUCKETS:
+    for bucket_name in required_buckets:
         if ensure_bucket(client, bucket_name):
             created_count += 1
 
     logger.info(
         "Hoàn tất kiểm tra bucket: %d bucket mới, %d bucket đã tồn tại.",
         created_count,
-        len(REQUIRED_BUCKETS) - created_count,
+        len(required_buckets) - created_count,
     )

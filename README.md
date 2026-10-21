@@ -132,6 +132,14 @@ because its SDK dependency set is independent.
 
 ## Quickstart: platform infrastructure
 
+The Docker, MinIO, and Trino instructions in this section are the **local
+profile** compatibility path. Local mutation commands require
+`--environment local` and fail before touching infrastructure for `dev` or
+`gcp`. GCS resources will be provisioned by Terraform in the cloud
+infrastructure phase; do not use the MinIO bootstrap scripts as a manual GCS
+workaround. Runtime profile details are documented in the
+[cloud configuration guide](docs/cloud/configuration.md).
+
 The canonical stack is one Compose project assembled from four files. Always
 keep the project name and project directory so services share DNS and the
 existing persisted volumes.
@@ -227,17 +235,21 @@ python -m data_platform.generation.src.offline.offline_generator
 Initialize the canonical persisted Bronze Delta tables:
 
 ```bash
-python -m data_platform.storage.scripts.init_storage --include-fraud-labels
-python -m data_platform.quality.validate_bronze --include-fraud-labels
+python -m data_platform.storage.scripts.init_storage \
+  --environment local --include-fraud-labels
+python -m data_platform.quality.validate_bronze \
+  --environment local --include-fraud-labels
 ```
 
 Run the remaining stages directly when Airflow is not needed:
 
 ```bash
-python -m data_platform.processing.spark.silver.silver_pipeline --include-fraud-labels
-python -m data_platform.quality.validate_silver --include-fraud-labels
-python -m data_platform.processing.spark.gold.gold_pipeline
-python -m data_platform.quality.validate_gold
+python -m data_platform.processing.spark.silver.silver_pipeline \
+  --environment local --include-fraud-labels
+python -m data_platform.quality.validate_silver \
+  --environment local --include-fraud-labels
+python -m data_platform.processing.spark.gold.gold_pipeline --environment local
+python -m data_platform.quality.validate_gold --environment local
 ```
 
 The canonical Phase 2 workflow requires the fraud flag consistently across
@@ -245,10 +257,14 @@ Bronze and Silver. This keeps `fraud_labels` synchronized with the same source
 transactions:
 
 ```bash
-python -m data_platform.storage.scripts.init_storage --include-fraud-labels
-python -m data_platform.quality.validate_bronze --include-fraud-labels
-python -m data_platform.processing.spark.silver.silver_pipeline --include-fraud-labels
-python -m data_platform.quality.validate_silver --include-fraud-labels
+python -m data_platform.storage.scripts.init_storage \
+  --environment local --include-fraud-labels
+python -m data_platform.quality.validate_bronze \
+  --environment local --include-fraud-labels
+python -m data_platform.processing.spark.silver.silver_pipeline \
+  --environment local --include-fraud-labels
+python -m data_platform.quality.validate_silver \
+  --environment local --include-fraud-labels
 ```
 
 `fraud_labels` is required and flows from source
@@ -333,6 +349,7 @@ After Spark creates the Delta tables, register or verify all layers:
 
 ```bash
 python3 -m data_platform.storage.scripts.register_trino_tables \
+  --environment local \
   --layer all \
   --include-fraud-labels
 ```

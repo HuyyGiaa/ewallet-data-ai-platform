@@ -32,13 +32,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.sdk import DataHubClient
-from trino.dbapi import connect
-
-from data_platform.storage.scripts.config import (
-    TRINO_CATALOG,
-    TRINO_HOST,
-    TRINO_PORT,
-    TRINO_USER,
+from data_platform.storage.scripts.trino_client import (
+    create_trino_connection as create_runtime_trino_connection,
 )
 
 
@@ -644,13 +639,8 @@ def run_self_test(assertions: Sequence[AssertionSpec] = ASSERTIONS) -> bool:
 
 
 def create_trino_connection():
-    return connect(
-        host=TRINO_HOST,
-        port=TRINO_PORT,
-        user=TRINO_USER,
-        catalog=TRINO_CATALOG,
-        http_scheme="http",
-    )
+    """Create the assertion reader from the selected runtime profile."""
+    return create_runtime_trino_connection()
 
 
 def evaluate_assertions(

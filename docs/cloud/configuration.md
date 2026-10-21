@@ -138,6 +138,35 @@ gs://bucket/lakehouse/gold/fact_transactions
 Loader loại dấu `/` cuối root. `table_name` phải là một relative name duy nhất;
 empty name, absolute path, slash và `..` bị reject để tránh đọc/ghi sai prefix.
 
+## Ranh giới local storage bootstrap
+
+Các lệnh sau là công cụ tương thích cho Docker/MinIO/Trino trên laptop và chỉ
+chấp nhận profile `local`:
+
+```bash
+python -m data_platform.storage.scripts.init_bucket --environment local
+python -m data_platform.storage.scripts.init_storage \
+  --environment local --include-fraud-labels
+python -m data_platform.storage.scripts.register_trino_tables \
+  --environment local --layer all --include-fraud-labels
+```
+
+Chúng kiểm tra environment trước khi tạo bucket, ghi Delta hoặc sửa metadata
+Trino. Chọn `dev` hay `gcp` sẽ dừng với thông báo `local-only command` trước
+mọi mutation. Endpoint Trino, endpoint MinIO và MinIO credentials được đọc từ
+runtime profile đã render; module storage không còn tự gán password mặc định.
+
+`source_root` của local bootstrap phải là URI `file://` chứa các file Parquet
+nguồn. Có thể đặt riêng trên máy mà không sửa YAML tracked:
+
+```bash
+export EWALLET_SOURCE_ROOT="file://$(pwd)/data_platform/generation/output/offline"
+```
+
+GCS của `dev`/`gcp` sẽ được provision bằng Terraform trong bước hạ tầng cloud.
+Không dùng các lệnh MinIO trên làm cách tạo bucket GCS thủ công, và Trino local
+không phải dependency bắt buộc của cloud pipeline.
+
 ## Failure modes cần biết
 
 | Log/error | Ý nghĩa | Cách xử lý |
