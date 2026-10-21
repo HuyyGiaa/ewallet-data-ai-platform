@@ -48,6 +48,7 @@ class TerraformLayoutContractTest(unittest.TestCase):
             "modules/iam",
             "modules/artifact_registry",
             "modules/gke",
+            "modules/workload_identity",
             "modules/dataproc",
             "modules/jenkins_vm",
         }
@@ -68,6 +69,7 @@ class TerraformLayoutContractTest(unittest.TestCase):
             "iam",
             "artifact_registry",
             "gke",
+            "workload_identity",
             "dataproc",
             "jenkins_vm",
         ):
@@ -174,14 +176,39 @@ class TerraformSafetyContractTest(unittest.TestCase):
         self.assertNotIn('cidr_block = "0.0.0.0/0"', gke)
         self.assertIn('variable "gke_master_authorized_cidrs"', variables)
 
-    def test_gke_workloads_use_workload_identity_bindings(self) -> None:
+    def test_workload_identity_bindings_wait_for_enabled_gke_pool(self) -> None:
         iam = read("infra/terraform/gcp/modules/iam/main.tf")
-        self.assertIn(
+        environment = read("infra/terraform/gcp/environments/dev/main.tf")
+        workload_identity_path = (
+            TERRAFORM_ROOT / "modules" / "workload_identity" / "main.tf"
+        )
+        workload_identity = (
+            workload_identity_path.read_text(encoding="utf-8")
+            if workload_identity_path.is_file()
+            else ""
+        )
+        self.assertNotIn(
             'resource "google_service_account_iam_member" "workload_identity"',
             iam,
         )
-        self.assertIn('role               = "roles/iam.workloadIdentityUser"', iam)
-        self.assertIn(".svc.id.goog[", iam)
+        self.assertIn(
+            'resource "google_service_account_iam_member" "workload_identity"',
+            workload_identity,
+        )
+        self.assertRegex(
+            workload_identity,
+            r"for_each\s*=\s*var\.enabled\s*\?\s*local\.workload_identity_ksa\s*:\s*\{\}",
+        )
+        self.assertIn(
+            'role               = "roles/iam.workloadIdentityUser"',
+            workload_identity,
+        )
+        self.assertIn(".svc.id.goog[", workload_identity)
+        self.assertRegex(
+            environment,
+            r'module\s+"workload_identity"\s*\{[\s\S]*?enabled\s*=\s*var\.enable_gke'
+            r'[\s\S]*?depends_on\s*=\s*\[module\.gke\]',
+        )
 
 
 class TerraformRunbookContractTest(unittest.TestCase):

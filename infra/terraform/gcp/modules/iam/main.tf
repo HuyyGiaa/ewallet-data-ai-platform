@@ -45,11 +45,6 @@ locals {
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
   ])
-  workload_identity_ksa = {
-    generator = "data-platform/generator"
-    training  = "ml-platform/training"
-    serving   = "serving/fraud-inference"
-  }
 }
 
 resource "google_storage_bucket_iam_member" "canonical" {
@@ -104,12 +99,4 @@ resource "google_service_account_iam_member" "operator_can_submit_dataproc" {
   service_account_id = google_service_account.workload["spark"].name
   role               = "roles/iam.serviceAccountUser"
   member             = each.value
-}
-
-resource "google_service_account_iam_member" "workload_identity" {
-  for_each = local.workload_identity_ksa
-
-  service_account_id = google_service_account.workload[each.key].name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[${each.value}]"
 }

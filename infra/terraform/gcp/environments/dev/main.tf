@@ -101,6 +101,16 @@ module "gke" {
   depends_on = [module.project_services, module.network, module.iam]
 }
 
+module "workload_identity" {
+  source = "../../modules/workload_identity"
+
+  enabled                = var.enable_gke
+  project_id             = var.project_id
+  service_account_emails = module.iam.service_account_emails
+
+  depends_on = [module.gke]
+}
+
 module "jenkins_vm" {
   source = "../../modules/jenkins_vm"
 
