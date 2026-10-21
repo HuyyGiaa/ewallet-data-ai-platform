@@ -43,16 +43,20 @@ flowchart LR
     ENTITY --> PIT
 ```
 
-The project export command creates a local runtime copy under
-`ai_platform/features/feast/feature_repo/data/offline/`. Feast does not create
+For `local`, the export command creates a runtime copy under
+`ai_platform/features/feast/feature_repo/data/offline/`. For `dev` or `gcp`,
+the source comes from the selected profile's Gold root and the generated
+Parquet snapshot goes to its `storage.feast_root` on GCS. Feast does not create
 that copy. Feast manages definitions and retrieves from the configured
-FileSources. The directory is ignored by Git and must be refreshed after the
-Gold snapshot changes. Do not run Feast retrieval against the previous snapshot
-after a Gold change: rerun the exporter, then run the precision audit. Continue
-only after the exporter's schema, row parity, and `timestamp[us, tz=UTC]` checks
-and the audit's entity/timestamp key parity check pass. The generated Parquet
-snapshot is runtime data, not canonical storage; Gold Delta remains the source
-of truth.
+FileSources. Generated snapshots and registries are runtime artifacts and must
+not be committed.
+
+Every export writes `offline_manifest.json` beside the snapshot root with the
+environment, caller-supplied dataset version, active Delta versions, row
+parity, and timestamp type. Do not run retrieval against an old manifest after
+Gold changes: rerun the exporter, then rerun the precision audit. Continue only
+after schema, row parity, `timestamp[us, tz=UTC]`, and entity/timestamp key
+parity pass. Gold Delta remains the canonical storage.
 
 This separation is needed because Feast 0.66.0 does not provide a native Delta
 FileSource in this repository. It also makes the adapter deterministic and
@@ -145,11 +149,13 @@ apply and inspect the Feast repository:
 
 ```bash
 AWS_EC2_METADATA_DISABLED=true \
-python -m ai_platform.features.feast.sources.export_gold_to_parquet
+python -m ai_platform.features.feast.sources.export_gold_to_parquet \
+  --environment local --dataset-version local-active
 
 AWS_EC2_METADATA_DISABLED=true \
 PYSPARK_SUBMIT_ARGS="--driver-memory 2g pyspark-shell" \
-python -m ai_platform.features.feast.validation.precision_audit
+python -m ai_platform.features.feast.validation.precision_audit \
+  --environment local
 
 PYTHONPATH=. ai_platform/features/feast/.venv/bin/feast \
   -c ai_platform/features/feast/feature_repo apply
@@ -159,13 +165,31 @@ PYTHONPATH=. ai_platform/features/feast/.venv/bin/feast \
   -c ai_platform/features/feast/feature_repo feature-views list
 ```
 
+The future GCP execution uses ADC and profile URIs without converting `gs://`
+to a local `Path`:
+
+```bash
+python -m ai_platform.features.feast.sources.export_gold_to_parquet \
+  --environment gcp --dataset-version "$EWALLET_DATASET_VERSION"
+
+export EWALLET_FEAST_OFFLINE_DATA_ROOT="gs://$EWALLET_DATA_BUCKET/features/offline"
+export EWALLET_FEAST_REGISTRY="gs://$EWALLET_DATA_BUCKET/features/registry.pb"
+```
+
+`feature_store.yaml` remains the tested local Dask configuration.
+`feature_store.gcp.yaml` selects a GCS registry with the same Dask offline
+retrieval contract. Both keep `online_store: null`; Redis and online
+materialization are still deferred. Code selects the tracked configuration via
+`feature_store_config_path(environment)`/`FeatureStore(fs_yaml_file=...)`, so
+the local YAML is not overwritten for a cloud run.
+
 Generate only the deterministic bounded validation inputs and run retrieval:
 
 ```bash
 AWS_EC2_METADATA_DISABLED=true \
 PYSPARK_SUBMIT_ARGS="--driver-memory 2g pyspark-shell" \
 python -m ai_platform.features.feast.sources.export_validation_samples \
-  --benchmark-rows 100
+  --environment local --benchmark-rows 100
 
 PYTHONPATH=. ai_platform/features/feast/.venv/bin/python \
   -m unittest tests.test_feast_offline -v
@@ -202,7 +226,8 @@ and the [performance benchmark document](../07_performance_benchmarks.md).
 
 Current limitations are:
 
-- the Parquet snapshot is a local runtime copy and refresh is explicit;
+- the Parquet adapter snapshot is generated runtime data and refresh remains
+  explicit in both local and GCP profiles;
 - the Dask/FileSource baseline is suitable for bounded offline retrieval, not
   a claim of production-scale training throughput;
 - no full-canonical Feast retrieval was attempted after local memory pressure;

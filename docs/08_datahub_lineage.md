@@ -12,7 +12,9 @@ The current canonical runtime has 8 Bronze, 8 Silver, and 15 Gold tables
 tables (25 total).
 
 DataHub is a separate local Quickstart runtime. It is not a service in the
-platform's split Compose project.
+platform's split Compose project. Publishers now receive their GMS endpoint
+from `configs/environments/<environment>/platform.yaml`; `localhost` below is
+the measured local profile, not a source-code default.
 
 ## Tested local runtime
 
@@ -81,6 +83,7 @@ produces Silver and Gold, run the metadata-only registration tool:
 
 ```bash
 python3 -m data_platform.storage.scripts.register_trino_tables \
+  --environment local \
   --layer all \
   --include-fraud-labels
 ```
@@ -149,8 +152,14 @@ ingestion creates the dataset entities:
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py \
+  --environment local \
   --include-fraud-labels
 ```
+
+For a future `dev`/`gcp` publisher, `--environment` selects the configured GMS
+URL. Those profiles do not expose local Trino, so lineage publication skips the
+local registration precheck; it does not invent a Trino endpoint. Dataset URNs
+and the verified mapping stay stable across physical environments.
 
 This script intentionally covers the main transaction path rather than every
 Gold dependency.
@@ -186,6 +195,7 @@ canonical definitions:
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --environment local \
   --self-test \
   --include-fraud-labels --include-feature-tables
 ```
@@ -199,25 +209,27 @@ Run the canonical local self-test and no-write evaluation:
 ```bash
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --environment local \
   --self-test --include-fraud-labels --include-feature-tables
 
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --environment local \
   --dry-run --include-fraud-labels --include-feature-tables
 ```
 
 Publish after Trino, GMS, and all target dataset entities are available:
 
 ```bash
-DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_TELEMETRY_ENABLED=false \
   "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
+  --environment local \
   --publish --include-fraud-labels --include-feature-tables
 ```
 
-Set `DATAHUB_GMS_TOKEN` only when the target GMS requires authentication. The
-publisher validates the endpoint and all target entities before it sends any
-definition.
+Set `DATAHUB_GMS_TOKEN` only when the configured GMS requires authentication.
+`--datahub-gms-url` remains an explicit operational override. The publisher
+validates the endpoint and all target entities before it sends any definition.
 
 F4C runtime verification against server `v1.7.0.1` scanned all 27 current
 Trino datasets, read back all eleven expected direct lineage edges, and

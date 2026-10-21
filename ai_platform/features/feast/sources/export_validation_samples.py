@@ -12,30 +12,55 @@ from pyspark.sql import functions as F
 
 from ai_platform.features.feast import RUNTIME_DATA_ROOT
 from ai_platform.features.feast.schema import FEATURE_SPECS
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--environment",
+        choices=("local", "dev", "gcp"),
+        default="local",
+    )
     parser.add_argument(
         "--output-root",
         type=Path,
         default=RUNTIME_DATA_ROOT / "validation",
     )
     parser.add_argument("--benchmark-rows", type=int, default=100)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def read_delta(spark, layer: str, table: str):
-    return spark.read.format("delta").load(f"s3a://{layer}-zone/{table}")
+def read_delta(
+    spark,
+    runtime_config: RuntimeConfig,
+    layer: str,
+    table: str,
+):
+    return spark.read.format("delta").load(
+        runtime_config.storage.table_uri(layer, table)
+    )
 
 
-def export_samples(output_root: Path, benchmark_rows: int) -> None:
-    spark = create_spark_session("F6-Canonical-Entity-Sample")
+def export_samples(
+    output_root: Path,
+    benchmark_rows: int,
+    runtime_config: RuntimeConfig,
+) -> None:
+    spark = create_spark_session(
+        "F6-Canonical-Entity-Sample",
+        runtime_config=runtime_config,
+    )
     output_root = output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     try:
-        transactions = read_delta(spark, "silver", "transactions").select(
+        transactions = read_delta(
+            spark,
+            runtime_config,
+            "silver",
+            "transactions",
+        ).select(
             "transaction_id",
             "user_id",
             "account_id",
@@ -45,9 +70,17 @@ def export_samples(output_root: Path, benchmark_rows: int) -> None:
             "timestamp",
             F.expr("unix_micros(timestamp)").alias("_event_timestamp_us"),
         )
-        labels = read_delta(spark, "silver", "fraud_labels").select(
-            "transaction_id", "label", "fraud_type"
+        labels = read_delta(
+            spark,
+            runtime_config,
+            "silver",
+            "fraud_labels",
+        ).select(
+            "transaction_id",
+            "label",
+            "fraud_type",
         )
+
         def first_transaction_id(frame):
             row = frame.orderBy("transaction_id").select("transaction_id").first()
             if row is None:
@@ -81,7 +114,7 @@ def export_samples(output_root: Path, benchmark_rows: int) -> None:
             raise ValueError("A required canonical fraud population is empty")
 
         cold_snapshot = (
-            read_delta(spark, "gold", "feat_user_behavior")
+            read_delta(spark, runtime_config, "gold", "feat_user_behavior")
             .filter(F.col("user_tx_count_24h") == 0)
             .orderBy("user_id", "event_timestamp")
             .select("user_id", "event_timestamp")
@@ -100,7 +133,7 @@ def export_samples(output_root: Path, benchmark_rows: int) -> None:
         )
 
         multi_user = (
-            read_delta(spark, "silver", "accounts")
+            read_delta(spark, runtime_config, "silver", "accounts")
             .groupBy("user_id")
             .agg(F.countDistinct("account_id").alias("account_count"))
             .filter(F.col("account_count") > 1)
@@ -118,7 +151,7 @@ def export_samples(output_root: Path, benchmark_rows: int) -> None:
         )
 
         recent_snapshot = (
-            read_delta(spark, "gold", "feat_device_behavior")
+            read_delta(spark, runtime_config, "gold", "feat_device_behavior")
             .filter(F.col("device_age_seconds") <= 7 * 24 * 60 * 60)
             .orderBy("device_id", "event_timestamp")
             .select("device_id", "event_timestamp")
@@ -191,7 +224,7 @@ def export_samples(output_root: Path, benchmark_rows: int) -> None:
         # table is collected to the driver.
         for view_name, spec in FEATURE_SPECS.items():
             entity_key = spec["entity_key"]
-            feature = read_delta(spark, "gold", spec["table"])
+            feature = read_delta(spark, runtime_config, "gold", spec["table"])
             keys = {
                 (row[entity_key], row["event_timestamp"])
                 for row in sample_rows
@@ -281,10 +314,11 @@ def export_samples(output_root: Path, benchmark_rows: int) -> None:
         spark.stop()
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     try:
-        export_samples(args.output_root, args.benchmark_rows)
+        config = load_runtime_config(args.environment)
+        export_samples(args.output_root, args.benchmark_rows, config)
     except Exception as exc:
         print(f"ERROR | {exc}")
         return 1

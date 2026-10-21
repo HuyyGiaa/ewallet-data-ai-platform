@@ -16,6 +16,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn
 
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.storage.scripts.config import (
     BRONZE_SCHEMA,
     GOLD_SCHEMA,
@@ -115,9 +116,9 @@ def validate_fraud_table_inventory(
         )
 
 
-def verify_fraud_tables_registered() -> None:
+def verify_fraud_tables_registered(runtime_config: RuntimeConfig) -> None:
     """Fail before DataHub publication when fraud tables are not canonical."""
-    with trino_cursor() as cursor:
+    with trino_cursor(runtime_config) as cursor:
         check_trino_connection(cursor)
         tables_by_schema = {
             schema: list_schema_tables(cursor, schema)
@@ -126,8 +127,8 @@ def verify_fraud_tables_registered() -> None:
     validate_fraud_table_inventory(tables_by_schema)
 
 
-def verify_feature_tables_registered() -> None:
-    with trino_cursor() as cursor:
+def verify_feature_tables_registered(runtime_config: RuntimeConfig) -> None:
+    with trino_cursor(runtime_config) as cursor:
         check_trino_connection(cursor)
         registered = list_schema_tables(cursor, GOLD_SCHEMA)
     missing = sorted(FEATURE_LINEAGE_TABLES - registered)
@@ -164,8 +165,26 @@ def publish_lineage(emitter: DatahubRestEmitter, lineage_mapping=None) -> None:
     print("Lineage created successfully.")
 
 
-def parse_args() -> argparse.Namespace:
+def create_emitter(runtime_config: RuntimeConfig) -> DatahubRestEmitter:
+    """Create a publisher against the GMS endpoint selected by the profile."""
+    return DatahubRestEmitter(
+        gms_server=runtime_config.services.datahub_gms_url
+    )
+
+
+def should_verify_trino(runtime_config: RuntimeConfig) -> bool:
+    """Return whether this profile exposes Trino for pre-publication checks."""
+    return runtime_config.services.trino_host is not None
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Publish selected DataHub lineage.")
+    parser.add_argument(
+        "--environment",
+        choices=("local", "dev", "gcp"),
+        default="local",
+        help="Runtime profile providing DataHub and optional Trino endpoints.",
+    )
     parser.add_argument(
         "--include-fraud-labels",
         action="store_true",
@@ -174,15 +193,17 @@ def parse_args() -> argparse.Namespace:
             "datasets exist in canonical DataHub metadata."
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
-    verify_feature_tables_registered()
-    if args.include_fraud_labels:
-        verify_fraud_tables_registered()
-    emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    config = load_runtime_config(args.environment)
+    if should_verify_trino(config):
+        verify_feature_tables_registered(config)
+        if args.include_fraud_labels:
+            verify_fraud_tables_registered(config)
+    emitter = create_emitter(config)
     publish_lineage(emitter, get_lineage(args.include_fraud_labels))
 
 

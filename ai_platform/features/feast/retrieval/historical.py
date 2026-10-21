@@ -6,11 +6,19 @@ import pandas as pd
 from feast import FeatureStore
 
 from ai_platform.features.feast import FEATURE_REPO
+from ai_platform.features.feast.repository import feature_store_config_path
 from ai_platform.features.feast.schema import FEATURE_SPECS
 
 
-def get_store(repo_path=FEATURE_REPO) -> FeatureStore:
-    return FeatureStore(repo_path=str(repo_path))
+def get_store(
+    repo_path=FEATURE_REPO,
+    *,
+    environment: str = "local",
+) -> FeatureStore:
+    return FeatureStore(
+        repo_path=str(repo_path),
+        fs_yaml_file=feature_store_config_path(environment),
+    )
 
 
 def normalize_entity_dataframe(entity_df: pd.DataFrame) -> pd.DataFrame:

@@ -32,13 +32,13 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.sdk import DataHubClient
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.storage.scripts.trino_client import (
     create_trino_connection as create_runtime_trino_connection,
 )
 
 
 DATAHUB_ENV = "PROD"
-DEFAULT_DATAHUB_GMS_URL = "http://localhost:8080"
 ASSERTION_TYPE = "E-Wallet Data Contract"
 ASSERTION_PLATFORM_URN = str(DataPlatformUrn("trino"))
 
@@ -550,12 +550,18 @@ class AssertionResult:
     runtime_seconds: float
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Evaluate selected contract assertions through Trino and "
             "optionally publish definitions and run results to DataHub."
         )
+    )
+    parser.add_argument(
+        "--environment",
+        choices=("local", "dev", "gcp"),
+        default="local",
+        help="Runtime profile providing DataHub and optional Trino endpoints.",
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
@@ -588,13 +594,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--datahub-gms-url",
-        default=os.getenv("DATAHUB_GMS_URL", DEFAULT_DATAHUB_GMS_URL),
+        default=None,
         help=(
-            "DataHub GMS URL for --publish (default: DATAHUB_GMS_URL or "
-            f"{DEFAULT_DATAHUB_GMS_URL})."
+            "Optional explicit override for the profile DataHub GMS URL."
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def run_self_test(assertions: Sequence[AssertionSpec] = ASSERTIONS) -> bool:
@@ -638,15 +643,24 @@ def run_self_test(assertions: Sequence[AssertionSpec] = ASSERTIONS) -> bool:
     return all_passed
 
 
-def create_trino_connection():
+def resolve_datahub_gms_url(
+    runtime_config: RuntimeConfig,
+    override: str | None,
+) -> str:
+    return (override or runtime_config.services.datahub_gms_url).rstrip("/")
+
+
+def create_trino_connection(runtime_config: RuntimeConfig):
     """Create the assertion reader from the selected runtime profile."""
-    return create_runtime_trino_connection()
+    return create_runtime_trino_connection(runtime_config)
 
 
 def evaluate_assertions(
     assertions: Sequence[AssertionSpec] = ASSERTIONS,
+    runtime_config: RuntimeConfig | None = None,
 ) -> list[AssertionResult]:
-    connection = create_trino_connection()
+    config = runtime_config or load_runtime_config()
+    connection = create_trino_connection(config)
     cursor = connection.cursor()
     results: list[AssertionResult] = []
 
@@ -789,8 +803,8 @@ def publish_assertions(
         )
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     assertions = get_assertions(
         args.include_fraud_labels,
         args.include_feature_tables,
@@ -800,16 +814,21 @@ def main() -> int:
         return 0 if run_self_test(assertions) else 1
 
     try:
+        config = load_runtime_config(args.environment)
+        datahub_gms_url = resolve_datahub_gms_url(
+            config,
+            args.datahub_gms_url,
+        )
         client = None
         if args.publish:
-            client = create_datahub_client(args.datahub_gms_url)
+            client = create_datahub_client(datahub_gms_url)
             verify_target_datasets(client, assertions)
 
-        results = evaluate_assertions(assertions)
+        results = evaluate_assertions(assertions, config)
         print_results(results)
 
         if client is not None:
-            publish_assertions(client, results, args.datahub_gms_url)
+            publish_assertions(client, results, datahub_gms_url)
 
         pass_count = sum(result.evaluation.passed for result in results)
         fail_count = len(results) - pass_count

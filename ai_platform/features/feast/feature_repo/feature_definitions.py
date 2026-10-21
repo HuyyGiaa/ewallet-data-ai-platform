@@ -10,15 +10,16 @@ from feast import Entity, FeatureView, Field, FileSource, ValueType
 from feast.types import Float64, Int64
 
 from ai_platform.features.feast import OFFLINE_DATA_ROOT
+from ai_platform.features.feast.repository import join_data_root
 from ai_platform.features.feast.schema import FEATURE_SPECS
 
 
 def build_feature_objects(data_root: str | Path | None = None):
     """Build definitions against a selectable Parquet snapshot root."""
-    root = Path(
-        data_root
-        or os.getenv("EWALLET_FEAST_OFFLINE_DATA_ROOT", str(OFFLINE_DATA_ROOT))
-    ).resolve()
+    root = data_root or os.getenv(
+        "EWALLET_FEAST_OFFLINE_DATA_ROOT",
+        str(OFFLINE_DATA_ROOT),
+    )
 
     entities = {}
     views = {}
@@ -32,7 +33,7 @@ def build_feature_objects(data_root: str | Path | None = None):
         )
         source = FileSource(
             name=f"{view_name}_source",
-            path=str(root / spec["table"]),
+            path=join_data_root(root, spec["table"]),
             timestamp_field="event_timestamp",
         )
         integer_features = set(spec["integer_features"])
