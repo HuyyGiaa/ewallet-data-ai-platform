@@ -2,9 +2,11 @@
 
 ## Trạng thái
 
-R2 Terraform source đã được triển khai và validate. Bootstrap plan hiện chỉ có
-một resource: GCS bucket lưu Terraform state. Chưa có `terraform apply`, vì vậy
-chưa có resource mới hoặc chi phí cloud nào được tạo bởi R2.
+R2 Terraform source đã được triển khai và validate. Bootstrap apply đã
+tạo private GCS bucket lưu Terraform state. Dev stack đã kết nối vào
+remote backend và no-compute plan đã được review: `46 add, 0 change,
+0 destroy`. Dev foundation chưa apply, nên canonical/temp bucket, VPC, Artifact
+Registry và workload IAM chưa được tạo.
 
 Project và vị trí đã khóa:
 
@@ -130,8 +132,10 @@ Trước apply, kiểm tra plan:
 - không có `google_billing_budget`;
 - canonical bucket và state bucket không bị xóa.
 
-Chưa chạy `terraform apply dev-no-compute.tfplan` cho đến khi plan đã được ghi
-evidence và review.
+Plan hiện tại đã được ghi tại
+[R2 Terraform plan evidence](../evidence/cloud/r2_terraform_plan.json). Chưa chạy
+`terraform apply dev-no-compute.tfplan`; apply vẫn là checkpoint do người vận
+hành quan sát.
 
 ## Runtime outputs
 
@@ -205,8 +209,8 @@ review.
 
 ## Giới hạn hiện tại
 
-- Bootstrap state bucket chưa apply.
-- Dev remote backend chưa init vì state bucket chưa tồn tại.
+- Bootstrap state bucket đã apply; dev remote backend đã init.
+- Dev no-compute foundation plan đã review nhưng chưa apply.
 - GCS canonical data chưa có dữ liệu.
 - Delta-on-GCS/Dataproc smoke chưa chạy.
 - GKE, Jenkins, Helm, Ansible và 100 GB pipeline chưa bắt đầu.

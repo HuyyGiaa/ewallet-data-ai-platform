@@ -1,0 +1,67 @@
+{
+  "schema_version": "r2-terraform-plan-v1",
+  "recorded_at": "2026-10-21T18:10:39Z",
+  "branch": "feature/phase2-fraud-platform",
+  "source_git_sha": "f1d27cae8130a13d49c6d034deb410cd5fedf6b8",
+  "project_id": "ewallet-data-ai-platform-hg26",
+  "region": "asia-southeast1",
+  "zone": "asia-southeast1-b",
+  "bootstrap": {
+    "status": "APPLIED",
+    "resources_added": 1,
+    "resources_changed": 0,
+    "resources_destroyed": 0,
+    "state_bucket": "ewallet-data-ai-platform-hg26-tfstate",
+    "location": "ASIA-SOUTHEAST1",
+    "public_access_prevention": "enforced",
+    "uniform_bucket_level_access": true,
+    "versioning_enabled": true
+  },
+  "dev_remote_backend": {
+    "status": "INITIALIZED",
+    "bucket": "ewallet-data-ai-platform-hg26-tfstate",
+    "prefix": "terraform/dev"
+  },
+  "dev_foundation_plan": {
+    "status": "PASS",
+    "managed_resource_actions": {
+      "create": 46,
+      "update": 0,
+      "delete": 0,
+      "replace": 0
+    },
+    "data_reads": 1,
+    "managed_resource_type_counts": {
+      "google_artifact_registry_repository": 1,
+      "google_compute_firewall": 1,
+      "google_compute_network": 1,
+      "google_compute_subnetwork": 1,
+      "google_project_iam_member": 10,
+      "google_project_service": 13,
+      "google_service_account": 6,
+      "google_service_account_iam_member": 4,
+      "google_storage_bucket": 2,
+      "google_storage_bucket_iam_member": 6,
+      "terraform_data": 1
+    },
+    "gke_clusters": 0,
+    "gke_node_pools": 0,
+    "compute_instances": 0,
+    "billing_budgets": 0,
+    "service_account_keys": 0,
+    "owner_or_editor_bindings": 0,
+    "canonical_bucket": "ewallet-data-ai-platform-hg26-data",
+    "temporary_bucket": "ewallet-data-ai-platform-hg26-temp",
+    "artifact_registry": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform",
+    "network": "ewallet-dev-vpc",
+    "subnet": "ewallet-dev-asia-southeast1",
+    "subnet_cidr": "10.20.0.0/20",
+    "gke_enabled": false,
+    "jenkins_vm_enabled": false,
+    "applied": false
+  },
+  "generated_plan_binary_tracked": false,
+  "credentials_recorded": false,
+  "absolute_developer_paths_recorded": false,
+  "next_step": "operator review and apply of the saved no-compute dev foundation plan"
+}
