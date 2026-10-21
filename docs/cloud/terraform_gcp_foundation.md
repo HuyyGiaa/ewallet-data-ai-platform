@@ -4,9 +4,9 @@
 
 R2 Terraform source đã được triển khai và validate. Bootstrap apply đã
 tạo private GCS bucket lưu Terraform state. Dev stack đã kết nối vào
-remote backend và no-compute plan đã được review: `46 add, 0 change,
-0 destroy`. Dev foundation chưa apply, nên canonical/temp bucket, VPC, Artifact
-Registry và workload IAM chưa được tạo.
+remote backend. No-compute foundation đã apply và plan sau recovery báo `No
+changes`: canonical/temp bucket, VPC, Artifact Registry, service accounts và
+IAM nền đã tồn tại; GKE/Jenkins vẫn tắt.
 
 Project và vị trí đã khóa:
 
@@ -132,10 +132,15 @@ Trước apply, kiểm tra plan:
 - không có `google_billing_budget`;
 - canonical bucket và state bucket không bị xóa.
 
-Plan hiện tại đã được ghi tại
-[R2 Terraform plan evidence](../evidence/cloud/r2_terraform_plan.json). Chưa chạy
-`terraform apply dev-no-compute.tfplan`; apply vẫn là checkpoint do người vận
-hành quan sát.
+Kết quả plan, apply và recovery được ghi tại
+[R2 Terraform foundation evidence](../evidence/cloud/r2_terraform_plan.json).
+
+Apply đầu tiên tạo 42 resource rồi dừng ở ba Workload Identity binding vì
+GKE đang tắt nên pool `${project_id}.svc.id.goog` chưa tồn tại. Binding
+đã được tách thành module có `enabled = var.enable_gke` và phụ thuộc
+`module.gke`; vì vậy chúng chỉ được tạo sau khi GKE pool tồn tại. Recovery
+apply chỉ thêm Dataproc runtime contract và không thay đổi/xóa cloud
+resource.
 
 ## Runtime outputs
 
@@ -175,9 +180,10 @@ Sau đó phải chạy một `terraform plan` mới. GKE mặc định là zonal
 OS Login và SSH qua IAP range, không commit private key.
 
 GKE từ chối `enable_gke=true` nếu chưa có ít nhất một CIDR quản trị và cấm
-`0.0.0.0/0`. Workload Identity bindings đã dành sẵn cho ba Kubernetes service
-account: `data-platform/generator`, `ml-platform/training` và
-`serving/fraud-inference`; Helm R3 phải dùng đúng tên này thay vì quyền node.
+`0.0.0.0/0`. Sau khi cluster tạo Workload Identity pool, Terraform mới tạo
+binding cho ba Kubernetes service account: `data-platform/generator`,
+`ml-platform/training` và `serving/fraud-inference`; Helm R3 phải dùng đúng tên
+này thay vì quyền node.
 
 ## Scale down và destroy
 
@@ -209,8 +215,8 @@ review.
 
 ## Giới hạn hiện tại
 
-- Bootstrap state bucket đã apply; dev remote backend đã init.
-- Dev no-compute foundation plan đã review nhưng chưa apply.
-- GCS canonical data chưa có dữ liệu.
+- Bootstrap và dev foundation đã apply; remote state nằm trên GCS và plan hiện
+  báo `No changes`.
+- Canonical/temp bucket đã tồn tại nhưng canonical chưa có dữ liệu.
 - Delta-on-GCS/Dataproc smoke chưa chạy.
 - GKE, Jenkins, Helm, Ansible và 100 GB pipeline chưa bắt đầu.

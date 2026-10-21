@@ -13,8 +13,8 @@ Spark I/O, validators, Feast export and bounded training-source exporters now
 consume tracked `local`, `dev`, or `gcp` runtime profiles. Dev/GCP profiles are
 configuration contracts only at this checkpoint. R2 now provides validated,
 modular Terraform for GCS, IAM, Artifact Registry, VPC, Dataproc prerequisites
-and cost-gated GKE/Jenkins. The protected remote-state bucket has been applied;
-the reviewed 46-resource no-compute dev foundation has not.
+and cost-gated GKE/Jenkins. The protected remote-state bucket and no-compute
+dev foundation are applied; the current Terraform plan reports no changes.
 
 Run the CI-friendly foundation gate with:
 
@@ -22,8 +22,8 @@ Run the CI-friendly foundation gate with:
 python ops/validation/validate_runtime_config.py
 ```
 
-The next operator checkpoint is the reviewed R2 no-compute dev foundation
-apply. The 100 GB cloud generation,
+The next implementation checkpoint is the R3 cloud data runtime and Dataproc
+Serverless smoke. The 100 GB cloud generation,
 Spark cloud profiling/optimization and pipeline rerun have not started. Local
 MinIO benchmark numbers elsewhere in the repository remain historical evidence
 and are not cloud performance claims. See the

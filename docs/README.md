@@ -17,7 +17,7 @@ component documents for implementation detail and recorded evidence.
 | [Runtime configuration](cloud/configuration.md) | Local/dev/GCP profiles, environment variables and preflight | Cloud refactor operations |
 | [Terraform GCP foundation](cloud/terraform_gcp_foundation.md) | Remote state, GCS/IAM/VPC/registry modules, cost gates and apply/cleanup runbook | R2 infrastructure operations |
 | [R1 configuration evidence](evidence/cloud/r1_config_foundation.json) | Machine-readable profile, literal-scan, compile, and regression results | Verified foundation evidence |
-| [R2 Terraform plan evidence](evidence/cloud/r2_terraform_plan.json) | Applied state bootstrap and reviewed no-compute dev plan counts and guardrails | Verified infrastructure evidence |
+| [R2 Terraform foundation evidence](evidence/cloud/r2_terraform_plan.json) | Applied state/bootstrap foundation, recovery record, final state counts and guardrails | Verified infrastructure evidence |
 | [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature contract | Implemented Gold contract |
 | [Feast offline retrieval](ml/feast_offline.md) | Entities, FeatureViews, source adapter, precision, PIT retrieval, and limits | Implemented bounded offline retrieval |
 | [Fraud training dataset](ml/fraud_training_dataset.md) | Supervised row contract, leakage boundary, temporal splits, and reproducible build | Implemented 40,148-row trainable materialization |

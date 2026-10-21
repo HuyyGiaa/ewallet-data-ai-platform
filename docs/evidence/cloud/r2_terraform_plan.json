@@ -1,8 +1,8 @@
 {
-  "schema_version": "r2-terraform-plan-v1",
-  "recorded_at": "2026-10-21T18:10:39Z",
+  "schema_version": "r2-terraform-foundation-v2",
+  "recorded_at": "2026-10-21T18:29:40Z",
   "branch": "feature/phase2-fraud-platform",
-  "source_git_sha": "f1d27cae8130a13d49c6d034deb410cd5fedf6b8",
+  "source_git_sha": "02fffb2",
   "project_id": "ewallet-data-ai-platform-hg26",
   "region": "asia-southeast1",
   "zone": "asia-southeast1-b",
@@ -22,15 +22,46 @@
     "bucket": "ewallet-data-ai-platform-hg26-tfstate",
     "prefix": "terraform/dev"
   },
-  "dev_foundation_plan": {
-    "status": "PASS",
+  "initial_dev_foundation_plan": {
     "managed_resource_actions": {
       "create": 46,
       "update": 0,
       "delete": 0,
       "replace": 0
     },
-    "data_reads": 1,
+    "gke_clusters": 0,
+    "gke_node_pools": 0,
+    "compute_instances": 0,
+    "billing_budgets": 0,
+    "service_account_keys": 0,
+    "owner_or_editor_bindings": 0
+  },
+  "initial_apply": {
+    "status": "PARTIAL",
+    "managed_resources_recorded_before_failure": 42,
+    "resources_changed": 0,
+    "resources_destroyed": 0,
+    "failed_bindings": 3,
+    "failure": "GKE Workload Identity pool did not exist while enable_gke was false",
+    "data_loss": false
+  },
+  "recovery": {
+    "status": "PASS",
+    "workload_identity_bindings_deferred_until_gke": 3,
+    "recovery_plan": {
+      "create": 1,
+      "no_op": 42,
+      "update": 0,
+      "delete": 0,
+      "replace": 0
+    },
+    "created": "module.dataproc.terraform_data.batch_prerequisites",
+    "post_recovery_plan": "NO_CHANGES"
+  },
+  "dev_foundation": {
+    "status": "APPLIED",
+    "managed_resources_in_state": 43,
+    "data_sources_in_state": 1,
     "managed_resource_type_counts": {
       "google_artifact_registry_repository": 1,
       "google_compute_firewall": 1,
@@ -39,17 +70,11 @@
       "google_project_iam_member": 10,
       "google_project_service": 13,
       "google_service_account": 6,
-      "google_service_account_iam_member": 4,
+      "google_service_account_iam_member": 1,
       "google_storage_bucket": 2,
       "google_storage_bucket_iam_member": 6,
       "terraform_data": 1
     },
-    "gke_clusters": 0,
-    "gke_node_pools": 0,
-    "compute_instances": 0,
-    "billing_budgets": 0,
-    "service_account_keys": 0,
-    "owner_or_editor_bindings": 0,
     "canonical_bucket": "ewallet-data-ai-platform-hg26-data",
     "temporary_bucket": "ewallet-data-ai-platform-hg26-temp",
     "artifact_registry": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform",
@@ -58,10 +83,10 @@
     "subnet_cidr": "10.20.0.0/20",
     "gke_enabled": false,
     "jenkins_vm_enabled": false,
-    "applied": false
+    "workload_identity_bindings": "DEFERRED_UNTIL_GKE_POOL_EXISTS"
   },
   "generated_plan_binary_tracked": false,
   "credentials_recorded": false,
   "absolute_developer_paths_recorded": false,
-  "next_step": "operator review and apply of the saved no-compute dev foundation plan"
+  "next_step": "R3 cloud data runtime, GCS layout and Dataproc Serverless smoke"
 }
