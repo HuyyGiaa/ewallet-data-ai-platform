@@ -1,0 +1,34 @@
+environment: local
+project_id: null
+region: null
+
+storage:
+  scheme: s3a
+  source_root: ${EWALLET_SOURCE_ROOT:-file:///tmp/ewallet-source}
+  bronze_root: s3a://bronze-zone
+  silver_root: s3a://silver-zone
+  gold_root: s3a://gold-zone
+  feast_root: ${EWALLET_FEAST_ROOT:-file:///tmp/ewallet-feast}
+  options:
+    spark.hadoop.fs.s3a.endpoint: ${MINIO_ENDPOINT:-http://localhost:9000}
+    spark.hadoop.fs.s3a.access.key: ${MINIO_ACCESS_KEY}
+    spark.hadoop.fs.s3a.secret.key: ${MINIO_SECRET_KEY}
+    spark.hadoop.fs.s3a.path.style.access: "true"
+    spark.hadoop.fs.s3a.connection.ssl.enabled: "false"
+    spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+
+spark:
+  master: local[4]
+  shuffle_partitions: 32
+  event_log_uri: ${SPARK_EVENT_LOG_URI:-file:///tmp/spark-events}
+  packages:
+    - org.apache.hadoop:hadoop-aws:3.4.2
+  configurations:
+    spark.sql.session.timeZone: UTC
+    spark.eventLog.enabled: "true"
+    spark.ui.enabled: "true"
+
+services:
+  datahub_gms_url: ${DATAHUB_GMS_URL:-http://localhost:8080}
+  trino_host: ${TRINO_HOST:-localhost}
+  trino_port: 8081

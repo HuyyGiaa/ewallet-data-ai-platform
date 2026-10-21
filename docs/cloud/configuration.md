@@ -2,9 +2,9 @@
 
 ## Trạng thái
 
-Runtime configuration model đã được triển khai trong Task 1 của cloud refactor.
-Các profile thật `local`, `dev` và `gcp` sẽ được thêm ở Task 2. Vì vậy tài liệu
-này mô tả contract đã có trong code nhưng chưa tuyên bố cloud pipeline đã chạy.
+Runtime configuration model và ba tracked profile `local`, `dev`, `gcp` đã được
+triển khai. Các profile mới chỉ xác định runtime contract; chúng không tuyên bố
+cloud resources đã được provision hoặc pipeline GCS đã chạy.
 
 ## Mục đích
 
@@ -34,8 +34,17 @@ Chỉ ba tên `local`, `dev` và `gcp` hợp lệ. Loader đọc:
 configs/environments/<environment>/platform.yaml
 ```
 
-Task 1 tests dùng temporary profiles để kiểm tra contract. Tracked profiles sẽ
-được tạo trong Task 2.
+Tracked profiles nằm tại:
+
+```text
+configs/environments/
+├── local/platform.yaml
+├── dev/platform.yaml
+└── gcp/platform.yaml
+```
+
+`local` giữ MinIO như một adapter phát triển. `dev` dùng prefix GCS riêng dưới
+`gs://<bucket>/dev/`; `gcp` dùng canonical prefixes không có `dev/`.
 
 ## Environment placeholders
 
@@ -52,6 +61,33 @@ tuple nhưng không thay đổi object đầu vào.
 
 Error chỉ nêu tên biến hoặc field bị lỗi. Loader không in toàn bộ environment,
 rendered configuration hoặc credential value.
+
+Copy `.env.example` thành `.env` cho local development rồi thay các placeholder
+bằng giá trị chỉ tồn tại trên máy của bạn. `.env` bị Git ignore; không copy ADC
+JSON, access token hoặc credential thật vào tracked YAML.
+
+## Preflight
+
+Chạy kiểm tra trước khi tạo Spark session hoặc submit job:
+
+```bash
+python -m data_platform.config.cli --environment local --check
+python -m data_platform.config.cli --environment dev --check
+python -m data_platform.config.cli --environment gcp --check
+```
+
+Local cần `MINIO_ACCESS_KEY` và `MINIO_SECRET_KEY`. Dev/GCP cần
+`GCP_PROJECT_ID`, `EWALLET_DATA_BUCKET` và `DATAHUB_GMS_URL`; region mặc định là
+`asia-southeast1` nhưng có thể override bằng `GCP_REGION`.
+
+Output thành công kết thúc bằng:
+
+```text
+CONFIG CHECK PASS
+```
+
+CLI chỉ hiển thị scheme, project/region và URI đã che bucket/authority. Nó không
+in storage options, MinIO credentials hoặc toàn bộ environment.
 
 ## Models
 
@@ -105,3 +141,9 @@ python -m unittest tests.unit.test_runtime_config -v
 
 Kết quả operator-run ngày 2026-10-21: **13/13 tests PASS**. Task này không kết
 nối MinIO, GCS, Spark, DataHub hoặc Trino.
+
+Profile và CLI contract được kiểm tra bằng:
+
+```bash
+python -m unittest tests.contract.test_environment_profiles -v
+```
