@@ -1,157 +1,104 @@
-"""
-Khởi tạo SparkSession cho Batch Transformation Layer.
-
-Hỗ trợ 2 chế độ:
-
-1. Baseline:
-   - AQE OFF
-   - Skew Join optimization OFF
-
-2. Optimized:
-   - AQE ON
-   - Skew Join optimization ON
-
-Spark chạy local[*] và đọc/ghi Delta Lake trên MinIO qua S3A.
-"""
+"""Create a profile-driven SparkSession for local or cloud execution."""
 
 from __future__ import annotations
 
-from pyspark.sql import SparkSession
-from delta import configure_spark_with_delta_pip
 from pathlib import Path
+from typing import TYPE_CHECKING
+from urllib.parse import unquote, urlsplit
 
-SPARK_EVENT_LOG_DIR = Path("/tmp/spark-events")
-SPARK_EVENT_LOG_DIR.mkdir(parents=True, exist_ok=True)
+from data_platform.config import RuntimeConfig, load_runtime_config
 
-MINIO_ENDPOINT = "http://localhost:9000"
-MINIO_ACCESS_KEY = "minioadmin"
-MINIO_SECRET_KEY = "minioadmin"
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
+
+
+_DELTA_OPTIONS = {
+    "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
+    "spark.sql.catalog.spark_catalog": (
+        "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+    ),
+}
+
+
+def spark_options(
+    config: RuntimeConfig,
+    *,
+    optimized: bool,
+) -> dict[str, str]:
+    """Build Spark properties without importing or starting PySpark."""
+
+    adaptive_enabled = str(optimized).lower()
+    options = dict(_DELTA_OPTIONS)
+    options.update(config.spark.configurations)
+    options.update(config.storage.options)
+    options.update(
+        {
+            "spark.sql.shuffle.partitions": str(
+                config.spark.shuffle_partitions
+            ),
+            "spark.eventLog.dir": config.spark.event_log_uri,
+            "spark.sql.adaptive.enabled": adaptive_enabled,
+            "spark.sql.adaptive.skewJoin.enabled": adaptive_enabled,
+        }
+    )
+    return options
+
+
+def _prepare_local_event_log_directory(event_log_uri: str) -> None:
+    parsed = urlsplit(event_log_uri)
+    if parsed.scheme != "file":
+        return
+    if parsed.netloc not in ("", "localhost"):
+        raise ValueError(
+            "local Spark event log file URI must not contain a remote host"
+        )
+
+    event_log_directory = Path(unquote(parsed.path))
+    if not event_log_directory.is_absolute():
+        raise ValueError("local Spark event log file URI must be absolute")
+    event_log_directory.mkdir(parents=True, exist_ok=True)
 
 
 def create_spark_session(
     app_name: str = "EWallet-Batch-Transformation",
     optimized: bool = True,
+    runtime_config: RuntimeConfig | None = None,
 ) -> SparkSession:
-    """
-    Tạo SparkSession dùng cho batch processing.
+    """Create Spark using one validated runtime environment profile."""
 
-    Args:
-        app_name:
-            Tên Spark application.
+    from delta import configure_spark_with_delta_pip
+    from pyspark.sql import SparkSession
 
-        optimized:
-            True:
-                bật AQE + skew join optimization.
+    config = runtime_config or load_runtime_config()
+    _prepare_local_event_log_directory(config.spark.event_log_uri)
 
-            False:
-                tắt AQE để chạy baseline benchmark.
+    builder = SparkSession.builder.appName(app_name)
+    if config.spark.master is not None:
+        builder = builder.master(config.spark.master)
 
-    Returns:
-        SparkSession.
-    """
-
-    adaptive_enabled = str(optimized).lower()
-
-    builder = (
-        SparkSession.builder
-        .appName(app_name)
-        .master("local[4]")
-
-        # Delta Lake
-        .config(
-            "spark.sql.extensions",
-            "io.delta.sql.DeltaSparkSessionExtension",
-        )
-        .config(
-            "spark.sql.catalog.spark_catalog",
-            "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-        )
-
-        # Adaptive Query Execution
-        .config(
-            "spark.sql.adaptive.enabled",
-            adaptive_enabled,
-        )
-        .config(
-            "spark.sql.adaptive.skewJoin.enabled",
-            adaptive_enabled,
-        )
-
-        # MinIO / S3A
-        .config(
-            "spark.hadoop.fs.s3a.endpoint",
-            MINIO_ENDPOINT,
-        )
-        .config(
-            "spark.hadoop.fs.s3a.access.key",
-            MINIO_ACCESS_KEY,
-        )
-        .config(
-            "spark.hadoop.fs.s3a.secret.key",
-            MINIO_SECRET_KEY,
-        )
-        .config(
-            "spark.hadoop.fs.s3a.path.style.access",
-            "true",
-        )
-        .config(
-            "spark.hadoop.fs.s3a.connection.ssl.enabled",
-            "false",
-        )
-        .config(
-            "spark.hadoop.fs.s3a.impl",
-            "org.apache.hadoop.fs.s3a.S3AFileSystem",
-        )
-        .config(
-            "spark.jars.packages",
-            "org.apache.hadoop:hadoop-aws:3.4.2",
-        )
-
-        # Shuffle
-        #
-        # Dataset coursework chưa quá lớn.
-        # 32 partitions đủ để demo local mà không tạo quá nhiều
-        # small tasks.
-        .config(
-            "spark.sql.shuffle.partitions",
-            "32",
-        )
-        .config(
-            "spark.eventLog.enabled",
-            "true",
-        )
-        .config(
-            "spark.eventLog.dir",
-            f"file://{SPARK_EVENT_LOG_DIR}",
-        )
-        .config(
-            "spark.ui.enabled",
-            "true",
-        )
-    )
+    for key, value in spark_options(config, optimized=optimized).items():
+        builder = builder.config(key, value)
 
     spark = configure_spark_with_delta_pip(
         builder,
-        extra_packages=[
-            "org.apache.hadoop:hadoop-aws:3.4.2"
-        ],
+        extra_packages=list(config.spark.packages),
     ).getOrCreate()
-
     spark.sparkContext.setLogLevel("WARN")
 
+    print(f"[SPARK] Application : {app_name}")
+    print(f"[SPARK] Version     : {spark.version}")
+    print(f"[SPARK] Environment : {config.environment}")
+    print(f"[SPARK] Storage     : {config.storage.scheme}")
     print(
-        f"[SPARK] Application : {app_name}"
-    )
-    print(
-        f"[SPARK] Version     : {spark.version}"
-    )
-    print(
-        f"[SPARK] AQE         : "
+        "[SPARK] AQE         : "
         f"{spark.conf.get('spark.sql.adaptive.enabled')}"
     )
     print(
-        f"[SPARK] Skew Join   : "
+        "[SPARK] Skew Join   : "
         f"{spark.conf.get('spark.sql.adaptive.skewJoin.enabled')}"
     )
-
+    print(
+        "[SPARK] Shuffle     : "
+        f"{spark.conf.get('spark.sql.shuffle.partitions')}"
+    )
     return spark

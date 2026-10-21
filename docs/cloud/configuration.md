@@ -89,6 +89,23 @@ CONFIG CHECK PASS
 CLI chỉ hiển thị scheme, project/region và URI đã che bucket/authority. Nó không
 in storage options, MinIO credentials hoặc toàn bộ environment.
 
+## Spark runtime
+
+`data_platform.processing.spark.common.spark_session.spark_options()` chuyển
+`RuntimeConfig` thành Spark properties mà không import hoặc khởi động PySpark.
+`create_spark_session()` chỉ đặt `.master()` khi profile khai báo master, nên:
+
+- `local` chạy `local[4]` và nhận S3A connector từ local profile;
+- `dev`/`gcp` không ép local master và không mang MinIO/S3A credential;
+- shuffle partitions và event-log URI đến từ profile đang chọn;
+- `optimized=True/False` chỉ thay AQE và skew-join switches, không thay input,
+  storage connector hoặc business logic.
+
+Package dependency được truyền riêng cho Delta session builder. Danh sách rỗng
+không tạo `spark.jars.packages` rỗng hoặc malformed. Log khởi động chỉ ghi
+environment, storage scheme và các option hiệu năng an toàn; không ghi storage
+options hoặc credential.
+
 ## Models
 
 `RuntimeConfig` gồm:

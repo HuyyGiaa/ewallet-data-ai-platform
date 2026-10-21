@@ -1,5 +1,18 @@
 # Performance Benchmarks
 
+## Cloud runtime configuration migration — not a benchmark result
+
+The shared Spark session now reads master, storage connector, shuffle count and
+event-log location from the selected `local`, `dev` or `gcp` runtime profile.
+This refactor changes configuration ownership; it is not a measured speedup.
+`optimized=False` and `optimized=True` retain identical input/storage options
+and differ only in the AQE and skew-join switches.
+
+All F4C/F5 and Phase 1 measurements below remain historical local evidence
+captured with the configuration stated in their own sections. They have not
+been relabelled as cloud or 100 GB results. New 100 GB baseline and optimized
+evidence will be recorded only after measured GCP runs complete.
+
 ## F8 local fraud model comparison baseline — not optimized
 
 F8 trained six active bounded experiments on the 40,148-row F7 materialization.
