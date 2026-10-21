@@ -11,8 +11,9 @@ end-user wallet application.
 The operational local profile remains available for reproducibility. The same
 Spark I/O, validators, Feast export and bounded training-source exporters now
 consume tracked `local`, `dev`, or `gcp` runtime profiles. Dev/GCP profiles are
-configuration contracts only at this checkpoint: no GCS bucket, cluster,
-DataHub service or other cloud resource is provisioned by R1.
+configuration contracts only at this checkpoint. R2 now provides validated,
+modular Terraform for GCS, IAM, Artifact Registry, VPC, Dataproc prerequisites
+and cost-gated GKE/Jenkins, but no R2 resource has been applied yet.
 
 Run the CI-friendly foundation gate with:
 
@@ -20,11 +21,13 @@ Run the CI-friendly foundation gate with:
 python ops/validation/validate_runtime_config.py
 ```
 
-The next infrastructure step is R2 Terraform. The 100 GB cloud generation,
+The next operator checkpoint is the one-resource R2 state-bucket bootstrap
+plan. The 100 GB cloud generation,
 Spark cloud profiling/optimization and pipeline rerun have not started. Local
 MinIO benchmark numbers elsewhere in the repository remain historical evidence
 and are not cloud performance claims. See the
-[runtime configuration guide](docs/cloud/configuration.md) and
+[runtime configuration guide](docs/cloud/configuration.md),
+[Terraform foundation runbook](docs/cloud/terraform_gcp_foundation.md), and
 [R1 evidence](docs/evidence/cloud/r1_config_foundation.json).
 
 ## Architecture
@@ -116,7 +119,9 @@ ewallet-data-ai-platform/
 │       ├── assertions/        # Eleven selected DQ assertions
 │       ├── lineage/           # Trino recipe and direct lineage publisher
 │       └── runtime/           # Pinned Quickstart helper
-├── infra/docker/              # Canonical split Compose files
+├── infra/
+│   ├── docker/                # Canonical split Compose files
+│   └── terraform/gcp/         # R2 GCP modules and cost-gated dev stack
 ├── ai_platform/
 │   ├── features/feast/         # Feast offline definitions and retrieval
 │   └── ml/

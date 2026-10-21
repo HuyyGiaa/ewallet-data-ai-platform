@@ -83,3 +83,16 @@ ai_platform/ml/artifacts/
 
 # Local AI handoff context
 E_WALLET_PROJECT_CONTEXT.md
+
+# =========================
+# Terraform runtime
+# =========================
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
