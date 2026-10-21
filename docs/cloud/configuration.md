@@ -3,8 +3,8 @@
 ## Trạng thái
 
 Runtime configuration model và ba tracked profile `local`, `dev`, `gcp` đã được
-triển khai. Các profile mới chỉ xác định runtime contract; chúng không tuyên bố
-cloud resources đã được provision hoặc pipeline GCS đã chạy.
+triển khai. R2 đã provision GCS foundation; các profile xác định runtime
+contract nhưng chưa tuyên bố pipeline GCS hoặc canonical 100 GB đã chạy.
 
 ## Mục đích
 
@@ -169,7 +169,7 @@ nguồn. Có thể đặt riêng trên máy mà không sửa YAML tracked:
 export EWALLET_SOURCE_ROOT="file://$(pwd)/data_platform/generation/output/offline"
 ```
 
-GCS của `dev`/`gcp` sẽ được provision bằng Terraform trong bước hạ tầng cloud.
+GCS của `dev`/`gcp` đã được provision bằng Terraform trong bước hạ tầng cloud.
 Không dùng các lệnh MinIO trên làm cách tạo bucket GCS thủ công, và Trino local
 không phải dependency bắt buộc của cloud pipeline.
 
@@ -202,7 +202,8 @@ Evidence máy đọc được nằm tại
 Nó ghi commit nền, số test và kết quả scan, không ghi credential, bucket thật
 hoặc absolute developer path.
 
-R1 chỉ hoàn tất ranh giới cấu hình. Local profile là runtime đã vận hành và các
-số MinIO hiện có là historical evidence. Dev/GCP mới là tracked configuration;
-Terraform provisioning là R2 kế tiếp. Spark cloud benchmark/optimization và
-canonical 100 GB chưa được chạy.
+R1 hoàn tất ranh giới cấu hình và R2 đã provision cloud foundation. Local
+profile vẫn là runtime đã vận hành; các số MinIO hiện có là historical
+evidence. R3 Delta-on-GCS smoke đã PASS trên Dataproc Serverless runtime
+2.2.89, vì vậy runtime này được chọn cho các bounded cloud pilot. Spark cloud
+benchmark/optimization và canonical 100 GB chưa được chạy.

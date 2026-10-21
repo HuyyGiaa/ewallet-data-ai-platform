@@ -10,11 +10,13 @@ end-user wallet application.
 
 The operational local profile remains available for reproducibility. The same
 Spark I/O, validators, Feast export and bounded training-source exporters now
-consume tracked `local`, `dev`, or `gcp` runtime profiles. Dev/GCP profiles are
-configuration contracts only at this checkpoint. R2 now provides validated,
+consume tracked `local`, `dev`, or `gcp` runtime profiles. R2 now provides validated,
 modular Terraform for GCS, IAM, Artifact Registry, VPC, Dataproc prerequisites
 and cost-gated GKE/Jenkins. The protected remote-state bucket and no-compute
-dev foundation are applied; the current Terraform plan reports no changes.
+dev foundation are applied; the current Terraform plan reports no changes. R3
+validated Delta-on-GCS write, append, read-back, schema and microsecond
+timestamp behavior on Dataproc Serverless runtime 2.2.89. Dataproc Serverless
+is therefore the selected Spark runtime for the bounded cloud pilots.
 
 Run the CI-friendly foundation gate with:
 
@@ -28,9 +30,11 @@ Spark cloud profiling/optimization and pipeline rerun have not started. Local
 MinIO benchmark numbers elsewhere in the repository remain historical evidence
 and are not cloud performance claims. See the
 [runtime configuration guide](docs/cloud/configuration.md),
-[Terraform foundation runbook](docs/cloud/terraform_gcp_foundation.md), and
+[Terraform foundation runbook](docs/cloud/terraform_gcp_foundation.md),
+[Dataproc Delta smoke runbook](docs/cloud/dataproc_delta_smoke.md), and
 [R1 evidence](docs/evidence/cloud/r1_config_foundation.json) together with
-[R2 plan evidence](docs/evidence/cloud/r2_terraform_plan.json).
+[R2 plan evidence](docs/evidence/cloud/r2_terraform_plan.json) and
+[R3 runtime evidence](docs/evidence/cloud/r3_dataproc_delta_smoke.json).
 
 ## Architecture
 

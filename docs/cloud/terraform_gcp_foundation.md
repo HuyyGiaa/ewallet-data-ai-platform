@@ -218,5 +218,6 @@ review.
 - Bootstrap và dev foundation đã apply; remote state nằm trên GCS và plan hiện
   báo `No changes`.
 - Canonical/temp bucket đã tồn tại nhưng canonical chưa có dữ liệu.
-- Delta-on-GCS/Dataproc smoke chưa chạy.
+- Delta-on-GCS/Dataproc smoke đã PASS và chọn Dataproc Serverless cho bounded
+  cloud pilot tiếp theo.
 - GKE, Jenkins, Helm, Ansible và 100 GB pipeline chưa bắt đầu.
