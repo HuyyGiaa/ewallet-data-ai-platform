@@ -1,0 +1,73 @@
+{
+  "schema_version": "r1-config-foundation-v1",
+  "recorded_at": "2026-10-21T10:25:40Z",
+  "branch": "feature/phase2-fraud-platform",
+  "source_git_sha": "a7efdbbee68002f062a810d19df9c8a929591e78",
+  "scope": "runtime configuration foundation only",
+  "profiles": {
+    "local": "PASS",
+    "dev": "PASS",
+    "gcp": "PASS"
+  },
+  "runtime_literal_scan": {
+    "status": "PASS",
+    "violations": 0,
+    "explicit_local_exception_files": 3
+  },
+  "logical_contracts": {
+    "status": "PASS",
+    "count": 9
+  },
+  "python_compile": {
+    "status": "PASS",
+    "roots": [
+      "data_platform",
+      "ai_platform",
+      "ops"
+    ]
+  },
+  "tests": {
+    "generator_label_and_historical_features": {
+      "passed": 31,
+      "failed": 0,
+      "environment": "fintech"
+    },
+    "feast_point_in_time": {
+      "passed": 8,
+      "failed": 0,
+      "environment": "ewallet-feast"
+    },
+    "fraud_training_dataset": {
+      "passed": 10,
+      "failed": 0,
+      "environment": "ewallet-feast"
+    },
+    "fraud_modeling": {
+      "passed": 20,
+      "failed": 0,
+      "environment": "ewallet-feast"
+    },
+    "runtime_unit_suite": {
+      "passed": 41,
+      "skipped": 7,
+      "failed": 0,
+      "environment": "fintech"
+    },
+    "configuration_contract_suite": {
+      "passed": 13,
+      "failed": 0,
+      "environment": "fintech"
+    },
+    "datahub_runtime_configuration": {
+      "passed": 12,
+      "skipped": 4,
+      "failed": 0,
+      "environment": "datahub"
+    }
+  },
+  "generated_runtime_artifacts_tracked": 0,
+  "cloud_resources_created": false,
+  "canonical_100gb_run": false,
+  "spark_cloud_optimization_run": false,
+  "next_step": "R2 Terraform review and provisioning"
+}

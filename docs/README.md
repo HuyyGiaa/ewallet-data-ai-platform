@@ -15,11 +15,12 @@ component documents for implementation detail and recorded evidence.
 | [Performance benchmarks](07_performance_benchmarks.md) | Spark skew and cardinality experiments | Recorded benchmark |
 | [DataHub metadata and lineage](08_datahub_lineage.md) | Trino ingestion, direct lineage, assertions | Metadata operations |
 | [Runtime configuration](cloud/configuration.md) | Local/dev/GCP profiles, environment variables and preflight | Cloud refactor operations |
+| [R1 configuration evidence](evidence/cloud/r1_config_foundation.json) | Machine-readable profile, literal-scan, compile, and regression results | Verified foundation evidence |
 | [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature contract | Implemented Gold contract |
 | [Feast offline retrieval](ml/feast_offline.md) | Entities, FeatureViews, source adapter, precision, PIT retrieval, and limits | Implemented bounded offline retrieval |
 | [Fraud training dataset](ml/fraud_training_dataset.md) | Supervised row contract, leakage boundary, temporal splits, and reproducible build | Implemented 40,148-row trainable materialization |
 | [Random Forest fraud baseline](ml/fraud_modeling.md) | Active preprocessing/model contract, historical model-selection evidence, runtime artifacts, and validation/test results | Implemented F8 local baseline |
 
-The PNG files under `docs/evidence/` are historical run evidence. Current
-operational commands and the fresh-clone path are in the repository
-[README](../README.md).
+Evidence under `docs/evidence/` includes both historical run artifacts and
+machine-readable refactor gates. Current operational commands and the
+fresh-clone path are in the repository [README](../README.md).

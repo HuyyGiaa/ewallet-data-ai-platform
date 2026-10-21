@@ -138,6 +138,12 @@ gs://bucket/lakehouse/gold/fact_transactions
 Loader loại dấu `/` cuối root. `table_name` phải là một relative name duy nhất;
 empty name, absolute path, slash và `..` bị reject để tránh đọc/ghi sai prefix.
 
+Silver/Gold pipeline, validators, Feast adapter và hai F7 training-source
+exporter đều nhận cùng `RuntimeConfig`. Ví dụ `transactions` được đọc từ
+`s3a://silver-zone/transactions` trong local profile và từ
+`gs://<bucket>/lakehouse/silver/transactions` trong GCP profile mà không đổi
+transformation hoặc training contract.
+
 ## Ranh giới local storage bootstrap
 
 Các lệnh sau là công cụ tương thích cho Docker/MinIO/Trino trên laptop và chỉ
@@ -177,19 +183,26 @@ không phải dependency bắt buộc của cloud pipeline.
 | `Missing required configuration field` | Profile chưa đầy đủ | Bổ sung field vào đúng section |
 | `configuration.environment does not match` | Folder và nội dung profile không đồng nhất | Sửa `environment` trong YAML |
 
-## Validation checkpoint
+## Foundation validation
 
-Task 1 được xác nhận bằng:
-
-```bash
-python -m unittest tests.unit.test_runtime_config -v
-```
-
-Kết quả operator-run ngày 2026-10-21: **13/13 tests PASS**. Task này không kết
-nối MinIO, GCS, Spark, DataHub hoặc Trino.
-
-Profile và CLI contract được kiểm tra bằng:
+Chạy cổng kiểm soát R1 từ repository root:
 
 ```bash
-python -m unittest tests.contract.test_environment_profiles -v
+python ops/validation/validate_runtime_config.py
 ```
+
+Lệnh này parse đủ ba profile bằng giá trị test, parse chín logical data
+contracts và quét operational Python/YAML để chặn MinIO path, DataHub/Trino
+localhost, credential mẫu hoặc đường dẫn máy cá nhân bị viết lại vào source.
+Ngoại lệ chỉ được khai báo cho từng file local cụ thể; cloud profile không được
+thừa hưởng allowlist của local.
+
+Evidence máy đọc được nằm tại
+[`r1_config_foundation.json`](../evidence/cloud/r1_config_foundation.json).
+Nó ghi commit nền, số test và kết quả scan, không ghi credential, bucket thật
+hoặc absolute developer path.
+
+R1 chỉ hoàn tất ranh giới cấu hình. Local profile là runtime đã vận hành và các
+số MinIO hiện có là historical evidence. Dev/GCP mới là tracked configuration;
+Terraform provisioning là R2 kế tiếp. Spark cloud benchmark/optimization và
+canonical 100 GB chưa được chạy.

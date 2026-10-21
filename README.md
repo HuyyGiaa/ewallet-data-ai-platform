@@ -6,6 +6,27 @@ quality, orchestration, contracts, metadata, lineage, and offline features. It
 is the data-platform foundation for a later fraud-detection phase; it is not an
 end-user wallet application.
 
+## Cloud refactor status
+
+The operational local profile remains available for reproducibility. The same
+Spark I/O, validators, Feast export and bounded training-source exporters now
+consume tracked `local`, `dev`, or `gcp` runtime profiles. Dev/GCP profiles are
+configuration contracts only at this checkpoint: no GCS bucket, cluster,
+DataHub service or other cloud resource is provisioned by R1.
+
+Run the CI-friendly foundation gate with:
+
+```bash
+python ops/validation/validate_runtime_config.py
+```
+
+The next infrastructure step is R2 Terraform. The 100 GB cloud generation,
+Spark cloud profiling/optimization and pipeline rerun have not started. Local
+MinIO benchmark numbers elsewhere in the repository remain historical evidence
+and are not cloud performance claims. See the
+[runtime configuration guide](docs/cloud/configuration.md) and
+[R1 evidence](docs/evidence/cloud/r1_config_foundation.json).
+
 ## Architecture
 
 ```mermaid
@@ -533,6 +554,7 @@ Defaults are `localhost:8081` for Trino, `localhost:9000` for MinIO, and
 | [`docs/06_airflow_orchestration.md`](docs/06_airflow_orchestration.md) | Airflow DAG and quality gates |
 | [`docs/07_performance_benchmarks.md`](docs/07_performance_benchmarks.md) | Spark performance experiments |
 | [`docs/08_datahub_lineage.md`](docs/08_datahub_lineage.md) | Metadata ingestion, lineage, and assertions |
+| [`docs/cloud/configuration.md`](docs/cloud/configuration.md) | Local/dev/GCP runtime profiles and R1 validation |
 
-The next task is the integrated final smoke test. This documentation task does
-not regenerate the full dataset or run the complete end-to-end pipeline.
+The next cloud task is reviewed Terraform provisioning. R1 does not regenerate
+the full dataset or run the cloud pipeline.

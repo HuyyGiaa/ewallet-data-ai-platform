@@ -17,6 +17,7 @@ from ai_platform.ml.training.export_source_sample import (
     read_delta,
 )
 from ai_platform.ml.training.temporal import TEST_START, VALIDATION_START
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
 
 
@@ -38,8 +39,13 @@ OUTPUT_COLUMNS = (
 )
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--environment",
+        choices=("local", "dev", "gcp"),
+        default="local",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
         "--sample-modulus",
@@ -47,7 +53,7 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="1 exports the full canonical population; N>1 keeps hash remainder 0/N.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def request_profile(frame) -> dict:
@@ -143,12 +149,19 @@ def split_profile(frame) -> dict[str, dict[str, object]]:
     }
 
 
-def export_training_source(output: Path, sample_modulus: int) -> dict:
+def export_training_source(
+    output: Path,
+    sample_modulus: int,
+    runtime_config: RuntimeConfig,
+) -> dict:
     if sample_modulus <= 0:
         raise ValueError("sample_modulus must be positive")
-    spark = create_spark_session("F7-Training-Source-Export")
+    spark = create_spark_session(
+        "F7-Training-Source-Export",
+        runtime_config=runtime_config,
+    )
     try:
-        transactions = read_delta(spark, "transactions").select(
+        transactions = read_delta(spark, runtime_config, "transactions").select(
             "transaction_id",
             "user_id",
             "account_id",
@@ -159,7 +172,7 @@ def export_training_source(output: Path, sample_modulus: int) -> dict:
             "channel",
             "timestamp",
         )
-        labels = read_delta(spark, "fraud_labels").select(
+        labels = read_delta(spark, runtime_config, "fraud_labels").select(
             "transaction_id", "label", "fraud_type"
         )
         label_integrity = audit_label_integrity(transactions, labels)
@@ -230,10 +243,11 @@ def export_training_source(output: Path, sample_modulus: int) -> dict:
         spark.stop()
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     try:
-        export_training_source(args.output, args.sample_modulus)
+        config = load_runtime_config(args.environment)
+        export_training_source(args.output, args.sample_modulus, config)
     except Exception as exc:
         print(f"ERROR | {exc}")
         return 1

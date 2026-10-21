@@ -13,6 +13,7 @@ from pyspark.sql import functions as F
 
 from ai_platform.ml import ML_DATA_ROOT
 from ai_platform.ml.training.temporal import TEST_START, VALIDATION_START
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
 
 
@@ -35,15 +36,22 @@ SOURCE_COLUMNS = (
 )
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--environment",
+        choices=("local", "dev", "gcp"),
+        default="local",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--rows-per-group", type=int, default=20)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def read_delta(spark, table: str):
-    return spark.read.format("delta").load(f"s3a://silver-zone/{table}")
+def read_delta(spark, runtime_config: RuntimeConfig, table: str):
+    return spark.read.format("delta").load(
+        runtime_config.storage.table_uri("silver", table)
+    )
 
 
 def audit_label_integrity(transactions, labels) -> dict[str, int | str]:
@@ -94,12 +102,19 @@ def audit_label_integrity(transactions, labels) -> dict[str, int | str]:
     }
 
 
-def export_source_sample(output: Path, rows_per_group: int) -> dict:
+def export_source_sample(
+    output: Path,
+    rows_per_group: int,
+    runtime_config: RuntimeConfig,
+) -> dict:
     if rows_per_group <= 0:
         raise ValueError("rows_per_group must be positive")
-    spark = create_spark_session("F7-Bounded-Training-Source")
+    spark = create_spark_session(
+        "F7-Bounded-Training-Source",
+        runtime_config=runtime_config,
+    )
     try:
-        transactions = read_delta(spark, "transactions").select(
+        transactions = read_delta(spark, runtime_config, "transactions").select(
             "transaction_id",
             "user_id",
             "account_id",
@@ -110,7 +125,7 @@ def export_source_sample(output: Path, rows_per_group: int) -> dict:
             "channel",
             "timestamp",
         )
-        labels = read_delta(spark, "fraud_labels").select(
+        labels = read_delta(spark, runtime_config, "fraud_labels").select(
             "transaction_id", "label", "fraud_type"
         )
         label_integrity = audit_label_integrity(transactions, labels)
@@ -245,10 +260,11 @@ def export_source_sample(output: Path, rows_per_group: int) -> dict:
         spark.stop()
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     try:
-        export_source_sample(args.output, args.rows_per_group)
+        config = load_runtime_config(args.environment)
+        export_source_sample(args.output, args.rows_per_group, config)
     except Exception as exc:
         print(f"ERROR | {exc}")
         return 1
