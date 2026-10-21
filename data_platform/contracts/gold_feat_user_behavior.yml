@@ -2,7 +2,8 @@ contract_version: 1
 dataset: gold.feat_user_behavior
 layer: gold
 description: Point-in-time user behavior snapshots for fraud features.
-storage_location: s3a://gold-zone/feat_user_behavior
+storage_layer: gold
+storage_table: feat_user_behavior
 grain: One row per distinct user_id and event_timestamp in Silver transactions.
 logical_key: [user_id, event_timestamp]
 upstream: [silver.transactions]

@@ -2,7 +2,8 @@ contract_version: 1
 dataset: silver.transactions
 layer: silver
 description: Canonical cleaned and deduplicated transaction dataset.
-storage_location: s3a://silver-zone/transactions
+storage_layer: silver
+storage_table: transactions
 grain: One row per transaction_id.
 logical_key:
   - transaction_id

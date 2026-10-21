@@ -2,7 +2,8 @@ contract_version: 1
 dataset: gold.feat_account_behavior
 layer: gold
 description: Point-in-time account behavior snapshots for fraud features.
-storage_location: s3a://gold-zone/feat_account_behavior
+storage_layer: gold
+storage_table: feat_account_behavior
 grain: One row per distinct account_id and event_timestamp in Silver transactions.
 logical_key: [account_id, event_timestamp]
 upstream: [silver.transactions]

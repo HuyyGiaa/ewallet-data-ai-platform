@@ -94,6 +94,24 @@ it does not change cleaning rules, table schemas, historical-feature
 semantics, or Gold business transformations. The GCP 100 GB execution is
 **NOT RUN** at this refactor checkpoint.
 
+Validators use the same profile and can therefore verify the table written by
+the corresponding pipeline:
+
+```bash
+python -m data_platform.quality.validate_bronze \
+  --environment dev --include-fraud-labels
+python -m data_platform.quality.validate_silver \
+  --environment dev --include-fraud-labels
+python -m data_platform.quality.validate_gold --environment dev
+```
+
+Data contracts remain independent of those physical locations. A Silver
+contract records `storage_layer: silver` and `storage_table: transactions`; at
+runtime the selected profile resolves that pair to the local MinIO or cloud
+GCS URI. A Gold contract similarly records `storage_layer: gold` and, for
+example, `storage_table: fact_transactions`. Contract columns, grain,
+relationships, and quality rules are unchanged by this location refactor.
+
 **## Final Offline Dataset**
 
 The final coursework dataset was generated with:

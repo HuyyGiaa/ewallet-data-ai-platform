@@ -2,7 +2,8 @@ contract_version: 1
 dataset: gold.feat_merchant_behavior
 layer: gold
 description: Point-in-time merchant behavior snapshots for payment fraud features.
-storage_location: s3a://gold-zone/feat_merchant_behavior
+storage_layer: gold
+storage_table: feat_merchant_behavior
 grain: One row per distinct merchant_id and event_timestamp for eligible Silver payments.
 logical_key: [merchant_id, event_timestamp]
 upstream: [silver.transactions]

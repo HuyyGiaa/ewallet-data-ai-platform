@@ -2,7 +2,8 @@ contract_version: 1
 dataset: gold.feat_device_behavior
 layer: gold
 description: Point-in-time device behavior snapshots for fraud features.
-storage_location: s3a://gold-zone/feat_device_behavior
+storage_layer: gold
+storage_table: feat_device_behavior
 grain: One row per distinct device_id and event_timestamp in Silver transactions.
 logical_key: [device_id, event_timestamp]
 upstream: [silver.transactions, silver.devices]

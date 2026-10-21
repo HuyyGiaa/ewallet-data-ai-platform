@@ -8,11 +8,9 @@ from dataclasses import dataclass
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
 
-
-SILVER_ROOT = "s3a://silver-zone"
-BRONZE_ROOT = "s3a://bronze-zone"
 
 FRAUD_TYPES = (
     "velocity",
@@ -39,8 +37,13 @@ class ValidationResult:
     expected: str
 
 
-def read_silver(spark, table_name: str,) -> DataFrame:
-    path = f"{SILVER_ROOT}/{table_name}"
+def read_silver(
+    spark,
+    table_name: str,
+    *,
+    storage: StorageConfig,
+) -> DataFrame:
+    path = storage.table_uri("silver", table_name)
 
     logger.info(
         "[%s] Reading Silver table: %s",
@@ -55,8 +58,14 @@ def read_silver(spark, table_name: str,) -> DataFrame:
     )
 
 
-def read_bronze(spark, table_name: str) -> DataFrame:
-    return spark.read.format("delta").load(f"{BRONZE_ROOT}/{table_name}")
+def read_bronze(
+    spark,
+    table_name: str,
+    *,
+    storage: StorageConfig,
+) -> DataFrame:
+    path = storage.table_uri("bronze", table_name)
+    return spark.read.format("delta").load(path)
 
 
 def validate_required_columns(
@@ -721,13 +730,18 @@ def log_results(results: list[ValidationResult],) -> bool:
     return all_passed
 
 
-def run_validation(include_fraud_labels: bool = False) -> None:
+def run_validation(
+    include_fraud_labels: bool = False,
+    runtime_config: RuntimeConfig | None = None,
+) -> None:
     spark = None
+    config = runtime_config or load_runtime_config()
 
     try:
         spark = create_spark_session(
             app_name="EWallet-Silver-Validation",
             optimized=True,
+            runtime_config=config,
         )
 
         validators = [
@@ -780,6 +794,7 @@ def run_validation(include_fraud_labels: bool = False) -> None:
             df = read_silver(
                 spark,
                 table_name,
+                storage=config.storage,
             )
 
             tables[table_name] = df
@@ -860,7 +875,11 @@ def run_validation(include_fraud_labels: bool = False) -> None:
                     "fraud_labels",
                 )
             )
-            bronze_fraud_labels = read_bronze(spark, "fraud_labels")
+            bronze_fraud_labels = read_bronze(
+                spark,
+                "fraud_labels",
+                storage=config.storage,
+            )
             all_results.append(
                 validate_bronze_silver_fraud_population(
                     bronze_fraud_labels,
@@ -890,16 +909,26 @@ def run_validation(include_fraud_labels: bool = False) -> None:
             )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate persisted Silver Delta data.")
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime storage and Spark profile (default: local).",
+    )
     parser.add_argument(
         "--include-fraud-labels",
         action="store_true",
         help="Require and validate Silver fraud_labels in transitional fraud mode.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
-        run_validation(include_fraud_labels=args.include_fraud_labels)
+        config = load_runtime_config(args.environment)
+        run_validation(
+            include_fraud_labels=args.include_fraud_labels,
+            runtime_config=config,
+        )
         return 0
 
     except Exception:

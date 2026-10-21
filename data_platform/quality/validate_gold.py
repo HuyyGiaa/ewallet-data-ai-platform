@@ -13,22 +13,17 @@ Checks:
 
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from dataclasses import dataclass
+from functools import partial
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
-
-
-# ============================================================
-# Paths
-# ============================================================
-
-SILVER_ROOT = "s3a://silver-zone"
-GOLD_ROOT = "s3a://gold-zone"
 
 
 # ============================================================
@@ -62,11 +57,13 @@ class ValidationResult:
 
 def read_delta_table(
     spark,
-    root: str,
+    layer: str,
     table_name: str,
+    *,
+    storage: StorageConfig,
 ) -> DataFrame:
 
-    path = f"{root}/{table_name}"
+    path = storage.table_uri(layer, table_name)
 
     logger.info(
         "[%s] Reading: %s",
@@ -84,24 +81,30 @@ def read_delta_table(
 def read_gold(
     spark,
     table_name: str,
+    *,
+    storage: StorageConfig,
 ) -> DataFrame:
 
     return read_delta_table(
         spark,
-        GOLD_ROOT,
+        "gold",
         table_name,
+        storage=storage,
     )
 
 
 def read_silver(
     spark,
     table_name: str,
+    *,
+    storage: StorageConfig,
 ) -> DataFrame:
 
     return read_delta_table(
         spark,
-        SILVER_ROOT,
+        "silver",
         table_name,
+        storage=storage,
     )
 
 
@@ -855,15 +858,21 @@ def log_results(
 # Validation Pipeline
 # ============================================================
 
-def run_validation() -> None:
+def run_validation(
+    runtime_config: RuntimeConfig | None = None,
+) -> None:
 
     spark = None
+    config = runtime_config or load_runtime_config()
+    read_configured_gold = partial(read_gold, storage=config.storage)
+    read_configured_silver = partial(read_silver, storage=config.storage)
 
     try:
 
         spark = create_spark_session(
             app_name="EWallet-Gold-Validation",
             optimized=True,
+            runtime_config=config,
         )
 
         # ====================================================
@@ -874,62 +883,62 @@ def run_validation() -> None:
             "========== READ GOLD =========="
         )
 
-        dim_user = read_gold(
+        dim_user = read_configured_gold(
             spark,
             "dim_user",
         )
 
-        dim_account = read_gold(
+        dim_account = read_configured_gold(
             spark,
             "dim_account",
         )
 
-        dim_merchant = read_gold(
+        dim_merchant = read_configured_gold(
             spark,
             "dim_merchant",
         )
 
-        dim_device = read_gold(
+        dim_device = read_configured_gold(
             spark,
             "dim_device",
         )
 
-        dim_date = read_gold(
+        dim_date = read_configured_gold(
             spark,
             "dim_date",
         )
 
-        fact_transactions = read_gold(
+        fact_transactions = read_configured_gold(
             spark,
             "fact_transactions",
         )
 
-        fact_login_events = read_gold(
+        fact_login_events = read_configured_gold(
             spark,
             "fact_login_events",
         )
 
-        fact_balance_snapshot = read_gold(
+        fact_balance_snapshot = read_configured_gold(
             spark,
             "fact_balance_snapshot",
         )
 
-        obt_transaction_enriched = read_gold(
+        obt_transaction_enriched = read_configured_gold(
             spark,
             "obt_transaction_enriched",
         )
         
-        feat_user_90d = read_gold(
+        feat_user_90d = read_configured_gold(
             spark,
             "feat_user_90d",
         )
 
-        feat_user_behavior = read_gold(spark, "feat_user_behavior")
-        feat_account_behavior = read_gold(spark, "feat_account_behavior")
-        feat_device_behavior = read_gold(spark, "feat_device_behavior")
-        feat_merchant_behavior = read_gold(spark, "feat_merchant_behavior")
+        feat_user_behavior = read_configured_gold(spark, "feat_user_behavior")
+        feat_account_behavior = read_configured_gold(spark, "feat_account_behavior")
+        feat_device_behavior = read_configured_gold(spark, "feat_device_behavior")
+        feat_merchant_behavior = read_configured_gold(spark, "feat_merchant_behavior")
 
-        opt_merchant_performance = read_gold(
+        opt_merchant_performance = read_configured_gold(
             spark,
             "opt_merchant_performance",
         )
@@ -942,37 +951,37 @@ def run_validation() -> None:
             "========== READ SILVER FOR CONTRACTS =========="
         )
 
-        silver_users = read_silver(
+        silver_users = read_configured_silver(
             spark,
             "users",
         )
 
-        silver_accounts = read_silver(
+        silver_accounts = read_configured_silver(
             spark,
             "accounts",
         )
 
-        silver_merchants = read_silver(
+        silver_merchants = read_configured_silver(
             spark,
             "merchants",
         )
 
-        silver_devices = read_silver(
+        silver_devices = read_configured_silver(
             spark,
             "devices",
         )
 
-        silver_transactions = read_silver(
+        silver_transactions = read_configured_silver(
             spark,
             "transactions",
         )
 
-        silver_login_events = read_silver(
+        silver_login_events = read_configured_silver(
             spark,
             "login_events",
         )
 
-        silver_balance_snapshots = read_silver(
+        silver_balance_snapshots = read_configured_silver(
             spark,
             "balance_snapshots",
         )
@@ -1465,16 +1474,25 @@ def run_validation() -> None:
 # Entry Point
 # ============================================================
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate persisted Gold Delta data.")
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime storage and Spark profile (default: local).",
+    )
+    args = parser.parse_args(argv)
 
     try:
-        run_validation()
-        sys.exit(0)
+        config = load_runtime_config(args.environment)
+        run_validation(runtime_config=config)
+        return 0
 
     except Exception:
+        logger.exception("Gold validation failed.")
+        return 1
 
-        logger.exception(
-            "Gold validation failed."
-        )
 
-        sys.exit(1)
+if __name__ == "__main__":
+    sys.exit(main())

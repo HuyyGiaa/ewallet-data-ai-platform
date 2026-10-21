@@ -2,7 +2,8 @@ contract_version: 1
 dataset: silver.fraud_labels
 layer: silver
 description: Synthetic fraud ground truth keyed by logical transaction ID.
-storage_location: s3a://silver-zone/fraud_labels
+storage_layer: silver
+storage_table: fraud_labels
 grain: One row per transaction_id.
 logical_key:
   - transaction_id

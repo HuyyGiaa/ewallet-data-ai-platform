@@ -7,11 +7,10 @@ from dataclasses import dataclass
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
 from data_platform.storage.scripts.config import OFFLINE_TABLES, offline_tables
 
-
-BRONZE_ROOT = "s3a://bronze-zone"
 
 BRONZE_TABLES = OFFLINE_TABLES
 
@@ -124,8 +123,10 @@ class ValidationResult:
 def read_bronze(
     spark,
     table_name: str,
+    *,
+    storage: StorageConfig,
 ) -> DataFrame:
-    path = f"{BRONZE_ROOT}/{table_name}"
+    path = storage.table_uri("bronze", table_name)
 
     return (
         spark.read
@@ -417,16 +418,21 @@ def print_summary(
         )
 
 
-def run_validation(include_fraud_labels: bool = False) -> bool:
+def run_validation(
+    include_fraud_labels: bool = False,
+    runtime_config: RuntimeConfig | None = None,
+) -> bool:
     spark = None
     passed_count = 0
     failed_count = 0
     tables: dict[str, DataFrame] = {}
+    config = runtime_config or load_runtime_config()
 
     try:
         spark = create_spark_session(
             app_name="EWallet-Bronze-Validation",
             optimized=True,
+            runtime_config=config,
         )
 
         for table_name in offline_tables(include_fraud_labels):
@@ -438,6 +444,7 @@ def run_validation(include_fraud_labels: bool = False) -> bool:
                 df = read_bronze(
                     spark,
                     table_name,
+                    storage=config.storage,
                 )
 
                 print_result(
@@ -562,17 +569,27 @@ def run_validation(include_fraud_labels: bool = False) -> bool:
     return failed_count == 0
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate persisted Bronze Delta data.")
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime storage and Spark profile (default: local).",
+    )
     parser.add_argument(
         "--include-fraud-labels",
         action="store_true",
         help="Require and validate Bronze fraud_labels in transitional fraud mode.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    config = load_runtime_config(args.environment)
     return (
         0
-        if run_validation(include_fraud_labels=args.include_fraud_labels)
+        if run_validation(
+            include_fraud_labels=args.include_fraud_labels,
+            runtime_config=config,
+        )
         else 1
     )
 

@@ -2,7 +2,8 @@ contract_version: 1
 dataset: gold.fact_transactions
 layer: gold
 description: Central analytical transaction fact derived from Silver transactions.
-storage_location: s3a://gold-zone/fact_transactions
+storage_layer: gold
+storage_table: fact_transactions
 grain: One row per transaction_id.
 logical_key:
   - transaction_id
