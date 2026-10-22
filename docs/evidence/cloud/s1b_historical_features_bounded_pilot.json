@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "scope": "bounded_cloud_historical_features",
+  "canonical_100gb": false,
+  "dataset_version": "r4-pilot-1gb-v1",
+  "source_silver_run_id": "s1b-silver-configfix-20261022-174352",
+  "source_core_gold_run_id": "s1b-gold-20261022-180212",
+  "run_id": "s1b-features-20261022-181849",
+  "batch_uuid": "919b6a09-1d80-4595-a45c-0c7e595a98f7",
+  "region": "asia-southeast1",
+  "runtime_version": "2.2",
+  "spark_transformation_runtime_seconds": 199.56,
+  "output_root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/s1b-features-20261022-181849/gold",
+  "table_count": 4,
+  "tables": {
+    "feat_user_behavior": 3699917,
+    "feat_account_behavior": 3699917,
+    "feat_device_behavior": 3699919,
+    "feat_merchant_behavior": 1480541
+  },
+  "validations": {
+    "dataproc_state_succeeded": true,
+    "exact_feature_table_set": true,
+    "entity_keys_non_null": true,
+    "event_timestamps_non_null": true,
+    "label_columns_absent": true,
+    "fraud_labels_not_read": true,
+    "merchant_population_is_eligible_payments": true,
+    "immutable_run_scoped_output": true,
+    "local_pit_regression_tests": "6/6 PASS"
+  },
+  "next_step": "bounded Airflow DP1 DP2 DP3 orchestration verification"
+}
