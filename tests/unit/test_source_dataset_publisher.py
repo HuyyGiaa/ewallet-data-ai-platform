@@ -245,14 +245,14 @@ class DatasetPublisherTest(unittest.TestCase):
         manifest_uri = self.publisher.dataset_manifest_uri
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
-            first_dir, first = make_local_shard(root, self.plan, 0)
-            self.publisher.publish_shard(first_dir, first, cleanup_local=False)
+            second_dir, second = make_local_shard(root, self.plan, 1)
+            self.publisher.publish_shard(second_dir, second, cleanup_local=False)
             with self.assertRaises(IncompleteDatasetError):
                 self.publisher.finalize()
             self.assertFalse(self.store.exists(manifest_uri))
 
-            second_dir, second = make_local_shard(root, self.plan, 1)
-            self.publisher.publish_shard(second_dir, second, cleanup_local=False)
+            first_dir, first = make_local_shard(root, self.plan, 0)
+            self.publisher.publish_shard(first_dir, first, cleanup_local=False)
             dataset_manifest = self.publisher.finalize()
 
         self.assertTrue(self.store.exists(manifest_uri))
@@ -273,6 +273,14 @@ class DatasetPublisherTest(unittest.TestCase):
             item.bytes for item in first.files + second.files
         )
         self.assertEqual(expected_bytes, dataset_manifest["total_bytes"])
+        for table in PHYSICAL_TABLES:
+            self.assertEqual(
+                [0, 1],
+                [
+                    item["shard_id"]
+                    for item in dataset_manifest["tables"][table]["files"]
+                ],
+            )
         serialized = json.dumps(dataset_manifest)
         self.assertNotIn(str(Path.home()), serialized)
         self.assertNotIn("credentials", serialized.lower())

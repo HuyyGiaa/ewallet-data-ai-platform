@@ -6,8 +6,10 @@ import argparse
 import json
 import shutil
 import sys
+from collections import deque
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import TextIO
+from typing import Callable, Iterable, TextIO
 
 from data_platform.config import load_runtime_config
 from data_platform.generation.src.offline.offline_generator import load_config
@@ -21,6 +23,13 @@ from data_platform.generation.src.sharded.storage import GcloudObjectStore
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _positive_worker_count(value: str) -> int:
+    workers = int(value)
+    if workers < 1:
+        raise argparse.ArgumentTypeError("workers must be at least 1")
+    return workers
 
 
 def resolve_generator_config_path(value: str) -> Path:
@@ -52,6 +61,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--transactions-per-shard", required=True, type=int)
     parser.add_argument("--shard-start", type=int, default=0)
     parser.add_argument("--shard-end", type=int)
+    parser.add_argument("--workers", type=_positive_worker_count, default=1)
     parser.add_argument("--staging-dir", type=Path, default=Path("tmp/source-datasets"))
     parser.add_argument(
         "--execute",
@@ -59,6 +69,116 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Publish to GCS. Without this flag the command is a dry run.",
     )
     return parser.parse_args(argv)
+
+
+def _generate_shard_worker(
+    base_config: dict,
+    plan,
+    shard_id: int,
+    staging_root: Path,
+):
+    """Generate one shard in an isolated process-owned staging directory."""
+    local_directory = Path(staging_root) / f"shard-{shard_id:05d}"
+    if local_directory.exists():
+        shutil.rmtree(local_directory)
+    return generate_shard(base_config, plan, shard_id, Path(staging_root))
+
+
+def find_missing_shards(
+    publisher: DatasetPublisher,
+    shard_ids: Iterable[int],
+    *,
+    stdout: TextIO,
+) -> list[int]:
+    """Let the coordinator validate resume state before scheduling any work."""
+    missing: list[int] = []
+    for shard_id in shard_ids:
+        if publisher.completed_shard(shard_id) is not None:
+            print(
+                f"shard {shard_id:05d}: verified remote COMPLETE; skip",
+                file=stdout,
+            )
+        else:
+            missing.append(shard_id)
+    return missing
+
+
+def generate_and_publish_shards(
+    *,
+    base_config: dict,
+    plan,
+    shard_ids: Iterable[int],
+    staging_root: Path,
+    publisher: DatasetPublisher,
+    workers: int,
+    stdout: TextIO,
+    executor_factory: Callable[..., ProcessPoolExecutor] = ProcessPoolExecutor,
+) -> None:
+    """Generate with bounded processes; publish manifests only in the coordinator."""
+    requested = list(shard_ids)
+    if len(requested) != len(set(requested)):
+        raise ValueError("duplicate shard IDs cannot be scheduled")
+    if workers < 1:
+        raise ValueError("workers must be at least 1")
+
+    def publish(shard_id: int, manifest) -> None:
+        local_directory = staging_root / f"shard-{shard_id:05d}"
+        publisher.publish_shard(
+            local_directory,
+            manifest,
+            cleanup_local=True,
+        )
+        print(
+            f"shard {shard_id:05d}: generated, uploaded, verified",
+            file=stdout,
+        )
+
+    # Keep the original generate-then-publish sequence when parallelism is off.
+    if workers == 1:
+        for shard_id in requested:
+            manifest = _generate_shard_worker(
+                base_config,
+                plan,
+                shard_id,
+                staging_root,
+            )
+            publish(shard_id, manifest)
+        return
+
+    # At most ``workers`` futures exist. Results are consumed in shard order so
+    # uploads and manifest coordination remain deterministic in the main process.
+    executor = executor_factory(max_workers=workers)
+    pending = deque()
+    remaining = iter(requested)
+
+    def submit_next() -> bool:
+        try:
+            shard_id = next(remaining)
+        except StopIteration:
+            return False
+        future = executor.submit(
+            _generate_shard_worker,
+            base_config,
+            plan,
+            shard_id,
+            staging_root,
+        )
+        pending.append((shard_id, future))
+        return True
+
+    try:
+        for _ in range(min(workers, len(requested))):
+            submit_next()
+        while pending:
+            shard_id, future = pending.popleft()
+            manifest = future.result()
+            publish(shard_id, manifest)
+            submit_next()
+    except BaseException:
+        executor.shutdown(wait=True, cancel_futures=True)
+        raise
+    else:
+        executor.shutdown(wait=True)
 
 
 def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
@@ -95,6 +215,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
         file=stdout,
     )
     print(f"requested_shards: [{args.shard_start}, {shard_end})", file=stdout)
+    print(f"workers: {args.workers}", file=stdout)
     if not args.execute:
         print("DRY RUN - no local shard generated and no GCS object written", file=stdout)
         return 0
@@ -112,21 +233,20 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
         / plan.dataset_version
         / plan.digest
     )
-    for shard_id in range(args.shard_start, shard_end):
-        completed = publisher.completed_shard(shard_id)
-        if completed is not None:
-            print(f"shard {shard_id:05d}: verified remote COMPLETE; skip", file=stdout)
-            continue
-        local_directory = staging_root / f"shard-{shard_id:05d}"
-        if local_directory.exists():
-            shutil.rmtree(local_directory)
-        manifest = generate_shard(base_config, plan, shard_id, staging_root)
-        publisher.publish_shard(
-            local_directory,
-            manifest,
-            cleanup_local=True,
-        )
-        print(f"shard {shard_id:05d}: generated, uploaded, verified", file=stdout)
+    missing_shards = find_missing_shards(
+        publisher,
+        range(args.shard_start, shard_end),
+        stdout=stdout,
+    )
+    generate_and_publish_shards(
+        base_config=base_config,
+        plan=plan,
+        shard_ids=missing_shards,
+        staging_root=staging_root,
+        publisher=publisher,
+        workers=args.workers,
+        stdout=stdout,
+    )
 
     try:
         manifest = publisher.finalize()

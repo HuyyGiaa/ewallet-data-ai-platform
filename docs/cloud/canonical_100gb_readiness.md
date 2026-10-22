@@ -17,6 +17,33 @@ The actual completed GCS manifest is authoritative. Do not describe the
 dataset as 100 GB until that manifest reports a size inside the profile's
 95-105 GB accepted range.
 
+## Bounded local parallel-generation benchmark
+
+The shard generator was benchmarked with four canonical-size shards, each
+containing 12,500 users, 300 merchants, and 100,000 logical transactions.
+All modes used `global_seed=7001` and the same immutable shard plan.
+
+| Workers | Wall time | Speedup | Peak aggregate RSS |
+| ---: | ---: | ---: | ---: |
+| 1 | 98.791 s | 1.00x | not recorded |
+| 2 | 47.094 s | 2.10x | not recorded |
+| 4 | 28.212 s | 3.50x | 1.314 GB |
+
+This is a generation-only benchmark. It excludes GCS upload, remote checksum
+verification, and final manifest publication. It does not establish or claim
+the runtime of the canonical 100 GB run.
+
+The sequential, two-worker, and four-worker runs produced byte-identical
+Parquet files and identical per-shard manifests and checksums. Shard seeds are
+derived only from the immutable plan and shard ID. Each `ProcessPoolExecutor`
+worker owns one unique shard staging directory, so process-local random state
+cannot leak between shards. The main process alone validates `plan.json`,
+selects unfinished shard IDs, uploads and verifies outputs, writes completion
+manifests, and calls `finalize()`. In-flight futures are limited to the worker
+count. A failed worker stops the run while already published shards remain
+verified and resumable. Four workers are therefore the measured local setting
+for the canonical USER_RUN command.
+
 ## USER_RUN: generate and publish the immutable source
 
 Run from the repository root in the `fintech` Conda environment:
@@ -45,7 +72,8 @@ python -m ops.gcp.generate_source_dataset \
   --shard-count "$SHARD_COUNT" \
   --users-per-shard 12500 \
   --merchants-per-shard 300 \
-  --transactions-per-shard 100000
+  --transactions-per-shard 100000 \
+  --workers 4
 
 python -m ops.gcp.generate_source_dataset \
   --environment gcp \
@@ -56,6 +84,7 @@ python -m ops.gcp.generate_source_dataset \
   --users-per-shard 12500 \
   --merchants-per-shard 300 \
   --transactions-per-shard 100000 \
+  --workers 4 \
   --execute
 ```
 

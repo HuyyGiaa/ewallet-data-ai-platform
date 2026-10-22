@@ -15,6 +15,51 @@
     "estimated_total_bytes": 100012322256,
     "disk_safety_pass": true
   },
+  "local_parallel_generation": {
+    "scope": "generation_only_bounded_benchmark",
+    "canonical_runtime_claimed": false,
+    "gcs_upload_included": false,
+    "workload": {
+      "shard_count": 4,
+      "users_per_shard": 12500,
+      "merchants_per_shard": 300,
+      "transactions_per_shard": 100000,
+      "global_seed": 7001
+    },
+    "results": [
+      {
+        "workers": 1,
+        "wall_seconds": 98.791,
+        "speedup": 1.0
+      },
+      {
+        "workers": 2,
+        "wall_seconds": 47.094,
+        "speedup": 2.1
+      },
+      {
+        "workers": 4,
+        "wall_seconds": 28.212,
+        "speedup": 3.5,
+        "peak_aggregate_rss_gb": 1.314
+      }
+    ],
+    "recommended_workers": 4,
+    "determinism": {
+      "byte_identical_parquet": true,
+      "identical_per_shard_manifests": true,
+      "identical_checksums": true,
+      "deterministic_final_manifest_order": true
+    },
+    "resume_safety": {
+      "completed_shards_skipped_before_scheduling": true,
+      "duplicate_shard_scheduling_rejected": true,
+      "manifest_and_upload_coordinator_process_only": true,
+      "single_finalize_coordinator": true,
+      "in_flight_futures_bounded_by_workers": true,
+      "completed_shards_resumable_after_worker_failure": true
+    }
+  },
   "bounded_cloud_evidence": {
     "bronze_run_id": "r4-bronze-20261022-095608",
     "silver_run_id": "s1b-silver-configfix-20261022-174352",
