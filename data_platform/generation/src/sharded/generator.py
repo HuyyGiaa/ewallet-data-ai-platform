@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import gc
 import hashlib
@@ -40,6 +41,14 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _md5_base64_file(path: Path) -> str:
+    digest = hashlib.md5()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return base64.b64encode(digest.digest()).decode("ascii")
 
 
 def _safe_output_root(output_root: Path) -> Path:
@@ -90,6 +99,7 @@ def _file_metadata(
         rows=parquet_file.metadata.num_rows,
         bytes=path.stat().st_size,
         sha256=_sha256_file(path),
+        md5_base64=_md5_base64_file(path),
         schema_sha256=hashlib.sha256(schema_text.encode("utf-8")).hexdigest(),
     )
 
