@@ -6,7 +6,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from ai_platform.ml.training.contract import MODEL_FEATURE_COLUMNS
 
@@ -17,10 +17,11 @@ NUMERIC_COLUMNS = tuple(
 )
 
 
-def _numeric_pipeline() -> Pipeline:
-    return Pipeline(
-        [("imputer", SimpleImputer(strategy="median", add_indicator=True))]
-    )
+def _numeric_pipeline(*, scale: bool = False) -> Pipeline:
+    steps = [("imputer", SimpleImputer(strategy="median", add_indicator=True))]
+    if scale:
+        steps.append(("scale", StandardScaler()))
+    return Pipeline(steps)
 
 
 def _categorical_pipeline() -> Pipeline:
@@ -35,11 +36,11 @@ def _categorical_pipeline() -> Pipeline:
     )
 
 
-def build_feature_transformer() -> Pipeline:
-    """Build the one train-fitted representation used by Random Forest."""
+def build_feature_transformer(*, scale_numeric: bool = False) -> Pipeline:
+    """Build one train-fitted representation for leakage-safe candidates."""
     preprocess = ColumnTransformer(
         [
-            ("numeric", _numeric_pipeline(), NUMERIC_COLUMNS),
+            ("numeric", _numeric_pipeline(scale=scale_numeric), NUMERIC_COLUMNS),
             ("categorical", _categorical_pipeline(), CATEGORICAL_COLUMNS),
         ],
         sparse_threshold=0.0,

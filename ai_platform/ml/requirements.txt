@@ -2,3 +2,6 @@ pandas==2.3.3
 pyarrow==25.0.1
 scikit-learn==1.7.2
 PyYAML==6.0.3
+mlflow==3.17.1
+psycopg2-binary==2.9.13
+google-cloud-storage==3.4.1
