@@ -59,6 +59,26 @@ def _prepare_local_event_log_directory(event_log_uri: str) -> None:
     event_log_directory.mkdir(parents=True, exist_ok=True)
 
 
+def _get_or_create_spark(builder: object, config: RuntimeConfig) -> SparkSession:
+    """Start Spark without resolving Maven packages when none are configured.
+
+    Dataproc submissions provide the pinned Delta JARs through ``--jars``. Calling
+    ``configure_spark_with_delta_pip`` in that environment would add a Maven
+    coordinate and make the driver depend on external Ivy resolution before the
+    application starts.
+    """
+
+    if not config.spark.packages:
+        return builder.getOrCreate()
+
+    from delta import configure_spark_with_delta_pip
+
+    return configure_spark_with_delta_pip(
+        builder,
+        extra_packages=list(config.spark.packages),
+    ).getOrCreate()
+
+
 def create_spark_session(
     app_name: str = "EWallet-Batch-Transformation",
     optimized: bool = True,
@@ -66,7 +86,6 @@ def create_spark_session(
 ) -> SparkSession:
     """Create Spark using one validated runtime environment profile."""
 
-    from delta import configure_spark_with_delta_pip
     from pyspark.sql import SparkSession
 
     config = runtime_config or load_runtime_config()
@@ -79,10 +98,7 @@ def create_spark_session(
     for key, value in spark_options(config, optimized=optimized).items():
         builder = builder.config(key, value)
 
-    spark = configure_spark_with_delta_pip(
-        builder,
-        extra_packages=list(config.spark.packages),
-    ).getOrCreate()
+    spark = _get_or_create_spark(builder, config)
     spark.sparkContext.setLogLevel("WARN")
 
     print(f"[SPARK] Application : {app_name}")

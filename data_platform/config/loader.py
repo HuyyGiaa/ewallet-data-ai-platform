@@ -202,3 +202,34 @@ def load_runtime_config(
         _mapping(rendered, "configuration"),
         selected_environment,
     )
+
+
+def load_runtime_config_file(
+    profile_path: Path,
+    environment: str,
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> RuntimeConfig:
+    """Load one explicitly distributed runtime profile file."""
+
+    selected_environment = environment.strip().lower()
+    if selected_environment not in SUPPORTED_ENVIRONMENTS:
+        supported = ", ".join(sorted(SUPPORTED_ENVIRONMENTS))
+        raise ValueError(
+            f"unsupported environment {selected_environment!r}; "
+            f"expected one of: {supported}"
+        )
+    path = Path(profile_path)
+    if not path.is_file():
+        raise ValueError(f"Configuration profile does not exist: {path}")
+    try:
+        parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Invalid YAML configuration: {path}") from exc
+    effective_environ = os.environ if environ is None else environ
+    raw = _mapping(parsed, "configuration")
+    rendered = interpolate_environment(raw, effective_environ)
+    return _build_runtime_config(
+        _mapping(rendered, "configuration"),
+        selected_environment,
+    )

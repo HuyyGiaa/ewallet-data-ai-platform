@@ -3,6 +3,7 @@
 from data_platform.config.loader import (
     interpolate_environment,
     load_runtime_config,
+    load_runtime_config_file,
 )
 from data_platform.config.models import (
     RuntimeConfig,
@@ -20,4 +21,5 @@ __all__ = [
     "StorageLayer",
     "interpolate_environment",
     "load_runtime_config",
+    "load_runtime_config_file",
 ]

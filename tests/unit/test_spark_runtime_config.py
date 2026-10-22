@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from types import ModuleType
+from unittest.mock import MagicMock, patch
 
 from data_platform.config import load_runtime_config
-from data_platform.processing.spark.common.spark_session import spark_options
+from data_platform.processing.spark.common.spark_session import (
+    _get_or_create_spark,
+    spark_options,
+)
 
 
 LOCAL_ENVIRONMENT = {
@@ -112,6 +117,35 @@ class SparkRuntimeOptionsTest(unittest.TestCase):
             ("org.apache.hadoop:hadoop-aws:3.4.2",),
         )
         self.assertEqual(self.gcp_config.spark.packages, ())
+
+    def test_gcp_session_uses_pre_supplied_jars_without_maven_resolution(
+        self,
+    ) -> None:
+        builder = MagicMock()
+        expected_session = builder.getOrCreate.return_value
+
+        actual_session = _get_or_create_spark(builder, self.gcp_config)
+
+        self.assertIs(actual_session, expected_session)
+        builder.getOrCreate.assert_called_once_with()
+
+    def test_local_session_resolves_configured_packages(self) -> None:
+        builder = MagicMock()
+        configured_builder = MagicMock()
+        configure = MagicMock(return_value=configured_builder)
+        delta_module = ModuleType("delta")
+        delta_module.configure_spark_with_delta_pip = configure
+
+        with patch.dict("sys.modules", {"delta": delta_module}):
+            actual_session = _get_or_create_spark(builder, self.local_config)
+
+        self.assertIs(actual_session, configured_builder.getOrCreate.return_value)
+        configure.assert_called_once_with(
+            builder,
+            extra_packages=["org.apache.hadoop:hadoop-aws:3.4.2"],
+        )
+        configured_builder.getOrCreate.assert_called_once_with()
+        builder.getOrCreate.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from data_platform.config import (
     StorageConfig,
     interpolate_environment,
     load_runtime_config,
+    load_runtime_config_file,
 )
 
 
@@ -132,6 +133,19 @@ class RuntimeConfigLoaderTest(unittest.TestCase):
 
         self.assertEqual(config.environment, "gcp")
         self.assertEqual(config.storage.scheme, "gs")
+
+    def test_distributed_profile_file_loads_without_repository_layout(self) -> None:
+        profile_path = self.profiles.root / "gcp" / "platform.yaml"
+
+        config = load_runtime_config_file(
+            profile_path,
+            "gcp",
+            environ=self.base_environ,
+        )
+
+        self.assertEqual(config.environment, "gcp")
+        self.assertEqual(config.storage.scheme, "gs")
+        self.assertEqual(config.project_id, "unit-test-project")
 
     def test_required_placeholder_names_missing_variable_without_leaking_values(
         self,
