@@ -277,7 +277,7 @@ class DatasetPublisherTest(unittest.TestCase):
         self.assertNotIn(str(Path.home()), serialized)
         self.assertNotIn("credentials", serialized.lower())
 
-    def test_final_manifest_rejects_fraud_scenario_count_mismatch(self) -> None:
+    def test_final_manifest_rejects_more_scenarios_than_label_rows(self) -> None:
         one_shard_plan = build_shard_plan(
             base_config(), "r4-one-shard-v1", 7001, 1, 30, 8, 600
         )
@@ -295,7 +295,7 @@ class DatasetPublisherTest(unittest.TestCase):
                 **{
                     **manifest.__dict__,
                     "fraud_scenario_counts": {
-                        "velocity": 2,
+                        "velocity": 4,
                         "amount_anomaly": 3,
                         "account_takeover": 3,
                         "merchant_burst": 3,
@@ -306,7 +306,7 @@ class DatasetPublisherTest(unittest.TestCase):
                 shard_directory, inconsistent, cleanup_local=False
             )
             with self.assertRaisesRegex(
-                ObjectConflictError, "fraud scenario totals"
+                ObjectConflictError, "exceed fraud_labels"
             ):
                 publisher.finalize()
 

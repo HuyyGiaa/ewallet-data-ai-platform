@@ -1,0 +1,9 @@
+name: cloud-smoke
+target_bytes: 25000000
+tolerance_ratio: 0.50
+global_seed: 7001
+users_per_shard: 1250
+merchants_per_shard: 100
+transactions_per_shard: 10000
+minimum_free_disk_bytes: 10737418240
+staging_safety_multiplier: 3.0

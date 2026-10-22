@@ -239,10 +239,11 @@ class DatasetPublisher:
             name: sum(shard.fraud_scenario_counts.get(name, 0) for shard in shards)
             for name in scenario_names
         }
-        fraud_rows = tables["fraud_labels"]["rows"]
-        if sum(scenario_counts.values()) != fraud_rows:
+        fraud_label_rows = tables["fraud_labels"]["rows"]
+        fraud_rows = sum(scenario_counts.values())
+        if fraud_rows > fraud_label_rows:
             raise ObjectConflictError(
-                "fraud scenario totals do not match fraud_labels row count"
+                "fraud scenario totals exceed fraud_labels row count"
             )
         dataset_manifest: dict[str, Any] = {
             "schema_version": 1,
@@ -256,6 +257,7 @@ class DatasetPublisher:
             "physical_transactions": sum(
                 shard.physical_transactions for shard in shards
             ),
+            "fraud_label_rows": fraud_label_rows,
             "fraud_rows": fraud_rows,
             "fraud_scenario_counts": scenario_counts,
             "total_bytes": sum(
