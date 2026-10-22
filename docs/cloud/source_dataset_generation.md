@@ -72,3 +72,6 @@ completed prefix.
   resumed only when their remote plan digest matches.
 - Generation is an upstream job. Airflow consumes a completed source manifest
   and does not silently generate data inside DP1.
+
+The measured R4 publication and source-to-Bronze result are documented in
+[`gcs_delta_lake.md`](gcs_delta_lake.md).

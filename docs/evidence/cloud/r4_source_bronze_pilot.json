@@ -1,0 +1,72 @@
+{
+  "schema_version": "r4-source-bronze-pilot-v1",
+  "recorded_at": "2026-10-22T10:00:06Z",
+  "branch": "feature/phase2-fraud-platform",
+  "source_git_sha": "4437a7155a22afd62281123406b906740019e17e",
+  "project_id": "ewallet-data-ai-platform-hg26",
+  "region": "asia-southeast1",
+  "source": {
+    "status": "COMPLETE",
+    "dataset_version": "r4-pilot-1gb-v1",
+    "manifest_uri": "gs://ewallet-data-ai-platform-hg26-data/source/r4-pilot-1gb-v1/_control/dataset_manifest.json",
+    "shards": 37,
+    "physical_files": 333,
+    "logical_transactions": 3700000,
+    "physical_transactions": 3774000,
+    "fraud_label_rows": 3700000,
+    "fraud_rows": 74000,
+    "fraud_rate": 0.02,
+    "fraud_scenario_counts": {
+      "velocity": 18500,
+      "amount_anomaly": 18500,
+      "account_takeover": 18500,
+      "merchant_burst": 18500
+    },
+    "parquet_bytes": 1000154486
+  },
+  "bronze": {
+    "status": "PASS",
+    "batch_id": "r4-bronze-20261022-095608",
+    "application_id": "app-20261022095746036-0413",
+    "runtime_version": "2.2.89",
+    "spark_version": "3.5.3",
+    "root_uri": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/r4-bronze-20261022-095608/bronze",
+    "evidence_uri": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/r4-bronze-20261022-095608/evidence/source_to_bronze.json",
+    "started_at": "2026-10-22T09:57:43.374509+00:00",
+    "finished_at": "2026-10-22T10:00:01.824568+00:00",
+    "duration_seconds": 138.45,
+    "duplicate_rows": 74000,
+    "logical_transactions": 3700000,
+    "physical_transactions": 3774000,
+    "fraud_label_rows": 3700000,
+    "fraud_rows": 74000,
+    "tables": {
+      "users": 462500,
+      "accounts": 624191,
+      "merchants": 11100,
+      "devices": 529637,
+      "transactions": 3774000,
+      "balance_snapshots": 3601178,
+      "login_events": 3703228,
+      "fraud_labels": 3700000
+    },
+    "source_to_bronze_row_mismatches": 0,
+    "milli_dcu_seconds": 1919700,
+    "shuffle_storage_gb_seconds": 194400
+  },
+  "resource_contention": {
+    "initial_attempt": "FAILED_BEFORE_SPARK_START",
+    "reason": "Dataproc Serverless minimum 12 vCPU exceeded the 8 vCPU remaining while one e2-standard-4 GKE node was running",
+    "data_loss": false,
+    "resolution": "temporarily scale the GKE node pool to zero, run the immutable Dataproc batch, then restore the node pool",
+    "successful_batch_attempts": 1
+  },
+  "generated_runtime_artifacts_tracked": 0,
+  "canonical_10gb_run": false,
+  "canonical_100gb_run": false,
+  "cloud_silver_run": false,
+  "cloud_gold_run": false,
+  "cloud_historical_features_run": false,
+  "spark_optimization_claimed": false,
+  "next_step": "R5 Silver, core Gold, historical feature Gold and three Airflow DAGs"
+}
