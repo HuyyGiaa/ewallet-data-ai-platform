@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "scope": "bounded_cloud_core_gold",
+  "canonical_100gb": false,
+  "dataset_version": "r4-pilot-1gb-v1",
+  "source_silver_run_id": "s1b-silver-configfix-20261022-174352",
+  "run_id": "s1b-gold-20261022-180212",
+  "batch_uuid": "5210f20f-ac58-44ca-ba6f-b548aab73ddd",
+  "region": "asia-southeast1",
+  "runtime_version": "2.2",
+  "spark_transformation_runtime_seconds": 634.85,
+  "output_root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/s1b-gold-20261022-180212/gold",
+  "table_count": 11,
+  "tables": {
+    "dim_user": 462500,
+    "dim_account": 624191,
+    "dim_merchant": 11100,
+    "dim_device": 529637,
+    "dim_date": 151,
+    "fact_transactions": 3700000,
+    "fact_login_events": 3703228,
+    "fact_balance_snapshot": 3601178,
+    "obt_transaction_enriched": 3700000,
+    "feat_user_90d": 462500,
+    "opt_merchant_performance": 11100
+  },
+  "validations": {
+    "dataproc_state_succeeded": true,
+    "exact_core_table_set": true,
+    "fact_transaction_count_matches_silver": true,
+    "obt_transaction_count_matches_fact": true,
+    "historical_features_excluded": true,
+    "fraud_labels_excluded": true,
+    "label_columns_absent": true,
+    "immutable_run_scoped_output": true
+  },
+  "next_step": "bounded DP3 historical feature Gold pilot"
+}

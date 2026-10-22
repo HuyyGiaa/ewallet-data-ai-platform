@@ -18,10 +18,12 @@ component documents for implementation detail and recorded evidence.
 | [Terraform GCP foundation](cloud/terraform_gcp_foundation.md) | Remote state, GCS/IAM/VPC/registry modules, cost gates and apply/cleanup runbook | R2 infrastructure operations |
 | [Dataproc Delta-on-GCS smoke](cloud/dataproc_delta_smoke.md) | Cost-gated Spark/Delta/GCS compatibility job, submission, evidence and cleanup | R3 runtime decision checkpoint |
 | [Cloud Silver bounded pilot](cloud/silver_bounded_pilot.md) | Dry-run and user execution contract for the verified R4 Bronze pilot | Stage 1A runbook |
+| [Cloud core Gold bounded pilot](cloud/core_gold_bounded_pilot.md) | Immutable bounded Silver-to-core-Gold run and validation | Stage 1B verified evidence |
 | [R1 configuration evidence](evidence/cloud/r1_config_foundation.json) | Machine-readable profile, literal-scan, compile, and regression results | Verified foundation evidence |
 | [R2 Terraform foundation evidence](evidence/cloud/r2_terraform_plan.json) | Applied state/bootstrap foundation, recovery record, final state counts and guardrails | Verified infrastructure evidence |
 | [R3 Dataproc Delta evidence](evidence/cloud/r3_dataproc_delta_smoke.json) | Delta write/append/read-back, schema and timestamp precision on GCS | Verified cloud runtime evidence |
 | [Silver bounded pilot evidence](evidence/cloud/s1b_silver_bounded_pilot.json) | Immutable Bronze-to-Silver run, persisted counts, schemas and DQ results | Stage 1B verified evidence |
+| [Core Gold bounded pilot evidence](evidence/cloud/s1b_core_gold_bounded_pilot.json) | Immutable core Gold run, persisted counts and leakage checks | Stage 1B verified evidence |
 | [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature contract | Implemented Gold contract |
 | [Feast offline retrieval](ml/feast_offline.md) | Entities, FeatureViews, source adapter, precision, PIT retrieval, and limits | Implemented bounded offline retrieval |
 | [Fraud training dataset](ml/fraud_training_dataset.md) | Supervised row contract, leakage boundary, temporal splits, and reproducible build | Implemented 40,148-row trainable materialization |

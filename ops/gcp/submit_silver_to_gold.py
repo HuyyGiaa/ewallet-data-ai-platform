@@ -1,0 +1,175 @@
+"""Render or execute the bounded Silver-to-core-Gold Dataproc batch."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shlex
+import subprocess
+from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
+from typing import Any
+
+from data_platform.processing.spark.gold.gold_pipeline import CORE_GOLD_TABLES
+from ops.gcp.package_python_job import build_python_archive
+from ops.gcp.submit_dataproc_delta_smoke import (
+    TERRAFORM_DEV_ROOT,
+    dependency_jar_paths,
+    ensure_delta_dependencies,
+)
+from ops.gcp.submit_source_to_bronze import (
+    CloudRuntime,
+    REPOSITORY_ROOT,
+    _validate_id,
+    load_cloud_runtime,
+)
+
+
+GOLD_SCRIPT = REPOSITORY_ROOT / "data_platform/processing/spark/gold/gold_pipeline.py"
+DEFAULT_ARCHIVE = REPOSITORY_ROOT / "tmp/dataproc/ewallet-python.zip"
+GCP_RUNTIME_PROFILE = REPOSITORY_ROOT / "configs/environments/gcp/platform.yaml"
+
+
+def run_roots(
+    runtime: CloudRuntime, *, source_silver_run_id: str, run_id: str
+) -> tuple[str, str]:
+    source_silver_run_id = _validate_id(source_silver_run_id, "source_silver_run_id")
+    run_id = _validate_id(run_id, "run_id")
+    if run_id == source_silver_run_id:
+        raise ValueError("Gold run_id must differ from source Silver run")
+    base = f"gs://{runtime.data_bucket}/lakehouse/runs"
+    return f"{base}/{source_silver_run_id}/silver", f"{base}/{run_id}/gold"
+
+
+def assert_output_prefix_absent(
+    runtime: CloudRuntime,
+    *,
+    run_id: str,
+    runner: Callable[..., Any] = subprocess.run,
+) -> None:
+    _, output_root = run_roots(
+        runtime, source_silver_run_id="source-check", run_id=run_id
+    )
+    completed = runner(
+        ["gcloud", "storage", "ls", f"{output_root}/**"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode == 0 and completed.stdout.strip():
+        raise ValueError(f"Gold output prefix already exists and is immutable: {output_root}")
+    missing = completed.returncode == 1 and "matched no objects" in completed.stderr.lower()
+    if completed.returncode != 0 and not missing:
+        raise RuntimeError(f"Could not verify Gold output prefix: {completed.stderr.strip()}")
+
+
+def build_submission_command(
+    runtime: CloudRuntime,
+    *,
+    dataset_version: str,
+    source_silver_run_id: str,
+    run_id: str,
+    script_path: Path = GOLD_SCRIPT,
+    archive_path: Path = DEFAULT_ARCHIVE,
+    runtime_profile_path: Path = GCP_RUNTIME_PROFILE,
+    jar_paths: Sequence[Path] | None = None,
+) -> tuple[str, ...]:
+    dataset_version = _validate_id(dataset_version, "dataset_version")
+    silver_root, gold_root = run_roots(
+        runtime, source_silver_run_id=source_silver_run_id, run_id=run_id
+    )
+    jars = tuple(jar_paths or dependency_jar_paths())
+    properties = ",".join(
+        (
+            f"dataproc.tier={runtime.performance_tier}",
+            "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension",
+            "spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog",
+            "spark.sql.session.timeZone=UTC",
+            "spark.eventLog.enabled=true",
+            f"spark.eventLog.dir=gs://{runtime.data_bucket}/spark-events",
+        )
+    )
+    return (
+        "gcloud", "dataproc", "batches", "submit", "pyspark", str(script_path),
+        f"--batch={run_id}", f"--project={runtime.project_id}",
+        f"--region={runtime.region}", "--version=2.2",
+        f"--service-account={runtime.service_account_email}",
+        f"--subnet={runtime.subnet}",
+        "--jars=" + ",".join(str(path) for path in jars),
+        f"--py-files={archive_path}", f"--files={runtime_profile_path}",
+        f"--deps-bucket=gs://{runtime.temporary_bucket}",
+        f"--staging-bucket={runtime.temporary_bucket}", "--ttl=2h",
+        "--labels=component=core-gold,phase=s1b", f"--properties={properties}", "--",
+        "--environment=gcp", "--mode=optimized",
+        f"--expected-table-count={len(CORE_GOLD_TABLES)}",
+        f"--dataset-version={dataset_version}",
+        f"--source-silver-run-id={source_silver_run_id}", f"--run-id={run_id}",
+        f"--project-id={runtime.project_id}", f"--region={runtime.region}",
+        f"--data-bucket={runtime.data_bucket}",
+        f"--runtime-config-file={runtime_profile_path.name}",
+        f"--silver-root={silver_root}", f"--gold-root={gold_root}",
+    )
+
+
+def _load_outputs(path: Path | None, runner: Callable[..., Any]) -> Mapping[str, Any]:
+    if path is not None:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        completed = runner(
+            ["terraform", f"-chdir={TERRAFORM_DEV_ROOT}", "output", "-json"],
+            check=True, text=True, capture_output=True,
+        )
+        value = json.loads(completed.stdout)
+    if not isinstance(value, Mapping):
+        raise ValueError("Terraform output JSON must be an object")
+    return value
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset-version", required=True)
+    parser.add_argument("--source-silver-run-id", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--terraform-output-json", type=Path)
+    parser.add_argument("--execute", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    runner: Callable[..., Any] = subprocess.run,
+) -> int:
+    args = parse_args(argv)
+    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    jars = dependency_jar_paths()
+    archive = DEFAULT_ARCHIVE
+    if args.execute:
+        assert_output_prefix_absent(runtime, run_id=args.run_id, runner=runner)
+        jars = ensure_delta_dependencies()
+        archive = build_python_archive(REPOSITORY_ROOT, DEFAULT_ARCHIVE)
+    command = build_submission_command(
+        runtime,
+        dataset_version=args.dataset_version,
+        source_silver_run_id=args.source_silver_run_id,
+        run_id=args.run_id,
+        archive_path=archive,
+        jar_paths=jars,
+    )
+    silver_root, gold_root = run_roots(
+        runtime, source_silver_run_id=args.source_silver_run_id, run_id=args.run_id
+    )
+    if not args.execute:
+        print("DRY RUN — no Dataproc batch was submitted")
+        print(f"Silver input root: {silver_root}")
+        print(f"Core Gold output root: {gold_root}")
+        print(f"Tables ({len(CORE_GOLD_TABLES)}): {', '.join(CORE_GOLD_TABLES)}")
+        print(shlex.join(command))
+        return 0
+    runner(command, check=True)
+    print(f"Bounded Silver-to-core-Gold batch submitted: {args.run_id}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
