@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -92,7 +93,7 @@ class DatasetPublisher:
             return None
         manifest = ShardManifest.from_dict(json.loads(self.store.read_text(uri)))
         self._validate_manifest_identity(manifest, shard_id)
-        for item in manifest.files:
+        def verify_item(item: ShardFileMetadata) -> None:
             file_uri = self.file_uri(shard_id, item.table)
             if not self.store.exists(file_uri):
                 raise ObjectConflictError(
@@ -106,6 +107,9 @@ class DatasetPublisher:
                 raise ObjectConflictError(
                     f"completed shard object content changed: {file_uri}"
                 )
+
+        with ThreadPoolExecutor(max_workers=min(8, len(manifest.files))) as executor:
+            tuple(executor.map(verify_item, manifest.files))
         return manifest
 
     def _published_manifest(self, manifest: ShardManifest) -> ShardManifest:
@@ -168,7 +172,7 @@ class DatasetPublisher:
                 shutil.rmtree(local_directory)
             return completed
 
-        for item in manifest.files:
+        def publish_item(item: ShardFileMetadata) -> None:
             local_path = local_directory / f"{item.table}.parquet"
             if not local_path.is_file():
                 raise FileNotFoundError(local_path)
@@ -177,6 +181,9 @@ class DatasetPublisher:
                 self.file_uri(manifest.shard_id, item.table),
                 item,
             )
+
+        with ThreadPoolExecutor(max_workers=min(8, len(manifest.files))) as executor:
+            tuple(executor.map(publish_item, manifest.files))
 
         published = self._published_manifest(manifest)
         manifest_uri = self.shard_manifest_uri(manifest.shard_id)
