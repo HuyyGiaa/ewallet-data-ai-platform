@@ -1,121 +1,36 @@
-# Airflow Orchestration
+# Airflow cloud data orchestration
 
-## Goal
+Airflow 3.3.1 exposes three manually triggered DAGs. Spark transformations run
+in Dataproc Serverless; the scheduler only performs preflight checks, invokes
+the bounded submitters, and verifies immutable Delta outputs.
 
-Orchestrate the offline E-wallet pipeline instead of manually executing
-DP1, DP2, DP3 and validation scripts.
+| DAG | Responsibility | Output |
+|---|---|---|
+| `dp1_source_to_bronze` | Verify the source manifest, submit source-to-Bronze, verify eight Delta tables | Run-scoped Bronze root |
+| `dp2_bronze_to_curated` | Verify Bronze, submit Silver and core Gold, verify 8 + 11 Delta tables | Separate Silver and core Gold roots |
+| `dp3_historical_features` | Verify Silver and core Gold, submit four PIT feature tables, verify exact output | Feature Gold root |
 
-Airflow is responsible for task dependencies, retries, scheduling,
-execution status and logs. The transformation logic remains inside
-the existing Bronze, Silver and Gold pipeline scripts.
+All DAGs use `schedule=None`, `catchup=False`, and `max_active_runs=1`.
+Submission tasks have no automatic retry because output paths are immutable.
+Read-only validation tasks may retry once. Dataset version and every source and
+output run ID are explicit DAG parameters.
 
-## Pipeline
+The former local daily `ewallet_batch_pipeline` DAG was removed. It embedded
+developer-specific local Python paths and combined Silver, core Gold, and
+historical features into one lifecycle.
 
-```text
-bronze_ingestion
-        ↓
-validate_bronze
-        ↓
-silver_transformation
-        ↓
-validate_silver
-        ↓
-gold_transformation
-        ↓
-validate_gold
-```
+## Bounded verification
 
-Each downstream task runs only when the previous task succeeds.
+The bounded replay used the already verified Dataproc outputs:
 
-The DAG ends at Gold validation. Trino registration and DataHub metadata,
-lineage, and assertion publication remain explicit post-pipeline operations.
+- Bronze: `r4-bronze-20261022-095608`
+- Silver: `s1b-silver-configfix-20261022-174352`
+- Core Gold: `s1b-gold-20261022-180212`
+- Feature Gold: `s1b-features-20261022-181849`
 
-The four Bronze/Silver task commands use `--include-fraud-labels`, so the
-canonical six-stage run keeps the label table synchronized with transactions.
+Each DAG recorded a successful local Airflow DagRun. Submission tasks were
+marked successful during replay to avoid rerunning paid workloads; all source
+and Delta validation tasks executed against GCS and passed. The submitters had
+already run the corresponding Dataproc batches successfully before replay.
 
-## Configuration
-
-- Airflow version: 3.3.1
-- Executor: LocalExecutor
-- Schedule: daily
-- Catchup: disabled
-- Retries: 2
-- Retry delay: 2 minutes
-- Airflow UI port: 8080
-
-DataHub GMS owns host port `8080` in the combined local environment. Airflow
-must be assigned a different host port before its UI can run alongside
-DataHub. This document records the current Airflow default; the Airflow runtime
-port change remains a separate follow-up.
-
-- `project_root` and `fintech_python` are stored as Airflow Variables
-
-## Quality Gates
-
-Validation tasks are placed between data layers.
-
-For example:
-
-```text
-silver_transformation
-        ↓
-validate_silver
-        ↓
-gold_transformation
-```
-
-If `validate_silver` fails, `gold_transformation` is not executed.
-This prevents invalid data from propagating to the next layer.
-
-## Retry and Failure Handling
-
-During integration testing, `bronze_ingestion` failed because the
-offline source path was incorrect.
-
-Airflow automatically retried the task according to the retry policy,
-while downstream tasks remained blocked.
-
-This verified that task dependency and retry handling worked correctly.
-
-## Canonical Phase 2 verification
-
-The F3 rebuild used the six exact DAG task commands against the canonical
-dataset generated from 500,000 users. The local Airflow 3.3.1 metadata database
-requires a separate migration before a DagRun can be recorded, so F3 did not
-mutate that database solely for orchestration evidence. A read-only `DagBag`
-parse confirmed the DAG ID, six-task graph, `max_active_runs=1`, zero import
-errors, and all four required fraud flags.
-
-Dataset scale:
-
-- Users: 500,000
-- Accounts: 500,000
-- Devices: 519,590
-- Bronze transactions: 4,080,000
-- Balance snapshots: 3,881,538
-- Login events: 3,999,581
-- Fraud labels: 4,000,000
-
-All six commands completed successfully in **15 minutes 54 seconds**. This is
-manual execution of the rendered task commands, not a recorded Airflow DagRun.
-
-## Evidence
-
-![Historical successful Airflow batch DAG](evidence/airflow/01_batch_dag_graph.png)
-
-The screenshot is retained as earlier orchestration evidence; the F3 command
-and runtime evidence is recorded in
-[`evidence/f3_canonical_fraud_migration.json`](evidence/f3_canonical_fraud_migration.json).
-These measurements are baseline runtime evidence for later comparison, not
-optimized results.
-
-## F4C canonical verification
-
-F4C executed the same six task commands manually against the regenerated F4B
-canonical source. A fresh Airflow 3.3.1 `DagBag` parse again confirmed the DAG
-ID, six-task graph, `max_active_runs=1`, zero import errors, and the fraud flag
-on the four Bronze/Silver tasks only. The current canonical populations are
-674,383 accounts, 572,632 devices, 4,080,000 physical Bronze transaction rows,
-3,893,408 balance snapshots, 3,999,990 login events, and 4,000,000 fraud
-labels. Full run and validation evidence is recorded in
-[`evidence/f4c_canonical_regeneration.json`](evidence/f4c_canonical_regeneration.json).
+Machine-readable evidence: [bounded Airflow verification](evidence/cloud/s1b_airflow_bounded_verification.json).

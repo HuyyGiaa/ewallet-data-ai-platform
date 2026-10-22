@@ -26,6 +26,7 @@ component documents for implementation detail and recorded evidence.
 | [Silver bounded pilot evidence](evidence/cloud/s1b_silver_bounded_pilot.json) | Immutable Bronze-to-Silver run, persisted counts, schemas and DQ results | Stage 1B verified evidence |
 | [Core Gold bounded pilot evidence](evidence/cloud/s1b_core_gold_bounded_pilot.json) | Immutable core Gold run, persisted counts and leakage checks | Stage 1B verified evidence |
 | [Historical features bounded pilot evidence](evidence/cloud/s1b_historical_features_bounded_pilot.json) | Immutable DP3 run, feature counts and temporal checks | Stage 1B verified evidence |
+| [Bounded Airflow verification evidence](evidence/cloud/s1b_airflow_bounded_verification.json) | DP1/DP2/DP3 DagRun replay and persisted Delta validations | Stage 1B verified evidence |
 | [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature contract | Implemented Gold contract |
 | [Feast offline retrieval](ml/feast_offline.md) | Entities, FeatureViews, source adapter, precision, PIT retrieval, and limits | Implemented bounded offline retrieval |
 | [Fraud training dataset](ml/fraud_training_dataset.md) | Supervised row contract, leakage boundary, temporal splits, and reproducible build | Implemented 40,148-row trainable materialization |
