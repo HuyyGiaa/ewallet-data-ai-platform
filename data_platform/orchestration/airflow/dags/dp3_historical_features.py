@@ -35,6 +35,7 @@ with DAG(
         "silver_run_id": Param("s1b-silver-configfix-20261022-174352", type="string"),
         "gold_run_id": Param("s1b-gold-20261022-180212", type="string"),
         "feature_run_id": Param("r5-airflow-features-manual", type="string"),
+        "dataproc_ttl": Param("2h", type="string"),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp3", "manual"],
@@ -68,9 +69,10 @@ with DAG(
             "--dataset-version '{{ params.dataset_version }}' "
             "--source-silver-run-id '{{ params.silver_run_id }}' "
             "--source-core-gold-run-id '{{ params.gold_run_id }}' "
-            "--run-id '{{ params.feature_run_id }}' --execute"
+            "--run-id '{{ params.feature_run_id }}' "
+            "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
-        execution_timeout=timedelta(hours=2),
+        execution_timeout=timedelta(hours=10),
     )
     verify_features = BashOperator(
         task_id="verify_historical_feature_delta",

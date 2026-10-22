@@ -57,6 +57,31 @@ class CloudAirflowDagTest(unittest.TestCase):
                 self.assertNotIn("/home/", command)
                 self.assertNotIn("fintech_python", command)
 
+    def test_dataproc_ttl_is_a_dag_parameter(self) -> None:
+        task_ids = {
+            "dp1_source_to_bronze": ("submit_bronze_dataproc",),
+            "dp2_bronze_to_curated": (
+                "submit_silver_dataproc",
+                "submit_core_gold_dataproc",
+            ),
+            "dp3_historical_features": (
+                "submit_historical_features_dataproc",
+            ),
+        }
+        for dag_id, submit_tasks in task_ids.items():
+            dag = self.bag.dags[dag_id]
+            self.assertEqual("2h", dag.params["dataproc_ttl"])
+            for task_id in submit_tasks:
+                task = dag.get_task(task_id)
+                self.assertIn(
+                    "--ttl '{{ params.dataproc_ttl }}'",
+                    task.bash_command,
+                )
+                self.assertGreaterEqual(
+                    task.execution_timeout.total_seconds(),
+                    8 * 60 * 60,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

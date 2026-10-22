@@ -21,6 +21,7 @@ from ops.gcp.submit_source_to_bronze import (
     CloudRuntime,
     REPOSITORY_ROOT,
     _validate_id,
+    _validate_ttl,
     load_cloud_runtime,
 )
 
@@ -95,9 +96,11 @@ def build_submission_command(
     archive_path: Path = DEFAULT_ARCHIVE,
     runtime_profile_path: Path = GCP_RUNTIME_PROFILE,
     jar_paths: Sequence[Path] | None = None,
+    ttl: str = "2h",
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
     run_id = _validate_id(run_id, "run_id")
+    ttl = _validate_ttl(ttl)
     bronze_root, silver_root = run_roots(
         runtime,
         source_bronze_run_id=source_bronze_run_id,
@@ -134,7 +137,7 @@ def build_submission_command(
         f"--files={runtime_profile_path}",
         f"--deps-bucket=gs://{runtime.temporary_bucket}",
         f"--staging-bucket={runtime.temporary_bucket}",
-        "--ttl=2h",
+        f"--ttl={ttl}",
         "--labels=component=bronze-silver,phase=s1a",
         f"--properties={properties}",
         "--",
@@ -176,6 +179,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-bronze-run-id", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--terraform-output-json", type=Path)
+    parser.add_argument("--ttl", default="2h")
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -225,6 +229,7 @@ def main(
         dataset_version=args.dataset_version,
         source_bronze_run_id=args.source_bronze_run_id,
         run_id=args.run_id,
+        ttl=args.ttl,
         archive_path=archive,
         jar_paths=jar_paths,
     )

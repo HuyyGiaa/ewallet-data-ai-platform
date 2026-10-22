@@ -140,6 +140,19 @@ class BronzeToSilverSubmissionTest(unittest.TestCase):
         self.assertIn("--runtime-config-file=gcp-platform.yaml", command)
         self.assertIn("spark.sql.session.timeZone=UTC", joined)
 
+    def test_command_accepts_explicit_canonical_ttl(self) -> None:
+        runtime = load_cloud_runtime(TERRAFORM_OUTPUTS)
+        command = build_submission_command(
+            runtime,
+            dataset_version="canonical-100gb-v1",
+            source_bronze_run_id="canonical-bronze-20261023-120000",
+            run_id="canonical-silver-20261023-120000",
+            ttl="8h",
+            jar_paths=(Path("delta.jar"),),
+        )
+
+        self.assertIn("--ttl=8h", command)
+
     def test_output_run_must_differ_from_source_bronze_run(self) -> None:
         runtime = load_cloud_runtime(TERRAFORM_OUTPUTS)
 

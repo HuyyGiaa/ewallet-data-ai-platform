@@ -23,6 +23,7 @@ from ops.gcp.submit_source_to_bronze import (
     CloudRuntime,
     REPOSITORY_ROOT,
     _validate_id,
+    _validate_ttl,
     load_cloud_runtime,
 )
 
@@ -95,8 +96,10 @@ def build_submission_command(
     archive_path: Path = DEFAULT_ARCHIVE,
     runtime_profile_path: Path = GCP_RUNTIME_PROFILE,
     jar_paths: Sequence[Path] | None = None,
+    ttl: str = "2h",
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
+    ttl = _validate_ttl(ttl)
     silver_root, core_gold_root, feature_gold_root = run_roots(
         runtime,
         source_silver_run_id=source_silver_run_id,
@@ -123,7 +126,7 @@ def build_submission_command(
         "--jars=" + ",".join(str(path) for path in jars),
         f"--py-files={archive_path}", f"--files={runtime_profile_path}",
         f"--deps-bucket=gs://{runtime.temporary_bucket}",
-        f"--staging-bucket={runtime.temporary_bucket}", "--ttl=2h",
+        f"--staging-bucket={runtime.temporary_bucket}", f"--ttl={ttl}",
         "--labels=component=historical-features,phase=s1b",
         f"--properties={properties}", "--", "--environment=gcp", "--mode=optimized",
         f"--expected-table-count={len(HISTORICAL_FEATURE_TABLES)}",
@@ -160,6 +163,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-core-gold-run-id", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--terraform-output-json", type=Path)
+    parser.add_argument("--ttl", default="2h")
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -183,6 +187,7 @@ def main(
         source_silver_run_id=args.source_silver_run_id,
         source_core_gold_run_id=args.source_core_gold_run_id,
         run_id=args.run_id,
+        ttl=args.ttl,
         archive_path=archive,
         jar_paths=jars,
     )

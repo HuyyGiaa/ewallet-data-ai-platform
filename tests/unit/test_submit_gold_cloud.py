@@ -60,5 +60,17 @@ class SubmitGoldCloudTest(unittest.TestCase):
             command,
         )
 
+    def test_core_command_accepts_explicit_canonical_ttl(self) -> None:
+        command = gold_command(
+            self.runtime,
+            dataset_version="canonical-100gb-v1",
+            source_silver_run_id="canonical-silver-20261023-120000",
+            run_id="canonical-gold-20261023-120000",
+            ttl="8h",
+            jar_paths=(Path("delta.jar"),),
+        )
+
+        self.assertIn("--ttl=8h", command)
+
 if __name__ == "__main__":
     unittest.main()

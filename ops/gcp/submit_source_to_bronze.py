@@ -26,6 +26,7 @@ SOURCE_TO_BRONZE_SCRIPT = (
 )
 DEFAULT_ARCHIVE = REPOSITORY_ROOT / "tmp/dataproc/ewallet-python.zip"
 _SAFE_ID = re.compile(r"^[a-z][a-z0-9-]{2,48}[a-z0-9]$")
+_SAFE_TTL = re.compile(r"^[1-9][0-9]*[smhd]$")
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,12 @@ def _validate_id(value: str, name: str) -> str:
     return value
 
 
+def _validate_ttl(value: str) -> str:
+    if not _SAFE_TTL.fullmatch(value):
+        raise ValueError("ttl must be a positive integer followed by s, m, h, or d")
+    return value
+
+
 def build_submission_command(
     runtime: CloudRuntime,
     *,
@@ -95,9 +102,11 @@ def build_submission_command(
     script_path: Path = SOURCE_TO_BRONZE_SCRIPT,
     archive_path: Path = DEFAULT_ARCHIVE,
     jar_paths: Sequence[Path] | None = None,
+    ttl: str = "2h",
 ) -> tuple[str, ...]:
     run_id = _validate_id(run_id, "run_id")
     dataset_version = _validate_id(dataset_version, "dataset_version")
+    ttl = _validate_ttl(ttl)
     source_manifest = (
         f"gs://{runtime.data_bucket}/source/{dataset_version}/"
         "_control/dataset_manifest.json"
@@ -133,7 +142,7 @@ def build_submission_command(
         f"--py-files={archive_path}",
         f"--deps-bucket=gs://{runtime.temporary_bucket}",
         f"--staging-bucket={runtime.temporary_bucket}",
-        "--ttl=2h",
+        f"--ttl={ttl}",
         "--labels=component=source-bronze,phase=r4",
         f"--properties={properties}",
         "--",
@@ -167,6 +176,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dataset-version", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--terraform-output-json", type=Path)
+    parser.add_argument("--ttl", default="2h")
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -187,6 +197,7 @@ def main(
         runtime,
         dataset_version=args.dataset_version,
         run_id=args.run_id,
+        ttl=args.ttl,
         archive_path=archive,
         jar_paths=jar_paths,
     )

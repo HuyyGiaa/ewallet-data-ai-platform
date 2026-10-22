@@ -15,6 +15,10 @@ Submission tasks have no automatic retry because output paths are immutable.
 Read-only validation tasks may retry once. Dataset version and every source and
 output run ID are explicit DAG parameters.
 
+`dataproc_ttl` is also explicit. It defaults to `2h` for bounded runs; the
+canonical runbook uses `8h`. Submit tasks allow up to ten hours so Airflow does
+not terminate the blocking `gcloud` process before the canonical batch TTL.
+
 The former local daily `ewallet_batch_pipeline` DAG was removed. It embedded
 developer-specific local Python paths and combined Silver, core Gold, and
 historical features into one lifecycle.

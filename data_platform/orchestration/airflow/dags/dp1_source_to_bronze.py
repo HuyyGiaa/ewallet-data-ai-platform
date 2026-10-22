@@ -24,6 +24,7 @@ with DAG(
     params={
         "dataset_version": Param("r4-pilot-1gb-v1", type="string"),
         "bronze_run_id": Param("r5-airflow-bronze-manual", type="string"),
+        "dataproc_ttl": Param("2h", type="string"),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp1", "manual"],
@@ -44,9 +45,10 @@ with DAG(
         bash_command=(
             "python -m ops.gcp.submit_source_to_bronze "
             "--dataset-version '{{ params.dataset_version }}' "
-            "--run-id '{{ params.bronze_run_id }}' --execute"
+            "--run-id '{{ params.bronze_run_id }}' "
+            "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
-        execution_timeout=timedelta(hours=2),
+        execution_timeout=timedelta(hours=10),
     )
     verify_bronze = BashOperator(
         task_id="verify_bronze_delta",

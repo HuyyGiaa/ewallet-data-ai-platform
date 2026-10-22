@@ -75,6 +75,27 @@ class SourceToBronzeSubmissionTest(unittest.TestCase):
             command,
         )
 
+    def test_command_accepts_explicit_canonical_ttl(self) -> None:
+        runtime = load_cloud_runtime(TERRAFORM_OUTPUTS)
+        command = build_submission_command(
+            runtime,
+            dataset_version="canonical-100gb-v1",
+            run_id="canonical-bronze-20261023-120000",
+            ttl="8h",
+            jar_paths=(Path("delta.jar"),),
+        )
+
+        self.assertIn("--ttl=8h", command)
+
+        with self.assertRaisesRegex(ValueError, "ttl"):
+            build_submission_command(
+                runtime,
+                dataset_version="canonical-100gb-v1",
+                run_id="canonical-bronze-20261023-120000",
+                ttl="8h --quiet",
+                jar_paths=(Path("delta.jar"),),
+            )
+
     def test_default_cli_is_dry_run_and_does_not_call_runner(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "outputs.json"
