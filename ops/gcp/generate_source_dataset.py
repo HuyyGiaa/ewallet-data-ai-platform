@@ -12,7 +12,10 @@ from typing import TextIO
 from data_platform.config import load_runtime_config
 from data_platform.generation.src.offline.offline_generator import load_config
 from data_platform.generation.src.sharded.generator import generate_shard
-from data_platform.generation.src.sharded.manifest import DatasetPublisher
+from data_platform.generation.src.sharded.manifest import (
+    DatasetPublisher,
+    IncompleteDatasetError,
+)
 from data_platform.generation.src.sharded.planner import build_shard_plan
 from data_platform.generation.src.sharded.storage import GcloudObjectStore
 
@@ -125,11 +128,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
         )
         print(f"shard {shard_id:05d}: generated, uploaded, verified", file=stdout)
 
-    completed_count = sum(
-        publisher.completed_shard(shard_id) is not None
-        for shard_id in range(plan.shard_count)
-    )
-    if completed_count == plan.shard_count:
+    try:
         manifest = publisher.finalize()
         print(
             "dataset COMPLETE: "
@@ -137,7 +136,11 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
             f"{manifest['total_bytes']} bytes",
             file=stdout,
         )
-    else:
+    except IncompleteDatasetError:
+        completed_count = sum(
+            store.exists(publisher.shard_manifest_uri(shard_id))
+            for shard_id in range(plan.shard_count)
+        )
         print(
             f"dataset INCOMPLETE: {completed_count}/{plan.shard_count} shards",
             file=stdout,
