@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -29,7 +30,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=RUNTIME_DATA_ROOT / "validation",
     )
     parser.add_argument("--benchmark-rows", type=int, default=100)
+    parser.add_argument("--silver-root")
+    parser.add_argument("--feature-gold-root")
     return parser.parse_args(argv)
+
+
+def apply_validation_roots(
+    config: RuntimeConfig,
+    *,
+    silver_root: str,
+    feature_gold_root: str,
+) -> RuntimeConfig:
+    if config.environment != "gcp" or config.storage.scheme != "gs":
+        raise ValueError("run-scoped validation requires the gcp profile")
+    if "/lakehouse/runs/" not in silver_root or not silver_root.endswith("/silver"):
+        raise ValueError("Silver validation root must be run-scoped")
+    if "/lakehouse/runs/" not in feature_gold_root or not feature_gold_root.endswith(
+        "/gold"
+    ):
+        raise ValueError("feature Gold validation root must be run-scoped")
+    return replace(
+        config,
+        storage=replace(
+            config.storage,
+            silver_root=silver_root,
+            gold_root=feature_gold_root,
+        ),
+    )
 
 
 def read_delta(
@@ -318,6 +345,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         config = load_runtime_config(args.environment)
+        if args.environment == "gcp":
+            if not args.silver_root or not args.feature_gold_root:
+                raise ValueError(
+                    "gcp validation requires --silver-root and --feature-gold-root"
+                )
+            config = apply_validation_roots(
+                config,
+                silver_root=args.silver_root,
+                feature_gold_root=args.feature_gold_root,
+            )
         export_samples(args.output_root, args.benchmark_rows, config)
     except Exception as exc:
         print(f"ERROR | {exc}")

@@ -48,6 +48,7 @@ def build_export_manifest(
     dataset_version: str,
     tables: Mapping[str, object],
     exported_at: str | None = None,
+    lineage: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Build the versioned manifest shared by local and cloud exports."""
     return {
@@ -58,4 +59,5 @@ def build_export_manifest(
         "output_format": "Parquet",
         "timestamp_precision": "microsecond",
         "tables": dict(tables),
+        "lineage": dict(lineage or {}),
     }

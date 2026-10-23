@@ -20,6 +20,7 @@ component documents for implementation detail and recorded evidence.
 | [Cloud Silver bounded pilot](cloud/silver_bounded_pilot.md) | Dry-run and user execution contract for the verified R4 Bronze pilot | Stage 1A runbook |
 | [Cloud core Gold bounded pilot](cloud/core_gold_bounded_pilot.md) | Immutable bounded Silver-to-core-Gold run and validation | Stage 1B verified evidence |
 | [Cloud historical features bounded pilot](cloud/historical_features_bounded_pilot.md) | Immutable DP3 point-in-time feature run and validation | Stage 1B verified evidence |
+| [Cloud Feast and bounded training snapshot](ml/cloud_feast_training_snapshot.md) | Frozen DP3-to-Feast offline contract and future USER_RUN boundary | Ready for canonical DP3 output |
 | [Canonical 100 GB readiness](cloud/canonical_100gb_readiness.md) | Measured source plan and exact user-operated canonical commands | Ready, not executed |
 | [R1 configuration evidence](evidence/cloud/r1_config_foundation.json) | Machine-readable profile, literal-scan, compile, and regression results | Verified foundation evidence |
 | [R2 Terraform foundation evidence](evidence/cloud/r2_terraform_plan.json) | Applied state/bootstrap foundation, recovery record, final state counts and guardrails | Verified infrastructure evidence |

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -39,11 +40,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="local",
     )
     parser.add_argument("--output-root")
+    parser.add_argument("--source-feature-root")
+    parser.add_argument("--source-feature-run-id")
+    parser.add_argument("--snapshot-id")
     parser.add_argument(
         "--dataset-version",
         default=os.getenv("EWALLET_DATASET_VERSION", "active"),
     )
     return parser.parse_args(argv)
+
+
+def apply_feature_gold_root(
+    config: RuntimeConfig,
+    feature_gold_root: str,
+) -> RuntimeConfig:
+    """Bind the export to one immutable DP3 Gold run."""
+    if config.environment != "gcp" or config.storage.scheme != "gs":
+        raise ValueError("run-scoped feature export requires the gcp profile")
+    if (
+        not feature_gold_root.startswith("gs://")
+        or "/lakehouse/runs/" not in feature_gold_root
+        or not feature_gold_root.endswith("/gold")
+    ):
+        raise ValueError("feature Gold root must be a run-scoped gs://.../gold path")
+    return replace(
+        config,
+        storage=replace(config.storage, gold_root=feature_gold_root),
+    )
 
 
 def gold_source_uri(config: RuntimeConfig, table_name: str) -> str:
@@ -68,9 +91,17 @@ def _filesystem_path(uri: str) -> tuple[fs.FileSystem, str]:
     return filesystem, path.rstrip("/")
 
 
-def _replace_dataset(target_uri: str, snapshot) -> tuple[int, str]:
+def _write_dataset(
+    target_uri: str,
+    snapshot,
+    *,
+    replace_existing: bool,
+) -> tuple[int, str]:
     filesystem, target_path = _filesystem_path(target_uri)
-    if filesystem.get_file_info(target_path).type != fs.FileType.NotFound:
+    target_info = filesystem.get_file_info(target_path)
+    if target_info.type != fs.FileType.NotFound and not replace_existing:
+        raise FileExistsError(f"immutable Feast snapshot already exists: {target_uri}")
+    if target_info.type != fs.FileType.NotFound:
         filesystem.delete_dir(target_path)
     ds.write_dataset(
         snapshot,
@@ -100,6 +131,9 @@ def export_gold_snapshots(
     output_root: str | Path | None = None,
     *,
     dataset_version: str = "active",
+    source_feature_run_id: str | None = None,
+    snapshot_id: str | None = None,
+    immutable: bool = False,
 ) -> dict[str, object]:
     default_root = (
         str(OFFLINE_DATA_ROOT)
@@ -129,7 +163,11 @@ def export_gold_snapshots(
             )
 
         source_rows = snapshot.count_rows()
-        output_rows, output_timestamp_type = _replace_dataset(target, snapshot)
+        output_rows, output_timestamp_type = _write_dataset(
+            target,
+            snapshot,
+            replace_existing=not immutable,
+        )
         if output_rows != source_rows:
             raise ValueError(
                 f"{table_name} export row mismatch: {output_rows} != {source_rows}"
@@ -155,8 +193,19 @@ def export_gold_snapshots(
         dataset_version=dataset_version,
         tables=tables,
         exported_at=datetime.now(timezone.utc).isoformat(),
+        lineage={
+            "source_feature_run_id": source_feature_run_id,
+            "snapshot_id": snapshot_id,
+            "source_feature_root": runtime_config.storage.gold_root,
+            "output_root": root,
+        },
     )
-    _write_manifest(f"{root.rstrip('/')}_manifest.json", manifest)
+    manifest_uri = (
+        f"{root.rstrip('/')}/_control/export_manifest.json"
+        if immutable
+        else f"{root.rstrip('/')}_manifest.json"
+    )
+    _write_manifest(manifest_uri, manifest)
     return manifest
 
 
@@ -164,10 +213,26 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         config = load_runtime_config(args.environment)
+        cloud_lineage = (
+            args.source_feature_root,
+            args.source_feature_run_id,
+            args.snapshot_id,
+            args.output_root,
+        )
+        if args.environment == "gcp":
+            if any(value is None for value in cloud_lineage):
+                raise ValueError(
+                    "gcp export requires --source-feature-root, "
+                    "--source-feature-run-id, --snapshot-id, and --output-root"
+                )
+            config = apply_feature_gold_root(config, args.source_feature_root)
         export_gold_snapshots(
             config,
             args.output_root,
             dataset_version=args.dataset_version,
+            source_feature_run_id=args.source_feature_run_id,
+            snapshot_id=args.snapshot_id,
+            immutable=args.environment == "gcp",
         )
     except Exception as exc:
         print(f"ERROR | {exc}")
