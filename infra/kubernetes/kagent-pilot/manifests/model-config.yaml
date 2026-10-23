@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pilot-mock-openai
+  namespace: kagent
+type: Opaque
+stringData:
+  OPENAI_API_KEY: mock-local-only-not-a-credential
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: pilot-mock-openai
+  namespace: kagent
+spec:
+  provider: OpenAI
+  model: mock-fixed-v1
+  apiKeySecretRef: pilot-mock-openai
+  apiKeySecretKey: OPENAI_API_KEY
+  openAI:
+    baseUrl: http://mock-openai.kagent.svc.cluster.local:8080/v1
+    temperature: "0"
+    maxTokens: 32

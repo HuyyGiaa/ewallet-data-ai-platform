@@ -1,0 +1,26 @@
+auth:
+  mode: jwt
+  jwt:
+    issuer: https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1-b/clusters/ewallet-dev
+    audience: api.ate-system.svc
+    bootstrap:
+      enabled: true
+      serverCert:
+        enabled: true
+      sessionPools:
+        enabled: true
+
+# v0.0.9's init Job names pods 0..5 and creates 3 primaries + 3 replicas.
+# Six is therefore the smallest value that this chart can initialize safely.
+valkey:
+  enabled: true
+  replicas: 6
+  storageSize: 256Mi
+
+rustfs:
+  enabled: true
+  storageSize: 256Mi
+  bucket: ate-snapshots
+
+otel:
+  endpoint: ""
