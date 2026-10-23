@@ -1,0 +1,13 @@
+steps:
+  - name: gcr.io/cloud-builders/docker:24.0.9
+    args:
+      - build
+      - --file=infra/kubernetes/kfp/image/Dockerfile
+      - --tag=${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}
+substitutions:
+  _IMAGE: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+options:
+  logging: CLOUD_LOGGING_ONLY

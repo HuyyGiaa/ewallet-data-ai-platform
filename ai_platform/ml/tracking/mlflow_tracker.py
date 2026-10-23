@@ -109,12 +109,10 @@ class MlflowTracker:
                         {
                             "estimator": candidate.estimator,
                             "model_name": candidate.name,
-                            "random_seed": provenance["random_seed"],
-                            "snapshot_id": provenance["snapshot_id"],
-                            "dataset_version": provenance["dataset_version"],
-                            "feature_run_id": provenance["feature_run_id"],
-                            "feature_count": provenance["feature_count"],
-                            "git_commit_sha": provenance["git_commit_sha"],
+                            **{
+                                key: str(value)
+                                for key, value in provenance.items()
+                            },
                             **{
                                 f"model.{key}": value
                                 for key, value in report["parameters"].items()

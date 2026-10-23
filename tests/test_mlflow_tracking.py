@@ -33,6 +33,7 @@ class MlflowEnvironmentContractTest(unittest.TestCase):
             "scikit-learn==1.7.2",
             "psycopg2-binary==2.9.13",
             "google-cloud-storage==3.4.1",
+            "joblib==1.6.0",
         ):
             self.assertIn(dependency, requirements)
 
@@ -233,6 +234,12 @@ class MlflowManualTrackingTest(unittest.TestCase):
             1,
             sum("test_pr_auc" in run.data.metrics for run in winner_children),
         )
+        for run in winner_children:
+            self.assertEqual("unit-test-v1", run.data.params["dataset_version"])
+            self.assertEqual("silver-test-1", run.data.params["silver_run_id"])
+            self.assertEqual("features-test-1", run.data.params["feature_run_id"])
+            self.assertEqual("snapshot-test-1", run.data.params["snapshot_id"])
+            self.assertEqual("a" * 64, run.data.params["snapshot_manifest_sha256"])
 
 
 if __name__ == "__main__":

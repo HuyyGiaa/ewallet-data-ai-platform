@@ -1,0 +1,47 @@
+{
+  "status": "READY_FOR_USER_RUN_AFTER_PREREQUISITES",
+  "executed": false,
+  "schema_version": "kfp-canonical-contract-v1",
+  "kfp": {
+    "distribution": "standalone",
+    "manifest_version": "2.17.3",
+    "sdk_version": "2.17.3",
+    "full_kubeflow_distribution": false
+  },
+  "input": {
+    "dataset_version": "SET_FROM_PASSED_FEAST_BOUNDARY",
+    "silver_run_id": "SET_FROM_PASSED_FEAST_BOUNDARY",
+    "feature_run_id": "SET_FROM_PASSED_FEAST_BOUNDARY",
+    "snapshot_id": "SET_FROM_PASSED_FEAST_BOUNDARY",
+    "snapshot_uri": "IMMUTABLE_GCS_PREFIX",
+    "snapshot_manifest_sha256": "SET_FROM_PASSED_FEAST_BOUNDARY",
+    "git_commit_sha": "SET_TO_REVIEWED_SOURCE_COMMIT"
+  },
+  "dag": [
+    "validate_snapshot",
+    "verify_chronological_splits",
+    "train_four_candidates_in_parallel",
+    "select_validation_winner",
+    "evaluate_test_winner",
+    "publish_winner_to_mlflow"
+  ],
+  "candidates": [
+    "dummy_baseline",
+    "logistic_regression",
+    "random_forest",
+    "hist_gradient_boosting"
+  ],
+  "selection": "validation_pr_auc_then_validation_f1",
+  "test_evaluation": "selected_winner_only",
+  "automatic_production_promotion": false,
+  "evidence_required": [
+    "compiled_pipeline_sha256",
+    "successful_pipeline_run_id",
+    "snapshot_provenance",
+    "four_candidate_validation_results",
+    "one_test_evaluated_candidate",
+    "winner_registered_model_version",
+    "no_production_alias",
+    "component_pods_logs_and_artifacts"
+  ]
+}
