@@ -91,6 +91,35 @@ python -m ops.gcp.generate_source_dataset \
 The execute command is resumable and verifies every uploaded object. Keep the
 same plan and dataset version when resuming.
 
+## USER_RUN: validate the canonical source final gate
+
+Wait for the generator process to exit successfully, then run the optimized
+gate before DP1:
+
+```bash
+export GCP_PROJECT_ID=ewallet-data-ai-platform-hg26
+export EWALLET_DATA_BUCKET=ewallet-data-ai-platform-hg26-data
+export DATASET_VERSION=canonical-100gb-v1
+
+python -m ops.gcp.validate_canonical_source_gate \
+  --project "$GCP_PROJECT_ID" \
+  --bucket "$EWALLET_DATA_BUCKET" \
+  --dataset-version "$DATASET_VERSION"
+```
+
+The gate requires a `COMPLETE` dataset manifest, exactly 3,696 shard
+manifests, 369,600,000 logical transactions, 376,992,000 physical
+transactions, 369,600,000 fraud-label rows, 7,392,000 fraud rows, exactly
+33,264 Parquet objects, and 100-105 GB of manifest-backed Parquet data.
+
+Object verification uses one paginated `list_blobs()` scan for the dataset
+prefix. It builds an in-memory map for Parquet metadata only; `_control` JSON
+objects are excluded from the 33,264-object count. Every expected path must be
+present, every size must match, and every listed MD5 must match its manifest
+value. A per-object metadata reload is used only when that object's listing
+entry does not expose an MD5. The gate fails if the fallback still cannot
+obtain an MD5.
+
 ## USER_RUN: orchestrate Bronze, Silver, Gold, and features
 
 After a reboot, start or reuse the three required Airflow 3 components with one
