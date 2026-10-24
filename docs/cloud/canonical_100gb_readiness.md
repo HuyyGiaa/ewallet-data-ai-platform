@@ -106,8 +106,13 @@ export FEATURE_RUN="canonical-features-${CANONICAL_STAMP}"
 airflow dags unpause dp1_source_to_bronze
 airflow dags trigger dp1_source_to_bronze \
   --run-id "canonical-dp1-${CANONICAL_STAMP}" \
-  --conf "{\"dataset_version\":\"${DATASET_VERSION}\",\"bronze_run_id\":\"${BRONZE_RUN}\",\"dataproc_ttl\":\"8h\",\"data_bucket\":\"${EWALLET_DATA_BUCKET}\"}"
+  --conf "{\"dataset_version\":\"${DATASET_VERSION}\",\"bronze_run_id\":\"${BRONZE_RUN}\",\"dataproc_ttl\":\"8h\",\"dataproc_performance_profile\":\"canonical\",\"data_bucket\":\"${EWALLET_DATA_BUCKET}\"}"
 ```
+
+This DP1 run explicitly selects the canonical performance profile. See
+[Canonical Dataproc performance profile](canonical_dataproc_performance.md)
+for the dry-run command and exact Spark properties. DP2 and DP3 keep the
+`default` profile until a later explicit override.
 
 Wait for DP1 to pass, then run DP2:
 

@@ -82,6 +82,28 @@ class CloudAirflowDagTest(unittest.TestCase):
                     8 * 60 * 60,
                 )
 
+    def test_dataproc_performance_profile_is_explicit_and_defaults_to_pilot(self) -> None:
+        task_ids = {
+            "dp1_source_to_bronze": ("submit_bronze_dataproc",),
+            "dp2_bronze_to_curated": (
+                "submit_silver_dataproc",
+                "submit_core_gold_dataproc",
+            ),
+            "dp3_historical_features": (
+                "submit_historical_features_dataproc",
+            ),
+        }
+        for dag_id, submit_tasks in task_ids.items():
+            dag = self.bag.dags[dag_id]
+            self.assertEqual("default", dag.params["dataproc_performance_profile"])
+            for task_id in submit_tasks:
+                task = dag.get_task(task_id)
+                self.assertIn(
+                    "--performance-profile "
+                    "'{{ params.dataproc_performance_profile }}'",
+                    task.bash_command,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,6 +36,9 @@ with DAG(
         "gold_run_id": Param("s1b-gold-20261022-180212", type="string"),
         "feature_run_id": Param("r5-airflow-features-manual", type="string"),
         "dataproc_ttl": Param("2h", type="string"),
+        "dataproc_performance_profile": Param(
+            "default", type="string", enum=["default", "canonical"]
+        ),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp3", "manual"],
@@ -70,6 +73,8 @@ with DAG(
             "--source-silver-run-id '{{ params.silver_run_id }}' "
             "--source-core-gold-run-id '{{ params.gold_run_id }}' "
             "--run-id '{{ params.feature_run_id }}' "
+            "--performance-profile "
+            "'{{ params.dataproc_performance_profile }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),

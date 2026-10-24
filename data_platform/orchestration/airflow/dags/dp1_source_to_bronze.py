@@ -25,6 +25,9 @@ with DAG(
         "dataset_version": Param("r4-pilot-1gb-v1", type="string"),
         "bronze_run_id": Param("r5-airflow-bronze-manual", type="string"),
         "dataproc_ttl": Param("2h", type="string"),
+        "dataproc_performance_profile": Param(
+            "default", type="string", enum=["default", "canonical"]
+        ),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp1", "manual"],
@@ -46,6 +49,8 @@ with DAG(
             "python -m ops.gcp.submit_source_to_bronze "
             "--dataset-version '{{ params.dataset_version }}' "
             "--run-id '{{ params.bronze_run_id }}' "
+            "--performance-profile "
+            "'{{ params.dataproc_performance_profile }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),

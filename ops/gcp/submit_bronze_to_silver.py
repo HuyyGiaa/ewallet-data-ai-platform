@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from data_platform.processing.spark.silver.silver_pipeline import selected_pipelines
+from ops.gcp.dataproc_batch_properties import (
+    DEFAULT_PERFORMANCE_PROFILE,
+    add_performance_profile_argument,
+    build_dataproc_batch_properties,
+)
 from ops.gcp.package_python_job import build_python_archive
 from ops.gcp.submit_dataproc_delta_smoke import (
     TERRAFORM_DEV_ROOT,
@@ -97,6 +102,7 @@ def build_submission_command(
     runtime_profile_path: Path = GCP_RUNTIME_PROFILE,
     jar_paths: Sequence[Path] | None = None,
     ttl: str = "2h",
+    performance_profile: str = DEFAULT_PERFORMANCE_PROFILE,
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
     run_id = _validate_id(run_id, "run_id")
@@ -109,14 +115,10 @@ def build_submission_command(
     tables = selected_pipelines(include_fraud_labels=True)
     jars = tuple(jar_paths or dependency_jar_paths())
     properties = ",".join(
-        (
-            f"dataproc.tier={runtime.performance_tier}",
-            "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension",
-            "spark.sql.catalog.spark_catalog="
-            "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-            "spark.sql.session.timeZone=UTC",
-            "spark.eventLog.enabled=true",
-            f"spark.eventLog.dir=gs://{runtime.data_bucket}/spark-events",
+        build_dataproc_batch_properties(
+            performance_tier=runtime.performance_tier,
+            data_bucket=runtime.data_bucket,
+            profile=performance_profile,
         )
     )
     return (
@@ -180,6 +182,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--terraform-output-json", type=Path)
     parser.add_argument("--ttl", default="2h")
+    add_performance_profile_argument(parser)
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -230,6 +233,7 @@ def main(
         source_bronze_run_id=args.source_bronze_run_id,
         run_id=args.run_id,
         ttl=args.ttl,
+        performance_profile=args.performance_profile,
         archive_path=archive,
         jar_paths=jar_paths,
     )

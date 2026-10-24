@@ -32,6 +32,9 @@ with DAG(
         "silver_run_id": Param("r5-airflow-silver-manual", type="string"),
         "gold_run_id": Param("r5-airflow-gold-manual", type="string"),
         "dataproc_ttl": Param("2h", type="string"),
+        "dataproc_performance_profile": Param(
+            "default", type="string", enum=["default", "canonical"]
+        ),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp2", "manual"],
@@ -54,6 +57,8 @@ with DAG(
             "--dataset-version '{{ params.dataset_version }}' "
             "--source-bronze-run-id '{{ params.bronze_run_id }}' "
             "--run-id '{{ params.silver_run_id }}' "
+            "--performance-profile "
+            "'{{ params.dataproc_performance_profile }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),
@@ -76,6 +81,8 @@ with DAG(
             "--dataset-version '{{ params.dataset_version }}' "
             "--source-silver-run-id '{{ params.silver_run_id }}' "
             "--run-id '{{ params.gold_run_id }}' "
+            "--performance-profile "
+            "'{{ params.dataproc_performance_profile }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),
