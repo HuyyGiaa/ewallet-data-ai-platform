@@ -1,6 +1,7 @@
 """DP1: immutable source manifest to bounded Bronze Delta run."""
 
 from datetime import timedelta
+from pathlib import Path
 
 import pendulum
 from airflow.sdk import DAG, Param
@@ -11,6 +12,7 @@ BRONZE_TABLES = (
     "users", "accounts", "merchants", "devices", "transactions",
     "balance_snapshots", "login_events", "fraud_labels",
 )
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 
 
 with DAG(
@@ -53,6 +55,7 @@ with DAG(
             "'{{ params.dataproc_performance_profile }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
+        cwd=str(REPOSITORY_ROOT),
         execution_timeout=timedelta(hours=10),
     )
     verify_bronze = BashOperator(
@@ -63,6 +66,7 @@ with DAG(
             "{{ params.bronze_run_id }}/bronze' "
             + " ".join(f"--expected-table {table}" for table in BRONZE_TABLES)
         ),
+        cwd=str(REPOSITORY_ROOT),
         retries=1,
         retry_delay=timedelta(minutes=1),
         execution_timeout=timedelta(minutes=15),

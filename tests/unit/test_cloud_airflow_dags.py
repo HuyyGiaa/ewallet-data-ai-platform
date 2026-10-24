@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
 from airflow.models import DagBag
 
 
-DAG_ROOT = (
-    Path(__file__).resolve().parents[2]
-    / "data_platform/orchestration/airflow/dags"
-)
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DAG_ROOT = REPOSITORY_ROOT / "data_platform/orchestration/airflow/dags"
 
 
 class CloudAirflowDagTest(unittest.TestCase):
@@ -30,6 +31,56 @@ class CloudAirflowDagTest(unittest.TestCase):
                 "verify_bronze_delta",
             },
             set(dag.task_ids),
+        )
+
+    def test_dp1_python_tasks_can_import_repo_modules_from_their_cwd(self) -> None:
+        dag = self.bag.dags["dp1_source_to_bronze"]
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+
+        modules_by_task = {
+            "submit_bronze_dataproc": "ops.gcp.submit_source_to_bronze",
+            "verify_bronze_delta": "ops.gcp.verify_delta_run",
+        }
+        for task_id, module in modules_by_task.items():
+            task = dag.get_task(task_id)
+            self.assertEqual(str(REPOSITORY_ROOT), task.cwd)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    f"import {module}",
+                ],
+                cwd=task.cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_dp1_canonical_submit_command_renders_without_changing_contract(self) -> None:
+        task = self.bag.dags["dp1_source_to_bronze"].get_task(
+            "submit_bronze_dataproc"
+        )
+        command = task.render_template(
+            task.bash_command,
+            {
+                "params": {
+                    "dataset_version": "canonical-100gb-v1",
+                    "bronze_run_id": "canonical-bronze-20261024-075143",
+                    "dataproc_performance_profile": "canonical",
+                    "dataproc_ttl": "8h",
+                }
+            },
+        )
+
+        self.assertEqual(
+            "python -m ops.gcp.submit_source_to_bronze "
+            "--dataset-version 'canonical-100gb-v1' "
+            "--run-id 'canonical-bronze-20261024-075143' "
+            "--performance-profile 'canonical' --ttl '8h' --execute",
+            command,
         )
 
     def test_dp2_graph(self) -> None:
