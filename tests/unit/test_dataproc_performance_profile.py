@@ -62,16 +62,15 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
         ))
         for values in (baseline, optimized):
             self.assertIn("dataproc.tier=standard", values)
+            self.assertIn("spark.dynamicAllocation.initialExecutors=6", values)
             self.assertIn("spark.dynamicAllocation.maxExecutors=7", values)
         self.assertIn("spark.sql.adaptive.enabled=false", baseline)
         self.assertIn("spark.sql.adaptive.skewJoin.enabled=false", baseline)
         self.assertIn("spark.sql.shuffle.partitions=200", baseline)
-        self.assertIn("spark.dynamicAllocation.initialExecutors=2", baseline)
         self.assertFalse(any(value == "spark.dynamicAllocation.profile=performance" for value in baseline))
         self.assertIn("spark.sql.adaptive.enabled=true", optimized)
         self.assertIn("spark.sql.adaptive.skewJoin.enabled=true", optimized)
         self.assertIn("spark.sql.shuffle.partitions=400", optimized)
-        self.assertIn("spark.dynamicAllocation.initialExecutors=6", optimized)
         self.assertIn("spark.dynamicAllocation.profile=performance", optimized)
 
     def test_canonical_alias_is_the_optimized_production_profile(self) -> None:
@@ -88,6 +87,8 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
     def test_profiles_share_the_same_quota_safe_ceiling(self) -> None:
         self.assertEqual({"process_count": 8, "vcpus": 32, "disk_gb": 3200}, quota_ceiling("baseline"))
         self.assertEqual(quota_ceiling("baseline"), quota_ceiling("optimized"))
+        self.assertEqual(6, BASELINE_PROFILE.initial_executors)
+        self.assertEqual(6, OPTIMIZED_PROFILE.initial_executors)
         self.assertEqual(7, BASELINE_PROFILE.max_executors)
         self.assertEqual(7, OPTIMIZED_PROFILE.max_executors)
 

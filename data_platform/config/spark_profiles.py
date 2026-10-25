@@ -55,7 +55,7 @@ BASELINE_PROFILE = SparkExecutionProfile(
     adaptive_enabled=False,
     skew_join_enabled=False,
     shuffle_partitions=200,
-    initial_executors=2,
+    initial_executors=6,
     max_executors=7,
     dynamic_allocation_profile=None,
 )

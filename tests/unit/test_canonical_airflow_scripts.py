@@ -39,6 +39,8 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
         self.assertIn("SPARK_PROFILE: BASELINE", result.stdout)
         self.assertIn("AQE: false", result.stdout)
         self.assertIn("SHUFFLE_PARTITIONS: 200", result.stdout)
+        self.assertIn("INITIAL_EXECUTORS: 6", result.stdout)
+        self.assertIn("MAX_EXECUTORS: 7", result.stdout)
         self.assertIn('"spark_profile":"baseline"', result.stdout)
         self.assertEqual("version\n", calls)
 

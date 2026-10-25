@@ -4,8 +4,11 @@ This runbook compares the **same full canonical workload** (`canonical-100gb-v1`
 100,156,470,260 source bytes, 369,600,000 logical transactions) at one Git SHA.
 The 1–4 GB runs remain smoke tests and are not primary performance evidence.
 The transformation code, Standard tier, runtime 2.2, driver/executor shape, TTL
-8h, quota ceiling, schemas and validation rules are identical. Only Spark tuning
-changes.
+8h, initial/maximum executor counts, quota ceiling, schemas and validation rules
+are identical. This is a **package-level Spark optimization comparison**: the
+measured total difference belongs to the complete tuning package and cannot be
+attributed individually to AQE, skew handling, shuffle partitioning or the
+performance allocation profile without a separate ablation experiment.
 
 ## Profiles
 
@@ -15,14 +18,15 @@ changes.
 | Skew join handling | false | true |
 | Shuffle partitions | 200 (Spark default) | 400 (measured project setting) |
 | Dynamic allocation | enabled | enabled, `profile=performance` |
-| Initial executors | 2 | 6 |
+| Initial executors | 6 | 6 |
 | Maximum executors | 7 | 7 |
 | Maximum resource shape | 1 driver + 7 executors | 1 driver + 7 executors |
 
 The baseline uses Managed Spark's supported dynamic allocation rather than an
-invented static mode. Its neutral initial allocation avoids the performance
-profile while `maxExecutors=7` keeps it within quota. Both profiles therefore
-have the same ceiling: 32 vCPU and about 3,200 GB disk, under 32 vCPU / 4,096 GB.
+invented static mode. It starts with the same six executors as optimized but
+does not select the performance allocation profile. Both profiles therefore
+start at 28 vCPU/about 2,800 GB disk and share the same ceiling: 32 vCPU and
+about 3,200 GB disk, under 32 vCPU / 4,096 GB.
 The optimized profile is the only profile allowed into canonical Feast/ML.
 Baseline is benchmark-only.
 

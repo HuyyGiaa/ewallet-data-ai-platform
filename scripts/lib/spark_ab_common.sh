@@ -35,7 +35,7 @@ spark_ab_print_profile() {
   if [[ ${SPARK_PROFILE} == baseline ]]; then
     echo "AQE: false"; echo "SKEW_JOIN: false"; echo "SHUFFLE_PARTITIONS: 200"
     echo "DYNAMIC_ALLOCATION: true"; echo "DYNAMIC_ALLOCATION_PROFILE: platform-neutral"
-    echo "INITIAL_EXECUTORS: 2"; echo "MAX_EXECUTORS: 7"
+    echo "INITIAL_EXECUTORS: 6"; echo "MAX_EXECUTORS: 7"
   else
     echo "AQE: true"; echo "SKEW_JOIN: true"; echo "SHUFFLE_PARTITIONS: 400"
     echo "DYNAMIC_ALLOCATION: true"; echo "DYNAMIC_ALLOCATION_PROFILE: performance"
