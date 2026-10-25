@@ -9,8 +9,8 @@ The canonical profile adds exactly these submission properties:
 
 ```text
 spark.dynamicAllocation.profile=performance
-spark.dynamicAllocation.initialExecutors=10
-spark.dynamicAllocation.maxExecutors=20
+spark.dynamicAllocation.initialExecutors=6
+spark.dynamicAllocation.maxExecutors=7
 ```
 
 The submission remains on runtime 2.2 and `dataproc.tier=standard`. Executor
@@ -20,10 +20,12 @@ cores and memory are not overridden. AQE, skew handling and
 session. TTL remains an explicit submission argument and is `8h` for the
 canonical run.
 
-With the preserved Dataproc Serverless default shape of four vCPUs per driver
-or executor, the workload starts with approximately 44 vCPUs (one driver plus
-10 executors) and can scale to approximately 84 vCPUs (one driver plus 20
-executors). The executor cap is a ceiling rather than a reservation.
+With the preserved Dataproc Serverless default shape of four vCPUs and 400 GB
+of disk per driver or executor, the workload starts with 28 vCPUs and about
+2,800 GB of disk (one driver plus six executors). It can scale to 32 vCPUs and
+about 3,200 GB of disk (one driver plus seven executors). This stays within the
+current quotas of 32 `CPUS_ALL_REGIONS` vCPUs and 4,096 GB of
+`DISKS_TOTAL_GB`. The executor cap is a ceiling rather than a reservation.
 
 ## DP1 dry-run
 
@@ -31,6 +33,7 @@ executors). The executor cap is a ceiling rather than a reservation.
 export DATASET_VERSION=canonical-100gb-v1
 export CANONICAL_STAMP="$(date -u +%Y%m%d-%H%M%S)"
 export BRONZE_RUN="canonical-bronze-${CANONICAL_STAMP}"
+export DP1_RUN="canonical-dp1-${CANONICAL_STAMP}"
 
 python -m ops.gcp.submit_source_to_bronze \
   --dataset-version "$DATASET_VERSION" \
@@ -48,9 +51,13 @@ The output must contain the three canonical properties above,
 ```bash
 airflow dags unpause dp1_source_to_bronze
 airflow dags trigger dp1_source_to_bronze \
-  --run-id "canonical-dp1-${CANONICAL_STAMP}" \
+  --run-id "${DP1_RUN}" \
   --conf "{\"dataset_version\":\"${DATASET_VERSION}\",\"bronze_run_id\":\"${BRONZE_RUN}\",\"dataproc_ttl\":\"8h\",\"dataproc_performance_profile\":\"canonical\",\"data_bucket\":\"${EWALLET_DATA_BUCKET}\"}"
 ```
+
+Always create a fresh timestamp for the next canonical submission. Do not
+reuse failed Managed Spark batch `canonical-bronze-20261024-075143`; retain it
+as provisioning-failure evidence.
 
 DP2 and DP3 expose the same `dataproc_performance_profile` parameter. Leave it
 as `default` until their canonical performance setting is explicitly approved;

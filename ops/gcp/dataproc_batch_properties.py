@@ -14,8 +14,8 @@ PERFORMANCE_PROFILES = (
 
 _CANONICAL_RESOURCE_PROPERTIES = (
     "spark.dynamicAllocation.profile=performance",
-    "spark.dynamicAllocation.initialExecutors=10",
-    "spark.dynamicAllocation.maxExecutors=20",
+    "spark.dynamicAllocation.initialExecutors=6",
+    "spark.dynamicAllocation.maxExecutors=7",
 )
 
 

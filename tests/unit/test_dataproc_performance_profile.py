@@ -3,6 +3,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from data_platform.config import load_runtime_config
+from data_platform.processing.spark.common.spark_session import spark_options
 from ops.gcp.dataproc_batch_properties import (
     CANONICAL_PERFORMANCE_PROFILE,
     DEFAULT_PERFORMANCE_PROFILE,
@@ -25,8 +27,8 @@ from ops.gcp.submit_source_to_bronze import (
 
 CANONICAL_PROPERTIES = {
     "spark.dynamicAllocation.profile=performance",
-    "spark.dynamicAllocation.initialExecutors=10",
-    "spark.dynamicAllocation.maxExecutors=20",
+    "spark.dynamicAllocation.initialExecutors=6",
+    "spark.dynamicAllocation.maxExecutors=7",
 }
 
 
@@ -84,6 +86,62 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
 
         self.assertEqual(CANONICAL_PROPERTIES, canonical - default)
         self.assertEqual(default, canonical - CANONICAL_PROPERTIES)
+
+    def test_canonical_dp1_contract_fits_current_quota(self) -> None:
+        command = build_bronze_command(
+            _runtime(),
+            dataset_version="canonical-100gb-v1",
+            run_id="canonical-bronze-20261025-010203",
+            jar_paths=(Path("delta.jar"),),
+            ttl="8h",
+            performance_profile=CANONICAL_PERFORMANCE_PROFILE,
+        )
+        properties = _properties(command)
+        initial_executors = int(
+            next(
+                value.rsplit("=", 1)[1]
+                for value in properties
+                if value.startswith("spark.dynamicAllocation.initialExecutors=")
+            )
+        )
+        max_executors = int(
+            next(
+                value.rsplit("=", 1)[1]
+                for value in properties
+                if value.startswith("spark.dynamicAllocation.maxExecutors=")
+            )
+        )
+
+        self.assertIn("spark.dynamicAllocation.profile=performance", properties)
+        self.assertEqual(6, initial_executors)
+        self.assertEqual(7, max_executors)
+        self.assertIn("dataproc.tier=standard", properties)
+        self.assertIn("--version=2.2", command)
+        self.assertIn("--ttl=8h", command)
+        initial_vcpus = (1 + initial_executors) * 4
+        max_vcpus = (1 + max_executors) * 4
+        initial_disk_gb = (1 + initial_executors) * 400
+        max_disk_gb = (1 + max_executors) * 400
+        self.assertEqual(28, initial_vcpus)
+        self.assertEqual(32, max_vcpus)
+        self.assertEqual(2800, initial_disk_gb)
+        self.assertEqual(3200, max_disk_gb)
+        self.assertLessEqual(max_vcpus, 32)
+        self.assertLessEqual(max_disk_gb, 4096)
+
+        runtime_config = load_runtime_config(
+            "gcp",
+            environ={
+                "GCP_PROJECT_ID": "example-project",
+                "GCP_REGION": "asia-southeast1",
+                "EWALLET_DATA_BUCKET": "example-project-data",
+                "DATAHUB_GMS_URL": "http://datahub-gms.example:8080",
+            },
+        )
+        options = spark_options(runtime_config, optimized=True)
+        self.assertEqual("400", options["spark.sql.shuffle.partitions"])
+        self.assertEqual("true", options["spark.sql.adaptive.enabled"])
+        self.assertEqual("true", options["spark.sql.adaptive.skewJoin.enabled"])
 
     def test_all_dp_submitters_accept_the_same_canonical_profile(self) -> None:
         runtime = _runtime()
