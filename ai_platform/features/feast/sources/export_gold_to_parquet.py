@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,6 +26,10 @@ from ai_platform.features.feast.repository import (
 )
 from ai_platform.features.feast.schema import FEATURE_SPECS
 from data_platform.config import RuntimeConfig, load_runtime_config
+from data_platform.config.spark_profiles import (
+    parse_benchmark_run_id,
+    require_optimized_lineage,
+)
 from data_platform.storage.scripts.config import (
     deltalake_storage_options,
     storage_table_uri,
@@ -38,7 +43,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=("local", "dev", "gcp"),
         default="local",
     )
+    parser.add_argument(
+        "--spark-profile",
+        choices=("baseline", "optimized", "canonical"),
+        default="optimized",
+        help="Canonical Feast export rejects benchmark-only baseline lineage.",
+    )
     parser.add_argument("--output-root")
+    parser.add_argument(
+        "--source-feature-run-id",
+        help="Required for cloud exports; must be an optimized DP3 feature run.",
+    )
     parser.add_argument(
         "--dataset-version",
         default=os.getenv("EWALLET_DATASET_VERSION", "active"),
@@ -95,12 +110,56 @@ def _write_manifest(uri: str, manifest: dict[str, object]) -> None:
         stream.write((json.dumps(manifest, indent=2) + "\n").encode("utf-8"))
 
 
+def bind_cloud_feature_lineage(
+    runtime_config: RuntimeConfig,
+    *,
+    source_feature_run_id: str,
+    spark_profile: str,
+) -> RuntimeConfig:
+    """Bind cloud Feast reads to one verified optimized DP3 output root."""
+
+    lineage = parse_benchmark_run_id(source_feature_run_id)
+    if lineage["stage"] != "feat":
+        raise ValueError("Feast source must be a DP3 feature run")
+    if spark_profile != lineage["spark_profile"]:
+        raise ValueError("spark profile does not match feature run lineage")
+    require_optimized_lineage(lineage["spark_profile"])
+    bucket_root = runtime_config.storage.gold_root.split("/lakehouse/", 1)[0]
+    return replace(
+        runtime_config,
+        storage=replace(
+            runtime_config.storage,
+            gold_root=(
+                f"{bucket_root}/lakehouse/runs/{source_feature_run_id}/gold"
+            ),
+        ),
+    )
+
+
 def export_gold_snapshots(
     runtime_config: RuntimeConfig,
     output_root: str | Path | None = None,
     *,
     dataset_version: str = "active",
+    spark_profile: str = "optimized",
+    source_feature_run_id: str | None = None,
+    allow_baseline_for_test: bool = False,
 ) -> dict[str, object]:
+    if runtime_config.environment != "local":
+        if source_feature_run_id is None:
+            raise ValueError(
+                "cloud Feast export requires --source-feature-run-id"
+            )
+        runtime_config = bind_cloud_feature_lineage(
+            runtime_config,
+            source_feature_run_id=source_feature_run_id,
+            spark_profile=spark_profile,
+        )
+    else:
+        require_optimized_lineage(
+            spark_profile,
+            allow_baseline_for_test=allow_baseline_for_test,
+        )
     default_root = (
         str(OFFLINE_DATA_ROOT)
         if runtime_config.environment == "local"
@@ -155,6 +214,9 @@ def export_gold_snapshots(
         dataset_version=dataset_version,
         tables=tables,
         exported_at=datetime.now(timezone.utc).isoformat(),
+        spark_profile=spark_profile,
+        source_feature_run_id=source_feature_run_id,
+        allow_baseline_for_test=allow_baseline_for_test,
     )
     _write_manifest(f"{root.rstrip('/')}_manifest.json", manifest)
     return manifest
@@ -168,6 +230,8 @@ def main(argv: list[str] | None = None) -> int:
             config,
             args.output_root,
             dataset_version=args.dataset_version,
+            spark_profile=args.spark_profile,
+            source_feature_run_id=args.source_feature_run_id,
         )
     except Exception as exc:
         print(f"ERROR | {exc}")

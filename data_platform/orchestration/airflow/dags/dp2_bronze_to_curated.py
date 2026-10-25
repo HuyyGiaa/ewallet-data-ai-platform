@@ -29,14 +29,22 @@ with DAG(
     max_active_runs=1,
     default_args={"retries": 0},
     params={
-        "dataset_version": Param("r4-pilot-1gb-v1", type="string"),
-        "bronze_run_id": Param("r4-bronze-20261022-095608", type="string"),
-        "silver_run_id": Param("r5-airflow-silver-manual", type="string"),
-        "gold_run_id": Param("r5-airflow-gold-manual", type="string"),
-        "dataproc_ttl": Param("2h", type="string"),
-        "dataproc_performance_profile": Param(
-            "default", type="string", enum=["default", "canonical"]
+        "dataset_version": Param("canonical-100gb-v1", type="string"),
+        "benchmark_id": Param("ab-20260101000000", type="string"),
+        "spark_profile": Param(
+            "optimized", type="string", enum=["baseline", "optimized"]
         ),
+        "git_sha": Param("REQUIRED_GIT_SHA", type="string"),
+        "bronze_run_id": Param(
+            "ab-20260101000000-optimized-bronze-r260101000000", type="string"
+        ),
+        "silver_run_id": Param(
+            "ab-20260101000000-optimized-silver-r260101000001", type="string"
+        ),
+        "gold_run_id": Param(
+            "ab-20260101000000-optimized-gold-r260101000002", type="string"
+        ),
+        "dataproc_ttl": Param("8h", type="string"),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp2", "manual"],
@@ -58,10 +66,11 @@ with DAG(
         bash_command=(
             "python -m ops.gcp.submit_bronze_to_silver "
             "--dataset-version '{{ params.dataset_version }}' "
+            "--benchmark-id '{{ params.benchmark_id }}' "
             "--source-bronze-run-id '{{ params.bronze_run_id }}' "
             "--run-id '{{ params.silver_run_id }}' "
-            "--performance-profile "
-            "'{{ params.dataproc_performance_profile }}' "
+            "--spark-profile '{{ params.spark_profile }}' "
+            "--git-sha '{{ params.git_sha }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),
@@ -84,10 +93,11 @@ with DAG(
         bash_command=(
             "python -m ops.gcp.submit_silver_to_gold "
             "--dataset-version '{{ params.dataset_version }}' "
+            "--benchmark-id '{{ params.benchmark_id }}' "
             "--source-silver-run-id '{{ params.silver_run_id }}' "
             "--run-id '{{ params.gold_run_id }}' "
-            "--performance-profile "
-            "'{{ params.dataproc_performance_profile }}' "
+            "--spark-profile '{{ params.spark_profile }}' "
+            "--git-sha '{{ params.git_sha }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),

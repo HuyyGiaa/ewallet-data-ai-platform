@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +13,7 @@ from ai_platform.ml.training.contract import (
     NON_FEATURE_COLUMNS,
     OUTPUT_COLUMNS,
 )
+from data_platform.config.spark_profiles import require_optimized_lineage
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,14 @@ def _read_split(root: Path, split: str) -> pd.DataFrame:
 def load_dataset(path: Path) -> DatasetSplits:
     """Load the three explicit temporal partitions without Hive inference."""
     root = Path(path)
+    manifest_path = root / "manifest.json"
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        dataset_version = manifest.get(
+            "dataset_version", manifest.get("source_dataset_version")
+        )
+        if dataset_version == "canonical-100gb-v1":
+            require_optimized_lineage(str(manifest.get("spark_profile", "")))
     dataset = DatasetSplits(
         train=_read_split(root, "train"),
         validation=_read_split(root, "validation"),

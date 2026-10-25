@@ -24,12 +24,16 @@ with DAG(
     max_active_runs=1,
     default_args={"retries": 0},
     params={
-        "dataset_version": Param("r4-pilot-1gb-v1", type="string"),
-        "bronze_run_id": Param("r5-airflow-bronze-manual", type="string"),
-        "dataproc_ttl": Param("2h", type="string"),
-        "dataproc_performance_profile": Param(
-            "default", type="string", enum=["default", "canonical"]
+        "dataset_version": Param("canonical-100gb-v1", type="string"),
+        "benchmark_id": Param("ab-20260101000000", type="string"),
+        "spark_profile": Param(
+            "optimized", type="string", enum=["baseline", "optimized"]
         ),
+        "git_sha": Param("REQUIRED_GIT_SHA", type="string"),
+        "bronze_run_id": Param(
+            "ab-20260101000000-optimized-bronze-r260101000000", type="string"
+        ),
+        "dataproc_ttl": Param("8h", type="string"),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp1", "manual"],
@@ -50,9 +54,10 @@ with DAG(
         bash_command=(
             "python -m ops.gcp.submit_source_to_bronze "
             "--dataset-version '{{ params.dataset_version }}' "
+            "--benchmark-id '{{ params.benchmark_id }}' "
             "--run-id '{{ params.bronze_run_id }}' "
-            "--performance-profile "
-            "'{{ params.dataproc_performance_profile }}' "
+            "--spark-profile '{{ params.spark_profile }}' "
+            "--git-sha '{{ params.git_sha }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         cwd=str(REPOSITORY_ROOT),

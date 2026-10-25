@@ -7,6 +7,11 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit
 
 from data_platform.config import RuntimeConfig, load_runtime_config
+from data_platform.config.spark_profiles import (
+    BASELINE_SPARK_PROFILE,
+    OPTIMIZED_SPARK_PROFILE,
+    resolve_spark_profile,
+)
 
 if TYPE_CHECKING:
     from pyspark.sql import SparkSession
@@ -27,18 +32,24 @@ def spark_options(
 ) -> dict[str, str]:
     """Build Spark properties without importing or starting PySpark."""
 
-    adaptive_enabled = str(optimized).lower()
+    profile = resolve_spark_profile(
+        OPTIMIZED_SPARK_PROFILE if optimized else BASELINE_SPARK_PROFILE
+    )
     options = dict(_DELTA_OPTIONS)
     options.update(config.spark.configurations)
     options.update(config.storage.options)
     options.update(
         {
             "spark.sql.shuffle.partitions": str(
-                config.spark.shuffle_partitions
+                profile.shuffle_partitions
+                if config.environment == "gcp"
+                else config.spark.shuffle_partitions
             ),
             "spark.eventLog.dir": config.spark.event_log_uri,
-            "spark.sql.adaptive.enabled": adaptive_enabled,
-            "spark.sql.adaptive.skewJoin.enabled": adaptive_enabled,
+            "spark.sql.adaptive.enabled": str(profile.adaptive_enabled).lower(),
+            "spark.sql.adaptive.skewJoin.enabled": str(
+                profile.skew_join_enabled
+            ).lower(),
         }
     )
     return options

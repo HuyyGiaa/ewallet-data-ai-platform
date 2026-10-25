@@ -1,67 +1,151 @@
-# Canonical Dataproc performance profile
+# Canonical full-scale Spark A/B runbook
 
-Canonical DP1, DP2, and DP3 opt into the shared `canonical` Dataproc
-performance profile.
-Bounded and pilot submissions continue to use `default` unless the caller
-explicitly supplies `--performance-profile canonical` or the equivalent
-Airflow parameter.
+This runbook compares the **same full canonical workload** (`canonical-100gb-v1`,
+100,156,470,260 source bytes, 369,600,000 logical transactions) at one Git SHA.
+The 1–4 GB runs remain smoke tests and are not primary performance evidence.
+The transformation code, Standard tier, runtime 2.2, driver/executor shape, TTL
+8h, quota ceiling, schemas and validation rules are identical. Only Spark tuning
+changes.
 
-The canonical profile adds exactly these submission properties:
+## Profiles
 
-```text
-spark.dynamicAllocation.profile=performance
-spark.dynamicAllocation.initialExecutors=6
-spark.dynamicAllocation.maxExecutors=7
-```
+| Setting | Baseline | Optimized (production/canonical) |
+|---|---:|---:|
+| AQE | false | true |
+| Skew join handling | false | true |
+| Shuffle partitions | 200 (Spark default) | 400 (measured project setting) |
+| Dynamic allocation | enabled | enabled, `profile=performance` |
+| Initial executors | 2 | 6 |
+| Maximum executors | 7 | 7 |
+| Maximum resource shape | 1 driver + 7 executors | 1 driver + 7 executors |
 
-The submission remains on runtime 2.2 and `dataproc.tier=standard`. Executor
-cores and memory are not overridden. AQE, skew handling and
-`spark.sql.shuffle.partitions=400` remain owned by
-`configs/environments/gcp/platform.yaml` and the existing optimized Spark
-session. TTL remains an explicit submission argument and is `8h` for the
-canonical run.
+The baseline uses Managed Spark's supported dynamic allocation rather than an
+invented static mode. Its neutral initial allocation avoids the performance
+profile while `maxExecutors=7` keeps it within quota. Both profiles therefore
+have the same ceiling: 32 vCPU and about 3,200 GB disk, under 32 vCPU / 4,096 GB.
+The optimized profile is the only profile allowed into canonical Feast/ML.
+Baseline is benchmark-only.
 
-With the preserved Dataproc Serverless default shape of four vCPUs and 400 GB
-of disk per driver or executor, the workload starts with 28 vCPUs and about
-2,800 GB of disk (one driver plus six executors). It can scale to 32 vCPUs and
-about 3,200 GB of disk (one driver plus seven executors). This stays within the
-current quotas of 32 `CPUS_ALL_REGIONS` vCPUs and 4,096 GB of
-`DISKS_TOTAL_GB`. The executor cap is a ceiling rather than a reservation.
+`canonical` remains an alias for `optimized` in the low-level submitter for old
+commands. New Airflow runs use only `spark_profile=baseline|optimized`.
 
-## DP1 dry-run
+## Immutable benchmark lineage
 
-```bash
-export DATASET_VERSION=canonical-100gb-v1
-export CANONICAL_STAMP="$(date -u +%Y%m%d-%H%M%S)"
-export BRONZE_RUN="canonical-bronze-${CANONICAL_STAMP}"
-export DP1_RUN="canonical-dp1-${CANONICAL_STAMP}"
-
-python -m ops.gcp.submit_source_to_bronze \
-  --dataset-version "$DATASET_VERSION" \
-  --run-id "$BRONZE_RUN" \
-  --ttl 8h \
-  --performance-profile canonical
-```
-
-The output must contain the three canonical properties above,
-`dataproc.tier=standard`, `--version=2.2`, and `--ttl=8h`. It must also say
-`DRY RUN — no Dataproc batch was submitted`.
-
-## DP1 USER_RUN through Airflow
+Create one identity and reuse it for both profiles:
 
 ```bash
-airflow dags unpause dp1_source_to_bronze
-airflow dags trigger dp1_source_to_bronze \
-  --run-id "${DP1_RUN}" \
-  --conf "{\"dataset_version\":\"${DATASET_VERSION}\",\"bronze_run_id\":\"${BRONZE_RUN}\",\"dataproc_ttl\":\"8h\",\"dataproc_performance_profile\":\"canonical\",\"data_bucket\":\"${EWALLET_DATA_BUCKET}\"}"
+export SPARK_BENCHMARK_ID="ab-$(date -u +%Y%m%d%H%M%S)"
+export EWALLET_DATA_BUCKET=ewallet-data-ai-platform-hg26-data
+./scripts/start_airflow_local.sh
 ```
 
-Always create a fresh timestamp for the next canonical submission. Do not
-reuse failed Managed Spark batch `canonical-bronze-20261024-075143`; retain it
-as provisioning-failure evidence.
+Every wrapper creates a fresh attempt suffix. Execute mode refuses a dirty
+working tree, so the packaged Python code is bound to the printed Git SHA. Run
+IDs encode benchmark, profile,
+stage and attempt, while submitters validate the binding before `gcloud` runs.
+Baseline and optimized therefore cannot share an output prefix. Never reuse or
+delete abandoned evidence `canonical-dp2-20261025-100451` or
+`canonical-silver-20261025-100451`.
 
-DP2 and DP3 expose the same `dataproc_performance_profile` parameter. Their
-canonical wrapper scripts explicitly send `canonical`, so Silver, core Gold,
-and historical features use the same quota-safe 6-to-7 executor ceiling. The
-Airflow DAG defaults remain `default` so bounded and pilot behavior is not
-silently changed.
+The wrappers also resolve the full 40-character Git SHA and bind it into DAG
+configuration, batch labels and Spark application arguments. Evidence collection
+rejects a batch whose ID, profile, benchmark, Git SHA, runtime 2.2, Standard tier
+or profile properties do not match the declared comparison.
+
+## Dry-run and execution order
+
+Always inspect dry-run output first. It prints every relevant Spark property.
+Use the exact Bronze/Silver/Gold IDs printed by the preceding wrapper.
+
+```bash
+# Baseline, dry-run first
+./scripts/run_dp1_canonical.sh --profile baseline --benchmark-id "$SPARK_BENCHMARK_ID"
+./scripts/run_dp2_canonical.sh <baseline-bronze-run> --profile baseline
+./scripts/run_dp3_canonical.sh <baseline-silver-run> <baseline-gold-run> --profile baseline
+
+# Baseline, only after review
+./scripts/run_dp1_canonical.sh --profile baseline --benchmark-id "$SPARK_BENCHMARK_ID" --execute
+./scripts/run_dp2_canonical.sh <baseline-bronze-run> --profile baseline --execute
+./scripts/run_dp3_canonical.sh <baseline-silver-run> <baseline-gold-run> --profile baseline --execute
+
+# Optimized against the same benchmark ID and Git SHA
+./scripts/run_dp1_canonical.sh --profile optimized --benchmark-id "$SPARK_BENCHMARK_ID"
+./scripts/run_dp1_canonical.sh --profile optimized --benchmark-id "$SPARK_BENCHMARK_ID" --execute
+./scripts/run_dp2_canonical.sh <optimized-bronze-run> --profile optimized --execute
+./scripts/run_dp3_canonical.sh <optimized-silver-run> <optimized-gold-run> --profile optimized --execute
+```
+
+Finish DP1→DP2→DP3 baseline before starting optimized. A retry must call the
+wrapper again so it receives a new immutable attempt ID.
+
+## Equivalence and evidence
+
+For each stage, produce deterministic summary JSON with the exact table set,
+schema SHA-256, row count, deterministic content fingerprint and required
+invariants. Then compare:
+
+```bash
+VALIDATION_BATCH="abval-$(date -u +%y%m%d%H%M%S)"
+SUMMARY_URI="gs://ewallet-data-ai-platform-hg26-data/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/<profile>/<stage>-summary.json"
+python -m ops.gcp.submit_spark_output_summary \
+  --batch-id "$VALIDATION_BATCH" \
+  --stage <dp1-bronze|dp2-silver|dp2-gold|dp3-features> \
+  --benchmark-id "$SPARK_BENCHMARK_ID" \
+  --spark-profile <baseline-or-optimized> --output-run-id <run-id> \
+  --dataset-version canonical-100gb-v1 --git-sha "$(git rev-parse HEAD)" \
+  --summary-uri "$SUMMARY_URI"
+# Inspect the rendered command, then repeat with --execute after approval.
+```
+
+The submitter packages the same pinned Delta dependencies and runs the scan on
+Managed Spark, where the GCS connector is available. The data scan is read-only;
+only the immutable summary JSON is created. The content fingerprint is an
+order-independent aggregate of per-row `xxhash64` values plus exact row counts,
+schema hashes and stage invariants. It is suitable for detecting semantic A/B
+differences but is not a cryptographic, row-by-row proof.
+
+DP3 output evidence checks exact grain, non-null point-in-time timestamps and
+label exclusion. The `[T-window,T)` no-leakage rule is proven by the executable
+historical-window tests at the same Git SHA; it is not falsely inferred from
+non-null timestamps alone. Gold evidence checks primary-key grains, fact-to-
+dimension referential integrity, fact/OBT row parity and label exclusion.
+
+Then compare the two summaries:
+
+```bash
+python -m ops.gcp.validate_spark_output_equivalence \
+  --baseline-summary baseline-summary.json \
+  --optimized-summary optimized-summary.json \
+  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/equivalence/dp1-bronze.json"
+```
+
+Repeat for `dp2-silver`, `dp2-gold`, and `dp3-features`. This is a semantic,
+table-level comparison; it does not claim byte-identical Delta files because
+Spark can emit different physical file layouts.
+
+After each batch, collect read-only Managed Spark evidence:
+
+```bash
+python -m ops.gcp.collect_spark_benchmark_evidence \
+  --project ewallet-data-ai-platform-hg26 --region asia-southeast1 \
+  --batch-id <batch-id> --benchmark-id "$SPARK_BENCHMARK_ID" \
+  --spark-profile <baseline-or-optimized> --stage <stage> \
+  --dataset-version canonical-100gb-v1 --git-sha "$(git rev-parse HEAD)" \
+  --upstream-run-id <upstream> --output-run-id <output> \
+  --validation-json <stage-validation.json> \
+  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/<profile>/<stage>.json"
+```
+
+The collector records state/times, runtime properties, DCU, shuffle usage and
+driver URI; `milliDcuSeconds / 3,600,000` is DCU-hours. Once all eight batches
+succeeded and four equivalence files pass:
+
+```bash
+python -m ops.gcp.compare_spark_benchmark \
+  --evidence-root "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}"
+```
+
+The generator writes `comparison.json` and `comparison.csv`. It rejects mixed
+datasets, Git SHAs, stages, unsuccessful batches or inequivalent outputs. A
+negative percentage is explicitly reported as a regression. Only the optimized
+Gold/features lineage may become the downstream Feast/ML source.

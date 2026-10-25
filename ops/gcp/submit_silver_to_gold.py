@@ -14,7 +14,15 @@ from data_platform.storage.scripts.config import CORE_GOLD_TABLES
 from ops.gcp.dataproc_batch_properties import (
     DEFAULT_PERFORMANCE_PROFILE,
     add_performance_profile_argument,
+    add_spark_profile_argument,
     build_dataproc_batch_properties,
+    profile_summary,
+    resolve_submission_profile,
+)
+from data_platform.config.spark_profiles import (
+    require_benchmark_pair,
+    require_profile_binding,
+    validate_git_sha,
 )
 from ops.gcp.package_python_job import build_python_archive
 from ops.gcp.submit_dataproc_delta_smoke import (
@@ -81,9 +89,41 @@ def build_submission_command(
     jar_paths: Sequence[Path] | None = None,
     ttl: str = "2h",
     performance_profile: str = DEFAULT_PERFORMANCE_PROFILE,
+    spark_profile: str | None = None,
+    benchmark_id: str | None = None,
+    git_sha: str | None = None,
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
     ttl = _validate_ttl(ttl)
+    execution_profile = resolve_submission_profile(
+        spark_profile=spark_profile,
+        performance_profile=(
+            performance_profile
+            if performance_profile != DEFAULT_PERFORMANCE_PROFILE
+            else None
+        ),
+    )
+    require_benchmark_pair(
+        spark_profile=spark_profile, benchmark_id=benchmark_id
+    )
+    if spark_profile is not None and ttl != "8h":
+        raise ValueError("full-scale benchmark submissions require ttl=8h")
+    if benchmark_id is not None:
+        require_profile_binding(
+            source_silver_run_id,
+            benchmark_id=benchmark_id,
+            profile=spark_profile,
+            stage="silver",
+        )
+        require_profile_binding(
+            run_id,
+            benchmark_id=benchmark_id,
+            profile=spark_profile,
+            stage="gold",
+        )
+        if git_sha is None:
+            raise ValueError("benchmark submissions require --git-sha")
+        git_sha = validate_git_sha(git_sha)
     silver_root, gold_root = run_roots(
         runtime, source_silver_run_id=source_silver_run_id, run_id=run_id
     )
@@ -92,9 +132,15 @@ def build_submission_command(
         build_dataproc_batch_properties(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
-            profile=performance_profile,
+            profile=execution_profile,
         )
     )
+    labels = "component=core-gold,phase=s1b"
+    if benchmark_id is not None:
+        labels += (
+            f",benchmark_id={benchmark_id},spark_profile={spark_profile},"
+            f"git_sha={git_sha}"
+        )
     return (
         "gcloud", "dataproc", "batches", "submit", "pyspark", str(script_path),
         f"--batch={run_id}", f"--project={runtime.project_id}",
@@ -105,8 +151,8 @@ def build_submission_command(
         f"--py-files={archive_path}", f"--files={runtime_profile_path}",
         f"--deps-bucket=gs://{runtime.temporary_bucket}",
         f"--staging-bucket={runtime.temporary_bucket}", f"--ttl={ttl}",
-        "--labels=component=core-gold,phase=s1b", f"--properties={properties}", "--",
-        "--environment=gcp", "--mode=optimized",
+        f"--labels={labels}", f"--properties={properties}", "--",
+        "--environment=gcp", f"--mode={spark_profile or 'optimized'}",
         f"--expected-table-count={len(CORE_GOLD_TABLES)}",
         f"--dataset-version={dataset_version}",
         f"--source-silver-run-id={source_silver_run_id}", f"--run-id={run_id}",
@@ -114,6 +160,15 @@ def build_submission_command(
         f"--data-bucket={runtime.data_bucket}",
         f"--runtime-config-file={runtime_profile_path.name}",
         f"--silver-root={silver_root}", f"--gold-root={gold_root}",
+        *(
+            (
+                f"--benchmark-id={benchmark_id}",
+                f"--spark-profile={spark_profile}",
+                f"--git-sha={git_sha}",
+            )
+            if benchmark_id is not None
+            else ()
+        ),
     )
 
 
@@ -139,6 +194,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--terraform-output-json", type=Path)
     parser.add_argument("--ttl", default="2h")
     add_performance_profile_argument(parser)
+    add_spark_profile_argument(parser)
+    parser.add_argument("--benchmark-id")
+    parser.add_argument("--git-sha")
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -162,7 +220,10 @@ def main(
         source_silver_run_id=args.source_silver_run_id,
         run_id=args.run_id,
         ttl=args.ttl,
-        performance_profile=args.performance_profile,
+        performance_profile=args.performance_profile or DEFAULT_PERFORMANCE_PROFILE,
+        spark_profile=args.spark_profile,
+        benchmark_id=args.benchmark_id,
+        git_sha=args.git_sha,
         archive_path=archive,
         jar_paths=jars,
     )
@@ -171,6 +232,10 @@ def main(
     )
     if not args.execute:
         print("DRY RUN — no Dataproc batch was submitted")
+        if args.spark_profile:
+            print("\n".join(profile_summary(args.spark_profile)))
+        if args.benchmark_id:
+            print(f"BENCHMARK_ID: {args.benchmark_id}")
         print(f"Silver input root: {silver_root}")
         print(f"Core Gold output root: {gold_root}")
         print(f"Tables ({len(CORE_GOLD_TABLES)}): {', '.join(CORE_GOLD_TABLES)}")

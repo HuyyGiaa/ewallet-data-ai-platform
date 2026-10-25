@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Mapping
 
 from data_platform.config import RuntimeConfig
+from data_platform.config.spark_profiles import require_optimized_lineage
 
 
 FEATURE_REPO_ROOT = Path(__file__).resolve().parent / "feature_repo"
@@ -48,12 +49,21 @@ def build_export_manifest(
     dataset_version: str,
     tables: Mapping[str, object],
     exported_at: str | None = None,
+    spark_profile: str = "optimized",
+    source_feature_run_id: str | None = None,
+    allow_baseline_for_test: bool = False,
 ) -> dict[str, object]:
     """Build the versioned manifest shared by local and cloud exports."""
+    require_optimized_lineage(
+        spark_profile,
+        allow_baseline_for_test=allow_baseline_for_test,
+    )
     return {
         "exported_at": exported_at or datetime.now(timezone.utc).isoformat(),
         "environment": environment,
         "dataset_version": dataset_version,
+        "spark_profile": spark_profile,
+        "source_feature_run_id": source_feature_run_id,
         "source_format": "Delta Lake active snapshot",
         "output_format": "Parquet",
         "timestamp_precision": "microsecond",

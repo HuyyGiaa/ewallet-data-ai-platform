@@ -26,6 +26,18 @@ def gcs_storage() -> StorageConfig:
     )
 
 
+def local_storage() -> StorageConfig:
+    return StorageConfig(
+        scheme="file",
+        source_root="runtime/source",
+        bronze_root="runtime/bronze",
+        silver_root="runtime/silver",
+        gold_root="runtime/gold",
+        feast_root="runtime/feast",
+        options={},
+    )
+
+
 class DeltaReadPathTest(unittest.TestCase):
     def setUp(self) -> None:
         self.storage = gcs_storage()
@@ -67,7 +79,7 @@ class DeltaWritePathTest(unittest.TestCase):
     def setUp(self) -> None:
         self.storage = gcs_storage()
 
-    def test_write_silver_preserves_delta_overwrite_schema_and_partitions(
+    def test_write_silver_refuses_existing_gcs_table_and_preserves_partitions(
         self,
     ) -> None:
         dataframe = MagicMock()
@@ -84,14 +96,14 @@ class DeltaWritePathTest(unittest.TestCase):
         )
 
         dataframe.write.format.assert_called_once_with("delta")
-        delta_writer.mode.assert_called_once_with("overwrite")
+        delta_writer.mode.assert_called_once_with("errorifexists")
         overwrite_writer.option.assert_called_once_with("mergeSchema", "true")
         schema_writer.partitionBy.assert_called_once_with("event_date", "country")
         partitioned_writer.save.assert_called_once_with(
             "gs://contract-bucket/lakehouse/silver/transactions"
         )
 
-    def test_write_gold_preserves_delta_overwrite_schema_without_partitions(
+    def test_write_gold_refuses_existing_gcs_table_without_partitions(
         self,
     ) -> None:
         dataframe = MagicMock()
@@ -106,11 +118,18 @@ class DeltaWritePathTest(unittest.TestCase):
         )
 
         dataframe.write.format.assert_called_once_with("delta")
-        delta_writer.mode.assert_called_once_with("overwrite")
+        delta_writer.mode.assert_called_once_with("errorifexists")
         overwrite_writer.option.assert_called_once_with("mergeSchema", "true")
         schema_writer.partitionBy.assert_not_called()
         schema_writer.save.assert_called_once_with(
             "gs://contract-bucket/lakehouse/gold/dim_user"
+        )
+
+    def test_local_write_keeps_existing_overwrite_behavior(self) -> None:
+        dataframe = MagicMock()
+        write_silver(dataframe, "users", storage=local_storage())
+        dataframe.write.format.return_value.mode.assert_called_once_with(
+            "overwrite"
         )
 
 

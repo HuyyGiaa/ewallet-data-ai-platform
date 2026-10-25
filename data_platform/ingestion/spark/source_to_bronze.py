@@ -12,6 +12,7 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
 from pyspark.sql import DataFrame, SparkSession, functions as F
+from data_platform.config.spark_profiles import validate_git_sha
 
 
 PHYSICAL_TABLES = (
@@ -190,6 +191,9 @@ def run_ingestion(
     run_id: str,
     batch_id: str,
     runtime_version: str,
+    benchmark_id: str | None = None,
+    spark_profile: str | None = None,
+    git_sha: str | None = None,
 ) -> dict[str, Any]:
     manifest = validate_source_manifest(
         _download_json(source_manifest_uri),
@@ -297,6 +301,9 @@ def run_ingestion(
         "spark_version": spark.version,
         "spark_application_id": spark.sparkContext.applicationId,
         "dataset_version": dataset_version,
+        "benchmark_id": benchmark_id,
+        "spark_profile": spark_profile,
+        "git_sha": git_sha,
         "source_manifest_uri": source_manifest_uri,
         "bronze_root": bronze_root.rstrip("/"),
         "source_total_bytes": int(manifest["total_bytes"]),
@@ -329,7 +336,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--batch-id", required=True)
     parser.add_argument("--runtime-version", default="2.2")
-    return parser.parse_args(argv)
+    parser.add_argument("--benchmark-id")
+    parser.add_argument("--spark-profile", choices=("baseline", "optimized"))
+    parser.add_argument("--git-sha")
+    args = parser.parse_args(argv)
+    if len(
+        [value for value in (args.benchmark_id, args.spark_profile, args.git_sha) if value]
+    ) not in (0, 3):
+        parser.error("benchmark-id, spark-profile and git-sha must be supplied together")
+    if args.git_sha:
+        validate_git_sha(args.git_sha)
+    return args
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -341,6 +358,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_id=args.run_id,
         batch_id=args.batch_id,
         runtime_version=args.runtime_version,
+        benchmark_id=args.benchmark_id,
+        spark_profile=args.spark_profile,
+        git_sha=args.git_sha,
     )
     return 0
 

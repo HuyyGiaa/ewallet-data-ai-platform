@@ -38,7 +38,7 @@ def write_silver(
     writer = (
         df.write
         .format("delta")
-        .mode("overwrite")
+        .mode("errorifexists" if storage.scheme == "gs" else "overwrite")
         .option("mergeSchema", "true")
     )
     if partition_columns:

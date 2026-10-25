@@ -16,6 +16,7 @@ from data_platform.config import (
     load_runtime_config,
     load_runtime_config_file,
 )
+from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import create_spark_session
 from data_platform.processing.spark.gold.delta_gold_io import (
     process_gold_table,
@@ -173,7 +174,18 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument("--data-bucket")
     parser.add_argument("--runtime-config-file", type=Path)
     parser.add_argument("--expected-table-count", type=int)
+    parser.add_argument("--benchmark-id")
+    parser.add_argument("--spark-profile", choices=("baseline", "optimized"))
+    parser.add_argument("--git-sha")
     args = parser.parse_args(argv)
+    if len(
+        [value for value in (args.benchmark_id, args.spark_profile, args.git_sha) if value]
+    ) not in (0, 3):
+        parser.error("benchmark-id, spark-profile and git-sha must be supplied together")
+    if args.git_sha:
+        validate_git_sha(args.git_sha)
+    if args.spark_profile is not None and args.spark_profile != args.mode:
+        parser.error("spark-profile must equal mode")
     cloud_values = (
         args.silver_root,
         args.source_core_gold_root,

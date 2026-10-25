@@ -116,6 +116,24 @@ class FeastRepositoryConfigTest(unittest.TestCase):
         self.assertEqual("gcp", manifest["environment"])
         self.assertEqual("f7-canonical-v1", manifest["dataset_version"])
         self.assertEqual("microsecond", manifest["timestamp_precision"])
+        self.assertEqual("optimized", manifest["spark_profile"])
+
+    def test_canonical_feast_manifest_rejects_baseline_lineage(self) -> None:
+        with self.assertRaisesRegex(ValueError, "optimized Spark lineage"):
+            build_export_manifest(
+                environment="gcp",
+                dataset_version="canonical-100gb-v1",
+                spark_profile="baseline",
+                tables={},
+            )
+        manifest = build_export_manifest(
+            environment="local",
+            dataset_version="test-only",
+            spark_profile="baseline",
+            allow_baseline_for_test=True,
+            tables={},
+        )
+        self.assertEqual("baseline", manifest["spark_profile"])
 
     def test_feature_contract_contains_no_labels(self) -> None:
         forbidden = {"label", "fraud_type", "is_fraud"}
@@ -154,6 +172,30 @@ class FeastExporterRuntimeConfigTest(unittest.TestCase):
             "gs://course-bucket/lakehouse/gold/feat_user_behavior",
             gold_source_uri(runtime("gcp"), "feat_user_behavior"),
         )
+
+    def test_cloud_feast_binds_only_optimized_dp3_run_root(self) -> None:
+        from ai_platform.features.feast.sources.export_gold_to_parquet import (
+            bind_cloud_feature_lineage,
+        )
+
+        run_id = "ab-20261025123456-optimized-feat-r261025123456"
+        bound = bind_cloud_feature_lineage(
+            runtime("gcp"),
+            source_feature_run_id=run_id,
+            spark_profile="optimized",
+        )
+        self.assertEqual(
+            f"gs://course-bucket/lakehouse/runs/{run_id}/gold",
+            bound.storage.gold_root,
+        )
+        with self.assertRaisesRegex(ValueError, "optimized Spark lineage"):
+            bind_cloud_feature_lineage(
+                runtime("gcp"),
+                source_feature_run_id=(
+                    "ab-20261025123456-baseline-feat-r261025123456"
+                ),
+                spark_profile="baseline",
+            )
 
     def test_validation_sample_reader_uses_profile_layer_root(self) -> None:
         from ai_platform.features.feast.sources.export_validation_samples import (
