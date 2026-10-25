@@ -90,12 +90,95 @@ class CloudAirflowDagTest(unittest.TestCase):
         submit = dag.get_task("submit_core_gold_dataproc")
         self.assertIn("ops.gcp.submit_silver_to_gold", submit.bash_command)
 
+    def test_dp2_python_tasks_can_import_repo_modules_from_their_cwd(self) -> None:
+        dag = self.bag.dags["dp2_bronze_to_curated"]
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        modules_by_task = {
+            "verify_bronze_delta": "ops.gcp.verify_delta_run",
+            "submit_silver_dataproc": "ops.gcp.submit_bronze_to_silver",
+            "verify_silver_delta": "ops.gcp.verify_delta_run",
+            "submit_core_gold_dataproc": "ops.gcp.submit_silver_to_gold",
+            "verify_core_gold_delta": "ops.gcp.verify_delta_run",
+        }
+        for task_id, module in modules_by_task.items():
+            task = dag.get_task(task_id)
+            self.assertEqual(str(REPOSITORY_ROOT), task.cwd)
+            result = subprocess.run(
+                [sys.executable, "-c", f"import {module}"],
+                cwd=task.cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+
     def test_dp3_graph(self) -> None:
         dag = self.bag.dags["dp3_historical_features"]
         self.assertEqual(1, dag.max_active_runs)
         self.assertEqual(4, len(dag.task_ids))
         submit = dag.get_task("submit_historical_features_dataproc")
         self.assertIn("ops.gcp.submit_historical_features", submit.bash_command)
+
+    def test_dp3_python_tasks_can_import_repo_modules_from_their_cwd(self) -> None:
+        dag = self.bag.dags["dp3_historical_features"]
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        modules_by_task = {
+            "verify_silver_delta": "ops.gcp.verify_delta_run",
+            "verify_core_gold_delta": "ops.gcp.verify_delta_run",
+            "submit_historical_features_dataproc": (
+                "ops.gcp.submit_historical_features"
+            ),
+            "verify_historical_feature_delta": "ops.gcp.verify_delta_run",
+        }
+        for task_id, module in modules_by_task.items():
+            task = dag.get_task(task_id)
+            self.assertEqual(str(REPOSITORY_ROOT), task.cwd)
+            result = subprocess.run(
+                [sys.executable, "-c", f"import {module}"],
+                cwd=task.cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_dp2_and_dp3_canonical_commands_render_quota_safe_profile(self) -> None:
+        dp2 = self.bag.dags["dp2_bronze_to_curated"]
+        dp2_params = {
+            "dataset_version": "canonical-100gb-v1",
+            "bronze_run_id": "canonical-bronze-20261025-010101",
+            "silver_run_id": "canonical-silver-20261025-020202",
+            "gold_run_id": "canonical-gold-20261025-020202",
+            "dataproc_ttl": "8h",
+            "dataproc_performance_profile": "canonical",
+        }
+        for task_id in ("submit_silver_dataproc", "submit_core_gold_dataproc"):
+            task = dp2.get_task(task_id)
+            command = task.render_template(task.bash_command, {"params": dp2_params})
+            self.assertIn("--performance-profile 'canonical'", command)
+            self.assertIn("--ttl '8h'", command)
+
+        dp3 = self.bag.dags["dp3_historical_features"]
+        task = dp3.get_task("submit_historical_features_dataproc")
+        command = task.render_template(
+            task.bash_command,
+            {
+                "params": {
+                    "dataset_version": "canonical-100gb-v1",
+                    "silver_run_id": "canonical-silver-20261025-020202",
+                    "gold_run_id": "canonical-gold-20261025-020202",
+                    "feature_run_id": "canonical-features-20261025-030303",
+                    "dataproc_ttl": "8h",
+                    "dataproc_performance_profile": "canonical",
+                }
+            },
+        )
+        self.assertIn("--performance-profile 'canonical'", command)
+        self.assertIn("--ttl '8h'", command)
 
     def test_no_cloud_dag_contains_local_absolute_paths(self) -> None:
         for dag_id in (

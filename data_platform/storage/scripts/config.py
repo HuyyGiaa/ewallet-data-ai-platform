@@ -55,7 +55,7 @@ def silver_tables(include_fraud_labels: bool = False) -> tuple[str, ...]:
     return SILVER_TABLES
 
 
-GOLD_TABLES = (
+CORE_GOLD_TABLES = (
     "dim_user",
     "dim_account",
     "dim_merchant",
@@ -66,11 +66,22 @@ GOLD_TABLES = (
     "fact_balance_snapshot",
     "obt_transaction_enriched",
     "feat_user_90d",
+    "opt_merchant_performance",
+)
+
+HISTORICAL_FEATURE_TABLES = (
     "feat_user_behavior",
     "feat_account_behavior",
     "feat_device_behavior",
     "feat_merchant_behavior",
-    "opt_merchant_performance",
+)
+
+# Preserve the established registration order: historical features precede
+# the final optimization table even though core Gold owns that table.
+GOLD_TABLES = (
+    CORE_GOLD_TABLES[:-1]
+    + HISTORICAL_FEATURE_TABLES
+    + CORE_GOLD_TABLES[-1:]
 )
 
 # Kept for import compatibility while callers migrate to

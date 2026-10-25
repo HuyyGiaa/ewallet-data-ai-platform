@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from data_platform.processing.spark.silver.silver_pipeline import selected_pipelines
+from data_platform.storage.scripts.config import silver_tables
 from ops.gcp.dataproc_batch_properties import (
     DEFAULT_PERFORMANCE_PROFILE,
     add_performance_profile_argument,
@@ -112,7 +112,7 @@ def build_submission_command(
         source_bronze_run_id=source_bronze_run_id,
         run_id=run_id,
     )
-    tables = selected_pipelines(include_fraud_labels=True)
+    tables = silver_tables(include_fraud_labels=True)
     jars = tuple(jar_paths or dependency_jar_paths())
     properties = ",".join(
         build_dataproc_batch_properties(
@@ -200,7 +200,7 @@ def _print_plan(
         source_bronze_run_id=source_bronze_run_id,
         run_id=run_id,
     )
-    table_names = [name for name, _, _ in selected_pipelines(True)]
+    table_names = silver_tables(include_fraud_labels=True)
     print(f"Dataset version: {dataset_version}")
     print(f"Source Bronze run: {source_bronze_run_id}")
     print(f"Bronze input root: {bronze_root}")

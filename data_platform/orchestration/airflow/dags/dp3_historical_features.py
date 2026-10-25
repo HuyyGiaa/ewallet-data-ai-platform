@@ -1,12 +1,14 @@
 """DP3: verified Silver/core Gold to immutable historical feature Gold."""
 
 from datetime import timedelta
+from pathlib import Path
 
 import pendulum
 from airflow.sdk import DAG, Param
 from airflow.providers.standard.operators.bash import BashOperator
 
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 SILVER_TABLES = (
     "users", "accounts", "merchants", "devices", "transactions",
     "balance_snapshots", "login_events", "fraud_labels",
@@ -53,6 +55,7 @@ with DAG(
         ),
         retries=1,
         retry_delay=timedelta(minutes=1),
+        cwd=str(REPOSITORY_ROOT),
     )
     verify_core_gold = BashOperator(
         task_id="verify_core_gold_delta",
@@ -64,6 +67,7 @@ with DAG(
         ),
         retries=1,
         retry_delay=timedelta(minutes=1),
+        cwd=str(REPOSITORY_ROOT),
     )
     submit_features = BashOperator(
         task_id="submit_historical_features_dataproc",
@@ -78,6 +82,7 @@ with DAG(
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),
+        cwd=str(REPOSITORY_ROOT),
     )
     verify_features = BashOperator(
         task_id="verify_historical_feature_delta",
@@ -89,5 +94,6 @@ with DAG(
         ),
         retries=1,
         retry_delay=timedelta(minutes=1),
+        cwd=str(REPOSITORY_ROOT),
     )
     [verify_silver, verify_core_gold] >> submit_features >> verify_features

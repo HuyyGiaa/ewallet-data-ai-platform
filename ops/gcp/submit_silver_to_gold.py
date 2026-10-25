@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from data_platform.processing.spark.gold.gold_pipeline import CORE_GOLD_TABLES
+from data_platform.storage.scripts.config import CORE_GOLD_TABLES
 from ops.gcp.dataproc_batch_properties import (
     DEFAULT_PERFORMANCE_PROFILE,
     add_performance_profile_argument,

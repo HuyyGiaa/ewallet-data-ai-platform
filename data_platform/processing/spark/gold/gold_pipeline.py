@@ -42,6 +42,7 @@ from data_platform.processing.spark.gold.delta_gold_io import (
 from data_platform.processing.spark.gold.obt_builder import (
     build_obt_transaction_enriched,
 )
+from data_platform.storage.scripts.config import CORE_GOLD_TABLES
 
 
 logging.basicConfig(
@@ -51,21 +52,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-
-CORE_GOLD_TABLES = (
-    "dim_user",
-    "dim_account",
-    "dim_merchant",
-    "dim_device",
-    "dim_date",
-    "fact_transactions",
-    "fact_login_events",
-    "fact_balance_snapshot",
-    "obt_transaction_enriched",
-    "feat_user_90d",
-    "opt_merchant_performance",
-)
 
 
 def apply_run_scoped_storage(

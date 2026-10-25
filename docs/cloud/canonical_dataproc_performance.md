@@ -1,6 +1,7 @@
 # Canonical Dataproc performance profile
 
-Canonical DP1 opts into the shared `canonical` Dataproc performance profile.
+Canonical DP1, DP2, and DP3 opt into the shared `canonical` Dataproc
+performance profile.
 Bounded and pilot submissions continue to use `default` unless the caller
 explicitly supplies `--performance-profile canonical` or the equivalent
 Airflow parameter.
@@ -59,6 +60,8 @@ Always create a fresh timestamp for the next canonical submission. Do not
 reuse failed Managed Spark batch `canonical-bronze-20261024-075143`; retain it
 as provisioning-failure evidence.
 
-DP2 and DP3 expose the same `dataproc_performance_profile` parameter. Leave it
-as `default` until their canonical performance setting is explicitly approved;
-they can later opt into `canonical` without changing submitter code.
+DP2 and DP3 expose the same `dataproc_performance_profile` parameter. Their
+canonical wrapper scripts explicitly send `canonical`, so Silver, core Gold,
+and historical features use the same quota-safe 6-to-7 executor ceiling. The
+Airflow DAG defaults remain `default` so bounded and pilot behavior is not
+silently changed.

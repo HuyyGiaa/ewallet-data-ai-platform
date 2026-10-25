@@ -1,8 +1,9 @@
 # Canonical 100 GB cloud data readiness
 
-The bounded cloud path is ready for a user-operated canonical run. This is a
-readiness record, not a claim that the canonical dataset or its Spark outputs
-already exist.
+The canonical source gate and DP1 Source-to-Bronze run have passed. The
+authoritative source dataset is `canonical-100gb-v1`; the successful DP1
+lineage binds Bronze run `canonical-bronze-20261025-084645`. The remaining
+user-operated canonical path starts at DP2.
 
 ## Measured source plan
 
@@ -13,9 +14,8 @@ shards, 369,600,000 logical transactions, and an estimated 100,012,322,256
 Parquet bytes. Local disk safety passed with more than 141 GiB remaining after
 the staging allowance.
 
-The actual completed GCS manifest is authoritative. Do not describe the
-dataset as 100 GB until that manifest reports a size inside the profile's
-95-105 GB accepted range.
+The completed GCS manifest is authoritative and passed the final gate at
+100,156,470,260 bytes.
 
 ## Bounded local parallel-generation benchmark
 
@@ -93,46 +93,50 @@ same plan and dataset version when resuming.
 
 ## USER_RUN: orchestrate Bronze, Silver, Gold, and features
 
-Start the Airflow scheduler/API service, unpause the three DAGs, and assign one
-immutable timestamp to all lineage IDs:
+After a reboot, start or reuse the three required Airflow 3 components with one
+command. The helper uses the dedicated `airflow` conda environment, the repo's
+existing metadata database, port 8084, and the configured execution API. It
+never initializes or resets metadata state:
 
 ```bash
-export CANONICAL_STAMP="$(date -u +%Y%m%d-%H%M%S)"
-export BRONZE_RUN="canonical-bronze-${CANONICAL_STAMP}"
-export SILVER_RUN="canonical-silver-${CANONICAL_STAMP}"
-export GOLD_RUN="canonical-gold-${CANONICAL_STAMP}"
-export FEATURE_RUN="canonical-features-${CANONICAL_STAMP}"
-
-airflow dags unpause dp1_source_to_bronze
-airflow dags trigger dp1_source_to_bronze \
-  --run-id "canonical-dp1-${CANONICAL_STAMP}" \
-  --conf "{\"dataset_version\":\"${DATASET_VERSION}\",\"bronze_run_id\":\"${BRONZE_RUN}\",\"dataproc_ttl\":\"8h\",\"dataproc_performance_profile\":\"canonical\",\"data_bucket\":\"${EWALLET_DATA_BUCKET}\"}"
+./scripts/start_airflow_local.sh
 ```
 
-This DP1 run explicitly selects the canonical performance profile. See
+DP1 explicitly selects the canonical performance profile. See
 [Canonical Dataproc performance profile](canonical_dataproc_performance.md)
-for the dry-run command and exact Spark properties. DP2 and DP3 keep the
-`default` profile until a later explicit override.
+for its command and exact Spark properties.
 
-Wait for DP1 to pass, then run DP2:
-
-```bash
-airflow dags unpause dp2_bronze_to_curated
-airflow dags trigger dp2_bronze_to_curated \
-  --run-id "canonical-dp2-${CANONICAL_STAMP}" \
-  --conf "{\"dataset_version\":\"${DATASET_VERSION}\",\"bronze_run_id\":\"${BRONZE_RUN}\",\"silver_run_id\":\"${SILVER_RUN}\",\"gold_run_id\":\"${GOLD_RUN}\",\"dataproc_ttl\":\"8h\",\"data_bucket\":\"${EWALLET_DATA_BUCKET}\"}"
-```
-
-Wait for DP2 to pass, then run DP3:
+After DP1 passes, first render DP2 without triggering anything, then explicitly
+execute it with the exact successful canonical Bronze run ID:
 
 ```bash
-airflow dags unpause dp3_historical_features
-airflow dags trigger dp3_historical_features \
-  --run-id "canonical-dp3-${CANONICAL_STAMP}" \
-  --conf "{\"dataset_version\":\"${DATASET_VERSION}\",\"silver_run_id\":\"${SILVER_RUN}\",\"gold_run_id\":\"${GOLD_RUN}\",\"feature_run_id\":\"${FEATURE_RUN}\",\"dataproc_ttl\":\"8h\",\"data_bucket\":\"${EWALLET_DATA_BUCKET}\"}"
+./scripts/run_dp2_canonical.sh canonical-bronze-<successful-stamp>
+./scripts/run_dp2_canonical.sh canonical-bronze-<successful-stamp> --execute
 ```
 
-Do not reuse any run ID after a partial or completed run. Inspect Dataproc and
-Airflow logs before choosing a new ID after a failure.
+The wrapper creates fresh Silver, Gold, and DP2 IDs, binds the supplied Bronze
+run, and explicitly sends `dataproc_performance_profile=canonical` and
+`dataproc_ttl=8h`. The DAG's first task verifies the exact eight-table Bronze
+input and Delta logs before any Silver submission.
+
+After DP2 passes, use the exact successful Silver and core Gold IDs printed by
+that invocation:
+
+```bash
+./scripts/run_dp3_canonical.sh canonical-silver-<successful-stamp> canonical-gold-<successful-stamp>
+./scripts/run_dp3_canonical.sh canonical-silver-<successful-stamp> canonical-gold-<successful-stamp> --execute
+```
+
+The DP3 DAG verifies the exact Silver and core Gold table sets and Delta logs
+before submitting features. Both wrappers reject pilot/stale ID formats, print
+all resolved IDs and the exact Airflow 3 command, and default to dry-run.
+
+Never reuse a failed or successful Managed Spark batch ID. If DP2 may have
+touched Silver, rerun the wrapper to create a new DP2, Silver, and Gold ID. If
+Silver passed but Gold failed, keep that Silver output as evidence and still
+use a fresh DP2/Silver/Gold set because the DP2 DAG is an end-to-end unit. A
+DP3 retry keeps the same verified Silver/Gold inputs but must use a fresh DP3
+and feature ID. Existing outputs are immutable; each submitter refuses a
+non-empty output prefix before submission.
 
 Machine-readable evidence: [100 GB readiness evidence](../evidence/cloud/s1b_100gb_readiness.json).

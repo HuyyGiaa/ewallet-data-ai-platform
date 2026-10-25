@@ -30,6 +30,7 @@ from data_platform.processing.spark.gold.features import (
 from data_platform.processing.spark.gold.features.validation import (
     validate_feature_columns,
 )
+from data_platform.storage.scripts.config import HISTORICAL_FEATURE_TABLES
 
 
 logging.basicConfig(
@@ -38,14 +39,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-
-HISTORICAL_FEATURE_TABLES = (
-    "feat_user_behavior",
-    "feat_account_behavior",
-    "feat_device_behavior",
-    "feat_merchant_behavior",
-)
 
 
 def apply_run_scoped_storage(
