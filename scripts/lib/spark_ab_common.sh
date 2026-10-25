@@ -10,6 +10,8 @@ spark_ab_validate_profile() {
 spark_ab_validate_benchmark_id() {
   [[ ${BENCHMARK_ID} =~ ^ab-[0-9]{14}$ ]] || \
     spark_ab_usage_error "benchmark ID must match ab-YYYYMMDDhhmmss"
+  [[ ${BENCHMARK_ID} != ab-20261025112811 ]] || \
+    spark_ab_usage_error "benchmark ab-20261025112811 is troubleshooting evidence only; create a new benchmark ID"
 }
 
 spark_ab_init_airflow() {
@@ -28,6 +30,12 @@ spark_ab_init_airflow() {
   DATA_BUCKET=${EWALLET_DATA_BUCKET:-ewallet-data-ai-platform-hg26-data}
   [[ ${DATA_BUCKET} =~ ^[a-z0-9][a-z0-9._-]{1,221}[a-z0-9]$ ]] || \
     spark_ab_usage_error "invalid EWALLET_DATA_BUCKET '${DATA_BUCKET}'"
+  PROJECT_ID=${GCP_PROJECT_ID:-ewallet-data-ai-platform-hg26}
+  REGION=${GCP_REGION:-asia-southeast1}
+  [[ ${PROJECT_ID} =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || \
+    spark_ab_usage_error "invalid GCP_PROJECT_ID '${PROJECT_ID}'"
+  [[ ${REGION} =~ ^[a-z]+-[a-z]+[0-9]$ ]] || \
+    spark_ab_usage_error "invalid GCP_REGION '${REGION}'"
 }
 
 spark_ab_print_profile() {
@@ -49,6 +57,25 @@ spark_ab_print_trigger() {
   printf 'AIRFLOW_HOME=%q AIRFLOW__CORE__DAGS_FOLDER=%q AIRFLOW__CORE__EXECUTION_API_SERVER_URL=%q airflow dags trigger %q --run-id %q --conf %q\n' \
     "${AIRFLOW_HOME}" "${AIRFLOW__CORE__DAGS_FOLDER}" \
     "${AIRFLOW__CORE__EXECUTION_API_SERVER_URL}" "${dag_id}" "${run_id}" "${conf}"
+}
+
+spark_ab_print_quota_guard() {
+  local handoff=$1 predecessor=${2:-} next_batch=$3
+  local output="docs/evidence/quota_handoffs/${BENCHMARK_ID}/${next_batch}-quota.json"
+  local command=(
+    python3 -m ops.gcp.wait_for_dataproc_quota
+    --project "${PROJECT_ID}"
+    --region "${REGION}"
+    --spark-profile "${SPARK_PROFILE}"
+    --benchmark-id "${BENCHMARK_ID}"
+    --handoff "${handoff}"
+    --evidence-output "${output}"
+  )
+  if [[ -n ${predecessor} ]]; then
+    command+=(--predecessor-batch-id "${predecessor}")
+  fi
+  echo "Quota readiness plan (${handoff}; execute mode polls 15s→30s, timeout 900s):"
+  (cd "${REPOSITORY_ROOT}" && "${command[@]}")
 }
 
 spark_ab_require_clean_commit() {

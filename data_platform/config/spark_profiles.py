@@ -90,12 +90,42 @@ def quota_ceiling(
     process_vcpus: int = 4,
     process_disk_gb: int = 400,
 ) -> dict[str, int]:
+    return quota_requirements(
+        profile,
+        process_vcpus=process_vcpus,
+        process_disk_gb=process_disk_gb,
+    )["maximum"]
+
+
+def quota_requirements(
+    profile: str,
+    *,
+    process_vcpus: int = 4,
+    process_disk_gb: int = 400,
+) -> dict[str, dict[str, int]]:
+    """Derive initial and maximum Serverless quota from the Spark profile.
+
+    Standard-tier Managed Spark currently provisions one driver plus the
+    configured executors with a 4-vCPU / 400-GB default process shape. Keeping
+    that shape beside the shared executor profile prevents orchestration code
+    from copying the observed 28-vCPU / 2,800-GB request as magic numbers.
+    """
+
+    if process_vcpus <= 0 or process_disk_gb <= 0:
+        raise ValueError("Dataproc process resources must be positive")
     resolved = resolve_spark_profile(profile)
-    process_count = 1 + resolved.max_executors
+
+    def resources(executors: int) -> dict[str, int]:
+        process_count = 1 + executors
+        return {
+            "process_count": process_count,
+            "vcpus": process_count * process_vcpus,
+            "disk_gb": process_count * process_disk_gb,
+        }
+
     return {
-        "process_count": process_count,
-        "vcpus": process_count * process_vcpus,
-        "disk_gb": process_count * process_disk_gb,
+        "initial": resources(resolved.initial_executors),
+        "maximum": resources(resolved.max_executors),
     }
 
 

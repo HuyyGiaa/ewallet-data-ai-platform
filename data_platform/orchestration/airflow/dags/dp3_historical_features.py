@@ -49,6 +49,8 @@ with DAG(
             "ab-20260101000000-optimized-feat-r260101000003", type="string"
         ),
         "dataproc_ttl": Param("8h", type="string"),
+        "project_id": Param("ewallet-data-ai-platform-hg26", type="string"),
+        "region": Param("asia-southeast1", type="string"),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp3", "manual"],
@@ -76,6 +78,22 @@ with DAG(
         retries=1,
         retry_delay=timedelta(minutes=1),
         cwd=str(REPOSITORY_ROOT),
+    )
+    wait_features_quota = BashOperator(
+        task_id="wait_features_quota",
+        bash_command=(
+            "python -m ops.gcp.wait_for_dataproc_quota "
+            "--project '{{ params.project_id }}' --region '{{ params.region }}' "
+            "--spark-profile '{{ params.spark_profile }}' "
+            "--benchmark-id '{{ params.benchmark_id }}' "
+            "--handoff 'gold-to-features' "
+            "--predecessor-batch-id '{{ params.gold_run_id }}' "
+            "--evidence-output 'docs/evidence/quota_handoffs/"
+            "{{ params.benchmark_id }}/{{ params.feature_run_id }}-quota.json' "
+            "--execute"
+        ),
+        cwd=str(REPOSITORY_ROOT),
+        execution_timeout=timedelta(minutes=20),
     )
     submit_features = BashOperator(
         task_id="submit_historical_features_dataproc",
@@ -105,4 +123,4 @@ with DAG(
         retry_delay=timedelta(minutes=1),
         cwd=str(REPOSITORY_ROOT),
     )
-    [verify_silver, verify_core_gold] >> submit_features >> verify_features
+    [verify_silver, verify_core_gold] >> wait_features_quota >> submit_features >> verify_features

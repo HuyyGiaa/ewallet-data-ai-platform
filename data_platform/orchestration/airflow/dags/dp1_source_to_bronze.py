@@ -34,6 +34,9 @@ with DAG(
             "ab-20260101000000-optimized-bronze-r260101000000", type="string"
         ),
         "dataproc_ttl": Param("8h", type="string"),
+        "project_id": Param("ewallet-data-ai-platform-hg26", type="string"),
+        "region": Param("asia-southeast1", type="string"),
+        "predecessor_batch_id": Param("", type="string"),
         "data_bucket": Param("ewallet-data-ai-platform-hg26-data", type="string"),
     },
     tags=["ewallet", "cloud", "dp1", "manual"],
@@ -48,6 +51,23 @@ with DAG(
         retries=1,
         retry_delay=timedelta(minutes=1),
         execution_timeout=timedelta(minutes=5),
+    )
+    wait_bronze_quota = BashOperator(
+        task_id="wait_bronze_quota",
+        bash_command=(
+            "python -m ops.gcp.wait_for_dataproc_quota "
+            "--project '{{ params.project_id }}' "
+            "--region '{{ params.region }}' "
+            "--spark-profile '{{ params.spark_profile }}' "
+            "--benchmark-id '{{ params.benchmark_id }}' "
+            "--handoff 'external-to-bronze' "
+            "--predecessor-batch-id '{{ params.predecessor_batch_id }}' "
+            "--evidence-output 'docs/evidence/quota_handoffs/"
+            "{{ params.benchmark_id }}/{{ params.bronze_run_id }}-quota.json' "
+            "--execute"
+        ),
+        cwd=str(REPOSITORY_ROOT),
+        execution_timeout=timedelta(minutes=20),
     )
     submit_bronze = BashOperator(
         task_id="submit_bronze_dataproc",
@@ -76,4 +96,4 @@ with DAG(
         retry_delay=timedelta(minutes=1),
         execution_timeout=timedelta(minutes=15),
     )
-    verify_source_manifest >> submit_bronze >> verify_bronze
+    verify_source_manifest >> wait_bronze_quota >> submit_bronze >> verify_bronze

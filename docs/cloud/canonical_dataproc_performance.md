@@ -73,14 +73,58 @@ Use the exact Bronze/Silver/Gold IDs printed by the preceding wrapper.
 ./scripts/run_dp3_canonical.sh <baseline-silver-run> <baseline-gold-run> --profile baseline --execute
 
 # Optimized against the same benchmark ID and Git SHA
-./scripts/run_dp1_canonical.sh --profile optimized --benchmark-id "$SPARK_BENCHMARK_ID"
-./scripts/run_dp1_canonical.sh --profile optimized --benchmark-id "$SPARK_BENCHMARK_ID" --execute
+./scripts/run_dp1_canonical.sh --profile optimized --benchmark-id "$SPARK_BENCHMARK_ID" \
+  --predecessor-batch-id <baseline-feature-run>
+./scripts/run_dp1_canonical.sh --profile optimized --benchmark-id "$SPARK_BENCHMARK_ID" \
+  --predecessor-batch-id <baseline-feature-run> --execute
 ./scripts/run_dp2_canonical.sh <optimized-bronze-run> --profile optimized --execute
 ./scripts/run_dp3_canonical.sh <optimized-silver-run> <optimized-gold-run> --profile optimized --execute
 ```
 
 Finish DP1→DP2→DP3 baseline before starting optimized. A retry must call the
 wrapper again so it receives a new immutable attempt ID.
+
+## Dataproc quota handoff guard
+
+Managed Spark reaching a terminal state does not guarantee that Compute quota
+is immediately reusable. In the abandoned benchmark `ab-20261025112811`, the
+baseline Silver batch became `SUCCEEDED` at `2026-10-25T13:07:53.355271Z`.
+Gold was created at `13:08:20.606935Z` and failed provisioning before Spark ran:
+it requested 28 vCPU/2,800 GB while GCP reported 0 vCPU/896 GB available. A
+later read-only check showed both quota usages back at zero. The exact release
+latency was not captured by that run, so the incident supplies a lower-bound
+failure observation, not a constant delay.
+
+Every canonical submit now has an explicit Airflow wait task. It reads
+`CPUS_ALL_REGIONS` from structured `gcloud compute project-info describe` JSON
+and regional `DISKS_TOTAL_GB` from structured `gcloud compute regions describe`
+JSON. Requirements come from the same Spark profile used by the submitter: one
+driver plus six initial executors at the Standard default 4-vCPU/400-GB process
+shape, or 28 vCPU/2,800 GB. Both baseline and optimized use this guard.
+
+The guard polls after 15 seconds, backs off to at most 30 seconds, and times out
+after 15 minutes. It submits nothing on timeout; Airflow stops before the
+downstream submit task and prints both required and last observed quota. Fixed
+sleep is intentionally avoided because release latency varies. Each actual wait
+writes an attempt-scoped JSON file under
+`docs/evidence/quota_handoffs/<benchmark-id>/<next-batch-id>-quota.json` with the
+predecessor terminal time where known, every quota observation, first ready
+time, wait duration and observed release latency. DP1 accepts
+`--predecessor-batch-id` so optimized DP1 can identify the completed baseline
+Features batch; readiness is still checked when no predecessor is supplied.
+
+The protected handoffs are external/previous-profile→Bronze, Bronze→Silver,
+Silver→Gold and Gold→Features. This covers immediate DP1→DP2, DP2→DP3 and
+baseline DP3→optimized DP1 starts as well as the in-DP2 transition that exposed
+the race. Dry-run renders the requirements, polling policy, evidence path and
+predecessor without reading quota or triggering Airflow. The quota wait is
+operational handoff overhead. Never include it in Spark A/B runtime; continue to
+measure only Managed Spark batch start→terminal, DCU, shuffle, properties and
+task-level metrics.
+
+The failed Gold batch and all `ab-20261025112811` outputs remain troubleshooting
+evidence. The wrappers reject that benchmark ID. Create a new benchmark ID and
+new run IDs for the final comparison; do not delete or reuse the failed batch.
 
 ## Equivalence and evidence
 

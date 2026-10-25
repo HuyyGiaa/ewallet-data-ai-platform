@@ -41,6 +41,10 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
         self.assertIn("SHUFFLE_PARTITIONS: 200", result.stdout)
         self.assertIn("INITIAL_EXECUTORS: 6", result.stdout)
         self.assertIn("MAX_EXECUTORS: 7", result.stdout)
+        self.assertIn('"status": "DRY_RUN"', result.stdout)
+        self.assertIn('"vcpus": 28', result.stdout)
+        self.assertIn('"disk_gb": 2800', result.stdout)
+        self.assertIn('"handoff": "external-to-bronze"', result.stdout)
         self.assertIn('"spark_profile":"baseline"', result.stdout)
         self.assertEqual("version\n", calls)
 
@@ -56,6 +60,31 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
             self.assertIn("DYNAMIC_ALLOCATION_PROFILE: performance", result.stdout)
             self.assertIn('"benchmark_id":"ab-20261025123456"', result.stdout)
         self.assertEqual("version\n", calls2); self.assertEqual("version\n", calls3)
+
+    def test_dp2_and_dp3_dry_runs_render_each_quota_handoff_without_cloud_submit(self) -> None:
+        bronze = f"{BENCHMARK}-optimized-bronze-{ATTEMPT}"
+        silver = f"{BENCHMARK}-optimized-silver-{ATTEMPT}"
+        gold = f"{BENCHMARK}-optimized-gold-{ATTEMPT}"
+        dp2, calls2 = self._run_dry("run_dp2_canonical.sh", bronze, "--profile", "optimized")
+        dp3, calls3 = self._run_dry("run_dp3_canonical.sh", silver, gold, "--profile", "optimized")
+        self.assertIn('"handoff": "bronze-to-silver"', dp2.stdout)
+        self.assertIn('"handoff": "silver-to-gold"', dp2.stdout)
+        self.assertIn(f'"predecessor_batch_id": "{bronze}"', dp2.stdout)
+        self.assertIn(f'"predecessor_batch_id": "{BENCHMARK}-optimized-silver-r', dp2.stdout)
+        self.assertIn('"handoff": "gold-to-features"', dp3.stdout)
+        self.assertIn(f'"predecessor_batch_id": "{gold}"', dp3.stdout)
+        self.assertEqual("version\n", calls2)
+        self.assertEqual("version\n", calls3)
+
+    def test_abandoned_incident_benchmark_is_not_reused(self) -> None:
+        result, calls = self._run_dry(
+            "run_dp1_canonical.sh",
+            "--profile", "baseline",
+            "--benchmark-id", "ab-20261025112811",
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("troubleshooting evidence only", result.stderr)
+        self.assertEqual("", calls)
 
     def test_cross_profile_or_abandoned_upstream_is_rejected_before_airflow(self) -> None:
         optimized = f"{BENCHMARK}-optimized-bronze-{ATTEMPT}"
