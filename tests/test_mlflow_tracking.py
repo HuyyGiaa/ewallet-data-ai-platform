@@ -53,7 +53,10 @@ class MlflowConfigTest(unittest.TestCase):
                 "SILVER_RUN_ID": "canonical-silver-1",
                 "FEATURE_RUN_ID": "canonical-features-1",
                 "SNAPSHOT_ID": "canonical-training-1",
+                "SNAPSHOT_MANIFEST_SHA256": "a" * 64,
                 "MLFLOW_TRACKING_URI": "http://mlflow.ml-platform.svc:5000",
+                "MLFLOW_EXPERIMENT_NAME": "fraud",
+                "MLFLOW_REGISTERED_MODEL_NAME": "fraud",
             },
         )
         self.assertEqual(42, config.seed)

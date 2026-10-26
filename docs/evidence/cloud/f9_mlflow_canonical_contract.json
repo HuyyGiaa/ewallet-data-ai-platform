@@ -8,7 +8,8 @@
     "feature_run_id": "SET_FROM_FEAST_BOUNDARY",
     "snapshot_id": "SET_FROM_FEAST_BOUNDARY",
     "training_snapshot_uri": "IMMUTABLE_GCS_PREFIX",
-    "manifest_required": true
+    "manifest_required": true,
+    "expected_manifest_sha256": "REQUIRED_BEFORE_SNAPSHOT_READ"
   },
   "candidates": [
     "dummy_baseline",
@@ -34,6 +35,7 @@
     "test_metrics_winner_only",
     "winner_registered_model_version",
     "snapshot_feature_git_provenance",
+    "expected_manifest_digest_match",
     "no_production_alias"
   ]
 }

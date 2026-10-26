@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,7 +23,10 @@ RUNTIME_ENV = {
     "SILVER_RUN_ID": "canonical-silver-20261024-000001",
     "FEATURE_RUN_ID": "canonical-features-20261024-003000",
     "SNAPSHOT_ID": "training-20261024-010203",
+    "SNAPSHOT_MANIFEST_SHA256": "d" * 64,
     "MLFLOW_TRACKING_URI": "http://mlflow.ml-platform.svc.cluster.local:5000",
+    "MLFLOW_EXPERIMENT_NAME": "ewallet-fraud-comparison",
+    "MLFLOW_REGISTERED_MODEL_NAME": "ewallet-fraud-detector",
 }
 
 
@@ -87,10 +91,17 @@ class SnapshotProvenanceTest(unittest.TestCase):
             (root / "manifest.json").write_text(
                 json.dumps(manifest, sort_keys=True), encoding="utf-8"
             )
+            manifest_digest = hashlib.sha256(
+                (root / "manifest.json").read_bytes()
+            ).hexdigest()
             config = load_experiment_config(
                 Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
                 repo_root=Path.cwd(),
-                environment={**RUNTIME_ENV, "F9_DATASET_PATH": str(root)},
+                environment={
+                    **RUNTIME_ENV,
+                    "F9_DATASET_PATH": str(root),
+                    "SNAPSHOT_MANIFEST_SHA256": manifest_digest,
+                },
             )
 
             provenance = load_snapshot_provenance(root, config.snapshot)
@@ -128,12 +139,31 @@ class SnapshotProvenanceTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            manifest_digest = hashlib.sha256(
+                (root / "manifest.json").read_bytes()
+            ).hexdigest()
+            config = load_experiment_config(
+                Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
+                repo_root=Path.cwd(),
+                environment={
+                    **RUNTIME_ENV,
+                    "F9_DATASET_PATH": str(root),
+                    "SNAPSHOT_MANIFEST_SHA256": manifest_digest,
+                },
+            )
+            with self.assertRaisesRegex(ValueError, "dataset_version"):
+                load_snapshot_provenance(root, config.snapshot)
+
+    def test_manifest_digest_mismatch_fails_before_training(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "manifest.json").write_text("{}\n", encoding="utf-8")
             config = load_experiment_config(
                 Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
                 repo_root=Path.cwd(),
                 environment={**RUNTIME_ENV, "F9_DATASET_PATH": str(root)},
             )
-            with self.assertRaisesRegex(ValueError, "dataset_version"):
+            with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 load_snapshot_provenance(root, config.snapshot)
 
 

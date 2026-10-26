@@ -58,6 +58,12 @@ def load_snapshot_provenance(
 ) -> SnapshotProvenance:
     manifest_path = Path(dataset_path) / "manifest.json"
     payload = manifest_path.read_bytes()
+    manifest_sha256 = hashlib.sha256(payload).hexdigest()
+    if manifest_sha256 != expected.manifest_sha256:
+        raise ValueError(
+            "snapshot manifest checksum mismatch: "
+            f"{manifest_sha256} != {expected.manifest_sha256}"
+        )
     manifest = json.loads(payload)
     if not isinstance(manifest, dict):
         raise ValueError("snapshot manifest must be a JSON object")
@@ -115,7 +121,7 @@ def load_snapshot_provenance(
         feature_run_id=expected.feature_run_id,
         snapshot_id=expected.snapshot_id,
         training_snapshot_uri=expected.training_snapshot_uri,
-        manifest_sha256=hashlib.sha256(payload).hexdigest(),
+        manifest_sha256=manifest_sha256,
         row_count=row_count,
         split_counts=split_counts,
         positive_count=positive_count,

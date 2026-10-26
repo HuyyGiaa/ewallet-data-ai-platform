@@ -8,6 +8,7 @@ snapshot:
   silver_run_id: ${SILVER_RUN_ID}
   feature_run_id: ${FEATURE_RUN_ID}
   snapshot_id: ${SNAPSHOT_ID}
+  manifest_sha256: ${SNAPSHOT_MANIFEST_SHA256}
 
 selection:
   primary_metric: pr_auc
@@ -15,8 +16,8 @@ selection:
 
 tracking:
   uri: ${MLFLOW_TRACKING_URI}
-  experiment_name: ewallet-fraud-comparison
-  registered_model_name: ewallet-fraud-detector
+  experiment_name: ${MLFLOW_EXPERIMENT_NAME}
+  registered_model_name: ${MLFLOW_REGISTERED_MODEL_NAME}
   registry_mode: winner_only
 
 candidates:

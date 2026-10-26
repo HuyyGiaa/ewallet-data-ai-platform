@@ -6,8 +6,10 @@ Run this milestone only after the cloud Feast bounded training snapshot has
 passed its manifest, temporal, leakage, and point-in-time gates. F9 consumes
 that immutable snapshot; it does not read the canonical lakehouse directly.
 
-The checked-in F9 configuration resolves all paths, IDs, and the tracking URI
-from environment variables. Its four candidates and hyperparameters are the
+The checked-in F9 configuration resolves all paths, IDs, the expected snapshot
+manifest SHA-256, model/experiment names, and tracking URI from environment
+variables. Missing values fail before the snapshot is read. Its four
+candidates and hyperparameters are the
 existing F9 values. All four models fit on train and report validation metrics.
 The Dummy candidate is logged but is ineligible for selection. Validation
 PR-AUC, then validation F1, selects the winner. Only that winner is evaluated
@@ -32,6 +34,8 @@ export F9_DATASET_PATH="$PWD/.runtime/f9/${SNAPSHOT_ID}/dataset"
 export F9_OUTPUT_PATH="$PWD/.runtime/f9/${SNAPSHOT_ID}/evidence"
 export MLFLOW_ARTIFACT_ROOT="gs://${EWALLET_DATA_BUCKET}/mlflow/artifacts"
 export MLFLOW_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/ewallet-platform/mlflow:v3.17.1-gcs-postgres-1"
+export MLFLOW_EXPERIMENT_NAME="ewallet-fraud-comparison"
+export MLFLOW_REGISTERED_MODEL_NAME="ewallet-fraud-detector"
 ```
 
 Build the pinned MLflow runtime image, scale the already-approved CPU pool when
@@ -70,6 +74,9 @@ export MLFLOW_TRACKING_URI="http://127.0.0.1:5000"
 curl --fail --silent --show-error "$MLFLOW_TRACKING_URI/health"
 test ! -e "$F9_DATASET_PATH" && mkdir -p "$F9_DATASET_PATH"
 gcloud storage rsync --recursive "$F9_TRAINING_SNAPSHOT_URI" "$F9_DATASET_PATH"
+export SNAPSHOT_MANIFEST_SHA256="$(tr -d '[:space:]' < "$F9_DATASET_PATH/manifest.sha256")"
+test "$(sha256sum "$F9_DATASET_PATH/manifest.json" | awk '{print $1}')" = \
+  "$SNAPSHOT_MANIFEST_SHA256"
 ```
 
 Run the bounded experiment once:

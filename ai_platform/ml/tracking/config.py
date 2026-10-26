@@ -36,6 +36,7 @@ class SnapshotConfig:
     silver_run_id: str
     feature_run_id: str
     snapshot_id: str
+    manifest_sha256: str
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -44,6 +45,7 @@ class SnapshotConfig:
             "silver_run_id": self.silver_run_id,
             "feature_run_id": self.feature_run_id,
             "snapshot_id": self.snapshot_id,
+            "manifest_sha256": self.manifest_sha256,
         }
 
 
@@ -195,7 +197,14 @@ def load_experiment_config(
         snapshot_id=_runtime_text(
             snapshot_raw.get("snapshot_id"), "snapshot.snapshot_id", runtime
         ),
+        manifest_sha256=_runtime_text(
+            snapshot_raw.get("manifest_sha256"),
+            "snapshot.manifest_sha256",
+            runtime,
+        ),
     )
+    if not re.fullmatch(r"[0-9a-f]{64}", snapshot.manifest_sha256):
+        raise ValueError("snapshot.manifest_sha256 must be 64 lowercase hex digits")
     expected_suffix = f"/{snapshot.dataset_version}/{snapshot.snapshot_id}"
     if not snapshot.training_snapshot_uri.startswith("gs://") or not (
         snapshot.training_snapshot_uri.rstrip("/").endswith(expected_suffix)
@@ -213,12 +222,15 @@ def load_experiment_config(
         snapshot=snapshot,
         tracking=TrackingConfig(
             uri=_runtime_text(tracking_raw.get("uri"), "tracking.uri", runtime),
-            experiment_name=_text(
-                tracking_raw.get("experiment_name"), "tracking.experiment_name"
+            experiment_name=_runtime_text(
+                tracking_raw.get("experiment_name"),
+                "tracking.experiment_name",
+                runtime,
             ),
-            registered_model_name=_text(
+            registered_model_name=_runtime_text(
                 tracking_raw.get("registered_model_name"),
                 "tracking.registered_model_name",
+                runtime,
             ),
             registry_mode=registry_mode,
         ),
