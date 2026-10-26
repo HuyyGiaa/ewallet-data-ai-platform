@@ -1,11 +1,12 @@
 """Canonical standalone Kubeflow Pipelines DAG for bounded F9 training."""
 
+import os
+
 from kfp import dsl
 from kfp.dsl import Artifact, Input, Model, Output
 
 
 KFP_VERSION = "2.17.3"
-_F9_RUNTIME_IMAGE: str | None = None
 CANDIDATE_NAMES = (
     "dummy_baseline",
     "logistic_regression",
@@ -15,20 +16,18 @@ CANDIDATE_NAMES = (
 RUNTIME_MODULE = "ai_platform.ml.pipelines.runtime"
 
 
-def configure_runtime_image(image: str) -> None:
-    """Bind one explicitly versioned runtime image before KFP compilation."""
+def _required_runtime_image() -> str:
+    """Resolve the image before KFP constructs component specifications."""
 
-    normalized = image.strip()
+    normalized = os.environ.get("F9_RUNTIME_IMAGE", "").strip()
     if not normalized or normalized.endswith(":latest") or ":" not in normalized:
-        raise ValueError("KFP runtime image must use an explicit non-latest tag")
-    global _F9_RUNTIME_IMAGE
-    _F9_RUNTIME_IMAGE = normalized
+        raise ValueError(
+            "F9_RUNTIME_IMAGE must use an explicit non-latest tag or digest"
+        )
+    return normalized
 
 
-def _runtime_image() -> str:
-    if _F9_RUNTIME_IMAGE is None:
-        raise RuntimeError("configure_runtime_image() is required before compilation")
-    return _F9_RUNTIME_IMAGE
+F9_RUNTIME_IMAGE = _required_runtime_image()
 
 
 def _common_arguments(
@@ -52,7 +51,7 @@ def _common_arguments(
         "--snapshot-manifest-sha256", snapshot_manifest_sha256,
         "--mlflow-tracking-uri", mlflow_tracking_uri,
         "--runtime-image", runtime_image,
-        "--compiled-runtime-image", _runtime_image(),
+        "--compiled-runtime-image", F9_RUNTIME_IMAGE,
         "--experiment-name", experiment_name,
         "--registered-model-name", registered_model_name,
     ]
@@ -60,7 +59,7 @@ def _common_arguments(
 
 def _runtime_spec(command: str, arguments: list[str]) -> dsl.ContainerSpec:
     return dsl.ContainerSpec(
-        image=_runtime_image(),
+        image=F9_RUNTIME_IMAGE,
         command=["python", "-m", RUNTIME_MODULE, command],
         args=arguments,
     )

@@ -1,18 +1,14 @@
 from __future__ import annotations
 
+import importlib
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 from kfp import compiler
-
-from ai_platform.ml.pipelines.pipeline import (
-    CANDIDATE_NAMES,
-    KFP_VERSION,
-    configure_runtime_image,
-    f9_canonical_pipeline,
-)
 
 TEST_IMAGE = (
     "asia-southeast1-docker.pkg.dev/test-project/ewallet-platform/"
@@ -23,13 +19,16 @@ TEST_IMAGE = (
 class KfpCanonicalCompileTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        configure_runtime_image(TEST_IMAGE)
+        with patch.dict(os.environ, {"F9_RUNTIME_IMAGE": TEST_IMAGE}):
+            cls.pipeline_module = importlib.import_module(
+                "ai_platform.ml.pipelines.pipeline"
+            )
 
     def test_pipeline_compiles_with_frozen_inputs_and_dag(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = Path(temporary_directory) / "pipeline.yaml"
             compiler.Compiler().compile(
-                pipeline_func=f9_canonical_pipeline,
+                pipeline_func=self.pipeline_module.f9_canonical_pipeline,
                 package_path=str(output),
             )
             document = yaml.safe_load(output.read_text(encoding="utf-8"))
@@ -72,16 +71,16 @@ class KfpCanonicalCompileTest(unittest.TestCase):
                 "random_forest",
                 "hist_gradient_boosting",
             ),
-            CANDIDATE_NAMES,
+            self.pipeline_module.CANDIDATE_NAMES,
         )
         self.assertNotIn(":latest", TEST_IMAGE)
-        self.assertEqual("2.17.3", KFP_VERSION)
+        self.assertEqual("2.17.3", self.pipeline_module.KFP_VERSION)
 
     def test_compiled_components_have_bounded_resources_and_pinned_image(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = Path(temporary_directory) / "pipeline.yaml"
             compiler.Compiler().compile(
-                pipeline_func=f9_canonical_pipeline,
+                pipeline_func=self.pipeline_module.f9_canonical_pipeline,
                 package_path=str(output),
             )
             rendered = output.read_text(encoding="utf-8")
