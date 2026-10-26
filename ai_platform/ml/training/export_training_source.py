@@ -10,16 +10,9 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pyspark.sql import functions as F
-
 from ai_platform.ml import ML_DATA_ROOT
-from ai_platform.ml.training.export_source_sample import (
-    audit_label_integrity,
-    read_delta,
-)
 from ai_platform.ml.training.temporal import TEST_START, VALIDATION_START
 from data_platform.config import RuntimeConfig, load_runtime_config
-from data_platform.processing.spark.common.spark_session import create_spark_session
 
 
 DEFAULT_OUTPUT = ML_DATA_ROOT / "fraud_training_v1" / "trainable_source"
@@ -78,6 +71,8 @@ def apply_silver_root(config: RuntimeConfig, silver_root: str) -> RuntimeConfig:
 
 
 def request_profile(frame) -> dict:
+    from pyspark.sql import functions as F
+
     overall = frame.agg(
         F.count("*").alias("rows"),
         F.sum(F.col("amount").isNull().cast("long")).alias("amount_null"),
@@ -138,6 +133,8 @@ def request_profile(frame) -> dict:
 
 
 def split_profile(frame) -> dict[str, dict[str, object]]:
+    from pyspark.sql import functions as F
+
     rows = frame.groupBy("split").agg(
         F.count("*").alias("rows"),
         F.sum(F.col("label")).alias("fraud"),
@@ -179,6 +176,16 @@ def export_training_source(
     source_silver_run_id: str | None = None,
     snapshot_id: str | None = None,
 ) -> dict:
+    from pyspark.sql import functions as F
+
+    from ai_platform.ml.training.export_source_sample import (
+        audit_label_integrity,
+        read_delta,
+    )
+    from data_platform.processing.spark.common.spark_session import (
+        create_spark_session,
+    )
+
     if sample_modulus <= 0:
         raise ValueError("sample_modulus must be positive")
     spark = create_spark_session(

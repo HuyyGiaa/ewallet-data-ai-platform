@@ -105,10 +105,46 @@ class KfpCanonicalCompileTest(unittest.TestCase):
         self.assertIn("FROM python:3.10.19-slim-bookworm", dockerfile)
         self.assertNotIn(":latest", versions + dockerfile)
 
-    def test_generated_pipeline_is_marked_pending_regeneration(self) -> None:
+    def test_user_generated_pipeline_preserves_canonical_contract(self) -> None:
         root = Path("ai_platform/ml/pipelines/compiled")
-        self.assertFalse((root / "f9_canonical_pipeline.yaml").exists())
-        self.assertIn("PENDING_REGENERATION", (root / "README.md").read_text())
+        artifact = root / "f9_canonical_pipeline.yaml"
+        self.assertTrue(artifact.is_file())
+        document = yaml.safe_load(artifact.read_text(encoding="utf-8"))
+        executors = document["deploymentSpec"]["executors"]
+        expected_trainers = {
+            "exec-train-dummy-baseline",
+            "exec-train-logistic-regression",
+            "exec-train-random-forest",
+            "exec-train-hist-gradient-boosting",
+        }
+        self.assertTrue(expected_trainers <= set(executors))
+        for executor in executors.values():
+            container = executor["container"]
+            self.assertEqual(TEST_IMAGE, container["image"])
+            self.assertNotIn(":latest", container["image"])
+            resources = container["resources"]
+            for field in (
+                "resourceCpuRequest",
+                "resourceCpuLimit",
+                "resourceMemoryRequest",
+                "resourceMemoryLimit",
+            ):
+                self.assertIn(field, resources)
+        for name in expected_trainers:
+            container = executors[name]["container"]
+            self.assertEqual("2", container["resources"]["resourceCpuLimit"])
+            self.assertEqual("3Gi", container["resources"]["resourceMemoryLimit"])
+            self.assertIn("--runtime-image", container["args"])
+            self.assertIn("--compiled-runtime-image", container["args"])
+            compiled_index = container["args"].index("--compiled-runtime-image")
+            self.assertEqual(TEST_IMAGE, container["args"][compiled_index + 1])
+
+        status = (root / "README.md").read_text(encoding="utf-8")
+        self.assertIn("USER_GENERATED", status)
+        self.assertIn(
+            "4f8c039f76123519828702aea07765e5d882c453d98aab0aa408bd2dfebcf4b4",
+            status,
+        )
 
 
 if __name__ == "__main__":

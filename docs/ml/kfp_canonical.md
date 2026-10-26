@@ -106,10 +106,10 @@ kubectl -n "$KFP_NAMESPACE" annotate serviceaccount pipeline-runner \
   --overwrite
 ```
 
-Generate the KFP compiler lock first (outside this reconciliation task), then
-compile with the pinned SDK/runtime image and record the package digest. The
-generated YAML is intentionally marked `PENDING_REGENERATION` until this
-command is run; never edit it manually:
+The user generated the artifact from the locked KFP 2.17.3 compiler using the
+explicit runtime image below. Its verified SHA-256 is
+`4f8c039f76123519828702aea07765e5d882c453d98aab0aa408bd2dfebcf4b4`.
+Future regeneration must use the same process and must never edit YAML manually:
 
 ```bash
 (cd ai_platform/ml/pipelines && uv lock)
