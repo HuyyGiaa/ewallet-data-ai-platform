@@ -6,7 +6,7 @@ dependencies = [
   "dask[dataframe]==2026.8.0",
   "deltalake==0.18.2",
   "feast==0.66.0",
-  "gcsfs==2026.9.0",
+  "gcsfs==2026.10.1",
   "pandas==2.3.3",
   "pyarrow==25.0.1",
 ]
