@@ -1,5 +1,10 @@
 # Canonical F9 experiment and MLflow
 
+> **Gate 2 operations:** PostgreSQL/MLflow image, deployment, health, evidence
+> and cleanup commands in this document are superseded by the dry-run-first
+> [bounded GKE MLOps runtime gate](gke_mlops_runtime_gate.md). The experiment
+> contract below remains authoritative; Gate 2 does not execute training.
+
 ## Execution gate
 
 Run this milestone only after the cloud Feast bounded training snapshot has

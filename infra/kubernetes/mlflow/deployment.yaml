@@ -16,7 +16,7 @@ spec:
       serviceAccountName: training
       containers:
         - name: mlflow
-          image: mlflow-runtime:v3.17.1-gcs-postgres-1
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mlflow:v3.17.1-gcs-postgres-1
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ec"]
           args:

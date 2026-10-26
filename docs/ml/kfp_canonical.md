@@ -1,5 +1,11 @@
 # Canonical standalone Kubeflow Pipelines workflow
 
+> **Gate 2 operations:** image, standalone control-plane, Workload Identity,
+> validation, evidence and cleanup commands in this document are superseded by
+> the dry-run-first [bounded GKE MLOps runtime gate](gke_mlops_runtime_gate.md).
+> The compiled DAG contract below remains authoritative; Gate 2 does not upload
+> or run the pipeline.
+
 ## Scope and execution gate
 
 This milestone packages the already validated Feast/F7/F9/MLflow behavior as a
