@@ -1,0 +1,12 @@
+[project]
+name = "ewallet-mlflow-server"
+version = "0.1.0"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+  "google-cloud-storage==3.4.1",
+  "mlflow==3.17.1",
+  "psycopg2-binary==2.9.13",
+]
+
+[tool.uv]
+package = false

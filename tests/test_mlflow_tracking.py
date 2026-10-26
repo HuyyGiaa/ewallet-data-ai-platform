@@ -25,6 +25,12 @@ class MlflowEnvironmentContractTest(unittest.TestCase):
         requirements = Path("ai_platform/ml/requirements.txt").read_text(
             encoding="utf-8"
         )
+        pyproject = Path("ai_platform/ml/pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+        server = Path(
+            "infra/kubernetes/mlflow/image/pyproject.toml"
+        ).read_text(encoding="utf-8")
         self.assertEqual("ewallet-ml", environment["name"])
         for dependency in (
             "mlflow==3.17.1",
@@ -33,8 +39,11 @@ class MlflowEnvironmentContractTest(unittest.TestCase):
             "scikit-learn==1.7.2",
             "psycopg2-binary==2.9.13",
             "google-cloud-storage==3.4.1",
+            "joblib==1.6.0",
         ):
             self.assertIn(dependency, requirements)
+        self.assertIn("mlflow==3.17.1", pyproject)
+        self.assertIn("mlflow==3.17.1", server)
 
 
 class MlflowConfigTest(unittest.TestCase):
@@ -42,9 +51,25 @@ class MlflowConfigTest(unittest.TestCase):
         config = load_experiment_config(
             Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
             repo_root=Path.cwd(),
+            environment={
+                "F9_DATASET_PATH": "/tmp/f9-data",
+                "F9_OUTPUT_PATH": "/tmp/f9-output",
+                "F9_TRAINING_SNAPSHOT_URI": (
+                    "gs://bucket/training/canonical-100gb-v1/"
+                    "canonical-training-1"
+                ),
+                "DATASET_VERSION": "canonical-100gb-v1",
+                "SILVER_RUN_ID": "canonical-silver-1",
+                "FEATURE_RUN_ID": "canonical-features-1",
+                "SNAPSHOT_ID": "canonical-training-1",
+                "SNAPSHOT_MANIFEST_SHA256": "a" * 64,
+                "MLFLOW_TRACKING_URI": "http://mlflow.ml-platform.svc:5000",
+                "MLFLOW_EXPERIMENT_NAME": "fraud",
+                "MLFLOW_REGISTERED_MODEL_NAME": "fraud",
+            },
         )
         self.assertEqual(42, config.seed)
-        self.assertEqual("manual", config.tracking.registry_mode)
+        self.assertEqual("winner_only", config.tracking.registry_mode)
         self.assertEqual(
             [
                 "dummy_baseline",
@@ -66,8 +91,14 @@ dataset_path: data
 output_path: output
 seed: 42
 selection: {primary_metric: pr_auc, tie_breaker_metric: f1}
+snapshot:
+  training_snapshot_uri: gs://bucket/training/snapshot-1
+  dataset_version: canonical-100gb-v1
+  silver_run_id: canonical-silver-1
+  feature_run_id: canonical-features-1
+  snapshot_id: canonical-training-1
 tracking:
-  uri: http://127.0.0.1:5000
+  uri: http://mlflow.ml-platform.svc:5000
   experiment_name: fraud
   registered_model_name: fraud
   registry_mode: invalid
@@ -147,7 +178,19 @@ class MlflowManualTrackingTest(unittest.TestCase):
             published = tracker.publish(
                 experiment,
                 input_example=splits["validation"].X.iloc[:2],
-                provenance={"dataset": "unit-test", "seed": 42},
+                provenance={
+                    "dataset_version": "unit-test-v1",
+                    "silver_run_id": "silver-test-1",
+                    "feature_run_id": "features-test-1",
+                    "snapshot_id": "snapshot-test-1",
+                    "training_snapshot_uri": "file:///tmp/snapshot-test-1",
+                    "snapshot_manifest_sha256": "a" * 64,
+                    "snapshot_row_count": 32,
+                    "feature_count": 41,
+                    "feature_schema_sha256": "b" * 64,
+                    "git_commit_sha": "c" * 40,
+                    "random_seed": 42,
+                },
             )
             loaded = mlflow.pyfunc.load_model(published.winner_model_uri)
             predictions = loaded.predict(splits["validation"].X.iloc[:2])
@@ -158,6 +201,37 @@ class MlflowManualTrackingTest(unittest.TestCase):
                     f"tags.mlflow.parentRunId = '{published.parent_run_id}'"
                 ),
             )
+            winner_only = MlflowTracker(
+                tracking_uri=tracking_uri,
+                experiment_name="fraud-test",
+                registered_model_name="fraud-test-model",
+                registry_mode="winner_only",
+            ).publish(
+                experiment,
+                input_example=splits["validation"].X.iloc[:2],
+                provenance={
+                    "dataset_version": "unit-test-v1",
+                    "silver_run_id": "silver-test-1",
+                    "feature_run_id": "features-test-1",
+                    "snapshot_id": "snapshot-test-1",
+                    "training_snapshot_uri": "file:///tmp/snapshot-test-1",
+                    "snapshot_manifest_sha256": "a" * 64,
+                    "snapshot_row_count": 32,
+                    "feature_count": 41,
+                    "feature_schema_sha256": "b" * 64,
+                    "git_commit_sha": "c" * 40,
+                    "random_seed": 42,
+                },
+            )
+            registered = client.get_model_version(
+                "fraud-test-model", winner_only.registered_model_version
+            )
+            winner_children = client.search_runs(
+                [winner_only.experiment_id],
+                filter_string=(
+                    f"tags.mlflow.parentRunId = '{winner_only.parent_run_id}'"
+                ),
+            )
 
         self.assertEqual(2, len(children))
         self.assertEqual(2, len(predictions))
@@ -165,6 +239,18 @@ class MlflowManualTrackingTest(unittest.TestCase):
             ["fraud_probability", "fraud_prediction"], list(predictions.columns)
         )
         self.assertIsNone(published.registered_model_version)
+        self.assertEqual(winner_only.parent_run_id, registered.run_id)
+        self.assertEqual("snapshot-test-1", registered.tags["snapshot_id"])
+        self.assertEqual(
+            1,
+            sum("test_pr_auc" in run.data.metrics for run in winner_children),
+        )
+        for run in winner_children:
+            self.assertEqual("unit-test-v1", run.data.params["dataset_version"])
+            self.assertEqual("silver-test-1", run.data.params["silver_run_id"])
+            self.assertEqual("features-test-1", run.data.params["feature_run_id"])
+            self.assertEqual("snapshot-test-1", run.data.params["snapshot_id"])
+            self.assertEqual("a" * 64, run.data.params["snapshot_manifest_sha256"])
 
 
 if __name__ == "__main__":

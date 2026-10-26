@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import yaml
 
+from ai_platform.features.feast.provenance import FeatureSelectionEvidence
 from ai_platform.features.feast.repository import (
     build_export_manifest,
     feature_data_uri,
@@ -116,24 +117,19 @@ class FeastRepositoryConfigTest(unittest.TestCase):
         self.assertEqual("gcp", manifest["environment"])
         self.assertEqual("f7-canonical-v1", manifest["dataset_version"])
         self.assertEqual("microsecond", manifest["timestamp_precision"])
-        self.assertEqual("optimized", manifest["spark_profile"])
+        self.assertEqual({}, manifest["lineage"])
 
-    def test_canonical_feast_manifest_rejects_baseline_lineage(self) -> None:
-        with self.assertRaisesRegex(ValueError, "optimized Spark lineage"):
-            build_export_manifest(
-                environment="gcp",
-                dataset_version="canonical-100gb-v1",
-                spark_profile="baseline",
-                tables={},
-            )
+    def test_canonical_feast_manifest_records_evidence_selected_profile(self) -> None:
         manifest = build_export_manifest(
-            environment="local",
-            dataset_version="test-only",
-            spark_profile="baseline",
-            allow_baseline_for_test=True,
+            environment="gcp",
+            dataset_version="canonical-100gb-v1",
             tables={},
+            lineage={
+                "spark_profile": "baseline",
+                "feature_selection_digest": "sha256:" + "a" * 64,
+            },
         )
-        self.assertEqual("baseline", manifest["spark_profile"])
+        self.assertEqual("baseline", manifest["lineage"]["spark_profile"])
 
     def test_feature_contract_contains_no_labels(self) -> None:
         forbidden = {"label", "fraud_type", "is_fraud"}
@@ -173,28 +169,35 @@ class FeastExporterRuntimeConfigTest(unittest.TestCase):
             gold_source_uri(runtime("gcp"), "feat_user_behavior"),
         )
 
-    def test_cloud_feast_binds_only_optimized_dp3_run_root(self) -> None:
+    def test_cloud_feast_binds_evidence_selected_dp3_run_root(self) -> None:
         from ai_platform.features.feast.sources.export_gold_to_parquet import (
             bind_cloud_feature_lineage,
         )
 
-        run_id = "ab-20261025123456-optimized-feat-r261025123456"
+        run_id = "selected-baseline-features"
+        selection = FeatureSelectionEvidence(
+            dataset_version="canonical-100gb-v1",
+            silver_run_id="selected-silver",
+            feature_run_id=run_id,
+            feature_root=f"gs://course-bucket/lakehouse/runs/{run_id}/gold",
+            spark_profile="baseline",
+            git_sha="a" * 40,
+            selection_basis="spark-method2-winner-v1",
+            source_evidence_digest="sha256:" + "b" * 64,
+            evidence_digest="sha256:" + "c" * 64,
+        )
         bound = bind_cloud_feature_lineage(
             runtime("gcp"),
-            source_feature_run_id=run_id,
-            spark_profile="optimized",
+            selection=selection,
         )
         self.assertEqual(
             f"gs://course-bucket/lakehouse/runs/{run_id}/gold",
             bound.storage.gold_root,
         )
-        with self.assertRaisesRegex(ValueError, "optimized Spark lineage"):
+        with self.assertRaisesRegex(ValueError, "GCS root"):
             bind_cloud_feature_lineage(
-                runtime("gcp"),
-                source_feature_run_id=(
-                    "ab-20261025123456-baseline-feat-r261025123456"
-                ),
-                spark_profile="baseline",
+                runtime("local"),
+                selection=selection,
             )
 
     def test_validation_sample_reader_uses_profile_layer_root(self) -> None:

@@ -15,6 +15,21 @@ from ai_platform.ml.modeling.experiment import ExperimentResult
 from ai_platform.ml.tracking.model import FraudPyFuncModel
 
 
+REQUIRED_PROVENANCE = {
+    "dataset_version",
+    "silver_run_id",
+    "feature_run_id",
+    "snapshot_id",
+    "training_snapshot_uri",
+    "snapshot_manifest_sha256",
+    "snapshot_row_count",
+    "feature_count",
+    "feature_schema_sha256",
+    "git_commit_sha",
+    "random_seed",
+}
+
+
 @dataclass(frozen=True)
 class TrackingResult:
     experiment_id: str
@@ -35,8 +50,8 @@ class MlflowTracker:
         registered_model_name: str,
         registry_mode: str,
     ) -> None:
-        if registry_mode not in {"manual", "automatic"}:
-            raise ValueError("registry_mode must be manual or automatic")
+        if registry_mode not in {"manual", "winner_only"}:
+            raise ValueError("registry_mode must be manual or winner_only")
         self.tracking_uri = tracking_uri
         self.experiment_name = experiment_name
         self.registered_model_name = registered_model_name
@@ -49,6 +64,9 @@ class MlflowTracker:
         input_example: pd.DataFrame,
         provenance: Mapping[str, object],
     ) -> TrackingResult:
+        missing = sorted(REQUIRED_PROVENANCE.difference(provenance))
+        if missing:
+            raise ValueError(f"Missing required MLflow provenance: {missing}")
         mlflow.set_tracking_uri(self.tracking_uri)
         experiment = mlflow.set_experiment(self.experiment_name)
         candidate_run_ids: dict[str, str] = {}
@@ -81,12 +99,20 @@ class MlflowTracker:
                         {
                             "candidate": candidate.name,
                             "estimator": candidate.estimator,
+                            "selection_eligible": str(
+                                candidate.selection_eligible
+                            ).lower(),
                             "winner": str(candidate.tested).lower(),
                         }
                     )
                     mlflow.log_params(
                         {
                             "estimator": candidate.estimator,
+                            "model_name": candidate.name,
+                            **{
+                                key: str(value)
+                                for key, value in provenance.items()
+                            },
                             **{
                                 f"model.{key}": value
                                 for key, value in report["parameters"].items()
@@ -108,6 +134,24 @@ class MlflowTracker:
                         }
                     )
                     mlflow.log_dict(report, "reports/validation.json")
+                    if candidate.tested:
+                        test_metrics = result.test_report["metrics"]
+                        mlflow.log_metrics(
+                            {
+                                "test_pr_auc": float(test_metrics["pr_auc"]),
+                                "test_roc_auc": float(test_metrics["roc_auc"]),
+                                "test_f1": float(test_metrics["f1"]),
+                                "test_precision": float(test_metrics["precision"]),
+                                "test_recall": float(test_metrics["recall"]),
+                                "test_threshold": float(candidate.threshold),
+                                "test_predict_seconds": float(
+                                    result.test_report["predict_seconds"]
+                                ),
+                            }
+                        )
+                        mlflow.log_dict(
+                            result.test_report, "reports/winner_test.json"
+                        )
 
             output_example = FraudPyFuncModel(
                 result.winner.pipeline, result.winner.threshold
@@ -133,11 +177,25 @@ class MlflowTracker:
                 },
             )
             version: str | None = None
-            if self.registry_mode == "automatic":
+            if self.registry_mode == "winner_only":
                 registered = mlflow.register_model(
                     model_info.model_uri, self.registered_model_name
                 )
                 version = str(registered.version)
+                client = mlflow.MlflowClient()
+                for key in (
+                    "dataset_version",
+                    "feature_run_id",
+                    "snapshot_id",
+                    "snapshot_manifest_sha256",
+                    "git_commit_sha",
+                ):
+                    client.set_model_version_tag(
+                        self.registered_model_name,
+                        version,
+                        key,
+                        str(provenance[key]),
+                    )
             return TrackingResult(
                 experiment_id=experiment.experiment_id,
                 parent_run_id=parent.info.run_id,

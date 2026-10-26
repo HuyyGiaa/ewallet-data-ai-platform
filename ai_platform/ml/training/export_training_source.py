@@ -6,19 +6,13 @@ import argparse
 import json
 import shutil
 import subprocess
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pyspark.sql import functions as F
-
 from ai_platform.ml import ML_DATA_ROOT
-from ai_platform.ml.training.export_source_sample import (
-    audit_label_integrity,
-    read_delta,
-)
 from ai_platform.ml.training.temporal import TEST_START, VALIDATION_START
 from data_platform.config import RuntimeConfig, load_runtime_config
-from data_platform.processing.spark.common.spark_session import create_spark_session
 
 
 DEFAULT_OUTPUT = ML_DATA_ROOT / "fraud_training_v1" / "trainable_source"
@@ -47,6 +41,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="local",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--silver-root")
+    parser.add_argument("--dataset-version")
+    parser.add_argument("--source-silver-run-id")
+    parser.add_argument("--snapshot-id")
     parser.add_argument(
         "--sample-modulus",
         type=int,
@@ -56,7 +54,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def apply_silver_root(config: RuntimeConfig, silver_root: str) -> RuntimeConfig:
+    """Bind bounded source export to one immutable canonical Silver run."""
+    if config.environment != "gcp" or config.storage.scheme != "gs":
+        raise ValueError("run-scoped training source requires the gcp profile")
+    if (
+        not silver_root.startswith("gs://")
+        or "/lakehouse/runs/" not in silver_root
+        or not silver_root.endswith("/silver")
+    ):
+        raise ValueError("Silver root must be a run-scoped gs://.../silver path")
+    return replace(
+        config,
+        storage=replace(config.storage, silver_root=silver_root),
+    )
+
+
 def request_profile(frame) -> dict:
+    from pyspark.sql import functions as F
+
     overall = frame.agg(
         F.count("*").alias("rows"),
         F.sum(F.col("amount").isNull().cast("long")).alias("amount_null"),
@@ -117,6 +133,8 @@ def request_profile(frame) -> dict:
 
 
 def split_profile(frame) -> dict[str, dict[str, object]]:
+    from pyspark.sql import functions as F
+
     rows = frame.groupBy("split").agg(
         F.count("*").alias("rows"),
         F.sum(F.col("label")).alias("fraud"),
@@ -153,7 +171,21 @@ def export_training_source(
     output: Path,
     sample_modulus: int,
     runtime_config: RuntimeConfig,
+    *,
+    dataset_version: str | None = None,
+    source_silver_run_id: str | None = None,
+    snapshot_id: str | None = None,
 ) -> dict:
+    from pyspark.sql import functions as F
+
+    from ai_platform.ml.training.export_source_sample import (
+        audit_label_integrity,
+        read_delta,
+    )
+    from data_platform.processing.spark.common.spark_session import (
+        create_spark_session,
+    )
+
     if sample_modulus <= 0:
         raise ValueError("sample_modulus must be positive")
     spark = create_spark_session(
@@ -235,6 +267,12 @@ def export_training_source(
             "timestamp_storage": "signed UTC epoch microseconds",
             "output_columns": list(OUTPUT_COLUMNS),
             "written_rows": written_rows,
+            "lineage": {
+                "dataset_version": dataset_version,
+                "source_silver_run_id": source_silver_run_id,
+                "source_silver_root": runtime_config.storage.silver_root,
+                "snapshot_id": snapshot_id,
+            },
         }
         (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         print(f"PASS | training source export | rows={written_rows}")
@@ -247,7 +285,27 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         config = load_runtime_config(args.environment)
-        export_training_source(args.output, args.sample_modulus, config)
+        cloud_lineage = (
+            args.silver_root,
+            args.dataset_version,
+            args.source_silver_run_id,
+            args.snapshot_id,
+        )
+        if args.environment == "gcp":
+            if any(value is None for value in cloud_lineage):
+                raise ValueError(
+                    "gcp source export requires --silver-root, --dataset-version, "
+                    "--source-silver-run-id, and --snapshot-id"
+                )
+            config = apply_silver_root(config, args.silver_root)
+        export_training_source(
+            args.output,
+            args.sample_modulus,
+            config,
+            dataset_version=args.dataset_version,
+            source_silver_run_id=args.source_silver_run_id,
+            snapshot_id=args.snapshot_id,
+        )
     except Exception as exc:
         print(f"ERROR | {exc}")
         return 1

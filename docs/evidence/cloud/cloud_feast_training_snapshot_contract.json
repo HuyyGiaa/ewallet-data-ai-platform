@@ -1,0 +1,36 @@
+{
+  "status": "READY_FOR_USER_RUN",
+  "executed": false,
+  "schema_version": "cloud-feast-training-boundary-v1",
+  "dataset_version": "canonical-100gb-v1",
+  "required_inputs": {
+    "source_silver_run_id": "SET_AFTER_CANONICAL_DP2_PASS",
+    "source_feature_run_id": "SET_AFTER_CANONICAL_DP3_PASS",
+    "source_git_sha": "SET_FROM_VERIFIED_DP3_SELECTION",
+    "spark_profile": "SET_FROM_VERIFIED_DP3_SELECTION",
+    "feature_selection_digest": "SET_FROM_VERIFIED_DP3_SELECTION",
+    "feature_tables": [
+      "feat_user_behavior",
+      "feat_account_behavior",
+      "feat_device_behavior",
+      "feat_merchant_behavior"
+    ]
+  },
+  "outputs": {
+    "feast_snapshot": "IMMUTABLE_RUN_SCOPED_GCS_PREFIX",
+    "feast_registry": "VERSIONED_GCS_OBJECT",
+    "bounded_training_snapshot": "IMMUTABLE_RUN_SCOPED_GCS_PREFIX"
+  },
+  "temporal_contract": "[T-window,T)",
+  "labels_enter_feast": false,
+  "bounded_training_sample_modulus": 10000,
+  "validation_required": [
+    "four_table_schema_and_row_parity",
+    "utc_microsecond_precision",
+    "point_in_time_310_values_zero_mismatch",
+    "training_source_label_integrity",
+    "training_snapshot_streaming_validator",
+    "training_snapshot_manifest_sha256",
+    "output_prefix_absent_before_publish"
+  ]
+}

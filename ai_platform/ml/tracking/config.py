@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
-from typing import Any
+import re
+from typing import Any, Mapping
 
 import yaml
 
@@ -28,6 +30,26 @@ class TrackingConfig:
 
 
 @dataclass(frozen=True)
+class SnapshotConfig:
+    training_snapshot_uri: str
+    dataset_version: str
+    silver_run_id: str
+    feature_run_id: str
+    snapshot_id: str
+    manifest_sha256: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "training_snapshot_uri": self.training_snapshot_uri,
+            "dataset_version": self.dataset_version,
+            "silver_run_id": self.silver_run_id,
+            "feature_run_id": self.feature_run_id,
+            "snapshot_id": self.snapshot_id,
+            "manifest_sha256": self.manifest_sha256,
+        }
+
+
+@dataclass(frozen=True)
 class CandidateConfig:
     model: ModelConfig
     selection_eligible: bool
@@ -40,6 +62,7 @@ class ExperimentConfig:
     seed: int
     primary_metric: str
     tie_breaker_metric: str
+    snapshot: SnapshotConfig
     tracking: TrackingConfig
     candidates: tuple[CandidateConfig, ...]
 
@@ -56,20 +79,55 @@ def _text(value: object, name: str) -> str:
     return value.strip()
 
 
-def _path(value: object, root: Path, name: str) -> Path:
-    path = Path(_text(value, name))
+_ENVIRONMENT_VALUE = re.compile(r"\$\{([A-Z][A-Z0-9_]*)\}")
+
+
+def _runtime_text(
+    value: object,
+    name: str,
+    environment: Mapping[str, str],
+) -> str:
+    raw = _text(value, name)
+
+    def replace(match: re.Match[str]) -> str:
+        variable = match.group(1)
+        resolved = environment.get(variable)
+        if resolved is None or not resolved.strip():
+            raise ValueError(f"{name} requires environment variable {variable}")
+        return resolved.strip()
+
+    rendered = _ENVIRONMENT_VALUE.sub(replace, raw)
+    if "${" in rendered:
+        raise ValueError(f"{name} contains an unresolved environment variable")
+    return rendered
+
+
+def _path(
+    value: object,
+    root: Path,
+    name: str,
+    environment: Mapping[str, str],
+) -> Path:
+    path = Path(_runtime_text(value, name, environment))
     return path if path.is_absolute() else root / path
 
 
-def load_experiment_config(path: Path, *, repo_root: Path | None = None) -> ExperimentConfig:
+def load_experiment_config(
+    path: Path,
+    *,
+    repo_root: Path | None = None,
+    environment: Mapping[str, str] | None = None,
+) -> ExperimentConfig:
     root = Path.cwd() if repo_root is None else Path(repo_root)
+    runtime = os.environ if environment is None else environment
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     top = _mapping(raw, "F9 configuration")
     selection = _mapping(top.get("selection"), "selection")
+    snapshot_raw = _mapping(top.get("snapshot"), "snapshot")
     tracking_raw = _mapping(top.get("tracking"), "tracking")
     registry_mode = _text(tracking_raw.get("registry_mode"), "tracking.registry_mode")
-    if registry_mode not in {"manual", "automatic"}:
-        raise ValueError("tracking.registry_mode must be manual or automatic")
+    if registry_mode not in {"manual", "winner_only"}:
+        raise ValueError("tracking.registry_mode must be manual or winner_only")
     seed = top.get("seed")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise ValueError("seed must be an integer")
@@ -99,20 +157,80 @@ def load_experiment_config(path: Path, *, repo_root: Path | None = None) -> Expe
         )
     if not any(candidate.selection_eligible for candidate in candidates):
         raise ValueError("At least one candidate must be selection eligible")
+    expected_candidates = (
+        ("dummy_baseline", "dummy", False),
+        ("logistic_regression", "logistic_regression", True),
+        ("random_forest", "random_forest", True),
+        ("hist_gradient_boosting", "hist_gradient_boosting", True),
+    )
+    actual_candidates = tuple(
+        (
+            candidate.model.name,
+            candidate.model.estimator,
+            candidate.selection_eligible,
+        )
+        for candidate in candidates
+    )
+    if actual_candidates != expected_candidates:
+        raise ValueError(f"Canonical F9 candidates must be exactly {expected_candidates}")
+    primary_metric = _text(selection.get("primary_metric"), "selection.primary_metric")
+    tie_breaker_metric = _text(
+        selection.get("tie_breaker_metric"), "selection.tie_breaker_metric"
+    )
+    if (primary_metric, tie_breaker_metric) != ("pr_auc", "f1"):
+        raise ValueError("Canonical F9 selection must be validation PR-AUC then F1")
+    snapshot = SnapshotConfig(
+        training_snapshot_uri=_runtime_text(
+            snapshot_raw.get("training_snapshot_uri"),
+            "snapshot.training_snapshot_uri",
+            runtime,
+        ),
+        dataset_version=_runtime_text(
+            snapshot_raw.get("dataset_version"), "snapshot.dataset_version", runtime
+        ),
+        silver_run_id=_runtime_text(
+            snapshot_raw.get("silver_run_id"), "snapshot.silver_run_id", runtime
+        ),
+        feature_run_id=_runtime_text(
+            snapshot_raw.get("feature_run_id"), "snapshot.feature_run_id", runtime
+        ),
+        snapshot_id=_runtime_text(
+            snapshot_raw.get("snapshot_id"), "snapshot.snapshot_id", runtime
+        ),
+        manifest_sha256=_runtime_text(
+            snapshot_raw.get("manifest_sha256"),
+            "snapshot.manifest_sha256",
+            runtime,
+        ),
+    )
+    if not re.fullmatch(r"[0-9a-f]{64}", snapshot.manifest_sha256):
+        raise ValueError("snapshot.manifest_sha256 must be 64 lowercase hex digits")
+    expected_suffix = f"/{snapshot.dataset_version}/{snapshot.snapshot_id}"
+    if not snapshot.training_snapshot_uri.startswith("gs://") or not (
+        snapshot.training_snapshot_uri.rstrip("/").endswith(expected_suffix)
+    ):
+        raise ValueError(
+            "snapshot.training_snapshot_uri must be the immutable GCS training "
+            "snapshot for dataset_version/snapshot_id"
+        )
     return ExperimentConfig(
-        dataset_path=_path(top.get("dataset_path"), root, "dataset_path"),
-        output_path=_path(top.get("output_path"), root, "output_path"),
+        dataset_path=_path(top.get("dataset_path"), root, "dataset_path", runtime),
+        output_path=_path(top.get("output_path"), root, "output_path", runtime),
         seed=seed,
-        primary_metric=_text(selection.get("primary_metric"), "selection.primary_metric"),
-        tie_breaker_metric=_text(selection.get("tie_breaker_metric"), "selection.tie_breaker_metric"),
+        primary_metric=primary_metric,
+        tie_breaker_metric=tie_breaker_metric,
+        snapshot=snapshot,
         tracking=TrackingConfig(
-            uri=_text(tracking_raw.get("uri"), "tracking.uri"),
-            experiment_name=_text(
-                tracking_raw.get("experiment_name"), "tracking.experiment_name"
+            uri=_runtime_text(tracking_raw.get("uri"), "tracking.uri", runtime),
+            experiment_name=_runtime_text(
+                tracking_raw.get("experiment_name"),
+                "tracking.experiment_name",
+                runtime,
             ),
-            registered_model_name=_text(
+            registered_model_name=_runtime_text(
                 tracking_raw.get("registered_model_name"),
                 "tracking.registered_model_name",
+                runtime,
             ),
             registry_mode=registry_mode,
         ),

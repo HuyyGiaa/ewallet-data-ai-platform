@@ -1,16 +1,24 @@
-dataset_path: ai_platform/ml/data/fraud_training_v1/trainable_dataset
-output_path: ai_platform/ml/artifacts/f9_mlflow_experiment
+dataset_path: ${F9_DATASET_PATH}
+output_path: ${F9_OUTPUT_PATH}
 seed: 42
+
+snapshot:
+  training_snapshot_uri: ${F9_TRAINING_SNAPSHOT_URI}
+  dataset_version: ${DATASET_VERSION}
+  silver_run_id: ${SILVER_RUN_ID}
+  feature_run_id: ${FEATURE_RUN_ID}
+  snapshot_id: ${SNAPSHOT_ID}
+  manifest_sha256: ${SNAPSHOT_MANIFEST_SHA256}
 
 selection:
   primary_metric: pr_auc
   tie_breaker_metric: f1
 
 tracking:
-  uri: http://127.0.0.1:5000
-  experiment_name: ewallet-fraud-comparison
-  registered_model_name: ewallet-fraud-detector
-  registry_mode: manual
+  uri: ${MLFLOW_TRACKING_URI}
+  experiment_name: ${MLFLOW_EXPERIMENT_NAME}
+  registered_model_name: ${MLFLOW_REGISTERED_MODEL_NAME}
+  registry_mode: winner_only
 
 candidates:
   - name: dummy_baseline

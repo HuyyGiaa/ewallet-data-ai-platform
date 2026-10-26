@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 from pathlib import Path
@@ -35,10 +36,14 @@ def values_equal(expected, actual) -> bool:
 
 def validate_canonical_sample(
     sample_path: Path = RUNTIME_DATA_ROOT / "validation" / "canonical_sample",
+    *,
+    environment: str = "local",
 ) -> dict:
     sample = pd.read_parquet(sample_path).sort_values("sample_case").reset_index(drop=True)
     entity_df = sample[list(ENTITY_COLUMNS)].copy()
-    retrieved = retrieve_combined(get_store(FEATURE_REPO), entity_df)
+    retrieved = retrieve_combined(
+        get_store(FEATURE_REPO, environment=environment), entity_df
+    )
     mismatches = []
     comparable = 0
     for row_index, expected_row in sample.iterrows():
@@ -72,8 +77,23 @@ def validate_canonical_sample(
     return result
 
 
-def main() -> int:
-    result = validate_canonical_sample()
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--environment", choices=("local", "dev", "gcp"), default="local")
+    parser.add_argument(
+        "--sample-path",
+        type=Path,
+        default=RUNTIME_DATA_ROOT / "validation" / "canonical_sample",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    result = validate_canonical_sample(
+        args.sample_path,
+        environment=args.environment,
+    )
     return 0 if result["status"] == "PASS" else 1
 
 

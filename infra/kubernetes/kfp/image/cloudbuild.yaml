@@ -1,0 +1,11 @@
+steps:
+  - name: gcr.io/cloud-builders/docker:24.0.9
+    args:
+      - build
+      - --file=infra/kubernetes/kfp/image/Dockerfile
+      - --tag=${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}
+options:
+  logging: CLOUD_LOGGING_ONLY
