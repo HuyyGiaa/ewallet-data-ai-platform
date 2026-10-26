@@ -14,6 +14,10 @@ TEST_IMAGE = (
     "asia-southeast1-docker.pkg.dev/test-project/ewallet-platform/"
     "f9-kfp-runtime:kfp-2.17.3-f9-v1"
 )
+CANONICAL_GENERATED_IMAGE = (
+    "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
+    "ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1"
+)
 
 
 class KfpCanonicalCompileTest(unittest.TestCase):
@@ -120,7 +124,7 @@ class KfpCanonicalCompileTest(unittest.TestCase):
         self.assertTrue(expected_trainers <= set(executors))
         for executor in executors.values():
             container = executor["container"]
-            self.assertEqual(TEST_IMAGE, container["image"])
+            self.assertEqual(CANONICAL_GENERATED_IMAGE, container["image"])
             self.assertNotIn(":latest", container["image"])
             resources = container["resources"]
             for field in (
@@ -137,7 +141,10 @@ class KfpCanonicalCompileTest(unittest.TestCase):
             self.assertIn("--runtime-image", container["args"])
             self.assertIn("--compiled-runtime-image", container["args"])
             compiled_index = container["args"].index("--compiled-runtime-image")
-            self.assertEqual(TEST_IMAGE, container["args"][compiled_index + 1])
+            self.assertEqual(
+                CANONICAL_GENERATED_IMAGE,
+                container["args"][compiled_index + 1],
+            )
 
         status = (root / "README.md").read_text(encoding="utf-8")
         self.assertIn("USER_GENERATED", status)
