@@ -52,6 +52,7 @@ def build_export_manifest(
     spark_profile: str = "optimized",
     source_feature_run_id: str | None = None,
     allow_baseline_for_test: bool = False,
+    lineage: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Build the versioned manifest shared by local and cloud exports."""
     require_optimized_lineage(
@@ -68,4 +69,5 @@ def build_export_manifest(
         "output_format": "Parquet",
         "timestamp_precision": "microsecond",
         "tables": dict(tables),
+        "lineage": dict(lineage or {}),
     }

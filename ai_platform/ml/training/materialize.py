@@ -43,10 +43,17 @@ DEFAULT_MIN_AVAILABLE_GIB = 4.0
 DEFAULT_MAX_NEW_CHUNKS = 1
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--environment", choices=("local", "dev", "gcp"), default="local"
+    )
+    parser.add_argument("--dataset-version")
+    parser.add_argument("--source-silver-run-id")
+    parser.add_argument("--source-feature-run-id")
+    parser.add_argument("--snapshot-id")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
     parser.add_argument(
         "--min-available-memory-gib",
@@ -69,7 +76,20 @@ def parse_args() -> argparse.Namespace:
             "defaults to one measured-safe Feast request per process."
         ),
     )
-    return parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.environment == "gcp" and any(
+        value is None
+        for value in (
+            args.dataset_version,
+            args.source_silver_run_id,
+            args.source_feature_run_id,
+            args.snapshot_id,
+        )
+    ):
+        parser.error(
+            "gcp materialization requires dataset and Silver/feature/snapshot IDs"
+        )
+    return args
 
 
 def available_memory_gib() -> float:
@@ -168,6 +188,12 @@ def materialize(
     max_rows: int | None,
     resume: bool,
     max_new_chunks: int | None,
+    *,
+    environment: str = "local",
+    dataset_version: str | None = None,
+    source_silver_run_id: str | None = None,
+    source_feature_run_id: str | None = None,
+    snapshot_id: str | None = None,
 ) -> dict:
     if chunk_size <= 0:
         raise ValueError("chunk_size must be positive")
@@ -197,7 +223,7 @@ def materialize(
     else:
         incomplete.write_text("{}\n")
 
-    store = get_store(FEATURE_REPO)
+    store = get_store(FEATURE_REPO, environment=environment)
     total_rows = 0
     chunk_count = 0
     split_part_numbers = Counter()
@@ -372,6 +398,12 @@ def materialize(
         },
         "optimization_performed": False,
         "performance_label": "F7 TRAINING DATASET MATERIALIZATION BASELINE - NOT OPTIMIZED",
+        "lineage": {
+            "dataset_version": dataset_version,
+            "source_silver_run_id": source_silver_run_id,
+            "source_feature_run_id": source_feature_run_id,
+            "snapshot_id": snapshot_id,
+        },
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     incomplete.unlink()
@@ -382,8 +414,8 @@ def materialize(
     return manifest
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     try:
         materialize(
             args.source,
@@ -393,6 +425,11 @@ def main() -> int:
             args.max_rows,
             args.resume,
             args.max_new_chunks,
+            environment=args.environment,
+            dataset_version=args.dataset_version,
+            source_silver_run_id=args.source_silver_run_id,
+            source_feature_run_id=args.source_feature_run_id,
+            snapshot_id=args.snapshot_id,
         )
     except Exception as exc:
         print(f"ERROR | {exc}")
