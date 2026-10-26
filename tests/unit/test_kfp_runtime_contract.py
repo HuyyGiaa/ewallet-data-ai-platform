@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from ai_platform.ml.pipelines.runtime import verify_chronological_splits
+from ai_platform.ml.pipelines.runtime import _environment, verify_chronological_splits
 from ai_platform.ml.tracking.snapshot import SnapshotProvenance
 
 
@@ -24,6 +24,23 @@ def _frame(timestamp: str, labels: list[int]) -> pd.DataFrame:
 
 
 class KfpRuntimeGateTest(unittest.TestCase):
+    def test_runtime_environment_carries_explicit_canonical_settings(self) -> None:
+        args = Namespace(
+            snapshot_uri="gs://bucket/snapshot",
+            dataset_version="canonical-100gb-v1",
+            silver_run_id="silver-1",
+            feature_run_id="features-1",
+            snapshot_id="snapshot-1",
+            snapshot_manifest_sha256="a" * 64,
+            mlflow_tracking_uri="http://mlflow.ml-platform.svc:5000",
+            experiment_name="fraud",
+            registered_model_name="fraud-model",
+        )
+        environment = _environment(args, Path("/tmp/snapshot"))
+        self.assertEqual("a" * 64, environment["SNAPSHOT_MANIFEST_SHA256"])
+        self.assertEqual("fraud", environment["MLFLOW_EXPERIMENT_NAME"])
+        self.assertEqual("fraud-model", environment["MLFLOW_REGISTERED_MODEL_NAME"])
+
     def test_split_gate_matches_actual_rows_classes_and_chronology(self) -> None:
         dataset = SimpleNamespace(
             train=_frame("2026-01-01", [0, 1]),

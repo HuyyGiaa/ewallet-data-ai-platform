@@ -5,10 +5,7 @@ from kfp.dsl import Artifact, Input, Model, Output
 
 
 KFP_VERSION = "2.17.3"
-F9_RUNTIME_IMAGE = (
-    "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
-    "ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1"
-)
+_F9_RUNTIME_IMAGE: str | None = None
 CANDIDATE_NAMES = (
     "dummy_baseline",
     "logistic_regression",
@@ -16,6 +13,22 @@ CANDIDATE_NAMES = (
     "hist_gradient_boosting",
 )
 RUNTIME_MODULE = "ai_platform.ml.pipelines.runtime"
+
+
+def configure_runtime_image(image: str) -> None:
+    """Bind one explicitly versioned runtime image before KFP compilation."""
+
+    normalized = image.strip()
+    if not normalized or normalized.endswith(":latest") or ":" not in normalized:
+        raise ValueError("KFP runtime image must use an explicit non-latest tag")
+    global _F9_RUNTIME_IMAGE
+    _F9_RUNTIME_IMAGE = normalized
+
+
+def _runtime_image() -> str:
+    if _F9_RUNTIME_IMAGE is None:
+        raise RuntimeError("configure_runtime_image() is required before compilation")
+    return _F9_RUNTIME_IMAGE
 
 
 def _common_arguments(
@@ -26,6 +39,9 @@ def _common_arguments(
     snapshot_uri: str,
     snapshot_manifest_sha256: str,
     mlflow_tracking_uri: str,
+    runtime_image: str,
+    experiment_name: str,
+    registered_model_name: str,
 ) -> list[str]:
     return [
         "--dataset-version", dataset_version,
@@ -35,12 +51,15 @@ def _common_arguments(
         "--snapshot-uri", snapshot_uri,
         "--snapshot-manifest-sha256", snapshot_manifest_sha256,
         "--mlflow-tracking-uri", mlflow_tracking_uri,
+        "--runtime-image", runtime_image,
+        "--experiment-name", experiment_name,
+        "--registered-model-name", registered_model_name,
     ]
 
 
 def _runtime_spec(command: str, arguments: list[str]) -> dsl.ContainerSpec:
     return dsl.ContainerSpec(
-        image=F9_RUNTIME_IMAGE,
+        image=_runtime_image(),
         command=["python", "-m", RUNTIME_MODULE, command],
         args=arguments,
     )
@@ -55,6 +74,9 @@ def validate_snapshot(
     snapshot_uri: str,
     snapshot_manifest_sha256: str,
     mlflow_tracking_uri: str,
+    runtime_image: str,
+    experiment_name: str,
+    registered_model_name: str,
     validation: Output[Artifact],
 ) -> dsl.ContainerSpec:
     return _runtime_spec(
@@ -62,6 +84,7 @@ def validate_snapshot(
         _common_arguments(
             dataset_version, silver_run_id, feature_run_id, snapshot_id,
             snapshot_uri, snapshot_manifest_sha256, mlflow_tracking_uri,
+            runtime_image, experiment_name, registered_model_name,
         ) + ["--output", validation.path],
     )
 
@@ -75,6 +98,9 @@ def verify_chronological_splits(
     snapshot_uri: str,
     snapshot_manifest_sha256: str,
     mlflow_tracking_uri: str,
+    runtime_image: str,
+    experiment_name: str,
+    registered_model_name: str,
     split_validation: Output[Artifact],
 ) -> dsl.ContainerSpec:
     return _runtime_spec(
@@ -82,6 +108,7 @@ def verify_chronological_splits(
         _common_arguments(
             dataset_version, silver_run_id, feature_run_id, snapshot_id,
             snapshot_uri, snapshot_manifest_sha256, mlflow_tracking_uri,
+            runtime_image, experiment_name, registered_model_name,
         ) + ["--output", split_validation.path],
     )
 
@@ -95,6 +122,9 @@ def _train_spec(
     snapshot_uri: str,
     snapshot_manifest_sha256: str,
     mlflow_tracking_uri: str,
+    runtime_image: str,
+    experiment_name: str,
+    registered_model_name: str,
     model: Output[Model],
 ) -> dsl.ContainerSpec:
     return _runtime_spec(
@@ -102,6 +132,7 @@ def _train_spec(
         _common_arguments(
             dataset_version, silver_run_id, feature_run_id, snapshot_id,
             snapshot_uri, snapshot_manifest_sha256, mlflow_tracking_uri,
+            runtime_image, experiment_name, registered_model_name,
         ) + ["--candidate", candidate, "--output", model.path],
     )
 
@@ -110,12 +141,14 @@ def _train_spec(
 def train_dummy_baseline(
     dataset_version: str, silver_run_id: str, feature_run_id: str,
     snapshot_id: str, snapshot_uri: str, snapshot_manifest_sha256: str,
-    mlflow_tracking_uri: str, model: Output[Model],
+    mlflow_tracking_uri: str, runtime_image: str, experiment_name: str,
+    registered_model_name: str, model: Output[Model],
 ) -> dsl.ContainerSpec:
     return _train_spec(
         "dummy_baseline", dataset_version, silver_run_id, feature_run_id,
         snapshot_id, snapshot_uri, snapshot_manifest_sha256,
-        mlflow_tracking_uri, model,
+        mlflow_tracking_uri, runtime_image, experiment_name,
+        registered_model_name, model,
     )
 
 
@@ -123,12 +156,14 @@ def train_dummy_baseline(
 def train_logistic_regression(
     dataset_version: str, silver_run_id: str, feature_run_id: str,
     snapshot_id: str, snapshot_uri: str, snapshot_manifest_sha256: str,
-    mlflow_tracking_uri: str, model: Output[Model],
+    mlflow_tracking_uri: str, runtime_image: str, experiment_name: str,
+    registered_model_name: str, model: Output[Model],
 ) -> dsl.ContainerSpec:
     return _train_spec(
         "logistic_regression", dataset_version, silver_run_id, feature_run_id,
         snapshot_id, snapshot_uri, snapshot_manifest_sha256,
-        mlflow_tracking_uri, model,
+        mlflow_tracking_uri, runtime_image, experiment_name,
+        registered_model_name, model,
     )
 
 
@@ -136,12 +171,14 @@ def train_logistic_regression(
 def train_random_forest(
     dataset_version: str, silver_run_id: str, feature_run_id: str,
     snapshot_id: str, snapshot_uri: str, snapshot_manifest_sha256: str,
-    mlflow_tracking_uri: str, model: Output[Model],
+    mlflow_tracking_uri: str, runtime_image: str, experiment_name: str,
+    registered_model_name: str, model: Output[Model],
 ) -> dsl.ContainerSpec:
     return _train_spec(
         "random_forest", dataset_version, silver_run_id, feature_run_id,
         snapshot_id, snapshot_uri, snapshot_manifest_sha256,
-        mlflow_tracking_uri, model,
+        mlflow_tracking_uri, runtime_image, experiment_name,
+        registered_model_name, model,
     )
 
 
@@ -149,12 +186,14 @@ def train_random_forest(
 def train_hist_gradient_boosting(
     dataset_version: str, silver_run_id: str, feature_run_id: str,
     snapshot_id: str, snapshot_uri: str, snapshot_manifest_sha256: str,
-    mlflow_tracking_uri: str, model: Output[Model],
+    mlflow_tracking_uri: str, runtime_image: str, experiment_name: str,
+    registered_model_name: str, model: Output[Model],
 ) -> dsl.ContainerSpec:
     return _train_spec(
         "hist_gradient_boosting", dataset_version, silver_run_id,
         feature_run_id, snapshot_id, snapshot_uri,
-        snapshot_manifest_sha256, mlflow_tracking_uri, model,
+        snapshot_manifest_sha256, mlflow_tracking_uri, runtime_image,
+        experiment_name, registered_model_name, model,
     )
 
 
@@ -198,6 +237,9 @@ def evaluate_test_winner(
     snapshot_uri: str,
     snapshot_manifest_sha256: str,
     mlflow_tracking_uri: str,
+    runtime_image: str,
+    experiment_name: str,
+    registered_model_name: str,
     dummy_baseline: Input[Model],
     logistic_regression: Input[Model],
     random_forest: Input[Model],
@@ -210,6 +252,7 @@ def evaluate_test_winner(
         _common_arguments(
             dataset_version, silver_run_id, feature_run_id, snapshot_id,
             snapshot_uri, snapshot_manifest_sha256, mlflow_tracking_uri,
+            runtime_image, experiment_name, registered_model_name,
         ) + _candidate_arguments(
             dummy_baseline, logistic_regression, random_forest,
             hist_gradient_boosting,
@@ -226,6 +269,7 @@ def publish_winner_to_mlflow(
     snapshot_uri: str,
     snapshot_manifest_sha256: str,
     mlflow_tracking_uri: str,
+    runtime_image: str,
     experiment_name: str,
     registered_model_name: str,
     git_commit_sha: str,
@@ -237,10 +281,9 @@ def publish_winner_to_mlflow(
         _common_arguments(
             dataset_version, silver_run_id, feature_run_id, snapshot_id,
             snapshot_uri, snapshot_manifest_sha256, mlflow_tracking_uri,
+            runtime_image, experiment_name, registered_model_name,
         ) + [
             "--experiment-result", experiment_result.path,
-            "--experiment-name", experiment_name,
-            "--registered-model-name", registered_model_name,
             "--git-commit-sha", git_commit_sha,
             "--output", evidence.path,
         ],
@@ -273,9 +316,10 @@ def f9_canonical_pipeline(
     snapshot_uri: str,
     snapshot_manifest_sha256: str,
     mlflow_tracking_uri: str,
+    runtime_image: str,
     git_commit_sha: str,
-    experiment_name: str = "fraud-detection-canonical",
-    registered_model_name: str = "fraud-detection-winner",
+    experiment_name: str,
+    registered_model_name: str,
 ) -> None:
     common = dict(
         dataset_version=dataset_version,
@@ -285,6 +329,9 @@ def f9_canonical_pipeline(
         snapshot_uri=snapshot_uri,
         snapshot_manifest_sha256=snapshot_manifest_sha256,
         mlflow_tracking_uri=mlflow_tracking_uri,
+        runtime_image=runtime_image,
+        experiment_name=experiment_name,
+        registered_model_name=registered_model_name,
     )
     snapshot_gate = _bounded(validate_snapshot(**common))
     split_gate = _bounded(verify_chronological_splits(**common))
@@ -317,8 +364,6 @@ def f9_canonical_pipeline(
     _bounded(
         publish_winner_to_mlflow(
             **common,
-            experiment_name=experiment_name,
-            registered_model_name=registered_model_name,
             git_commit_sha=git_commit_sha,
             experiment_result=evaluation.outputs["experiment_result"],
         ),

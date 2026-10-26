@@ -22,8 +22,8 @@ winner, and assigns no production stage or alias.
 ## Pinned runtime and bounded resources
 
 - Standalone KFP manifests and SDK: `2.17.3`.
-- Runtime image: `f9-kfp-runtime:kfp-2.17.3-f9-v1` in the existing
-  `ewallet-platform` Artifact Registry repository.
+- Runtime image: an explicit, immutable deployment input. The example tag is
+  `f9-kfp-runtime:kfp-2.17.3-f9-v1`; `latest` is rejected.
 - Python base: `python:3.10.19-slim-bookworm`.
 - Python ML packages are exact pins in `ai_platform/ml/requirements.txt`.
 - Train, winner-test, and publish tasks request 500m CPU/1 GiB and are limited
@@ -88,7 +88,7 @@ kubectl -n "$KFP_NAMESPACE" wait --for=condition=Available \
   deployment --all --timeout=15m
 ```
 
-Authorize the KFP runner to use the existing bounded training GSA. This is a
+Authorize the KFP runner to use the explicitly selected bounded training GSA. This is a
 future IAM mutation and therefore requires explicit approval at execution time:
 
 ```bash
@@ -98,16 +98,21 @@ gcloud iam service-accounts add-iam-policy-binding \
   --member="serviceAccount:${PROJECT_ID}.svc.id.goog[kubeflow/pipeline-runner]" \
   --project="$PROJECT_ID"
 kubectl apply -f infra/kubernetes/kfp/pipeline-runner-service-account.yaml
+kubectl -n "$KFP_NAMESPACE" annotate serviceaccount pipeline-runner \
+  iam.gke.io/gcp-service-account="ewallet-training@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --overwrite
 ```
 
-Compile with the pinned SDK and record the package digest:
+Generate the KFP compiler lock first (outside this reconciliation task), then
+compile with the pinned SDK/runtime image and record the package digest. The
+generated YAML is intentionally marked `PENDING_REGENERATION` until this
+command is run; never edit it manually:
 
 ```bash
-python3.10 -m venv /tmp/ewallet-kfp-2.17.3
-/tmp/ewallet-kfp-2.17.3/bin/pip install \
-  -r ai_platform/ml/pipelines/requirements-kfp.txt
-PYTHONPATH="$PWD" /tmp/ewallet-kfp-2.17.3/bin/python \
-  -m ai_platform.ml.pipelines.compile_pipeline --output "$PIPELINE_PACKAGE"
+uv run --project ai_platform/ml/pipelines \
+  python -m ai_platform.ml.pipelines.compile_pipeline \
+  --runtime-image "$F9_RUNTIME_IMAGE" \
+  --output "$PIPELINE_PACKAGE"
 sha256sum "$PIPELINE_PACKAGE" | tee "/tmp/kfp-pipeline-${SNAPSHOT_ID}.sha256"
 ```
 
@@ -146,6 +151,7 @@ run = client.run_pipeline(
         "snapshot_uri": os.environ["SNAPSHOT_URI"],
         "snapshot_manifest_sha256": os.environ["SNAPSHOT_MANIFEST_SHA256"],
         "mlflow_tracking_uri": os.environ["MLFLOW_TRACKING_URI"],
+        "runtime_image": os.environ["F9_RUNTIME_IMAGE"],
         "experiment_name": os.environ["EXPERIMENT_NAME"],
         "registered_model_name": os.environ["REGISTERED_MODEL_NAME"],
         "git_commit_sha": os.environ["SOURCE_GIT_SHA"],

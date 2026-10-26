@@ -79,7 +79,10 @@ def _environment(args: argparse.Namespace, dataset_path: Path) -> dict[str, str]
         "SILVER_RUN_ID": args.silver_run_id,
         "FEATURE_RUN_ID": args.feature_run_id,
         "SNAPSHOT_ID": args.snapshot_id,
+        "SNAPSHOT_MANIFEST_SHA256": args.snapshot_manifest_sha256,
         "MLFLOW_TRACKING_URI": args.mlflow_tracking_uri,
+        "MLFLOW_EXPERIMENT_NAME": args.experiment_name,
+        "MLFLOW_REGISTERED_MODEL_NAME": args.registered_model_name,
     }
 
 
@@ -237,9 +240,7 @@ def publish_to_mlflow(args: argparse.Namespace) -> None:
                 "random_seed": config.seed,
                 "orchestrator": "kfp-standalone",
                 "kfp_version": "2.17.3",
-                "runtime_image": (
-                    "f9-kfp-runtime:kfp-2.17.3-f9-v1"
-                ),
+                "runtime_image": args.runtime_image,
             },
         )
         _write_json(
@@ -276,6 +277,9 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--snapshot-uri", required=True)
     parser.add_argument("--snapshot-manifest-sha256", required=True)
     parser.add_argument("--mlflow-tracking-uri", required=True)
+    parser.add_argument("--runtime-image", required=True)
+    parser.add_argument("--experiment-name", required=True)
+    parser.add_argument("--registered-model-name", required=True)
     parser.add_argument(
         "--config", default="/workspace/ai_platform/ml/config/f9_mlflow_experiment.yaml"
     )
@@ -309,8 +313,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     publish = subparsers.add_parser("publish-mlflow")
     _add_common(publish)
     publish.add_argument("--experiment-result", required=True)
-    publish.add_argument("--experiment-name", required=True)
-    publish.add_argument("--registered-model-name", required=True)
     publish.add_argument("--git-commit-sha", required=True)
     publish.add_argument("--output", required=True)
     return parser.parse_args(argv)
