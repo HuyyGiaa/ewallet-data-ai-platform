@@ -16,6 +16,12 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
+from data_platform.config.spark_benchmark import (
+    METHOD2_OUTPUT_RUN_PROPERTY,
+    METHOD2_PAIR_DIGEST_PROPERTY,
+    validate_pair_member,
+    validate_runtime_profile_properties,
+)
 from data_platform.config.spark_profiles import (
     require_profile_binding,
     validate_git_sha,
@@ -333,6 +339,7 @@ def build_summary(
     source_run_ids: Sequence[str],
     expected_logical_transactions: int,
     expected_physical_transactions: int,
+    pair_manifest: Mapping[str, object],
 ) -> dict[str, object]:
     from pyspark.sql import SparkSession
 
@@ -354,8 +361,31 @@ def build_summary(
         raise ValueError(
             f"output root is not bound to output_run_id: expected {expected_root}"
         )
+    member = validate_pair_member(
+        pair_manifest,
+        spark_profile=spark_profile,
+        benchmark_id=benchmark_id,
+        stage=stage,
+        dataset_version=dataset_version,
+        git_sha=git_sha,
+        upstream_run_ids=source_run_ids,
+        output_run_id=output_run_id,
+        output_root=root,
+    )
     spark = SparkSession.builder.appName("spark-ab-output-summary").getOrCreate()
     try:
+        actual_properties = dict(spark.sparkContext.getConf().getAll())
+        normalized_profile_properties = validate_runtime_profile_properties(
+            pair_manifest,
+            spark_profile=spark_profile,
+            runtime_properties=actual_properties,
+        )
+        if actual_properties.get(METHOD2_PAIR_DIGEST_PROPERTY) != pair_manifest[
+            "pair_manifest_digest"
+        ]:
+            raise ValueError("runtime pair manifest digest mismatch")
+        if actual_properties.get(METHOD2_OUTPUT_RUN_PROPERTY) != output_run_id:
+            raise ValueError("runtime output_run_id binding mismatch")
         expected = EXPECTED_TABLES[stage]
         inventory = _inventory(spark, root)
         if inventory != expected:
@@ -374,9 +404,13 @@ def build_summary(
             "spark_profile": spark_profile,
             "stage": stage,
             "output_run_id": output_run_id,
+            "output_root": root.rstrip("/"),
             "source_run_ids": list(source_run_ids),
+            "upstream_run_ids": list(source_run_ids),
             "root": root,
-            "spark_properties": dict(sorted(spark.sparkContext.getConf().getAll())),
+            "pair_manifest_digest": pair_manifest["pair_manifest_digest"],
+            "spark_properties": normalized_profile_properties,
+            "spark_properties_digest": member["spark_properties_digest"],
             "tables": {
                 table: _table_summary(
                     frame,
@@ -413,7 +447,8 @@ def write_summary(uri: str, summary: Mapping[str, object]) -> None:
         return
     output = Path(uri)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(payload, encoding="utf-8")
+    with output.open("x", encoding="utf-8") as stream:
+        stream.write(payload)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -429,9 +464,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--expected-logical-transactions", type=int, required=True)
     parser.add_argument("--expected-physical-transactions", type=int, required=True)
     parser.add_argument("--source-run-id", action="append", dest="source_run_ids", required=True)
+    parser.add_argument("--pair-manifest", type=Path, required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
-    summary = build_summary(**{key: value for key, value in vars(args).items() if key != "output"})
+    values = {key: value for key, value in vars(args).items() if key != "output"}
+    pair_path = values.pop("pair_manifest")
+    values["pair_manifest"] = json.loads(pair_path.read_text(encoding="utf-8"))
+    summary = build_summary(**values)
     write_summary(args.output, summary)
     print(args.output)
     return 0

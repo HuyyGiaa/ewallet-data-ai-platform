@@ -10,6 +10,11 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.spark_benchmark import (
+    load_pair_manifest,
+    method2_runtime_properties,
+    validate_pair_member,
+)
 from data_platform.config.spark_profiles import (
     require_profile_binding,
     validate_git_sha,
@@ -46,6 +51,8 @@ def build_submission_command(
     git_sha: str,
     summary_uri: str,
     source_run_ids: Sequence[str],
+    pair_manifest: Mapping[str, object],
+    pair_manifest_path: Path,
     script_path: Path = SUMMARY_SCRIPT,
     archive_path: Path = DEFAULT_ARCHIVE,
     jar_paths: Sequence[Path] | None = None,
@@ -66,15 +73,27 @@ def build_submission_command(
         output_run_id=output_run_id,
         stage=stage,
     )
+    validate_pair_member(
+        pair_manifest,
+        spark_profile=spark_profile,
+        benchmark_id=benchmark_id,
+        stage=stage,
+        dataset_version=dataset_version,
+        git_sha=git_sha,
+        upstream_run_ids=source_run_ids,
+        output_run_id=output_run_id,
+        output_root=root,
+    )
     expected_summary_uri = (
         f"gs://{runtime.data_bucket}/evidence/spark_benchmark/"
-        f"{benchmark_id}/{spark_profile}/{stage}-summary.json"
+        f"{benchmark_id}/{spark_profile}/{stage}/"
+        f"{output_run_id}-summary.json"
     )
     if summary_uri != expected_summary_uri:
         raise ValueError(
             f"summary URI must be the immutable profile path {expected_summary_uri}"
         )
-    properties = ",".join(
+    property_items = list(
         build_dataproc_batch_properties(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
@@ -82,6 +101,13 @@ def build_submission_command(
             stage=stage,
         )
     )
+    property_items.extend(
+        f"{key}={value}"
+        for key, value in method2_runtime_properties(
+            pair_manifest, spark_profile
+        ).items()
+    )
+    properties = ",".join(property_items)
     jars = tuple(jar_paths or dependency_jar_paths())
     return (
         "gcloud", "dataproc", "batches", "submit", "pyspark", str(script_path),
@@ -91,6 +117,7 @@ def build_submission_command(
         f"--subnet={runtime.subnet}",
         "--jars=" + ",".join(str(path) for path in jars),
         f"--py-files={archive_path}",
+        f"--files={pair_manifest_path}",
         f"--deps-bucket=gs://{runtime.temporary_bucket}",
         f"--staging-bucket={runtime.temporary_bucket}", "--ttl=8h",
         (
@@ -102,6 +129,7 @@ def build_submission_command(
         f"--stage={stage}", f"--benchmark-id={benchmark_id}",
         f"--spark-profile={spark_profile}", f"--output-run-id={output_run_id}",
         f"--dataset-version={dataset_version}", f"--git-sha={git_sha}",
+        f"--pair-manifest={pair_manifest_path.name}",
         "--expected-logical-transactions=369600000",
         "--expected-physical-transactions=376992000",
         *(f"--source-run-id={value}" for value in source_run_ids),
@@ -140,6 +168,7 @@ def main(
     parser.add_argument("--git-sha", required=True)
     parser.add_argument("--summary-uri", required=True)
     parser.add_argument("--source-run-id", action="append", dest="source_run_ids", required=True)
+    parser.add_argument("--pair-manifest", type=Path, required=True)
     parser.add_argument("--terraform-output-json", type=Path)
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
@@ -160,6 +189,8 @@ def main(
         git_sha=args.git_sha,
         summary_uri=args.summary_uri,
         source_run_ids=args.source_run_ids,
+        pair_manifest=load_pair_manifest(args.pair_manifest),
+        pair_manifest_path=args.pair_manifest,
         archive_path=archive,
         jar_paths=jars,
     )

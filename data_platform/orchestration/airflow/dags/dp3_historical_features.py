@@ -39,6 +39,7 @@ with DAG(
             "optimized", type="string", enum=["baseline", "optimized"]
         ),
         "git_sha": Param("REQUIRED_GIT_SHA", type="string"),
+        "pair_manifest": Param("REQUIRED_PAIR_MANIFEST.json", type="string"),
         "silver_run_id": Param(
             "ab-20260101000000-optimized-silver-r260101000001", type="string"
         ),
@@ -106,6 +107,7 @@ with DAG(
             "--run-id '{{ params.feature_run_id }}' "
             "--spark-profile '{{ params.spark_profile }}' "
             "--git-sha '{{ params.git_sha }}' "
+            "--pair-manifest '{{ params.pair_manifest }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         execution_timeout=timedelta(hours=10),

@@ -95,6 +95,7 @@ class CloudAirflowDagTest(unittest.TestCase):
                 self.assertIn("--spark-profile '{{ params.spark_profile }}'", command)
                 self.assertIn("--benchmark-id '{{ params.benchmark_id }}'", command)
                 self.assertIn("--git-sha '{{ params.git_sha }}'", command)
+                self.assertIn("--pair-manifest '", command)
                 self.assertIn("--ttl '{{ params.dataproc_ttl }}'", command)
 
     def test_quota_guards_share_profile_and_emit_per_handoff_evidence(self) -> None:
@@ -132,11 +133,15 @@ class CloudAirflowDagTest(unittest.TestCase):
             "dataset_version": "canonical-100gb-v1", "benchmark_id": "ab-20261025123456",
             "spark_profile": "baseline",
             "git_sha": "a" * 40,
+            "pair_manifest": "docs/evidence/spark_benchmark/pair.json",
             "bronze_run_id": "ab-20261025123456-baseline-bronze-r261025123456",
             "dataproc_ttl": "8h",
         }})
         self.assertIn("--benchmark-id 'ab-20261025123456'", command)
         self.assertIn("--spark-profile 'baseline'", command)
+        self.assertIn(
+            "--pair-manifest 'docs/evidence/spark_benchmark/pair.json'", command
+        )
         self.assertIn("--ttl '8h'", command)
 
     def test_no_cloud_dag_contains_local_absolute_paths(self) -> None:

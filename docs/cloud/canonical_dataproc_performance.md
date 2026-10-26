@@ -80,27 +80,42 @@ pipeline and would otherwise make Gold consume each profile's own Silver output.
 ```bash
 export SPARK_BENCHMARK_ID="ab-$(date -u +%Y%m%d%H%M%S)"
 export EWALLET_DATA_BUCKET=ewallet-data-ai-platform-hg26-data
+export GIT_SHA="$(git rev-parse HEAD)"
 ./scripts/start_airflow_local.sh
-
-# Dry-run only first. Both DP1 runs share canonical-100gb-v1.
-./scripts/run_dp1_canonical.sh --profile baseline --benchmark-id "$SPARK_BENCHMARK_ID"
-./scripts/run_dp1_canonical.sh --profile optimized --benchmark-id "$SPARK_BENCHMARK_ID"
 
 # Prepare one fail-closed local pair manifest before either stage submission.
 # The command refuses different inputs, reused outputs, bad profile/stage IDs,
 # or an existing manifest path. Repeat with the corresponding stage and roots.
 ATTEMPT_ID="r$(date -u +%y%m%d%H%M%S)"
+BASELINE_BRONZE="${SPARK_BENCHMARK_ID}-baseline-bronze-${ATTEMPT_ID}"
+CANDIDATE_BRONZE="${SPARK_BENCHMARK_ID}-optimized-bronze-${ATTEMPT_ID}"
+DP1_PAIR="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/pairs/dp1-bronze/${BASELINE_BRONZE}--${CANDIDATE_BRONZE}.json"
+python -m ops.gcp.prepare_spark_stage_pair \
+  --stage dp1-bronze --dataset-version canonical-100gb-v1 \
+  --git-sha "$GIT_SHA" --upstream-run-id canonical-100gb-v1 \
+  --baseline-output-run-id "$BASELINE_BRONZE" \
+  --baseline-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${BASELINE_BRONZE}/bronze" \
+  --candidate-output-run-id "$CANDIDATE_BRONZE" \
+  --candidate-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${CANDIDATE_BRONZE}/bronze" \
+  --output "$DP1_PAIR"
+
+# Dry-run only first. Both DP1 runs consume this exact immutable pair.
+./scripts/run_dp1_canonical.sh --pair-manifest "$DP1_PAIR" --profile baseline
+./scripts/run_dp1_canonical.sh --pair-manifest "$DP1_PAIR" --profile optimized
+
 BASELINE_SILVER="${SPARK_BENCHMARK_ID}-baseline-silver-${ATTEMPT_ID}"
 CANDIDATE_SILVER="${SPARK_BENCHMARK_ID}-optimized-silver-${ATTEMPT_ID}"
 SELECTED_BRONZE="REPLACE_WITH_SELECTED_BRONZE_RUN"
 python -m ops.gcp.prepare_spark_stage_pair \
-  --stage dp2-silver \
+  --stage dp2-silver --dataset-version canonical-100gb-v1 \
+  --git-sha "$GIT_SHA" \
   --upstream-run-id "$SELECTED_BRONZE" \
   --baseline-output-run-id "$BASELINE_SILVER" \
   --baseline-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${BASELINE_SILVER}/silver" \
   --candidate-output-run-id "$CANDIDATE_SILVER" \
   --candidate-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${CANDIDATE_SILVER}/silver" \
-  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/plans/dp2-silver.json"
+  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/pairs/dp2-silver/${BASELINE_SILVER}--${CANDIDATE_SILVER}.json"
+SILVER_PAIR="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/pairs/dp2-silver/${BASELINE_SILVER}--${CANDIDATE_SILVER}.json"
 
 # Render both Silver submissions. They read exactly the same Bronze run.
 for PROFILE in baseline optimized; do
@@ -114,7 +129,7 @@ for PROFILE in baseline optimized; do
     --source-bronze-run-id "$SELECTED_BRONZE" \
     --run-id "$OUTPUT_VAR" --spark-profile "$PROFILE" \
     --benchmark-id "$SPARK_BENCHMARK_ID" \
-    --git-sha "$(git rev-parse HEAD)" --ttl 8h
+    --git-sha "$GIT_SHA" --pair-manifest "$SILVER_PAIR" --ttl 8h
 done
 
 # After Silver equality and explicit winner selection, Gold uses one Silver.
@@ -122,12 +137,14 @@ SELECTED_SILVER="REPLACE_WITH_SELECTED_SILVER_RUN"
 BASELINE_GOLD="${SPARK_BENCHMARK_ID}-baseline-gold-${ATTEMPT_ID}"
 CANDIDATE_GOLD="${SPARK_BENCHMARK_ID}-optimized-gold-${ATTEMPT_ID}"
 python -m ops.gcp.prepare_spark_stage_pair \
-  --stage dp2-gold --upstream-run-id "$SELECTED_SILVER" \
+  --stage dp2-gold --dataset-version canonical-100gb-v1 \
+  --git-sha "$GIT_SHA" --upstream-run-id "$SELECTED_SILVER" \
   --baseline-output-run-id "$BASELINE_GOLD" \
   --baseline-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${BASELINE_GOLD}/gold" \
   --candidate-output-run-id "$CANDIDATE_GOLD" \
   --candidate-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${CANDIDATE_GOLD}/gold" \
-  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/plans/dp2-gold.json"
+  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/pairs/dp2-gold/${BASELINE_GOLD}--${CANDIDATE_GOLD}.json"
+GOLD_PAIR="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/pairs/dp2-gold/${BASELINE_GOLD}--${CANDIDATE_GOLD}.json"
 for PROFILE in baseline optimized; do
   if [[ "$PROFILE" == baseline ]]; then
     OUTPUT_VAR="$BASELINE_GOLD"
@@ -139,7 +156,7 @@ for PROFILE in baseline optimized; do
     --source-silver-run-id "$SELECTED_SILVER" \
     --run-id "$OUTPUT_VAR" --spark-profile "$PROFILE" \
     --benchmark-id "$SPARK_BENCHMARK_ID" \
-    --git-sha "$(git rev-parse HEAD)" --ttl 8h
+    --git-sha "$GIT_SHA" --pair-manifest "$GOLD_PAIR" --ttl 8h
 done
 
 # DP3 uses the same selected Silver and one fixed selected Gold for both runs.
@@ -147,13 +164,15 @@ SELECTED_GOLD="REPLACE_WITH_SELECTED_GOLD_RUN"
 BASELINE_FEATURES="${SPARK_BENCHMARK_ID}-baseline-feat-${ATTEMPT_ID}"
 CANDIDATE_FEATURES="${SPARK_BENCHMARK_ID}-optimized-feat-${ATTEMPT_ID}"
 python -m ops.gcp.prepare_spark_stage_pair \
-  --stage dp3-features --upstream-run-id "$SELECTED_SILVER" \
+  --stage dp3-features --dataset-version canonical-100gb-v1 \
+  --git-sha "$GIT_SHA" --upstream-run-id "$SELECTED_SILVER" \
   --upstream-run-id "$SELECTED_GOLD" \
   --baseline-output-run-id "$BASELINE_FEATURES" \
   --baseline-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${BASELINE_FEATURES}/gold" \
   --candidate-output-run-id "$CANDIDATE_FEATURES" \
   --candidate-output-root "gs://${EWALLET_DATA_BUCKET}/lakehouse/runs/${CANDIDATE_FEATURES}/gold" \
-  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/plans/dp3-features.json"
+  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/pairs/dp3-features/${BASELINE_FEATURES}--${CANDIDATE_FEATURES}.json"
+FEATURE_PAIR="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/pairs/dp3-features/${BASELINE_FEATURES}--${CANDIDATE_FEATURES}.json"
 for PROFILE in baseline optimized; do
   if [[ "$PROFILE" == baseline ]]; then
     OUTPUT_VAR="$BASELINE_FEATURES"
@@ -166,7 +185,7 @@ for PROFILE in baseline optimized; do
     --source-core-gold-run-id "$SELECTED_GOLD" \
     --run-id "$OUTPUT_VAR" --spark-profile "$PROFILE" \
     --benchmark-id "$SPARK_BENCHMARK_ID" \
-    --git-sha "$(git rev-parse HEAD)" --ttl 8h
+    --git-sha "$GIT_SHA" --pair-manifest "$FEATURE_PAIR" --ttl 8h
 done
 
 # Add --execute only after reviewing the pair manifest, roots, common resource
@@ -199,8 +218,10 @@ STAGE="REPLACE_WITH_STAGE"
 PROFILE="REPLACE_WITH_BASELINE_OR_OPTIMIZED"
 OUTPUT_RUN="REPLACE_WITH_OUTPUT_RUN_ID"
 SOURCE_RUN="REPLACE_WITH_EXPLICIT_COMMON_UPSTREAM_RUN"
+OUTPUT_ROOT="REPLACE_WITH_PROFILE_BOUND_OUTPUT_ROOT"
+PAIR_MANIFEST="REPLACE_WITH_STAGE_PAIR_MANIFEST"
 VALIDATION_BATCH="abval-$(date -u +%y%m%d%H%M%S)"
-SUMMARY_URI="gs://${EWALLET_DATA_BUCKET}/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}-summary.json"
+SUMMARY_URI="gs://${EWALLET_DATA_BUCKET}/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}/${OUTPUT_RUN}-summary.json"
 python -m ops.gcp.submit_spark_output_summary \
   --batch-id "$VALIDATION_BATCH" \
   --stage "$STAGE" \
@@ -208,18 +229,30 @@ python -m ops.gcp.submit_spark_output_summary \
   --spark-profile "$PROFILE" \
   --output-run-id "$OUTPUT_RUN" \
   --source-run-id "$SOURCE_RUN" \
+  --pair-manifest "$PAIR_MANIFEST" \
   --dataset-version canonical-100gb-v1 \
-  --git-sha "$(git rev-parse HEAD)" \
+  --git-sha "$GIT_SHA" \
   --summary-uri "$SUMMARY_URI"
 ```
 
 Compare summaries only after both exist:
 
 ```bash
+BASELINE_RUN=$(python -m ops.gcp.inspect_spark_stage_pair \
+  --pair-manifest "$PAIR_MANIFEST" --spark-profile baseline \
+  --field output_run_id)
+OPTIMIZED_RUN=$(python -m ops.gcp.inspect_spark_stage_pair \
+  --pair-manifest "$PAIR_MANIFEST" --spark-profile optimized \
+  --field output_run_id)
+PAIR_KEY="${BASELINE_RUN}--${OPTIMIZED_RUN}"
+EQUIVALENCE_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/equivalence/${STAGE}/${PAIR_KEY}.json"
 python -m ops.gcp.validate_spark_output_equivalence \
+  --pair-manifest "$PAIR_MANIFEST" \
   --baseline-summary baseline-summary.json \
   --optimized-summary candidate-summary.json \
-  --output "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/equivalence/${STAGE}.json"
+  --baseline-evidence baseline-evidence.json \
+  --optimized-evidence optimized-evidence.json \
+  --output "$EQUIVALENCE_JSON"
 ```
 
 The stage validation JSON supplied to the collector must contain application
@@ -237,11 +270,13 @@ STAGE="REPLACE_WITH_STAGE"
 PROFILE="REPLACE_WITH_BASELINE_OR_OPTIMIZED"
 BATCH_ID="REPLACE_WITH_STAGE_OUTPUT_RUN_ID"
 UPSTREAM_RUN="REPLACE_WITH_EXPLICIT_COMMON_UPSTREAM_RUN"
-VALIDATION_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}-application.json"
-EVIDENCE_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}.json"
+VALIDATION_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}/${BATCH_ID}-application.json"
+EVIDENCE_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}/${BATCH_ID}.json"
 
-# VALIDATION_JSON must contain numeric application_runtime_seconds,
-# spill_bytes, task_count, output_file_count, and output_total_bytes.
+# VALIDATION_JSON must carry the exact pair/output identity and normalized
+# Spark-property snapshot from the output summary, plus status=PASS and numeric
+# application_runtime_seconds, spill_bytes, task_count, output_file_count and
+# output_total_bytes. The collector rejects a stale output attempt.
 python -m ops.gcp.collect_spark_benchmark_evidence \
   --project ewallet-data-ai-platform-hg26 \
   --region asia-southeast1 \
@@ -250,16 +285,31 @@ python -m ops.gcp.collect_spark_benchmark_evidence \
   --spark-profile "$PROFILE" \
   --stage "$STAGE" \
   --dataset-version canonical-100gb-v1 \
-  --git-sha "$(git rev-parse HEAD)" \
+  --git-sha "$GIT_SHA" \
   --upstream-run-id "$UPSTREAM_RUN" \
   --output-run-id "$BATCH_ID" \
+  --output-root "$OUTPUT_ROOT" \
+  --pair-manifest "$PAIR_MANIFEST" \
   --validation-json "$VALIDATION_JSON" \
   --output "$EVIDENCE_JSON"
 
 # After all four stage pairs pass semantic equivalence and have complete
 # runtime evidence, render the comparison. Winner adoption remains manual.
 python -m ops.gcp.compare_spark_benchmark \
-  --evidence-root "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}"
+  --evidence-root "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}" \
+  --stage-pair "dp1-bronze=$DP1_PAIR" \
+  --stage-pair "dp2-silver=$SILVER_PAIR" \
+  --stage-pair "dp2-gold=$GOLD_PAIR" \
+  --stage-pair "dp3-features=$FEATURE_PAIR"
+
+# Select only after the exact pair's evidence and equivalence artifact pass.
+python -m ops.gcp.select_spark_stage_winner \
+  --pair-manifest "$PAIR_MANIFEST" \
+  --baseline-evidence baseline-evidence.json \
+  --optimized-evidence optimized-evidence.json \
+  --equivalence-evidence "$EQUIVALENCE_JSON" \
+  --output \
+    "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/winners/${STAGE}/${PAIR_KEY}.json"
 ```
 
 For DP3, pass both selected Silver and fixed Gold as repeated

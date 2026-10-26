@@ -19,6 +19,8 @@ from data_platform.config.spark_profiles import SPARK_STAGES, resolve_stage_prof
 def build_stage_pair_manifest(
     *,
     stage: str,
+    dataset_version: str,
+    git_sha: str,
     upstream_run_ids: Sequence[str],
     baseline_output_run_id: str,
     baseline_output_root: str,
@@ -49,12 +51,19 @@ def build_stage_pair_manifest(
         )
         for profile in ("baseline", "optimized")
     }
-    return benchmark_manifest(plans=plans, resolved_properties=properties)
+    return benchmark_manifest(
+        plans=plans,
+        resolved_properties=properties,
+        dataset_version=dataset_version,
+        git_sha=git_sha,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", choices=SPARK_STAGES, required=True)
+    parser.add_argument("--dataset-version", required=True)
+    parser.add_argument("--git-sha", required=True)
     parser.add_argument("--upstream-run-id", action="append", required=True)
     parser.add_argument("--baseline-output-run-id", required=True)
     parser.add_argument("--baseline-output-root", required=True)
@@ -64,6 +73,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     payload = build_stage_pair_manifest(
         stage=args.stage,
+        dataset_version=args.dataset_version,
+        git_sha=args.git_sha,
         upstream_run_ids=args.upstream_run_id,
         baseline_output_run_id=args.baseline_output_run_id,
         baseline_output_root=args.baseline_output_root,

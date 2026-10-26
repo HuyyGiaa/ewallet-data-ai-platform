@@ -10,6 +10,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.spark_benchmark import (
+    METHOD2_OUTPUT_RUN_PROPERTY,
+    METHOD2_PAIR_DIGEST_PROPERTY,
+    load_pair_manifest,
+    validate_pair_member,
+    validate_runtime_profile_properties,
+    validate_stage_evidence,
+)
 from data_platform.config.spark_profiles import (
     require_profile_binding,
     resolve_spark_profile,
@@ -40,7 +48,9 @@ def parse_batch_evidence(
     dataset_version: str,
     git_sha: str,
     upstream_run_ids: Sequence[str],
-    output_run_ids: Sequence[str],
+    output_run_id: str,
+    output_root: str,
+    pair_manifest: Mapping[str, object],
     validation: Mapping[str, Any],
 ) -> dict[str, Any]:
     validate_benchmark_id(benchmark_id)
@@ -67,6 +77,24 @@ def parse_batch_evidence(
         profile=profile,
         stage=run_kind,
     )
+    if batch_id != output_run_id:
+        raise ValueError("batch_id must equal the exact pair output_run_id")
+    member = validate_pair_member(
+        pair_manifest,
+        spark_profile=profile,
+        benchmark_id=benchmark_id,
+        stage=stage,
+        dataset_version=dataset_version,
+        git_sha=git_sha,
+        upstream_run_ids=upstream_run_ids,
+        output_run_id=output_run_id,
+        output_root=output_root,
+    )
+    normalized_profile_properties = validate_runtime_profile_properties(
+        pair_manifest,
+        spark_profile=profile,
+        runtime_properties=properties,
+    )
     labels = description.get("labels", {})
     if not isinstance(labels, Mapping):
         raise ValueError("batch labels must be an object")
@@ -90,6 +118,17 @@ def parse_batch_evidence(
             raise ValueError(
                 f"batch runtime property {key} is not {expected!r}"
             )
+    if properties.get(METHOD2_PAIR_DIGEST_PROPERTY) != pair_manifest[
+        "pair_manifest_digest"
+    ]:
+        raise ValueError("batch runtime pair manifest digest mismatch")
+    if properties.get(METHOD2_OUTPUT_RUN_PROPERTY) != output_run_id:
+        raise ValueError("batch runtime output_run_id mismatch")
+    validate_stage_evidence(
+        pair_manifest,
+        validation,
+        expected_profile=profile,
+    )
     required_validation_metrics = (
         "application_runtime_seconds",
         "spill_bytes",
@@ -105,6 +144,8 @@ def parse_batch_evidence(
             "validation evidence is missing benchmark metrics: "
             f"{missing_validation_metrics}"
         )
+    if validation.get("status") != "PASS":
+        raise ValueError("validation evidence status must be PASS")
     return {
         "status": "PASS" if description.get("state") == "SUCCEEDED" else "FAIL",
         "benchmark_id": benchmark_id,
@@ -114,7 +155,11 @@ def parse_batch_evidence(
         "dataset_version": dataset_version,
         "source_run_ids": list(upstream_run_ids),
         "upstream_run_ids": list(upstream_run_ids),
-        "output_run_ids": list(output_run_ids),
+        "output_run_id": output_run_id,
+        "output_root": output_root.rstrip("/"),
+        "pair_manifest_digest": pair_manifest["pair_manifest_digest"],
+        "spark_properties": normalized_profile_properties,
+        "spark_properties_digest": member["spark_properties_digest"],
         "batch_id": batch_id,
         "batch_state": description.get("state"),
         "create_time": create_time,
@@ -170,18 +215,24 @@ def main() -> int:
     parser.add_argument("--spark-profile", choices=("baseline", "optimized"), required=True)
     parser.add_argument("--stage", required=True); parser.add_argument("--dataset-version", required=True)
     parser.add_argument("--git-sha", required=True); parser.add_argument("--upstream-run-id", action="append", default=[])
-    parser.add_argument("--output-run-id", action="append", default=[])
+    parser.add_argument("--output-run-id", required=True)
+    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--pair-manifest", type=Path, required=True)
     parser.add_argument("--validation-json", type=Path, required=True); parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     evidence = collect(
         project=args.project, region=args.region, batch_id=args.batch_id,
         benchmark_id=args.benchmark_id, spark_profile=args.spark_profile,
         stage=args.stage, dataset_version=args.dataset_version, git_sha=args.git_sha,
-        upstream_run_ids=args.upstream_run_id, output_run_ids=args.output_run_id,
+        upstream_run_ids=args.upstream_run_id, output_run_id=args.output_run_id,
+        output_root=args.output_root,
+        pair_manifest=load_pair_manifest(args.pair_manifest),
         validation=json.loads(args.validation_json.read_text(encoding="utf-8")),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+    with args.output.open("x", encoding="utf-8") as stream:
+        json.dump(evidence, stream, indent=2, sort_keys=True)
+        stream.write("\n")
     print(args.output)
     return 0
 

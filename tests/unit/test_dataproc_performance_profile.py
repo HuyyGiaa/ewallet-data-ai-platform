@@ -21,6 +21,7 @@ from ops.gcp.dataproc_batch_properties import (
     build_dataproc_batch_properties,
     resolve_submission_profile,
 )
+from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 from ops.gcp.submit_bronze_to_silver import build_submission_command as build_silver
 from ops.gcp.submit_historical_features import build_submission_command as build_features
 from ops.gcp.submit_silver_to_gold import build_submission_command as build_gold
@@ -148,19 +149,62 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
         silver = benchmark_run_id(benchmark, "optimized", "silver", attempt)
         gold = benchmark_run_id(benchmark, "optimized", "gold", attempt)
         feat = benchmark_run_id(benchmark, "optimized", "feat", attempt)
+        def manifest(stage, kind, upstream, optimized_run, layer):
+            baseline_run = benchmark_run_id(
+                benchmark, "baseline", kind, attempt
+            )
+            return build_stage_pair_manifest(
+                stage=stage,
+                dataset_version="canonical-100gb-v1",
+                git_sha="a" * 40,
+                upstream_run_ids=upstream,
+                baseline_output_run_id=baseline_run,
+                baseline_output_root=(
+                    "gs://example-project-data/lakehouse/runs/"
+                    f"{baseline_run}/{layer}"
+                ),
+                candidate_output_run_id=optimized_run,
+                candidate_output_root=(
+                    "gs://example-project-data/lakehouse/runs/"
+                    f"{optimized_run}/{layer}"
+                ),
+            )
+        manifests = {
+            "dp1-bronze": manifest(
+                "dp1-bronze", "bronze", ("canonical-100gb-v1",), bronze,
+                "bronze",
+            ),
+            "dp2-silver": manifest(
+                "dp2-silver", "silver", ("selected-bronze-run",), silver,
+                "silver",
+            ),
+            "dp2-gold": manifest(
+                "dp2-gold", "gold", ("selected-silver-run",), gold, "gold"
+            ),
+            "dp3-features": manifest(
+                "dp3-features", "feat",
+                ("selected-silver-run", "selected-gold-run"), feat, "gold",
+            ),
+        }
         commands = {
-            "dp1-bronze": build_bronze(**common, run_id=bronze),
+            "dp1-bronze": build_bronze(
+                **common, run_id=bronze,
+                pair_manifest=manifests["dp1-bronze"],
+            ),
             "dp2-silver": build_silver(
-                **common, source_bronze_run_id="selected-bronze-run", run_id=silver
+                **common, source_bronze_run_id="selected-bronze-run",
+                run_id=silver, pair_manifest=manifests["dp2-silver"],
             ),
             "dp2-gold": build_gold(
-                **common, source_silver_run_id="selected-silver-run", run_id=gold
+                **common, source_silver_run_id="selected-silver-run",
+                run_id=gold, pair_manifest=manifests["dp2-gold"],
             ),
             "dp3-features": build_features(
                 **common,
                 source_silver_run_id="selected-silver-run",
                 source_core_gold_run_id="selected-gold-run",
                 run_id=feat,
+                pair_manifest=manifests["dp3-features"],
             ),
         }
         expected_shuffle = {

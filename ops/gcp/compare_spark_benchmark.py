@@ -8,6 +8,13 @@ import json
 from pathlib import Path
 from typing import Mapping
 
+from data_platform.config.spark_benchmark import (
+    load_pair_manifest,
+    pair_member,
+    validate_pair_manifest,
+    validate_equivalence_evidence,
+    validate_stage_evidence,
+)
 
 STAGES = ("dp1-bronze", "dp2-silver", "dp2-gold", "dp3-features")
 
@@ -22,16 +29,11 @@ def comparison_row(
     baseline: Mapping[str, object],
     optimized: Mapping[str, object],
     equivalence: Mapping[str, object],
+    pair_manifest: Mapping[str, object],
 ) -> dict[str, object]:
-    for key in (
-        "benchmark_id", "dataset_version", "git_sha", "stage", "upstream_run_ids"
-    ):
-        if baseline.get(key) != optimized.get(key):
-            raise ValueError(f"cannot compare different {key}")
-    if baseline.get("spark_profile") != "baseline":
-        raise ValueError("baseline evidence must declare spark_profile=baseline")
-    if optimized.get("spark_profile") != "optimized":
-        raise ValueError("optimized evidence must declare spark_profile=optimized")
+    pair = validate_pair_manifest(pair_manifest)
+    validate_stage_evidence(pair, baseline, expected_profile="baseline")
+    validate_stage_evidence(pair, optimized, expected_profile="optimized")
     if baseline.get("runtime_version") != "2.2" or optimized.get(
         "runtime_version"
     ) != "2.2":
@@ -44,13 +46,7 @@ def comparison_row(
             raise ValueError("both batches must use the Standard tier")
     if baseline.get("batch_state") != "SUCCEEDED" or optimized.get("batch_state") != "SUCCEEDED":
         raise ValueError("both batches must succeed before comparison")
-    if equivalence.get("high_confidence_equivalence") is not True:
-        raise ValueError("outputs are not equivalent")
-    for key in ("benchmark_id", "dataset_version", "git_sha", "stage"):
-        if equivalence.get(key) != baseline.get(key):
-            raise ValueError(f"equivalence evidence has different {key}")
-    if equivalence.get("source_run_ids") != baseline.get("upstream_run_ids"):
-        raise ValueError("equivalence evidence has different source_run_ids")
+    validate_equivalence_evidence(pair, equivalence)
     required_metrics = (
         "application_runtime_seconds",
         "batch_runtime_seconds",
@@ -73,6 +69,7 @@ def comparison_row(
     dcu_pct = percentage_change(baseline_dcu, optimized_dcu)
     return {
         "benchmark_id": baseline["benchmark_id"],
+        "pair_manifest_digest": pair["pair_manifest_digest"],
         "dataset_version": baseline["dataset_version"],
         "git_sha": baseline["git_sha"],
         "stage": baseline["stage"],
@@ -103,17 +100,23 @@ def comparison_row(
 
 def build_comparison(
     evidence_by_stage: Mapping[
-        str, tuple[Mapping[str, object], Mapping[str, object], Mapping[str, object]]
+        str,
+        tuple[
+            Mapping[str, object],
+            Mapping[str, object],
+            Mapping[str, object],
+            Mapping[str, object],
+        ],
     ],
 ) -> dict[str, object]:
     rows = []
     identity: tuple[object, object, object] | None = None
     for stage in STAGES:
         try:
-            baseline, optimized, equivalence = evidence_by_stage[stage]
+            baseline, optimized, equivalence, pair_manifest = evidence_by_stage[stage]
         except KeyError as exc:
             raise ValueError(f"missing comparison evidence for {stage}") from exc
-        row = comparison_row(baseline, optimized, equivalence)
+        row = comparison_row(baseline, optimized, equivalence, pair_manifest)
         current = (
             row["benchmark_id"], row["dataset_version"], row["git_sha"]
         )
@@ -136,19 +139,45 @@ def build_comparison(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence-root", type=Path, required=True)
+    parser.add_argument(
+        "--stage-pair",
+        action="append",
+        required=True,
+        metavar="STAGE=PATH",
+        help="Exact immutable pair manifest for one stage; repeat for all stages",
+    )
     args = parser.parse_args()
+    pair_paths = {}
+    for value in args.stage_pair:
+        stage, separator, raw_path = value.partition("=")
+        if not separator or stage not in STAGES or stage in pair_paths:
+            raise ValueError("--stage-pair must uniquely map STAGE=PATH")
+        pair_paths[stage] = Path(raw_path)
+    if set(pair_paths) != set(STAGES):
+        raise ValueError("--stage-pair must provide all four stages")
     evidence_by_stage = {}
     for stage in STAGES:
         load = lambda path: json.loads(path.read_text(encoding="utf-8"))
+        pair_manifest = load_pair_manifest(pair_paths[stage])
+        baseline_id = pair_member(pair_manifest, "baseline")["output_run_id"]
+        optimized_id = pair_member(pair_manifest, "optimized")["output_run_id"]
+        pair_name = f"{baseline_id}--{optimized_id}.json"
         evidence_by_stage[stage] = (
-            load(args.evidence_root / "baseline" / f"{stage}.json"),
-            load(args.evidence_root / "optimized" / f"{stage}.json"),
-            load(args.evidence_root / "equivalence" / f"{stage}.json"),
+            load(args.evidence_root / "baseline" / stage / f"{baseline_id}.json"),
+            load(args.evidence_root / "optimized" / stage / f"{optimized_id}.json"),
+            load(args.evidence_root / "equivalence" / stage / pair_name),
+            pair_manifest,
         )
     payload = build_comparison(evidence_by_stage)
     rows = payload["stages"]
-    (args.evidence_root / "comparison.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    with (args.evidence_root / "comparison.csv").open("w", newline="", encoding="utf-8") as stream:
+    with (args.evidence_root / "comparison.json").open(
+        "x", encoding="utf-8"
+    ) as stream:
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+    with (args.evidence_root / "comparison.csv").open(
+        "x", newline="", encoding="utf-8"
+    ) as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
         writer.writeheader(); writer.writerows(rows)
     return 0

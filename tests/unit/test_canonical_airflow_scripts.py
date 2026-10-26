@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import json
 import stat
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
+from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_ROOT = REPOSITORY_ROOT / "scripts"
@@ -14,6 +17,45 @@ ATTEMPT = "r261025123456"
 
 
 class CanonicalAirflowScriptsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._directory = tempfile.TemporaryDirectory()
+
+    def tearDown(self) -> None:
+        self._directory.cleanup()
+
+    def _pair(self, stage: str, benchmark: str = BENCHMARK) -> str:
+        kind = {"dp1-bronze": "bronze", "dp2-silver": "silver",
+                "dp2-gold": "gold", "dp3-features": "feat"}[stage]
+        path = Path(self._directory.name) / f"{benchmark}-{stage}.json"
+        baseline = f"{benchmark}-baseline-{kind}-{ATTEMPT}"
+        optimized = f"{benchmark}-optimized-{kind}-{ATTEMPT}"
+        upstream = {
+            "dp1-bronze": ("canonical-100gb-v1",),
+            "dp2-silver": (f"{benchmark}-optimized-bronze-{ATTEMPT}",),
+            "dp2-gold": (f"{benchmark}-optimized-silver-{ATTEMPT}",),
+            "dp3-features": (
+                f"{benchmark}-optimized-silver-{ATTEMPT}",
+                f"{benchmark}-optimized-gold-{ATTEMPT}",
+            ),
+        }[stage]
+        layer = "gold" if stage in {"dp2-gold", "dp3-features"} else stage.split("-", 1)[1]
+        manifest = build_stage_pair_manifest(
+            stage=stage,
+            dataset_version="canonical-100gb-v1",
+            git_sha="a" * 40,
+            upstream_run_ids=upstream,
+            baseline_output_run_id=baseline,
+            baseline_output_root=(
+                f"gs://example-canonical-data/lakehouse/runs/{baseline}/{layer}"
+            ),
+            candidate_output_run_id=optimized,
+            candidate_output_root=(
+                f"gs://example-canonical-data/lakehouse/runs/{optimized}/{layer}"
+            ),
+        )
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        return str(path)
+
     def _fake_airflow(self, root: Path) -> tuple[Path, Path]:
         log = root / "airflow-calls.log"; binary = root / "airflow"
         binary.write_text("#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$FAKE_AIRFLOW_LOG\"\n"
@@ -32,8 +74,10 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
             return result, log.read_text(encoding="utf-8") if log.exists() else ""
 
     def test_dp1_dry_run_prints_full_baseline_profile(self) -> None:
-        result, calls = self._run_dry("run_dp1_canonical.sh", "--profile", "baseline",
-                                      "--benchmark-id", BENCHMARK)
+        result, calls = self._run_dry(
+            "run_dp1_canonical.sh", "--profile", "baseline",
+            "--pair-manifest", self._pair("dp1-bronze"),
+        )
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("MODE: DRY-RUN", result.stdout)
         self.assertIn("SPARK_PROFILE: BASELINE", result.stdout)
@@ -52,8 +96,15 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
         bronze = f"{BENCHMARK}-optimized-bronze-{ATTEMPT}"
         silver = f"{BENCHMARK}-optimized-silver-{ATTEMPT}"
         gold = f"{BENCHMARK}-optimized-gold-{ATTEMPT}"
-        dp2, calls2 = self._run_dry("run_dp2_canonical.sh", bronze, "--profile", "optimized")
-        dp3, calls3 = self._run_dry("run_dp3_canonical.sh", silver, gold, "--profile", "optimized")
+        dp2, calls2 = self._run_dry(
+            "run_dp2_canonical.sh", bronze, "--profile", "optimized",
+            "--silver-pair-manifest", self._pair("dp2-silver"),
+            "--gold-pair-manifest", self._pair("dp2-gold"),
+        )
+        dp3, calls3 = self._run_dry(
+            "run_dp3_canonical.sh", silver, gold, "--profile", "optimized",
+            "--pair-manifest", self._pair("dp3-features"),
+        )
         for result in (dp2, dp3):
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("SPARK_PROFILE: OPTIMIZED", result.stdout)
@@ -71,8 +122,15 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
         bronze = f"{BENCHMARK}-optimized-bronze-{ATTEMPT}"
         silver = f"{BENCHMARK}-optimized-silver-{ATTEMPT}"
         gold = f"{BENCHMARK}-optimized-gold-{ATTEMPT}"
-        dp2, calls2 = self._run_dry("run_dp2_canonical.sh", bronze, "--profile", "optimized")
-        dp3, calls3 = self._run_dry("run_dp3_canonical.sh", silver, gold, "--profile", "optimized")
+        dp2, calls2 = self._run_dry(
+            "run_dp2_canonical.sh", bronze, "--profile", "optimized",
+            "--silver-pair-manifest", self._pair("dp2-silver"),
+            "--gold-pair-manifest", self._pair("dp2-gold"),
+        )
+        dp3, calls3 = self._run_dry(
+            "run_dp3_canonical.sh", silver, gold, "--profile", "optimized",
+            "--pair-manifest", self._pair("dp3-features"),
+        )
         self.assertIn('"handoff": "bronze-to-silver"', dp2.stdout)
         self.assertIn('"handoff": "silver-to-gold"', dp2.stdout)
         self.assertIn(f'"predecessor_batch_id": "{bronze}"', dp2.stdout)
@@ -86,7 +144,8 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
         result, calls = self._run_dry(
             "run_dp1_canonical.sh",
             "--profile", "baseline",
-            "--benchmark-id", "ab-20261025112811",
+            "--pair-manifest",
+            self._pair("dp1-bronze", "ab-20261025112811"),
         )
         self.assertNotEqual(0, result.returncode)
         self.assertIn("troubleshooting evidence only", result.stderr)
@@ -94,7 +153,11 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
 
     def test_selected_cross_profile_upstream_is_accepted_for_method_2(self) -> None:
         optimized = f"{BENCHMARK}-optimized-bronze-{ATTEMPT}"
-        result, calls = self._run_dry("run_dp2_canonical.sh", optimized, "--profile", "baseline")
+        result, calls = self._run_dry(
+            "run_dp2_canonical.sh", optimized, "--profile", "baseline",
+            "--silver-pair-manifest", self._pair("dp2-silver"),
+            "--gold-pair-manifest", self._pair("dp2-gold"),
+        )
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn(f'"bronze_run_id":"{optimized}"', result.stdout)
         self.assertEqual("version\n", calls)
@@ -102,7 +165,9 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
     def test_non_benchmark_upstream_is_rejected_before_airflow(self) -> None:
         abandoned, calls = self._run_dry("run_dp2_canonical.sh",
                                           "canonical-bronze-20261025-100451",
-                                          "--profile", "optimized")
+                                          "--profile", "optimized",
+                                          "--silver-pair-manifest", self._pair("dp2-silver"),
+                                          "--gold-pair-manifest", self._pair("dp2-gold"))
         self.assertNotEqual(0, abandoned.returncode); self.assertEqual("", calls)
 
     def test_execute_rejects_uncommitted_benchmark_code_before_airflow(self) -> None:
@@ -113,8 +178,8 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
                 "run_dp1_canonical.sh",
                 "--profile",
                 "optimized",
-                "--benchmark-id",
-                BENCHMARK,
+                "--pair-manifest",
+                self._pair("dp1-bronze"),
                 "--execute",
             )
         finally:

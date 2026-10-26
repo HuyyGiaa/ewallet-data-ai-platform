@@ -10,6 +10,11 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.spark_benchmark import (
+    load_pair_manifest,
+    method2_runtime_properties,
+    validate_pair_member,
+)
 from data_platform.storage.scripts.config import HISTORICAL_FEATURE_TABLES
 from ops.gcp.dataproc_batch_properties import (
     DEFAULT_PERFORMANCE_PROFILE,
@@ -112,6 +117,7 @@ def build_submission_command(
     spark_profile: str | None = None,
     benchmark_id: str | None = None,
     git_sha: str | None = None,
+    pair_manifest: Mapping[str, object] | None = None,
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
     ttl = _validate_ttl(ttl)
@@ -144,8 +150,22 @@ def build_submission_command(
         source_core_gold_run_id=source_core_gold_run_id,
         run_id=run_id,
     )
+    if benchmark_id is not None:
+        if pair_manifest is None:
+            raise ValueError("benchmark submissions require --pair-manifest")
+        validate_pair_member(
+            pair_manifest,
+            spark_profile=str(spark_profile),
+            benchmark_id=benchmark_id,
+            stage="dp3-features",
+            dataset_version=dataset_version,
+            git_sha=str(git_sha),
+            upstream_run_ids=(source_silver_run_id, source_core_gold_run_id),
+            output_run_id=run_id,
+            output_root=feature_gold_root,
+        )
     jars = tuple(jar_paths or dependency_jar_paths())
-    properties = ",".join(
+    property_items = list(
         build_dataproc_batch_properties(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
@@ -153,6 +173,14 @@ def build_submission_command(
             stage="dp3-features",
         )
     )
+    if benchmark_id is not None:
+        property_items.extend(
+            f"{key}={value}"
+            for key, value in method2_runtime_properties(
+                pair_manifest, str(spark_profile)
+            ).items()
+        )
+    properties = ",".join(property_items)
     labels = "component=historical-features,phase=s1b"
     if benchmark_id is not None:
         labels += (
@@ -220,6 +248,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     add_spark_profile_argument(parser)
     parser.add_argument("--benchmark-id")
     parser.add_argument("--git-sha")
+    parser.add_argument("--pair-manifest", type=Path)
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -248,6 +277,11 @@ def main(
         spark_profile=args.spark_profile,
         benchmark_id=args.benchmark_id,
         git_sha=args.git_sha,
+        pair_manifest=(
+            load_pair_manifest(args.pair_manifest)
+            if args.pair_manifest is not None
+            else None
+        ),
         archive_path=archive,
         jar_paths=jars,
     )
@@ -263,6 +297,10 @@ def main(
             print("\n".join(profile_summary(args.spark_profile, stage="dp3-features")))
         if args.benchmark_id:
             print(f"BENCHMARK_ID: {args.benchmark_id}")
+            print(
+                "PAIR_MANIFEST_DIGEST: "
+                f"{load_pair_manifest(args.pair_manifest)['pair_manifest_digest']}"
+            )
         print(f"Silver input root: {roots[0]}")
         print(f"Core Gold lineage root: {roots[1]}")
         print(f"Feature Gold output root: {roots[2]}")
