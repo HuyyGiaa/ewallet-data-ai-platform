@@ -278,6 +278,7 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--snapshot-manifest-sha256", required=True)
     parser.add_argument("--mlflow-tracking-uri", required=True)
     parser.add_argument("--runtime-image", required=True)
+    parser.add_argument("--compiled-runtime-image", required=True)
     parser.add_argument("--experiment-name", required=True)
     parser.add_argument("--registered-model-name", required=True)
     parser.add_argument(
@@ -329,6 +330,12 @@ def main(argv: list[str] | None = None) -> int:
         "publish-mlflow": publish_to_mlflow,
     }
     try:
+        if hasattr(args, "compiled_runtime_image") and (
+            args.runtime_image != args.compiled_runtime_image
+        ):
+            raise ValueError(
+                "runtime_image input does not match the compiled component image"
+            )
         actions[args.command](args)
     except Exception as exc:
         print(f"ERROR | {exc}", file=sys.stderr)

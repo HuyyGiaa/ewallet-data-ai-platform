@@ -25,6 +25,12 @@ class MlflowEnvironmentContractTest(unittest.TestCase):
         requirements = Path("ai_platform/ml/requirements.txt").read_text(
             encoding="utf-8"
         )
+        pyproject = Path("ai_platform/ml/pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+        server = Path(
+            "infra/kubernetes/mlflow/image/pyproject.toml"
+        ).read_text(encoding="utf-8")
         self.assertEqual("ewallet-ml", environment["name"])
         for dependency in (
             "mlflow==3.17.1",
@@ -36,6 +42,8 @@ class MlflowEnvironmentContractTest(unittest.TestCase):
             "joblib==1.6.0",
         ):
             self.assertIn(dependency, requirements)
+        self.assertIn("mlflow==3.17.1", pyproject)
+        self.assertIn("mlflow==3.17.1", server)
 
 
 class MlflowConfigTest(unittest.TestCase):

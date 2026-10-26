@@ -1,5 +1,7 @@
 FROM ghcr.io/mlflow/mlflow:v3.17.1
 
-RUN python -m pip install --no-cache-dir \
-    psycopg2-binary==2.9.13 \
-    google-cloud-storage==3.4.1
+WORKDIR /opt/mlflow-runtime
+RUN python -m pip install --no-cache-dir uv==0.9.5
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+ENV PATH=/opt/mlflow-runtime/.venv/bin:$PATH

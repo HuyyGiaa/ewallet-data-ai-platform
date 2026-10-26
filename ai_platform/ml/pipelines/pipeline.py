@@ -52,6 +52,7 @@ def _common_arguments(
         "--snapshot-manifest-sha256", snapshot_manifest_sha256,
         "--mlflow-tracking-uri", mlflow_tracking_uri,
         "--runtime-image", runtime_image,
+        "--compiled-runtime-image", _runtime_image(),
         "--experiment-name", experiment_name,
         "--registered-model-name", registered_model_name,
     ]

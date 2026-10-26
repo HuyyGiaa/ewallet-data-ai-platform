@@ -33,6 +33,7 @@ def render_user_commands(
         f"export EWALLET_FEAST_OFFLINE_DATA_ROOT={shlex.quote(boundary.feast_snapshot_root)}",
         f"export EWALLET_FEAST_REGISTRY={shlex.quote(boundary.feast_registry_uri)}",
         _command(
+            "uv", "run", "--project", "ai_platform/features/feast",
             "python", "-m",
             "ai_platform.features.feast.sources.export_gold_to_parquet",
             "--environment", "gcp",
@@ -44,13 +45,14 @@ def render_user_commands(
             "--feature-selection-evidence", feature_selection_evidence,
         ),
         _command(
-            "ai_platform/features/feast/.venv/bin/feast",
+            "uv", "run", "--project", "ai_platform/features/feast", "feast",
             "-c", "ai_platform/features/feast/feature_repo",
             "--feature-store-yaml",
             "ai_platform/features/feast/feature_repo/feature_store.gcp.yaml",
             "apply",
         ),
         _command(
+            "uv", "run", "--project", "ai_platform/features/feast",
             "python", "-m",
             "ai_platform.features.feast.sources.export_validation_samples",
             "--environment", "gcp",
@@ -60,13 +62,15 @@ def render_user_commands(
             "--benchmark-rows", "100",
         ),
         _command(
+            "uv", "run", "--project", "ai_platform/features/feast",
             "python", "-m",
             "ai_platform.features.feast.validation.canonical_sample",
             "--environment", "gcp",
             "--sample-path", str(validation / "canonical_sample"),
         ),
         _command(
-            "python", "-m", "ai_platform.ml.training.export_training_source",
+            "uv", "run", "--project", "ai_platform/ml", "python", "-m",
+            "ai_platform.ml.training.export_training_source",
             "--environment", "gcp",
             "--silver-root", boundary.silver_root,
             "--dataset-version", boundary.dataset_version,
@@ -76,7 +80,8 @@ def render_user_commands(
             "--sample-modulus", str(CANONICAL_TRAINING_SAMPLE_MODULUS),
         ),
         _command(
-            "python", "-m", "ai_platform.ml.training.materialize",
+            "uv", "run", "--project", "ai_platform/ml", "python", "-m",
+            "ai_platform.ml.training.materialize",
             "--environment", "gcp",
             "--dataset-version", boundary.dataset_version,
             "--source-silver-run-id", boundary.silver_run_id,
@@ -88,7 +93,8 @@ def render_user_commands(
             "--max-new-chunks", "1",
         ),
         _command(
-            "python", "-m", "ai_platform.ml.training.validate_materialized",
+            "uv", "run", "--project", "ai_platform/ml", "python", "-m",
+            "ai_platform.ml.training.validate_materialized",
             "--source", str(source), "--dataset", str(dataset),
         ),
         _command("sha256sum", str(dataset / "manifest.json"))

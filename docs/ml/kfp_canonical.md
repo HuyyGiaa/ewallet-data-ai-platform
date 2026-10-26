@@ -25,7 +25,8 @@ winner, and assigns no production stage or alias.
 - Runtime image: an explicit, immutable deployment input. The example tag is
   `f9-kfp-runtime:kfp-2.17.3-f9-v1`; `latest` is rejected.
 - Python base: `python:3.10.19-slim-bookworm`.
-- Python ML packages are exact pins in `ai_platform/ml/requirements.txt`.
+- Python ML packages are exact pins in `ai_platform/ml/pyproject.toml`; the
+  compiler is separately pinned by `ai_platform/ml/pipelines/pyproject.toml`.
 - Train, winner-test, and publish tasks request 500m CPU/1 GiB and are limited
   to 2 CPU/3 GiB. Validation/selection tasks request 100m/256 MiB and are
   limited to 500m/1 GiB. No task requests a GPU and KFP caching is disabled.
@@ -60,12 +61,14 @@ export MLFLOW_TRACKING_URI="http://mlflow.ml-platform.svc.cluster.local:5000"
 export EXPERIMENT_NAME="ewallet-fraud-comparison"
 export REGISTERED_MODEL_NAME="ewallet-fraud-detector"
 export F9_RUNTIME_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1"
+export TRAINING_GSA="ewallet-training@${PROJECT_ID}.iam.gserviceaccount.com"
 export PIPELINE_PACKAGE="ai_platform/ml/pipelines/compiled/f9_canonical_pipeline.yaml"
 ```
 
 Build and push the one pinned runtime image:
 
 ```bash
+(cd ai_platform/ml && uv lock)
 gcloud builds submit . \
   --project="$PROJECT_ID" \
   --region="$REGION" \
@@ -93,13 +96,13 @@ future IAM mutation and therefore requires explicit approval at execution time:
 
 ```bash
 gcloud iam service-accounts add-iam-policy-binding \
-  "ewallet-training@${PROJECT_ID}.iam.gserviceaccount.com" \
+  "$TRAINING_GSA" \
   --role=roles/iam.workloadIdentityUser \
   --member="serviceAccount:${PROJECT_ID}.svc.id.goog[kubeflow/pipeline-runner]" \
   --project="$PROJECT_ID"
 kubectl apply -f infra/kubernetes/kfp/pipeline-runner-service-account.yaml
 kubectl -n "$KFP_NAMESPACE" annotate serviceaccount pipeline-runner \
-  iam.gke.io/gcp-service-account="ewallet-training@${PROJECT_ID}.iam.gserviceaccount.com" \
+  iam.gke.io/gcp-service-account="$TRAINING_GSA" \
   --overwrite
 ```
 
@@ -109,6 +112,7 @@ generated YAML is intentionally marked `PENDING_REGENERATION` until this
 command is run; never edit it manually:
 
 ```bash
+(cd ai_platform/ml/pipelines && uv lock)
 uv run --project ai_platform/ml/pipelines \
   python -m ai_platform.ml.pipelines.compile_pipeline \
   --runtime-image "$F9_RUNTIME_IMAGE" \
@@ -196,7 +200,7 @@ kubectl -n ml-platform port-forward service/mlflow 5000:5000 \
   > /tmp/mlflow-port-forward.log 2>&1 &
 export MLFLOW_PORT_FORWARD_PID=$!
 export LOCAL_MLFLOW_URI="http://127.0.0.1:5000"
-conda run -n ewallet-ml python - <<'PY'
+uv run --project ai_platform/ml python - <<'PY'
 import os
 from mlflow import MlflowClient
 c = MlflowClient(tracking_uri=os.environ["LOCAL_MLFLOW_URI"])
@@ -244,7 +248,7 @@ kubectl delete -f infra/kubernetes/kfp/pipeline-runner-service-account.yaml \
 kubectl delete -k "github.com/kubeflow/pipelines/manifests/kustomize/env/dev?ref=${KFP_VERSION}"
 kubectl delete -k "github.com/kubeflow/pipelines/manifests/kustomize/cluster-scoped-resources?ref=${KFP_VERSION}"
 gcloud iam service-accounts remove-iam-policy-binding \
-  "ewallet-training@${PROJECT_ID}.iam.gserviceaccount.com" \
+  "$TRAINING_GSA" \
   --role=roles/iam.workloadIdentityUser \
   --member="serviceAccount:${PROJECT_ID}.svc.id.goog[kubeflow/pipeline-runner]" \
   --project="$PROJECT_ID"

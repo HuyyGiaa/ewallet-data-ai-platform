@@ -9,7 +9,11 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from ai_platform.ml.pipelines.runtime import _environment, verify_chronological_splits
+from ai_platform.ml.pipelines.runtime import (
+    _environment,
+    main,
+    verify_chronological_splits,
+)
 from ai_platform.ml.tracking.snapshot import SnapshotProvenance
 
 
@@ -24,6 +28,24 @@ def _frame(timestamp: str, labels: list[int]) -> pd.DataFrame:
 
 
 class KfpRuntimeGateTest(unittest.TestCase):
+    def test_runtime_rejects_image_input_that_differs_from_compiled_image(self) -> None:
+        common = [
+            "validate-snapshot",
+            "--dataset-version", "canonical-100gb-v1",
+            "--silver-run-id", "silver-1",
+            "--feature-run-id", "features-1",
+            "--snapshot-id", "snapshot-1",
+            "--snapshot-uri", "gs://bucket/snapshot-1",
+            "--snapshot-manifest-sha256", "a" * 64,
+            "--mlflow-tracking-uri", "http://mlflow.ml-platform.svc:5000",
+            "--runtime-image", "registry/f9:declared",
+            "--compiled-runtime-image", "registry/f9:compiled",
+            "--experiment-name", "fraud",
+            "--registered-model-name", "fraud-model",
+            "--output", "/tmp/unused.json",
+        ]
+        self.assertEqual(1, main(common))
+
     def test_runtime_environment_carries_explicit_canonical_settings(self) -> None:
         args = Namespace(
             snapshot_uri="gs://bucket/snapshot",

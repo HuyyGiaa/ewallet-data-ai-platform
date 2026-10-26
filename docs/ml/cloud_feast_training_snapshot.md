@@ -79,7 +79,8 @@ python -m ops.gcp.prepare_feast_training_boundary \
 ```
 
 The command is a dry-run and prints the exact execution sequence. Before that
-sequence, install the pinned Feast environment requirements, authenticate ADC,
+sequence, generate the Feast and F9 locks with `uv lock` in their deployment
+directories, authenticate ADC,
 and verify the three output prefixes are absent. Run the printed source export
 once. Run the printed materializer repeatedly with `--resume` while
 `_INCOMPLETE` exists; each process handles one measured-safe 1,000-row chunk.

@@ -42,12 +42,16 @@ Build the pinned MLflow runtime image, scale the already-approved CPU pool when
 needed, get credentials, then deploy the internal stack:
 
 ```bash
+(cd infra/kubernetes/mlflow/image && uv lock)
 gcloud builds submit infra/kubernetes/mlflow/image --tag "$MLFLOW_IMAGE"
 gcloud container clusters resize "$GKE_CLUSTER" --node-pool=cpu-pool --num-nodes=1 --zone="$ZONE" --project="$PROJECT_ID"
 gcloud container clusters get-credentials "$GKE_CLUSTER" --zone="$ZONE" --project="$PROJECT_ID"
 
 kubectl apply -f infra/kubernetes/mlflow/namespace.yaml
 kubectl apply -f infra/kubernetes/mlflow/service-account.yaml
+kubectl -n ml-platform annotate serviceaccount training \
+  iam.gke.io/gcp-service-account="ewallet-training@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --overwrite
 export MLFLOW_DB_PASSWORD="$(openssl rand -hex 24)"
 kubectl -n ml-platform create secret generic mlflow-postgresql \
   --from-literal=username=mlflow --from-literal=password="$MLFLOW_DB_PASSWORD" \
@@ -60,7 +64,8 @@ kubectl -n ml-platform create configmap mlflow-runtime \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f infra/kubernetes/mlflow/postgresql.yaml
 kubectl -n ml-platform rollout status statefulset/mlflow-postgresql --timeout=5m
-kubectl apply -f infra/kubernetes/mlflow/deployment.yaml
+kubectl set image -f infra/kubernetes/mlflow/deployment.yaml \
+  mlflow="$MLFLOW_IMAGE" --local -o yaml | kubectl apply -f -
 kubectl apply -f infra/kubernetes/mlflow/service.yaml
 kubectl -n ml-platform rollout status deployment/mlflow --timeout=5m
 ```
@@ -82,7 +87,7 @@ test "$(sha256sum "$F9_DATASET_PATH/manifest.json" | awk '{print $1}')" = \
 Run the bounded experiment once:
 
 ```bash
-conda run -n ewallet-ml python -m ai_platform.ml.tracking.run \
+uv run --project ai_platform/ml python -m ai_platform.ml.tracking.run \
   --config ai_platform/ml/config/f9_mlflow_experiment.yaml \
   --repo-root "$PWD" | tee "/tmp/f9-${SNAPSHOT_ID}.log"
 ```
@@ -95,7 +100,7 @@ kubectl -n ml-platform exec statefulset/mlflow-postgresql -- \
   psql -U mlflow -d mlflow -c 'select count(*) from runs;'
 gcloud storage ls --recursive "${MLFLOW_ARTIFACT_ROOT}/**"
 
-conda run -n ewallet-ml python - <<'PY'
+uv run --project ai_platform/ml python - <<'PY'
 import os
 from mlflow import MlflowClient
 c = MlflowClient(tracking_uri=os.environ["MLFLOW_TRACKING_URI"])
@@ -130,7 +135,7 @@ after review; this milestone does not execute it:
 
 ```bash
 export APPROVED_MODEL_VERSION="<reviewed-winner-version>"
-conda run -n ewallet-ml python - <<'PY'
+uv run --project ai_platform/ml python - <<'PY'
 import os
 from mlflow import MlflowClient
 MlflowClient(tracking_uri=os.environ["MLFLOW_TRACKING_URI"]).set_registered_model_alias(
