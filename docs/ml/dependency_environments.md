@@ -10,19 +10,20 @@ wide runtime lock and no environment is created for individual helper modules.
 | KFP compiler | `ai_platform/ml/pipelines/pyproject.toml` | standalone KFP 2.17.3 compilation only |
 | MLflow server | `infra/kubernetes/mlflow/image/pyproject.toml` | PostgreSQL/GCS-backed MLflow server image |
 
-Every direct dependency remains exactly pinned. Lockfiles are intentionally not
-written by source reconciliation. Generate them from the repository root:
+Every direct dependency remains exactly pinned. The four reviewed lockfiles are
+committed at their owning deployment boundaries. Validate them without
+changing resolution from the repository root:
 
 ```bash
-(cd ai_platform/features/feast && uv lock)
-(cd ai_platform/ml && uv lock)
-(cd ai_platform/ml/pipelines && uv lock)
-(cd infra/kubernetes/mlflow/image && uv lock)
+(cd ai_platform/features/feast && uv lock --check)
+(cd ai_platform/ml && uv lock --check)
+(cd ai_platform/ml/pipelines && uv lock --check)
+(cd infra/kubernetes/mlflow/image && uv lock --check)
 ```
 
-Commit each generated `uv.lock` only after reviewing its project file and
-running the focused verification suite. Docker builds use `uv sync --frozen`,
-so they fail rather than resolve a different dependency graph.
+Docker builds use `uv sync --frozen`, so they fail rather than resolve a
+different dependency graph. Dependency upgrades require a separate reviewed
+lock regeneration; Gate 2 never performs one implicitly.
 
 Canonical runtime values come from `.env.example` keys or Kubernetes
 ConfigMaps/Secrets. The typed MLflow and KFP settings reject missing values,
