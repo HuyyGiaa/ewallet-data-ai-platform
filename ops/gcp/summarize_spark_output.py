@@ -1,7 +1,8 @@
 """Produce deterministic read-only summaries for full-scale Spark A/B outputs.
 
-This command scans both profiles with the same code.  The content fingerprint is
-an order-independent aggregate of Spark xxhash64 values; it is a strong table-
+This command scans both profiles with the same code. The content fingerprint is
+an order-independent aggregate of Spark xxhash64 and Murmur3 values; together
+with schema, row, null and business invariants it is a high-confidence table-
 level equivalence signal, not a byte-for-byte or cryptographic row proof.
 """
 
@@ -10,14 +11,22 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
+from data_platform.config.spark_benchmark import (
+    METHOD2_OUTPUT_RUN_PROPERTY,
+    METHOD2_PAIR_DIGEST_PROPERTY,
+    validate_pair_member,
+    validate_runtime_profile_properties,
+)
 from data_platform.config.spark_profiles import (
     require_profile_binding,
     validate_git_sha,
 )
+from data_platform.processing.spark.common.write_layout import resolve_write_layout
 from ops.gcp.validate_spark_output_equivalence import EXPECTED_TABLES
 
 
@@ -63,6 +72,15 @@ def fingerprint_payload(*, rows: int, total: str, minimum: int, maximum: int) ->
     return hashlib.sha256(payload).hexdigest()
 
 
+def semantic_fingerprint_payload(
+    *, rows: int, xxhash_sum: str, murmur_sum: str, xxhash_min: int, xxhash_max: int
+) -> str:
+    payload = ":".join(
+        (str(rows), xxhash_sum, murmur_sum, str(xxhash_min), str(xxhash_max))
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _inventory(spark: Any, root: str) -> set[str]:
     path = spark._jvm.org.apache.hadoop.fs.Path(root)
     filesystem = path.getFileSystem(spark._jsc.hadoopConfiguration())
@@ -75,43 +93,133 @@ def _inventory(spark: Any, root: str) -> set[str]:
     }
 
 
-def _table_summary(dataframe: Any) -> dict[str, object]:
+def _file_layout(spark: Any, table_path: str) -> dict[str, object]:
+    path = spark._jvm.org.apache.hadoop.fs.Path(table_path)
+    filesystem = path.getFileSystem(spark._jsc.hadoopConfiguration())
+    iterator = filesystem.listFiles(path, True)
+    sizes: list[int] = []
+    while iterator.hasNext():
+        item = iterator.next()
+        value = str(item.getPath())
+        if "/_delta_log/" not in value and value.endswith(".parquet"):
+            sizes.append(int(item.getLen()))
+    sizes.sort()
+    if not sizes:
+        return {
+            "file_count": 0,
+            "total_bytes": 0,
+            "file_size_min": 0,
+            "file_size_median": 0,
+            "file_size_p95": 0,
+            "file_size_max": 0,
+        }
+    p95_index = min(len(sizes) - 1, math.ceil(len(sizes) * 0.95) - 1)
+    median = sizes[(len(sizes) - 1) // 2]
+    return {
+        "file_count": len(sizes),
+        "total_bytes": sum(sizes),
+        "file_size_min": sizes[0],
+        "file_size_median": median,
+        "file_size_p95": sizes[p95_index],
+        "file_size_max": sizes[-1],
+    }
+
+
+def _partition_columns(spark: Any, table_path: str) -> list[str]:
+    from delta.tables import DeltaTable
+
+    row = DeltaTable.forPath(spark, table_path).detail().select(
+        "partitionColumns"
+    ).first()
+    return list(row["partitionColumns"] or ())
+
+
+def _required_columns(stage: str, table: str) -> tuple[str, ...]:
+    if stage == "dp3-features":
+        return FEATURE_GRAINS[table]
+    if stage == "dp2-gold":
+        return GOLD_PRIMARY_KEYS[table]
+    if table == "transactions":
+        return ("transaction_id",)
+    if table == "fraud_labels":
+        return ("transaction_id", "label")
+    return ()
+
+
+def _table_summary(
+    dataframe: Any,
+    *,
+    stage: str,
+    table: str,
+    table_path: str,
+) -> dict[str, object]:
     from pyspark.sql import functions as F
 
     columns = sorted(dataframe.columns)
-    row_hash = F.xxhash64(
-        *[
-            F.coalesce(F.col(name).cast("string"), F.lit("<NULL>"))
-            for name in columns
-        ]
+    canonical_row = F.to_json(
+        F.struct(*[F.col(name).alias(name) for name in columns]),
+        options={
+            "ignoreNullFields": "false",
+            "timestampFormat": "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
+        },
     )
+    row_xxhash = F.xxhash64(canonical_row)
+    row_murmur = F.hash(canonical_row)
+    required = _required_columns(stage, table)
     aggregate = (
-        dataframe.select(row_hash.alias("row_hash"))
+        dataframe.select(
+            row_xxhash.alias("row_xxhash"),
+            row_murmur.alias("row_murmur"),
+            *[F.col(name).isNull().cast("long").alias(f"null__{name}") for name in required],
+        )
         .agg(
             F.count("*").alias("rows"),
-            F.sum(F.col("row_hash").cast("decimal(38,0)")).alias("total"),
-            F.min("row_hash").alias("minimum"),
-            F.max("row_hash").alias("maximum"),
+            F.sum(F.col("row_xxhash").cast("decimal(38,0)")).alias("xxhash_sum"),
+            F.sum(F.col("row_murmur").cast("decimal(38,0)")).alias("murmur_sum"),
+            F.min("row_xxhash").alias("xxhash_min"),
+            F.max("row_xxhash").alias("xxhash_max"),
+            *[F.sum(f"null__{name}").alias(f"null__{name}") for name in required],
         )
         .first()
     )
     rows = int(aggregate["rows"])
-    total = str(aggregate["total"] or 0)
-    minimum = int(aggregate["minimum"] or 0)
-    maximum = int(aggregate["maximum"] or 0)
+    xxhash_sum = str(aggregate["xxhash_sum"] or 0)
+    murmur_sum = str(aggregate["murmur_sum"] or 0)
+    minimum = int(aggregate["xxhash_min"] or 0)
+    maximum = int(aggregate["xxhash_max"] or 0)
+    spark = dataframe.sparkSession
+    partition_columns = _partition_columns(spark, table_path)
+    configured_layout = (
+        None
+        if stage == "dp1-bronze"
+        else resolve_write_layout(stage=stage, table_name=table).evidence(
+            partition_columns
+        )
+    )
     return {
         "schema_sha256": hashlib.sha256(
             dataframe.schema.json().encode("utf-8")
         ).hexdigest(),
         "row_count": rows,
-        "content_fingerprint": fingerprint_payload(
-            rows=rows, total=total, minimum=minimum, maximum=maximum
+        "semantic_content_fingerprint": semantic_fingerprint_payload(
+            rows=rows,
+            xxhash_sum=xxhash_sum,
+            murmur_sum=murmur_sum,
+            xxhash_min=minimum,
+            xxhash_max=maximum,
         ),
         "fingerprint_components": {
-            "xxhash64_decimal_sum": total,
+            "xxhash64_decimal_sum": xxhash_sum,
+            "murmur3_32_decimal_sum": murmur_sum,
             "xxhash64_min": minimum,
             "xxhash64_max": maximum,
         },
+        "required_null_counts": {
+            name: int(aggregate[f"null__{name}"] or 0) for name in required
+        },
+        "partition_columns": partition_columns,
+        "configured_write_layout": configured_layout,
+        "physical_layout": _file_layout(spark, table_path),
     }
 
 
@@ -228,12 +336,16 @@ def build_summary(
     output_run_id: str,
     dataset_version: str,
     git_sha: str,
+    source_run_ids: Sequence[str],
     expected_logical_transactions: int,
     expected_physical_transactions: int,
+    pair_manifest: Mapping[str, object],
 ) -> dict[str, object]:
     from pyspark.sql import SparkSession
 
     validate_git_sha(git_sha)
+    if not source_run_ids or any(not value for value in source_run_ids):
+        raise ValueError("source_run_ids must be explicit")
     require_profile_binding(
         output_run_id,
         benchmark_id=benchmark_id,
@@ -249,8 +361,31 @@ def build_summary(
         raise ValueError(
             f"output root is not bound to output_run_id: expected {expected_root}"
         )
+    member = validate_pair_member(
+        pair_manifest,
+        spark_profile=spark_profile,
+        benchmark_id=benchmark_id,
+        stage=stage,
+        dataset_version=dataset_version,
+        git_sha=git_sha,
+        upstream_run_ids=source_run_ids,
+        output_run_id=output_run_id,
+        output_root=root,
+    )
     spark = SparkSession.builder.appName("spark-ab-output-summary").getOrCreate()
     try:
+        actual_properties = dict(spark.sparkContext.getConf().getAll())
+        normalized_profile_properties = validate_runtime_profile_properties(
+            pair_manifest,
+            spark_profile=spark_profile,
+            runtime_properties=actual_properties,
+        )
+        if actual_properties.get(METHOD2_PAIR_DIGEST_PROPERTY) != pair_manifest[
+            "pair_manifest_digest"
+        ]:
+            raise ValueError("runtime pair manifest digest mismatch")
+        if actual_properties.get(METHOD2_OUTPUT_RUN_PROPERTY) != output_run_id:
+            raise ValueError("runtime output_run_id binding mismatch")
         expected = EXPECTED_TABLES[stage]
         inventory = _inventory(spark, root)
         if inventory != expected:
@@ -269,9 +404,21 @@ def build_summary(
             "spark_profile": spark_profile,
             "stage": stage,
             "output_run_id": output_run_id,
+            "output_root": root.rstrip("/"),
+            "source_run_ids": list(source_run_ids),
+            "upstream_run_ids": list(source_run_ids),
             "root": root,
+            "pair_manifest_digest": pair_manifest["pair_manifest_digest"],
+            "spark_properties": normalized_profile_properties,
+            "spark_properties_digest": member["spark_properties_digest"],
             "tables": {
-                table: _table_summary(frame) for table, frame in frames.items()
+                table: _table_summary(
+                    frame,
+                    stage=stage,
+                    table=table,
+                    table_path=f"{root.rstrip('/')}/{table}",
+                )
+                for table, frame in frames.items()
             },
             "invariants": _invariants(
                 stage,
@@ -300,7 +447,8 @@ def write_summary(uri: str, summary: Mapping[str, object]) -> None:
         return
     output = Path(uri)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(payload, encoding="utf-8")
+    with output.open("x", encoding="utf-8") as stream:
+        stream.write(payload)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -315,9 +463,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--git-sha", required=True)
     parser.add_argument("--expected-logical-transactions", type=int, required=True)
     parser.add_argument("--expected-physical-transactions", type=int, required=True)
+    parser.add_argument("--source-run-id", action="append", dest="source_run_ids", required=True)
+    parser.add_argument("--pair-manifest", type=Path, required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
-    summary = build_summary(**{key: value for key, value in vars(args).items() if key != "output"})
+    values = {key: value for key, value in vars(args).items() if key != "output"}
+    pair_path = values.pop("pair_manifest")
+    values["pair_manifest"] = json.loads(pair_path.read_text(encoding="utf-8"))
+    summary = build_summary(**values)
     write_summary(args.output, summary)
     print(args.output)
     return 0

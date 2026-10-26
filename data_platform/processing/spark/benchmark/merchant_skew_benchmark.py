@@ -435,6 +435,7 @@ def create_benchmark_spark(
 
     spark = create_spark_session(
         app_name=f"EWallet-Merchant-Skew-{mode}",
+        stage="dp2-gold",
         optimized=optimized,
         runtime_config=runtime_config,
     )

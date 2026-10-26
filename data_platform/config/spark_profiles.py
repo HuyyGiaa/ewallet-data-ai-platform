@@ -1,16 +1,32 @@
-"""Shared Spark execution profiles and full-scale benchmark lineage rules."""
+"""Stage-aware Spark execution profiles and benchmark lineage rules.
+
+``baseline`` and ``optimized`` remain benchmark identities so historical run
+IDs stay readable. Runtime properties are resolved from both the stage and
+identity; there is deliberately no global optimized tuning package.
+"""
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 
 BASELINE_SPARK_PROFILE = "baseline"
 OPTIMIZED_SPARK_PROFILE = "optimized"
 SPARK_PROFILES = (BASELINE_SPARK_PROFILE, OPTIMIZED_SPARK_PROFILE)
 
-_PROFILE_ALIASES = {"canonical": OPTIMIZED_SPARK_PROFILE}
+BRONZE_STAGE = "dp1-bronze"
+SILVER_STAGE = "dp2-silver"
+GOLD_STAGE = "dp2-gold"
+FEATURES_STAGE = "dp3-features"
+SPARK_STAGES = (BRONZE_STAGE, SILVER_STAGE, GOLD_STAGE, FEATURES_STAGE)
+
+_STAGE_ALIASES = {
+    "bronze": BRONZE_STAGE,
+    "silver": SILVER_STAGE,
+    "gold": GOLD_STAGE,
+    "feat": FEATURES_STAGE,
+}
 _BENCHMARK_ID = re.compile(r"^ab-[0-9]{14}$")
 _ATTEMPT_ID = re.compile(r"^r[0-9]{12}$")
 _RUN_STAGES = {"bronze", "silver", "gold", "feat", "dp1", "dp2", "dp3"}
@@ -22,21 +38,91 @@ _GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
 @dataclass(frozen=True)
+class SparkResourceContract:
+    driver_cores: int = 4
+    executor_cores: int = 4
+    driver_memory: str = "9600m"
+    executor_memory: str = "9600m"
+    driver_memory_overhead: str = "3840m"
+    executor_memory_overhead: str = "3840m"
+    min_executors: int = 2
+    initial_executors: int = 6
+    max_executors: int = 7
+    executor_allocation_ratio: float = 0.3
+    broadcast_threshold: str = "192m"
+    executor_idle_timeout: str = "300s"
+
+    @property
+    def spark_properties(self) -> tuple[str, ...]:
+        return (
+            f"spark.driver.cores={self.driver_cores}",
+            f"spark.executor.cores={self.executor_cores}",
+            f"spark.driver.memory={self.driver_memory}",
+            f"spark.executor.memory={self.executor_memory}",
+            f"spark.driver.memoryOverhead={self.driver_memory_overhead}",
+            f"spark.executor.memoryOverhead={self.executor_memory_overhead}",
+            "spark.dynamicAllocation.enabled=true",
+            f"spark.dynamicAllocation.minExecutors={self.min_executors}",
+            f"spark.dynamicAllocation.initialExecutors={self.initial_executors}",
+            f"spark.dynamicAllocation.maxExecutors={self.max_executors}",
+            "spark.dynamicAllocation.executorAllocationRatio="
+            f"{self.executor_allocation_ratio}",
+            f"spark.sql.autoBroadcastJoinThreshold={self.broadcast_threshold}",
+            f"spark.dynamicAllocation.executorIdleTimeout={self.executor_idle_timeout}",
+            "spark.dynamicAllocation.shuffleTracking.enabled=true",
+        )
+
+
+COMMON_RESOURCE_CONTRACT = SparkResourceContract()
+
+
+@dataclass(frozen=True)
+class SparkProfileIdentity:
+    name: str
+
+    @property
+    def initial_executors(self) -> int:
+        return COMMON_RESOURCE_CONTRACT.initial_executors
+
+    @property
+    def max_executors(self) -> int:
+        return COMMON_RESOURCE_CONTRACT.max_executors
+
+
+BASELINE_PROFILE = SparkProfileIdentity(BASELINE_SPARK_PROFILE)
+OPTIMIZED_PROFILE = SparkProfileIdentity(OPTIMIZED_SPARK_PROFILE)
+_PROFILE_IDENTITIES = {
+    BASELINE_PROFILE.name: BASELINE_PROFILE,
+    OPTIMIZED_PROFILE.name: OPTIMIZED_PROFILE,
+}
+
+
+@dataclass(frozen=True)
 class SparkExecutionProfile:
+    stage: str
     name: str
     adaptive_enabled: bool
     skew_join_enabled: bool
     shuffle_partitions: int
-    initial_executors: int
-    max_executors: int
-    dynamic_allocation_profile: str | None
+    dynamic_allocation_profile: str | None = None
+    resources: SparkResourceContract = COMMON_RESOURCE_CONTRACT
+
+    @property
+    def stage_profile(self) -> str:
+        return f"{self.stage}:{self.name}"
+
+    @property
+    def initial_executors(self) -> int:
+        return self.resources.initial_executors
+
+    @property
+    def max_executors(self) -> int:
+        return self.resources.max_executors
 
     @property
     def spark_properties(self) -> tuple[str, ...]:
         properties = [
-            "spark.dynamicAllocation.enabled=true",
-            f"spark.dynamicAllocation.initialExecutors={self.initial_executors}",
-            f"spark.dynamicAllocation.maxExecutors={self.max_executors}",
+            *self.resources.spark_properties,
             f"spark.sql.shuffle.partitions={self.shuffle_partitions}",
             f"spark.sql.adaptive.enabled={str(self.adaptive_enabled).lower()}",
             "spark.sql.adaptive.skewJoin.enabled="
@@ -49,38 +135,97 @@ class SparkExecutionProfile:
             )
         return tuple(properties)
 
+    def evidence(self) -> dict[str, object]:
+        return {
+            "stage": self.stage,
+            "profile": self.name,
+            "stage_profile": self.stage_profile,
+            "adaptive_enabled": self.adaptive_enabled,
+            "skew_join_enabled": self.skew_join_enabled,
+            "shuffle_partitions": self.shuffle_partitions,
+            "dynamic_allocation_profile": self.dynamic_allocation_profile,
+            "resources": asdict(self.resources),
+            "spark_properties": dict(
+                item.split("=", 1) for item in self.spark_properties
+            ),
+        }
 
-BASELINE_PROFILE = SparkExecutionProfile(
-    name=BASELINE_SPARK_PROFILE,
-    adaptive_enabled=False,
-    skew_join_enabled=False,
-    shuffle_partitions=200,
-    initial_executors=6,
-    max_executors=7,
-    dynamic_allocation_profile=None,
-)
-OPTIMIZED_PROFILE = SparkExecutionProfile(
-    name=OPTIMIZED_SPARK_PROFILE,
-    adaptive_enabled=True,
-    skew_join_enabled=True,
-    shuffle_partitions=400,
-    initial_executors=6,
-    max_executors=7,
-    dynamic_allocation_profile="performance",
-)
-_PROFILES = {
-    BASELINE_PROFILE.name: BASELINE_PROFILE,
-    OPTIMIZED_PROFILE.name: OPTIMIZED_PROFILE,
+
+def _profile(
+    stage: str,
+    name: str,
+    *,
+    adaptive: bool,
+    shuffle: int,
+    allocation_profile: str | None = None,
+) -> SparkExecutionProfile:
+    return SparkExecutionProfile(
+        stage=stage,
+        name=name,
+        adaptive_enabled=adaptive,
+        skew_join_enabled=False,
+        shuffle_partitions=shuffle,
+        dynamic_allocation_profile=allocation_profile,
+    )
+
+
+_STAGE_PROFILES = {
+    (stage, BASELINE_SPARK_PROFILE): _profile(
+        stage, BASELINE_SPARK_PROFILE, adaptive=False, shuffle=200
+    )
+    for stage in SPARK_STAGES
 }
+_STAGE_PROFILES.update(
+    {
+        (BRONZE_STAGE, OPTIMIZED_SPARK_PROFILE): _profile(
+            BRONZE_STAGE,
+            OPTIMIZED_SPARK_PROFILE,
+            adaptive=True,
+            shuffle=200,
+            allocation_profile="performance",
+        ),
+        (SILVER_STAGE, OPTIMIZED_SPARK_PROFILE): _profile(
+            SILVER_STAGE, OPTIMIZED_SPARK_PROFILE, adaptive=False, shuffle=304
+        ),
+        (GOLD_STAGE, OPTIMIZED_SPARK_PROFILE): _profile(
+            GOLD_STAGE, OPTIMIZED_SPARK_PROFILE, adaptive=True, shuffle=400
+        ),
+        (FEATURES_STAGE, OPTIMIZED_SPARK_PROFILE): _profile(
+            FEATURES_STAGE, OPTIMIZED_SPARK_PROFILE, adaptive=False, shuffle=200
+        ),
+    }
+)
 
 
-def resolve_spark_profile(value: str) -> SparkExecutionProfile:
-    normalized = _PROFILE_ALIASES.get(value.strip().lower(), value.strip().lower())
+def resolve_spark_profile(value: str) -> SparkProfileIdentity:
+    """Resolve benchmark identity only; this function never chooses tuning."""
+
+    normalized = value.strip().lower()
     try:
-        return _PROFILES[normalized]
+        return _PROFILE_IDENTITIES[normalized]
     except KeyError as exc:
         raise ValueError(
             f"spark profile must be one of {SPARK_PROFILES}, got {value!r}"
+        ) from exc
+
+
+def resolve_spark_stage(value: str) -> str:
+    normalized = value.strip().lower()
+    normalized = _STAGE_ALIASES.get(normalized, normalized)
+    if normalized not in SPARK_STAGES:
+        raise ValueError(f"Spark stage must be one of {SPARK_STAGES}, got {value!r}")
+    return normalized
+
+
+def resolve_stage_profile(stage: str, profile: str) -> SparkExecutionProfile:
+    resolved_stage = resolve_spark_stage(stage)
+    resolved_profile = resolve_spark_profile(profile).name
+    try:
+        return _STAGE_PROFILES[(resolved_stage, resolved_profile)]
+    except KeyError as exc:
+        raise ValueError(
+            f"no Spark profile for stage={resolved_stage!r}, "
+            f"profile={resolved_profile!r}"
         ) from exc
 
 
@@ -103,17 +248,9 @@ def quota_requirements(
     process_vcpus: int = 4,
     process_disk_gb: int = 400,
 ) -> dict[str, dict[str, int]]:
-    """Derive initial and maximum Serverless quota from the Spark profile.
-
-    Standard-tier Managed Spark currently provisions one driver plus the
-    configured executors with a 4-vCPU / 400-GB default process shape. Keeping
-    that shape beside the shared executor profile prevents orchestration code
-    from copying the observed 28-vCPU / 2,800-GB request as magic numbers.
-    """
-
     if process_vcpus <= 0 or process_disk_gb <= 0:
         raise ValueError("Dataproc process resources must be positive")
-    resolved = resolve_spark_profile(profile)
+    resolve_spark_profile(profile)
 
     def resources(executors: int) -> dict[str, int]:
         process_count = 1 + executors
@@ -124,8 +261,8 @@ def quota_requirements(
         }
 
     return {
-        "initial": resources(resolved.initial_executors),
-        "maximum": resources(resolved.max_executors),
+        "initial": resources(COMMON_RESOURCE_CONTRACT.initial_executors),
+        "maximum": resources(COMMON_RESOURCE_CONTRACT.max_executors),
     }
 
 
@@ -176,8 +313,6 @@ def require_profile_binding(
 
 
 def parse_benchmark_run_id(run_id: str) -> dict[str, str]:
-    """Parse a profile-bound immutable run ID into trusted lineage fields."""
-
     match = _RUN_ID.fullmatch(run_id)
     if match is None:
         raise ValueError(f"run ID is not a benchmark lineage ID: {run_id!r}")
@@ -200,8 +335,6 @@ def validate_git_sha(value: str) -> str:
 def require_benchmark_pair(
     *, spark_profile: str | None, benchmark_id: str | None
 ) -> None:
-    """Prevent partially-bound A/B submissions from bypassing lineage checks."""
-
     if bool(spark_profile) != bool(benchmark_id):
         raise ValueError("--spark-profile and --benchmark-id must be supplied together")
 
@@ -214,6 +347,6 @@ def require_optimized_lineage(
     resolved = resolve_spark_profile(profile)
     if resolved.name != OPTIMIZED_SPARK_PROFILE and not allow_baseline_for_test:
         raise ValueError(
-            "canonical Feast/ML inputs require optimized Spark lineage; "
+            "canonical Feast/ML inputs require selected optimized Spark lineage; "
             "baseline is benchmark-only"
         )

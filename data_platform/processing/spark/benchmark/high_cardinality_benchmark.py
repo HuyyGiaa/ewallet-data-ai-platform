@@ -235,6 +235,7 @@ def run_benchmark(
     try:
         spark = create_spark_session(
             app_name=f"EWallet-High-Cardinality-{mode}",
+            stage="dp2-gold",
             optimized=False,
             runtime_config=config,
         )

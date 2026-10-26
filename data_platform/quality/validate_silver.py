@@ -740,6 +740,7 @@ def run_validation(
     try:
         spark = create_spark_session(
             app_name="EWallet-Silver-Validation",
+            stage="dp2-silver",
             optimized=True,
             runtime_config=config,
         )

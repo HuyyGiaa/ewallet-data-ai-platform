@@ -10,7 +10,7 @@ from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.config.spark_profiles import (
     BASELINE_SPARK_PROFILE,
     OPTIMIZED_SPARK_PROFILE,
-    resolve_spark_profile,
+    resolve_stage_profile,
 )
 
 if TYPE_CHECKING:
@@ -28,12 +28,14 @@ _DELTA_OPTIONS = {
 def spark_options(
     config: RuntimeConfig,
     *,
+    stage: str,
     optimized: bool,
 ) -> dict[str, str]:
     """Build Spark properties without importing or starting PySpark."""
 
-    profile = resolve_spark_profile(
-        OPTIMIZED_SPARK_PROFILE if optimized else BASELINE_SPARK_PROFILE
+    profile = resolve_stage_profile(
+        stage,
+        OPTIMIZED_SPARK_PROFILE if optimized else BASELINE_SPARK_PROFILE,
     )
     options = dict(_DELTA_OPTIONS)
     options.update(config.spark.configurations)
@@ -92,6 +94,8 @@ def _get_or_create_spark(builder: object, config: RuntimeConfig) -> SparkSession
 
 def create_spark_session(
     app_name: str = "EWallet-Batch-Transformation",
+    *,
+    stage: str | None = None,
     optimized: bool = True,
     runtime_config: RuntimeConfig | None = None,
 ) -> SparkSession:
@@ -100,13 +104,21 @@ def create_spark_session(
     from pyspark.sql import SparkSession
 
     config = runtime_config or load_runtime_config()
+    if stage is None:
+        if config.environment == "gcp":
+            raise ValueError("GCP Spark sessions require an explicit stage")
+        # Local-only callers outside DP1/DP2/DP3 retain their configured
+        # shuffle count. They do not participate in the canonical benchmark.
+        stage = "dp3-features"
     _prepare_local_event_log_directory(config.spark.event_log_uri)
 
     builder = SparkSession.builder.appName(app_name)
     if config.spark.master is not None:
         builder = builder.master(config.spark.master)
 
-    for key, value in spark_options(config, optimized=optimized).items():
+    for key, value in spark_options(
+        config, stage=stage, optimized=optimized
+    ).items():
         builder = builder.config(key, value)
 
     spark = _get_or_create_spark(builder, config)

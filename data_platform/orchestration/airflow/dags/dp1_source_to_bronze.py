@@ -30,6 +30,7 @@ with DAG(
             "optimized", type="string", enum=["baseline", "optimized"]
         ),
         "git_sha": Param("REQUIRED_GIT_SHA", type="string"),
+        "pair_manifest": Param("REQUIRED_PAIR_MANIFEST.json", type="string"),
         "bronze_run_id": Param(
             "ab-20260101000000-optimized-bronze-r260101000000", type="string"
         ),
@@ -78,6 +79,7 @@ with DAG(
             "--run-id '{{ params.bronze_run_id }}' "
             "--spark-profile '{{ params.spark_profile }}' "
             "--git-sha '{{ params.git_sha }}' "
+            "--pair-manifest '{{ params.pair_manifest }}' "
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         cwd=str(REPOSITORY_ROOT),

@@ -8,6 +8,8 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
+from pyspark import StorageLevel
+
 from data_platform.config import (
     RuntimeConfig,
     load_runtime_config,
@@ -17,6 +19,7 @@ from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import (
     create_spark_session,
 )
+from data_platform.processing.spark.common.persistence import persisted
 from data_platform.processing.spark.silver.cleaners import (
     clean_accounts,
     clean_balance_snapshots,
@@ -129,6 +132,7 @@ def run_silver_pipeline(
     try:
         spark = create_spark_session(
             app_name="EWallet-DP2-Silver",
+            stage="dp2-silver",
             optimized=optimized,
             runtime_config=config,
         )
@@ -174,25 +178,23 @@ def run_silver_pipeline(
             silver_df = cleaner(
                 bronze_df
             )
-
-            measure_table_quality(
-                table_name,
-                bronze_df,
-                silver_df,
-            )
-
             if table_name == "transactions":
-                log_transaction_quality(
-                    bronze_df,
-                    silver_df,
+                with persisted(silver_df, StorageLevel.DISK_ONLY) as reusable:
+                    log_transaction_quality(bronze_df, reusable)
+                    write_silver(
+                        df=reusable,
+                        table_name=table_name,
+                        partition_columns=partition_columns,
+                        storage=config.storage,
+                    )
+            else:
+                measure_table_quality(table_name, bronze_df, silver_df)
+                write_silver(
+                    df=silver_df,
+                    table_name=table_name,
+                    partition_columns=partition_columns,
+                    storage=config.storage,
                 )
-
-            write_silver(
-                df=silver_df,
-                table_name=table_name,
-                partition_columns=partition_columns,
-                storage=config.storage,
-            )
 
         elapsed = time.perf_counter() - pipeline_started_at
 

@@ -12,6 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.spark_benchmark import (
+    load_pair_manifest,
+    method2_runtime_properties,
+    validate_pair_member,
+)
 from ops.gcp.dataproc_batch_properties import (
     DEFAULT_PERFORMANCE_PROFILE,
     add_performance_profile_argument,
@@ -120,6 +125,7 @@ def build_submission_command(
     spark_profile: str | None = None,
     benchmark_id: str | None = None,
     git_sha: str | None = None,
+    pair_manifest: Mapping[str, object] | None = None,
 ) -> tuple[str, ...]:
     run_id = _validate_id(run_id, "run_id")
     dataset_version = _validate_id(dataset_version, "dataset_version")
@@ -154,14 +160,37 @@ def build_submission_command(
     bronze_root = (
         f"gs://{runtime.data_bucket}/lakehouse/runs/{run_id}/bronze"
     )
+    if benchmark_id is not None:
+        if pair_manifest is None:
+            raise ValueError("benchmark submissions require --pair-manifest")
+        validate_pair_member(
+            pair_manifest,
+            spark_profile=str(spark_profile),
+            benchmark_id=benchmark_id,
+            stage="dp1-bronze",
+            dataset_version=dataset_version,
+            git_sha=str(git_sha),
+            upstream_run_ids=(dataset_version,),
+            output_run_id=run_id,
+            output_root=bronze_root,
+        )
     jars = tuple(jar_paths or dependency_jar_paths())
-    properties = ",".join(
+    property_items = list(
         build_dataproc_batch_properties(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
             profile=execution_profile,
+            stage="dp1-bronze",
         )
     )
+    if benchmark_id is not None:
+        property_items.extend(
+            f"{key}={value}"
+            for key, value in method2_runtime_properties(
+                pair_manifest, str(spark_profile)
+            ).items()
+        )
+    properties = ",".join(property_items)
     application_args = [
         f"--source-manifest-uri={source_manifest}",
         f"--dataset-version={dataset_version}",
@@ -263,6 +292,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     add_spark_profile_argument(parser)
     parser.add_argument("--benchmark-id")
     parser.add_argument("--git-sha")
+    parser.add_argument("--pair-manifest", type=Path)
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -289,15 +319,24 @@ def main(
         spark_profile=args.spark_profile,
         benchmark_id=args.benchmark_id,
         git_sha=args.git_sha,
+        pair_manifest=(
+            load_pair_manifest(args.pair_manifest)
+            if args.pair_manifest is not None
+            else None
+        ),
         archive_path=archive,
         jar_paths=jar_paths,
     )
     if not args.execute:
         print("DRY RUN — no Dataproc batch was submitted")
         if args.spark_profile:
-            print("\n".join(profile_summary(args.spark_profile)))
+            print("\n".join(profile_summary(args.spark_profile, stage="dp1-bronze")))
         if args.benchmark_id:
             print(f"BENCHMARK_ID: {args.benchmark_id}")
+            print(
+                "PAIR_MANIFEST_DIGEST: "
+                f"{load_pair_manifest(args.pair_manifest)['pair_manifest_digest']}"
+            )
         print(shlex.join(command))
         return 0
     runner(command, check=True)

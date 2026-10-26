@@ -10,7 +10,12 @@ from pyspark.sql import functions as F
 logger = logging.getLogger(__name__)
 
 
-def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,) -> DataFrame:
+def build_feat_user_90d(
+    fact_transactions_df: DataFrame,
+    dim_user_df: DataFrame,
+    *,
+    reference_timestamp=None,
+) -> DataFrame:
     """
     Build user features over the latest 90-day window.
 
@@ -18,19 +23,12 @@ def build_feat_user_90d(fact_transactions_df: DataFrame, dim_user_df: DataFrame,
         1 row / user.
     """
 
-    reference_timestamp = (
-        fact_transactions_df
-        .agg(
-            F.max(
-                "timestamp"
-            ).alias(
-                "reference_timestamp"
-            )
+    if reference_timestamp is None:
+        reference_timestamp = (
+            fact_transactions_df
+            .agg(F.max("timestamp").alias("reference_timestamp"))
+            .first()["reference_timestamp"]
         )
-        .first()[
-            "reference_timestamp"
-        ]
-    )
 
     if reference_timestamp is None:
         raise RuntimeError(
