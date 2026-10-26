@@ -13,6 +13,7 @@ from typing import Any
 from data_platform.config.spark_profiles import (
     require_profile_binding,
     resolve_spark_profile,
+    resolve_stage_profile,
     validate_benchmark_id,
     validate_git_sha,
 )
@@ -79,7 +80,7 @@ def parse_batch_evidence(
             raise ValueError(f"batch label {key} does not match evidence metadata")
     if runtime.get("version") != "2.2":
         raise ValueError("benchmark batch runtime must be 2.2")
-    resolved = resolve_spark_profile(profile)
+    resolved = resolve_stage_profile(stage, profile)
     expected_properties = {
         "dataproc.tier": "standard",
         **dict(item.split("=", 1) for item in resolved.spark_properties),
@@ -89,12 +90,29 @@ def parse_batch_evidence(
             raise ValueError(
                 f"batch runtime property {key} is not {expected!r}"
             )
+    required_validation_metrics = (
+        "application_runtime_seconds",
+        "spill_bytes",
+        "task_count",
+        "output_file_count",
+        "output_total_bytes",
+    )
+    missing_validation_metrics = [
+        name for name in required_validation_metrics if name not in validation
+    ]
+    if missing_validation_metrics:
+        raise ValueError(
+            "validation evidence is missing benchmark metrics: "
+            f"{missing_validation_metrics}"
+        )
     return {
+        "status": "PASS" if description.get("state") == "SUCCEEDED" else "FAIL",
         "benchmark_id": benchmark_id,
         "spark_profile": profile,
         "stage": stage,
         "git_sha": git_sha,
         "dataset_version": dataset_version,
+        "source_run_ids": list(upstream_run_ids),
         "upstream_run_ids": list(upstream_run_ids),
         "output_run_ids": list(output_run_ids),
         "batch_id": batch_id,
@@ -102,11 +120,21 @@ def parse_batch_evidence(
         "create_time": create_time,
         "state_time": state_time,
         "wall_clock_seconds": (_timestamp(state_time) - _timestamp(create_time)).total_seconds(),
+        "batch_runtime_seconds": (
+            _timestamp(state_time) - _timestamp(create_time)
+        ).total_seconds(),
+        "application_runtime_seconds": float(
+            validation["application_runtime_seconds"]
+        ),
         "runtime_version": runtime.get("version"),
         "runtime_properties": dict(sorted(properties.items())),
         "milli_dcu_seconds": milli_dcu_seconds,
         "dcu_hours": milli_dcu_seconds / 3_600_000,
         "shuffle_storage_gb_seconds": float(usage.get("shuffleStorageGbSeconds", 0)),
+        "spill_bytes": int(validation["spill_bytes"]),
+        "task_count": int(validation["task_count"]),
+        "output_file_count": int(validation["output_file_count"]),
+        "output_total_bytes": int(validation["output_total_bytes"]),
         "driver_output_uri": description.get("runtimeInfo", {}).get(
             "outputUri"
         ),

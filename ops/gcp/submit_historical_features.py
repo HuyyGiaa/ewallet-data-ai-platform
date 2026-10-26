@@ -129,17 +129,12 @@ def build_submission_command(
     if spark_profile is not None and ttl != "8h":
         raise ValueError("full-scale benchmark submissions require ttl=8h")
     if benchmark_id is not None:
-        for source, stage in (
-            (source_silver_run_id, "silver"),
-            (source_core_gold_run_id, "gold"),
-            (run_id, "feat"),
-        ):
-            require_profile_binding(
-                source,
-                benchmark_id=benchmark_id,
-                profile=spark_profile,
-                stage=stage,
-            )
+        require_profile_binding(
+            run_id,
+            benchmark_id=benchmark_id,
+            profile=spark_profile,
+            stage="feat",
+        )
         if git_sha is None:
             raise ValueError("benchmark submissions require --git-sha")
         git_sha = validate_git_sha(git_sha)
@@ -155,6 +150,7 @@ def build_submission_command(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
             profile=execution_profile,
+            stage="dp3-features",
         )
     )
     labels = "component=historical-features,phase=s1b"
@@ -264,7 +260,7 @@ def main(
     if not args.execute:
         print("DRY RUN — no Dataproc batch was submitted")
         if args.spark_profile:
-            print("\n".join(profile_summary(args.spark_profile)))
+            print("\n".join(profile_summary(args.spark_profile, stage="dp3-features")))
         if args.benchmark_id:
             print(f"BENCHMARK_ID: {args.benchmark_id}")
         print(f"Silver input root: {roots[0]}")

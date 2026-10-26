@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from data_platform.config import load_runtime_config
 from data_platform.processing.spark.gold.gold_pipeline import CORE_GOLD_TABLES
 from data_platform.processing.spark.gold.historical_feature_pipeline import (
+    FEATURE_TRANSACTION_COLUMNS,
     HISTORICAL_FEATURE_TABLES,
     apply_run_scoped_storage,
     parse_args,
+    project_feature_transactions,
 )
 
 
@@ -46,6 +48,21 @@ class HistoricalFeatureCloudRuntimeTest(unittest.TestCase):
             parse_args(
                 ["--environment=gcp", "--feature-gold-root=gs://bucket/run/gold"]
             )
+
+    def test_shared_projected_base_is_narrow_and_preserves_pit_inputs(self) -> None:
+        dataframe = Mock()
+        dataframe.columns = [*FEATURE_TRANSACTION_COLUMNS, "currency", "ingested_at"]
+        projected = Mock()
+        dataframe.select.return_value = projected
+        self.assertIs(project_feature_transactions(dataframe), projected)
+        dataframe.select.assert_called_once_with(*FEATURE_TRANSACTION_COLUMNS)
+        self.assertEqual(
+            {
+                "user_id", "account_id", "device_id", "merchant_id",
+                "timestamp", "amount", "status", "type",
+            },
+            set(FEATURE_TRANSACTION_COLUMNS),
+        )
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ from dataclasses import replace
 from functools import partial
 from pathlib import Path
 
+from pyspark import StorageLevel
 from data_platform.config import (
     RuntimeConfig,
     load_runtime_config,
@@ -18,6 +19,7 @@ from data_platform.config import (
 )
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.processing.spark.common.persistence import persisted
 from data_platform.processing.spark.gold.delta_gold_io import (
     process_gold_table,
     read_silver,
@@ -40,6 +42,17 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+FEATURE_TRANSACTION_COLUMNS = (
+    "user_id",
+    "account_id",
+    "device_id",
+    "merchant_id",
+    "timestamp",
+    "amount",
+    "status",
+    "type",
+)
 
 
 def apply_run_scoped_storage(
@@ -118,6 +131,18 @@ def feature_definitions(transactions_df, devices_df):
     )
 
 
+def project_feature_transactions(transactions_df):
+    """Keep one narrow Silver projection shared by all four feature builders."""
+
+    missing = set(FEATURE_TRANSACTION_COLUMNS) - set(transactions_df.columns)
+    if missing:
+        raise ValueError(
+            "Silver transactions missing historical feature columns: "
+            + ", ".join(sorted(missing))
+        )
+    return transactions_df.select(*FEATURE_TRANSACTION_COLUMNS)
+
+
 def run_historical_feature_pipeline(
     optimized: bool = True,
     runtime_config: RuntimeConfig | None = None,
@@ -128,6 +153,7 @@ def run_historical_feature_pipeline(
     try:
         spark = create_spark_session(
             app_name="EWallet-DP3-Historical-Features",
+            stage="dp3-features",
             optimized=optimized,
             runtime_config=config,
         )
@@ -136,11 +162,15 @@ def run_historical_feature_pipeline(
             spark, "transactions", storage=config.storage
         )
         devices_df = read_silver(spark, "devices", storage=config.storage)
-        for table_name, feature_df, required_columns in feature_definitions(
-            transactions_df, devices_df
-        ):
-            validate_feature_columns(feature_df, table_name, required_columns)
-            persist(table_name, feature_df)
+        with persisted(
+            project_feature_transactions(transactions_df),
+            StorageLevel.DISK_ONLY,
+        ) as projected_transactions_df:
+            for table_name, feature_df, required_columns in feature_definitions(
+                projected_transactions_df, devices_df
+            ):
+                validate_feature_columns(feature_df, table_name, required_columns)
+                persist(table_name, feature_df)
         logger.info(
             "DP3 historical features completed in %.2f seconds",
             time.perf_counter() - started_at,

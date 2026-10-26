@@ -24,7 +24,9 @@ class TableQualityMetrics:
         )
 
 
-def measure_table_quality(table_name: str, bronze_df: DataFrame, silver_df: DataFrame,) -> TableQualityMetrics:
+def measure_table_quality(
+    table_name: str, bronze_df: DataFrame, silver_df: DataFrame,
+) -> TableQualityMetrics:
     bronze_rows = bronze_df.count()
     silver_rows = silver_df.count()
 
@@ -45,46 +47,61 @@ def measure_table_quality(table_name: str, bronze_df: DataFrame, silver_df: Data
     return metrics
 
 
-def log_transaction_quality(bronze_df: DataFrame, silver_df: DataFrame,) -> None:
-    bronze_rows = bronze_df.count()
+def _transaction_summary(dataframe: DataFrame) -> dict[str, int]:
+    row = dataframe.agg(
+        F.count("*").alias("rows"),
+        F.countDistinct("transaction_id").alias("unique_transactions"),
+        F.max(F.col("transaction_id").isNull().cast("int")).alias(
+            "has_null_transaction_id"
+        ),
+        F.sum(F.when(F.col("channel").isNull(), 1).otherwise(0)).alias(
+            "channel_nulls"
+        ),
+    ).first()
+    return {
+        "rows": int(row["rows"]),
+        # Spark countDistinct excludes NULL, while the former
+        # select(...).distinct().count() treated NULL as one distinct value.
+        "unique_transactions": int(row["unique_transactions"])
+        + int(row["has_null_transaction_id"] or 0),
+        "channel_nulls": int(row["channel_nulls"] or 0),
+    }
 
-    bronze_unique_transactions = (
-        bronze_df
-        .select("transaction_id")
-        .distinct()
-        .count()
-    )
 
-    duplicate_rows = (
-        bronze_rows
-        - bronze_unique_transactions
-    )
-
-    bronze_channel_null = (
-        bronze_df
-        .filter(
-            F.col("channel").isNull()
+def validate_transaction_summaries(
+    bronze: dict[str, int], silver: dict[str, int]
+) -> TableQualityMetrics:
+    silver_duplicate = silver["rows"] - silver["unique_transactions"]
+    if silver_duplicate != 0:
+        raise RuntimeError(
+            "DQ failed: Silver transactions still contain duplicates."
         )
-        .count()
+    if silver["channel_nulls"] != 0:
+        raise RuntimeError(
+            "DQ failed: Silver transactions still contain NULL channel."
+        )
+    if silver["rows"] == 0:
+        raise RuntimeError("DQ failed: Silver transactions is empty.")
+    return TableQualityMetrics(
+        table_name="transactions",
+        bronze_rows=bronze["rows"],
+        silver_rows=silver["rows"],
     )
 
-    silver_channel_null = (
-        silver_df
-        .filter(
-            F.col("channel").isNull()
-        )
-        .count()
-    )
 
-    silver_duplicate = (
-        silver_df
-        .groupBy("transaction_id")
-        .count()
-        .filter(
-            F.col("count") > 1
-        )
-        .count()
-    )
+def log_transaction_quality(
+    bronze_df: DataFrame, silver_df: DataFrame,
+) -> TableQualityMetrics:
+    """Evaluate each lineage once while preserving every transaction gate."""
+
+    bronze = _transaction_summary(bronze_df)
+    silver = _transaction_summary(silver_df)
+    bronze_rows = bronze["rows"]
+    bronze_unique_transactions = bronze["unique_transactions"]
+    duplicate_rows = bronze_rows - bronze_unique_transactions
+    bronze_channel_null = bronze["channel_nulls"]
+    silver_channel_null = silver["channel_nulls"]
+    silver_duplicate = silver["rows"] - silver["unique_transactions"]
 
     logger.info(
         "========== TRANSACTION QUALITY =========="
@@ -114,21 +131,9 @@ def log_transaction_quality(bronze_df: DataFrame, silver_df: DataFrame,) -> None
         f"{silver_duplicate:,}",
     )
 
-    if silver_duplicate != 0:
-        raise RuntimeError(
-            "DQ failed: Silver transactions still contain duplicates."
-        )
-
-    if silver_channel_null != 0:
-        raise RuntimeError(
-            "DQ failed: Silver transactions still contain NULL channel."
-        )
-
-    if silver_df.count() == 0:
-        raise RuntimeError(
-            "DQ failed: Silver transactions is empty."
-        )
+    metrics = validate_transaction_summaries(bronze, silver)
 
     logger.info(
         "Transaction DQ validation: PASSED"
     )
+    return metrics

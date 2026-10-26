@@ -83,10 +83,12 @@ class DeltaWritePathTest(unittest.TestCase):
         self,
     ) -> None:
         dataframe = MagicMock()
-        delta_writer = dataframe.write.format.return_value
+        planned = dataframe.repartition.return_value
+        delta_writer = planned.write.format.return_value
         overwrite_writer = delta_writer.mode.return_value
         schema_writer = overwrite_writer.option.return_value
-        partitioned_writer = schema_writer.partitionBy.return_value
+        bounded_writer = schema_writer.option.return_value
+        partitioned_writer = bounded_writer.partitionBy.return_value
 
         write_silver(
             dataframe,
@@ -95,10 +97,18 @@ class DeltaWritePathTest(unittest.TestCase):
             storage=self.storage,
         )
 
-        dataframe.write.format.assert_called_once_with("delta")
+        dataframe.repartition.assert_called_once_with(
+            128, "event_date", "country"
+        )
+        planned.write.format.assert_called_once_with("delta")
         delta_writer.mode.assert_called_once_with("errorifexists")
         overwrite_writer.option.assert_called_once_with("mergeSchema", "true")
-        schema_writer.partitionBy.assert_called_once_with("event_date", "country")
+        schema_writer.option.assert_called_once_with(
+            "maxRecordsPerFile", "2500000"
+        )
+        bounded_writer.partitionBy.assert_called_once_with(
+            "event_date", "country"
+        )
         partitioned_writer.save.assert_called_once_with(
             "gs://contract-bucket/lakehouse/silver/transactions"
         )
@@ -107,9 +117,11 @@ class DeltaWritePathTest(unittest.TestCase):
         self,
     ) -> None:
         dataframe = MagicMock()
-        delta_writer = dataframe.write.format.return_value
+        planned = dataframe.repartition.return_value
+        delta_writer = planned.write.format.return_value
         overwrite_writer = delta_writer.mode.return_value
         schema_writer = overwrite_writer.option.return_value
+        bounded_writer = schema_writer.option.return_value
 
         write_gold(
             dataframe,
@@ -117,18 +129,22 @@ class DeltaWritePathTest(unittest.TestCase):
             storage=self.storage,
         )
 
-        dataframe.write.format.assert_called_once_with("delta")
+        dataframe.repartition.assert_called_once_with(16)
+        planned.write.format.assert_called_once_with("delta")
         delta_writer.mode.assert_called_once_with("errorifexists")
         overwrite_writer.option.assert_called_once_with("mergeSchema", "true")
-        schema_writer.partitionBy.assert_not_called()
-        schema_writer.save.assert_called_once_with(
+        schema_writer.option.assert_called_once_with(
+            "maxRecordsPerFile", "2500000"
+        )
+        bounded_writer.partitionBy.assert_not_called()
+        bounded_writer.save.assert_called_once_with(
             "gs://contract-bucket/lakehouse/gold/dim_user"
         )
 
     def test_local_write_keeps_existing_overwrite_behavior(self) -> None:
         dataframe = MagicMock()
         write_silver(dataframe, "users", storage=local_storage())
-        dataframe.write.format.return_value.mode.assert_called_once_with(
+        dataframe.repartition.return_value.write.format.return_value.mode.assert_called_once_with(
             "overwrite"
         )
 

@@ -18,8 +18,8 @@ ATTEMPT_ID="r$(date -u +%y%m%d%H%M%S)"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "${SCRIPT_DIR}/lib/spark_ab_common.sh"
 spark_ab_validate_profile; spark_ab_validate_benchmark_id
-[[ ${BRONZE_RUN} =~ ^${BENCHMARK_ID}-${SPARK_PROFILE}-bronze-r[0-9]{12}$ ]] || \
-  spark_ab_usage_error "Bronze run is not bound to benchmark ${BENCHMARK_ID}/${SPARK_PROFILE}"
+[[ ${BRONZE_RUN} =~ ^${BENCHMARK_ID}-(baseline|optimized)-bronze-r[0-9]{12}$ ]] || \
+  spark_ab_usage_error "Bronze run is not a selected immutable run for benchmark ${BENCHMARK_ID}"
 spark_ab_init_airflow
 SILVER_RUN="${BENCHMARK_ID}-${SPARK_PROFILE}-silver-${ATTEMPT_ID}"
 GOLD_RUN="${BENCHMARK_ID}-${SPARK_PROFILE}-gold-${ATTEMPT_ID}"
@@ -29,7 +29,8 @@ echo "MODE: $([[ ${EXECUTE} == true ]] && echo EXECUTE || echo DRY-RUN)"
 echo "BENCHMARK_ID: ${BENCHMARK_ID}"; echo "BRONZE_RUN: ${BRONZE_RUN}"
 echo "GIT_SHA: ${GIT_SHA}"
 echo "SILVER_RUN: ${SILVER_RUN}"; echo "GOLD_RUN: ${GOLD_RUN}"; echo "DP2_RUN: ${DP2_RUN}"
-spark_ab_print_profile
+spark_ab_print_profile dp2-silver
+spark_ab_print_profile dp2-gold
 spark_ab_print_quota_guard bronze-to-silver "${BRONZE_RUN}" "${SILVER_RUN}"
 spark_ab_print_quota_guard silver-to-gold "${SILVER_RUN}" "${GOLD_RUN}"
 echo "Airflow conf: ${CONF}"; echo "Exact trigger command:"

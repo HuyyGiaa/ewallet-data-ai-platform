@@ -45,6 +45,7 @@ def build_submission_command(
     dataset_version: str,
     git_sha: str,
     summary_uri: str,
+    source_run_ids: Sequence[str],
     script_path: Path = SUMMARY_SCRIPT,
     archive_path: Path = DEFAULT_ARCHIVE,
     jar_paths: Sequence[Path] | None = None,
@@ -52,6 +53,8 @@ def build_submission_command(
     batch_id = _validate_id(batch_id, "batch_id")
     dataset_version = _validate_id(dataset_version, "dataset_version")
     git_sha = validate_git_sha(git_sha)
+    if not source_run_ids or any(not value for value in source_run_ids):
+        raise ValueError("source_run_ids must be explicit")
     require_profile_binding(
         output_run_id,
         benchmark_id=benchmark_id,
@@ -75,6 +78,8 @@ def build_submission_command(
         build_dataproc_batch_properties(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
+            profile=spark_profile,
+            stage=stage,
         )
     )
     jars = tuple(jar_paths or dependency_jar_paths())
@@ -99,6 +104,7 @@ def build_submission_command(
         f"--dataset-version={dataset_version}", f"--git-sha={git_sha}",
         "--expected-logical-transactions=369600000",
         "--expected-physical-transactions=376992000",
+        *(f"--source-run-id={value}" for value in source_run_ids),
         f"--output={summary_uri}",
     )
 
@@ -133,6 +139,7 @@ def main(
     parser.add_argument("--dataset-version", default="canonical-100gb-v1")
     parser.add_argument("--git-sha", required=True)
     parser.add_argument("--summary-uri", required=True)
+    parser.add_argument("--source-run-id", action="append", dest="source_run_ids", required=True)
     parser.add_argument("--terraform-output-json", type=Path)
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
@@ -152,6 +159,7 @@ def main(
         dataset_version=args.dataset_version,
         git_sha=args.git_sha,
         summary_uri=args.summary_uri,
+        source_run_ids=args.source_run_ids,
         archive_path=archive,
         jar_paths=jars,
     )

@@ -57,8 +57,14 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
         for result in (dp2, dp3):
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("SPARK_PROFILE: OPTIMIZED", result.stdout)
-            self.assertIn("DYNAMIC_ALLOCATION_PROFILE: performance", result.stdout)
             self.assertIn('"benchmark_id":"ab-20261025123456"', result.stdout)
+        self.assertIn("SPARK_STAGE: dp2-silver", dp2.stdout)
+        self.assertIn("SHUFFLE_PARTITIONS: 304", dp2.stdout)
+        self.assertIn("SPARK_STAGE: dp2-gold", dp2.stdout)
+        self.assertIn("SHUFFLE_PARTITIONS: 400", dp2.stdout)
+        self.assertIn("SPARK_STAGE: dp3-features", dp3.stdout)
+        self.assertIn("SHUFFLE_PARTITIONS: 200", dp3.stdout)
+        self.assertNotIn("SKEW_JOIN: true", dp2.stdout + dp3.stdout)
         self.assertEqual("version\n", calls2); self.assertEqual("version\n", calls3)
 
     def test_dp2_and_dp3_dry_runs_render_each_quota_handoff_without_cloud_submit(self) -> None:
@@ -86,11 +92,14 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
         self.assertIn("troubleshooting evidence only", result.stderr)
         self.assertEqual("", calls)
 
-    def test_cross_profile_or_abandoned_upstream_is_rejected_before_airflow(self) -> None:
+    def test_selected_cross_profile_upstream_is_accepted_for_method_2(self) -> None:
         optimized = f"{BENCHMARK}-optimized-bronze-{ATTEMPT}"
         result, calls = self._run_dry("run_dp2_canonical.sh", optimized, "--profile", "baseline")
-        self.assertNotEqual(0, result.returncode); self.assertIn("not bound", result.stderr)
-        self.assertEqual("", calls)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn(f'"bronze_run_id":"{optimized}"', result.stdout)
+        self.assertEqual("version\n", calls)
+
+    def test_non_benchmark_upstream_is_rejected_before_airflow(self) -> None:
         abandoned, calls = self._run_dry("run_dp2_canonical.sh",
                                           "canonical-bronze-20261025-100451",
                                           "--profile", "optimized")

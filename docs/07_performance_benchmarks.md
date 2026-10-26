@@ -5,8 +5,13 @@
 The shared Spark session now reads master, storage connector, shuffle count and
 event-log location from the selected `local`, `dev` or `gcp` runtime profile.
 This refactor changes configuration ownership; it is not a measured speedup.
-`optimized=False` and `optimized=True` retain identical input/storage options
-and differ only in the AQE and skew-join switches.
+Canonical cloud tuning is now stage-specific rather than one global optimized
+package. Baseline and candidate retain identical resources and writer layout;
+only the approved stage tuning differs. `skewJoin` is false in every current
+profile because the event logs showed no AQE skew split. See
+[`cloud/canonical_dataproc_performance.md`](cloud/canonical_dataproc_performance.md)
+for the Method 2 common-input contract. Final cloud measurements remain deferred
+until after the MLOps milestone.
 
 All F4C/F5 and Phase 1 measurements below remain historical local evidence
 captured with the configuration stated in their own sections. They have not

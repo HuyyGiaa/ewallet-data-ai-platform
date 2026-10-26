@@ -160,6 +160,7 @@ def build_submission_command(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
             profile=execution_profile,
+            stage="dp1-bronze",
         )
     )
     application_args = [
@@ -295,7 +296,7 @@ def main(
     if not args.execute:
         print("DRY RUN — no Dataproc batch was submitted")
         if args.spark_profile:
-            print("\n".join(profile_summary(args.spark_profile)))
+            print("\n".join(profile_summary(args.spark_profile, stage="dp1-bronze")))
         if args.benchmark_id:
             print(f"BENCHMARK_ID: {args.benchmark_id}")
         print(shlex.join(command))

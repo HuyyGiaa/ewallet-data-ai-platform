@@ -110,12 +110,6 @@ def build_submission_command(
         raise ValueError("full-scale benchmark submissions require ttl=8h")
     if benchmark_id is not None:
         require_profile_binding(
-            source_silver_run_id,
-            benchmark_id=benchmark_id,
-            profile=spark_profile,
-            stage="silver",
-        )
-        require_profile_binding(
             run_id,
             benchmark_id=benchmark_id,
             profile=spark_profile,
@@ -133,6 +127,7 @@ def build_submission_command(
             performance_tier=runtime.performance_tier,
             data_bucket=runtime.data_bucket,
             profile=execution_profile,
+            stage="dp2-gold",
         )
     )
     labels = "component=core-gold,phase=s1b"
@@ -233,7 +228,7 @@ def main(
     if not args.execute:
         print("DRY RUN — no Dataproc batch was submitted")
         if args.spark_profile:
-            print("\n".join(profile_summary(args.spark_profile)))
+            print("\n".join(profile_summary(args.spark_profile, stage="dp2-gold")))
         if args.benchmark_id:
             print(f"BENCHMARK_ID: {args.benchmark_id}")
         print(f"Silver input root: {silver_root}")

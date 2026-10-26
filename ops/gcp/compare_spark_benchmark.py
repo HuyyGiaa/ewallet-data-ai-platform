@@ -23,7 +23,9 @@ def comparison_row(
     optimized: Mapping[str, object],
     equivalence: Mapping[str, object],
 ) -> dict[str, object]:
-    for key in ("benchmark_id", "dataset_version", "git_sha", "stage"):
+    for key in (
+        "benchmark_id", "dataset_version", "git_sha", "stage", "upstream_run_ids"
+    ):
         if baseline.get(key) != optimized.get(key):
             raise ValueError(f"cannot compare different {key}")
     if baseline.get("spark_profile") != "baseline":
@@ -42,13 +44,29 @@ def comparison_row(
             raise ValueError("both batches must use the Standard tier")
     if baseline.get("batch_state") != "SUCCEEDED" or optimized.get("batch_state") != "SUCCEEDED":
         raise ValueError("both batches must succeed before comparison")
-    if equivalence.get("output_equivalent") is not True:
+    if equivalence.get("high_confidence_equivalence") is not True:
         raise ValueError("outputs are not equivalent")
     for key in ("benchmark_id", "dataset_version", "git_sha", "stage"):
         if equivalence.get(key) != baseline.get(key):
             raise ValueError(f"equivalence evidence has different {key}")
-    baseline_runtime = float(baseline["wall_clock_seconds"])
-    optimized_runtime = float(optimized["wall_clock_seconds"])
+    if equivalence.get("source_run_ids") != baseline.get("upstream_run_ids"):
+        raise ValueError("equivalence evidence has different source_run_ids")
+    required_metrics = (
+        "application_runtime_seconds",
+        "batch_runtime_seconds",
+        "dcu_hours",
+        "shuffle_storage_gb_seconds",
+        "spill_bytes",
+        "task_count",
+        "output_file_count",
+        "output_total_bytes",
+    )
+    for name, evidence in (("baseline", baseline), ("optimized", optimized)):
+        missing = [key for key in required_metrics if key not in evidence]
+        if missing:
+            raise ValueError(f"{name} evidence is incomplete: {missing}")
+    baseline_runtime = float(baseline["application_runtime_seconds"])
+    optimized_runtime = float(optimized["application_runtime_seconds"])
     baseline_dcu = float(baseline["dcu_hours"])
     optimized_dcu = float(optimized["dcu_hours"])
     runtime_pct = percentage_change(baseline_runtime, optimized_runtime)
@@ -60,6 +78,8 @@ def comparison_row(
         "stage": baseline["stage"],
         "baseline_runtime_seconds": baseline_runtime,
         "optimized_runtime_seconds": optimized_runtime,
+        "baseline_batch_runtime_seconds": baseline["batch_runtime_seconds"],
+        "optimized_batch_runtime_seconds": optimized["batch_runtime_seconds"],
         "runtime_change_pct": runtime_pct,
         "runtime_result": "improvement" if runtime_pct is not None and runtime_pct >= 0 else "regression",
         "baseline_dcu_hours": baseline_dcu,
@@ -68,7 +88,16 @@ def comparison_row(
         "dcu_result": "improvement" if dcu_pct is not None and dcu_pct >= 0 else "regression",
         "baseline_shuffle_gb_seconds": baseline["shuffle_storage_gb_seconds"],
         "optimized_shuffle_gb_seconds": optimized["shuffle_storage_gb_seconds"],
+        "baseline_spill_bytes": baseline["spill_bytes"],
+        "optimized_spill_bytes": optimized["spill_bytes"],
+        "baseline_task_count": baseline["task_count"],
+        "optimized_task_count": optimized["task_count"],
+        "baseline_output_file_count": baseline["output_file_count"],
+        "optimized_output_file_count": optimized["output_file_count"],
+        "baseline_output_total_bytes": baseline["output_total_bytes"],
+        "optimized_output_total_bytes": optimized["output_total_bytes"],
         "output_equivalent": True,
+        "winner_selection": "explicit-after-review",
     }
 
 

@@ -6,10 +6,45 @@ from unittest.mock import Mock, patch
 from data_platform.ingestion.spark.source_to_bronze import (
     BRONZE_TABLES,
     PHYSICAL_TABLES,
+    _verify_gcs_objects,
     combine_transaction_versions,
     source_file_uris,
     validate_source_manifest,
 )
+
+
+class FakeBlob:
+    def __init__(self, name, *, size=1000, md5_hash="YQ==", generation=1):
+        self.name = name
+        self.size = size
+        self.md5_hash = md5_hash
+        self.generation = generation
+        self.reload_count = 0
+
+    def reload(self):
+        self.reload_count += 1
+
+
+class FakeBucket:
+    def __init__(self, fallback):
+        self.fallback = fallback
+
+    def blob(self, name):
+        return self.fallback[name]
+
+
+class FakeClient:
+    def __init__(self, listed, fallback=None):
+        self.listed = listed
+        self.fallback = fallback or {item.name: item for item in listed}
+        self.list_calls = 0
+
+    def bucket(self, unused_name):
+        return FakeBucket(self.fallback)
+
+    def list_blobs(self, unused_name, *, prefix):
+        self.list_calls += 1
+        return iter(self.listed)
 
 
 def manifest() -> dict:
@@ -50,6 +85,52 @@ def manifest() -> dict:
 
 
 class SourceToBronzeContractTest(unittest.TestCase):
+    def _listed_blobs(self):
+        return [
+            FakeBlob(f"source/r4-pilot-1gb-v1/{table}/shard-00000.parquet")
+            for table in PHYSICAL_TABLES
+        ]
+
+    def test_inventory_uses_one_listing_and_no_reload_when_md5_is_present(self) -> None:
+        client = FakeClient(self._listed_blobs())
+        result = _verify_gcs_objects(
+            "gs://bucket/source/r4-pilot-1gb-v1/_control/dataset_manifest.json",
+            manifest(),
+            client=client,
+        )
+        self.assertEqual(1, client.list_calls)
+        self.assertEqual(0, result["md5_fallback_reloads"])
+
+    def test_inventory_reloads_only_listing_entries_missing_md5(self) -> None:
+        listed = self._listed_blobs()
+        missing = listed[0]
+        missing.md5_hash = None
+        fallback = {item.name: item for item in listed}
+        fallback[missing.name] = FakeBlob(missing.name)
+        result = _verify_gcs_objects(
+            "gs://bucket/source/r4-pilot-1gb-v1/_control/dataset_manifest.json",
+            manifest(),
+            client=FakeClient(listed, fallback),
+        )
+        self.assertEqual(1, result["md5_fallback_reloads"])
+        self.assertEqual(1, fallback[missing.name].reload_count)
+
+    def test_inventory_rejects_missing_unexpected_and_duplicate_objects(self) -> None:
+        uri = "gs://bucket/source/r4-pilot-1gb-v1/_control/dataset_manifest.json"
+        listed = self._listed_blobs()
+        with self.assertRaisesRegex(ValueError, "missing"):
+            _verify_gcs_objects(uri, manifest(), client=FakeClient(listed[:-1]))
+        with self.assertRaisesRegex(ValueError, "unexpected"):
+            _verify_gcs_objects(
+                uri,
+                manifest(),
+                client=FakeClient(listed + [FakeBlob("source/r4-pilot-1gb-v1/extra.parquet")]),
+            )
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            _verify_gcs_objects(
+                uri, manifest(), client=FakeClient(listed + [listed[0]])
+            )
+
     def test_exactly_nine_physical_tables_become_eight_bronze_tables(self) -> None:
         validated = validate_source_manifest(
             manifest(), expected_dataset_version="r4-pilot-1gb-v1"

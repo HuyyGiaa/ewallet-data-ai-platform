@@ -44,7 +44,7 @@ def compare_summaries(
     stage = str(baseline.get("stage", ""))
     if stage != optimized.get("stage") or stage not in EXPECTED_TABLES:
         raise ValueError("validation summaries must use one supported identical stage")
-    for key in ("benchmark_id", "dataset_version", "git_sha"):
+    for key in ("benchmark_id", "dataset_version", "git_sha", "source_run_ids"):
         if baseline.get(key) != optimized.get(key):
             raise ValueError(f"non-comparable {key}")
     if baseline.get("spark_profile") != "baseline":
@@ -68,7 +68,17 @@ def compare_summaries(
         right = optimized_tables[table]
         if not isinstance(left, Mapping) or not isinstance(right, Mapping):
             raise ValueError(f"invalid table summary: {table}")
-        for key in ("schema_sha256", "row_count", "content_fingerprint"):
+        required_table_fields = (
+            "schema_sha256",
+            "row_count",
+            "semantic_content_fingerprint",
+            "required_null_counts",
+            "partition_columns",
+        )
+        for key in required_table_fields:
+            if key not in left or key not in right:
+                differences.append(f"{table}.{key}.missing")
+                continue
             if left.get(key) != right.get(key):
                 differences.append(f"{table}.{key}")
 
@@ -83,16 +93,21 @@ def compare_summaries(
         )
         differences.extend(f"{profile_name}.invariant.{name}" for name in failed)
 
+    equivalent = not differences
     return {
         "benchmark_id": baseline["benchmark_id"],
         "dataset_version": baseline["dataset_version"],
         "git_sha": baseline["git_sha"],
         "stage": stage,
-        "output_equivalent": not differences,
+        "source_run_ids": list(baseline["source_run_ids"]),
+        "output_equivalent": equivalent,
+        "high_confidence_equivalence": equivalent,
         "differences": differences,
         "method": (
-            "exact table inventory/schema/row counts/invariants plus deterministic "
-            "table content fingerprints; temporal [T-window,T) behavior is "
+            "exact inventory/schema/partition/null/row invariants plus two "
+            "independent commutative row-hash aggregates; this is high-confidence "
+            "semantic equivalence, not cryptographic identity. Temporal "
+            "[T-window,T) behavior is "
             "covered by same-Git executable tests, not inferred from output; "
             "not a byte-for-byte Delta comparison"
         ),

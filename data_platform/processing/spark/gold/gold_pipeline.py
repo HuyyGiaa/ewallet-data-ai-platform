@@ -9,6 +9,8 @@ from dataclasses import replace
 from pathlib import Path
 from functools import partial
 
+from pyspark import StorageLevel
+from pyspark.sql import functions as F
 from data_platform.config import (
     RuntimeConfig,
     load_runtime_config,
@@ -86,6 +88,7 @@ def run_gold_pipeline(
     runtime_config: RuntimeConfig | None = None,
 ) -> None:
     spark = None
+    persisted_dataframes = []
     config = runtime_config or load_runtime_config()
     persist_gold_table = partial(
         process_gold_table,
@@ -95,6 +98,7 @@ def run_gold_pipeline(
     try:
         spark = create_spark_session(
             app_name="EWallet-DP2-Core-Gold",
+            stage="dp2-gold",
             optimized=optimized,
             runtime_config=config,
         )
@@ -170,7 +174,8 @@ def run_gold_pipeline(
 
         dim_user_df = build_dim_user(
             users_df
-        )
+        ).persist(StorageLevel.DISK_ONLY)
+        persisted_dataframes.append(dim_user_df)
 
         dim_account_df = build_dim_account(
             accounts_df
@@ -178,7 +183,8 @@ def run_gold_pipeline(
 
         dim_merchant_df = build_dim_merchant(
             merchants_df
-        )
+        ).persist(StorageLevel.DISK_ONLY)
+        persisted_dataframes.append(dim_merchant_df)
 
         dim_device_df = build_dim_device(
             devices_df
@@ -223,7 +229,8 @@ def run_gold_pipeline(
             build_fact_transactions(
                 transactions_df
             )
-        )
+        ).persist(StorageLevel.DISK_ONLY)
+        persisted_dataframes.append(fact_transactions_df)
 
         fact_login_events_df = (
             build_fact_login_events(
@@ -292,6 +299,9 @@ def run_gold_pipeline(
             build_feat_user_90d(
                 fact_transactions_df,
                 dim_user_df,
+                reference_timestamp=fact_transactions_df.agg(
+                    F.max("timestamp").alias("reference_timestamp")
+                ).first()["reference_timestamp"],
             )
         )
 
@@ -337,6 +347,8 @@ def run_gold_pipeline(
         raise
 
     finally:
+        for dataframe in reversed(persisted_dataframes):
+            dataframe.unpersist(blocking=False)
         if spark is not None:
             spark.stop()
             logger.info(

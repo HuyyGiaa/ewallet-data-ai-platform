@@ -36,7 +36,7 @@ class SparkRuntimeOptionsTest(unittest.TestCase):
         )
 
     def test_local_options_include_profile_s3a_connector(self) -> None:
-        options = spark_options(self.local_config, optimized=True)
+        options = spark_options(self.local_config, stage="dp2-gold", optimized=True)
 
         self.assertEqual(
             options["spark.hadoop.fs.s3a.endpoint"],
@@ -56,7 +56,7 @@ class SparkRuntimeOptionsTest(unittest.TestCase):
         )
 
     def test_gcp_options_exclude_local_master_and_s3a_settings(self) -> None:
-        options = spark_options(self.gcp_config, optimized=True)
+        options = spark_options(self.gcp_config, stage="dp2-gold", optimized=True)
 
         self.assertIsNone(self.gcp_config.spark.master)
         self.assertNotIn("spark.master", options)
@@ -64,9 +64,9 @@ class SparkRuntimeOptionsTest(unittest.TestCase):
         self.assertNotIn("spark-test-access", options.values())
         self.assertNotIn("spark-test-secret", options.values())
 
-    def test_optimized_flag_changes_only_aqe_and_skew_options(self) -> None:
-        optimized = spark_options(self.local_config, optimized=True)
-        baseline = spark_options(self.local_config, optimized=False)
+    def test_gold_candidate_changes_aqe_but_keeps_skew_disabled(self) -> None:
+        optimized = spark_options(self.local_config, stage="dp2-gold", optimized=True)
+        baseline = spark_options(self.local_config, stage="dp2-gold", optimized=False)
         differing_keys = {
             key
             for key in optimized
@@ -75,16 +75,13 @@ class SparkRuntimeOptionsTest(unittest.TestCase):
 
         self.assertEqual(
             differing_keys,
-            {
-                "spark.sql.adaptive.enabled",
-                "spark.sql.adaptive.skewJoin.enabled",
-            },
+            {"spark.sql.adaptive.enabled"},
         )
         self.assertEqual(optimized["spark.sql.adaptive.enabled"], "true")
         self.assertEqual(baseline["spark.sql.adaptive.enabled"], "false")
         self.assertEqual(
             optimized["spark.sql.adaptive.skewJoin.enabled"],
-            "true",
+            "false",
         )
         self.assertEqual(
             baseline["spark.sql.adaptive.skewJoin.enabled"],
@@ -92,8 +89,8 @@ class SparkRuntimeOptionsTest(unittest.TestCase):
         )
 
     def test_event_log_and_shuffle_partitions_come_from_profile(self) -> None:
-        local_options = spark_options(self.local_config, optimized=True)
-        gcp_options = spark_options(self.gcp_config, optimized=True)
+        local_options = spark_options(self.local_config, stage="dp2-gold", optimized=True)
+        gcp_options = spark_options(self.gcp_config, stage="dp2-gold", optimized=True)
 
         self.assertEqual(local_options["spark.sql.shuffle.partitions"], "32")
         self.assertEqual(
@@ -107,8 +104,8 @@ class SparkRuntimeOptionsTest(unittest.TestCase):
         )
 
     def test_packages_are_managed_separately_from_spark_options(self) -> None:
-        local_options = spark_options(self.local_config, optimized=True)
-        gcp_options = spark_options(self.gcp_config, optimized=True)
+        local_options = spark_options(self.local_config, stage="dp2-gold", optimized=True)
+        gcp_options = spark_options(self.gcp_config, stage="dp2-gold", optimized=True)
 
         self.assertNotIn("spark.jars.packages", local_options)
         self.assertNotIn("spark.jars.packages", gcp_options)

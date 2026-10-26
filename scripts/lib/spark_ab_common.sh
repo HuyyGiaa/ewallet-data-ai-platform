@@ -39,16 +39,9 @@ spark_ab_init_airflow() {
 }
 
 spark_ab_print_profile() {
-  echo "SPARK_PROFILE: ${SPARK_PROFILE^^}"
-  if [[ ${SPARK_PROFILE} == baseline ]]; then
-    echo "AQE: false"; echo "SKEW_JOIN: false"; echo "SHUFFLE_PARTITIONS: 200"
-    echo "DYNAMIC_ALLOCATION: true"; echo "DYNAMIC_ALLOCATION_PROFILE: platform-neutral"
-    echo "INITIAL_EXECUTORS: 6"; echo "MAX_EXECUTORS: 7"
-  else
-    echo "AQE: true"; echo "SKEW_JOIN: true"; echo "SHUFFLE_PARTITIONS: 400"
-    echo "DYNAMIC_ALLOCATION: true"; echo "DYNAMIC_ALLOCATION_PROFILE: performance"
-    echo "INITIAL_EXECUTORS: 6"; echo "MAX_EXECUTORS: 7"
-  fi
+  local stage=${1:?stage is required}
+  (cd "${REPOSITORY_ROOT}" && python3 -m ops.gcp.dataproc_batch_properties \
+    --stage "${stage}" --spark-profile "${SPARK_PROFILE}")
   echo "TIER: standard"; echo "RUNTIME: 2.2"; echo "TTL: 8h"
 }
 

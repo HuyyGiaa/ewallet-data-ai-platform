@@ -36,6 +36,7 @@ BRONZE_TABLES = (
     "login_events",
     "fraud_labels",
 )
+CANONICAL_MINIMUM_BYTES = 100_000_000_000
 
 
 def _dataset_root(manifest_uri: str) -> str:
@@ -93,6 +94,11 @@ def validate_source_manifest(
         raise ValueError("fraud scenario total differs from fraud_rows")
     if total_bytes != int(value["total_bytes"]):
         raise ValueError("source total_bytes differs from table totals")
+    if (
+        expected_dataset_version == "canonical-100gb-v1"
+        and total_bytes < CANONICAL_MINIMUM_BYTES
+    ):
+        raise ValueError("canonical source is below the strict 100 GB gate")
     return dict(value)
 
 
@@ -132,20 +138,93 @@ def _download_json(uri: str) -> dict[str, Any]:
     return value
 
 
-def _verify_gcs_objects(manifest_uri: str, manifest: Mapping[str, Any]) -> None:
-    from google.cloud import storage
-
-    root = urlsplit(_dataset_root(manifest_uri))
-    client = storage.Client()
-    bucket = client.bucket(root.netloc)
-    prefix = root.path.strip("/")
+def _expected_object_metadata(
+    *, prefix: str, manifest: Mapping[str, Any]
+) -> dict[str, Mapping[str, Any]]:
+    expected: dict[str, Mapping[str, Any]] = {}
     for table in PHYSICAL_TABLES:
         for item in manifest["tables"][table]["files"]:
             name = f"{prefix}/{item['path']}"
+            if name in expected:
+                raise ValueError(f"duplicate source object in manifest: {name}")
+            expected[name] = item
+    return expected
+
+
+def _verify_gcs_objects(
+    manifest_uri: str,
+    manifest: Mapping[str, Any],
+    *,
+    client: Any | None = None,
+) -> dict[str, Any]:
+    """Verify one paginated object inventory, reloading only absent MD5 values."""
+
+    if client is None:
+        from google.cloud import storage
+
+        client = storage.Client()
+
+    root = urlsplit(_dataset_root(manifest_uri))
+    bucket = client.bucket(root.netloc)
+    prefix = root.path.strip("/")
+    expected = _expected_object_metadata(prefix=prefix, manifest=manifest)
+    listed: dict[str, Any] = {}
+    duplicates: set[str] = set()
+    unexpected: set[str] = set()
+
+    # ``list_blobs`` is paginated by the client. Control JSON is intentionally
+    # outside the physical Parquet inventory represented by the manifest.
+    for blob in client.list_blobs(root.netloc, prefix=f"{prefix}/"):
+        name = str(blob.name)
+        if name in listed:
+            duplicates.add(name)
+            continue
+        listed[name] = blob
+        if name not in expected and "/_control/" not in f"/{name}":
+            unexpected.add(name)
+
+    if duplicates:
+        raise ValueError(
+            "duplicate GCS source objects in listing: "
+            + ", ".join(sorted(duplicates))
+        )
+    missing = set(expected) - set(listed)
+    if missing:
+        raise ValueError(
+            "missing GCS source objects: " + ", ".join(sorted(missing))
+        )
+    if unexpected:
+        raise ValueError(
+            "unexpected GCS source objects: " + ", ".join(sorted(unexpected))
+        )
+
+    md5_fallback_reloads = 0
+    generations: dict[str, int | None] = {}
+    listed_bytes = 0
+    for name in sorted(expected):
+        item = expected[name]
+        blob = listed[name]
+        if getattr(blob, "md5_hash", None) is None:
             blob = bucket.blob(name)
             blob.reload()
-            if int(blob.size) != int(item["bytes"]) or blob.md5_hash != item["md5_base64"]:
-                raise ValueError(f"GCS source object metadata mismatch: gs://{root.netloc}/{name}")
+            md5_fallback_reloads += 1
+        size = int(blob.size)
+        listed_bytes += size
+        generations[name] = (
+            int(blob.generation) if getattr(blob, "generation", None) else None
+        )
+        if size != int(item["bytes"]) or blob.md5_hash != item["md5_base64"]:
+            raise ValueError(
+                f"GCS source object metadata mismatch: gs://{root.netloc}/{name}"
+            )
+    if listed_bytes != int(manifest["total_bytes"]):
+        raise ValueError("listed GCS source bytes differ from dataset manifest")
+    return {
+        "listed_object_count": len(expected),
+        "listed_total_bytes": listed_bytes,
+        "md5_fallback_reloads": md5_fallback_reloads,
+        "generation_count": sum(value is not None for value in generations.values()),
+    }
 
 
 def _schema_sha256(dataframe: DataFrame) -> str:
@@ -199,7 +278,7 @@ def run_ingestion(
         _download_json(source_manifest_uri),
         expected_dataset_version=dataset_version,
     )
-    _verify_gcs_objects(source_manifest_uri, manifest)
+    source_inventory = _verify_gcs_objects(source_manifest_uri, manifest)
     started_at = datetime.now(timezone.utc)
     started = time.monotonic()
     spark = (
@@ -232,11 +311,6 @@ def run_ingestion(
             if table == "transactions"
             else int(manifest["tables"][table]["rows"])
         )
-        actual_rows = dataframe.count()
-        if actual_rows != expected_rows:
-            raise RuntimeError(
-                f"source row count mismatch for {table}: expected {expected_rows}, got {actual_rows}"
-            )
         table_uri = f"{bronze_root.rstrip('/')}/{table}"
         dataframe.write.format("delta").mode("errorifexists").save(table_uri)
         read_back = spark.read.format("delta").load(table_uri)
@@ -246,7 +320,10 @@ def run_ingestion(
                 f"Bronze read-back mismatch for {table}: expected {expected_rows}, got {output_rows}"
             )
         metrics[table] = {
-            "source_rows": actual_rows,
+            # The immutable manifest is the source count contract; read-back
+            # proves the materialized output contains that exact count without
+            # an additional pre-write full scan.
+            "source_rows": expected_rows,
             "bronze_rows": output_rows,
             "schema_sha256": _schema_sha256(read_back),
             "delta_version": _delta_version(table_uri),
@@ -310,6 +387,7 @@ def run_ingestion(
         "source_file_count": sum(
             len(manifest["tables"][table]["files"]) for table in PHYSICAL_TABLES
         ),
+        "source_inventory": source_inventory,
         "logical_transactions": int(transaction_summary["logical_rows"]),
         "physical_transactions": int(transaction_summary["physical_rows"]),
         "duplicate_rows": duplicate_rows,

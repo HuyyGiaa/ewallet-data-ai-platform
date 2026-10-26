@@ -18,10 +18,10 @@ ATTEMPT_ID="r$(date -u +%y%m%d%H%M%S)"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "${SCRIPT_DIR}/lib/spark_ab_common.sh"
 spark_ab_validate_profile; spark_ab_validate_benchmark_id
-[[ ${SILVER_RUN} =~ ^${BENCHMARK_ID}-${SPARK_PROFILE}-silver-r[0-9]{12}$ ]] || \
-  spark_ab_usage_error "Silver run is not bound to benchmark ${BENCHMARK_ID}/${SPARK_PROFILE}"
-[[ ${GOLD_RUN} =~ ^${BENCHMARK_ID}-${SPARK_PROFILE}-gold-r[0-9]{12}$ ]] || \
-  spark_ab_usage_error "Gold run is not bound to benchmark ${BENCHMARK_ID}/${SPARK_PROFILE}"
+[[ ${SILVER_RUN} =~ ^${BENCHMARK_ID}-(baseline|optimized)-silver-r[0-9]{12}$ ]] || \
+  spark_ab_usage_error "Silver run is not a selected immutable run for benchmark ${BENCHMARK_ID}"
+[[ ${GOLD_RUN} =~ ^${BENCHMARK_ID}-(baseline|optimized)-gold-r[0-9]{12}$ ]] || \
+  spark_ab_usage_error "Gold run is not a selected immutable run for benchmark ${BENCHMARK_ID}"
 spark_ab_init_airflow
 FEATURE_RUN="${BENCHMARK_ID}-${SPARK_PROFILE}-feat-${ATTEMPT_ID}"
 DP3_RUN="${BENCHMARK_ID}-${SPARK_PROFILE}-dp3-${ATTEMPT_ID}"
@@ -30,7 +30,8 @@ echo "MODE: $([[ ${EXECUTE} == true ]] && echo EXECUTE || echo DRY-RUN)"
 echo "BENCHMARK_ID: ${BENCHMARK_ID}"; echo "SILVER_RUN: ${SILVER_RUN}"
 echo "GIT_SHA: ${GIT_SHA}"
 echo "GOLD_RUN: ${GOLD_RUN}"; echo "FEATURE_RUN: ${FEATURE_RUN}"; echo "DP3_RUN: ${DP3_RUN}"
-spark_ab_print_profile; spark_ab_print_quota_guard gold-to-features "${GOLD_RUN}" "${FEATURE_RUN}"
+spark_ab_print_profile dp3-features
+spark_ab_print_quota_guard gold-to-features "${GOLD_RUN}" "${FEATURE_RUN}"
 echo "Airflow conf: ${CONF}"; echo "Exact trigger command:"
 spark_ab_print_trigger dp3_historical_features "${DP3_RUN}" "${CONF}"
 spark_ab_execute_or_dry_run dp3_historical_features "${DP3_RUN}" "${CONF}"
