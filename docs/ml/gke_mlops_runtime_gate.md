@@ -100,7 +100,25 @@ scripts/mlops/preflight.sh --execute
 Expected: `cpu-pool` has one node, the Kubernetes context names
 `ewallet-dev`, and the read-only preflight prints `PASS`.
 
-### 4. Deploy PostgreSQL and MLflow
+### 4. Prepare identities and bind Workload Identity
+
+The bind command first idempotently applies the canonical `ml-platform` and
+`kubeflow` Namespace manifests and the canonical `training` and
+`pipeline-runner` ServiceAccount manifests. Only after those prerequisites
+exist does it add the two GSA IAM members and annotate both KSAs. Its dry-run
+prints that exact order.
+
+```bash
+scripts/mlops/workload_identity.sh bind
+scripts/mlops/workload_identity.sh bind --execute
+```
+
+The operation grants only `roles/iam.workloadIdentityUser` from the canonical
+training GSA to `ml-platform/training` and `kubeflow/pipeline-runner`. It is
+safe to repeat: Kubernetes resources use `apply`, IAM policy additions are
+idempotent, and annotations use `--overwrite`. No credential file is created.
+
+### 5. Deploy PostgreSQL and MLflow
 
 ```bash
 scripts/mlops/deploy_mlflow.sh
@@ -114,7 +132,7 @@ StatefulSet replica, a 5 GiB PVC, 100m/256 MiB requests and 500m/768 MiB
 limits. MLflow uses one Deployment replica, an internal Service, 250m/512 MiB
 requests and 1 CPU/1 GiB limits, plus `/health` readiness and liveness probes.
 
-### 5. Deploy pinned standalone KFP
+### 6. Deploy pinned standalone KFP
 
 ```bash
 scripts/mlops/deploy_kfp.sh
@@ -124,20 +142,12 @@ scripts/mlops/deploy_kfp.sh --execute
 The only upstream sources are the two Kubeflow Pipelines kustomizations pinned
 with `ref=2.17.3`; the workflow does not use `curl | kubectl`, Helm or full
 Kubeflow. The committed compiled YAML is checksum-validated but is neither
-regenerated nor uploaded by this gate.
+regenerated nor uploaded by this gate. Both deployment scripts may reapply
+their canonical Namespace and ServiceAccount manifests. `kubectl apply` does
+not remove the Workload Identity annotation added separately with
+`kubectl annotate`, so the identity binding survives deployment reapplication.
 
-### 6. Bind Workload Identity
-
-```bash
-scripts/mlops/workload_identity.sh bind
-scripts/mlops/workload_identity.sh bind --execute
-```
-
-This grants only `roles/iam.workloadIdentityUser` from the canonical training
-GSA to `ml-platform/training` and `kubeflow/pipeline-runner`, then adds the GSA
-annotation to those KSAs. No credential file is created.
-
-### 7. Validate rollouts and internal health
+### 7. Validate rollouts, identities and internal health
 
 ```bash
 mkdir -p tmp
@@ -147,8 +157,9 @@ scripts/mlops/health_kfp.sh --execute | tee tmp/kfp-health.txt
 ```
 
 Expected results are available PostgreSQL/MLflow/KFP deployments,
-`pg_isready` success, MLflow `/health` success, and successful KFP API/UI HTTP
-checks through temporary local port-forwards.
+`pg_isready` success, exact GSA annotations on both KSAs, both expected
+`roles/iam.workloadIdentityUser` members on the GSA, MLflow `/health` success,
+and successful KFP API/UI HTTP checks through temporary local port-forwards.
 
 ### 8. Collect evidence
 
@@ -165,16 +176,15 @@ port-forwards if presentation evidence is required.
 
 ## Cleanup and rollback
 
-Review and export evidence first. Unbind Workload Identity while both service
-accounts still exist, remove only this bounded runtime, then return the
-existing node pool to zero:
+Review and export evidence first, remove only this bounded runtime, then return
+the existing node pool to zero. The valid cleanup interface is
+`scripts/mlops/cleanup.sh <mlflow|kfp|all>`; add `--execute` only after
+reviewing its dry-run:
 
 ```bash
-scripts/mlops/workload_identity.sh unbind
 scripts/mlops/cleanup.sh all
 scripts/mlops/cluster_capacity.sh down
 
-scripts/mlops/workload_identity.sh unbind --execute
 export ALLOW_KFP_CONTROL_PLANE_DELETE=YES
 scripts/mlops/cleanup.sh all --execute
 scripts/mlops/cluster_capacity.sh down --execute
@@ -189,9 +199,11 @@ scripts/mlops/cleanup.sh mlflow --delete-postgres-data
 scripts/mlops/cleanup.sh mlflow --delete-postgres-data --execute
 ```
 
-Cleanup never deletes or modifies the GKE cluster, GCS buckets/objects,
-Artifact Registry repositories/images, canonical datasets, DP1/DP2/DP3
-outputs, MLflow GCS artifacts, or production aliases. Do not set
+Cleanup never deletes or modifies the training GSA or its IAM policy, the GKE
+cluster, GCS buckets/objects, Artifact Registry repositories/images, canonical
+datasets, DP1/DP2/DP3 outputs, MLflow GCS artifacts, or production aliases.
+The KSA objects can be recreated and rebound idempotently by the identity
+preparation step. Do not set
 `ALLOW_KFP_CONTROL_PLANE_DELETE=YES` unless the `kubeflow` namespace is
 dedicated to this standalone pilot.
 

@@ -47,4 +47,4 @@ cleanup_kfp() {
 echo "$([[ ${EXECUTE} -eq 1 ]] && echo EXECUTE || echo 'DRY RUN'): bounded cleanup target=${target}"
 [[ "${target}" == "mlflow" || "${target}" == "all" ]] && cleanup_mlflow
 [[ "${target}" == "kfp" || "${target}" == "all" ]] && cleanup_kfp
-echo "Protected by design: GKE cluster, GCS, Artifact Registry, canonical datasets and DP outputs are untouched."
+echo "Protected by design: GSA/IAM policy, GKE cluster, GCS, Artifact Registry, canonical datasets and DP outputs are untouched."

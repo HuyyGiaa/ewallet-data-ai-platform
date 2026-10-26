@@ -14,6 +14,14 @@ require_env TRAINING_GSA
 require_command gcloud
 require_command kubectl
 
+if [[ "${action}" == "bind" ]]; then
+  echo "$([[ ${EXECUTE} -eq 1 ]] && echo EXECUTE || echo 'DRY RUN'): prepare Workload Identity prerequisites"
+  run_or_plan kubectl apply -f "${REPO_ROOT}/infra/kubernetes/mlflow/namespace.yaml"
+  run_or_plan kubectl apply -f "${REPO_ROOT}/infra/kubernetes/kfp/namespace.yaml"
+  run_or_plan kubectl apply -f "${REPO_ROOT}/infra/kubernetes/mlflow/service-account.yaml"
+  run_or_plan kubectl apply -f "${REPO_ROOT}/infra/kubernetes/kfp/pipeline-runner-service-account.yaml"
+fi
+
 verb="add-iam-policy-binding"
 annotation="iam.gke.io/gcp-service-account=${TRAINING_GSA}"
 if [[ "${action}" == "unbind" ]]; then
