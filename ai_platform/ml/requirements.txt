@@ -5,3 +5,4 @@ PyYAML==6.0.3
 mlflow==3.17.1
 psycopg2-binary==2.9.13
 google-cloud-storage==3.4.1
+joblib==1.6.0

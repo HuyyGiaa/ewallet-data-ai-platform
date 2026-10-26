@@ -61,68 +61,105 @@ class ExperimentRunner:
         required = {"train", "validation", "test"}
         if set(splits) != required:
             raise ValueError(f"Experiment splits must be exactly {sorted(required)}")
-        train = splits["train"]
-        validation = splits["validation"]
-        results: list[CandidateResult] = []
-        for candidate in self._candidates:
-            config = candidate.model
-            pipeline = build_candidate_model(config, self._seed)
-            fit_started = time.perf_counter()
-            pipeline.fit(train.X, train.y)
-            fit_seconds = time.perf_counter() - fit_started
-            predict_started = time.perf_counter()
-            scores = pipeline.predict_proba(validation.X)[:, 1]
-            predict_seconds = time.perf_counter() - predict_started
-            selected = choose_threshold(validation.y.to_numpy(), scores)
-            metrics = evaluate_scores(
-                validation.y.to_numpy(), scores, selected.threshold
+        results = tuple(
+            train_candidate(
+                candidate,
+                splits["train"],
+                splits["validation"],
+                seed=self._seed,
             )
-            results.append(
-                CandidateResult(
-                    name=config.name,
-                    estimator=config.estimator,
-                    pipeline=pipeline,
-                    threshold=selected.threshold,
-                    selection_eligible=candidate.selection_eligible,
-                    validation_report={
-                        "model": config.name,
-                        "rows": int(len(validation.y)),
-                        "threshold": selected.threshold,
-                        "metrics": metrics.as_dict(),
-                        "fit_seconds": float(fit_seconds),
-                        "predict_seconds": float(predict_seconds),
-                        "parameters": dict(config.params),
-                    },
-                )
-            )
+            for candidate in self._candidates
+        )
+        winner = select_validation_winner(results)
+        return evaluate_test_winner(results, winner.name, splits["test"])
 
-        pool = [result for result in results if result.selection_eligible]
-        winner = max(
-            pool,
-            key=lambda result: (
-                float(result.validation_report["metrics"]["pr_auc"]),
-                float(result.validation_report["metrics"]["f1"]),
-                result.name,
-            ),
+
+def train_candidate(
+    candidate: CandidateDefinition,
+    train: ModelingSplit,
+    validation: ModelingSplit,
+    *,
+    seed: int,
+) -> CandidateResult:
+    """Fit one configured candidate and evaluate validation only."""
+    config = candidate.model
+    pipeline = build_candidate_model(config, seed)
+    fit_started = time.perf_counter()
+    pipeline.fit(train.X, train.y)
+    fit_seconds = time.perf_counter() - fit_started
+    predict_started = time.perf_counter()
+    scores = pipeline.predict_proba(validation.X)[:, 1]
+    predict_seconds = time.perf_counter() - predict_started
+    selected = choose_threshold(validation.y.to_numpy(), scores)
+    metrics = evaluate_scores(validation.y.to_numpy(), scores, selected.threshold)
+    return CandidateResult(
+        name=config.name,
+        estimator=config.estimator,
+        pipeline=pipeline,
+        threshold=selected.threshold,
+        selection_eligible=candidate.selection_eligible,
+        validation_report={
+            "model": config.name,
+            "rows": int(len(validation.y)),
+            "threshold": selected.threshold,
+            "metrics": metrics.as_dict(),
+            "fit_seconds": float(fit_seconds),
+            "predict_seconds": float(predict_seconds),
+            "parameters": dict(config.params),
+        },
+    )
+
+
+def select_validation_winner(
+    results: Sequence[CandidateResult],
+) -> CandidateResult:
+    """Select from eligible validation results without reading test data."""
+    pool = [result for result in results if result.selection_eligible]
+    if not pool:
+        raise ValueError("At least one validation result must be selection eligible")
+    return max(
+        pool,
+        key=lambda result: (
+            float(result.validation_report["metrics"]["pr_auc"]),
+            float(result.validation_report["metrics"]["f1"]),
+            result.name,
+        ),
+    )
+
+
+def evaluate_test_winner(
+    results: Sequence[CandidateResult],
+    winner_name: str,
+    test: ModelingSplit,
+) -> ExperimentResult:
+    """Evaluate exactly one preselected winner against the held-out test split."""
+    selected = [result for result in results if result.name == winner_name]
+    if len(selected) != 1:
+        raise ValueError(f"Expected one selected winner named {winner_name!r}")
+    winner = selected[0]
+    eligible_winner = select_validation_winner(results)
+    if winner.name != eligible_winner.name:
+        raise ValueError(
+            f"Requested winner {winner.name!r} differs from validation winner "
+            f"{eligible_winner.name!r}"
         )
-        test = splits["test"]
-        test_started = time.perf_counter()
-        test_scores = winner.pipeline.predict_proba(test.X)[:, 1]
-        test_seconds = time.perf_counter() - test_started
-        test_metrics = evaluate_scores(test.y.to_numpy(), test_scores, winner.threshold)
-        predictions = (test_scores >= winner.threshold).astype(int)
-        test_report: dict[str, object] = {
-            "model": winner.name,
-            "rows": int(len(test.y)),
-            "threshold": winner.threshold,
-            "metrics": test_metrics.as_dict(),
-            "scenarios": scenario_report(
-                test.y.to_numpy(), predictions, test.diagnostics["fraud_type"]
-            ),
-            "predict_seconds": float(test_seconds),
-        }
-        finalized = tuple(
-            replace(result, tested=result.name == winner.name) for result in results
-        )
-        final_winner = next(result for result in finalized if result.tested)
-        return ExperimentResult(finalized, final_winner, test_report)
+    test_started = time.perf_counter()
+    test_scores = winner.pipeline.predict_proba(test.X)[:, 1]
+    test_seconds = time.perf_counter() - test_started
+    test_metrics = evaluate_scores(test.y.to_numpy(), test_scores, winner.threshold)
+    predictions = (test_scores >= winner.threshold).astype(int)
+    test_report: dict[str, object] = {
+        "model": winner.name,
+        "rows": int(len(test.y)),
+        "threshold": winner.threshold,
+        "metrics": test_metrics.as_dict(),
+        "scenarios": scenario_report(
+            test.y.to_numpy(), predictions, test.diagnostics["fraud_type"]
+        ),
+        "predict_seconds": float(test_seconds),
+    }
+    finalized = tuple(
+        replace(result, tested=result.name == winner.name) for result in results
+    )
+    final_winner = next(result for result in finalized if result.tested)
+    return ExperimentResult(finalized, final_winner, test_report)
