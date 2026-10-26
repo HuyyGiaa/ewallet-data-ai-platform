@@ -12,6 +12,7 @@ from ai_platform.features.feast.cloud_boundary import (
     CANONICAL_TRAINING_SAMPLE_MODULUS,
     CloudFeastTrainingBoundary,
 )
+from ai_platform.features.feast.provenance import load_feature_selection_evidence
 
 
 def _command(*parts: str) -> str:
@@ -21,6 +22,8 @@ def _command(*parts: str) -> str:
 def render_user_commands(
     boundary: CloudFeastTrainingBoundary,
     staging_root: str,
+    *,
+    feature_selection_evidence: str,
 ) -> list[str]:
     staging = Path(staging_root) / boundary.snapshot_id
     validation = staging / "validation"
@@ -38,6 +41,7 @@ def render_user_commands(
             "--snapshot-id", boundary.snapshot_id,
             "--source-feature-root", boundary.feature_gold_root,
             "--output-root", boundary.feast_snapshot_root,
+            "--feature-selection-evidence", feature_selection_evidence,
         ),
         _command(
             "ai_platform/features/feast/.venv/bin/feast",
@@ -87,6 +91,9 @@ def render_user_commands(
             "python", "-m", "ai_platform.ml.training.validate_materialized",
             "--source", str(source), "--dataset", str(dataset),
         ),
+        _command("sha256sum", str(dataset / "manifest.json"))
+        + " | awk '{print $1}' > "
+        + shlex.quote(str(dataset / "manifest.sha256")),
         _command(
             "gcloud", "storage", "ls", f"{boundary.training_snapshot_root}/**",
         ) + "  # must report no matching objects before publish",
@@ -104,23 +111,46 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--silver-run-id", required=True)
     parser.add_argument("--feature-run-id", required=True)
     parser.add_argument("--snapshot-id", required=True)
+    parser.add_argument("--feature-selection-evidence", required=True)
     parser.add_argument("--staging-root", default="runtime/cloud-training")
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+    selection = load_feature_selection_evidence(args.feature_selection_evidence)
+    expected = (
+        args.dataset_version,
+        args.silver_run_id,
+        args.feature_run_id,
+        f"gs://{args.bucket}/lakehouse/runs/{args.feature_run_id}/gold",
+    )
+    actual = (
+        selection.dataset_version,
+        selection.silver_run_id,
+        selection.feature_run_id,
+        selection.feature_root,
+    )
+    if expected != actual:
+        raise ValueError("boundary identifiers do not match selection evidence")
     boundary = CloudFeastTrainingBoundary(
         bucket=args.bucket,
         dataset_version=args.dataset_version,
         silver_run_id=args.silver_run_id,
         feature_run_id=args.feature_run_id,
         snapshot_id=args.snapshot_id,
+        source_git_sha=selection.git_sha,
+        spark_profile=selection.spark_profile,
+        feature_selection_digest=selection.evidence_digest,
     )
     print("DRY RUN — no cloud or data workload was executed")
     print(json.dumps(boundary.as_dict(), indent=2))
     print("\n# Future USER_RUN sequence")
-    for command in render_user_commands(boundary, args.staging_root):
+    for command in render_user_commands(
+        boundary,
+        args.staging_root,
+        feature_selection_evidence=args.feature_selection_evidence,
+    ):
         print(command)
     return 0
 

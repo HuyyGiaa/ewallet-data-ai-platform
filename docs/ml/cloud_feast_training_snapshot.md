@@ -16,6 +16,14 @@ Required identifiers are explicit and immutable:
 - `feature_run_id` is the successful canonical DP3 feature run;
 - `snapshot_id` is new and must never be reused.
 
+The feature run must also have one immutable
+`feast-feature-selection-v1` evidence artifact with `PASS` status and a valid
+digest. It binds the exact dataset, Silver run, DP3 run/root, Git SHA and Spark
+profile. The selection may name either `baseline` or `optimized`; eligibility
+comes from reviewed DP3 evidence, not from a permanent profile-name rule. The
+current accepted optimized DP3 output can therefore be used now, while a later
+verified Method 2 winner can become the source without changing this contract.
+
 The contract resolves to:
 
 ```text
@@ -59,13 +67,15 @@ export DATASET_VERSION="canonical-100gb-v1"
 export SILVER_RUN_ID="canonical-silver-<actual-stamp>"
 export FEATURE_RUN_ID="canonical-features-<actual-stamp>"
 export SNAPSHOT_ID="canonical-training-v1-$(date -u +%Y%m%d-%H%M%S)"
+export FEATURE_SELECTION_EVIDENCE="<reviewed-feast-feature-selection-v1.json>"
 
 python -m ops.gcp.prepare_feast_training_boundary \
   --bucket "$EWALLET_DATA_BUCKET" \
   --dataset-version "$DATASET_VERSION" \
   --silver-run-id "$SILVER_RUN_ID" \
   --feature-run-id "$FEATURE_RUN_ID" \
-  --snapshot-id "$SNAPSHOT_ID"
+  --snapshot-id "$SNAPSHOT_ID" \
+  --feature-selection-evidence "$FEATURE_SELECTION_EVIDENCE"
 ```
 
 The command is a dry-run and prints the exact execution sequence. Before that
@@ -87,7 +97,9 @@ Record the resolved contract JSON plus:
 - source manifest: label integrity, sample modulus, selected split profile;
 - training manifest and validator PASS: row/key parity, split isolation,
   chronology, derived formulas, forbidden-column checks;
-- final GCS object listing, byte count, and copied `manifest.json`.
+- final GCS object listing, byte count, copied `manifest.json`, and the exact
+  `manifest.sha256` uploaded beside it. F9 and KFP must receive this expected
+  digest and reject a downloaded manifest that does not match.
 
 If an export or publish is partial, keep it as failed evidence and use a new
 `snapshot_id`; never repair a published prefix in place.

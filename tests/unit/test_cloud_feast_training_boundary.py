@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 import tempfile
+import json
 from pathlib import Path
 
 import pyarrow as pa
@@ -11,6 +12,10 @@ import pyarrow.parquet as pq
 from ai_platform.features.feast.cloud_boundary import (
     FEATURE_TABLES,
     CloudFeastTrainingBoundary,
+)
+from ai_platform.features.feast.provenance import (
+    build_feature_selection_evidence,
+    load_feature_selection_evidence,
 )
 from data_platform.config import (
     RuntimeConfig,
@@ -23,12 +28,28 @@ from ops.gcp.prepare_feast_training_boundary import render_user_commands
 
 class CloudFeastTrainingBoundaryTest(unittest.TestCase):
     def setUp(self) -> None:
+        self.selection = build_feature_selection_evidence(
+            dataset_version="canonical-100gb-v1",
+            silver_run_id="canonical-silver-20261024-010203",
+            feature_run_id="canonical-features-20261024-010203",
+            feature_root=(
+                "gs://course-data/lakehouse/runs/"
+                "canonical-features-20261024-010203/gold"
+            ),
+            spark_profile="optimized",
+            git_sha="a" * 40,
+            selection_basis="canonical-dp3-pass",
+            source_evidence_digest="sha256:" + "b" * 64,
+        )
         self.boundary = CloudFeastTrainingBoundary(
             bucket="course-data",
             dataset_version="canonical-100gb-v1",
             silver_run_id="canonical-silver-20261024-010203",
             feature_run_id="canonical-features-20261024-010203",
             snapshot_id="training-v1-20261024-010203",
+            source_git_sha="a" * 40,
+            spark_profile="optimized",
+            feature_selection_digest=self.selection["evidence_digest"],
         )
 
     def test_contract_uses_immutable_run_scoped_gcs_roots(self) -> None:
@@ -72,6 +93,9 @@ class CloudFeastTrainingBoundaryTest(unittest.TestCase):
                 silver_run_id="canonical-silver-1",
                 feature_run_id="canonical-features-1",
                 snapshot_id="latest",
+                source_git_sha="a" * 40,
+                spark_profile="optimized",
+                feature_selection_digest="sha256:" + "b" * 64,
             )
         with self.assertRaisesRegex(ValueError, "bucket"):
             CloudFeastTrainingBoundary(
@@ -80,6 +104,9 @@ class CloudFeastTrainingBoundaryTest(unittest.TestCase):
                 silver_run_id="canonical-silver-1",
                 feature_run_id="canonical-features-1",
                 snapshot_id="training-v1",
+                source_git_sha="a" * 40,
+                spark_profile="optimized",
+                feature_selection_digest="sha256:" + "b" * 64,
             )
 
     def test_environment_is_explicit_and_contains_no_local_service(self) -> None:
@@ -108,9 +135,48 @@ class CloudFeastTrainingBoundaryTest(unittest.TestCase):
             contract["source_silver_run_id"],
         )
         self.assertEqual(10000, contract["bounded_training_sample_modulus"])
+        self.assertEqual("a" * 40, contract["source_git_sha"])
+        self.assertEqual("optimized", contract["spark_profile"])
+        self.assertEqual(
+            self.selection["evidence_digest"],
+            contract["feature_selection_digest"],
+        )
+
+    def test_verified_baseline_or_optimized_feature_selection_is_supported(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            for profile in ("baseline", "optimized"):
+                evidence = build_feature_selection_evidence(
+                    dataset_version="canonical-100gb-v1",
+                    silver_run_id="canonical-silver-20261024-010203",
+                    feature_run_id=f"selected-{profile}-features",
+                    feature_root=(
+                        "gs://course-data/lakehouse/runs/"
+                        f"selected-{profile}-features/gold"
+                    ),
+                    spark_profile=profile,
+                    git_sha="a" * 40,
+                    selection_basis="spark-method2-winner-v1",
+                    source_evidence_digest="sha256:" + "c" * 64,
+                )
+                path = Path(temporary) / f"{profile}.json"
+                path.write_text(json.dumps(evidence), encoding="utf-8")
+                loaded = load_feature_selection_evidence(path)
+                self.assertEqual(profile, loaded.spark_profile)
+
+    def test_feature_selection_rejects_tampered_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "selection.json"
+            tampered = {**self.selection, "source_feature_run_id": "other-run"}
+            path.write_text(json.dumps(tampered), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "digest"):
+                load_feature_selection_evidence(path)
 
     def test_future_commands_bind_every_lineage_root(self) -> None:
-        commands = render_user_commands(self.boundary, "runtime/cloud-training")
+        commands = render_user_commands(
+            self.boundary,
+            "runtime/cloud-training",
+            feature_selection_evidence="evidence/feature-selection.json",
+        )
         rendered = "\n".join(commands)
         for expected in (
             self.boundary.feature_gold_root,
@@ -120,6 +186,8 @@ class CloudFeastTrainingBoundaryTest(unittest.TestCase):
             self.boundary.training_snapshot_root,
             "--sample-modulus 10000",
             "--environment gcp",
+            "--feature-selection-evidence evidence/feature-selection.json",
+            "manifest.sha256",
         ):
             self.assertIn(expected, rendered)
         self.assertNotIn("localhost", rendered)

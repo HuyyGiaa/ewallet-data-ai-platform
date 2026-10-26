@@ -6,6 +6,9 @@
   "required_inputs": {
     "source_silver_run_id": "SET_AFTER_CANONICAL_DP2_PASS",
     "source_feature_run_id": "SET_AFTER_CANONICAL_DP3_PASS",
+    "source_git_sha": "SET_FROM_VERIFIED_DP3_SELECTION",
+    "spark_profile": "SET_FROM_VERIFIED_DP3_SELECTION",
+    "feature_selection_digest": "SET_FROM_VERIFIED_DP3_SELECTION",
     "feature_tables": [
       "feat_user_behavior",
       "feat_account_behavior",
@@ -27,6 +30,7 @@
     "point_in_time_310_values_zero_mismatch",
     "training_source_label_integrity",
     "training_snapshot_streaming_validator",
+    "training_snapshot_manifest_sha256",
     "output_prefix_absent_before_publish"
   ]
 }

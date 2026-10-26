@@ -20,16 +20,16 @@ import pyarrow.fs as fs
 from deltalake import DeltaTable
 
 from ai_platform.features.feast import OFFLINE_DATA_ROOT
+from ai_platform.features.feast.provenance import (
+    FeatureSelectionEvidence,
+    load_feature_selection_evidence,
+)
 from ai_platform.features.feast.repository import (
     build_export_manifest,
     join_data_root,
 )
 from ai_platform.features.feast.schema import FEATURE_SPECS
 from data_platform.config import RuntimeConfig, load_runtime_config
-from data_platform.config.spark_profiles import (
-    parse_benchmark_run_id,
-    require_optimized_lineage,
-)
 from data_platform.storage.scripts.config import (
     deltalake_storage_options,
     storage_table_uri,
@@ -41,24 +41,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--environment",
         choices=("local", "dev", "gcp"),
-        default="local",
-    )
-    parser.add_argument(
-        "--spark-profile",
-        choices=("baseline", "optimized", "canonical"),
-        default="optimized",
-        help="Canonical Feast export rejects benchmark-only baseline lineage.",
+        required=True,
     )
     parser.add_argument("--output-root")
     parser.add_argument("--source-feature-root")
     parser.add_argument("--snapshot-id")
     parser.add_argument(
         "--source-feature-run-id",
-        help="Required for cloud exports; must be an optimized DP3 feature run.",
+        help="Required for cloud exports; must match verified selection evidence.",
     )
+    parser.add_argument("--feature-selection-evidence")
     parser.add_argument(
         "--dataset-version",
-        default=os.getenv("EWALLET_DATASET_VERSION", "active"),
+        default=os.getenv("EWALLET_DATASET_VERSION"),
     )
     return parser.parse_args(argv)
 
@@ -142,25 +137,17 @@ def _write_manifest(uri: str, manifest: dict[str, object]) -> None:
 def bind_cloud_feature_lineage(
     runtime_config: RuntimeConfig,
     *,
-    source_feature_run_id: str,
-    spark_profile: str,
+    selection: FeatureSelectionEvidence,
 ) -> RuntimeConfig:
-    """Bind cloud Feast reads to one verified optimized DP3 output root."""
+    """Bind cloud Feast reads to one evidence-selected DP3 output root."""
 
-    lineage = parse_benchmark_run_id(source_feature_run_id)
-    if lineage["stage"] != "feat":
-        raise ValueError("Feast source must be a DP3 feature run")
-    if spark_profile != lineage["spark_profile"]:
-        raise ValueError("spark profile does not match feature run lineage")
-    require_optimized_lineage(lineage["spark_profile"])
-    bucket_root = runtime_config.storage.gold_root.split("/lakehouse/", 1)[0]
+    if runtime_config.environment != "gcp" or runtime_config.storage.scheme != "gs":
+        raise ValueError("verified feature selection requires a GCP GCS root")
     return replace(
         runtime_config,
         storage=replace(
             runtime_config.storage,
-            gold_root=(
-                f"{bucket_root}/lakehouse/runs/{source_feature_run_id}/gold"
-            ),
+            gold_root=selection.feature_root,
         ),
     )
 
@@ -170,26 +157,29 @@ def export_gold_snapshots(
     output_root: str | Path | None = None,
     *,
     dataset_version: str = "active",
-    spark_profile: str = "optimized",
     source_feature_run_id: str | None = None,
-    allow_baseline_for_test: bool = False,
     snapshot_id: str | None = None,
     immutable: bool = False,
+    selection: FeatureSelectionEvidence | None = None,
 ) -> dict[str, object]:
     if runtime_config.environment != "local":
-        if source_feature_run_id is None:
-            raise ValueError(
-                "cloud Feast export requires --source-feature-run-id"
-            )
+        if selection is None:
+            raise ValueError("cloud Feast export requires verified selection evidence")
+        expected = (
+            dataset_version,
+            source_feature_run_id,
+            runtime_config.storage.gold_root,
+        )
+        actual = (
+            selection.dataset_version,
+            selection.feature_run_id,
+            selection.feature_root,
+        )
+        if expected != actual:
+            raise ValueError("cloud Feast arguments do not match selection evidence")
         runtime_config = bind_cloud_feature_lineage(
             runtime_config,
-            source_feature_run_id=source_feature_run_id,
-            spark_profile=spark_profile,
-        )
-    else:
-        require_optimized_lineage(
-            spark_profile,
-            allow_baseline_for_test=allow_baseline_for_test,
+            selection=selection,
         )
     default_root = (
         str(OFFLINE_DATA_ROOT)
@@ -249,14 +239,24 @@ def export_gold_snapshots(
         dataset_version=dataset_version,
         tables=tables,
         exported_at=datetime.now(timezone.utc).isoformat(),
-        spark_profile=spark_profile,
-        source_feature_run_id=source_feature_run_id,
-        allow_baseline_for_test=allow_baseline_for_test,
         lineage={
             "source_feature_run_id": source_feature_run_id,
             "snapshot_id": snapshot_id,
             "source_feature_root": runtime_config.storage.gold_root,
             "output_root": root,
+            "source_silver_run_id": (
+                selection.silver_run_id if selection is not None else None
+            ),
+            "source_git_sha": selection.git_sha if selection is not None else None,
+            "spark_profile": (
+                selection.spark_profile if selection is not None else None
+            ),
+            "feature_selection_digest": (
+                selection.evidence_digest if selection is not None else None
+            ),
+            "source_evidence_digest": (
+                selection.source_evidence_digest if selection is not None else None
+            ),
         },
     )
     manifest_uri = (
@@ -279,20 +279,29 @@ def main(argv: list[str] | None = None) -> int:
             args.output_root,
         )
         if args.environment == "gcp":
-            if any(value is None for value in cloud_lineage):
+            if any(value is None for value in (*cloud_lineage, args.dataset_version)):
                 raise ValueError(
                     "gcp export requires --source-feature-root, "
-                    "--source-feature-run-id, --snapshot-id, and --output-root"
+                    "--source-feature-run-id, --snapshot-id, --dataset-version, "
+                    "and --output-root"
                 )
+            if args.feature_selection_evidence is None:
+                raise ValueError("gcp export requires --feature-selection-evidence")
             config = apply_feature_gold_root(config, args.source_feature_root)
+            selection = load_feature_selection_evidence(
+                args.feature_selection_evidence
+            )
+        else:
+            selection = None
+        dataset_version = args.dataset_version or "active"
         export_gold_snapshots(
             config,
             args.output_root,
-            dataset_version=args.dataset_version,
-            spark_profile=args.spark_profile,
+            dataset_version=dataset_version,
             source_feature_run_id=args.source_feature_run_id,
             snapshot_id=args.snapshot_id,
             immutable=args.environment == "gcp",
+            selection=selection,
         )
     except Exception as exc:
         print(f"ERROR | {exc}")

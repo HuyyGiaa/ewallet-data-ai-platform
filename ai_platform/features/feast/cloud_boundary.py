@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from data_platform.config.spark_profiles import resolve_spark_profile, validate_git_sha
+
 
 FEATURE_TABLES = (
     "feat_user_behavior",
@@ -17,6 +19,7 @@ CANONICAL_TRAINING_SAMPLE_MODULUS = 10_000
 _ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{2,127}$")
 _BUCKET_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{1,221}[a-z0-9]$")
 _AMBIGUOUS_IDS = {"active", "current", "latest"}
+_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 def _validate_id(value: str, field: str) -> str:
@@ -36,6 +39,9 @@ class CloudFeastTrainingBoundary:
     silver_run_id: str
     feature_run_id: str
     snapshot_id: str
+    source_git_sha: str
+    spark_profile: str
+    feature_selection_digest: str
 
     def __post_init__(self) -> None:
         if self.bucket.startswith("gs://") or not _BUCKET_PATTERN.fullmatch(
@@ -51,6 +57,10 @@ class CloudFeastTrainingBoundary:
             _validate_id(getattr(self, field), field)
         if self.silver_run_id == self.feature_run_id:
             raise ValueError("silver_run_id and feature_run_id must differ")
+        validate_git_sha(self.source_git_sha)
+        resolve_spark_profile(self.spark_profile)
+        if not _DIGEST_PATTERN.fullmatch(self.feature_selection_digest):
+            raise ValueError("feature_selection_digest must be sha256:<64 hex>")
 
     @property
     def silver_root(self) -> str:
@@ -93,6 +103,9 @@ class CloudFeastTrainingBoundary:
             "dataset_version": self.dataset_version,
             "source_silver_run_id": self.silver_run_id,
             "source_feature_run_id": self.feature_run_id,
+            "source_git_sha": self.source_git_sha,
+            "spark_profile": self.spark_profile,
+            "feature_selection_digest": self.feature_selection_digest,
             "snapshot_id": self.snapshot_id,
             "inputs": {
                 "silver_root": self.silver_root,
