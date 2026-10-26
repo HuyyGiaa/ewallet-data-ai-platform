@@ -1,0 +1,1029 @@
+# PIPELINE DEFINITION
+# Name: f9-canonical-bounded-experiment
+# Description: Validation-only selection and winner-only test/MLflow registration.
+# Inputs:
+#    dataset_version: str
+#    experiment_name: str
+#    feature_run_id: str
+#    git_commit_sha: str
+#    mlflow_tracking_uri: str
+#    registered_model_name: str
+#    runtime_image: str
+#    silver_run_id: str
+#    snapshot_id: str
+#    snapshot_manifest_sha256: str
+#    snapshot_uri: str
+components:
+  comp-evaluate-test-winner:
+    executorLabel: exec-evaluate-test-winner
+    inputDefinitions:
+      artifacts:
+        dummy_baseline:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        hist_gradient_boosting:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        logistic_regression:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        random_forest:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        winner:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        experiment_result:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-publish-winner-to-mlflow:
+    executorLabel: exec-publish-winner-to-mlflow
+    inputDefinitions:
+      artifacts:
+        experiment_result:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        git_commit_sha:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        evidence:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-select-validation-winner:
+    executorLabel: exec-select-validation-winner
+    inputDefinitions:
+      artifacts:
+        dummy_baseline:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        hist_gradient_boosting:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        logistic_regression:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        random_forest:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        winner:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-train-dummy-baseline:
+    executorLabel: exec-train-dummy-baseline
+    inputDefinitions:
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-train-hist-gradient-boosting:
+    executorLabel: exec-train-hist-gradient-boosting
+    inputDefinitions:
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-train-logistic-regression:
+    executorLabel: exec-train-logistic-regression
+    inputDefinitions:
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-train-random-forest:
+    executorLabel: exec-train-random-forest
+    inputDefinitions:
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-validate-snapshot:
+    executorLabel: exec-validate-snapshot
+    inputDefinitions:
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        validation:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-verify-chronological-splits:
+    executorLabel: exec-verify-chronological-splits
+    inputDefinitions:
+      parameters:
+        dataset_version:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        feature_run_id:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        registered_model_name:
+          parameterType: STRING
+        runtime_image:
+          parameterType: STRING
+        silver_run_id:
+          parameterType: STRING
+        snapshot_id:
+          parameterType: STRING
+        snapshot_manifest_sha256:
+          parameterType: STRING
+        snapshot_uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        split_validation:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-evaluate-test-winner:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --dummy-baseline
+        - '{{$.inputs.artifacts[''dummy_baseline''].path}}'
+        - --logistic-regression
+        - '{{$.inputs.artifacts[''logistic_regression''].path}}'
+        - --random-forest
+        - '{{$.inputs.artifacts[''random_forest''].path}}'
+        - --hist-gradient-boosting
+        - '{{$.inputs.artifacts[''hist_gradient_boosting''].path}}'
+        - --winner
+        - '{{$.inputs.artifacts[''winner''].path}}'
+        - --output
+        - '{{$.outputs.artifacts[''experiment_result''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - evaluate-winner
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 2.0
+          cpuRequest: 0.5
+          memoryLimit: 3.221225472
+          memoryRequest: 1.073741824
+          resourceCpuLimit: '2'
+          resourceCpuRequest: 500m
+          resourceMemoryLimit: 3Gi
+          resourceMemoryRequest: 1Gi
+    exec-publish-winner-to-mlflow:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --experiment-result
+        - '{{$.inputs.artifacts[''experiment_result''].path}}'
+        - --git-commit-sha
+        - '{{$.inputs.parameters[''git_commit_sha'']}}'
+        - --output
+        - '{{$.outputs.artifacts[''evidence''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - publish-mlflow
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 2.0
+          cpuRequest: 0.5
+          memoryLimit: 3.221225472
+          memoryRequest: 1.073741824
+          resourceCpuLimit: '2'
+          resourceCpuRequest: 500m
+          resourceMemoryLimit: 3Gi
+          resourceMemoryRequest: 1Gi
+    exec-select-validation-winner:
+      container:
+        args:
+        - --dummy-baseline
+        - '{{$.inputs.artifacts[''dummy_baseline''].path}}'
+        - --logistic-regression
+        - '{{$.inputs.artifacts[''logistic_regression''].path}}'
+        - --random-forest
+        - '{{$.inputs.artifacts[''random_forest''].path}}'
+        - --hist-gradient-boosting
+        - '{{$.inputs.artifacts[''hist_gradient_boosting''].path}}'
+        - --output
+        - '{{$.outputs.artifacts[''winner''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - select-winner
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 0.5
+          cpuRequest: 0.1
+          memoryLimit: 1.073741824
+          memoryRequest: 0.268435456
+          resourceCpuLimit: 500m
+          resourceCpuRequest: 100m
+          resourceMemoryLimit: 1Gi
+          resourceMemoryRequest: 256Mi
+    exec-train-dummy-baseline:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --candidate
+        - dummy_baseline
+        - --output
+        - '{{$.outputs.artifacts[''model''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - train-candidate
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 2.0
+          cpuRequest: 0.5
+          memoryLimit: 3.221225472
+          memoryRequest: 1.073741824
+          resourceCpuLimit: '2'
+          resourceCpuRequest: 500m
+          resourceMemoryLimit: 3Gi
+          resourceMemoryRequest: 1Gi
+    exec-train-hist-gradient-boosting:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --candidate
+        - hist_gradient_boosting
+        - --output
+        - '{{$.outputs.artifacts[''model''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - train-candidate
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 2.0
+          cpuRequest: 0.5
+          memoryLimit: 3.221225472
+          memoryRequest: 1.073741824
+          resourceCpuLimit: '2'
+          resourceCpuRequest: 500m
+          resourceMemoryLimit: 3Gi
+          resourceMemoryRequest: 1Gi
+    exec-train-logistic-regression:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --candidate
+        - logistic_regression
+        - --output
+        - '{{$.outputs.artifacts[''model''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - train-candidate
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 2.0
+          cpuRequest: 0.5
+          memoryLimit: 3.221225472
+          memoryRequest: 1.073741824
+          resourceCpuLimit: '2'
+          resourceCpuRequest: 500m
+          resourceMemoryLimit: 3Gi
+          resourceMemoryRequest: 1Gi
+    exec-train-random-forest:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --candidate
+        - random_forest
+        - --output
+        - '{{$.outputs.artifacts[''model''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - train-candidate
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 2.0
+          cpuRequest: 0.5
+          memoryLimit: 3.221225472
+          memoryRequest: 1.073741824
+          resourceCpuLimit: '2'
+          resourceCpuRequest: 500m
+          resourceMemoryLimit: 3Gi
+          resourceMemoryRequest: 1Gi
+    exec-validate-snapshot:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --output
+        - '{{$.outputs.artifacts[''validation''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - validate-snapshot
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 0.5
+          cpuRequest: 0.1
+          memoryLimit: 1.073741824
+          memoryRequest: 0.268435456
+          resourceCpuLimit: 500m
+          resourceCpuRequest: 100m
+          resourceMemoryLimit: 1Gi
+          resourceMemoryRequest: 256Mi
+    exec-verify-chronological-splits:
+      container:
+        args:
+        - --dataset-version
+        - '{{$.inputs.parameters[''dataset_version'']}}'
+        - --silver-run-id
+        - '{{$.inputs.parameters[''silver_run_id'']}}'
+        - --feature-run-id
+        - '{{$.inputs.parameters[''feature_run_id'']}}'
+        - --snapshot-id
+        - '{{$.inputs.parameters[''snapshot_id'']}}'
+        - --snapshot-uri
+        - '{{$.inputs.parameters[''snapshot_uri'']}}'
+        - --snapshot-manifest-sha256
+        - '{{$.inputs.parameters[''snapshot_manifest_sha256'']}}'
+        - --mlflow-tracking-uri
+        - '{{$.inputs.parameters[''mlflow_tracking_uri'']}}'
+        - --runtime-image
+        - '{{$.inputs.parameters[''runtime_image'']}}'
+        - --compiled-runtime-image
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - --experiment-name
+        - '{{$.inputs.parameters[''experiment_name'']}}'
+        - --registered-model-name
+        - '{{$.inputs.parameters[''registered_model_name'']}}'
+        - --output
+        - '{{$.outputs.artifacts[''split_validation''].path}}'
+        command:
+        - python
+        - -m
+        - ai_platform.ml.pipelines.runtime
+        - verify-chronological-splits
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        resources:
+          cpuLimit: 0.5
+          cpuRequest: 0.1
+          memoryLimit: 1.073741824
+          memoryRequest: 0.268435456
+          resourceCpuLimit: 500m
+          resourceCpuRequest: 100m
+          resourceMemoryLimit: 1Gi
+          resourceMemoryRequest: 256Mi
+pipelineInfo:
+  description: Validation-only selection and winner-only test/MLflow registration.
+  name: f9-canonical-bounded-experiment
+root:
+  dag:
+    tasks:
+      evaluate-test-winner:
+        cachingOptions: {}
+        componentRef:
+          name: comp-evaluate-test-winner
+        dependentTasks:
+        - select-validation-winner
+        - train-dummy-baseline
+        - train-hist-gradient-boosting
+        - train-logistic-regression
+        - train-random-forest
+        inputs:
+          artifacts:
+            dummy_baseline:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-dummy-baseline
+            hist_gradient_boosting:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-hist-gradient-boosting
+            logistic_regression:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-logistic-regression
+            random_forest:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-random-forest
+            winner:
+              taskOutputArtifact:
+                outputArtifactKey: winner
+                producerTask: select-validation-winner
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: evaluate-test-winner
+      publish-winner-to-mlflow:
+        cachingOptions: {}
+        componentRef:
+          name: comp-publish-winner-to-mlflow
+        dependentTasks:
+        - evaluate-test-winner
+        inputs:
+          artifacts:
+            experiment_result:
+              taskOutputArtifact:
+                outputArtifactKey: experiment_result
+                producerTask: evaluate-test-winner
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            git_commit_sha:
+              componentInputParameter: git_commit_sha
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: publish-winner-to-mlflow
+      select-validation-winner:
+        cachingOptions: {}
+        componentRef:
+          name: comp-select-validation-winner
+        dependentTasks:
+        - train-dummy-baseline
+        - train-hist-gradient-boosting
+        - train-logistic-regression
+        - train-random-forest
+        inputs:
+          artifacts:
+            dummy_baseline:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-dummy-baseline
+            hist_gradient_boosting:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-hist-gradient-boosting
+            logistic_regression:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-logistic-regression
+            random_forest:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train-random-forest
+        taskInfo:
+          name: select-validation-winner
+      train-dummy-baseline:
+        cachingOptions: {}
+        componentRef:
+          name: comp-train-dummy-baseline
+        dependentTasks:
+        - verify-chronological-splits
+        inputs:
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: train-dummy-baseline
+      train-hist-gradient-boosting:
+        cachingOptions: {}
+        componentRef:
+          name: comp-train-hist-gradient-boosting
+        dependentTasks:
+        - verify-chronological-splits
+        inputs:
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: train-hist-gradient-boosting
+      train-logistic-regression:
+        cachingOptions: {}
+        componentRef:
+          name: comp-train-logistic-regression
+        dependentTasks:
+        - verify-chronological-splits
+        inputs:
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: train-logistic-regression
+      train-random-forest:
+        cachingOptions: {}
+        componentRef:
+          name: comp-train-random-forest
+        dependentTasks:
+        - verify-chronological-splits
+        inputs:
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: train-random-forest
+      validate-snapshot:
+        cachingOptions: {}
+        componentRef:
+          name: comp-validate-snapshot
+        inputs:
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: validate-snapshot
+      verify-chronological-splits:
+        cachingOptions: {}
+        componentRef:
+          name: comp-verify-chronological-splits
+        dependentTasks:
+        - validate-snapshot
+        inputs:
+          parameters:
+            dataset_version:
+              componentInputParameter: dataset_version
+            experiment_name:
+              componentInputParameter: experiment_name
+            feature_run_id:
+              componentInputParameter: feature_run_id
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            registered_model_name:
+              componentInputParameter: registered_model_name
+            runtime_image:
+              componentInputParameter: runtime_image
+            silver_run_id:
+              componentInputParameter: silver_run_id
+            snapshot_id:
+              componentInputParameter: snapshot_id
+            snapshot_manifest_sha256:
+              componentInputParameter: snapshot_manifest_sha256
+            snapshot_uri:
+              componentInputParameter: snapshot_uri
+        taskInfo:
+          name: verify-chronological-splits
+  inputDefinitions:
+    parameters:
+      dataset_version:
+        parameterType: STRING
+      experiment_name:
+        parameterType: STRING
+      feature_run_id:
+        parameterType: STRING
+      git_commit_sha:
+        parameterType: STRING
+      mlflow_tracking_uri:
+        parameterType: STRING
+      registered_model_name:
+        parameterType: STRING
+      runtime_image:
+        parameterType: STRING
+      silver_run_id:
+        parameterType: STRING
+      snapshot_id:
+        parameterType: STRING
+      snapshot_manifest_sha256:
+        parameterType: STRING
+      snapshot_uri:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.17.3
