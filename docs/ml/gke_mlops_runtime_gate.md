@@ -186,11 +186,29 @@ scripts/mlops/deploy_kfp.sh --execute
 
 The only upstream sources are the two Kubeflow Pipelines kustomizations pinned
 with `ref=2.17.3`; the workflow does not use `curl | kubectl`, Helm or full
-Kubeflow. The committed compiled YAML is checksum-validated but is neither
-regenerated nor uploaded by this gate. Both deployment scripts may reapply
-their canonical Namespace and ServiceAccount manifests. `kubectl apply` does
-not remove the Workload Identity annotation added separately with
-`kubectl annotate`, so the identity binding survives deployment reapplication.
+Kubeflow. The local `infra/kubernetes/kfp` overlay consumes the pinned
+`env/dev` source, preserves its single `pipeline-runner` ServiceAccount and
+declaratively excludes the inverse-proxy ServiceAccount, Role, RoleBinding,
+ConfigMap and Deployment. This keeps the namespace at PodSecurity `baseline`
+and leaves `ml-pipeline-ui` available only through its ClusterIP Service and a
+local port-forward. Reapplying the deploy script also deletes exactly the stale
+`kubeflow/deployment/proxy-agent` with `--ignore-not-found`; it does not delete
+the namespace or any other KFP resource.
+
+The pinned upstream UI probes use `/apis/v1beta1/healthz` on port 3000. The
+canonical overlay preserves those probes: a 404 while the backend control
+plane is incomplete does not independently prove that the upstream probe path
+is wrong. The upstream `env/dev` source also uses mutable `master` tags for
+the cache deployer/server, metadata envoy/writer, API server, persistence and
+scheduled-workflow agents, frontend, viewer controller and visualization
+server. This bounded correction records that inherited risk and does not
+silently retag those images.
+
+The committed compiled YAML is checksum-validated but is neither regenerated
+nor uploaded by this gate. Both deployment scripts may reapply their canonical
+Namespace and ServiceAccount manifests. `kubectl apply` does not remove the
+Workload Identity annotation added separately with `kubectl annotate`, so the
+identity binding survives deployment reapplication.
 
 ### 7. Validate rollouts, identities and internal health
 

@@ -1,0 +1,70 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - github.com/kubeflow/pipelines/manifests/kustomize/env/dev?ref=2.17.3
+
+patches:
+  - target:
+      version: v1
+      kind: ServiceAccount
+      name: proxy-agent-runner
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: proxy-agent-runner
+        namespace: kubeflow
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: Role
+      name: proxy-agent-runner
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: proxy-agent-runner
+        namespace: kubeflow
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: RoleBinding
+      name: proxy-agent-runner
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: proxy-agent-runner
+        namespace: kubeflow
+  - target:
+      version: v1
+      kind: ConfigMap
+      name: inverse-proxy-config
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: inverse-proxy-config
+        namespace: kubeflow
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: proxy-agent
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: proxy-agent
+        namespace: kubeflow
