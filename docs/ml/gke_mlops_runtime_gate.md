@@ -30,13 +30,16 @@ Production model promotion remains manual and is outside this gate.
 - Existing GSA
   `ewallet-training@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com` with
   the previously approved GCS permissions.
-- `git`, `docker`, `gcloud`, `kubectl`, `curl`, `openssl` and `sha256sum`.
+- `git`, `docker`, `gcloud`, `kubectl`, `gke-gcloud-auth-plugin`, `curl`,
+  `openssl` and `sha256sum`. On Debian/Ubuntu, install the required GKE IAM
+  authentication plugin with
+  `sudo apt-get install google-cloud-cli-gke-gcloud-auth-plugin`.
 - Docker must have enough local disk for both bounded images.
 
 Start in this worktree and load only non-secret settings:
 
 ```bash
-cd ~/Develop/ewallet-data-ai-platform/.worktrees/codex-mlops-gke-runtime
+cd ~/Develop/ewallet-data-ai-platform
 set -a
 source configs/mlops/gke-runtime.env.example
 set +a
@@ -50,6 +53,41 @@ written to the repository:
 ```bash
 export MLFLOW_DB_PASSWORD="$(openssl rand -hex 24)"
 ```
+
+## DNS control-plane access contract
+
+The DNS-based GKE endpoint is the canonical operator access path. An operator
+can be behind dynamic NAT, CGNAT or a multi-egress network where consecutive
+requests use different public addresses, so repeatedly allowlisting a sampled
+client address as `/32` is not reliable. Keep the existing IP authorized-network
+policy unchanged; do not disable authorized networks, open `0.0.0.0/0`, or add
+each transient client address.
+
+DNS access is a one-time cluster prerequisite and must be enabled explicitly by
+an authorized operator if it is absent:
+
+```bash
+gcloud container clusters update "$GKE_CLUSTER" \
+  --zone "$GKE_ZONE" \
+  --project "$GCP_PROJECT_ID" \
+  --enable-dns-access
+```
+
+Do not add `--enable-k8s-tokens-via-dns` or
+`--enable-k8s-certs-via-dns`. Authentication remains IAM-based through
+`gke-gcloud-auth-plugin`; Kubernetes ServiceAccount bearer tokens and client
+certificates over DNS remain disabled. The connection command is always:
+
+```bash
+gcloud container clusters get-credentials "$GKE_CLUSTER" \
+  --zone "$GKE_ZONE" \
+  --project "$GCP_PROJECT_ID" \
+  --dns-endpoint
+```
+
+The DNS API path and project preflight have been verified against the existing
+cluster. No image has been built or pushed and PostgreSQL, MLflow and KFP have
+not been deployed.
 
 ## Execution order
 
@@ -86,7 +124,7 @@ The F9 operation fails unless the requested image exactly matches every image
 bound into `f9_canonical_pipeline.yaml`. `latest` is rejected. Push uses a
 short-lived `gcloud` token and never stores registry credentials in source.
 
-### 3. Start the bounded node and select the cluster
+### 3. Start the bounded node and select the DNS cluster endpoint
 
 ```bash
 scripts/mlops/cluster_capacity.sh up
@@ -97,8 +135,12 @@ scripts/mlops/connect_cluster.sh --execute
 scripts/mlops/preflight.sh --execute
 ```
 
-Expected: `cpu-pool` has one node, the Kubernetes context names
-`ewallet-dev`, and the read-only preflight prints `PASS`.
+`connect_cluster.sh` reads and validates the cluster configuration before
+writing kubeconfig, then calls `get-credentials --dns-endpoint`; it never falls
+back to an IP endpoint. Expected: `cpu-pool` has one node, the Kubernetes
+context names `ewallet-dev`, the active API server exactly matches the
+discovered cluster DNS endpoint and ends in `.gke.goog`, and the read-only
+preflight prints `PASS`.
 
 ### 4. Prepare identities and bind Workload Identity
 
