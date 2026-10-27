@@ -14,6 +14,10 @@ readonly EXPECTED_KFP_VERSION="2.17.3"
 readonly PIPELINE_PACKAGE="${REPO_ROOT}/ai_platform/ml/pipelines/compiled/f9_canonical_pipeline.yaml"
 readonly KFP_CLUSTER_SCOPED_SOURCE="github.com/kubeflow/pipelines/manifests/kustomize/cluster-scoped-resources?ref=2.17.3"
 readonly KFP_DEV_SOURCE="github.com/kubeflow/pipelines/manifests/kustomize/env/dev?ref=2.17.3"
+readonly GKE_DNS_ENDPOINT_FIELD="controlPlaneEndpointsConfig.dnsEndpointConfig.endpoint"
+readonly GKE_DNS_EXTERNAL_TRAFFIC_FIELD="controlPlaneEndpointsConfig.dnsEndpointConfig.allowExternalTraffic"
+readonly GKE_DNS_TOKENS_FIELD="controlPlaneEndpointsConfig.dnsEndpointConfig.enableK8sTokensViaDns"
+readonly GKE_DNS_CERTS_FIELD="controlPlaneEndpointsConfig.dnsEndpointConfig.enableK8sCertsViaDns"
 
 EXECUTE=0
 
@@ -24,6 +28,11 @@ die() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+require_gke_auth_plugin() {
+  command -v gke-gcloud-auth-plugin >/dev/null 2>&1 || \
+    die "gke-gcloud-auth-plugin is required. Debian/Ubuntu: sudo apt-get install google-cloud-cli-gke-gcloud-auth-plugin"
 }
 
 require_env() {
@@ -54,6 +63,65 @@ run_or_plan() {
   else
     print_command "$@"
   fi
+}
+
+gke_cluster_value() {
+  local field="$1"
+  gcloud container clusters describe "${GKE_CLUSTER}" \
+    --zone "${GKE_ZONE}" \
+    --project "${GCP_PROJECT_ID}" \
+    --format="value(${field})"
+}
+
+print_gke_dns_contract_checks() {
+  local field
+  for field in \
+    status \
+    "${GKE_DNS_ENDPOINT_FIELD}" \
+    "${GKE_DNS_EXTERNAL_TRAFFIC_FIELD}" \
+    "${GKE_DNS_TOKENS_FIELD}" \
+    "${GKE_DNS_CERTS_FIELD}"; do
+    print_command gcloud container clusters describe "${GKE_CLUSTER}" \
+      --zone "${GKE_ZONE}" \
+      --project "${GCP_PROJECT_ID}" \
+      --format="value(${field})"
+  done
+  echo "  assert cluster status=RUNNING, DNS endpoint enabled, external DNS traffic allowed"
+  echo "  assert Kubernetes tokens and client certificates over DNS remain disabled"
+}
+
+load_gke_dns_contract() {
+  GKE_CLUSTER_STATUS="$(gke_cluster_value status)"
+  GKE_DNS_ENDPOINT="$(gke_cluster_value "${GKE_DNS_ENDPOINT_FIELD}")"
+  GKE_DNS_ALLOW_EXTERNAL="$(gke_cluster_value "${GKE_DNS_EXTERNAL_TRAFFIC_FIELD}")"
+  GKE_DNS_TOKENS_ENABLED="$(gke_cluster_value "${GKE_DNS_TOKENS_FIELD}")"
+  GKE_DNS_CERTS_ENABLED="$(gke_cluster_value "${GKE_DNS_CERTS_FIELD}")"
+}
+
+assert_gke_dns_contract() {
+  local remediation
+  remediation="gcloud container clusters update ${GKE_CLUSTER} --zone ${GKE_ZONE} --project ${GCP_PROJECT_ID} --enable-dns-access"
+
+  [[ "${GKE_CLUSTER_STATUS}" == "RUNNING" ]] || \
+    die "GKE cluster must be RUNNING; found ${GKE_CLUSTER_STATUS:-<missing>}"
+  [[ -n "${GKE_DNS_ENDPOINT}" && "${GKE_DNS_ENDPOINT}" == *.gke.goog ]] || \
+    die "GKE DNS endpoint is not enabled. Remediate explicitly with: ${remediation}"
+  [[ "${GKE_DNS_ALLOW_EXTERNAL,,}" == "true" ]] || \
+    die "GKE DNS endpoint does not allow external traffic. Remediate explicitly with: ${remediation}"
+  [[ "${GKE_DNS_TOKENS_ENABLED,,}" != "true" ]] || \
+    die "Kubernetes ServiceAccount tokens over DNS must remain disabled"
+  [[ "${GKE_DNS_CERTS_ENABLED,,}" != "true" ]] || \
+    die "Kubernetes client certificates over DNS must remain disabled"
+}
+
+assert_active_gke_dns_server() {
+  local active_server expected_server
+  active_server="$(kubectl config view --minify -o 'jsonpath={.clusters[0].cluster.server}')"
+  expected_server="https://${GKE_DNS_ENDPOINT}"
+  [[ "${active_server}" == "${expected_server}" ]] || \
+    die "active kubeconfig server does not match the canonical cluster DNS endpoint"
+  [[ "${active_server}" == https://*.gke.goog ]] || \
+    die "active kubeconfig server must end in .gke.goog"
 }
 
 assert_canonical_environment() {

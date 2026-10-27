@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import re
 import unittest
+from pathlib import Path
 
 from ai_platform.ml.pipelines.settings import KfpDeploymentSettings
 from ai_platform.ml.tracking.settings import MlflowDeploymentSettings
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class MlflowDeploymentSettingsTest(unittest.TestCase):
@@ -57,6 +62,30 @@ class KfpDeploymentSettingsTest(unittest.TestCase):
             }
         )
         self.assertEqual("2.17.3", settings.version)
+
+
+class GkeDnsEndpointSourceContractTest(unittest.TestCase):
+    def test_gke_connection_is_dns_only_and_fail_closed(self) -> None:
+        connect = (REPO_ROOT / "scripts/mlops/connect_cluster.sh").read_text()
+        preflight = (REPO_ROOT / "scripts/mlops/preflight.sh").read_text()
+        common = (REPO_ROOT / "scripts/mlops/lib/common.sh").read_text()
+
+        self.assertRegex(
+            connect,
+            re.compile(
+                r"gcloud container clusters get-credentials.*?--dns-endpoint",
+                re.DOTALL,
+            ),
+        )
+        self.assertNotIn("--internal-ip", connect)
+        self.assertIn("require_gke_auth_plugin", connect)
+        self.assertIn("require_gke_auth_plugin", preflight)
+        self.assertIn("controlPlaneEndpointsConfig.dnsEndpointConfig.endpoint", common)
+        self.assertIn("controlPlaneEndpointsConfig.dnsEndpointConfig.allowExternalTraffic", common)
+        self.assertIn("assert_active_gke_dns_server", preflight)
+        self.assertIn(".gke.goog", common)
+        self.assertNotIn("--enable-k8s-tokens-via-dns", connect + preflight + common)
+        self.assertNotIn("--enable-k8s-certs-via-dns", connect + preflight + common)
 
 
 if __name__ == "__main__":
