@@ -23,20 +23,30 @@ MLFLOW_IMAGE = (
 
 
 class MlflowDeploymentManifestContractTest(unittest.TestCase):
-    def test_server_is_explicitly_bounded_to_one_worker(self) -> None:
+    @staticmethod
+    def _mlflow_container() -> dict[str, object]:
         manifest = yaml.safe_load(
             (REPO_ROOT / "infra/kubernetes/mlflow/deployment.yaml").read_text()
         )
         containers = manifest["spec"]["template"]["spec"]["containers"]
-        mlflow = next(
+        return next(
             container for container in containers if container["name"] == "mlflow"
         )
+
+    def test_server_is_explicitly_bounded_to_one_worker(self) -> None:
+        mlflow = self._mlflow_container()
         arguments = shlex.split(" ".join(mlflow["args"]))
 
         worker_arguments = [
             argument for argument in arguments if argument.startswith("--workers")
         ]
         self.assertEqual(["--workers=1"], worker_arguments)
+
+    def test_resources_bound_single_worker_without_changing_cpu(self) -> None:
+        resources = self._mlflow_container()["resources"]
+
+        self.assertEqual({"cpu": "250m", "memory": "1Gi"}, resources["requests"])
+        self.assertEqual({"cpu": "1", "memory": "2Gi"}, resources["limits"])
 
 
 class DeployMlflowScriptTest(unittest.TestCase):

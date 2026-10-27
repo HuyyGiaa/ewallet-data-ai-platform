@@ -171,8 +171,11 @@ The script creates two Kubernetes Secrets from the shell at execution time:
 database credentials and the PostgreSQL backend URI. It creates a ConfigMap
 for the GCS artifact destination. PostgreSQL uses an internal Service, one
 StatefulSet replica, a 5 GiB PVC, 100m/256 MiB requests and 500m/768 MiB
-limits. MLflow uses one Deployment replica, an internal Service, 250m/512 MiB
-requests and 1 CPU/1 GiB limits, plus `/health` readiness and liveness probes.
+limits. MLflow uses one Deployment replica and one server worker, an internal
+Service, 250m/1 GiB requests and 1 CPU/2 GiB limits, plus `/health` readiness
+and liveness probes. The bounded PostgreSQL, MLflow and planned KFP runtime
+requests 4,522 MiB in total; the previous 4,010 MiB estimate increases by 512
+MiB solely because of the corrected MLflow memory request.
 
 ### 6. Deploy pinned standalone KFP
 
