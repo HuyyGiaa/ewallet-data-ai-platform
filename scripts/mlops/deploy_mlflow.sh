@@ -10,12 +10,20 @@ require_env MLFLOW_DB_USERNAME
 [[ "${MLFLOW_ARTIFACT_ROOT}" == gs://* ]] || die "MLFLOW_ARTIFACT_ROOT must be a gs:// URI"
 [[ "${MLFLOW_DB_USERNAME}" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || die "unsafe MLFLOW_DB_USERNAME"
 require_command kubectl
+require_command awk
 
 namespace_manifest="${REPO_ROOT}/infra/kubernetes/mlflow/namespace.yaml"
 service_account_manifest="${REPO_ROOT}/infra/kubernetes/mlflow/service-account.yaml"
 postgres_manifest="${REPO_ROOT}/infra/kubernetes/mlflow/postgresql.yaml"
 service_manifest="${REPO_ROOT}/infra/kubernetes/mlflow/service.yaml"
 deployment_manifest="${REPO_ROOT}/infra/kubernetes/mlflow/deployment.yaml"
+
+deployment_image_count="$(awk '$1 == "image:" {count++} END {print count+0}' "${deployment_manifest}")"
+deployment_image="$(awk '$1 == "image:" {print $2}' "${deployment_manifest}")"
+[[ "${deployment_image_count}" -eq 1 ]] || \
+  die "MLflow Deployment manifest must contain exactly one container image"
+[[ "${deployment_image}" == "${MLFLOW_IMAGE}" ]] || \
+  die "MLflow Deployment manifest image must exactly match MLFLOW_IMAGE"
 
 if ((!EXECUTE)); then
   echo "DRY RUN: deploy PostgreSQL and MLflow; secret values are intentionally redacted."
@@ -26,7 +34,7 @@ if ((!EXECUTE)); then
   echo "  kubectl create/apply configmap mlflow-runtime (GCS artifact destination)"
   print_command kubectl apply -f "${postgres_manifest}"
   print_command kubectl apply -f "${service_manifest}"
-  echo "  kubectl set image --local then apply ${MLFLOW_IMAGE}"
+  print_command kubectl apply -f "${deployment_manifest}"
   exit 0
 fi
 
@@ -50,5 +58,4 @@ kubectl -n ml-platform create configmap mlflow-runtime \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f "${postgres_manifest}"
 kubectl apply -f "${service_manifest}"
-kubectl set image -f "${deployment_manifest}" mlflow="${MLFLOW_IMAGE}" \
-  --local -o yaml | kubectl apply -f -
+kubectl apply -f "${deployment_manifest}"
