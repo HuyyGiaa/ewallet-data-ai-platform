@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +20,23 @@ MLFLOW_IMAGE = (
     "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
     "ewallet-platform/mlflow:v3.17.1-gcs-postgres-1"
 )
+
+
+class MlflowDeploymentManifestContractTest(unittest.TestCase):
+    def test_server_is_explicitly_bounded_to_one_worker(self) -> None:
+        manifest = yaml.safe_load(
+            (REPO_ROOT / "infra/kubernetes/mlflow/deployment.yaml").read_text()
+        )
+        containers = manifest["spec"]["template"]["spec"]["containers"]
+        mlflow = next(
+            container for container in containers if container["name"] == "mlflow"
+        )
+        arguments = shlex.split(" ".join(mlflow["args"]))
+
+        worker_arguments = [
+            argument for argument in arguments if argument.startswith("--workers")
+        ]
+        self.assertEqual(["--workers=1"], worker_arguments)
 
 
 class DeployMlflowScriptTest(unittest.TestCase):
