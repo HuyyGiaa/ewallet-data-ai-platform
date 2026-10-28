@@ -200,11 +200,43 @@ or any other KFP resource.
 The pinned upstream UI probes use `/apis/v1beta1/healthz` on port 3000. The
 canonical overlay preserves those probes: a 404 while the backend control
 plane is incomplete does not independently prove that the upstream probe path
-is wrong. The upstream `env/dev` source also uses mutable `master` tags for
-the cache deployer/server, metadata envoy/writer, API server, persistence and
-scheduled-workflow agents, frontend, viewer controller and visualization
-server. This bounded correction records that inherited risk and does not
-silently retag those images.
+is wrong.
+
+Although the upstream source is pinned to `ref=2.17.3`, its development
+overlay replaces the release images with mutable `master` tags. The canonical
+overlay therefore pins the complete KFP runtime to the official 2.17.3 OCI
+index digests. Registry metadata for every digest identifies release commit
+`a0733cb51b0484a6050cafee989ffe3312f808ad` and version `2.17.3`:
+
+| Runtime image | Immutable release digest |
+| --- | --- |
+| `kfp-api-server` | `sha256:1e03770233cadc146df0b83a82603b93f32fc3b57bd6dcb29375e2e8d28eb605` |
+| `kfp-cache-deployer` | `sha256:97784329a5af2274097d13095ddc71f8e0c72ccad76fc4e67d40a06eb14417e7` |
+| `kfp-cache-server` | `sha256:09f16342f896b05714933661fb65bf49b4faa5f07f2414002f1e015bc8a608e0` |
+| `kfp-frontend` | `sha256:06d5481f404f89647ac5ee958f6665446014fdd78e6c1b195a1687ff1badf1d8` |
+| `kfp-metadata-envoy` | `sha256:5cc007cfa3ec2f3f9442430a66d4e65239760cae2ff66dfe576e1b2f685e0cfb` |
+| `kfp-metadata-writer` | `sha256:fbcf3704239ee92135a7f7c82ba177c65977ab1da7044b4cc02b6de5ace698bb` |
+| `kfp-persistence-agent` | `sha256:c0b417e60009d058c2d342ab33424e10cf57121d9b771cca9c09dda32475c03e` |
+| `kfp-scheduled-workflow-controller` | `sha256:e2e5b80707955f3295e8a24c340c838f81398b988a9d73318918bea5ffdde7d8` |
+| `kfp-viewer-crd-controller` | `sha256:2b6e0e92b99f709c11a484fbf4163fc519003d22c4f9d040f3fba862f5b69780` |
+| `kfp-visualization-server` | `sha256:d143f368b428c92cccf2b33c4c1b0274f8b1a14cf04f25659fe0f091e96cef6f` |
+| `kfp-driver` (`V2_DRIVER_IMAGE`) | `sha256:4461e2f63739a80810405fdf76bd4727ea68561a54b51e4bbf869b12d7a8d163` |
+| `kfp-launcher` (`V2_LAUNCHER_IMAGE`) | `sha256:4f1c3cff2725413cbb903f623aed074c52e3c70c355501c87b29db044c83fcd2` |
+
+All twelve indexes publish `linux/amd64`; all except metadata writer also
+publish `linux/arm64`. The bounded `e2-standard-4` node pool is amd64, so this
+set covers the canonical runtime. Do not change the API probe to match a newer
+development binary: the release 2.17.3 API server supports the preserved
+`/apis/v1beta1/healthz` probe.
+
+The previously deployed `master` API server reached MySQL AutoMigrate before
+its incompatible startup probe restarted the Pod. Backward schema
+compatibility with 2.17.3 has not been established. Before an authorized
+reapply, retain the current resource descriptions and API/MySQL logs as
+evidence and arrange a separately reviewed, non-destructive database backup
+if the metadata must be retained. Do not delete, reset, recreate or manually
+migrate MySQL. If the pinned API server reports a schema or migration error,
+stop recovery and preserve the database for investigation.
 
 The committed compiled YAML is checksum-validated but is neither regenerated
 nor uploaded by this gate. Both deployment scripts may reapply their canonical
