@@ -22,6 +22,13 @@ MLFLOW_IMAGE = (
     "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
     "ewallet-platform/mlflow:v3.17.1-gcs-postgres-1"
 )
+INVERSE_PROXY_RESOURCES = (
+    "serviceaccount/proxy-agent-runner",
+    "role.rbac.authorization.k8s.io/proxy-agent-runner",
+    "rolebinding.rbac.authorization.k8s.io/proxy-agent-runner",
+    "configmap/inverse-proxy-config",
+    "deployment.apps/proxy-agent",
+)
 
 
 class KfpCanonicalOverlayTest(unittest.TestCase):
@@ -76,7 +83,9 @@ class KfpCanonicalOverlayTest(unittest.TestCase):
             if resource["kind"] == "Service":
                 self.assertNotEqual("LoadBalancer", resource["spec"].get("type"))
 
-    def test_deploy_dry_run_plans_only_exact_stale_proxy_deletion(self) -> None:
+    def test_deploy_dry_run_plans_only_exact_inverse_proxy_reconciliation(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             temporary_path = Path(temporary)
             invocation_log = temporary_path / "kubectl-invoked"
@@ -108,13 +117,76 @@ class KfpCanonicalOverlayTest(unittest.TestCase):
 
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertIn(f"kubectl apply -k {OVERLAY}", result.stdout)
-            self.assertIn(
-                "kubectl -n kubeflow delete deployment proxy-agent "
-                "--ignore-not-found",
-                result.stdout,
-            )
+            for resource in INVERSE_PROXY_RESOURCES:
+                self.assertIn(
+                    f"kubectl -n kubeflow delete {resource} --ignore-not-found",
+                    result.stdout,
+                )
+                self.assertIn(
+                    f"kubectl -n kubeflow get {resource} --ignore-not-found "
+                    "-o name",
+                    result.stdout,
+                )
             self.assertNotIn("delete namespace", result.stdout)
+            self.assertNotIn("--all", result.stdout)
+            self.assertNotIn("--selector", result.stdout)
+            self.assertNotIn("--prune", result.stdout)
             self.assertFalse(invocation_log.exists())
+
+    def test_execute_fails_closed_when_any_inverse_proxy_resource_remains(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary_path = Path(temporary)
+            invocation_log = temporary_path / "kubectl-invocations"
+            fake_kubectl = temporary_path / "kubectl"
+            fake_kubectl.write_text(
+                "#!/usr/bin/env bash\n"
+                f"printf '%s\\n' \"$*\" >> {invocation_log}\n"
+                "if [[ \"$*\" == *\"get "
+                "rolebinding.rbac.authorization.k8s.io/proxy-agent-runner "
+                "--ignore-not-found -o name\"* ]]; then\n"
+                "  echo rolebinding.rbac.authorization.k8s.io/proxy-agent-runner\n"
+                "fi\n"
+                "exit 0\n"
+            )
+            fake_kubectl.chmod(0o755)
+            environment = {
+                **os.environ,
+                "PATH": f"{temporary_path}:{os.environ['PATH']}",
+                "GCP_PROJECT_ID": "ewallet-data-ai-platform-hg26",
+                "GCP_REGION": "asia-southeast1",
+                "F9_RUNTIME_IMAGE": F9_IMAGE,
+                "MLFLOW_IMAGE": MLFLOW_IMAGE,
+                "KFP_VERSION": "2.17.3",
+                "KFP_NAMESPACE": "kubeflow",
+            }
+
+            result = subprocess.run(
+                [str(REPO_ROOT / "scripts/mlops/deploy_kfp.sh"), "--execute"],
+                cwd=REPO_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(
+                "inverse-proxy resources remain after bounded deletion: "
+                "rolebinding.rbac.authorization.k8s.io/proxy-agent-runner",
+                result.stderr,
+            )
+            invocations = invocation_log.read_text().splitlines()
+            for resource in INVERSE_PROXY_RESOURCES:
+                self.assertIn(
+                    f"-n kubeflow delete {resource} --ignore-not-found",
+                    invocations,
+                )
+                self.assertIn(
+                    f"-n kubeflow get {resource} --ignore-not-found -o name",
+                    invocations,
+                )
 
 
 if __name__ == "__main__":

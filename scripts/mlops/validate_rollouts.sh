@@ -44,22 +44,10 @@ verify_workload_identity() {
     die "training GSA is missing Workload Identity binding for ${member}"
 }
 
-verify_proxy_agent_absent() {
-  if ((!EXECUTE)); then
-    print_command kubectl -n kubeflow get deployment proxy-agent
-    echo "  assert deployment/proxy-agent is absent from the canonical KFP control plane"
-    return
-  fi
-
-  if kubectl -n kubeflow get deployment proxy-agent >/dev/null 2>&1; then
-    die "deployment/proxy-agent must be absent from the canonical KFP control plane"
-  fi
-}
-
 echo "$([[ ${EXECUTE} -eq 1 ]] && echo EXECUTE || echo 'DRY RUN'): validate bounded MLOps rollouts"
 run_or_plan kubectl -n ml-platform rollout status statefulset/mlflow-postgresql --timeout=10m
 run_or_plan kubectl -n ml-platform rollout status deployment/mlflow --timeout=10m
-verify_proxy_agent_absent
+verify_kfp_inverse_proxy_absent
 run_or_plan kubectl -n kubeflow wait --for=condition=Available deployment --all --timeout=20m
 run_or_plan kubectl -n ml-platform exec statefulset/mlflow-postgresql -- pg_isready -U "${MLFLOW_DB_USERNAME}" -d mlflow
 run_or_plan kubectl -n ml-platform get pods,service,statefulset,deployment,pvc -o wide

@@ -192,8 +192,10 @@ declaratively excludes the inverse-proxy ServiceAccount, Role, RoleBinding,
 ConfigMap and Deployment. This keeps the namespace at PodSecurity `baseline`
 and leaves `ml-pipeline-ui` available only through its ClusterIP Service and a
 local port-forward. Reapplying the deploy script also deletes exactly the stale
-`kubeflow/deployment/proxy-agent` with `--ignore-not-found`; it does not delete
-the namespace or any other KFP resource.
+inverse-proxy ServiceAccount, Role, RoleBinding, ConfigMap and Deployment with
+explicit names and `--ignore-not-found`, then fails closed unless all five are
+absent. It does not use pruning or selectors and does not delete the namespace
+or any other KFP resource.
 
 The pinned upstream UI probes use `/apis/v1beta1/healthz` on port 3000. The
 canonical overlay preserves those probes: a 404 while the backend control

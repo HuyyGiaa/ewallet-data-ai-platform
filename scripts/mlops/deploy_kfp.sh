@@ -17,4 +17,7 @@ echo "$([[ ${EXECUTE} -eq 1 ]] && echo EXECUTE || echo 'DRY RUN'): deploy standa
 run_or_plan kubectl apply -k "${KFP_CLUSTER_SCOPED_SOURCE}"
 run_or_plan kubectl wait --for=condition=Established --timeout=180s crd/applications.app.k8s.io
 run_or_plan kubectl apply -k "${canonical_overlay}"
-run_or_plan kubectl -n kubeflow delete deployment proxy-agent --ignore-not-found
+for resource in "${KFP_INVERSE_PROXY_RESOURCES[@]}"; do
+  run_or_plan kubectl -n kubeflow delete "${resource}" --ignore-not-found
+done
+verify_kfp_inverse_proxy_absent

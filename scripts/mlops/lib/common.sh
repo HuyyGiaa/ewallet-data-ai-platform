@@ -14,6 +14,13 @@ readonly EXPECTED_KFP_VERSION="2.17.3"
 readonly PIPELINE_PACKAGE="${REPO_ROOT}/ai_platform/ml/pipelines/compiled/f9_canonical_pipeline.yaml"
 readonly KFP_CLUSTER_SCOPED_SOURCE="github.com/kubeflow/pipelines/manifests/kustomize/cluster-scoped-resources?ref=2.17.3"
 readonly KFP_DEV_SOURCE="github.com/kubeflow/pipelines/manifests/kustomize/env/dev?ref=2.17.3"
+readonly -a KFP_INVERSE_PROXY_RESOURCES=(
+  "serviceaccount/proxy-agent-runner"
+  "role.rbac.authorization.k8s.io/proxy-agent-runner"
+  "rolebinding.rbac.authorization.k8s.io/proxy-agent-runner"
+  "configmap/inverse-proxy-config"
+  "deployment.apps/proxy-agent"
+)
 readonly GKE_DNS_ENDPOINT_FIELD="controlPlaneEndpointsConfig.dnsEndpointConfig.endpoint"
 readonly GKE_DNS_EXTERNAL_TRAFFIC_FIELD="controlPlaneEndpointsConfig.dnsEndpointConfig.allowExternalTraffic"
 readonly GKE_DNS_TOKENS_FIELD="controlPlaneEndpointsConfig.dnsEndpointConfig.enableK8sTokensViaDns"
@@ -63,6 +70,30 @@ run_or_plan() {
   else
     print_command "$@"
   fi
+}
+
+verify_kfp_inverse_proxy_absent() {
+  local resource found
+  local -a remaining=()
+  local -a verification_errors=()
+  for resource in "${KFP_INVERSE_PROXY_RESOURCES[@]}"; do
+    if ((!EXECUTE)); then
+      print_command kubectl -n kubeflow get "${resource}" --ignore-not-found -o name
+      echo "  assert ${resource} is absent from the canonical KFP control plane"
+      continue
+    fi
+
+    if ! found="$(kubectl -n kubeflow get "${resource}" --ignore-not-found -o name 2>&1)"; then
+      verification_errors+=("${resource}: ${found}")
+      continue
+    fi
+    [[ -z "${found}" ]] || remaining+=("${resource}")
+  done
+
+  ((${#verification_errors[@]} == 0)) || \
+    die "failed to verify inverse-proxy resource absence: ${verification_errors[*]}"
+  ((${#remaining[@]} == 0)) || \
+    die "inverse-proxy resources remain after bounded deletion: ${remaining[*]}"
 }
 
 gke_cluster_value() {
