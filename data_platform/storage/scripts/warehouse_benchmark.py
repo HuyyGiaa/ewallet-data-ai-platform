@@ -149,6 +149,7 @@ def run_benchmark(
         )
         expected = runner.psql(QUERY + ";")
         runner.explain(QUERY)  # warmup
+        baseline_plan = runner.explain(QUERY)
         baseline = [_metric(runner.explain(QUERY)) for _ in range(repeats)]
 
         runner.psql("""
@@ -164,6 +165,7 @@ def run_benchmark(
             "min(transaction_id) || '|' || max(transaction_id) FROM fact_transactions;"
         )
         runner.explain(QUERY)  # warmup
+        optimized_plan = runner.explain(QUERY)
         optimized = [_metric(runner.explain(QUERY)) for _ in range(repeats)]
 
         runner.psql("""
@@ -204,11 +206,20 @@ def run_benchmark(
                 "table_signature_before": signature_before,
                 "table_signature_after": signature_after,
             },
-            "baseline": {"runs": baseline, "median_execution_ms": baseline_median},
+            "baseline": {
+                "runs": baseline,
+                "median_execution_ms": baseline_median,
+                "representative_explain_analyze_buffers": baseline_plan,
+            },
             "optimized": {
                 "change": "partial covering index on (merchant_id,event_date) for completed rows",
                 "runs": optimized,
                 "median_execution_ms": optimized_median,
+                "representative_explain_analyze_buffers": optimized_plan,
+                "index_definition": runner.psql(
+                    "SELECT pg_get_indexdef("
+                    "'idx_fact_transactions_merchant_date_completed'::regclass);"
+                ),
                 "index_size": runner.psql(
                     "SELECT pg_size_pretty(pg_relation_size(" 
                     "'idx_fact_transactions_merchant_date_completed'));"
