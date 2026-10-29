@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "logs": [],
+    "queries": [],
+    "screenshots": []
+  },
+  "benchmark": {
+    "baseline": {
+      "identity": "",
+      "metrics": {}
+    },
+    "correctness_equivalence": "NOT_RUN",
+    "optimized": {
+      "identity": "",
+      "metrics": {}
+    },
+    "trade_offs": [],
+    "workload_identity": ""
+  },
+  "correctness": {
+    "evidence": [],
+    "status": "NOT_RUN"
+  },
+  "execution": {
+    "command": "",
+    "environment": "",
+    "exit_code": null,
+    "finished_at_utc": "",
+    "started_at_utc": ""
+  },
+  "identity": {
+    "artifact_or_image_digest": "",
+    "dataset_version": "",
+    "git_sha": "REPLACE_WITH_FULL_40_CHARACTER_SHA",
+    "worktree": "REPLACE_WITH_ABSOLUTE_WORKTREE"
+  },
+  "rubric_id": "REPLACE_WITH_SHEET_AND_ROW",
+  "run_id": "REPLACE_WITH_UNIQUE_RUN_ID",
+  "schema_version": "edai-rubric-runtime-evidence-v1",
+  "status": "NOT_RUN"
+}
