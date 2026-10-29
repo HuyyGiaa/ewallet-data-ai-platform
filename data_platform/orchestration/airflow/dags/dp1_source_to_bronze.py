@@ -7,12 +7,18 @@ import pendulum
 from airflow.sdk import DAG, Param
 from airflow.providers.standard.operators.bash import BashOperator
 
+from data_platform.orchestration.airflow.python_runtime import (
+    python_module_command,
+    python_task_environment,
+)
+
 
 BRONZE_TABLES = (
     "users", "accounts", "merchants", "devices", "transactions",
     "balance_snapshots", "login_events", "fraud_labels",
 )
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+PYTHON_TASK_ENV = python_task_environment(REPOSITORY_ROOT)
 
 
 with DAG(
@@ -56,7 +62,7 @@ with DAG(
     wait_bronze_quota = BashOperator(
         task_id="wait_bronze_quota",
         bash_command=(
-            "python -m ops.gcp.wait_for_dataproc_quota "
+            python_module_command("ops.gcp.wait_for_dataproc_quota") + " "
             "--project '{{ params.project_id }}' "
             "--region '{{ params.region }}' "
             "--spark-profile '{{ params.spark_profile }}' "
@@ -68,12 +74,14 @@ with DAG(
             "--execute"
         ),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
         execution_timeout=timedelta(minutes=20),
     )
     submit_bronze = BashOperator(
         task_id="submit_bronze_dataproc",
         bash_command=(
-            "python -m ops.gcp.submit_source_to_bronze "
+            python_module_command("ops.gcp.submit_source_to_bronze") + " "
             "--dataset-version '{{ params.dataset_version }}' "
             "--benchmark-id '{{ params.benchmark_id }}' "
             "--run-id '{{ params.bronze_run_id }}' "
@@ -83,17 +91,21 @@ with DAG(
             "--ttl '{{ params.dataproc_ttl }}' --execute"
         ),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
         execution_timeout=timedelta(hours=10),
     )
     verify_bronze = BashOperator(
         task_id="verify_bronze_delta",
         bash_command=(
-            "python -m ops.gcp.verify_delta_run "
+            python_module_command("ops.gcp.verify_delta_run") + " "
             "--root 'gs://{{ params.data_bucket }}/lakehouse/runs/"
             "{{ params.bronze_run_id }}/bronze' "
             + " ".join(f"--expected-table {table}" for table in BRONZE_TABLES)
         ),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
         retries=1,
         retry_delay=timedelta(minutes=1),
         execution_timeout=timedelta(minutes=15),

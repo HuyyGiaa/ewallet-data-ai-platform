@@ -7,8 +7,14 @@ import pendulum
 from airflow.sdk import DAG, Param
 from airflow.providers.standard.operators.bash import BashOperator
 
+from data_platform.orchestration.airflow.python_runtime import (
+    python_module_command,
+    python_task_environment,
+)
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+PYTHON_TASK_ENV = python_task_environment(REPOSITORY_ROOT)
 SILVER_TABLES = (
     "users", "accounts", "merchants", "devices", "transactions",
     "balance_snapshots", "login_events", "fraud_labels",
@@ -59,7 +65,7 @@ with DAG(
     verify_silver = BashOperator(
         task_id="verify_silver_delta",
         bash_command=(
-            "python -m ops.gcp.verify_delta_run "
+            python_module_command("ops.gcp.verify_delta_run") + " "
             "--root 'gs://{{ params.data_bucket }}/lakehouse/runs/"
             "{{ params.silver_run_id }}/silver' "
             + " ".join(f"--expected-table {table}" for table in SILVER_TABLES)
@@ -67,11 +73,13 @@ with DAG(
         retries=1,
         retry_delay=timedelta(minutes=1),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
     )
     verify_core_gold = BashOperator(
         task_id="verify_core_gold_delta",
         bash_command=(
-            "python -m ops.gcp.verify_delta_run "
+            python_module_command("ops.gcp.verify_delta_run") + " "
             "--root 'gs://{{ params.data_bucket }}/lakehouse/runs/"
             "{{ params.gold_run_id }}/gold' "
             + " ".join(f"--expected-table {table}" for table in CORE_GOLD_TABLES)
@@ -79,11 +87,13 @@ with DAG(
         retries=1,
         retry_delay=timedelta(minutes=1),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
     )
     wait_features_quota = BashOperator(
         task_id="wait_features_quota",
         bash_command=(
-            "python -m ops.gcp.wait_for_dataproc_quota "
+            python_module_command("ops.gcp.wait_for_dataproc_quota") + " "
             "--project '{{ params.project_id }}' --region '{{ params.region }}' "
             "--spark-profile '{{ params.spark_profile }}' "
             "--benchmark-id '{{ params.benchmark_id }}' "
@@ -94,12 +104,14 @@ with DAG(
             "--execute"
         ),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
         execution_timeout=timedelta(minutes=20),
     )
     submit_features = BashOperator(
         task_id="submit_historical_features_dataproc",
         bash_command=(
-            "python -m ops.gcp.submit_historical_features "
+            python_module_command("ops.gcp.submit_historical_features") + " "
             "--dataset-version '{{ params.dataset_version }}' "
             "--benchmark-id '{{ params.benchmark_id }}' "
             "--source-silver-run-id '{{ params.silver_run_id }}' "
@@ -112,11 +124,13 @@ with DAG(
         ),
         execution_timeout=timedelta(hours=10),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
     )
     verify_features = BashOperator(
         task_id="verify_historical_feature_delta",
         bash_command=(
-            "python -m ops.gcp.verify_delta_run "
+            python_module_command("ops.gcp.verify_delta_run") + " "
             "--root 'gs://{{ params.data_bucket }}/lakehouse/runs/"
             "{{ params.feature_run_id }}/gold' "
             + " ".join(f"--expected-table {table}" for table in FEATURE_TABLES)
@@ -124,5 +138,7 @@ with DAG(
         retries=1,
         retry_delay=timedelta(minutes=1),
         cwd=str(REPOSITORY_ROOT),
+        env=PYTHON_TASK_ENV,
+        append_env=True,
     )
     [verify_silver, verify_core_gold] >> wait_features_quota >> submit_features >> verify_features

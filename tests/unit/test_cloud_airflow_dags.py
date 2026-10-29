@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from airflow.models import DagBag
+
+from data_platform.orchestration.airflow.python_runtime import (
+    PYTHON_ENV_VAR,
+    python_module_command,
+    resolve_airflow_python,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DAG_ROOT = REPOSITORY_ROOT / "data_platform/orchestration/airflow/dags"
@@ -75,8 +81,20 @@ class CloudAirflowDagTest(unittest.TestCase):
             for task_id, module in tasks.items():
                 task = self.bag.dags[dag_id].get_task(task_id)
                 self.assertEqual(str(REPOSITORY_ROOT), task.cwd)
-                result = subprocess.run([sys.executable, "-c", f"import {module}"], cwd=task.cwd,
-                                        env=env, capture_output=True, text=True, check=False)
+                self.assertTrue(task.append_env)
+                self.assertEqual(
+                    resolve_airflow_python(REPOSITORY_ROOT),
+                    task.env[PYTHON_ENV_VAR],
+                )
+                self.assertIn(f"-m {module}", task.bash_command)
+                result = subprocess.run(
+                    [task.env[PYTHON_ENV_VAR], "-c", f"import {module}"],
+                    cwd=task.cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
                 self.assertEqual(0, result.returncode, result.stderr)
 
     def test_all_dags_accept_and_propagate_explicit_spark_profile(self) -> None:
@@ -118,7 +136,11 @@ class CloudAirflowDagTest(unittest.TestCase):
             for task_id, (handoff, predecessor) in tasks.items():
                 task = dag.get_task(task_id)
                 command = task.bash_command
-                self.assertIn("python -m ops.gcp.wait_for_dataproc_quota", command)
+                self.assertIn(
+                    f'"${{{PYTHON_ENV_VAR}:?ERROR: {PYTHON_ENV_VAR} is not configured}}" '
+                    "-m ops.gcp.wait_for_dataproc_quota",
+                    command,
+                )
                 self.assertIn(f"--handoff '{handoff}'", command)
                 self.assertIn("--spark-profile '{{ params.spark_profile }}'", command)
                 self.assertIn("--benchmark-id '{{ params.benchmark_id }}'", command)
@@ -152,6 +174,52 @@ class CloudAirflowDagTest(unittest.TestCase):
                 self.assertNotIn("fintech_python", command)
                 if "submit_" in task.task_id:
                     self.assertGreaterEqual(task.execution_timeout.total_seconds(), 8 * 60 * 60)
+
+    def test_python_task_command_runs_with_airflow_path_removed(self) -> None:
+        task = self.bag.dags["dp1_source_to_bronze"].get_task("wait_bronze_quota")
+        env = {"PATH": "/usr/bin:/bin", **task.env}
+        result = subprocess.run(
+            [
+                "/usr/bin/bash",
+                "-c",
+                python_module_command("ops.gcp.wait_for_dataproc_quota") + " --help",
+            ],
+            cwd=task.cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("quota-readiness gate", result.stdout)
+
+    def test_python_task_command_fails_clearly_without_configured_interpreter(self) -> None:
+        result = subprocess.run(
+            [
+                "/usr/bin/bash",
+                "-c",
+                python_module_command("ops.gcp.verify_delta_run") + " --help",
+            ],
+            cwd=REPOSITORY_ROOT,
+            env={"PATH": "/usr/bin:/bin"},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn(f"{PYTHON_ENV_VAR} is not configured", result.stderr)
+
+    def test_invalid_explicit_interpreter_fails_dag_parse_validation(self) -> None:
+        resolve_airflow_python.cache_clear()
+        try:
+            with mock.patch.dict(
+                os.environ,
+                {PYTHON_ENV_VAR: "/definitely/missing/ewallet-python"},
+            ):
+                with self.assertRaisesRegex(RuntimeError, f"Invalid {PYTHON_ENV_VAR}"):
+                    resolve_airflow_python(REPOSITORY_ROOT)
+        finally:
+            resolve_airflow_python.cache_clear()
 
 
 if __name__ == "__main__":
