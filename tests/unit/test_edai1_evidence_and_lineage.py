@@ -13,11 +13,18 @@ def test_cloud_lineage_plan_has_stable_operational_entities():
     assert plan["flow_count"] == 3
     assert plan["job_count"] == 4
     assert plan["dataset_count"] == 32
+    assert plan["dataset_lineage_count"] == 31
     jobs = plan["jobs"]
     assert len({job["job_urn"] for job in jobs}) == 4
     assert all(job["inputs"] and job["outputs"] for job in jobs)
     assert all("gs://ewallet-data-ai-platform-hg26-data/" in urn for urn in plan["datasets"])
     assert all("urn:li:dataFlow:(airflow," in job["flow_urn"] for job in jobs)
+    assert len({edge["downstream"] for edge in plan["dataset_lineage"]}) == 31
+    feature_edge = next(
+        edge for edge in plan["dataset_lineage"]
+        if "feat_device_behavior" in edge["downstream"]
+    )
+    assert len(feature_edge["upstreams"]) == 2
 
 
 def test_publisher_is_idempotent_and_fails_closed_on_readback():
@@ -33,8 +40,8 @@ def test_publisher_is_idempotent_and_fails_closed_on_readback():
     adapter = MemoryAdapter()
     first = publish_with_readback(plan, adapter)
     second = publish_with_readback(plan, adapter)
-    assert first["published"] == second["published"] == 11
-    assert len(aspect_records(plan)) == 11
+    assert first["published"] == second["published"] == 42
+    assert len(aspect_records(plan)) == 42
 
     class BadReadback(MemoryAdapter):
         def get(self, urn, aspect):

@@ -12,7 +12,10 @@ import json
 from pathlib import Path
 from typing import Protocol
 
-from .cloud_lineage import build_plan
+try:
+    from .cloud_lineage import build_plan
+except ImportError:  # Support the documented direct-file CLI as well as ``-m``.
+    from cloud_lineage import build_plan
 
 
 class AspectAdapter(Protocol):
@@ -28,8 +31,12 @@ def aspect_records(plan: dict[str, object]) -> list[tuple[str, str, dict[str, ob
         if flow not in seen_flows:
             records.append((flow, "dataFlowInfo", {
                 "name": job["dag_id"],
-                "orchestrator": plan["platform"],
-                "cluster": plan["cluster"],
+                "customProperties": {
+                    "orchestrator": str(plan["platform"]),
+                    "cluster": str(plan["cluster"]),
+                    "publication_mode": "retrospective_historical_run",
+                },
+                "env": str(plan["environment"]),
             }))
             seen_flows.add(flow)
         records.append((job["job_urn"], "dataJobInfo", {
@@ -40,6 +47,13 @@ def aspect_records(plan: dict[str, object]) -> list[tuple[str, str, dict[str, ob
         records.append((job["job_urn"], "dataJobInputOutput", {
             "inputDatasets": sorted(job["inputs"]),
             "outputDatasets": sorted(job["outputs"]),
+        }))
+    for edge in plan["dataset_lineage"]:
+        records.append((edge["downstream"], "upstreamLineage", {
+            "upstreams": [
+                {"dataset": urn, "type": "TRANSFORMED"}
+                for urn in sorted(edge["upstreams"])
+            ]
         }))
     return records
 
@@ -80,6 +94,9 @@ class DataHubSdkAdapter:
             DataFlowInfoClass,
             DataJobInfoClass,
             DataJobInputOutputClass,
+            DatasetLineageTypeClass,
+            UpstreamClass,
+            UpstreamLineageClass,
         )
 
         classes = {
@@ -87,7 +104,18 @@ class DataHubSdkAdapter:
             "dataJobInfo": DataJobInfoClass,
             "dataJobInputOutput": DataJobInputOutputClass,
         }
-        value = classes[aspect](**payload)
+        if aspect == "upstreamLineage":
+            value = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=item["dataset"],
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                    for item in payload["upstreams"]
+                ]
+            )
+        else:
+            value = classes[aspect](**payload)
         self.emitter.emit_mcp(MetadataChangeProposalWrapper(entityUrn=urn, aspect=value))
 
     def get(self, urn: str, aspect: str) -> dict[str, object] | None:
@@ -95,19 +123,35 @@ class DataHubSdkAdapter:
             DataFlowInfoClass,
             DataJobInfoClass,
             DataJobInputOutputClass,
+            UpstreamLineageClass,
         )
         classes = {
             "dataFlowInfo": DataFlowInfoClass,
             "dataJobInfo": DataJobInfoClass,
             "dataJobInputOutput": DataJobInputOutputClass,
+            "upstreamLineage": UpstreamLineageClass,
         }
         value = self.graph.get_aspect(entity_urn=urn, aspect_type=classes[aspect])
         if value is None:
             return None
         if aspect == "dataFlowInfo":
-            return {key: getattr(value, key) for key in ("name", "orchestrator", "cluster")}
+            return {
+                "name": value.name,
+                "customProperties": dict(value.customProperties or {}),
+                "env": str(value.env),
+            }
         if aspect == "dataJobInfo":
             return {key: getattr(value, key) for key in ("name", "type", "flowUrn")}
+        if aspect == "upstreamLineage":
+            return {
+                "upstreams": sorted(
+                    (
+                        {"dataset": item.dataset, "type": str(item.type)}
+                        for item in value.upstreams
+                    ),
+                    key=lambda item: item["dataset"],
+                )
+            }
         return {
             "inputDatasets": sorted(value.inputDatasets or []),
             "outputDatasets": sorted(value.outputDatasets or []),
