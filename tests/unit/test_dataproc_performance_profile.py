@@ -18,8 +18,10 @@ from data_platform.processing.spark.common.spark_session import spark_options
 from ops.gcp.dataproc_batch_properties import (
     CANONICAL_PERFORMANCE_PROFILE,
     DEFAULT_PERFORMANCE_PROFILE,
+    UNSUPPORTED_MANAGED_SPARK_PROPERTIES,
     build_dataproc_batch_properties,
     resolve_submission_profile,
+    serialize_dataproc_batch_properties,
 )
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 from ops.gcp.submit_bronze_to_silver import build_submission_command as build_silver
@@ -133,7 +135,7 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
         self.assertEqual("true", gold["spark.sql.adaptive.enabled"])
         self.assertEqual("false", gold["spark.sql.adaptive.skewJoin.enabled"])
 
-    def test_submitters_emit_only_their_stage_candidate_properties(self) -> None:
+    def test_all_eight_stage_profiles_emit_managed_spark_compatible_properties(self) -> None:
         benchmark = "ab-20261025123456"
         attempt = "r261025123456"
         common = dict(
@@ -141,17 +143,23 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
             dataset_version="canonical-100gb-v1",
             jar_paths=(Path("delta.jar"),),
             ttl="8h",
-            spark_profile="optimized",
             benchmark_id=benchmark,
             git_sha="a" * 40,
         )
-        bronze = benchmark_run_id(benchmark, "optimized", "bronze", attempt)
-        silver = benchmark_run_id(benchmark, "optimized", "silver", attempt)
-        gold = benchmark_run_id(benchmark, "optimized", "gold", attempt)
-        feat = benchmark_run_id(benchmark, "optimized", "feat", attempt)
-        def manifest(stage, kind, upstream, optimized_run, layer):
+        run_ids = {
+            (profile, kind): benchmark_run_id(
+                benchmark, profile, kind, attempt
+            )
+            for profile in ("baseline", "optimized")
+            for kind in ("bronze", "silver", "gold", "feat")
+        }
+
+        def manifest(stage, kind, upstream, layer):
             baseline_run = benchmark_run_id(
                 benchmark, "baseline", kind, attempt
+            )
+            optimized_run = benchmark_run_id(
+                benchmark, "optimized", kind, attempt
             )
             return build_stage_pair_manifest(
                 stage=stage,
@@ -171,62 +179,88 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
             )
         manifests = {
             "dp1-bronze": manifest(
-                "dp1-bronze", "bronze", ("canonical-100gb-v1",), bronze,
-                "bronze",
+                "dp1-bronze", "bronze", ("canonical-100gb-v1",), "bronze"
             ),
             "dp2-silver": manifest(
-                "dp2-silver", "silver", ("selected-bronze-run",), silver,
-                "silver",
+                "dp2-silver", "silver", ("selected-bronze-run",), "silver"
             ),
             "dp2-gold": manifest(
-                "dp2-gold", "gold", ("selected-silver-run",), gold, "gold"
+                "dp2-gold", "gold", ("selected-silver-run",), "gold"
             ),
             "dp3-features": manifest(
                 "dp3-features", "feat",
-                ("selected-silver-run", "selected-gold-run"), feat, "gold",
-            ),
-        }
-        commands = {
-            "dp1-bronze": build_bronze(
-                **common, run_id=bronze,
-                pair_manifest=manifests["dp1-bronze"],
-            ),
-            "dp2-silver": build_silver(
-                **common, source_bronze_run_id="selected-bronze-run",
-                run_id=silver, pair_manifest=manifests["dp2-silver"],
-            ),
-            "dp2-gold": build_gold(
-                **common, source_silver_run_id="selected-silver-run",
-                run_id=gold, pair_manifest=manifests["dp2-gold"],
-            ),
-            "dp3-features": build_features(
-                **common,
-                source_silver_run_id="selected-silver-run",
-                source_core_gold_run_id="selected-gold-run",
-                run_id=feat,
-                pair_manifest=manifests["dp3-features"],
+                ("selected-silver-run", "selected-gold-run"), "gold"
             ),
         }
         expected_shuffle = {
-            "dp1-bronze": "200",
-            "dp2-silver": "304",
-            "dp2-gold": "400",
-            "dp3-features": "200",
+            ("dp1-bronze", "baseline"): "200",
+            ("dp1-bronze", "optimized"): "200",
+            ("dp2-silver", "baseline"): "200",
+            ("dp2-silver", "optimized"): "304",
+            ("dp2-gold", "baseline"): "200",
+            ("dp2-gold", "optimized"): "400",
+            ("dp3-features", "baseline"): "200",
+            ("dp3-features", "optimized"): "200",
         }
-        for stage, command in commands.items():
-            values = properties(command)
-            self.assertIn("dataproc.tier=standard", values)
-            self.assertIn("spark.dynamicAllocation.initialExecutors=6", values)
-            self.assertIn("spark.dynamicAllocation.maxExecutors=7", values)
-            self.assertIn(
-                f"spark.sql.shuffle.partitions={expected_shuffle[stage]}", values
+
+        for profile in ("baseline", "optimized"):
+            per_profile = {**common, "spark_profile": profile}
+            commands = {
+                "dp1-bronze": build_bronze(
+                    **per_profile,
+                    run_id=run_ids[(profile, "bronze")],
+                    pair_manifest=manifests["dp1-bronze"],
+                ),
+                "dp2-silver": build_silver(
+                    **per_profile,
+                    source_bronze_run_id="selected-bronze-run",
+                    run_id=run_ids[(profile, "silver")],
+                    pair_manifest=manifests["dp2-silver"],
+                ),
+                "dp2-gold": build_gold(
+                    **per_profile,
+                    source_silver_run_id="selected-silver-run",
+                    run_id=run_ids[(profile, "gold")],
+                    pair_manifest=manifests["dp2-gold"],
+                ),
+                "dp3-features": build_features(
+                    **per_profile,
+                    source_silver_run_id="selected-silver-run",
+                    source_core_gold_run_id="selected-gold-run",
+                    run_id=run_ids[(profile, "feat")],
+                    pair_manifest=manifests["dp3-features"],
+                ),
+            }
+            for stage, command in commands.items():
+                values = properties(command)
+                keys = {value.partition("=")[0] for value in values}
+                self.assertTrue(
+                    keys.isdisjoint(UNSUPPORTED_MANAGED_SPARK_PROPERTIES)
+                )
+                self.assertIn("dataproc.tier=standard", values)
+                self.assertIn("spark.dynamicAllocation.initialExecutors=6", values)
+                self.assertIn("spark.dynamicAllocation.maxExecutors=7", values)
+                self.assertIn(
+                    "spark.sql.shuffle.partitions="
+                    f"{expected_shuffle[(stage, profile)]}",
+                    values,
+                )
+                self.assertIn("spark.sql.adaptive.skewJoin.enabled=false", values)
+                self.assertIn("--version=2.2", command)
+                self.assertIn("--ttl=8h", command)
+                allocation_profile = "spark.dynamicAllocation.profile=performance"
+                if stage == "dp1-bronze" and profile == "optimized":
+                    self.assertIn(allocation_profile, values)
+                else:
+                    self.assertNotIn(allocation_profile, values)
+
+    def test_final_property_serializer_rejects_known_unsupported_property(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "spark.dynamicAllocation.shuffleTracking.enabled"
+        ):
+            serialize_dataproc_batch_properties(
+                ["spark.dynamicAllocation.shuffleTracking.enabled=true"]
             )
-            self.assertIn("spark.sql.adaptive.skewJoin.enabled=false", values)
-            self.assertIn("--version=2.2", command)
-            self.assertIn("--ttl=8h", command)
-        self.assertIn("spark.dynamicAllocation.profile=performance", properties(commands["dp1-bronze"]))
-        for stage in ("dp2-silver", "dp2-gold", "dp3-features"):
-            self.assertNotIn("spark.dynamicAllocation.profile=performance", properties(commands[stage]))
 
     def test_partial_benchmark_metadata_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "must be supplied together"):

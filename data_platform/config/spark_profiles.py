@@ -69,7 +69,6 @@ class SparkResourceContract:
             f"{self.executor_allocation_ratio}",
             f"spark.sql.autoBroadcastJoinThreshold={self.broadcast_threshold}",
             f"spark.dynamicAllocation.executorIdleTimeout={self.executor_idle_timeout}",
-            "spark.dynamicAllocation.shuffleTracking.enabled=true",
         )
 
 

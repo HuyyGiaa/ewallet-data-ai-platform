@@ -23,6 +23,7 @@ from ops.gcp.dataproc_batch_properties import (
     build_dataproc_batch_properties,
     profile_summary,
     resolve_submission_profile,
+    serialize_dataproc_batch_properties,
 )
 from data_platform.config.spark_profiles import (
     require_benchmark_pair,
@@ -180,7 +181,7 @@ def build_submission_command(
                 pair_manifest, str(spark_profile)
             ).items()
         )
-    properties = ",".join(property_items)
+    properties = serialize_dataproc_batch_properties(property_items)
     labels = "component=historical-features,phase=s1b"
     if benchmark_id is not None:
         labels += (

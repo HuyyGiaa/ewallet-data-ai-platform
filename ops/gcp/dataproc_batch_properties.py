@@ -14,6 +14,9 @@ from data_platform.config.spark_profiles import (
 DEFAULT_PERFORMANCE_PROFILE = "default"
 CANONICAL_PERFORMANCE_PROFILE = "canonical"
 PERFORMANCE_PROFILES = (DEFAULT_PERFORMANCE_PROFILE, CANONICAL_PERFORMANCE_PROFILE)
+UNSUPPORTED_MANAGED_SPARK_PROPERTIES = frozenset(
+    {"spark.dynamicAllocation.shuffleTracking.enabled"}
+)
 
 
 def add_performance_profile_argument(parser: argparse.ArgumentParser) -> None:
@@ -62,7 +65,27 @@ def build_dataproc_batch_properties(
     ]
     if resolved is not None:
         properties.extend(resolved.spark_properties)
-    return tuple(properties)
+    result = tuple(properties)
+    validate_managed_spark_properties(result)
+    return result
+
+
+def validate_managed_spark_properties(properties: tuple[str, ...] | list[str]) -> None:
+    """Reject properties proven unsupported by Managed Spark submission."""
+
+    keys = {item.partition("=")[0] for item in properties}
+    unsupported = sorted(keys & UNSUPPORTED_MANAGED_SPARK_PROPERTIES)
+    if unsupported:
+        raise ValueError(
+            "unsupported Managed Spark properties: " + ", ".join(unsupported)
+        )
+
+
+def serialize_dataproc_batch_properties(properties: list[str]) -> str:
+    """Validate the final property list at the gcloud submission boundary."""
+
+    validate_managed_spark_properties(properties)
+    return ",".join(properties)
 
 
 def resolve_submission_profile(

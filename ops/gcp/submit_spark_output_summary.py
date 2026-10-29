@@ -19,7 +19,10 @@ from data_platform.config.spark_profiles import (
     require_profile_binding,
     validate_git_sha,
 )
-from ops.gcp.dataproc_batch_properties import build_dataproc_batch_properties
+from ops.gcp.dataproc_batch_properties import (
+    build_dataproc_batch_properties,
+    serialize_dataproc_batch_properties,
+)
 from ops.gcp.package_python_job import build_python_archive
 from ops.gcp.submit_dataproc_delta_smoke import (
     TERRAFORM_DEV_ROOT,
@@ -107,7 +110,7 @@ def build_submission_command(
             pair_manifest, spark_profile
         ).items()
     )
-    properties = ",".join(property_items)
+    properties = serialize_dataproc_batch_properties(property_items)
     jars = tuple(jar_paths or dependency_jar_paths())
     return (
         "gcloud", "dataproc", "batches", "submit", "pyspark", str(script_path),
