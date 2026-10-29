@@ -1,0 +1,24 @@
+schema_version: 1
+images:
+  datahub-lineage-publisher:
+    owner: data-platform
+    purpose: Validate and render the DP1/DP2/DP3 DataHub operational-lineage plan.
+    build_context: .
+    dockerfile: images/datahub-publisher/Dockerfile
+    functional_contract:
+      command: ["--output", "/tmp/lineage-plan.json"]
+      expected_flows: 3
+      expected_jobs: 4
+      expected_datasets: 32
+    variants:
+      baseline:
+        target: baseline
+        base: python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343
+      optimized:
+        target: optimized
+        base: python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894
+        controls:
+          - multi-stage compile and self-test
+          - non-root runtime user
+          - no package manager cache or compiler in runtime
+          - identical Python version and application source

@@ -212,6 +212,10 @@ def build_submission_command(
             performance_tier="standard",
             data_bucket=runtime.data_bucket,
             profile=OPTIMIZED_SPARK_PROFILE,
+            # Storage candidates are selected from the verified DP2 Gold
+            # output.  The shared profile API is stage-aware; leaving this
+            # implicit would silently mix an unrelated stage contract.
+            stage="dp2-gold",
         )
     )
     jars = tuple(jar_paths or dependency_jar_paths())
