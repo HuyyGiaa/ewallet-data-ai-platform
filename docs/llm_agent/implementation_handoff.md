@@ -13,7 +13,7 @@ Living Decision 21.216 is authoritative for this campaign:
 - runtime and rubric items require real deployment/readback evidence and cannot
   become VERIFIED from source, configuration, or tests alone.
 
-## Current phase
+## Completed source milestones
 
 Phase A foundation is implemented on `codex/llm-agent-rubric-20261030` from the
 reviewed consolidation base `acad36beb81a8424db6ee0a3a04905dbb040ce0d`.
@@ -22,6 +22,13 @@ the reused fail-closed rubric commit is
 `0ae2f43a9de4d633d1ac6d30b5440f0549a1f5ea`.
 No cloud, cluster, paid workload, registry, canonical branch, active DP2, dirty
 Feast worktree, or dirty Streaming worktree was mutated.
+
+Phase B source implementation is commit
+`1c3d8997ffed13009f67ca9e0c354467b51ab6dd`. It adds pinned vLLM CPU primary
+and fallback backends, agentgateway 1.7.0 model routing and resilience, a
+kagent 0.10.3-compatible global ModelConfig, fail-closed benchmark evidence and
+an actual streaming benchmark runner. Runtime deployment and benchmark remain
+OPEN/PARTIAL, never VERIFIED.
 
 ## Gate A source contract
 
@@ -40,6 +47,7 @@ Jenkins-compatible immutable-SHA pipeline skeleton.
 - Feast Online/Redis, registered ML model/KServe and runtime agent prerequisites
   are not assumed complete.
 - Google Docs milestone updates require successful save/readback.
-- Phase B next implements vLLM CPU-first plus agentgateway routing, resilience,
-  version routing and benchmark harnesses. It remains source-only until an
-  explicitly approved deployment and real benchmark are captured.
+- Phase C next implements the versioned fraud-policy corpus, ingestion,
+  validation, chunking, embedding, Feast-backed publication contract,
+  retrieval citations/evaluation and DataHub lineage. Airflow, Feast and
+  DataHub runtime proof remain separately gated.

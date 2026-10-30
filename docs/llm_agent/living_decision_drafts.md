@@ -51,3 +51,46 @@ Next gate: Phase B source implementation for CPU-first vLLM, agentgateway model
 routing, bounded timeout/retry/circuit-breaker/fallback and controlled benchmark
 harness. Runtime VERIFIED remains gated on approved deployment and real measured
 readback.
+
+## 21.218 — Phase B milestone — SYNC_PENDING
+
+Date: 30/10/2026 (ICT)
+
+Git SHA: `1c3d8997ffed13009f67ca9e0c354467b51ab6dd`.
+
+Implemented components: vLLM 0.32.0 CPU x86 image pinned by OCI digest;
+Qwen/Qwen3-0.6B pinned to immutable revision
+`c1899de289a04d12100db370d81485cdf75e47ca`; primary prefix-caching backend
+and conservative fallback backend with bounded active/queued requests, probes,
+resources and rolling strategy; agentgateway 1.7.0 pinned by OCI digest with
+model alias/version routing, request/token quotas, 30-second overall timeout,
+two total attempts, health-eviction circuit and priority fallback; global
+kagent `v1alpha2` ModelConfig routed only to agentgateway; actual streaming
+benchmark runner and fail-closed aggregation for TTFT, TPOT/ITL, p50/p95/p99,
+tokens, tokens/s, requests/s, CPU/RAM, error and fallback rates; rollout and
+rollback gate documentation. The reused pilot's incompatible legacy
+`apiKeySecretRef` was corrected to kagent 0.10.3 `apiKeySecret`.
+
+Tests: 33 PASS total across LLM/Agent contracts/foundation/Phase B, bounded
+kagent pilot and rubric fail-closed suites. Helm lint/render PASS. Pinned kagent
+0.10.3 and Substrate 0.0.9 chart digest checks PASS. Both ModelConfigs validate
+against the pinned kagent `v1alpha2` CRD. The rendered agentgateway config
+passes the pinned 1.7.0 binary's native `--validate-only`. Rubric matrix remains
+93 rows and exact 100 + 100 raw points; compileall and diff checks PASS.
+
+Runtime evidence: none. No vLLM model load, Kubernetes Deployment, ModelConfig
+apply, gateway request, benchmark, failure injection, rollback or cloud action
+ran. Phase B is SOURCE_ONLY_PASS/PARTIAL and is not runtime VERIFIED.
+
+Rubric status: edai-2 rows 3–7 were rebound to the new source SHA and remain
+PARTIAL with zero awarded points. Overall fail-closed rubric remains 12 VERIFIED,
+72 PARTIAL, 9 OPEN and weighted 13.5/100.
+
+Blockers: paid/cloud deployment requires explicit approval; DP2 remains active;
+real benchmark and rollback evidence require an approved cluster capacity gate.
+Feast Online/Redis and registered ML model/KServe are not assumed complete.
+
+Next gate: Phase C source implementation for versioned fraud-policy RAG,
+ingestion/validation/chunking/embedding, Feast-backed publication contract,
+retrieval citations/evaluation and DataHub lineage. Runtime VERIFIED remains
+gated on real Airflow, Feast and DataHub readback.
