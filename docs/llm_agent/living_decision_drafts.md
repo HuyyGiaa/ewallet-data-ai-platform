@@ -52,7 +52,7 @@ routing, bounded timeout/retry/circuit-breaker/fallback and controlled benchmark
 harness. Runtime VERIFIED remains gated on approved deployment and real measured
 readback.
 
-## 21.218 — Phase B milestone — SYNC_PENDING
+## 21.218 — Phase B milestone — SYNCED_READBACK_VERIFIED
 
 Date: 30/10/2026 (ICT)
 
@@ -94,3 +94,8 @@ Next gate: Phase C source implementation for versioned fraud-policy RAG,
 ingestion/validation/chunking/embedding, Feast-backed publication contract,
 retrieval citations/evaluation and DataHub lineage. Runtime VERIFIED remains
 gated on real Airflow, Feast and DataHub readback.
+
+Readback: Google Docs save completed and the canonical document was exported
+back to Markdown on 30/10/2026 ICT. Decision number, implementation SHA,
+evidence-binding SHA, 33-test result, explicit absence of runtime evidence,
+rubric state, blockers and Phase C next gate were all present in the readback.
