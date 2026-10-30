@@ -1,0 +1,24 @@
+{
+  "schema_version": "llm-agent-release/v1",
+  "release_id": "llm-agent-v1",
+  "architecture": {
+    "external_gateway": "istio-ambient-gateway-api",
+    "a2a": "kagent-native-a2a",
+    "llm_route": "modelconfig-agentgateway-vllm",
+    "mcp_gateway_role": "policy-only"
+  },
+  "components": {
+    "vllm": {"owner": "llm-runtime", "source": "ai_platform/llm_agent", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/vllm", "runtime_status": "OPEN"},
+    "agentgateway": {"owner": "llm-routing", "source": "infra/helm/llm-agent-platform", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/agentgateway", "runtime_status": "OPEN"},
+    "mcp-gateway": {"owner": "agent-security", "source": "ai_platform/llm_agent", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/mcp-gateway", "runtime_status": "OPEN"},
+    "feature-rag-mcp": {"owner": "agent-tools", "source": "ai_platform/llm_agent", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/feature-rag-mcp", "runtime_status": "OPEN"},
+    "drift-mcp": {"owner": "agent-tools", "source": "ai_platform/llm_agent", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/drift-mcp", "runtime_status": "OPEN"},
+    "feature-rag-specialist": {"owner": "agent-runtime", "source": "infra/kubernetes/kagent-pilot", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/unit/test_kagent_bounded_pilot.py"], "evidence_output": "docs/evidence/llm_agent/feature-rag-specialist", "runtime_status": "OPEN"},
+    "drift-specialist": {"owner": "agent-runtime", "source": "infra/kubernetes/kagent-pilot", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/unit/test_kagent_bounded_pilot.py"], "evidence_output": "docs/evidence/llm_agent/drift-specialist", "runtime_status": "OPEN"},
+    "fraud-coordinator": {"owner": "agent-runtime", "source": "infra/kubernetes/kagent-pilot", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/unit/test_kagent_bounded_pilot.py"], "evidence_output": "docs/evidence/llm_agent/fraud-coordinator", "runtime_status": "OPEN"},
+    "rag-pipeline": {"owner": "rag-data", "source": "data_platform", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/rag-pipeline", "runtime_status": "OPEN"},
+    "streaming-to-offline": {"owner": "feature-platform", "source": "data_platform/processing/flink", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/streaming-to-offline", "runtime_status": "OPEN"},
+    "streaming-to-online": {"owner": "feature-platform", "source": "data_platform/processing/flink", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/streaming-to-online", "runtime_status": "OPEN"},
+    "otel-collector": {"owner": "observability", "source": "infra/helm/llm-agent-platform", "build_definition": "infra/docker/llm-agent-tooling/Dockerfile", "chart": "infra/helm/llm-agent-platform", "tests": ["tests/llm_agent"], "evidence_output": "docs/evidence/llm_agent/otel-collector", "runtime_status": "OPEN"}
+  }
+}

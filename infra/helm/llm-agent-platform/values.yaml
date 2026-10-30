@@ -1,0 +1,26 @@
+namespace:
+  create: true
+  name: ewallet-agents
+  ambient: true
+
+gateway:
+  enabled: false
+  name: ewallet-agent-gateway
+  className: istio
+  hostname: agents.example.invalid
+  tlsSecretName: ewallet-agent-tls
+  coordinatorService: fraud-coordinator-a2a
+  coordinatorPort: 8083
+
+serviceAccounts:
+  - agentgateway
+  - mcp-gateway
+  - feature-rag-mcp
+  - drift-mcp
+  - fraud-coordinator
+  - feature-rag-specialist
+  - drift-specialist
+  - otel-collector
+
+networkPolicy:
+  enabled: true
