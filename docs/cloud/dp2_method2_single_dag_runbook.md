@@ -1,4 +1,4 @@
-# DP2 Method 2 — One-trigger DAG runbook (proposed implementation)
+# DP2 Method 2 — One-trigger DAG and audited recovery runbook
 
 ## What changes
 
@@ -98,11 +98,11 @@ reconcile the partial state before retrying. The workflow intentionally has
 - Source archive did NOT include complete project, full Airflow dependencies,
   Terraform or credentials. Offline tests and syntax checks are possible here;
   end-to-end Airflow import and integration tests must run in your real repo.
-- Event-log discovery enumerates `gs://BUCKET/spark-events/*` and selects logs by
-  Dataproc create/state time ±30 minutes and explicit immutable Method 2 Spark
-  properties. It **fails closed** if no unique matching original event log is
-  found. Confirm actual event-log naming, `stateTime`, `zstd` and GCS listing
-  permissions during a dry integration test before paying for all eight jobs.
+- Event-log discovery enumerates `gs://BUCKET/spark-events/*` only to build a
+  bounded candidate set. The accepted original log must have the exact Method-2
+  properties, exact Dataproc cohort, stage application name, and an application
+  start/end interval wholly inside the original batch create/state interval. It
+  **fails closed** unless exactly one log satisfies every binding.
 - The existing aggregate `compare_spark_benchmark` enforces **the same Git SHA
   for every stage**. DP1 remains at SHA `62f17...`; refactored DP2 will have a
   newer SHA, so single-stage comparisons and winners work, but four-stage
@@ -110,3 +110,76 @@ reconcile the partial state before retrying. The workflow intentionally has
   contract change. Do not rewrite DP1 SHA or misreport aggregate PASS.
 - This design is a proposed implementation, **not yet production-verified**.
   Neither a full GCP run nor real Airflow import has been performed here.
+
+## Existing-DagRun recovery (no new Spark execution)
+
+Use `ops.gcp.recover_dp2_method2` only when an existing evidence TaskInstance
+failed after the original processing and semantic-scan batches completed. The
+recovery configuration is an external JSON object so run-specific identity is
+not silently baked into source. Required fields are:
+
+```json
+{
+  "dag_id": "dp2_bronze_to_curated",
+  "dag_run_id": "dp2-method2-<benchmark-id>",
+  "benchmark_id": "ab-YYYYMMDDhhmmss",
+  "execution_git_sha": "<original 40-hex SHA>",
+  "controller_git_sha": "<committed recovery 40-hex SHA>",
+  "canonical_repo": "/absolute/canonical/repository",
+  "evidence_root": "/absolute/external/dp2-method2",
+  "bronze_winner": "/absolute/external/dp1-bronze-winner.json",
+  "dataset_version": "canonical-100gb-v1",
+  "data_bucket": "<bucket>",
+  "project": "<project>",
+  "region": "<region>",
+  "baseline_silver_run_id": "<existing-id>",
+  "optimized_silver_run_id": "<existing-id>",
+  "baseline_gold_run_id": "<reserved-id>",
+  "optimized_gold_run_id": "<reserved-id>",
+  "airflow_url": "http://127.0.0.1:8084"
+}
+```
+
+Acquire an Airflow JWT through the configured Airflow 3 `/auth/token` endpoint
+and expose it only as `AIRFLOW_API_TOKEN`; never store the token in Git or the
+recovery JSON. Then run these gates in order:
+
+```bash
+python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" --mode status
+
+python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" \
+  --mode recover-silver \
+  --authorization I_APPROVE_LOCAL_SILVER_EVIDENCE_RECOVERY
+
+python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" \
+  --mode reconcile-silver \
+  --authorization I_APPROVE_AIRFLOW_SILVER_RECONCILIATION
+```
+
+The local recovery reuses `summary.json` and `original-batch.json` only after
+strict identity validation, downloads event logs into a temporary directory,
+creates only missing evidence, validates both Silver profiles, and creates the
+Silver winner. It records the original execution SHA, separate committed
+controller SHA, hashes of all pre-existing files and the selected application /
+cohort in `recovery-audit.json`. Airflow reconciliation marks only the two
+externally and verifiably completed Silver tasks successful through the public
+API. It does not clear Gold tasks or queue the DagRun.
+
+### Paid Gold resume gate
+
+Gold requires a new durable budget/quota evidence JSON with `status=PASS`,
+`currency=VND`, `gross_cap_vnd=5000000`, `reserve_vnd>=700000`, and
+`quota_available=true`, plus explicit operator authorization. Before clearing
+anything, the controller proves both reserved Gold batch IDs do not exist and
+both immutable GCS output roots are absent. API/listing ambiguity fails closed.
+
+```bash
+# PAID: do not run until the operator has reviewed budget, G3 costs and quota.
+python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" \
+  --mode resume-gold --budget-evidence "$BUDGET_EVIDENCE" \
+  --authorization I_APPROVE_DP2_GOLD_RECOVERY
+```
+
+Only this final command resets the exact Gold/downstream TaskInstances and
+queues the same DagRun. It never resets successful Silver tasks, creates a new
+DagRun, submits directly, or edits Airflow's metadata database.

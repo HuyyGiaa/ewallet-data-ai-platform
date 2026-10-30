@@ -22,6 +22,8 @@ from data_platform.config.spark_benchmark import (
     original_performance_digest,
 )
 
+DATAPROC_COHORT_PROPERTY = "spark.dataproc.autotuning.cohortId"
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -67,6 +69,10 @@ def summarize_event_logs(
     output_run_id: str,
     pair_manifest_digest: str,
     source_uri: str,
+    expected_dataproc_cohort_id: str,
+    expected_application_name: str,
+    application_not_before_epoch_ms: int,
+    application_not_after_epoch_ms: int,
 ) -> dict[str, object]:
     """Return measured metrics bound to one completed ingestion execution."""
 
@@ -76,6 +82,12 @@ def summarize_event_logs(
         raise ValueError("pair_manifest_digest must be an explicit SHA-256 identity")
     if not source_uri.startswith("gs://"):
         raise ValueError("source_uri must identify the original GCS event log")
+    if not expected_dataproc_cohort_id:
+        raise ValueError("expected_dataproc_cohort_id is required")
+    if not expected_application_name:
+        raise ValueError("expected_application_name is required")
+    if application_not_after_epoch_ms <= application_not_before_epoch_ms:
+        raise ValueError("original Dataproc application interval is invalid")
 
     app_name: str | None = None
     app_id: str | None = None
@@ -131,6 +143,11 @@ def summarize_event_logs(
         raise ValueError("Spark event log lacks application name")
     if not app_id:
         raise ValueError("Spark event log lacks application ID")
+    if app_name != expected_application_name:
+        raise ValueError("Spark application name mismatch")
+    if (started_ms < application_not_before_epoch_ms or
+            ended_ms > application_not_after_epoch_ms):
+        raise ValueError("Spark application is outside original Dataproc interval")
     if spark_properties is None:
         raise ValueError("Spark event log lacks Spark Properties")
     if spark_properties.get("spark.app.id") != app_id:
@@ -138,6 +155,7 @@ def summarize_event_logs(
     expected_properties = {
         METHOD2_PAIR_DIGEST_PROPERTY: pair_manifest_digest,
         METHOD2_OUTPUT_RUN_PROPERTY: output_run_id,
+        DATAPROC_COHORT_PROPERTY: expected_dataproc_cohort_id,
     }
     for key, expected in expected_properties.items():
         if spark_properties.get(key) != expected:
@@ -156,6 +174,7 @@ def summarize_event_logs(
         "event_log_source_uri": source_uri,
         "application_id": app_id,
         "application_name": app_name,
+        "dataproc_cohort_id": expected_dataproc_cohort_id,
         "application_start_epoch_ms": started_ms,
         "application_end_epoch_ms": ended_ms,
         "application_runtime_seconds": (ended_ms - started_ms) / 1000,
@@ -186,6 +205,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output-run-id", required=True)
     parser.add_argument("--pair-manifest-digest", required=True)
     parser.add_argument("--source-uri", required=True)
+    parser.add_argument("--expected-dataproc-cohort-id", required=True)
+    parser.add_argument("--expected-application-name", required=True)
+    parser.add_argument("--application-not-before-epoch-ms", type=int, required=True)
+    parser.add_argument("--application-not-after-epoch-ms", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     result = summarize_event_logs(
@@ -194,6 +217,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_run_id=args.output_run_id,
         pair_manifest_digest=args.pair_manifest_digest,
         source_uri=args.source_uri,
+        expected_dataproc_cohort_id=args.expected_dataproc_cohort_id,
+        expected_application_name=args.expected_application_name,
+        application_not_before_epoch_ms=args.application_not_before_epoch_ms,
+        application_not_after_epoch_ms=args.application_not_after_epoch_ms,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as stream:

@@ -12,6 +12,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -23,6 +24,8 @@ from data_platform.config.spark_profiles import (
 )
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 from ops.gcp.summarize_spark_event_log import summarize_event_logs
+from ops.gcp.build_spark_validation_evidence import build_validation_evidence
+from ops.gcp.collect_spark_benchmark_evidence import parse_batch_evidence
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROFILES = ("baseline", "optimized")
@@ -35,6 +38,7 @@ TABLES = {
              "obt_transaction_enriched", "feat_user_90d", "opt_merchant_performance"),
 }
 EVENT_NAME = re.compile(r"/app-(\d{14})\d{3}-\d+\.(?:zstd|gz|jsonl)$")
+APPLICATION_NAMES = {"silver": "EWallet-DP2-Silver", "gold": "EWallet-DP2-Core-Gold"}
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -175,6 +179,32 @@ def _describe_batch(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                            "--format=json", capture=True))
 
 
+def _batch_cohort(batch: Mapping[str, Any], run_id: str) -> str:
+    if str(batch.get("name", "")).rsplit("/", 1)[-1] != run_id:
+        raise ValueError("Original batch name does not match output_run_id")
+    runtime_info = batch.get("runtimeInfo")
+    labels = batch.get("labels")
+    if not isinstance(runtime_info, Mapping) or not isinstance(labels, Mapping):
+        raise ValueError("Original batch lacks runtimeInfo or labels")
+    cohort_info = runtime_info.get("cohortInfo")
+    if not isinstance(cohort_info, Mapping):
+        raise ValueError("Original batch lacks Dataproc cohort identity")
+    cohort = str(cohort_info.get("cohort", ""))
+    identities = {
+        cohort,
+        str(batch.get("uuid", "")),
+        str(labels.get("goog-dataproc-batch-uuid", "")),
+    }
+    if "" in identities or len(identities) != 1:
+        raise ValueError("Original batch Dataproc cohort identities disagree")
+    return cohort
+
+
+def _epoch_ms(value: str) -> int:
+    parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return int(parsed.timestamp() * 1000)
+
+
 def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
                        run_id: str, pair_digest: str, batch: Mapping[str, Any],
                        output: Path) -> dict[str, Any]:
@@ -188,8 +218,11 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
 
     if batch.get("state") != "SUCCEEDED":
         raise ValueError(f"Original batch {run_id} did not succeed")
-    begin = timestamp(str(batch["createTime"])) - dt.timedelta(minutes=30)
-    end = timestamp(str(batch["stateTime"])) + dt.timedelta(minutes=30)
+    create_time = str(batch["createTime"])
+    state_time = str(batch["stateTime"])
+    begin = timestamp(create_time) - dt.timedelta(minutes=30)
+    end = timestamp(state_time) + dt.timedelta(minutes=30)
+    cohort = _batch_cohort(batch, run_id)
     prefix = f"gs://{args.data_bucket}/spark-events/"
     listing = _run("gcloud", "storage", "ls", prefix + "*", capture=True)
     candidates = []
@@ -202,31 +235,71 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
     if not candidates or len(candidates) > 50:
         raise ValueError(f"Unexpected event-log candidate count ({len(candidates)})")
     matches: list[dict[str, Any]] = []
-    temp_dir = output.parent / "event-logs"
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    for number, uri in enumerate(candidates):
-        suffix = Path(uri).suffix
-        compressed = temp_dir / f"candidate-{number}{suffix}"
-        _run("gcloud", "storage", "cp", uri, str(compressed))
-        if suffix == ".zstd":
-            decoded = temp_dir / f"candidate-{number}.jsonl"
-            with decoded.open("xb") as stream:
-                subprocess.run(["zstd", "-dc", str(compressed)], stdout=stream, check=True)
-        else:
-            decoded = compressed
-        try:
-            result = summarize_event_logs(
-                [decoded], batch_id=run_id, output_run_id=run_id,
-                pair_manifest_digest=pair_digest, source_uri=uri,
-            )
-        except ValueError:
-            # Other jobs (including validations) share the same event-log bucket.
-            continue
-        matches.append(result)
+    with tempfile.TemporaryDirectory(prefix="dp2-event-logs-") as directory:
+        temp_dir = Path(directory)
+        for number, uri in enumerate(candidates):
+            suffix = Path(uri).suffix
+            compressed = temp_dir / f"candidate-{number}{suffix}"
+            _run("gcloud", "storage", "cp", uri, str(compressed))
+            if suffix == ".zstd":
+                decoded = temp_dir / f"candidate-{number}.jsonl"
+                with decoded.open("xb") as stream:
+                    subprocess.run(["zstd", "-dc", str(compressed)], stdout=stream, check=True)
+            else:
+                decoded = compressed
+            try:
+                result = summarize_event_logs(
+                    [decoded], batch_id=run_id, output_run_id=run_id,
+                    pair_manifest_digest=pair_digest, source_uri=uri,
+                    expected_dataproc_cohort_id=cohort,
+                    expected_application_name=APPLICATION_NAMES[stage],
+                    application_not_before_epoch_ms=_epoch_ms(create_time),
+                    application_not_after_epoch_ms=_epoch_ms(state_time),
+                )
+            except ValueError:
+                # Other jobs (including validations) share the event-log bucket.
+                continue
+            matches.append(result)
     if len(matches) != 1:
         raise ValueError(f"Expected one original event log for {run_id}, found {len(matches)}")
     _write_once(output, matches[0])
     return matches[0]
+
+
+def _require_saved_batch(
+    saved: Mapping[str, Any], live: Mapping[str, Any], *, run_id: str,
+    benchmark_id: str, profile: str, git_sha: str,
+) -> None:
+    """Verify an immutable partial batch description against the live batch."""
+    _batch_cohort(saved, run_id)
+    _batch_cohort(live, run_id)
+    required = ("name", "uuid", "state", "createTime", "stateTime", "runtimeConfig")
+    if any(saved.get(field) != live.get(field) for field in required):
+        raise ValueError("Saved original batch does not match live Dataproc identity")
+    if saved.get("state") != "SUCCEEDED":
+        raise ValueError("Saved original batch did not succeed")
+    labels = saved.get("labels", {})
+    expected = {"benchmark_id": benchmark_id, "spark_profile": profile, "git_sha": git_sha}
+    if any(labels.get(key) != value for key, value in expected.items()):
+        raise ValueError("Saved original batch labels do not match execution identity")
+
+
+def _evidence_payload(
+    args: argparse.Namespace, *, stage: str, profile: str, pair: Mapping[str, Any],
+    run_id: str, output_root: str, upstream: Sequence[str],
+    summary: Mapping[str, Any], performance: Mapping[str, Any], batch: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    validation = build_validation_evidence(
+        summary, performance, pair_manifest=pair, spark_profile=profile,
+    )
+    evidence = parse_batch_evidence(
+        batch, benchmark_id=args.benchmark_id, spark_profile=profile,
+        stage=STAGES[stage], dataset_version=args.dataset_version,
+        git_sha=args.git_sha, upstream_run_ids=upstream,
+        output_run_id=run_id, output_root=output_root,
+        pair_manifest=pair, validation=validation,
+    )
+    return validation, evidence
 
 
 def _action(args: argparse.Namespace) -> None:
@@ -319,29 +392,52 @@ def _action(args: argparse.Namespace) -> None:
         validation = base / "validation-evidence.json"
         batch_path = base / "original-batch.json"
         evidence = base / "batch-evidence.json"
-        # GCS returns the read-only summary emitted by a distinct validation job.
-        if summary.exists() or batch_path.exists():
-            raise FileExistsError("Evidence has existing partial artifacts; inspect before retry")
-        _run("gcloud", "storage", "cp", _summary_uri(args, stage, profile, run_id),
-             str(summary))
-        original = _describe_batch(args, run_id)
-        _write_once(batch_path, original)
-        _get_event_metrics(args, stage, profile, run_id,
-                           str(pair["pair_manifest_digest"]), original, performance)
-        _module("ops.gcp.build_spark_validation_evidence",
-                "--summary-json", str(summary),
-                "--original-performance-json", str(performance),
-                "--pair-manifest", str(_pair_path(args.root, stage)),
-                "--spark-profile", profile, "--output", str(validation))
-        _module("ops.gcp.collect_spark_benchmark_evidence",
-                "--project", args.project, "--region", args.region,
-                "--batch-id", run_id, "--benchmark-id", args.benchmark_id,
-                "--spark-profile", profile, "--stage", STAGES[stage],
-                "--dataset-version", args.dataset_version, "--git-sha", args.git_sha,
-                "--upstream-run-id", upstream[0], "--output-run-id", run_id,
-                "--output-root", output_root, "--pair-manifest", str(_pair_path(args.root, stage)),
-                "--validation-json", str(validation), "--batch-description-json", str(batch_path),
-                "--output", str(evidence))
+        # Partial artifacts are reused only after exact validation. No existing
+        # file is overwritten, and the action is idempotent after completion.
+        if summary.exists():
+            summary_data = _json(summary)
+        else:
+            with tempfile.TemporaryDirectory(prefix="dp2-summary-") as directory:
+                downloaded = Path(directory) / "summary.json"
+                _run("gcloud", "storage", "cp", _summary_uri(args, stage, profile, run_id),
+                     str(downloaded))
+                summary_data = _json(downloaded)
+                _write_once(summary, summary_data)
+        live = _describe_batch(args, run_id)
+        if batch_path.exists():
+            original = _json(batch_path)
+            _require_saved_batch(original, live, run_id=run_id,
+                                 benchmark_id=args.benchmark_id, profile=profile,
+                                 git_sha=args.git_sha)
+        else:
+            original = live
+            _require_saved_batch(original, live, run_id=run_id,
+                                 benchmark_id=args.benchmark_id, profile=profile,
+                                 git_sha=args.git_sha)
+            _write_once(batch_path, original)
+        if performance.exists():
+            performance_data = _json(performance)
+        else:
+            performance_data = _get_event_metrics(
+                args, stage, profile, run_id,
+                str(pair["pair_manifest_digest"]), original, performance,
+            )
+        expected_validation, expected_evidence = _evidence_payload(
+            args, stage=stage, profile=profile, pair=pair, run_id=run_id,
+            output_root=output_root, upstream=upstream, summary=summary_data,
+            performance=performance_data, batch=original,
+        )
+        if validation.exists():
+            if _json(validation) != expected_validation:
+                raise ValueError("Existing validation evidence is not the expected artifact")
+        else:
+            _write_once(validation, expected_validation)
+        if evidence.exists():
+            if _json(evidence) != expected_evidence:
+                raise ValueError("Existing batch evidence is not the expected artifact")
+        else:
+            _write_once(evidence, expected_evidence)
+        print(evidence)
     elif args.action == "finalize":
         b, o = (_profile_dir(args.root, stage, p) for p in PROFILES)
         eq = args.root / f"dp2-{stage}-equivalence.json"

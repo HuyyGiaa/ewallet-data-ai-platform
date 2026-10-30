@@ -9,8 +9,10 @@ from unittest.mock import patch
 
 from data_platform.config.spark_benchmark import winner_artifact_digest
 from ops.gcp.dp2_method2 import (
-    _action, _pair_path, _require_head, _require_pair, _validation_batch_id, _winner,
+    _action, _batch_cohort, _pair_path, _require_head, _require_pair,
+    _validation_batch_id, _winner,
 )
+from ops.gcp.summarize_spark_event_log import DATAPROC_COHORT_PROPERTY
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 
 BENCH = "ab-20261029174838"
@@ -22,6 +24,10 @@ SILVER_RUN = f"{BENCH}-baseline-silver-r261030104547"
 SILVER_OPT = f"{BENCH}-optimized-silver-r261030104547"
 GOLD_RUN = f"{BENCH}-baseline-gold-r261030104548"
 GOLD_OPT = f"{BENCH}-optimized-gold-r261030104548"
+
+
+def _json_file(path):
+    return json.loads(path.read_text())
 
 
 def winner(stage, run_id, source_sha, output_root):
@@ -168,6 +174,48 @@ class TestDP2Workflow(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "approval"):
             main(argv)
 
+    def test_evidence_resumes_verified_partial_files_without_overwrite(self):
+        with patch("ops.gcp.dp2_method2._require_clean_head"):
+            _action(self.args)
+        self.args.action = "evidence"
+        self.args.stage, self.args.profile = "silver", "baseline"
+        self.args.project, self.args.region = "project", "region"
+        base = self.root / "silver" / "baseline"
+        base.mkdir(parents=True)
+        summary = {"trusted": "summary"}
+        cohort = "cohort"
+        batch = {
+            "name": f"projects/p/locations/r/batches/{SILVER_RUN}",
+            "uuid": cohort, "state": "SUCCEEDED",
+            "createTime": "2026-10-30T10:00:00Z",
+            "stateTime": "2026-10-30T10:20:00Z",
+            "runtimeConfig": {"version": "2.2"},
+            "runtimeInfo": {"cohortInfo": {"cohort": cohort}},
+            "labels": {"goog-dataproc-batch-uuid": cohort,
+                       "benchmark_id": BENCH, "spark_profile": "baseline",
+                       "git_sha": NEW_SHA},
+        }
+        (base / "summary.json").write_text(json.dumps(summary))
+        (base / "original-batch.json").write_text(json.dumps(batch))
+        before = {name: (base / name).read_bytes() for name in
+                  ("summary.json", "original-batch.json")}
+        performance = {"trusted": "performance"}
+        def metrics(*args, **kwargs):
+            Path(args[-1]).write_text(json.dumps(performance))
+            return performance
+        with patch("ops.gcp.dp2_method2._describe_batch", return_value=batch), patch(
+            "ops.gcp.dp2_method2._get_event_metrics", side_effect=metrics
+        ), patch(
+            "ops.gcp.dp2_method2._evidence_payload",
+            return_value=({"trusted": "validation"}, {"trusted": "evidence"}),
+        ):
+            _action(self.args)
+            _action(self.args)  # completed recovery is idempotent
+        self.assertEqual(before["summary.json"], (base / "summary.json").read_bytes())
+        self.assertEqual(before["original-batch.json"],
+                         (base / "original-batch.json").read_bytes())
+        self.assertEqual(_json_file(base / "batch-evidence.json"), {"trusted": "evidence"})
+
     @patch("ops.gcp.dp2_method2._run")
     def test_plan_identity_requires_matching_head_but_not_clean_status(self, run):
         run.return_value = NEW_SHA
@@ -259,23 +307,31 @@ class TestEventLogProvenance(unittest.TestCase):
             args = FakeArgs()
             args.data_bucket = 'bucket'
             args.benchmark_id = BENCH
+            cohort = 'cohort-original'
             batch = {'state': 'SUCCEEDED', 'createTime': '2026-10-30T10:00:00Z',
-                     'stateTime': '2026-10-30T10:20:00Z'}
+                     'stateTime': '2026-10-30T10:20:00Z',
+                     'name': f'projects/p/locations/r/batches/{SILVER_RUN}',
+                     'uuid': cohort,
+                     'labels': {'goog-dataproc-batch-uuid': cohort},
+                     'runtimeInfo': {'cohortInfo': {'cohort': cohort}}}
             digest = 'sha256:' + 'a' * 64
             uri = 'gs://bucket/spark-events/app-20261030101000123-0001.jsonl'
-            def make_event(run_id):
+            start = 1_793_354_700_000
+            def make_event(run_id, event_cohort=cohort, app_name='EWallet-DP2-Silver',
+                           started=start, ended=start + 11_000):
                 return [
-                    {'Event': 'SparkListenerApplicationStart', 'App Name': 'spark-app',
-                     'App ID': 'app-20261030101000123-0001', 'Timestamp': 1000},
+                    {'Event': 'SparkListenerApplicationStart', 'App Name': app_name,
+                     'App ID': 'app-20261030101000123-0001', 'Timestamp': started},
                     {'Event': 'SparkListenerEnvironmentUpdate', 'Spark Properties': {
                         'spark.app.id': 'app-20261030101000123-0001',
                         METHOD2_OUTPUT_RUN_PROPERTY: run_id,
                         METHOD2_PAIR_DIGEST_PROPERTY: digest,
+                        DATAPROC_COHORT_PROPERTY: event_cohort,
                     }},
                     {'Event': 'SparkListenerTaskEnd', 'Task End Reason': {'Reason':'Success'},
                      'Task Metrics': {'Memory Bytes Spilled':0,'Disk Bytes Spilled':0}},
                     {'Event': 'SparkListenerJobEnd'}, {'Event': 'SparkListenerStageCompleted'},
-                    {'Event': 'SparkListenerApplicationEnd', 'Timestamp':11000},
+                    {'Event': 'SparkListenerApplicationEnd', 'Timestamp': ended},
                 ]
             def fake_run(*cmd, capture=False):
                 if cmd[:3] == ('gcloud', 'storage', 'ls'):
@@ -290,3 +346,63 @@ class TestEventLogProvenance(unittest.TestCase):
                     _get_event_metrics(args, 'silver', 'baseline', SILVER_RUN,
                                        digest, batch, output)
             self.assertFalse(output.exists())
+
+    def test_validator_with_same_method2_properties_is_not_original(self):
+        from ops.gcp.dp2_method2 import _get_event_metrics
+        from data_platform.config.spark_benchmark import (
+            METHOD2_OUTPUT_RUN_PROPERTY, METHOD2_PAIR_DIGEST_PROPERTY,
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            args = FakeArgs(); args.data_bucket = 'bucket'; args.benchmark_id = BENCH
+            cohort = 'cohort-original'; digest = 'sha256:' + 'a' * 64
+            batch = {
+                'state': 'SUCCEEDED', 'createTime': '2026-10-30T10:00:00Z',
+                'stateTime': '2026-10-30T10:20:00Z',
+                'name': f'projects/p/locations/r/batches/{SILVER_RUN}', 'uuid': cohort,
+                'labels': {'goog-dataproc-batch-uuid': cohort},
+                'runtimeInfo': {'cohortInfo': {'cohort': cohort}},
+            }
+            uris = [
+                'gs://bucket/spark-events/app-20261030100500123-0001.jsonl',
+                'gs://bucket/spark-events/app-20261030102500123-0002.jsonl',
+            ]
+            def events(app_id, *, name, event_cohort, start, end):
+                return [
+                    {'Event':'SparkListenerApplicationStart','App Name':name,
+                     'App ID':app_id,'Timestamp':start},
+                    {'Event':'SparkListenerEnvironmentUpdate','Spark Properties':{
+                        'spark.app.id':app_id, METHOD2_OUTPUT_RUN_PROPERTY:SILVER_RUN,
+                        METHOD2_PAIR_DIGEST_PROPERTY:digest,
+                        DATAPROC_COHORT_PROPERTY:event_cohort}},
+                    {'Event':'SparkListenerTaskEnd','Task End Reason':{'Reason':'Success'},
+                     'Task Metrics':{}}, {'Event':'SparkListenerJobEnd'},
+                    {'Event':'SparkListenerStageCompleted'},
+                    {'Event':'SparkListenerApplicationEnd','Timestamp':end},
+                ]
+            original = events('app-original', name='EWallet-DP2-Silver',
+                              event_cohort=cohort, start=1793354700000, end=1793355300000)
+            validator = events('app-validator', name='spark-ab-output-summary',
+                               event_cohort='cohort-validator',
+                               start=1793355900000, end=1793356200000)
+            def fake_run(*cmd, capture=False):
+                if cmd[:3] == ('gcloud','storage','ls'):
+                    return '\n'.join(uris)
+                if cmd[:3] == ('gcloud','storage','cp'):
+                    source = original if cmd[3] == uris[0] else validator
+                    Path(cmd[-1]).write_text('\n'.join(map(json.dumps, source)))
+                    return ''
+                raise AssertionError(cmd)
+            output = Path(temp) / 'performance.json'
+            with patch('ops.gcp.dp2_method2._run', side_effect=fake_run):
+                result = _get_event_metrics(args, 'silver', 'baseline', SILVER_RUN,
+                                            digest, batch, output)
+            self.assertEqual(result['application_id'], 'app-original')
+            self.assertEqual(result['dataproc_cohort_id'], cohort)
+
+    def test_batch_cohort_identity_must_be_exact(self):
+        run = SILVER_RUN
+        batch = {'name': f'projects/p/locations/r/batches/{run}', 'uuid': 'one',
+                 'labels': {'goog-dataproc-batch-uuid': 'two'},
+                 'runtimeInfo': {'cohortInfo': {'cohort': 'one'}}}
+        with self.assertRaisesRegex(ValueError, 'cohort identities disagree'):
+            _batch_cohort(batch, run)

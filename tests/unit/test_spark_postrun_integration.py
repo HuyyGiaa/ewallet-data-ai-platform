@@ -18,6 +18,7 @@ from data_platform.storage.scripts.config import silver_tables
 from ops.gcp.build_spark_validation_evidence import build_validation_evidence
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 from ops.gcp.summarize_spark_event_log import summarize_event_logs
+from ops.gcp.summarize_spark_event_log import DATAPROC_COHORT_PROPERTY
 from ops.gcp.summarize_spark_output import write_summary
 
 
@@ -117,6 +118,7 @@ def write_event_log(path: Path, manifest, output_run_id=BASELINE_RUN):
                 "spark.app.id": "application-123",
                 METHOD2_PAIR_DIGEST_PROPERTY: manifest["pair_manifest_digest"],
                 METHOD2_OUTPUT_RUN_PROPERTY: output_run_id,
+                DATAPROC_COHORT_PROPERTY: "cohort-123",
             },
         },
         {
@@ -146,6 +148,10 @@ class SparkPostRunIntegrationTest(unittest.TestCase):
                 output_run_id=BASELINE_RUN,
                 pair_manifest_digest=manifest["pair_manifest_digest"],
                 source_uri="gs://bucket/spark-events/application-123",
+                expected_dataproc_cohort_id="cohort-123",
+                expected_application_name=f"projects/p/locations/r/batches/{BASELINE_RUN}",
+                application_not_before_epoch_ms=0,
+                application_not_after_epoch_ms=20_000,
             )
         self.assertEqual(10.0, result["application_runtime_seconds"])
         self.assertEqual(18, result["spill_bytes"])
@@ -162,13 +168,40 @@ class SparkPostRunIntegrationTest(unittest.TestCase):
                     (path,), batch_id="other", output_run_id=BASELINE_RUN,
                     pair_manifest_digest=manifest["pair_manifest_digest"],
                     source_uri="gs://bucket/spark-events/application-123",
+                    expected_dataproc_cohort_id="cohort-123",
+                    expected_application_name=f"projects/p/locations/r/batches/{BASELINE_RUN}",
+                    application_not_before_epoch_ms=0,
+                    application_not_after_epoch_ms=20_000,
                 )
             with self.assertRaisesRegex(ValueError, "property mismatch"):
                 summarize_event_logs(
                     (path,), batch_id=BASELINE_RUN, output_run_id=BASELINE_RUN,
                     pair_manifest_digest="sha256:" + "0" * 64,
                     source_uri="gs://bucket/spark-events/application-123",
+                    expected_dataproc_cohort_id="cohort-123",
+                    expected_application_name=f"projects/p/locations/r/batches/{BASELINE_RUN}",
+                    application_not_before_epoch_ms=0,
+                    application_not_after_epoch_ms=20_000,
                 )
+
+    def test_event_log_rejects_wrong_cohort_and_batch_interval(self) -> None:
+        manifest = pair_manifest()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "eventlog"
+            write_event_log(path, manifest)
+            common = dict(
+                batch_id=BASELINE_RUN, output_run_id=BASELINE_RUN,
+                pair_manifest_digest=manifest["pair_manifest_digest"],
+                source_uri="gs://bucket/spark-events/application-123",
+                expected_application_name=f"projects/p/locations/r/batches/{BASELINE_RUN}",
+                application_not_before_epoch_ms=0,
+                application_not_after_epoch_ms=20_000,
+            )
+            with self.assertRaisesRegex(ValueError, "cohort"):
+                summarize_event_logs((path,), expected_dataproc_cohort_id="wrong", **common)
+            common["application_not_before_epoch_ms"] = 2_000
+            with self.assertRaisesRegex(ValueError, "outside"):
+                summarize_event_logs((path,), expected_dataproc_cohort_id="cohort-123", **common)
 
     def test_builder_preserves_original_metrics_and_layout_metrics(self) -> None:
         manifest = pair_manifest()
