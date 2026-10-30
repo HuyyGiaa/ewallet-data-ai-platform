@@ -52,6 +52,7 @@ def build_submission_command(
     output_run_id: str,
     dataset_version: str,
     git_sha: str,
+    validation_git_sha: str,
     summary_uri: str,
     source_run_ids: Sequence[str],
     pair_manifest: Mapping[str, object],
@@ -63,6 +64,7 @@ def build_submission_command(
     batch_id = _validate_id(batch_id, "batch_id")
     dataset_version = _validate_id(dataset_version, "dataset_version")
     git_sha = validate_git_sha(git_sha)
+    validation_git_sha = validate_git_sha(validation_git_sha)
     if not source_run_ids or any(not value for value in source_run_ids):
         raise ValueError("source_run_ids must be explicit")
     require_profile_binding(
@@ -71,6 +73,10 @@ def build_submission_command(
         profile=spark_profile,
         stage=stage_run_kind(stage),
     )
+    if batch_id == output_run_id:
+        raise ValueError(
+            "summary batch must be distinct from the completed ingestion batch"
+        )
     root = expected_output_root(
         data_bucket=runtime.data_bucket,
         output_run_id=output_run_id,
@@ -125,13 +131,16 @@ def build_submission_command(
         f"--staging-bucket={runtime.temporary_bucket}", "--ttl=8h",
         (
             "--labels=component=ab-validator,"
-            f"benchmark_id={benchmark_id},spark_profile={spark_profile},git_sha={git_sha}"
+            f"benchmark_id={benchmark_id},spark_profile={spark_profile},"
+            f"git_sha={git_sha},validation_git_sha={validation_git_sha}"
         ),
         f"--properties={properties}", "--",
         f"--root={root}", f"--data-bucket={runtime.data_bucket}",
         f"--stage={stage}", f"--benchmark-id={benchmark_id}",
         f"--spark-profile={spark_profile}", f"--output-run-id={output_run_id}",
         f"--dataset-version={dataset_version}", f"--git-sha={git_sha}",
+        f"--validation-batch-id={batch_id}",
+        f"--validation-git-sha={validation_git_sha}",
         f"--pair-manifest={pair_manifest_path.name}",
         "--expected-logical-transactions=369600000",
         "--expected-physical-transactions=376992000",
@@ -156,6 +165,31 @@ def _load_outputs(path: Path | None, runner: Callable[..., Any]) -> Mapping[str,
     return value
 
 
+def require_clean_validation_source(
+    validation_git_sha: str,
+    runner: Callable[..., Any] = subprocess.run,
+) -> None:
+    validation_git_sha = validate_git_sha(validation_git_sha)
+    head = runner(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    status = runner(
+        ["git", "status", "--porcelain"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    if head != validation_git_sha or status:
+        raise ValueError(
+            "validation execution requires the declared clean committed source"
+        )
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -169,6 +203,7 @@ def main(
     parser.add_argument("--output-run-id", required=True)
     parser.add_argument("--dataset-version", default="canonical-100gb-v1")
     parser.add_argument("--git-sha", required=True)
+    parser.add_argument("--validation-git-sha", required=True)
     parser.add_argument("--summary-uri", required=True)
     parser.add_argument("--source-run-id", action="append", dest="source_run_ids", required=True)
     parser.add_argument("--pair-manifest", type=Path, required=True)
@@ -179,6 +214,7 @@ def main(
     jars = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
     if args.execute:
+        require_clean_validation_source(args.validation_git_sha, runner)
         jars = ensure_delta_dependencies()
         archive = build_python_archive(REPOSITORY_ROOT, DEFAULT_ARCHIVE)
     command = build_submission_command(
@@ -190,6 +226,7 @@ def main(
         output_run_id=args.output_run_id,
         dataset_version=args.dataset_version,
         git_sha=args.git_sha,
+        validation_git_sha=args.validation_git_sha,
         summary_uri=args.summary_uri,
         source_run_ids=args.source_run_ids,
         pair_manifest=load_pair_manifest(args.pair_manifest),

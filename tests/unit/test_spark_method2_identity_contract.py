@@ -6,7 +6,9 @@ from pathlib import Path
 
 from data_platform.config.spark_benchmark import (
     PAIR_MANIFEST_SCHEMA,
+    SEMANTIC_SUMMARY_SCHEMA,
     pair_manifest_digest,
+    semantic_summary_digest,
     select_stage_winner,
     validate_pair_manifest,
     validate_pair_member,
@@ -56,7 +58,7 @@ def collected_evidence(manifest, profile):
         "upstream_run_ids": list(manifest["upstream_run_ids"]),
         "spark_properties": dict(member["spark_properties"]),
         "spark_properties_digest": member["spark_properties_digest"],
-        "runtime_version": "2.2",
+        "runtime_version": "2.2.89",
         "runtime_properties": {"dataproc.tier": "standard"},
         "application_runtime_seconds": 10 if profile == "baseline" else 8,
         "batch_runtime_seconds": 11,
@@ -87,6 +89,14 @@ def semantic_summary(manifest, profile):
         },
     }
     evidence.update(
+        schema_version=SEMANTIC_SUMMARY_SCHEMA,
+        status="COMPLETE",
+        execution={
+            "kind": "read_only_semantic_scan",
+            "validation_batch_id": f"validate-{profile}-silver",
+            "validation_git_sha": "b" * 40,
+            "source_output_run_id": evidence["output_run_id"],
+        },
         tables={name: copy.deepcopy(table) for name in (
             "users", "accounts", "merchants", "devices", "transactions",
             "balance_snapshots", "login_events", "fraud_labels",
@@ -97,6 +107,7 @@ def semantic_summary(manifest, profile):
             "fraud_labels_separate": True,
         },
     )
+    evidence["semantic_summary_digest"] = semantic_summary_digest(evidence)
     return evidence
 
 
@@ -129,6 +140,25 @@ class SparkMethod2IdentityContractTest(unittest.TestCase):
         self.assertEqual(
             manifest["runs"][1]["output_run_id"], winner["selected_output_run_id"]
         )
+
+    def test_baseline_can_win_when_original_runtime_is_better(self) -> None:
+        manifest = pair_manifest()
+        result = equivalence(
+            manifest,
+            semantic_summary(manifest, "baseline"),
+            semantic_summary(manifest, "optimized"),
+        )
+        baseline = collected_evidence(manifest, "baseline")
+        optimized = collected_evidence(manifest, "optimized")
+        baseline["application_runtime_seconds"] = 8
+        optimized["application_runtime_seconds"] = 10
+        winner = select_stage_winner(
+            pair_manifest=manifest,
+            baseline_evidence=baseline,
+            candidate_evidence=optimized,
+            equivalence_evidence=result,
+        )
+        self.assertEqual("baseline", winner["selected_profile"])
 
     def test_missing_or_tampered_pair_identity_fails(self) -> None:
         manifest = pair_manifest()

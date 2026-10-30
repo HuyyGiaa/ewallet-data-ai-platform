@@ -19,6 +19,8 @@ from urllib.parse import urlsplit
 from data_platform.config.spark_benchmark import (
     METHOD2_OUTPUT_RUN_PROPERTY,
     METHOD2_PAIR_DIGEST_PROPERTY,
+    SEMANTIC_SUMMARY_SCHEMA,
+    semantic_summary_digest,
     validate_pair_member,
     validate_runtime_profile_properties,
 )
@@ -336,6 +338,8 @@ def build_summary(
     output_run_id: str,
     dataset_version: str,
     git_sha: str,
+    validation_batch_id: str,
+    validation_git_sha: str,
     source_run_ids: Sequence[str],
     expected_logical_transactions: int,
     expected_physical_transactions: int,
@@ -344,6 +348,11 @@ def build_summary(
     from pyspark.sql import SparkSession
 
     validate_git_sha(git_sha)
+    validate_git_sha(validation_git_sha)
+    if not validation_batch_id or validation_batch_id == output_run_id:
+        raise ValueError(
+            "validation_batch_id must identify a separate read-only execution"
+        )
     if not source_run_ids or any(not value for value in source_run_ids):
         raise ValueError("source_run_ids must be explicit")
     require_profile_binding(
@@ -397,7 +406,24 @@ def build_summary(
             table: spark.read.format("delta").load(f"{root.rstrip('/')}/{table}")
             for table in sorted(expected)
         }
-        return {
+        tables = {
+            table: _table_summary(
+                frame,
+                stage=stage,
+                table=table,
+                table_path=f"{root.rstrip('/')}/{table}",
+            )
+            for table, frame in frames.items()
+        }
+        invariants = _invariants(
+            stage,
+            frames,
+            expected_logical_transactions=expected_logical_transactions,
+            expected_physical_transactions=expected_physical_transactions,
+        )
+        result: dict[str, object] = {
+            "schema_version": SEMANTIC_SUMMARY_SCHEMA,
+            "status": "COMPLETE",
             "benchmark_id": benchmark_id,
             "dataset_version": dataset_version,
             "git_sha": git_sha,
@@ -411,22 +437,17 @@ def build_summary(
             "pair_manifest_digest": pair_manifest["pair_manifest_digest"],
             "spark_properties": normalized_profile_properties,
             "spark_properties_digest": member["spark_properties_digest"],
-            "tables": {
-                table: _table_summary(
-                    frame,
-                    stage=stage,
-                    table=table,
-                    table_path=f"{root.rstrip('/')}/{table}",
-                )
-                for table, frame in frames.items()
+            "execution": {
+                "kind": "read_only_semantic_scan",
+                "validation_batch_id": validation_batch_id,
+                "validation_git_sha": validation_git_sha,
+                "source_output_run_id": output_run_id,
             },
-            "invariants": _invariants(
-                stage,
-                frames,
-                expected_logical_transactions=expected_logical_transactions,
-                expected_physical_transactions=expected_physical_transactions,
-            ),
+            "tables": tables,
+            "invariants": invariants,
         }
+        result["semantic_summary_digest"] = semantic_summary_digest(result)
+        return result
     finally:
         spark.stop()
 
@@ -461,6 +482,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output-run-id", required=True)
     parser.add_argument("--dataset-version", required=True)
     parser.add_argument("--git-sha", required=True)
+    parser.add_argument("--validation-batch-id", required=True)
+    parser.add_argument("--validation-git-sha", required=True)
     parser.add_argument("--expected-logical-transactions", type=int, required=True)
     parser.add_argument("--expected-physical-transactions", type=int, required=True)
     parser.add_argument("--source-run-id", action="append", dest="source_run_ids", required=True)

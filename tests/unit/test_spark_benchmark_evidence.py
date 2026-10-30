@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import copy
+import json
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from data_platform.config.spark_benchmark import (
     METHOD2_OUTPUT_RUN_PROPERTY,
     METHOD2_PAIR_DIGEST_PROPERTY,
+    SEMANTIC_SUMMARY_SCHEMA,
+    VALIDATION_EVIDENCE_SCHEMA,
+    semantic_summary_digest,
+    validation_evidence_digest,
 )
 from data_platform.config.spark_profiles import resolve_stage_profile
 from data_platform.storage.scripts.config import (
@@ -15,7 +22,11 @@ from data_platform.storage.scripts.config import (
     silver_tables,
 )
 from ops.gcp.collect_spark_benchmark_evidence import parse_batch_evidence
-from ops.gcp.compare_spark_benchmark import comparison_row, percentage_change
+from ops.gcp.compare_spark_benchmark import (
+    comparison_row,
+    main as compare_main,
+    percentage_change,
+)
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 from ops.gcp.summarize_spark_output import (
     expected_output_root,
@@ -23,7 +34,10 @@ from ops.gcp.summarize_spark_output import (
     stage_run_kind,
 )
 from ops.gcp.submit_source_to_bronze import CloudRuntime
-from ops.gcp.submit_spark_output_summary import build_submission_command
+from ops.gcp.submit_spark_output_summary import (
+    build_submission_command,
+    require_clean_validation_source,
+)
 from ops.gcp.validate_spark_output_equivalence import compare_summaries
 
 
@@ -97,6 +111,30 @@ def evidence(manifest, profile, runtime=10.0):
     }
 
 
+def validation_evidence(manifest, profile, runtime=10.0):
+    value = evidence(manifest, profile, runtime)
+    value.update(
+        schema_version=VALIDATION_EVIDENCE_SCHEMA,
+        status="PASS",
+        metric_provenance={
+            "application_runtime_seconds": "original_spark_event_log",
+            "spill_bytes": "original_spark_event_log",
+            "task_count": "original_spark_event_log",
+            "output_file_count": "semantic_summary_physical_layout",
+            "output_total_bytes": "semantic_summary_physical_layout",
+            "ingestion_batch_id": value["output_run_id"],
+            "validation_batch_id": f"validate-{profile}-unique",
+        },
+    )
+    value["validation_evidence_digest"] = validation_evidence_digest(value)
+    return value
+
+
+def seal_summary(value):
+    value["semantic_summary_digest"] = semantic_summary_digest(value)
+    return value
+
+
 def summary(manifest, profile):
     inventories = {
         "dp1-bronze": silver_tables(include_fraud_labels=True),
@@ -120,6 +158,14 @@ def summary(manifest, profile):
     }
     value = evidence(manifest, profile)
     value.update(
+        schema_version=SEMANTIC_SUMMARY_SCHEMA,
+        status="COMPLETE",
+        execution={
+            "kind": "read_only_semantic_scan",
+            "validation_batch_id": f"validate-{profile}-{manifest['stage']}",
+            "validation_git_sha": "b" * 40,
+            "source_output_run_id": value["output_run_id"],
+        },
         source_run_ids=list(manifest["upstream_run_ids"]),
         tables={
             name: {
@@ -143,10 +189,26 @@ def summary(manifest, profile):
             name: True for name in invariant_names[manifest["stage"]]
         },
     )
-    return value
+    return seal_summary(value)
 
 
 class SparkBenchmarkEvidenceTest(unittest.TestCase):
+    def test_validation_execution_requires_declared_clean_commit(self) -> None:
+        def runner(command, **_kwargs):
+            if command[-2:] == ["rev-parse", "HEAD"]:
+                return SimpleNamespace(stdout="b" * 40 + "\n")
+            return SimpleNamespace(stdout="")
+
+        require_clean_validation_source("b" * 40, runner)
+
+        def dirty_runner(command, **_kwargs):
+            if command[-2:] == ["rev-parse", "HEAD"]:
+                return SimpleNamespace(stdout="b" * 40 + "\n")
+            return SimpleNamespace(stdout=" M changed.py\n")
+
+        with self.assertRaisesRegex(ValueError, "clean committed"):
+            require_clean_validation_source("b" * 40, dirty_runner)
+
     def test_summary_fingerprint_is_deterministic_and_stage_bound(self) -> None:
         self.assertEqual(
             fingerprint_payload(rows=3, total="12", minimum=-2, maximum=9),
@@ -175,6 +237,7 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
             output_run_id=member["output_run_id"],
             dataset_version=DATASET,
             git_sha=GIT_SHA,
+            validation_git_sha="b" * 40,
             summary_uri=(
                 f"gs://bucket/evidence/spark_benchmark/{BENCHMARK}/"
                 f"baseline/dp1-bronze/{member['output_run_id']}-summary.json"
@@ -186,6 +249,8 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
         )
         self.assertIn("--files=pair.json", command)
         self.assertIn("--pair-manifest=pair.json", command)
+        self.assertIn("--validation-git-sha=" + "b" * 40, command)
+        self.assertIn("--validation-batch-id=validate-ab-baseline-dp1", command)
         self.assertTrue(
             any(manifest["pair_manifest_digest"] in item for item in command)
         )
@@ -197,6 +262,26 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
                 stage="dp1-bronze",
             ),
         )
+        with self.assertRaisesRegex(ValueError, "distinct"):
+            build_submission_command(
+                runtime,
+                batch_id=member["output_run_id"],
+                benchmark_id=BENCHMARK,
+                spark_profile="baseline",
+                stage="dp1-bronze",
+                output_run_id=member["output_run_id"],
+                dataset_version=DATASET,
+                git_sha=GIT_SHA,
+                validation_git_sha="b" * 40,
+                summary_uri=(
+                    f"gs://bucket/evidence/spark_benchmark/{BENCHMARK}/"
+                    f"baseline/dp1-bronze/{member['output_run_id']}-summary.json"
+                ),
+                source_run_ids=(DATASET,),
+                pair_manifest=manifest,
+                pair_manifest_path=Path("pair.json"),
+                jar_paths=(Path("delta.jar"),),
+            )
 
     def test_collector_binds_exact_output_and_normalized_properties(self) -> None:
         manifest = pair()
@@ -212,23 +297,43 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
             METHOD2_PAIR_DIGEST_PROPERTY: manifest["pair_manifest_digest"],
             METHOD2_OUTPUT_RUN_PROPERTY: member["output_run_id"],
         }
+        validation = validation_evidence(manifest, "optimized")
+        validation.update(
+            application_runtime_seconds=580,
+            spill_bytes=0,
+            task_count=100,
+            output_file_count=64,
+            output_total_bytes=1000,
+        )
+        validation["validation_evidence_digest"] = validation_evidence_digest(
+            validation
+        )
         value = parse_batch_evidence(
             {
                 "name": f"projects/p/locations/r/batches/{member['output_run_id']}",
                 "state": "SUCCEEDED",
                 "createTime": "2026-10-25T01:00:00Z",
                 "stateTime": "2026-10-25T01:10:00Z",
-                "runtimeConfig": {"version": "2.2", "properties": properties},
+                "runtimeConfig": {
+                    "version": "2.2.89",
+                    "properties": {
+                        ("dataproc:dataproc.tier" if key == "dataproc.tier" else f"spark:{key}"): value
+                        for key, value in properties.items()
+                    },
+                },
                 "labels": {
                     "benchmark_id": BENCHMARK,
                     "spark_profile": "optimized",
                     "git_sha": GIT_SHA,
                 },
-                "approximateUsage": {
-                    "milliDcuSeconds": 7_200_000,
-                    "shuffleStorageGbSeconds": 123.5,
+                "approximateUsage": None,
+                "runtimeInfo": {
+                    "outputUri": "gs://logs/driver",
+                    "approximateUsage": {
+                        "milliDcuSeconds": "7200000",
+                        "shuffleStorageGbSeconds": "123.5",
+                    },
                 },
-                "runtimeInfo": {"outputUri": "gs://logs/driver"},
             },
             benchmark_id=BENCHMARK,
             spark_profile="optimized",
@@ -239,15 +344,7 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
             output_run_id=member["output_run_id"],
             output_root=member["output_root"],
             pair_manifest=manifest,
-            validation={
-                **evidence(manifest, "optimized"),
-                "status": "PASS",
-                "application_runtime_seconds": 580,
-                "spill_bytes": 0,
-                "task_count": 100,
-                "output_file_count": 64,
-                "output_total_bytes": 1000,
-            },
+            validation=validation,
         )
         self.assertEqual(600, value["wall_clock_seconds"])
         self.assertEqual(2.0, value["dcu_hours"])
@@ -270,7 +367,7 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
             METHOD2_PAIR_DIGEST_PROPERTY: manifest["pair_manifest_digest"],
             METHOD2_OUTPUT_RUN_PROPERTY: member["output_run_id"],
         }
-        stale_validation = evidence(manifest, "optimized")
+        stale_validation = validation_evidence(manifest, "optimized")
         stale_validation["output_run_id"] = "stale-output-attempt"
         with self.assertRaisesRegex(ValueError, "output_run_id"):
             parse_batch_evidence(
@@ -291,7 +388,10 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
                         "spark_profile": "optimized",
                         "git_sha": GIT_SHA,
                     },
-                    "approximateUsage": {},
+                    "approximateUsage": {
+                        "milliDcuSeconds": 1,
+                        "shuffleStorageGbSeconds": 0,
+                    },
                 },
                 benchmark_id=BENCHMARK,
                 spark_profile="optimized",
@@ -314,8 +414,8 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
                 baseline,
                 optimized,
                 pair_manifest=manifest,
-                baseline_evidence=baseline,
-                optimized_evidence=optimized,
+                baseline_evidence=evidence(manifest, "baseline"),
+                optimized_evidence=evidence(manifest, "optimized"),
             )
             self.assertTrue(result["output_equivalent"])
 
@@ -325,12 +425,13 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
         optimized = summary(manifest, "optimized")
         optimized["tables"]["transactions"]["row_count"] = 9
         optimized["invariants"]["transaction_id_unique"] = False
+        seal_summary(optimized)
         result = compare_summaries(
             baseline,
             optimized,
             pair_manifest=manifest,
-            baseline_evidence=baseline,
-            optimized_evidence=optimized,
+            baseline_evidence=evidence(manifest, "baseline"),
+            optimized_evidence=evidence(manifest, "optimized"),
         )
         self.assertFalse(result["output_equivalent"])
         self.assertIn("transactions.row_count", result["differences"])
@@ -364,6 +465,39 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
                 {"high_confidence_equivalence": True},
                 manifest,
             )
+
+    def test_single_stage_comparison_writes_create_only_json_and_csv(self) -> None:
+        manifest = pair()
+        baseline = evidence(manifest, "baseline", 100)
+        optimized = evidence(manifest, "optimized", 120)
+        equivalence = compare_summaries(
+            summary(manifest, "baseline"),
+            summary(manifest, "optimized"),
+            pair_manifest=manifest,
+            baseline_evidence=baseline,
+            optimized_evidence=optimized,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inputs = {
+                "pair": manifest,
+                "baseline": baseline,
+                "optimized": optimized,
+                "equivalence": equivalence,
+            }
+            for name, value in inputs.items():
+                (root / f"{name}.json").write_text(json.dumps(value))
+            argv = [
+                "--pair-manifest", str(root / "pair.json"),
+                "--baseline-evidence", str(root / "baseline.json"),
+                "--optimized-evidence", str(root / "optimized.json"),
+                "--equivalence-evidence", str(root / "equivalence.json"),
+                "--output-json", str(root / "comparison.json"),
+                "--output-csv", str(root / "comparison.csv"),
+            ]
+            self.assertEqual(0, compare_main(argv))
+            with self.assertRaises(FileExistsError):
+                compare_main(argv)
 
 
 if __name__ == "__main__":

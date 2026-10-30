@@ -21,6 +21,9 @@ from data_platform.config.spark_profiles import (
 PAIR_MANIFEST_SCHEMA = "spark-method2-pair-v2"
 EQUIVALENCE_SCHEMA = "spark-method2-equivalence-v2"
 WINNER_SCHEMA = "spark-method2-winner-v1"
+SEMANTIC_SUMMARY_SCHEMA = "spark-method2-semantic-summary-v1"
+ORIGINAL_PERFORMANCE_SCHEMA = "spark-method2-original-performance-v1"
+VALIDATION_EVIDENCE_SCHEMA = "spark-method2-validation-evidence-v1"
 METHOD2_PAIR_DIGEST_PROPERTY = "spark.ewallet.method2.pairManifestDigest"
 METHOD2_OUTPUT_RUN_PROPERTY = "spark.ewallet.method2.outputRunId"
 
@@ -86,11 +89,34 @@ def winner_artifact_digest(value: Mapping[str, object]) -> str:
     return _canonical_digest(payload)
 
 
+def semantic_summary_digest(value: Mapping[str, object]) -> str:
+    payload = dict(value)
+    payload.pop("semantic_summary_digest", None)
+    return _canonical_digest(payload)
+
+
+def original_performance_digest(value: Mapping[str, object]) -> str:
+    payload = dict(value)
+    payload.pop("original_performance_digest", None)
+    return _canonical_digest(payload)
+
+
+def validation_evidence_digest(value: Mapping[str, object]) -> str:
+    payload = dict(value)
+    payload.pop("validation_evidence_digest", None)
+    return _canonical_digest(payload)
+
+
 def expected_spark_properties(stage: str, profile: str) -> dict[str, str]:
     resolved = resolve_stage_profile(stage, profile)
     return normalize_spark_properties(
         dict(item.split("=", 1) for item in resolved.spark_properties)
     )
+
+
+def is_managed_spark_22(version: object) -> bool:
+    value = str(version)
+    return value == "2.2" or value.startswith("2.2.")
 
 
 @dataclass(frozen=True)
@@ -473,7 +499,7 @@ def select_stage_winner(
             raise ValueError(f"{label} benchmark evidence is incomplete")
         runtime_properties = evidence.get("runtime_properties")
         if (
-            evidence.get("runtime_version") != "2.2"
+            not is_managed_spark_22(evidence.get("runtime_version"))
             or not isinstance(runtime_properties, Mapping)
             or runtime_properties.get("dataproc.tier") != "standard"
         ):

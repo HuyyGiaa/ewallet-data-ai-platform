@@ -4,6 +4,10 @@ import hashlib
 import json
 import unittest
 
+from data_platform.config.spark_benchmark import (
+    SEMANTIC_SUMMARY_SCHEMA,
+    semantic_summary_digest,
+)
 from ops.gcp.summarize_spark_output import semantic_fingerprint_payload
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 from ops.gcp.validate_spark_output_equivalence import compare_summaries
@@ -72,7 +76,9 @@ def summary(manifest, profile, *, fingerprint="same", schema="schema"):
             "balance_snapshots", "login_events", "fraud_labels",
         )
     }
-    return {
+    value = {
+        "schema_version": SEMANTIC_SUMMARY_SCHEMA,
+        "status": "COMPLETE",
         "pair_manifest_digest": manifest["pair_manifest_digest"],
         "benchmark_id": manifest["benchmark_id"],
         "dataset_version": "canonical-100gb-v1",
@@ -85,9 +91,24 @@ def summary(manifest, profile, *, fingerprint="same", schema="schema"):
         "output_root": member["output_root"],
         "spark_properties": member["spark_properties"],
         "spark_properties_digest": member["spark_properties_digest"],
+        "execution": {
+            "kind": "read_only_semantic_scan",
+            "validation_batch_id": f"validate-{profile}-dp1",
+            "validation_git_sha": "b" * 40,
+            "source_output_run_id": member["output_run_id"],
+        },
         "tables": tables,
         "invariants": {"source_coverage": True, "source_counts_match": True},
     }
+    value["semantic_summary_digest"] = semantic_summary_digest(value)
+    return value
+
+
+def collected_evidence(manifest, profile):
+    value = summary(manifest, profile)
+    value["status"] = "PASS"
+    value["batch_state"] = "SUCCEEDED"
+    return value
 
 
 class SparkSemanticEquivalenceTest(unittest.TestCase):
@@ -109,7 +130,8 @@ class SparkSemanticEquivalenceTest(unittest.TestCase):
         candidate = summary(manifest, "optimized")
         self.assertTrue(compare_summaries(
             baseline, candidate, pair_manifest=manifest,
-            baseline_evidence=baseline, optimized_evidence=candidate,
+            baseline_evidence=collected_evidence(manifest, "baseline"),
+            optimized_evidence=collected_evidence(manifest, "optimized"),
         )["high_confidence_equivalence"])
 
         for mutation in ("schema", "fingerprint", "lineage"):
@@ -121,17 +143,35 @@ class SparkSemanticEquivalenceTest(unittest.TestCase):
             else:
                 changed["source_run_ids"] = ["different-source"]
                 changed["upstream_run_ids"] = ["different-source"]
+            changed["semantic_summary_digest"] = semantic_summary_digest(changed)
             if mutation == "lineage":
                 with self.assertRaisesRegex(ValueError, "upstream_run_ids"):
                     compare_summaries(
                         baseline, changed, pair_manifest=manifest,
-                        baseline_evidence=baseline, optimized_evidence=changed,
+                        baseline_evidence=collected_evidence(manifest, "baseline"),
+                        optimized_evidence=collected_evidence(manifest, "optimized"),
                     )
             else:
                 self.assertFalse(compare_summaries(
                     baseline, changed, pair_manifest=manifest,
-                    baseline_evidence=baseline, optimized_evidence=changed,
+                    baseline_evidence=collected_evidence(manifest, "baseline"),
+                    optimized_evidence=collected_evidence(manifest, "optimized"),
                 )["high_confidence_equivalence"])
+
+    def test_equivalence_rejects_different_validation_code_identity(self) -> None:
+        manifest = pair_manifest()
+        baseline = summary(manifest, "baseline")
+        candidate = summary(manifest, "optimized")
+        candidate["execution"]["validation_git_sha"] = "c" * 40
+        candidate["semantic_summary_digest"] = semantic_summary_digest(candidate)
+        with self.assertRaisesRegex(ValueError, "validation Git SHA"):
+            compare_summaries(
+                baseline,
+                candidate,
+                pair_manifest=manifest,
+                baseline_evidence=collected_evidence(manifest, "baseline"),
+                optimized_evidence=collected_evidence(manifest, "optimized"),
+            )
 
 
 if __name__ == "__main__":

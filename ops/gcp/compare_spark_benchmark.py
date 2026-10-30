@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Mapping
 
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
+    is_managed_spark_22,
     pair_member,
     validate_pair_manifest,
     validate_equivalence_evidence,
@@ -34,16 +36,20 @@ def comparison_row(
     pair = validate_pair_manifest(pair_manifest)
     validate_stage_evidence(pair, baseline, expected_profile="baseline")
     validate_stage_evidence(pair, optimized, expected_profile="optimized")
-    if baseline.get("runtime_version") != "2.2" or optimized.get(
-        "runtime_version"
-    ) != "2.2":
+    if not is_managed_spark_22(
+        baseline.get("runtime_version")
+    ) or not is_managed_spark_22(optimized.get("runtime_version")):
         raise ValueError("both batches must use runtime 2.2")
     for evidence in (baseline, optimized):
+        if evidence.get("status") != "PASS":
+            raise ValueError("both benchmark evidence documents must pass")
         properties = evidence.get("runtime_properties")
         if not isinstance(properties, Mapping) or properties.get(
             "dataproc.tier"
         ) != "standard":
             raise ValueError("both batches must use the Standard tier")
+        if evidence.get("status") != "PASS":
+            raise ValueError("both benchmark evidence artifacts must pass")
     if baseline.get("batch_state") != "SUCCEEDED" or optimized.get("batch_state") != "SUCCEEDED":
         raise ValueError("both batches must succeed before comparison")
     validate_equivalence_evidence(pair, equivalence)
@@ -136,17 +142,63 @@ def build_comparison(
     }
 
 
-def main() -> int:
+def _write_single_stage(
+    row: Mapping[str, object], *, output_json: Path, output_csv: Path
+) -> None:
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    with output_json.open("x", encoding="utf-8") as stream:
+        json.dump(dict(row), stream, indent=2, sort_keys=True)
+        stream.write("\n")
+    with output_csv.open("x", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--evidence-root", type=Path, required=True)
+    parser.add_argument("--evidence-root", type=Path)
     parser.add_argument(
         "--stage-pair",
         action="append",
-        required=True,
+        default=[],
         metavar="STAGE=PATH",
         help="Exact immutable pair manifest for one stage; repeat for all stages",
     )
-    args = parser.parse_args()
+    parser.add_argument("--pair-manifest", type=Path)
+    parser.add_argument("--baseline-evidence", type=Path)
+    parser.add_argument("--optimized-evidence", type=Path)
+    parser.add_argument("--equivalence-evidence", type=Path)
+    parser.add_argument("--output-json", type=Path)
+    parser.add_argument("--output-csv", type=Path)
+    args = parser.parse_args(argv)
+    load = lambda path: json.loads(path.read_text(encoding="utf-8"))
+    single_paths = (
+        args.pair_manifest,
+        args.baseline_evidence,
+        args.optimized_evidence,
+        args.equivalence_evidence,
+        args.output_json,
+        args.output_csv,
+    )
+    if any(single_paths):
+        if not all(single_paths) or args.evidence_root is not None or args.stage_pair:
+            raise ValueError(
+                "single-stage comparison requires all explicit input/output paths"
+            )
+        row = comparison_row(
+            load(args.baseline_evidence),
+            load(args.optimized_evidence),
+            load(args.equivalence_evidence),
+            load_pair_manifest(args.pair_manifest),
+        )
+        _write_single_stage(
+            row, output_json=args.output_json, output_csv=args.output_csv
+        )
+        return 0
+    if args.evidence_root is None:
+        raise ValueError("aggregate comparison requires --evidence-root")
     pair_paths = {}
     for value in args.stage_pair:
         stage, separator, raw_path = value.partition("=")
@@ -157,7 +209,6 @@ def main() -> int:
         raise ValueError("--stage-pair must provide all four stages")
     evidence_by_stage = {}
     for stage in STAGES:
-        load = lambda path: json.loads(path.read_text(encoding="utf-8"))
         pair_manifest = load_pair_manifest(pair_paths[stage])
         baseline_id = pair_member(pair_manifest, "baseline")["output_run_id"]
         optimized_id = pair_member(pair_manifest, "optimized")["output_run_id"]

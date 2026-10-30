@@ -9,11 +9,14 @@ from typing import Mapping
 
 from data_platform.config.spark_benchmark import (
     EQUIVALENCE_SCHEMA,
+    SEMANTIC_SUMMARY_SCHEMA,
     equivalence_artifact_digest,
     output_identity,
+    semantic_summary_digest,
     validate_pair_manifest,
     validate_stage_evidence,
 )
+from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.storage.scripts.config import (
     CORE_GOLD_TABLES,
     HISTORICAL_FEATURE_TABLES,
@@ -55,8 +58,45 @@ def compare_summaries(
     pair = validate_pair_manifest(pair_manifest)
     validate_stage_evidence(pair, baseline_evidence, expected_profile="baseline")
     validate_stage_evidence(pair, optimized_evidence, expected_profile="optimized")
+    for label, evidence in (
+        ("baseline", baseline_evidence),
+        ("optimized", optimized_evidence),
+    ):
+        if evidence.get("status") != "PASS" or evidence.get(
+            "batch_state"
+        ) != "SUCCEEDED":
+            raise ValueError(f"{label} collected benchmark evidence is incomplete")
     validate_stage_evidence(pair, baseline, expected_profile="baseline")
     validate_stage_evidence(pair, optimized, expected_profile="optimized")
+    validation_batch_ids: list[str] = []
+    validation_git_shas: list[str] = []
+    for label, summary in (("baseline", baseline), ("optimized", optimized)):
+        if summary.get("schema_version") != SEMANTIC_SUMMARY_SCHEMA:
+            raise ValueError(f"{label} semantic summary schema is unsupported")
+        if summary.get("semantic_summary_digest") != semantic_summary_digest(summary):
+            raise ValueError(f"{label} semantic summary digest mismatch")
+        if summary.get("status") != "COMPLETE":
+            raise ValueError(f"{label} semantic summary status must be COMPLETE")
+        execution = summary.get("execution")
+        if not isinstance(execution, Mapping):
+            raise ValueError(f"{label} semantic summary execution is required")
+        if execution.get("kind") != "read_only_semantic_scan":
+            raise ValueError(f"{label} summary is not a read-only semantic scan")
+        if execution.get("source_output_run_id") != summary.get("output_run_id"):
+            raise ValueError(f"{label} semantic summary source identity mismatch")
+        validation_batch_id = execution.get("validation_batch_id")
+        if not isinstance(validation_batch_id, str) or not validation_batch_id:
+            raise ValueError(f"{label} validation_batch_id is required")
+        if validation_batch_id == summary.get("output_run_id"):
+            raise ValueError(f"{label} validation batch reuses ingestion identity")
+        validation_batch_ids.append(validation_batch_id)
+        validation_git_shas.append(
+            validate_git_sha(str(execution.get("validation_git_sha", "")))
+        )
+    if len(set(validation_batch_ids)) != 2:
+        raise ValueError("baseline and optimized summaries require distinct validation jobs")
+    if len(set(validation_git_shas)) != 1:
+        raise ValueError("baseline and optimized summaries require one validation Git SHA")
     stage = str(pair["stage"])
     if stage not in EXPECTED_TABLES:
         raise ValueError("validation summaries must use one supported stage")

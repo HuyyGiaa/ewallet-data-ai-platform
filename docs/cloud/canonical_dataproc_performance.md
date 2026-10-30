@@ -211,110 +211,174 @@ differences or source-lineage differences. Physical file layout may differ and
 is measured rather than treated as semantic inequality. Bounded `exceptAll` may
 be used for fixtures, but is not the default 100 GB path.
 
-Future summary command (dry-run first):
+The summary and ingestion batches are distinct executions. The summary records
+both identities, and the submitter rejects a validation batch ID that reuses an
+ingestion/output ID. GCS summary creation uses `if_generation_match=0`, so an
+existing object or a concurrent writer causes failure rather than overwrite.
+
+### Completed DP1 pair: post-run operator workflow
+
+Run from the clean, reviewed validation implementation commit descended from
+`62f17ba6fe306b5cf74621b787249f8b71ccd8e8`, with authenticated `gcloud`,
+Terraform dev outputs, Delta jars and the repository Python environment. The
+pair keeps the original ingestion Git SHA; `VALIDATION_GIT_SHA` records the
+separate code that performs the read-only scan.
 
 ```bash
-STAGE="REPLACE_WITH_STAGE"
-PROFILE="REPLACE_WITH_BASELINE_OR_OPTIMIZED"
-OUTPUT_RUN="REPLACE_WITH_OUTPUT_RUN_ID"
-SOURCE_RUN="REPLACE_WITH_EXPLICIT_COMMON_UPSTREAM_RUN"
-OUTPUT_ROOT="REPLACE_WITH_PROFILE_BOUND_OUTPUT_ROOT"
-PAIR_MANIFEST="REPLACE_WITH_STAGE_PAIR_MANIFEST"
-VALIDATION_BATCH="abval-$(date -u +%y%m%d%H%M%S)"
-SUMMARY_URI="gs://${EWALLET_DATA_BUCKET}/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}/${OUTPUT_RUN}-summary.json"
+cd ~/Develop/ewallet-data-ai-platform
+test -z "$(git status --porcelain)"
+export VALIDATION_GIT_SHA="$(git rev-parse HEAD)"
+export PROJECT_ID=ewallet-data-ai-platform-hg26 REGION=asia-southeast1
+export EWALLET_DATA_BUCKET=ewallet-data-ai-platform-hg26-data
+export SPARK_BENCHMARK_ID=ab-20261029174838
+export GIT_SHA=62f17ba6fe306b5cf74621b787249f8b71ccd8e8
+export EVIDENCE_ROOT="$HOME/ewallet-evidence/spark-method2-final/$SPARK_BENCHMARK_ID"
+export PAIR_MANIFEST="$EVIDENCE_ROOT/dp1-bronze-pair.json"
+export BASELINE_RUN=ab-20261029174838-baseline-bronze-r261029174838
+export OPTIMIZED_RUN=ab-20261029174838-optimized-bronze-r261029174838
+export BASELINE_ROOT="gs://$EWALLET_DATA_BUCKET/lakehouse/runs/$BASELINE_RUN/bronze"
+export OPTIMIZED_ROOT="gs://$EWALLET_DATA_BUCKET/lakehouse/runs/$OPTIMIZED_RUN/bronze"
+
+# Read-only active-workload and quota snapshots. Any active benchmark batch,
+# unavailable quota response or insufficient quota blocks submission.
+gcloud dataproc batches list --project="$PROJECT_ID" --region="$REGION" \
+  --filter='state=PENDING OR state=RUNNING OR state=CANCELLING' \
+  --format='table(name.basename(),state,createTime)'
+gcloud compute project-info describe --project="$PROJECT_ID" --format='json(quotas)'
+gcloud compute regions describe "$REGION" --project="$PROJECT_ID" --format='json(quotas)'
+
+# Billing reports lag and alerts do not enforce a cap. Enter the verified gross
+# spend from the billing report/export. Unavailable spend blocks execution.
+export CUMULATIVE_GROSS_VND=REPLACE_WITH_VERIFIED_GROSS_SPEND
+test "$CUMULATIVE_GROSS_VND" -le 4000000
+```
+
+Maximum allocation is 29.7 DCU; TTL 8h caps one job at 237.6 DCU-hours. At the
+published Standard reference of USD 0.06/DCU-hour, two TTL-bound jobs are USD
+28.512 before regional pricing, shuffle, GCS and tax. Reserve 1,000,000 VND for
+both sequential jobs and confirm Singapore SKUs on the
+[official pricing page](https://cloud.google.com/products/managed-service-for-apache-spark/pricing).
+Do not run the validation jobs concurrently.
+
+Render both commands first. Dry-run is non-mutating; only a later explicit
+`--execute` submits a billable job.
+
+```bash
+export VALIDATION_ATTEMPT="r$(date -u +%y%m%d%H%M%S)"
+export BASELINE_VALIDATION="abval-b-$VALIDATION_ATTEMPT"
+export OPTIMIZED_VALIDATION="abval-o-$VALIDATION_ATTEMPT"
+export BASELINE_SUMMARY_URI="gs://$EWALLET_DATA_BUCKET/evidence/spark_benchmark/$SPARK_BENCHMARK_ID/baseline/dp1-bronze/$BASELINE_RUN-summary.json"
+export OPTIMIZED_SUMMARY_URI="gs://$EWALLET_DATA_BUCKET/evidence/spark_benchmark/$SPARK_BENCHMARK_ID/optimized/dp1-bronze/$OPTIMIZED_RUN-summary.json"
+
 python -m ops.gcp.submit_spark_output_summary \
-  --batch-id "$VALIDATION_BATCH" \
-  --stage "$STAGE" \
-  --benchmark-id "$SPARK_BENCHMARK_ID" \
-  --spark-profile "$PROFILE" \
-  --output-run-id "$OUTPUT_RUN" \
-  --source-run-id "$SOURCE_RUN" \
-  --pair-manifest "$PAIR_MANIFEST" \
-  --dataset-version canonical-100gb-v1 \
-  --git-sha "$GIT_SHA" \
-  --summary-uri "$SUMMARY_URI"
+  --batch-id "$BASELINE_VALIDATION" --stage dp1-bronze \
+  --benchmark-id "$SPARK_BENCHMARK_ID" --spark-profile baseline \
+  --output-run-id "$BASELINE_RUN" --source-run-id canonical-100gb-v1 \
+  --pair-manifest "$PAIR_MANIFEST" --dataset-version canonical-100gb-v1 \
+  --git-sha "$GIT_SHA" --validation-git-sha "$VALIDATION_GIT_SHA" \
+  --summary-uri "$BASELINE_SUMMARY_URI"
+python -m ops.gcp.submit_spark_output_summary \
+  --batch-id "$OPTIMIZED_VALIDATION" --stage dp1-bronze \
+  --benchmark-id "$SPARK_BENCHMARK_ID" --spark-profile optimized \
+  --output-run-id "$OPTIMIZED_RUN" --source-run-id canonical-100gb-v1 \
+  --pair-manifest "$PAIR_MANIFEST" --dataset-version canonical-100gb-v1 \
+  --git-sha "$GIT_SHA" --validation-git-sha "$VALIDATION_GIT_SHA" \
+  --summary-uri "$OPTIMIZED_SUMMARY_URI"
 ```
 
-Compare summaries only after both exist:
+After review, append `--execute` to the first command only. Wait for terminal
+`SUCCEEDED`, download and verify its summary, then repeat once for the second.
+Preserve any failure and never retry with the same batch ID.
 
 ```bash
-BASELINE_RUN=$(python -m ops.gcp.inspect_spark_stage_pair \
-  --pair-manifest "$PAIR_MANIFEST" --spark-profile baseline \
-  --field output_run_id)
-OPTIMIZED_RUN=$(python -m ops.gcp.inspect_spark_stage_pair \
-  --pair-manifest "$PAIR_MANIFEST" --spark-profile optimized \
-  --field output_run_id)
-PAIR_KEY="${BASELINE_RUN}--${OPTIMIZED_RUN}"
-EQUIVALENCE_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/equivalence/${STAGE}/${PAIR_KEY}.json"
+export BASELINE_SUMMARY="$EVIDENCE_ROOT/baseline/$BASELINE_RUN-summary.json"
+export OPTIMIZED_SUMMARY="$EVIDENCE_ROOT/optimized/$OPTIMIZED_RUN-summary.json"
+mkdir -p "$(dirname "$BASELINE_SUMMARY")" "$(dirname "$OPTIMIZED_SUMMARY")"
+gcloud storage cp "$BASELINE_SUMMARY_URI" "$BASELINE_SUMMARY"
+gcloud storage cp "$OPTIMIZED_SUMMARY_URI" "$OPTIMIZED_SUMMARY"
+jq -e '.schema_version == "spark-method2-semantic-summary-v1" and
+  .status == "COMPLETE" and .execution.kind == "read_only_semantic_scan"' \
+  "$BASELINE_SUMMARY" "$OPTIMIZED_SUMMARY"
+```
+
+Application runtime, spill and task count must come from each original
+ingestion event log, not the later validation job. Locate the exact application
+ID with the saved driver output or Spark History Server, download its event-log
+file(s), and retain the GCS URI inventory. The parser rejects a wrong
+application name, pair digest or output run ID. File count and bytes come from
+the semantic summary's physical layouts.
+
+```bash
+for PROFILE in baseline optimized; do
+  if [[ "$PROFILE" == baseline ]]; then
+    RUN="$BASELINE_RUN"; SUMMARY="$BASELINE_SUMMARY"; ROOT="$BASELINE_ROOT"
+  else
+    RUN="$OPTIMIZED_RUN"; SUMMARY="$OPTIMIZED_SUMMARY"; ROOT="$OPTIMIZED_ROOT"
+  fi
+  BATCH_JSON="$EVIDENCE_ROOT/$PROFILE/dataproc-batch.json"
+  EVENT_DIR="$EVIDENCE_ROOT/$PROFILE/event-log"
+  mkdir -p "$EVENT_DIR"
+  EVENT_LOG_GCS_URI=REPLACE_WITH_VERIFIED_ORIGINAL_EVENT_LOG_URI
+  gcloud storage cp --recursive "$EVENT_LOG_GCS_URI" "$EVENT_DIR/"
+  EVENT_ARGS=()
+  while IFS= read -r FILE; do EVENT_ARGS+=(--event-log "$FILE"); done \
+    < <(find "$EVENT_DIR" -type f -print | sort)
+  PERFORMANCE_JSON="$EVIDENCE_ROOT/$PROFILE/$RUN-original-performance.json"
+  VALIDATION_JSON="$EVIDENCE_ROOT/$PROFILE/$RUN-validation.json"
+  EVIDENCE_JSON="$EVIDENCE_ROOT/$PROFILE/$RUN-evidence.json"
+  python -m ops.gcp.summarize_spark_event_log \
+    "${EVENT_ARGS[@]}" --batch-id "$RUN" --output-run-id "$RUN" \
+    --pair-manifest-digest "$(jq -r .pair_manifest_digest "$PAIR_MANIFEST")" \
+    --source-uri "$EVENT_LOG_GCS_URI" \
+    --output "$PERFORMANCE_JSON"
+  python -m ops.gcp.build_spark_validation_evidence \
+    --summary-json "$SUMMARY" --original-performance-json "$PERFORMANCE_JSON" \
+    --pair-manifest "$PAIR_MANIFEST" --spark-profile "$PROFILE" \
+    --output "$VALIDATION_JSON"
+  python -m ops.gcp.collect_spark_benchmark_evidence \
+    --project "$PROJECT_ID" --region "$REGION" --batch-id "$RUN" \
+    --benchmark-id "$SPARK_BENCHMARK_ID" --spark-profile "$PROFILE" \
+    --stage dp1-bronze --dataset-version canonical-100gb-v1 \
+    --git-sha "$GIT_SHA" --upstream-run-id canonical-100gb-v1 \
+    --output-run-id "$RUN" --output-root "$ROOT" \
+    --pair-manifest "$PAIR_MANIFEST" --validation-json "$VALIDATION_JSON" \
+    --batch-description-json "$BATCH_JSON" --output "$EVIDENCE_JSON"
+done
+```
+
+Only then create equivalence, a stage comparison and the winner artifact. Each
+local output is create-only; any semantic mismatch returns non-zero and blocks
+winner selection.
+
+```bash
+export PAIR_KEY="$BASELINE_RUN--$OPTIMIZED_RUN"
+export BASELINE_EVIDENCE="$EVIDENCE_ROOT/baseline/$BASELINE_RUN-evidence.json"
+export OPTIMIZED_EVIDENCE="$EVIDENCE_ROOT/optimized/$OPTIMIZED_RUN-evidence.json"
+export EQUIVALENCE_JSON="$EVIDENCE_ROOT/equivalence/dp1-bronze/$PAIR_KEY.json"
+export COMPARISON_JSON="$EVIDENCE_ROOT/comparison/dp1-bronze/$PAIR_KEY.json"
+export COMPARISON_CSV="$EVIDENCE_ROOT/comparison/dp1-bronze/$PAIR_KEY.csv"
+export WINNER_JSON="$EVIDENCE_ROOT/winners/dp1-bronze/$PAIR_KEY.json"
 python -m ops.gcp.validate_spark_output_equivalence \
-  --pair-manifest "$PAIR_MANIFEST" \
-  --baseline-summary baseline-summary.json \
-  --optimized-summary candidate-summary.json \
-  --baseline-evidence baseline-evidence.json \
-  --optimized-evidence optimized-evidence.json \
-  --output "$EQUIVALENCE_JSON"
-```
-
-The stage validation JSON supplied to the collector must contain application
-runtime, spill bytes, task count, output file count and output bytes. The
-collector adds batch runtime, DCU, shuffle usage, runtime properties and driver
-log URI. Only complete, succeeded and equivalent evidence is eligible for
-explicit winner review.
-
-Prepare that small stage-level metric document from the reviewed event-log and
-output-summary evidence, then collect the Managed Spark usage. `BATCH_ID` is the
-original stage batch/output run, not the separate summary batch.
-
-```bash
-STAGE="REPLACE_WITH_STAGE"
-PROFILE="REPLACE_WITH_BASELINE_OR_OPTIMIZED"
-BATCH_ID="REPLACE_WITH_STAGE_OUTPUT_RUN_ID"
-UPSTREAM_RUN="REPLACE_WITH_EXPLICIT_COMMON_UPSTREAM_RUN"
-VALIDATION_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}/${BATCH_ID}-application.json"
-EVIDENCE_JSON="docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/${PROFILE}/${STAGE}/${BATCH_ID}.json"
-
-# VALIDATION_JSON must carry the exact pair/output identity and normalized
-# Spark-property snapshot from the output summary, plus status=PASS and numeric
-# application_runtime_seconds, spill_bytes, task_count, output_file_count and
-# output_total_bytes. The collector rejects a stale output attempt.
-python -m ops.gcp.collect_spark_benchmark_evidence \
-  --project ewallet-data-ai-platform-hg26 \
-  --region asia-southeast1 \
-  --batch-id "$BATCH_ID" \
-  --benchmark-id "$SPARK_BENCHMARK_ID" \
-  --spark-profile "$PROFILE" \
-  --stage "$STAGE" \
-  --dataset-version canonical-100gb-v1 \
-  --git-sha "$GIT_SHA" \
-  --upstream-run-id "$UPSTREAM_RUN" \
-  --output-run-id "$BATCH_ID" \
-  --output-root "$OUTPUT_ROOT" \
-  --pair-manifest "$PAIR_MANIFEST" \
-  --validation-json "$VALIDATION_JSON" \
-  --output "$EVIDENCE_JSON"
-
-# After all four stage pairs pass semantic equivalence and have complete
-# runtime evidence, render the comparison. Winner adoption remains manual.
+  --pair-manifest "$PAIR_MANIFEST" --baseline-summary "$BASELINE_SUMMARY" \
+  --optimized-summary "$OPTIMIZED_SUMMARY" \
+  --baseline-evidence "$BASELINE_EVIDENCE" \
+  --optimized-evidence "$OPTIMIZED_EVIDENCE" --output "$EQUIVALENCE_JSON"
 python -m ops.gcp.compare_spark_benchmark \
-  --evidence-root "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}" \
-  --stage-pair "dp1-bronze=$DP1_PAIR" \
-  --stage-pair "dp2-silver=$SILVER_PAIR" \
-  --stage-pair "dp2-gold=$GOLD_PAIR" \
-  --stage-pair "dp3-features=$FEATURE_PAIR"
-
-# Select only after the exact pair's evidence and equivalence artifact pass.
-python -m ops.gcp.select_spark_stage_winner \
-  --pair-manifest "$PAIR_MANIFEST" \
-  --baseline-evidence baseline-evidence.json \
-  --optimized-evidence optimized-evidence.json \
+  --pair-manifest "$PAIR_MANIFEST" --baseline-evidence "$BASELINE_EVIDENCE" \
+  --optimized-evidence "$OPTIMIZED_EVIDENCE" \
   --equivalence-evidence "$EQUIVALENCE_JSON" \
-  --output \
-    "docs/evidence/spark_benchmark/${SPARK_BENCHMARK_ID}/winners/${STAGE}/${PAIR_KEY}.json"
+  --output-json "$COMPARISON_JSON" --output-csv "$COMPARISON_CSV"
+python -m ops.gcp.select_spark_stage_winner \
+  --pair-manifest "$PAIR_MANIFEST" --baseline-evidence "$BASELINE_EVIDENCE" \
+  --optimized-evidence "$OPTIMIZED_EVIDENCE" \
+  --equivalence-evidence "$EQUIVALENCE_JSON" --output "$WINNER_JSON"
 ```
 
-For DP3, pass both selected Silver and fixed Gold as repeated
-`--upstream-run-id` values to the summary and collector commands. Quota handoff
-wait is reported separately and never counted as application runtime.
+The same flow supports DP2 Silver, DP2 Gold and DP3 Features by changing the
+pair, stage, roots and expected inventory. DP3 repeats selected Silver and fixed
+Gold as two `--source-run-id` / `--upstream-run-id` values. Validation-job
+runtime remains separate operational evidence and never replaces original
+ingestion performance.
 
 The pair planner is deliberately small: it validates and records comparison
 identity, common inputs, isolated output roots and resolved properties. Stage

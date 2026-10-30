@@ -13,7 +13,10 @@ from typing import Any
 from data_platform.config.spark_benchmark import (
     METHOD2_OUTPUT_RUN_PROPERTY,
     METHOD2_PAIR_DIGEST_PROPERTY,
+    VALIDATION_EVIDENCE_SCHEMA,
+    is_managed_spark_22,
     load_pair_manifest,
+    validation_evidence_digest,
     validate_pair_member,
     validate_runtime_profile_properties,
     validate_stage_evidence,
@@ -39,6 +42,52 @@ def _timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def _runtime_properties(value: Mapping[str, Any]) -> dict[str, str]:
+    """Normalize gcloud's namespaced property keys without hiding conflicts."""
+
+    result: dict[str, str] = {}
+    for raw_key, raw_value in value.items():
+        key = str(raw_key)
+        if key == "dataproc:dataproc.tier":
+            key = "dataproc.tier"
+        elif key.startswith("spark:spark."):
+            key = key.removeprefix("spark:")
+        normalized = str(raw_value)
+        if key in result and result[key] != normalized:
+            raise ValueError(f"conflicting namespaced runtime property: {key}")
+        result[key] = normalized
+    return result
+
+
+def _approximate_usage(description: Mapping[str, Any]) -> Mapping[str, Any]:
+    direct = description.get("approximateUsage")
+    if isinstance(direct, Mapping):
+        return direct
+    runtime_info = description.get("runtimeInfo")
+    if isinstance(runtime_info, Mapping):
+        nested = runtime_info.get("approximateUsage")
+        if isinstance(nested, Mapping):
+            return nested
+    raise ValueError("batch description is missing approximate usage")
+
+
+def _usage_number(
+    usage: Mapping[str, Any], name: str, *, positive: bool = False
+) -> float:
+    if name not in usage:
+        raise ValueError(f"batch usage metric is missing: {name}")
+    value = usage[name]
+    if isinstance(value, bool):
+        raise ValueError(f"batch usage metric is not numeric: {name}")
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"batch usage metric is not numeric: {name}") from exc
+    if result < 0 or (positive and result <= 0):
+        raise ValueError(f"batch usage metric is outside its valid range: {name}")
+    return result
+
+
 def parse_batch_evidence(
     description: Mapping[str, Any],
     *,
@@ -56,16 +105,22 @@ def parse_batch_evidence(
     validate_benchmark_id(benchmark_id)
     profile = resolve_spark_profile(spark_profile).name
     git_sha = validate_git_sha(git_sha)
-    usage = description.get("approximateUsage", {})
+    usage = _approximate_usage(description)
     runtime = description.get("runtimeConfig", {})
-    if not isinstance(usage, Mapping) or not isinstance(runtime, Mapping):
-        raise ValueError("batch description is missing runtime/usage objects")
+    if not isinstance(runtime, Mapping):
+        raise ValueError("batch description is missing runtimeConfig")
     create_time = str(description["createTime"])
     state_time = str(description["stateTime"])
-    milli_dcu_seconds = float(usage.get("milliDcuSeconds", 0))
-    properties = runtime.get("properties", {})
-    if not isinstance(properties, Mapping):
+    milli_dcu_seconds = _usage_number(
+        usage, "milliDcuSeconds", positive=True
+    )
+    shuffle_storage_gb_seconds = _usage_number(
+        usage, "shuffleStorageGbSeconds"
+    )
+    raw_properties = runtime.get("properties", {})
+    if not isinstance(raw_properties, Mapping):
         raise ValueError("runtimeConfig.properties must be an object")
+    properties = _runtime_properties(raw_properties)
     batch_id = str(description.get("name", "")).rsplit("/", 1)[-1]
     try:
         run_kind = _STAGE_RUN_KIND[stage]
@@ -106,8 +161,8 @@ def parse_batch_evidence(
     for key, expected in expected_labels.items():
         if labels.get(key) != expected:
             raise ValueError(f"batch label {key} does not match evidence metadata")
-    if runtime.get("version") != "2.2":
-        raise ValueError("benchmark batch runtime must be 2.2")
+    if not is_managed_spark_22(runtime.get("version")):
+        raise ValueError("benchmark batch runtime must be Managed Spark 2.2")
     resolved = resolve_stage_profile(stage, profile)
     expected_properties = {
         "dataproc.tier": "standard",
@@ -129,6 +184,12 @@ def parse_batch_evidence(
         validation,
         expected_profile=profile,
     )
+    if validation.get("schema_version") != VALIDATION_EVIDENCE_SCHEMA:
+        raise ValueError("validation evidence schema_version is missing or unsupported")
+    if validation.get("validation_evidence_digest") != validation_evidence_digest(
+        validation
+    ):
+        raise ValueError("validation evidence digest mismatch")
     required_validation_metrics = (
         "application_runtime_seconds",
         "spill_bytes",
@@ -146,6 +207,32 @@ def parse_batch_evidence(
         )
     if validation.get("status") != "PASS":
         raise ValueError("validation evidence status must be PASS")
+    provenance = validation.get("metric_provenance")
+    if not isinstance(provenance, Mapping):
+        raise ValueError("validation metric_provenance is required")
+    expected_sources = {
+        "application_runtime_seconds": "original_spark_event_log",
+        "spill_bytes": "original_spark_event_log",
+        "task_count": "original_spark_event_log",
+        "output_file_count": "semantic_summary_physical_layout",
+        "output_total_bytes": "semantic_summary_physical_layout",
+        "ingestion_batch_id": output_run_id,
+    }
+    for field, expected in expected_sources.items():
+        if provenance.get(field) != expected:
+            raise ValueError(f"validation metric provenance mismatch: {field}")
+    validation_batch_id = provenance.get("validation_batch_id")
+    if not isinstance(validation_batch_id, str) or not validation_batch_id:
+        raise ValueError("validation_batch_id provenance is required")
+    if validation_batch_id == output_run_id:
+        raise ValueError("validation and ingestion batch identities must differ")
+    collected_provenance = {
+        **dict(provenance),
+        "wall_clock_seconds": "original_dataproc_batch_description",
+        "batch_runtime_seconds": "original_dataproc_batch_description",
+        "dcu_hours": "original_dataproc_batch_description",
+        "shuffle_storage_gb_seconds": "original_dataproc_batch_description",
+    }
     return {
         "status": "PASS" if description.get("state") == "SUCCEEDED" else "FAIL",
         "benchmark_id": benchmark_id,
@@ -172,10 +259,11 @@ def parse_batch_evidence(
             validation["application_runtime_seconds"]
         ),
         "runtime_version": runtime.get("version"),
+        "runtime_version_family": "2.2",
         "runtime_properties": dict(sorted(properties.items())),
         "milli_dcu_seconds": milli_dcu_seconds,
         "dcu_hours": milli_dcu_seconds / 3_600_000,
-        "shuffle_storage_gb_seconds": float(usage.get("shuffleStorageGbSeconds", 0)),
+        "shuffle_storage_gb_seconds": shuffle_storage_gb_seconds,
         "spill_bytes": int(validation["spill_bytes"]),
         "task_count": int(validation["task_count"]),
         "output_file_count": int(validation["output_file_count"]),
@@ -184,6 +272,7 @@ def parse_batch_evidence(
             "outputUri"
         ),
         "validation": dict(validation),
+        "metric_provenance": collected_provenance,
     }
 
 
@@ -208,7 +297,7 @@ def collect(
     return parse_batch_evidence(description, **metadata)
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True); parser.add_argument("--region", required=True)
     parser.add_argument("--batch-id", required=True); parser.add_argument("--benchmark-id", required=True)
@@ -219,16 +308,42 @@ def main() -> int:
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--pair-manifest", type=Path, required=True)
     parser.add_argument("--validation-json", type=Path, required=True); parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    evidence = collect(
-        project=args.project, region=args.region, batch_id=args.batch_id,
-        benchmark_id=args.benchmark_id, spark_profile=args.spark_profile,
-        stage=args.stage, dataset_version=args.dataset_version, git_sha=args.git_sha,
-        upstream_run_ids=args.upstream_run_id, output_run_id=args.output_run_id,
-        output_root=args.output_root,
-        pair_manifest=load_pair_manifest(args.pair_manifest),
-        validation=json.loads(args.validation_json.read_text(encoding="utf-8")),
+    parser.add_argument(
+        "--batch-description-json",
+        type=Path,
+        help="Trusted saved gcloud batch JSON; avoids a live API read",
     )
+    args = parser.parse_args(argv)
+    if args.batch_id != args.output_run_id:
+        raise ValueError("batch_id must equal output_run_id")
+    metadata = {
+        "benchmark_id": args.benchmark_id,
+        "spark_profile": args.spark_profile,
+        "stage": args.stage,
+        "dataset_version": args.dataset_version,
+        "git_sha": args.git_sha,
+        "upstream_run_ids": args.upstream_run_id,
+        "output_run_id": args.output_run_id,
+        "output_root": args.output_root,
+        "pair_manifest": load_pair_manifest(args.pair_manifest),
+        "validation": json.loads(
+            args.validation_json.read_text(encoding="utf-8")
+        ),
+    }
+    if args.batch_description_json is not None:
+        description = json.loads(
+            args.batch_description_json.read_text(encoding="utf-8")
+        )
+        if not isinstance(description, Mapping):
+            raise ValueError("batch description JSON must contain an object")
+        evidence = parse_batch_evidence(description, **metadata)
+    else:
+        evidence = collect(
+            project=args.project,
+            region=args.region,
+            batch_id=args.batch_id,
+            **metadata,
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as stream:
         json.dump(evidence, stream, indent=2, sort_keys=True)
