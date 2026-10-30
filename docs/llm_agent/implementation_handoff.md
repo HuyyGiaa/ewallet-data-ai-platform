@@ -17,6 +17,9 @@ Living Decision 21.216 is authoritative for this campaign:
 
 Phase A foundation is implemented on `codex/llm-agent-rubric-20261030` from the
 reviewed consolidation base `acad36beb81a8424db6ee0a3a04905dbb040ce0d`.
+The implementation commit is `5fd25ebe8e32b4b18d86b9be07f4aece8cd0d30a`;
+the reused fail-closed rubric commit is
+`0ae2f43a9de4d633d1ac6d30b5440f0549a1f5ea`.
 No cloud, cluster, paid workload, registry, canonical branch, active DP2, dirty
 Feast worktree, or dirty Streaming worktree was mutated.
 
