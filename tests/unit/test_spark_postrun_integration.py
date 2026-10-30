@@ -165,7 +165,7 @@ class SparkPostRunIntegrationTest(unittest.TestCase):
             write_event_log(path, manifest)
             with self.assertRaisesRegex(ValueError, "batch_id"):
                 summarize_event_logs(
-                    (path,), batch_id="other", output_run_id=BASELINE_RUN,
+                    (path,), batch_id="", output_run_id=BASELINE_RUN,
                     pair_manifest_digest=manifest["pair_manifest_digest"],
                     source_uri="gs://bucket/spark-events/application-123",
                     expected_dataproc_cohort_id="cohort-123",
@@ -173,6 +173,18 @@ class SparkPostRunIntegrationTest(unittest.TestCase):
                     application_not_before_epoch_ms=0,
                     application_not_after_epoch_ms=20_000,
                 )
+            recovered = summarize_event_logs(
+                (path,), batch_id="distinct-recovery-attempt",
+                output_run_id=BASELINE_RUN,
+                pair_manifest_digest=manifest["pair_manifest_digest"],
+                source_uri="gs://bucket/spark-events/application-123",
+                expected_dataproc_cohort_id="cohort-123",
+                expected_application_name=f"projects/p/locations/r/batches/{BASELINE_RUN}",
+                application_not_before_epoch_ms=0,
+                application_not_after_epoch_ms=20_000,
+            )
+            self.assertEqual("distinct-recovery-attempt", recovered["batch_id"])
+            self.assertEqual(BASELINE_RUN, recovered["output_run_id"])
             with self.assertRaisesRegex(ValueError, "property mismatch"):
                 summarize_event_logs(
                     (path,), batch_id=BASELINE_RUN, output_run_id=BASELINE_RUN,
@@ -220,6 +232,23 @@ class SparkPostRunIntegrationTest(unittest.TestCase):
             result["metric_provenance"]["validation_batch_id"],
             result["metric_provenance"]["ingestion_batch_id"],
         )
+
+    def test_builder_preserves_distinct_ingestion_attempt_identity(self) -> None:
+        manifest = pair_manifest()
+        performance = original_performance(manifest)
+        performance["batch_id"] = "distinct-recovery-attempt"
+        performance["original_performance_digest"] = original_performance_digest(
+            performance
+        )
+        result = build_validation_evidence(
+            semantic_summary(manifest), performance,
+            pair_manifest=manifest, spark_profile="baseline",
+        )
+        self.assertEqual(
+            "distinct-recovery-attempt",
+            result["metric_provenance"]["ingestion_batch_id"],
+        )
+        self.assertEqual(BASELINE_RUN, result["output_run_id"])
 
     def test_builder_rejects_missing_metrics_and_inconsistent_identity(self) -> None:
         manifest = pair_manifest()

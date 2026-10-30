@@ -76,8 +76,10 @@ def summarize_event_logs(
 ) -> dict[str, object]:
     """Return measured metrics bound to one completed ingestion execution."""
 
-    if not batch_id or batch_id != output_run_id:
-        raise ValueError("original batch_id must equal output_run_id")
+    if not batch_id:
+        raise ValueError("original batch_id is required")
+    if not output_run_id:
+        raise ValueError("output_run_id is required")
     if not pair_manifest_digest.startswith("sha256:"):
         raise ValueError("pair_manifest_digest must be an explicit SHA-256 identity")
     if not source_uri.startswith("gs://"):

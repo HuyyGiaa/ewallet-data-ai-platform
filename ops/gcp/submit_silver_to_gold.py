@@ -83,6 +83,44 @@ def assert_output_prefix_absent(
         raise RuntimeError(f"Could not verify Gold output prefix: {completed.stderr.strip()}")
 
 
+def assert_batch_id_absent(
+    runtime: CloudRuntime,
+    *,
+    batch_id: str,
+    runner: Callable[..., Any] = subprocess.run,
+) -> None:
+    batch_id = _validate_id(batch_id, "dataproc_batch_id")
+    completed = runner(
+        ["gcloud", "dataproc", "batches", "describe", batch_id,
+         f"--project={runtime.project_id}", f"--region={runtime.region}",
+         "--format=json"],
+        check=False, text=True, capture_output=True,
+    )
+    if completed.returncode == 0:
+        raise ValueError(f"Dataproc batch attempt already exists: {batch_id}")
+    if "not_found" not in (completed.stdout + completed.stderr).lower():
+        raise RuntimeError(f"Could not verify Dataproc batch absence: {batch_id}")
+
+
+def require_clean_repository(
+    repository: Path,
+    expected_sha: str,
+    runner: Callable[..., Any] = subprocess.run,
+) -> None:
+    expected_sha = validate_git_sha(expected_sha)
+    repository = repository.resolve()
+    head = runner(
+        ["git", "rev-parse", "HEAD"], cwd=repository, check=True,
+        text=True, capture_output=True,
+    ).stdout.strip()
+    status = runner(
+        ["git", "status", "--porcelain"], cwd=repository, check=True,
+        text=True, capture_output=True,
+    ).stdout.strip()
+    if head != expected_sha or status:
+        raise ValueError(f"Repository is not the declared clean Git source: {repository}")
+
+
 def build_submission_command(
     runtime: CloudRuntime,
     *,
@@ -99,6 +137,8 @@ def build_submission_command(
     benchmark_id: str | None = None,
     git_sha: str | None = None,
     pair_manifest: Mapping[str, object] | None = None,
+    dataproc_batch_id: str | None = None,
+    recovery_git_sha: str | None = None,
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
     ttl = _validate_ttl(ttl)
@@ -125,6 +165,16 @@ def build_submission_command(
         if git_sha is None:
             raise ValueError("benchmark submissions require --git-sha")
         git_sha = validate_git_sha(git_sha)
+    batch_id = _validate_id(dataproc_batch_id or run_id, "dataproc_batch_id")
+    recovery_attempt = batch_id != run_id
+    if recovery_attempt:
+        if benchmark_id is None:
+            raise ValueError("distinct Dataproc attempts require a Method-2 benchmark")
+        recovery_git_sha = validate_git_sha(str(recovery_git_sha or ""))
+        if script_path.resolve() == GOLD_SCRIPT.resolve():
+            raise ValueError(
+                "distinct Dataproc attempts require the original compute script path"
+            )
     silver_root, gold_root = run_roots(
         runtime, source_silver_run_id=source_silver_run_id, run_id=run_id
     )
@@ -165,9 +215,13 @@ def build_submission_command(
             f",benchmark_id={benchmark_id},spark_profile={spark_profile},"
             f"git_sha={git_sha}"
         )
+    if recovery_attempt:
+        labels += (
+            f",output_run_id={run_id},recovery_git_sha={recovery_git_sha}"
+        )
     return (
         "gcloud", "dataproc", "batches", "submit", "pyspark", str(script_path),
-        f"--batch={run_id}", f"--project={runtime.project_id}",
+        f"--batch={batch_id}", f"--project={runtime.project_id}",
         f"--region={runtime.region}", "--version=2.2",
         f"--service-account={runtime.service_account_email}",
         f"--subnet={runtime.subnet}",
@@ -196,12 +250,17 @@ def build_submission_command(
     )
 
 
-def _load_outputs(path: Path | None, runner: Callable[..., Any]) -> Mapping[str, Any]:
+def _load_outputs(
+    path: Path | None,
+    runner: Callable[..., Any],
+    *,
+    terraform_root: Path = TERRAFORM_DEV_ROOT,
+) -> Mapping[str, Any]:
     if path is not None:
         value = json.loads(path.read_text(encoding="utf-8"))
     else:
         completed = runner(
-            ["terraform", f"-chdir={TERRAFORM_DEV_ROOT}", "output", "-json"],
+            ["terraform", f"-chdir={terraform_root}", "output", "-json"],
             check=True, text=True, capture_output=True,
         )
         value = json.loads(completed.stdout)
@@ -215,6 +274,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dataset-version", required=True)
     parser.add_argument("--source-silver-run-id", required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--dataproc-batch-id")
+    parser.add_argument("--recovery-git-sha")
+    parser.add_argument("--compute-repository", type=Path)
     parser.add_argument("--terraform-output-json", type=Path)
     parser.add_argument("--ttl", default="2h")
     add_performance_profile_argument(parser)
@@ -232,13 +294,48 @@ def main(
     runner: Callable[..., Any] = subprocess.run,
 ) -> int:
     args = parse_args(argv)
-    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    batch_id = args.dataproc_batch_id or args.run_id
+    recovery_attempt = batch_id != args.run_id
+    terraform_root = (
+        args.compute_repository.resolve()
+        / "infra/terraform/gcp/environments/dev"
+        if recovery_attempt and args.compute_repository is not None
+        else TERRAFORM_DEV_ROOT
+    )
+    runtime = load_cloud_runtime(_load_outputs(
+        args.terraform_output_json, runner, terraform_root=terraform_root
+    ))
     jars = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
-    if args.execute:
+    script_path = GOLD_SCRIPT
+    runtime_profile_path = GCP_RUNTIME_PROFILE
+    if recovery_attempt:
+        if args.compute_repository is None:
+            raise ValueError("distinct Dataproc attempts require --compute-repository")
+        if args.recovery_git_sha is None or args.git_sha is None:
+            raise ValueError("distinct Dataproc attempts require both Git identities")
+        require_clean_repository(args.compute_repository, args.git_sha, runner)
+        require_clean_repository(REPOSITORY_ROOT, args.recovery_git_sha, runner)
+        script_path = (
+            args.compute_repository.resolve()
+            / "data_platform/processing/spark/gold/gold_pipeline.py"
+        )
+        runtime_profile_path = (
+            args.compute_repository.resolve()
+            / "configs/environments/gcp/platform.yaml"
+        )
+    if recovery_attempt:
         assert_output_prefix_absent(runtime, run_id=args.run_id, runner=runner)
+        assert_batch_id_absent(runtime, batch_id=batch_id, runner=runner)
+    if args.execute:
+        if not recovery_attempt:
+            assert_output_prefix_absent(runtime, run_id=args.run_id, runner=runner)
+            assert_batch_id_absent(runtime, batch_id=batch_id, runner=runner)
         jars = ensure_delta_dependencies()
-        archive = build_python_archive(REPOSITORY_ROOT, DEFAULT_ARCHIVE)
+        archive = build_python_archive(
+            args.compute_repository.resolve() if recovery_attempt else REPOSITORY_ROOT,
+            DEFAULT_ARCHIVE,
+        )
     command = build_submission_command(
         runtime,
         dataset_version=args.dataset_version,
@@ -256,6 +353,10 @@ def main(
         ),
         archive_path=archive,
         jar_paths=jars,
+        script_path=script_path,
+        runtime_profile_path=runtime_profile_path,
+        dataproc_batch_id=batch_id,
+        recovery_git_sha=args.recovery_git_sha,
     )
     silver_root, gold_root = run_roots(
         runtime, source_silver_run_id=args.source_silver_run_id, run_id=args.run_id
@@ -276,7 +377,10 @@ def main(
         print(shlex.join(command))
         return 0
     runner(command, check=True)
-    print(f"Bounded Silver-to-core-Gold batch submitted: {args.run_id}")
+    print(
+        "Bounded Silver-to-core-Gold batch submitted: "
+        f"batch={batch_id} output_run={args.run_id}"
+    )
     return 0
 
 

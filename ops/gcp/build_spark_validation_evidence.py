@@ -81,13 +81,15 @@ def build_validation_evidence(
         raise ValueError("original performance digest mismatch")
     expected_performance_identity = {
         "source_execution_kind": "original_ingestion_batch",
-        "batch_id": checked_summary["output_run_id"],
         "output_run_id": checked_summary["output_run_id"],
         "pair_manifest_digest": checked_summary["pair_manifest_digest"],
     }
     for field, expected in expected_performance_identity.items():
         if original_performance.get(field) != expected:
             raise ValueError(f"original performance {field} mismatch")
+    ingestion_batch_id = original_performance.get("batch_id")
+    if not isinstance(ingestion_batch_id, str) or not ingestion_batch_id:
+        raise ValueError("original performance batch_id is required")
     source_uri = original_performance.get("event_log_source_uri")
     if not isinstance(source_uri, str) or not source_uri.startswith("gs://"):
         raise ValueError("original performance event_log_source_uri is required")
@@ -161,7 +163,7 @@ def build_validation_evidence(
             ],
             "validation_batch_id": validation_batch_id,
             "validation_git_sha": validation_git_sha,
-            "ingestion_batch_id": checked_summary["output_run_id"],
+            "ingestion_batch_id": ingestion_batch_id,
         },
     }
     result["validation_evidence_digest"] = validation_evidence_digest(result)

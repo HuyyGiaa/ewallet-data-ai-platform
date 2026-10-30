@@ -101,6 +101,8 @@ def parse_batch_evidence(
     output_root: str,
     pair_manifest: Mapping[str, object],
     validation: Mapping[str, Any],
+    dataproc_batch_id: str | None = None,
+    recovery_git_sha: str | None = None,
 ) -> dict[str, Any]:
     validate_benchmark_id(benchmark_id)
     profile = resolve_spark_profile(spark_profile).name
@@ -122,18 +124,19 @@ def parse_batch_evidence(
         raise ValueError("runtimeConfig.properties must be an object")
     properties = _runtime_properties(raw_properties)
     batch_id = str(description.get("name", "")).rsplit("/", 1)[-1]
+    expected_batch_id = dataproc_batch_id or output_run_id
     try:
         run_kind = _STAGE_RUN_KIND[stage]
     except KeyError as exc:
         raise ValueError(f"unsupported benchmark evidence stage: {stage}") from exc
     require_profile_binding(
-        batch_id,
+        output_run_id,
         benchmark_id=benchmark_id,
         profile=profile,
         stage=run_kind,
     )
-    if batch_id != output_run_id:
-        raise ValueError("batch_id must equal the exact pair output_run_id")
+    if batch_id != expected_batch_id:
+        raise ValueError("batch_id does not match the declared Dataproc attempt")
     member = validate_pair_member(
         pair_manifest,
         spark_profile=profile,
@@ -161,6 +164,15 @@ def parse_batch_evidence(
     for key, expected in expected_labels.items():
         if labels.get(key) != expected:
             raise ValueError(f"batch label {key} does not match evidence metadata")
+    if expected_batch_id != output_run_id:
+        recovery_git_sha = validate_git_sha(str(recovery_git_sha or ""))
+        recovery_labels = {
+            "output_run_id": output_run_id,
+            "recovery_git_sha": recovery_git_sha,
+        }
+        for key, expected in recovery_labels.items():
+            if labels.get(key) != expected:
+                raise ValueError(f"recovery batch label {key} mismatch")
     if not is_managed_spark_22(runtime.get("version")):
         raise ValueError("benchmark batch runtime must be Managed Spark 2.2")
     resolved = resolve_stage_profile(stage, profile)
@@ -216,7 +228,7 @@ def parse_batch_evidence(
         "task_count": "original_spark_event_log",
         "output_file_count": "semantic_summary_physical_layout",
         "output_total_bytes": "semantic_summary_physical_layout",
-        "ingestion_batch_id": output_run_id,
+        "ingestion_batch_id": expected_batch_id,
     }
     for field, expected in expected_sources.items():
         if provenance.get(field) != expected:
@@ -224,7 +236,7 @@ def parse_batch_evidence(
     validation_batch_id = provenance.get("validation_batch_id")
     if not isinstance(validation_batch_id, str) or not validation_batch_id:
         raise ValueError("validation_batch_id provenance is required")
-    if validation_batch_id == output_run_id:
+    if validation_batch_id in (output_run_id, expected_batch_id):
         raise ValueError("validation and ingestion batch identities must differ")
     collected_provenance = {
         **dict(provenance),
@@ -233,7 +245,7 @@ def parse_batch_evidence(
         "dcu_hours": "original_dataproc_batch_description",
         "shuffle_storage_gb_seconds": "original_dataproc_batch_description",
     }
-    return {
+    result = {
         "status": "PASS" if description.get("state") == "SUCCEEDED" else "FAIL",
         "benchmark_id": benchmark_id,
         "spark_profile": profile,
@@ -274,6 +286,9 @@ def parse_batch_evidence(
         "validation": dict(validation),
         "metric_provenance": collected_provenance,
     }
+    if expected_batch_id != output_run_id:
+        result["recovery_git_sha"] = recovery_git_sha
+    return result
 
 
 def collect(
@@ -305,6 +320,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--stage", required=True); parser.add_argument("--dataset-version", required=True)
     parser.add_argument("--git-sha", required=True); parser.add_argument("--upstream-run-id", action="append", default=[])
     parser.add_argument("--output-run-id", required=True)
+    parser.add_argument("--dataproc-batch-id")
+    parser.add_argument("--recovery-git-sha")
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--pair-manifest", type=Path, required=True)
     parser.add_argument("--validation-json", type=Path, required=True); parser.add_argument("--output", type=Path, required=True)
@@ -314,8 +331,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Trusted saved gcloud batch JSON; avoids a live API read",
     )
     args = parser.parse_args(argv)
-    if args.batch_id != args.output_run_id:
-        raise ValueError("batch_id must equal output_run_id")
+    if args.dataproc_batch_id is not None and args.batch_id != args.dataproc_batch_id:
+        raise ValueError("batch_id must equal dataproc_batch_id")
     metadata = {
         "benchmark_id": args.benchmark_id,
         "spark_profile": args.spark_profile,
@@ -324,6 +341,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "git_sha": args.git_sha,
         "upstream_run_ids": args.upstream_run_id,
         "output_run_id": args.output_run_id,
+        "dataproc_batch_id": args.dataproc_batch_id,
+        "recovery_git_sha": args.recovery_git_sha,
         "output_root": args.output_root,
         "pair_manifest": load_pair_manifest(args.pair_manifest),
         "validation": json.loads(

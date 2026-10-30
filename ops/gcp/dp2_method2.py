@@ -179,9 +179,19 @@ def _describe_batch(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                            "--format=json", capture=True))
 
 
+def _dataproc_batch_id(
+    args: argparse.Namespace, stage: str, profile: str, output_run_id: str,
+) -> str:
+    if stage != "gold":
+        return output_run_id
+    return str(
+        getattr(args, f"{profile}_gold_batch_id", None) or output_run_id
+    )
+
+
 def _batch_cohort(batch: Mapping[str, Any], run_id: str) -> str:
     if str(batch.get("name", "")).rsplit("/", 1)[-1] != run_id:
-        raise ValueError("Original batch name does not match output_run_id")
+        raise ValueError("Original batch name does not match Dataproc attempt ID")
     runtime_info = batch.get("runtimeInfo")
     labels = batch.get("labels")
     if not isinstance(runtime_info, Mapping) or not isinstance(labels, Mapping):
@@ -206,7 +216,8 @@ def _epoch_ms(value: str) -> int:
 
 
 def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
-                       run_id: str, pair_digest: str, batch: Mapping[str, Any],
+                       output_run_id: str, dataproc_batch_id: str,
+                       pair_digest: str, batch: Mapping[str, Any],
                        output: Path) -> dict[str, Any]:
     """Find only original-job event logs in the original Dataproc time window.
 
@@ -217,12 +228,12 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
         return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(dt.timezone.utc)
 
     if batch.get("state") != "SUCCEEDED":
-        raise ValueError(f"Original batch {run_id} did not succeed")
+        raise ValueError(f"Original batch {dataproc_batch_id} did not succeed")
     create_time = str(batch["createTime"])
     state_time = str(batch["stateTime"])
     begin = timestamp(create_time) - dt.timedelta(minutes=30)
     end = timestamp(state_time) + dt.timedelta(minutes=30)
-    cohort = _batch_cohort(batch, run_id)
+    cohort = _batch_cohort(batch, dataproc_batch_id)
     prefix = f"gs://{args.data_bucket}/spark-events/"
     listing = _run("gcloud", "storage", "ls", prefix + "*", capture=True)
     candidates = []
@@ -249,7 +260,8 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
                 decoded = compressed
             try:
                 result = summarize_event_logs(
-                    [decoded], batch_id=run_id, output_run_id=run_id,
+                    [decoded], batch_id=dataproc_batch_id,
+                    output_run_id=output_run_id,
                     pair_manifest_digest=pair_digest, source_uri=uri,
                     expected_dataproc_cohort_id=cohort,
                     expected_application_name=APPLICATION_NAMES[stage],
@@ -261,7 +273,10 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
                 continue
             matches.append(result)
     if len(matches) != 1:
-        raise ValueError(f"Expected one original event log for {run_id}, found {len(matches)}")
+        raise ValueError(
+            f"Expected one original event log for {dataproc_batch_id}, "
+            f"found {len(matches)}"
+        )
     _write_once(output, matches[0])
     return matches[0]
 
@@ -269,6 +284,7 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
 def _require_saved_batch(
     saved: Mapping[str, Any], live: Mapping[str, Any], *, run_id: str,
     benchmark_id: str, profile: str, git_sha: str,
+    output_run_id: str, recovery_git_sha: str | None,
 ) -> None:
     """Verify an immutable partial batch description against the live batch."""
     _batch_cohort(saved, run_id)
@@ -282,11 +298,21 @@ def _require_saved_batch(
     expected = {"benchmark_id": benchmark_id, "spark_profile": profile, "git_sha": git_sha}
     if any(labels.get(key) != value for key, value in expected.items()):
         raise ValueError("Saved original batch labels do not match execution identity")
+    if run_id != output_run_id:
+        expected_recovery = {
+            "output_run_id": output_run_id,
+            "recovery_git_sha": recovery_git_sha,
+        }
+        if not recovery_git_sha or any(
+            labels.get(key) != value for key, value in expected_recovery.items()
+        ):
+            raise ValueError("Saved recovery batch labels do not match output identity")
 
 
 def _evidence_payload(
     args: argparse.Namespace, *, stage: str, profile: str, pair: Mapping[str, Any],
-    run_id: str, output_root: str, upstream: Sequence[str],
+    run_id: str, dataproc_batch_id: str, output_root: str,
+    upstream: Sequence[str],
     summary: Mapping[str, Any], performance: Mapping[str, Any], batch: Mapping[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     validation = build_validation_evidence(
@@ -298,6 +324,8 @@ def _evidence_payload(
         git_sha=args.git_sha, upstream_run_ids=upstream,
         output_run_id=run_id, output_root=output_root,
         pair_manifest=pair, validation=validation,
+        dataproc_batch_id=dataproc_batch_id,
+        recovery_git_sha=getattr(args, "recovery_git_sha", None),
     )
     return validation, evidence
 
@@ -342,47 +370,86 @@ def _action(args: argparse.Namespace) -> None:
         args.profile = "baseline"
     stage, profile = args.stage, args.profile
     pair, run_id, output_root, upstream = _require_pair(args, stage)
+    dataproc_batch_id = _dataproc_batch_id(args, stage, profile, run_id)
     base = _profile_dir(args.root, stage, profile)
     base.mkdir(parents=True, exist_ok=True)
 
     if args.action == "quota":
         # Strictly sequential profiles mean only one active DP2 ingestion at a time.
-        predecessor = (upstream[0] if profile == "baseline" else
-                       pair_member(pair, "baseline")["output_run_id"])
+        predecessor = (
+            upstream[0] if profile == "baseline" else
+            _dataproc_batch_id(
+                args, stage, "baseline",
+                str(pair_member(pair, "baseline")["output_run_id"]),
+            )
+        )
+        quota_name = (
+            f"quota-{dataproc_batch_id}.json"
+            if dataproc_batch_id != run_id else "quota.json"
+        )
         _module("ops.gcp.wait_for_dataproc_quota", "--project", args.project,
                 "--region", args.region, "--spark-profile", profile,
                 "--benchmark-id", args.benchmark_id,
                 "--handoff", "bronze-to-silver" if stage == "silver" else "silver-to-gold",
                 "--predecessor-batch-id", str(predecessor),
-                "--evidence-output", str(base / "quota.json"), "--execute")
-    elif args.action == "submit":
-        _require_clean_head(args.git_sha)
-        _module("ops.gcp.submit_bronze_to_silver" if stage == "silver" else
-                "ops.gcp.submit_silver_to_gold",
+                "--evidence-output", str(base / quota_name), "--execute")
+    elif args.action in ("submit", "plan-submit"):
+        recovery_attempt = dataproc_batch_id != run_id
+        if recovery_attempt:
+            if stage != "gold":
+                raise ValueError("distinct Dataproc attempts are supported only for Gold recovery")
+            _require_clean_head(str(args.recovery_git_sha or ""))
+        else:
+            _require_clean_head(args.git_sha)
+        module_args = [
                 "--dataset-version", args.dataset_version,
                 "--benchmark-id", args.benchmark_id,
                 "--source-bronze-run-id" if stage == "silver" else "--source-silver-run-id",
                 upstream[0], "--run-id", run_id, "--spark-profile", profile,
                 "--git-sha", args.git_sha, "--pair-manifest", str(_pair_path(args.root, stage)),
-                "--ttl", args.ttl, "--execute")
+                "--ttl", args.ttl,
+        ]
+        if recovery_attempt:
+            if args.compute_repository is None:
+                raise ValueError("Gold recovery requires compute_repository")
+            module_args.extend((
+                "--dataproc-batch-id", dataproc_batch_id,
+                "--recovery-git-sha", args.recovery_git_sha,
+                "--compute-repository", str(args.compute_repository),
+            ))
+        if args.action == "submit":
+            module_args.append("--execute")
+        _module(
+            "ops.gcp.submit_bronze_to_silver" if stage == "silver" else
+            "ops.gcp.submit_silver_to_gold", *module_args,
+        )
     elif args.action == "verify":
         _module("ops.gcp.verify_delta_run", "--root", output_root,
                 *(x for table in TABLES[stage] for x in ("--expected-table", table)))
     elif args.action == "summary":
-        _require_clean_head(args.git_sha)
+        _require_clean_head(
+            args.recovery_git_sha if dataproc_batch_id != run_id else args.git_sha
+        )
         # A semantic scan is also a paid Dataproc batch; gate its quota separately.
         _module("ops.gcp.wait_for_dataproc_quota", "--project", args.project,
                 "--region", args.region, "--spark-profile", profile,
                 "--benchmark-id", args.benchmark_id,
                 "--handoff", "bronze-to-silver" if stage == "silver" else "silver-to-gold",
-                "--predecessor-batch-id", run_id,
-                "--evidence-output", str(base / "validation-quota.json"), "--execute")
+                "--predecessor-batch-id", dataproc_batch_id,
+                "--evidence-output", str(
+                    base / (
+                        f"validation-quota-{dataproc_batch_id}.json"
+                        if dataproc_batch_id != run_id else "validation-quota.json"
+                    )
+                ), "--execute")
         _module("ops.gcp.submit_spark_output_summary",
                 "--batch-id", _validation_batch_id(run_id, stage, profile),
                 "--benchmark-id", args.benchmark_id, "--spark-profile", profile,
                 "--stage", STAGES[stage], "--output-run-id", run_id,
                 "--dataset-version", args.dataset_version, "--git-sha", args.git_sha,
-                "--validation-git-sha", args.git_sha,
+                "--validation-git-sha", (
+                    args.recovery_git_sha if dataproc_batch_id != run_id else args.git_sha
+                ),
                 "--summary-uri", _summary_uri(args, stage, profile, run_id),
                 "--source-run-id", upstream[0],
                 "--pair-manifest", str(_pair_path(args.root, stage)), "--execute")
@@ -403,27 +470,30 @@ def _action(args: argparse.Namespace) -> None:
                      str(downloaded))
                 summary_data = _json(downloaded)
                 _write_once(summary, summary_data)
-        live = _describe_batch(args, run_id)
+        live = _describe_batch(args, dataproc_batch_id)
         if batch_path.exists():
             original = _json(batch_path)
-            _require_saved_batch(original, live, run_id=run_id,
+            _require_saved_batch(original, live, run_id=dataproc_batch_id,
                                  benchmark_id=args.benchmark_id, profile=profile,
-                                 git_sha=args.git_sha)
+                                 git_sha=args.git_sha, output_run_id=run_id,
+                                 recovery_git_sha=getattr(args, "recovery_git_sha", None))
         else:
             original = live
-            _require_saved_batch(original, live, run_id=run_id,
+            _require_saved_batch(original, live, run_id=dataproc_batch_id,
                                  benchmark_id=args.benchmark_id, profile=profile,
-                                 git_sha=args.git_sha)
+                                 git_sha=args.git_sha, output_run_id=run_id,
+                                 recovery_git_sha=getattr(args, "recovery_git_sha", None))
             _write_once(batch_path, original)
         if performance.exists():
             performance_data = _json(performance)
         else:
             performance_data = _get_event_metrics(
-                args, stage, profile, run_id,
+                args, stage, profile, run_id, dataproc_batch_id,
                 str(pair["pair_manifest_digest"]), original, performance,
             )
         expected_validation, expected_evidence = _evidence_payload(
             args, stage=stage, profile=profile, pair=pair, run_id=run_id,
+            dataproc_batch_id=dataproc_batch_id,
             output_root=output_root, upstream=upstream, summary=summary_data,
             performance=performance_data, batch=original,
         )
@@ -473,7 +543,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--action", required=True,
                         choices=("approve", "prepare-silver", "prepare-gold", "quota",
-                                 "submit", "verify", "summary", "evidence", "finalize"))
+                                 "submit", "plan-submit", "verify", "summary", "evidence",
+                                 "finalize"))
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--bronze-winner", required=True, type=Path)
     parser.add_argument("--benchmark-id", required=True)
@@ -485,6 +556,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ttl", default="8h")
     parser.add_argument("--approval", default="")
     parser.add_argument("--require-clean", action="store_true")
+    parser.add_argument("--baseline-gold-batch-id")
+    parser.add_argument("--optimized-gold-batch-id")
+    parser.add_argument("--recovery-git-sha")
+    parser.add_argument("--compute-repository", type=Path)
     for stage in STAGES:
         for profile in PROFILES:
             parser.add_argument(f"--{profile}-{stage}-run-id", required=True)

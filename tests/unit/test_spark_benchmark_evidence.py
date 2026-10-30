@@ -353,6 +353,67 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
             manifest["pair_manifest_digest"], value["pair_manifest_digest"]
         )
 
+    def test_collector_binds_distinct_recovery_attempt_to_same_output(self) -> None:
+        manifest = pair("dp2-gold")
+        member = manifest["runs"][0]
+        attempt = "dp2g-b-recovery-r261030192000"
+        recovery_sha = "c" * 40
+        properties = {
+            "dataproc.tier": "standard",
+            **dict(
+                item.split("=", 1)
+                for item in resolve_stage_profile(
+                    "dp2-gold", "baseline"
+                ).spark_properties
+            ),
+            METHOD2_PAIR_DIGEST_PROPERTY: manifest["pair_manifest_digest"],
+            METHOD2_OUTPUT_RUN_PROPERTY: member["output_run_id"],
+        }
+        validation = validation_evidence(manifest, "baseline")
+        validation["metric_provenance"]["ingestion_batch_id"] = attempt
+        validation["validation_evidence_digest"] = validation_evidence_digest(validation)
+        description = {
+            "name": f"projects/p/locations/r/batches/{attempt}",
+            "state": "SUCCEEDED", "createTime": "2026-10-30T01:00:00Z",
+            "stateTime": "2026-10-30T01:10:00Z",
+            "runtimeConfig": {"version": "2.2.89", "properties": properties},
+            "labels": {
+                "benchmark_id": BENCHMARK, "spark_profile": "baseline",
+                "git_sha": GIT_SHA, "output_run_id": member["output_run_id"],
+                "recovery_git_sha": recovery_sha,
+            },
+            "runtimeInfo": {
+                "outputUri": "gs://logs/driver",
+                "approximateUsage": {
+                    "milliDcuSeconds": "7200000",
+                    "shuffleStorageGbSeconds": "123.5",
+                },
+            },
+        }
+        value = parse_batch_evidence(
+            description, benchmark_id=BENCHMARK, spark_profile="baseline",
+            stage="dp2-gold", dataset_version=DATASET, git_sha=GIT_SHA,
+            upstream_run_ids=manifest["upstream_run_ids"],
+            output_run_id=member["output_run_id"],
+            output_root=member["output_root"], pair_manifest=manifest,
+            validation=validation, dataproc_batch_id=attempt,
+            recovery_git_sha=recovery_sha,
+        )
+        self.assertEqual(attempt, value["batch_id"])
+        self.assertEqual(member["output_run_id"], value["output_run_id"])
+        self.assertEqual(GIT_SHA, value["git_sha"])
+        self.assertEqual(recovery_sha, value["recovery_git_sha"])
+        with self.assertRaisesRegex(ValueError, "recovery batch label"):
+            parse_batch_evidence(
+                description, benchmark_id=BENCHMARK, spark_profile="baseline",
+                stage="dp2-gold", dataset_version=DATASET, git_sha=GIT_SHA,
+                upstream_run_ids=manifest["upstream_run_ids"],
+                output_run_id=member["output_run_id"],
+                output_root=member["output_root"], pair_manifest=manifest,
+                validation=validation, dataproc_batch_id=attempt,
+                recovery_git_sha="d" * 40,
+            )
+
     def test_collector_rejects_validation_for_stale_output_attempt(self) -> None:
         manifest = pair()
         member = manifest["runs"][1]

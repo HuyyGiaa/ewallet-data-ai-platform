@@ -7,7 +7,8 @@ from pathlib import Path
 from unittest.mock import Mock, call, patch
 
 from ops.gcp.recover_dp2_method2 import (
-    GOLD_TASKS, airflow_status, reconcile_silver, recover_silver, resume_gold,
+    GOLD_TASKS, airflow_status, reconcile_silver, recover_silver,
+    resume_gold, run_gold_step,
 )
 
 
@@ -20,6 +21,9 @@ def config(root: Path):
         "data_bucket": "bucket", "project": "project", "region": "region",
         "baseline_gold_run_id": "baseline-gold",
         "optimized_gold_run_id": "optimized-gold",
+        "cancelled_baseline_gold_batch_id": "baseline-gold",
+        "baseline_gold_batch_id": "baseline-gold-recovery",
+        "optimized_gold_batch_id": "optimized-gold-recovery",
     }
 
 
@@ -114,16 +118,139 @@ class RecoverySafetyTest(unittest.TestCase):
     @patch("ops.gcp.recover_dp2_method2.subprocess.run")
     def test_existing_gold_batch_blocks_resume(self, run):
         from ops.gcp.recover_dp2_method2 import _gold_outputs_absent
-        run.return_value = Mock(returncode=0, stdout="{}", stderr="")
-        with self.assertRaisesRegex(ValueError, "already exists"):
+        run.side_effect = [
+            Mock(returncode=0, stdout='{"state":"CANCELLED"}', stderr=""),
+            Mock(returncode=0, stdout="{}", stderr=""),
+        ]
+        with self.assertRaisesRegex(ValueError, "attempt already exists"):
             _gold_outputs_absent(config(Path("/tmp/evidence")))
 
     @patch("ops.gcp.recover_dp2_method2.subprocess.run")
     def test_uncertain_gold_batch_lookup_fails_closed(self, run):
         from ops.gcp.recover_dp2_method2 import _gold_outputs_absent
-        run.return_value = Mock(returncode=1, stdout="", stderr="permission denied")
+        run.side_effect = [
+            Mock(returncode=0, stdout='{"state":"CANCELLED"}', stderr=""),
+            Mock(returncode=1, stdout="", stderr="permission denied"),
+        ]
         with self.assertRaisesRegex(RuntimeError, "Cannot verify Gold batch absence"):
             _gold_outputs_absent(config(Path("/tmp/evidence")))
+
+    @patch("ops.gcp.recover_dp2_method2.subprocess.run")
+    def test_gold_absence_guard_returns_cancelled_execution_record(self, run):
+        from ops.gcp.recover_dp2_method2 import _gold_outputs_absent
+        cancelled = '{"name":"baseline-gold","state":"CANCELLED"}'
+        run.side_effect = [
+            Mock(returncode=0, stdout=cancelled, stderr=""),
+            Mock(returncode=1, stdout="", stderr="NOT_FOUND"),
+            Mock(returncode=1, stdout="", stderr="matched no objects"),
+            Mock(returncode=1, stdout="", stderr="NOT_FOUND"),
+            Mock(returncode=1, stdout="", stderr="matched no objects"),
+        ]
+        self.assertEqual(
+            {"name": "baseline-gold", "state": "CANCELLED"},
+            _gold_outputs_absent(config(Path("/tmp/evidence"))),
+        )
+
+    def test_interrupted_submit_reuses_succeeded_attempt_without_resubmit(self):
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); cfg = config(root)
+            cfg.update(
+                execution_git_sha="a" * 40, controller_git_sha="b" * 40,
+            )
+            (root / "gold" / "baseline").mkdir(parents=True)
+            quota = root / "gold" / "baseline" / (
+                f"quota-{cfg['baseline_gold_batch_id']}.json"
+            )
+            quota.write_text(json.dumps({"status": "READY"}))
+            (root / "gold-recovery-plan.json").write_text(json.dumps({
+                "status": "GOLD_RECOVERY_PLAN_VERIFIED_NOT_SUBMITTED",
+                "execution_git_sha": cfg["execution_git_sha"],
+                "controller_git_sha": cfg["controller_git_sha"],
+            }))
+            budget = root / "budget.json"
+            budget.write_text(json.dumps({
+                "status": "PASS", "currency": "VND",
+                "gross_cap_vnd": 5_000_000, "reserve_vnd": 700_000,
+                "quota_available": True, "observed_gross_spend_vnd": 1_000_000,
+                "billing_lag_reserve_vnd": 500_000,
+                "estimated_remaining_gold_vnd": 500_000,
+            }))
+            airflow = {"dag_run_state": "failed", "task_states": {
+                "gold_baseline_quota": "success",
+            }}
+            with patch("ops.gcp.recover_dp2_method2.airflow_status",
+                       return_value=airflow), patch(
+                "ops.gcp.recover_dp2_method2._request",
+                return_value={"is_paused": True},
+            ), patch(
+                "ops.gcp.recover_dp2_method2._describe_attempt",
+                return_value={"state": "SUCCEEDED"},
+            ), patch("ops.gcp.recover_dp2_method2._action") as action, patch(
+                "ops.gcp.recover_dp2_method2._hold_after_task_patch"
+            ) as reconcile, patch(
+                "ops.gcp.recover_dp2_method2._record_gold_step",
+                side_effect=lambda _config, value: dict(value),
+            ):
+                result = run_gold_step(
+                    cfg, "token", step="baseline-submit",
+                    budget_evidence=budget,
+                    authorization="I_APPROVE_DP2_GOLD_RECOVERY",
+                )
+            action.assert_not_called()
+            reconcile.assert_called_once_with(cfg, "token", "gold_baseline_submit")
+            self.assertEqual("STEP_COMPLETED_AND_RECONCILED", result["status"])
+
+    def test_submit_requires_reconciled_quota_predecessor(self):
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); cfg = config(root)
+            (root / "gold" / "baseline").mkdir(parents=True)
+            (root / "gold" / "baseline" /
+             f"quota-{cfg['baseline_gold_batch_id']}.json").write_text(
+                json.dumps({"status": "READY"})
+            )
+            (root / "gold-recovery-plan.json").write_text(json.dumps({
+                "status": "GOLD_RECOVERY_PLAN_VERIFIED_NOT_SUBMITTED",
+                "execution_git_sha": cfg["execution_git_sha"],
+                "controller_git_sha": cfg["controller_git_sha"],
+            }))
+            budget = root / "budget.json"
+            budget.write_text(json.dumps({
+                "status": "PASS", "currency": "VND",
+                "gross_cap_vnd": 5_000_000, "reserve_vnd": 700_000,
+                "quota_available": True, "observed_gross_spend_vnd": 1,
+                "billing_lag_reserve_vnd": 1,
+                "estimated_remaining_gold_vnd": 1,
+            }))
+            with patch(
+                "ops.gcp.recover_dp2_method2.airflow_status",
+                return_value={"dag_run_state": "failed", "task_states": {}},
+            ), patch(
+                "ops.gcp.recover_dp2_method2._request",
+                return_value={"is_paused": True},
+            ):
+                with self.assertRaisesRegex(ValueError, "gold_baseline_quota"):
+                    run_gold_step(
+                        cfg, "token", step="baseline-submit",
+                        budget_evidence=budget,
+                        authorization="I_APPROVE_DP2_GOLD_RECOVERY",
+                    )
+
+    def test_budget_gate_accounts_for_lag_estimate_and_reserve(self):
+        import json
+        from ops.gcp.recover_dp2_method2 import _require_budget_evidence
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "budget.json"
+            path.write_text(json.dumps({
+                "status": "PASS", "currency": "VND",
+                "gross_cap_vnd": 5_000_000, "reserve_vnd": 700_000,
+                "quota_available": True, "observed_gross_spend_vnd": 4_000_000,
+                "billing_lag_reserve_vnd": 200_000,
+                "estimated_remaining_gold_vnd": 200_000,
+            }))
+            with self.assertRaisesRegex(ValueError, "reserve"):
+                _require_budget_evidence(path)
 
 
 if __name__ == "__main__":

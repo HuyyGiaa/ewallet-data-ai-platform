@@ -169,19 +169,59 @@ unpauses or intentionally launches Gold before the paid gate.
 
 ### Paid Gold resume gate
 
-Gold requires a new durable budget/quota evidence JSON with `status=PASS`,
-`currency=VND`, `gross_cap_vnd=5000000`, `reserve_vnd>=700000`, and
-`quota_available=true`, plus explicit operator authorization. Before clearing
-anything, the controller proves both reserved Gold batch IDs do not exist and
-both immutable GCS output roots are absent. API/listing ambiguity fails closed.
+If an original Gold Dataproc resource permanently occupies an output-run ID in
+`CANCELLED`, do not delete it and do not regenerate the pair. Configure separate
+attempt IDs while preserving the pair's output identities. For the current
+recovery plan these are:
+
+- baseline attempt: `dp2g-b-recovery-r261030192000`
+- optimized attempt: `dp2g-o-recovery-r261030192000`
+
+The Spark arguments, Method-2 property and GCS root continue to use the original
+`output_run_id`. The GCP `--batch` flag and batch description use the attempt ID.
+The submitter packages computation from the clean canonical repository at the
+original execution SHA and records the separate recovery-controller SHA in a
+label. Event-log and evidence validation require both identities, the exact
+cohort, exact application name and the application interval.
+
+Generate a read-only plan first. This verifies the cancelled record, both new
+attempt IDs are absent, both immutable output roots are absent, the DAG remains
+paused/failed, canonical compute source is clean at its declared SHA, and the
+pair digest is unchanged:
 
 ```bash
-# PAID: do not run until the operator has reviewed budget, G3 costs and quota.
 python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" \
-  --mode resume-gold --budget-evidence "$BUDGET_EVIDENCE" \
-  --authorization I_APPROVE_DP2_GOLD_RECOVERY
+  --mode plan-gold
 ```
 
-Only this final command resets the exact Gold/downstream TaskInstances and
-queues the same DagRun. It never resets successful Silver tasks, creates a new
-DagRun, submits directly, or edits Airflow's metadata database.
+Gold execution requires durable budget evidence containing `status=PASS`,
+`currency=VND`, `gross_cap_vnd=5000000`, `reserve_vnd>=700000`,
+`quota_available=true`, plus non-negative `observed_gross_spend_vnd`,
+`billing_lag_reserve_vnd` and `estimated_remaining_gold_vnd`. Their sum must not
+exceed `gross_cap_vnd - reserve_vnd`.
+
+The normal scheduler resume mode is deliberately disabled because the original
+DAG bundle cannot render distinct attempt IDs. Keep the DAG paused and execute
+the audited steps sequentially. Each completed effect is verified before its
+existing TaskInstance is reconciled through the public API; active or succeeded
+attempts are never resubmitted.
+
+```bash
+# PAID: every command below requires explicit approval and fresh budget evidence.
+for STEP in \
+  baseline-quota baseline-submit baseline-verify baseline-summary baseline-evidence \
+  optimized-quota optimized-submit optimized-verify optimized-summary \
+  optimized-evidence finalize
+do
+  python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" \
+    --mode run-gold-step --gold-step "$STEP" \
+    --budget-evidence "$BUDGET_EVIDENCE" \
+    --authorization I_APPROVE_DP2_GOLD_RECOVERY || exit 1
+done
+```
+
+The controller writes immutable per-step evidence, never resets successful
+Silver tasks, never creates a new DagRun and never edits Airflow's metadata DB.
+Only `finalize`, after both Gold evidence paths and deterministic equivalence
+pass, marks the existing DagRun genuinely successful. The DAG stays paused for
+operator review.

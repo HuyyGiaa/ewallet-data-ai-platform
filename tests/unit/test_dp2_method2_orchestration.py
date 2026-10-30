@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from data_platform.config.spark_benchmark import winner_artifact_digest
 from ops.gcp.dp2_method2 import (
-    _action, _batch_cohort, _pair_path, _require_head, _require_pair,
+    _action, _batch_cohort, _dataproc_batch_id, _pair_path, _require_head, _require_pair,
     _validation_batch_id, _winner,
 )
 from ops.gcp.summarize_spark_event_log import DATAPROC_COHORT_PROPERTY
@@ -222,6 +222,89 @@ class TestDP2Workflow(unittest.TestCase):
         _require_head(NEW_SHA)
         run.assert_called_once_with("git", "rev-parse", "HEAD", capture=True)
 
+    def _prepare_gold_recovery(self):
+        with patch("ops.gcp.dp2_method2._require_clean_head"):
+            self.args.action = "prepare-silver"; _action(self.args)
+            silver_root = f"gs://bucket/lakehouse/runs/{SILVER_RUN}/silver"
+            (self.root / "dp2-silver-winner.json").write_text(
+                json.dumps(winner("dp2-silver", SILVER_RUN, NEW_SHA, silver_root)))
+            self.args.action = "prepare-gold"; _action(self.args)
+        self.args.baseline_gold_batch_id = "dp2g-b-recovery-r261030192000"
+        self.args.optimized_gold_batch_id = "dp2g-o-recovery-r261030192000"
+        self.args.recovery_git_sha = "d" * 40
+        self.args.compute_repository = Path("/canonical")
+        self.args.project, self.args.region, self.args.ttl = "p", "r", "8h"
+
+    def test_gold_recovery_attempts_preserve_pair_output_identity(self):
+        self._prepare_gold_recovery()
+        digest = _json_file(_pair_path(self.root, "gold"))["pair_manifest_digest"]
+        self.assertEqual(
+            self.args.baseline_gold_batch_id,
+            _dataproc_batch_id(self.args, "gold", "baseline", GOLD_RUN),
+        )
+        self.args.action, self.args.stage, self.args.profile = (
+            "plan-submit", "gold", "baseline"
+        )
+        with patch("ops.gcp.dp2_method2._require_clean_head"), patch(
+            "ops.gcp.dp2_method2._module"
+        ) as module:
+            _action(self.args)
+        command = module.call_args.args
+        self.assertIn("--dataproc-batch-id", command)
+        self.assertIn(self.args.baseline_gold_batch_id, command)
+        self.assertIn("--run-id", command)
+        self.assertIn(GOLD_RUN, command)
+        self.assertNotIn("--execute", command)
+        self.assertEqual(
+            digest, _json_file(_pair_path(self.root, "gold"))["pair_manifest_digest"]
+        )
+
+    def test_optimized_gold_quota_waits_for_baseline_recovery_attempt(self):
+        self._prepare_gold_recovery()
+        self.args.action, self.args.stage, self.args.profile = "quota", "gold", "optimized"
+        with patch("ops.gcp.dp2_method2._module") as module:
+            _action(self.args)
+        command = module.call_args.args
+        index = command.index("--predecessor-batch-id")
+        self.assertEqual(self.args.baseline_gold_batch_id, command[index + 1])
+        evidence_index = command.index("--evidence-output")
+        self.assertIn(self.args.optimized_gold_batch_id, command[evidence_index + 1])
+
+    def test_both_gold_evidence_paths_describe_their_distinct_attempts(self):
+        self._prepare_gold_recovery()
+        for profile, attempt in (
+            ("baseline", self.args.baseline_gold_batch_id),
+            ("optimized", self.args.optimized_gold_batch_id),
+        ):
+            with self.subTest(profile=profile):
+                base = self.root / "gold" / profile
+                base.mkdir(parents=True, exist_ok=True)
+                for name, value in (
+                    ("summary.json", {"summary": profile}),
+                    ("original-batch.json", {"batch": profile}),
+                    ("original-performance.json", {"performance": profile}),
+                ):
+                    (base / name).write_text(json.dumps(value))
+                self.args.action, self.args.stage, self.args.profile = (
+                    "evidence", "gold", profile
+                )
+                with patch(
+                    "ops.gcp.dp2_method2._describe_batch",
+                    return_value={"batch": profile},
+                ) as describe, patch(
+                    "ops.gcp.dp2_method2._require_saved_batch"
+                ), patch(
+                    "ops.gcp.dp2_method2._evidence_payload",
+                    return_value=(
+                        {"validation": profile}, {"evidence": profile}
+                    ),
+                ):
+                    _action(self.args)
+                describe.assert_called_once_with(self.args, attempt)
+                self.assertEqual(
+                    {"evidence": profile}, _json_file(base / "batch-evidence.json")
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -344,6 +427,7 @@ class TestEventLogProvenance(unittest.TestCase):
             with patch('ops.gcp.dp2_method2._run', side_effect=fake_run):
                 with self.assertRaisesRegex(ValueError, 'found 0'):
                     _get_event_metrics(args, 'silver', 'baseline', SILVER_RUN,
+                                       SILVER_RUN,
                                        digest, batch, output)
             self.assertFalse(output.exists())
 
@@ -395,6 +479,7 @@ class TestEventLogProvenance(unittest.TestCase):
             output = Path(temp) / 'performance.json'
             with patch('ops.gcp.dp2_method2._run', side_effect=fake_run):
                 result = _get_event_metrics(args, 'silver', 'baseline', SILVER_RUN,
+                                            SILVER_RUN,
                                             digest, batch, output)
             self.assertEqual(result['application_id'], 'app-original')
             self.assertEqual(result['dataproc_cohort_id'], cohort)
