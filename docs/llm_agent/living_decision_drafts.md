@@ -100,11 +100,12 @@ back to Markdown on 30/10/2026 ICT. Decision number, implementation SHA,
 evidence-binding SHA, 33-test result, explicit absence of runtime evidence,
 rubric state, blockers and Phase C next gate were all present in the readback.
 
-## 21.219 — Phase C milestone — SYNC_PENDING
+## 21.219 — Phase C milestone — SYNCED_READBACK_VERIFIED
 
 Date: 30/10/2026 (ICT)
 
-Git SHA: `8dc1c54f3f4fd8a1db89195e733a52524562a034`.
+Git SHA: `8dc1c54f3f4fd8a1db89195e733a52524562a034`. Evidence-binding
+commit: `076a577b4343265681ed705cdaea2e408ca14177`.
 
 Implemented components: versioned two-document fraud-policy corpus and immutable
 manifest; SHA-256 ingestion validation; deterministic bounded chunking with
@@ -144,3 +145,8 @@ active Feast/Streaming worktrees remain untouched.
 Next gate: Phase D source implementation for the Feature/RAG/Fraud Evidence API
 and Drift Detection API behind the policy-only MCP Gateway, preserving
 `feature_lookup`, `fraud_scoring`, `knowledge_search` and `drift_detection`.
+
+Readback: Google Drive API revision
+`AHj4eMRje5RZBmxo_LvgIQ8muVpAZACdgUL3AYwSvNPOjhzrWFYoJGyP6JhKfL3P2HiMuKK3tt60BcSDuZkVQ7rEL5V8xBdKttMclyI7Xhs`
+was read back on 30/10/2026 ICT. Decision number, both Git SHAs, test result,
+explicit absence of runtime evidence, rubric state and Phase D next gate matched.
