@@ -11,6 +11,7 @@ from pathlib import Path
 
 PYTHON_ENV_VAR = "EWALLET_AIRFLOW_PYTHON"
 REQUIRED_GCP_MODULES = (
+    "ops.gcp.dp2_method2",
     "ops.gcp.submit_bronze_to_silver",
     "ops.gcp.submit_historical_features",
     "ops.gcp.submit_silver_to_gold",

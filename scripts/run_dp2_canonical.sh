@@ -15,6 +15,10 @@ while (( $# )); do
   esac
 done
 [[ -n ${SPARK_PROFILE} ]] || { usage >&2; exit 2; }
+if [[ ${EXECUTE} == true ]]; then
+  echo "ERROR: Legacy single-profile DAG2 trigger is disabled after Method2 refactor. Use scripts/run_dp2_method2.sh." >&2
+  exit 2
+fi
 [[ -f ${SILVER_PAIR_MANIFEST} && -f ${GOLD_PAIR_MANIFEST} ]] || { usage >&2; exit 2; }
 BENCHMARK_ID=${BRONZE_RUN:0:17}
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
