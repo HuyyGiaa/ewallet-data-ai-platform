@@ -50,12 +50,41 @@ class RecoverySafetyTest(unittest.TestCase):
             with patch("ops.gcp.recover_dp2_method2._artifacts_complete"), patch(
                 "ops.gcp.recover_dp2_method2.airflow_status", side_effect=[before, after]
             ), patch("ops.gcp.recover_dp2_method2._request", requester):
-                result = reconcile_silver(cfg, "token")
+                with patch("ops.gcp.recover_dp2_method2._set_dag_paused"):
+                    result = reconcile_silver(cfg, "token")
             self.assertEqual(result["status"], "SILVER_AIRFLOW_RECONCILED_GOLD_BLOCKED")
             patched_paths = [item.args[2] for item in requester.call_args_list]
             self.assertEqual(len(patched_paths), 2)
             self.assertTrue(all("silver" in path or "validate_and_select_silver" in path
                                 for path in patched_paths))
+
+    def test_reconcile_holds_auto_queued_dag_before_gold_can_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cfg = config(Path(directory))
+            tasks = {"silver_optimized_evidence": "failed",
+                     "validate_and_select_silver_winner": "upstream_failed",
+                     **{task: "upstream_failed" for task in GOLD_TASKS}}
+            before = {"dag_run_state": "failed", "task_states": tasks}
+            cascaded = {"dag_run_state": "queued", "task_states": {
+                **tasks, "silver_optimized_evidence": "success",
+                "validate_and_select_silver_winner": "success",
+                **{task: None for task in GOLD_TASKS},
+            }}
+            held = {**cascaded, "dag_run_state": "failed"}
+            requester = Mock(return_value={})
+            pauser = Mock(return_value={"is_paused": True})
+            with patch("ops.gcp.recover_dp2_method2._artifacts_complete"), patch(
+                "ops.gcp.recover_dp2_method2.airflow_status",
+                side_effect=[before, cascaded, held],
+            ), patch("ops.gcp.recover_dp2_method2._request", requester), patch(
+                "ops.gcp.recover_dp2_method2._set_dag_paused", pauser
+            ):
+                result = reconcile_silver(cfg, "token")
+            pauser.assert_called_once_with(cfg, "token", True)
+            self.assertEqual(result["states_after"]["dag_run_state"], "failed")
+            self.assertTrue(any(item.args[1] == "PATCH" and
+                                item.args[2].endswith(cfg["dag_run_id"])
+                                for item in requester.call_args_list))
 
     def test_resume_gold_requires_explicit_approval_before_any_read(self):
         cfg = config(Path("/tmp/evidence"))

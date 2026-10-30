@@ -63,9 +63,13 @@ def _inventory(root: Path) -> dict[str, str]:
     return {
         str(path.relative_to(root)): _sha256(path)
         for path in sorted(root.rglob("*"))
-        if path.is_file() and path.name not in {
-            "recovery-audit.json", "airflow-reconciliation.json"
+        if path.is_file()
+        and path.name not in {
+            "recovery-audit.json", "airflow-reconciliation.json",
+            "airflow-safety-hold.json",
         }
+        and path.relative_to(root).parts[0] != "gold"
+        and not path.relative_to(root).name.startswith("dp2-gold-")
     }
 
 
@@ -145,6 +149,12 @@ def _run_path(config: Mapping[str, Any]) -> str:
     dag = urllib.parse.quote(str(config["dag_id"]), safe="")
     run = urllib.parse.quote(str(config["dag_run_id"]), safe="")
     return f"/api/v2/dags/{dag}/dagRuns/{run}"
+
+
+def _set_dag_paused(config: Mapping[str, Any], token: str, paused: bool) -> dict[str, Any]:
+    dag = urllib.parse.quote(str(config["dag_id"]), safe="")
+    return _request(config, "PATCH", f"/api/v2/dags/{dag}", token,
+                    {"is_paused": paused})
 
 
 def airflow_status(config: Mapping[str, Any], token: str) -> dict[str, Any]:
@@ -259,6 +269,10 @@ def reconcile_silver(config: Mapping[str, Any], token: str) -> dict[str, Any]:
         if any(current["task_states"].get(task) == "success" for task in GOLD_TASKS):
             raise ValueError("Gold is no longer blocked at the Silver recovery milestone")
         return evidence
+    # Airflow 3 may automatically queue a failed DagRun and clear all downstream
+    # upstream_failed states when a recovered task is patched to success. Pause
+    # the DAG first so that cascade can never launch the paid Gold chain.
+    _set_dag_paused(config, token, True)
     before = airflow_status(config, token)
     states = before["task_states"]
     allowed = {
@@ -279,8 +293,15 @@ def reconcile_silver(config: Mapping[str, Any], token: str) -> dict[str, Any]:
     after = airflow_status(config, token)
     if any(after["task_states"].get(task) != "success" for task in SILVER_RECOVERED_TASKS):
         raise ValueError("Airflow did not persist recovered Silver task states")
-    if any(after["task_states"].get(task) == "success" for task in GOLD_TASKS):
-        raise ValueError("Unexpected Gold success during Silver-only reconciliation")
+    unsafe_gold = {"running", "queued", "scheduled", "success"}
+    if any(after["task_states"].get(task) in unsafe_gold for task in GOLD_TASKS):
+        raise ValueError("Unexpected Gold activity during Silver-only reconciliation")
+    if after["dag_run_state"] != "failed":
+        _request(config, "PATCH", _run_path(config), token,
+                 {"state": "failed", "note": "Paid Gold safety hold after Silver recovery"})
+        after = airflow_status(config, token)
+    if after["dag_run_state"] != "failed":
+        raise ValueError("Airflow DagRun did not enter the paid Gold safety hold")
     evidence = {
         "schema_version": RECOVERY_SCHEMA,
         "status": "SILVER_AIRFLOW_RECONCILED_GOLD_BLOCKED",
@@ -337,7 +358,9 @@ def resume_gold(config: Mapping[str, Any], token: str,
         task = urllib.parse.quote(task_id, safe="")
         _request(config, "PATCH", run_path + f"/taskInstances/{task}", token,
                  {"new_state": None, "note": note})
-    return _request(config, "PATCH", run_path, token, {"state": "queued", "note": note})
+    result = _request(config, "PATCH", run_path, token, {"state": "queued", "note": note})
+    _set_dag_paused(config, token, False)
+    return result
 
 
 def main(argv: Sequence[str] | None = None) -> int:

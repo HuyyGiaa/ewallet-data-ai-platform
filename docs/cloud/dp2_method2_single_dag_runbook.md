@@ -161,9 +161,11 @@ strict identity validation, downloads event logs into a temporary directory,
 creates only missing evidence, validates both Silver profiles, and creates the
 Silver winner. It records the original execution SHA, separate committed
 controller SHA, hashes of all pre-existing files and the selected application /
-cohort in `recovery-audit.json`. Airflow reconciliation marks only the two
-externally and verifiably completed Silver tasks successful through the public
-API. It does not clear Gold tasks or queue the DagRun.
+cohort in `recovery-audit.json`. Airflow reconciliation first pauses the DAG
+(Airflow 3 can otherwise auto-queue a failed run and clear downstream states),
+then marks only the two externally and verifiably completed Silver tasks through
+the public API, and restores the DagRun to a failed safety hold. It never
+unpauses or intentionally launches Gold before the paid gate.
 
 ### Paid Gold resume gate
 
