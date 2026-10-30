@@ -30,6 +30,14 @@ kagent 0.10.3-compatible global ModelConfig, fail-closed benchmark evidence and
 an actual streaming benchmark runner. Runtime deployment and benchmark remain
 OPEN/PARTIAL, never VERIFIED.
 
+Phase C source implementation is commit
+`8dc1c54f3f4fd8a1db89195e733a52524562a034`. It adds an immutable fraud-policy
+corpus, checksum validation, bounded chunking, a real embedding-endpoint client,
+Feast 0.66 publication definitions, exact source-artifact retrieval, citations,
+retrieval evaluation, a manual Airflow DAG and a DataHub lineage plan. Redis is
+explicitly publication-only rather than falsely treated as a vector backend.
+Airflow, embedding, Feast and DataHub runtime proof remain OPEN/PARTIAL.
+
 ## Gate A source contract
 
 The gate covers typed transport-neutral contracts, a versioned deployable-unit
@@ -47,7 +55,6 @@ Jenkins-compatible immutable-SHA pipeline skeleton.
 - Feast Online/Redis, registered ML model/KServe and runtime agent prerequisites
   are not assumed complete.
 - Google Docs milestone updates require successful save/readback.
-- Phase C next implements the versioned fraud-policy corpus, ingestion,
-  validation, chunking, embedding, Feast-backed publication contract,
-  retrieval citations/evaluation and DataHub lineage. Airflow, Feast and
-  DataHub runtime proof remain separately gated.
+- Phase D next implements the Feature/RAG/Fraud Evidence API and Drift Detection
+  API behind the policy-only MCP Gateway, preserving the four approved MCP tool
+  names and existing ML feature/serving contracts.

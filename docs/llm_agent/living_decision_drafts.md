@@ -99,3 +99,48 @@ Readback: Google Docs save completed and the canonical document was exported
 back to Markdown on 30/10/2026 ICT. Decision number, implementation SHA,
 evidence-binding SHA, 33-test result, explicit absence of runtime evidence,
 rubric state, blockers and Phase C next gate were all present in the readback.
+
+## 21.219 — Phase C milestone — SYNC_PENDING
+
+Date: 30/10/2026 (ICT)
+
+Git SHA: `8dc1c54f3f4fd8a1db89195e733a52524562a034`.
+
+Implemented components: versioned two-document fraud-policy corpus and immutable
+manifest; SHA-256 ingestion validation; deterministic bounded chunking with
+stable chunk IDs; `sentence-transformers/all-MiniLM-L6-v2` pinned to revision
+`1110a243fdf4706b3f48f1d95db1a4f5529b4d41`; real OpenAI-compatible embedding
+client with file-mounted secret; Feast 0.66 `Array(Float32)` publication schema;
+create-only publication artifacts preserving document, chunk, source, corpus,
+model, index and timestamp provenance; bounded exact cosine retrieval; real
+source citations; recall@k, MRR and empty-retrieval evaluation; manual Airflow
+DAG; fail-closed artifact verifier; DataHub lineage plan and Jenkins Gate C.
+
+Compatibility decision: Feast can represent the embedding vector, but vector
+search is experimental and online-store-specific. The current Redis store is
+classified `PUBLICATION_ONLY_RUNTIME_BLOCKED` and is not claimed equivalent to
+a vector database. Live Feast vector retrieval requires an approved compatible
+online store or an explicitly approved exact-retrieval topology.
+
+Tests: 45 PASS total across contracts/foundation/Phase B/Phase C, bounded kagent
+pilot and rubric suites. The dedicated Gate C has 11 PASS, corpus validation
+PASS, Feast 0.66 feature-definition construction PASS, compileall PASS and diff
+check PASS. Airflow DagBag was not run because the available local environments
+do not contain Airflow; the DAG source contract and compilation passed.
+
+Runtime evidence: none. No embedding endpoint call, Airflow DAG run, Feast apply,
+materialization, vector query, DataHub publication/readback or cloud action ran.
+Phase C is SOURCE_ONLY_PASS/PARTIAL and is not runtime VERIFIED.
+
+Rubric status: edai-2 rows 9–10 are rebound to the Phase C source SHA and remain
+PARTIAL with zero awarded points. Overall fail-closed rubric remains 12 VERIFIED,
+72 PARTIAL, 9 OPEN and weighted 13.5/100.
+
+Blockers: Airflow runtime dependency is unavailable locally; live embedding and
+Feast/DataHub evidence require approved runtime capacity and managed secrets;
+the Feast vector online-store topology needs an explicit decision. DP2 and the
+active Feast/Streaming worktrees remain untouched.
+
+Next gate: Phase D source implementation for the Feature/RAG/Fraud Evidence API
+and Drift Detection API behind the policy-only MCP Gateway, preserving
+`feature_lookup`, `fraud_scoring`, `knowledge_search` and `drift_detection`.
