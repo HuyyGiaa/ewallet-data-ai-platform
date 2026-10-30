@@ -127,12 +127,14 @@ def summarize_event_logs(
 
     if started_ms is None or ended_ms is None or ended_ms <= started_ms:
         raise ValueError("Spark event log lacks a valid application start/end interval")
-    if app_name not in {batch_id, f"batches/{batch_id}"} and not (
-        app_name and app_name.endswith(f"/batches/{batch_id}")
-    ):
-        raise ValueError("Spark application name does not match original batch_id")
+    if not app_name:
+        raise ValueError("Spark event log lacks application name")
+    if not app_id:
+        raise ValueError("Spark event log lacks application ID")
     if spark_properties is None:
         raise ValueError("Spark event log lacks Spark Properties")
+    if spark_properties.get("spark.app.id") != app_id:
+        raise ValueError("Spark application ID mismatch")
     expected_properties = {
         METHOD2_PAIR_DIGEST_PROPERTY: pair_manifest_digest,
         METHOD2_OUTPUT_RUN_PROPERTY: output_run_id,

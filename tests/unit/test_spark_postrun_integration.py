@@ -114,6 +114,7 @@ def write_event_log(path: Path, manifest, output_run_id=BASELINE_RUN):
         {
             "Event": "SparkListenerEnvironmentUpdate",
             "Spark Properties": {
+                "spark.app.id": "application-123",
                 METHOD2_PAIR_DIGEST_PROPERTY: manifest["pair_manifest_digest"],
                 METHOD2_OUTPUT_RUN_PROPERTY: output_run_id,
             },
