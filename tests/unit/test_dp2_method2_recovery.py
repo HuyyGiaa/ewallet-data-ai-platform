@@ -1,6 +1,9 @@
 """Recovery controller safety tests; no Airflow or GCP calls are real."""
 from __future__ import annotations
 
+import datetime as dt
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,12 +22,39 @@ def config(root: Path):
         "execution_git_sha": "a" * 40, "controller_git_sha": "b" * 40,
         "evidence_root": str(root), "benchmark_id": "ab-20261029174838",
         "data_bucket": "bucket", "project": "project", "region": "region",
+        "bronze_winner": str(root / "bronze-winner.json"),
+        "dataset_version": "canonical-100gb-v1",
+        "canonical_repo": str(root / "canonical"),
+        "baseline_silver_run_id": "baseline-silver",
+        "optimized_silver_run_id": "optimized-silver",
         "baseline_gold_run_id": "baseline-gold",
         "optimized_gold_run_id": "optimized-gold",
         "cancelled_baseline_gold_batch_id": "baseline-gold",
         "baseline_gold_batch_id": "baseline-gold-recovery",
         "optimized_gold_batch_id": "optimized-gold-recovery",
     }
+
+
+def budget_fixture(root: Path, *, gross: int = 1_000_000,
+                   lag: int = 500_000, g3: int = 200_000,
+                   remaining: int = 500_000) -> Path:
+    screenshot = root / "billing-console-proof.txt"
+    screenshot.write_text("Local test fixture only; no actual GCP billing evidence")
+    path = root / "budget.json"
+    path.write_text(json.dumps({
+        "status": "PASS", "currency": "VND", "gross_cap_vnd": 5_000_000,
+        "reserve_vnd": 700_000, "quota_available": True,
+        "billing_source": "GCP_BILLING_CONSOLE_MANUAL",
+        "billing_observed_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "billing_evidence_file": str(screenshot),
+        "billing_evidence_sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest(),
+        "operator_reviewed": True, "operator_approval_note": "unit fixture only",
+        "observed_gross_spend_vnd": gross,
+        "billing_lag_reserve_vnd": lag,
+        "g3_unbilled_reserve_vnd": g3,
+        "estimated_remaining_gold_vnd": remaining,
+    }))
+    return path
 
 
 class RecoverySafetyTest(unittest.TestCase):
@@ -163,19 +193,7 @@ class RecoverySafetyTest(unittest.TestCase):
                 f"quota-{cfg['baseline_gold_batch_id']}.json"
             )
             quota.write_text(json.dumps({"status": "READY"}))
-            (root / "gold-recovery-plan.json").write_text(json.dumps({
-                "status": "GOLD_RECOVERY_PLAN_VERIFIED_NOT_SUBMITTED",
-                "execution_git_sha": cfg["execution_git_sha"],
-                "controller_git_sha": cfg["controller_git_sha"],
-            }))
-            budget = root / "budget.json"
-            budget.write_text(json.dumps({
-                "status": "PASS", "currency": "VND",
-                "gross_cap_vnd": 5_000_000, "reserve_vnd": 700_000,
-                "quota_available": True, "observed_gross_spend_vnd": 1_000_000,
-                "billing_lag_reserve_vnd": 500_000,
-                "estimated_remaining_gold_vnd": 500_000,
-            }))
+            budget = budget_fixture(root)
             airflow = {"dag_run_state": "failed", "task_states": {
                 "gold_baseline_quota": "success",
             }}
@@ -186,6 +204,10 @@ class RecoverySafetyTest(unittest.TestCase):
             ), patch(
                 "ops.gcp.recover_dp2_method2._describe_attempt",
                 return_value={"state": "SUCCEEDED"},
+            ), patch("ops.gcp.recover_dp2_method2._validate_gold_plan"), patch(
+                "ops.gcp.recover_dp2_method2._validate_fresh_quota"
+            ), patch(
+                "ops.gcp.recover_dp2_method2._validate_gold_batch_identity"
             ), patch("ops.gcp.recover_dp2_method2._action") as action, patch(
                 "ops.gcp.recover_dp2_method2._hold_after_task_patch"
             ) as reconcile, patch(
@@ -197,7 +219,8 @@ class RecoverySafetyTest(unittest.TestCase):
                     budget_evidence=budget,
                     authorization="I_APPROVE_DP2_GOLD_RECOVERY",
                 )
-            action.assert_not_called()
+            action.assert_called_once()
+            self.assertEqual(action.call_args.args[0].action, "verify")
             reconcile.assert_called_once_with(cfg, "token", "gold_baseline_submit")
             self.assertEqual("STEP_COMPLETED_AND_RECONCILED", result["status"])
 
@@ -210,20 +233,8 @@ class RecoverySafetyTest(unittest.TestCase):
              f"quota-{cfg['baseline_gold_batch_id']}.json").write_text(
                 json.dumps({"status": "READY"})
             )
-            (root / "gold-recovery-plan.json").write_text(json.dumps({
-                "status": "GOLD_RECOVERY_PLAN_VERIFIED_NOT_SUBMITTED",
-                "execution_git_sha": cfg["execution_git_sha"],
-                "controller_git_sha": cfg["controller_git_sha"],
-            }))
-            budget = root / "budget.json"
-            budget.write_text(json.dumps({
-                "status": "PASS", "currency": "VND",
-                "gross_cap_vnd": 5_000_000, "reserve_vnd": 700_000,
-                "quota_available": True, "observed_gross_spend_vnd": 1,
-                "billing_lag_reserve_vnd": 1,
-                "estimated_remaining_gold_vnd": 1,
-            }))
-            with patch(
+            budget = budget_fixture(root)
+            with patch("ops.gcp.recover_dp2_method2._validate_gold_plan"), patch(
                 "ops.gcp.recover_dp2_method2.airflow_status",
                 return_value={"dag_run_state": "failed", "task_states": {}},
             ), patch(
@@ -241,14 +252,8 @@ class RecoverySafetyTest(unittest.TestCase):
         import json
         from ops.gcp.recover_dp2_method2 import _require_budget_evidence
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "budget.json"
-            path.write_text(json.dumps({
-                "status": "PASS", "currency": "VND",
-                "gross_cap_vnd": 5_000_000, "reserve_vnd": 700_000,
-                "quota_available": True, "observed_gross_spend_vnd": 4_000_000,
-                "billing_lag_reserve_vnd": 200_000,
-                "estimated_remaining_gold_vnd": 200_000,
-            }))
+            path = budget_fixture(Path(directory), gross=4_000_000,
+                                  lag=200_000, g3=100_000, remaining=200_000)
             with self.assertRaisesRegex(ValueError, "reserve"):
                 _require_budget_evidence(path)
 

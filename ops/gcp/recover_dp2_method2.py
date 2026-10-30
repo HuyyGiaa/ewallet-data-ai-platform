@@ -9,6 +9,7 @@ Paid Gold work remains behind a distinct authorization and budget gate.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import hashlib
 import json
 import os
@@ -20,8 +21,16 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Mapping, Sequence
 
-from data_platform.config.spark_benchmark import load_pair_manifest
-from ops.gcp.dp2_method2 import _action, _winner
+from data_platform.config.spark_benchmark import (
+    METHOD2_OUTPUT_RUN_PROPERTY, METHOD2_PAIR_DIGEST_PROPERTY,
+    SEMANTIC_SUMMARY_SCHEMA, is_managed_spark_22, load_pair_manifest,
+    semantic_summary_digest, validate_pair_member,
+    validate_runtime_profile_properties, validate_stage_evidence,
+)
+from ops.gcp.collect_spark_benchmark_evidence import _runtime_properties
+from ops.gcp.dp2_method2 import (
+    _action, _batch_cohort, _summary_uri, _validation_batch_id, _winner,
+)
 
 RECOVERY_SCHEMA = "dp2-method2-recovery-v1"
 SILVER_RECOVERED_TASKS = (
@@ -366,6 +375,181 @@ def _gold_outputs_absent(config: Mapping[str, Any]) -> dict[str, Any]:
     return cancelled_description
 
 
+
+def _plan_path(config: Mapping[str, Any]) -> Path:
+    """A new controller SHA gets a new create-only plan; retain earlier plans."""
+    sha = str(config["controller_git_sha"])
+    if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
+        raise ValueError("Gold recovery controller SHA must be full lowercase Git SHA")
+    return Path(str(config["evidence_root"])) / f"gold-recovery-plan-{sha[:12]}.json"
+
+
+def _pair_for_gold(config: Mapping[str, Any]) -> dict[str, Any]:
+    pair = load_pair_manifest(
+        Path(str(config["evidence_root"])) / "dp2-gold-pair.json"
+    )
+    identity = {
+        "stage": "dp2-gold",
+        "git_sha": config["execution_git_sha"],
+        "benchmark_id": config["benchmark_id"],
+        "dataset_version": config["dataset_version"],
+        "upstream_run_ids": [config["optimized_silver_run_id"]],
+    }
+    if any(pair.get(key) != value for key, value in identity.items()):
+        raise ValueError("Frozen Gold pair provenance differs from selected Silver winner")
+    _winner(
+        Path(str(config["evidence_root"])) / "dp2-silver-winner.json",
+        stage="dp2-silver", benchmark=str(config["benchmark_id"]),
+        bucket=str(config["data_bucket"]),
+        expected_git_sha=str(config["execution_git_sha"]),
+    )
+    for profile in ("baseline", "optimized"):
+        run_id = str(config[f"{profile}_gold_run_id"])
+        validate_pair_member(
+            pair, spark_profile=profile, benchmark_id=str(config["benchmark_id"]),
+            stage="dp2-gold", dataset_version=str(config["dataset_version"]),
+            git_sha=str(config["execution_git_sha"]),
+            upstream_run_ids=(str(config["optimized_silver_run_id"]),),
+            output_run_id=run_id,
+            output_root=(
+                f"gs://{config['data_bucket']}/lakehouse/runs/{run_id}/gold"
+            ),
+        )
+    return pair
+
+
+def _validate_gold_plan(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Bind every invocation to immutable source, attempt and cancelled lineage."""
+    plan = _load(_plan_path(config))
+    pair = _pair_for_gold(config)
+    expected = {
+        "schema_version": RECOVERY_SCHEMA,
+        "status": "GOLD_RECOVERY_PLAN_VERIFIED_NOT_SUBMITTED",
+        "dag_id": config["dag_id"],
+        "dag_run_id": config["dag_run_id"],
+        "execution_git_sha": config["execution_git_sha"],
+        "controller_git_sha": config["controller_git_sha"],
+        "pair_manifest_digest": pair["pair_manifest_digest"],
+        "cancelled_original_batch_id": config["cancelled_baseline_gold_batch_id"],
+        "attempts": {
+            profile: {
+                "dataproc_batch_id": config[f"{profile}_gold_batch_id"],
+                "output_run_id": config[f"{profile}_gold_run_id"],
+            }
+            for profile in ("baseline", "optimized")
+        },
+    }
+    if any(plan.get(key) != value for key, value in expected.items()):
+        raise ValueError("Gold recovery plan is stale or its immutable identities differ")
+    cancelled = plan.get("cancelled_original_batch")
+    if not isinstance(cancelled, dict) or cancelled.get("state") != "CANCELLED":
+        raise ValueError("Trusted historical CANCELLED batch record is missing")
+    digest = hashlib.sha256(
+        json.dumps(cancelled, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    if digest != plan.get("cancelled_original_batch_sha256"):
+        raise ValueError("Historical cancelled-batch evidence hash differs")
+    if str(cancelled.get("name", "")).rsplit("/", 1)[-1] != config["cancelled_baseline_gold_batch_id"]:
+        raise ValueError("Cancelled-batch provenance identity differs")
+    return plan
+
+
+def _validate_gold_batch_identity(
+    config: Mapping[str, Any], *, profile: str,
+    description: Mapping[str, Any], validation: bool = False,
+) -> None:
+    """Fail closed before accepting a reused SUCCEEDED or in-progress batch."""
+    pair = _pair_for_gold(config)
+    output_id = str(config[f"{profile}_gold_run_id"])
+    batch_id = (
+        _validation_batch_id(output_id, "gold", profile)
+        if validation else str(config[f"{profile}_gold_batch_id"])
+    )
+    if str(description.get("name", "")).rsplit("/", 1)[-1] != batch_id:
+        raise ValueError("Dataproc resource name does not match the planned attempt")
+    labels = description.get("labels")
+    runtime = description.get("runtimeConfig")
+    if not isinstance(labels, Mapping) or not isinstance(runtime, Mapping):
+        raise ValueError("Dataproc labels/runtimeConfig are missing")
+    expected_labels = {
+        "component": "ab-validator" if validation else "core-gold",
+        "benchmark_id": config["benchmark_id"],
+        "spark_profile": profile,
+        "git_sha": config["execution_git_sha"],
+    }
+    if validation:
+        expected_labels["validation_git_sha"] = config["controller_git_sha"]
+    else:
+        expected_labels.update(
+            output_run_id=output_id,
+            recovery_git_sha=config["controller_git_sha"],
+            phase="s1b",
+        )
+    if any(labels.get(key) != value for key, value in expected_labels.items()):
+        raise ValueError("Dataproc batch labels do not match recovery provenance")
+    if not is_managed_spark_22(runtime.get("version")):
+        raise ValueError("Dataproc runtime version is not Managed Spark 2.2")
+    properties = runtime.get("properties")
+    if not isinstance(properties, Mapping):
+        raise ValueError("Dataproc Spark runtime properties are missing")
+    normalized = _runtime_properties(properties)
+    if (normalized.get(METHOD2_PAIR_DIGEST_PROPERTY) != pair["pair_manifest_digest"]
+            or normalized.get(METHOD2_OUTPUT_RUN_PROPERTY) != output_id):
+        raise ValueError("Dataproc pair digest/output run Spark properties differ")
+    validate_runtime_profile_properties(
+        pair, spark_profile=profile, runtime_properties=normalized,
+    )
+    if description.get("state") == "SUCCEEDED" and not validation:
+        _batch_cohort(description, batch_id)
+    if not description.get("createTime") or not description.get("uuid"):
+        raise ValueError("Dataproc immutable creation identity is missing")
+
+
+def _validate_gold_summary_object(config: Mapping[str, Any], profile: str) -> None:
+    """Read the actual completed semantic-scan object, never trust batch state alone."""
+    output_id = str(config[f"{profile}_gold_run_id"])
+    batch_id = _validation_batch_id(output_id, "gold", profile)
+    args = _dp2_args(config, action="summary", stage="gold", profile=profile)
+    uri = _summary_uri(args, "gold", profile, output_id)
+    completed = subprocess.run(
+        ["gcloud", "storage", "cat", uri],
+        check=True, capture_output=True, text=True,
+    )
+    summary = json.loads(completed.stdout)
+    pair = _pair_for_gold(config)
+    validate_stage_evidence(pair, summary, expected_profile=profile)
+    if (summary.get("schema_version") != SEMANTIC_SUMMARY_SCHEMA
+            or summary.get("semantic_summary_digest") != semantic_summary_digest(summary)):
+        raise ValueError("Gold semantic scan object schema/checksum differs")
+    if summary.get("status") != "COMPLETE":
+        raise ValueError("Gold semantic scan object is not COMPLETE")
+    execution = summary.get("execution")
+    if not isinstance(execution, Mapping) or (
+        execution.get("validation_batch_id") != batch_id
+        or execution.get("validation_git_sha") != config["controller_git_sha"]
+        or execution.get("source_output_run_id") != output_id
+    ):
+        raise ValueError("Gold semantic scan object has wrong execution provenance")
+
+
+def _validate_fresh_quota(config: Mapping[str, Any], profile: str) -> None:
+    path = (
+        Path(str(config["evidence_root"])) / "gold" / profile /
+        f"quota-{config[f'{profile}_gold_batch_id']}.json"
+    )
+    quota = _load(path)
+    expected = {
+        "status": "READY", "project": config["project"],
+        "region": config["region"], "benchmark_id": config["benchmark_id"],
+        "spark_profile": profile,
+    }
+    if any(quota.get(key) != value for key, value in expected.items()):
+        raise ValueError("Quota evidence is not READY for this exact Gold attempt")
+    age = dt.datetime.now(dt.timezone.utc).timestamp() - path.stat().st_mtime
+    if age < 0 or age > 300:
+        raise ValueError("Gold quota evidence is stale (>5 minutes); rerun quota gate")
+
+
 def plan_gold(config: Mapping[str, Any], token: str) -> dict[str, Any]:
     status = airflow_status(config, token)
     if status["dag_run_state"] != "failed":
@@ -376,9 +560,7 @@ def plan_gold(config: Mapping[str, Any], token: str) -> dict[str, Any]:
         raise ValueError("Gold recovery planning requires the DAG to remain paused")
     cancelled_description = _gold_outputs_absent(config)
     pair_path = Path(str(config["evidence_root"])) / "dp2-gold-pair.json"
-    pair = load_pair_manifest(pair_path)
-    if pair["git_sha"] != config["execution_git_sha"]:
-        raise ValueError("Gold pair execution Git SHA changed")
+    pair = _pair_for_gold(config)
     before_digest = str(pair["pair_manifest_digest"])
     for profile in ("baseline", "optimized"):
         _action(_dp2_args(config, action="plan-submit", stage="gold", profile=profile))
@@ -407,7 +589,7 @@ def plan_gold(config: Mapping[str, Any], token: str) -> dict[str, Any]:
             for profile in ("baseline", "optimized")
         },
     }
-    path = Path(str(config["evidence_root"])) / "gold-recovery-plan.json"
+    path = _plan_path(config)
     if path.exists():
         if _load(path) != result:
             raise ValueError("Existing Gold recovery plan identity mismatch")
@@ -425,22 +607,52 @@ GOLD_RECOVERY_STEPS = (
 
 
 def _require_budget_evidence(path: Path) -> dict[str, Any]:
+    """Validate human-reviewed, fresh GCP Billing Console evidence plus reserves.
+
+    This is an operator gate, NOT an authenticated API read or a guarantee against
+    unreported cloud billing. Do not auto-create a PASS document.
+    """
     budget = _load(path)
+    if (
+        budget.get("status") != "PASS" or budget.get("currency") != "VND"
+        or budget.get("gross_cap_vnd") != 5_000_000
+        or type(budget.get("reserve_vnd")) is not int
+        or budget["reserve_vnd"] < 700_000
+        or budget.get("operator_reviewed") is not True
+        or budget.get("billing_source") != "GCP_BILLING_CONSOLE_MANUAL"
+        or budget.get("quota_available") is not True
+    ):
+        raise ValueError("Budget requires fresh, human-reviewed GCP Billing evidence")
     required_numbers = (
         "observed_gross_spend_vnd", "billing_lag_reserve_vnd",
-        "estimated_remaining_gold_vnd",
+        "g3_unbilled_reserve_vnd", "estimated_remaining_gold_vnd",
     )
-    if (budget.get("status") != "PASS" or budget.get("currency") != "VND" or
-            budget.get("gross_cap_vnd") != 5_000_000 or
-            budget.get("reserve_vnd") < 700_000 or
-            budget.get("quota_available") is not True):
-        raise ValueError("Trusted budget/quota evidence does not satisfy the Gold gate")
-    if any(not isinstance(budget.get(name), int) or budget[name] < 0
+    if any(type(budget.get(name)) is not int or budget[name] < 0
            for name in required_numbers):
-        raise ValueError("Budget evidence lacks numeric spend, lag or Gold estimates")
-    committed = sum(budget[name] for name in required_numbers)
-    if committed > budget["gross_cap_vnd"] - budget["reserve_vnd"]:
-        raise ValueError("Projected Gold spend would violate the 700,000 VND reserve")
+        raise ValueError("Budget evidence lacks gross spend, G3, lag or remaining Gold allowance")
+    if budget["billing_lag_reserve_vnd"] <= 0:
+        raise ValueError("Non-zero billing-lag reserve is required")
+    try:
+        observed = dt.datetime.fromisoformat(
+            str(budget["billing_observed_at_utc"]).replace("Z", "+00:00")
+        )
+    except (KeyError, ValueError) as exc:
+        raise ValueError("Budget observation timestamp is missing/invalid") from exc
+    if observed.tzinfo is None:
+        raise ValueError("Billing observation must include UTC timezone")
+    age = (dt.datetime.now(dt.timezone.utc) - observed).total_seconds()
+    if age < -60 or age > 7200:
+        raise ValueError("Budget billing observation is stale (>2h) or in the future")
+    screenshot = Path(str(budget.get("billing_evidence_file", "")))
+    if (not screenshot.is_absolute() or not screenshot.is_file()
+            or not isinstance(budget.get("billing_evidence_sha256"), str)
+            or _sha256(screenshot) != budget["billing_evidence_sha256"]):
+        raise ValueError("Billing screenshot/source hash is not verified")
+    if not isinstance(budget.get("operator_approval_note"), str) or not budget["operator_approval_note"].strip():
+        raise ValueError("Explicit operator review note is missing")
+    total = sum(budget[name] for name in required_numbers)
+    if total > budget["gross_cap_vnd"] - budget["reserve_vnd"]:
+        raise ValueError("Projected Gold spend violates the gross cap/reserve")
     return budget
 
 
@@ -499,11 +711,7 @@ def run_gold_step(
     if step not in GOLD_RECOVERY_STEPS:
         raise ValueError(f"Unsupported Gold recovery step: {step}")
     budget = _require_budget_evidence(budget_evidence)
-    plan = _load(Path(str(config["evidence_root"])) / "gold-recovery-plan.json")
-    if (plan.get("status") != "GOLD_RECOVERY_PLAN_VERIFIED_NOT_SUBMITTED" or
-            plan.get("execution_git_sha") != config["execution_git_sha"] or
-            plan.get("controller_git_sha") != config["controller_git_sha"]):
-        raise ValueError("Trusted Gold recovery plan is missing or stale")
+    plan = _validate_gold_plan(config)
     status = airflow_status(config, token)
     dag = urllib.parse.quote(str(config["dag_id"]), safe="")
     if status["dag_run_state"] != "failed" or _request(
@@ -538,12 +746,7 @@ def run_gold_step(
         "evidence": f"gold_{profile}_evidence",
     }
     if action == "submit":
-        quota_path = (
-            Path(str(config["evidence_root"])) / "gold" / profile /
-            f"quota-{config[f'{profile}_gold_batch_id']}.json"
-        )
-        if not quota_path.is_file() or _load(quota_path).get("status") != "READY":
-            raise ValueError("Fresh recovery quota evidence is required before submit")
+        _validate_fresh_quota(config, profile)
     result: dict[str, Any] = {
         "schema_version": RECOVERY_SCHEMA, "step": step,
         "execution_git_sha": config["execution_git_sha"],
@@ -573,12 +776,15 @@ def run_gold_step(
             description = _describe_attempt(config, batch_id)
         if description is None:
             raise ValueError("Gold submission returned without a Dataproc batch")
+        _validate_gold_batch_identity(config, profile=profile, description=description)
         state = description.get("state")
         if state in {"PENDING", "RUNNING", "CANCELLING"}:
             result.update(status="ATTEMPT_IN_PROGRESS_NO_RESUBMIT", batch_state=state)
             return result
         if state != "SUCCEEDED":
             raise ValueError(f"Gold recovery attempt did not succeed: {state}")
+        # A successful Dataproc status alone does not establish correct outputs.
+        _action(_dp2_args(config, action="verify", stage="gold", profile=profile))
     elif action == "summary":
         from ops.gcp.dp2_method2 import _validation_batch_id
         output_run_id = str(config[f"{profile}_gold_run_id"])
@@ -587,16 +793,23 @@ def run_gold_step(
         if description is None:
             _action(_dp2_args(config, action="summary", stage="gold", profile=profile))
             description = _describe_attempt(config, validation_id)
-        if description is None or description.get("state") != "SUCCEEDED":
-            state = None if description is None else description.get("state")
+        if description is None:
+            raise ValueError("Gold semantic scan did not create a Dataproc batch")
+        _validate_gold_batch_identity(
+            config, profile=profile, description=description, validation=True,
+        )
+        if description.get("state") != "SUCCEEDED":
+            state = description.get("state")
             if state in {"PENDING", "RUNNING", "CANCELLING"}:
                 result.update(status="SUMMARY_IN_PROGRESS_NO_RESUBMIT", batch_state=state)
                 return result
             raise ValueError(f"Gold summary batch did not succeed: {state}")
+        _validate_gold_summary_object(config, profile)
     else:
         description = _describe_attempt(config, batch_id)
         if description is None or description.get("state") != "SUCCEEDED":
             raise ValueError("Gold evidence/verification requires a succeeded attempt")
+        _validate_gold_batch_identity(config, profile=profile, description=description)
         _action(_dp2_args(config, action=action, stage="gold", profile=profile))
     _hold_after_task_patch(config, token, task_by_action[action])
     result.update(status="STEP_COMPLETED_AND_RECONCILED", dataproc_batch_id=batch_id)
