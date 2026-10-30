@@ -86,6 +86,8 @@ class KagentBoundedPilotTest(unittest.TestCase):
         model = next(doc for doc in model_docs if doc["kind"] == "ModelConfig")
         self.assertEqual(model["apiVersion"], "kagent.dev/v1alpha2")
         self.assertEqual(model["spec"]["provider"], "OpenAI")
+        self.assertEqual(model["spec"]["apiKeySecret"], "pilot-mock-openai")
+        self.assertNotIn("apiKeySecretRef", model["spec"])
         self.assertEqual(
             model["spec"]["openAI"]["baseUrl"],
             "http://mock-openai.kagent.svc.cluster.local:8080/v1",

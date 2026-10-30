@@ -37,6 +37,7 @@ pipeline {
     stage('Data, IaC, Helm and KFP validation') {
       steps {
         sh '''python3 -m ops.llm_agent.preflight --repository-root "$PWD" --json-output "$EVIDENCE_DIR/gate-a.json"
+          bash scripts/validation/validate_llm_gateway.sh | tee "$EVIDENCE_DIR/gate-b-source.log"
           bash scripts/validation/validate_rubric_evidence.sh
           helm lint infra/helm/llm-agent-platform -f infra/helm/llm-agent-platform/values-${ENVIRONMENT}.yaml
           helm template llm-agent infra/helm/llm-agent-platform -f infra/helm/llm-agent-platform/values-${ENVIRONMENT}.yaml > "$EVIDENCE_DIR/rendered.yaml"'''

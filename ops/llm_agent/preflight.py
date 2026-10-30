@@ -53,6 +53,11 @@ def validate_source(root: Path) -> dict[str, object]:
         "kagent-native-a2a",
         "policy-only",
         "modelconfig-agentgateway-vllm",
+        "vllm-openai-cpu:v0.32.0-x86_64@sha256:",
+        "agentgateway:v1.7.0@sha256:",
+        "kind: ModelConfig",
+        "ewallet-fraud-llm",
+        "--max-num-queued-reqs",
     )
     missing = [value for value in required if value not in gcp]
     if missing:

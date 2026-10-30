@@ -1,0 +1,17 @@
+{{- if .Values.modelConfig.enabled }}
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: {{ .Values.modelConfig.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  apiKeySecret: {{ .Values.modelConfig.apiKeySecret.name }}
+  apiKeySecretKey: {{ .Values.modelConfig.apiKeySecret.key }}
+  provider: OpenAI
+  model: {{ .Values.modelConfig.model }}
+  openAI:
+    baseUrl: http://agentgateway.{{ .Values.namespace.name }}.svc.cluster.local:3000/v1
+    timeout: 30
+{{- end }}

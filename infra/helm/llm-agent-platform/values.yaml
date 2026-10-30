@@ -24,3 +24,64 @@ serviceAccounts:
 
 networkPolicy:
   enabled: true
+
+vllm:
+  enabled: true
+  image: docker.io/vllm/vllm-openai-cpu:v0.32.0-x86_64@sha256:827ef38187f9b52f2bb838695ef815ec5b65f4bf3e4c061b002b2b0a19cb0701
+  model: Qwen/Qwen3-0.6B
+  modelRevision: c1899de289a04d12100db370d81485cdf75e47ca
+  servedModelName: ewallet-fraud-llm-v1
+  apiKeySecret:
+    name: vllm-api-key
+    key: api-key
+  primary:
+    replicas: 1
+    maxNumSeqs: 4
+    maxNumQueuedRequests: 8
+    prefixCaching: true
+  fallback:
+    replicas: 1
+    maxNumSeqs: 2
+    maxNumQueuedRequests: 4
+    prefixCaching: false
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "3"
+      memory: 8Gi
+
+agentgateway:
+  enabled: true
+  image: ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+  replicas: 2
+  requestTimeout: 30s
+  backendRequestTimeout: 20s
+  responseIdleTimeout: 10s
+  retryAttempts: 2
+  retryBackoff: 250ms
+  circuitBreakDuration: 30s
+  requestRate:
+    capacity: 12
+    refill: 12
+    interval: 1s
+  tokenRate:
+    capacity: 24000
+    refill: 24000
+    interval: 1h
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+modelConfig:
+  enabled: true
+  name: ewallet-global-llm
+  model: ewallet-fraud-llm
+  apiKeySecret:
+    name: vllm-api-key
+    key: api-key

@@ -15,7 +15,7 @@ metadata:
 spec:
   provider: OpenAI
   model: mock-fixed-v1
-  apiKeySecretRef: pilot-mock-openai
+  apiKeySecret: pilot-mock-openai
   apiKeySecretKey: OPENAI_API_KEY
   openAI:
     baseUrl: http://mock-openai.kagent.svc.cluster.local:8080/v1
