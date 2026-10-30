@@ -89,10 +89,16 @@ def _winner(path: Path, *, stage: str, benchmark: str, bucket: str,
     return data
 
 
-def _require_clean_head(sha: str) -> None:
+def _require_head(sha: str) -> None:
     head = _run("git", "rev-parse", "HEAD", capture=True)
+    if head != sha:
+        raise ValueError("Configured Git SHA does not match HEAD")
+
+
+def _require_clean_head(sha: str) -> None:
+    _require_head(sha)
     status = _run("git", "status", "--porcelain", capture=True)
-    if head != sha or status:
+    if status:
         raise ValueError("Execution requires the exact clean committed Git HEAD")
 
 
@@ -232,7 +238,10 @@ def _action(args: argparse.Namespace) -> None:
                 raise ValueError("Explicit DP2 cloud execution approval is missing")
             if not args.root.is_absolute() or args.root.resolve().is_relative_to(REPO_ROOT):
                 raise ValueError("Artifact root must be an absolute path outside Git repository")
-            _require_clean_head(args.git_sha)
+            if args.require_clean:
+                _require_clean_head(args.git_sha)
+            else:
+                _require_head(args.git_sha)
             _winner(args.bronze_winner, stage="dp1-bronze",
                     benchmark=args.benchmark_id, bucket=args.data_bucket)
             for stage in STAGES:
@@ -379,6 +388,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--region", required=True)
     parser.add_argument("--ttl", default="8h")
     parser.add_argument("--approval", default="")
+    parser.add_argument("--require-clean", action="store_true")
     for stage in STAGES:
         for profile in PROFILES:
             parser.add_argument(f"--{profile}-{stage}-run-id", required=True)

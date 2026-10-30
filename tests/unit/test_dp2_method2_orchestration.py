@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from data_platform.config.spark_benchmark import winner_artifact_digest
 from ops.gcp.dp2_method2 import (
-    _action, _pair_path, _require_pair, _validation_batch_id, _winner,
+    _action, _pair_path, _require_head, _require_pair, _validation_batch_id, _winner,
 )
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 
@@ -167,6 +167,12 @@ class TestDP2Workflow(unittest.TestCase):
                 argv += [f"--{profile}-{stage}-run-id", getattr(self.args, f"{profile}_{stage}_run_id")]
         with self.assertRaisesRegex(ValueError, "approval"):
             main(argv)
+
+    @patch("ops.gcp.dp2_method2._run")
+    def test_plan_identity_requires_matching_head_but_not_clean_status(self, run):
+        run.return_value = NEW_SHA
+        _require_head(NEW_SHA)
+        run.assert_called_once_with("git", "rev-parse", "HEAD", capture=True)
 
 
 if __name__ == "__main__":

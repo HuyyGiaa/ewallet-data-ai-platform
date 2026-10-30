@@ -43,7 +43,11 @@ PY
 )
 spark_ab_validate_benchmark_id
 APPROVAL="NOT_APPROVED"
-[[ $EXECUTE != true ]] || APPROVAL="I_APPROVE_DP2_PAID_JOBS"
+APPROVAL_ARGS=()
+if [[ $EXECUTE == true ]]; then
+  APPROVAL="I_APPROVE_DP2_PAID_JOBS"
+  APPROVAL_ARGS+=(--require-clean)
+fi
 python3 -m ops.gcp.dp2_method2 --action approve \
   --root "$ARTIFACT_ROOT" --bronze-winner "$BRONZE_WINNER" \
   --benchmark-id "$BENCHMARK_ID" --dataset-version canonical-100gb-v1 \
@@ -51,7 +55,7 @@ python3 -m ops.gcp.dp2_method2 --action approve \
   --project "$PROJECT_ID" --region "$REGION" --ttl 8h \
   --baseline-silver-run-id "$BASE_S" --optimized-silver-run-id "$OPT_S" \
   --baseline-gold-run-id "$BASE_G" --optimized-gold-run-id "$OPT_G" \
-  --approval I_APPROVE_DP2_PAID_JOBS
+  --approval I_APPROVE_DP2_PAID_JOBS "${APPROVAL_ARGS[@]}"
 
 CONF=$(python3 - "$BENCHMARK_ID" "$GIT_SHA" "$BRONZE_WINNER" "$ARTIFACT_ROOT" \
   "$BASE_S" "$OPT_S" "$BASE_G" "$OPT_G" "$APPROVAL" "$DATA_BUCKET" "$PROJECT_ID" "$REGION" <<'PY'
