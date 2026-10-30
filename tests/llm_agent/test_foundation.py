@@ -56,6 +56,16 @@ class FoundationTest(unittest.TestCase):
         self.assertFalse(result["runtime_verified"])
         self.assertEqual(result["rendered_environments"], ["dev", "gcp"])
 
+    def test_rag_paths_select_only_rag_pipeline(self) -> None:
+        self.assertEqual(
+            detect([
+                "ai_platform/llm_agent/rag/pipeline.py",
+                "data/llm_agent/rag/fraud-policy-v1/manifest.json",
+                "data_platform/orchestration/airflow/dags/rag_fraud_policy.py",
+            ]),
+            ["rag-pipeline"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,12 @@ from pathlib import Path
 
 
 PATH_COMPONENTS = {
+    "ai_platform/llm_agent/rag/": {"rag-pipeline"},
+    "ai_platform/features/feast/feature_repo/rag_": {"rag-pipeline"},
+    "data/llm_agent/rag/": {"rag-pipeline"},
+    "ops/llm_agent/rag_": {"rag-pipeline"},
+    "ops/llm_agent/run_rag_": {"rag-pipeline"},
+    "ops/llm_agent/verify_rag_": {"rag-pipeline"},
     "ai_platform/llm_agent/": {"feature-rag-mcp", "drift-mcp", "mcp-gateway"},
     "infra/helm/llm-agent-platform/": {"platform-routing"},
     "infra/kubernetes/kagent-pilot/": {
@@ -26,9 +32,10 @@ PATH_COMPONENTS = {
 def detect(paths: list[str]) -> list[str]:
     components: set[str] = set()
     for path in paths:
-        for prefix, names in PATH_COMPONENTS.items():
+        for prefix, names in sorted(PATH_COMPONENTS.items(), key=lambda item: -len(item[0])):
             if path.startswith(prefix):
                 components.update(names)
+                break
     return sorted(components)
 
 
