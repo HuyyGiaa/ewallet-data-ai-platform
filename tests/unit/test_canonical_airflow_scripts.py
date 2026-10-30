@@ -199,6 +199,8 @@ class CanonicalAirflowScriptsTest(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stderr)
         launcher = (SCRIPTS_ROOT / "start_airflow_local.sh").read_text(encoding="utf-8")
         self.assertIn("http://127.0.0.1:8084/execution/", launcher)
+        self.assertIn('[[ ${cmd} == *"127.0.0.1"* && ${cmd} == *"8084"* ]]', launcher)
+        self.assertIn("may not retain AIRFLOW_HOME", launcher)
         self.assertNotIn("db reset", launcher)
 
 

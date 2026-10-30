@@ -38,18 +38,23 @@ resolve_airflow() {
 component_pids() {
   local component=$1 env_file pid cmd
   for env_file in /proc/[0-9]*/environ; do
-    grep -zqx "AIRFLOW_HOME=${AIRFLOW_HOME}" "${env_file}" 2>/dev/null || continue
     pid=${env_file#/proc/}
     pid=${pid%/environ}
     cmd=$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)
     case "${component}" in
       api-server)
-        [[ ${cmd} == *"airflow api-server"* || ${cmd} == *"airflow api_server"* ]] && echo "${pid}"
+        # Airflow 3's daemonized API worker may not retain AIRFLOW_HOME in
+        # /proc/<pid>/environ. Bind it to this runtime by its dedicated listen
+        # address instead; this also excludes any legacy API server on 8080.
+        [[ ${cmd} == *"airflow api-server"* || ${cmd} == *"airflow api_server"* ]] || continue
+        [[ ${cmd} == *"127.0.0.1"* && ${cmd} == *"8084"* ]] && echo "${pid}"
         ;;
       scheduler)
+        grep -zqx "AIRFLOW_HOME=${AIRFLOW_HOME}" "${env_file}" 2>/dev/null || continue
         [[ ${cmd} == *"/airflow scheduler"* ]] && echo "${pid}"
         ;;
       dag-processor)
+        grep -zqx "AIRFLOW_HOME=${AIRFLOW_HOME}" "${env_file}" 2>/dev/null || continue
         [[ ${cmd} == *"/airflow dag-processor"* ]] && echo "${pid}"
         ;;
     esac
