@@ -1,0 +1,82 @@
+{
+ "airflow_version": "3.3.1",
+ "append_env": {
+  "build_feast_publication_artifact": true,
+  "evaluate_retrieval_with_citations": true,
+  "validate_versioned_corpus": true,
+  "verify_source_artifacts_and_runtime_gate": true
+ },
+ "bash_commands_contain_jinja": {
+  "build_feast_publication_artifact": false,
+  "evaluate_retrieval_with_citations": false,
+  "validate_versioned_corpus": false,
+  "verify_source_artifacts_and_runtime_gate": false
+ },
+ "dag_ids": [
+  "rag_fraud_policy"
+ ],
+ "env_param_templates": {
+  "build_feast_publication_artifact": [
+   "RAG_API_KEY_FILE",
+   "RAG_EMBEDDING_ENDPOINT",
+   "RAG_EVIDENCE_DIR",
+   "RAG_ONLINE_STORE"
+  ],
+  "evaluate_retrieval_with_citations": [
+   "RAG_API_KEY_FILE",
+   "RAG_EMBEDDING_ENDPOINT",
+   "RAG_EVIDENCE_DIR",
+   "RAG_ONLINE_STORE"
+  ],
+  "validate_versioned_corpus": [
+   "RAG_API_KEY_FILE",
+   "RAG_EMBEDDING_ENDPOINT",
+   "RAG_EVIDENCE_DIR",
+   "RAG_ONLINE_STORE"
+  ],
+  "verify_source_artifacts_and_runtime_gate": [
+   "RAG_API_KEY_FILE",
+   "RAG_EMBEDDING_ENDPOINT",
+   "RAG_EVIDENCE_DIR",
+   "RAG_ONLINE_STORE"
+  ]
+ },
+ "import_errors": {},
+ "interpreter_env_present": true,
+ "malicious_param_results": {
+  "api_key_file='/etc/shadow'": "ParamValidationError",
+  "embedding_endpoint='http://attacker.example:8000'": "ParamValidationError",
+  "evidence_dir=\"docs/evidence/llm_agent/rag/x'; touch /tmp/p; '\"": "ParamValidationError",
+  "evidence_dir='docs/evidence/llm_agent/rag/run-001\\n'": "ParamValidationError",
+  "online_store='sqlite'": "ParamValidationError"
+ },
+ "operators": [
+  "BashOperator"
+ ],
+ "param_defaults": {
+  "api_key_file": "/var/run/secrets/rag-embedding/api-key",
+  "embedding_endpoint": "http://rag-embedding.ewallet-agents.svc.cluster.local:8000",
+  "evidence_dir": "docs/evidence/llm_agent/rag/manual-run-id",
+  "online_store": "redis"
+ },
+ "python": "3.10.20",
+ "rendered_env_defaults": {
+  "RAG_API_KEY_FILE": "/var/run/secrets/rag-embedding/api-key",
+  "RAG_EMBEDDING_ENDPOINT": "http://rag-embedding.ewallet-agents.svc.cluster.local:8000",
+  "RAG_EVIDENCE_DIR": "docs/evidence/llm_agent/rag/manual-run-id",
+  "RAG_ONLINE_STORE": "redis"
+ },
+ "tasks": {
+  "build_feast_publication_artifact": [
+   "verify_source_artifacts_and_runtime_gate"
+  ],
+  "evaluate_retrieval_with_citations": [
+   "verify_source_artifacts_and_runtime_gate"
+  ],
+  "validate_versioned_corpus": [
+   "build_feast_publication_artifact",
+   "evaluate_retrieval_with_citations"
+  ],
+  "verify_source_artifacts_and_runtime_gate": []
+ }
+}

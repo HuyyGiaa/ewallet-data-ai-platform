@@ -2,6 +2,11 @@ namespace:
   create: true
   name: ewallet-agents
   ambient: true
+  # Pod Security Admission: enforce Baseline, surface Restricted gaps.
+  podSecurity:
+    enforce: baseline
+    warn: restricted
+    audit: restricted
 
 gateway:
   enabled: false
@@ -14,6 +19,7 @@ gateway:
 
 serviceAccounts:
   - agentgateway
+  - vllm
   - mcp-gateway
   - feature-rag-mcp
   - drift-mcp
@@ -24,6 +30,61 @@ serviceAccounts:
 
 networkPolicy:
   enabled: true
+  dns:
+    namespace: kube-system
+    podLabels:
+      k8s-app: kube-dns
+
+# Least-privilege allow-flows on top of the Istio and Kubernetes default-deny.
+# A flow is enforced only when both ends are workloads this chart owns, so its
+# pod labels and ServiceAccount (Istio SPIFFE principal) are source-defined.
+# Everything else stays denied and is listed under `unresolved` until its
+# runtime identity has been read back; never add a catch-all to unblock it.
+networkFlows:
+  trustDomain: cluster.local
+  workloads:
+    agentgateway:
+      serviceAccount: agentgateway
+      podLabels:
+        app.kubernetes.io/name: agentgateway
+    vllm:
+      serviceAccount: vllm
+      podLabels:
+        app.kubernetes.io/name: vllm
+  enforced:
+    - name: agentgateway-to-vllm
+      from: agentgateway
+      to: vllm
+      port: 8000
+  unresolved:
+    - name: agents-to-agentgateway
+      to: agentgateway:4000
+      reason: SandboxAgent egress runs on the Substrate WorkerPool; its pod labels, namespace and ServiceAccount are not source-defined.
+      gate: Read back the WorkerPool/SandboxAgent pod identity, then declare it as a workload and an enforced flow.
+    - name: coordinator-to-specialists-native-a2a
+      to: kagent-controller:8083 /api/a2a/<namespace>/<agent>
+      reason: Native kagent A2A is served by the kagent controller outside this chart; controller and sandbox identities are not source-defined.
+      gate: Read back kagent controller and WorkerPool identities.
+    - name: agents-to-mcp-gateway-to-mcp-services
+      to: mcp-gateway, feature-rag-mcp, drift-mcp
+      reason: No MCP Gateway or MCP server Deployment, Service port or pod labels exist in source yet (Phase D).
+      gate: Phase D source plus rendered labels and ports.
+    - name: mcp-to-rag-feast-kserve-fraud-scoring
+      to: Feast online store, RAG embedding, KServe fraud-scoring
+      reason: Endpoints live in ML/Data Platform namespaces that are not deployed or contract-pinned for this chart.
+      gate: ML Platform runtime readback of namespaces, labels and ports.
+    - name: otlp-exporters-to-collector
+      to: otel-collector:4317/4318
+      reason: Only the otel-collector ServiceAccount exists; no collector Deployment or pod labels.
+      gate: Collector source and rendered labels.
+    - name: vllm-model-bootstrap
+      to: huggingface.co:443
+      reason: vLLM downloads the pinned revision at startup, but NetworkPolicy cannot express an FQDN and a CIDR guess would be a broad egress.
+      gate: Approve a pre-staged model cache or an egress gateway/FQDN policy; until then vLLM cannot become Ready under default-deny.
+    - name: external-gateway-to-coordinator
+      to: fraud-coordinator-a2a:8083
+      reason: The HTTPRoute backend Service is not defined in source, and the Istio Gateway pod ingress and health-check ports are not opened.
+      gate: Define the coordinator A2A backend and read back the Gateway deployment labels and ServiceAccount.
 
 vllm:
   enabled: true
@@ -31,6 +92,12 @@ vllm:
   model: Qwen/Qwen3-0.6B
   modelRevision: c1899de289a04d12100db370d81485cdf75e47ca
   servedModelName: ewallet-fraud-llm-v1
+  # vLLM requires --enable-auto-tool-choice plus a parser for tool_choice=auto.
+  # hermes is Qwen's documented parser for Qwen3; vLLM's own table lists it for
+  # Qwen2.5, so a real-model tool-call smoke is still a runtime gate.
+  toolCalling:
+    enabled: true
+    parser: hermes
   apiKeySecret:
     name: vllm-api-key
     key: api-key

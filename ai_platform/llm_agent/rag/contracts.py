@@ -97,6 +97,7 @@ class Citation:
     source_uri: str
     source_checksum: str
     corpus_revision: str
+    embedding_model_revision: str
     feature_index_revision: str
     quote: str
     score: float

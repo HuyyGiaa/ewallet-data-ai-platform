@@ -8,4 +8,7 @@ metadata:
     {{- if .Values.namespace.ambient }}
     istio.io/dataplane-mode: ambient
     {{- end }}
+    {{- range $mode, $level := .Values.namespace.podSecurity }}
+    pod-security.kubernetes.io/{{ $mode }}: {{ $level }}
+    {{- end }}
 {{- end }}

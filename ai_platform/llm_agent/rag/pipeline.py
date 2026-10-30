@@ -5,12 +5,18 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import asdict
+import re
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from types import MappingProxyType
+from typing import Callable, Iterable, Mapping, Sequence
+
+from ai_platform.llm_agent.contracts import Citation as AgentCitation
 
 from .contracts import Citation, CorpusManifest, EmbeddedChunk, PolicyChunk, PolicyDocument, RetrievalHit
+
+SHA256_HEX_RE = re.compile(r"[0-9a-f]{64}")
 
 
 def load_manifest(path: Path) -> CorpusManifest:
@@ -153,6 +159,7 @@ def citations(hits: Iterable[RetrievalHit], *, quote_words: int = 40) -> tuple[C
         source_uri=hit.embedded_chunk.chunk.source_uri,
         source_checksum=hit.embedded_chunk.chunk.source_checksum,
         corpus_revision=hit.embedded_chunk.chunk.corpus_revision,
+        embedding_model_revision=hit.embedded_chunk.embedding_model_revision,
         feature_index_revision=hit.embedded_chunk.feature_index_revision,
         quote=" ".join(hit.embedded_chunk.chunk.text.split()[:quote_words]),
         score=hit.score,
@@ -176,3 +183,108 @@ def evaluation_metrics(results: Sequence[Sequence[RetrievalHit]], expected_docum
         "mean_reciprocal_rank": sum(reciprocal_ranks) / len(reciprocal_ranks),
         "empty_retrieval_rate": sum(not hits for hits in results) / len(results),
     }
+
+
+@dataclass(frozen=True)
+class TrustedChunkIndex:
+    """Exact chunk identities that a citation is allowed to reference.
+
+    The canonical set is rebuilt from checksum-verified source documents with
+    the manifest chunking parameters. A publication artifact is accepted only
+    when its rows equal that set exactly. This binds citations to the source
+    corpus; it is not a readback of a Feast-published index, which remains a
+    runtime gate (``evidence`` records which artifact was checked).
+    """
+
+    manifest: CorpusManifest
+    chunks: Mapping[str, PolicyChunk]
+    evidence: str
+
+    @classmethod
+    def from_manifest(cls, manifest_path: Path) -> "TrustedChunkIndex":
+        manifest, documents = ingest_documents(manifest_path)
+        chunks = chunk_documents(
+            documents, size_words=manifest.chunk_size_words, overlap_words=manifest.chunk_overlap_words,
+        )
+        return cls(manifest, MappingProxyType({chunk.chunk_id: chunk for chunk in chunks}), "source_corpus")
+
+    @classmethod
+    def from_publication_rows(
+        cls, manifest_path: Path, rows: Sequence[Mapping[str, object]],
+    ) -> "TrustedChunkIndex":
+        canonical = cls.from_manifest(manifest_path)
+        manifest = canonical.manifest
+        seen: set[str] = set()
+        for row in rows:
+            chunk_id = str(row.get("chunk_id", ""))
+            chunk = canonical.chunks.get(chunk_id)
+            if chunk is None or chunk_id in seen:
+                raise ValueError(f"publication row is unknown or duplicated: {chunk_id!r}")
+            seen.add(chunk_id)
+            expected = {
+                "document_id": chunk.document_id,
+                "chunk_text": chunk.text,
+                "source_uri": chunk.source_uri,
+                "source_checksum": chunk.source_checksum,
+                "corpus_revision": manifest.corpus_revision,
+                "embedding_model_revision": manifest.embedding_model_revision,
+                "feature_index_revision": manifest.feature_index_revision,
+            }
+            mismatched = sorted(name for name, value in expected.items() if row.get(name) != value)
+            if mismatched:
+                raise ValueError(f"publication row {chunk_id!r} differs from the source corpus: {mismatched}")
+        if seen != set(canonical.chunks):
+            raise ValueError("publication rows do not cover the canonical chunk set")
+        return cls(manifest, canonical.chunks, "publication_artifact")
+
+
+def to_agent_citation(citation: Citation, *, index: TrustedChunkIndex) -> AgentCitation:
+    """Convert an internal cosine-search citation to the shared Agent/MCP contract.
+
+    RAG stores the document SHA-256 as 64 bare lowercase hex characters; the
+    shared contract uses ``sha256:<hex>``. Every citation must reference an
+    exact chunk of the trusted index and the manifest revision set, and its
+    quote must be that chunk's leading words, so a citation can be neither
+    fabricated nor relabelled. Negative or non-finite cosine scores are
+    rejected rather than clipped into a false [0, 1] confidence.
+    """
+    manifest = index.manifest
+    documents = {str(item["document_id"]): item for item in manifest.documents}
+    source = documents.get(citation.document_id)
+    if source is None:
+        raise ValueError(f"citation document is not in the manifest: {citation.document_id!r}")
+    if not SHA256_HEX_RE.fullmatch(citation.source_checksum):
+        raise ValueError("RAG source_checksum must be 64 lowercase hex characters")
+    if citation.source_checksum != str(source["sha256"]) or citation.source_uri != str(source["source_uri"]):
+        raise ValueError(f"citation source does not match the manifest for {citation.document_id!r}")
+    chunk = index.chunks.get(citation.chunk_id)
+    if chunk is None or chunk.document_id != citation.document_id:
+        raise ValueError(f"chunk_id is not a trusted chunk of the cited document: {citation.chunk_id!r}")
+    quote = citation.quote.split()
+    if not quote or chunk.text.split()[: len(quote)] != quote:
+        raise ValueError("citation quote is not taken from the cited chunk")
+    for name, expected in (
+        ("corpus_revision", manifest.corpus_revision),
+        ("embedding_model_revision", manifest.embedding_model_revision),
+        ("feature_index_revision", manifest.feature_index_revision),
+    ):
+        if getattr(citation, name) != expected:
+            raise ValueError(f"citation {name} does not match the published manifest")
+    score = citation.score
+    if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score):
+        raise ValueError("citation score must be a finite number")
+    return AgentCitation(
+        document_id=citation.document_id,
+        chunk_id=citation.chunk_id,
+        source_uri=citation.source_uri,
+        source_checksum=f"sha256:{citation.source_checksum}",
+        corpus_revision=citation.corpus_revision,
+        embedding_revision=citation.embedding_model_revision,
+        feature_revision=citation.feature_index_revision,
+        score=float(score),
+    )
+
+
+def to_agent_citations(rag_citations: Iterable[Citation], *, index: TrustedChunkIndex) -> tuple[AgentCitation, ...]:
+    """Validate and convert every source citation before an MCP response."""
+    return tuple(to_agent_citation(citation, index=index) for citation in rag_citations)

@@ -28,9 +28,14 @@ spec:
         app.kubernetes.io/instance: {{ $name }}
         llm.ewallet.io/backend-version: {{ $name }}
     spec:
-      serviceAccountName: agentgateway
+      serviceAccountName: vllm
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 60
+      # Pod Security Baseline: no added capabilities and no Unconfined seccomp.
+      # SYS_NICE/Unconfined only enable optional vLLM CPU NUMA tuning.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: vllm
           image: {{ $.Values.vllm.image }}
@@ -46,6 +51,14 @@ spec:
             - bfloat16
             - --max-model-len
             - "4096"
+            {{- if $.Values.vllm.toolCalling.enabled }}
+            {{- if not $.Values.vllm.toolCalling.parser }}
+            {{- fail "vllm.toolCalling.parser is required when tool calling is enabled" }}
+            {{- end }}
+            - --enable-auto-tool-choice
+            - --tool-call-parser
+            - {{ $.Values.vllm.toolCalling.parser | quote }}
+            {{- end }}
             - --max-num-seqs
             - {{ $profile.maxNumSeqs | quote }}
             - --max-num-queued-reqs
@@ -85,9 +98,8 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-              add: [SYS_NICE]
             seccompProfile:
-              type: Unconfined
+              type: RuntimeDefault
           volumeMounts:
             - {name: cache, mountPath: /root/.cache}
             - {name: tmp, mountPath: /tmp}
