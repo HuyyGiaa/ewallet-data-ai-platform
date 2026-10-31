@@ -36,7 +36,7 @@ def publication_evidence() -> dict[str, object]:
             "size_bytes": 200,
         },
     ]
-    return {
+    evidence = {
         "schema_version": "training-snapshot-publication-evidence-v1",
         "status": "PUBLISHED_AND_VERIFIED",
         "mode": "create-only",
@@ -52,7 +52,10 @@ def publication_evidence() -> dict[str, object]:
         "source_git_sha": "a" * 40,
         "feature_selection_digest": "sha256:" + "b" * 64,
         "execution_git_sha": "c" * 40,
-        "registry_uri": "gs://bucket/features/registries/registry.db",
+        "registry_uri": (
+            "gs://bucket/features/registries/canonical-100gb-v1/"
+            "canonical-training-v1-recovered/registry.db"
+        ),
         "registry_generation": 1793255806863364,
         "registry_sha256": "d" * 64,
         "manifest_sha256": "1" * 64,
@@ -61,6 +64,21 @@ def publication_evidence() -> dict[str, object]:
         "object_count": len(objects),
         "objects": objects,
     }
+    evidence["completion_marker_lineage"] = {
+        "training_snapshot_root": evidence["training_snapshot_root"],
+        "dataset_version": evidence["dataset_version"],
+        "source_silver_run_id": evidence["source_silver_run_id"],
+        "source_feature_run_id": evidence["source_feature_run_id"],
+        "snapshot_id": evidence["snapshot_id"],
+        "source_git_sha": evidence["source_git_sha"],
+        "feature_selection_digest": evidence["feature_selection_digest"],
+        "feast_snapshot_id": evidence["feast_snapshot_id"],
+        "registry_uri": evidence["registry_uri"],
+        "registry_generation": evidence["registry_generation"],
+        "registry_sha256": evidence["registry_sha256"],
+        "manifest_sha256": evidence["manifest_sha256"],
+    }
+    return evidence
 
 
 class ML1TrainingSnapshotContractTest(unittest.TestCase):
@@ -100,6 +118,27 @@ class ML1TrainingSnapshotContractTest(unittest.TestCase):
                     evidence["object_count"] = 1
                 else:
                     evidence["registry_sha256"] = "wrong"
+                with self.assertRaises(ValueError):
+                    build_revision_descriptor(evidence)
+
+    def test_dvc_rejects_inconsistent_manifest_registry_and_marker_lineage(self) -> None:
+        mutations = {
+            "manifest-checksum": lambda item: item.__setitem__(
+                "manifest_sha256", "9" * 64
+            ),
+            "null-registry": lambda item: item.__setitem__("registry_uri", None),
+            "wrong-feast-snapshot": lambda item: item.__setitem__(
+                "registry_uri",
+                "gs://bucket/features/registries/canonical-100gb-v1/wrong/registry.db",
+            ),
+            "marker-lineage": lambda item: item["completion_marker_lineage"].__setitem__(
+                "source_silver_run_id", "wrong"
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                evidence = publication_evidence()
+                mutate(evidence)
                 with self.assertRaises(ValueError):
                     build_revision_descriptor(evidence)
 
@@ -208,6 +247,38 @@ class ML1TrainingSnapshotContractTest(unittest.TestCase):
             ):
                 result = materialize(resume=False, **common)
                 self.assertFalse(result["complete"])
+                with self.assertRaisesRegex(ValueError, "binding mismatch"):
+                    materialize(resume=True, **{**common, "chunk_size": 2})
+                with self.assertRaisesRegex(ValueError, "binding mismatch"):
+                    materialize(resume=True, **{**common, "max_rows": 2})
+
+                part = next(output.glob("split=*/*.parquet"))
+                payload = part.read_bytes()
+                part.unlink()
+                with self.assertRaisesRegex(ValueError, "inventory"):
+                    materialize(resume=True, **common)
+                part.write_bytes(payload)
+                extra = output / "split=train/extra.parquet"
+                extra.write_bytes(payload)
+                with self.assertRaisesRegex(ValueError, "inventory"):
+                    materialize(resume=True, **common)
+                extra.unlink()
+                part.write_bytes(b"corrupt")
+                with self.assertRaisesRegex(ValueError, "corrupted"):
+                    materialize(resume=True, **common)
+                part.write_bytes(payload)
+                interrupted = part.with_suffix(".parquet.tmp")
+                interrupted.write_bytes(payload)
+                with self.assertRaisesRegex(ValueError, "inventory"):
+                    materialize(resume=True, **common)
+                interrupted.unlink()
+
+                source_part = source / "split=train/part-00000.parquet"
+                renamed = source_part.with_name("part-99999.parquet")
+                source_part.rename(renamed)
+                with self.assertRaisesRegex(ValueError, "binding mismatch"):
+                    materialize(resume=True, **common)
+                renamed.rename(source_part)
                 while (output / "_INCOMPLETE").exists():
                     result = materialize(resume=True, **common)
             self.assertEqual(3, result["materialized_rows"])

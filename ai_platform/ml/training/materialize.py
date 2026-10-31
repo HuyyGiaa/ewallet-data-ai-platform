@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import importlib.metadata
 import json
+import os
 import resource
 import shutil
 import time
@@ -45,6 +47,8 @@ DEFAULT_OUTPUT = ML_DATA_ROOT / "fraud_training_v1" / "trainable_dataset"
 DEFAULT_CHUNK_SIZE = 1_000
 DEFAULT_MIN_AVAILABLE_GIB = 4.0
 DEFAULT_MAX_NEW_CHUNKS = 1
+CHECKPOINT_SCHEMA_VERSION = "training-materialization-checkpoint-v2"
+SCHEMA_SELECTION_VERSION = "ml1-training-schema-v1"
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -57,6 +61,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dataset-version")
     parser.add_argument("--source-silver-run-id")
     parser.add_argument("--source-feature-run-id")
+    parser.add_argument("--feast-snapshot-id")
     parser.add_argument("--snapshot-id")
     parser.add_argument("--source-git-sha")
     parser.add_argument("--feature-selection-digest")
@@ -89,6 +94,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             args.dataset_version,
             args.source_silver_run_id,
             args.source_feature_run_id,
+            args.feast_snapshot_id,
             args.snapshot_id,
             args.source_git_sha,
             args.feature_selection_digest,
@@ -119,6 +125,105 @@ def source_files(source: Path) -> list[tuple[str, Path]]:
     if not result:
         raise FileNotFoundError(f"No partitioned Parquet source under {source}")
     return result
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _source_inventory(source: Path) -> tuple[list[dict[str, object]], str]:
+    paths = [source / "manifest.json", *(path for _, path in source_files(source))]
+    inventory = []
+    for path in paths:
+        item: dict[str, object] = {
+            "name": path.relative_to(source).as_posix(),
+            "size_bytes": path.stat().st_size,
+            "sha256": _sha256_file(path),
+        }
+        if path.suffix == ".parquet":
+            item["rows"] = pq.ParquetFile(path).metadata.num_rows
+        inventory.append(item)
+    payload = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
+    return inventory, hashlib.sha256(payload).hexdigest()
+
+
+def _schema_selection_digest() -> str:
+    payload = {
+        "version": SCHEMA_SELECTION_VERSION,
+        "source": list(SOURCE_OUTPUT_COLUMNS),
+        "output": list(OUTPUT_COLUMNS),
+        "model": list(MODEL_FEATURE_COLUMNS),
+        "historical": list(HISTORICAL_FEATURE_COLUMNS),
+        "derived": list(DERIVED_FEATURE_COLUMNS),
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _checkpoint_binding(
+    *,
+    source_inventory: list[dict[str, object]],
+    source_inventory_digest: str,
+    chunk_size: int,
+    max_rows: int | None,
+    dataset_version: str | None,
+    source_silver_run_id: str | None,
+    source_feature_run_id: str | None,
+    feast_snapshot_id: str | None,
+    snapshot_id: str | None,
+    source_git_sha: str | None,
+    feature_selection_digest: str | None,
+) -> dict[str, object]:
+    return {
+        "source_inventory": source_inventory,
+        "source_inventory_digest": source_inventory_digest,
+        "chunk_size": chunk_size,
+        "max_rows": max_rows,
+        "identity": {
+            "dataset_version": dataset_version,
+            "source_silver_run_id": source_silver_run_id,
+            "source_feature_run_id": source_feature_run_id,
+            "feast_snapshot_id": feast_snapshot_id,
+            "snapshot_id": snapshot_id,
+            "source_git_sha": source_git_sha,
+            "feature_selection_digest": feature_selection_digest,
+        },
+        "schema_selection_version": SCHEMA_SELECTION_VERSION,
+        "schema_selection_digest": _schema_selection_digest(),
+    }
+
+
+def _write_checkpoint(path: Path, payload: dict[str, object]) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+def _verify_resume_outputs(output: Path, completed: list[dict[str, object]]) -> None:
+    expected = {str(item["output_name"]): item for item in completed}
+    actual = {
+        path.relative_to(output).as_posix()
+        for path in output.rglob("*")
+        if path.is_file() and path.name != "_INCOMPLETE"
+    }
+    if actual != set(expected):
+        raise ValueError("Resume output inventory does not match the checkpoint")
+    for name, item in expected.items():
+        path = output / name
+        if (
+            path.stat().st_size != item["size_bytes"]
+            or _sha256_file(path) != item["sha256"]
+            or pq.ParquetFile(path).metadata.num_rows != item["rows"]
+        ):
+            raise ValueError(f"Resume output part is missing or corrupted: {name}")
 
 
 def normalize_source(batch, split: str) -> pd.DataFrame:
@@ -201,6 +306,7 @@ def materialize(
     dataset_version: str | None = None,
     source_silver_run_id: str | None = None,
     source_feature_run_id: str | None = None,
+    feast_snapshot_id: str | None = None,
     snapshot_id: str | None = None,
     source_git_sha: str | None = None,
     feature_selection_digest: str | None = None,
@@ -225,6 +331,20 @@ def materialize(
             feature_selection_digest=str(feature_selection_digest),
             expected_output_columns=SOURCE_OUTPUT_COLUMNS,
         )
+    source_inventory, source_inventory_digest = _source_inventory(source)
+    binding = _checkpoint_binding(
+        source_inventory=source_inventory,
+        source_inventory_digest=source_inventory_digest,
+        chunk_size=chunk_size,
+        max_rows=max_rows,
+        dataset_version=dataset_version,
+        source_silver_run_id=source_silver_run_id,
+        source_feature_run_id=source_feature_run_id,
+        feast_snapshot_id=feast_snapshot_id,
+        snapshot_id=snapshot_id,
+        source_git_sha=source_git_sha,
+        feature_selection_digest=feature_selection_digest,
+    )
     started_at = datetime.now(timezone.utc)
     started = time.perf_counter()
     invocation_initial_available_gib = available_memory_gib()
@@ -235,14 +355,31 @@ def materialize(
     incomplete = output / "_INCOMPLETE"
     if resume and not incomplete.exists():
         raise ValueError("Cannot resume without an _INCOMPLETE checkpoint")
-    checkpoint = {}
+    checkpoint: dict[str, object]
     if resume:
         try:
             checkpoint = json.loads(incomplete.read_text())
-        except json.JSONDecodeError:
-            checkpoint = {}
+        except (json.JSONDecodeError, OSError) as exc:
+            raise ValueError("Materialization checkpoint is unreadable") from exc
+        if checkpoint.get("schema_version") != CHECKPOINT_SCHEMA_VERSION:
+            raise ValueError("Materialization checkpoint schema is incompatible")
+        if checkpoint.get("binding") != binding:
+            raise ValueError("Materialization checkpoint binding mismatch")
+        completed = checkpoint.get("completed_source_chunks")
+        if not isinstance(completed, list):
+            raise ValueError("Materialization checkpoint progress is invalid")
+        _verify_resume_outputs(output, completed)
     else:
-        incomplete.write_text("{}\n")
+        checkpoint = {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "binding": binding,
+            "completed_source_chunks": [],
+            "runtime_seconds": 0.0,
+            "initial_available_gib": invocation_initial_available_gib,
+            "minimum_available_gib_observed_before_chunks": invocation_initial_available_gib,
+            "peak_process_rss_gib": peak_rss_gib(),
+        }
+        _write_checkpoint(incomplete, checkpoint)
 
     store = get_store(FEATURE_REPO, environment=environment)
     total_rows = 0
@@ -250,36 +387,47 @@ def materialize(
     split_part_numbers = Counter()
     split_counts = {split: Counter() for split in SPLIT_ORDER}
     null_counts: Counter = Counter()
+    completed_chunks = list(checkpoint["completed_source_chunks"])
+    completed_by_position = {
+        str(item["source_position"]): item for item in completed_chunks
+    }
+    if len(completed_by_position) != len(completed_chunks):
+        raise ValueError("Materialization checkpoint contains duplicate source positions")
     if resume:
-        for split in SPLIT_ORDER:
-            existing = sorted((output / f"split={split}").glob("*.parquet"))
-            split_part_numbers[split] = len(existing)
-            for path in existing:
-                frame = pd.read_parquet(path)
-                update_counts(frame, split_counts, null_counts)
-                total_rows += len(frame)
-                chunk_count += 1
-                del frame
+        for item in completed_chunks:
+            frame = pd.read_parquet(output / str(item["output_name"]))
+            update_counts(frame, split_counts, null_counts)
+            total_rows += len(frame)
+            split_part_numbers[str(item["split"])] += 1
+            chunk_count += 1
+            del frame
         print(f"PASS | resume checkpoint chunks={chunk_count} rows={total_rows}")
 
-    completed_source_chunks = chunk_count
-    source_chunk_index = 0
+    encountered_positions: set[str] = set()
+    source_rows_planned = 0
     new_chunks = 0
     checkpoint_requested = False
 
     for split, path in source_files(source):
         parquet_file = pq.ParquetFile(path)
-        for batch in parquet_file.iter_batches(batch_size=chunk_size):
-            if source_chunk_index < completed_source_chunks:
-                source_chunk_index += 1
-                continue
-            source_chunk_index += 1
+        relative_source = path.relative_to(source).as_posix()
+        for batch_index, batch in enumerate(
+            parquet_file.iter_batches(batch_size=chunk_size)
+        ):
             if max_rows is not None:
-                remaining = max_rows - total_rows
+                remaining = max_rows - source_rows_planned
                 if remaining <= 0:
                     break
                 if batch.num_rows > remaining:
                     batch = batch.slice(0, remaining)
+            source_rows_planned += batch.num_rows
+            source_position = f"{relative_source}#{batch_index}"
+            encountered_positions.add(source_position)
+            completed_item = completed_by_position.get(source_position)
+            if completed_item is not None:
+                if completed_item.get("source_rows") != batch.num_rows:
+                    raise ValueError("Resume source chunk row count mismatch")
+                continue
             available_gib = available_memory_gib()
             minimum_available_gib = min(minimum_available_gib, available_gib)
             if available_gib < min_available_gib:
@@ -298,7 +446,22 @@ def materialize(
             target = output / f"split={split}"
             target.mkdir(exist_ok=True)
             part_number = split_part_numbers[split]
-            frame.to_parquet(target / f"part-{part_number:05d}.parquet", index=False)
+            output_name = f"split={split}/part-{part_number:05d}.parquet"
+            final_path = output / output_name
+            temporary_path = final_path.with_suffix(".parquet.tmp")
+            frame.to_parquet(temporary_path, index=False)
+            os.replace(temporary_path, final_path)
+            completed_item = {
+                "source_position": source_position,
+                "source_rows": batch.num_rows,
+                "split": split,
+                "output_name": output_name,
+                "rows": len(frame),
+                "size_bytes": final_path.stat().st_size,
+                "sha256": _sha256_file(final_path),
+            }
+            completed_chunks.append(completed_item)
+            completed_by_position[source_position] = completed_item
             split_part_numbers[split] += 1
             total_rows += len(frame)
             chunk_count += 1
@@ -337,10 +500,10 @@ def materialize(
         minimum_available_gib,
     )
     if total_rows < requested_rows:
-        checkpoint_state = {
-            "chunk_size": chunk_size,
-            "chunks": chunk_count,
-            "rows": total_rows,
+        checkpoint_state: dict[str, object] = {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "binding": binding,
+            "completed_source_chunks": completed_chunks,
             "runtime_seconds": round(accumulated_runtime_seconds, 4),
             "initial_available_gib": checkpoint.get(
                 "initial_available_gib", invocation_initial_available_gib
@@ -350,16 +513,24 @@ def materialize(
             ),
             "peak_process_rss_gib": round(accumulated_peak_rss_gib, 4),
         }
-        incomplete.write_text(json.dumps(checkpoint_state, indent=2) + "\n")
+        _write_checkpoint(incomplete, checkpoint_state)
         print(
             f"PASS | checkpoint rows={total_rows}/{requested_rows} "
             f"chunks={chunk_count}"
         )
-        return {"complete": False, **checkpoint_state}
+        return {
+            "complete": False,
+            "chunk_size": chunk_size,
+            "chunks": chunk_count,
+            "rows": total_rows,
+            **checkpoint_state,
+        }
 
     complete_source_scope = max_rows is None and total_rows == expected_rows
     if total_rows != requested_rows:
         raise ValueError(f"Materialized rows {total_rows} != source rows {expected_rows}")
+    if set(completed_by_position) != encountered_positions:
+        raise ValueError("Materialization completed source positions are inconsistent")
     split_summary = serializable_split_counts(split_counts)
     runtime_seconds = round(accumulated_runtime_seconds, 4)
     manifest = {
@@ -425,6 +596,7 @@ def materialize(
             "dataset_version": dataset_version,
             "source_silver_run_id": source_silver_run_id,
             "source_feature_run_id": source_feature_run_id,
+            "feast_snapshot_id": feast_snapshot_id,
             "snapshot_id": snapshot_id,
             "source_git_sha": source_git_sha,
             "feature_selection_digest": feature_selection_digest,
@@ -454,6 +626,7 @@ def main(argv: list[str] | None = None) -> int:
             dataset_version=args.dataset_version,
             source_silver_run_id=args.source_silver_run_id,
             source_feature_run_id=args.source_feature_run_id,
+            feast_snapshot_id=args.feast_snapshot_id,
             snapshot_id=args.snapshot_id,
             source_git_sha=args.source_git_sha,
             feature_selection_digest=args.feature_selection_digest,
