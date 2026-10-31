@@ -561,6 +561,7 @@ Defaults are `localhost:8081` for Trino, `localhost:9000` for MinIO, and
 | [`docs/02_schema_design_example.md`](docs/02_schema_design_example.md) | Dataset schemas and Gold model |
 | [`docs/03_batch_pipeline.md`](docs/03_batch_pipeline.md) | Bronze, Silver, and Gold processing |
 | [`docs/04_streaming_pipeline.md`](docs/04_streaming_pipeline.md) | Experimental Redpanda/PyFlink path |
+| [`docs/streaming/flink_local_benchmark_results_20261101.md`](docs/streaming/flink_local_benchmark_results_20261101.md) | Local Flink baseline/optimized benchmark: functional parity verified, 500 eps parity blocked |
 | [`docs/05_storage_optimization.md`](docs/05_storage_optimization.md) | Delta optimization benchmark |
 | [`docs/06_airflow_orchestration.md`](docs/06_airflow_orchestration.md) | Airflow DAG and quality gates |
 | [`docs/07_performance_benchmarks.md`](docs/07_performance_benchmarks.md) | Spark performance experiments |

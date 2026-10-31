@@ -118,9 +118,9 @@ TaskManager metrics) while the publish step is running.
 Definitions: processing latency = broker `LogAppendTime(accepted) − LogAppendTime(first raw)`
 per transaction (Flink processing + sink delivery); it is not event lateness.
 Consumer lag uses committed offsets, which Flink commits only on checkpoint
-completion. Online feature records are emitted by event-time timers, so they
-measure semantics, not latency, and the last ~12 min of event time stay pending
-when the bounded input ends (identical for both profiles).
+completion. Online feature records are emitted by event-time timers; benchmark
+replay publishes a drain watermark marker to every raw partition after the input,
+so all timers fire before outputs are read.
 
 ## Known limitations
 
@@ -129,7 +129,9 @@ when the bounded input ends (identical for both profiles).
   NOT_EXECUTED without the `flink` extra.
 - The legacy feature operator rescans per-key history on each timer and parses
   JSON between operators; throughput is bounded by that logic for both profiles.
-- With parallelism 4, per-subtask watermarks may classify borderline events
-  differently from parallelism 1; parity digests report this instead of assuming it.
+- Benchmark replay classifies lateness against an explicit logical watermark, so
+  p=1 and p=4 agree at functional and 100 eps load. At 500 eps (backlog) online
+  feature parity still fails; see
+  [results](flink_local_benchmark_results_20261101.md).
 - Feast/Redis online writer, historical sink service and Silver bootstrap from the
   legacy branch are out of scope here; output stays in isolated Redpanda topics.
