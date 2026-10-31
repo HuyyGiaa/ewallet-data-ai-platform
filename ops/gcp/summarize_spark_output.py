@@ -51,6 +51,11 @@ GOLD_PRIMARY_KEYS = {
     "feat_user_90d": ("user_id",),
     "opt_merchant_performance": ("merchant_id",),
 }
+# Write-time audit columns differ between two otherwise identical runs. They are
+# excluded from the content fingerprint but remain schema- and null-checked.
+VOLATILE_AUDIT_COLUMNS = {
+    ("dp2-gold", "feat_user_90d"): ("created_timestamp",),
+}
 
 
 def stage_run_kind(stage: str) -> str:
@@ -157,7 +162,8 @@ def _table_summary(
 ) -> dict[str, object]:
     from pyspark.sql import functions as F
 
-    columns = sorted(dataframe.columns)
+    volatile = VOLATILE_AUDIT_COLUMNS.get((stage, table), ())
+    columns = sorted(name for name in dataframe.columns if name not in volatile)
     canonical_row = F.to_json(
         F.struct(*[F.col(name).alias(name) for name in columns]),
         options={
@@ -167,7 +173,7 @@ def _table_summary(
     )
     row_xxhash = F.xxhash64(canonical_row)
     row_murmur = F.hash(canonical_row)
-    required = _required_columns(stage, table)
+    required = (*_required_columns(stage, table), *volatile)
     aggregate = (
         dataframe.select(
             row_xxhash.alias("row_xxhash"),
@@ -219,6 +225,7 @@ def _table_summary(
         "required_null_counts": {
             name: int(aggregate[f"null__{name}"] or 0) for name in required
         },
+        "excluded_volatile_columns": list(volatile),
         "partition_columns": partition_columns,
         "configured_write_layout": configured_layout,
         "physical_layout": _file_layout(spark, table_path),
