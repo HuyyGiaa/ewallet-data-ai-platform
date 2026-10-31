@@ -19,12 +19,25 @@ def _load(path: Path):
 
 
 def _snapshots(run: Path) -> list[dict]:
-    return [_load(path) for path in sorted((run / "metrics").glob("snapshot_*.json"))]
+    loaded = [(path, _load(path)) for path in (run / "metrics").glob("snapshot_*.json")]
+
+    def chronological(item):
+        path, snapshot = item
+        try:
+            return (1, datetime.fromisoformat(snapshot["taken_at"]).timestamp(), path.name)
+        except (KeyError, TypeError, ValueError):
+            return (0, path.name)
+
+    return [snapshot for _path, snapshot in sorted(loaded, key=chronological)]
 
 
-def _last_snapshot(run: Path) -> dict:
-    snapshots = _snapshots(run)
-    return snapshots[-1] if snapshots else {}
+def _last_completed_checkpoint_snapshot(run: Path) -> dict:
+    completed = [
+        snapshot
+        for snapshot in _snapshots(run)
+        if (((snapshot.get("checkpoints") or {}).get("counts") or {}).get("completed") or 0) > 0
+    ]
+    return completed[-1] if completed else {}
 
 
 def _vertex_max(snapshot: dict, metric: str):
@@ -58,6 +71,7 @@ def run_row(run: Path) -> dict:
     meta, manifest = _load(run / "run.json"), _load(run / "input" / "input_manifest.json")
     outputs, snapshots = _load(run / "outputs_summary.json"), _snapshots(run)
     snap = snapshots[-1] if snapshots else {}
+    checkpoint_snap = _last_completed_checkpoint_snapshot(run)
     publish = manifest.get("publish", {})
     phase_snapshots = snapshots
     phases = manifest.get("phases") or {}
@@ -73,7 +87,11 @@ def run_row(run: Path) -> dict:
         ]
         if selected:
             phase_snapshots = selected
-    checkpoints = snap.get("checkpoints", {}) if isinstance(snap.get("checkpoints"), dict) else {}
+    checkpoints = (
+        checkpoint_snap.get("checkpoints", {})
+        if isinstance(checkpoint_snap.get("checkpoints"), dict)
+        else {}
+    )
     summary = checkpoints.get("summary") or {}
     counts = checkpoints.get("counts") or {}
     latency = outputs.get("processing_latency_ms", {})
@@ -144,7 +162,7 @@ def validate_run(run: Path) -> None:
         problems.append("functional checks missing or failed")
     elif mode == "functional" and not acceptance_passed(outputs, require_oracle=True):
         problems.append("feature oracle missing, incomplete or failed")
-    if not ((_last_snapshot(run).get("checkpoints") or {}).get("counts") or {}).get("completed"):
+    if not _last_completed_checkpoint_snapshot(run):
         problems.append("no completed checkpoint in metrics")
     if mode == "performance" and len(_snapshots(run)) < 2:
         problems.append("performance run lacks in-flight telemetry samples")

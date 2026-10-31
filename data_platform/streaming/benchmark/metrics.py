@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -29,6 +30,18 @@ VERTEX_METRICS = (
     "backPressuredTimeMsPerSecond",
     "idleTimeMsPerSecond",
 )
+
+SNAPSHOT_FILE = re.compile(r"^snapshot_(\d+)\.json$")
+
+
+def next_snapshot_index(out: Path) -> int:
+    """Return an append-only index without overwriting earlier telemetry."""
+    indexes = [
+        int(match.group(1))
+        for path in out.iterdir()
+        if (match := SNAPSHOT_FILE.fullmatch(path.name))
+    ]
+    return max(indexes, default=-1) + 1
 
 
 def get_json(base: str, path: str):
@@ -140,11 +153,13 @@ def main(argv=None) -> int:
         raise SystemExit("--samples must be in [1, 720]")
     out = args.run_dir / "metrics"
     out.mkdir(parents=True, exist_ok=True)
-    for index in range(args.samples):
+    start_index = next_snapshot_index(out)
+    for offset in range(args.samples):
         data = snapshot(args.flink_url, args.bootstrap_servers, args.namespace, args.job_id)
         args.job_id = data["job_id"]
+        index = start_index + offset
         (out / f"snapshot_{index:04d}.json").write_text(json.dumps(data, indent=2, sort_keys=True))
-        if index + 1 < args.samples:
+        if offset + 1 < args.samples:
             time.sleep(args.interval_seconds)
     print(json.dumps({"job_id": args.job_id, "snapshots": args.samples, "dir": str(out)}))
     return 0

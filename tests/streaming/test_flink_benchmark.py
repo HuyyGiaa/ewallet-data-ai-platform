@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from data_platform.streaming.benchmark.compare import report
+from data_platform.streaming.benchmark import metrics as benchmark_metrics
 from data_platform.streaming.benchmark import outputs as benchmark_outputs
 from data_platform.streaming.benchmark.dataset import (
     MAX_EVENTS,
@@ -372,6 +373,38 @@ class RunValidityTest(unittest.TestCase):
                         self._run(Path(tmp) / "c", "complete", True, 0)):
                 with self.subTest(run=bad), self.assertRaisesRegex(ValueError, "invalid run"):
                     report(good, bad)
+
+    def test_compare_accepts_completed_checkpoint_outside_last_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = self._run(Path(tmp), "complete", True, 0)
+            (run / "metrics/snapshot_0000.json").write_text(json.dumps({
+                "taken_at": "2026-11-01T04:14:00+07:00",
+                "checkpoints": {
+                    "counts": {"completed": 1, "failed": 1, "in_progress": 0},
+                    "summary": {"end_to_end_duration": {"p50": 6341, "max": 6341}},
+                },
+            }))
+            (run / "metrics/snapshot_0024.json").write_text(json.dumps({
+                "taken_at": "2026-11-01T04:12:00+07:00",
+                "checkpoints": {
+                    "counts": {"completed": 0, "failed": 1, "in_progress": 1},
+                    "summary": {},
+                },
+            }))
+
+            text = report(run, run)
+
+        self.assertIn("| checkpoints_completed | 1 | 1 |", text)
+        self.assertIn("| checkpoint_duration_p50_ms | 6341 | 6341 |", text)
+
+    def test_metrics_collection_appends_after_existing_snapshot_indexes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            metrics_dir = Path(tmp)
+            (metrics_dir / "snapshot_0000.json").write_text("{}")
+            (metrics_dir / "snapshot_0024.json").write_text("{}")
+            (metrics_dir / "notes.json").write_text("{}")
+
+            self.assertEqual(25, benchmark_metrics.next_snapshot_index(metrics_dir))
 
     def test_compare_requires_complete_passing_oracle_for_functional_runs(self) -> None:
         valid_oracle = {
