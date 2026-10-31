@@ -10,6 +10,8 @@
 networkPolicy:
   dns:
     nodeLocalIP: 169.254.20.10
+    # kube-dns Service (read back on ewallet-dev; node-local-dns -localip has both).
+    serviceIP: 34.118.224.10
 
 gateway:
   # No external exposure until a hostname, TLS secret and Gateway API CRDs are

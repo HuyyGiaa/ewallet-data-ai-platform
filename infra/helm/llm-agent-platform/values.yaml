@@ -38,6 +38,10 @@ networkPolicy:
     # NodeLocal DNSCache link-local listener (GKE: 169.254.20.10); "" when the
     # cluster has no NodeLocal DNSCache.
     nodeLocalIP: ""
+    # kube-dns ClusterIP. With NodeLocal DNSCache, node-local-dns also listens
+    # on it and the query is never DNATed to a kube-dns pod, so the pod
+    # selector alone does not match (G1 run 3: external names failed, rc=6).
+    serviceIP: ""
   # With namespace.ambient, ztunnel carries every in-mesh flow as HBONE to the
   # destination pod on 15008, and kubelet probes arrive SNATed from
   # 169.254.7.127 (Istio: ambient mode and Kubernetes NetworkPolicy).

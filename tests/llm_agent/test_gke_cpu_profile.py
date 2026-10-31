@@ -338,6 +338,7 @@ INTERNET = {"ip": "18.244.0.1"}
 METADATA = {"ip": "169.254.169.254"}
 GKE_METADATA = {"ip": "169.254.169.252"}
 NODELOCAL = {"ip": "169.254.20.10"}
+KUBE_DNS_SERVICE = {"ip": "34.118.224.10"}
 
 
 @unittest.skipUnless(HELM, "helm binary unavailable")
@@ -372,6 +373,8 @@ class G1ReachabilityTests(unittest.TestCase):
         for src in (GATEWAY, VLLM, INTRUDER):
             self.assertTrue(self.allows(src, KUBE_DNS, 53))
             self.assertTrue(self.allows(src, NODELOCAL, 53))
+            self.assertTrue(self.allows(src, KUBE_DNS_SERVICE, 53))
+            self.assertFalse(self.allows(src, KUBE_DNS_SERVICE, 443))
             for dst, port in ((INTERNET, 443), (METADATA, 80), (GKE_METADATA, 988), (KUBE_DNS, 443)):
                 self.assertFalse(self.allows(src, dst, port), (src["labels"], dst, port))
 

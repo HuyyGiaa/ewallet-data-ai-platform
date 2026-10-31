@@ -81,6 +81,10 @@ spec:
         - ipBlock:
             cidr: {{ . }}/32
     {{- end }}
+    {{- with .Values.networkPolicy.dns.serviceIP }}
+        - ipBlock:
+            cidr: {{ . }}/32
+    {{- end }}
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
