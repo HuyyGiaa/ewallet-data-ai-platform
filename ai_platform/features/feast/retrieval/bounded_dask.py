@@ -55,7 +55,8 @@ class BoundedSourcePlan:
     view_name: str
     source_path: str
     entity_key: str
-    entity_values: tuple[str, ...]
+    # None only for time-window materialization plans, which keep every entity.
+    entity_values: tuple[str, ...] | None
     timestamp_field: str
     start_timestamp: datetime | None
     end_timestamp: datetime
@@ -68,7 +69,9 @@ class BoundedSourcePlan:
             None if self.start_timestamp is None else self.start_timestamp.isoformat()
         )
         payload["end_timestamp"] = self.end_timestamp.isoformat()
-        payload["entity_values"] = list(self.entity_values)
+        payload["entity_values"] = (
+            None if self.entity_values is None else list(self.entity_values)
+        )
         payload["projected_columns"] = list(self.projected_columns)
         return payload
 
@@ -134,19 +137,63 @@ def build_bounded_source_plan(
     )
 
 
+def build_time_window_plan(
+    store: FeatureStore,
+    view_name: str,
+    start: datetime,
+    end: datetime,
+) -> BoundedSourcePlan:
+    """Bound one ``materialize`` call to ``[start, end]`` for every entity.
+
+    Feast's own materialization filter is ``start <= ts <= end``; the plan is
+    the identical interval plus a column projection, so Feast still chooses
+    the latest row per entity.
+    """
+
+    if start.tzinfo is None or end.tzinfo is None or not start < end:
+        raise ValueError("materialization window must be tz-aware and ordered")
+    spec = FEATURE_SPECS[view_name]
+    feature_view = store.get_feature_view(view_name, allow_registry_cache=False)
+    source = feature_view.batch_source
+    if source is None or source.timestamp_field != "event_timestamp":
+        raise ValueError("frozen FeatureView timestamp binding drifted")
+    entity_key = spec["entity_key"]
+    if tuple(column.name for column in feature_view.entity_columns) != (entity_key,):
+        raise ValueError("frozen FeatureView entity binding drifted")
+    observed = {f.name for f in feature_view.schema if f.name != entity_key}
+    if observed != set(spec["features"]):
+        raise ValueError("frozen FeatureView feature set drifted")
+    projected = [entity_key, source.timestamp_field]
+    if source.created_timestamp_column:
+        projected.append(source.created_timestamp_column)
+    projected.extend(spec["features"])
+    return BoundedSourcePlan(
+        view_name=view_name,
+        source_path=str(source.path),
+        entity_key=entity_key,
+        entity_values=None,
+        timestamp_field=source.timestamp_field,
+        start_timestamp=start,
+        end_timestamp=end,
+        projected_columns=tuple(projected),
+        ttl_seconds=feature_view.ttl.total_seconds(),
+    )
+
+
 def _apply_plan(frame: dd.DataFrame, plan: BoundedSourcePlan) -> dd.DataFrame:
     missing = sorted(set(plan.projected_columns) - set(frame.columns))
     if missing:
         raise ValueError(f"bounded source columns missing: {missing}")
     frame = frame[list(plan.projected_columns)]
-    predicate = frame[plan.entity_key].isin(plan.entity_values)
+    predicate = frame[plan.timestamp_field] <= plan.end_timestamp
+    if plan.entity_values is not None:
+        predicate = predicate & frame[plan.entity_key].isin(plan.entity_values)
     if plan.start_timestamp is not None:
         predicate = predicate & (
             frame[plan.timestamp_field] >= plan.start_timestamp
         )
     # Deliberately retain rows at T. Feast 0.66.0 owns the final PIT cutoff;
     # excluding them here could hide a same-timestamp leakage defect.
-    predicate = predicate & (frame[plan.timestamp_field] <= plan.end_timestamp)
     return frame[predicate]
 
 
