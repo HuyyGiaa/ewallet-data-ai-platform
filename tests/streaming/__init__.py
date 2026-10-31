@@ -1,0 +1,1 @@
+"""Focused streaming compatibility tests."""
