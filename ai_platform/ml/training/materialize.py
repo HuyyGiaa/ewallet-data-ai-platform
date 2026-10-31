@@ -33,6 +33,10 @@ from ai_platform.ml.training.contract import (
     OUTPUT_COLUMNS,
 )
 from ai_platform.ml.training.temporal import SPLIT_ORDER, TEST_START, VALIDATION_START
+from ai_platform.ml.training.source_contract import (
+    SOURCE_OUTPUT_COLUMNS,
+    validate_source_manifest_contract,
+)
 from ai_platform.ml.training.validation import validate_training_frame
 
 
@@ -54,6 +58,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-silver-run-id")
     parser.add_argument("--source-feature-run-id")
     parser.add_argument("--snapshot-id")
+    parser.add_argument("--source-git-sha")
+    parser.add_argument("--feature-selection-digest")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
     parser.add_argument(
         "--min-available-memory-gib",
@@ -84,6 +90,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             args.source_silver_run_id,
             args.source_feature_run_id,
             args.snapshot_id,
+            args.source_git_sha,
+            args.feature_selection_digest,
         )
     ):
         parser.error(
@@ -194,6 +202,8 @@ def materialize(
     source_silver_run_id: str | None = None,
     source_feature_run_id: str | None = None,
     snapshot_id: str | None = None,
+    source_git_sha: str | None = None,
+    feature_selection_digest: str | None = None,
 ) -> dict:
     if chunk_size <= 0:
         raise ValueError("chunk_size must be positive")
@@ -204,6 +214,17 @@ def materialize(
     source = source.resolve()
     output = output.resolve()
     source_manifest = json.loads((source / "manifest.json").read_text())
+    if environment == "gcp":
+        validate_source_manifest_contract(
+            source_manifest,
+            dataset_version=str(dataset_version),
+            source_silver_run_id=str(source_silver_run_id),
+            source_feature_run_id=str(source_feature_run_id),
+            snapshot_id=str(snapshot_id),
+            source_git_sha=str(source_git_sha),
+            feature_selection_digest=str(feature_selection_digest),
+            expected_output_columns=SOURCE_OUTPUT_COLUMNS,
+        )
     started_at = datetime.now(timezone.utc)
     started = time.perf_counter()
     invocation_initial_available_gib = available_memory_gib()
@@ -360,7 +381,9 @@ def materialize(
         "split_summary": split_summary,
         "schema": {
             "output_columns": len(OUTPUT_COLUMNS),
+            "ordered_output_columns": list(OUTPUT_COLUMNS),
             "model_features": len(MODEL_FEATURE_COLUMNS),
+            "ordered_model_feature_columns": list(MODEL_FEATURE_COLUMNS),
             "historical_features": len(HISTORICAL_FEATURE_COLUMNS),
             "derived_features": len(DERIVED_FEATURE_COLUMNS),
         },
@@ -403,6 +426,8 @@ def materialize(
             "source_silver_run_id": source_silver_run_id,
             "source_feature_run_id": source_feature_run_id,
             "snapshot_id": snapshot_id,
+            "source_git_sha": source_git_sha,
+            "feature_selection_digest": feature_selection_digest,
         },
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -430,6 +455,8 @@ def main(argv: list[str] | None = None) -> int:
             source_silver_run_id=args.source_silver_run_id,
             source_feature_run_id=args.source_feature_run_id,
             snapshot_id=args.snapshot_id,
+            source_git_sha=args.source_git_sha,
+            feature_selection_digest=args.feature_selection_digest,
         )
     except Exception as exc:
         print(f"ERROR | {exc}")

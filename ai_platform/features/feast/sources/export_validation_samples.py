@@ -3,18 +3,39 @@
 from __future__ import annotations
 
 import argparse
-import shutil
+import os
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
-from pyspark.sql import functions as F
-
 from ai_platform.features.feast import RUNTIME_DATA_ROOT
 from ai_platform.features.feast.schema import FEATURE_SPECS
-from data_platform.config import RuntimeConfig, load_runtime_config
+from ai_platform.features.feast.validation.contracts import (
+    CANONICAL_COMPARABLE_VALUE_COUNT,
+    CANONICAL_SAMPLE_CASES,
+    HISTORICAL_FEATURE_COUNT,
+)
+from ai_platform.storage import (
+    join_uri,
+    normalize_uri,
+    parquet_row_count,
+    require_absent,
+    reset_directory,
+    write_json,
+    write_pandas_parquet,
+)
+from data_platform.config import (
+    RuntimeConfig,
+    load_runtime_config,
+    load_runtime_config_file,
+)
+from data_platform.config.spark_profiles import FEATURES_STAGE, validate_git_sha
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.processing.spark.common.runtime_contract import (
+    validate_gcp_spark_runtime,
+)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -26,12 +47,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-root",
-        type=Path,
-        default=RUNTIME_DATA_ROOT / "validation",
+        default=str(RUNTIME_DATA_ROOT / "validation"),
     )
     parser.add_argument("--benchmark-rows", type=int, default=100)
     parser.add_argument("--silver-root")
     parser.add_argument("--feature-gold-root")
+    parser.add_argument("--dataset-version")
+    parser.add_argument("--source-silver-run-id")
+    parser.add_argument("--source-feature-run-id")
+    parser.add_argument("--snapshot-id")
+    parser.add_argument("--source-git-sha")
+    parser.add_argument("--execution-git-sha")
+    parser.add_argument("--feature-selection-digest")
+    parser.add_argument("--runtime-config-file", type=Path)
+    parser.add_argument("--project-id")
+    parser.add_argument("--region")
+    parser.add_argument("--data-bucket")
     return parser.parse_args(argv)
 
 
@@ -71,17 +102,36 @@ def read_delta(
 
 
 def export_samples(
-    output_root: Path,
+    output_root: str | Path,
     benchmark_rows: int,
     runtime_config: RuntimeConfig,
+    *,
+    dataset_version: str | None = None,
+    source_silver_run_id: str | None = None,
+    source_feature_run_id: str | None = None,
+    snapshot_id: str | None = None,
+    source_git_sha: str | None = None,
+    execution_git_sha: str | None = None,
+    feature_selection_digest: str | None = None,
 ) -> None:
+    output_uri = normalize_uri(output_root)
     spark = create_spark_session(
         "F6-Canonical-Entity-Sample",
+        stage=FEATURES_STAGE,
         runtime_config=runtime_config,
     )
-    output_root = output_root.resolve()
-    output_root.mkdir(parents=True, exist_ok=True)
     try:
+        from pyspark.sql import functions as F
+
+        validate_gcp_spark_runtime(
+            spark,
+            runtime_config,
+            output_uri=output_uri,
+        )
+        if runtime_config.environment == "gcp":
+            require_absent(output_uri)
+        else:
+            reset_directory(output_uri)
         transactions = read_delta(
             spark,
             runtime_config,
@@ -282,18 +332,7 @@ def export_samples(
                 for name in spec["features"]:
                     sample_row[f"expected__{view_name}__{name}"] = values.get(name)
 
-        expected_cases = {
-            "normal",
-            "velocity",
-            "amount_anomaly",
-            "account_takeover",
-            "merchant_burst",
-            "cold_start",
-            "multi_account_user",
-            "recent_device",
-            "payment_with_merchant",
-            "non_payment_without_merchant",
-        }
+        expected_cases = set(CANONICAL_SAMPLE_CASES)
         actual_cases = {row["sample_case"] for row in sample_rows}
         if actual_cases != expected_cases:
             raise ValueError(
@@ -303,10 +342,11 @@ def export_samples(
         sample_frame["event_timestamp"] = pd.to_datetime(
             sample_frame.pop("_event_timestamp_us"), unit="us", utc=True
         )
-        sample_path = output_root / "canonical_sample"
-        shutil.rmtree(sample_path, ignore_errors=True)
-        sample_path.mkdir(parents=True)
-        sample_frame.to_parquet(sample_path / "part-00000.parquet", index=False)
+        sample_path = join_uri(output_uri, "canonical_sample")
+        write_pandas_parquet(
+            sample_frame,
+            join_uri(sample_path, "part-00000.parquet"),
+        )
 
         benchmark_rows_local = (
             transactions.orderBy("transaction_id")
@@ -329,12 +369,40 @@ def export_samples(
         benchmark_frame["event_timestamp"] = pd.to_datetime(
             benchmark_frame.pop("_event_timestamp_us"), unit="us", utc=True
         )
-        benchmark_path = output_root / "benchmark_entities"
-        shutil.rmtree(benchmark_path, ignore_errors=True)
-        benchmark_path.mkdir(parents=True)
-        benchmark_frame.to_parquet(
-            benchmark_path / "part-00000.parquet", index=False
+        benchmark_path = join_uri(output_uri, "benchmark_entities")
+        write_pandas_parquet(
+            benchmark_frame,
+            join_uri(benchmark_path, "part-00000.parquet"),
         )
+        written_sample_rows = parquet_row_count(sample_path)
+        written_benchmark_rows = parquet_row_count(benchmark_path)
+        if written_sample_rows != len(expected_cases):
+            raise ValueError("Canonical validation sample output is incomplete")
+        if written_benchmark_rows != benchmark_rows:
+            raise ValueError("Benchmark validation sample output is incomplete")
+        manifest = {
+            "schema_version": "feast-validation-samples-v1",
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "status": "COMPLETE",
+            "canonical_sample_rows": written_sample_rows,
+            "canonical_sample_cases": list(CANONICAL_SAMPLE_CASES),
+            "historical_feature_count": HISTORICAL_FEATURE_COUNT,
+            "expected_comparable_values": CANONICAL_COMPARABLE_VALUE_COUNT,
+            "benchmark_rows": written_benchmark_rows,
+            "output_root": output_uri,
+            "lineage": {
+                "dataset_version": dataset_version,
+                "source_silver_run_id": source_silver_run_id,
+                "source_feature_run_id": source_feature_run_id,
+                "source_silver_root": runtime_config.storage.silver_root,
+                "source_feature_root": runtime_config.storage.gold_root,
+                "snapshot_id": snapshot_id,
+                "source_git_sha": source_git_sha,
+                "execution_git_sha": execution_git_sha,
+                "feature_selection_digest": feature_selection_digest,
+            },
+        }
+        write_json(join_uri(output_uri, "manifest.json"), manifest)
         print(f"PASS | canonical sample | cases={len(actual_cases)}")
         print(f"PASS | benchmark entities | rows={benchmark_rows}")
     finally:
@@ -344,18 +412,85 @@ def export_samples(
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        config = load_runtime_config(args.environment)
+        runtime_environ = None
         if args.environment == "gcp":
-            if not args.silver_root or not args.feature_gold_root:
+            if not all((args.project_id, args.region, args.data_bucket)):
+                raise ValueError("GCP export requires project, region and data bucket")
+            if args.silver_root and not args.silver_root.startswith(
+                f"gs://{args.data_bucket}/"
+            ):
+                raise ValueError("GCP Silver root and data bucket mismatch")
+            runtime_environ = {
+                **os.environ,
+                "GCP_PROJECT_ID": args.project_id,
+                "GCP_REGION": args.region,
+                "EWALLET_DATA_BUCKET": args.data_bucket,
+                "DATAHUB_GMS_URL": (
+                    os.environ.get("DATAHUB_GMS_URL")
+                    or "http://datahub-gms.invalid:8080"
+                ),
+            }
+        config = (
+            load_runtime_config_file(
+                args.runtime_config_file, args.environment,
+                environ=runtime_environ,
+            )
+            if args.runtime_config_file is not None
+            else load_runtime_config(args.environment, environ=runtime_environ)
+        )
+        if args.environment == "gcp":
+            required = (
+                args.silver_root,
+                args.feature_gold_root,
+                args.dataset_version,
+                args.source_silver_run_id,
+                args.source_feature_run_id,
+                args.snapshot_id,
+                args.source_git_sha,
+                args.execution_git_sha,
+                args.feature_selection_digest,
+            )
+            if any(value is None for value in required):
                 raise ValueError(
-                    "gcp validation requires --silver-root and --feature-gold-root"
+                    "gcp validation requires immutable Silver/feature roots, "
+                    "dataset/run/snapshot IDs, and --source-git-sha"
                 )
+            validate_git_sha(args.source_git_sha)
+            validate_git_sha(args.execution_git_sha)
+            bucket = args.silver_root.removeprefix("gs://").split("/", 1)[0]
+            expected_silver = (
+                f"gs://{bucket}/lakehouse/runs/{args.source_silver_run_id}/silver"
+            )
+            expected_features = (
+                f"gs://{bucket}/lakehouse/runs/{args.source_feature_run_id}/gold"
+            )
+            if args.silver_root != expected_silver:
+                raise ValueError("gcp validation Silver lineage is inconsistent")
+            if args.feature_gold_root != expected_features:
+                raise ValueError("gcp validation feature lineage is inconsistent")
+            expected_output = (
+                f"gs://{bucket}/"
+                f"ml/training-staging/{args.dataset_version}/{args.snapshot_id}/validation"
+            )
+            if normalize_uri(args.output_root) != expected_output:
+                raise ValueError("gcp validation output root is not canonical")
             config = apply_validation_roots(
                 config,
                 silver_root=args.silver_root,
                 feature_gold_root=args.feature_gold_root,
             )
-        export_samples(args.output_root, args.benchmark_rows, config)
+        export_samples(
+            args.output_root,
+            args.benchmark_rows,
+            config,
+            dataset_version=args.dataset_version,
+            source_silver_run_id=args.source_silver_run_id,
+            source_feature_run_id=args.source_feature_run_id,
+            snapshot_id=args.snapshot_id,
+            source_git_sha=args.source_git_sha,
+            execution_git_sha=args.execution_git_sha,
+            feature_selection_digest=args.feature_selection_digest,
+        )
     except Exception as exc:
         print(f"ERROR | {exc}")
         return 1

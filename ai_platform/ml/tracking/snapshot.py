@@ -11,6 +11,9 @@ from ai_platform.ml.tracking.config import SnapshotConfig
 from ai_platform.ml.training.contract import MODEL_FEATURE_COLUMNS
 
 
+COMPLETION_MARKER = Path("_control/publication_manifest.json")
+
+
 @dataclass(frozen=True)
 class SnapshotProvenance:
     dataset_version: str
@@ -52,11 +55,55 @@ def _integer(value: object, name: str) -> int:
     return value
 
 
+def load_completion_inventory(marker_path: Path) -> tuple[dict, dict[str, dict]]:
+    """Load the final marker and reject structurally unsafe object inventory."""
+
+    if not marker_path.is_file():
+        raise ValueError("training snapshot completion marker is missing")
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    if not isinstance(marker, dict):
+        raise ValueError("training snapshot completion marker is invalid")
+    objects = marker.get("objects")
+    if (
+        not isinstance(objects, list)
+        or marker.get("object_count") != len(objects)
+        or not objects
+    ):
+        raise ValueError("training snapshot completion inventory is invalid")
+    inventory: dict[str, dict] = {}
+    for item in objects:
+        if not isinstance(item, dict):
+            raise ValueError("training snapshot completion inventory is invalid")
+        name = item.get("name")
+        sha256 = item.get("sha256")
+        size_bytes = item.get("size_bytes")
+        generation = item.get("generation")
+        if (
+            not isinstance(name, str)
+            or name.startswith("/")
+            or ".." in Path(name).parts
+            or not isinstance(sha256, str)
+            or len(sha256) != 64
+            or any(character not in "0123456789abcdef" for character in sha256)
+            or not isinstance(size_bytes, int)
+            or size_bytes < 0
+            or not isinstance(generation, int)
+            or generation <= 0
+            or name in inventory
+        ):
+            raise ValueError("training snapshot completion inventory is invalid")
+        inventory[name] = item
+    return marker, inventory
+
+
 def load_snapshot_provenance(
     dataset_path: Path,
     expected: SnapshotConfig,
+    *,
+    verify_inventory: bool = True,
 ) -> SnapshotProvenance:
-    manifest_path = Path(dataset_path) / "manifest.json"
+    dataset_path = Path(dataset_path)
+    manifest_path = dataset_path / "manifest.json"
     payload = manifest_path.read_bytes()
     manifest_sha256 = hashlib.sha256(payload).hexdigest()
     if manifest_sha256 != expected.manifest_sha256:
@@ -64,6 +111,12 @@ def load_snapshot_provenance(
             "snapshot manifest checksum mismatch: "
             f"{manifest_sha256} != {expected.manifest_sha256}"
         )
+    _require_completion_marker(
+        dataset_path,
+        expected=expected,
+        manifest_sha256=manifest_sha256,
+        verify_inventory=verify_inventory,
+    )
     manifest = json.loads(payload)
     if not isinstance(manifest, dict):
         raise ValueError("snapshot manifest must be a JSON object")
@@ -112,6 +165,13 @@ def load_snapshot_provenance(
         raise ValueError(
             f"snapshot feature count {feature_count} != {len(MODEL_FEATURE_COLUMNS)}"
         )
+    if schema.get("ordered_model_feature_columns") != list(MODEL_FEATURE_COLUMNS):
+        raise ValueError("snapshot ordered model feature contract mismatch")
+    if manifest.get("complete_source_scope") is not True:
+        raise ValueError("snapshot does not cover the complete bounded source")
+    validation = manifest.get("validation")
+    if not isinstance(validation, dict) or validation.get("status") != "PASS":
+        raise ValueError("snapshot validation PASS is required")
     feature_schema = json.dumps(
         list(MODEL_FEATURE_COLUMNS), separators=(",", ":"), ensure_ascii=True
     ).encode("utf-8")
@@ -129,3 +189,56 @@ def load_snapshot_provenance(
         feature_count=feature_count,
         feature_schema_sha256=hashlib.sha256(feature_schema).hexdigest(),
     )
+
+
+def _require_completion_marker(
+    dataset_path: Path,
+    *,
+    expected: SnapshotConfig,
+    manifest_sha256: str,
+    verify_inventory: bool,
+) -> None:
+    marker_path = dataset_path / COMPLETION_MARKER
+    marker, inventory = load_completion_inventory(marker_path)
+    required = {
+        "schema_version": "training-snapshot-completion-v1",
+        "status": "COMPLETE",
+        "training_snapshot_root": expected.training_snapshot_uri.rstrip("/"),
+        "dataset_version": expected.dataset_version,
+        "source_silver_run_id": expected.silver_run_id,
+        "source_feature_run_id": expected.feature_run_id,
+        "snapshot_id": expected.snapshot_id,
+        "manifest_sha256": manifest_sha256,
+    }
+    if not isinstance(marker, dict) or any(
+        marker.get(name) != value for name, value in required.items()
+    ):
+        raise ValueError("training snapshot completion identity is incompatible")
+    expected_objects = {
+        name: (item["sha256"], item["size_bytes"])
+        for name, item in inventory.items()
+    }
+    if expected_objects.get("manifest.json") != (
+        manifest_sha256,
+        len((dataset_path / "manifest.json").read_bytes()),
+    ):
+        raise ValueError("training snapshot manifest inventory mismatch")
+    if not verify_inventory:
+        return
+    actual_names = {
+        path.relative_to(dataset_path).as_posix()
+        for path in dataset_path.rglob("*")
+        if path.is_file() and path != marker_path
+    }
+    if actual_names != set(expected_objects):
+        raise ValueError("training snapshot file inventory mismatch")
+    for name, (expected_sha256, expected_size) in expected_objects.items():
+        path = dataset_path / name
+        digest = hashlib.sha256()
+        size_bytes = 0
+        with path.open("rb") as stream:
+            while chunk := stream.read(1024 * 1024):
+                digest.update(chunk)
+                size_bytes += len(chunk)
+        if digest.hexdigest() != expected_sha256 or size_bytes != expected_size:
+            raise ValueError(f"training snapshot object inventory mismatch: {name}")

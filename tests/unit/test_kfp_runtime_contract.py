@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 
 from ai_platform.ml.pipelines.runtime import (
+    _download_manifest,
     _environment,
     main,
     verify_chronological_splits,
@@ -28,6 +30,44 @@ def _frame(timestamp: str, labels: list[int]) -> pd.DataFrame:
 
 
 class KfpRuntimeGateTest(unittest.TestCase):
+    def test_manifest_download_is_pinned_to_completion_inventory_generation(self) -> None:
+        marker = {
+            "object_count": 1,
+            "objects": [
+                {
+                    "name": "manifest.json",
+                    "generation": 41,
+                    "sha256": "a" * 64,
+                    "size_bytes": 2,
+                }
+            ],
+        }
+        client = Mock()
+        bucket = client.bucket.return_value
+        marker_blob = Mock()
+        manifest_blob = Mock()
+        marker_blob.download_to_filename.side_effect = lambda path: Path(path).write_text(
+            json.dumps(marker), encoding="utf-8"
+        )
+        manifest_blob.download_to_filename.side_effect = lambda path: Path(path).write_text(
+            "{}", encoding="utf-8"
+        )
+
+        def blob(name: str, **kwargs):
+            if name.endswith("_control/publication_manifest.json"):
+                return marker_blob
+            self.assertEqual({"generation": 41}, kwargs)
+            return manifest_blob
+
+        bucket.blob.side_effect = blob
+        with tempfile.TemporaryDirectory() as temporary, patch(
+            "ai_platform.ml.pipelines.runtime.storage.Client", return_value=client
+        ):
+            target = _download_manifest(
+                "gs://bucket/training/snapshot", Path(temporary) / "snapshot"
+            )
+            self.assertEqual("{}", target.read_text())
+
     def test_runtime_rejects_image_input_that_differs_from_compiled_image(self) -> None:
         common = [
             "validate-snapshot",

@@ -42,6 +42,7 @@ class CloudFeastTrainingBoundary:
     source_git_sha: str
     spark_profile: str
     feature_selection_digest: str
+    feast_snapshot_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.bucket.startswith("gs://") or not _BUCKET_PATTERN.fullmatch(
@@ -55,6 +56,8 @@ class CloudFeastTrainingBoundary:
             "snapshot_id",
         ):
             _validate_id(getattr(self, field), field)
+        if self.feast_snapshot_id is not None:
+            _validate_id(self.feast_snapshot_id, "feast_snapshot_id")
         if self.silver_run_id == self.feature_run_id:
             raise ValueError("silver_run_id and feature_run_id must differ")
         validate_git_sha(self.source_git_sha)
@@ -74,14 +77,26 @@ class CloudFeastTrainingBoundary:
     def feast_snapshot_root(self) -> str:
         return (
             f"gs://{self.bucket}/features/offline/snapshots/"
-            f"{self.dataset_version}/{self.feature_run_id}/{self.snapshot_id}"
+            f"{self.dataset_version}/{self.feature_run_id}/"
+            f"{self.resolved_feast_snapshot_id}"
         )
+
+    @property
+    def resolved_feast_snapshot_id(self) -> str:
+        """Identity of the already-published Feast Offline snapshot.
+
+        Older callers used one ID for both artifacts. New training snapshots pass
+        ``feast_snapshot_id`` explicitly so their immutable identity cannot be
+        confused with the recovered Feast Offline snapshot identity.
+        """
+
+        return self.feast_snapshot_id or self.snapshot_id
 
     @property
     def feast_registry_uri(self) -> str:
         return (
             f"gs://{self.bucket}/features/registries/"
-            f"{self.dataset_version}/{self.snapshot_id}/registry.db"
+            f"{self.dataset_version}/{self.resolved_feast_snapshot_id}/registry.db"
         )
 
     @property
@@ -90,6 +105,21 @@ class CloudFeastTrainingBoundary:
             f"gs://{self.bucket}/ml/training-snapshots/"
             f"{self.dataset_version}/{self.snapshot_id}"
         )
+
+    @property
+    def training_staging_root(self) -> str:
+        return (
+            f"gs://{self.bucket}/ml/training-staging/"
+            f"{self.dataset_version}/{self.snapshot_id}"
+        )
+
+    @property
+    def validation_staging_root(self) -> str:
+        return f"{self.training_staging_root}/validation"
+
+    @property
+    def training_source_staging_root(self) -> str:
+        return f"{self.training_staging_root}/source"
 
     def feast_environment(self) -> dict[str, str]:
         return {
@@ -107,6 +137,8 @@ class CloudFeastTrainingBoundary:
             "spark_profile": self.spark_profile,
             "feature_selection_digest": self.feature_selection_digest,
             "snapshot_id": self.snapshot_id,
+            "training_snapshot_id": self.snapshot_id,
+            "feast_snapshot_id": self.resolved_feast_snapshot_id,
             "inputs": {
                 "silver_root": self.silver_root,
                 "feature_gold_root": self.feature_gold_root,
@@ -115,6 +147,8 @@ class CloudFeastTrainingBoundary:
             "outputs": {
                 "feast_snapshot_root": self.feast_snapshot_root,
                 "feast_registry_uri": self.feast_registry_uri,
+                "validation_staging_root": self.validation_staging_root,
+                "training_source_staging_root": self.training_source_staging_root,
                 "training_snapshot_root": self.training_snapshot_root,
             },
             "temporal_contract": "[T-window,T)",

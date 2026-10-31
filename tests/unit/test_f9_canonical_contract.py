@@ -10,6 +10,7 @@ import yaml
 
 from ai_platform.ml.tracking.config import load_experiment_config
 from ai_platform.ml.tracking.snapshot import load_snapshot_provenance
+from ai_platform.ml.training.contract import MODEL_FEATURE_COLUMNS
 
 
 RUNTIME_ENV = {
@@ -28,6 +29,32 @@ RUNTIME_ENV = {
     "MLFLOW_EXPERIMENT_NAME": "ewallet-fraud-comparison",
     "MLFLOW_REGISTERED_MODEL_NAME": "ewallet-fraud-detector",
 }
+
+
+def _write_completion_marker(root: Path, manifest_digest: str) -> None:
+    manifest = root / "manifest.json"
+    marker = {
+        "schema_version": "training-snapshot-completion-v1",
+        "status": "COMPLETE",
+        "training_snapshot_root": RUNTIME_ENV["F9_TRAINING_SNAPSHOT_URI"],
+        "dataset_version": RUNTIME_ENV["DATASET_VERSION"],
+        "source_silver_run_id": RUNTIME_ENV["SILVER_RUN_ID"],
+        "source_feature_run_id": RUNTIME_ENV["FEATURE_RUN_ID"],
+        "snapshot_id": RUNTIME_ENV["SNAPSHOT_ID"],
+        "manifest_sha256": manifest_digest,
+        "object_count": 1,
+        "objects": [
+            {
+                "name": "manifest.json",
+                "generation": 1,
+                "sha256": manifest_digest,
+                "size_bytes": manifest.stat().st_size,
+            }
+        ],
+    }
+    path = root / "_control/publication_manifest.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(marker), encoding="utf-8")
 
 
 class CanonicalF9ConfigTest(unittest.TestCase):
@@ -74,13 +101,18 @@ class SnapshotProvenanceTest(unittest.TestCase):
             root = Path(temporary_directory)
             manifest = {
                 "schema_version": "f7-training-dataset-v1",
+                "complete_source_scope": True,
                 "materialized_rows": 40_148,
                 "split_summary": {
                     "train": {"rows": 28_000, "normal": 27_430, "fraud": 570},
                     "validation": {"rows": 6_000, "normal": 5_880, "fraud": 120},
                     "test": {"rows": 6_148, "normal": 6_018, "fraud": 130},
                 },
-                "schema": {"model_features": 41},
+                "schema": {
+                    "model_features": 41,
+                    "ordered_model_feature_columns": list(MODEL_FEATURE_COLUMNS),
+                },
+                "validation": {"status": "PASS"},
                 "lineage": {
                     "dataset_version": RUNTIME_ENV["DATASET_VERSION"],
                     "source_silver_run_id": RUNTIME_ENV["SILVER_RUN_ID"],
@@ -94,6 +126,7 @@ class SnapshotProvenanceTest(unittest.TestCase):
             manifest_digest = hashlib.sha256(
                 (root / "manifest.json").read_bytes()
             ).hexdigest()
+            _write_completion_marker(root, manifest_digest)
             config = load_experiment_config(
                 Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
                 repo_root=Path.cwd(),
@@ -112,6 +145,45 @@ class SnapshotProvenanceTest(unittest.TestCase):
         self.assertEqual(41, provenance.feature_count)
         self.assertEqual(64, len(provenance.manifest_sha256))
         self.assertEqual(64, len(provenance.feature_schema_sha256))
+
+    def test_wrong_ordered_feature_schema_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            manifest = {
+                "complete_source_scope": True,
+                "materialized_rows": 3,
+                "split_summary": {
+                    name: {"rows": 1, "normal": 1, "fraud": 0}
+                    for name in ("train", "validation", "test")
+                },
+                "schema": {
+                    "model_features": 41,
+                    "ordered_model_feature_columns": list(
+                        reversed(MODEL_FEATURE_COLUMNS)
+                    ),
+                },
+                "validation": {"status": "PASS"},
+                "lineage": {
+                    "dataset_version": RUNTIME_ENV["DATASET_VERSION"],
+                    "source_silver_run_id": RUNTIME_ENV["SILVER_RUN_ID"],
+                    "source_feature_run_id": RUNTIME_ENV["FEATURE_RUN_ID"],
+                    "snapshot_id": RUNTIME_ENV["SNAPSHOT_ID"],
+                },
+            }
+            (root / "manifest.json").write_text(json.dumps(manifest))
+            digest = hashlib.sha256((root / "manifest.json").read_bytes()).hexdigest()
+            _write_completion_marker(root, digest)
+            config = load_experiment_config(
+                Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
+                repo_root=Path.cwd(),
+                environment={
+                    **RUNTIME_ENV,
+                    "F9_DATASET_PATH": str(root),
+                    "SNAPSHOT_MANIFEST_SHA256": digest,
+                },
+            )
+            with self.assertRaisesRegex(ValueError, "ordered model feature"):
+                load_snapshot_provenance(root, config.snapshot)
 
     def test_manifest_lineage_mismatch_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -142,6 +214,7 @@ class SnapshotProvenanceTest(unittest.TestCase):
             manifest_digest = hashlib.sha256(
                 (root / "manifest.json").read_bytes()
             ).hexdigest()
+            _write_completion_marker(root, manifest_digest)
             config = load_experiment_config(
                 Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
                 repo_root=Path.cwd(),
@@ -164,6 +237,45 @@ class SnapshotProvenanceTest(unittest.TestCase):
                 environment={**RUNTIME_ENV, "F9_DATASET_PATH": str(root)},
             )
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+                load_snapshot_provenance(root, config.snapshot)
+
+    def test_missing_completion_marker_fails_before_training(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "manifest.json").write_text("{}\n", encoding="utf-8")
+            digest = hashlib.sha256((root / "manifest.json").read_bytes()).hexdigest()
+            config = load_experiment_config(
+                Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
+                repo_root=Path.cwd(),
+                environment={
+                    **RUNTIME_ENV,
+                    "F9_DATASET_PATH": str(root),
+                    "SNAPSHOT_MANIFEST_SHA256": digest,
+                },
+            )
+            with self.assertRaisesRegex(ValueError, "completion marker is missing"):
+                load_snapshot_provenance(root, config.snapshot)
+
+    def test_completion_inventory_mismatch_fails_before_training(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "manifest.json").write_text("{}\n", encoding="utf-8")
+            digest = hashlib.sha256((root / "manifest.json").read_bytes()).hexdigest()
+            _write_completion_marker(root, digest)
+            marker_path = root / "_control/publication_manifest.json"
+            marker = json.loads(marker_path.read_text())
+            marker["objects"][0]["sha256"] = "0" * 64
+            marker_path.write_text(json.dumps(marker), encoding="utf-8")
+            config = load_experiment_config(
+                Path("ai_platform/ml/config/f9_mlflow_experiment.yaml"),
+                repo_root=Path.cwd(),
+                environment={
+                    **RUNTIME_ENV,
+                    "F9_DATASET_PATH": str(root),
+                    "SNAPSHOT_MANIFEST_SHA256": digest,
+                },
+            )
+            with self.assertRaisesRegex(ValueError, "manifest inventory mismatch"):
                 load_snapshot_provenance(root, config.snapshot)
 
 

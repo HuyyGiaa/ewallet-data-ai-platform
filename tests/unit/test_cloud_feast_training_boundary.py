@@ -183,20 +183,23 @@ class CloudFeastTrainingBoundaryTest(unittest.TestCase):
             self.boundary.silver_root,
             self.boundary.feast_snapshot_root,
             self.boundary.feast_registry_uri,
-            self.boundary.training_snapshot_root,
-            "--sample-modulus 10000",
             "--environment gcp",
             "--feature-selection-evidence evidence/feature-selection.json",
-            "manifest.sha256",
+            "readback-only",
         ):
             self.assertIn(expected, rendered)
         self.assertNotIn("localhost", rendered)
         self.assertNotIn("minio", rendered.lower())
         self.assertIn(
-            "--feature-store-yaml "
+            "--feature-store-config "
             "ai_platform/features/feast/feature_repo/feature_store.gcp.yaml",
             rendered,
         )
+        self.assertNotIn("export_gold_to_parquet", rendered)
+        self.assertNotIn(" plan", rendered)
+        self.assertNotIn(" apply", rendered)
+        self.assertNotIn(" publish --authorization ", rendered)
+        self.assertNotIn(" feast ", f" {rendered} ")
 
     def test_runtime_root_overrides_are_run_scoped(self) -> None:
         from ai_platform.features.feast.sources.export_gold_to_parquet import (

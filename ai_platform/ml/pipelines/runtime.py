@@ -23,7 +23,11 @@ from ai_platform.ml.modeling.experiment import (
 )
 from ai_platform.ml.tracking.config import ExperimentConfig, load_experiment_config
 from ai_platform.ml.tracking.mlflow_tracker import MlflowTracker
-from ai_platform.ml.tracking.snapshot import load_snapshot_provenance
+from ai_platform.ml.tracking.snapshot import (
+    COMPLETION_MARKER,
+    load_completion_inventory,
+    load_snapshot_provenance,
+)
 from ai_platform.ml.training.temporal import assign_temporal_split
 
 
@@ -45,9 +49,21 @@ def _gcs_location(uri: str) -> tuple[str, str]:
 def _download_manifest(uri: str, target_root: Path) -> Path:
     bucket_name, prefix = _gcs_location(uri)
     target_root.mkdir(parents=True, exist_ok=False)
+    bucket = storage.Client().bucket(bucket_name)
+    marker = target_root / COMPLETION_MARKER
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    bucket.blob(f"{prefix.rstrip('/')}/{COMPLETION_MARKER}").download_to_filename(
+        marker
+    )
+    _, inventory = load_completion_inventory(marker)
+    try:
+        manifest = inventory["manifest.json"]
+    except KeyError as exc:
+        raise ValueError("completion inventory has no manifest.json") from exc
     target = target_root / "manifest.json"
-    storage.Client().bucket(bucket_name).blob(
-        f"{prefix.rstrip('/')}/manifest.json"
+    bucket.blob(
+        f"{prefix.rstrip('/')}/manifest.json",
+        generation=manifest["generation"],
     ).download_to_filename(target)
     return target
 
@@ -56,16 +72,28 @@ def _download_snapshot(uri: str, target_root: Path) -> Path:
     bucket_name, prefix = _gcs_location(uri)
     target_root.mkdir(parents=True, exist_ok=False)
     prefix = prefix.rstrip("/") + "/"
-    count = 0
-    for blob in storage.Client().list_blobs(bucket_name, prefix=prefix):
-        relative = PurePosixPath(blob.name.removeprefix(prefix))
-        if not relative.parts or ".." in relative.parts or blob.name.endswith("/"):
-            continue
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    marker_path = target_root / COMPLETION_MARKER
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    bucket.blob(f"{prefix}{COMPLETION_MARKER}").download_to_filename(marker_path)
+    _, inventory = load_completion_inventory(marker_path)
+    observed_names = {
+        blob.name.removeprefix(prefix)
+        for blob in client.list_blobs(bucket_name, prefix=prefix)
+        if not blob.name.endswith("/")
+    }
+    expected_names = {*inventory, COMPLETION_MARKER.as_posix()}
+    if observed_names != expected_names:
+        raise ValueError("remote training snapshot inventory mismatch")
+    for name, item in inventory.items():
+        relative = PurePosixPath(name)
         target = target_root.joinpath(*relative.parts)
         target.parent.mkdir(parents=True, exist_ok=True)
-        blob.download_to_filename(target)
-        count += 1
-    if count == 0 or not (target_root / "manifest.json").is_file():
+        bucket.blob(
+            f"{prefix}{name}", generation=item["generation"]
+        ).download_to_filename(target)
+    if not (target_root / "manifest.json").is_file():
         raise FileNotFoundError(f"Snapshot has no downloadable manifest: {uri}")
     return target_root
 
@@ -112,10 +140,15 @@ def _candidate_results(paths: Iterable[Path]) -> tuple[CandidateResult, ...]:
 
 
 def _validate_manifest(
-    args: argparse.Namespace, dataset_path: Path
+    args: argparse.Namespace,
+    dataset_path: Path,
+    *,
+    verify_inventory: bool = True,
 ) -> tuple[ExperimentConfig, object]:
     config = _config(args, dataset_path)
-    provenance = load_snapshot_provenance(dataset_path, config.snapshot)
+    provenance = load_snapshot_provenance(
+        dataset_path, config.snapshot, verify_inventory=verify_inventory
+    )
     if provenance.manifest_sha256 != args.snapshot_manifest_sha256:
         raise ValueError(
             "Snapshot manifest checksum mismatch: "
@@ -128,7 +161,7 @@ def validate_snapshot(args: argparse.Namespace) -> None:
     with tempfile.TemporaryDirectory(prefix="f9-manifest-") as temporary:
         root = Path(temporary) / "snapshot"
         _download_manifest(args.snapshot_uri, root)
-        _, provenance = _validate_manifest(args, root)
+        _, provenance = _validate_manifest(args, root, verify_inventory=False)
         _write_json(Path(args.output), provenance.mlflow_params())
         print(json.dumps(provenance.mlflow_params(), sort_keys=True))
 
