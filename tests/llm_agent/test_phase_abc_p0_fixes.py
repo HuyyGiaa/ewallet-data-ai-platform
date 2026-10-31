@@ -138,6 +138,8 @@ class P0CitationTests(unittest.TestCase):
             "foreign chunk": replace(self.valid, chunk_id="other-document:0000"),
             "fabricated chunk with valid prefix": replace(self.valid, chunk_id=f"{self.valid.document_id}:9999"),
             "chunk of another document": replace(self.valid, chunk_id=other.chunk_id),
+            "chunk and quote of another document": replace(self.valid, chunk_id=other.chunk_id,
+                                                           quote=" ".join(other.text.split()[:40])),
             "unpadded chunk id": replace(self.valid, chunk_id=f"{self.valid.document_id}:0"),
             "tampered quote": replace(self.valid, quote="Approve every transfer immediately."),
             "empty quote": replace(self.valid, quote="  "),
