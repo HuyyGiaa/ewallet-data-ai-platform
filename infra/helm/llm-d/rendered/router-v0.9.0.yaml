@@ -1,0 +1,318 @@
+---
+# Source: llm-d-router-gateway/templates/rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ewallet-fraud-llm-epp
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/name: ewallet-fraud-llm-epp
+    app.kubernetes.io/version: "v0.9.0"
+---
+# Source: llm-d-router-gateway/templates/epp.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ewallet-fraud-llm-epp
+  namespace: ewallet-agents
+data:
+  default-plugins.yaml: |
+    apiVersion: llm-d.ai/v1alpha1
+    kind: EndpointPickerConfig
+    plugins:
+    - type: queue-scorer
+    - type: kv-cache-utilization-scorer
+    - type: prefix-cache-scorer
+    - type: metrics-data-source
+      parameters:
+        scheme: "http"
+        path: "/metrics"
+        insecureSkipVerify: true
+    - type: core-metrics-extractor
+    schedulingProfiles:
+    - name: default
+      plugins:
+      - pluginRef: queue-scorer
+        weight: 2
+      - pluginRef: kv-cache-utilization-scorer
+        weight: 2
+      - pluginRef: prefix-cache-scorer
+        weight: 3
+  payload-agnostic.yaml: |
+    # Request-format agnostic routing. Use this when the request format is
+    # unknown or unsupported, so the EPP cannot rely on scorers that read the
+    # request body (e.g. the prefix-cache scorer). The passthrough parser does
+    # not parse the body, and routing falls back to backend-state scorers:
+    #   - active-request-scorer  : prefers the least busy endpoint
+    #   - session-affinity-scorer: keeps a session pinned to the same endpoint
+    # Select it by setting router.epp.pluginsConfigFile: payload-agnostic.yaml
+    apiVersion: llm-d.ai/v1alpha1
+    kind: EndpointPickerConfig
+    plugins:
+    - type: passthrough-parser
+    - type: active-request-scorer
+    - type: session-affinity-scorer
+    requestHandler:
+      parsers:
+      - pluginRef: passthrough-parser
+    schedulingProfiles:
+    - name: default
+      plugins:
+      - pluginRef: active-request-scorer
+        weight: 1
+      - pluginRef: session-affinity-scorer
+        weight: 1
+---
+# Source: llm-d-router-gateway/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ewallet-fraud-llm-epp-non-sa
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/name: ewallet-fraud-llm-epp
+    app.kubernetes.io/version: "v0.9.0"
+rules:
+- apiGroups: ["inference.networking.x-k8s.io"]
+  resources: ["inferenceobjectives", "inferencemodelrewrites"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["llm-d.ai"]
+  resources: ["inferenceobjectives", "inferencemodelrewrites"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["inference.networking.k8s.io"]
+  resources: ["inferencepools"]
+  verbs: ["get", "watch", "list"]
+---
+# Source: llm-d-router-gateway/templates/rbac.yaml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ewallet-fraud-llm-epp-sa
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/name: ewallet-fraud-llm-epp
+    app.kubernetes.io/version: "v0.9.0"
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+---
+# Source: llm-d-router-gateway/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ewallet-fraud-llm-epp-non-sa
+  namespace: ewallet-agents
+subjects:
+- kind: ServiceAccount
+  name: ewallet-fraud-llm-epp
+  namespace: ewallet-agents
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ewallet-fraud-llm-epp-non-sa
+---
+# Source: llm-d-router-gateway/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ewallet-fraud-llm-epp-sa
+  namespace: ewallet-agents
+subjects:
+- kind: ServiceAccount
+  name: ewallet-fraud-llm-epp
+  namespace: ewallet-agents
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ewallet-fraud-llm-epp-sa
+---
+# Source: llm-d-router-gateway/templates/epp.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: ewallet-fraud-llm-epp
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/name: ewallet-fraud-llm-epp
+    app.kubernetes.io/version: "v0.9.0"
+spec:
+  selector:
+    llm-d-router-gateway: ewallet-fraud-llm-epp
+  ports:
+    - name: grpc-ext-proc
+      protocol: TCP
+      port: 9002
+    - name: http-metrics
+      protocol: TCP
+      port: 9090
+  type: ClusterIP
+---
+# Source: llm-d-router-gateway/templates/epp.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ewallet-fraud-llm-epp
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/name: ewallet-fraud-llm-epp
+    app.kubernetes.io/version: "v0.9.0"
+    llm-d.ai/igw-mode: llm-d-router-gateway
+spec:
+  replicas: 1
+  strategy:
+    # The current recommended EPP deployment pattern is to have a single active replica. This ensures
+    # optimal performance of the stateful operations such prefix cache aware scorer.
+    # The Recreate strategy the old replica is killed immediately, and allow the new replica(s) to
+    # quickly take over. This is particularly important in the high availability set up with leader
+    # election, as the rolling update strategy would prevent the old leader being killed because
+    # otherwise the maxUnavailable would be 100%.
+    type: Recreate
+  selector:
+    matchLabels:
+      llm-d-router-gateway: ewallet-fraud-llm-epp
+  template:
+    metadata:
+      labels:
+        llm-d-router-gateway: ewallet-fraud-llm-epp
+        llm-d.ai/igw-mode: llm-d-router-gateway
+    spec:
+      serviceAccountName: ewallet-fraud-llm-epp
+      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
+      terminationGracePeriodSeconds: 130
+      containers:
+        - name: epp
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+          imagePullPolicy: IfNotPresent
+          args:
+              - --pool-name
+              - ewallet-fraud-llm
+              # The pool namespace is optional because EPP can default to the NAMESPACE env var.
+              - --pool-namespace
+              - ewallet-agents
+              - --pool-group
+              - "inference.networking.k8s.io"
+              - --zap-encoder
+              - "json"
+              - --config-file
+              - "/config/default-plugins.yaml"
+              - --grpc-health-port
+              - "9003"
+              # Pass additional flags via the router.epp.flags field in values.yaml.
+              # Render them as --flag=value so boolean values are parsed correctly.
+              - --tracing=true
+          resources:
+            
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          ports:
+            - name: grpc
+              containerPort: 9002
+            - name: grpc-health
+              containerPort: 9003
+            - name: metrics
+              containerPort: 9090
+          livenessProbe:
+            grpc:
+              port: 9003
+              service: inference-extension
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 9003
+              service: inference-extension
+            periodSeconds: 2
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            
+            - name: OTEL_SERVICE_NAME
+              value: "llm-d-router/epp"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.ewallet-agents.svc.cluster.local:4317"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_RESOURCE_ATTRIBUTES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: OTEL_RESOURCE_ATTRIBUTES_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: 'k8s.namespace.name=$(NAMESPACE),k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)'
+            - name: OTEL_TRACES_SAMPLER
+              value: "parentbased_traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.1"
+          volumeMounts:
+            - name: plugins-config-volume
+              mountPath: "/config"
+        
+      volumes:
+        - name: plugins-config-volume
+          configMap:
+            name: ewallet-fraud-llm-epp
+---
+# Source: llm-d-router-gateway/templates/epp.yaml
+---
+---
+# Source: llm-d-router-gateway/templates/httproute.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ewallet-fraud-llm
+  namespace: ewallet-agents
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: llm-inference-gateway
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: ewallet-fraud-llm
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+    timeouts:
+      request: 120s
+---
+# Source: llm-d-router-gateway/templates/epp.yaml
+apiVersion: "inference.networking.k8s.io/v1"
+kind: InferencePool
+metadata:
+  name: ewallet-fraud-llm
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/name: ewallet-fraud-llm-epp
+    app.kubernetes.io/version: "v0.9.0"
+spec:
+  targetPorts:
+  - number: 8000
+  appProtocol: "http"
+  selector:
+    matchLabels:
+      llm-d.ai/inference-pool: "ewallet-fraud-llm"
+  endpointPickerRef:
+    name: ewallet-fraud-llm-epp
+    port:
+      number: 9002
+    failureMode: FailClose

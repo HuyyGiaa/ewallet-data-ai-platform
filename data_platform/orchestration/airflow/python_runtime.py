@@ -19,6 +19,13 @@ REQUIRED_GCP_MODULES = (
     "ops.gcp.verify_delta_run",
     "ops.gcp.wait_for_dataproc_quota",
 )
+# Stdlib-only LLM/Agent runners. They are allowed in task commands but are not
+# added to the interpreter validation above, so DP1-DP3 DAG parsing is unchanged.
+LLM_AGENT_MODULES = (
+    "ops.llm_agent.rag_pipeline",
+    "ops.llm_agent.run_rag_evaluation",
+    "ops.llm_agent.verify_rag_artifacts",
+)
 
 
 @lru_cache(maxsize=None)
@@ -73,7 +80,7 @@ def python_task_environment(repository_root: str | Path) -> dict[str, str]:
 def python_module_command(module: str) -> str:
     """Build a fail-fast shell prefix for running a validated Python module."""
 
-    if module not in REQUIRED_GCP_MODULES:
+    if module not in REQUIRED_GCP_MODULES + LLM_AGENT_MODULES:
         raise ValueError(f"Python module is not in the Airflow allowlist: {module}")
     return (
         f'"${{{PYTHON_ENV_VAR}:?ERROR: {PYTHON_ENV_VAR} is not configured}}" '

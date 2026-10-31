@@ -1,0 +1,26 @@
+{
+ "prompts": {
+  "drift-specialist/v1": {
+   "agent": "drift-specialist",
+   "langfuse_name": "ewallet/drift-specialist",
+   "path": "drift-specialist/v1.md",
+   "sha256": "9330dda3061ba50246e15d4d91065ccbfd5b40afc634a380b5e7f72632cd6945",
+   "version": "v1"
+  },
+  "feature-rag-specialist/v1": {
+   "agent": "feature-rag-specialist",
+   "langfuse_name": "ewallet/feature-rag-specialist",
+   "path": "feature-rag-specialist/v1.md",
+   "sha256": "391413680be342fe4b8ad9543a36b25c3ef3506ad6f4f75db1834f6ae44a2cb6",
+   "version": "v1"
+  },
+  "fraud-coordinator/v1": {
+   "agent": "fraud-coordinator",
+   "langfuse_name": "ewallet/fraud-coordinator",
+   "path": "fraud-coordinator/v1.md",
+   "sha256": "413d20a9229d38fb5004610c04824233584ebfa2d63110a4950a172ffb208bb1",
+   "version": "v1"
+  }
+ },
+ "schema": "ewallet-prompt-registry/v1"
+}

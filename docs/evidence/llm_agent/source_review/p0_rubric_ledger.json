@@ -1,0 +1,1 @@
+{"status": "PASS", "summary": {"available_points": 200, "awarded_points": 27, "row_count": 93, "sheets": {"edai-1 (50%)": {"available_points": 100, "awarded_points": 26, "weighted_points": 13.0}, "edai-2 (50%)": {"available_points": 100, "awarded_points": 1, "weighted_points": 0.5}}, "status_counts": {"OPEN": 9, "PARTIAL": 72, "VERIFIED": 12}, "weighted_score": 13.5}}

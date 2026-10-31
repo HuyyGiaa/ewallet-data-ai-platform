@@ -1,0 +1,17 @@
+# agentregistry 0.4.0 as the agent/prompt/MCP catalog (governance, rubric rows
+# 8, 21, 26, 41; prompt management row 34). Catalog only: the agents are
+# deployed by infra/helm/llm-agent-platform, never by the registry runtime.
+# The chart default ClusterRole can write Secrets and Deployments in every
+# namespace and manage kagent Agents; catalog use needs none of it.
+rbac:
+  enabled: false
+automountServiceAccountToken: false
+replicaCount: 1
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+service:
+  type: ClusterIP
+database:
+  postgres:
+    type: bundled

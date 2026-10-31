@@ -1,0 +1,6 @@
+## helm template -f values-gcp.yaml | policy_lint
+SOURCE_ONLY_PASS errors= 0
+## helm template -f values-local.yaml | policy_lint
+SOURCE_ONLY_PASS errors= 0
+## docker build --check --target mcp-server (no build)
+Check complete, no warnings found.

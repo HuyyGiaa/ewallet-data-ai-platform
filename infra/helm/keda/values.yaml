@@ -1,0 +1,13 @@
+# KEDA 2.21.0 operator, small footprint; it only needs to scale Substrate
+# WorkerPools in ewallet-agents (scale subresource, no label selector).
+watchNamespace: ewallet-agents
+resources:
+  operator:
+    requests: {cpu: 50m, memory: 100Mi}
+    limits: {cpu: 500m, memory: 500Mi}
+  metricServer:
+    requests: {cpu: 50m, memory: 100Mi}
+    limits: {cpu: 500m, memory: 500Mi}
+  webhooks:
+    requests: {cpu: 25m, memory: 64Mi}
+    limits: {cpu: 250m, memory: 256Mi}

@@ -1,0 +1,320 @@
+{
+ "_meta": {
+  "identity": "no Istio identity in Docker: source.identity absent",
+  "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+  "network": "docker --internal"
+ },
+ "callers": {
+  "backend_saw": [
+   {
+    "authorization_present": false,
+    "method": "initialize",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "notifications/initialized",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/list",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "initialize",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "notifications/initialized",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/list",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   }
+  ],
+  "client": {
+   "/drift/mcp": {
+    "initialize": 200,
+    "tools_call": {
+     "feature_lookup": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     },
+     "fraud_scoring": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     }
+    },
+    "tools_list": {
+     "status": 200,
+     "tools": []
+    }
+   },
+   "/feature-rag/mcp": {
+    "initialize": 200,
+    "tools_call": {
+     "feature_lookup": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     },
+     "fraud_scoring": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     }
+    },
+    "tools_list": {
+     "status": 200,
+     "tools": []
+    }
+   }
+  },
+  "gateway_mcp_log_lines": 10
+ },
+ "deny-all": {
+  "backend_saw": [
+   {
+    "authorization_present": false,
+    "method": "initialize",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "notifications/initialized",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/list",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "initialize",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "notifications/initialized",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/list",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   }
+  ],
+  "client": {
+   "/drift/mcp": {
+    "initialize": 200,
+    "tools_call": {
+     "feature_lookup": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     },
+     "fraud_scoring": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     }
+    },
+    "tools_list": {
+     "status": 200,
+     "tools": []
+    }
+   },
+   "/feature-rag/mcp": {
+    "initialize": 200,
+    "tools_call": {
+     "feature_lookup": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     },
+     "fraud_scoring": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     }
+    },
+    "tools_list": {
+     "status": 200,
+     "tools": []
+    }
+   }
+  },
+  "gateway_mcp_log_lines": 10
+ },
+ "test-only-identity-free": {
+  "backend_saw": [
+   {
+    "authorization_present": false,
+    "method": "initialize",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "notifications/initialized",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/list",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/call",
+    "tool": "feature_lookup",
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "initialize",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "notifications/initialized",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/list",
+    "tool": null,
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   },
+   {
+    "authorization_present": false,
+    "method": "tools/call",
+    "tool": "feature_lookup",
+    "x-ewallet-actor": null,
+    "x-ewallet-caller": null
+   }
+  ],
+  "client": {
+   "/drift/mcp": {
+    "initialize": 200,
+    "tools_call": {
+     "feature_lookup": {
+      "outcome": {
+       "content": [
+        {
+         "text": "stub-executed",
+         "type": "text"
+        }
+       ],
+       "isError": false
+      },
+      "status": 200
+     },
+     "fraud_scoring": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     }
+    },
+    "tools_list": {
+     "status": 200,
+     "tools": [
+      "feature_lookup"
+     ]
+    }
+   },
+   "/feature-rag/mcp": {
+    "initialize": 200,
+    "tools_call": {
+     "feature_lookup": {
+      "outcome": {
+       "content": [
+        {
+         "text": "stub-executed",
+         "type": "text"
+        }
+       ],
+       "isError": false
+      },
+      "status": 200
+     },
+     "fraud_scoring": {
+      "outcome": {
+       "code": -32602,
+       "message": "unknown resource"
+      },
+      "status": 400
+     }
+    },
+    "tools_list": {
+     "status": 200,
+     "tools": [
+      "feature_lookup"
+     ]
+    }
+   }
+  },
+  "gateway_mcp_log_lines": 10
+ }
+}

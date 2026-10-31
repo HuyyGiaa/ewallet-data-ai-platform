@@ -1,0 +1,11 @@
+10:05:24 load=2.04 memavail_gib=15.5 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:05:25 load=2.04 memavail_gib=15.5 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:05:27 load=2.04 memavail_gib=15.3 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:05:40 load=1.95 memavail_gib=15.6 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:05:42 load=2.11 memavail_gib=15.4 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:05:58 load=2.23 memavail_gib=15.3 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:06:08 load=4.12 memavail_gib=15.5 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:06:18 load=4.55 memavail_gib=14.7 psi_mem_avg10=avg10=0.00 airflow8084=healthy
+10:06:28 load=4.63 memavail_gib=13.4 psi_mem_avg10=avg10=0.08 airflow8084=healthy
+10:06:38 load=7.43 memavail_gib=13.5 psi_mem_avg10=avg10=0.02 airflow8084=healthy
+10:06:48 load=7.51 memavail_gib=14.4 psi_mem_avg10=avg10=0.00 airflow8084=healthy

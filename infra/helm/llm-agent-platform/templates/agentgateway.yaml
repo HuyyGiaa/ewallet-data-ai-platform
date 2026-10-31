@@ -1,0 +1,190 @@
+{{- if .Values.agentgateway.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-llm-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    # yaml-language-server: $schema=https://agentgateway.dev/schema/config
+    gateways:
+      default:
+        port: 4000
+    routes:
+      - policies:
+          timeout:
+            requestTimeout: {{ .Values.agentgateway.requestTimeout }}
+            backendRequestTimeout: {{ .Values.agentgateway.backendRequestTimeout }}
+            responseIdleTimeout: {{ .Values.agentgateway.responseIdleTimeout }}
+          retry:
+            attempts: {{ .Values.agentgateway.retryAttempts }}
+            backoff: {{ .Values.agentgateway.retryBackoff }}
+            codes: [429, 500, 502, 503, 504]
+        backends:
+          - host: 127.0.0.1:3000
+    llm:
+      port: 3000
+      policies:
+        timeout:
+          requestTimeout: {{ .Values.agentgateway.llmRequestTimeout }}
+          backendRequestTimeout: {{ .Values.agentgateway.backendRequestTimeout }}
+          responseIdleTimeout: {{ .Values.agentgateway.responseIdleTimeout }}
+        localRateLimit:
+          - maxTokens: {{ .Values.agentgateway.requestRate.capacity }}
+            tokensPerFill: {{ .Values.agentgateway.requestRate.refill }}
+            fillInterval: {{ .Values.agentgateway.requestRate.interval }}
+            type: requests
+            key: llm.requestModel
+          - maxTokens: {{ .Values.agentgateway.tokenRate.capacity }}
+            tokensPerFill: {{ .Values.agentgateway.tokenRate.refill }}
+            fillInterval: {{ .Values.agentgateway.tokenRate.interval }}
+            type: tokens
+            key: llm.requestModel
+      models:
+        {{- if .Values.llmd.enabled }}
+        # llm-d inference-aware route: agentgateway (Gateway API mode) ->
+        # InferencePool -> llm-d EPP picks a primary vLLM pod.
+        - name: ewallet-fraud-llm-routed
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: {{ .Values.vllm.servedModelName }}
+            baseUrl: http://{{ .Values.llmd.gatewayName }}.{{ .Values.namespace.name }}.svc.cluster.local:{{ .Values.llmd.gatewayPort }}/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: {{ .Values.agentgateway.circuitBreakDuration }}
+          responseHeaders:
+            set:
+              x-ewallet-backend: llm-d
+        {{- end }}
+        - name: ewallet-fraud-llm-primary
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: {{ .Values.vllm.servedModelName }}
+            baseUrl: http://vllm-primary.{{ .Values.namespace.name }}.svc.cluster.local:8000/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: {{ .Values.agentgateway.circuitBreakDuration }}
+          responseHeaders:
+            set:
+              x-ewallet-backend: primary
+        - name: ewallet-fraud-llm-fallback
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: {{ .Values.vllm.servedModelName }}
+            baseUrl: http://vllm-fallback.{{ .Values.namespace.name }}.svc.cluster.local:8000/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: {{ .Values.agentgateway.circuitBreakDuration }}
+          responseHeaders:
+            set:
+              x-ewallet-backend: fallback
+      virtualModels:
+        - name: ewallet-fraud-llm
+          routing:
+            failover:
+              targets:
+                {{- if .Values.llmd.enabled }}
+                - {model: ewallet-fraud-llm-routed, priority: 0}
+                - {model: ewallet-fraud-llm-primary, priority: 1}
+                - {model: ewallet-fraud-llm-fallback, priority: 2}
+                {{- else }}
+                - {model: ewallet-fraud-llm-primary, priority: 0}
+                - {model: ewallet-fraud-llm-fallback, priority: 1}
+                {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentgateway
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: agentgateway
+spec:
+  replicas: {{ .Values.agentgateway.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app.kubernetes.io/name: agentgateway}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: agentgateway}
+    spec:
+      serviceAccountName: agentgateway
+      automountServiceAccountToken: false
+      containers:
+        - name: agentgateway
+          image: {{ .Values.agentgateway.image }}
+          imagePullPolicy: IfNotPresent
+          args: ["-f", "/config/config.yaml"]
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.vllm.apiKeySecret.name }}
+                  key: {{ .Values.vllm.apiKeySecret.key }}
+          ports:
+            - {name: entry, containerPort: 4000}
+            - {name: llm-internal, containerPort: 3000}
+          startupProbe:
+            tcpSocket: {port: entry}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            tcpSocket: {port: entry}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: entry}
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.agentgateway.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          configMap: {name: agentgateway-llm-config}
+        - name: tmp
+          emptyDir: {sizeLimit: 128Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentgateway
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: agentgateway}
+  ports:
+    - {name: llm, port: 3000, targetPort: entry}
+{{- end }}

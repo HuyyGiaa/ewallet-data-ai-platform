@@ -1,0 +1,1 @@
+{"applied": 37, "killed": 37, "score": 1.0}

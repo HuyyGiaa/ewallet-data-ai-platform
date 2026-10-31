@@ -1,0 +1,455 @@
+namespace:
+  create: true
+  name: ewallet-agents
+  ambient: true
+  # Pod Security Admission: enforce Baseline, surface Restricted gaps.
+  podSecurity:
+    enforce: baseline
+    warn: restricted
+    audit: restricted
+
+gateway:
+  enabled: false
+  name: ewallet-agent-gateway
+  className: istio
+  hostname: agents.example.invalid
+  tlsSecretName: ewallet-agent-tls
+  coordinatorService: fraud-coordinator-a2a
+  coordinatorPort: 8083
+
+serviceAccounts:
+  - agentgateway
+  - vllm
+  - mcp-gateway
+  - a2a-gateway
+  - feature-rag-mcp
+  - drift-mcp
+  - fraud-coordinator
+  - feature-rag-specialist
+  - drift-specialist
+  - otel-collector
+
+networkPolicy:
+  enabled: true
+  dns:
+    namespace: kube-system
+    podLabels:
+      k8s-app: kube-dns
+
+# Least-privilege allow-flows on top of the Istio and Kubernetes default-deny.
+# A flow is enforced only when both ends are workloads this chart owns, so its
+# pod labels and ServiceAccount (Istio SPIFFE principal) are source-defined.
+# Everything else stays denied and is listed under `unresolved` until its
+# runtime identity has been read back; never add a catch-all to unblock it.
+networkFlows:
+  trustDomain: cluster.local
+  workloads:
+    agentgateway:
+      serviceAccount: agentgateway
+      podLabels:
+        app.kubernetes.io/name: agentgateway
+    vllm:
+      serviceAccount: vllm
+      podLabels:
+        app.kubernetes.io/name: vllm
+    feature-rag-mcp:
+      serviceAccount: feature-rag-mcp
+      podLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    drift-mcp:
+      serviceAccount: drift-mcp
+      podLabels:
+        app.kubernetes.io/name: drift-mcp
+    mcp-gateway:
+      serviceAccount: mcp-gateway
+      podLabels:
+        app.kubernetes.io/name: mcp-gateway
+    a2a-gateway:
+      serviceAccount: a2a-gateway
+      podLabels:
+        app.kubernetes.io/name: a2a-gateway
+    otel-collector:
+      serviceAccount: otel-collector
+      podLabels:
+        app.kubernetes.io/name: otel-collector
+    # Created by the pinned llm-d router chart (infra/helm/llm-d), rendered
+    # labels and ServiceAccount read from llm-d-router-gateway v0.9.0.
+    llmd-epp:
+      serviceAccount: ewallet-fraud-llm-epp
+      podLabels:
+        llm-d-router-gateway: ewallet-fraud-llm-epp
+  enforced:
+    - name: agentgateway-to-vllm
+      from: agentgateway
+      to: vllm
+      port: 8000
+  unresolved:
+    - name: agents-to-agentgateway
+      to: agentgateway:4000
+      reason: SandboxAgent egress runs on the Substrate WorkerPool; its pod labels, namespace and ServiceAccount are not source-defined.
+      gate: Read back the WorkerPool/SandboxAgent pod identity, then declare it as a workload and an enforced flow.
+    - name: coordinator-to-specialists-native-a2a
+      to: kagent-controller:8083 /api/a2a/<namespace>/<agent>
+      reason: Native kagent A2A is served by the kagent controller outside this chart; controller and sandbox identities are not source-defined.
+      gate: Read back kagent controller and WorkerPool identities.
+    - name: agents-to-mcp-gateway
+      to: mcp-gateway:8080
+      reason: The MCP Gateway and its flows to the MCP servers are source-defined (mcpGateway.enabled), but agent worker pods run on Substrate WorkerPools whose ServiceAccount and labels are not source-definable in Substrate 0.0.9.
+      gate: Read back each WorkerPool's pod ServiceAccount and labels, set mcpGateway.callerServiceAccounts, then declare the worker workloads and enforced flows.
+    - name: a2a-gateway-to-kagent-controller
+      to: kagent-controller.kagent:8083
+      reason: Cross-namespace flow to the kagent controller; its pod labels come from the kagent chart and this chart only renders same-namespace flows.
+      gate: Read back the controller labels and add a namespaced ingress/egress pair.
+    - name: mcp-to-rag-feast-kserve-fraud-scoring
+      to: Feast online store, RAG embedding, KServe fraud-scoring
+      reason: Endpoints live in ML/Data Platform namespaces that are not deployed or contract-pinned for this chart.
+      gate: ML Platform runtime readback of namespaces, labels and ports.
+    - name: otlp-exporters-to-collector
+      to: otel-collector:4317
+      reason: Chart-owned exporters get enforced flows when otelCollector.enabled; kagent controller/agent workers and Prometheus (another namespace) have no source-defined identity.
+      gate: Read back the kagent controller, worker and Prometheus identities, then add their flows.
+    - name: vllm-model-bootstrap
+      to: huggingface.co:443
+      reason: vLLM downloads the pinned revision at startup, but NetworkPolicy cannot express an FQDN and a CIDR guess would be a broad egress.
+      gate: Only for vllm.modelSource.mode=huggingface. The staged mode (checksum-verified read-only PVC, offline vLLM) needs no egress; GCP still needs the PVC source (e.g. GCS FUSE) chosen.
+    - name: external-gateway-to-coordinator
+      to: fraud-coordinator-a2a:8083
+      reason: The HTTPRoute backend Service is not defined in source, and the Istio Gateway pod ingress and health-check ports are not opened.
+      gate: Define the coordinator A2A backend and read back the Gateway deployment labels and ServiceAccount.
+
+vllm:
+  enabled: true
+  image: docker.io/vllm/vllm-openai-cpu:v0.32.0-x86_64@sha256:827ef38187f9b52f2bb838695ef815ec5b65f4bf3e4c061b002b2b0a19cb0701
+  model: Qwen/Qwen3-0.6B
+  modelRevision: c1899de289a04d12100db370d81485cdf75e47ca
+  servedModelName: ewallet-fraud-llm-v1
+  # vLLM requires --enable-auto-tool-choice plus a parser for tool_choice=auto.
+  # hermes is Qwen's documented parser for Qwen3; vLLM's own table lists it for
+  # Qwen2.5, so a real-model tool-call smoke is still a runtime gate.
+  toolCalling:
+    enabled: true
+    parser: hermes
+  # huggingface: vLLM downloads model@modelRevision at startup and needs the
+  # unresolved vllm-model-bootstrap egress. staged: the pinned files sit on a
+  # read-only PVC, an init container checks every SHA-256, vLLM runs offline.
+  modelSource:
+    mode: huggingface
+    staged:
+      claimName: ""
+      subPath: ""
+      sha256sums: ""
+  # Qwen3 reasons by default; on CPU that costs most of the latency budget and
+  # leaks reasoning into content. Measured locally (vLLM 0.32.0 CPU, 2 OMP
+  # threads): 128 tokens in 77 s with thinking, 48 tokens in 11 s without.
+  reasoningParser: qwen3
+  defaultChatTemplateKwargs:
+    enable_thinking: false
+  shmSize: 1Gi
+  # Zero-downtime default; a CPU-bound host can set maxSurge 0 so an old and a
+  # new vLLM pod never start side by side.
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+  # Startup probe sends one tool-shaped completion; Ready only once it succeeds.
+  warmup:
+    enabled: true
+    timeoutSeconds: 240
+    failureThreshold: 90
+  ompThreads: 2
+  kvCacheSpaceGiB: 4
+  apiKeySecret:
+    name: vllm-api-key
+    key: api-key
+  primary:
+    replicas: 1
+    maxNumSeqs: 4
+    maxNumQueuedRequests: 8
+    prefixCaching: true
+  fallback:
+    replicas: 1
+    maxNumSeqs: 2
+    maxNumQueuedRequests: 4
+    prefixCaching: false
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "3"
+      memory: 8Gi
+
+agentgateway:
+  enabled: true
+  image: ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+  replicas: 2
+  # Entry route budget; the LLM listener budget stays just under it so the
+  # listener, not the entry route, answers a slow backend. CPU inference needs
+  # longer budgets (values-local.yaml): a non-streamed completion sends no byte
+  # until it is done, so responseIdleTimeout must cover the whole generation.
+  requestTimeout: 30s
+  llmRequestTimeout: 28s
+  backendRequestTimeout: 20s
+  responseIdleTimeout: 10s
+  retryAttempts: 2
+  retryBackoff: 250ms
+  circuitBreakDuration: 30s
+  requestRate:
+    capacity: 12
+    refill: 12
+    interval: 1s
+  tokenRate:
+    capacity: 24000
+    refill: 24000
+    interval: 1h
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# llm-d inference-aware routing (rubric edai-2 rows 3-6 link the llm-d
+# quickstart). Validated topology for the pinned versions:
+#   agentgateway (this chart, standalone: model policy, quotas, failover)
+#     -> llm-inference-gateway (agentgateway v1.7.0 controller, Gateway API mode)
+#     -> InferencePool (GAIE v1.6.2, inference.networking.k8s.io/v1)
+#     -> llm-d router EPP v0.9.0 picks one primary vLLM pod.
+# The direct primary and fallback vLLM backends stay as failover targets.
+# The router chart, CRDs and controller are installed from infra/helm/llm-d
+# (pins in versions.env); this chart only owns the Gateway and the flows.
+llmd:
+  enabled: false
+  poolName: ewallet-fraud-llm
+  gatewayName: llm-inference-gateway
+  gatewayClassName: agentgateway
+  gatewayPort: 80
+  # EPP scrapes vLLM /metrics on the serving port for its scorers.
+  networkFlows:
+    - name: llmd-epp-to-vllm-metrics
+      from: llmd-epp
+      to: vllm
+      port: 8000
+  unresolvedFlows:
+    - name: agentgateway-to-llm-inference-gateway
+      to: llm-inference-gateway:80
+      reason: The inference Gateway data plane is provisioned by the agentgateway controller; its pod labels and ServiceAccount are not source-defined.
+      gate: Read back the provisioned Deployment labels and ServiceAccount, then declare it as a workload with enforced flows to it, from it to llmd-epp:9002 (ext_proc) and to vllm:8000.
+    - name: llmd-epp-to-kube-apiserver
+      to: kubernetes.default.svc:443
+      reason: The EPP watches Pods and InferencePools through a namespaced Role; the API server endpoint is cluster-specific.
+      gate: Read back the API server endpoint IPs and allow only them on 443 from llmd-epp.
+
+# kagent 0.10.3 Agents on Agent Substrate 0.0.9 (rubric edai-2 rows 19-22,
+# 25-27). Disabled until the kagent controller, Substrate and the MCP Gateway
+# are deployed (docs/llm_agent/runtime_runbook.md R3).
+# Business roles (no duplicate logical agents for historical names):
+#   drift-specialist        = Feature / Risk specialist (rows 19-21)
+#   feature-rag-specialist  = Fraud Investigation / Evidence specialist (row 22)
+#   fraud-coordinator       = Coordinator, delegates by native A2A (rows 25-26)
+agents:
+  enabled: false
+  # Substrate WorkerPool per agent. Substrate 0.0.9 WorkerPool.spec.template
+  # has no serviceAccountName (it is pruned), so per-agent mesh identity is
+  # NOT source-defined; see docs/llm_agent/agents.md.
+  workerPool:
+    ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9
+    sandboxClass: gvisor
+    replicas: 1
+    resources:
+      requests: {cpu: 500m, memory: 1Gi}
+      limits: {cpu: 1500m, memory: 2Gi}
+  # gs://<bucket>/<prefix>/ for Substrate snapshots; required when enabled.
+  snapshotsLocation: ""
+  runtime: go
+  mcpGatewayUrl: http://mcp-gateway.ewallet-agents.svc.cluster.local:8080
+  mcpTimeout: 30s
+  allowedDomains:
+    llm: agentgateway.ewallet-agents.svc.cluster.local
+    mcp: mcp-gateway.ewallet-agents.svc.cluster.local
+    a2a: a2a-gateway.ewallet-agents.svc.cluster.local
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  # KEDA (rubric rows 19, 25, 27): one ScaledObject per agent WorkerPool. A
+  # WorkerPool has a scale subresource but no label selector, so CPU/memory
+  # triggers cannot work; the warm floor and a business-hours cron window are
+  # used, plus an optional Prometheus trigger on A2A request rate whose metric
+  # name must be read back from the a2a-gateway first.
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    cooldownSeconds: 300
+    timezone: Asia/Ho_Chi_Minh
+    businessHours: {start: "0 8 * * 1-5", end: "0 20 * * 1-5", replicas: 2}
+    prometheus:
+      enabled: false
+      serverAddress: ""
+      # %s is replaced by the agent name.
+      queryTemplate: ""
+      threshold: "2"
+  # Prompt identity: prompts/<agent>/<version>.md, sha256 in prompts/manifest.json.
+  mcpServers:
+    feature-rag-mcp: {path: /feature-rag/mcp, tools: [feature_lookup, fraud_scoring, knowledge_search]}
+    drift-mcp: {path: /drift/mcp, tools: [drift_detection]}
+  specialists:
+    drift-specialist:
+      displayName: Feature / Risk specialist
+      businessRole: feature-risk
+      version: "1.0.0"
+      promptVersion: v1
+      rubricRows: "19,20,21"
+      tools:
+        feature-rag-mcp: [feature_lookup]
+        drift-mcp: [drift_detection]
+    feature-rag-specialist:
+      displayName: Fraud Investigation / Evidence specialist
+      businessRole: fraud-investigation
+      version: "1.0.0"
+      promptVersion: v1
+      rubricRows: "22"
+      tools:
+        feature-rag-mcp: [feature_lookup, fraud_scoring, knowledge_search]
+  coordinator:
+    name: fraud-coordinator
+    displayName: Fraud Investigation Coordinator
+    version: "1.0.0"
+    promptVersion: v1
+    rubricRows: "25,26"
+    delegates: [feature-rag-specialist, drift-specialist]
+
+# Policy-only MCP Gateway (rubric row 23) and A2A entrypoint (row 24): two
+# agentgateway v1.7.0 standalone instances, separate from the LLM agentgateway.
+# Caller identity is the Istio SPIFFE identity of the calling agent's worker
+# pod (agentgateway CEL source.identity). Whether source.identity is populated
+# under Istio Ambient is UNVERIFIED, and Substrate 0.0.9 cannot pin a worker
+# ServiceAccount (docs/llm_agent/agents.md). Every caller ServiceAccount below
+# is empty until a runtime readback proves it; an empty one is denied every
+# tool, and with none set the gateway denies everything (rule 'false').
+mcpGateway:
+  enabled: false
+  replicas: 2
+  port: 8080
+  rateLimit: {capacity: 20, refill: 20, interval: 1s}
+  requestTimeout: 30s
+  callerServiceAccounts:
+    drift-specialist: ""
+    feature-rag-specialist: ""
+  networkFlows:
+    - name: mcp-gateway-to-feature-rag-mcp
+      from: mcp-gateway
+      to: feature-rag-mcp
+      port: 8080
+    - name: mcp-gateway-to-drift-mcp
+      from: mcp-gateway
+      to: drift-mcp
+      port: 8080
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+
+a2aGateway:
+  enabled: false
+  replicas: 1
+  port: 8083
+  # kagent controller A2A endpoint (kagent-values.yaml sets A2A_BASE_URL here).
+  kagentA2A: kagent-controller.kagent.svc.cluster.local:8083
+  rateLimit: {capacity: 10, refill: 10, interval: 1s}
+  requestTimeout: 120s
+  # Worker ServiceAccounts allowed to call agents over A2A (runtime readback).
+  callerServiceAccounts:
+    fraud-coordinator: ""
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+
+# OpenTelemetry Collector (rubric rows 46-51): OTLP in, PII redaction,
+# Prometheus metrics out (scraped from outside the namespace), traces to an
+# OTLP backend (Jaeger/Tempo, row 39/49) when one is configured.
+otelCollector:
+  enabled: false
+  image: docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6
+  replicas: 1
+  # host:port of an OTLP gRPC trace backend; empty keeps traces in the debug exporter only.
+  tracesEndpoint: ""
+  prometheusPort: 8889
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  # Chart-owned OTLP exporters (enforced when enabled).
+  networkFlows:
+    - {name: agentgateway-to-otel-collector, from: agentgateway, to: otel-collector, port: 4317}
+    - {name: mcp-gateway-to-otel-collector, from: mcp-gateway, to: otel-collector, port: 4317}
+    - {name: a2a-gateway-to-otel-collector, from: a2a-gateway, to: otel-collector, port: 4317}
+    - {name: feature-rag-mcp-to-otel-collector, from: feature-rag-mcp, to: otel-collector, port: 4317}
+    - {name: drift-mcp-to-otel-collector, from: drift-mcp, to: otel-collector, port: 4317}
+    - {name: llmd-epp-to-otel-collector, from: llmd-epp, to: otel-collector, port: 4317}
+
+# Grafana dashboard ConfigMap (rubric rows 37, 46-51); metric names are in
+# dashboards/llm-agent.json with a verified/unverified status per panel.
+dashboards:
+  enabled: false
+  namespace: ""
+
+# Phase D MCP tool servers (ai_platform/llm_agent/tools). Disabled: no reviewed
+# server image exists, and every value below must come from a real build and
+# deployment readback, never from placeholders.
+mcpServices:
+  enabled: false
+  image: ""
+  replicas: 2
+  port: 8080
+  maxConcurrency: 8
+  maxTimeoutMs: 30000
+  # Every tool request is denied until an authentication mechanism is approved
+  # (DECISION_REQUIRED, docs/llm_agent/phase_d_tool_services.md). Origins must be
+  # exact scheme://host[:port]; an absent Origin header is allowed.
+  http:
+    allowedOrigins: []
+    maxBodyBytes: 65536
+    maxInflightRequests: 32
+    bodyReadTimeoutSeconds: 10
+  identity:
+    gitSha: ""
+    imageDigest: ""
+    configRevision: ""
+    promptRevision: no-prompt
+    modelRevision: ""
+    featureRevision: ""
+    corpusRevision: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  services:
+    feature-rag-mcp:
+      serviceAccount: feature-rag-mcp
+      app: ai_platform.llm_agent.tools.service:create_feature_rag_app
+      # Verified subject -> granted tools; empty denies every tool.
+      toolGrants: {}
+      env:
+        EWALLET_FEAST_REPO_PATH: ""
+        EWALLET_KSERVE_BASE_URL: ""
+        EWALLET_MODEL_NAME: ""
+        EWALLET_MODEL_VERSION: ""
+        EWALLET_RAG_MANIFEST: data/llm_agent/rag/fraud-policy-v1/manifest.json
+        EWALLET_RAG_ONLINE_STORE: redis
+    drift-mcp:
+      serviceAccount: drift-mcp
+      app: ai_platform.llm_agent.tools.service:create_drift_app
+      # Verified subject -> granted tools; empty denies every tool.
+      toolGrants: {}
+      env: {}
+
+modelConfig:
+  enabled: true
+  name: ewallet-global-llm
+  model: ewallet-fraud-llm
+  timeoutSeconds: 30
+  apiKeySecret:
+    name: vllm-api-key
+    key: api-key

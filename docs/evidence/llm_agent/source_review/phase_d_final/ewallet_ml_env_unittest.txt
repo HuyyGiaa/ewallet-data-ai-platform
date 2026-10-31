@@ -1,0 +1,23 @@
+## ewallet-ml env (no SDK): same three modules
+fastapi 0.159.1 starlette 1.7.0
+........................................{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.068, "error_code": "feature_backend_error", "event": "tool_call_completed", "request_id": "c545b272-ef51-47db-806d-c4804aee67c2", "status": "unavailable", "tool_name": "feature_lookup"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.099, "error_code": null, "event": "tool_call_completed", "request_id": "rest-1", "status": "ok", "tool_name": "fraud_scoring"}
+..{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.168, "error_code": null, "event": "tool_call_completed", "request_id": "a287e233-d005-4de1-beb4-a44895a169bd", "status": "ok", "tool_name": "knowledge_search"}
+..{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+..{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.179, "error_code": null, "event": "tool_call_completed", "request_id": "8bf0987e-c769-4382-864e-90441c95413b", "status": "ok", "tool_name": "knowledge_search"}
+.{"code": "authentication_unavailable", "event": "request_rejected", "path": "/mcp", "status": 503}
+..{"code": "client_disconnected", "event": "request_aborted", "path": "/mcp"}
+....{"code": "authentication_required", "event": "request_rejected", "path": "/v1/capabilities", "status": 401}
+..{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.08, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "2caa54b9-c3ed-474f-8e57-50917e2a855e", "status": "unavailable", "tool_name": "drift_detection"}
+.{"code": "authentication_required", "event": "request_rejected", "path": "/docs", "status": 401}
+....{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+.{"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+...{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.097, "error_code": "internal_error", "event": "tool_call_completed", "request_id": "6974bdda-bdd5-4c7b-bebc-c60232f51b5e", "status": "error", "tool_name": "feature_lookup"}
+.{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+.ssss
+----------------------------------------------------------------------
+Ran 73 tests in 0.705s
+
+OK (skipped=4)

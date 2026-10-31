@@ -1,0 +1,153 @@
+{{- /*
+Policy-only MCP Gateway and A2A entrypoint: agentgateway v1.7.0 standalone,
+same pinned image as the LLM agentgateway, separate workloads and identities.
+Configs are validated with `agentgateway --validate-only`
+(scripts/llm_agent/validate_gateway_configs.sh).
+*/ -}}
+{{- $ns := .Values.namespace.name }}
+{{- if .Values.mcpGateway.enabled }}
+{{- $g := .Values.mcpGateway }}
+{{- if not .Values.agents.mcpServers }}
+{{- fail "mcpGateway needs agents.mcpServers (route paths and served tools)" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-gateway-config
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- include "llm-agent-platform.mcpGatewayConfig" . | nindent 4 }}
+{{ include "llm-agent-platform.policyGateway" (dict "root" . "name" "mcp-gateway" "gateway" $g "checksum" (include "llm-agent-platform.mcpGatewayConfig" . | sha256sum)) }}
+{{- end }}
+{{- if .Values.a2aGateway.enabled }}
+{{- $g := .Values.a2aGateway }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a2a-gateway-config
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- include "llm-agent-platform.a2aGatewayConfig" . | nindent 4 }}
+{{ include "llm-agent-platform.policyGateway" (dict "root" . "name" "a2a-gateway" "gateway" $g "checksum" (include "llm-agent-platform.a2aGatewayConfig" . | sha256sum)) }}
+{{- end }}
+
+{{- define "llm-agent-platform.mcpGatewayConfig" -}}
+{{- $ns := .Values.namespace.name }}
+{{- $g := .Values.mcpGateway }}
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+config:
+  logging:
+    format: json
+gateways:
+  default:
+    port: {{ $g.port }}
+routes:
+{{- range $server := keys .Values.agents.mcpServers | sortAlpha }}
+{{- $route := index $.Values.agents.mcpServers $server }}
+{{- $rules := list }}
+{{- range $agent := keys $.Values.agents.specialists | sortAlpha }}
+{{- $tools := index (index $.Values.agents.specialists $agent).tools $server | default list }}
+{{- $sa := index $g.callerServiceAccounts $agent | default "" }}
+{{- if and $tools $sa }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" $sa) }}
+{{- fail (printf "mcpGateway.callerServiceAccounts.%s is not a ServiceAccount name" $agent) }}
+{{- end }}
+{{- $rules = append $rules (printf "has(source.identity) && source.identity.namespace == %q && source.identity.serviceAccount == %q && mcp.tool.name in %s" $ns $sa (toJson $tools)) }}
+{{- end }}
+{{- end }}
+- name: {{ $server }}
+  matches:
+  - path:
+      pathPrefix: {{ $route.path }}
+  policies:
+    timeout:
+      requestTimeout: {{ $g.requestTimeout }}
+    localRateLimit:
+    - maxTokens: {{ $g.rateLimit.capacity }}
+      tokensPerFill: {{ $g.rateLimit.refill }}
+      fillInterval: {{ $g.rateLimit.interval }}
+      type: requests
+    # Client-supplied identity headers and credentials never reach a server
+    # (the 2026-10-31 local smoke showed a client Authorization header passing
+    # through); the caller header is set only from the verified mesh identity.
+    requestHeaderModifier:
+      remove:
+      - authorization
+      - x-ewallet-actor
+      - x-ewallet-caller
+    transformations:
+      request:
+        set:
+          x-ewallet-caller: 'source.identity.serviceAccount'
+    mcpAuthorization:
+      rules:
+      {{- range $rule := $rules }}
+      - {{ $rule | squote }}
+      {{- else }}
+      # No caller identity has been read back: deny every tool.
+      - 'false'
+      {{- end }}
+  backends:
+  - mcp:
+      targets:
+      - name: {{ trimSuffix "-mcp" $server }}
+        mcp:
+          host: {{ printf "http://%s.%s.svc.cluster.local:%d/mcp" $server $ns (int $.Values.mcpServices.port) }}
+{{- end }}
+{{- end }}
+
+{{- define "llm-agent-platform.a2aGatewayConfig" -}}
+{{- $ns := .Values.namespace.name }}
+{{- $g := .Values.a2aGateway }}
+{{- $rules := list }}
+{{- range $agent := keys $g.callerServiceAccounts | sortAlpha }}
+{{- $sa := index $g.callerServiceAccounts $agent }}
+{{- if $sa }}
+{{- $rules = append $rules (printf "has(source.identity) && source.identity.namespace == %q && source.identity.serviceAccount == %q" $ns $sa) }}
+{{- end }}
+{{- end }}
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+config:
+  logging:
+    format: json
+gateways:
+  default:
+    port: {{ $g.port }}
+routes:
+# Native kagent A2A (A2A_BASE_URL/api/a2a/<namespace>/<agent>) for this
+# namespace only; agent cards are rewritten to point at this gateway.
+- name: kagent-a2a
+  matches:
+  - path:
+      pathPrefix: /api/a2a/{{ $ns }}/
+  policies:
+    a2a: {}
+    timeout:
+      requestTimeout: {{ $g.requestTimeout }}
+    localRateLimit:
+    - maxTokens: {{ $g.rateLimit.capacity }}
+      tokensPerFill: {{ $g.rateLimit.refill }}
+      fillInterval: {{ $g.rateLimit.interval }}
+      type: requests
+    requestHeaderModifier:
+      remove:
+      - authorization
+      - x-ewallet-actor
+      - x-ewallet-caller
+    authorization:
+      rules:
+      {{- range $rule := $rules }}
+      - {{ $rule | squote }}
+      {{- else }}
+      - 'false'
+      {{- end }}
+  backends:
+  - host: {{ $g.kagentA2A }}
+{{- end }}

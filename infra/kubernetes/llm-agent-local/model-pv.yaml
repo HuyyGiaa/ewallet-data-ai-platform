@@ -1,0 +1,26 @@
+# Local-only: exposes the kind node's read-only /staged-models mount to the
+# vLLM pods through a PVC (pods never use hostPath, so Pod Security Baseline holds).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: llm-agent-staged-models
+  labels: {llm.ewallet.io/staged-models: "true"}
+spec:
+  capacity: {storage: 4Gi}
+  accessModes: [ReadOnlyMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  claimRef: {namespace: ewallet-agents, name: vllm-model-staged}
+  hostPath: {path: /staged-models, type: Directory}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-staged
+  namespace: ewallet-agents
+spec:
+  accessModes: [ReadOnlyMany]
+  storageClassName: ""
+  volumeName: llm-agent-staged-models
+  resources:
+    requests: {storage: 4Gi}

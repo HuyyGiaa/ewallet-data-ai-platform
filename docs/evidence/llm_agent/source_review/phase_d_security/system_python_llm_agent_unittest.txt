@@ -1,0 +1,6 @@
+## python3 -m unittest discover -s tests/llm_agent -t . (system Python 3.13.7)
+.........ssss.....................................................ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+----------------------------------------------------------------------
+Ran 126 tests in 2.170s
+
+OK (skipped=64)

@@ -1,0 +1,460 @@
+{
+ "title": "E-Wallet LLM + Agent Platform",
+ "uid": "ewallet-llm-agent",
+ "schemaVersion": 39,
+ "tags": [
+  "ewallet",
+  "llm",
+  "agent"
+ ],
+ "time": {
+  "from": "now-1h",
+  "to": "now"
+ },
+ "refresh": "30s",
+ "templating": {
+  "list": [
+   {
+    "name": "datasource",
+    "type": "datasource",
+    "query": "prometheus"
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "API request rate by gateway route and status",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (gateway, route, status) (rate(agentgateway_requests_total[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "API failures (status >= 400) by route",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (gateway, route) (rate(agentgateway_requests_total{status=~\"4..|5..\"}[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Request latency p95 by route",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "histogram_quantile(0.95, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 4,
+   "type": "timeseries",
+   "title": "MCP tool calls by tool",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 8,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (resource) (rate(agentgateway_mcp_requests_total{method=\"tools/call\"}[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 5,
+   "type": "timeseries",
+   "title": "MCP requests by method and server",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 16,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (server, method) (rate(agentgateway_mcp_requests_total[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 6,
+   "type": "timeseries",
+   "title": "LLM end-to-end latency p95 by model",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 16,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model) (rate(agentgateway_gen_ai_server_request_duration_bucket[5m])))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 7,
+   "type": "timeseries",
+   "title": "LLM errors by type",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 24,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (error_type) (rate(agentgateway_gen_ai_server_request_duration_count{error_type!=\"\"}[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 8,
+   "type": "timeseries",
+   "title": "LLM retries",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 24,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (route) (rate(agentgateway_retries_total[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 9,
+   "type": "timeseries",
+   "title": "LLM tokens per request (input/output)",
+   "description": "UNVERIFIED metric name: confirm on /metrics at runtime",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 32,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (gen_ai_token_type) (rate(agentgateway_gen_ai_client_token_usage_sum[5m])) / sum by (gen_ai_token_type) (rate(agentgateway_gen_ai_client_token_usage_count[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "unverified"
+   }
+  },
+  {
+   "id": 10,
+   "type": "timeseries",
+   "title": "LLM time to first token p95",
+   "description": "UNVERIFIED metric name: confirm on /metrics at runtime",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 32,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(agentgateway_gen_ai_server_time_to_first_token_bucket[5m])))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "unverified"
+   }
+  },
+  {
+   "id": 11,
+   "type": "timeseries",
+   "title": "Agent calls by agent (spanmetrics)",
+   "description": "UNVERIFIED metric name: confirm on /metrics at runtime",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 40,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (gen_ai_agent_name) (rate(ewallet_traces_span_metrics_calls_total{gen_ai_agent_name!=\"\"}[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "unverified"
+   }
+  },
+  {
+   "id": 12,
+   "type": "timeseries",
+   "title": "Agent/tool failures (spanmetrics)",
+   "description": "UNVERIFIED metric name: confirm on /metrics at runtime",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 40,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (gen_ai_agent_name, gen_ai_tool_name) (rate(ewallet_traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\"}[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "unverified"
+   }
+  },
+  {
+   "id": 13,
+   "type": "timeseries",
+   "title": "CPU by pod",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 48,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"ewallet-agents\", container!=\"\"}[5m]))"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  },
+  {
+   "id": 14,
+   "type": "timeseries",
+   "title": "Memory working set by pod",
+   "description": "metric name read from agentgateway v1.7.0",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 48,
+    "w": 12,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes"
+    },
+    "overrides": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"ewallet-agents\", container!=\"\"})"
+    }
+   ],
+   "ewallet": {
+    "metric_status": "verified"
+   }
+  }
+ ]
+}

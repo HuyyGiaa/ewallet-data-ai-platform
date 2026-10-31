@@ -1,0 +1,13 @@
+{{- if .Values.dashboards.enabled }}
+# Grafana dashboard, picked up by the Grafana sidecar (label grafana_dashboard).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-agent-dashboards
+  namespace: {{ .Values.dashboards.namespace | default .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  llm-agent.json: {{ .Files.Get "dashboards/llm-agent.json" | quote }}
+{{- end }}

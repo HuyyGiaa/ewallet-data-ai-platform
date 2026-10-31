@@ -1,0 +1,95 @@
+# kagent 0.10.3 controller for the E-Wallet agents (chart pinned by digest in
+# infra/kubernetes/kagent-pilot/versions.env). Agents, WorkerPools, prompts and
+# RemoteMCPServers come from infra/helm/llm-agent-platform (agents.enabled).
+# Runtime-gated: docs/llm_agent/runtime_runbook.md R3.
+rbac:
+  namespaces:
+    - kagent
+    - ewallet-agents
+
+controller:
+  replicas: 1
+  watchNamespaces:
+    - ewallet-agents
+  # Native kagent A2A between agents is addressed through A2A_BASE_URL. Pointing
+  # it at the agentgateway A2A route (a2a-gateway) puts every agent-to-agent
+  # call behind agentgateway policy (rubric row 24) without another A2A runtime.
+  a2aBaseUrl: http://a2a-gateway.ewallet-agents.svc.cluster.local:8083
+  a2aClientTimeout: 120s
+  auth:
+    # Controller API is cluster-internal only; the UI route needs gateway
+    # authentication (rubric row 42) before it is exposed.
+    mode: unsecure
+  metrics:
+    enabled: true
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 750m, memory: 512Mi}
+  substrate:
+    enabled: true
+    ateApiEndpoint: dns:///api.ate-system.svc:443
+    atenetRouterURL: http://atenet-router.ate-system.svc:80
+    ateApiInsecure: false
+    ateApiTokenAudience: api.ate-system.svc
+    ateApiServer:
+      namespace: ate-system
+      serviceAccount: ate-api-server
+
+# One WorkerPool per agent is created by llm-agent-platform instead.
+substrateWorkerPool:
+  create: false
+
+otel:
+  tracing:
+    enabled: true
+    exporter:
+      otlp:
+        endpoint: otel-collector.ewallet-agents.svc.cluster.local:4317
+        protocol: grpc
+        timeout: 15000
+        insecure: true
+
+database:
+  postgres:
+    bundled:
+      enabled: true
+      storage: 256Mi
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {cpu: 500m, memory: 384Mi}
+
+# UI to test agents (rubric row 40); exposed only behind the authenticated route.
+ui:
+  replicas: 1
+
+providers: null
+substrate:
+  enabled: false
+kmcp:
+  enabled: false
+kagent-tools:
+  enabled: false
+grafana-mcp:
+  enabled: false
+k8s-agent:
+  enabled: false
+kgateway-agent:
+  enabled: false
+istio-agent:
+  enabled: false
+promql-agent:
+  enabled: false
+observability-agent:
+  enabled: false
+argo-rollouts-agent:
+  enabled: false
+helm-agent:
+  enabled: false
+cilium-policy-agent:
+  enabled: false
+cilium-manager-agent:
+  enabled: false
+cilium-debug-agent:
+  enabled: false
+oauth2-proxy:
+  enabled: false

@@ -1,0 +1,31 @@
+# llm-d-router-gateway v0.9.0 values for the ewallet-fraud-llm InferencePool.
+# Render: helm template ewallet-fraud-llm $LLMD_ROUTER_CHART --version v0.9.0 \
+#   -n ewallet-agents -f infra/helm/llm-d/router-values.yaml
+router:
+  modelServers:
+    # Set on the primary vLLM pods by llm-agent-platform when llmd.enabled.
+    matchLabels:
+      llm-d.ai/inference-pool: ewallet-fraud-llm
+    type: vllm
+    protocol: http
+    targetPorts:
+      - number: 8000
+  epp:
+    # Chart default requests 8 CPU / 8 GiB; the EPP only scores endpoints.
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+  inferencePool:
+    # EPP unresponsive -> the inference Gateway fails the request, and the LLM
+    # agentgateway fails over to the direct primary, then fallback, backend.
+    # FailOpen would hide an EPP outage behind unscored routing.
+    failureMode: FailClose
+  tracing:
+    enabled: true
+    otelExporterEndpoint: http://otel-collector.ewallet-agents.svc.cluster.local:4317
+provider:
+  name: none
+httpRoute:
+  create: true
+  inferenceGatewayName: llm-inference-gateway
+  requestTimeout: 120s

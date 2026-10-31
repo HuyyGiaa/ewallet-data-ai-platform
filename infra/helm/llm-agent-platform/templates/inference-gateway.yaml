@@ -1,0 +1,31 @@
+{{- if .Values.llmd.enabled }}
+{{- if ne .Values.llmd.gatewayClassName "agentgateway" }}
+{{- fail "llmd.gatewayClassName: only the agentgateway v1.7.0 Inference Extension integration is validated" }}
+{{- end }}
+{{- if not (and .Values.agentgateway.enabled .Values.vllm.enabled (ge (int .Values.vllm.primary.replicas) 1)) }}
+{{- fail "llmd.enabled needs agentgateway, vLLM and at least one primary vLLM replica in the pool" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" .Values.llmd.poolName) }}
+{{- fail "llmd.poolName must be a DNS label" }}
+{{- end }}
+# Inference Gateway for the llm-d InferencePool. The agentgateway v1.7.0
+# controller (installed with inferenceExtension.enabled=true, see
+# infra/helm/llm-d) provisions its data plane; the llm-d router chart creates
+# the HTTPRoute that binds this Gateway to the InferencePool.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.llmd.gatewayName }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  gatewayClassName: {{ .Values.llmd.gatewayClassName }}
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: {{ .Values.llmd.gatewayPort }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- end }}

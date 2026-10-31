@@ -1,0 +1,85 @@
+pipeline {
+  agent any
+  options { timestamps(); disableConcurrentBuilds(); timeout(time: 45, unit: 'MINUTES') }
+  parameters {
+    string(name: 'EXPECTED_GIT_SHA', defaultValue: '', description: 'Exact reviewed Git SHA')
+    booleanParam(name: 'DEPLOY_APPROVED', defaultValue: false, description: 'Explicit deployment authorization')
+    choice(name: 'ENVIRONMENT', choices: ['dev', 'gcp'], description: 'Render/deploy target')
+    string(name: 'KUBE_CONTEXT', defaultValue: '', description: 'Explicit kubeconfig context for deploy/rollback (never the default)')
+  }
+  environment {
+    EVIDENCE_DIR = "evidence/llm-agent/${BUILD_TAG}"
+  }
+  stages {
+    stage('Checkout exact SHA') {
+      steps {
+        checkout scm
+        sh '''test -n "$EXPECTED_GIT_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_GIT_SHA"
+          mkdir -p "$EVIDENCE_DIR"
+          git rev-parse HEAD > "$EVIDENCE_DIR/git-sha.txt"'''
+      }
+    }
+    stage('Detect changed components') {
+      steps {
+        sh '''git diff --name-only HEAD^ HEAD | tee "$EVIDENCE_DIR/changed-files.txt"
+          python3 -m ops.llm_agent.changed_components \
+            --changed-files "$EVIDENCE_DIR/changed-files.txt" \
+            --output "$EVIDENCE_DIR/changed-components.json"'''
+      }
+    }
+    stage('Lint, unit and contract tests') {
+      steps {
+        sh '''python3 -m compileall -q ai_platform/llm_agent ops/llm_agent tests/llm_agent
+          python3 -m unittest discover -s tests/llm_agent -t . 2>&1 | tee "$EVIDENCE_DIR/unittest-system.txt"
+          python3 -m unittest -v tests.unit.test_kagent_bounded_pilot tests.unit.test_rubric_evidence_matrix'''
+      }
+    }
+    stage('MCP tool and RAG tests (locked uv project)') {
+      steps {
+        sh '''uv lock --check --project infra/docker/llm-agent-tooling
+          uv run --frozen --project infra/docker/llm-agent-tooling --extra feast python -m unittest \
+            tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security \
+            tests.llm_agent.test_mcp_sdk_conformance tests.llm_agent.test_rag_online_retriever \
+            2>&1 | tee "$EVIDENCE_DIR/unittest-mcp.txt"'''
+      }
+    }
+    stage('Gateway and collector config validation') {
+      steps {
+        sh '''scripts/llm_agent/validate_gateway_configs.sh "$EVIDENCE_DIR/agentgateway-validate.txt"'''
+      }
+    }
+    stage('Data, IaC, Helm and KFP validation') {
+      steps {
+        sh '''python3 -m ops.llm_agent.preflight --repository-root "$PWD" --json-output "$EVIDENCE_DIR/gate-a.json"
+          bash scripts/validation/validate_llm_gateway.sh | tee "$EVIDENCE_DIR/gate-b-source.log"
+          bash scripts/validation/validate_rag_pipeline.sh | tee "$EVIDENCE_DIR/gate-c-source.log"
+          bash scripts/validation/validate_rubric_evidence.sh
+          helm lint infra/helm/llm-agent-platform -f infra/helm/llm-agent-platform/values-${ENVIRONMENT}.yaml
+          helm template llm-agent infra/helm/llm-agent-platform -f infra/helm/llm-agent-platform/values-${ENVIRONMENT}.yaml > "$EVIDENCE_DIR/rendered.yaml"'''
+      }
+    }
+    stage('Build affected immutable images') {
+      when { expression { return params.DEPLOY_APPROVED } }
+      steps { sh 'scripts/llm_agent/build_changed_images.sh "$EVIDENCE_DIR/changed-components.json" "$EXPECTED_GIT_SHA" "$EVIDENCE_DIR/image-digests.json"' }
+    }
+    stage('Scan and push Artifact Registry digests') {
+      when { expression { return params.DEPLOY_APPROVED } }
+      steps { sh 'scripts/llm_agent/scan_and_push.sh "$EVIDENCE_DIR/image-digests.json"' }
+    }
+    stage('Helm atomic deploy, rollout and smoke') {
+      when { expression { return params.DEPLOY_APPROVED } }
+      steps { sh 'scripts/llm_agent/deploy_atomic.sh "$ENVIRONMENT" "$EVIDENCE_DIR/image-digests.json" "$EVIDENCE_DIR"' }
+    }
+  }
+  post {
+    always { archiveArtifacts artifacts: "${EVIDENCE_DIR}/**", allowEmptyArchive: false, fingerprint: true }
+    failure {
+      script {
+        if (params.DEPLOY_APPROVED) {
+          sh 'scripts/llm_agent/rollback.sh "$ENVIRONMENT" "$EVIDENCE_DIR"'
+        }
+      }
+    }
+  }
+}
