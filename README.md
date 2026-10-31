@@ -1,204 +1,550 @@
 # E-Wallet Data & AI Platform
 
-A local coursework platform for generating synthetic e-wallet data and
-exploring ingestion, Delta Lake processing, streaming and CDC, analytics, data
-quality, orchestration, contracts, metadata, lineage, and offline features. It
-is the data-platform foundation for a later fraud-detection phase; it is not an
-end-user wallet application.
+An end-to-end data and fraud-intelligence platform for e-wallet transactions,
+built on Google Cloud. It covers the full path from synthetic transaction data
+to explainable, AI-assisted fraud investigation:
 
-## Cloud refactor status
+**Data Engineering → Streaming → Feature Engineering → MLOps → Real-Time Fraud Detection → LLM & Agentic AI**
 
-The operational local profile remains available for reproducibility. The same
-Spark I/O, validators, Feast export and bounded training-source exporters now
-consume tracked `local`, `dev`, or `gcp` runtime profiles. R2 now provides validated,
-modular Terraform for GCS, IAM, Artifact Registry, VPC, Dataproc prerequisites
-and cost-gated GKE/Jenkins. The protected remote-state bucket and no-compute
-dev foundation are applied; the current Terraform plan reports no changes. R3
-validated Delta-on-GCS write, append, read-back, schema and microsecond
-timestamp behavior on Dataproc Serverless runtime 2.2.89. Dataproc Serverless
-is therefore the selected Spark runtime for the bounded cloud pilots.
+The platform generates realistic wallet activity at scale, curates it through a
+Delta Lake medallion lakehouse on GCS, and derives point-in-time-correct fraud
+features from both batch and streaming paths. Those features are served through
+Feast, used for reproducible training orchestrated by Kubeflow Pipelines and
+tracked in MLflow, and consumed by a low-latency Fraud API backed by KServe. A
+CPU-first LLM layer with a kagent multi-agent system and policy-gated MCP tools
+then turns scores, features and policy documents into cited investigation
+answers.
 
-Run the CI-friendly foundation gate with:
+> This is a coursework and research project. It is not an end-user wallet
+> application, and all transaction data is synthetic.
 
-```bash
-python ops/validation/validate_runtime_config.py
-```
+---
 
-The next implementation checkpoint is the R3 cloud data runtime and Dataproc
-Serverless smoke. The 100 GB cloud generation,
-Spark cloud profiling/optimization and pipeline rerun have not started. Local
-MinIO benchmark numbers elsewhere in the repository remain historical evidence
-and are not cloud performance claims. See the
-[runtime configuration guide](docs/cloud/configuration.md),
-[Terraform foundation runbook](docs/cloud/terraform_gcp_foundation.md),
-[Dataproc Delta smoke runbook](docs/cloud/dataproc_delta_smoke.md), and
-[R1 evidence](docs/evidence/cloud/r1_config_foundation.json) together with
-[R2 plan evidence](docs/evidence/cloud/r2_terraform_plan.json) and
-[R3 runtime evidence](docs/evidence/cloud/r3_dataproc_delta_smoke.json).
+## Contents
 
-## Architecture
+- [Business Problems](#business-problems)
+- [Key Capabilities](#key-capabilities)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
+- [Data Processing Pipeline](#data-processing-pipeline)
+- [Streaming Pipeline](#streaming-pipeline)
+- [Machine Learning Pipeline](#machine-learning-pipeline)
+- [Real-Time Fraud Detection](#real-time-fraud-detection)
+- [LLM & Agentic AI](#llm--agentic-ai)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Cloud Deployment](#cloud-deployment)
+- [Testing & Reproducibility](#testing--reproducibility)
+- [Documentation](#documentation)
+- [Academic Context](#academic-context)
+
+---
+
+## Business Problems
+
+| Problem | How the platform addresses it |
+|---|---|
+| **Fraud detection** | Supervised models trained on four labelled synthetic fraud scenarios (velocity, amount anomaly, account takeover, merchant burst) with leakage-safe temporal splits. |
+| **Real-time transaction monitoring** | An event-time streaming job deduplicates, orders and enriches transactions as they arrive and keeps per-entity feature state current. |
+| **Historical and streaming feature engineering** | One feature contract for user, account, device and merchant behaviour, computed in batch for training and incrementally for serving. |
+| **Reproducible ML training** | Immutable training snapshots, locked dependency environments, pinned images, and every run recorded in MLflow. |
+| **Low-latency fraud scoring** | A Fraud API that assembles the exact 41-feature model input from Feast Online and calls a KServe predictor. |
+| **AI-assisted fraud investigation** | Specialist agents that query features, scores, drift signals and a fraud-policy corpus, then return structured, cited answers. |
+
+---
+
+## Key Capabilities
+
+- **Large-scale batch processing.** Apache Spark on Dataproc Serverless processes
+  a canonical dataset sized at 100 GB through Bronze, Silver and Gold Delta tables.
+- **Event-driven streaming.** Redpanda topics and an Apache Flink (PyFlink) job
+  provide event-time processing, deduplication, late-event reconciliation,
+  bounded retries and a dead-letter path.
+- **Lakehouse storage.** Delta Lake on Google Cloud Storage provides ACID
+  tables, schema enforcement and versioned reads. A MinIO profile keeps the
+  same code runnable locally.
+- **Feature Store.** Feast defines four entities and four FeatureViews. The
+  Offline Store serves point-in-time training retrieval, and the Redis-backed
+  Online Store serves request-time lookups.
+- **Experiment tracking and model versioning.** MLflow uses a PostgreSQL
+  backend and a GCS artifact store. DVC versions the provenance descriptors of
+  the training snapshots.
+- **ML workflow orchestration.** A compiled Kubeflow Pipelines (KFP 2.17.3)
+  DAG validates the snapshot, trains the candidate models, compares them and
+  registers the winner.
+- **Model serving.** KServe hosts the fraud model behind an immutable model
+  version and image digest.
+- **Real-time fraud scoring.** A FastAPI service validates requests, retrieves
+  online features, assembles the model input and returns the fraud
+  probability and prediction together with the model version, feature timestamp
+  and correlation ID.
+- **LLM inference.** vLLM serves a checksummed small model on CPU, and
+  agentgateway owns model routing and resilience. Optional llm-d inference
+  routing is also available.
+- **Multi-agent orchestration.** A kagent Coordinator delegates to specialist
+  agents over native A2A.
+- **Secure tool integration.** Agents reach MCP tool services only through a
+  policy-enforcing MCP Gateway, inside an Istio Ambient mesh with
+  deny-by-default network policies.
+- **Data governance.** Versioned YAML data contracts, fail-hard validators for
+  each layer, and DataHub metadata, lineage and assertions.
+- **Infrastructure and delivery.** Terraform-managed GCP foundation, Helm
+  charts, Jenkins pipelines that test against lockfiles, Trivy image scanning,
+  and OpenTelemetry instrumentation with Grafana dashboards.
+
+---
+
+## System Architecture
+
+The platform is organised in eight layers. Each layer has explicit, versioned
+contracts with its neighbours, so the batch, streaming, training and serving
+paths share one definition of the data and features.
 
 ```mermaid
 flowchart LR
-    GEN["Synthetic generator"]
-    PG["PostgreSQL"]
-    DBZ["Debezium"]
-    RP["Redpanda"]
-    FLINK["PyFlink experiments<br/>print sinks"]
-
-    subgraph MINIO["Delta Lake on MinIO"]
-        BR["Bronze"] --> SI["Silver"] --> GO["Gold"]
+    subgraph ING["1 · Ingestion"]
+        GEN["Synthetic generator<br/>(sharded, deterministic)"]
+        RAW[("GCS source Parquet")]
+        RP["Redpanda<br/>transaction topics"]
     end
 
-    SPARK["Spark"]
-    TRINO["Trino"]
-    DQ["Validators + contracts"]
-    AIRFLOW["Airflow"]
-    DATAHUB["DataHub<br/>metadata, lineage, assertions"]
-    FEAST["Feast offline<br/>historical retrieval"]
-    TRAIN["Bounded fraud<br/>training dataset"]
-    MODEL["Random Forest<br/>fraud baseline"]
+    subgraph PROC["2 · Batch & Streaming Processing"]
+        DP1["DP1 · Source → Bronze"]
+        DP2["DP2 · Bronze → Silver + core Gold"]
+        DP3["DP3 · Historical features"]
+        FLINK["Flink job<br/>event time · dedup · state"]
+    end
 
-    GEN -->|offline Parquet| BR
-    GEN -->|streaming| RP --> FLINK
-    PG --> DBZ --> RP
-    SPARK -.transforms.-> SI
-    SPARK -.transforms.-> GO
-    BR --> TRINO
-    SI --> TRINO
-    GO --> TRINO
-    GO -->|explicit Parquet snapshot adapter| FEAST
-    SI -->|fraud labels + request fields| TRAIN
-    FEAST -->|PIT historical features| TRAIN
-    TRAIN --> MODEL
-    BR --> DQ
-    SI --> DQ
-    GO --> DQ
-    TRINO --> DATAHUB
-    DQ -.selected results.-> DATAHUB
-    AIRFLOW -.orchestrates batch jobs.-> SPARK
-    AIRFLOW -.runs quality gates.-> DQ
+    subgraph LAKE["3 · Lakehouse & Data Quality"]
+        BR[("Bronze")] --> SI[("Silver")] --> GO[("Gold")]
+        DQ["Contracts + validators"]
+        DH["DataHub lineage"]
+    end
+
+    subgraph FS["4 · Feature Store"]
+        OFF["Feast Offline<br/>PIT snapshot"]
+        ON[("Feast Online<br/>Redis")]
+    end
+
+    subgraph ML["5 · Training & Tracking"]
+        KFP["Kubeflow Pipelines"]
+        MLF["MLflow Tracking<br/>+ Registry"]
+    end
+
+    subgraph SRV["6 · Serving"]
+        KS["KServe predictor"]
+        API["Fraud API<br/>(FastAPI)"]
+    end
+
+    subgraph AI["7 · LLM & Agentic AI"]
+        AG["kagent agents"]
+        MCP["MCP Gateway → tools"]
+        LLM["agentgateway → vLLM"]
+    end
+
+    GEN --> RAW --> DP1 --> BR
+    GEN --> RP --> FLINK
+    BR --> DP2 --> SI
+    DP2 --> GO
+    SI --> DP3 --> GO
+    GO --> OFF --> KFP --> MLF --> KS
+    GO -->|materialize| ON
+    FLINK -->|online updates| ON
+    FLINK -->|accepted events| BR
+    ON --> API
+    KS --> API
+    AG --> LLM
+    AG --> MCP --> API
+    MCP --> ON
+    DP1 & DP2 & DP3 -.-> DQ
+    DQ -.-> DH
 ```
 
-The batch path is implemented and validated. The PyFlink and CDC paths are
-experiments: they publish/consume Redpanda events but do not persist streaming
-results into the lakehouse. See the
-[system architecture](docs/00_system_architecture.md) for data flow, component
-status, ports, and limitations.
+**Layer 8, Infrastructure, Security & Observability**, spans all of the above:
+GKE, Dataproc, GCS and Artifact Registry are provisioned with Terraform. Istio
+Ambient and the Kubernetes Gateway API handle ingress and the mesh,
+Workload Identity provides cloud access, Jenkins provides CI/CD, and
+OpenTelemetry provides telemetry.
 
-## What is implemented
+| # | Layer | Responsibility | Primary source |
+|---|---|---|---|
+| 1 | Data Ingestion | Deterministic sharded generation, schema evolution, fraud ground truth, Redpanda topics, PostgreSQL/Debezium CDC | [`data_platform/generation`](data_platform/generation), [`data_platform/ingestion`](data_platform/ingestion), [`data_platform/streaming/generator`](data_platform/streaming/generator) |
+| 2 | Batch & Streaming Processing | Spark DP1/DP2/DP3 jobs orchestrated by Airflow; Flink event-time feature job | [`data_platform/processing/spark`](data_platform/processing/spark), [`data_platform/orchestration/airflow/dags`](data_platform/orchestration/airflow/dags), [`data_platform/streaming`](data_platform/streaming) |
+| 3 | Lakehouse & Data Quality | Delta Lake on GCS, data contracts, layer validators, DataHub metadata | [`data_platform/storage`](data_platform/storage), [`data_platform/contracts`](data_platform/contracts), [`data_platform/quality`](data_platform/quality), [`data_platform/metadata`](data_platform/metadata) |
+| 4 | Feature Store | Feast entities and FeatureViews, PIT validation, snapshot export | [`ai_platform/features/feast`](ai_platform/features/feast) |
+| 5 | ML Training & Tracking | Training dataset contract, candidate models, KFP pipeline, MLflow tracking, DVC operator | [`ai_platform/ml`](ai_platform/ml) |
+| 6 | Model Serving & Fraud API | Request schemas, feature assembly, Feast Online client, KServe client, FastAPI app | [`ai_platform/inference`](ai_platform/inference) |
+| 7 | LLM & Agentic AI | MCP tool services, RAG pipeline, agent contracts, LLM benchmark harness | [`ai_platform/llm_agent`](ai_platform/llm_agent), [`infra/helm/llm-agent-platform`](infra/helm/llm-agent-platform) |
+| 8 | Infrastructure, Security & Observability | Terraform, Kubernetes manifests, Helm, Docker images, Jenkins, operator tooling | [`infra`](infra), [`ops`](ops), [`scripts`](scripts), [`Jenkinsfile.llm-agent`](Jenkinsfile.llm-agent) |
 
-| Area | Current state |
+---
+
+## Technology Stack
+
+| Layer | Technologies |
 |---|---|
-| Offline generation | Eight deterministic synthetic datasets with duplicates, skew, schema evolution, and separate fraud ground truth |
-| Lakehouse | Bronze, Silver, and Gold Delta tables on MinIO |
-| Batch processing | Spark transformations and independent fail-hard validators |
-| Analytics | Trino over registered Delta locations |
-| Orchestration | Daily Airflow DAG with serialized local Spark work |
-| Governance | Nine YAML contracts; DataHub metadata, 16 direct lineage edges, and 15 selected assertions |
-| Offline feature retrieval | Feast entities and four FeatureViews over a microsecond-safe Parquet snapshot adapter |
-| Fraud training dataset | One-row-per-transaction contract, shared derived transforms, chronological splits, and validated 40,148-row trainable materialization |
-| Fraud modeling | One active Random Forest pipeline with train-fitted preprocessing, validation-selected threshold, isolated test evaluation, and reloadable artifacts |
-| Messaging and CDC | Redpanda plus PostgreSQL/Debezium local experiment |
-| Streaming | PyFlink deduplication, watermarks, windows, late events, and burst detection with print sinks |
+| Data Engineering | Apache Spark, Google Cloud Dataproc Serverless, Delta Lake, Apache Airflow, Trino |
+| Streaming | Redpanda (Kafka API), Apache Flink 1.19 (PyFlink), Debezium / Kafka Connect |
+| Storage | Google Cloud Storage, MinIO (local profile), PostgreSQL, Redis |
+| Data Governance | YAML data contracts, layer validators, DataHub |
+| Feature Engineering | Feast 0.66 (Offline + Redis Online) |
+| ML & MLOps | scikit-learn, Kubeflow Pipelines 2.17, MLflow 3.17, DVC 3.63 |
+| Serving | KServe, FastAPI |
+| LLM | vLLM (CPU), agentgateway, llm-d inference routing |
+| Agents | kagent, native A2A, Model Context Protocol (MCP), RAG |
+| Infrastructure | Google Kubernetes Engine, Docker, Kubernetes, Helm, Terraform, Artifact Registry, KEDA |
+| Networking & Security | Istio Ambient, Kubernetes Gateway API, NetworkPolicy, Workload Identity, Trivy |
+| CI/CD | Jenkins, GitHub |
+| Observability | OpenTelemetry Collector, Grafana dashboards |
+| Python tooling | `uv` with per-deployment `pyproject.toml` + `uv.lock` |
 
-The F4C canonical 500,000-user run produced 674,383 accounts, 572,632 devices,
-and 4.08 million Bronze transaction rows, including 80,000 intentional
-duplicates. These are recorded run results, not hard-coded pipeline
-expectations. Validators and the demo query current data.
+---
 
-## Repository map
+## Data Processing Pipeline
+
+### Source data generation
+
+A deterministic, sharded generator produces eight related datasets: users,
+accounts, devices, merchants, transactions, balance snapshots, login events and
+fraud labels. It injects realistic data problems on purpose: duplicates, skewed
+merchants, late and out-of-order events, and a V1 → V2 schema change that adds
+`channel`. Fraud ground truth is written to a separate dataset, so features can
+never read labels by accident. Source files are published to an immutable,
+versioned GCS location together with a manifest. See
+[`docs/01_data_generator.md`](docs/01_data_generator.md) and
+[`docs/cloud/source_dataset_generation.md`](docs/cloud/source_dataset_generation.md).
+
+### Medallion lakehouse
+
+| Layer | Purpose |
+|---|---|
+| **Bronze** | Raw, append-only Delta tables. Keeps duplicates and schema-evolution nulls, and merges transactions V1 and V2. |
+| **Silver** | Typed, cleaned and deduplicated tables. Normalises domains and enforces keys, ranges and foreign keys. Fraud labels stay in a thin target table. |
+| **Gold** | Dimensions, facts, a transaction OBT, merchant analytics, and four point-in-time behaviour tables (user, account, device, merchant). |
+
+### Airflow data pipelines
+
+Three manual-trigger DAGs run each stage as an idempotent, evidence-producing
+unit. Spark runs on Dataproc, never inside the scheduler.
+
+```mermaid
+flowchart LR
+    A["DP1<br/>Source → Bronze"] --> B["DP2<br/>Bronze → Silver<br/>→ core Gold"] --> C["DP3<br/>Historical features<br/>→ Feast Offline export"]
+```
+
+- **DP1:** preflight → verify source shards → Bronze Spark batch → Bronze validation.
+- **DP2:** Silver batch → Silver validation → core Gold batch → Gold validation.
+- **DP3:** four historical feature tables → temporal-contract validation →
+  Feast snapshot export and point-in-time parity check.
+
+Each DAG publishes lineage and run evidence, and marks a run successful only
+after validation and read-back. DAG sources are in
+[`data_platform/orchestration/airflow/dags`](data_platform/orchestration/airflow/dags).
+
+### Data quality and validation
+
+- **Contracts:** nine versioned YAML contracts describe the stable Silver and
+  Gold interfaces ([`data_platform/contracts`](data_platform/contracts)).
+- **Validators:** fail-hard Bronze, Silver and Gold validators read the
+  persisted Delta data and return non-zero on any violation
+  ([`data_platform/quality`](data_platform/quality)).
+- **Point-in-time rules:** historical features use a strict `[T − window, T)`
+  window with same-timestamp exclusion, and are never computed from
+  `fraud_labels`.
+- **Semantic equivalence:** optimised Spark variants are compared against their
+  baselines by content fingerprints, so a performance change cannot silently
+  change results.
+- **Lineage:** DataHub receives dataset and job lineage derived from the actual
+  implementation, with assertion results attached.
+
+---
+
+## Streaming Pipeline
+
+The streaming path handles transactions as they arrive and keeps online
+features current between batch materialisations.
+
+```mermaid
+flowchart LR
+    G["Streaming generator"] --> RAW["transactions.raw.v1"]
+    RAW --> F["Flink job<br/>validate · dedup · event time<br/>keyed feature state"]
+    F --> ACC["transactions.accepted.v1<br/>(historical sink)"]
+    F --> ONL["features.online.v1<br/>(Feast Online updates)"]
+    F --> RET["retry.v1"] --> F
+    F --> LATE["late events<br/>reconciliation"]
+    F --> DLQ["dead-letter topic"]
+```
+
+- **Typed contracts** for events, topics (partitions, retention) and feature
+  keys, shared by the generator, the Flink job and the sinks
+  ([`data_platform/streaming/contracts`](data_platform/streaming/contracts)).
+- **Event-time semantics:** watermarks, a bounded allowed lateness, and
+  deduplication by transaction ID. Late records go to reconciliation instead of
+  being dropped.
+- **Feature state** per user, account, device and merchant, following the same
+  entity keys as the batch features.
+- **Failure routing:** a bounded retry topic and a dead-letter queue. Records
+  with invalid fields are rejected, not relabelled.
+- **Benchmark harness:** baseline and optimised Flink profiles (parallelism,
+  checkpoint interval, incremental RocksDB checkpoints) run on a pinned local
+  Flink + Redpanda Compose stack and are compared on the same replayed
+  dataset. See [`docs/streaming/flink_local_benchmark.md`](docs/streaming/flink_local_benchmark.md).
+
+---
+
+## Machine Learning Pipeline
+
+```mermaid
+flowchart LR
+    GOLD[("Gold feature tables")] --> FO["Feast Offline<br/>point-in-time join"]
+    LBL[("Silver fraud labels")] --> SNAP
+    FO --> SNAP["Immutable Training Snapshot<br/>(GCS + manifest, DVC descriptor)"]
+    SNAP --> KFP["KFP pipeline<br/>validate → split → train candidates<br/>→ compare → test winner once"]
+    KFP --> MLF["MLflow Tracking + Registry"]
+    MLF --> APP["Manual champion approval"]
+    APP --> KS["KServe InferenceService"]
+```
+
+1. **Feast Offline.** Four entities (user, account, device, merchant) and four
+   FeatureViews are read from a Gold snapshot that keeps microsecond
+   precision. Point-in-time retrieval guarantees that each training row only
+   sees features available strictly before its transaction time.
+2. **Training Snapshot.** Request fields, PIT features and labels are combined
+   into a one-row-per-transaction dataset with chronological train, validation
+   and test splits. The snapshot is published once to immutable GCS with a
+   SHA-256 manifest. DVC tracks only its small provenance descriptor; the
+   lakehouse itself is never copied into DVC.
+3. **KFP training.** A compiled KFP pipeline validates the snapshot contract
+   and fits the configured candidates (Dummy baseline, Logistic Regression,
+   Random Forest, Histogram Gradient Boosting). Preprocessing is fitted on the
+   train split only. Validation PR-AUC, then F1, selects the winner, and only
+   the winner is evaluated on the test split.
+4. **MLflow.** Every candidate run, metric, parameter and artifact is logged.
+   The winner is registered as a model version, and promotion to champion is a
+   manual, auditable step.
+5. **KServe.** The approved version is served from an immutable artifact and
+   image digest.
+
+### Feature contract
+
+The model consumes exactly **41 inputs**, in a frozen column order shared by
+training and inference:
+
+| Group | Count | Source |
+|---|---:|---|
+| Historical features | 31 | Feast (user / account / device / merchant behaviour) |
+| Request-time fields | 4 | The incoming transaction |
+| Derived features | 6 | Shared transforms of request and historical values |
+| **Total model inputs** | **41** | |
+
+IDs, labels, fraud type, split markers, outcomes and ingestion timestamps never
+enter the estimator. The full design is in
+[`docs/ml/fraud_feature_design.md`](docs/ml/fraud_feature_design.md).
+
+---
+
+## Real-Time Fraud Detection
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Fraud API (FastAPI)
+    participant F as Feast Online (Redis)
+    participant K as KServe predictor
+    C->>A: Transaction (request-time fields)
+    A->>A: Validate request schema
+    A->>F: Fetch 31 historical features by entity keys
+    F-->>A: Feature values + freshness
+    A->>A: Assemble 41-column input in frozen order
+    A->>K: Predict
+    K-->>A: Fraud probability
+    A-->>C: Probability, prediction, model version, feature timestamp, correlation ID
+```
+
+`Transaction → Fraud API → Feast Online → Feature Assembly → KServe → Fraud Score`
+
+The API never accepts labels or client-computed aggregates. Requests are
+validated against strict schemas, and missing or stale online features (beyond a
+configured maximum staleness) fail closed with a typed error instead of being
+scored on guessed values. Every response carries the model name and version,
+the feature timestamp and a correlation ID, so each decision can be traced. Implementation:
+[`ai_platform/inference`](ai_platform/inference).
+
+---
+
+## LLM & Agentic AI
+
+The agentic layer helps analysts investigate flagged transactions. It does not
+make autonomous decisions: agents may only call approved tools and must cite
+what they return.
+
+```mermaid
+flowchart TB
+    U["Analyst / client"] --> GW["Istio Ambient ingress<br/>Kubernetes Gateway API"]
+    GW --> CO["kagent Coordinator"]
+    CO -- "native A2A" --> S1["Feature & RAG specialist"]
+    CO -- "native A2A" --> S2["Drift & risk specialist"]
+    S1 & S2 --> MG["MCP Gateway<br/>(policy-only proxy)"]
+    MG --> T1["feature_lookup"]
+    MG --> T2["fraud_scoring"]
+    MG --> T3["knowledge_search (RAG)"]
+    MG --> T4["drift_detection"]
+    CO & S1 & S2 --> AGW["agentgateway<br/>model routing"]
+    AGW --> LD["llm-d routing (optional)"] --> V["vLLM CPU backends"]
+    AGW --> V
+```
+
+- **CPU-first inference.** vLLM serves a small open model from a checksummed,
+  offline model image with primary and fallback backends. agentgateway owns
+  model and backend routing, timeouts and retries. llm-d inference routing is
+  an optional layer between them.
+- **kagent Coordinator and specialists.** Agents run as sandboxed kagent
+  resources with versioned prompts, fixed JSON answer shapes and explicit tool
+  allow-lists. Delegation uses kagent's native A2A protocol, routed through
+  agentgateway; there is no separate A2A runtime.
+- **MCP Gateway.** The gateway is a policy-only proxy in front of four
+  Streamable-HTTP MCP tool services. Agents cannot reach a tool server
+  directly, and the servers keep a deny-all authenticator until access is
+  explicitly configured.
+- **RAG investigation.** An immutable, checksummed fraud-policy corpus is
+  chunked, embedded and retrieved with exact source attribution, so answers
+  can cite their sources. A manual Airflow DAG refreshes the index.
+- **Security and policy.** The layer runs in an Istio Ambient mesh with
+  deny-by-default authorization and NetworkPolicy, least-privilege service
+  accounts and Workload Identity, with no static credentials in agent
+  configuration. Tools fail closed: an unavailable model or retriever returns
+  an error code, never a fabricated score or policy text.
+- **Operations.** KEDA autoscaling, an OpenTelemetry collector with redaction,
+  Grafana dashboards and an agent registry are packaged as opt-in components of
+  the [`llm-agent-platform`](infra/helm/llm-agent-platform) Helm chart.
+
+Design details: [`docs/llm_agent/agents.md`](docs/llm_agent/agents.md),
+[`docs/llm_agent/mcp_gateway.md`](docs/llm_agent/mcp_gateway.md),
+[`docs/llm_agent/phase_b_llm_gateway.md`](docs/llm_agent/phase_b_llm_gateway.md),
+[`docs/llm_agent/llm_d_inference_routing.md`](docs/llm_agent/llm_d_inference_routing.md),
+[`docs/llm_agent/phase_c_rag.md`](docs/llm_agent/phase_c_rag.md).
+
+---
+
+## Project Structure
 
 ```text
 ewallet-data-ai-platform/
-├── data_platform/
-│   ├── generation/            # Offline and streaming synthetic generators
-│   ├── ingestion/             # Debezium connector and Redpanda topic helper
-│   ├── processing/
-│   │   ├── spark/             # Silver and Gold batch transformations
-│   │   └── flink/             # Experimental streaming jobs
-│   ├── storage/               # MinIO, Delta, Trino config and registration
-│   ├── orchestration/         # Airflow batch DAG
-│   ├── quality/               # Bronze, Silver, and Gold validators
-│   ├── contracts/             # Selected versioned dataset interfaces
-│   └── metadata/datahub/
-│       ├── assertions/        # Eleven selected DQ assertions
-│       ├── lineage/           # Trino recipe and direct lineage publisher
-│       └── runtime/           # Pinned Quickstart helper
+├── data_platform/                 # Data engineering domain
+│   ├── generation/                # Offline + sharded synthetic data generators
+│   ├── ingestion/                 # Redpanda topics, Debezium CDC, Spark ingestion
+│   ├── processing/spark/          # Silver, Gold and historical-feature Spark jobs
+│   ├── streaming/                 # Flink job, contracts, generator, sinks, benchmark
+│   ├── storage/                   # Delta I/O, Trino config, table registration
+│   ├── orchestration/airflow/     # DP1, DP2, DP3 and RAG DAGs
+│   ├── quality/                   # Bronze / Silver / Gold validators
+│   ├── contracts/                 # Versioned YAML data contracts
+│   ├── metadata/datahub/          # Lineage, assertions, DataHub runtime
+│   └── config/                    # Typed runtime-profile loader
+├── ai_platform/                   # ML and AI domain
+│   ├── features/feast/            # Feast repo, PIT validation, snapshot export
+│   ├── ml/                        # Training, modeling, MLflow tracking
+│   │   ├── pipelines/             # Kubeflow pipeline + compiler project
+│   │   └── dvc-operator/          # Locked DVC operator environment
+│   ├── inference/                 # Fraud API, feature assembly, KServe client
+│   └── llm_agent/                 # MCP tools, RAG, agent contracts
+├── configs/                       # Environment profiles (local/dev/gcp), MLOps, LLM, streaming
 ├── infra/
-│   ├── docker/                # Canonical split Compose files
-│   └── terraform/gcp/         # R2 GCP modules and cost-gated dev stack
-├── ai_platform/
-│   ├── features/feast/         # Feast offline definitions and retrieval
-│   └── ml/
-│       ├── training/           # F7 training contract and bounded build
-│       └── modeling/           # F8 active Random Forest baseline
-├── docs/                      # Architecture, component docs, and evidence
-├── notebooks/                 # Read-only validation and coursework demos
-└── tests/                     # Repository-level tests
+│   ├── terraform/gcp/             # GCP modules: network, IAM, GCS, GKE, Dataproc, AR, Jenkins VM
+│   ├── kubernetes/                # MLflow, KFP, kagent, Istio Ambient manifests
+│   ├── helm/                      # llm-agent-platform chart and upstream value overlays
+│   └── docker/                    # Compose stacks and locked image builds
+├── ops/                           # Operator tooling: GCP runners, preflights, validation
+├── scripts/                       # Shell entry points for MLOps, LLM/agents, streaming
+├── tests/                         # Unit, contract, inference, streaming and LLM tests
+├── docs/                          # Architecture, runbooks and recorded evidence
+├── notebooks/                     # Read-only validation and demo notebooks
+└── Jenkinsfile.llm-agent          # CI pipeline for the LLM/agent platform
 ```
 
-The Phase 2 `ai_platform/` domain contains Feast offline feature retrieval, the
-F7 supervised training-dataset contract/build, and the F8 bounded Random Forest
-baseline. Full canonical training materialization, MLflow lifecycle tracking,
-online serving, LLM, and agent work remain deferred.
+---
 
-## Prerequisites
+## Getting Started
 
-Run commands from the repository root. The local setup expects:
+### Prerequisites
 
-- Docker Engine and Docker Compose v2;
-- Python 3.10+;
-- `curl` and `sha256sum` for the pinned DataHub runtime helper;
-- a project Python environment with the dependencies already used by the
-  generator, PySpark/Delta, MinIO, and Trino scripts;
-- Java compatible with the installed Spark/PyFlink versions;
-- Jupyter for the notebook demo;
-- a separate Python environment with `acryl-datahub==1.7.0.5` for DataHub
-  operations.
+- Linux or WSL2, Git, Docker Engine with Compose v2
+- [`uv`](https://docs.astral.sh/uv/) 0.13 or newer (every Python environment is `uv`-locked)
+- A Java runtime compatible with your PySpark version (local Spark only); Helm 3 and Terraform for the infrastructure checks
+- For cloud work: the Google Cloud SDK and access to a GCP project
 
-This coursework repository does not yet provide a single locked Python
-environment file. Use the same environment consistently for generation,
-Spark, validation, and storage scripts. DataHub has a separate tested runtime
-because its SDK dependency set is independent.
-
-## Quickstart: platform infrastructure
-
-The Docker, MinIO, and Trino instructions in this section are the **local
-profile** compatibility path. Local mutation commands require
-`--environment local` and fail before touching infrastructure for `dev` or
-`gcp`. GCS resources will be provisioned by Terraform in the cloud
-infrastructure phase; do not use the MinIO bootstrap scripts as a manual GCS
-workaround. Runtime profile details are documented in the
-[cloud configuration guide](docs/cloud/configuration.md).
-
-The canonical stack is one Compose project assembled from four files. Always
-keep the project name and project directory so services share DNS and the
-existing persisted volumes.
-
-Validate the merged configuration:
+### 1. Clone and configure
 
 ```bash
-docker compose \
-  -p ewallet-data-ai-platform \
-  --project-directory . \
-  --profile ingestion \
-  --profile storage \
-  -f infra/docker/compose.messaging.yml \
-  -f infra/docker/compose.ingestion.yml \
-  -f infra/docker/compose.storage.yml \
-  -f infra/docker/compose.query.yml \
-  config
+git clone https://github.com/HuyyGiaa/ewallet-data-ai-platform.git
+cd ewallet-data-ai-platform
+cp .env.example .env        # fill in values for your environment; never commit .env
 ```
 
-Start it:
+Runtime values come from `.env` keys and the profiles in
+[`configs/environments`](configs/environments) (`local`, `dev`, `gcp`). See the
+[runtime configuration guide](docs/cloud/configuration.md).
+
+### 2. Install locked Python environments
+
+Each deployable unit owns its own `pyproject.toml` and `uv.lock`. There is no
+repository-wide environment, and builds never re-resolve dependencies.
+
+| Project | Purpose |
+|---|---|
+| `ai_platform/features/feast` | Feast offline, PIT validation, snapshot export |
+| `ai_platform/ml` | Training, evaluation, MLflow client, KFP components |
+| `ai_platform/ml/pipelines` | KFP 2.17.3 pipeline compilation |
+| `ai_platform/ml/dvc-operator` | DVC 3.63.0 operator |
+| `infra/docker/flink-benchmark` | Streaming generator, PyFlink job, benchmark harness |
+| `infra/docker/llm-agent-tooling` | MCP tool services and RAG |
+| `infra/docker/vllm-cpu-model` | vLLM CPU model image remediation |
+| `infra/kubernetes/mlflow/image` | MLflow server image |
 
 ```bash
-docker compose \
-  -p ewallet-data-ai-platform \
-  --project-directory . \
-  --profile ingestion \
-  --profile storage \
+uv lock --check --project ai_platform/features/feast    # verify the lock, never re-resolve
+uv sync --locked --project ai_platform/features/feast   # install exactly the lock
+```
+
+The full contract is documented in
+[`docs/ml/dependency_environments.md`](docs/ml/dependency_environments.md).
+
+### 3. Run the source validation gates
+
+```bash
+python3 ops/validation/validate_runtime_config.py                 # profiles, literals, contracts
+python3 -m ops.llm_agent.preflight --repository-root "$PWD"       # LLM/agent source contract
+```
+
+### 4. Run tests
+
+```bash
+# Feature store, data platform, inference and contract tests
+PYTHONPATH=. uv run --locked --project ai_platform/features/feast \
+  python -m unittest discover -s tests -t .
+
+# Streaming (generator, Flink operators, benchmark harness)
+PYTHONPATH=. uv run --locked --project infra/docker/flink-benchmark \
+  python -m pytest -q tests/streaming
+
+# MCP tools and RAG
+uv run --locked --project infra/docker/llm-agent-tooling --extra feast \
+  python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_mcp_sdk_conformance \
+  tests.llm_agent.test_rag_online_retriever
+```
+
+Tests that need an optional runtime, such as PySpark, Airflow or Helm, skip
+cleanly when it is missing. Spark-based tests need `PYSPARK_PYTHON` to point at
+the interpreter running the tests.
+
+### 5. Local platform stack (optional)
+
+The local profile runs Redpanda, Kafka Connect, MinIO and Trino as a single
+Compose project:
+
+```bash
+docker compose -p ewallet-data-ai-platform --project-directory . \
+  --profile ingestion --profile storage \
   -f infra/docker/compose.messaging.yml \
   -f infra/docker/compose.ingestion.yml \
   -f infra/docker/compose.storage.yml \
@@ -206,366 +552,84 @@ docker compose \
   up -d
 ```
 
-Check service state and core query access:
-
-```bash
-docker compose \
-  -p ewallet-data-ai-platform \
-  --project-directory . \
-  --profile ingestion \
-  --profile storage \
-  -f infra/docker/compose.messaging.yml \
-  -f infra/docker/compose.ingestion.yml \
-  -f infra/docker/compose.storage.yml \
-  -f infra/docker/compose.query.yml \
-  ps
-
-docker exec trino trino --execute 'SELECT 1'
-curl --fail http://localhost:9000/minio/health/ready
-```
-
-Partial stacks must include their dependencies.
-
-Messaging plus ingestion:
-
-```bash
-docker compose \
-  -p ewallet-data-ai-platform \
-  --project-directory . \
-  --profile ingestion \
-  -f infra/docker/compose.messaging.yml \
-  -f infra/docker/compose.ingestion.yml \
-  up -d
-```
-
-Storage plus query:
-
-```bash
-docker compose \
-  -p ewallet-data-ai-platform \
-  --project-directory . \
-  --profile storage \
-  -f infra/docker/compose.storage.yml \
-  -f infra/docker/compose.query.yml \
-  up -d
-```
-
-Do not run ingestion without messaging or query without storage. Do not use
-`docker compose down -v` when retaining local data. The former root
-`docker-compose.yml` was removed after the split configuration passed
-equivalence and runtime checks; it remains available at the `phase1-freeze`
-tag.
-
-## Batch pipeline
-
-Generate offline source files:
+The local batch pipeline then runs stage by stage:
 
 ```bash
 python -m data_platform.generation.src.offline.offline_generator
-```
-
-Initialize the canonical persisted Bronze Delta tables:
-
-```bash
-python -m data_platform.storage.scripts.init_storage \
-  --environment local --include-fraud-labels
-python -m data_platform.quality.validate_bronze \
-  --environment local --include-fraud-labels
-```
-
-Run the remaining stages directly when Airflow is not needed:
-
-```bash
-python -m data_platform.processing.spark.silver.silver_pipeline \
-  --environment local --include-fraud-labels
-python -m data_platform.quality.validate_silver \
-  --environment local --include-fraud-labels
+python -m data_platform.storage.scripts.init_storage --environment local --include-fraud-labels
+python -m data_platform.quality.validate_bronze --environment local --include-fraud-labels
+python -m data_platform.processing.spark.silver.silver_pipeline --environment local --include-fraud-labels
+python -m data_platform.quality.validate_silver --environment local --include-fraud-labels
 python -m data_platform.processing.spark.gold.gold_pipeline --environment local
 python -m data_platform.quality.validate_gold --environment local
 ```
 
-The canonical Phase 2 workflow requires the fraud flag consistently across
-Bronze and Silver. This keeps `fraud_labels` synchronized with the same source
-transactions:
+The local Flink benchmark stack is driven by
+[`scripts/streaming/flink_bench.sh`](scripts/streaming/flink_bench.sh)
+(`prereq`, `up`, `functional`, `perf`, `compare`, `down`). See its
+[runbook](docs/streaming/flink_local_benchmark.md).
 
-```bash
-python -m data_platform.storage.scripts.init_storage \
-  --environment local --include-fraud-labels
-python -m data_platform.quality.validate_bronze \
-  --environment local --include-fraud-labels
-python -m data_platform.processing.spark.silver.silver_pipeline \
-  --environment local --include-fraud-labels
-python -m data_platform.quality.validate_silver \
-  --environment local --include-fraud-labels
-```
+---
 
-`fraud_labels` is required and flows from source
-Parquet through Bronze to a thin Silver target-truth table. It has no Gold
-copy. Four point-in-time historical feature tables are built from Silver
-transactions and devices without reading labels. Feast retrieves those Gold
-snapshots through an explicit microsecond-safe local Parquet adapter; see the
-[Feast offline guide](docs/ml/feast_offline.md). F7 combines request fields,
-Feast history, labels, and shared derived features in a deterministic 40,148-row
-ML-layer materialization; see the
-[training dataset contract](docs/ml/fraud_training_dataset.md). Full
-four-million-row materialization exceeds measured local resources, and ML
-training remains a later task.
-The current canonical inventory is 8 Bronze / 8 Silver / 15 Gold.
-Running these commands without `--include-fraud-labels` remains a Phase 1
-compatibility mode and can leave canonical labels stale.
+## Cloud Deployment
 
-F3 retained the Phase 1 source under
-`data_platform/generation/output/offline_phase1_backup_pre_fraud/`. This is an
-ignored runtime backup for local rollback evidence and is not committed.
-F4C also retained the pre-F4B F3 source under
-`data_platform/generation/output/offline_f3_backup_pre_f4b/` before replacing
-the canonical source with the validated F4B generator output.
+The Google Cloud deployment is split into reviewed, cost-gated stages, and each
+stage has its own runbook. Project IDs, buckets, endpoints and credentials are
+supplied at runtime and are never committed.
 
-The Airflow DAG runs the full sequence with validation gates:
+| Component | Role | Runbook |
+|---|---|---|
+| GCP project, VPC, IAM, GCS, Artifact Registry | Terraform foundation with remote state | [Terraform GCP foundation](docs/cloud/terraform_gcp_foundation.md) |
+| Delta Lake on GCS | Lakehouse storage layout | [GCS Delta Lake](docs/cloud/gcs_delta_lake.md) |
+| Dataproc Serverless | Spark runtime for DP1–DP3 | [Dataproc Delta smoke](docs/cloud/dataproc_delta_smoke.md), [Dataproc performance](docs/cloud/canonical_dataproc_performance.md) |
+| Airflow DP1 / DP2 / DP3 | Data pipeline orchestration | [DP2 Method 2 runbook](docs/cloud/dp2_method2_single_dag_runbook.md), [100 GB readiness](docs/cloud/canonical_100gb_readiness.md) |
+| Feast Offline + Training Snapshot | PIT retrieval and immutable snapshot | [Cloud Feast training snapshot](docs/ml/cloud_feast_training_snapshot.md), [ML-2 operator runbook](docs/ml/ml2_training_snapshot_operator_runbook.md) |
+| GKE, MLflow, KFP | MLOps runtime on Kubernetes | [GKE MLOps runtime gate](docs/ml/gke_mlops_runtime_gate.md), [Canonical KFP](docs/ml/kfp_canonical.md), [F9 MLflow](docs/ml/f9_mlflow_canonical.md) |
+| vLLM, agentgateway, kagent, MCP | LLM and agent platform on GKE (CPU) | [GKE CPU runtime](docs/llm_agent/gke_cpu_runtime.md), [Runtime runbook](docs/llm_agent/runtime_runbook.md) |
+| Jenkins, image scanning | CI/CD and OTel | [CI/CD and observability](docs/llm_agent/cicd_observability.md) |
 
-```text
-Bronze ingestion -> Bronze validation -> Silver transformation
--> Silver validation -> Gold transformation -> Gold validation
-```
+Operator entry points live in [`scripts/mlops`](scripts/mlops),
+[`scripts/llm_agent`](scripts/llm_agent) and [`ops/gcp`](ops/gcp). Each runs a
+dry run by default and needs an explicit flag before it changes anything.
 
-Configure the two variables used by the DAG and start Airflow with the project
-Airflow home:
+---
 
-```bash
-export AIRFLOW_HOME="$(pwd)/data_platform/orchestration/airflow"
-airflow variables set project_root "$(pwd)"
-airflow variables set fintech_python "$(command -v python)"
-airflow standalone
-```
+## Testing & Reproducibility
 
-DataHub GMS owns local port `8080`, which is also Airflow's documented default.
-Do not run both UIs on `8080`; stop one runtime or configure a supported
-alternate Airflow host port for the installed Airflow version. The repository
-does not silently choose that port.
+| Practice | How it is enforced |
+|---|---|
+| **Unit and contract tests** | `tests/unit`, `tests/contract`, `tests/inference`, `tests/streaming`, `tests/llm_agent`, run in the locked environment that owns each component. |
+| **Integration tests** | Fraud API, Feast Online and KServe client tests run the service end to end against test doubles; DAG-import tests load the Airflow DAGs in an isolated `AIRFLOW_HOME`. |
+| **Schema and data quality** | Contract files plus fail-hard Bronze / Silver / Gold validators, and cloud-profile checks that reject stale local literals. |
+| **Semantic equivalence** | Optimised Spark runs must match baseline content fingerprints (volatile audit columns excluded) before a performance comparison counts. |
+| **Offline / online parity** | The Feast PIT validation and the 41-column frozen input order are tested on both the training and inference sides. |
+| **Reproducible environments** | `uv lock --check` and `uv sync --locked` for every project. A contract test fails if a project is unlocked, an image installs outside its lock, or a protected pin (Feast, KFP, MCP, DVC, PyFlink) drifts. |
+| **Image and version pinning** | Base images and tools are pinned by digest. Models are served from checksummed revisions, and KFP components reference immutable images. |
+| **Benchmark methodology** | A/B runs use identical inputs and semantics and differ only in declared knobs. Each run records its config hash and identities. Invalid runs are rejected rather than compared. |
+| **Evidence policy** | Runtime claims require machine-readable evidence under [`docs/evidence`](docs/evidence). Source, configuration and passing tests alone are not treated as deployment proof. |
 
-## Lakehouse layers and validation
-
-- **Bronze** preserves raw duplicates and schema-evolution nulls. Its validator
-  verifies all eight canonical tables can be scanned and have required schemas,
-  including `fraud_labels` at logical transaction grain.
-- **Silver** casts, cleans, deduplicates, normalizes `channel`, and enforces
-  required fields, domains, ranges, logical keys, and foreign keys.
-- **Gold** builds dimensions, facts, the transaction OBT, 90-day user features,
-  four point-in-time user/account/device/merchant behavior tables, and merchant
-  analytics; its validator enforces grains, relationships, ranges, and
-  cross-layer populations.
-
-All validators return a non-zero exit code on validation or runtime failure.
-They read persisted Delta data and do not repair it.
-
-Nine contracts describe selected stable interfaces, including the four
-historical feature tables:
-
-- [`silver.transactions`](data_platform/contracts/silver_transactions.yml)
-- [`silver.fraud_labels`](data_platform/contracts/silver_fraud_labels.yml)
-- [`gold.fact_transactions`](data_platform/contracts/gold_fact_transactions.yml)
-- [`gold.obt_transaction_enriched`](data_platform/contracts/gold_obt_transaction_enriched.yml)
-- [`gold.feat_user_90d`](data_platform/contracts/gold_feat_user_90d.yml)
-- [`gold.feat_user_behavior`](data_platform/contracts/gold_feat_user_behavior.yml)
-- [`gold.feat_account_behavior`](data_platform/contracts/gold_feat_account_behavior.yml)
-- [`gold.feat_device_behavior`](data_platform/contracts/gold_feat_device_behavior.yml)
-- [`gold.feat_merchant_behavior`](data_platform/contracts/gold_feat_merchant_behavior.yml)
-
-The contracts describe transformation behavior, the validators enforce the
-full executable rule set, and DataHub exposes fifteen representative results.
-See [`data_platform/contracts/README.md`](data_platform/contracts/README.md) for syntax validation.
-
-## Register and query Delta tables with Trino
-
-After Spark creates the Delta tables, register or verify all layers:
-
-```bash
-python3 -m data_platform.storage.scripts.register_trino_tables \
-  --environment local \
-  --layer all \
-  --include-fraud-labels
-```
-
-This registers the current 31-table canonical inventory: 8 Bronze, 8 Silver,
-and 15 Gold. Omitting `--include-fraud-labels` retains a compatibility inventory
-of 29 tables; the historical Phase 1 inventory had 25 tables before F5.
-
-This command is metadata-only and idempotent. It requires existing Delta logs,
-checks readable locations, and fails on a location mismatch. It does not copy,
-transform, drop, or re-point data.
-
-Inspect and query the catalog:
-
-```sql
-SHOW SCHEMAS FROM delta;
-SHOW TABLES FROM delta.bronze_zone;
-SHOW TABLES FROM delta.silver_zone;
-SHOW TABLES FROM delta.gold_zone;
-
-SELECT status, count(*) AS transaction_count
-FROM delta.gold_zone.fact_transactions
-GROUP BY status
-ORDER BY transaction_count DESC;
-```
-
-Use the Trino CLI inside the running container:
-
-```bash
-docker exec -it trino trino
-```
-
-## DataHub runtime and metadata
-
-DataHub is intentionally separate from the main Compose project. The
-repository helper downloads the official pinned Quickstart Compose Git ref
-`v1.7.0.1`, verifies its checksum, and produces a deterministic runtime
-Compose file with only the
-external Kafka listener moved from `9092` to `9093`. The tested server image is
-`v1.7.0.1`; the tested CLI/SDK is `1.7.0.5`.
-
-Select the Python interpreter containing `acryl-datahub==1.7.0.5`:
-
-```bash
-export DATAHUB_PYTHON=/path/to/datahub-environment/bin/python
-```
-
-Start and check DataHub:
-
-```bash
-./data_platform/metadata/datahub/runtime/start_datahub.sh start
-./data_platform/metadata/datahub/runtime/start_datahub.sh check
-curl --fail http://localhost:8080/config
-```
-
-Stop containers while preserving Quickstart volumes:
-
-```bash
-./data_platform/metadata/datahub/runtime/start_datahub.sh stop
-```
-
-After Trino registration, ingest table metadata and publish direct lineage:
-
-```bash
-DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" -m datahub ingest \
-  -c data_platform/metadata/datahub/lineage/trino_recipe.yml
-
-DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/lineage/create_lineage.py \
-  --include-fraud-labels
-```
-
-Evaluate assertion logic without DataHub writes, then publish when GMS and the
-target datasets are available:
-
-```bash
-DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --self-test --include-fraud-labels --include-feature-tables
-
-DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --dry-run --include-fraud-labels --include-feature-tables
-
-DATAHUB_TELEMETRY_ENABLED=false \
-  "$DATAHUB_PYTHON" data_platform/metadata/datahub/assertions/publish_assertions.py \
-  --publish --include-fraud-labels --include-feature-tables
-```
-
-The publisher uses deterministic assertion URNs. Re-running it updates the same
-eleven logical definitions and adds timestamped run results. Airflow does not
-currently run Trino registration or DataHub publication.
-
-## Streaming and CDC experiments
-
-The streaming generator publishes synthetic events to
-`transactions.raw` on Redpanda:
-
-```bash
-bash data_platform/ingestion/kafka/create_topic.sh
-python -m data_platform.generation.src.streaming.streaming_generator
-python -m data_platform.processing.flink.streaming_pipeline
-```
-
-The PyFlink job prints feature, duplicate, and late-event outputs. The separate
-`data_platform/processing/flink/burst_monitor.py` prints processing-time burst metrics.
-Neither job has a persistent sink.
-
-The Debezium connector watches PostgreSQL `public.transactions` and publishes
-CDC records with prefix `ewallet`; its table topic is
-`ewallet.public.transactions`. CDC is not wired into Bronze/Silver/Gold.
-
-## Demo notebook
-
-[`notebooks/final_coursework_demo.ipynb`](notebooks/final_coursework_demo.ipynb)
-is a read-only walkthrough. It checks endpoints, inventories the three Trino
-schemas, reads current layer counts, runs sample analytics and selected quality
-queries, displays contract summaries, and optionally checks DataHub.
-
-Run it from the repository root:
-
-```bash
-jupyter notebook notebooks/final_coursework_demo.ipynb
-```
-
-For a non-interactive execution when `nbconvert` is available:
-
-```bash
-jupyter nbconvert \
-  --execute \
-  --to notebook \
-  --inplace \
-  notebooks/final_coursework_demo.ipynb
-```
-
-Defaults are `localhost:8081` for Trino, `localhost:9000` for MinIO, and
-`localhost:8080` for DataHub. Override them with `TRINO_HOST`, `TRINO_PORT`,
-`MINIO_URL`, and `DATAHUB_GMS_URL`. DataHub is optional for the core data demo.
-
-## Port ownership
-
-| Port | Component | Purpose |
-|---:|---|---|
-| 5432 | PostgreSQL | CDC source |
-| 8080 | DataHub GMS | Metadata API |
-| 8081 | Trino | SQL query API |
-| 8082 | Redpanda Console | Messaging UI |
-| 8083 | Kafka Connect | Connector REST API |
-| 9000 | MinIO | S3 API |
-| 9001 | MinIO | Console |
-| 9002 | DataHub UI | Catalog UI |
-| 9092 | Redpanda | External Kafka listener |
-| 9093 | DataHub Quickstart Kafka | External Kafka listener |
-| 29092 | Redpanda | Internal Kafka listener, also host-published |
-| 9644 | Redpanda | Admin API |
-
-## Known limitations
-
-- PyFlink and CDC do not persist into Delta Lake.
-- Streaming has no end-to-end exactly-once claim.
-- Synthetic balances are not complete double-entry accounting semantics.
-- DataHub Quickstart is a separate local-development runtime.
-- Selected DataHub assertions do not mirror every validator rule.
-- Airflow and DataHub both default to host port `8080`.
-- Local credentials are for coursework development only.
-- Kafka Connect image-declared anonymous volumes remain technical debt.
-- Python dependencies are not yet captured in one locked environment file.
+---
 
 ## Documentation
 
-| Document | Purpose |
+| Area | Start here |
 |---|---|
-| [`docs/README.md`](docs/README.md) | Documentation navigation |
-| [`docs/00_system_architecture.md`](docs/00_system_architecture.md) | Canonical architecture and implementation status |
-| [`docs/01_data_generator.md`](docs/01_data_generator.md) | Synthetic generator behavior |
-| [`docs/02_schema_design_example.md`](docs/02_schema_design_example.md) | Dataset schemas and Gold model |
-| [`docs/03_batch_pipeline.md`](docs/03_batch_pipeline.md) | Bronze, Silver, and Gold processing |
-| [`docs/04_streaming_pipeline.md`](docs/04_streaming_pipeline.md) | Experimental Redpanda/PyFlink path |
-| [`docs/05_storage_optimization.md`](docs/05_storage_optimization.md) | Delta optimization benchmark |
-| [`docs/06_airflow_orchestration.md`](docs/06_airflow_orchestration.md) | Airflow DAG and quality gates |
-| [`docs/07_performance_benchmarks.md`](docs/07_performance_benchmarks.md) | Spark performance experiments |
-| [`docs/08_datahub_lineage.md`](docs/08_datahub_lineage.md) | Metadata ingestion, lineage, and assertions |
-| [`docs/cloud/configuration.md`](docs/cloud/configuration.md) | Local/dev/GCP runtime profiles and R1 validation |
+| Architecture | [System architecture](docs/00_system_architecture.md) · [Cloud platform design](docs/superpowers/specs/2026-10-21-cloud-platform-refactor-design.md) · [Docs index](docs/README.md) |
+| Data platform | [Data generator](docs/01_data_generator.md) · [Schema design](docs/02_schema_design_example.md) · [Batch pipeline](docs/03_batch_pipeline.md) · [Airflow orchestration](docs/06_airflow_orchestration.md) · [Storage optimisation](docs/cloud/storage_optimization.md) |
+| Streaming | [Streaming pipeline](docs/04_streaming_pipeline.md) · [Flink local benchmark](docs/streaming/flink_local_benchmark.md) · [Generator compatibility](docs/streaming/generator_compatibility_20261031.md) |
+| Feast | [Feature design](docs/ml/fraud_feature_design.md) · [Feast offline](docs/ml/feast_offline.md) · [Cloud training snapshot](docs/ml/cloud_feast_training_snapshot.md) |
+| MLOps | [Training dataset](docs/ml/fraud_training_dataset.md) · [Modeling](docs/ml/fraud_modeling.md) · [F9 MLflow](docs/ml/f9_mlflow_canonical.md) · [KFP](docs/ml/kfp_canonical.md) · [Dependency environments](docs/ml/dependency_environments.md) |
+| LLM & agents | [Agents](docs/llm_agent/agents.md) · [MCP Gateway](docs/llm_agent/mcp_gateway.md) · [LLM gateway](docs/llm_agent/phase_b_llm_gateway.md) · [RAG](docs/llm_agent/phase_c_rag.md) · [Tool services](docs/llm_agent/phase_d_tool_services.md) |
+| Infrastructure | [Runtime configuration](docs/cloud/configuration.md) · [Terraform](docs/cloud/terraform_gcp_foundation.md) · [GKE CPU runtime](docs/llm_agent/gke_cpu_runtime.md) · [CI/CD & observability](docs/llm_agent/cicd_observability.md) |
+| Metadata & lineage | [DataHub lineage](docs/08_datahub_lineage.md) · [EDAI-1 workstream](docs/edai1/README.md) |
+| Evidence & reports | [Evidence directory](docs/evidence) · [Rubric audit](docs/rubric/rubric_audit.md) · [Source consolidation](docs/integration/20261031_source_consolidation.md) · [Submission integration](docs/integration/20261101_submission_integration.md) |
 
-The next cloud task is reviewed Terraform provisioning. R1 does not regenerate
-the full dataset or run the cloud pipeline.
+---
+
+## Academic Context
+
+This repository was developed as a coursework and research project
+on modern data, MLOps and agentic AI platforms. The mapping between the course
+rubric and the repository evidence is in [`docs/rubric`](docs/rubric).
+
+**Author and maintainer:** [@HuyyGiaa](https://github.com/HuyyGiaa)
