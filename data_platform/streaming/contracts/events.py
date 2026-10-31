@@ -143,6 +143,14 @@ class TransactionEvent:
     ) -> "TransactionEvent":
         """Adapt either offline V1 (no channel) or V2 into the Flink envelope."""
         values = dict(payload)
+        # Only physical V1 lacks the column; a V2 record with an empty channel
+        # is malformed and must not be relabelled as legacy UNKNOWN.
+        if "channel" not in values:
+            channel = "UNKNOWN"
+        elif values["channel"] in {item.value for item in Channel}:
+            channel = str(values["channel"])
+        else:
+            raise ValueError(f"unsupported V2 channel: {values['channel']!r}")
         return cls(
             event_id=event_id,
             transaction_id=str(values["transaction_id"]),
@@ -155,7 +163,7 @@ class TransactionEvent:
             amount=float(values["amount"]),
             currency=str(values["currency"]),
             status=str(values["status"]),
-            channel=str(values.get("channel") or "UNKNOWN"),
+            channel=channel,
             old_balance=float(values["old_balance"]),
             new_balance=float(values["new_balance"]),
             event_time=_offline_utc(values["timestamp"]),

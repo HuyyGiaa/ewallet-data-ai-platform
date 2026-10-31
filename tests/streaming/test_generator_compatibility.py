@@ -115,6 +115,19 @@ class GeneratorCompatibilityTest(unittest.TestCase):
         self.assertEqual(record_v2["channel"], v2.channel)
         self.assertEqual(UTC, v1.event_time.tzinfo)
 
+    def test_v2_record_with_missing_channel_value_is_not_relabelled_unknown(self) -> None:
+        record_v2 = self.generator.normal(4, self.start).to_offline_record()
+        for bad in (None, "", "UNKNOWN", "mobile"):
+            record_v2["channel"] = bad
+            with self.assertRaises(ValueError):
+                TransactionEvent.from_offline_record(
+                    record_v2, event_id="event-v2", trace_id="trace-v2"
+                )
+
+    def test_generator_never_emits_unknown_channel(self) -> None:
+        events = self.generator.sample(300, start=self.start)
+        self.assertEqual({"app", "web", "atm"}, {event.channel for event in events})
+
     def test_invalid_payload_is_rejected_by_existing_input_contract(self) -> None:
         with self.assertRaises((KeyError, TypeError, ValueError)):
             TransactionEvent.from_dict(self.generator.invalid_payload(5))
