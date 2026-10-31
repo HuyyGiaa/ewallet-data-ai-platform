@@ -1,0 +1,25 @@
+# Only the Feast operator jobs (this namespace) and the Fraud API may reach Redis.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-clients
+  namespace: feature-store
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: feast-online-operator
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: fraud-serving
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fraud-api
+      ports:
+        - port: 6379
+          protocol: TCP

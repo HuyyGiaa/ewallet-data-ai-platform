@@ -152,10 +152,9 @@ class KServeV2Client:
         self._transport = transport or UrllibJsonTransport()
         self._wire_contract = wire_contract
         model = quote(model_name, safe="")
-        version = quote(model_version, safe="")
-        self._model_url = (
-            f"{base_url.rstrip('/')}/v2/models/{model}/versions/{version}"
-        )
+        # KServe 0.16 serves V2 without version-scoped routes; the deployed
+        # version is enforced through every inference response instead.
+        self._model_url = f"{base_url.rstrip('/')}/v2/models/{model}"
         self._signature_validated = False
 
     def _require_wire_contract(self) -> KServeWireContract:
@@ -211,8 +210,10 @@ class KServeV2Client:
             raise ModelSignatureError()
         if metadata.get("name") != self.model_name:
             raise ModelSignatureError()
-        if "versions" in metadata:
-            versions = metadata["versions"]
+        versions = metadata.get("versions")
+        # KServe 0.16 reports ``"versions": null``; the version is then
+        # enforced on every inference response.
+        if versions is not None:
             if (
                 not isinstance(versions, list)
                 or self.model_version not in versions
@@ -284,10 +285,7 @@ class KServeV2Client:
             raise ModelResponseError()
         if response.get("model_name") != self.model_name:
             raise ModelResponseError()
-        if (
-            "model_version" in response
-            and response["model_version"] != self.model_version
-        ):
+        if response.get("model_version") != self.model_version:
             raise ModelResponseError()
         if response.get("id") != correlation_id:
             raise ModelResponseError()
