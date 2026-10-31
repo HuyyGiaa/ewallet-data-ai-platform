@@ -18,7 +18,10 @@ from ai_platform.inference.errors import (
     StaleFeatureError,
 )
 from ai_platform.inference.schemas import FraudPredictionRequest
-from ai_platform.ml.training.contract import HISTORICAL_FEATURE_COLUMNS
+from ai_platform.ml.training.contract import (
+    HISTORICAL_FEATURE_COLUMNS,
+    NULLABLE_HISTORICAL_FEATURE_COLUMNS,
+)
 
 
 DEFAULT_MAX_STALENESS = timedelta(minutes=10)
@@ -194,14 +197,19 @@ class FeastOnlineAdapter:
                 values[name] = None
                 timestamps[name] = None
                 continue
-            if value is None:
+            if value is None and name not in NULLABLE_HISTORICAL_FEATURE_COLUMNS:
                 missing.append(name)
                 continue
             try:
-                feature_time = _timestamp(_one(data, name + _TIMESTAMP_SUFFIX))
+                raw_time = _one(data, name + _TIMESTAMP_SUFFIX)
             except MissingFeatureError:
                 missing.append(name)
                 continue
+            if raw_time is None:
+                # No stored row for the entity: missing, never a null value.
+                missing.append(name)
+                continue
+            feature_time = _timestamp(raw_time)
             age = request_time - feature_time
             if age < timedelta(0):
                 future.append(name)
