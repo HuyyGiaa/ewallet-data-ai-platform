@@ -99,10 +99,17 @@ if ((!EXECUTE)); then
 fi
 
 printf '%s\n' "${manifest}" | kubectl --context "${KUBE_CONTEXT}" apply -f -
-kubectl --context "${KUBE_CONTEXT}" -n ml-platform wait "job/${RUN_ID}" \
-  --for=jsonpath='{.status.conditions[?(@.status=="True")].type}'=Complete \
-  --timeout=3700s || {
-  kubectl --context "${KUBE_CONTEXT}" -n ml-platform logs "job/${RUN_ID}" --tail=80 >&2 || true
-  die "job ${RUN_ID} did not complete"
-}
+# Poll succeeded/failed counts: newer Kubernetes reports both
+# SuccessCriteriaMet and Complete, which breaks a jsonpath condition wait.
+deadline=$((SECONDS + 3700))
+while :; do
+  read -r succeeded failed < <(kubectl --context "${KUBE_CONTEXT}" -n ml-platform get "job/${RUN_ID}" \
+    -o jsonpath='{.status.succeeded} {.status.failed}{"\n"}')
+  [[ "${succeeded:-0}" -ge 1 ]] && break
+  if [[ "${failed:-0}" -ge 1 || ${SECONDS} -ge ${deadline} ]]; then
+    kubectl --context "${KUBE_CONTEXT}" -n ml-platform logs "job/${RUN_ID}" --tail=80 >&2 || true
+    die "job ${RUN_ID} did not complete"
+  fi
+  sleep 10
+done
 kubectl --context "${KUBE_CONTEXT}" -n ml-platform logs "job/${RUN_ID}" | tail -1
