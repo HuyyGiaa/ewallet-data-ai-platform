@@ -36,11 +36,20 @@ class CloudAirflowDagTest(unittest.TestCase):
         self.assertEqual({"submit_bronze_dataproc"}, dp1.get_task("wait_bronze_quota").downstream_task_ids)
 
         dp2 = self.bag.dags["dp2_bronze_to_curated"]
-        self.assertEqual(7, len(dp2.task_ids))
-        self.assertEqual({"wait_silver_quota"}, dp2.get_task("verify_bronze_delta").downstream_task_ids)
-        self.assertEqual({"submit_silver_dataproc"}, dp2.get_task("wait_silver_quota").downstream_task_ids)
-        self.assertEqual({"wait_gold_quota"}, dp2.get_task("verify_silver_delta").downstream_task_ids)
-        self.assertEqual({"submit_core_gold_dataproc"}, dp2.get_task("wait_gold_quota").downstream_task_ids)
+        self.assertEqual(25, len(dp2.task_ids))
+        for profile in ("baseline", "optimized"):
+            self.assertEqual(
+                {f"silver_{profile}_submit"},
+                dp2.get_task(f"silver_{profile}_quota").downstream_task_ids,
+            )
+            self.assertEqual(
+                {f"gold_{profile}_submit"},
+                dp2.get_task(f"gold_{profile}_quota").downstream_task_ids,
+            )
+        self.assertEqual(
+            {"prepare_gold_pair_from_silver_winner"},
+            dp2.get_task("validate_and_select_silver_winner").downstream_task_ids,
+        )
 
         dp3 = self.bag.dags["dp3_historical_features"]
         self.assertEqual(5, len(dp3.task_ids))
@@ -60,13 +69,8 @@ class CloudAirflowDagTest(unittest.TestCase):
                 "verify_bronze_delta": "ops.gcp.verify_delta_run",
             },
             "dp2_bronze_to_curated": {
-                "verify_bronze_delta": "ops.gcp.verify_delta_run",
-                "wait_silver_quota": "ops.gcp.wait_for_dataproc_quota",
-                "submit_silver_dataproc": "ops.gcp.submit_bronze_to_silver",
-                "verify_silver_delta": "ops.gcp.verify_delta_run",
-                "wait_gold_quota": "ops.gcp.wait_for_dataproc_quota",
-                "submit_core_gold_dataproc": "ops.gcp.submit_silver_to_gold",
-                "verify_core_gold_delta": "ops.gcp.verify_delta_run",
+                task_id: "ops.gcp.dp2_method2"
+                for task_id in self.bag.dags["dp2_bronze_to_curated"].task_ids
             },
             "dp3_historical_features": {
                 "verify_silver_delta": "ops.gcp.verify_delta_run",
@@ -100,7 +104,6 @@ class CloudAirflowDagTest(unittest.TestCase):
     def test_all_dags_accept_and_propagate_explicit_spark_profile(self) -> None:
         task_ids = {
             "dp1_source_to_bronze": ("submit_bronze_dataproc",),
-            "dp2_bronze_to_curated": ("submit_silver_dataproc", "submit_core_gold_dataproc"),
             "dp3_historical_features": ("submit_historical_features_dataproc",),
         }
         for dag_id, submit_tasks in task_ids.items():
@@ -115,6 +118,13 @@ class CloudAirflowDagTest(unittest.TestCase):
                 self.assertIn("--git-sha '{{ params.git_sha }}'", command)
                 self.assertIn("--pair-manifest '", command)
                 self.assertIn("--ttl '{{ params.dataproc_ttl }}'", command)
+        dp2 = self.bag.dags["dp2_bronze_to_curated"]
+        self.assertNotIn("spark_profile", dp2.params)
+        for stage in ("silver", "gold"):
+            for profile in ("baseline", "optimized"):
+                command = dp2.get_task(f"{stage}_{profile}_submit").bash_command
+                self.assertIn(f"--stage {stage} --profile {profile}", command)
+                self.assertIn("--git-sha '{{ params.git_sha }}'", command)
 
     def test_quota_guards_share_profile_and_emit_per_handoff_evidence(self) -> None:
         expected = {
@@ -122,8 +132,10 @@ class CloudAirflowDagTest(unittest.TestCase):
                 "wait_bronze_quota": ("external-to-bronze", "params.predecessor_batch_id"),
             },
             "dp2_bronze_to_curated": {
-                "wait_silver_quota": ("bronze-to-silver", "params.bronze_run_id"),
-                "wait_gold_quota": ("silver-to-gold", "params.silver_run_id"),
+                "silver_baseline_quota": ("silver", "baseline"),
+                "silver_optimized_quota": ("silver", "optimized"),
+                "gold_baseline_quota": ("gold", "baseline"),
+                "gold_optimized_quota": ("gold", "optimized"),
             },
             "dp3_historical_features": {
                 "wait_features_quota": ("gold-to-features", "params.gold_run_id"),
@@ -136,6 +148,13 @@ class CloudAirflowDagTest(unittest.TestCase):
             for task_id, (handoff, predecessor) in tasks.items():
                 task = dag.get_task(task_id)
                 command = task.bash_command
+                if dag_id == "dp2_bronze_to_curated":
+                    self.assertIn("-m ops.gcp.dp2_method2", command)
+                    self.assertIn("--action quota", command)
+                    self.assertIn(f"--stage {handoff} --profile {predecessor}", command)
+                    self.assertIn("--benchmark-id '{{ params.benchmark_id }}'", command)
+                    self.assertIn("--project '{{ params.project_id }}'", command)
+                    continue
                 self.assertIn(
                     f'"${{{PYTHON_ENV_VAR}:?ERROR: {PYTHON_ENV_VAR} is not configured}}" '
                     "-m ops.gcp.wait_for_dataproc_quota",

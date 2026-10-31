@@ -47,6 +47,8 @@ ARTIFACT_ROOT=$(realpath -- "$ARTIFACT_ROOT")
 spark_ab_validate_benchmark_id
 [[ $BRONZE_SOURCE_BENCHMARK_ID =~ ^ab-[0-9]{14}$ ]] || \
   spark_ab_usage_error "Bronze source benchmark ID must match ab-YYYYMMDDhhmmss"
+[[ $BRONZE_SOURCE_BENCHMARK_ID != "$BENCHMARK_ID" ]] || \
+  spark_ab_usage_error "New DP2 benchmark must differ from reused Bronze source benchmark"
 [[ $BRONZE_WINNER_SHA256 =~ ^[0-9a-f]{64}$ ]] || \
   spark_ab_usage_error "Bronze Winner SHA-256 must be 64 lowercase hex characters"
 APPROVAL="NOT_APPROVED"

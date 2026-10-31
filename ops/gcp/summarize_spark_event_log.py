@@ -189,7 +189,9 @@ def summarize_event_logs(
         "completed_stage_count": completed_stages,
         "event_log_files": [
             {
-                "path": str(path),
+                # Persist the immutable cloud identity, never an ephemeral
+                # collector temp path that changes after an Airflow restart.
+                "path": source_uri,
                 "sha256": _sha256(path),
                 "size_bytes": path.stat().st_size,
             }

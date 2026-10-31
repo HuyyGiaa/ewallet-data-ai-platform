@@ -214,9 +214,13 @@ def main() -> int:
         ),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("x", encoding="utf-8") as stream:
-        json.dump(result, stream, indent=2, sort_keys=True)
-        stream.write("\n")
+    if args.output.exists():
+        if json.loads(args.output.read_text(encoding="utf-8")) != result:
+            raise ValueError("existing immutable equivalence evidence differs")
+    else:
+        with args.output.open("x", encoding="utf-8") as stream:
+            json.dump(result, stream, indent=2, sort_keys=True)
+            stream.write("\n")
     print("PASS" if result["output_equivalent"] else "FAIL")
     return 0 if result["output_equivalent"] else 1
 

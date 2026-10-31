@@ -35,9 +35,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         equivalence_evidence=_load(args.equivalence_evidence),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("x", encoding="utf-8") as stream:
-        json.dump(artifact, stream, indent=2, sort_keys=True)
-        stream.write("\n")
+    if args.output.exists():
+        if _load(args.output) != artifact:
+            raise ValueError("existing immutable winner artifact differs")
+    else:
+        with args.output.open("x", encoding="utf-8") as stream:
+            json.dump(artifact, stream, indent=2, sort_keys=True)
+            stream.write("\n")
     print(args.output)
     return 0
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -147,13 +148,22 @@ def _write_single_stage(
 ) -> None:
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_csv.parent.mkdir(parents=True, exist_ok=True)
-    with output_json.open("x", encoding="utf-8") as stream:
-        json.dump(dict(row), stream, indent=2, sort_keys=True)
-        stream.write("\n")
-    with output_csv.open("x", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(row))
-        writer.writeheader()
-        writer.writerow(row)
+    json_payload = json.dumps(dict(row), indent=2, sort_keys=True) + "\n"
+    csv_stream = io.StringIO(newline="")
+    writer = csv.DictWriter(csv_stream, fieldnames=list(row))
+    writer.writeheader()
+    writer.writerow(row)
+    csv_payload = csv_stream.getvalue()
+    for path, payload in (
+        (output_json, json_payload),
+        (output_csv, csv_payload),
+    ):
+        if path.exists():
+            if path.read_bytes() != payload.encode("utf-8"):
+                raise ValueError(f"existing immutable comparison artifact differs: {path}")
+        else:
+            with path.open("x", newline="", encoding="utf-8") as stream:
+                stream.write(payload)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

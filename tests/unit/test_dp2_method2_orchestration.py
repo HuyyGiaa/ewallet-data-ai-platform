@@ -13,8 +13,8 @@ from unittest.mock import patch
 
 from data_platform.config.spark_benchmark import winner_artifact_digest
 from ops.gcp.dp2_method2 import (
-    _action, _batch_cohort, _dataproc_batch_id, _pair_path, _require_head, _require_pair,
-    _validation_batch_id, _winner,
+    _action, _adopt_completed_batch, _batch_cohort, _dataproc_batch_id,
+    _pair_path, _require_head, _require_pair, _validation_batch_id, _winner,
 )
 from ops.gcp.summarize_spark_event_log import DATAPROC_COHORT_PROPERTY
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
@@ -105,10 +105,17 @@ class TestDP2Workflow(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
                 _action(self.args)
 
+    def test_missing_bronze_winner_fails_before_pair_creation(self):
+        self.args.bronze_winner.unlink()
+        with patch("ops.gcp.dp2_method2._require_clean_head"):
+            with self.assertRaises(FileNotFoundError):
+                _action(self.args)
+        self.assertFalse(_pair_path(self.root, "silver").exists())
+
     def test_rejects_wrong_bronze_source_benchmark(self):
         self.args.bronze_source_benchmark_id = BENCH
         with patch("ops.gcp.dp2_method2._require_clean_head"):
-            with self.assertRaisesRegex(ValueError, "must be distinct"):
+            with self.assertRaisesRegex(ValueError, "Wrong winner benchmark_id"):
                 _action(self.args)
 
     def test_silver_winner_is_required_before_gold_pair(self):
@@ -185,11 +192,84 @@ class TestDP2Workflow(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         self.assertTrue(all(len(x) <= 50 for x in ids))
 
-    def test_prepare_is_immutable(self):
+    def test_prepare_is_idempotent_only_for_exact_immutable_manifest(self):
         with patch("ops.gcp.dp2_method2._require_clean_head"):
             _action(self.args)
-            with self.assertRaises(FileExistsError):
+            original = _pair_path(self.root, "silver").read_bytes()
+            _action(self.args)
+            self.assertEqual(original, _pair_path(self.root, "silver").read_bytes())
+            value = _json_file(_pair_path(self.root, "silver"))
+            value["upstream_run_ids"] = ["tampered"]
+            _pair_path(self.root, "silver").write_text(json.dumps(value))
+            with self.assertRaisesRegex(ValueError, "immutable artifact differs"):
                 _action(self.args)
+
+    def _completed_batch(self, *, state="SUCCEEDED", pair_digest=None):
+        pair_digest = pair_digest or "sha256:" + "a" * 64
+        cohort = "cohort-exact"
+        return {
+            "name": f"projects/p/locations/r/batches/{SILVER_RUN}",
+            "uuid": cohort,
+            "state": state,
+            "runtimeInfo": {"cohortInfo": {"cohort": cohort}},
+            "labels": {
+                "goog-dataproc-batch-uuid": cohort,
+                "benchmark_id": BENCH,
+                "spark_profile": "baseline",
+                "git_sha": NEW_SHA,
+            },
+            "runtimeConfig": {"properties": {
+                "spark:spark.ewallet.method2.pairManifestDigest": pair_digest,
+                "spark:spark.ewallet.method2.outputRunId": SILVER_RUN,
+            }},
+        }
+
+    def test_restart_adopts_only_exact_succeeded_batch(self):
+        self.args.project, self.args.region = "project", "region"
+        digest = "sha256:" + "a" * 64
+        with patch(
+            "ops.gcp.dp2_method2._describe_batch_if_present",
+            return_value=self._completed_batch(pair_digest=digest),
+        ):
+            self.assertTrue(_adopt_completed_batch(
+                self.args, batch_id=SILVER_RUN, output_run_id=SILVER_RUN,
+                pair_digest=digest, profile="baseline", recovery_git_sha=None,
+            ))
+        with patch(
+            "ops.gcp.dp2_method2._describe_batch_if_present",
+            return_value=self._completed_batch(pair_digest="sha256:" + "b" * 64),
+        ):
+            with self.assertRaisesRegex(ValueError, "runtime identity"):
+                _adopt_completed_batch(
+                    self.args, batch_id=SILVER_RUN, output_run_id=SILVER_RUN,
+                    pair_digest=digest, profile="baseline", recovery_git_sha=None,
+                )
+
+    def test_restart_never_resubmits_existing_non_success_batch(self):
+        self.args.project, self.args.region = "project", "region"
+        digest = "sha256:" + "a" * 64
+        for state in ("PENDING", "FAILED", "CANCELLED"):
+            with self.subTest(state=state), patch(
+                "ops.gcp.dp2_method2._describe_batch_if_present",
+                return_value=self._completed_batch(state=state, pair_digest=digest),
+            ):
+                with self.assertRaisesRegex(ValueError, "refusing duplicate"):
+                    _adopt_completed_batch(
+                        self.args, batch_id=SILVER_RUN,
+                        output_run_id=SILVER_RUN, pair_digest=digest,
+                        profile="baseline", recovery_git_sha=None,
+                    )
+
+    def test_absent_batch_allows_one_submission_path(self):
+        self.args.project, self.args.region = "project", "region"
+        with patch(
+            "ops.gcp.dp2_method2._describe_batch_if_present", return_value=None,
+        ):
+            self.assertFalse(_adopt_completed_batch(
+                self.args, batch_id=SILVER_RUN, output_run_id=SILVER_RUN,
+                pair_digest="sha256:" + "a" * 64,
+                profile="baseline", recovery_git_sha=None,
+            ))
 
     def test_cli_rejects_unapproved_execution(self):
         from ops.gcp.dp2_method2 import main
@@ -467,8 +547,84 @@ class TestDP2Launcher(unittest.TestCase):
             self.assertIn(f'bronze_winner_sha256\\":\\"{bronze_sha}', result.stdout)
             self.assertIn(f"dp2-method2-{BENCH}", result.stdout)
 
+    def test_launcher_rejects_same_new_and_bronze_source_benchmark(self):
+        repository = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bronze = root / "bronze.json"
+            bronze.write_text("{}")
+            fake_airflow = root / "airflow"
+            fake_airflow.write_text(
+                "#!/usr/bin/env bash\n[[ ${1:-} == version ]] && printf '3.3.1\\n'\n"
+            )
+            fake_airflow.chmod(fake_airflow.stat().st_mode | stat.S_IXUSR)
+            result = subprocess.run(
+                [
+                    str(repository / "scripts/run_dp2_method2.sh"), str(bronze),
+                    "--benchmark-id", BENCH,
+                    "--bronze-source-benchmark-id", BENCH,
+                    "--bronze-winner-sha256", "a" * 64,
+                    "--artifact-root", str(root / "evidence"),
+                    "--baseline-silver-run-id", SILVER_RUN,
+                    "--optimized-silver-run-id", SILVER_OPT,
+                    "--baseline-gold-run-id", GOLD_RUN,
+                    "--optimized-gold-run-id", GOLD_OPT,
+                ],
+                cwd=repository,
+                env={**os.environ, "AIRFLOW_BIN": str(fake_airflow),
+                     "EWALLET_DATA_BUCKET": "bucket"},
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("must differ", result.stderr)
+
 
 class TestEventLogProvenance(unittest.TestCase):
+    def test_multiple_identity_matching_event_logs_fail_without_evidence(self):
+        from ops.gcp.dp2_method2 import _get_event_metrics
+        args = FakeArgs()
+        args.data_bucket = "bucket"
+        args.benchmark_id = BENCH
+        cohort = "cohort-original"
+        batch = {
+            "state": "SUCCEEDED",
+            "createTime": "2026-10-30T10:00:00Z",
+            "stateTime": "2026-10-30T10:20:00Z",
+            "name": f"projects/p/locations/r/batches/{SILVER_RUN}",
+            "uuid": cohort,
+            "labels": {"goog-dataproc-batch-uuid": cohort},
+            "runtimeInfo": {"cohortInfo": {"cohort": cohort}},
+        }
+        uris = (
+            "gs://bucket/spark-events/app-20261030100500123-0001.jsonl",
+            "gs://bucket/spark-events/app-20261030101000123-0002.jsonl",
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "performance.json"
+
+            def fake_run(*cmd, capture=False):
+                if cmd[:3] == ("gcloud", "storage", "ls"):
+                    return "\n".join(uris)
+                if cmd[:3] == ("gcloud", "storage", "cp"):
+                    Path(cmd[-1]).write_text("{}\n")
+                    return ""
+                raise AssertionError(cmd)
+
+            with patch(
+                "ops.gcp.dp2_method2._run", side_effect=fake_run
+            ), patch(
+                "ops.gcp.dp2_method2.summarize_event_logs",
+                return_value={"identity": "valid"},
+            ):
+                with self.assertRaisesRegex(ValueError, "found 2"):
+                    _get_event_metrics(
+                        args, "silver", "baseline", SILVER_RUN, SILVER_RUN,
+                        "sha256:" + "a" * 64, batch, output,
+                    )
+            self.assertFalse(output.exists())
+
     def test_requires_original_run_provenance_not_validation_job(self):
         from ops.gcp.dp2_method2 import _get_event_metrics
         from data_platform.config.spark_benchmark import (

@@ -157,6 +157,10 @@ class SparkPostRunIntegrationTest(unittest.TestCase):
         self.assertEqual(18, result["spill_bytes"])
         self.assertEqual(1, result["task_count"])
         self.assertEqual("original_ingestion_batch", result["source_execution_kind"])
+        self.assertEqual(
+            "gs://bucket/spark-events/application-123",
+            result["event_log_files"][0]["path"],
+        )
 
     def test_event_log_rejects_wrong_output_or_pair_identity(self) -> None:
         manifest = pair_manifest()

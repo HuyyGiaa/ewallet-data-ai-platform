@@ -56,6 +56,16 @@ def _write_once(path: Path, payload: Mapping[str, Any]) -> None:
         f.write("\n")
 
 
+def _write_once_or_require_exact(path: Path, payload: Mapping[str, Any]) -> None:
+    """Create an immutable JSON artifact or adopt the exact existing value."""
+
+    if path.exists():
+        if _json(path) != dict(payload):
+            raise ValueError(f"Existing immutable artifact differs: {path}")
+        return
+    _write_once(path, payload)
+
+
 def _run(*args: str, capture: bool = False) -> str:
     result = subprocess.run(list(args), check=True, capture_output=capture, text=True,
                             cwd=REPO_ROOT)
@@ -116,10 +126,6 @@ def _bronze_winner(args: argparse.Namespace) -> dict[str, Any]:
             "Bronze source benchmark and trusted winner SHA-256 are required"
         )
     validate_benchmark_id(source_benchmark)
-    if source_benchmark == args.benchmark_id:
-        raise ValueError(
-            "DP2 execution benchmark must be distinct from the reused Bronze source benchmark"
-        )
     return _winner(
         args.bronze_winner,
         stage="dp1-bronze",
@@ -191,7 +197,7 @@ def _create_pair(args: argparse.Namespace, stage: str, upstream: str) -> None:
         candidate_output_run_id=identities["optimized"],
         candidate_output_root=f"gs://{args.data_bucket}/lakehouse/runs/{identities['optimized']}/{stage}",
     )
-    _write_once(_pair_path(args.root, stage), payload)
+    _write_once_or_require_exact(_pair_path(args.root, stage), payload)
     print(_pair_path(args.root, stage))
 
 
@@ -212,6 +218,88 @@ def _describe_batch(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
     return json.loads(_run("gcloud", "dataproc", "batches", "describe", run_id,
                            f"--project={args.project}", f"--region={args.region}",
                            "--format=json", capture=True))
+
+
+def _describe_batch_if_present(
+    args: argparse.Namespace, batch_id: str,
+) -> dict[str, Any] | None:
+    completed = subprocess.run(
+        [
+            "gcloud", "dataproc", "batches", "describe", batch_id,
+            f"--project={args.project}", f"--region={args.region}", "--format=json",
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode == 0:
+        value = json.loads(completed.stdout)
+        if not isinstance(value, dict):
+            raise ValueError("Dataproc batch description must be an object")
+        return value
+    if "not_found" in (completed.stdout + completed.stderr).lower():
+        return None
+    raise RuntimeError(
+        f"Could not determine whether Dataproc batch exists: {batch_id}"
+    )
+
+
+def _method2_runtime_identity(batch: Mapping[str, Any]) -> dict[str, str]:
+    runtime = batch.get("runtimeConfig")
+    if not isinstance(runtime, Mapping):
+        raise ValueError("Dataproc batch lacks runtimeConfig")
+    raw = runtime.get("properties")
+    if not isinstance(raw, Mapping):
+        raise ValueError("Dataproc batch lacks runtime properties")
+    return {
+        str(key).split(":", 1)[-1]: str(value)
+        for key, value in raw.items()
+    }
+
+
+def _adopt_completed_batch(
+    args: argparse.Namespace, *, batch_id: str, output_run_id: str,
+    pair_digest: str, profile: str, recovery_git_sha: str | None,
+    validation_git_sha: str | None = None,
+) -> bool:
+    """Adopt one exact completed Dataproc attempt; never resubmit an existing ID."""
+
+    batch = _describe_batch_if_present(args, batch_id)
+    if batch is None:
+        return False
+    state = str(batch.get("state", ""))
+    if state != "SUCCEEDED":
+        raise ValueError(
+            f"Dataproc batch {batch_id} already exists in state {state}; "
+            "refusing duplicate submission"
+        )
+    _batch_cohort(batch, batch_id)
+    labels = batch.get("labels")
+    if not isinstance(labels, Mapping):
+        raise ValueError("Dataproc batch lacks labels")
+    expected_labels = {
+        "benchmark_id": args.benchmark_id,
+        "spark_profile": profile,
+        "git_sha": args.git_sha,
+    }
+    if validation_git_sha is not None:
+        expected_labels["validation_git_sha"] = validation_git_sha
+    if batch_id != output_run_id and validation_git_sha is None:
+        expected_labels.update(
+            output_run_id=output_run_id,
+            recovery_git_sha=str(recovery_git_sha or ""),
+        )
+    if any(labels.get(key) != value for key, value in expected_labels.items()):
+        raise ValueError("Existing Dataproc batch labels do not match execution identity")
+    properties = _method2_runtime_identity(batch)
+    expected_properties = {
+        "spark.ewallet.method2.pairManifestDigest": pair_digest,
+        "spark.ewallet.method2.outputRunId": output_run_id,
+    }
+    if any(properties.get(key) != value for key, value in expected_properties.items()):
+        raise ValueError("Existing Dataproc batch runtime identity mismatch")
+    return True
 
 
 def _dataproc_batch_id(
@@ -451,6 +539,16 @@ def _action(args: argparse.Namespace) -> None:
                 "--compute-repository", str(args.compute_repository),
             ))
         if args.action == "submit":
+            if _adopt_completed_batch(
+                args,
+                batch_id=dataproc_batch_id,
+                output_run_id=run_id,
+                pair_digest=str(pair["pair_manifest_digest"]),
+                profile=profile,
+                recovery_git_sha=getattr(args, "recovery_git_sha", None),
+            ):
+                print(f"Adopted exact completed Dataproc batch: {dataproc_batch_id}")
+                return
             module_args.append("--execute")
         _module(
             "ops.gcp.submit_bronze_to_silver" if stage == "silver" else
@@ -463,6 +561,22 @@ def _action(args: argparse.Namespace) -> None:
         _require_clean_head(
             args.recovery_git_sha if dataproc_batch_id != run_id else args.git_sha
         )
+        validation_batch_id = _validation_batch_id(run_id, stage, profile)
+        validation_git_sha = (
+            args.recovery_git_sha if dataproc_batch_id != run_id else args.git_sha
+        )
+        if _adopt_completed_batch(
+            args,
+            batch_id=validation_batch_id,
+            output_run_id=run_id,
+            pair_digest=str(pair["pair_manifest_digest"]),
+            profile=profile,
+            recovery_git_sha=None,
+            validation_git_sha=validation_git_sha,
+        ):
+            _run("gcloud", "storage", "ls", _summary_uri(args, stage, profile, run_id))
+            print(f"Adopted exact completed semantic scan: {validation_batch_id}")
+            return
         # A semantic scan is also a paid Dataproc batch; gate its quota separately.
         _module("ops.gcp.wait_for_dataproc_quota", "--project", args.project,
                 "--region", args.region, "--spark-profile", profile,
@@ -476,13 +590,11 @@ def _action(args: argparse.Namespace) -> None:
                     )
                 ), "--execute")
         _module("ops.gcp.submit_spark_output_summary",
-                "--batch-id", _validation_batch_id(run_id, stage, profile),
+                "--batch-id", validation_batch_id,
                 "--benchmark-id", args.benchmark_id, "--spark-profile", profile,
                 "--stage", STAGES[stage], "--output-run-id", run_id,
                 "--dataset-version", args.dataset_version, "--git-sha", args.git_sha,
-                "--validation-git-sha", (
-                    args.recovery_git_sha if dataproc_batch_id != run_id else args.git_sha
-                ),
+                "--validation-git-sha", validation_git_sha,
                 "--summary-uri", _summary_uri(args, stage, profile, run_id),
                 "--source-run-id", upstream[0],
                 "--pair-manifest", str(_pair_path(args.root, stage)), "--execute")

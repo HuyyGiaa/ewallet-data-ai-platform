@@ -43,6 +43,7 @@ from ops.gcp.submit_source_to_bronze import (
     _validate_ttl,
     load_cloud_runtime,
 )
+from ops.gcp.submit_silver_to_gold import assert_batch_id_absent
 
 
 SILVER_SCRIPT = (
@@ -308,6 +309,7 @@ def main(
     archive = DEFAULT_ARCHIVE
     if args.execute:
         assert_silver_prefix_absent(runtime, run_id=args.run_id, runner=runner)
+        assert_batch_id_absent(runtime, batch_id=args.run_id, runner=runner)
         jar_paths = ensure_delta_dependencies()
         archive = build_python_archive(REPOSITORY_ROOT, DEFAULT_ARCHIVE)
     command = build_submission_command(

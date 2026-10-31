@@ -557,7 +557,9 @@ class SparkBenchmarkEvidenceTest(unittest.TestCase):
                 "--output-csv", str(root / "comparison.csv"),
             ]
             self.assertEqual(0, compare_main(argv))
-            with self.assertRaises(FileExistsError):
+            self.assertEqual(0, compare_main(argv))
+            (root / "comparison.csv").write_text("tampered\n")
+            with self.assertRaisesRegex(ValueError, "immutable comparison"):
                 compare_main(argv)
 
 

@@ -37,6 +37,7 @@ from ops.gcp.submit_source_to_bronze import (
     load_cloud_runtime,
 )
 from ops.gcp.summarize_spark_output import expected_output_root, stage_run_kind
+from ops.gcp.submit_silver_to_gold import assert_batch_id_absent
 
 
 SUMMARY_SCRIPT = REPOSITORY_ROOT / "ops/gcp/summarize_spark_output.py"
@@ -215,6 +216,7 @@ def main(
     archive = DEFAULT_ARCHIVE
     if args.execute:
         require_clean_validation_source(args.validation_git_sha, runner)
+        assert_batch_id_absent(runtime, batch_id=args.batch_id, runner=runner)
         jars = ensure_delta_dependencies()
         archive = build_python_archive(REPOSITORY_ROOT, DEFAULT_ARCHIVE)
     command = build_submission_command(
