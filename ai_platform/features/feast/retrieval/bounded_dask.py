@@ -14,7 +14,7 @@ from __future__ import annotations
 import resource
 import threading
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from time import perf_counter
 from typing import Iterator
@@ -62,6 +62,8 @@ class BoundedSourcePlan:
     end_timestamp: datetime
     projected_columns: tuple[str, ...]
     ttl_seconds: float
+    # Exact-timestamp plans keep only rows stamped at a requested T.
+    timestamp_values: tuple[datetime, ...] | None = None
 
     def evidence(self) -> dict[str, object]:
         payload = asdict(self)
@@ -73,6 +75,9 @@ class BoundedSourcePlan:
             None if self.entity_values is None else list(self.entity_values)
         )
         payload["projected_columns"] = list(self.projected_columns)
+        payload["timestamp_values"] = (
+            None if self.timestamp_values is None else len(self.timestamp_values)
+        )
         return payload
 
 
@@ -137,6 +142,26 @@ def build_bounded_source_plan(
     )
 
 
+def build_exact_timestamp_plan(
+    store: FeatureStore,
+    view_name: str,
+    entity_df: pd.DataFrame,
+) -> BoundedSourcePlan:
+    """Keep only rows of the requested entities stamped at a requested T.
+
+    DP3 writes one feature row per transaction at its own event time, so for a
+    request (entity, T) the latest row with ``ts <= T`` is normally the row at
+    T itself (with any same-timestamp peers, which are all kept). Any request
+    row that finds no match must be retried with ``build_bounded_source_plan``;
+    a matched row is exact because no later row ``<= T`` can exist.
+    """
+
+    plan = build_bounded_source_plan(store, view_name, entity_df)
+    timestamps = pd.to_datetime(entity_df["event_timestamp"], utc=True)
+    values = tuple(sorted({value.to_pydatetime() for value in timestamps}))
+    return replace(plan, start_timestamp=min(values), timestamp_values=values)
+
+
 def build_time_window_plan(
     store: FeatureStore,
     view_name: str,
@@ -188,6 +213,10 @@ def _apply_plan(frame: dd.DataFrame, plan: BoundedSourcePlan) -> dd.DataFrame:
     predicate = frame[plan.timestamp_field] <= plan.end_timestamp
     if plan.entity_values is not None:
         predicate = predicate & frame[plan.entity_key].isin(plan.entity_values)
+    if plan.timestamp_values is not None:
+        predicate = predicate & frame[plan.timestamp_field].isin(
+            list(plan.timestamp_values)
+        )
     if plan.start_timestamp is not None:
         predicate = predicate & (
             frame[plan.timestamp_field] >= plan.start_timestamp
