@@ -36,6 +36,10 @@ data:
       # at the entry budget). Retry stays for 502/503 only, which the LLM
       # listener returns when vLLM is unreachable or refusing.
       - policies:
+          apiKey:
+            mode: strict
+            keys:
+              - key: "$GATEWAY_CLIENT_KEY"
           timeout:
             requestTimeout: {{ .Values.agentgateway.requestTimeout }}
           retry:
@@ -165,6 +169,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.vllm.apiKeySecret.name }}
                   key: {{ .Values.vllm.apiKeySecret.key }}
+            - name: GATEWAY_CLIENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.agentgateway.clientKeySecret.name }}
+                  key: {{ .Values.agentgateway.clientKeySecret.key }}
           ports:
             - {name: entry, containerPort: 4000}
             - {name: llm-internal, containerPort: 3000}

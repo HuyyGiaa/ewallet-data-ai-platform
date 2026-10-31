@@ -9,7 +9,8 @@ enforcement (gcloud describe), the kubeconfig server of the given context,
 Ready nodes and allocatable CPU/memory, requests of every non-terminal pod
 outside ewallet-agents (the release replaces those), the stage's planned
 requests (helm template of values-gke-cpu.yaml plus the stage --set flags),
-required CRDs, the vllm-api-key Secret by name only, and Helm releases.
+required CRDs, the vllm-api-key and agentgateway-client-key Secrets by name
+only, and Helm releases.
 
 GO needs: the exact allow-listed context and a server that is one of the
 cluster's endpoints; NetworkPolicy enforced (or an explicit, recorded owner
@@ -119,7 +120,7 @@ def evaluate(facts: dict[str, Any], stage: str, *, waive_networkpolicy: bool = F
     if missing:
         reasons.append(f"missing CRDs {missing}")
     if stage != "g0" and not facts["api_key_secret"]:
-        reasons.append(f"Secret {NAMESPACE}/vllm-api-key missing")
+        reasons.append(f"Secrets {NAMESPACE}/vllm-api-key and agentgateway-client-key required")
     return reasons
 
 
@@ -174,7 +175,8 @@ def collect(stage: str, context: str, extra_sets: list[str]) -> dict[str, Any]:
             "ready_nodes": len(ready), "nodes": [n["metadata"]["name"] for n in ready],
             "allocatable": [round(v, 2) for v in allocatable], "existing_requests": [round(v, 2) for v in existing],
             "planned_requests": [round(v, 2) for v in planned], "crds": sorted(crds),
-            "api_key_secret": "secret/vllm-api-key" in secrets, "render_error": render_error,
+            "api_key_secret": {"secret/vllm-api-key", "secret/agentgateway-client-key"} <= set(secrets),
+            "render_error": render_error,
             "helm_releases": [{k: r.get(k) for k in ("name", "namespace", "status", "chart")} for r in releases]}
 
 

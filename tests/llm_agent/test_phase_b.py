@@ -81,7 +81,8 @@ class PhaseBManifestTest(unittest.TestCase):
         model = next(item for item in self.documents if item["kind"] == "ModelConfig")
         self.assertEqual(model["apiVersion"], "kagent.dev/v1alpha2")
         self.assertEqual(model["spec"]["model"], "ewallet-fraud-llm")
-        self.assertEqual(model["spec"]["apiKeySecret"], "vllm-api-key")
+        # Agents authenticate to agentgateway with its client key, never the vLLM backend key.
+        self.assertEqual(model["spec"]["apiKeySecret"], "agentgateway-client-key")
         # The client budget exceeds the gateway entry budget (30 s), so the gateway answers first.
         self.assertEqual(model["spec"]["openAI"]["timeout"], 35)
         self.assertNotIn("stream", model["spec"])

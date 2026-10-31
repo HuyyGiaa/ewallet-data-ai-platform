@@ -212,6 +212,13 @@ vllm:
 
 agentgateway:
   enabled: true
+  # Client authentication on the entry route (apiKey, strict): callers present
+  # this key; the gateway swaps in the vLLM key (vllm.apiKeySecret) towards the
+  # backend, so clients never hold the backend credential. G1 run 5 showed the
+  # gateway accepted any key before this.
+  clientKeySecret:
+    name: agentgateway-client-key
+    key: api-key
   image: ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
   replicas: 2
   # Entry route budget; the LLM listener budget stays just under it so the
@@ -493,6 +500,8 @@ modelConfig:
   model: ewallet-fraud-llm
   # Must exceed agentgateway.requestTimeout (chart guard).
   timeoutSeconds: 35
+  # Clients (agents) authenticate to agentgateway with the gateway client key,
+  # never with the vLLM backend key.
   apiKeySecret:
-    name: vllm-api-key
+    name: agentgateway-client-key
     key: api-key

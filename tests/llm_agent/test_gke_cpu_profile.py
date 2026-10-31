@@ -157,6 +157,23 @@ class EnforcedNetworkPolicyTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HELM, "helm binary unavailable")
+@unittest.skipUnless(HELM, "helm binary unavailable")
+class GatewayClientAuthTests(unittest.TestCase):
+    """G1 run 5: agentgateway accepted any key; clients now need the gateway key."""
+
+    def test_entry_route_requires_the_client_key_and_clients_never_get_the_backend_key(self):
+        docs = [d for d in yaml.safe_load_all(render().stdout) if d]
+        config = yaml.safe_load(next(d for d in docs if d["metadata"]["name"] == "agentgateway-llm-config")["data"]["config.yaml"])
+        entry = config["routes"][0]["policies"]
+        self.assertEqual(entry["apiKey"], {"mode": "strict", "keys": [{"key": "$GATEWAY_CLIENT_KEY"}]})
+        gateway = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "agentgateway")
+        env = {e["name"]: e["valueFrom"]["secretKeyRef"]["name"]
+               for e in gateway["spec"]["template"]["spec"]["containers"][0]["env"]}
+        self.assertEqual(env, {"VLLM_API_KEY": "vllm-api-key", "GATEWAY_CLIENT_KEY": "agentgateway-client-key"})
+        values = yaml.safe_load((CHART / "values.yaml").read_text())
+        self.assertEqual(values["modelConfig"]["apiKeySecret"]["name"], "agentgateway-client-key")
+
+
 class ModelImageModeTests(unittest.TestCase):
     def test_serves_the_baked_revision_offline(self):
         docs = [d for d in yaml.safe_load_all(render().stdout) if d and d["kind"] == "Deployment"]
@@ -408,8 +425,9 @@ case "$(basename "$0") $*" in
   "kubectl config view"*) printf '%s' "${FAKE_SERVER:-https://gke-x.asia-southeast1-b.gke.goog}";;
   "kubectl"*" wait "*) [ -n "${FAKE_HANG:-}" ] && sleep 60;;
   "kubectl"*"get nodes -l"*"--no-headers"*) for i in $(seq 1 "${FAKE_READY:-3}"); do echo "n$i   Ready   <none>"; done;;
+  "kubectl"*"get secret agentgateway-client-key -o jsonpath"*) printf '%s' "$(printf 'c%.0s' $(seq 1 64) | base64 -w0)";;
   "kubectl"*"get secret vllm-api-key -o jsonpath"*) printf '%s' "$(printf 'k%.0s' $(seq 1 64) | base64 -w0)";;
-  "kubectl"*"get secret vllm-api-key"*) exit "${FAKE_SECRET_EXISTS:-1}";;
+  "kubectl"*"get secret "*) exit "${FAKE_SECRET_EXISTS:-1}";;
   "kubectl"*"get deploy vllm-fallback"*) printf '%s' "${FAKE_FALLBACK_READY:-0}";;
   "kubectl"*"get ns ewallet-agents"*) printf 'ambient';;
 esac
@@ -495,6 +513,7 @@ class OperatorTests(ScriptHarness):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         log = self.log.read_text()
         self.assertIn("create secret generic vllm-api-key --from-file=api-key=", log)
+        self.assertIn("create secret generic agentgateway-client-key --from-file=api-key=", log)
         self.assertNotIn("secret-token-value", log + proc.stdout + proc.stderr)
         self.assertNotIn("from-literal", log)
         before = log.count("create secret")

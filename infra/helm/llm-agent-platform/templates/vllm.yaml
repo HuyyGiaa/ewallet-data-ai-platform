@@ -180,10 +180,18 @@ spec:
                 - -c
                 - |
                   import json, os, urllib.request
-                  body = {"model": {{ $.Values.vllm.servedModelName | quote }}, "max_tokens": 16, "temperature": 0,
-                          "messages": [{"role": "user", "content": "Look up transaction warmup-0."}],
-                          "tools": [{"type": "function", "function": {"name": "feature_lookup", "parameters": {
-                              "type": "object", "properties": {"transaction_id": {"type": "string"}}}}}]}
+                  # Shaped like a real tool call (system prompt + described tool,
+                          # ~200 prompt tokens): on CPU the first request of a new
+                          # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.
+                  body = {"model": {{ $.Values.vllm.servedModelName | quote }}, "max_tokens": 32, "temperature": 0,
+                          "messages": [
+                              {"role": "system", "content": "You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data."},
+                              {"role": "user", "content": "Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture."}],
+                          "tools": [{"type": "function", "function": {"name": "feature_lookup",
+                              "description": "Retrieve a test transaction feature fixture.", "parameters": {
+                              "type": "object", "properties": {"transaction_id": {"type": "string"}},
+                              "required": ["transaction_id"], "additionalProperties": False}}}],
+                          "tool_choice": "required"}
                   request = urllib.request.Request("http://127.0.0.1:8000/v1/chat/completions",
                       data=json.dumps(body).encode(), method="POST", headers={
                           "Content-Type": "application/json",

@@ -68,7 +68,7 @@ verify_cluster() {  # the context must point at this cluster, not just carry its
   server=${server#https://}
   contains "$(echo "$endpoints" | tr '\t;' '  ')" "${server%%:*}" || die "kubeconfig server $server is not $CLUSTER"
 }
-api_key() { k -n "$NS" get secret vllm-api-key -o jsonpath='{.data.api-key}' | base64 -d; }
+api_key() { k -n "$NS" get secret "${1:-vllm-api-key}" -o jsonpath='{.data.api-key}' | base64 -d; }
 port_forward() {  # <target> <local:remote>; echoes the pid
   k -n "$NS" port-forward "$1" "$2" >/dev/null 2>&1 &
   echo $!
@@ -166,18 +166,23 @@ namespace)
   ;;
 
 secret)
-  # A fresh token, never printed, never on a command line; an existing Secret is kept as is.
-  if k -n "$NS" get secret vllm-api-key >/dev/null 2>&1; then
-    echo "secret/vllm-api-key exists: kept, not overwritten" | tee "$evidence/secret.txt"
-  else
-    token_file=$(mktemp)
-    trap 'rm -f "$token_file"' EXIT
-    chmod 600 "$token_file"
-    openssl rand -hex 32 | tr -d '\n' > "$token_file"
-    k -n "$NS" create secret generic vllm-api-key --from-file=api-key="$token_file" >/dev/null
-    echo "secret/vllm-api-key created (value not recorded)" | tee "$evidence/secret.txt"
-  fi
-  [ "$(api_key | wc -c)" -eq 64 ] || die "readback: Secret has no 64-character api-key"
+  # vllm-api-key (gateway -> vLLM) and agentgateway-client-key (clients -> gateway):
+  # fresh tokens, never printed, never on a command line; existing Secrets are kept.
+  token_file=$(mktemp)
+  trap 'rm -f "$token_file"' EXIT
+  chmod 600 "$token_file"
+  : > "$evidence/secret.txt"
+  for name in vllm-api-key agentgateway-client-key; do
+    if k -n "$NS" get secret "$name" >/dev/null 2>&1; then
+      echo "secret/$name exists: kept, not overwritten" | tee -a "$evidence/secret.txt"
+    else
+      openssl rand -hex 32 | tr -d '\n' > "$token_file"
+      k -n "$NS" create secret generic "$name" --from-file=api-key="$token_file" >/dev/null
+      echo "secret/$name created (value not recorded)" | tee -a "$evidence/secret.txt"
+    fi
+    [ "$(api_key "$name" | wc -c)" -eq 64 ] || die "readback: Secret $name has no 64-character api-key"
+  done
+  [ "$(api_key vllm-api-key)" != "$(api_key agentgateway-client-key)" ] || die "client and backend keys must differ"
   ;;
 
 preflight)
@@ -247,8 +252,8 @@ netpol-verify)
   ;;
 
 smoke-direct | smoke-gateway)
-  if [ "$stage" = smoke-direct ]; then target=svc/vllm-primary ports=18000:8000 model=ewallet-fraud-llm-v1
-  else target=svc/agentgateway ports=13000:3000 model=ewallet-fraud-llm; fi
+  if [ "$stage" = smoke-direct ]; then target=svc/vllm-primary ports=18000:8000 model=ewallet-fraud-llm-v1 key=vllm-api-key
+  else target=svc/agentgateway ports=13000:3000 model=ewallet-fraud-llm key=agentgateway-client-key; fi
   k -n "$NS" port-forward "$target" "$ports" > "$evidence/$stage-port-forward.log" 2>&1 &
   pf=$!
   since=$(date -u +%FT%TZ)
@@ -260,13 +265,22 @@ smoke-direct | smoke-gateway)
   endpoint="http://127.0.0.1:${ports%%:*}"
   # Stream first: bytes flow during a slow CPU generation, and its timings show
   # how long a silent non-stream request has to survive the port-forward.
-  EWALLET_VLLM_API_KEY=$(api_key) python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
+  EWALLET_VLLM_API_KEY=$(api_key "$key") python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
     --model "$model" --stream --evidence "$evidence/$stage-stream.json"
-  EWALLET_VLLM_API_KEY=$(api_key) python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
+  EWALLET_VLLM_API_KEY=$(api_key "$key") python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
     --model "$model" --evidence "$evidence/$stage-non-stream.json"
-  code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer wrong-key' "$endpoint/v1/models")
-  echo "wrong-key status $code" | tee "$evidence/$stage-wrong-key.txt"
-  [ "$code" = 401 ] || die "wrong key was not rejected with 401"
+  : > "$evidence/$stage-auth.txt"
+  for case in wrong missing backend-key; do  # the backend key must not open the gateway
+    case $case in
+      wrong) hdr=(-H 'Authorization: Bearer wrong-key') ;;
+      missing) hdr=() ;;
+      backend-key) [ "$stage" = smoke-gateway ] || continue; hdr=(-H "Authorization: Bearer $(api_key vllm-api-key)") ;;
+    esac
+    code=$(curl -s -o /dev/null -w '%{http_code}' "${hdr[@]}" -H 'Content-Type: application/json' \
+      -d '{"model":"'"$model"'","messages":[{"role":"user","content":"hi"}],"max_tokens":1}' "$endpoint/v1/chat/completions")
+    echo "$case-key status $code" | tee -a "$evidence/$stage-auth.txt"
+    [ "$code" = 401 ] || die "$case key was not rejected with 401 on /v1/chat/completions"
+  done
   ;;
 
 failover)
@@ -305,7 +319,7 @@ benchmark)
       | awk '{gsub("m","",$2); gsub("Mi","",$3); c+=$2; m+=$3} END {printf "{\"cpu_millicores\": %d, \"memory_mib\": %d}\n", c, m}'
   }
   sample > "$samples"
-  EWALLET_VLLM_API_KEY=$(api_key) timeout 45m python3 "$root/scripts/llm_agent/g1_benchmark.py" \
+  EWALLET_VLLM_API_KEY=$(api_key agentgateway-client-key) timeout 45m python3 "$root/scripts/llm_agent/g1_benchmark.py" \
     --endpoint http://127.0.0.1:13000 --model ewallet-fraud-llm --requests "${BENCH_REQUESTS:-8}" \
     --concurrency "${BENCH_CONCURRENCY:-1}" --resources "$samples" --output "$evidence/benchmark.json" &
   bench=$!
