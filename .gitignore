@@ -96,3 +96,6 @@ crash.log
 crash.*.log
 *.tfvars
 !*.tfvars.example
+
+# Local Flink benchmark runtime evidence (kept on the benchmark PC, not in Git)
+evidence/flink-benchmark/

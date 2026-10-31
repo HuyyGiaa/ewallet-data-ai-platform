@@ -1,0 +1,108 @@
+# Self-contained local Flink benchmark stack (Windows 11 + Docker Desktop/WSL2,
+# 32 GB RAM). Project name and host ports are distinct from the platform
+# compose files, so it never shares brokers or topics with other stacks.
+# Every path is relative to this file; run it from any clone location.
+name: ewallet-flink-bench
+
+x-flink-env: &flink-env
+  FLINK_PROPERTIES: |
+    jobmanager.rpc.address: jobmanager
+    jobmanager.memory.process.size: 1600m
+    taskmanager.memory.process.size: 6144m
+    taskmanager.numberOfTaskSlots: 4
+    parallelism.default: 1
+    state.checkpoints.dir: file:///flink-data/checkpoints
+    python.executable: /opt/venv/bin/python
+    python.client.executable: /opt/venv/bin/python
+    rest.flamegraph.enabled: true
+    web.backpressure.refresh-interval: 10000
+
+services:
+  redpanda:
+    # Same pinned digest as infra/docker/compose.messaging.yml.
+    image: docker.redpanda.com/redpandadata/redpanda@sha256:3387a7ac6b2307129032562bf957653de13373a2748f82de7ab588a39d50b88d
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=2
+      - --memory=3G
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:19092
+      - --advertise-kafka-addr=INTERNAL://redpanda:29092,EXTERNAL://localhost:19092
+      - --set=redpanda.auto_create_topics_enabled=false
+    ports:
+      - "127.0.0.1:19092:19092"
+      - "127.0.0.1:19644:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    cpus: 2
+    mem_limit: 4g
+
+  jobmanager:
+    build:
+      context: ../../..
+      dockerfile: infra/docker/flink-benchmark/Dockerfile
+    image: ewallet-flink-bench:local
+    command: jobmanager
+    environment: *flink-env
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - flink-data:/flink-data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/overview', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    cpus: 1
+    mem_limit: 2g
+
+  taskmanager:
+    image: ewallet-flink-bench:local
+    command: taskmanager
+    environment: *flink-env
+    volumes:
+      - flink-data:/flink-data
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    cpus: 4
+    mem_limit: 7g
+
+  # Bounded replay publisher; only started explicitly via `compose run`.
+  generator:
+    image: ewallet-flink-bench:local
+    profiles: ["tools"]
+    entrypoint: ["python", "-m", "data_platform.streaming.benchmark.replay"]
+    volumes:
+      - ../../../evidence/flink-benchmark:/evidence
+    cpus: 2
+    mem_limit: 3g
+
+  # Isolated output sink reader: drains the run's namespaced output topics
+  # into evidence; it never touches any non-namespaced topic.
+  sink-reader:
+    image: ewallet-flink-bench:local
+    profiles: ["tools"]
+    entrypoint: ["python", "-m"]
+    volumes:
+      - ../../../evidence/flink-benchmark:/evidence
+    cpus: 2
+    mem_limit: 3g
+
+volumes:
+  redpanda-data:
+  flink-data:

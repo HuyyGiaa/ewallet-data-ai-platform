@@ -1,0 +1,1 @@
+"""Stable streaming event contracts."""
