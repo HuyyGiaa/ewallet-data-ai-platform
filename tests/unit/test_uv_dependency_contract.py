@@ -13,9 +13,13 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-import tomllib
 import unittest
 from pathlib import Path
+
+try:  # Python 3.11+; the 3.10 runtimes skip this contract test
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    tomllib = None
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECTS = (
@@ -60,6 +64,7 @@ def pins(text: str) -> dict[str, str]:
     return result
 
 
+@unittest.skipIf(tomllib is None, "tomllib needs Python 3.11+")
 class UvDependencyContractTests(unittest.TestCase):
     def test_every_project_is_locked(self):
         found = {str(p.parent.relative_to(ROOT)) for p in ROOT.rglob("pyproject.toml")
