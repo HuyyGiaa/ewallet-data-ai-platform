@@ -4,7 +4,7 @@ The operator separates the immutable execution Git SHA from the committed
 collector/controller SHA. Its default ``status`` mode is read-only. Recovery
 finishes missing local evidence and Silver winner artifacts without launching
 Spark. Airflow reconciliation uses only the public API and never edits its DB.
-Paid Gold work remains behind a distinct authorization and budget gate.
+Paid Gold work remains behind explicit authorization and technical safety gates.
 """
 from __future__ import annotations
 
@@ -123,6 +123,8 @@ def _dp2_args(config: Mapping[str, Any], *, action: str,
     return SimpleNamespace(
         action=action, root=Path(str(config["evidence_root"])),
         bronze_winner=Path(str(config["bronze_winner"])),
+        bronze_source_benchmark_id=config.get("bronze_source_benchmark_id"),
+        bronze_winner_sha256=config.get("bronze_winner_sha256"),
         benchmark_id=str(config["benchmark_id"]),
         dataset_version=str(config["dataset_version"]),
         git_sha=str(config["execution_git_sha"]),
@@ -606,56 +608,6 @@ GOLD_RECOVERY_STEPS = (
 )
 
 
-def _require_budget_evidence(path: Path) -> dict[str, Any]:
-    """Validate human-reviewed, fresh GCP Billing Console evidence plus reserves.
-
-    This is an operator gate, NOT an authenticated API read or a guarantee against
-    unreported cloud billing. Do not auto-create a PASS document.
-    """
-    budget = _load(path)
-    if (
-        budget.get("status") != "PASS" or budget.get("currency") != "VND"
-        or budget.get("gross_cap_vnd") != 5_000_000
-        or type(budget.get("reserve_vnd")) is not int
-        or budget["reserve_vnd"] < 700_000
-        or budget.get("operator_reviewed") is not True
-        or budget.get("billing_source") != "GCP_BILLING_CONSOLE_MANUAL"
-        or budget.get("quota_available") is not True
-    ):
-        raise ValueError("Budget requires fresh, human-reviewed GCP Billing evidence")
-    required_numbers = (
-        "observed_gross_spend_vnd", "billing_lag_reserve_vnd",
-        "g3_unbilled_reserve_vnd", "estimated_remaining_gold_vnd",
-    )
-    if any(type(budget.get(name)) is not int or budget[name] < 0
-           for name in required_numbers):
-        raise ValueError("Budget evidence lacks gross spend, G3, lag or remaining Gold allowance")
-    if budget["billing_lag_reserve_vnd"] <= 0:
-        raise ValueError("Non-zero billing-lag reserve is required")
-    try:
-        observed = dt.datetime.fromisoformat(
-            str(budget["billing_observed_at_utc"]).replace("Z", "+00:00")
-        )
-    except (KeyError, ValueError) as exc:
-        raise ValueError("Budget observation timestamp is missing/invalid") from exc
-    if observed.tzinfo is None:
-        raise ValueError("Billing observation must include UTC timezone")
-    age = (dt.datetime.now(dt.timezone.utc) - observed).total_seconds()
-    if age < -60 or age > 7200:
-        raise ValueError("Budget billing observation is stale (>2h) or in the future")
-    screenshot = Path(str(budget.get("billing_evidence_file", "")))
-    if (not screenshot.is_absolute() or not screenshot.is_file()
-            or not isinstance(budget.get("billing_evidence_sha256"), str)
-            or _sha256(screenshot) != budget["billing_evidence_sha256"]):
-        raise ValueError("Billing screenshot/source hash is not verified")
-    if not isinstance(budget.get("operator_approval_note"), str) or not budget["operator_approval_note"].strip():
-        raise ValueError("Explicit operator review note is missing")
-    total = sum(budget[name] for name in required_numbers)
-    if total > budget["gross_cap_vnd"] - budget["reserve_vnd"]:
-        raise ValueError("Projected Gold spend violates the gross cap/reserve")
-    return budget
-
-
 def _describe_attempt(config: Mapping[str, Any], batch_id: str) -> dict[str, Any] | None:
     result = subprocess.run(
         ["gcloud", "dataproc", "batches", "describe", batch_id,
@@ -704,13 +656,12 @@ def _record_gold_step(config: Mapping[str, Any], result: Mapping[str, Any]) -> d
 
 def run_gold_step(
     config: Mapping[str, Any], token: str, *, step: str,
-    budget_evidence: Path, authorization: str,
+    authorization: str,
 ) -> dict[str, Any]:
     if authorization != "I_APPROVE_DP2_GOLD_RECOVERY":
         raise ValueError("Explicit DP2 Gold recovery authorization is missing")
     if step not in GOLD_RECOVERY_STEPS:
         raise ValueError(f"Unsupported Gold recovery step: {step}")
-    budget = _require_budget_evidence(budget_evidence)
     plan = _validate_gold_plan(config)
     status = airflow_status(config, token)
     dag = urllib.parse.quote(str(config["dag_id"]), safe="")
@@ -751,8 +702,8 @@ def run_gold_step(
         "schema_version": RECOVERY_SCHEMA, "step": step,
         "execution_git_sha": config["execution_git_sha"],
         "controller_git_sha": config["controller_git_sha"],
-        "budget_evidence_sha256": _sha256(budget_evidence),
-        "budget_gate": budget,
+        "authorization": authorization,
+        "technical_gates": "quota_lineage_immutability_and_terminal_state",
     }
     if step == "finalize":
         _action(_dp2_args(config, action="finalize", stage="gold"))
@@ -817,10 +768,9 @@ def run_gold_step(
 
 
 def resume_gold(config: Mapping[str, Any], token: str,
-                budget_evidence: Path, authorization: str) -> dict[str, Any]:
+                authorization: str) -> dict[str, Any]:
     if authorization != "I_APPROVE_DP2_GOLD_RECOVERY":
         raise ValueError("Explicit DP2 Gold recovery authorization is missing")
-    _require_budget_evidence(budget_evidence)
     raise ValueError(
         "Scheduler resume is disabled for distinct recovery attempts; use the "
         "source-controlled external Gold step workflow while the DAG stays paused"
@@ -835,7 +785,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         "run-gold-step", "resume-gold"),
         default="status")
     parser.add_argument("--authorization", default="")
-    parser.add_argument("--budget-evidence", type=Path)
     parser.add_argument("--gold-step", choices=GOLD_RECOVERY_STEPS)
     parser.add_argument("--airflow-token-env", default="AIRFLOW_API_TOKEN")
     args = parser.parse_args(argv)
@@ -866,19 +815,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.mode == "run-gold-step":
         if not token:
             raise ValueError(f"Airflow token environment variable is missing: {args.airflow_token_env}")
-        if args.budget_evidence is None or args.gold_step is None:
-            raise ValueError("Gold execution requires --budget-evidence and --gold-step")
+        if args.gold_step is None:
+            raise ValueError("Gold execution requires --gold-step")
         result = run_gold_step(
             config, token, step=args.gold_step,
-            budget_evidence=args.budget_evidence,
             authorization=args.authorization,
         )
     else:
         if not token:
             raise ValueError(f"Airflow token environment variable is missing: {args.airflow_token_env}")
-        if args.budget_evidence is None:
-            raise ValueError("--budget-evidence is required for Gold recovery")
-        result = resume_gold(config, token, args.budget_evidence, args.authorization)
+        result = resume_gold(config, token, args.authorization)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 

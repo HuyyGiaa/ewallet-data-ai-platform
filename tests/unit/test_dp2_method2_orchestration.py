@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
+import stat
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,10 +19,11 @@ from ops.gcp.dp2_method2 import (
 from ops.gcp.summarize_spark_event_log import DATAPROC_COHORT_PROPERTY
 from ops.gcp.prepare_spark_stage_pair import build_stage_pair_manifest
 
-BENCH = "ab-20261029174838"
+SOURCE_BENCH = "ab-20261029174838"
+BENCH = "ab-20261031083000"
 OLD_SHA = "62f17ba6fe306b5cf74621b787249f8b71ccd8e8"
 NEW_SHA = "c" * 40
-BRONZE_RUN = f"{BENCH}-baseline-bronze-r261029174838"
+BRONZE_RUN = f"{SOURCE_BENCH}-baseline-bronze-r261029174838"
 BRONZE_ROOT = f"gs://bucket/lakehouse/runs/{BRONZE_RUN}/bronze"
 SILVER_RUN = f"{BENCH}-baseline-silver-r261030104547"
 SILVER_OPT = f"{BENCH}-optimized-silver-r261030104547"
@@ -35,7 +40,7 @@ def winner(stage, run_id, source_sha, output_root):
     result = {
         "schema_version": "spark-method2-winner-v1",
         "stage": stage,
-        "benchmark_id": BENCH,
+        "benchmark_id": SOURCE_BENCH if stage == "dp1-bronze" else BENCH,
         "dataset_version": "canonical-100gb-v1",
         "git_sha": source_sha,
         "selected_profile": profile,
@@ -70,6 +75,10 @@ class TestDP2Workflow(unittest.TestCase):
         self.args.optimized_gold_run_id = GOLD_OPT
         self.args.bronze_winner = self.root / "bronze.json"
         self.args.bronze_winner.write_text(json.dumps(winner("dp1-bronze", BRONZE_RUN, OLD_SHA, BRONZE_ROOT)))
+        self.args.bronze_source_benchmark_id = SOURCE_BENCH
+        self.args.bronze_winner_sha256 = hashlib.sha256(
+            self.args.bronze_winner.read_bytes()
+        ).hexdigest()
         self.args.action = "prepare-silver"
         self.args.profile = None
         self.args.stage = None
@@ -81,6 +90,26 @@ class TestDP2Workflow(unittest.TestCase):
         self.assertEqual(pair["upstream_run_ids"], [BRONZE_RUN])
         self.assertEqual([m["spark_profile"] for m in pair["runs"]], ["baseline", "optimized"])
         self.assertEqual(pair["git_sha"], NEW_SHA)
+
+    def test_new_dp2_benchmark_reuses_exact_trusted_prior_bronze_winner(self):
+        self.assertNotEqual(self.args.benchmark_id, self.args.bronze_source_benchmark_id)
+        with patch("ops.gcp.dp2_method2._require_clean_head"):
+            _action(self.args)
+        pair = json.loads(_pair_path(self.root, "silver").read_text())
+        self.assertEqual(BENCH, pair["benchmark_id"])
+        self.assertEqual([BRONZE_RUN], pair["upstream_run_ids"])
+
+    def test_rejects_wrong_trusted_bronze_winner_checksum(self):
+        self.args.bronze_winner_sha256 = "0" * 64
+        with patch("ops.gcp.dp2_method2._require_clean_head"):
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                _action(self.args)
+
+    def test_rejects_wrong_bronze_source_benchmark(self):
+        self.args.bronze_source_benchmark_id = BENCH
+        with patch("ops.gcp.dp2_method2._require_clean_head"):
+            with self.assertRaisesRegex(ValueError, "must be distinct"):
+                _action(self.args)
 
     def test_silver_winner_is_required_before_gold_pair(self):
         with patch("ops.gcp.dp2_method2._require_clean_head"):
@@ -108,7 +137,7 @@ class TestDP2Workflow(unittest.TestCase):
         self.args.bronze_winner.write_text(json.dumps(obj))
         with self.assertRaisesRegex(ValueError, "digest mismatch"):
             _winner(self.args.bronze_winner, stage="dp1-bronze",
-                    benchmark=BENCH, bucket="bucket")
+                    benchmark=SOURCE_BENCH, bucket="bucket")
 
     def test_rejects_gold_pair_mismatching_winner(self):
         with patch("ops.gcp.dp2_method2._require_clean_head"):
@@ -166,6 +195,8 @@ class TestDP2Workflow(unittest.TestCase):
         from ops.gcp.dp2_method2 import main
         argv = ["--action", "approve", "--root", str(self.root),
                 "--bronze-winner", str(self.args.bronze_winner),
+                "--bronze-source-benchmark-id", SOURCE_BENCH,
+                "--bronze-winner-sha256", self.args.bronze_winner_sha256,
                 "--benchmark-id", BENCH, "--git-sha", NEW_SHA,
                 "--data-bucket", "bucket", "--project", "project", "--region", "region"]
         for stage in ("silver", "gold"):
@@ -365,6 +396,19 @@ class TestDAGStructure(unittest.TestCase):
         with patch.dict(sys.modules, modules):
             namespace = runpy.run_path(str(dag_source))
         self.assertEqual(namespace['dag'].kwargs['dag_id'], 'dp2_bronze_to_curated')
+        params = namespace['dag'].kwargs['params']
+        self.assertIn('bronze_source_benchmark_id', params)
+        self.assertIn('bronze_winner_sha256', params)
+        for operator in namespace.values():
+            if isinstance(operator, BashOperator):
+                self.assertIn(
+                    "--bronze-source-benchmark-id '{{ params.bronze_source_benchmark_id }}'",
+                    operator.kwargs['bash_command'],
+                )
+                self.assertIn(
+                    "--bronze-winner-sha256 '{{ params.bronze_winner_sha256 }}'",
+                    operator.kwargs['bash_command'],
+                )
         self.assertEqual(len(edges), 24)
         ordered = [edges[0][0], *(end for _, end in edges)]
         self.assertEqual(len(ordered), len(set(ordered)))
@@ -377,6 +421,51 @@ class TestDAGStructure(unittest.TestCase):
         self.assertLess(ordered.index('prepare_gold_pair_from_silver_winner'),
                         ordered.index('gold_baseline_submit'))
         self.assertEqual(ordered[-1], 'validate_and_select_gold_winner')
+
+
+class TestDP2Launcher(unittest.TestCase):
+    def test_dry_run_keeps_new_execution_and_trusted_bronze_identities_distinct(self):
+        repository = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bronze = root / "dp1-bronze-winner.json"
+            bronze.write_text(json.dumps(
+                winner("dp1-bronze", BRONZE_RUN, OLD_SHA, BRONZE_ROOT)
+            ))
+            bronze_sha = hashlib.sha256(bronze.read_bytes()).hexdigest()
+            fake_airflow = root / "airflow"
+            fake_airflow.write_text(
+                "#!/usr/bin/env bash\n[[ ${1:-} == version ]] && printf '3.3.1\\n'\n"
+            )
+            fake_airflow.chmod(fake_airflow.stat().st_mode | stat.S_IXUSR)
+            stamp = "261031083001"
+            command = [
+                str(repository / "scripts/run_dp2_method2.sh"), str(bronze),
+                "--benchmark-id", BENCH,
+                "--bronze-source-benchmark-id", SOURCE_BENCH,
+                "--bronze-winner-sha256", bronze_sha,
+                "--artifact-root", str(root / "evidence"),
+                "--baseline-silver-run-id", f"{BENCH}-baseline-silver-r{stamp}",
+                "--optimized-silver-run-id", f"{BENCH}-optimized-silver-r{stamp}",
+                "--baseline-gold-run-id", f"{BENCH}-baseline-gold-r{stamp}",
+                "--optimized-gold-run-id", f"{BENCH}-optimized-gold-r{stamp}",
+            ]
+            environment = dict(os.environ)
+            environment.update(
+                AIRFLOW_BIN=str(fake_airflow),
+                EWALLET_DATA_BUCKET="bucket",
+            )
+            result = subprocess.run(
+                command, cwd=repository, env=environment, capture_output=True,
+                text=True, check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn(f'benchmark_id\\":\\"{BENCH}', result.stdout)
+            self.assertIn(
+                f'bronze_source_benchmark_id\\":\\"{SOURCE_BENCH}', result.stdout
+            )
+            self.assertIn(f'bronze_winner_sha256\\":\\"{bronze_sha}', result.stdout)
+            self.assertIn(f"dp2-method2-{BENCH}", result.stdout)
 
 
 class TestEventLogProvenance(unittest.TestCase):

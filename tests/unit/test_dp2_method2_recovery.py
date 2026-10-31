@@ -1,8 +1,7 @@
 """Recovery controller safety tests; no Airflow or GCP calls are real."""
 from __future__ import annotations
 
-import datetime as dt
-import hashlib
+import inspect
 import json
 import tempfile
 import unittest
@@ -23,6 +22,8 @@ def config(root: Path):
         "evidence_root": str(root), "benchmark_id": "ab-20261029174838",
         "data_bucket": "bucket", "project": "project", "region": "region",
         "bronze_winner": str(root / "bronze-winner.json"),
+        "bronze_source_benchmark_id": "ab-20261029174838",
+        "bronze_winner_sha256": "c" * 64,
         "dataset_version": "canonical-100gb-v1",
         "canonical_repo": str(root / "canonical"),
         "baseline_silver_run_id": "baseline-silver",
@@ -33,28 +34,6 @@ def config(root: Path):
         "baseline_gold_batch_id": "baseline-gold-recovery",
         "optimized_gold_batch_id": "optimized-gold-recovery",
     }
-
-
-def budget_fixture(root: Path, *, gross: int = 1_000_000,
-                   lag: int = 500_000, g3: int = 200_000,
-                   remaining: int = 500_000) -> Path:
-    screenshot = root / "billing-console-proof.txt"
-    screenshot.write_text("Local test fixture only; no actual GCP billing evidence")
-    path = root / "budget.json"
-    path.write_text(json.dumps({
-        "status": "PASS", "currency": "VND", "gross_cap_vnd": 5_000_000,
-        "reserve_vnd": 700_000, "quota_available": True,
-        "billing_source": "GCP_BILLING_CONSOLE_MANUAL",
-        "billing_observed_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "billing_evidence_file": str(screenshot),
-        "billing_evidence_sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest(),
-        "operator_reviewed": True, "operator_approval_note": "unit fixture only",
-        "observed_gross_spend_vnd": gross,
-        "billing_lag_reserve_vnd": lag,
-        "g3_unbilled_reserve_vnd": g3,
-        "estimated_remaining_gold_vnd": remaining,
-    }))
-    return path
 
 
 class RecoverySafetyTest(unittest.TestCase):
@@ -123,7 +102,11 @@ class RecoverySafetyTest(unittest.TestCase):
     def test_resume_gold_requires_explicit_approval_before_any_read(self):
         cfg = config(Path("/tmp/evidence"))
         with self.assertRaisesRegex(ValueError, "authorization"):
-            resume_gold(cfg, "token", Path("missing.json"), "")
+            resume_gold(cfg, "token", "")
+
+    def test_gold_recovery_has_no_monetary_evidence_dependency(self):
+        self.assertNotIn("budget_evidence", inspect.signature(run_gold_step).parameters)
+        self.assertNotIn("budget_evidence", inspect.signature(resume_gold).parameters)
 
     def test_completed_recovery_is_idempotent_and_does_not_run_actions(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -193,7 +176,6 @@ class RecoverySafetyTest(unittest.TestCase):
                 f"quota-{cfg['baseline_gold_batch_id']}.json"
             )
             quota.write_text(json.dumps({"status": "READY"}))
-            budget = budget_fixture(root)
             airflow = {"dag_run_state": "failed", "task_states": {
                 "gold_baseline_quota": "success",
             }}
@@ -216,7 +198,6 @@ class RecoverySafetyTest(unittest.TestCase):
             ):
                 result = run_gold_step(
                     cfg, "token", step="baseline-submit",
-                    budget_evidence=budget,
                     authorization="I_APPROVE_DP2_GOLD_RECOVERY",
                 )
             action.assert_called_once()
@@ -233,7 +214,6 @@ class RecoverySafetyTest(unittest.TestCase):
              f"quota-{cfg['baseline_gold_batch_id']}.json").write_text(
                 json.dumps({"status": "READY"})
             )
-            budget = budget_fixture(root)
             with patch("ops.gcp.recover_dp2_method2._validate_gold_plan"), patch(
                 "ops.gcp.recover_dp2_method2.airflow_status",
                 return_value={"dag_run_state": "failed", "task_states": {}},
@@ -244,18 +224,8 @@ class RecoverySafetyTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "gold_baseline_quota"):
                     run_gold_step(
                         cfg, "token", step="baseline-submit",
-                        budget_evidence=budget,
                         authorization="I_APPROVE_DP2_GOLD_RECOVERY",
                     )
-
-    def test_budget_gate_accounts_for_lag_estimate_and_reserve(self):
-        import json
-        from ops.gcp.recover_dp2_method2 import _require_budget_evidence
-        with tempfile.TemporaryDirectory() as directory:
-            path = budget_fixture(Path(directory), gross=4_000_000,
-                                  lag=200_000, g3=100_000, remaining=200_000)
-            with self.assertRaisesRegex(ValueError, "reserve"):
-                _require_budget_evidence(path)
 
 
 if __name__ == "__main__":

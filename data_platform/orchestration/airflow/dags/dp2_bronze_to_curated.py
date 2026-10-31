@@ -34,6 +34,8 @@ with DAG(
         "dataset_version": Param("canonical-100gb-v1", type="string", enum=["canonical-100gb-v1"]),
         "git_sha": Param("0" * 40, type="string", pattern=r"^[0-9a-f]{40}$"),
         "bronze_winner": Param("/ABSOLUTE/PATH/dp1-bronze-winner.json", type="string", pattern=r"^/[A-Za-z0-9_./-]+$"),
+        "bronze_source_benchmark_id": Param("ab-20260101000000", type="string", pattern=r"^ab-[0-9]{14}$"),
+        "bronze_winner_sha256": Param("0" * 64, type="string", pattern=r"^[0-9a-f]{64}$"),
         "artifact_root": Param("/ABSOLUTE/PATH/DP2-METHOD2-EVIDENCE", type="string", pattern=r"^/[A-Za-z0-9_./-]+$"),
         "baseline_silver_run_id": Param("ab-20260101000000-baseline-silver-r260101000001", type="string", pattern=r"^ab-[0-9]{14}-baseline-silver-r[0-9]{12}$"),
         "optimized_silver_run_id": Param("ab-20260101000000-optimized-silver-r260101000001", type="string", pattern=r"^ab-[0-9]{14}-optimized-silver-r[0-9]{12}$"),
@@ -52,6 +54,8 @@ with DAG(
     common = (
         "--root '{{ params.artifact_root }}' "
         "--bronze-winner '{{ params.bronze_winner }}' "
+        "--bronze-source-benchmark-id '{{ params.bronze_source_benchmark_id }}' "
+        "--bronze-winner-sha256 '{{ params.bronze_winner_sha256 }}' "
         "--benchmark-id '{{ params.benchmark_id }}' "
         "--dataset-version '{{ params.dataset_version }}' "
         "--git-sha '{{ params.git_sha }}' "

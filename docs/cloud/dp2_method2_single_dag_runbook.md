@@ -41,11 +41,16 @@ From the new worktree (after commit):
 
 ```bash
 BRONZE_WINNER="$HOME/ewallet-evidence/spark-method2-final/ab-20261029174838/postrun-check/dp1-bronze-winner.json"
-OUT="$HOME/ewallet-evidence/spark-method2-final/ab-20261029174838/dp2-method2"
+BRONZE_SOURCE_BENCHMARK="ab-20261029174838"
+BRONZE_WINNER_SHA256="cb2b2e23f409bf51aebf7062afba0357e4b39b6d68d73db076b8520ceafa17d6"
+B="ab-<NEW-UTC-YYYYMMDDhhmmss>"
+OUT="$HOME/ewallet-evidence/spark-method2-final/${B}/dp2-method2"
 STAMP="$(date -u +%y%m%d%H%M%S)"
-B="ab-20261029174838"
 
 ./scripts/run_dp2_method2.sh "$BRONZE_WINNER" \
+  --benchmark-id "$B" \
+  --bronze-source-benchmark-id "$BRONZE_SOURCE_BENCHMARK" \
+  --bronze-winner-sha256 "$BRONZE_WINNER_SHA256" \
   --artifact-root "$OUT" \
   --baseline-silver-run-id "${B}-baseline-silver-r${STAMP}" \
   --optimized-silver-run-id "${B}-optimized-silver-r${STAMP}" \
@@ -65,8 +70,11 @@ unconfirmed run IDs.** `--execute` is explicit consent to paid GCP jobs.
 - `python3 -m compileall -q ops/gcp/dp2_method2.py data_platform/orchestration/airflow/dags/dp2_bronze_to_curated.py`
 - `bash -n scripts/run_dp2_method2.sh scripts/run_dp2_canonical.sh`
 - `airflow dags list-import-errors` (in the actual Airflow 3 environment)
-- Inspect GCS output prefix absence, Dataproc quotas, project/bucket, and budget
-  before approving Cloud Execution.
+- Inspect GCS output prefix absence, Dataproc batch-ID absence, active regional
+  Dataproc capacity/quota and project/bucket/IAM before approving Cloud Execution.
+- Living Decision 21.250 makes billing/cost observations reporting-only. They
+  are not execution gates; do not require stale budget screenshots, reserves or
+  per-batch monetary approval.
 
 ## Expected external evidence artifacts
 
@@ -128,6 +136,8 @@ not silently baked into source. Required fields are:
   "canonical_repo": "/absolute/canonical/repository",
   "evidence_root": "/absolute/external/dp2-method2",
   "bronze_winner": "/absolute/external/dp1-bronze-winner.json",
+  "bronze_source_benchmark_id": "ab-YYYYMMDDhhmmss",
+  "bronze_winner_sha256": "<trusted 64-hex SHA-256>",
   "dataset_version": "canonical-100gb-v1",
   "data_bucket": "<bucket>",
   "project": "<project>",
@@ -194,11 +204,10 @@ python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" \
   --mode plan-gold
 ```
 
-Gold execution requires durable budget evidence containing `status=PASS`,
-`currency=VND`, `gross_cap_vnd=5000000`, `reserve_vnd>=700000`,
-`quota_available=true`, plus non-negative `observed_gross_spend_vnd`,
-`billing_lag_reserve_vnd` and `estimated_remaining_gold_vnd`. Their sum must not
-exceed `gross_cap_vnd - reserve_vnd`.
+Per Living Decision 21.250, Gold recovery does not consume budget evidence.
+Explicit operator authorization remains mandatory, together with current quota,
+batch collision, output immutability, Git/data provenance and terminal-state
+checks. Billing observations may be retained separately for reporting only.
 
 The normal scheduler resume mode is deliberately disabled because the original
 DAG bundle cannot render distinct attempt IDs. Keep the DAG paused and execute
@@ -207,7 +216,7 @@ existing TaskInstance is reconciled through the public API; active or succeeded
 attempts are never resubmitted.
 
 ```bash
-# PAID: every command below requires explicit approval and fresh budget evidence.
+# PAID: every command below requires explicit operator approval and technical gates.
 for STEP in \
   baseline-quota baseline-submit baseline-verify baseline-summary baseline-evidence \
   optimized-quota optimized-submit optimized-verify optimized-summary \
@@ -215,7 +224,6 @@ for STEP in \
 do
   python3 -m ops.gcp.recover_dp2_method2 --config "$RECOVERY_CONFIG" \
     --mode run-gold-step --gold-step "$STEP" \
-    --budget-evidence "$BUDGET_EVIDENCE" \
     --authorization I_APPROVE_DP2_GOLD_RECOVERY || exit 1
 done
 ```

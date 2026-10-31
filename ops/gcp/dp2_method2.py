@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import re
 import subprocess
@@ -65,8 +66,22 @@ def _module(module: str, *args: str) -> None:
     _run(sys.executable, "-m", module, *args)
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _winner(path: Path, *, stage: str, benchmark: str, bucket: str,
-            expected_git_sha: str | None = None) -> dict[str, Any]:
+            expected_git_sha: str | None = None,
+            expected_file_sha256: str | None = None) -> dict[str, Any]:
+    if expected_file_sha256 is not None:
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_file_sha256):
+            raise ValueError("Expected winner SHA-256 is invalid")
+        if _sha256(path) != expected_file_sha256:
+            raise ValueError("Winner file SHA-256 mismatch")
     data = _json(path)
     required = {"schema_version": WINNER_SCHEMA, "stage": stage,
                 "benchmark_id": benchmark, "dataset_version": "canonical-100gb-v1"}
@@ -91,6 +106,27 @@ def _winner(path: Path, *, stage: str, benchmark: str, bucket: str,
     if data["selected_output_root"] != exact_root:
         raise ValueError("Winner output root does not match configured data bucket")
     return data
+
+
+def _bronze_winner(args: argparse.Namespace) -> dict[str, Any]:
+    source_benchmark = getattr(args, "bronze_source_benchmark_id", None)
+    source_sha256 = getattr(args, "bronze_winner_sha256", None)
+    if source_benchmark is None or source_sha256 is None:
+        raise ValueError(
+            "Bronze source benchmark and trusted winner SHA-256 are required"
+        )
+    validate_benchmark_id(source_benchmark)
+    if source_benchmark == args.benchmark_id:
+        raise ValueError(
+            "DP2 execution benchmark must be distinct from the reused Bronze source benchmark"
+        )
+    return _winner(
+        args.bronze_winner,
+        stage="dp1-bronze",
+        benchmark=source_benchmark,
+        bucket=args.data_bucket,
+        expected_file_sha256=source_sha256,
+    )
 
 
 def _require_head(sha: str) -> None:
@@ -127,8 +163,7 @@ def _require_pair(args: argparse.Namespace, stage: str) -> tuple[dict[str, Any],
         raise ValueError("DP2 pair identity mismatch")
     upstream = list(manifest["upstream_run_ids"])
     if stage == "silver":
-        source = _winner(args.bronze_winner, stage="dp1-bronze",
-                         benchmark=args.benchmark_id, bucket=args.data_bucket)
+        source = _bronze_winner(args)
     else:
         source = _winner(_winner_path(args.root, "silver"), stage="dp2-silver",
                          benchmark=args.benchmark_id, bucket=args.data_bucket,
@@ -343,8 +378,7 @@ def _action(args: argparse.Namespace) -> None:
                 _require_clean_head(args.git_sha)
             else:
                 _require_head(args.git_sha)
-            _winner(args.bronze_winner, stage="dp1-bronze",
-                    benchmark=args.benchmark_id, bucket=args.data_bucket)
+            _bronze_winner(args)
             for stage in STAGES:
                 for profile in PROFILES:
                     require_profile_binding(getattr(args, f"{profile}_{stage}_run_id"),
@@ -354,8 +388,7 @@ def _action(args: argparse.Namespace) -> None:
             return
         _require_clean_head(args.git_sha)
         if args.action == "prepare-silver":
-            source = _winner(args.bronze_winner, stage="dp1-bronze",
-                             benchmark=args.benchmark_id, bucket=args.data_bucket)
+            source = _bronze_winner(args)
             _create_pair(args, "silver", source["selected_output_run_id"])
         else:
             source = _winner(_winner_path(args.root, "silver"), stage="dp2-silver",
@@ -547,6 +580,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                                  "finalize"))
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--bronze-winner", required=True, type=Path)
+    parser.add_argument("--bronze-source-benchmark-id", required=True)
+    parser.add_argument("--bronze-winner-sha256", required=True)
     parser.add_argument("--benchmark-id", required=True)
     parser.add_argument("--dataset-version", default="canonical-100gb-v1")
     parser.add_argument("--git-sha", required=True)

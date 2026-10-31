@@ -1,7 +1,6 @@
 """Gold recovery fail-closed regression tests; all cloud and Airflow access mocked."""
 from __future__ import annotations
 
-import datetime as dt
 import hashlib
 import json
 import os
@@ -28,69 +27,7 @@ def config(root: Path):
     }
 
 
-def budget_fixture(root: Path, *, gross: int = 1_000_000,
-                   lag: int = 500_000, g3: int = 200_000,
-                   remaining: int = 500_000) -> Path:
-    screenshot = root / "billing-console-proof.txt"
-    screenshot.write_text("Unit-only simulated GCP Billing evidence")
-    path = root / "budget.json"
-    path.write_text(json.dumps({
-        "status": "PASS", "currency": "VND", "gross_cap_vnd": 5_000_000,
-        "reserve_vnd": 700_000, "quota_available": True,
-        "billing_source": "GCP_BILLING_CONSOLE_MANUAL",
-        "billing_observed_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "billing_evidence_file": str(screenshot),
-        "billing_evidence_sha256": hashlib.sha256(screenshot.read_bytes()).hexdigest(),
-        "operator_reviewed": True, "operator_approval_note": "test-only fixture",
-        "observed_gross_spend_vnd": gross,
-        "billing_lag_reserve_vnd": lag,
-        "g3_unbilled_reserve_vnd": g3,
-        "estimated_remaining_gold_vnd": remaining,
-    }))
-    return path
-
-
 class GoldHardeningTest(unittest.TestCase):
-    def test_budget_requires_human_reviewed_screenshot_and_valid_hash(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            path = budget_fixture(root)
-            self.assertEqual(rec._require_budget_evidence(path)["operator_reviewed"], True)
-            proof = root / "billing-console-proof.txt"
-            proof.write_text("tampered")
-            with self.assertRaisesRegex(ValueError, "hash"):
-                rec._require_budget_evidence(path)
-
-    def test_budget_rejects_stale_observation_and_missing_g3_reserve(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            path = budget_fixture(root)
-            data = json.loads(path.read_text())
-            data["billing_observed_at_utc"] = (
-                dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=3)
-            ).isoformat()
-            path.write_text(json.dumps(data))
-            with self.assertRaisesRegex(ValueError, "stale"):
-                rec._require_budget_evidence(path)
-            data["billing_observed_at_utc"] = dt.datetime.now(dt.timezone.utc).isoformat()
-            data.pop("g3_unbilled_reserve_vnd")
-            path.write_text(json.dumps(data))
-            with self.assertRaisesRegex(ValueError, "allowance"):
-                rec._require_budget_evidence(path)
-
-    def test_budget_rejects_excessive_aggregate_and_boolean_numbers(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            path = budget_fixture(root, gross=4_000_000, lag=300_000,
-                                  g3=200_000, remaining=100_000)
-            with self.assertRaisesRegex(ValueError, "cap/reserve"):
-                rec._require_budget_evidence(path)
-            data = json.loads(path.read_text())
-            data["observed_gross_spend_vnd"] = True
-            path.write_text(json.dumps(data))
-            with self.assertRaisesRegex(ValueError, "allowance"):
-                rec._require_budget_evidence(path)
-
     def _plan(self, cfg):
         cancelled = {"state": "CANCELLED", "name": cfg["cancelled_baseline_gold_batch_id"]}
         return {
@@ -209,13 +146,11 @@ class GoldHardeningTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             cfg = config(root)
-            budget = budget_fixture(root)
             with patch.object(rec, "_validate_gold_plan", side_effect=ValueError("stale")), patch.object(
                 rec, "_request"
             ) as api:
                 with self.assertRaisesRegex(ValueError, "stale"):
                     rec.run_gold_step(cfg, "token", step="baseline-submit",
-                                      budget_evidence=budget,
                                       authorization="I_APPROVE_DP2_GOLD_RECOVERY")
                 api.assert_not_called()
 
