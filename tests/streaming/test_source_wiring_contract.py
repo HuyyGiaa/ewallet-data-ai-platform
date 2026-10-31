@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 import unittest
-from datetime import datetime, timezone
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
@@ -21,10 +22,11 @@ from data_platform.streaming.flink.operators import (
     BootstrapContractError,
     BootstrapCutoverError,
     EventTimeDisposition,
+    ManagedHistoricalFeatures,
     ParseAndValidate,
 )
 from data_platform.streaming.flink.job import _parse_operator
-from data_platform.streaming.flink.records import OutboundRecord, RuntimeEvent
+from data_platform.streaming.flink.records import EntityEvent, OutboundRecord, RuntimeEvent
 from data_platform.streaming.generator.scenarios import DeterministicScenarioGenerator
 
 
@@ -49,6 +51,39 @@ class _RuntimeContext:
 class _TimerService:
     def current_watermark(self) -> int:
         return 999_999_999
+
+    def register_event_time_timer(self, timestamp: int) -> None:
+        pass
+
+
+class _MapState(dict):
+    def put(self, key, value) -> None:
+        self[key] = value
+
+    def contains(self, key) -> bool:
+        return key in self
+
+    def remove(self, key) -> None:
+        del self[key]
+
+
+class _ValueState:
+    def __init__(self) -> None:
+        self._value = None
+
+    def value(self):
+        return self._value
+
+    def update(self, value) -> None:
+        self._value = value
+
+
+class _KeyedRuntimeContext(_RuntimeContext):
+    def get_map_state(self, descriptor) -> _MapState:
+        return _MapState()
+
+    def get_state(self, descriptor) -> _ValueState:
+        return _ValueState()
 
 
 class _ProcessContext:
@@ -208,6 +243,33 @@ class SourceWiringContractTest(unittest.TestCase):
         output = RuntimeEvent.from_json(next(operator.process_element(record.to_json(), _ProcessContext())))
         self.assertEqual("TOO_LATE", output.route)
         self.assertEqual(event_ms + 700_000, output.observed_watermark_ms)
+
+    def test_feature_values_do_not_depend_on_state_iteration_order(self) -> None:
+        # Naive float sums of these amounts differ by insertion order; the
+        # timer must read history in key order so p=1 and p=4 agree bit-for-bit.
+        base = DeterministicScenarioGenerator(7001).normal(1, datetime(2026, 10, 29, tzinfo=UTC))
+        start = base.event_time
+        amounts = [1e16, 1.0, 1.0, 0.1, 0.2]
+        history = [
+            replace(base, transaction_id=f"tx-{index}", event_id=f"ev-{index}", amount=amount, status="failed",
+                    event_time=start + timedelta(seconds=index), arrival_time=start + timedelta(seconds=index))
+            for index, amount in enumerate(amounts)
+        ]
+        current = replace(base, transaction_id="tx-current", event_id="ev-current",
+                          event_time=start + timedelta(minutes=1), arrival_time=start + timedelta(minutes=1))
+
+        def run(order):
+            operator = ManagedHistoricalFeatures(allowed_lateness_ms=600_000, history_ttl_ms=2_592_600_000)
+            operator.open(_KeyedRuntimeContext())
+            for event in [history[i] for i in order] + [current]:
+                item = EntityEvent("account_behavior", "account_id", event.account_id, event, "ON_TIME", False, True)
+                operator.process_element(item.to_json(), _ProcessContext())
+            timer = int(current.event_time.timestamp() * 1000) + 600_000 + 1
+            return [OutboundRecord.from_json(raw).payload for raw in operator.on_timer(timer, _ProcessContext())]
+
+        forward, backward = run([0, 1, 2, 3, 4]), run([4, 3, 2, 1, 0])
+        self.assertEqual(1, len(forward))
+        self.assertEqual(forward, backward)
 
 
 if __name__ == "__main__":

@@ -323,7 +323,10 @@ class ManagedHistoricalFeatures(KeyedProcessFunction):
         at_ms = timestamp - self.allowed_lateness_ms - 1
         group = []
         history = []
-        for key, raw in self.events.items():
+        # MapState iteration order is not guaranteed (PyFlink merges its worker
+        # cache with the backend iterator), and float sums depend on order, so
+        # read history in key order: event time, then transaction id.
+        for key, raw in sorted(self.events.items()):
             item = EntityEvent.from_json(raw)
             current_ms = _ms(item.event.event_time)
             if current_ms == at_ms:
