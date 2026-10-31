@@ -106,6 +106,24 @@ def percentile(values: list[float], q: float) -> float | None:
     return ordered[rank]
 
 
+def normalize_benchmark_raw(records: list[tuple[str, str, int]]) -> tuple[list[tuple[str, str, int]], int]:
+    """Remove drain controls and unwrap benchmark-only event envelopes."""
+    logical, controls = [], 0
+    for key, value, timestamp in records:
+        try:
+            raw = json.loads(value)
+        except json.JSONDecodeError:
+            logical.append((key, value, timestamp))
+            continue
+        if raw.get("kind") == "BENCHMARK_WATERMARK":
+            controls += 1
+            continue
+        if raw.get("kind") == "BENCHMARK_EVENT":
+            value = json.dumps(raw["event"], sort_keys=True, separators=(",", ":"))
+        logical.append((key, value, timestamp))
+    return logical, controls
+
+
 def digest(lines) -> str:
     result = hashlib.sha256()
     for line in sorted(lines):
@@ -122,6 +140,23 @@ def summarize(topics: dict[str, list[tuple[str, str, int]]], manifest: dict) -> 
     dispositions = Counter(json.loads(value).get("disposition", "") for _k, value, _t in accepted)
     accepted_keys = [key for key, _v, _t in accepted]
     online_lines = [value for _k, value, _t in topics["online"]]
+    raw_event_times = {}
+    for _key, value, timestamp in raw:
+        try:
+            event = json.loads(value)
+            raw_event_times[event["event_id"]] = min(
+                timestamp, raw_event_times.get(event["event_id"], timestamp)
+            )
+        except (KeyError, TypeError, json.JSONDecodeError):
+            continue
+    feature_latencies = []
+    for _key, value, timestamp in topics["online"]:
+        try:
+            source_event_id = json.loads(value)["source_event_id"]
+            if source_event_id in raw_event_times:
+                feature_latencies.append(timestamp - raw_event_times[source_event_id])
+        except (KeyError, TypeError, json.JSONDecodeError):
+            continue
     window_s = None
     if raw and accepted:
         window_s = (max(ts for *_x, ts in accepted) - min(ts for *_x, ts in raw)) / 1000
@@ -139,6 +174,14 @@ def summarize(topics: dict[str, list[tuple[str, str, int]]], manifest: dict) -> 
             "max": max(latencies) if latencies else None,
         },
         "processing_throughput_eps": round(len(accepted) / window_s, 2) if window_s else None,
+        "feature_processing_latency_ms": {
+            "definition": "LogAppendTime(online feature) - LogAppendTime(source raw event)",
+            "samples": len(feature_latencies),
+            "p50": percentile(feature_latencies, 50),
+            "p95": percentile(feature_latencies, 95),
+            "p99": percentile(feature_latencies, 99),
+            "max": max(feature_latencies) if feature_latencies else None,
+        },
         "parity": {
             "accepted_sha256": digest(f"{k}|{json.loads(v).get('disposition')}" for k, v, _t in accepted),
             "online_sha256": digest(online_lines),
@@ -159,7 +202,7 @@ def functional_checks(summary: dict, manifest: dict) -> dict:
         == manifest["unique_transactions"]
         and summary["accepted_duplicate_keys"] == 0,
         "invalid_records_reach_dlq": counts["dlq"] == manifest["invalid_records"],
-        "too_late_not_more_than_injected": counts["late"] <= manifest["late_arrival_transactions"],
+        "too_late_matches_injected": counts["late"] == manifest["late_arrival_transactions"],
         "online_features_emitted": counts["online"] > 0,
         "no_retry_records": counts["retry"] == 0,
     }
@@ -295,7 +338,20 @@ def main(argv=None) -> int:
         return 0 if state["quiesced"] else 3
     manifest = json.loads((args.run_dir / "input" / "input_manifest.json").read_text())
     topics = {name: read_topic(args.bootstrap_servers, topic_name(name, args.namespace)) for name in BENCH_TOPICS}
+    topics["raw"], control_records = normalize_benchmark_raw(topics["raw"])
     summary = summarize(topics, manifest)
+    summary["benchmark_control_records"] = control_records
+    summary["watermark_trace"] = [
+        {
+            key: item.get(key)
+            for key in (
+                "event_id", "transaction_id", "event_time", "arrival_time",
+                "observed_watermark", "trace_id", "disposition",
+            )
+        }
+        for _key, value, _timestamp in topics["late"][:50]
+        for item in [json.loads(value)]
+    ]
     if args.oracle:
         summary["feature_oracle"] = feature_oracle(topics)
     summary["collected_at"] = datetime.now().astimezone().isoformat()

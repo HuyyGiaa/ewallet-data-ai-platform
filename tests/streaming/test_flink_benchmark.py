@@ -20,7 +20,8 @@ from data_platform.streaming.benchmark.dataset import (
     functional_spec,
     performance_spec,
 )
-from data_platform.streaming.benchmark.outputs import feature_oracle, percentile, summarize
+from data_platform.streaming.benchmark.outputs import feature_oracle, normalize_benchmark_raw, percentile, summarize
+from data_platform.streaming.benchmark.replay import instrument_records
 from data_platform.streaming.config.settings import (
     BASELINE,
     OPTIMIZED,
@@ -101,9 +102,9 @@ class ProfileLoadingTest(unittest.TestCase):
         self.assertNotIn('TOPICS["', body)
         self.assertNotIn("state.backend.incremental", source)
         self.assertIn("settings.profile.restart_attempts", body)
-        self.assertIn('namespace.startswith("bench-func-")', body)
         self.assertIn("set_parallelism(input_parallelism)", body)
-        self.assertIn("set_auto_watermark_interval(1)", body)
+        self.assertIn("benchmark_logical_watermark=settings.mode is OperatingMode.BENCHMARK_REPLAY", body)
+        self.assertIn('route in {"VALID", "WATERMARK"}', body)
 
 
 class BenchmarkSettingsTest(unittest.TestCase):
@@ -169,20 +170,43 @@ class ReplayDatasetTest(unittest.TestCase):
 
     def test_performance_rates_and_bounds(self) -> None:
         self.assertEqual(200_000, performance_spec(2000, 100).count)
-        for bad in (lambda: performance_spec(3000), lambda: performance_spec(100, 5),
+        self.assertEqual(0.2, performance_spec(100, 60).event_interval_seconds)
+        for bad in (lambda: performance_spec(3000), lambda: performance_spec(100, 59),
                     lambda: ReplaySpec("performance", MAX_EVENTS + 1, 1, 1, 2, 1)):
             with self.assertRaises(ValueError):
                 bad()
 
     def test_same_spec_same_input_for_both_profiles(self) -> None:
-        _, first = build_payloads(performance_spec(100, 10))
-        _, second = build_payloads(performance_spec(100, 10))
+        _, first = build_payloads(performance_spec(100, 60))
+        _, second = build_payloads(performance_spec(100, 60))
         self.assertEqual(first["payload_sha256"], second["payload_sha256"])
 
     def test_functional_publish_supports_fixed_partition(self) -> None:
         source = (ROOT / "data_platform/streaming/benchmark/replay.py").read_text()
         self.assertIn('partition = 0 if args.mode == "functional" else None', source)
         self.assertIn('{"partition": partition}', source)
+
+    def test_logical_watermark_driver_rejects_all_injected_negative_cases(self) -> None:
+        logical, manifest = build_payloads(functional_spec())
+        wrapped, _max_event_ms = instrument_records(logical)
+        rejected, seen = set(), set()
+        for key, payload in wrapped:
+            raw = json.loads(payload)
+            if raw.get("kind") != "BENCHMARK_EVENT" or key in seen:
+                continue
+            seen.add(key)
+            event_ms = int(__import__("datetime").datetime.fromisoformat(raw["event"]["event_time"]).timestamp() * 1000)
+            if event_ms < raw["logical_watermark_ms"] - 600_000:
+                rejected.add(key)
+        self.assertEqual(manifest["late_arrival_transactions"], len(rejected))
+
+    def test_raw_normalization_preserves_events_and_removes_drain_controls(self) -> None:
+        event = build_payloads(functional_spec())[0][0]
+        wrapped, _ = instrument_records([event])
+        records = [(wrapped[0][0], wrapped[0][1], 1), ("wm", json.dumps({"kind": "BENCHMARK_WATERMARK", "event_time_ms": 2}), 2)]
+        logical, controls = normalize_benchmark_raw(records)
+        self.assertEqual(1, controls)
+        self.assertEqual(event[1], logical[0][1])
 
 
 class OutputSummaryTest(unittest.TestCase):

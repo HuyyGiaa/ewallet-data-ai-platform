@@ -31,7 +31,12 @@ def build_job_plan(profile_name: str) -> FlinkJobPlan:
 class EventTimestampAssigner:
     def extract_timestamp(self, value, record_timestamp) -> int:
         from data_platform.streaming.flink.records import RuntimeEvent
-        return int(RuntimeEvent.from_json(value).event.event_time.timestamp() * 1000)
+        record = RuntimeEvent.from_json(value)
+        if record.event is not None:
+            return int(record.event.event_time.timestamp() * 1000)
+        if record.control_event_time_ms is not None:
+            return record.control_event_time_ms
+        raise ValueError("timestamped stream received a record without event time")
 
 
 @dataclass
@@ -85,6 +90,7 @@ def _parse_operator(settings: RuntimeSettings):
         settings.source_run_id if bootstrap_only else None,
         settings.cutover_iso if bootstrap_only else None,
         bootstrap_only=bootstrap_only,
+        benchmark_replay=settings.mode is OperatingMode.BENCHMARK_REPLAY,
     )
 
 
@@ -109,24 +115,13 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
     if not settings.kafka_connector_jar.is_file():
         raise FileNotFoundError(f"Kafka connector JAR not found: {settings.kafka_connector_jar}")
     namespace = settings.namespace
-    functional_replay = (
-        settings.mode is OperatingMode.BENCHMARK_REPLAY
-        and bool(namespace)
-        and namespace.startswith("bench-func-")
-    )
-    input_parallelism = 1 if functional_replay else settings.profile.parallelism
+    input_parallelism = settings.profile.parallelism
     env = StreamExecutionEnvironment.get_execution_environment()
     runtime_configuration = Configuration()
     if settings.savepoint_path:
         runtime_configuration.set_string("execution.savepoint.path", settings.savepoint_path)
     env.configure(runtime_configuration)
     env.set_parallelism(input_parallelism)
-    if functional_replay:
-        # Records are replayed every 20 ms while their event-time spacing is
-        # five seconds.  A 1 ms interval makes watermark advancement happen
-        # between deterministic input records instead of depending on the
-        # default 200 ms scheduler phase.
-        env.get_config().set_auto_watermark_interval(1)
     env.set_state_backend(_state_backend(settings.profile))
     env.enable_checkpointing(int(settings.profile.checkpoint_interval.total_seconds() * 1000), getattr(CheckpointingMode, settings.profile.checkpoint_mode))
     checkpoint = env.get_checkpoint_config()
@@ -138,8 +133,8 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
     offsets = KafkaOffsetsInitializer.earliest() if settings.mode in {OperatingMode.FIRST_DEPLOY_BOOTSTRAP, OperatingMode.BENCHMARK_REPLAY} else KafkaOffsetsInitializer.committed_offsets(KafkaOffsetResetStrategy.LATEST)
     source_topics = (topic_name("raw", namespace), topic_name("retry", namespace))
     source = (KafkaSource.builder().set_bootstrap_servers(settings.bootstrap_servers).set_topics(*source_topics).set_group_id(consumer_group("flink", namespace)).set_starting_offsets(offsets).set_value_only_deserializer(SimpleStringSchema()).build())
-    # Functional correctness is a matched single-threaded semantic replay;
-    # performance replay remains distributed according to the chosen profile.
+    # The benchmark envelope supplies deterministic logical watermark progress,
+    # so correctness can exercise the real profile parallelism (1 versus 4).
     raw = (
         env.from_source(source, WatermarkStrategy.no_watermarks(), "redpanda-raw-and-retry")
         .uid("block-a-redpanda-source-v1")
@@ -151,15 +146,16 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
     invalid = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "DLQ").map(InvalidJson(), output_type=Types.STRING())
     control = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "BOOTSTRAP_COMPLETE").map(BootstrapCompletionMetric(), output_type=Types.STRING()).name("bootstrap-completion-gate")
     if settings.mode is OperatingMode.FIRST_DEPLOY_BOOTSTRAP:
-        valid = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID" and RuntimeEvent.from_json(raw).bootstrap)
+        timed_input = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID" and RuntimeEvent.from_json(raw).bootstrap)
     else:
-        valid = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID" and not RuntimeEvent.from_json(raw).bootstrap)
-    valid = valid.set_parallelism(input_parallelism)
+        timed_input = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route in {"VALID", "WATERMARK"} and not RuntimeEvent.from_json(raw).bootstrap)
+    timed_input = timed_input.set_parallelism(input_parallelism)
     watermark = (WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_millis(int(settings.profile.event_time.max_out_of_orderness.total_seconds() * 1000))).with_idleness(Duration.of_millis(int(settings.profile.event_time.idle_timeout.total_seconds() * 1000))).with_timestamp_assigner(EventTimestampAssigner()))
-    timed = valid.assign_timestamps_and_watermarks(watermark).set_parallelism(input_parallelism)
+    timestamped = timed_input.assign_timestamps_and_watermarks(watermark).set_parallelism(input_parallelism)
+    timed = timestamped.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
     deduped = timed.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(ManagedDeduplicate(int(settings.profile.dedup_ttl.total_seconds())), output_type=Types.STRING()).name("transaction-dedup").uid("block-a-transaction-dedup-v1").set_parallelism(input_parallelism)
     unique = deduped.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
-    disposed = unique.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(EventTimeDisposition(int(settings.profile.event_time.allowed_lateness.total_seconds() * 1000)), output_type=Types.STRING()).name("event-time-disposition").set_parallelism(input_parallelism)
+    disposed = unique.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(EventTimeDisposition(int(settings.profile.event_time.allowed_lateness.total_seconds() * 1000), benchmark_logical_watermark=settings.mode is OperatingMode.BENCHMARK_REPLAY), output_type=Types.STRING()).name("event-time-disposition").set_parallelism(input_parallelism)
     historical = disposed.filter(lambda raw: RuntimeEvent.from_json(raw).route in {"ELIGIBLE", "TOO_LATE"} and not RuntimeEvent.from_json(raw).bootstrap and RuntimeEvent.from_json(raw).retry_count == 0).map(HistoricalJson(), output_type=Types.STRING())
     late = disposed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "TOO_LATE" and not RuntimeEvent.from_json(raw).bootstrap and RuntimeEvent.from_json(raw).retry_count == 0).map(LateJson(), output_type=Types.STRING())
     eligible = disposed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "ELIGIBLE").set_parallelism(input_parallelism)

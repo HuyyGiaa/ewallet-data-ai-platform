@@ -48,11 +48,13 @@ class ParseAndValidate(MapFunction):
         expected_source_run_id=None,
         expected_cutover=None,
         bootstrap_only: bool = False,
+        benchmark_replay: bool = False,
     ):
         self.expected_dataset_version = expected_dataset_version
         self.expected_source_run_id = expected_source_run_id
         self.expected_cutover = expected_cutover
         self.bootstrap_only = bootstrap_only
+        self.benchmark_replay = benchmark_replay
 
     def _validate_bootstrap_identity(self, raw) -> None:
         expected = {
@@ -83,6 +85,22 @@ class ParseAndValidate(MapFunction):
             return self._to_dlq(payload, raw, error)
 
         kind = raw.get("kind") if isinstance(raw, dict) else None
+        if kind == "BENCHMARK_WATERMARK" and self.benchmark_replay:
+            return RuntimeEvent(
+                None,
+                "WATERMARK",
+                online_enabled=False,
+                control_event_time_ms=int(raw["event_time_ms"]),
+            ).to_json()
+        if kind == "BENCHMARK_EVENT" and self.benchmark_replay:
+            try:
+                return RuntimeEvent(
+                    TransactionEvent.from_dict(raw["event"]),
+                    "VALID",
+                    logical_watermark_ms=int(raw["logical_watermark_ms"]),
+                ).to_json()
+            except Exception as error:
+                return self._to_dlq(payload, raw, error)
         if kind == "BOOTSTRAP_COMPLETE":
             self._validate_bootstrap_identity(raw)
             return RuntimeEvent(
@@ -172,8 +190,9 @@ class ManagedDeduplicate(KeyedProcessFunction):
 class EventTimeDisposition(KeyedProcessFunction):
     """Classify against the runtime watermark; TOO_LATE never reaches state."""
 
-    def __init__(self, allowed_lateness_ms: int) -> None:
+    def __init__(self, allowed_lateness_ms: int, benchmark_logical_watermark: bool = False) -> None:
         self.allowed_lateness_ms = allowed_lateness_ms
+        self.benchmark_logical_watermark = benchmark_logical_watermark
 
     def open(self, runtime_context) -> None:
         group = runtime_context.get_metrics_group()
@@ -184,7 +203,12 @@ class EventTimeDisposition(KeyedProcessFunction):
     def process_element(self, value: str, ctx):
         record = RuntimeEvent.from_json(value)
         event = record.event
-        watermark = ctx.timer_service().current_watermark()
+        if self.benchmark_logical_watermark:
+            if record.logical_watermark_ms is None:
+                raise ValueError("benchmark event missing logical_watermark_ms")
+            watermark = record.logical_watermark_ms
+        else:
+            watermark = ctx.timer_service().current_watermark()
         timestamp = _ms(event.event_time)
         if watermark < 0 or timestamp >= watermark:
             disposition = "ON_TIME"
@@ -204,6 +228,8 @@ class EventTimeDisposition(KeyedProcessFunction):
             online_enabled=record.online_enabled,
             device_first_seen_iso=record.device_first_seen_iso,
             account_anchor_iso=record.account_anchor_iso,
+            logical_watermark_ms=record.logical_watermark_ms,
+            observed_watermark_ms=watermark,
         ).to_json()
 
 
@@ -378,8 +404,13 @@ class LateJson(MapFunction):
     def map(self, value: str) -> str:
         self.records.inc()
         item = RuntimeEvent.from_json(value)
+        observed = (
+            datetime.fromtimestamp(item.observed_watermark_ms / 1000, tz=UTC)
+            if item.observed_watermark_ms is not None and item.observed_watermark_ms >= 0
+            else None
+        )
         payload = json.dumps(
-            LateEventEnvelope.from_event(item.event, None, "past watermark plus allowed lateness").__dict__,
+            LateEventEnvelope.from_event(item.event, observed, "past watermark plus allowed lateness").__dict__,
             default=str,
             sort_keys=True,
             separators=(",", ":"),

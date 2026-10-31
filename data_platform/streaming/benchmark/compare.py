@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from data_platform.streaming.benchmark.outputs import acceptance_passed
@@ -35,6 +36,19 @@ def _vertex_max(snapshot: dict, metric: str):
     return max(values) if values else None
 
 
+def _vertex_named_max(snapshot: dict, metric: str, token: str):
+    vertices = snapshot.get("vertices")
+    if not isinstance(vertices, list):
+        return None
+    values = [
+        vertex["metrics"].get(metric, {}).get("max")
+        for vertex in vertices
+        if token.lower() in vertex.get("name", "").lower()
+    ]
+    values = [value for value in values if isinstance(value, (int, float))]
+    return max(values) if values else None
+
+
 def _maximum(values):
     measured = [value for value in values if isinstance(value, (int, float)) and not isinstance(value, bool)]
     return max(measured) if measured else None
@@ -45,16 +59,32 @@ def run_row(run: Path) -> dict:
     outputs, snapshots = _load(run / "outputs_summary.json"), _snapshots(run)
     snap = snapshots[-1] if snapshots else {}
     publish = manifest.get("publish", {})
+    phase_snapshots = snapshots
+    phases = manifest.get("phases") or {}
+    if publish.get("started_at") and phases.get("warmup_seconds") is not None:
+        steady_start = datetime.fromisoformat(publish["started_at"]) + timedelta(
+            seconds=float(phases["warmup_seconds"])
+        )
+        steady_end = datetime.fromisoformat(publish["finished_at"])
+        selected = [
+            item for item in snapshots
+            if item.get("taken_at")
+            and steady_start <= datetime.fromisoformat(item["taken_at"]) <= steady_end
+        ]
+        if selected:
+            phase_snapshots = selected
     checkpoints = snap.get("checkpoints", {}) if isinstance(snap.get("checkpoints"), dict) else {}
     summary = checkpoints.get("summary") or {}
     counts = checkpoints.get("counts") or {}
     latency = outputs.get("processing_latency_ms", {})
+    feature_latency = outputs.get("feature_processing_latency_ms", {})
     return {
         "profile": meta.get("profile"),
         "git_sha": meta.get("git_sha"),
         "config_sha256": meta.get("config_sha256"),
         "job_id": snap.get("job_id") or meta.get("job_id"),
         "input_sha256": manifest.get("payload_sha256"),
+        "transport_input_sha256": manifest.get("transport_payload_sha256"),
         "target_rate_eps": publish.get("target_rate_eps"),
         "achieved_send_rate_eps": publish.get("achieved_send_rate_eps"),
         "input_records": outputs.get("record_counts", {}).get("raw"),
@@ -64,16 +94,28 @@ def run_row(run: Path) -> dict:
         "latency_p50_ms": latency.get("p50"),
         "latency_p95_ms": latency.get("p95"),
         "latency_p99_ms": latency.get("p99"),
+        "feature_latency_p50_ms": feature_latency.get("p50"),
+        "feature_latency_p95_ms": feature_latency.get("p95"),
+        "feature_latency_p99_ms": feature_latency.get("p99"),
+        "warmup_seconds": phases.get("warmup_seconds"),
+        "steady_state_seconds": phases.get("steady_state_seconds"),
         "telemetry_samples": len(snapshots),
-        "max_consumer_lag": _maximum((item.get("consumer_lag") or {}).get("total_lag") for item in snapshots),
+        "steady_telemetry_samples": len(phase_snapshots),
+        "max_consumer_lag": _maximum((item.get("consumer_lag") or {}).get("total_lag") for item in phase_snapshots),
+        "max_source_rate_eps": _maximum(
+            _vertex_named_max(item, "numRecordsOutPerSecond", "source") for item in phase_snapshots
+        ),
+        "max_sink_rate_eps": _maximum(
+            _vertex_named_max(item, "numRecordsInPerSecond", "sink") for item in phase_snapshots
+        ),
         "max_source_sink_rate_eps": _maximum(
             _vertex_max(item, metric)
-            for item in snapshots
+            for item in phase_snapshots
             for metric in ("numRecordsInPerSecond", "numRecordsOutPerSecond")
         ),
-        "max_busy_ms_per_s": _maximum(_vertex_max(item, "busyTimeMsPerSecond") for item in snapshots),
+        "max_busy_ms_per_s": _maximum(_vertex_max(item, "busyTimeMsPerSecond") for item in phase_snapshots),
         "max_backpressured_ms_per_s": _maximum(
-            _vertex_max(item, "backPressuredTimeMsPerSecond") for item in snapshots
+            _vertex_max(item, "backPressuredTimeMsPerSecond") for item in phase_snapshots
         ),
         "checkpoints_completed": counts.get("completed"),
         "checkpoints_failed": counts.get("failed"),
@@ -93,6 +135,8 @@ def validate_run(run: Path) -> None:
     problems = []
     if meta.get("status") != "complete":
         problems.append(f"status={meta.get('status')!r} failures={meta.get('failures')}")
+    if meta.get("git_dirty") is True:
+        problems.append("run source provenance is dirty")
     mode = meta.get("mode")
     if mode not in {"functional", "performance"}:
         problems.append(f"unsupported or missing mode={mode!r}")

@@ -20,6 +20,7 @@ from data_platform.streaming.config.settings import OperatingMode, RuntimeSettin
 from data_platform.streaming.flink.operators import (
     BootstrapContractError,
     BootstrapCutoverError,
+    EventTimeDisposition,
     ParseAndValidate,
 )
 from data_platform.streaming.flink.job import _parse_operator
@@ -43,6 +44,16 @@ class _MetricGroup:
 class _RuntimeContext:
     def get_metrics_group(self) -> _MetricGroup:
         return _MetricGroup()
+
+
+class _TimerService:
+    def current_watermark(self) -> int:
+        return 999_999_999
+
+
+class _ProcessContext:
+    def timer_service(self) -> _TimerService:
+        return _TimerService()
 
 
 def _opened_parser(**kwargs) -> ParseAndValidate:
@@ -159,6 +170,44 @@ class SourceWiringContractTest(unittest.TestCase):
         operator = _opened_parser(bootstrap_only=False)
         output = RuntimeEvent.from_json(operator.map('{"transaction_id":""}'))
         self.assertEqual("DLQ", output.route)
+
+    def test_benchmark_envelope_is_isolated_from_production_parser(self) -> None:
+        event = DeterministicScenarioGenerator(7001).normal(
+            1, datetime(2026, 10, 29, tzinfo=UTC)
+        )
+        payload = json.dumps({
+            "kind": "BENCHMARK_EVENT",
+            "event": event.to_dict(),
+            "logical_watermark_ms": 123,
+        })
+        production = RuntimeEvent.from_json(_opened_parser().map(payload))
+        benchmark = RuntimeEvent.from_json(
+            _opened_parser(benchmark_replay=True).map(payload)
+        )
+        self.assertEqual("DLQ", production.route)
+        self.assertEqual("VALID", benchmark.route)
+        self.assertEqual(123, benchmark.logical_watermark_ms)
+
+    def test_benchmark_watermark_control_is_not_a_transaction(self) -> None:
+        payload = json.dumps({"kind": "BENCHMARK_WATERMARK", "event_time_ms": 456})
+        record = RuntimeEvent.from_json(
+            _opened_parser(benchmark_replay=True).map(payload)
+        )
+        self.assertEqual("WATERMARK", record.route)
+        self.assertIsNone(record.event)
+        self.assertEqual(456, record.control_event_time_ms)
+
+    def test_benchmark_disposition_uses_explicit_watermark_not_scheduler(self) -> None:
+        event = DeterministicScenarioGenerator(7001).normal(
+            1, datetime(2026, 10, 29, tzinfo=UTC)
+        )
+        event_ms = int(event.event_time.timestamp() * 1000)
+        record = RuntimeEvent(event, "VALID", logical_watermark_ms=event_ms + 700_000)
+        operator = EventTimeDisposition(600_000, benchmark_logical_watermark=True)
+        operator.open(_RuntimeContext())
+        output = RuntimeEvent.from_json(next(operator.process_element(record.to_json(), _ProcessContext())))
+        self.assertEqual("TOO_LATE", output.route)
+        self.assertEqual(event_ms + 700_000, output.observed_watermark_ms)
 
 
 if __name__ == "__main__":

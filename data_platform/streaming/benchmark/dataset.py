@@ -20,6 +20,7 @@ from data_platform.streaming.generator.scenarios import (
 
 MAX_EVENTS = 1_000_000
 PERFORMANCE_RATES = (100, 500, 1000, 2000)
+PERFORMANCE_EVENT_TIME_SPEEDUP = 20.0
 DEFAULT_START = "2026-05-01T00:00:00+00:00"
 
 
@@ -58,15 +59,17 @@ def functional_spec() -> ReplaySpec:
 def performance_spec(target_rate: float, duration_seconds: int = 120) -> ReplaySpec:
     if target_rate not in PERFORMANCE_RATES:
         raise ValueError(f"performance target_rate must be one of {PERFORMANCE_RATES}")
-    if not 10 <= duration_seconds <= 600:
-        raise ValueError("duration_seconds must be in [10, 600]")
-    # Event-time spacing follows the target rate (as the generator CLI does), and a
-    # larger catalog keeps per-key history bounded so keyed state is not one hot key.
+    if not 60 <= duration_seconds <= 600:
+        raise ValueError("duration_seconds must be in [60, 600]")
+    # Advance event time fast enough to cross the 12-minute watermark + allowed-
+    # lateness horizon during a bounded run. At 20x, the first 36 wall seconds
+    # warm state/timers and the remainder is measurable steady state. A separate
+    # partition-wide drain marker finalizes the tail after publishing.
     return ReplaySpec(
         "performance",
         int(target_rate * duration_seconds),
         float(target_rate),
-        1.0 / target_rate,
+        PERFORMANCE_EVENT_TIME_SPEEDUP / target_rate,
         users=2000,
         merchants=500,
     )
