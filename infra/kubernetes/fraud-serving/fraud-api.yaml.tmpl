@@ -1,8 +1,11 @@
+# Runs in ml-platform with the existing Workload Identity KSA `training`
+# (GCS read of the online Feast registry). A dedicated fraud-serving KSA
+# needs an additional roles/iam.workloadIdentityUser grant.
 apiVersion: v1
 kind: Service
 metadata:
   name: fraud-api
-  namespace: fraud-serving
+  namespace: ml-platform
   labels:
     app.kubernetes.io/name: fraud-api
 spec:
@@ -18,7 +21,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fraud-api
-  namespace: fraud-serving
+  namespace: ml-platform
   labels:
     app.kubernetes.io/name: fraud-api
     app.kubernetes.io/part-of: ewallet-mlops
@@ -36,7 +39,7 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: /metrics
     spec:
-      serviceAccountName: fraud-api
+      serviceAccountName: training
       nodeSelector:
         iam.gke.io/gke-metadata-server-enabled: "true"
       securityContext:

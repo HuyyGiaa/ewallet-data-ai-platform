@@ -38,7 +38,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: ${RUN_ID}
-  namespace: feature-store
+  namespace: ml-platform
   labels:
     app.kubernetes.io/name: feast-online-operator
     app.kubernetes.io/part-of: ewallet-mlops
@@ -51,7 +51,7 @@ spec:
       labels:
         app.kubernetes.io/name: feast-online-operator
     spec:
-      serviceAccountName: feast-online
+      serviceAccountName: training
       restartPolicy: Never
       nodeSelector:
         iam.gke.io/gke-metadata-server-enabled: "true"
@@ -99,10 +99,10 @@ if ((!EXECUTE)); then
 fi
 
 printf '%s\n' "${manifest}" | kubectl --context "${KUBE_CONTEXT}" apply -f -
-kubectl --context "${KUBE_CONTEXT}" -n feature-store wait "job/${RUN_ID}" \
+kubectl --context "${KUBE_CONTEXT}" -n ml-platform wait "job/${RUN_ID}" \
   --for=jsonpath='{.status.conditions[?(@.status=="True")].type}'=Complete \
   --timeout=3700s || {
-  kubectl --context "${KUBE_CONTEXT}" -n feature-store logs "job/${RUN_ID}" --tail=80 >&2 || true
+  kubectl --context "${KUBE_CONTEXT}" -n ml-platform logs "job/${RUN_ID}" --tail=80 >&2 || true
   die "job ${RUN_ID} did not complete"
 }
-kubectl --context "${KUBE_CONTEXT}" -n feature-store logs "job/${RUN_ID}" | tail -1
+kubectl --context "${KUBE_CONTEXT}" -n ml-platform logs "job/${RUN_ID}" | tail -1

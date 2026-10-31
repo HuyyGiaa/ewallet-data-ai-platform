@@ -11,7 +11,10 @@ spec:
   policyTypes: ["Ingress"]
   ingress:
     - from:
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ml-platform
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: fraud-api
       ports:

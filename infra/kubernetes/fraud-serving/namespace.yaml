@@ -8,15 +8,6 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: fraud-api
-  namespace: fraud-serving
-  annotations:
-    iam.gke.io/gcp-service-account: ewallet-training@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
-automountServiceAccountToken: true
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: fraud-detector
   namespace: fraud-serving
 automountServiceAccountToken: false
