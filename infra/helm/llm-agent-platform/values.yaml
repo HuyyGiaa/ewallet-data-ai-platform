@@ -80,7 +80,7 @@ networkFlows:
     - name: vllm-model-bootstrap
       to: huggingface.co:443
       reason: vLLM downloads the pinned revision at startup, but NetworkPolicy cannot express an FQDN and a CIDR guess would be a broad egress.
-      gate: Approve a pre-staged model cache or an egress gateway/FQDN policy; until then vLLM cannot become Ready under default-deny.
+      gate: Only for vllm.modelSource.mode=huggingface. The staged mode (checksum-verified read-only PVC, offline vLLM) needs no egress; GCP still needs the PVC source (e.g. GCS FUSE) chosen.
     - name: external-gateway-to-coordinator
       to: fraud-coordinator-a2a:8083
       reason: The HTTPRoute backend Service is not defined in source, and the Istio Gateway pod ingress and health-check ports are not opened.
@@ -98,6 +98,34 @@ vllm:
   toolCalling:
     enabled: true
     parser: hermes
+  # huggingface: vLLM downloads model@modelRevision at startup and needs the
+  # unresolved vllm-model-bootstrap egress. staged: the pinned files sit on a
+  # read-only PVC, an init container checks every SHA-256, vLLM runs offline.
+  modelSource:
+    mode: huggingface
+    staged:
+      claimName: ""
+      subPath: ""
+      sha256sums: ""
+  # Qwen3 reasons by default; on CPU that costs most of the latency budget and
+  # leaks reasoning into content. Measured locally (vLLM 0.32.0 CPU, 2 OMP
+  # threads): 128 tokens in 77 s with thinking, 48 tokens in 11 s without.
+  reasoningParser: qwen3
+  defaultChatTemplateKwargs:
+    enable_thinking: false
+  shmSize: 1Gi
+  # Zero-downtime default; a CPU-bound host can set maxSurge 0 so an old and a
+  # new vLLM pod never start side by side.
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+  # Startup probe sends one tool-shaped completion; Ready only once it succeeds.
+  warmup:
+    enabled: true
+    timeoutSeconds: 240
+    failureThreshold: 90
+  ompThreads: 2
+  kvCacheSpaceGiB: 4
   apiKeySecret:
     name: vllm-api-key
     key: api-key

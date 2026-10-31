@@ -1,0 +1,16 @@
+# Dedicated local cluster for the LLM/Agent chart. Mounts the pre-staged model
+# directory (STAGED_MODELS_DIR) read-only and pulls locally built images from
+# the kind-registry container (localhost:5001), always by digest.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: llm-agent-local
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: ${STAGED_MODELS_DIR}
+        containerPath: /staged-models
+        readOnly: true
