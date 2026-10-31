@@ -97,7 +97,7 @@ class McpChartTests(unittest.TestCase):
                 self.assertNotIn("mcp", selected, item["metadata"]["name"])
         flows = next(i for i in items if i["kind"] == "ConfigMap" and i["metadata"]["name"] == "llm-agent-network-flows")
         unresolved = {item["name"]: item for item in json.loads(flows["data"]["unresolved.json"])}
-        self.assertIn("MCP Gateway", unresolved["agents-to-mcp-gateway-to-mcp-services"]["reason"])
+        self.assertIn("MCP Gateway", unresolved["agents-to-mcp-gateway"]["reason"])
 
     def test_security_settings_default_to_deny(self):
         def env_of(items, name):

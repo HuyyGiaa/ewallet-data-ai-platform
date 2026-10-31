@@ -355,12 +355,16 @@ class P0ChartTests(unittest.TestCase):
         names |= {item["name"] for item in unresolved}
         self.assertTrue({
             "agentgateway-to-vllm", "agents-to-agentgateway", "coordinator-to-specialists-native-a2a",
-            "agents-to-mcp-gateway-to-mcp-services", "mcp-to-rag-feast-kserve-fraud-scoring",
+            "agents-to-mcp-gateway", "mcp-to-rag-feast-kserve-fraud-scoring",
             "otlp-exporters-to-collector", "vllm-model-bootstrap", "external-gateway-to-coordinator",
         } <= names)
         for item in unresolved:
             self.assertTrue(item["reason"] and item["gate"], item["name"])
         self.assertIn("allow-cluster-dns", self.by_kind(items, "NetworkPolicy"))
+        # With the MCP Gateway enabled, its hop to each MCP server is enforced.
+        gateway = self.by_kind(self.render("values-gcp.yaml", extra={"mcpGateway": {"enabled": True}}), "ConfigMap")
+        enforced = {item["name"] for item in json.loads(gateway["llm-agent-network-flows"]["data"]["enforced.json"])}
+        self.assertTrue({"mcp-gateway-to-feature-rag-mcp", "mcp-gateway-to-drift-mcp"} <= enforced)
 
     def test_declared_identity_renders_matching_istio_and_networkpolicy_pair(self):
         extra = {"networkFlows": {
