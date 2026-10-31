@@ -1,0 +1,32 @@
+[project]
+name = "ewallet-streaming-flink-benchmark"
+version = "0.1.0"
+description = "Streaming Block A generator, PyFlink job and local benchmark harness"
+# PyFlink 1.19.1 supports CPython 3.8-3.11. The Flink 1.19.1 image is Ubuntu
+# jammy (CPython 3.10), and local tests use the uv-managed 3.10 interpreter.
+requires-python = ">=3.10,<3.12"
+dependencies = [
+  "confluent-kafka==2.6.1",
+  "pyyaml==6.0.2",
+]
+
+[project.optional-dependencies]
+# Only the JobManager/TaskManager image imports PyFlink. JVM artifacts (Flink
+# image, Kafka SQL connector JAR) are pinned separately; uv.lock cannot lock them.
+flink = [
+  "apache-flink==1.19.1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==8.3.5",
+]
+
+[tool.uv]
+package = false
+# apache-flink-libraries, avro-python3, crcmod, dill, docopt and hdfs publish
+# only pure-Python sdists; pin their build backend so image builds never float.
+build-constraint-dependencies = [
+  "setuptools==75.8.0",
+  "wheel==0.45.1",
+]

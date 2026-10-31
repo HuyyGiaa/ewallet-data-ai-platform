@@ -1,0 +1,62 @@
+schema_version: "1.0"
+redpanda:
+  bootstrap_servers_env: EWALLET_REDPANDA_BOOTSTRAP_SERVERS
+  security_protocol_env: EWALLET_REDPANDA_SECURITY_PROTOCOL
+  consumer_groups:
+    flink: ewallet-block-a-flink-v1
+    history: ewallet-block-a-history-v1
+    feast_online: ewallet-block-a-feast-online-v1
+  topics:
+    raw: {name: ewallet.transactions.raw.v1, partitions: 12, retention_hours: 168}
+    retry: {name: ewallet.transactions.retry.v1, partitions: 12, retention_hours: 72}
+    dlq: {name: ewallet.transactions.dlq.v1, partitions: 6, retention_hours: 720}
+    late: {name: ewallet.transactions.late.v1, partitions: 12, retention_hours: 720}
+    accepted: {name: ewallet.transactions.accepted.v1, partitions: 12, retention_hours: 720}
+    online: {name: ewallet.features.online.v1, partitions: 12, retention_hours: 72}
+event_time:
+  max_out_of_orderness_seconds: 120
+  allowed_lateness_seconds: 600
+  idle_timeout_seconds: 30
+dedup:
+  key: transaction_id
+  ttl_seconds: 172800
+feature_state:
+  temporal_contract: "[T-window,T)"
+  history_ttl_seconds: 2592600
+  bootstrap_replay_days: 30
+  device_dimension: first_seen_at
+bootstrap:
+  first_deploy_source: canonical_silver
+  immutable_silver_root_env: EWALLET_BOOTSTRAP_SILVER_ROOT
+  source_run_id_env: EWALLET_BOOTSTRAP_SILVER_RUN_ID
+  dataset_version_env: EWALLET_DATASET_VERSION
+  manifest_uri_env: EWALLET_BOOTSTRAP_MANIFEST_URI
+  cutover_env: EWALLET_BOOTSTRAP_CUTOVER
+  transactions_table: transactions
+  devices_table: devices
+  accepted_topic_is_initial_source: false
+  restart_source: flink_checkpoint_or_savepoint_plus_retained_raw_topic
+runtime:
+  mode_env: EWALLET_BLOCK_A_MODE
+  kafka_connector_jar: data_platform/processing/flink/jars/flink-sql-connector-kafka-3.3.0-1.19.jar
+  checkpoint_storage_env: EWALLET_FLINK_CHECKPOINT_STORAGE
+  savepoint_path_env: EWALLET_FLINK_SAVEPOINT_PATH
+  checkpoint_delivery_scope: flink_state_and_kafka_offsets
+  end_to_end_exactly_once_claimed: false
+historical_sink:
+  source_topic: ewallet.transactions.accepted.v1
+  uri_template_env: EWALLET_STREAMING_HISTORY_URI_TEMPLATE
+  immutable_run_scoped: true
+  writer_entrypoint: data_platform.streaming.sinks.historical_service
+online_sink:
+  source_topic: ewallet.features.online.v1
+  feast_repo_env: EWALLET_FEAST_ONLINE_REPO
+  redis_connection_env: EWALLET_REDIS_CONNECTION_STRING
+  direct_redis_key_writes: false
+  feature_view_ttl_seconds: 2592600
+  max_staleness_seconds: 600
+  redis_key_ttl_seconds: null
+  writer_entrypoint: data_platform.streaming.feast.service
+retry:
+  max_retries: 3
+  too_late_destination: ewallet.transactions.late.v1

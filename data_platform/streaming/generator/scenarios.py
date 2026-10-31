@@ -67,7 +67,11 @@ class EntityCatalog:
         )
 
     @classmethod
-    def deterministic(cls, seed: int = 42, users: int = 8) -> "EntityCatalog":
+    def deterministic(
+        cls, seed: int = 42, users: int = 8, merchants: int = 6
+    ) -> "EntityCatalog":
+        if users < 2 or merchants < 1:
+            raise ValueError("catalog needs >= 2 users and >= 1 merchant")
         def identifier(kind: str, index: int) -> str:
             return str(uuid.uuid5(_NAMESPACE, f"catalog:{seed}:{kind}:{index}"))
 
@@ -80,8 +84,8 @@ class EntityCatalog:
             for offset in range(2):
                 account_to_user[identifier("account", index * 2 + offset)] = user_id
             device_to_user[identifier("device", index)] = user_id
-        merchants = tuple(identifier("merchant", index) for index in range(6))
-        return cls(account_to_user, device_to_user, merchants)
+        merchant_ids = tuple(identifier("merchant", index) for index in range(merchants))
+        return cls(account_to_user, device_to_user, merchant_ids)
 
     def validate(self, event: TransactionEvent) -> None:
         if self.account_to_user.get(event.account_id) != event.user_id:
@@ -110,6 +114,11 @@ class DeterministicScenarioGenerator:
         self.seed = seed
         self.catalog = catalog or EntityCatalog.deterministic(seed)
         self.profile = profile or GeneratorProfile(seed=seed)
+        # Precomputed once; identical ordering to the catalog's linear lookups.
+        self._users = tuple(dict.fromkeys(self.catalog.account_to_user.values()))
+        self._accounts = {user: self.catalog.accounts_for(user) for user in self._users}
+        self._devices = {user: self.catalog.devices_for(user) for user in self._users}
+        self._account_ids = self.catalog.account_ids
 
     def _id(self, kind: str, sequence: int) -> str:
         return str(uuid.uuid5(_NAMESPACE, f"{self.seed}:{kind}:{sequence}"))
@@ -119,11 +128,10 @@ class DeterministicScenarioGenerator:
 
     def normal(self, sequence: int, event_time: datetime, **overrides) -> TransactionEvent:
         rng = self._rng(sequence)
-        users = tuple(dict.fromkeys(self.catalog.account_to_user.values()))
-        user_id = users[sequence % len(users)]
-        accounts = self.catalog.accounts_for(user_id)
+        user_id = self._users[sequence % len(self._users)]
+        accounts = self._accounts[user_id]
         account_id = accounts[sequence % len(accounts)]
-        device_id = self.catalog.devices_for(user_id)[0]
+        device_id = self._devices[user_id][0]
         transaction_types = tuple(TYPE_WEIGHTS)
         tx_type = rng.choices(transaction_types, weights=tuple(TYPE_WEIGHTS.values()))[0]
         amount = round(rng.uniform(10_000.0, 2_000_000.0), 2)
@@ -137,8 +145,11 @@ class DeterministicScenarioGenerator:
             if tx_type == TransactionType.PAYMENT:
                 merchant_id = self.catalog.merchant_ids[sequence % len(self.catalog.merchant_ids)]
             elif tx_type == TransactionType.TRANSFER:
-                candidates = [item for item in self.catalog.account_ids if item != account_id]
-                counterparty_account_id = candidates[sequence % len(candidates)]
+                index = sequence % (len(self._account_ids) - 1)
+                # Same element as indexing the list with account_id removed.
+                if index >= self._account_ids.index(account_id):
+                    index += 1
+                counterparty_account_id = self._account_ids[index]
 
         values = {
             "event_id": self._id("event", sequence),

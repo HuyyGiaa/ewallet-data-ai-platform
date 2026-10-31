@@ -1,0 +1,14 @@
+# Loaded at runtime by data_platform.streaming.config.settings.load_profile.
+# Only execution knobs differ from flink-optimized.yaml; semantics live in
+# semantic_settings_ref. Both profiles use RocksDB so the incremental
+# checkpoint flag is the only state-backend difference.
+profile: baseline
+parallelism: 1
+checkpoint_interval_seconds: 120
+state_backend: rocksdb
+incremental_checkpoints: false
+semantic_settings_ref: configs/streaming/block-a.yaml
+checkpoint_mode: EXACTLY_ONCE
+kafka_delivery_contract: at_least_once_with_idempotent_business_keys
+restart_attempts: 3
+restart_delay_seconds: 10
