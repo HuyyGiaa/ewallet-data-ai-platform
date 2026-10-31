@@ -48,6 +48,7 @@ class HistoricalFeatureState:
     ) -> None:
         self._events: list[TransactionEvent] = []
         self.device_first_seen = dict(device_first_seen or {})
+        self._observed_device_first_seen: dict[str, datetime] = {}
         self._account_anchors = dict(account_last_seen_before_bootstrap or {})
         self.history_ttl = history_ttl
         self.cutover: datetime | None = None
@@ -59,12 +60,15 @@ class HistoricalFeatureState:
             raise ValueError("bootstrap history must be strictly before cutover")
         self._events.extend(history)
         self._events.sort(key=lambda event: (event.event_time, event.transaction_id))
+        for event in history:
+            self._observe_device(event)
         if history:
             self._max_event_time = max(event.event_time for event in history)
         self.cutover = cutover
 
     def add(self, event: TransactionEvent) -> None:
         self._events.append(event)
+        self._observe_device(event)
         if self._max_event_time is None or event.event_time > self._max_event_time:
             self._max_event_time = event.event_time
         cutoff = self._max_event_time - self.history_ttl
@@ -77,6 +81,11 @@ class HistoricalFeatureState:
             if previous is None or item.event_time > previous:
                 self._account_anchors[item.account_id] = item.event_time
         self._events = retained
+
+    def _observe_device(self, event: TransactionEvent) -> None:
+        first_seen = self._observed_device_first_seen.get(event.device_id)
+        if first_seen is None or event.event_time < first_seen:
+            self._observed_device_first_seen[event.device_id] = event.event_time
 
     def snapshot_group(self, events: list[TransactionEvent]):
         if not events:
@@ -158,7 +167,10 @@ class HistoricalFeatureState:
     def _device(self, current, history):
         w1 = _window(history, current.event_time, timedelta(hours=1))
         w24 = _window(history, current.event_time, timedelta(hours=24))
-        first_seen = self.device_first_seen.get(current.device_id)
+        first_seen = self.device_first_seen.get(
+            current.device_id,
+            self._observed_device_first_seen.get(current.device_id),
+        )
         age = max(0.0, (current.event_time - first_seen).total_seconds()) if first_seen else 0.0
         return self._snapshot("device_behavior", "device_id", current.device_id, current, {
             "device_age_seconds": age,
