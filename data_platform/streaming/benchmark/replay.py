@@ -55,7 +55,9 @@ def create_topics(bootstrap_servers: str, namespace: str) -> list[str]:
     return names
 
 
-def publish(records, bootstrap_servers: str, topic: str, target_rate: float) -> dict:
+def publish(
+    records, bootstrap_servers: str, topic: str, target_rate: float, *, partition: int | None = None
+) -> dict:
     from confluent_kafka import Producer
 
     producer = Producer(
@@ -81,7 +83,11 @@ def publish(records, bootstrap_servers: str, topic: str, target_rate: float) -> 
             time.sleep(delay)
         while True:
             try:
-                producer.produce(topic, key=key.encode(), value=payload.encode(), on_delivery=on_delivery)
+                routing = {} if partition is None else {"partition": partition}
+                producer.produce(
+                    topic, key=key.encode(), value=payload.encode(),
+                    on_delivery=on_delivery, **routing,
+                )
                 break
             except BufferError:
                 producer.poll(0.05)
@@ -101,6 +107,7 @@ def publish(records, bootstrap_servers: str, topic: str, target_rate: float) -> 
         # Measured, not assumed: the generator may fall behind the target.
         "achieved_send_rate_eps": round(count / send_seconds, 2) if send_seconds > 0 else None,
         "achieved_acked_rate_eps": round(count / (acked - started), 2),
+        "fixed_partition": partition,
     }
 
 
@@ -134,7 +141,18 @@ def main(argv=None) -> int:
         if not args.skip_create_topics:
             manifest["topics_created"] = create_topics(args.bootstrap_servers, args.namespace)
         if not args.create_topics_only:
-            manifest["publish"] = publish(records, args.bootstrap_servers, manifest["raw_topic"], spec.target_rate)
+            # Functional correctness must not depend on Kafka's key-to-partition
+            # assignment or on source parallelism.  One ordered partition gives
+            # baseline and optimized the exact same watermark progression.  Perf
+            # runs remain distributed so they can exercise all source subtasks.
+            partition = 0 if args.mode == "functional" else None
+            manifest["publish"] = publish(
+                records,
+                args.bootstrap_servers,
+                manifest["raw_topic"],
+                spec.target_rate,
+                partition=partition,
+            )
     (args.out / "input_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True))
     print(json.dumps({k: manifest.get(k) for k in ("namespace", "emitted_records", "payload_sha256", "publish")}))
     return 0

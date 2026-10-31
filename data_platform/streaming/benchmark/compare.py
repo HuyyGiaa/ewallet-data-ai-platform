@@ -17,9 +17,13 @@ def _load(path: Path):
     return json.loads(path.read_text()) if path.is_file() else {}
 
 
+def _snapshots(run: Path) -> list[dict]:
+    return [_load(path) for path in sorted((run / "metrics").glob("snapshot_*.json"))]
+
+
 def _last_snapshot(run: Path) -> dict:
-    snapshots = sorted((run / "metrics").glob("snapshot_*.json"))
-    return _load(snapshots[-1]) if snapshots else {}
+    snapshots = _snapshots(run)
+    return snapshots[-1] if snapshots else {}
 
 
 def _vertex_max(snapshot: dict, metric: str):
@@ -31,9 +35,15 @@ def _vertex_max(snapshot: dict, metric: str):
     return max(values) if values else None
 
 
+def _maximum(values):
+    measured = [value for value in values if isinstance(value, (int, float)) and not isinstance(value, bool)]
+    return max(measured) if measured else None
+
+
 def run_row(run: Path) -> dict:
     meta, manifest = _load(run / "run.json"), _load(run / "input" / "input_manifest.json")
-    outputs, snap = _load(run / "outputs_summary.json"), _last_snapshot(run)
+    outputs, snapshots = _load(run / "outputs_summary.json"), _snapshots(run)
+    snap = snapshots[-1] if snapshots else {}
     publish = manifest.get("publish", {})
     checkpoints = snap.get("checkpoints", {}) if isinstance(snap.get("checkpoints"), dict) else {}
     summary = checkpoints.get("summary") or {}
@@ -54,9 +64,17 @@ def run_row(run: Path) -> dict:
         "latency_p50_ms": latency.get("p50"),
         "latency_p95_ms": latency.get("p95"),
         "latency_p99_ms": latency.get("p99"),
-        "consumer_lag": (snap.get("consumer_lag") or {}).get("total_lag"),
-        "max_busy_ms_per_s": _vertex_max(snap, "busyTimeMsPerSecond"),
-        "max_backpressured_ms_per_s": _vertex_max(snap, "backPressuredTimeMsPerSecond"),
+        "telemetry_samples": len(snapshots),
+        "max_consumer_lag": _maximum((item.get("consumer_lag") or {}).get("total_lag") for item in snapshots),
+        "max_source_sink_rate_eps": _maximum(
+            _vertex_max(item, metric)
+            for item in snapshots
+            for metric in ("numRecordsInPerSecond", "numRecordsOutPerSecond")
+        ),
+        "max_busy_ms_per_s": _maximum(_vertex_max(item, "busyTimeMsPerSecond") for item in snapshots),
+        "max_backpressured_ms_per_s": _maximum(
+            _vertex_max(item, "backPressuredTimeMsPerSecond") for item in snapshots
+        ),
         "checkpoints_completed": counts.get("completed"),
         "checkpoints_failed": counts.get("failed"),
         "checkpoint_duration_p50_ms": (summary.get("end_to_end_duration") or {}).get("p50"),
@@ -84,6 +102,8 @@ def validate_run(run: Path) -> None:
         problems.append("feature oracle missing, incomplete or failed")
     if not ((_last_snapshot(run).get("checkpoints") or {}).get("counts") or {}).get("completed"):
         problems.append("no completed checkpoint in metrics")
+    if mode == "performance" and len(_snapshots(run)) < 2:
+        problems.append("performance run lacks in-flight telemetry samples")
     if problems:
         raise ValueError(f"{run}: invalid run: {'; '.join(problems)}")
 
@@ -100,6 +120,9 @@ def report(baseline: Path, optimized: Path, *, require_valid: bool = True) -> st
         key: rows["baseline"]["parity"].get(key) == rows["optimized"]["parity"].get(key)
         for key in ("accepted_sha256", "online_sha256", "late_sha256", "dlq_count")
     }
+    if require_valid and not all(parity.values()):
+        failed = ", ".join(key for key, passed in parity.items() if not passed)
+        raise ValueError(f"semantic output parity mismatch: {failed}")
     lines = [
         "# Flink baseline vs optimized — measured evidence",
         "",

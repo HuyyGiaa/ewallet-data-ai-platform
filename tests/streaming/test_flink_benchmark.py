@@ -101,6 +101,9 @@ class ProfileLoadingTest(unittest.TestCase):
         self.assertNotIn('TOPICS["', body)
         self.assertNotIn("state.backend.incremental", source)
         self.assertIn("settings.profile.restart_attempts", body)
+        self.assertIn('namespace.startswith("bench-func-")', body)
+        self.assertIn("set_parallelism(input_parallelism)", body)
+        self.assertIn("set_auto_watermark_interval(1)", body)
 
 
 class BenchmarkSettingsTest(unittest.TestCase):
@@ -175,6 +178,11 @@ class ReplayDatasetTest(unittest.TestCase):
         _, first = build_payloads(performance_spec(100, 10))
         _, second = build_payloads(performance_spec(100, 10))
         self.assertEqual(first["payload_sha256"], second["payload_sha256"])
+
+    def test_functional_publish_supports_fixed_partition(self) -> None:
+        source = (ROOT / "data_platform/streaming/benchmark/replay.py").read_text()
+        self.assertIn('partition = 0 if args.mode == "functional" else None', source)
+        self.assertIn('{"partition": partition}', source)
 
 
 class OutputSummaryTest(unittest.TestCase):
@@ -325,7 +333,10 @@ class RunValidityTest(unittest.TestCase):
             outputs["feature_oracle"] = oracle
         (run / "outputs_summary.json").write_text(json.dumps(outputs))
         (run / "input/input_manifest.json").write_text(json.dumps({"payload_sha256": payload_sha256}))
-        (run / "metrics/snapshot_0000.json").write_text(json.dumps({"checkpoints": {"counts": {"completed": completed}}}))
+        snapshot = json.dumps({"checkpoints": {"counts": {"completed": completed}}})
+        (run / "metrics/snapshot_0000.json").write_text(snapshot)
+        if mode == "performance":
+            (run / "metrics/snapshot_0001.json").write_text(snapshot)
         return run
 
     def test_compare_rejects_invalid_failed_or_checkpointless_runs(self) -> None:
@@ -372,6 +383,24 @@ class RunValidityTest(unittest.TestCase):
                 with self.subTest(run=other), self.assertRaisesRegex(ValueError, "payload SHA-256"):
                     report(baseline, other)
 
+    def test_compare_rejects_semantic_output_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = self._run(Path(tmp, "baseline"), "complete", True, 1)
+            optimized = self._run(Path(tmp, "optimized"), "complete", True, 1)
+            parity = {
+                "accepted_sha256": "a", "online_sha256": "b",
+                "late_sha256": "c", "dlq_count": 0,
+            }
+            for run in (baseline, optimized):
+                data = json.loads((run / "outputs_summary.json").read_text())
+                data["parity"] = dict(parity)
+                (run / "outputs_summary.json").write_text(json.dumps(data))
+            data = json.loads((optimized / "outputs_summary.json").read_text())
+            data["parity"]["online_sha256"] = "different"
+            (optimized / "outputs_summary.json").write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "semantic output parity mismatch"):
+                report(baseline, optimized)
+
     def test_driver_no_longer_swallows_failures(self) -> None:
         script = (ROOT / "scripts/streaming/flink_bench.sh").read_text()
         body = script[script.index("run_benchmark() {"):script.index("finalize_run() {")]
@@ -379,6 +408,9 @@ class RunValidityTest(unittest.TestCase):
         for reason in ("outputs_not_quiesced", "no_completed_checkpoint", "functional_checks_failed"):
             self.assertIn(f'failures+=("{reason}")', script)
         self.assertIn('finalize_run "$run"', script)
+        self.assertIn('--samples "$telemetry_samples"', script)
+        self.assertIn('failures+=("inflight_metrics_failed")', script)
+        self.assertIn("up -d --force-recreate jobmanager taskmanager", script)
 
 
 class EnvironmentContractTest(unittest.TestCase):

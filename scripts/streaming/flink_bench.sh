@@ -87,8 +87,8 @@ run_benchmark() {
   mkdir -p "$run/input"
   local failures=()
 
-  echo "== restart Flink cluster (no warm state) =="
-  "${COMPOSE[@]}" restart jobmanager taskmanager
+  echo "== recreate Flink cluster from recorded image (no warm state) =="
+  "${COMPOSE[@]}" up -d --force-recreate jobmanager taskmanager
   wait_flink
 
   local config_sha
@@ -138,11 +138,26 @@ EOF
   ( while :; do docker stats --no-stream --format '{{json .}}' | sed "s/^/{\"ts\":\"$(date -u +%FT%TZ)\",\"stat\":/; s/\$/}/"; sleep 5; done ) \
     >"$run/docker_stats.jsonl" 2>/dev/null &
   local stats_pid=$!
-  trap 'kill $stats_pid 2>/dev/null || true' RETURN
+  local telemetry_pid=""
+  trap 'kill $stats_pid ${telemetry_pid:-} 2>/dev/null || true' RETURN
+
+  if [[ "$mode" == performance ]]; then
+    echo "== sample Flink/Kafka telemetry during replay =="
+    local telemetry_samples=$((duration / 5 + 1))
+    "${COMPOSE[@]}" run --rm -T sink-reader data_platform.streaming.benchmark.metrics \
+      --flink-url http://jobmanager:8081 --namespace "$ns" --job-id "$job_id" \
+      --run-dir "/evidence/$ns" --interval-seconds 5 --samples "$telemetry_samples" \
+      >"$run/inflight_metrics.log" 2>&1 &
+    telemetry_pid=$!
+  fi
 
   echo "== publish bounded replay =="
   "${COMPOSE[@]}" run --rm -T generator "${replay_args[@]}" --namespace "$ns" \
     --out "/evidence/$ns/input" --skip-create-topics
+  if [[ -n "$telemetry_pid" ]]; then
+    wait "$telemetry_pid" || failures+=("inflight_metrics_failed")
+    telemetry_pid=""
+  fi
 
   echo "== wait for output quiescence =="
   "${COMPOSE[@]}" run --rm -T sink-reader data_platform.streaming.benchmark.outputs \
