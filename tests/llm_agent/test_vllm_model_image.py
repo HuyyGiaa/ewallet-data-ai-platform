@@ -74,6 +74,10 @@ class RecipeTests(unittest.TestCase):
         final = DOCKERFILE.split("FROM remediated", 1)[1]
         self.assertIn("ARG MODEL_DIR=/models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca", final)
         self.assertIn("sha256sum --check --strict --quiet SHA256SUMS", final)
+        # Directories must stay traversable for a pod that drops every capability.
+        self.assertNotIn("--chmod=0444", final)
+        self.assertIn("chmod -R a=rX", final)
+        self.assertIn("setpriv --inh-caps=-all --bounding-set=-all", final)
         self.assertIn("ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1", final)
         gke = yaml.safe_load((ROOT / "infra/helm/llm-agent-platform/values-gke-cpu.yaml").read_text())
         self.assertEqual(gke["vllm"]["modelSource"]["image"]["path"],
