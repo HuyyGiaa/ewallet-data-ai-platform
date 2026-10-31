@@ -3,6 +3,7 @@
 # Description: Validation-only selection and winner-only test/MLflow registration.
 # Inputs:
 #    dataset_version: str
+#    dvc_revision: str
 #    experiment_name: str
 #    feature_run_id: str
 #    git_commit_sha: str
@@ -75,6 +76,8 @@ components:
             schemaVersion: 0.0.1
       parameters:
         dataset_version:
+          parameterType: STRING
+        dvc_revision:
           parameterType: STRING
         experiment_name:
           parameterType: STRING
@@ -330,7 +333,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -352,7 +355,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - evaluate-winner
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 2.0
           cpuRequest: 0.5
@@ -382,7 +385,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -391,6 +394,8 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''experiment_result''].path}}'
         - --git-commit-sha
         - '{{$.inputs.parameters[''git_commit_sha'']}}'
+        - --dvc-revision
+        - '{{$.inputs.parameters[''dvc_revision'']}}'
         - --output
         - '{{$.outputs.artifacts[''evidence''].path}}'
         command:
@@ -398,7 +403,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - publish-mlflow
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 2.0
           cpuRequest: 0.5
@@ -426,7 +431,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - select-winner
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 0.5
           cpuRequest: 0.1
@@ -456,7 +461,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -470,7 +475,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - train-candidate
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 2.0
           cpuRequest: 0.5
@@ -500,7 +505,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -514,7 +519,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - train-candidate
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 2.0
           cpuRequest: 0.5
@@ -544,7 +549,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -558,7 +563,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - train-candidate
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 2.0
           cpuRequest: 0.5
@@ -588,7 +593,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -602,7 +607,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - train-candidate
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 2.0
           cpuRequest: 0.5
@@ -632,7 +637,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -644,7 +649,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - validate-snapshot
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 0.5
           cpuRequest: 0.1
@@ -674,7 +679,7 @@ deploymentSpec:
         - --runtime-image
         - '{{$.inputs.parameters[''runtime_image'']}}'
         - --compiled-runtime-image
-        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        - asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         - --experiment-name
         - '{{$.inputs.parameters[''experiment_name'']}}'
         - --registered-model-name
@@ -686,7 +691,7 @@ deploymentSpec:
         - -m
         - ai_platform.ml.pipelines.runtime
         - verify-chronological-splits
-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764
         resources:
           cpuLimit: 0.5
           cpuRequest: 0.1
@@ -772,6 +777,8 @@ root:
           parameters:
             dataset_version:
               componentInputParameter: dataset_version
+            dvc_revision:
+              componentInputParameter: dvc_revision
             experiment_name:
               componentInputParameter: experiment_name
             feature_run_id:
@@ -1004,6 +1011,8 @@ root:
   inputDefinitions:
     parameters:
       dataset_version:
+        parameterType: STRING
+      dvc_revision:
         parameterType: STRING
       experiment_name:
         parameterType: STRING

@@ -16,7 +16,8 @@ UPSTREAM_DEV = (
 )
 F9_IMAGE = (
     "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
-    "ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1"
+    "ewallet-platform/f9-kfp-runtime@sha256:"
+    "bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764"
 )
 MLFLOW_IMAGE = (
     "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
