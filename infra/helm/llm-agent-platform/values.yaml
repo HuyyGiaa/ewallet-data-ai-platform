@@ -337,7 +337,8 @@ mcpGateway:
   replicas: 2
   port: 8080
   rateLimit: {capacity: 20, refill: 20, interval: 1s}
-  requestTimeout: 30s
+  # Nested: RemoteMCPServer (agents.mcpTimeout) > this > mcpServices.maxTimeoutMs.
+  requestTimeout: 25s
   callerServiceAccounts:
     drift-specialist: ""
     feature-rag-specialist: ""
@@ -361,7 +362,10 @@ a2aGateway:
   # kagent controller A2A endpoint (kagent-values.yaml sets A2A_BASE_URL here).
   kagentA2A: kagent-controller.kagent.svc.cluster.local:8083
   rateLimit: {capacity: 10, refill: 10, interval: 1s}
-  requestTimeout: 120s
+  # One delegation = at least two LLM turns plus one MCP call:
+  # > 2 x modelConfig.timeoutSeconds + agents.mcpTimeout (chart guard), and
+  # below the kagent controller's a2aClientTimeout.
+  requestTimeout: 150s
   # Worker ServiceAccounts allowed to call agents over A2A (runtime readback).
   callerServiceAccounts:
     fraud-coordinator: ""
@@ -406,7 +410,8 @@ mcpServices:
   replicas: 2
   port: 8080
   maxConcurrency: 8
-  maxTimeoutMs: 30000
+  # Per-tool cap; below the MCP Gateway budget so the server answers first.
+  maxTimeoutMs: 20000
   # Every tool request is denied until an authentication mechanism is approved
   # (DECISION_REQUIRED, docs/llm_agent/phase_d_tool_services.md). Origins must be
   # exact scheme://host[:port]; an absent Origin header is allowed.

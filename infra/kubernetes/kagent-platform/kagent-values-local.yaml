@@ -1,0 +1,5 @@
+# Local kind CPU overlay for kagent-values.yaml: one delegation can take two
+# ~200 s LLM turns, so the caller waits longer than the a2a-gateway (660 s,
+# values-local.yaml).
+controller:
+  a2aClientTimeout: 700s

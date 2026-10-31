@@ -28,4 +28,7 @@ provider:
 httpRoute:
   create: true
   inferenceGatewayName: llm-inference-gateway
-  requestTimeout: 120s
+  # Inner hop of the routed LLM path: below agentgateway.backendRequestTimeout
+  # (20 s default) so it answers first and no abandoned generation keeps
+  # running; router-values-local.yaml sets the CPU budget.
+  requestTimeout: 15s

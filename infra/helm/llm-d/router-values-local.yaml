@@ -1,0 +1,4 @@
+# Local kind CPU overlay for router-values.yaml: below the local agentgateway
+# backendRequestTimeout (160 s, llm-agent-platform values-local.yaml).
+httpRoute:
+  requestTimeout: 155s

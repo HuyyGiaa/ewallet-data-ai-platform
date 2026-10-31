@@ -5,7 +5,12 @@ Configs are validated with `agentgateway --validate-only`
 (scripts/llm_agent/validate_gateway_configs.sh).
 */ -}}
 {{- $ns := .Values.namespace.name }}
+{{- $mcpClient := include "llm-agent-platform.durationMs" .Values.agents.mcpTimeout | int }}
 {{- if .Values.mcpGateway.enabled }}
+{{- $mcpGw := include "llm-agent-platform.durationMs" .Values.mcpGateway.requestTimeout | int }}
+{{- if not (and (gt $mcpClient $mcpGw) (gt $mcpGw (int .Values.mcpServices.maxTimeoutMs))) }}
+{{- fail "MCP timeouts must nest: agents.mcpTimeout > mcpGateway.requestTimeout > mcpServices.maxTimeoutMs" }}
+{{- end }}
 {{- $g := .Values.mcpGateway }}
 {{- if not .Values.agents.mcpServers }}
 {{- fail "mcpGateway needs agents.mcpServers (route paths and served tools)" }}
@@ -24,6 +29,10 @@ data:
 {{- end }}
 {{- if .Values.a2aGateway.enabled }}
 {{- $g := .Values.a2aGateway }}
+{{- $turns := add (mul 2 (int .Values.modelConfig.timeoutSeconds) 1000) $mcpClient }}
+{{- if le (include "llm-agent-platform.durationMs" $g.requestTimeout | int) $turns }}
+{{- fail "a2aGateway.requestTimeout must exceed 2 x modelConfig.timeoutSeconds + agents.mcpTimeout (one delegation)" }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap

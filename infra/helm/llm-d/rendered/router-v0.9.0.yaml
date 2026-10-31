@@ -293,7 +293,7 @@ spec:
         type: PathPrefix
         value: /
     timeouts:
-      request: 120s
+      request: 15s
 ---
 # Source: llm-d-router-gateway/templates/epp.yaml
 apiVersion: "inference.networking.k8s.io/v1"
