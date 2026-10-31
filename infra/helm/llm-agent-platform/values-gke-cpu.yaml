@@ -1,0 +1,42 @@
+# GKE ewallet-dev CPU profile (owner decision 2026-10-31: CPU vLLM is the
+# runtime target, no GPU). Self-contained overlay on values.yaml, like
+# values-dev/gcp (deploy_atomic.sh, rollback.sh, Jenkinsfile ENVIRONMENT=gke-cpu).
+# Stage G1: ModelConfig -> agentgateway -> vLLM CPU primary + fallback.
+# Later stages switch on llmd / agents / gateways with --set, as in
+# docs/llm_agent/gke_cpu_runtime.md. Node budget: cpu-pool e2-standard-4
+# (AVX2; the pinned vllm-openai-cpu image already ran on an AVX2-only host).
+
+gateway:
+  # No external exposure until a hostname, TLS secret and Gateway API CRDs are
+  # approved; G1 is reached with kubectl port-forward only.
+  enabled: false
+
+vllm:
+  # Model downloaded at modelRevision at startup (nodes have public egress).
+  modelSource:
+    mode: huggingface
+  # Replace in place: a surge pod needs another 2 free CPUs, which the
+  # 2-3 node budget does not have.
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 0
+  primary:
+    replicas: 1
+  fallback:
+    replicas: 1
+
+# CPU budgets, the same nesting as values-local.yaml (a 256-token tool call on
+# 2 CPU threads takes ~40-80 s; the base GCP budgets of 35/28/20 s would 504).
+# Pairs with infra/helm/llm-d/router-values-local.yaml (155 s) and
+# infra/kubernetes/kagent-platform/kagent-values-local.yaml (700 s).
+agentgateway:
+  requestTimeout: 180s
+  llmRequestTimeout: 170s
+  backendRequestTimeout: 160s
+  responseIdleTimeout: 160s
+
+modelConfig:
+  timeoutSeconds: 200
+
+a2aGateway:
+  requestTimeout: 660s

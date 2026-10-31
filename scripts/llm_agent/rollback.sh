@@ -2,11 +2,11 @@
 # Jenkins post-failure rollback: return the release to its last deployed
 # revision (helm --atomic already rolls back a failed upgrade; this covers a
 # failure after a successful upgrade, e.g. a failed smoke).
-# usage: rollback.sh <dev|gcp> <evidence-dir>
+# usage: rollback.sh <dev|gcp|gke-cpu> <evidence-dir>
 # Env: KUBE_CONTEXT (required), RELEASE (default llm-agent).
 set -euo pipefail
 environment=$1 evidence=$2
-[[ "$environment" =~ ^(dev|gcp)$ ]] || { echo "environment must be dev or gcp" >&2; exit 2; }
+[[ "$environment" =~ ^(dev|gcp|gke-cpu)$ ]] || { echo "environment must be dev, gcp or gke-cpu" >&2; exit 2; }
 [ -n "${KUBE_CONTEXT:-}" ] || { echo "KUBE_CONTEXT is required" >&2; exit 2; }
 release=${RELEASE:-llm-agent}
 mkdir -p "$evidence"

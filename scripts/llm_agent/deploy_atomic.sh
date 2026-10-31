@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Jenkins stage "Helm atomic deploy, rollout and smoke".
-# usage: deploy_atomic.sh <dev|gcp> <image-digests.json> <evidence-dir>
+# usage: deploy_atomic.sh <dev|gcp|gke-cpu> <image-digests.json> <evidence-dir>
 # Env: KUBE_CONTEXT (required, never the kubeconfig default), RELEASE (default
 # llm-agent), NAMESPACE (default ewallet-agents).
 set -euo pipefail
 environment=$1 digests=$2 evidence=$3
-[[ "$environment" =~ ^(dev|gcp)$ ]] || { echo "environment must be dev or gcp" >&2; exit 2; }
+[[ "$environment" =~ ^(dev|gcp|gke-cpu)$ ]] || { echo "environment must be dev, gcp or gke-cpu" >&2; exit 2; }
 [ -n "${KUBE_CONTEXT:-}" ] || { echo "KUBE_CONTEXT is required" >&2; exit 2; }
 release=${RELEASE:-llm-agent}
 namespace=${NAMESPACE:-ewallet-agents}

@@ -2,7 +2,8 @@
 
 Same rule as R1: every caller waits longer than the hop below it, so the
 inner hop answers first and no hop keeps working on an abandoned request.
-Pairs checked: gcp = base values; local = values-local + the *-local overlays.
+Pairs checked: gcp = base values; local = values-local + the *-local overlays;
+gke-cpu = values-gke-cpu + the same CPU (*-local) router and kagent overlays.
 """
 
 from __future__ import annotations
@@ -49,6 +50,9 @@ ENVS = {
     "local": dict(chart=[CHART / "values.yaml", CHART / "values-local.yaml"],
                   router=[LLMD / "router-values.yaml", LLMD / "router-values-local.yaml"],
                   kagent=[KAGENT / "kagent-values.yaml", KAGENT / "kagent-values-local.yaml"]),
+    "gke-cpu": dict(chart=[CHART / "values.yaml", CHART / "values-gke-cpu.yaml"],
+                    router=[LLMD / "router-values.yaml", LLMD / "router-values-local.yaml"],
+                    kagent=[KAGENT / "kagent-values.yaml", KAGENT / "kagent-values-local.yaml"]),
 }
 
 
@@ -99,7 +103,7 @@ class ChartGuardTests(unittest.TestCase):
 
     def test_gateways_render_in_every_overlay(self):
         on = {"mcpGateway": {"enabled": True}, "a2aGateway": {"enabled": True}}
-        for overlay in ("values-gcp.yaml", "values-local.yaml", "values-dev.yaml"):
+        for overlay in ("values-gcp.yaml", "values-local.yaml", "values-dev.yaml", "values-gke-cpu.yaml"):
             with self.subTest(overlay):
                 self.assertEqual(self.render(overlay, on).returncode, 0)
 

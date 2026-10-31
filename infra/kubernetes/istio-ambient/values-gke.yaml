@@ -1,0 +1,14 @@
+# Shared by the istiod, istio-cni and ztunnel charts (all in istio-system).
+# platform=gke: the cni and ztunnel charts create the ResourceQuota GKE needs
+# for system-node-critical pods outside kube-system, and cni autodetects the
+# GKE CNI bin dir at install time (offline renders show /opt/cni/bin; read the
+# installed DaemonSet back).
+profile: ambient
+global:
+  platform: gke
+# istiod defaults to 500m / 2 GiB; the cluster budget is 2-3 e2-standard-4.
+pilot:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
