@@ -3,7 +3,7 @@ FROM python:3.10.19-slim-bookworm
 WORKDIR /workspace
 RUN pip install --no-cache-dir uv==0.9.5
 COPY ai_platform/ml/pyproject.toml ai_platform/ml/uv.lock /opt/f9-runtime/
-RUN cd /opt/f9-runtime && uv sync --frozen --no-dev
+RUN cd /opt/f9-runtime && uv sync --locked --no-dev
 
 COPY ai_platform /workspace/ai_platform
 ENV PATH=/opt/f9-runtime/.venv/bin:$PATH \

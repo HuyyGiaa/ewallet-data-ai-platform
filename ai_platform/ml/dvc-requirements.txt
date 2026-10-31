@@ -1,2 +1,4 @@
 # Dedicated operator tool; never installed into the F9 runtime image.
+# Mirror of ai_platform/ml/dvc-operator (pyproject.toml + uv.lock, authoritative):
+#   uv sync --locked --project ai_platform/ml/dvc-operator
 dvc==3.63.0

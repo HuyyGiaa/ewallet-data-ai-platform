@@ -41,8 +41,10 @@ test "$TRAINING_SNAPSHOT_ID" != "$FEAST_SNAPSHOT_ID"
 ops/gcp/ml2_operator_preflight.sh
 ```
 
-Provision `DVC_BIN` beforehand in a dedicated operator environment from
-`ai_platform/ml/dvc-requirements.txt`. The preflight rejects a missing binary or
+Provision `DVC_BIN` beforehand in the dedicated, locked operator environment
+`ai_platform/ml/dvc-operator` (`uv sync --locked --project ai_platform/ml/dvc-operator`,
+then `DVC_BIN=ai_platform/ml/dvc-operator/.venv/bin/dvc`); `ai_platform/ml/dvc-requirements.txt`
+is its mirror. The preflight rejects a missing binary or
 any version other than 3.63.0. It also rejects a wrong branch, wrong/missing
 reviewed SHA, dirty worktree, or missing input evidence before any cloud command.
 Never derive `EXPECTED_REVIEWED_GIT_SHA` from the current HEAD.

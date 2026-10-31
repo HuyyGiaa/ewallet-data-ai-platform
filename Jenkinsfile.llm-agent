@@ -38,7 +38,7 @@ pipeline {
     stage('MCP tool and RAG tests (locked uv project)') {
       steps {
         sh '''uv lock --check --project infra/docker/llm-agent-tooling
-          uv run --frozen --project infra/docker/llm-agent-tooling --extra feast python -m unittest \
+          uv run --locked --project infra/docker/llm-agent-tooling --extra feast python -m unittest \
             tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security \
             tests.llm_agent.test_mcp_sdk_conformance tests.llm_agent.test_rag_online_retriever \
             2>&1 | tee "$EVIDENCE_DIR/unittest-mcp.txt"'''

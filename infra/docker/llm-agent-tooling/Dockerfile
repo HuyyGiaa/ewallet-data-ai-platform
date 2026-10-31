@@ -7,8 +7,8 @@ RUN python -m compileall -q ai_platform/llm_agent ops/llm_agent
 
 # Phase D MCP tool servers (feature-rag-mcp, drift-mcp): `--target mcp-server`.
 # glibc base because Feast/pyarrow ship manylinux wheels only. Dependencies come
-# from the reviewed uv.lock (pyproject.toml beside this file): --frozen never
-# re-resolves, uv checks every artifact hash from the lock, --no-build refuses
+# from the reviewed uv.lock (pyproject.toml beside this file): --locked fails if
+# the lock no longer matches pyproject.toml and never re-resolves, uv checks every artifact hash from the lock, --no-build refuses
 # sdists, and the dev group (MCP SDK, tests only) is excluded.
 FROM python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c AS mcp-deps
 
@@ -18,7 +18,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_LINK_MODE=copy
 WORKDIR /opt/mcp-project
 COPY infra/docker/llm-agent-tooling/pyproject.toml infra/docker/llm-agent-tooling/uv.lock ./
-RUN uv sync --frozen --no-dev --extra feast --no-install-project --no-build --no-cache \
+RUN uv sync --locked --no-dev --extra feast --no-install-project --no-build --no-cache \
        --python /usr/local/bin/python3.12
 
 FROM python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c AS mcp-server

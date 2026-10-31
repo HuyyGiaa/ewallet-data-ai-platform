@@ -1,3 +1,5 @@
+# Mirror of the direct pins in ai_platform/features/feast/pyproject.toml (uv.lock is authoritative;
+# tests/unit/test_uv_dependency_contract.py keeps them equal). For legacy runtimes only.
 feast==0.66.0
 dask[dataframe]==2026.8.0
 pyarrow==25.0.1
