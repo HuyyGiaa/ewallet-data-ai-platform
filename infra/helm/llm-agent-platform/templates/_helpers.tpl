@@ -4,7 +4,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 
-{{/* Enforced flows, plus the llm-d and MCP Gateway flows when those are enabled. */}}
+{{/* Enforced flows, plus the llm-d, MCP Gateway and collector flows when those are enabled. */}}
 {{- define "llm-agent-platform.enforcedFlows" -}}
 {{- $flows := .Values.networkFlows.enforced -}}
 {{- if .Values.llmd.enabled -}}
@@ -12,6 +12,9 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 {{- if .Values.mcpGateway.enabled -}}
 {{- $flows = concat $flows .Values.mcpGateway.networkFlows -}}
+{{- end -}}
+{{- if .Values.otelCollector.enabled -}}
+{{- $flows = concat $flows .Values.otelCollector.networkFlows -}}
 {{- end -}}
 {{- toYaml $flows -}}
 {{- end -}}

@@ -1,0 +1,21 @@
+# agentgateway v1.7.0 (sha256:60216aaf...) /metrics on :15020, read 2026-10-31 after local MCP (stub) and LLM (no backend) traffic. Label names only, no label values.
+# llm request (no vLLM backend): HTTP Error 503: Service Unavailable
+## gateway mcp-gateway
+agentgateway_requests_total ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 1
+agentgateway_requests_total ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 1
+agentgateway_requests_total ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 3
+agentgateway_mcp_requests_total ['bind', 'gateway', 'listener', 'method', 'resource', 'resource_type', 'route', 'route_rule', 'server'] 1
+agentgateway_mcp_requests_total ['bind', 'gateway', 'listener', 'method', 'resource', 'resource_type', 'route', 'route_rule', 'server'] 1
+agentgateway_mcp_requests_total ['bind', 'gateway', 'listener', 'method', 'resource', 'resource_type', 'route', 'route_rule', 'server'] 1
+agentgateway_mcp_requests_total ['bind', 'gateway', 'listener', 'method', 'resource', 'resource_type', 'route', 'route_rule', 'server'] 1
+agentgateway_mcp_requests_total ['bind', 'gateway', 'listener', 'method', 'resource', 'resource_type', 'route', 'route_rule', 'server'] 1
+agentgateway_request_duration_seconds_count ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 1
+agentgateway_request_duration_seconds_count ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 1
+agentgateway_request_duration_seconds_count ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 3
+## gateway llm agentgateway
+agentgateway_gen_ai_server_request_duration_count ['bind', 'error_type', 'gateway', 'gen_ai_operation_name', 'gen_ai_request_model', 'gen_ai_response_model', 'gen_ai_system', 'listener', 'route', 'route_rule'] 3
+agentgateway_requests_total ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 3
+agentgateway_requests_total ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 1
+agentgateway_request_duration_seconds_count ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 3
+agentgateway_request_duration_seconds_count ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 1
+agentgateway_retries_total ['backend', 'bind', 'gateway', 'listener', 'method', 'protocol', 'reason', 'route', 'route_rule', 'status'] 2

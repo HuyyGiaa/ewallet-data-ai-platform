@@ -68,6 +68,10 @@ networkFlows:
       serviceAccount: a2a-gateway
       podLabels:
         app.kubernetes.io/name: a2a-gateway
+    otel-collector:
+      serviceAccount: otel-collector
+      podLabels:
+        app.kubernetes.io/name: otel-collector
     # Created by the pinned llm-d router chart (infra/helm/llm-d), rendered
     # labels and ServiceAccount read from llm-d-router-gateway v0.9.0.
     llmd-epp:
@@ -101,9 +105,9 @@ networkFlows:
       reason: Endpoints live in ML/Data Platform namespaces that are not deployed or contract-pinned for this chart.
       gate: ML Platform runtime readback of namespaces, labels and ports.
     - name: otlp-exporters-to-collector
-      to: otel-collector:4317/4318
-      reason: Only the otel-collector ServiceAccount exists; no collector Deployment or pod labels.
-      gate: Collector source and rendered labels.
+      to: otel-collector:4317
+      reason: Chart-owned exporters get enforced flows when otelCollector.enabled; kagent controller/agent workers and Prometheus (another namespace) have no source-defined identity.
+      gate: Read back the kagent controller, worker and Prometheus identities, then add their flows.
     - name: vllm-model-bootstrap
       to: huggingface.co:443
       reason: vLLM downloads the pinned revision at startup, but NetworkPolicy cannot express an FQDN and a CIDR guess would be a broad egress.
@@ -359,6 +363,34 @@ a2aGateway:
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: 500m, memory: 256Mi}
+
+# OpenTelemetry Collector (rubric rows 46-51): OTLP in, PII redaction,
+# Prometheus metrics out (scraped from outside the namespace), traces to an
+# OTLP backend (Jaeger/Tempo, row 39/49) when one is configured.
+otelCollector:
+  enabled: false
+  image: docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6
+  replicas: 1
+  # host:port of an OTLP gRPC trace backend; empty keeps traces in the debug exporter only.
+  tracesEndpoint: ""
+  prometheusPort: 8889
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  # Chart-owned OTLP exporters (enforced when enabled).
+  networkFlows:
+    - {name: agentgateway-to-otel-collector, from: agentgateway, to: otel-collector, port: 4317}
+    - {name: mcp-gateway-to-otel-collector, from: mcp-gateway, to: otel-collector, port: 4317}
+    - {name: a2a-gateway-to-otel-collector, from: a2a-gateway, to: otel-collector, port: 4317}
+    - {name: feature-rag-mcp-to-otel-collector, from: feature-rag-mcp, to: otel-collector, port: 4317}
+    - {name: drift-mcp-to-otel-collector, from: drift-mcp, to: otel-collector, port: 4317}
+    - {name: llmd-epp-to-otel-collector, from: llmd-epp, to: otel-collector, port: 4317}
+
+# Grafana dashboard ConfigMap (rubric rows 37, 46-51); metric names are in
+# dashboards/llm-agent.json with a verified/unverified status per panel.
+dashboards:
+  enabled: false
+  namespace: ""
 
 # Phase D MCP tool servers (ai_platform/llm_agent/tools). Disabled: no reviewed
 # server image exists, and every value below must come from a real build and

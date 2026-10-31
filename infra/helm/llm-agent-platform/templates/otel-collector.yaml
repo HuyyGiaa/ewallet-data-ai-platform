@@ -1,0 +1,166 @@
+{{- if .Values.otelCollector.enabled }}
+{{- $o := .Values.otelCollector }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- include "llm-agent-platform.otelCollectorConfig" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: otel-collector
+spec:
+  replicas: {{ $o.replicas }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: otel-collector}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: otel-collector}
+      annotations:
+        checksum/config: {{ include "llm-agent-platform.otelCollectorConfig" . | sha256sum }}
+    spec:
+      serviceAccountName: otel-collector
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: otel-collector
+          image: {{ $o.image }}
+          imagePullPolicy: IfNotPresent
+          args: ["--config=/conf/config.yaml"]
+          ports:
+            - {name: otlp-grpc, containerPort: 4317}
+            - {name: otlp-http, containerPort: 4318}
+            - {name: prometheus, containerPort: {{ $o.prometheusPort }}}
+            - {name: health, containerPort: 13133}
+          readinessProbe:
+            httpGet: {path: /, port: health}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /, port: health}
+            periodSeconds: 20
+          resources:
+            {{- toYaml $o.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: config, mountPath: /conf, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: otel-collector-config}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: otel-collector
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: otel-collector}
+  ports:
+    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
+    - {name: otlp-http, port: 4318, targetPort: otlp-http}
+    - {name: prometheus, port: {{ $o.prometheusPort }}, targetPort: prometheus}
+{{- end }}
+
+{{- define "llm-agent-platform.otelCollectorConfig" -}}
+{{- $o := .Values.otelCollector -}}
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  # Remove credentials and direct identifiers before anything is exported.
+  attributes/redact:
+    actions:
+      - {key: http.request.header.authorization, action: delete}
+      - {key: http.request.header.cookie, action: delete}
+      - {key: http.request.header.x-ewallet-actor, action: delete}
+      - {key: gen_ai.prompt, action: delete}
+      - {key: gen_ai.completion, action: delete}
+      - {key: gen_ai.input.messages, action: delete}
+      - {key: gen_ai.output.messages, action: delete}
+      - {key: user.id, action: hash}
+      - {key: enduser.id, action: hash}
+  # Mask card numbers, emails and phone numbers left in any attribute value.
+  redaction:
+    allow_all_keys: true
+    blocked_values:
+      - '\b(?:\d[ -]?){13,19}\b'
+      - '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+      - '\+?84\d{9,10}\b'
+    summary: info
+  batch:
+    send_batch_size: 512
+    timeout: 5s
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:{{ $o.prometheusPort }}
+    namespace: ewallet
+    resource_to_telemetry_conversion:
+      enabled: true
+  debug:
+    verbosity: basic
+  {{- if $o.tracesEndpoint }}
+  otlp/traces:
+    endpoint: {{ $o.tracesEndpoint }}
+    tls:
+      insecure: true
+  {{- end }}
+connectors:
+  # Calls, errors and latency per service and span from traces: agent runs
+  # (kagent spans) and tool calls become countable even where no gateway
+  # metric carries the agent name.
+  spanmetrics:
+    dimensions:
+      - name: gen_ai.agent.name
+      - name: gen_ai.tool.name
+    exemplars:
+      enabled: false
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      encoding: json
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, redaction, batch]
+      exporters: [{{ if $o.tracesEndpoint }}otlp/traces{{ else }}debug{{ end }}, spanmetrics]
+    metrics:
+      receivers: [otlp, spanmetrics]
+      processors: [memory_limiter, attributes/redact, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, redaction, batch]
+      exporters: [debug]
+{{- end }}
