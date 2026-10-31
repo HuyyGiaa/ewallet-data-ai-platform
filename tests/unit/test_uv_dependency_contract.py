@@ -28,6 +28,7 @@ PROJECTS = (
     "ai_platform/ml/pipelines",
     "ai_platform/ml/dvc-operator",
     "infra/docker/llm-agent-tooling",
+    "infra/docker/vllm-cpu-model",
     "infra/kubernetes/mlflow/image",
 )
 MIRRORS = {
@@ -42,6 +43,9 @@ PROTECTED = {
     ("ai_platform/ml/pipelines", "kfp"): "2.17.3",
     ("infra/docker/llm-agent-tooling", "mcp"): "2.3.0",
     ("ai_platform/ml/dvc-operator", "dvc"): "3.63.0",
+    # vllm-cpu-model remediation inputs (Trivy fixes); changing them needs a rescan.
+    ("infra/docker/vllm-cpu-model", "certifi"): "2026.10.18",
+    ("infra/docker/vllm-cpu-model", "setuptools"): "82.0.1",
 }
 UV = shutil.which("uv")
 

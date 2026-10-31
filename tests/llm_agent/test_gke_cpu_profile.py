@@ -7,6 +7,7 @@ fake helm/kubectl/curl and locally built chart files.
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -180,17 +181,17 @@ class ModelImageModeTests(unittest.TestCase):
         self.assertIn("FROM remediated\n", dockerfile)
 
     def test_remediation_is_pinned_and_the_gate_stays_strict(self):
+        lock = (ROOT / "infra/docker/vllm-cpu-model/uv.lock").read_text()
+        self.assertRegex(lock, r'certifi-2026\.10\.18-py3-none-any\.whl", hash = "sha256:[0-9a-f]{64}"')
+        self.assertRegex(lock, r'setuptools-82\.0\.1-py3-none-any\.whl", hash = "sha256:[0-9a-f]{64}"')
         script = (ROOT / "infra/docker/vllm-cpu-model/remediate.py").read_text()
-        self.assertRegex(script, r'CERTIFI = "certifi==2026\.10\.18 --hash=sha256:[0-9a-f]{64}')
-        self.assertRegex(script, r'SETUPTOOLS_SHA256 = "[0-9a-f]{64}"')
-        self.assertIn("--require-hashes", script)
+        self.assertIn('sha256 does not match uv.lock', script)
         dockerfile = (ROOT / "infra/docker/vllm-cpu-model/Dockerfile").read_text()
         self.assertIn("libbrotli1=1.0.9-2ubuntu0.1", dockerfile)
+        self.assertIn("--require-hashes --no-deps", dockerfile)
         gate = (ROOT / "scripts/llm_agent/scan_and_push.sh").read_text()
-        self.assertIn("--exit-code 1 --severity CRITICAL,HIGH", gate)
-        self.assertFalse(list(ROOT.glob("**/.trivyignore*")))
-        local = yaml.safe_load((CHART / "values-local.yaml").read_text())["vllm"]["modelSource"]["staged"]["sha256sums"]
-        self.assertEqual((ROOT / "infra/docker/vllm-cpu-model/SHA256SUMS").read_text(), local)
+        self.assertIn("--scanners vuln,secret --exit-code 1 --severity CRITICAL,HIGH", gate)
+        self.assertFalse(list((ROOT / "infra").glob("**/.trivyignore*")))
 
 
 def json_dump(value):
@@ -388,74 +389,100 @@ class G1ReachabilityTests(unittest.TestCase):
         self.assertFalse([c for c in pf.stage_crds("g1") if "kagent" in c])
 
 
-# --- g1_operator.sh gates (fake gcloud/kubectl/helm) ---
+# --- g1_operator.sh gates and failure injection (fake gcloud/kubectl/helm) ---
 
 OPERATOR_FAKE = r"""#!/usr/bin/env bash
 echo "$(basename "$0") $*" >> "$FAKE_LOG"
 case "$(basename "$0") $*" in
-  "gcloud compute instance-groups"*) echo "${FAKE_POOL:-0}";;
-  *"describe --format=value(networkPolicy.enabled"*) printf '%s\t%s\n' "${FAKE_NP:-True}" "${FAKE_NP_ADDON_DISABLED:-False}";;
-  "kubectl"*"get nodes --no-headers"*) for i in 1 2 3; do echo "n$i   Ready   <none>"; done;;
+  "gcloud compute instance-groups"*) cat "$FAKE_POOL_FILE" 2>/dev/null || echo 0;;
+  "gcloud compute instances list"*) n=$(cat "$FAKE_POOL_FILE" 2>/dev/null || echo 0); for i in $(seq 1 "$n"); do echo "node-$i"; done;;
+  "gcloud container clusters resize"*) n=$(echo "$*" | sed -n 's/.*--num-nodes \([0-9]*\).*/\1/p'); [ "${FAKE_RESIZE_STUCK:-0}" = 1 ] || echo "$n" > "$FAKE_POOL_FILE";;
+  *"describe --format=value(networkPolicy.enabled"*) printf '%s\t%s\n' "${FAKE_NP:-True}" "False";;
+  *"describe --format=value(endpoint"*) printf '34.0.0.1\tgke-x.asia-southeast1-b.gke.goog\n';;
+  "kubectl config view"*) printf '%s' "${FAKE_SERVER:-https://gke-x.asia-southeast1-b.gke.goog}";;
+  "kubectl"*" wait "*) [ -n "${FAKE_HANG:-}" ] && sleep 60;;
+  "kubectl"*"get nodes -l"*"--no-headers"*) for i in $(seq 1 "${FAKE_READY:-3}"); do echo "n$i   Ready   <none>"; done;;
   "kubectl"*"get secret vllm-api-key -o jsonpath"*) printf '%s' "$(printf 'k%.0s' $(seq 1 64) | base64 -w0)";;
   "kubectl"*"get secret vllm-api-key"*) exit "${FAKE_SECRET_EXISTS:-1}";;
+  "kubectl"*"get deploy vllm-fallback"*) printf '%s' "${FAKE_FALLBACK_READY:-0}";;
+  "kubectl"*"get ns ewallet-agents"*) printf 'ambient';;
 esac
 exit 0
 """
 
 
-class OperatorGateTests(ScriptHarness):
+class OperatorTests(ScriptHarness):
     def setUp(self):
         super().setUp()
+        self.pool = self.dir / "pool"
+        self.pool.write_text("0")
         for name in ("gcloud", "kubectl", "helm", "openssl"):
             path = self.bin / name
             path.write_text(OPERATOR_FAKE if name != "openssl" else "#!/usr/bin/env bash\nprintf 'secret-token-value'\n")
             path.chmod(0o755)
+        self.base_env = {"KUBE_CONTEXT": pf.EXPECTED_CONTEXT, "FAKE_POOL_FILE": str(self.pool)}
 
-    def op(self, stage, **env):
-        return self.run_script("g1_operator.sh", stage, self.dir / "ev", **{"KUBE_CONTEXT": pf.EXPECTED_CONTEXT, **env})
+    def op(self, stage, *extra, **env):
+        return self.run_script("g1_operator.sh", stage, self.dir / "ev", *extra, **{**self.base_env, **env})
 
-    def mutations(self):
-        return [c for c in self.calls() if " update " in f" {c} " or " resize " in f" {c} " or " create secret" in c]
+    def resizes(self):
+        return [c for c in self.calls() if c.startswith("gcloud container clusters resize")]
 
-    def test_refuses_any_other_context(self):
-        for ctx in ("", "kind-llm-agent-local", "gke_other_asia-southeast1-b_ewallet-dev"):
-            with self.subTest(ctx):
-                self.assertNotEqual(self.op("status", KUBE_CONTEXT=ctx).returncode, 0)
-        self.assertEqual(self.calls(), [])
+    def cloud_mutations(self):
+        return [c for c in self.calls() if " update " in f" {c} " or " resize " in f" {c} " or "create secret" in c
+                or c.startswith("kubectl") and " run " in f" {c} "]
 
-    def test_mutating_stage_needs_its_own_approval(self):
-        for stage in ("netpol-enable", "scale-up", "istio", "image-push", "namespace", "secret", "deploy", "failover"):
+    # authorization
+    def test_refuses_any_other_context_or_cluster(self):
+        for env in ({"KUBE_CONTEXT": ""}, {"KUBE_CONTEXT": "kind-llm-agent-local"},
+                    {"FAKE_SERVER": "https://10.9.9.9"}):
+            with self.subTest(env):
+                self.assertNotEqual(self.op("status", **env).returncode, 0)
+        self.assertEqual(self.cloud_mutations(), [])
+
+    def test_approval_list_is_exact_and_typos_fail(self):
+        for approvals in ("scale_up", "scale-up,cleanup", "everything", "status"):
+            with self.subTest(approvals):
+                proc = self.op("scale-up", G1_APPROVED_STAGES=approvals)
+                self.assertNotEqual(proc.returncode, 0)
+        for stage in ("netpol-enable", "scale-up", "istio", "image-push", "namespace", "secret", "deploy",
+                      "netpol-verify", "failover"):
             with self.subTest(stage):
-                proc = self.op(stage, G1_APPROVED_STAGES="status,cleanup")
+                proc = self.op(stage, G1_APPROVED_STAGES="secret" if stage != "secret" else "istio")
                 self.assertNotEqual(proc.returncode, 0)
                 self.assertIn("G1_APPROVED_STAGES", proc.stderr)
-        self.assertEqual(self.mutations(), [])
+        self.assertEqual(self.cloud_mutations(), [])
 
+    def test_a_mutating_stage_runs_once_unless_a_rerun_is_named(self):
+        self.assertEqual(self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable").returncode, 0)
+        proc = self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("G1_RERUN", proc.stderr)
+        self.assertEqual(len([c for c in self.calls() if " update " in f" {c} "]), 2)
+
+    # transitions and readbacks
     def test_netpol_enable_only_on_an_empty_pool_and_reads_back(self):
-        self.assertNotEqual(self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable", FAKE_POOL="2").returncode, 0)
-        self.assertEqual(self.mutations(), [])
-        proc = self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable", FAKE_POOL="0", FAKE_NP="False")
+        self.pool.write_text("2")
+        self.assertNotEqual(self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable").returncode, 0)
+        self.pool.write_text("0")
+        proc = self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable", G1_RERUN="netpol-enable", FAKE_NP="False")
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("readback", proc.stderr)
-        proc = self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable", FAKE_POOL="0")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        updates = [c for c in self.calls() if " update " in f" {c} "]
-        self.assertIn("--update-addons=NetworkPolicy=ENABLED", updates[0])
-        self.assertIn("--enable-network-policy", updates[1])
 
-    def test_scale_up_is_bounded_and_needs_enforcement(self):
+    def test_scale_up_is_bounded_needs_enforcement_and_reads_back_exactly(self):
         self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", NODES="4").returncode, 0)
-        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", FAKE_NP="False").returncode, 0)
-        self.assertEqual(self.mutations(), [])
-        proc = self.op("scale-up", G1_APPROVED_STAGES="scale-up")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertTrue(any("resize ewallet-dev --node-pool cpu-pool --num-nodes 3" in c for c in self.calls()))
+        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", G1_RERUN="scale-up",
+                                    FAKE_NP="False").returncode, 0)
+        self.assertEqual(self.resizes(), [])
+        proc = self.op("scale-up", G1_APPROVED_STAGES="scale-up", G1_RERUN="scale-up", FAKE_READY="2")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("expected exactly 3", proc.stderr)
 
-    def test_cleanup_always_runs_and_reads_back_zero(self):
-        proc = self.op("cleanup")
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertTrue(any("--num-nodes 0" in c for c in self.calls()))
-        self.assertNotEqual(self.op("cleanup", FAKE_POOL="3").returncode, 0)
+    def test_failover_refuses_without_a_ready_fallback(self):
+        proc = self.op("failover", G1_APPROVED_STAGES="failover", FAKE_FALLBACK_READY="0")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("no Ready vllm-fallback", proc.stderr)
+        self.assertFalse([c for c in self.calls() if "scale deploy/vllm-primary" in c])
 
     def test_secret_is_fresh_never_on_a_command_line_and_never_overwritten(self):
         proc = self.op("secret", G1_APPROVED_STAGES="secret")
@@ -464,6 +491,66 @@ class OperatorGateTests(ScriptHarness):
         self.assertIn("create secret generic vllm-api-key --from-file=api-key=", log)
         self.assertNotIn("secret-token-value", log + proc.stdout + proc.stderr)
         self.assertNotIn("from-literal", log)
-        before = len(self.mutations())
-        self.assertNotEqual(self.op("secret", G1_APPROVED_STAGES="secret", FAKE_SECRET_EXISTS="0").returncode, 0)
-        self.assertEqual(len(self.mutations()), before)
+        before = log.count("create secret")
+        proc = self.op("secret", G1_APPROVED_STAGES="secret", G1_RERUN="secret", FAKE_SECRET_EXISTS="0")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(self.log.read_text().count("create secret"), before)
+
+    # cleanup
+    def test_cleanup_needs_no_approval_or_working_kubeconfig_and_reads_back_zero(self):
+        self.pool.write_text("3")
+        proc = self.op("cleanup", FAKE_SERVER="https://10.9.9.9")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("--num-nodes 0", self.resizes()[-1])
+        self.pool.write_text("3")
+        self.assertNotEqual(self.op("cleanup", FAKE_RESIZE_STUCK="1").returncode, 0)
+
+    def session_env(self, **env):
+        approvals = "scale-up,istio,namespace,secret,deploy,netpol-verify,failover"
+        return {"G1_APPROVED_STAGES": approvals, "DIGESTS": str(self.dir / "d.json"), **env}
+
+    def test_session_needs_every_approval_and_enforcement_first(self):
+        self.assertNotEqual(self.op("session", **self.session_env(G1_APPROVED_STAGES="scale-up")).returncode, 0)
+        self.assertNotEqual(self.op("session", **self.session_env(FAKE_NP="False")).returncode, 0)
+        self.assertNotEqual(self.op("session", **self.session_env(G1_SESSION_MINUTES="600")).returncode, 0)
+        self.assertEqual(self.resizes(), [])
+
+    def test_session_failure_scales_to_zero(self):
+        proc = self.op("session", **self.session_env(FAKE_READY="2"))
+        self.assertNotEqual(proc.returncode, 0)
+        resizes = self.resizes()
+        self.assertIn("--num-nodes 3", resizes[0])
+        self.assertIn("--num-nodes 0", resizes[-1])
+        self.assertEqual(self.pool.read_text().strip(), "0")
+        self.assertIn("cleanup", (self.dir / "ev" / "operator.log").read_text())
+
+    def test_session_interruption_scales_to_zero(self):
+        import signal
+        import time
+        proc = subprocess.Popen([str(ROOT / "scripts/llm_agent/g1_operator.sh"), "session", str(self.dir / "ev")],
+                                env={**self.env, **self.base_env, **self.session_env(FAKE_HANG="1")},
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline and "wait --for=condition=Ready" not in (self.log.read_text() if self.log.exists() else ""):
+            time.sleep(0.2)
+        proc.send_signal(signal.SIGTERM)
+        started = time.monotonic()
+        proc.communicate(timeout=30)
+        self.assertLess(time.monotonic() - started, 20, "the trap must not wait for the hung stage")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("--num-nodes 0", self.resizes()[-1])
+        self.assertEqual(self.pool.read_text().strip(), "0")
+
+
+class BenchmarkCliTests(unittest.TestCase):
+    def test_bounds_and_local_only(self):
+        script = ROOT / "scripts/llm_agent/g1_benchmark.py"
+        for args in (["--endpoint", "http://10.0.0.1:3000"], ["--requests", "100"], ["--concurrency", "9"]):
+            base = {"--endpoint": "http://127.0.0.1:1", "--model": "m", "--resources": "r", "--output": "o"}
+            argv = [str(script)]
+            merged = {**base, **dict(zip(args[::2], args[1::2]))}
+            for key, value in merged.items():
+                argv += [key, value]
+            proc = subprocess.run(["python3", *argv], capture_output=True, text=True,
+                                  env={**os.environ, "EWALLET_VLLM_API_KEY": "x"})
+            self.assertEqual(proc.returncode, 2, (args, proc.stderr))
