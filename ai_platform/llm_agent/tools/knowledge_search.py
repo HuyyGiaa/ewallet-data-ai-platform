@@ -2,8 +2,9 @@
 
 Every hit is converted through ``to_agent_citations`` against the trusted
 chunk index, so a retriever cannot introduce a fabricated chunk, quote or
-revision. The production retriever is explicitly unavailable until an
-approved Feast vector-search backend exists (Redis is publication-only).
+revision. Production uses ``UnavailableKnowledgeRetriever`` unless
+EWALLET_RAG_RETRIEVER=feast-online-exact selects exact search over Feast
+Online rows (``rag.online_retriever``); Redis itself is publication-only.
 """
 
 from __future__ import annotations

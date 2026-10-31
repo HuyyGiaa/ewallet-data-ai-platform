@@ -334,9 +334,37 @@ def create_feature_rag_app(environment: Mapping[str, str] | None = None) -> Fast
     handlers = (
         FeatureLookupTool(features),
         FraudScoringTool(scoring, model_name=settings.model_name, model_version=settings.model_version),
-        KnowledgeSearchTool(UnavailableKnowledgeRetriever(index, online_store=values.get("EWALLET_RAG_ONLINE_STORE", "redis"))),
+        KnowledgeSearchTool(_knowledge_retriever(index, store, settings.feast_timeout_seconds, values)),
     )
     return _production_app("feature-rag-mcp", handlers, values)
+
+
+def _knowledge_retriever(index, store, timeout_seconds: float, values: Mapping[str, str]):
+    """Exact retrieval over Feast Online rows only when explicitly configured.
+
+    EWALLET_RAG_RETRIEVER=feast-online-exact needs EWALLET_RAG_EMBEDDING_ENDPOINT
+    (OpenAI-compatible, serving the manifest's embedding model revision);
+    anything else keeps the fail-closed placeholder.
+    """
+
+    from ai_platform.llm_agent.rag.online_retriever import (
+        FeastChunkRowSource,
+        FeastOnlineExactRetriever,
+        OpenAICompatibleQueryEmbedder,
+    )
+    from ai_platform.llm_agent.tools.knowledge_search import UnavailableKnowledgeRetriever
+
+    mode = values.get("EWALLET_RAG_RETRIEVER", "unavailable")
+    if mode == "unavailable":
+        return UnavailableKnowledgeRetriever(index, online_store=values.get("EWALLET_RAG_ONLINE_STORE", "redis"))
+    if mode != "feast-online-exact" or not values.get("EWALLET_RAG_EMBEDDING_ENDPOINT"):
+        raise ConfigurationError()
+    manifest = index.manifest
+    embedder = OpenAICompatibleQueryEmbedder(
+        endpoint=values["EWALLET_RAG_EMBEDDING_ENDPOINT"], model=manifest.embedding_model_id,
+        model_revision=manifest.embedding_model_revision, dimensions=manifest.embedding_dimensions,
+    )
+    return FeastOnlineExactRetriever(index, FeastChunkRowSource(store, timeout_seconds=timeout_seconds), embedder)
 
 
 def create_drift_app(environment: Mapping[str, str] | None = None) -> FastAPI:

@@ -22,6 +22,7 @@ TOOLS = "ai_platform/llm_agent/tools"
 D_TESTS = ("fastapi", "tests.llm_agent.test_phase_d_tools")
 SEC_TESTS = ("fastapi", "tests.llm_agent.test_phase_d_security")
 P0_TESTS = ("system", "tests.llm_agent.test_phase_abc_p0_fixes")
+RAG_TESTS = ("fastapi", "tests.llm_agent.test_rag_online_retriever")
 MUTANTS = (
     (f"{TOOLS}/drift.py", "if self.end <= self.start:", "if self.end < self.start:", D_TESTS),
     (f"{TOOLS}/drift.py", "if self.end - self.start > MAX_WINDOW:", "if self.end - self.start >= MAX_WINDOW:", D_TESTS),
@@ -62,6 +63,10 @@ MUTANTS = (
      "for name, item in report.items()", SEC_TESTS),
     (f"{TOOLS}/service.py", '"isError": response.status != "ok",', '"isError": False,', D_TESTS),
     ("ai_platform/llm_agent/rag/pipeline.py", "if not quote or chunk.text.split()[: len(quote)] != quote:", "if not quote:", P0_TESTS),
+    ("ai_platform/llm_agent/rag/online_retriever.py", "if any(row[name] != value for name, value in expected.items()):",
+     "if False:", RAG_TESTS),
+    ("ai_platform/llm_agent/rag/online_retriever.py", "if any(row.get(name) is None for name in ROW_FIELDS):",
+     "if False:", RAG_TESTS),
     ("ai_platform/llm_agent/rag/pipeline.py", "if chunk is None or chunk.document_id != citation.document_id:", "if chunk is None:", P0_TESTS),
     ("ai_platform/llm_agent/rag/pipeline.py", "if seen != set(canonical.chunks):", "if False:", P0_TESTS),
     ("data_platform/orchestration/airflow/rag_params.py", "if repository_root is not None and", "if False and repository_root is not None and", P0_TESTS),
