@@ -207,13 +207,18 @@ netpol-verify)
     local rc=0
     k -n "$ns" run "np-$name" --image="$CURL_IMAGE" --restart=Never --labels="$labels" --rm -i --quiet \
       --pod-running-timeout=3m \
-      --overrides='{"spec":{"automountServiceAccountToken":false,"securityContext":{"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}}}' \
+      --overrides='{"spec":{"automountServiceAccountToken":false,"securityContext":{"runAsNonRoot":true,"runAsUser":100,"runAsGroup":101,"seccompProfile":{"type":"RuntimeDefault"}}}}' \
       --command -- curl -sS -o /dev/null --max-time 8 "$@" >/dev/null 2>&1 || rc=$?
-    local got=deny
-    [ "$rc" -eq 0 ] && got=allow
-    # curl exit 6 = name not resolved: DNS itself is broken, never a valid deny.
-    [ "$rc" -eq 6 ] && got=dns-failure
-    printf '%s\t%s\t%s\t%s\n' "$name" "$expect" "$got" "$*" | tee -a "$results"
+    # A deny only counts when curl itself ran and failed at the network: 7
+    # refused, 28 timeout, 35 TLS, 52 empty reply, 56 reset. 6 = DNS broken.
+    # Anything else (pod never started, kubectl error) is an error, never a deny.
+    local got=error
+    case "$rc" in
+      0) got=allow ;;
+      7|28|35|52|56) got=deny ;;
+      6) got=dns-failure ;;
+    esac
+    printf '%s\t%s\t%s\t%s\trc=%s\n' "$name" "$expect" "$got" "$*" "$rc" | tee -a "$results"
   }
   vllm="http://vllm-primary.$NS.svc.cluster.local:8000/health"
   gw="http://agentgateway.$NS.svc.cluster.local:4000/"
