@@ -7,6 +7,10 @@ from feast import FeatureStore
 
 from ai_platform.features.feast import FEATURE_REPO
 from ai_platform.features.feast.repository import feature_store_config_path
+from ai_platform.features.feast.retrieval.bounded_dask import (
+    bounded_dask_source,
+    build_bounded_source_plan,
+)
 from ai_platform.features.feast.schema import FEATURE_SPECS
 
 
@@ -96,11 +100,16 @@ def retrieve_combined(
             for column in feature_columns:
                 result[column] = pd.NA
             continue
-        snapshots = store.get_historical_features(
-            entity_df=eligible,
-            features=feature_refs(view_name),
-            full_feature_names=True,
-        ).to_df()
+        # The bounded reader projects and prefilters the FileSource to a
+        # superset of every PIT-eligible row; Feast still owns the join, TTL
+        # and tie-breaking. Without it Feast 0.66 persists the whole source.
+        plan = build_bounded_source_plan(store, view_name, eligible)
+        with bounded_dask_source(plan):
+            snapshots = store.get_historical_features(
+                entity_df=eligible,
+                features=feature_refs(view_name),
+                full_feature_names=True,
+            ).to_df()
         result = result.merge(
             snapshots[[entity_key, "event_timestamp", *feature_columns]],
             on=[entity_key, "event_timestamp"],
