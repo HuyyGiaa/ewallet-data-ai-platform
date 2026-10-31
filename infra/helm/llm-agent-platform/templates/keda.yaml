@@ -1,0 +1,51 @@
+{{- if and .Values.agents.enabled .Values.agents.autoscaling.enabled }}
+{{- $s := .Values.agents.autoscaling }}
+{{- if not (and (ge (int $s.minReplicas) 1) (le (int $s.minReplicas) (int $s.businessHours.replicas)) (le (int $s.businessHours.replicas) (int $s.maxReplicas))) }}
+{{- fail "agents.autoscaling needs 1 <= minReplicas <= businessHours.replicas <= maxReplicas (min >= 1 keeps a warm worker)" }}
+{{- end }}
+{{- if and $s.prometheus.enabled (not (and $s.prometheus.serverAddress $s.prometheus.queryTemplate)) }}
+{{- fail "agents.autoscaling.prometheus needs serverAddress and a read-back queryTemplate" }}
+{{- end }}
+{{- $names := keys .Values.agents.specialists | sortAlpha }}
+{{- $names = append $names .Values.agents.coordinator.name }}
+{{- range $name := $names }}
+---
+# Scales the agent's Substrate WorkerPool through its scale subresource; the
+# SandboxAgent itself has no scale subresource.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    ewallet.io/agent: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: ate.dev/v1alpha1
+    kind: WorkerPool
+    name: {{ $name }}
+  minReplicaCount: {{ $s.minReplicas }}
+  maxReplicaCount: {{ $s.maxReplicas }}
+  cooldownPeriod: {{ $s.cooldownSeconds }}
+  fallback:
+    failureThreshold: 3
+    replicas: {{ $s.minReplicas }}
+  triggers:
+    - type: cron
+      name: business-hours-warm
+      metadata:
+        timezone: {{ $s.timezone }}
+        start: {{ $s.businessHours.start | quote }}
+        end: {{ $s.businessHours.end | quote }}
+        desiredReplicas: {{ $s.businessHours.replicas | quote }}
+    {{- if $s.prometheus.enabled }}
+    - type: prometheus
+      name: a2a-request-rate
+      metadata:
+        serverAddress: {{ $s.prometheus.serverAddress }}
+        query: {{ printf $s.prometheus.queryTemplate $name | quote }}
+        threshold: {{ $s.prometheus.threshold | quote }}
+    {{- end }}
+{{- end }}
+{{- end }}

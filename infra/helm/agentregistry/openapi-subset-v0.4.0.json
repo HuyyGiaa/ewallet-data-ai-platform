@@ -1,0 +1,343 @@
+{
+ "schemas": {
+  "Agent": {
+   "additionalProperties": false,
+   "properties": {
+    "apiVersion": {
+     "type": "string"
+    },
+    "kind": {
+     "type": "string"
+    },
+    "metadata": {
+     "$ref": "#/components/schemas/ObjectMeta"
+    },
+    "spec": {
+     "$ref": "#/components/schemas/AgentSpec"
+    },
+    "status": {
+     "$ref": "#/components/schemas/Status"
+    }
+   },
+   "required": [
+    "metadata",
+    "spec",
+    "apiVersion",
+    "kind"
+   ],
+   "type": "object"
+  },
+  "AgentSource": {
+   "additionalProperties": false,
+   "properties": {
+    "image": {
+     "type": "string"
+    },
+    "protocol": {
+     "enum": [
+      "A2A",
+      "HTTP"
+     ],
+     "type": "string"
+    },
+    "repository": {
+     "$ref": "#/components/schemas/Repository"
+    }
+   },
+   "type": "object"
+  },
+  "AgentSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "compatibleHarnesses": {
+     "items": {
+      "$ref": "#/components/schemas/HarnessCompatibility"
+     },
+     "type": [
+      "array",
+      "null"
+     ]
+    },
+    "description": {
+     "type": "string"
+    },
+    "iconUrl": {
+     "type": "string"
+    },
+    "instructions": {
+     "$ref": "#/components/schemas/ResourceRef"
+    },
+    "mcpServers": {
+     "items": {
+      "$ref": "#/components/schemas/ResourceRef"
+     },
+     "type": [
+      "array",
+      "null"
+     ]
+    },
+    "modelName": {
+     "type": "string"
+    },
+    "modelProvider": {
+     "type": "string"
+    },
+    "plugins": {
+     "items": {
+      "$ref": "#/components/schemas/ResourceRef"
+     },
+     "type": [
+      "array",
+      "null"
+     ]
+    },
+    "skills": {
+     "items": {
+      "$ref": "#/components/schemas/ResourceRef"
+     },
+     "type": [
+      "array",
+      "null"
+     ]
+    },
+    "source": {
+     "$ref": "#/components/schemas/AgentSource"
+    },
+    "title": {
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "ApplyResult": {
+   "additionalProperties": false,
+   "properties": {
+    "apiVersion": {
+     "type": "string"
+    },
+    "error": {
+     "type": "string"
+    },
+    "kind": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "namespace": {
+     "type": "string"
+    },
+    "status": {
+     "type": "string"
+    },
+    "tag": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "status"
+   ],
+   "type": "object"
+  },
+  "ApplyResultsResponse": {
+   "additionalProperties": false,
+   "properties": {
+    "results": {
+     "items": {
+      "$ref": "#/components/schemas/ApplyResult"
+     },
+     "type": [
+      "array",
+      "null"
+     ]
+    }
+   },
+   "required": [
+    "results"
+   ],
+   "type": "object"
+  },
+  "MCPRemote": {
+   "additionalProperties": false,
+   "properties": {
+    "headers": {
+     "items": {
+      "$ref": "#/components/schemas/HTTPHeader"
+     },
+     "type": [
+      "array",
+      "null"
+     ]
+    },
+    "type": {
+     "type": "string"
+    },
+    "url": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type",
+    "url"
+   ],
+   "type": "object"
+  },
+  "MCPServer": {
+   "additionalProperties": false,
+   "properties": {
+    "apiVersion": {
+     "type": "string"
+    },
+    "kind": {
+     "type": "string"
+    },
+    "metadata": {
+     "$ref": "#/components/schemas/ObjectMeta"
+    },
+    "spec": {
+     "$ref": "#/components/schemas/MCPServerSpec"
+    },
+    "status": {
+     "$ref": "#/components/schemas/Status"
+    }
+   },
+   "required": [
+    "metadata",
+    "spec",
+    "apiVersion",
+    "kind"
+   ],
+   "type": "object"
+  },
+  "MCPServerSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "description": {
+     "type": "string"
+    },
+    "iconUrl": {
+     "type": "string"
+    },
+    "remote": {
+     "$ref": "#/components/schemas/MCPRemote"
+    },
+    "source": {
+     "$ref": "#/components/schemas/MCPServerSource"
+    },
+    "title": {
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "ObjectMeta": {
+   "additionalProperties": false,
+   "properties": {
+    "annotations": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "type": "object"
+    },
+    "createdAt": {
+     "type": "string"
+    },
+    "deletionTimestamp": {
+     "type": "string"
+    },
+    "labels": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "type": "object"
+    },
+    "name": {
+     "type": "string"
+    },
+    "namespace": {
+     "type": "string"
+    },
+    "tag": {
+     "type": "string"
+    },
+    "uid": {
+     "type": "string"
+    },
+    "updatedAt": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "type": "object"
+  },
+  "Prompt": {
+   "additionalProperties": false,
+   "properties": {
+    "apiVersion": {
+     "type": "string"
+    },
+    "kind": {
+     "type": "string"
+    },
+    "metadata": {
+     "$ref": "#/components/schemas/ObjectMeta"
+    },
+    "spec": {
+     "$ref": "#/components/schemas/PromptSpec"
+    },
+    "status": {
+     "$ref": "#/components/schemas/Status"
+    }
+   },
+   "required": [
+    "metadata",
+    "spec",
+    "apiVersion",
+    "kind"
+   ],
+   "type": "object"
+  },
+  "PromptSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "content": {
+     "type": "string"
+    },
+    "description": {
+     "type": "string"
+    },
+    "iconUrl": {
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "ResourceRef": {
+   "additionalProperties": false,
+   "properties": {
+    "kind": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "namespace": {
+     "type": "string"
+    },
+    "tag": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "kind",
+    "name"
+   ],
+   "type": "object"
+  }
+ },
+ "source": "https://aregistry.ai/ar-docs/openapi.yaml",
+ "source_sha256": "d34de2400d39f3d623cee48f2555309d89183819bc9b12b0ac8ed66f172277b3"
+}

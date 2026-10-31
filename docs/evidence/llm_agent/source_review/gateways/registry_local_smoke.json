@@ -1,0 +1,151 @@
+{
+ "agents_listing": [
+  [
+   "drift-specialist",
+   "1.0.0"
+  ],
+  [
+   "feature-rag-specialist",
+   "1.0.0"
+  ],
+  [
+   "fraud-coordinator",
+   "1.0.0"
+  ]
+ ],
+ "apply": [
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "drift-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "feature-rag-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "fraud-coordinator-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "MCPServer",
+   "name": "drift-mcp",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "MCPServer",
+   "name": "feature-rag-mcp",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "drift-specialist",
+   "namespace": "default",
+   "status": "created",
+   "tag": "1.0.0"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "feature-rag-specialist",
+   "namespace": "default",
+   "status": "created",
+   "tag": "1.0.0"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "fraud-coordinator",
+   "namespace": "default",
+   "status": "created",
+   "tag": "1.0.0"
+  }
+ ],
+ "apply_status": 200,
+ "dry_run": false,
+ "environment": "local Docker, registry v0.4.0 + postgres:18, catalog only (no kagent runtime)",
+ "git_sha": "7387bd53b6307101f1cd9dc4677356f67c60830e",
+ "readback": [
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "drift-specialist-system",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "feature-rag-specialist-system",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "fraud-coordinator-system",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "MCPServer",
+   "match": true,
+   "name": "drift-mcp",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "MCPServer",
+   "match": true,
+   "name": "feature-rag-mcp",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "Agent",
+   "match": true,
+   "name": "drift-specialist",
+   "status": 200,
+   "tag": "1.0.0"
+  },
+  {
+   "kind": "Agent",
+   "match": true,
+   "name": "feature-rag-specialist",
+   "status": 200,
+   "tag": "1.0.0"
+  },
+  {
+   "kind": "Agent",
+   "match": true,
+   "name": "fraud-coordinator",
+   "status": 200,
+   "tag": "1.0.0"
+  }
+ ],
+ "registry_version": {
+  "build_time": "2026-08-03",
+  "git_commit": "aef6563",
+  "version": "v0.4.0"
+ },
+ "server_image": "ghcr.io/agentregistry-dev/agentregistry/server@sha256:a2f69bd36fcdb8000d9a72fd6eef88f0c4aebc17ff3c55ea3ed174ae0bb12e3c",
+ "verdict": "PASS"
+}

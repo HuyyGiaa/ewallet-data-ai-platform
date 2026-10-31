@@ -199,6 +199,47 @@ class AgentManifestTests(unittest.TestCase):
         self.assertEqual(baseline_violations(self.items), [])
 
 
+KEDA_SCHEMA = json.loads((ROOT / "infra/helm/keda/scaledobject-schema-2.21.0.json").read_text())
+SCALED = {"agents": {"autoscaling": {"enabled": True}}}
+
+
+@unittest.skipUnless(HELM, "helm binary unavailable")
+class AgentAutoscalingTests(unittest.TestCase):
+    def test_one_scaledobject_per_worker_pool_with_a_warm_floor(self):
+        items = render(ON, SCALED)
+        scaled = by_kind(items, "ScaledObject")
+        pools = by_kind(items, "WorkerPool")
+        self.assertEqual(set(scaled), set(pools))
+        for name, item in scaled.items():
+            with self.subTest(name):
+                self.assertEqual(item["apiVersion"], KEDA_SCHEMA["apiVersion"])
+                self.assertEqual(schema_errors(item["spec"], KEDA_SCHEMA["schema"]["properties"]["spec"]), [])
+                target = item["spec"]["scaleTargetRef"]
+                self.assertEqual((target["apiVersion"], target["kind"], target["name"]), ("ate.dev/v1alpha1", "WorkerPool", name))
+                self.assertGreaterEqual(item["spec"]["minReplicaCount"], 1)
+                self.assertEqual(item["spec"]["fallback"]["replicas"], item["spec"]["minReplicaCount"])
+
+    def test_target_supports_scale_and_no_selector_based_trigger_is_used(self):
+        self.assertTrue(SCHEMAS["WorkerPool"]["scale"])
+        for item in by_kind(render(ON, SCALED), "ScaledObject").values():
+            types = {t["type"] for t in item["spec"]["triggers"]}
+            self.assertFalse(types & {"cpu", "memory"})
+            self.assertIn("cron", types)
+
+    def test_prometheus_trigger_needs_a_read_back_query(self):
+        missing = {"agents": {"autoscaling": {"enabled": True, "prometheus": {"enabled": True}}}}
+        self.assertNotEqual(render(ON, missing, check=False).returncode, 0)
+        query = {"agents": {"autoscaling": {"enabled": True, "prometheus": {
+            "enabled": True, "serverAddress": "http://prometheus.monitoring:9090",
+            "queryTemplate": 'sum(rate(a2a_requests_total{agent="%s"}[2m]))'}}}}
+        trigger = by_kind(render(ON, query), "ScaledObject")["drift-specialist"]["spec"]["triggers"][1]
+        self.assertEqual(trigger["metadata"]["query"], 'sum(rate(a2a_requests_total{agent="drift-specialist"}[2m]))')
+
+    def test_invalid_bounds_are_rejected(self):
+        bad = {"agents": {"autoscaling": {"enabled": True, "minReplicas": 0}}}
+        self.assertNotEqual(render(ON, bad, check=False).returncode, 0)
+
+
 class KagentControllerValuesTests(unittest.TestCase):
     def test_a2a_goes_through_agentgateway_and_traces_are_exported(self):
         values = yaml.safe_load((ROOT / "infra/kubernetes/kagent-platform/kagent-values.yaml").read_text())

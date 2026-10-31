@@ -267,6 +267,24 @@ agents:
   resources:
     requests: {cpu: 100m, memory: 256Mi}
     limits: {cpu: 500m, memory: 512Mi}
+  # KEDA (rubric rows 19, 25, 27): one ScaledObject per agent WorkerPool. A
+  # WorkerPool has a scale subresource but no label selector, so CPU/memory
+  # triggers cannot work; the warm floor and a business-hours cron window are
+  # used, plus an optional Prometheus trigger on A2A request rate whose metric
+  # name must be read back from the a2a-gateway first.
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    cooldownSeconds: 300
+    timezone: Asia/Ho_Chi_Minh
+    businessHours: {start: "0 8 * * 1-5", end: "0 20 * * 1-5", replicas: 2}
+    prometheus:
+      enabled: false
+      serverAddress: ""
+      # %s is replaced by the agent name.
+      queryTemplate: ""
+      threshold: "2"
   # Prompt identity: prompts/<agent>/<version>.md, sha256 in prompts/manifest.json.
   mcpServers:
     feature-rag-mcp: {path: /feature-rag/mcp, tools: [feature_lookup, fraud_scoring, knowledge_search]}

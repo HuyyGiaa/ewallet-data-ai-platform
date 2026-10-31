@@ -117,6 +117,36 @@ needs an owner-approved sysctl):
    - `drift-specialist` calls `fraud_scoring`: filtered and denied;
    - a spoofed `x-ewallet-caller` is overwritten.
 
-## R5 and later
+## R5 — Registry and KEDA
 
-R5 Registry and KEDA, R6 E2E: see the sections added by each gate below.
+Registry locally (already run): `scripts/llm_agent/registry_local_smoke.sh`.
+
+In-cluster:
+1. Install agentregistry 0.4.0 by digest with
+   `-f infra/helm/agentregistry/values.yaml`.
+2. Port-forward `svc/agentregistry 12121`.
+3. `python -m ops.llm_agent.registry_catalog publish --evidence ...`.
+4. Take a UI screenshot of the three agents (rows 8, 21, 26, 41).
+
+KEDA:
+1. Install KEDA 2.21.0 (`-f infra/helm/keda/values.yaml`).
+2. `--set agents.autoscaling.enabled=true`.
+3. `kubectl get scaledobject,hpa -n ewallet-agents` shows Ready.
+4. Scale test: in the cron window `kubectl get workerpool` shows 2. Outside it,
+   1.
+5. Measure first-request latency with one warm worker against a cold start
+   (scale to 0 by hand, then send one request).
+
+## R6 — End-to-end (row 22)
+
+R6 needs, all at once:
+- R1 (LLM);
+- R3 (agents);
+- R4 with proven identity;
+- reviewed MCP server images;
+- Feast online Redis with materialized features;
+- the KServe fraud model with a reviewed wire contract;
+- the published RAG index (Gate F).
+
+Any missing dependency is reported as BLOCKED with its name. A stub or
+fixture output is never accepted as E2E evidence.
