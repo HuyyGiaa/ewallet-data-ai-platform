@@ -15,7 +15,8 @@ controller:
   # it at the agentgateway A2A route (a2a-gateway) puts every agent-to-agent
   # call behind agentgateway policy (rubric row 24) without another A2A runtime.
   a2aBaseUrl: http://a2a-gateway.ewallet-agents.svc.cluster.local:8083
-  a2aClientTimeout: 120s
+  # Caller budget above the a2a-gateway budget (150 s in llm-agent-platform values).
+  a2aClientTimeout: 180s
   auth:
     # Controller API is cluster-internal only; the UI route needs gateway
     # authentication (rubric row 42) before it is exposed.

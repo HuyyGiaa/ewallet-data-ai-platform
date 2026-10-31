@@ -4,7 +4,7 @@ pipeline {
   parameters {
     string(name: 'EXPECTED_GIT_SHA', defaultValue: '', description: 'Exact reviewed Git SHA')
     booleanParam(name: 'DEPLOY_APPROVED', defaultValue: false, description: 'Explicit deployment authorization')
-    choice(name: 'ENVIRONMENT', choices: ['dev', 'gcp'], description: 'Render/deploy target')
+    choice(name: 'ENVIRONMENT', choices: ['dev', 'gcp', 'gke-cpu'], description: 'Render/deploy target')
     string(name: 'KUBE_CONTEXT', defaultValue: '', description: 'Explicit kubeconfig context for deploy/rollback (never the default)')
   }
   environment {

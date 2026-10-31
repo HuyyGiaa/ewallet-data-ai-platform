@@ -1,0 +1,15 @@
+# R1 scope on the local kind cluster, layered after values-local.yaml:
+#   ModelConfig -> agentgateway -> one CPU vLLM pod (docs/llm_agent/runtime_runbook.md R1).
+# Everything outside that path stays off so R1 cannot change what it does not test.
+namespace:
+  # Mesh identity is the separate MCP gate; R1 keeps the namespace out of ambient
+  # (as the running release already does) so a ztunnel fault cannot cut the LLM path.
+  ambient: false
+mcpServices:
+  # The running release still carries the pre-hardening MCP image; MCP is not part of R1.
+  enabled: false
+vllm:
+  primary:
+    replicas: 1
+  fallback:
+    replicas: 0

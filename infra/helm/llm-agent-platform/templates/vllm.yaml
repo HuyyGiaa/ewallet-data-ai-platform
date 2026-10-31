@@ -1,7 +1,19 @@
 {{- if .Values.vllm.enabled }}
 {{- $source := .Values.vllm.modelSource }}
-{{- if not (has $source.mode (list "huggingface" "staged")) }}
-{{- fail "vllm.modelSource.mode must be huggingface or staged" }}
+{{- if not (has $source.mode (list "huggingface" "staged" "image")) }}
+{{- fail "vllm.modelSource.mode must be huggingface, staged or image" }}
+{{- end }}
+{{- if eq $source.mode "image" }}
+{{- /* Image: pinned files baked into a derived image (checksums verified at build), no egress. */ -}}
+{{- if not (regexMatch "^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$" .Values.vllm.image) }}
+{{- fail "vllm.modelSource.mode=image needs vllm.image = the infra/docker/vllm-cpu-model image by digest" }}
+{{- end }}
+{{- if contains "vllm/vllm-openai-cpu" .Values.vllm.image }}
+{{- fail "vllm.modelSource.mode=image needs the derived model image, not the upstream vLLM image" }}
+{{- end }}
+{{- if not (hasSuffix (printf "/%s" .Values.vllm.modelRevision) $source.image.path) }}
+{{- fail "vllm.modelSource.image.path must end with vllm.modelRevision" }}
+{{- end }}
 {{- end }}
 {{- if eq $source.mode "staged" }}
 {{- /* Staged: pinned files on a read-only volume, checksum-verified, no egress. */ -}}
@@ -97,6 +109,8 @@ spec:
             - --model
             {{- if eq $source.mode "staged" }}
             - /models/{{ $source.staged.subPath }}
+            {{- else if eq $source.mode "image" }}
+            - {{ $source.image.path | quote }}
             {{- else }}
             - {{ $.Values.vllm.model | quote }}
             - --revision
@@ -145,7 +159,7 @@ spec:
             # The container sees every host core; bound the OpenMP pool to the CPU limit.
             - name: OMP_NUM_THREADS
               value: {{ $.Values.vllm.ompThreads | quote }}
-            {{- if eq $source.mode "staged" }}
+            {{- if ne $source.mode "huggingface" }}
             - {name: HF_HUB_OFFLINE, value: "1"}
             - {name: TRANSFORMERS_OFFLINE, value: "1"}
             {{- end }}

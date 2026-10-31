@@ -1,0 +1,4 @@
+# CPU overlay for router-values.yaml (local kind and GKE values-gke-cpu.yaml): below the
+# CPU agentgateway backendRequestTimeout (160 s in both CPU profiles).
+httpRoute:
+  requestTimeout: 155s

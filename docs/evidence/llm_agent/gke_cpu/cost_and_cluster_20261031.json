@@ -1,0 +1,78 @@
+{
+  "budgets": "UNREADABLE (billingbudgets API disabled; no billing-account permission)",
+  "cluster": {
+    "authorized_networks_count": 1,
+    "datapath": "LEGACY",
+    "dns_endpoint_external": true,
+    "managed_instance_group_target_size": 0,
+    "name": "ewallet-dev",
+    "networkpolicy_enabled": false,
+    "node_pools": [
+      {
+        "autoscaling": {},
+        "disk": [
+          "pd-balanced",
+          50
+        ],
+        "machine": "e2-standard-4",
+        "name": "cpu-pool"
+      }
+    ],
+    "status": "RUNNING",
+    "version": "1.36.4-gke.2046003"
+  },
+  "e2_standard_4_node_hour_usd": 0.172867,
+  "plan": {
+    "g0_g1": {
+      "hours": 3,
+      "nodes": 2,
+      "usd": 1.04
+    },
+    "g2_g3": {
+      "hours": 6,
+      "nodes": 3,
+      "usd": 3.11
+    }
+  },
+  "prices_usd": {
+    "Balanced PD Capacity in Singapore": {
+      "sku": "16D2-FC49-A127",
+      "unit": "GiBy.mo",
+      "usd": 0.11
+    },
+    "E2 Instance Core running in Singapore": {
+      "sku": "7102-B9AA-2ACF",
+      "unit": "h",
+      "usd": 0.02690931
+    },
+    "E2 Instance Ram running in Singapore": {
+      "sku": "E277-7DC2-2C7D",
+      "unit": "GiBy.h",
+      "usd": 0.00360594
+    }
+  },
+  "quota": {
+    "C3_CPUS": {
+      "limit": 24.0,
+      "usage": 0.0
+    },
+    "CPUS": {
+      "limit": 100.0,
+      "usage": 0.0
+    },
+    "E2_CPUS": {
+      "limit": 24.0,
+      "usage": 0.0
+    },
+    "N2_CPUS": {
+      "limit": 200.0,
+      "usage": 0.0
+    },
+    "SSD_TOTAL_GB": {
+      "limit": 500.0,
+      "usage": 45.0
+    }
+  },
+  "source": "read-only gcloud + Cloud Billing Catalog API (service 6F81-5844-456A)",
+  "timestamp": "2026-10-31T12:58:48+00:00"
+}

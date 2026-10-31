@@ -25,30 +25,106 @@ every file with `sha256sum --check --strict` before vLLM starts offline.
 
 ## R1 — ModelConfig → agentgateway → vLLM (direct)
 
-The first runtime milestone. The 2026-10-31 attempt returned HTTP 504 through
-agentgateway. Causes fixed in source:
+Status: **source-ready, not run.** R1 needs DP2 terminal and owner approval
+for a `helm upgrade` on the local kind cluster. Nothing cluster-scoped is
+installed.
 
-- the listener request timeout was hard-coded to 28 s, and `responseIdleTimeout`
-  was 10 s, against a 40–80 s CPU generation;
-- Qwen3 thinking was enabled.
+### What the 2026-10-31 HTTP 504 was, and what changed
+
+The offline mock showed two causes; the real agentgateway v1.7.0 binary runs
+in front of a mock vLLM (`scripts/llm_agent/r1_mock/run.sh`, evidence
+`docs/evidence/llm_agent/source_review/r1_prep/gateway_mock_scenarios.json`).
+
+1. **Replay.** The entry route (`:4000` → LLM listener `:3000`) had its own
+   `backendRequestTimeout`, equal to the listener's, and retried
+   500/502/503/504 twice. When the hop timed out, the whole CPU generation
+   was replayed: the backend saw two requests, then the entry budget gave a
+   504.
+   - Now the entry route has only the overall budget.
+   - Retry is limited to 502/503, once.
+   - Result: a slow backend gives a single 504 at the listener budget, with
+     one backend request.
+2. **Budgets.** The budgets were 28 s and 10 s against a 40–80 s CPU
+   generation, and the smoke client gave up at 120 s.
+   - Budgets now nest, enforced by a chart guard: ModelConfig 200 s > entry
+     180 s > listener 170 s > backend 160 s ≥ idle 160 s.
+   - The acceptance client waits 220 s.
+
+Other offline mock results:
+- 500 is not replayed.
+- 503 is retried once, then propagated (fail closed).
+- After two failures the primary is evicted, and the next request is served
+  by the fallback (`x-ewallet-backend: fallback`).
+- Stream and non-stream `tool_calls` pass through intact. The gateway
+  rewrites `model` to `ewallet-fraud-llm-v1` and replaces the client key with
+  the vLLM key.
+
+### Steps (after DP2 is terminal)
 
 ```bash
-helm --kube-context kind-llm-agent-local upgrade llm-agent infra/helm/llm-agent-platform \
-  -f infra/helm/llm-agent-platform/values-local.yaml -f ~/Develop/ewallet-llm-agent-local/mcp-values.yaml
-kubectl --context kind-llm-agent-local -n ewallet-agents rollout status deploy/vllm-primary --timeout=20m
-python3 scripts/llm_agent/smoke_tool_call.py --endpoint http://127.0.0.1:<port-forward of svc/agentgateway 3000> \
-  --model ewallet-fraud-llm --tool-choice required
+cd ~/Develop/ewallet-data-ai-platform/.worktrees/claude-integration-20261031
+K=kind-llm-agent-local; NS=ewallet-agents; E=docs/evidence/llm_agent/r1; mkdir -p $E
+CHART=infra/helm/llm-agent-platform
+
+# 0. Resource guard in a second terminal (exits 3 on a breach: stop and run step 8).
+scripts/llm_agent/resource_sample.sh 10 0 | tee $E/resource_samples.txt
+
+# 1. Read-only preflight: must print "verdict": "GO".
+python3 -m ops.llm_agent.r1_preflight --kube-context $K --json-output $E/preflight.json
+
+# 2. Owner-approved upgrade of the existing release (namespaced resources only).
+#    values-r1-local.yaml disables the stale MCP release and keeps one vLLM pod.
+helm --kube-context $K -n default upgrade llm-agent $CHART \
+  -f $CHART/values-local.yaml -f $CHART/values-r1-local.yaml --wait --timeout 25m \
+  | tee $E/helm_upgrade.txt
+kubectl --context $K -n $NS rollout status deploy/vllm-primary --timeout=25m   # warm-up probe = one real tool call
+kubectl --context $K -n $NS get deploy,pods -o wide > $E/workloads.txt
+
+# 3. Local demo token (never printed or committed).
+export EWALLET_VLLM_API_KEY="$(cat ~/Develop/ewallet-llm-agent-local/.vllm_local_demo_token)"
+
+# 4. Direct vLLM.
+kubectl --context $K -n $NS port-forward svc/vllm-primary 18000:8000 >/dev/null & PF1=$!
+python3 scripts/llm_agent/smoke_tool_call.py --endpoint http://127.0.0.1:18000 --model ewallet-fraud-llm-v1 --evidence $E/direct_non_stream.json
+python3 scripts/llm_agent/smoke_tool_call.py --endpoint http://127.0.0.1:18000 --model ewallet-fraud-llm-v1 --stream --evidence $E/direct_stream.json
+
+# 5. Through agentgateway, with the virtual model the ModelConfig uses.
+kubectl --context $K -n $NS port-forward svc/agentgateway 13000:3000 >/dev/null & PF2=$!
+python3 scripts/llm_agent/smoke_tool_call.py --endpoint http://127.0.0.1:13000 --model ewallet-fraud-llm --evidence $E/gateway_non_stream.json
+python3 scripts/llm_agent/smoke_tool_call.py --endpoint http://127.0.0.1:13000 --model ewallet-fraud-llm --stream --evidence $E/gateway_stream.json
+
+# 6. ModelConfig readback (CRD only; agents consume it in R3) and gateway LLM metrics.
+kubectl --context $K -n $NS get modelconfig ewallet-global-llm -o yaml > $E/modelconfig.yaml
+kubectl --context $K -n $NS port-forward deploy/agentgateway 15020:15020 >/dev/null & PF3=$!
+curl -s http://127.0.0.1:15020/metrics | grep -E '^# TYPE agentgateway_(gen_ai|requests|request_duration)' > $E/gateway_metric_types.txt
+docker stats llm-agent-local-control-plane --no-stream > $E/node_resources.txt
+kill $PF1 $PF2 $PF3
+
+# 7. Optional, separately approved: rate-limit 429 and failover (needs the fallback pod).
+
+# 8. Stop / rollback.
+kubectl --context $K -n $NS scale deploy/vllm-primary --replicas=0        # free CPU/RAM
+helm --kube-context $K -n default rollback llm-agent 5                     # previous release, if needed
 ```
 
-Pass criteria (evidence in `docs/evidence/llm_agent/agentgateway/`):
-- warm-up startup probe Ready;
-- tool call 200 with `tool_calls` for `auto` and `required`;
-- `x-ewallet-backend: primary`;
-- 429 once past the request rate;
-- ModelConfig `ewallet-global-llm` read back. Only the CRD is needed; agents
-  consuming it come in R3.
+### Acceptance (runtime evidence only; offline mock results do not count)
 
-Rollback: `helm rollback` to the previous revision, and scale vLLM to 0.
+| ID | Criterion | Evidence |
+|---|---|---|
+| A1 | Preflight verdict GO | `preflight.json` |
+| A2 | `vllm-primary` Ready: the warm-up startup probe completed a real tool-shaped completion | `workloads.txt` |
+| A3 | Direct, non-stream: HTTP 200, `verdict: PASS`, `tool_call_errors: []`, second turn 200 | `direct_non_stream.json` |
+| A4 | Direct, stream: same, `finish_reason: tool_calls`, `first_byte_s` recorded | `direct_stream.json` |
+| A5 | Gateway, non-stream: as A3, plus `backend: primary` | `gateway_non_stream.json` |
+| A6 | Gateway, stream: as A4, plus `backend: primary` | `gateway_stream.json` |
+| A7 | No 504 and no client timeout in A3–A6. Latency per turn recorded (`latency_s`, `first_byte_s`, token `usage`) | the four JSON files |
+| A8 | No guard breach; Airflow healthy throughout; node CPU/RAM recorded | `resource_samples.txt`, `node_resources.txt` |
+| A9 | ModelConfig read back: model `ewallet-fraud-llm`, baseUrl agentgateway `:3000/v1` | `modelconfig.yaml` |
+| A10 | Token and TTFT metric names present (confirms the UNVERIFIED dashboard panels) | `gateway_metric_types.txt` |
+
+R1 is LOCAL_RUNTIME_VERIFIED only when A1–A9 pass. A10 updates the dashboard
+status. `--tool-choice auto` may legitimately produce no tool call; acceptance
+uses `required`.
 
 ## R2 — llm-d routing (owner approval: controller and CRDs are cluster-scoped)
 

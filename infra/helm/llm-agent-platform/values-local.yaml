@@ -54,4 +54,8 @@ agentgateway:
   responseIdleTimeout: 160s
 
 modelConfig:
-  timeoutSeconds: 180
+  timeoutSeconds: 200
+
+# CPU delegation: 2 x 200 s LLM turns + 30 s MCP < 660 s < kagent-values-local a2aClientTimeout.
+a2aGateway:
+  requestTimeout: 660s

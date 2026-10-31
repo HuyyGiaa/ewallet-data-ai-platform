@@ -338,7 +338,11 @@ class P0ChartTests(unittest.TestCase):
         self.assertEqual(set(policies), {
             "default-deny", "allow-cluster-dns",
             "allow-agentgateway-to-vllm-ingress", "allow-agentgateway-to-vllm-egress",
+            # Ambient: kubelet probes arrive from the ztunnel SNAT address, probe port only.
+            "allow-ambient-probes-vllm", "allow-ambient-probes-agentgateway",
         })
+        for name in ("allow-ambient-probes-vllm", "allow-ambient-probes-agentgateway"):
+            self.assertEqual(policies[name]["spec"]["ingress"][0]["from"], [{"ipBlock": {"cidr": "169.254.7.127/32"}}])
         authz = self.by_kind(items, "AuthorizationPolicy")
         self.assertEqual(set(authz), {"default-deny", "allow-agentgateway-to-vllm"})
         rule = authz["allow-agentgateway-to-vllm"]["spec"]["rules"][0]
@@ -383,7 +387,8 @@ class P0ChartTests(unittest.TestCase):
         policies = self.by_kind(items, "NetworkPolicy")
         egress = policies["allow-coordinator-to-agentgateway-egress"]["spec"]
         self.assertEqual(egress["podSelector"]["matchLabels"], {"kagent.dev/agent": "fraud-coordinator"})
-        self.assertEqual(egress["egress"][0]["ports"], [{"protocol": "TCP", "port": 4000}])
+        # Under ambient, ztunnel carries the flow as HBONE on 15008 as well.
+        self.assertEqual(egress["egress"][0]["ports"], [{"protocol": "TCP", "port": 4000}, {"protocol": "TCP", "port": 15008}])
         authz = self.by_kind(items, "AuthorizationPolicy")["allow-coordinator-to-agentgateway"]["spec"]
         self.assertEqual(authz["rules"][0]["from"][0]["source"]["principals"],
                          ["cluster.local/ns/ewallet-agents/sa/fraud-coordinator"])

@@ -1,0 +1,437 @@
+{
+  "scanner": "aquasec/trivy:0.75.0@sha256:af6acf9a\u2026, --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 (scan_and_push.sh flags)",
+  "upstream": {
+    "artifact": "docker.io/vllm/vllm-openai-cpu@sha256:827ef38187f9b52f2bb838695ef815ec5b65f4bf3e4c061b002b2b0a19cb0701",
+    "image_id": "sha256:827ef38187f9b52f2bb838695ef815ec5b65f4bf3e4c061b002b2b0a19cb0701",
+    "created": "2026-10-31T13:32:17.019047377Z",
+    "vulnerabilities": [
+      {
+        "pkg": "libbrotli1",
+        "installed": "1.0.9-2build6",
+        "fixed": "1.0.9-2ubuntu0.1",
+        "id": "CVE-2026-111497",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "certifi",
+        "installed": "2026.7.22",
+        "fixed": "2026.10.18",
+        "id": "GHSA-6q48-6c7w-9gw2",
+        "severity": "CRITICAL",
+        "path": "opt/venv/lib/python3.12/site-packages/certifi-2026.7.22.dist-info/METADATA"
+      },
+      {
+        "pkg": "certifi",
+        "installed": "2026.6.17",
+        "fixed": "2026.10.18",
+        "id": "GHSA-6q48-6c7w-9gw2",
+        "severity": "CRITICAL",
+        "path": ""
+      },
+      {
+        "pkg": "jaraco.context",
+        "installed": "5.3.0",
+        "fixed": "6.1.0",
+        "id": "CVE-2026-23949",
+        "severity": "HIGH",
+        "path": "opt/venv/lib/python3.12/site-packages/setuptools/_vendor/jaraco.context-5.3.0.dist-info/METADATA"
+      },
+      {
+        "pkg": "msgpack",
+        "installed": "1.1.2",
+        "fixed": "1.2.3",
+        "id": "CVE-2026-114613",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "msgpack",
+        "installed": "1.1.2",
+        "fixed": "1.2.1",
+        "id": "GHSA-6v7p-g79w-8964",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "setuptools",
+        "installed": "70.3.0",
+        "fixed": "78.1.1",
+        "id": "CVE-2025-47273",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "urllib3",
+        "installed": "2.7.0",
+        "fixed": "2.8.0",
+        "id": "CVE-2026-97687",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "urllib3",
+        "installed": "2.7.0",
+        "fixed": "2.8.0",
+        "id": "CVE-2026-97689",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "wheel",
+        "installed": "0.45.1",
+        "fixed": "0.46.2",
+        "id": "CVE-2026-24049",
+        "severity": "HIGH",
+        "path": "opt/venv/lib/python3.12/site-packages/setuptools/_vendor/wheel-0.45.1.dist-info/METADATA"
+      }
+    ],
+    "secrets": [
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_create_params.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_update_params.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_thread_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      }
+    ]
+  },
+  "remediated_round1": {
+    "artifact": "ewallet-local/vllm-cpu-remediated:verify",
+    "image_id": "sha256:ec7754d0178c1673c918e00a37a12a76654fc08d2f96ffeccff14adb6007681d",
+    "created": "2026-10-31T13:36:40.841478661Z",
+    "vulnerabilities": [
+      {
+        "pkg": "certifi",
+        "installed": "2026.6.17",
+        "fixed": "2026.10.18",
+        "id": "GHSA-6q48-6c7w-9gw2",
+        "severity": "CRITICAL",
+        "path": ""
+      },
+      {
+        "pkg": "msgpack",
+        "installed": "1.1.2",
+        "fixed": "1.2.3",
+        "id": "CVE-2026-114613",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "msgpack",
+        "installed": "1.1.2",
+        "fixed": "1.2.1",
+        "id": "GHSA-6v7p-g79w-8964",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "setuptools",
+        "installed": "70.3.0",
+        "fixed": "78.1.1",
+        "id": "CVE-2025-47273",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "urllib3",
+        "installed": "2.7.0",
+        "fixed": "2.8.0",
+        "id": "CVE-2026-97687",
+        "severity": "HIGH",
+        "path": ""
+      },
+      {
+        "pkg": "urllib3",
+        "installed": "2.7.0",
+        "fixed": "2.8.0",
+        "id": "CVE-2026-97689",
+        "severity": "HIGH",
+        "path": ""
+      }
+    ],
+    "secrets": [
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_create_params.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_update_params.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_thread_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      }
+    ]
+  },
+  "remediated_final": {
+    "artifact": "ewallet-local/vllm-cpu-remediated:verify",
+    "image_id": "sha256:19b4540e29241c9431418af241aa6daf6389e3800a77688a622ff621339fc3ca",
+    "created": "2026-10-31T13:38:18.440506001Z",
+    "vulnerabilities": [],
+    "secrets": [
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_create_params.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_update_params.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_thread_agent.py",
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL"
+      }
+    ]
+  },
+  "notes": "Local builds of the remediated stage only (no model, no push, no inference).",
+  "secret_exclusion_audit": {
+    "config": "infra/docker/vllm-cpu-model/trivy-secret.yaml (exclude-block, 3 literal docstring phrases; no rule disabled, no path allowed)",
+    "excluded_findings_in_remediated_stage": [
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "line": 96,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": true,
+        "censored_match": "Binary file \"/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-312.pyc",
+        "line": 190,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": true,
+        "censored_match": "Binary file \"/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "line": 106,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "              sending `{*************************}` stores the default."
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "line": 284,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "              send null or `{*************************}` to restore the default."
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "line": 587,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "              sending `{*************************}` stores the default."
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/resources/beta/agents/agents.py",
+        "line": 765,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "              send null or `{*************************}` to restore the default."
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_create_params.py",
+        "line": 39,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "    Omitting it, sending null, or sending `{*************************}` stores the"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/agent_update_params.py",
+        "line": 27,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "    Full replacement. Omit to preserve; send null or `{*************************}`"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_agent.py",
+        "line": 44,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "    Always present; `{*************************}` when runs carry no customer-named"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_agent.py",
+        "line": 40,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "    Always present; `{*************************}` when runs carry no customer-named"
+      },
+      {
+        "file": "/opt/venv/lib/python3.12/site-packages/anthropic/types/beta/beta_managed_agents_session_thread_agent.py",
+        "line": 39,
+        "rule": "gcp-service-account",
+        "severity": "CRITICAL",
+        "binary": false,
+        "censored_match": "    Always present; `{*************************}` when runs carry no customer-named"
+      }
+    ],
+    "count": 11
+  },
+  "final_image": {
+    "tag": "ewallet-local/vllm-cpu-model:<git sha>",
+    "image_id": "sha256:1df13e07432d31724b308a8335cc9426bdc61e5e5c262527ecfd0e77a8a336ed",
+    "built_from": "working tree on cef1384 with the recipe hashes below (local only; the published image is rebuilt from the committed HEAD by g1_operator.sh image-build)",
+    "recipe_sha256": {
+      "Dockerfile": "4f4a2828fd49230ced67f6519b29849034c86ca764316fe7ed0a9899c0c3ef32",
+      "remediate.py": "6e5e80d859fcfb0e1072dcc28514cda4e56520df81c1b97f97081f366890cc44",
+      "pyproject.toml": "109f042b833c439a1692c3d2c4d105d83353b389e5164da239170a6b3eb67c46",
+      "uv.lock": "106f47f5c113f202c97b5e35a0bc3f706027edfd93b98d03eefad4e7145cb715",
+      "SHA256SUMS": "da5856a0c7075dd8757a4ecddb7f3a8dc9377913173d5b44d58404e6cf998887",
+      "trivy-secret.yaml": "1fd5feb74777146a67c799b3ab9b97684def0e388e7f0a33feffe398e0e02a47"
+    },
+    "model": "Qwen/Qwen3-0.6B @ c1899de289a04d12100db370d81485cdf75e47ca, SHA256SUMS checked at build and in the image",
+    "gate": "scan_and_push.sh SCAN_ONLY=1: --scanners vuln,secret --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --secret-config",
+    "exit_code": 0,
+    "vulnerabilities": 0,
+    "secrets": 0,
+    "before_full_config_secrets": 7,
+    "note": "the first final-image scan (one-phrase config) still found 7 docstring matches; the config now covers the 3 phrases read verbatim from the image"
+  }
+}

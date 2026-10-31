@@ -94,6 +94,11 @@ class McpChartTests(unittest.TestCase):
         for item in items:
             if item["kind"] in ("NetworkPolicy", "AuthorizationPolicy"):
                 selected = json.dumps(item["spec"].get("podSelector") or item["spec"].get("selector") or {})
+                if item["metadata"]["name"] in ("allow-ambient-probes-feature-rag-mcp", "allow-ambient-probes-drift-mcp"):
+                    # The only opening: kubelet probes from the ambient SNAT address, on the probe port.
+                    self.assertEqual(item["spec"]["ingress"], [{"from": [{"ipBlock": {"cidr": "169.254.7.127/32"}}],
+                                                                "ports": [{"protocol": "TCP", "port": 8080}]}])
+                    continue
                 self.assertNotIn("mcp", selected, item["metadata"]["name"])
         flows = next(i for i in items if i["kind"] == "ConfigMap" and i["metadata"]["name"] == "llm-agent-network-flows")
         unresolved = {item["name"]: item for item in json.loads(flows["data"]["unresolved.json"])}

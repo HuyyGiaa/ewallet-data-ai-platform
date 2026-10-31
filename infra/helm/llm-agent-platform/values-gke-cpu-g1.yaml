@@ -1,0 +1,11 @@
+# G1 stage on GKE, layered after values-gke-cpu.yaml (EXTRA_VALUES of
+# deploy_atomic.sh): inference and network-security proof only.
+namespace:
+  # The operator creates the namespace first (scripts/llm_agent/g1_operator.sh
+  # namespace) from this chart's own Namespace render, so the vllm-api-key
+  # Secret exists before the release waits for vLLM to become Ready.
+  create: false
+modelConfig:
+  # ModelConfig is a kagent CRD; kagent is not installed in G1 (owner decision).
+  # Its readback moves to G3.
+  enabled: false
