@@ -161,7 +161,13 @@ class FeastOnlineAdapter:
                 feature_ref.replace(":", "__", 1)
                 for feature_ref in feature_refs
             }
-            allowed = {entity_key, *expected_view_features}
+            # Feast 0.66 also reports ``<entity_key>__ts`` (always 0) for the
+            # join key when event timestamps are requested.
+            allowed = {
+                entity_key,
+                entity_key + _TIMESTAMP_SUFFIX,
+                *expected_view_features,
+            }
             allowed.update(
                 name + _TIMESTAMP_SUFFIX for name in expected_view_features
             )

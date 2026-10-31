@@ -65,6 +65,11 @@ def response_data(timestamp: datetime = EVENT_TIME - timedelta(minutes=2)):
             "account_id": ["account-1"],
             "device_id": ["device-1"],
             "merchant_id": ["merchant-1"],
+            # Real Feast 0.66 output also carries a zero join-key timestamp.
+            "user_id__ts": [0],
+            "account_id__ts": [0],
+            "device_id__ts": [0],
+            "merchant_id__ts": [0],
         }
     )
     return result
