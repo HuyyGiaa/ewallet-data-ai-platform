@@ -15,6 +15,23 @@ input SHA-256 per workload. Raw evidence lives in the git-ignored
 | Optimization verdict | **MIXED** — equal throughput at 100 eps with lower latency; at 500 eps optimized is faster but its output is not proven equivalent |
 | BLOCKED | 500 eps semantic parity (event-time finalization under backlog) |
 
+## Source-watermark correction after this report (runtime verification pending)
+
+The job now assigns timestamps and the bounded-out-of-orderness watermark
+strategy directly in `KafkaSource`, before Kafka splits are merged. Active
+partitions therefore contribute independent split watermarks; production modes
+retain configured idleness. `BENCHMARK_REPLAY` consumes only its isolated raw
+topic because drain markers are published to every raw partition, while the
+production modes continue to consume raw plus retry topics. Malformed and
+non-event control records receive a no-timestamp sentinel and cannot advance a
+watermark; benchmark envelopes remain rejected by production parsing and by the
+production source timestamp assigner.
+
+This is a code-level correction for the most probable 500 eps root cause, not
+new performance evidence. All run IDs and failures below remain historical
+evidence. Functional p=1/p=4 parity and repeated 500 eps baseline/optimized
+semantic hashes must be collected again before changing the verdict.
+
 ## Root causes fixed in this campaign
 
 1. **Scheduler-dependent lateness** (fixed by `0500e1f`, Codex). Functional replay

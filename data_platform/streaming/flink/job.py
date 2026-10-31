@@ -39,7 +39,17 @@ def source_event_time_ms(payload: str | bytes) -> int:
 
 
 class SourceEventTimestampAssigner:
+    def __init__(self, benchmark_replay: bool = False) -> None:
+        self.benchmark_replay = benchmark_replay
+
     def extract_timestamp(self, value, record_timestamp) -> int:
+        if not self.benchmark_replay:
+            try:
+                kind = json.loads(value).get("kind")
+            except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+                kind = None
+            if kind in {"BENCHMARK_EVENT", "BENCHMARK_WATERMARK"}:
+                return SOURCE_NO_TIMESTAMP
         return source_event_time_ms(value)
 
 
@@ -71,15 +81,34 @@ def uses_source_idleness(mode: OperatingMode) -> bool:
     return mode is not OperatingMode.BENCHMARK_REPLAY
 
 
-class EventTimestampAssigner:
-    def extract_timestamp(self, value, record_timestamp) -> int:
-        from data_platform.streaming.flink.records import RuntimeEvent
-        record = RuntimeEvent.from_json(value)
-        if record.event is not None:
-            return int(record.event.event_time.timestamp() * 1000)
-        if record.control_event_time_ms is not None:
-            return record.control_event_time_ms
-        raise ValueError("timestamped stream received a record without event time")
+def source_topic_names(mode: OperatingMode, namespace: str | None) -> tuple[str, ...]:
+    raw_topic = topic_name("raw", namespace)
+    if mode is OperatingMode.BENCHMARK_REPLAY:
+        return (raw_topic,)
+    return (raw_topic, topic_name("retry", namespace))
+
+
+def build_source_watermark_strategy(profile, mode: OperatingMode):
+    from pyflink.common import Duration, WatermarkStrategy
+
+    strategy = WatermarkStrategy.for_bounded_out_of_orderness(
+        Duration.of_millis(int(profile.event_time.max_out_of_orderness.total_seconds() * 1000))
+    )
+    if uses_source_idleness(mode):
+        strategy = strategy.with_idleness(
+            Duration.of_millis(int(profile.event_time.idle_timeout.total_seconds() * 1000))
+        )
+    return strategy.with_timestamp_assigner(
+        SourceEventTimestampAssigner(benchmark_replay=mode is OperatingMode.BENCHMARK_REPLAY)
+    )
+
+
+def _from_source_with_watermarks(env, source, watermark_strategy, parallelism: int):
+    return (
+        env.from_source(source, watermark_strategy, "redpanda-raw-and-retry")
+        .uid("block-a-redpanda-source-v1")
+        .set_parallelism(parallelism)
+    )
 
 
 @dataclass
@@ -146,7 +175,7 @@ def _state_backend(profile):
 
 
 def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
-    from pyflink.common import Configuration, Duration, Types, WatermarkStrategy
+    from pyflink.common import Configuration, Types
     from pyflink.common.restart_strategy import RestartStrategies
     from pyflink.common.serialization import SimpleStringSchema
     from pyflink.datastream import CheckpointingMode, ExternalizedCheckpointCleanup, StreamExecutionEnvironment
@@ -174,14 +203,15 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
 
     # A benchmark namespace is always fresh, so it replays its bounded topic from the start.
     offsets = KafkaOffsetsInitializer.earliest() if settings.mode in {OperatingMode.FIRST_DEPLOY_BOOTSTRAP, OperatingMode.BENCHMARK_REPLAY} else KafkaOffsetsInitializer.committed_offsets(KafkaOffsetResetStrategy.LATEST)
-    source_topics = (topic_name("raw", namespace), topic_name("retry", namespace))
+    source_topics = source_topic_names(settings.mode, namespace)
     source = (KafkaSource.builder().set_bootstrap_servers(settings.bootstrap_servers).set_topics(*source_topics).set_group_id(consumer_group("flink", namespace)).set_starting_offsets(offsets).set_value_only_deserializer(SimpleStringSchema()).build())
     # The benchmark envelope supplies deterministic logical watermark progress,
     # so correctness can exercise the real profile parallelism (1 versus 4).
-    raw = (
-        env.from_source(source, WatermarkStrategy.no_watermarks(), "redpanda-raw-and-retry")
-        .uid("block-a-redpanda-source-v1")
-        .set_parallelism(input_parallelism)
+    raw = _from_source_with_watermarks(
+        env,
+        source,
+        build_source_watermark_strategy(settings.profile, settings.mode),
+        input_parallelism,
     )
     parsed = raw.map(
         _parse_operator(settings), output_type=Types.STRING()
@@ -193,12 +223,7 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
     else:
         timed_input = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route in {"VALID", "WATERMARK"} and not RuntimeEvent.from_json(raw).bootstrap)
     timed_input = timed_input.set_parallelism(input_parallelism)
-    watermark = WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_millis(int(settings.profile.event_time.max_out_of_orderness.total_seconds() * 1000)))
-    if uses_source_idleness(settings.mode):
-        watermark = watermark.with_idleness(Duration.of_millis(int(settings.profile.event_time.idle_timeout.total_seconds() * 1000)))
-    watermark = watermark.with_timestamp_assigner(EventTimestampAssigner())
-    timestamped = timed_input.assign_timestamps_and_watermarks(watermark).set_parallelism(input_parallelism)
-    timed = timestamped.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
+    timed = timed_input.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
     deduped = timed.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(ManagedDeduplicate(int(settings.profile.dedup_ttl.total_seconds())), output_type=Types.STRING()).name("transaction-dedup").uid("block-a-transaction-dedup-v1").set_parallelism(input_parallelism)
     unique = deduped.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
     disposed = unique.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(EventTimeDisposition(int(settings.profile.event_time.allowed_lateness.total_seconds() * 1000), benchmark_logical_watermark=settings.mode is OperatingMode.BENCHMARK_REPLAY), output_type=Types.STRING()).name("event-time-disposition").set_parallelism(input_parallelism)

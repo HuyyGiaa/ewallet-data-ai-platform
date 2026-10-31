@@ -28,7 +28,9 @@ from data_platform.streaming.flink.operators import (
 from data_platform.streaming.flink.job import (
     SOURCE_NO_TIMESTAMP,
     SourceEventTimestampAssigner,
+    _from_source_with_watermarks,
     _parse_operator,
+    source_topic_names,
     source_event_time_ms,
     uses_source_idleness,
 )
@@ -95,6 +97,35 @@ class _KeyedRuntimeContext(_RuntimeContext):
 class _ProcessContext:
     def timer_service(self) -> _TimerService:
         return _TimerService()
+
+
+class _RecordingSourceStream:
+    def __init__(self) -> None:
+        self.uid_value = None
+        self.parallelism = None
+        self.downstream_watermark_assignments = 0
+
+    def uid(self, value):
+        self.uid_value = value
+        return self
+
+    def set_parallelism(self, value):
+        self.parallelism = value
+        return self
+
+    def assign_timestamps_and_watermarks(self, strategy):
+        self.downstream_watermark_assignments += 1
+        return self
+
+
+class _RecordingEnvironment:
+    def __init__(self) -> None:
+        self.calls = []
+        self.stream = _RecordingSourceStream()
+
+    def from_source(self, source, watermark_strategy, name):
+        self.calls.append((source, watermark_strategy, name))
+        return self.stream
 
 
 def _opened_parser(**kwargs) -> ParseAndValidate:
@@ -170,6 +201,51 @@ class SourceWiringContractTest(unittest.TestCase):
         self.assertEqual(
             1_793_235_723_456,
             SourceEventTimestampAssigner().extract_timestamp(event.to_json(), 9_999_999_999_999),
+        )
+
+    def test_production_source_assigner_does_not_accept_benchmark_controls(self) -> None:
+        marker = json.dumps({"kind": "BENCHMARK_WATERMARK", "event_time_ms": 123_456})
+
+        self.assertEqual(
+            SOURCE_NO_TIMESTAMP,
+            SourceEventTimestampAssigner(benchmark_replay=False).extract_timestamp(marker, 999),
+        )
+        self.assertEqual(
+            123_456,
+            SourceEventTimestampAssigner(benchmark_replay=True).extract_timestamp(marker, 999),
+        )
+
+    def test_kafka_source_receives_partition_watermark_strategy(self) -> None:
+        environment = _RecordingEnvironment()
+        source = object()
+        strategy = object()
+
+        stream = _from_source_with_watermarks(
+            environment,
+            source,
+            strategy,
+            parallelism=4,
+        )
+
+        self.assertEqual(
+            [(source, strategy, "redpanda-raw-and-retry")],
+            environment.calls,
+        )
+        self.assertEqual("block-a-redpanda-source-v1", stream.uid_value)
+        self.assertEqual(4, stream.parallelism)
+        self.assertEqual(0, stream.downstream_watermark_assignments)
+
+    def test_benchmark_source_excludes_undrained_retry_partitions(self) -> None:
+        self.assertEqual(
+            ("ewallet.transactions.raw.v1.bench-run",),
+            source_topic_names(OperatingMode.BENCHMARK_REPLAY, "bench-run"),
+        )
+        self.assertEqual(
+            (
+                "ewallet.transactions.raw.v1.live-run",
+                "ewallet.transactions.retry.v1.live-run",
+            ),
+            source_topic_names(OperatingMode.NORMAL_STREAMING, "live-run"),
         )
 
     def test_outbound_record_preserves_topic_key_and_payload(self) -> None:
