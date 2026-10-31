@@ -57,8 +57,8 @@ spec:
   podSelector: {}
   policyTypes: [Ingress, Egress]
 ---
-# Confirm the DNS namespace/pod labels (and NodeLocal DNSCache, if enabled)
-# on the target cluster before rollout.
+# Confirm the DNS namespace/pod labels and networkPolicy.dns.nodeLocalIP on
+# the target cluster before rollout.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -77,9 +77,45 @@ spec:
           podSelector:
             matchLabels:
               {{- toYaml .Values.networkPolicy.dns.podLabels | nindent 14 }}
+    {{- with .Values.networkPolicy.dns.nodeLocalIP }}
+        - ipBlock:
+            cidr: {{ . }}/32
+    {{- end }}
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
+{{- if .Values.namespace.ambient }}
+{{- $rendered := dict "vllm" .Values.vllm.enabled "agentgateway" .Values.agentgateway.enabled
+      "feature-rag-mcp" .Values.mcpServices.enabled "drift-mcp" .Values.mcpServices.enabled
+      "otel-collector" .Values.otelCollector.enabled }}
+{{- range $workload, $ports := .Values.networkPolicy.ambient.probePorts }}
+{{- if index $rendered $workload }}
+{{- $labels := (index $.Values.networkFlows.workloads $workload).podLabels }}
+---
+# Kubelet probes reach ambient pods from the ztunnel SNAT address only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-{{ $workload }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $labels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ $.Values.networkPolicy.ambient.probeSource }}
+      ports:
+        {{- range $port := $ports }}
+        - {protocol: TCP, port: {{ int $port }}}
+        {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- range $flow := include "llm-agent-platform.enforcedFlows" . | fromYamlArray }}
 {{- $src := index $.Values.networkFlows.workloads $flow.from }}
 {{- $dst := index $.Values.networkFlows.workloads $flow.to }}
@@ -103,6 +139,9 @@ spec:
               {{- toYaml $src.podLabels | nindent 14 }}
       ports:
         - {protocol: TCP, port: {{ int $flow.port }}}
+        {{- if $.Values.namespace.ambient }}
+        - {protocol: TCP, port: {{ int $.Values.networkPolicy.ambient.hbonePort }}}
+        {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -123,6 +162,9 @@ spec:
               {{- toYaml $dst.podLabels | nindent 14 }}
       ports:
         - {protocol: TCP, port: {{ int $flow.port }}}
+        {{- if $.Values.namespace.ambient }}
+        - {protocol: TCP, port: {{ int $.Values.networkPolicy.ambient.hbonePort }}}
+        {{- end }}
 {{- end }}
 {{- end }}
 ---

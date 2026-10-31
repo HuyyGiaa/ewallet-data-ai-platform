@@ -30,6 +30,16 @@ if [ -n "$mcp" ]; then
   args+=(--set "mcpServices.image=$ref" --set "mcpServices.identity.imageDigest=${ref#*@}"
          --set "mcpServices.identity.gitSha=$git_sha")
 fi
+vllm=$(python3 -c '
+import json, re, sys
+image = json.load(open(sys.argv[1]))["images"].get("vllm-cpu-model")
+if image:
+    ref = image.get("digest_ref") or ""
+    if not re.fullmatch(r"[a-z0-9.-]+/[a-z0-9._/-]+@sha256:[0-9a-f]{64}", ref):
+        sys.exit("vllm-cpu-model has no pushed immutable digest")
+    print(ref)
+' "$digests")
+[ -z "$vllm" ] || args+=(--set "vllm.image=$vllm")
 helm "${args[@]}" | tee "$evidence/helm-upgrade.txt"
 helm history "$release" --kube-context "$KUBE_CONTEXT" --namespace default -o json > "$evidence/helm-history.json"
 for deployment in $(kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy -o name); do

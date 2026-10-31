@@ -103,9 +103,12 @@ class ChartGuardTests(unittest.TestCase):
 
     def test_gateways_render_in_every_overlay(self):
         on = {"mcpGateway": {"enabled": True}, "a2aGateway": {"enabled": True}}
+        # values-gke-cpu.yaml serves a derived model image that is set at deploy time.
+        image = {"vllm": {"image": "asia-southeast1-docker.pkg.dev/p/r/vllm-cpu-model@sha256:" + "a" * 64}}
         for overlay in ("values-gcp.yaml", "values-local.yaml", "values-dev.yaml", "values-gke-cpu.yaml"):
             with self.subTest(overlay):
-                self.assertEqual(self.render(overlay, on).returncode, 0)
+                override = {**on, **image} if overlay == "values-gke-cpu.yaml" else on
+                self.assertEqual(self.render(overlay, override).returncode, 0)
 
     def test_guards_reject_non_nested_budgets(self):
         cases = {

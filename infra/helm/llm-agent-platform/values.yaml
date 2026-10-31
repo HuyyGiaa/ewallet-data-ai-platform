@@ -35,6 +35,22 @@ networkPolicy:
     namespace: kube-system
     podLabels:
       k8s-app: kube-dns
+    # NodeLocal DNSCache link-local listener (GKE: 169.254.20.10); "" when the
+    # cluster has no NodeLocal DNSCache.
+    nodeLocalIP: ""
+  # With namespace.ambient, ztunnel carries every in-mesh flow as HBONE to the
+  # destination pod on 15008, and kubelet probes arrive SNATed from
+  # 169.254.7.127 (Istio: ambient mode and Kubernetes NetworkPolicy).
+  ambient:
+    hbonePort: 15008
+    probeSource: 169.254.7.127/32
+    # Kubelet probe ports per networkFlows workload (container ports).
+    probePorts:
+      vllm: [8000]
+      agentgateway: [4000]
+      feature-rag-mcp: [8080]
+      drift-mcp: [8080]
+      otel-collector: [13133]
 
 # Least-privilege allow-flows on top of the Istio and Kubernetes default-deny.
 # A flow is enforced only when both ends are workloads this chart owns, so its
@@ -134,6 +150,11 @@ vllm:
   # read-only PVC, an init container checks every SHA-256, vLLM runs offline.
   modelSource:
     mode: huggingface
+    # image: the pinned revision is baked into a derived image
+    # (infra/docker/vllm-cpu-model, checksums verified at build time) and
+    # vllm.image is that image by digest; offline, no egress, no volume.
+    image:
+      path: ""
     staged:
       claimName: ""
       subPath: ""

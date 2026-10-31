@@ -96,6 +96,8 @@ def stage_crds(stage: str) -> list[str]:
 
 def evaluate(facts: dict[str, Any], stage: str, *, waive_networkpolicy: bool = False) -> list[str]:
     reasons = []
+    if facts.get("render_error"):
+        reasons.append(f"stage does not render: {facts['render_error']}")
     if facts["context"] != EXPECTED_CONTEXT:
         reasons.append(f"context {facts['context']!r} is not {EXPECTED_CONTEXT}")
     if facts["server_host"] not in facts["cluster_endpoints"]:
@@ -147,14 +149,19 @@ def collect(stage: str, context: str, extra_sets: list[str]) -> dict[str, Any]:
         existing[0] += c
         existing[1] += m
     planned = [0.0, 0.0]
+    render_error = ""
     if not istio_running:
         planned = [ISTIOD[0] + ISTIO_PER_NODE[0] * len(ready), ISTIOD[1] + ISTIO_PER_NODE[1] * len(ready)]
     if STAGES[stage]["sets"] is not None:
         args = ["helm", "template", "llm-agent", str(CHART), "-f", str(CHART / "values-gke-cpu.yaml")]
         for item in STAGES[stage]["sets"] + extra_sets:
             args += ["--set", item]
-        c, m = planned_requests(_run(*args))
-        planned = [planned[0] + c, planned[1] + m]
+        try:
+            c, m = planned_requests(_run(*args))
+        except subprocess.CalledProcessError as exc:
+            render_error = exc.stderr.strip().splitlines()[-1] if exc.stderr else "helm template failed"
+        else:
+            planned = [planned[0] + c, planned[1] + m]
     crds = set(_run(*kubectl, "get", "crd", "-o", "name").replace("customresourcedefinition.apiextensions.k8s.io/", "").split())
     secrets = _run(*kubectl, "-n", NAMESPACE, "get", "secret", "--ignore-not-found", "-o", "name").split()
     releases = json.loads(_run("helm", "list", "-A", "--kube-context", context, "-o", "json") or "[]")
@@ -163,7 +170,7 @@ def collect(stage: str, context: str, extra_sets: list[str]) -> dict[str, Any]:
             "ready_nodes": len(ready), "nodes": [n["metadata"]["name"] for n in ready],
             "allocatable": [round(v, 2) for v in allocatable], "existing_requests": [round(v, 2) for v in existing],
             "planned_requests": [round(v, 2) for v in planned], "crds": sorted(crds),
-            "api_key_secret": "secret/vllm-api-key" in secrets,
+            "api_key_secret": "secret/vllm-api-key" in secrets, "render_error": render_error,
             "helm_releases": [{k: r.get(k) for k in ("name", "namespace", "status", "chart")} for r in releases]}
 
 
@@ -172,7 +179,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stage", choices=ORDER, required=True)
     parser.add_argument("--context", required=True)
     parser.add_argument("--kubeconfig")
-    # e.g. agents.snapshotsLocation=gs://<approved bucket>/<prefix>/ for g3.
+    # e.g. vllm.image=<vllm-cpu-model digest ref> from g1 on,
+    # agents.snapshotsLocation=gs://<approved bucket>/<prefix>/ for g3.
     parser.add_argument("--set", dest="sets", action="append", default=[])
     parser.add_argument("--waive-unenforced-networkpolicy", action="store_true")
     parser.add_argument("--json-output", type=Path)

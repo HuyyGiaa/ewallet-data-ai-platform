@@ -6,15 +6,26 @@
 # docs/llm_agent/gke_cpu_runtime.md. Node budget: cpu-pool e2-standard-4
 # (AVX2; the pinned vllm-openai-cpu image already ran on an AVX2-only host).
 
+# ewallet-dev runs NodeLocal DNSCache.
+networkPolicy:
+  dns:
+    nodeLocalIP: 169.254.20.10
+
 gateway:
   # No external exposure until a hostname, TLS secret and Gateway API CRDs are
   # approved; G1 is reached with kubectl port-forward only.
   enabled: false
 
 vllm:
-  # Model downloaded at modelRevision at startup (nodes have public egress).
+  # The pinned revision is baked into infra/docker/vllm-cpu-model, so vLLM pods
+  # need no Internet egress under enforced NetworkPolicy (HuggingFace's CDN has
+  # no stable CIDR). Until that image is built, scanned and pushed (owner
+  # approval) and its digest set here, this profile refuses to render.
+  image: ""
   modelSource:
-    mode: huggingface
+    mode: image
+    image:
+      path: /models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca
   # Replace in place: a surge pod needs another 2 free CPUs, which the
   # 2-3 node budget does not have.
   rollingUpdate:
