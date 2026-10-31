@@ -1,0 +1,69 @@
+{
+  "completion_marker_generation": 1793466533872869,
+  "completion_marker_lineage": {
+    "dataset_version": "canonical-100gb-v1",
+    "feast_snapshot_id": "canonical-training-v1-20261028-101106-recovered",
+    "feature_selection_digest": "sha256:903f3a73a2843f373481479c0d271816621ed502bd254c642e6ee20fa12aee62",
+    "manifest_sha256": "bb311b8235b484de36cd4f33ea68da695a54de74657b8e91a456745e2200fa0e",
+    "registry_generation": 1793255806863364,
+    "registry_sha256": "d3e721969c81db12e6180a4f5f9b7ac2a6db95cdc56034eced2ea4780d439b9a",
+    "registry_uri": "gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/canonical-training-v1-20261028-101106-recovered/registry.db",
+    "snapshot_id": "training-20261031-151638-ml2",
+    "source_feature_run_id": "ab-20261025134342-optimized-feat-r261026025955",
+    "source_git_sha": "bbae48caef7f65fda0c9375a7a49afb2eca5eef4",
+    "source_silver_run_id": "ab-20261025134342-optimized-silver-r261025181923",
+    "training_snapshot_root": "gs://ewallet-data-ai-platform-hg26-data/ml/training-snapshots/canonical-100gb-v1/training-20261031-151638-ml2"
+  },
+  "completion_marker_sha256": "fdab5d2022e4cc3988e790b75c77b74d26a00534f8b83acb4d100ad41f1550ac",
+  "dataset_version": "canonical-100gb-v1",
+  "execution_git_sha": "7f053c41d7c67393819982114fb4e5d22adb80ac",
+  "feast_snapshot_id": "canonical-training-v1-20261028-101106-recovered",
+  "feature_selection_digest": "sha256:903f3a73a2843f373481479c0d271816621ed502bd254c642e6ee20fa12aee62",
+  "historical_feature_count": 31,
+  "manifest_sha256": "bb311b8235b484de36cd4f33ea68da695a54de74657b8e91a456745e2200fa0e",
+  "mode": "create-only",
+  "model_input_count": 41,
+  "object_count": 5,
+  "objects": [
+    {
+      "generation": 1793466525425991,
+      "name": "manifest.json",
+      "sha256": "bb311b8235b484de36cd4f33ea68da695a54de74657b8e91a456745e2200fa0e",
+      "size_bytes": 12522
+    },
+    {
+      "generation": 1793466525891244,
+      "name": "manifest.sha256",
+      "sha256": "c9594c289ad99ed6463fd9b14fae5670a67090863d23be84169796e0a02d5225",
+      "size_bytes": 65
+    },
+    {
+      "generation": 1793466526701057,
+      "name": "split=test/part-00000.parquet",
+      "sha256": "63a06811ac06fe19cf79025fd5a371aa9667e0792a3b0ed70cd3494de097da4d",
+      "size_bytes": 1475174
+    },
+    {
+      "generation": 1793466528128090,
+      "name": "split=train/part-00000.parquet",
+      "sha256": "61bd839b3df30d8ccf6eb5f4e5972a02c8370d5ab7ace0ad2c573625897c7129",
+      "size_bytes": 6567773
+    },
+    {
+      "generation": 1793466529835012,
+      "name": "split=validation/part-00000.parquet",
+      "sha256": "c42ca0b182ee36f021880181285271557ed2c0c5d3525b5386664fa8872ff6e2",
+      "size_bytes": 1491316
+    }
+  ],
+  "registry_generation": 1793255806863364,
+  "registry_sha256": "d3e721969c81db12e6180a4f5f9b7ac2a6db95cdc56034eced2ea4780d439b9a",
+  "registry_uri": "gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/canonical-training-v1-20261028-101106-recovered/registry.db",
+  "schema_version": "training-snapshot-publication-evidence-v1",
+  "snapshot_id": "training-20261031-151638-ml2",
+  "source_feature_run_id": "ab-20261025134342-optimized-feat-r261026025955",
+  "source_git_sha": "bbae48caef7f65fda0c9375a7a49afb2eca5eef4",
+  "source_silver_run_id": "ab-20261025134342-optimized-silver-r261025181923",
+  "status": "PUBLISHED_AND_VERIFIED",
+  "training_snapshot_root": "gs://ewallet-data-ai-platform-hg26-data/ml/training-snapshots/canonical-100gb-v1/training-20261031-151638-ml2"
+}
