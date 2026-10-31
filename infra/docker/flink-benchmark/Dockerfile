@@ -42,6 +42,8 @@ COPY data_platform/__init__.py data_platform/__init__.py
 COPY data_platform/generation/__init__.py data_platform/generation/__init__.py
 COPY data_platform/generation/src/__init__.py data_platform/generation/src/fintech_schema.py data_platform/generation/src/
 COPY data_platform/processing/flink/jars/flink-sql-connector-kafka-3.3.0-1.19.jar data_platform/processing/flink/jars/
+# Make Kafka connector available on the Flink JVM classpath
+COPY data_platform/processing/flink/jars/flink-sql-connector-kafka-3.3.0-1.19.jar /opt/flink/lib/
 COPY data_platform/streaming data_platform/streaming
 COPY configs/streaming configs/streaming
 RUN python -m compileall -q data_platform/streaming \

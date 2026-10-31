@@ -17,7 +17,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE=(docker compose -f "$ROOT/infra/docker/flink-benchmark/compose.yml")
 EVIDENCE="$ROOT/evidence/flink-benchmark"
-FLINK_URL="http://localhost:8081"
+FLINK_URL="http://localhost:18081"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -44,7 +44,7 @@ cmd_prereq() {
   command -v curl >/dev/null || die "curl is required on the host (WSL2)"
   mem=$(docker info --format '{{.MemTotal}}')
   [[ "$mem" -ge $((14 * 1024 * 1024 * 1024)) ]] || echo "WARN: Docker has <14 GiB; raise memory in %UserProfile%\\.wslconfig"
-  for port in 8081 19092 19644; do
+  for port in 18081 19092 19644; do
     if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then echo "WARN: port $port already in use"; fi
   done
   if command -v uv >/dev/null; then

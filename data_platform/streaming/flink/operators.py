@@ -65,7 +65,7 @@ class ParseAndValidate(MapFunction):
                 raise BootstrapContractError(f"bootstrap {field} mismatch")
 
     def open(self, runtime_context) -> None:
-        group = runtime_context.get_metric_group()
+        group = runtime_context.get_metrics_group()
         self.inputs = group.counter("input_events_total")
         self.invalid = group.counter("dlq_total")
 
@@ -149,7 +149,7 @@ class ManagedDeduplicate(KeyedProcessFunction):
         )
         descriptor.enable_time_to_live(ttl)
         self.seen = runtime_context.get_state(descriptor)
-        group = runtime_context.get_metric_group()
+        group = runtime_context.get_metrics_group()
         self.duplicates = group.counter("duplicates_detected_total")
         self.removed = group.counter("duplicates_removed_total")
         self.unique = group.counter("output_events_total")
@@ -176,7 +176,7 @@ class EventTimeDisposition(KeyedProcessFunction):
         self.allowed_lateness_ms = allowed_lateness_ms
 
     def open(self, runtime_context) -> None:
-        group = runtime_context.get_metric_group()
+        group = runtime_context.get_metrics_group()
         self.on_time = group.counter("on_time_total")
         self.late = group.counter("late_accepted_total")
         self.too_late = group.counter("too_late_total")
@@ -228,7 +228,7 @@ class EntityFanOut(FlatMapFunction):
 
 class BootstrapCompletionMetric(MapFunction):
     def open(self, runtime_context) -> None:
-        self.complete = runtime_context.get_metric_group().counter("bootstrap_complete_total")
+        self.complete = runtime_context.get_metrics_group().counter("bootstrap_complete_total")
 
     def map(self, value: str) -> str:
         if RuntimeEvent.from_json(value).route == "BOOTSTRAP_COMPLETE":
@@ -272,9 +272,9 @@ class ManagedHistoricalFeatures(KeyedProcessFunction):
         self.account_anchor = runtime_context.get_state(
             ValueStateDescriptor("account-pre-window-anchor-ms", Types.LONG())
         )
-        self.updates = runtime_context.get_metric_group().counter("online_updates_total")
-        self.retries = runtime_context.get_metric_group().counter("retry_total")
-        self.dlq = runtime_context.get_metric_group().counter("dlq_total")
+        self.updates = runtime_context.get_metrics_group().counter("online_updates_total")
+        self.retries = runtime_context.get_metrics_group().counter("retry_total")
+        self.dlq = runtime_context.get_metrics_group().counter("dlq_total")
 
     def process_element(self, value: str, ctx):
         item = EntityEvent.from_json(value)
@@ -362,7 +362,7 @@ class ManagedHistoricalFeatures(KeyedProcessFunction):
 
 class HistoricalJson(MapFunction):
     def open(self, runtime_context) -> None:
-        self.records = runtime_context.get_metric_group().counter("historical_records_total")
+        self.records = runtime_context.get_metrics_group().counter("historical_records_total")
 
     def map(self, value: str) -> str:
         self.records.inc()
@@ -373,7 +373,7 @@ class HistoricalJson(MapFunction):
 
 class LateJson(MapFunction):
     def open(self, runtime_context) -> None:
-        self.records = runtime_context.get_metric_group().counter("late_reconciliation_total")
+        self.records = runtime_context.get_metrics_group().counter("late_reconciliation_total")
 
     def map(self, value: str) -> str:
         self.records.inc()

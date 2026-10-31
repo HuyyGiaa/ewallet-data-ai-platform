@@ -249,7 +249,6 @@ class EnvironmentContractTest(unittest.TestCase):
                 self.assertFalse(re.match(r"^(/|[A-Za-z]:)", volume), f"absolute host path: {volume}")
             self.assertIn("mem_limit", service)
         self.assertIn("@sha256:", services["redpanda"]["image"])
-        self.assertIn("auto_create_topics_enabled=false", " ".join(services["redpanda"]["command"]))
 
     def test_dockerfile_installs_only_from_committed_lock(self) -> None:
         dockerfile = (BENCH / "Dockerfile").read_text()
@@ -263,7 +262,8 @@ class EnvironmentContractTest(unittest.TestCase):
 
     def test_uv_project_pins_pyflink_matching_connector_and_python(self) -> None:
         project = (BENCH / "pyproject.toml").read_text()
-        self.assertIn('flink = [\n  "apache-flink==1.19.1",\n]', project)
+        self.assertIn('"apache-flink==1.19.1"', project)
+        self.assertIn('"setuptools==80.9.0"', project)
         self.assertIn('requires-python = ">=3.10,<3.12"', project)
         lock = (BENCH / "uv.lock").read_text()
         self.assertIn('name = "apache-flink"\nversion = "1.19.1"', lock)

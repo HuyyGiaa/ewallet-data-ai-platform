@@ -115,7 +115,6 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
     env.configure(runtime_configuration)
     env.set_parallelism(settings.profile.parallelism)
     env.set_state_backend(_state_backend(settings.profile))
-    env.add_jars(settings.kafka_connector_jar.resolve().as_uri())
     env.enable_checkpointing(int(settings.profile.checkpoint_interval.total_seconds() * 1000), getattr(CheckpointingMode, settings.profile.checkpoint_mode))
     checkpoint = env.get_checkpoint_config()
     checkpoint.set_checkpoint_storage_dir(settings.checkpoint_storage)

@@ -41,7 +41,7 @@ class _MetricGroup:
 
 
 class _RuntimeContext:
-    def get_metric_group(self) -> _MetricGroup:
+    def get_metrics_group(self) -> _MetricGroup:
         return _MetricGroup()
 
 

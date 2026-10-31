@@ -15,6 +15,7 @@ dependencies = [
 # image, Kafka SQL connector JAR) are pinned separately; uv.lock cannot lock them.
 flink = [
   "apache-flink==1.19.1",
+  "setuptools==80.9.0",
 ]
 
 [dependency-groups]
