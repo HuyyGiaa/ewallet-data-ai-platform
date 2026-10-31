@@ -202,9 +202,37 @@ class OutputSummaryTest(unittest.TestCase):
             for run in (base, opt):
                 (run / "input").mkdir(parents=True)
                 (run / "input/input_manifest.json").write_text(json.dumps({"payload_sha256": "abc"}))
-            text = report(base, opt)
+            text = report(base, opt, require_valid=False)
         self.assertIn("Identical logical input (payload SHA-256): **True**", text)
         self.assertIn("| latency_p95_ms | n/a | n/a |", text)
+
+
+class RunValidityTest(unittest.TestCase):
+    def _run(self, root: Path, status: str, passed: bool, completed: int) -> Path:
+        run = root / status
+        (run / "metrics").mkdir(parents=True)
+        (run / "run.json").write_text(json.dumps({"status": status, "failures": []}))
+        (run / "outputs_summary.json").write_text(json.dumps({"functional_checks": {"all_passed": passed}}))
+        (run / "metrics/snapshot_0000.json").write_text(json.dumps({"checkpoints": {"counts": {"completed": completed}}}))
+        return run
+
+    def test_compare_rejects_invalid_failed_or_checkpointless_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            good = self._run(Path(tmp), "complete", True, 1)
+            report(good, good)
+            for bad in (self._run(Path(tmp), "invalid", True, 1),
+                        self._run(Path(tmp) / "f", "complete", False, 1),
+                        self._run(Path(tmp) / "c", "complete", True, 0)):
+                with self.subTest(run=bad), self.assertRaisesRegex(ValueError, "invalid run"):
+                    report(good, bad)
+
+    def test_driver_no_longer_swallows_failures(self) -> None:
+        script = (ROOT / "scripts/streaming/flink_bench.sh").read_text()
+        body = script[script.index("run_benchmark() {"):script.index("finalize_run() {")]
+        self.assertNotIn('|| echo "WARN', body)
+        for reason in ("outputs_not_quiesced", "no_completed_checkpoint", "functional_checks_failed"):
+            self.assertIn(f'failures+=("{reason}")', script)
+        self.assertIn('finalize_run "$run"', script)
 
 
 class EnvironmentContractTest(unittest.TestCase):

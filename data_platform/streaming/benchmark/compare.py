@@ -66,7 +66,24 @@ def run_row(run: Path) -> dict:
     }
 
 
-def report(baseline: Path, optimized: Path) -> str:
+def validate_run(run: Path) -> None:
+    """Only runs the driver finalized as complete count as performance evidence."""
+    meta = _load(run / "run.json")
+    problems = []
+    if meta.get("status") != "complete":
+        problems.append(f"status={meta.get('status')!r} failures={meta.get('failures')}")
+    if not _load(run / "outputs_summary.json").get("functional_checks", {}).get("all_passed"):
+        problems.append("functional checks missing or failed")
+    if not ((_last_snapshot(run).get("checkpoints") or {}).get("counts") or {}).get("completed"):
+        problems.append("no completed checkpoint in metrics")
+    if problems:
+        raise ValueError(f"{run}: invalid run: {'; '.join(problems)}")
+
+
+def report(baseline: Path, optimized: Path, *, require_valid: bool = True) -> str:
+    if require_valid:
+        for run in (baseline, optimized):
+            validate_run(run)
     rows = {"baseline": run_row(baseline), "optimized": run_row(optimized)}
     same_input = rows["baseline"]["input_sha256"] == rows["optimized"]["input_sha256"] and rows["baseline"]["input_sha256"]
     parity = {

@@ -85,6 +85,7 @@ run_benchmark() {
   fi
   run="$EVIDENCE/$ns"
   mkdir -p "$run/input"
+  local failures=()
 
   echo "== restart Flink cluster (no warm state) =="
   "${COMPOSE[@]}" restart jobmanager taskmanager
@@ -145,30 +146,47 @@ EOF
 
   echo "== wait for output quiescence =="
   "${COMPOSE[@]}" run --rm -T sink-reader data_platform.streaming.benchmark.outputs \
-    --namespace "$ns" --run-dir "/evidence/$ns" --wait-only || echo "WARN: outputs did not quiesce before timeout"
+    --namespace "$ns" --run-dir "/evidence/$ns" --wait-only || failures+=("outputs_not_quiesced")
 
   echo "== wait for >=1 completed checkpoint (max 300 s) =="
+  local done_cp=0
   for _ in $(seq 1 60); do
     done_cp=$(flink_get "/jobs/$job_id/checkpoints" | python3 -c 'import json,sys; print(json.load(sys.stdin)["counts"]["completed"])')
     [[ "$done_cp" -ge 1 ]] && break
     sleep 5
   done
+  [[ "$done_cp" -ge 1 ]] || failures+=("no_completed_checkpoint")
 
   echo "== collect Flink REST metrics =="
   "${COMPOSE[@]}" run --rm -T sink-reader data_platform.streaming.benchmark.metrics \
-    --flink-url http://jobmanager:8081 --namespace "$ns" --job-id "$job_id" --run-dir "/evidence/$ns"
+    --flink-url http://jobmanager:8081 --namespace "$ns" --job-id "$job_id" --run-dir "/evidence/$ns" || failures+=("metrics_collection_failed")
   flink_get "/jobs/$job_id/exceptions" >"$run/flink_exceptions.json" || true
 
   echo "== read isolated output topics =="
   local oracle=()
   [[ "$mode" == functional ]] && oracle=(--oracle)
   "${COMPOSE[@]}" run --rm -T sink-reader data_platform.streaming.benchmark.outputs \
-    --namespace "$ns" --run-dir "/evidence/$ns" "${oracle[@]}" || echo "WARN: functional checks failed; see outputs_summary.json"
+    --namespace "$ns" --run-dir "/evidence/$ns" "${oracle[@]}" || failures+=("functional_checks_failed")
 
   echo "== cancel job =="
   curl -fsS -X PATCH "$FLINK_URL/jobs/$job_id?mode=cancel" >/dev/null || true
   "${COMPOSE[@]}" logs --no-color jobmanager taskmanager >"$run/flink_logs.txt" 2>&1 || true
+  finalize_run "$run" "${failures[@]}"
+}
+
+# Record run validity in run.json; compare refuses anything not "complete".
+finalize_run() {
+  local run="$1"; shift
+  python3 - "$run/run.json" "$@" <<'PYEOF'
+import json, sys
+path, failures = sys.argv[1], sys.argv[2:]
+data = json.load(open(path))
+data["status"] = "invalid" if failures else "complete"
+data["failures"] = failures
+json.dump(data, open(path, "w"), indent=2)
+PYEOF
   echo "RUN_DIR=$run"
+  [[ $# -eq 0 ]] || die "run INVALID ($*); partial evidence kept in $run"
 }
 
 cmd_compare() {
