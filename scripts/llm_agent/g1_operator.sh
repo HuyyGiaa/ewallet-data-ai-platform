@@ -73,6 +73,16 @@ port_forward() {  # <target> <local:remote>; echoes the pid
   k -n "$NS" port-forward "$1" "$2" >/dev/null 2>&1 &
   echo $!
 }
+diagnose() {  # [label]; pods, events and logs, before any cleanup removes them
+  mkdir -p "$evidence/${2:-diagnostics}"
+  k -n "$NS" get pods -o wide > "$evidence/${2:-diagnostics}/pods.txt" 2>&1 || true
+  k -n "$NS" describe pods > "$evidence/${2:-diagnostics}/describe-pods.txt" 2>&1 || true
+  k -n "$NS" get events --sort-by=.lastTimestamp > "$evidence/${2:-diagnostics}/events.txt" 2>&1 || true
+  for pod in $(k -n "$NS" get pods -o name 2>/dev/null); do
+    k -n "$NS" logs "$pod" --all-containers --tail=300 2>&1 | grep -viE 'authorization|bearer|api[-_]key' \
+      > "$evidence/${2:-diagnostics}/${pod#pod/}.log" || true
+  done
+}
 cleanup() {  # idempotent; also the session's exit/failure/interrupt handler
   local keep=${G1_CLEANUP_NODES:-0}
   [[ "$keep" =~ ^[0-2]$ ]] || die "G1_CLEANUP_NODES must be 0-2"
@@ -179,19 +189,9 @@ deploy)
   : "${DIGESTS:?DIGESTS required}"
   "$0" preflight "$evidence"  # GO required
   # 2.9 GB image pull plus a CPU warm-up completion: wait up to 30 min.
-  diagnose() {  # before any cleanup can remove the evidence
-    mkdir -p "$evidence/deploy/diagnostics"
-    k -n "$NS" get pods -o wide > "$evidence/deploy/diagnostics/pods.txt" 2>&1 || true
-    k -n "$NS" describe pods > "$evidence/deploy/diagnostics/describe-pods.txt" 2>&1 || true
-    k -n "$NS" get events --sort-by=.lastTimestamp > "$evidence/deploy/diagnostics/events.txt" 2>&1 || true
-    for pod in $(k -n "$NS" get pods -o name 2>/dev/null); do
-      k -n "$NS" logs "$pod" --all-containers --tail=300 2>&1 | grep -viE 'authorization|bearer|api[-_]key' \
-        > "$evidence/deploy/diagnostics/${pod#pod/}.log" || true
-    done
-  }
   HELM_TIMEOUT=30m EXTRA_VALUES="$chart/values-gke-cpu-g1.yaml" KUBE_CONTEXT="$KUBE_CONTEXT" \
-    "$root/scripts/llm_agent/deploy_atomic.sh" gke-cpu "$DIGESTS" "$evidence/deploy" || { diagnose; die "deploy failed (diagnostics in $evidence/deploy/diagnostics)"; }
-  diagnose
+    "$root/scripts/llm_agent/deploy_atomic.sh" gke-cpu "$DIGESTS" "$evidence/deploy" || { diagnose x deploy/diagnostics; die "deploy failed (diagnostics in $evidence/deploy/diagnostics)"; }
+  diagnose x deploy/diagnostics
   k -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
     > "$evidence/image-ids.txt"
   ;;
@@ -246,14 +246,21 @@ netpol-verify)
 smoke-direct | smoke-gateway)
   if [ "$stage" = smoke-direct ]; then target=svc/vllm-primary ports=18000:8000 model=ewallet-fraud-llm-v1
   else target=svc/agentgateway ports=13000:3000 model=ewallet-fraud-llm; fi
-  pf=$(port_forward "$target" "$ports")
-  trap 'kill "$pf" 2>/dev/null || true' EXIT
+  k -n "$NS" port-forward "$target" "$ports" > "$evidence/$stage-port-forward.log" 2>&1 &
+  pf=$!
+  since=$(date -u +%FT%TZ)
+  # Whatever happens, keep this request window's server-side logs.
+  trap 'kill "$pf" 2>/dev/null || true; for d in vllm-primary vllm-fallback agentgateway; do
+          k -n "$NS" logs "deploy/$d" --since-time="$since" --all-containers 2>&1 \
+            | grep -viE "authorization|bearer|api[-_]key" > "$evidence/$stage-$d.log" || true; done' EXIT
   sleep 3
   endpoint="http://127.0.0.1:${ports%%:*}"
-  EWALLET_VLLM_API_KEY=$(api_key) python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
-    --model "$model" --evidence "$evidence/$stage-non-stream.json"
+  # Stream first: bytes flow during a slow CPU generation, and its timings show
+  # how long a silent non-stream request has to survive the port-forward.
   EWALLET_VLLM_API_KEY=$(api_key) python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
     --model "$model" --stream --evidence "$evidence/$stage-stream.json"
+  EWALLET_VLLM_API_KEY=$(api_key) python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
+    --model "$model" --evidence "$evidence/$stage-non-stream.json"
   code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer wrong-key' "$endpoint/v1/models")
   echo "wrong-key status $code" | tee "$evidence/$stage-wrong-key.txt"
   [ "$code" = 401 ] || die "wrong key was not rejected with 401"
@@ -339,6 +346,7 @@ session)
     trap - EXIT INT TERM HUP
     [ -n "$child" ] && kill -TERM -- "-$child" 2>/dev/null
     kill -TERM "${watchdog:-}" 2>/dev/null
+    [ "$status" = 0 ] || diagnose x session-failure-diagnostics
     record "session ending (status $status): cleanup"
     (set -e; cleanup) || status=1
     exit "$status"
