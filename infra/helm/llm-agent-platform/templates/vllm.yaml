@@ -51,6 +51,9 @@ metadata:
     app.kubernetes.io/instance: {{ $name }}
 spec:
   replicas: {{ $profile.replicas }}
+  # Image pull plus the warm-up startup probe (up to failureThreshold x period)
+  # must fit before the rollout is declared stuck (default 600 s).
+  progressDeadlineSeconds: {{ $.Values.vllm.progressDeadlineSeconds }}
   strategy:
     type: RollingUpdate
     rollingUpdate:

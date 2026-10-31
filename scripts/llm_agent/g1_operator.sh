@@ -179,8 +179,19 @@ deploy)
   : "${DIGESTS:?DIGESTS required}"
   "$0" preflight "$evidence"  # GO required
   # 2.9 GB image pull plus a CPU warm-up completion: wait up to 30 min.
+  diagnose() {  # before any cleanup can remove the evidence
+    mkdir -p "$evidence/deploy/diagnostics"
+    k -n "$NS" get pods -o wide > "$evidence/deploy/diagnostics/pods.txt" 2>&1 || true
+    k -n "$NS" describe pods > "$evidence/deploy/diagnostics/describe-pods.txt" 2>&1 || true
+    k -n "$NS" get events --sort-by=.lastTimestamp > "$evidence/deploy/diagnostics/events.txt" 2>&1 || true
+    for pod in $(k -n "$NS" get pods -o name 2>/dev/null); do
+      k -n "$NS" logs "$pod" --all-containers --tail=300 2>&1 | grep -viE 'authorization|bearer|api[-_]key' \
+        > "$evidence/deploy/diagnostics/${pod#pod/}.log" || true
+    done
+  }
   HELM_TIMEOUT=30m EXTRA_VALUES="$chart/values-gke-cpu-g1.yaml" KUBE_CONTEXT="$KUBE_CONTEXT" \
-    "$root/scripts/llm_agent/deploy_atomic.sh" gke-cpu "$DIGESTS" "$evidence/deploy"
+    "$root/scripts/llm_agent/deploy_atomic.sh" gke-cpu "$DIGESTS" "$evidence/deploy" || { diagnose; die "deploy failed (diagnostics in $evidence/deploy/diagnostics)"; }
+  diagnose
   k -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
     > "$evidence/image-ids.txt"
   ;;

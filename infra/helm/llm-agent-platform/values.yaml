@@ -177,6 +177,8 @@ vllm:
     maxUnavailable: 0
     maxSurge: 1
   # Startup probe sends one tool-shaped completion; Ready only once it succeeds.
+  # Longer than warmup failureThreshold x 10 s plus an image pull.
+  progressDeadlineSeconds: 1800
   warmup:
     enabled: true
     timeoutSeconds: 240

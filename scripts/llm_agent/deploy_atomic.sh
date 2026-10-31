@@ -48,6 +48,6 @@ if image:
 helm "${args[@]}" | tee "$evidence/helm-upgrade.txt"
 helm history "$release" --kube-context "$KUBE_CONTEXT" --namespace default -o json > "$evidence/helm-history.json"
 for deployment in $(kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy -o name); do
-  kubectl --context "$KUBE_CONTEXT" -n "$namespace" rollout status "$deployment" --timeout=10m | tee -a "$evidence/rollout.txt"
+  kubectl --context "$KUBE_CONTEXT" -n "$namespace" rollout status "$deployment" --timeout="${HELM_TIMEOUT:-15m}" | tee -a "$evidence/rollout.txt"
 done
 kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy,pods -o wide > "$evidence/workloads.txt"
