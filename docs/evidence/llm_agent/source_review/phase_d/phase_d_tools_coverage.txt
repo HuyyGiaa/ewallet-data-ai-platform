@@ -1,0 +1,11 @@
+Name                                              Stmts   Miss Branch BrPart  Cover   Missing
+---------------------------------------------------------------------------------------------
+ai_platform/llm_agent/tools/__init__.py               0      0      0      0   100%
+ai_platform/llm_agent/tools/drift.py                168      4     68      5    96%   137->exit, 139->exit, 143->exit, 145->exit, 162, 165, 211, 255
+ai_platform/llm_agent/tools/feature_lookup.py        59      3     22      3    93%   44, 82, 85
+ai_platform/llm_agent/tools/fraud_scoring.py         34      0     12      2    96%   24->exit, 28->exit
+ai_platform/llm_agent/tools/knowledge_search.py      62      0     16      2    97%   44->exit, 46->exit
+ai_platform/llm_agent/tools/runtime.py              132      4     22      2    96%   75->exit, 77->exit, 231-234
+ai_platform/llm_agent/tools/service.py              146     22     26      1    87%   78->80, 141, 221-256
+---------------------------------------------------------------------------------------------
+TOTAL                                               601     33    166     15    94%

@@ -51,6 +51,14 @@ networkFlows:
       serviceAccount: vllm
       podLabels:
         app.kubernetes.io/name: vllm
+    feature-rag-mcp:
+      serviceAccount: feature-rag-mcp
+      podLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    drift-mcp:
+      serviceAccount: drift-mcp
+      podLabels:
+        app.kubernetes.io/name: drift-mcp
   enforced:
     - name: agentgateway-to-vllm
       from: agentgateway
@@ -66,9 +74,9 @@ networkFlows:
       reason: Native kagent A2A is served by the kagent controller outside this chart; controller and sandbox identities are not source-defined.
       gate: Read back kagent controller and WorkerPool identities.
     - name: agents-to-mcp-gateway-to-mcp-services
-      to: mcp-gateway, feature-rag-mcp, drift-mcp
-      reason: No MCP Gateway or MCP server Deployment, Service port or pod labels exist in source yet (Phase D).
-      gate: Phase D source plus rendered labels and ports.
+      to: mcp-gateway, then feature-rag-mcp:8080 and drift-mcp:8080
+      reason: The MCP server workloads are source-defined (mcpServices, disabled until an image is reviewed), but no MCP Gateway workload or identity exists yet.
+      gate: Define the policy-only MCP Gateway workload, then declare mcp-gateway-to-feature-rag-mcp and mcp-gateway-to-drift-mcp as enforced flows.
     - name: mcp-to-rag-feast-kserve-fraud-scoring
       to: Feast online store, RAG embedding, KServe fraud-scoring
       reason: Endpoints live in ML/Data Platform namespaces that are not deployed or contract-pinned for this chart.
@@ -172,6 +180,59 @@ agentgateway:
     limits:
       cpu: 500m
       memory: 512Mi
+
+# Phase D MCP tool servers (ai_platform/llm_agent/tools). Disabled: no reviewed
+# server image exists, and every value below must come from a real build and
+# deployment readback, never from placeholders.
+mcpServices:
+  enabled: false
+  image: ""
+  replicas: 2
+  port: 8080
+  maxConcurrency: 8
+  maxTimeoutMs: 30000
+  # Every tool request is denied until an authentication mechanism is approved
+  # (DECISION_REQUIRED, docs/llm_agent/phase_d_tool_services.md). Origins must be
+  # exact scheme://host[:port]; an absent Origin header is allowed.
+  http:
+    allowedOrigins: []
+    maxBodyBytes: 65536
+    maxInflightRequests: 32
+    bodyReadTimeoutSeconds: 10
+  identity:
+    gitSha: ""
+    imageDigest: ""
+    configRevision: ""
+    promptRevision: no-prompt
+    modelRevision: ""
+    featureRevision: ""
+    corpusRevision: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  services:
+    feature-rag-mcp:
+      serviceAccount: feature-rag-mcp
+      app: ai_platform.llm_agent.tools.service:create_feature_rag_app
+      # Verified subject -> granted tools; empty denies every tool.
+      toolGrants: {}
+      env:
+        EWALLET_FEAST_REPO_PATH: ""
+        EWALLET_KSERVE_BASE_URL: ""
+        EWALLET_MODEL_NAME: ""
+        EWALLET_MODEL_VERSION: ""
+        EWALLET_RAG_MANIFEST: data/llm_agent/rag/fraud-policy-v1/manifest.json
+        EWALLET_RAG_ONLINE_STORE: redis
+    drift-mcp:
+      serviceAccount: drift-mcp
+      app: ai_platform.llm_agent.tools.service:create_drift_app
+      # Verified subject -> granted tools; empty denies every tool.
+      toolGrants: {}
+      env: {}
 
 modelConfig:
   enabled: true

@@ -1,0 +1,194 @@
+{
+ "kind": "targeted_hand_written_mutation_smoke",
+ "not_a_mutmut_campaign": true,
+ "applied": 37,
+ "killed": 37,
+ "score": 1.0,
+ "results": [
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "if self.end < self.start:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "if self.end - self.start >= MAX_WINDOW:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "if window.start <= baseline.reference_end and",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "elif psi > baseline.thresholds[1] * 10:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "if len(sample.values) <= baseline.min_current_count:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "counts[bisect_right(",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "q = current + baseline.smoothing",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/drift.py",
+   "mutant": "if not 0 <= warning <= drift:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/knowledge_search.py",
+   "mutant": "if len(hits) > arguments.top_k + 1:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/knowledge_search.py",
+   "mutant": "hit.score < 0 for hit in hits",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/knowledge_search.py",
+   "mutant": "Field(ge=1, le=MAX_TOP_K + 1, strict=True)",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/knowledge_search.py",
+   "mutant": "min_length=2, max_length=1000",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/knowledge_search.py",
+   "mutant": "if any(False and left.score < right.score",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/runtime.py",
+   "mutant": "timeout = max(context.timeout_ms, self._max_timeout_ms)",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/runtime.py",
+   "mutant": "if True:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/runtime.py",
+   "mutant": "return self._response(context, tool_name, \"error\",",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/fraud_scoring.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/fraud_scoring.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/feature_lookup.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/feature_lookup.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/service.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/service.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/service.py",
+   "mutant": "for handler in executor.handlers.values()",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/security.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/security.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/security.py",
+   "mutant": "return True",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/security.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/security.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/security.py",
+   "mutant": "if parsed is None:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/security.py",
+   "mutant": "return best is not None",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/service.py",
+   "mutant": "reason = None",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/service.py",
+   "mutant": "for name, item in report.items()",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/tools/service.py",
+   "mutant": "\"isError\": False,",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/rag/pipeline.py",
+   "mutant": "if not quote:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/rag/pipeline.py",
+   "mutant": "if chunk is None:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "ai_platform/llm_agent/rag/pipeline.py",
+   "mutant": "if False:",
+   "outcome": "KILLED"
+  },
+  {
+   "file": "data_platform/orchestration/airflow/rag_params.py",
+   "mutant": "if False and repository_root is not None and",
+   "outcome": "KILLED"
+  }
+ ]
+}

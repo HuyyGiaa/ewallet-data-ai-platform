@@ -1,0 +1,6 @@
+## helm template -f values-gcp.yaml | policy_lint
+}
+## helm template -f values-local.yaml | policy_lint
+}
+## docker build --check --target mcp-server (no build)
+Check complete, no warnings found.
