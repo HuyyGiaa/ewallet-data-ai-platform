@@ -27,7 +27,12 @@ REQUIRED_PROVENANCE = {
     "feature_schema_sha256",
     "git_commit_sha",
     "random_seed",
+    "dvc_revision",
+    "runtime_image",
 }
+# Registered automatically for downstream staging deploys. Production is a
+# separate, human-approved alias and is never set by the pipeline.
+CANDIDATE_ALIAS = "candidate"
 
 
 @dataclass(frozen=True)
@@ -189,6 +194,8 @@ class MlflowTracker:
                     "snapshot_id",
                     "snapshot_manifest_sha256",
                     "git_commit_sha",
+                    "dvc_revision",
+                    "runtime_image",
                 ):
                     client.set_model_version_tag(
                         self.registered_model_name,
@@ -196,6 +203,9 @@ class MlflowTracker:
                         key,
                         str(provenance[key]),
                     )
+                client.set_registered_model_alias(
+                    self.registered_model_name, CANDIDATE_ALIAS, version
+                )
             return TrackingResult(
                 experiment_id=experiment.experiment_id,
                 parent_run_id=parent.info.run_id,

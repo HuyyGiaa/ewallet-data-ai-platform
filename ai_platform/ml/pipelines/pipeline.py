@@ -273,6 +273,7 @@ def publish_winner_to_mlflow(
     experiment_name: str,
     registered_model_name: str,
     git_commit_sha: str,
+    dvc_revision: str,
     experiment_result: Input[Artifact],
     evidence: Output[Artifact],
 ) -> dsl.ContainerSpec:
@@ -285,6 +286,7 @@ def publish_winner_to_mlflow(
         ) + [
             "--experiment-result", experiment_result.path,
             "--git-commit-sha", git_commit_sha,
+            "--dvc-revision", dvc_revision,
             "--output", evidence.path,
         ],
     )
@@ -318,6 +320,7 @@ def f9_canonical_pipeline(
     mlflow_tracking_uri: str,
     runtime_image: str,
     git_commit_sha: str,
+    dvc_revision: str,
     experiment_name: str,
     registered_model_name: str,
 ) -> None:
@@ -365,6 +368,7 @@ def f9_canonical_pipeline(
         publish_winner_to_mlflow(
             **common,
             git_commit_sha=git_commit_sha,
+            dvc_revision=dvc_revision,
             experiment_result=evaluation.outputs["experiment_result"],
         ),
         training=True,

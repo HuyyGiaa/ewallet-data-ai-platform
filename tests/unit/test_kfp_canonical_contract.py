@@ -50,6 +50,7 @@ class KfpCanonicalCompileTest(unittest.TestCase):
             "experiment_name",
             "registered_model_name",
             "git_commit_sha",
+            "dvc_revision",
         ):
             self.assertIn(name, parameters)
 
