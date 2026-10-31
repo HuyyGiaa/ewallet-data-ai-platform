@@ -1,0 +1,19 @@
+# The predictor accepts traffic only from the Fraud API.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fraud-detector-clients
+  namespace: fraud-serving
+spec:
+  podSelector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: fraud-detector
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fraud-api
+      ports:
+        - port: 8080
+          protocol: TCP

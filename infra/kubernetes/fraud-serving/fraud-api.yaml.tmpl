@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-api
+  namespace: fraud-serving
+  labels:
+    app.kubernetes.io/name: fraud-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fraud-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-api
+  namespace: fraud-serving
+  labels:
+    app.kubernetes.io/name: fraud-api
+    app.kubernetes.io/part-of: ewallet-mlops
+spec:
+  replicas: ${FRAUD_API_REPLICAS}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fraud-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fraud-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: fraud-api
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fraud-api
+          image: ${FRAUD_API_IMAGE}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: EWALLET_FEAST_REGISTRY
+              value: "${ONLINE_REGISTRY_URI}"
+            - name: EWALLET_KSERVE_BASE_URL
+              value: http://fraud-detector-predictor.fraud-serving.svc.cluster.local
+            - name: EWALLET_MODEL_NAME
+              value: fraud-detector
+            - name: EWALLET_MODEL_VERSION
+              value: "${MODEL_VERSION}"
+            - name: EWALLET_GIT_SHA
+              value: "${GIT_SHA}"
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: feast-online-redis
+                  key: connection_string
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

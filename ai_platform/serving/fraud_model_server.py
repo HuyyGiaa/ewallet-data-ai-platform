@@ -73,6 +73,16 @@ class FraudModel(kserve.Model):
         names = [item.name for item in payload.inputs]
         if names != list(MODEL_INPUT_COLUMNS):
             raise InvalidInput("inputs must be the 41 model columns in contract order")
+        logger.info(
+            json.dumps(
+                {
+                    "event": "infer",
+                    "request_id": payload.id,
+                    "model_version": self.version,
+                    "traceparent": (headers or {}).get("traceparent", ""),
+                }
+            )
+        )
         frame = payload.as_dataframe()[list(MODEL_INPUT_COLUMNS)]
         result = self._pyfunc.predict(frame)
         probability = result["fraud_probability"].to_numpy(dtype=np.float64)
@@ -93,6 +103,7 @@ def main() -> None:
     parser.add_argument("--model-dir", type=Path, default=Path("/models/fraud"))
     args, _ = parser.parse_known_args()
     model = FraudModel(args.model_name, args.model_dir)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     model.load()
     kserve.ModelServer().start([model])
 
