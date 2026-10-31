@@ -54,4 +54,4 @@ agentgateway:
   responseIdleTimeout: 160s
 
 modelConfig:
-  timeoutSeconds: 180
+  timeoutSeconds: 200

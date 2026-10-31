@@ -1,4 +1,20 @@
 {{- if .Values.agentgateway.enabled }}
+{{- $g := .Values.agentgateway }}
+{{- /* Nested budgets: each caller waits longer than the hop below it, so the
+innermost hop answers first and no caller gives up on a request that is
+still running. */}}
+{{- $client := mul (int .Values.modelConfig.timeoutSeconds) 1000 }}
+{{- $entry := include "llm-agent-platform.durationMs" $g.requestTimeout | int }}
+{{- $listener := include "llm-agent-platform.durationMs" $g.llmRequestTimeout | int }}
+{{- $backend := include "llm-agent-platform.durationMs" $g.backendRequestTimeout | int }}
+{{- $idle := include "llm-agent-platform.durationMs" $g.responseIdleTimeout | int }}
+{{- if not (and (gt $client $entry) (gt $entry $listener) (gt $listener $backend) (ge $backend $idle)) }}
+{{- fail "LLM timeouts must nest: modelConfig.timeoutSeconds > requestTimeout > llmRequestTimeout > backendRequestTimeout >= responseIdleTimeout" }}
+{{- end }}
+{{- $codes := list }}{{- range $g.retryCodes }}{{- $codes = append $codes (int .) }}{{- end }}
+{{- if or (has 504 $codes) (has 500 $codes) (gt (int $g.retryAttempts) 1) }}
+{{- fail "agentgateway must not replay timed-out or failed generations (no 500/504 retry, at most 1 attempt)" }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,15 +29,19 @@ data:
       default:
         port: 4000
     routes:
+      # Entry hop to the in-process LLM listener: one overall budget and no
+      # per-hop timeout. With a per-hop timeout equal to the backend budget,
+      # the hop timed out first and the retry replayed the whole CPU
+      # generation (offline mock, 2026-10-31: two backend requests, then 504
+      # at the entry budget). Retry stays for 502/503 only, which the LLM
+      # listener returns when vLLM is unreachable or refusing.
       - policies:
           timeout:
             requestTimeout: {{ .Values.agentgateway.requestTimeout }}
-            backendRequestTimeout: {{ .Values.agentgateway.backendRequestTimeout }}
-            responseIdleTimeout: {{ .Values.agentgateway.responseIdleTimeout }}
           retry:
             attempts: {{ .Values.agentgateway.retryAttempts }}
             backoff: {{ .Values.agentgateway.retryBackoff }}
-            codes: [429, 500, 502, 503, 504]
+            codes: {{ toJson .Values.agentgateway.retryCodes }}
         backends:
           - host: 127.0.0.1:3000
     llm:
@@ -31,6 +51,7 @@ data:
           requestTimeout: {{ .Values.agentgateway.llmRequestTimeout }}
           backendRequestTimeout: {{ .Values.agentgateway.backendRequestTimeout }}
           responseIdleTimeout: {{ .Values.agentgateway.responseIdleTimeout }}
+
         localRateLimit:
           - maxTokens: {{ .Values.agentgateway.requestRate.capacity }}
             tokensPerFill: {{ .Values.agentgateway.requestRate.refill }}

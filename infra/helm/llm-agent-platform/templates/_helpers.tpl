@@ -108,3 +108,13 @@ spec:
     matchLabels: {app.kubernetes.io/name: {{ .name }}}
 {{- end }}
 {{- end -}}
+
+{{/* Duration ("250ms", "30s", "2m") to integer milliseconds. */}}
+{{- define "llm-agent-platform.durationMs" -}}
+{{- $v := toString . -}}
+{{- if hasSuffix "ms" $v -}}{{ trimSuffix "ms" $v | int }}
+{{- else if hasSuffix "s" $v -}}{{ mul (trimSuffix "s" $v | int) 1000 }}
+{{- else if hasSuffix "m" $v -}}{{ mul (trimSuffix "m" $v | int) 60000 }}
+{{- else -}}{{ fail (printf "unsupported duration %q" $v) }}
+{{- end -}}
+{{- end -}}

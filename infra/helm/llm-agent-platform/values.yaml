@@ -190,8 +190,13 @@ agentgateway:
   llmRequestTimeout: 28s
   backendRequestTimeout: 20s
   responseIdleTimeout: 10s
-  retryAttempts: 2
+  # Retry only when the backend was not reached or refused (502/503). A 504 or
+  # 500 after a CPU generation must not be replayed: the replay restarts the
+  # whole generation, overruns the entry budget (the 2026-10-31 kind 504) and
+  # keeps vLLM busy with abandoned work.
+  retryAttempts: 1
   retryBackoff: 250ms
+  retryCodes: [502, 503]
   circuitBreakDuration: 30s
   requestRate:
     capacity: 12
@@ -449,7 +454,8 @@ modelConfig:
   enabled: true
   name: ewallet-global-llm
   model: ewallet-fraud-llm
-  timeoutSeconds: 30
+  # Must exceed agentgateway.requestTimeout (chart guard).
+  timeoutSeconds: 35
   apiKeySecret:
     name: vllm-api-key
     key: api-key

@@ -64,7 +64,10 @@ class PhaseBManifestTest(unittest.TestCase):
         config = yaml.safe_load(config_map["data"]["config.yaml"])
         policies = config["llm"]["policies"]
         route_policies = config["routes"][0]["policies"]
-        self.assertEqual(route_policies["retry"]["attempts"], 2)
+        # One retry, only for an unreached/refusing backend: a timed-out CPU
+        # generation is never replayed (R1 prep, 2026-10-31).
+        self.assertEqual((route_policies["retry"]["attempts"], route_policies["retry"]["codes"]), (1, [502, 503]))
+        self.assertNotIn("backendRequestTimeout", route_policies["timeout"])
         self.assertEqual(route_policies["timeout"]["requestTimeout"], "30s")
         self.assertEqual(config["routes"][0]["backends"][0]["host"], "127.0.0.1:3000")
         self.assertEqual({item["type"] for item in policies["localRateLimit"]}, {"requests", "tokens"})
@@ -79,7 +82,8 @@ class PhaseBManifestTest(unittest.TestCase):
         self.assertEqual(model["apiVersion"], "kagent.dev/v1alpha2")
         self.assertEqual(model["spec"]["model"], "ewallet-fraud-llm")
         self.assertEqual(model["spec"]["apiKeySecret"], "vllm-api-key")
-        self.assertEqual(model["spec"]["openAI"]["timeout"], 30)
+        # The client budget exceeds the gateway entry budget (30 s), so the gateway answers first.
+        self.assertEqual(model["spec"]["openAI"]["timeout"], 35)
         self.assertNotIn("stream", model["spec"])
         self.assertEqual(
             model["spec"]["openAI"]["baseUrl"],
