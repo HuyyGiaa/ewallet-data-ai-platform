@@ -81,6 +81,9 @@ diagnose() {  # [label]; pods, events and logs, before any cleanup removes them
   for pod in $(k -n "$NS" get pods -o name 2>/dev/null); do
     k -n "$NS" logs "$pod" --all-containers --tail=300 2>&1 | grep -viE 'authorization|bearer|api[-_]key' \
       > "$evidence/${2:-diagnostics}/${pod#pod/}.log" || true
+    # The container that crashed (OOMKilled, CrashLoop) keeps the useful lines.
+    k -n "$NS" logs "$pod" --all-containers --previous --tail=300 2>/dev/null | grep -viE 'authorization|bearer|api[-_]key' \
+      > "$evidence/${2:-diagnostics}/${pod#pod/}.previous.log" || true
   done
 }
 cleanup() {  # idempotent; also the session's exit/failure/interrupt handler

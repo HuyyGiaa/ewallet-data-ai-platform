@@ -98,9 +98,12 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(kinds["vllm-primary"]["spec"]["replicas"], 1)
         self.assertEqual(kinds["vllm-fallback"]["spec"]["replicas"], 1)
         cpu, mem = pf.planned_requests(rendered)
-        # Two e2-standard-4 (2 x 3.92 CPU, 2 x ~13 GiB), with headroom for system pods.
         self.assertLessEqual(cpu, 5.0)
-        self.assertLessEqual(mem, 10.0)
+        self.assertLessEqual(mem, 14.0)
+        # One vLLM pod per e2-standard-4 (~13 GiB allocatable, ~0.8 GiB DaemonSets
+        # + ztunnel/cni): its memory limit must fit beside them.
+        limits = kinds["vllm-primary"]["spec"]["template"]["spec"]["containers"][0]["resources"]["limits"]
+        self.assertLessEqual(pf.mem_gib(limits["memory"]), 13.0 - 1.4 - 1.0)
         self.assertNotIn("kind: Gateway\n", rendered)
 
 
