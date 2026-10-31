@@ -25,7 +25,7 @@ from data_platform.streaming.flink.operators import (
     ManagedHistoricalFeatures,
     ParseAndValidate,
 )
-from data_platform.streaming.flink.job import _parse_operator
+from data_platform.streaming.flink.job import _parse_operator, uses_source_idleness
 from data_platform.streaming.flink.records import EntityEvent, OutboundRecord, RuntimeEvent
 from data_platform.streaming.generator.scenarios import DeterministicScenarioGenerator
 
@@ -270,6 +270,12 @@ class SourceWiringContractTest(unittest.TestCase):
         forward, backward = run([0, 1, 2, 3, 4]), run([4, 3, 2, 1, 0])
         self.assertEqual(1, len(forward))
         self.assertEqual(forward, backward)
+
+    def test_only_benchmark_replay_disables_source_idleness(self) -> None:
+        self.assertFalse(uses_source_idleness(OperatingMode.BENCHMARK_REPLAY))
+        for mode in OperatingMode:
+            if mode is not OperatingMode.BENCHMARK_REPLAY:
+                self.assertTrue(uses_source_idleness(mode), mode)
 
 
 if __name__ == "__main__":

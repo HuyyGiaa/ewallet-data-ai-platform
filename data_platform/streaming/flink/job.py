@@ -28,6 +28,16 @@ def build_job_plan(profile_name: str) -> FlinkJobPlan:
     return FlinkJobPlan(profile, TOPICS["raw"].name, CONSUMER_GROUPS["flink"], TOPICS["accepted"].name, TOPICS["online"].name, TOPICS["retry"].name, TOPICS["late"].name, TOPICS["dlq"].name, ("transaction-dedup", "event-time-disposition", "entity-fan-out", "user-feature-state", "account-feature-state", "device-feature-state", "merchant-feature-state"))
 
 
+def uses_source_idleness(mode: OperatingMode) -> bool:
+    """Benchmark replay drains every partition with markers instead.
+
+    Under backpressure an idle-marked split lets the drain marker advance the
+    watermark past records still queued on that split; their timers then never
+    fire. Production keeps idleness so a quiet partition cannot stall timers.
+    """
+    return mode is not OperatingMode.BENCHMARK_REPLAY
+
+
 class EventTimestampAssigner:
     def extract_timestamp(self, value, record_timestamp) -> int:
         from data_platform.streaming.flink.records import RuntimeEvent
@@ -150,7 +160,10 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
     else:
         timed_input = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route in {"VALID", "WATERMARK"} and not RuntimeEvent.from_json(raw).bootstrap)
     timed_input = timed_input.set_parallelism(input_parallelism)
-    watermark = (WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_millis(int(settings.profile.event_time.max_out_of_orderness.total_seconds() * 1000))).with_idleness(Duration.of_millis(int(settings.profile.event_time.idle_timeout.total_seconds() * 1000))).with_timestamp_assigner(EventTimestampAssigner()))
+    watermark = WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_millis(int(settings.profile.event_time.max_out_of_orderness.total_seconds() * 1000)))
+    if uses_source_idleness(settings.mode):
+        watermark = watermark.with_idleness(Duration.of_millis(int(settings.profile.event_time.idle_timeout.total_seconds() * 1000)))
+    watermark = watermark.with_timestamp_assigner(EventTimestampAssigner())
     timestamped = timed_input.assign_timestamps_and_watermarks(watermark).set_parallelism(input_parallelism)
     timed = timestamped.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
     deduped = timed.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(ManagedDeduplicate(int(settings.profile.dedup_ttl.total_seconds())), output_type=Types.STRING()).name("transaction-dedup").uid("block-a-transaction-dedup-v1").set_parallelism(input_parallelism)
