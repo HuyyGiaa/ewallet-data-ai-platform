@@ -470,7 +470,7 @@ class OperatorTests(ScriptHarness):
         self.assertIn("readback", proc.stderr)
 
     def test_scale_up_is_bounded_needs_enforcement_and_reads_back_exactly(self):
-        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", NODES="4").returncode, 0)
+        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", NODES="5").returncode, 0)
         self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", G1_RERUN="scale-up",
                                     FAKE_NP="False").returncode, 0)
         self.assertEqual(self.resizes(), [])
@@ -504,6 +504,17 @@ class OperatorTests(ScriptHarness):
         self.assertIn("--num-nodes 0", self.resizes()[-1])
         self.pool.write_text("3")
         self.assertNotEqual(self.op("cleanup", FAKE_RESIZE_STUCK="1").returncode, 0)
+
+    def test_cleanup_can_hand_the_pool_back_without_g1(self):
+        self.pool.write_text("4")
+        proc = self.op("cleanup", G1_CLEANUP_NODES="2")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        calls = self.calls()
+        uninstall = next(i for i, c in enumerate(calls) if c.startswith("helm uninstall llm-agent"))
+        resize = next(i for i, c in enumerate(calls) if "--num-nodes 2" in c)
+        self.assertLess(uninstall, resize)
+        self.assertEqual(self.pool.read_text().strip(), "2")
+        self.assertNotEqual(self.op("cleanup", G1_CLEANUP_NODES="3").returncode, 0)
 
     def session_env(self, **env):
         approvals = "scale-up,istio,namespace,secret,deploy,netpol-verify,failover"

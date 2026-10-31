@@ -15,7 +15,10 @@
 #   failure, Ctrl-C, SIGTERM or SIGHUP. Host loss: see "Recovery" in the runbook.
 #
 # Stage env: image-build: MODEL_DIR, AR_REPO, DIGESTS; image-push, deploy,
-# session: DIGESTS; scale-up: NODES (1-3, default 3).
+# session: DIGESTS; scale-up: NODES (1-4, default 3; 4 when sharing the pool
+# with other workloads). G1_CLEANUP_NODES (0-2, default 0): the pool size cleanup
+# leaves behind for other workstreams; above 0 the G1 release is uninstalled
+# first so nothing of G1 competes with them.
 set -euo pipefail
 stage=${1:-} evidence=${2:-}
 PROJECT=ewallet-data-ai-platform-hg26 ZONE=asia-southeast1-b CLUSTER=ewallet-dev POOL=cpu-pool NS=ewallet-agents
@@ -71,14 +74,16 @@ port_forward() {  # <target> <local:remote>; echoes the pid
   echo $!
 }
 cleanup() {  # idempotent; also the session's exit/failure/interrupt handler
+  local keep=${G1_CLEANUP_NODES:-0}
+  [[ "$keep" =~ ^[0-2]$ ]] || die "G1_CLEANUP_NODES must be 0-2"
   k delete namespace "$TEST_NS" --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  if [ "${1:-}" = --uninstall ]; then
-    helm uninstall llm-agent --kube-context "$KUBE_CONTEXT" --namespace default || true
+  if [ "${1:-}" = --uninstall ] || [ "$keep" != 0 ]; then
+    helm uninstall llm-agent --kube-context "$KUBE_CONTEXT" --namespace default --wait --timeout 10m || true
   fi
-  gcloud container clusters resize "$CLUSTER" --node-pool "$POOL" --num-nodes 0 \
+  gcloud container clusters resize "$CLUSTER" --node-pool "$POOL" --num-nodes "$keep" \
     --zone "$ZONE" --project "$PROJECT" --quiet
-  [ "$(pool_size)" = 0 ] && [ "$(pool_instances)" = 0 ] || die "readback: $POOL still has nodes"
-  echo "pool_size=0 instances=0 $(date -u +%FT%TZ)" | tee -a "$evidence/cleanup.txt"
+  [ "$(pool_size)" = "$keep" ] && [ "$(pool_instances)" = "$keep" ] || die "readback: $POOL is not at $keep nodes"
+  echo "pool_size=$keep instances=$keep $(date -u +%FT%TZ)" | tee -a "$evidence/cleanup.txt"
 }
 
 # cleanup must work even when the kubeconfig does not (it only needs gcloud).
@@ -119,7 +124,7 @@ image-push)  # Trivy vuln + secret gate on the final image first; a finding stop
 
 scale-up)
   nodes=${NODES:-3}
-  [[ "$nodes" =~ ^[1-3]$ ]] || die "NODES must be 1-3 (G1 ceiling)"
+  [[ "$nodes" =~ ^[1-4]$ ]] || die "NODES must be 1-4 (G1 ceiling)"
   netpol_enabled || die "NetworkPolicy enforcement must be enabled before nodes exist"
   gcloud container clusters resize "$CLUSTER" --node-pool "$POOL" --num-nodes "$nodes" \
     --zone "$ZONE" --project "$PROJECT" --quiet
@@ -173,7 +178,8 @@ preflight)
 deploy)
   : "${DIGESTS:?DIGESTS required}"
   "$0" preflight "$evidence"  # GO required
-  EXTRA_VALUES="$chart/values-gke-cpu-g1.yaml" KUBE_CONTEXT="$KUBE_CONTEXT" \
+  # 2.9 GB image pull plus a CPU warm-up completion: wait up to 30 min.
+  HELM_TIMEOUT=30m EXTRA_VALUES="$chart/values-gke-cpu-g1.yaml" KUBE_CONTEXT="$KUBE_CONTEXT" \
     "$root/scripts/llm_agent/deploy_atomic.sh" gke-cpu "$DIGESTS" "$evidence/deploy"
   k -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
     > "$evidence/image-ids.txt"
