@@ -3,11 +3,44 @@
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
 from data_platform.streaming.config.settings import OperatingMode, RuntimeSettings, load_profile, profile_by_name
+from data_platform.streaming.contracts.events import TransactionEvent
 from data_platform.streaming.contracts.topics import CONSUMER_GROUPS, TOPICS, consumer_group, topic_name
+
+
+SOURCE_NO_TIMESTAMP = -(2**63)
+
+
+def source_event_time_ms(payload: str | bytes) -> int:
+    """Extract canonical event time without letting bad/control rows move watermarks."""
+    try:
+        raw = json.loads(payload)
+        if not isinstance(raw, dict):
+            return SOURCE_NO_TIMESTAMP
+        kind = raw.get("kind")
+        if kind == "BENCHMARK_WATERMARK":
+            return int(raw["event_time_ms"])
+        if kind in {"BENCHMARK_EVENT", "BOOTSTRAP"}:
+            event_payload = raw["event"]
+        elif "original_event" in raw and "retry_count" in raw:
+            event_payload = raw["original_event"]
+        elif kind is None:
+            event_payload = raw
+        else:
+            return SOURCE_NO_TIMESTAMP
+        event = TransactionEvent.from_dict(event_payload)
+        return int(event.event_time.timestamp() * 1000)
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return SOURCE_NO_TIMESTAMP
+
+
+class SourceEventTimestampAssigner:
+    def extract_timestamp(self, value, record_timestamp) -> int:
+        return source_event_time_ms(value)
 
 
 @dataclass(frozen=True)

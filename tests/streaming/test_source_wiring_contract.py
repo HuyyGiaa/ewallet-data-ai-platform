@@ -25,7 +25,13 @@ from data_platform.streaming.flink.operators import (
     ManagedHistoricalFeatures,
     ParseAndValidate,
 )
-from data_platform.streaming.flink.job import _parse_operator, uses_source_idleness
+from data_platform.streaming.flink.job import (
+    SOURCE_NO_TIMESTAMP,
+    SourceEventTimestampAssigner,
+    _parse_operator,
+    source_event_time_ms,
+    uses_source_idleness,
+)
 from data_platform.streaming.flink.records import EntityEvent, OutboundRecord, RuntimeEvent
 from data_platform.streaming.generator.scenarios import DeterministicScenarioGenerator
 
@@ -98,6 +104,74 @@ def _opened_parser(**kwargs) -> ParseAndValidate:
 
 
 class SourceWiringContractTest(unittest.TestCase):
+    def test_source_timestamp_extracts_every_supported_event_envelope(self) -> None:
+        event_time = datetime(2026, 10, 29, 1, 2, 3, 456000, tzinfo=UTC)
+        expected_ms = 1_793_235_723_456
+        event = DeterministicScenarioGenerator(7001).normal(1, event_time)
+        event_payload = event.to_dict()
+        cases = {
+            "normal": event.to_json(),
+            "retry": json.dumps({
+                "original_event": event_payload,
+                "original_event_time": event_time.isoformat(),
+                "retry_count": 1,
+                "error_reason": "temporary sink failure",
+                "trace_id": event.trace_id,
+            }),
+            "bootstrap": json.dumps({
+                "kind": "BOOTSTRAP",
+                "dataset_version": "canonical-100gb-v1",
+                "source_run_id": "silver-run-1",
+                "cutover": "2026-10-30T00:00:00+00:00",
+                "event": event_payload,
+            }),
+            "benchmark": json.dumps({
+                "kind": "BENCHMARK_EVENT",
+                "event": event_payload,
+                "logical_watermark_ms": expected_ms - 120_000,
+            }),
+            "benchmark-drain": json.dumps({
+                "kind": "BENCHMARK_WATERMARK",
+                "event_time_ms": expected_ms + 720_001,
+            }),
+        }
+        expected = {
+            "normal": expected_ms,
+            "retry": expected_ms,
+            "bootstrap": expected_ms,
+            "benchmark": expected_ms,
+            "benchmark-drain": expected_ms + 720_001,
+        }
+
+        for name, payload in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(expected[name], source_event_time_ms(payload))
+
+    def test_source_timestamp_does_not_advance_for_invalid_or_control_payloads(self) -> None:
+        cases = {
+            "malformed-json": '{"transaction_id"',
+            "invalid-event": '{"transaction_id":""}',
+            "bootstrap-complete": json.dumps({
+                "kind": "BOOTSTRAP_COMPLETE",
+                "dataset_version": "canonical-100gb-v1",
+                "source_run_id": "silver-run-1",
+                "cutover": "2026-10-30T00:00:00+00:00",
+            }),
+        }
+
+        for name, payload in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(SOURCE_NO_TIMESTAMP, source_event_time_ms(payload))
+
+    def test_source_timestamp_assigner_ignores_broker_timestamp(self) -> None:
+        event_time = datetime(2026, 10, 29, 1, 2, 3, 456000, tzinfo=UTC)
+        event = DeterministicScenarioGenerator(7001).normal(1, event_time)
+
+        self.assertEqual(
+            1_793_235_723_456,
+            SourceEventTimestampAssigner().extract_timestamp(event.to_json(), 9_999_999_999_999),
+        )
+
     def test_outbound_record_preserves_topic_key_and_payload(self) -> None:
         record = OutboundRecord("online", "user:u-1", '{"value":1}')
         self.assertEqual(record, OutboundRecord.from_json(record.to_json()))
