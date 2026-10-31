@@ -1,8 +1,8 @@
 {
-  "compiled_yaml_sha256": "945a1e01c97a5da028dbf5642c3101ed2ba43d17b5dac86a33104dcaa4f2a47d",
-  "image_digest": "sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764",
-  "image_uri": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764",
+  "compiled_yaml_sha256": "2258fa2ab811150f626c3072ec13e254124ed00be422d1aef7a65c930e275f70",
+  "image_digest": "sha256:34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb",
+  "image_uri": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb",
   "schema_version": "f9-immutable-artifact-evidence-v1",
-  "source_git_sha": "b21b89ca05bd9d64159e36cad99280018bea6518",
+  "source_git_sha": "5a7fa02fd1eeea224eefe9f421ca2f8f711a35f2",
   "status": "BUILT_AND_DIGEST_VERIFIED"
 }

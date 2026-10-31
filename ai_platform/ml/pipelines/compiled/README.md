@@ -5,8 +5,8 @@ locked KFP 2.17.3 compiler environment and is committed as the immutable Gate 2
 input. Deployment tooling validates its checksum and runtime image before any
 mutation.
 
-- Runtime image: `asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:bfe6382e5ef51eee6917c75a964da093f869ccb23f8d7aece5e3109b5479e764`
-- SHA-256: `945a1e01c97a5da028dbf5642c3101ed2ba43d17b5dac86a33104dcaa4f2a47d`
+- Runtime image: `asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb`
+- SHA-256: `2258fa2ab811150f626c3072ec13e254124ed00be422d1aef7a65c930e275f70`
 
 The reproducible generation command is:
 
