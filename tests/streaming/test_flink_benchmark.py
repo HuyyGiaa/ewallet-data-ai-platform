@@ -31,6 +31,7 @@ from data_platform.streaming.config.settings import (
 )
 from data_platform.streaming.contracts.events import TransactionEvent
 from data_platform.streaming.contracts.topics import TOPICS, consumer_group, topic_name
+from data_platform.streaming.flink.feature_state import HistoricalFeatureState
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -203,6 +204,7 @@ class OutputSummaryTest(unittest.TestCase):
         actual = json.dumps({
             "view_name": "device_behavior",
             "entity_value": event.device_id,
+            "feature_timestamp": event.event_time.isoformat(),
             "source_event_id": event.event_id,
             "values": {"device_age_seconds": -1.0},
         })
@@ -222,22 +224,38 @@ class OutputSummaryTest(unittest.TestCase):
         self.assertEqual(20, len(result["mismatches"]))
         self.assertFalse(result["passed"])
 
-    def test_feature_oracle_counts_every_missing_expected_update(self) -> None:
+    def test_feature_oracle_counts_missing_update_at_finalized_timestamp(self) -> None:
         records, _manifest = build_payloads(functional_spec())
         event = next(TransactionEvent.from_json(payload) for _key, payload in records if payload.startswith('{"account_id"'))
+        snapshots = HistoricalFeatureState().snapshot(event)
+        online = [
+            (
+                view,
+                json.dumps({
+                    "view_name": view,
+                    "entity_value": snapshot.entity_value,
+                    "feature_timestamp": event.event_time.isoformat(),
+                    "source_event_id": event.event_id,
+                    "values": snapshot.values,
+                }),
+                3,
+            )
+            for view, snapshot in snapshots.items()
+            if view != "device_behavior"
+        ]
         topics = {
             "raw": [(event.transaction_id, event.to_json(), 1)],
             "accepted": [(event.transaction_id, json.dumps({
                 "transaction_id": event.transaction_id,
                 "disposition": "ON_TIME",
             }), 2)],
-            "online": [],
+            "online": online,
         }
 
         result = feature_oracle(topics)
 
-        self.assertEqual(4, result["mismatch_count"])
-        self.assertEqual(4, result["mismatch_count_sampled"])
+        self.assertEqual(1, result["mismatch_count"])
+        self.assertEqual(1, result["mismatch_count_sampled"])
         self.assertTrue(all(item["actual"] is None for item in result["mismatches"]))
         self.assertFalse(result["passed"])
 

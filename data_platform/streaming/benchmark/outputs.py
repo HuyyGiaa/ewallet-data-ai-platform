@@ -219,6 +219,7 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
     events = sorted((raw_events[tx] for tx in eligible), key=lambda e: (e.event_time, e.transaction_id))
     state = HistoricalFeatureState(history_ttl=BASELINE.history_ttl)
     expected = {}
+    expected_timestamps = {}
     index = 0
     while index < len(events):
         group = [e for e in events[index:] if e.event_time == events[index].event_time]
@@ -226,11 +227,13 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
         for event in group:
             for view, snapshot in snapshots[event.transaction_id].items():
                 expected[(view, snapshot.entity_value, event.event_id)] = snapshot.values
+                expected_timestamps[(view, snapshot.entity_value, event.event_id)] = snapshot.feature_timestamp
         index += len(group)
     mismatches = []
     mismatch_count = 0
     compared = 0
     seen = set()
+    emitted_timestamps = []
 
     def record_mismatch(key, want, got) -> None:
         nonlocal mismatch_count
@@ -244,13 +247,18 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
         compared += 1
         want = expected.get(key)
         got = item["values"]
+        if item.get("feature_timestamp"):
+            emitted_timestamps.append(datetime.fromisoformat(item["feature_timestamp"]))
         if key in seen or want is None or set(want) != set(got) or any(
             not _close(want[name], got[name]) for name in want
         ):
             record_mismatch(key, want, got)
         seen.add(key)
-    for key in sorted(expected.keys() - seen):
-        record_mismatch(key, expected[key], None)
+    if emitted_timestamps:
+        finalized_through = max(emitted_timestamps)
+        for key in sorted(expected.keys() - seen):
+            if expected_timestamps[key] <= finalized_through:
+                record_mismatch(key, expected[key], None)
     return {
         "compared": compared,
         "mismatch_count": mismatch_count,
