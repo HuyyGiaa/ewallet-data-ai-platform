@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -40,6 +41,8 @@ TABLES = {
 }
 EVENT_NAME = re.compile(r"/app-(\d{14})\d{3}-\d+\.(?:zstd|gz|jsonl)$")
 APPLICATION_NAMES = {"silver": "EWallet-DP2-Silver", "gold": "EWallet-DP2-Core-Gold"}
+ACTIVE_BATCH_STATES = frozenset({"PENDING", "RUNNING", "CANCELLING"})
+BATCH_POLL_SECONDS = 60
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -263,21 +266,12 @@ def _adopt_completed_batch(
     pair_digest: str, profile: str, recovery_git_sha: str | None,
     validation_git_sha: str | None = None,
 ) -> bool:
-    """Adopt one exact completed Dataproc attempt; never resubmit an existing ID."""
+    """Adopt one exact completed Dataproc attempt; never resubmit an existing ID.
 
-    batch = _describe_batch_if_present(args, batch_id)
-    if batch is None:
-        return False
-    state = str(batch.get("state", ""))
-    if state != "SUCCEEDED":
-        raise ValueError(
-            f"Dataproc batch {batch_id} already exists in state {state}; "
-            "refusing duplicate submission"
-        )
-    _batch_cohort(batch, batch_id)
-    labels = batch.get("labels")
-    if not isinstance(labels, Mapping):
-        raise ValueError("Dataproc batch lacks labels")
+    An exact attempt that is still active (e.g. the Airflow task or the gcloud
+    client died mid-wait) is awaited instead of failing after hours of Spark.
+    """
+
     expected_labels = {
         "benchmark_id": args.benchmark_id,
         "spark_profile": profile,
@@ -290,15 +284,39 @@ def _adopt_completed_batch(
             output_run_id=output_run_id,
             recovery_git_sha=str(recovery_git_sha or ""),
         )
-    if any(labels.get(key) != value for key, value in expected_labels.items()):
-        raise ValueError("Existing Dataproc batch labels do not match execution identity")
-    properties = _method2_runtime_identity(batch)
     expected_properties = {
         "spark.ewallet.method2.pairManifestDigest": pair_digest,
         "spark.ewallet.method2.outputRunId": output_run_id,
     }
-    if any(properties.get(key) != value for key, value in expected_properties.items()):
-        raise ValueError("Existing Dataproc batch runtime identity mismatch")
+
+    def require_identity(batch: Mapping[str, Any]) -> None:
+        labels = batch.get("labels")
+        if not isinstance(labels, Mapping):
+            raise ValueError("Dataproc batch lacks labels")
+        if any(labels.get(key) != value for key, value in expected_labels.items()):
+            raise ValueError("Existing Dataproc batch labels do not match execution identity")
+        properties = _method2_runtime_identity(batch)
+        if any(properties.get(key) != value for key, value in expected_properties.items()):
+            raise ValueError("Existing Dataproc batch runtime identity mismatch")
+
+    batch = _describe_batch_if_present(args, batch_id)
+    if batch is None:
+        return False
+    # Identity first: never wait hours on, or adopt, a foreign attempt.
+    require_identity(batch)
+    while str(batch.get("state", "")) in ACTIVE_BATCH_STATES:
+        time.sleep(BATCH_POLL_SECONDS)
+        batch = _describe_batch_if_present(args, batch_id)
+        if batch is None:
+            raise RuntimeError(f"Active Dataproc batch disappeared: {batch_id}")
+    state = str(batch.get("state", ""))
+    if state != "SUCCEEDED":
+        raise ValueError(
+            f"Dataproc batch {batch_id} already exists in state {state}; "
+            "refusing duplicate submission"
+        )
+    require_identity(batch)
+    _batch_cohort(batch, batch_id)
     return True
 
 
@@ -375,13 +393,14 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
             suffix = Path(uri).suffix
             compressed = temp_dir / f"candidate-{number}{suffix}"
             _run("gcloud", "storage", "cp", uri, str(compressed))
-            if suffix == ".zstd":
-                decoded = temp_dir / f"candidate-{number}.jsonl"
-                with decoded.open("xb") as stream:
-                    subprocess.run(["zstd", "-dc", str(compressed)], stdout=stream, check=True)
-            else:
-                decoded = compressed
             try:
+                if suffix == ".zstd":
+                    decoded = temp_dir / f"candidate-{number}.jsonl"
+                    with decoded.open("xb") as stream:
+                        subprocess.run(["zstd", "-dc", str(compressed)],
+                                       stdout=stream, check=True)
+                else:
+                    decoded = compressed
                 result = summarize_event_logs(
                     [decoded], batch_id=dataproc_batch_id,
                     output_run_id=output_run_id,
@@ -391,8 +410,9 @@ def _get_event_metrics(args: argparse.Namespace, stage: str, profile: str,
                     application_not_before_epoch_ms=_epoch_ms(create_time),
                     application_not_after_epoch_ms=_epoch_ms(state_time),
                 )
-            except ValueError:
-                # Other jobs (including validations) share the event-log bucket.
+            except (ValueError, subprocess.CalledProcessError):
+                # Other jobs (including validations) share the event-log bucket;
+                # an undecodable foreign log must not fail the original's evidence.
                 continue
             matches.append(result)
     if len(matches) != 1:
@@ -466,6 +486,12 @@ def _action(args: argparse.Namespace) -> None:
                 _require_clean_head(args.git_sha)
             else:
                 _require_head(args.git_sha)
+            # Fresh-run gate only (the DAG's first task). Replay/recovery never
+            # re-approves, so historical runs keep their original benchmark.
+            if args.bronze_source_benchmark_id == args.benchmark_id:
+                raise ValueError(
+                    "New DP2 benchmark must differ from reused Bronze source benchmark"
+                )
             _bronze_winner(args)
             for stage in STAGES:
                 for profile in PROFILES:
@@ -538,22 +564,36 @@ def _action(args: argparse.Namespace) -> None:
                 "--recovery-git-sha", args.recovery_git_sha,
                 "--compute-repository", str(args.compute_repository),
             ))
-        if args.action == "submit":
-            if _adopt_completed_batch(
+        submitter = (
+            "ops.gcp.submit_bronze_to_silver" if stage == "silver" else
+            "ops.gcp.submit_silver_to_gold"
+        )
+        if args.action != "submit":
+            _module(submitter, *module_args)
+            return
+
+        def adopt() -> bool:
+            return _adopt_completed_batch(
                 args,
                 batch_id=dataproc_batch_id,
                 output_run_id=run_id,
                 pair_digest=str(pair["pair_manifest_digest"]),
                 profile=profile,
                 recovery_git_sha=getattr(args, "recovery_git_sha", None),
-            ):
-                print(f"Adopted exact completed Dataproc batch: {dataproc_batch_id}")
-                return
-            module_args.append("--execute")
-        _module(
-            "ops.gcp.submit_bronze_to_silver" if stage == "silver" else
-            "ops.gcp.submit_silver_to_gold", *module_args,
-        )
+            )
+
+        if adopt():
+            print(f"Adopted exact completed Dataproc batch: {dataproc_batch_id}")
+            return
+        module_args.append("--execute")
+        try:
+            _module(submitter, *module_args)
+        except subprocess.CalledProcessError:
+            # The gcloud client can fail while the created batch keeps running;
+            # adopt that exact attempt rather than fail after Spark succeeds.
+            if not adopt():
+                raise
+            print(f"Adopted exact completed Dataproc batch: {dataproc_batch_id}")
     elif args.action == "verify":
         _module("ops.gcp.verify_delta_run", "--root", output_root,
                 *(x for table in TABLES[stage] for x in ("--expected-table", table)))
@@ -565,17 +605,22 @@ def _action(args: argparse.Namespace) -> None:
         validation_git_sha = (
             args.recovery_git_sha if dataproc_batch_id != run_id else args.git_sha
         )
-        if _adopt_completed_batch(
-            args,
-            batch_id=validation_batch_id,
-            output_run_id=run_id,
-            pair_digest=str(pair["pair_manifest_digest"]),
-            profile=profile,
-            recovery_git_sha=None,
-            validation_git_sha=validation_git_sha,
-        ):
+        def adopt_scan() -> bool:
+            if not _adopt_completed_batch(
+                args,
+                batch_id=validation_batch_id,
+                output_run_id=run_id,
+                pair_digest=str(pair["pair_manifest_digest"]),
+                profile=profile,
+                recovery_git_sha=None,
+                validation_git_sha=validation_git_sha,
+            ):
+                return False
             _run("gcloud", "storage", "ls", _summary_uri(args, stage, profile, run_id))
             print(f"Adopted exact completed semantic scan: {validation_batch_id}")
+            return True
+
+        if adopt_scan():
             return
         # A semantic scan is also a paid Dataproc batch; gate its quota separately.
         _module("ops.gcp.wait_for_dataproc_quota", "--project", args.project,
@@ -589,15 +634,19 @@ def _action(args: argparse.Namespace) -> None:
                         if dataproc_batch_id != run_id else "validation-quota.json"
                     )
                 ), "--execute")
-        _module("ops.gcp.submit_spark_output_summary",
-                "--batch-id", validation_batch_id,
-                "--benchmark-id", args.benchmark_id, "--spark-profile", profile,
-                "--stage", STAGES[stage], "--output-run-id", run_id,
-                "--dataset-version", args.dataset_version, "--git-sha", args.git_sha,
-                "--validation-git-sha", validation_git_sha,
-                "--summary-uri", _summary_uri(args, stage, profile, run_id),
-                "--source-run-id", upstream[0],
-                "--pair-manifest", str(_pair_path(args.root, stage)), "--execute")
+        try:
+            _module("ops.gcp.submit_spark_output_summary",
+                    "--batch-id", validation_batch_id,
+                    "--benchmark-id", args.benchmark_id, "--spark-profile", profile,
+                    "--stage", STAGES[stage], "--output-run-id", run_id,
+                    "--dataset-version", args.dataset_version, "--git-sha", args.git_sha,
+                    "--validation-git-sha", validation_git_sha,
+                    "--summary-uri", _summary_uri(args, stage, profile, run_id),
+                    "--source-run-id", upstream[0],
+                    "--pair-manifest", str(_pair_path(args.root, stage)), "--execute")
+        except subprocess.CalledProcessError:
+            if not adopt_scan():
+                raise
     elif args.action == "evidence":
         summary = base / "summary.json"
         performance = base / "original-performance.json"

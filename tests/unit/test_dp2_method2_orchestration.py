@@ -248,7 +248,7 @@ class TestDP2Workflow(unittest.TestCase):
     def test_restart_never_resubmits_existing_non_success_batch(self):
         self.args.project, self.args.region = "project", "region"
         digest = "sha256:" + "a" * 64
-        for state in ("PENDING", "FAILED", "CANCELLED"):
+        for state in ("FAILED", "CANCELLED"):
             with self.subTest(state=state), patch(
                 "ops.gcp.dp2_method2._describe_batch_if_present",
                 return_value=self._completed_batch(state=state, pair_digest=digest),
@@ -259,6 +259,104 @@ class TestDP2Workflow(unittest.TestCase):
                         output_run_id=SILVER_RUN, pair_digest=digest,
                         profile="baseline", recovery_git_sha=None,
                     )
+
+    def test_restart_waits_for_exact_active_batch_then_adopts(self):
+        self.args.project, self.args.region = "project", "region"
+        digest = "sha256:" + "a" * 64
+        states = [
+            self._completed_batch(state=state, pair_digest=digest)
+            for state in ("PENDING", "RUNNING", "SUCCEEDED")
+        ]
+        with patch(
+            "ops.gcp.dp2_method2._describe_batch_if_present", side_effect=states,
+        ), patch("ops.gcp.dp2_method2.time.sleep") as sleep:
+            self.assertTrue(_adopt_completed_batch(
+                self.args, batch_id=SILVER_RUN, output_run_id=SILVER_RUN,
+                pair_digest=digest, profile="baseline", recovery_git_sha=None,
+            ))
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_active_batch_that_fails_is_never_adopted_or_resubmitted(self):
+        self.args.project, self.args.region = "project", "region"
+        digest = "sha256:" + "a" * 64
+        for final in ("FAILED", "CANCELLED"):
+            states = [self._completed_batch(state=s, pair_digest=digest)
+                      for s in ("RUNNING", "CANCELLING", final)]
+            with self.subTest(final=final), patch(
+                "ops.gcp.dp2_method2._describe_batch_if_present", side_effect=states,
+            ), patch("ops.gcp.dp2_method2.time.sleep"):
+                with self.assertRaisesRegex(ValueError, "refusing duplicate"):
+                    _adopt_completed_batch(
+                        self.args, batch_id=SILVER_RUN, output_run_id=SILVER_RUN,
+                        pair_digest=digest, profile="baseline", recovery_git_sha=None,
+                    )
+
+    def test_foreign_active_batch_fails_fast_without_waiting(self):
+        self.args.project, self.args.region = "project", "region"
+        foreign = self._completed_batch(state="RUNNING")
+        foreign["labels"]["benchmark_id"] = SOURCE_BENCH
+        with patch(
+            "ops.gcp.dp2_method2._describe_batch_if_present", return_value=foreign,
+        ), patch("ops.gcp.dp2_method2.time.sleep") as sleep:
+            with self.assertRaisesRegex(ValueError, "labels do not match"):
+                _adopt_completed_batch(
+                    self.args, batch_id=SILVER_RUN, output_run_id=SILVER_RUN,
+                    pair_digest="sha256:" + "a" * 64, profile="baseline",
+                    recovery_git_sha=None,
+                )
+        sleep.assert_not_called()
+
+    def _submit_args(self):
+        with patch("ops.gcp.dp2_method2._require_clean_head"):
+            _action(self.args)
+        self.args.action = "submit"
+        self.args.stage, self.args.profile = "silver", "baseline"
+        self.args.project, self.args.region = "project", "region"
+        self.args.ttl = "8h"
+        self.args.compute_repository = None
+        self.args.recovery_git_sha = None
+        return _json_file(_pair_path(self.root, "silver"))["pair_manifest_digest"]
+
+    def test_submit_client_failure_adopts_exact_batch_that_succeeded(self):
+        digest = self._submit_args()
+        succeeded = self._completed_batch(pair_digest=digest)
+        failure = subprocess.CalledProcessError(1, ["gcloud"])
+        with patch("ops.gcp.dp2_method2._require_clean_head"), patch(
+            "ops.gcp.dp2_method2._module", side_effect=failure,
+        ) as module, patch(
+            "ops.gcp.dp2_method2._describe_batch_if_present",
+            side_effect=[None, succeeded],
+        ):
+            _action(self.args)
+        self.assertEqual(module.call_count, 1)
+        self.assertIn("--execute", module.call_args.args)
+
+    def test_submit_failure_without_created_batch_propagates(self):
+        self._submit_args()
+        failure = subprocess.CalledProcessError(1, ["gcloud"])
+        with patch("ops.gcp.dp2_method2._require_clean_head"), patch(
+            "ops.gcp.dp2_method2._module", side_effect=failure,
+        ) as module, patch(
+            "ops.gcp.dp2_method2._describe_batch_if_present", return_value=None,
+        ):
+            with self.assertRaises(subprocess.CalledProcessError):
+                _action(self.args)
+        self.assertEqual(module.call_count, 1)
+
+    def test_approve_rejects_new_run_reusing_bronze_source_benchmark(self):
+        self.args.action = "approve"
+        self.args.approval = "I_APPROVE_DP2_PAID_JOBS"
+        self.args.require_clean = False
+        self.args.bronze_source_benchmark_id = BENCH
+        with patch("ops.gcp.dp2_method2._require_head"):
+            with self.assertRaisesRegex(ValueError, "must differ"):
+                _action(self.args)
+
+    def test_historical_replay_with_matching_source_benchmark_is_not_rejected(self):
+        from ops.gcp.dp2_method2 import _bronze_winner
+        self.args.benchmark_id = SOURCE_BENCH
+        winner_data = _bronze_winner(self.args)
+        self.assertEqual(winner_data["selected_output_run_id"], BRONZE_RUN)
 
     def test_absent_batch_allows_one_submission_path(self):
         self.args.project, self.args.region = "project", "region"
@@ -728,6 +826,48 @@ class TestEventLogProvenance(unittest.TestCase):
                                             digest, batch, output)
             self.assertEqual(result['application_id'], 'app-original')
             self.assertEqual(result['dataproc_cohort_id'], cohort)
+
+    def test_undecodable_foreign_zstd_log_does_not_fail_original_evidence(self):
+        from ops.gcp.dp2_method2 import _get_event_metrics
+        args = FakeArgs(); args.data_bucket = 'bucket'; args.benchmark_id = BENCH
+        cohort = 'cohort-original'
+        batch = {
+            'state': 'SUCCEEDED', 'createTime': '2026-10-30T10:00:00Z',
+            'stateTime': '2026-10-30T10:20:00Z',
+            'name': f'projects/p/locations/r/batches/{SILVER_RUN}', 'uuid': cohort,
+            'labels': {'goog-dataproc-batch-uuid': cohort},
+            'runtimeInfo': {'cohortInfo': {'cohort': cohort}},
+        }
+        uris = [
+            'gs://bucket/spark-events/app-20261030100500123-0001.jsonl',
+            'gs://bucket/spark-events/app-20261030101000123-0002.zstd',
+        ]
+
+        def fake_run(*cmd, capture=False):
+            if cmd[:3] == ('gcloud', 'storage', 'ls'):
+                return '\n'.join(uris)
+            if cmd[:3] == ('gcloud', 'storage', 'cp'):
+                Path(cmd[-1]).write_bytes(b'not-a-zstd-frame')
+                return ''
+            raise AssertionError(cmd)
+
+        def fake_subprocess(command, **kwargs):
+            raise subprocess.CalledProcessError(1, command)
+
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'performance.json'
+            with patch('ops.gcp.dp2_method2._run', side_effect=fake_run), patch(
+                'ops.gcp.dp2_method2.subprocess.run', side_effect=fake_subprocess,
+            ), patch(
+                'ops.gcp.dp2_method2.summarize_event_logs',
+                return_value={'application_id': 'app-original'},
+            ) as summarize:
+                result = _get_event_metrics(args, 'silver', 'baseline', SILVER_RUN,
+                                            SILVER_RUN, 'sha256:' + 'a' * 64,
+                                            batch, output)
+            self.assertEqual(result['application_id'], 'app-original')
+            self.assertEqual(summarize.call_count, 1)
+            self.assertEqual(_json_file(output), result)
 
     def test_batch_cohort_identity_must_be_exact(self):
         run = SILVER_RUN
