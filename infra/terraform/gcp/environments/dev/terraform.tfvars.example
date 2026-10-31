@@ -1,0 +1,22 @@
+project_id = "ewallet-data-ai-platform-hg26"
+region     = "asia-southeast1"
+zone       = "asia-southeast1-b"
+
+# Add your own principal only when you need to submit a manual Dataproc smoke:
+# dataproc_submitter_members = ["user:your-email@example.com"]
+dataproc_submitter_members = []
+
+# Cost gates: keep false for the first foundation apply.
+enable_gke        = false
+enable_jenkins_vm = false
+
+gke_deletion_protection     = true
+jenkins_deletion_protection = true
+
+gke_machine_type     = "e2-standard-4"
+gke_min_nodes        = 0
+gke_max_nodes        = 3
+jenkins_machine_type = "e2-standard-2"
+
+# Required before enable_gke=true; use the operator's current public IP as /32.
+gke_master_authorized_cidrs = []

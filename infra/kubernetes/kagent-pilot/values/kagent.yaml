@@ -1,0 +1,97 @@
+rbac:
+  namespaces:
+    - kagent
+
+controller:
+  replicas: 1
+  watchNamespaces:
+    - kagent
+  auth:
+    mode: unsecure
+  metrics:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 750m
+      memory: 512Mi
+  substrate:
+    enabled: true
+    ateApiEndpoint: dns:///api.ate-system.svc:443
+    atenetRouterURL: http://atenet-router.ate-system.svc:80
+    ateApiInsecure: false
+    ateApiTokenAudience: api.ate-system.svc
+    ateApiServer:
+      namespace: ate-system
+      serviceAccount: ate-api-server
+    defaultWorkerPool:
+      namespace: kagent
+      name: kagent-pilot
+
+database:
+  postgres:
+    bundled:
+      enabled: true
+      storage: 256Mi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 384Mi
+
+substrateWorkerPool:
+  create: true
+  name: kagent-pilot
+  replicas: 1
+  ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9
+  sandboxClass: gvisor
+  template:
+    serviceAccountName: kagent-pilot-worker
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1500m
+        memory: 2Gi
+
+ui:
+  replicas: 0
+
+# The pilot supplies exactly one explicit ModelConfig after the controller starts.
+providers: null
+
+substrate:
+  enabled: false
+kmcp:
+  enabled: false
+kagent-tools:
+  enabled: false
+grafana-mcp:
+  enabled: false
+k8s-agent:
+  enabled: false
+kgateway-agent:
+  enabled: false
+istio-agent:
+  enabled: false
+promql-agent:
+  enabled: false
+observability-agent:
+  enabled: false
+argo-rollouts-agent:
+  enabled: false
+helm-agent:
+  enabled: false
+cilium-policy-agent:
+  enabled: false
+cilium-manager-agent:
+  enabled: false
+cilium-debug-agent:
+  enabled: false
+oauth2-proxy:
+  enabled: false

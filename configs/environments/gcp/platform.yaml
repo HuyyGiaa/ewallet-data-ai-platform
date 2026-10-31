@@ -1,0 +1,27 @@
+environment: gcp
+project_id: ${GCP_PROJECT_ID}
+region: ${GCP_REGION:-asia-southeast1}
+
+storage:
+  scheme: gs
+  source_root: gs://${EWALLET_DATA_BUCKET}/source
+  bronze_root: gs://${EWALLET_DATA_BUCKET}/lakehouse/bronze
+  silver_root: gs://${EWALLET_DATA_BUCKET}/lakehouse/silver
+  gold_root: gs://${EWALLET_DATA_BUCKET}/lakehouse/gold
+  feast_root: gs://${EWALLET_DATA_BUCKET}/features/offline
+  options: {}
+
+spark:
+  master: null
+  shuffle_partitions: 400
+  event_log_uri: gs://${EWALLET_DATA_BUCKET}/spark-events
+  packages: []
+  configurations:
+    spark.sql.session.timeZone: UTC
+    spark.eventLog.enabled: "true"
+    spark.ui.enabled: "true"
+
+services:
+  datahub_gms_url: ${DATAHUB_GMS_URL}
+  trino_host: null
+  trino_port: null

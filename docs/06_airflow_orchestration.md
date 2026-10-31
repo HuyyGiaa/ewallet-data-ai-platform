@@ -1,96 +1,40 @@
-# Airflow Orchestration
+# Airflow cloud data orchestration
 
-## Goal
+Airflow 3.3.1 exposes three manually triggered DAGs. Spark transformations run
+in Dataproc Serverless; the scheduler only performs preflight checks, invokes
+the bounded submitters, and verifies immutable Delta outputs.
 
-Orchestrate the offline E-wallet pipeline instead of manually executing
-DP1, DP2, DP3 and validation scripts.
+| DAG | Responsibility | Output |
+|---|---|---|
+| `dp1_source_to_bronze` | Verify the source manifest, submit source-to-Bronze, verify eight Delta tables | Run-scoped Bronze root |
+| `dp2_bronze_to_curated` | Verify Bronze, submit Silver and core Gold, verify 8 + 11 Delta tables | Separate Silver and core Gold roots |
+| `dp3_historical_features` | Verify Silver and core Gold, submit four PIT feature tables, verify exact output | Feature Gold root |
 
-Airflow is responsible for task dependencies, retries, scheduling,
-execution status and logs. The transformation logic remains inside
-the existing Bronze, Silver and Gold pipeline scripts.
+All DAGs use `schedule=None`, `catchup=False`, and `max_active_runs=1`.
+Submission tasks have no automatic retry because output paths are immutable.
+Read-only validation tasks may retry once. Dataset version and every source and
+output run ID are explicit DAG parameters.
 
-## Pipeline
+`dataproc_ttl` is also explicit. It defaults to `2h` for bounded runs; the
+canonical runbook uses `8h`. Submit tasks allow up to ten hours so Airflow does
+not terminate the blocking `gcloud` process before the canonical batch TTL.
 
-```text
-bronze_ingestion
-        ↓
-validate_bronze
-        ↓
-silver_transformation
-        ↓
-validate_silver
-        ↓
-gold_transformation
-        ↓
-validate_gold
-```
+The former local daily `ewallet_batch_pipeline` DAG was removed. It embedded
+developer-specific local Python paths and combined Silver, core Gold, and
+historical features into one lifecycle.
 
-Each downstream task runs only when the previous task succeeds.
+## Bounded verification
 
-The DAG ends at Gold validation. Trino registration and DataHub metadata,
-lineage, and assertion publication remain explicit post-pipeline operations.
+The bounded replay used the already verified Dataproc outputs:
 
-## Configuration
+- Bronze: `r4-bronze-20261022-095608`
+- Silver: `s1b-silver-configfix-20261022-174352`
+- Core Gold: `s1b-gold-20261022-180212`
+- Feature Gold: `s1b-features-20261022-181849`
 
-- Airflow version: 3.3.1
-- Executor: LocalExecutor
-- Schedule: daily
-- Catchup: disabled
-- Retries: 2
-- Retry delay: 2 minutes
-- Airflow UI port: 8080
+Each DAG recorded a successful local Airflow DagRun. Submission tasks were
+marked successful during replay to avoid rerunning paid workloads; all source
+and Delta validation tasks executed against GCS and passed. The submitters had
+already run the corresponding Dataproc batches successfully before replay.
 
-DataHub GMS owns host port `8080` in the combined local environment. Airflow
-must be assigned a different host port before its UI can run alongside
-DataHub. This document records the current Airflow default; the Airflow runtime
-port change remains a separate follow-up.
-
-- `project_root` and `fintech_python` are stored as Airflow Variables
-
-## Quality Gates
-
-Validation tasks are placed between data layers.
-
-For example:
-
-```text
-silver_transformation
-        ↓
-validate_silver
-        ↓
-gold_transformation
-```
-
-If `validate_silver` fails, `gold_transformation` is not executed.
-This prevents invalid data from propagating to the next layer.
-
-## Retry and Failure Handling
-
-During integration testing, `bronze_ingestion` failed because the
-offline source path was incorrect.
-
-Airflow automatically retried the task according to the retry policy,
-while downstream tasks remained blocked.
-
-This verified that task dependency and retry handling worked correctly.
-
-## Final Run
-
-The final DAG was executed on the dataset generated from 500,000 users.
-
-Dataset scale:
-
-- Users: 500,000
-- Accounts: 500,000
-- Devices: 500,000
-- Bronze transactions: 4,080,000
-- Balance snapshots: 3,895,224
-- Login events: 3,997,362
-
-All six tasks completed successfully.
-
-Total DAG runtime was approximately **18 minutes 08 seconds**.
-
-## Evidence
-
-![Successful Airflow batch DAG](evidence/airflow/01_batch_dag_graph.png)
+Machine-readable evidence: [bounded Airflow verification](evidence/cloud/s1b_airflow_bounded_verification.json).

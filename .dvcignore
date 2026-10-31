@@ -1,0 +1,2 @@
+# DVC ignore file. Training data remains in immutable GCS; only the small
+# training-snapshot revision descriptor is tracked by DVC.

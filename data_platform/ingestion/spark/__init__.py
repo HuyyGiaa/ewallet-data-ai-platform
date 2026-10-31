@@ -1,0 +1,1 @@
+"""Cloud Spark ingestion entrypoints."""

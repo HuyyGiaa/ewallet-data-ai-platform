@@ -1,0 +1,12 @@
+# agentgateway --validate-only, image ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+a2a-callers: Configuration is valid!
+a2a-deny-all: Configuration is valid!
+llm-llmd: Configuration is valid!
+llm: Configuration is valid!
+mcp-callers: Configuration is valid!
+mcp-deny-all: Configuration is valid!
+negative-control: Error: gateways.default: unknown field `bogusField` at line 3 column 5
+# otelcol-contrib validate, image docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6
+collector-debug: valid
+collector-traces: valid
+overall: PASS

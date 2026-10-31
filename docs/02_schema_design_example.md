@@ -106,6 +106,14 @@ Feature:
 
 \- feat\_user\_90d
 
+\- feat\_user\_behavior
+
+\- feat\_account\_behavior
+
+\- feat\_device\_behavior
+
+\- feat\_merchant\_behavior
+
 Analytical:
 
 \- opt\_merchant\_performance
@@ -114,7 +122,7 @@ Analytical:
 
 **### 1.4 Input Data Profile**
 
-The offline source contains seven datasets:
+The canonical offline source contains eight logical datasets:
 
 \| Dataset | Main Key | Main Timestamp | Purpose |
 
@@ -134,6 +142,8 @@ The offline source contains seven datasets:
 
 \| login\_events | login\_id | login\_ts | Authentication events |
 
+\| fraud\_labels | transaction\_id | - | Synthetic fraud ground truth |
+
 Final offline volume:
 
 \| Dataset | Rows |
@@ -142,17 +152,19 @@ Final offline volume:
 
 \| users | 500,000 |
 
-\| accounts | 500,000 |
+\| accounts | 674,383 |
 
 \| merchants | 300 |
 
-\| devices | 500,000 |
+\| devices | 572,632 |
 
 \| transactions (Bronze) | 4,080,000 |
 
-\| balance\_snapshots | 3,895,224 |
+\| balance\_snapshots | 3,893,408 |
 
-\| login\_events | 3,997,362 |
+\| login\_events | 3,999,990 |
+
+\| fraud\_labels | 4,000,000 |
 
 Known data characteristics/problems:
 
@@ -739,6 +751,18 @@ Feature:
 \- failed transaction rate is between 0 and 1
 
 \- event\_timestamp and created\_timestamp are present
+
+Historical fraud features:
+
+\- entity key + event\_timestamp is unique
+
+\- windows use `[T-window, T)` and same-timestamp peers share one snapshot
+
+\- counts, sums, observation counts, and standard deviations are non-negative
+
+\- nested-window counts are monotonic
+
+\- non-null failed rates are between 0 and 1
 
 OBT:
 

@@ -1,0 +1,166 @@
+{{- if .Values.agents.enabled }}
+{{- $a := .Values.agents }}
+{{- $ns := .Values.namespace.name }}
+{{- if not .Values.modelConfig.enabled }}
+{{- fail "agents.enabled needs modelConfig.enabled (agents use the global ModelConfig)" }}
+{{- end }}
+{{- if not (regexMatch "^gs://[a-z0-9][-a-z0-9_.]{1,61}[a-z0-9]/.+/$" $a.snapshotsLocation) }}
+{{- fail "agents.snapshotsLocation must be gs://<bucket>/<prefix>/" }}
+{{- end }}
+{{- $manifest := .Files.Get "prompts/manifest.json" | fromJson }}
+{{- $all := dict }}
+{{- range $name, $spec := $a.specialists }}{{ $_ := set $all $name $spec }}{{ end }}
+{{- $_ := set $all $a.coordinator.name $a.coordinator }}
+{{- range $name := keys $all | sortAlpha }}
+{{- $spec := index $all $name }}
+{{- $key := printf "%s/%s" $name $spec.promptVersion }}
+{{- $prompt := index $manifest.prompts $key }}
+{{- if not $prompt }}
+{{- fail (printf "agent %s: prompt %s is not in prompts/manifest.json" $name $key) }}
+{{- end }}
+{{- $text := $.Files.Get (printf "prompts/%s" $prompt.path) }}
+{{- if ne (sha256sum $text) $prompt.sha256 }}
+{{- fail (printf "agent %s: prompt %s does not match its manifest sha256 (bump the version)" $name $key) }}
+{{- end }}
+---
+# Versioned system prompt; the name changes with the version, so a rollout
+# never edits a prompt in place.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-prompt-{{ $spec.promptVersion }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    ewallet.io/agent: {{ $name }}
+    ewallet.io/prompt-version: {{ $spec.promptVersion }}
+  annotations:
+    ewallet.io/prompt-sha256: {{ $prompt.sha256 }}
+    ewallet.io/langfuse-prompt: {{ $prompt.langfuse_name }}
+data:
+  system.md: {{ $text | quote }}
+---
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    kagent.dev/worker-pool: {{ $name }}
+spec:
+  replicas: {{ $a.workerPool.replicas }}
+  ateomImage: {{ $a.workerPool.ateomImage | quote }}
+  sandboxClass: {{ $a.workerPool.sandboxClass | quote }}
+  template:
+    resources:
+      {{- toYaml $a.workerPool.resources | nindent 6 }}
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    ewallet.io/agent: {{ $name }}
+    ewallet.io/prompt-version: {{ $spec.promptVersion }}
+  annotations:
+    ewallet.io/display-name: {{ $spec.displayName | quote }}
+    ewallet.io/rubric-rows: {{ $spec.rubricRows | quote }}
+    ewallet.io/prompt-sha256: {{ $prompt.sha256 }}
+spec:
+  description: {{ $spec.displayName | quote }}
+  version: {{ $spec.version | quote }}
+  type: Declarative
+  declarative:
+    runtime: {{ $a.runtime }}
+    modelConfig: {{ $.Values.modelConfig.name }}
+    systemMessageFrom:
+      type: ConfigMap
+      name: {{ $name }}-prompt-{{ $spec.promptVersion }}
+      key: system.md
+    stream: false
+    executeCodeBlocks: false
+    {{- if eq $name $a.coordinator.name }}
+    a2aConfig:
+      skills:
+        - id: investigate-transaction
+          name: Investigate a transaction
+          description: Grounded fraud investigation with model score, features, drift and policy citations.
+          inputModes: [text]
+          outputModes: [text]
+          tags: [fraud, investigation]
+    tools:
+      {{- range $delegate := $spec.delegates }}
+      {{- if not (hasKey $a.specialists $delegate) }}
+      {{- fail (printf "coordinator delegate %s is not a declared specialist" $delegate) }}
+      {{- end }}
+      - type: Agent
+        agent:
+          name: {{ $delegate }}
+      {{- end }}
+    {{- else }}
+    tools:
+      {{- range $server := keys $spec.tools | sortAlpha }}
+      {{- $granted := index $spec.tools $server }}
+      {{- $offered := (index $a.mcpServers $server).tools }}
+      {{- range $tool := $granted }}
+      {{- if not (has $tool $offered) }}
+      {{- fail (printf "agent %s: tool %s is not served by %s" $name $tool $server) }}
+      {{- end }}
+      {{- end }}
+      - type: McpServer
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: {{ $server }}
+          toolNames: {{ toJson $granted }}
+          requireApproval: []
+      {{- end }}
+    {{- end }}
+    deployment:
+      replicas: 1
+      resources:
+        {{- toYaml $a.resources | nindent 8 }}
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: {drop: [ALL]}
+  substrate:
+    workerPoolRef:
+      apiGroup: ate.dev
+      kind: WorkerPool
+      name: {{ $name }}
+    snapshotsConfig:
+      location: {{ printf "%s%s/" $a.snapshotsLocation $name | quote }}
+  sandbox:
+    network:
+      allowedDomains:
+        - {{ $a.allowedDomains.llm }}
+        {{- if eq $name $a.coordinator.name }}
+        - {{ $a.allowedDomains.a2a }}
+        {{- else }}
+        - {{ $a.allowedDomains.mcp }}
+        {{- end }}
+{{- end }}
+{{- range $server := keys $a.mcpServers | sortAlpha }}
+---
+# Agents reach MCP tools only through the policy-only MCP Gateway.
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: {{ $server }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  description: {{ printf "%s via the MCP Gateway" $server | quote }}
+  url: {{ printf "%s%s" $a.mcpGatewayUrl (index $a.mcpServers $server).path | quote }}
+  protocol: STREAMABLE_HTTP
+  timeout: {{ $a.mcpTimeout }}
+  terminateOnClose: true
+{{- end }}
+{{- end }}

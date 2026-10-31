@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: ml-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mlflow
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mlflow
+    spec:
+      serviceAccountName: training
+      containers:
+        - name: mlflow
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mlflow:v3.17.1-gcs-postgres-1
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              exec mlflow server
+              --host=0.0.0.0
+              --port=5000
+              --workers=1
+              --backend-store-uri="$MLFLOW_BACKEND_STORE_URI"
+              --artifacts-destination="$MLFLOW_ARTIFACTS_DESTINATION"
+              --serve-artifacts
+          env:
+            - name: MLFLOW_BACKEND_STORE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mlflow-backend-store
+                  key: uri
+            - name: MLFLOW_ARTIFACTS_DESTINATION
+              valueFrom:
+                configMapKeyRef:
+                  name: mlflow-runtime
+                  key: artifactsDestination
+          ports:
+            - name: http
+              containerPort: 5000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi

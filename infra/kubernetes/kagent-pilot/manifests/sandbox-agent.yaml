@@ -1,0 +1,45 @@
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: pilot-sandbox-agent
+  namespace: kagent
+spec:
+  description: Minimal bounded SandboxAgent connectivity pilot
+  version: "0.1.0"
+  type: Declarative
+  declarative:
+    runtime: go
+    modelConfig: pilot-mock-openai
+    systemMessage: Return the model response exactly. Do not call tools or external services.
+    stream: false
+    executeCodeBlocks: false
+    tools: []
+    deployment:
+      replicas: 1
+      serviceAccountName: pilot-sandbox-agent
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+  substrate:
+    workerPoolRef:
+      apiGroup: ate.dev
+      kind: WorkerPool
+      name: kagent-pilot
+    snapshotsConfig:
+      location: gs://ate-snapshots/kagent/pilot-sandbox-agent/
+  sandbox:
+    network:
+      allowedDomains:
+        - mock-openai.kagent.svc.cluster.local

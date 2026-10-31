@@ -1,18 +1,29 @@
 # Data Contracts
 
-This directory contains versioned contracts for four high-value datasets on
-the main transaction path:
+This directory contains versioned contracts for nine high-value datasets on
+the transaction and fraud-label paths:
 
 - `silver.transactions`
+- `silver.fraud_labels`
 - `gold.fact_transactions`
 - `gold.obt_transaction_enriched`
 - `gold.feat_user_90d`
+- `gold.feat_user_behavior`
+- `gold.feat_account_behavior`
+- `gold.feat_device_behavior`
+- `gold.feat_merchant_behavior`
 
 The YAML files describe stable dataset interfaces: schema, grain, logical
 keys, required and optional fields, verified relationships, and quality
 rules. They are declarative specifications. The executable enforcement
 remains in `data_platform.quality.validate_silver` and
 `data_platform.quality.validate_gold`.
+
+The fraud-label contract is part of the canonical Phase 2 lakehouse. Static
+YAML validation always includes it, while persisted-data enforcement runs with
+`validate_silver --include-fraud-labels`. The default validator remains as a
+Phase 1 compatibility mode; canonical validation treats a missing fraud-label
+dataset as an error.
 
 The `nullable` values are logical contract expectations. The current Delta
 schemas expose permissive `nullable=true` metadata for every field, so the

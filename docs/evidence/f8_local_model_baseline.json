@@ -1,0 +1,171 @@
+{
+  "active_model": {
+    "configuration": {
+      "estimator": "random_forest",
+      "name": "random_forest_full",
+      "params": {
+        "max_depth": 12,
+        "min_samples_leaf": 2,
+        "n_estimators": 200,
+        "n_jobs": 1
+      },
+      "strategy": "full"
+    },
+    "count": 1,
+    "historical_comparison_evidence": "docs/evidence/f8_multi_model_experiment.json",
+    "historical_pca_tree_evidence": "docs/evidence/f8_pca_tree_experiment.json",
+    "name": "random_forest_full",
+    "selection_basis": "highest validation PR-AUC in the historical six-pipeline experiment"
+  },
+  "artifact": {
+    "atomic_publication": true,
+    "directory": "ai_platform/ml/artifacts/f8_local_baseline",
+    "files": [
+      "feature_summary.json",
+      "model.joblib",
+      "run_manifest.json",
+      "test_report.json",
+      "validation_report.json"
+    ],
+    "model_reload_metric_parity": true,
+    "total_bytes": 5654339,
+    "tracked": false
+  },
+  "checks": {
+    "active_model_count": 1,
+    "artifact_json_parse": "PASS",
+    "f7_training_regression": "10/10 PASS",
+    "feast_pit_regression": "8/8 PASS",
+    "fraud_generator_and_label_regression": "25/25 PASS",
+    "historical_gold_feature_regression": "6/6 PASS",
+    "model_reload_metric_parity": "PASS",
+    "modeling_tests": "20/20 PASS",
+    "python_compile": "PASS",
+    "retired_model_implementations_in_active_source": 0,
+    "yaml_parse": "PASS"
+  },
+  "dataset": {
+    "feature_contract": {
+      "model_features": 41,
+      "transformed_features": 68
+    },
+    "input_manifest_sha256": "c36fc8b64b21e4b48be44beb2fd4dd2ff9ae272b81cd90e6b429a6b7d3650c83",
+    "splits": {
+      "test": {
+        "fraud": 132,
+        "fraud_rate": 0.022132796780684104,
+        "rows": 5964
+      },
+      "train": {
+        "fraud": 533,
+        "fraud_rate": 0.019050001787054578,
+        "rows": 27979
+      },
+      "validation": {
+        "fraud": 141,
+        "fraud_rate": 0.022723609991941982,
+        "rows": 6205
+      }
+    }
+  },
+  "deferred": {
+    "kubeflow": "NOT STARTED",
+    "kubernetes": "NOT STARTED",
+    "mlflow": "NOT STARTED",
+    "online_feast": "NOT STARTED",
+    "serving": "NOT STARTED"
+  },
+  "dependencies": {
+    "PyYAML": "6.0.3",
+    "pandas": "2.3.3",
+    "pyarrow": "25.0.1",
+    "python": "3.10.20",
+    "scikit-learn": "1.7.2"
+  },
+  "name": "F8 active Random Forest fraud baseline",
+  "resource_measurement": {
+    "artifact_bytes": 5654339,
+    "fit_seconds": 5.321773971998482,
+    "free_disk_after": "10 GiB",
+    "internal_pipeline_seconds": 5.707564375001311,
+    "peak_rss_kib": 467432,
+    "swap_used": "0 B",
+    "wall_seconds": 6.51
+  },
+  "status": "PASS",
+  "test": {
+    "metrics": {
+      "confusion_matrix": [
+        [
+          5821,
+          11
+        ],
+        [
+          44,
+          88
+        ]
+      ],
+      "f1": 0.7619047619047619,
+      "pr_auc": 0.7601622591231681,
+      "precision": 0.8888888888888888,
+      "recall": 0.6666666666666666,
+      "roc_auc": 0.9452706073076445
+    },
+    "model": "random_forest_full",
+    "predict_seconds": 0.06457291300102952,
+    "rows": 5964,
+    "scenarios": {
+      "account_takeover": {
+        "detected": 14,
+        "recall": 0.3783783783783784,
+        "support": 37
+      },
+      "amount_anomaly": {
+        "detected": 31,
+        "recall": 0.9393939393939394,
+        "support": 33
+      },
+      "merchant_burst": {
+        "detected": 14,
+        "recall": 0.5,
+        "support": 28
+      },
+      "normal": {
+        "false_positive_rate": 0.0018861454046639231,
+        "false_positives": 11,
+        "support": 5832
+      },
+      "velocity": {
+        "detected": 29,
+        "recall": 0.8529411764705882,
+        "support": 34
+      }
+    },
+    "threshold": 0.6194620499907534
+  },
+  "timestamp_utc": "2026-10-16T11:49:19.406220+00:00",
+  "validation": {
+    "fit_seconds": 5.321773971998482,
+    "metrics": {
+      "confusion_matrix": [
+        [
+          6056,
+          8
+        ],
+        [
+          47,
+          94
+        ]
+      ],
+      "f1": 0.7736625514403292,
+      "pr_auc": 0.7590286889471779,
+      "precision": 0.9215686274509803,
+      "recall": 0.6666666666666666,
+      "roc_auc": 0.9406320758247722
+    },
+    "model": "random_forest_full",
+    "predict_seconds": 0.0686159230008343,
+    "rows": 6205,
+    "threshold": 0.6194620499907534
+  }
+}

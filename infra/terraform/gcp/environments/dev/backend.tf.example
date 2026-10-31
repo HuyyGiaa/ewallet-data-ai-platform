@@ -1,0 +1,6 @@
+# Backend values are supplied during init so no machine-specific path or secret
+# is tracked. Run this only after applying ../bootstrap.
+#
+# terraform init \
+#   -backend-config="bucket=ewallet-data-ai-platform-hg26-tfstate" \
+#   -backend-config="prefix=terraform/dev"

@@ -1,3 +1,12 @@
+import argparse
+import sys
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
@@ -6,6 +15,31 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import DatasetUrn
+
+from data_platform.config import RuntimeConfig, load_runtime_config
+from data_platform.storage.scripts.config import (
+    BRONZE_SCHEMA,
+    GOLD_SCHEMA,
+    SILVER_SCHEMA,
+)
+from data_platform.storage.scripts.trino_client import (
+    check_trino_connection,
+    list_schema_tables,
+    trino_cursor,
+)
+
+
+FRAUD_LINEAGE_TABLES = {
+    BRONZE_SCHEMA: "fraud_labels",
+    SILVER_SCHEMA: "fraud_labels",
+}
+
+FEATURE_LINEAGE_TABLES = {
+    "feat_user_behavior",
+    "feat_account_behavior",
+    "feat_device_behavior",
+    "feat_merchant_behavior",
+}
 
 
 def dataset(name: str) -> DatasetUrn:
@@ -16,7 +50,7 @@ def dataset(name: str) -> DatasetUrn:
     )
 
 
-lineage = {
+BASE_LINEAGE = {
     dataset("delta.silver_zone.transactions"): [
         dataset("delta.bronze_zone.transactions"),
     ],
@@ -35,11 +69,81 @@ lineage = {
         dataset("delta.gold_zone.fact_transactions"),
         dataset("delta.gold_zone.dim_user"),
     ],
+    dataset("delta.gold_zone.feat_user_behavior"): [
+        dataset("delta.silver_zone.transactions"),
+    ],
+    dataset("delta.gold_zone.feat_account_behavior"): [
+        dataset("delta.silver_zone.transactions"),
+    ],
+    dataset("delta.gold_zone.feat_device_behavior"): [
+        dataset("delta.silver_zone.transactions"),
+        dataset("delta.silver_zone.devices"),
+    ],
+    dataset("delta.gold_zone.feat_merchant_behavior"): [
+        dataset("delta.silver_zone.transactions"),
+    ],
 }
 
 
-def publish_lineage(emitter: DatahubRestEmitter) -> None:
-    for downstream, upstreams in lineage.items():
+def get_lineage(include_fraud_labels: bool = False):
+    lineage_mapping = {
+        downstream: list(upstreams)
+        for downstream, upstreams in BASE_LINEAGE.items()
+    }
+    if include_fraud_labels:
+        lineage_mapping[dataset("delta.silver_zone.fraud_labels")] = [
+            dataset("delta.bronze_zone.fraud_labels"),
+        ]
+    return lineage_mapping
+
+
+# Backward-compatible legacy definition for imports and reconciliation checks.
+lineage = BASE_LINEAGE
+
+
+def validate_fraud_table_inventory(
+    tables_by_schema: dict[str, set[str]],
+) -> None:
+    missing = [
+        f"{schema}.{table}"
+        for schema, table in FRAUD_LINEAGE_TABLES.items()
+        if table not in tables_by_schema.get(schema, set())
+    ]
+    if missing:
+        raise RuntimeError(
+            "Fraud lineage requires registered Trino tables: "
+            + ", ".join(missing)
+        )
+
+
+def verify_fraud_tables_registered(runtime_config: RuntimeConfig) -> None:
+    """Fail before DataHub publication when fraud tables are not canonical."""
+    with trino_cursor(runtime_config) as cursor:
+        check_trino_connection(cursor)
+        tables_by_schema = {
+            schema: list_schema_tables(cursor, schema)
+            for schema in FRAUD_LINEAGE_TABLES
+        }
+    validate_fraud_table_inventory(tables_by_schema)
+
+
+def verify_feature_tables_registered(runtime_config: RuntimeConfig) -> None:
+    with trino_cursor(runtime_config) as cursor:
+        check_trino_connection(cursor)
+        registered = list_schema_tables(cursor, GOLD_SCHEMA)
+    missing = sorted(FEATURE_LINEAGE_TABLES - registered)
+    if missing:
+        raise RuntimeError(
+            "Feature lineage requires registered Trino tables: "
+            + ", ".join(f"{GOLD_SCHEMA}.{table}" for table in missing)
+        )
+
+
+def publish_lineage(emitter: DatahubRestEmitter, lineage_mapping=None) -> None:
+    if lineage_mapping is None:
+        lineage_mapping = BASE_LINEAGE
+
+    for downstream, upstreams in lineage_mapping.items():
         emitter.emit_mcp(
             MetadataChangeProposalWrapper(
                 entityUrn=str(downstream),
@@ -61,9 +165,46 @@ def publish_lineage(emitter: DatahubRestEmitter) -> None:
     print("Lineage created successfully.")
 
 
-def main() -> None:
-    emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-    publish_lineage(emitter)
+def create_emitter(runtime_config: RuntimeConfig) -> DatahubRestEmitter:
+    """Create a publisher against the GMS endpoint selected by the profile."""
+    return DatahubRestEmitter(
+        gms_server=runtime_config.services.datahub_gms_url
+    )
+
+
+def should_verify_trino(runtime_config: RuntimeConfig) -> bool:
+    """Return whether this profile exposes Trino for pre-publication checks."""
+    return runtime_config.services.trino_host is not None
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Publish selected DataHub lineage.")
+    parser.add_argument(
+        "--environment",
+        choices=("local", "dev", "gcp"),
+        default="local",
+        help="Runtime profile providing DataHub and optional Trino endpoints.",
+    )
+    parser.add_argument(
+        "--include-fraud-labels",
+        action="store_true",
+        help=(
+            "Include bronze.fraud_labels -> silver.fraud_labels after both "
+            "datasets exist in canonical DataHub metadata."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    config = load_runtime_config(args.environment)
+    if should_verify_trino(config):
+        verify_feature_tables_registered(config)
+        if args.include_fraud_labels:
+            verify_fraud_tables_registered(config)
+    emitter = create_emitter(config)
+    publish_lineage(emitter, get_lineage(args.include_fraud_labels))
 
 
 if __name__ == "__main__":

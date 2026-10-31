@@ -1,0 +1,114 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - github.com/kubeflow/pipelines/manifests/kustomize/env/dev?ref=2.17.3
+
+images:
+  - name: ghcr.io/kubeflow/kfp-api-server
+    digest: sha256:1e03770233cadc146df0b83a82603b93f32fc3b57bd6dcb29375e2e8d28eb605
+  - name: ghcr.io/kubeflow/kfp-cache-deployer
+    digest: sha256:97784329a5af2274097d13095ddc71f8e0c72ccad76fc4e67d40a06eb14417e7
+  - name: ghcr.io/kubeflow/kfp-cache-server
+    digest: sha256:09f16342f896b05714933661fb65bf49b4faa5f07f2414002f1e015bc8a608e0
+  - name: ghcr.io/kubeflow/kfp-frontend
+    digest: sha256:06d5481f404f89647ac5ee958f6665446014fdd78e6c1b195a1687ff1badf1d8
+  - name: ghcr.io/kubeflow/kfp-metadata-envoy
+    digest: sha256:5cc007cfa3ec2f3f9442430a66d4e65239760cae2ff66dfe576e1b2f685e0cfb
+  - name: ghcr.io/kubeflow/kfp-metadata-writer
+    digest: sha256:fbcf3704239ee92135a7f7c82ba177c65977ab1da7044b4cc02b6de5ace698bb
+  - name: ghcr.io/kubeflow/kfp-persistence-agent
+    digest: sha256:c0b417e60009d058c2d342ab33424e10cf57121d9b771cca9c09dda32475c03e
+  - name: ghcr.io/kubeflow/kfp-scheduled-workflow-controller
+    digest: sha256:e2e5b80707955f3295e8a24c340c838f81398b988a9d73318918bea5ffdde7d8
+  - name: ghcr.io/kubeflow/kfp-viewer-crd-controller
+    digest: sha256:2b6e0e92b99f709c11a484fbf4163fc519003d22c4f9d040f3fba862f5b69780
+  - name: ghcr.io/kubeflow/kfp-visualization-server
+    digest: sha256:d143f368b428c92cccf2b33c4c1b0274f8b1a14cf04f25659fe0f091e96cef6f
+
+patches:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: ml-pipeline
+      namespace: kubeflow
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ml-pipeline
+        namespace: kubeflow
+      spec:
+        template:
+          spec:
+            containers:
+              - name: ml-pipeline-api-server
+                env:
+                  - name: V2_DRIVER_IMAGE
+                    value: ghcr.io/kubeflow/kfp-driver@sha256:4461e2f63739a80810405fdf76bd4727ea68561a54b51e4bbf869b12d7a8d163
+                  - name: V2_LAUNCHER_IMAGE
+                    value: ghcr.io/kubeflow/kfp-launcher@sha256:4f1c3cff2725413cbb903f623aed074c52e3c70c355501c87b29db044c83fcd2
+  - target:
+      version: v1
+      kind: ServiceAccount
+      name: proxy-agent-runner
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: proxy-agent-runner
+        namespace: kubeflow
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: Role
+      name: proxy-agent-runner
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: proxy-agent-runner
+        namespace: kubeflow
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: RoleBinding
+      name: proxy-agent-runner
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: proxy-agent-runner
+        namespace: kubeflow
+  - target:
+      version: v1
+      kind: ConfigMap
+      name: inverse-proxy-config
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: inverse-proxy-config
+        namespace: kubeflow
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: proxy-agent
+      namespace: kubeflow
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: proxy-agent
+        namespace: kubeflow

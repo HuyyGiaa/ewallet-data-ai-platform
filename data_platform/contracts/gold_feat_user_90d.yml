@@ -2,7 +2,8 @@ contract_version: 1
 dataset: gold.feat_user_90d
 layer: gold
 description: Offline user features calculated over the latest 90-day transaction window.
-storage_location: s3a://gold-zone/feat_user_90d
+storage_layer: gold
+storage_table: feat_user_90d
 grain: One row per user_id in gold.dim_user.
 logical_key:
   - user_id

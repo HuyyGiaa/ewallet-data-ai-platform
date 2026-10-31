@@ -114,3 +114,12 @@ def clean_login_events(df: DataFrame,) -> DataFrame:
             ),
         )
     )
+
+
+def clean_fraud_labels(df: DataFrame) -> DataFrame:
+    """Cast the ground-truth contract without repairing or deduplicating it."""
+    return df.select(
+        F.col("transaction_id").cast("string").alias("transaction_id"),
+        F.col("label").cast("integer").alias("label"),
+        F.col("fraud_type").cast("string").alias("fraud_type"),
+    )

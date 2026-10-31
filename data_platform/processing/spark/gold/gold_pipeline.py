@@ -2,9 +2,21 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
+from dataclasses import replace
+from pathlib import Path
+from functools import partial
 
+from pyspark import StorageLevel
+from pyspark.sql import functions as F
+from data_platform.config import (
+    RuntimeConfig,
+    load_runtime_config,
+    load_runtime_config_file,
+)
+from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import (
     create_spark_session,
 )
@@ -33,6 +45,7 @@ from data_platform.processing.spark.gold.delta_gold_io import (
 from data_platform.processing.spark.gold.obt_builder import (
     build_obt_transaction_enriched,
 )
+from data_platform.storage.scripts.config import CORE_GOLD_TABLES
 
 
 logging.basicConfig(
@@ -44,25 +57,63 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_gold_pipeline(optimized: bool = True,) -> None:
+def apply_run_scoped_storage(
+    config: RuntimeConfig,
+    *,
+    silver_root: str,
+    gold_root: str,
+) -> RuntimeConfig:
+    """Bind core Gold execution to immutable Silver and Gold run roots."""
+
+    if config.environment != "gcp" or config.storage.scheme != "gs":
+        raise ValueError("run-scoped Gold storage requires the gcp profile")
+    if not silver_root.startswith("gs://") or not gold_root.startswith("gs://"):
+        raise ValueError("Silver and Gold roots must use gs:// URIs")
+    if "/lakehouse/runs/" not in silver_root or not silver_root.endswith("/silver"):
+        raise ValueError("Silver root must be a run-scoped Silver path")
+    if "/lakehouse/runs/" not in gold_root or not gold_root.endswith("/gold"):
+        raise ValueError("Gold root must be a run-scoped Gold path")
+    return replace(
+        config,
+        storage=replace(
+            config.storage,
+            silver_root=silver_root,
+            gold_root=gold_root,
+        ),
+    )
+
+
+def run_gold_pipeline(
+    optimized: bool = True,
+    runtime_config: RuntimeConfig | None = None,
+) -> None:
     spark = None
+    persisted_dataframes = []
+    config = runtime_config or load_runtime_config()
+    persist_gold_table = partial(
+        process_gold_table,
+        storage=config.storage,
+    )
 
     try:
         spark = create_spark_session(
-            app_name="EWallet-DP3-Gold",
+            app_name="EWallet-DP2-Core-Gold",
+            stage="dp2-gold",
             optimized=optimized,
+            runtime_config=config,
         )
 
         logger.info(
             "========================================="
         )
         logger.info(
-            "DP3 SILVER -> GOLD"
+            "DP2 SILVER -> CORE GOLD"
         )
         logger.info(
             "Optimized mode: %s",
             optimized,
         )
+        logger.info("Environment: %s", config.environment)
         logger.info(
             "========================================="
         )
@@ -78,36 +129,43 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
         users_df = read_silver(
             spark,
             "users",
+            storage=config.storage,
         )
 
         accounts_df = read_silver(
             spark,
             "accounts",
+            storage=config.storage,
         )
 
         merchants_df = read_silver(
             spark,
             "merchants",
+            storage=config.storage,
         )
 
         devices_df = read_silver(
             spark,
             "devices",
+            storage=config.storage,
         )
 
         transactions_df = read_silver(
             spark,
             "transactions",
+            storage=config.storage,
         )
 
         balance_snapshots_df = read_silver(
             spark,
             "balance_snapshots",
+            storage=config.storage,
         )
 
         login_events_df = read_silver(
             spark,
             "login_events",
+            storage=config.storage,
         )
 
         logger.info(
@@ -116,7 +174,8 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
 
         dim_user_df = build_dim_user(
             users_df
-        )
+        ).persist(StorageLevel.DISK_ONLY)
+        persisted_dataframes.append(dim_user_df)
 
         dim_account_df = build_dim_account(
             accounts_df
@@ -124,7 +183,8 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
 
         dim_merchant_df = build_dim_merchant(
             merchants_df
-        )
+        ).persist(StorageLevel.DISK_ONLY)
+        persisted_dataframes.append(dim_merchant_df)
 
         dim_device_df = build_dim_device(
             devices_df
@@ -136,27 +196,27 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             balance_snapshots_df,
         )
 
-        process_gold_table(
+        persist_gold_table(
             "dim_user",
             dim_user_df,
         )
 
-        process_gold_table(
+        persist_gold_table(
             "dim_account",
             dim_account_df,
         )
 
-        process_gold_table(
+        persist_gold_table(
             "dim_merchant",
             dim_merchant_df,
         )
 
-        process_gold_table(
+        persist_gold_table(
             "dim_device",
             dim_device_df,
         )
 
-        process_gold_table(
+        persist_gold_table(
             "dim_date",
             dim_date_df,
         )
@@ -169,7 +229,8 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             build_fact_transactions(
                 transactions_df
             )
-        )
+        ).persist(StorageLevel.DISK_ONLY)
+        persisted_dataframes.append(fact_transactions_df)
 
         fact_login_events_df = (
             build_fact_login_events(
@@ -183,7 +244,7 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             )
         )
 
-        process_gold_table(
+        persist_gold_table(
             table_name="fact_transactions",
             dataframe=fact_transactions_df,
             partition_columns=[
@@ -191,7 +252,7 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             ],
         )
 
-        process_gold_table(
+        persist_gold_table(
             table_name="fact_login_events",
             dataframe=fact_login_events_df,
             partition_columns=[
@@ -199,7 +260,7 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             ],
         )
 
-        process_gold_table(
+        persist_gold_table(
             table_name="fact_balance_snapshot",
             dataframe=fact_balance_snapshot_df,
             partition_columns=[
@@ -222,7 +283,7 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             )
         )
 
-        process_gold_table(
+        persist_gold_table(
             table_name="obt_transaction_enriched",
             dataframe=obt_transaction_enriched_df,
             partition_columns=[
@@ -238,10 +299,13 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             build_feat_user_90d(
                 fact_transactions_df,
                 dim_user_df,
+                reference_timestamp=fact_transactions_df.agg(
+                    F.max("timestamp").alias("reference_timestamp")
+                ).first()["reference_timestamp"],
             )
         )
 
-        process_gold_table(
+        persist_gold_table(
             "feat_user_90d",
             feat_user_90d_df,
         )
@@ -257,7 +321,7 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             )
         )
 
-        process_gold_table(
+        persist_gold_table(
             "opt_merchant_performance",
             opt_merchant_performance_df,
         )
@@ -269,20 +333,22 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
 
         logger.info("")
         logger.info(
-            "DP3 Silver -> Gold completed successfully."
+            "DP2 Silver -> core Gold completed successfully."
         )
         logger.info(
-            "Total DP3 runtime: %.2f seconds",
+            "Total core Gold runtime: %.2f seconds",
             elapsed,
         )
 
     except Exception:
         logger.exception(
-            "DP3 Silver -> Gold failed."
+            "DP2 Silver -> core Gold failed."
         )
         raise
 
     finally:
+        for dataframe in reversed(persisted_dataframes):
+            dataframe.unpersist(blocking=False)
         if spark is not None:
             spark.stop()
             logger.info(
@@ -290,9 +356,16 @@ def run_gold_pipeline(optimized: bool = True,) -> None:
             )
 
 
-def parse_args():
+def parse_args(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
-        description="DP3 Silver -> Gold Pipeline"
+        description="DP2 Silver -> core Gold Pipeline"
+    )
+
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime storage and Spark profile (default: local).",
     )
 
     parser.add_argument(
@@ -308,17 +381,89 @@ def parse_args():
         ),
     )
 
-    return parser.parse_args()
+    parser.add_argument("--silver-root")
+    parser.add_argument("--gold-root")
+    parser.add_argument("--dataset-version")
+    parser.add_argument("--source-silver-run-id")
+    parser.add_argument("--run-id")
+    parser.add_argument("--project-id")
+    parser.add_argument("--region")
+    parser.add_argument("--data-bucket")
+    parser.add_argument("--runtime-config-file", type=Path)
+    parser.add_argument("--expected-table-count", type=int)
+    parser.add_argument("--benchmark-id")
+    parser.add_argument("--spark-profile", choices=("baseline", "optimized"))
+    parser.add_argument("--git-sha")
+
+    args = parser.parse_args(argv)
+    if len(
+        [value for value in (args.benchmark_id, args.spark_profile, args.git_sha) if value]
+    ) not in (0, 3):
+        parser.error("benchmark-id, spark-profile and git-sha must be supplied together")
+    if args.git_sha:
+        validate_git_sha(args.git_sha)
+    if args.spark_profile is not None and args.spark_profile != args.mode:
+        parser.error("spark-profile must equal mode")
+    cloud_values = (
+        args.silver_root,
+        args.gold_root,
+        args.dataset_version,
+        args.source_silver_run_id,
+        args.run_id,
+        args.project_id,
+        args.region,
+        args.data_bucket,
+        args.runtime_config_file,
+        args.expected_table_count,
+    )
+    if args.environment == "gcp" and any(value is not None for value in cloud_values):
+        if any(value is None for value in cloud_values):
+            parser.error("all cloud core Gold lineage and run-root arguments are required")
+    return args
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
 
     try:
+        environ = os.environ
+        if args.environment == "gcp" and args.project_id:
+            environ = {
+                **os.environ,
+                "GCP_PROJECT_ID": args.project_id,
+                "GCP_REGION": args.region,
+                "EWALLET_DATA_BUCKET": args.data_bucket,
+                "DATAHUB_GMS_URL": os.environ.get(
+                    "DATAHUB_GMS_URL", "http://datahub-gms.invalid:8080"
+                ),
+            }
+        if args.runtime_config_file is not None:
+            config = load_runtime_config_file(
+                args.runtime_config_file,
+                args.environment,
+                environ=environ,
+            )
+        else:
+            config = load_runtime_config(args.environment, environ=environ)
+        if args.silver_root and args.gold_root:
+            config = apply_run_scoped_storage(
+                config,
+                silver_root=args.silver_root,
+                gold_root=args.gold_root,
+            )
+        if (
+            args.expected_table_count is not None
+            and args.expected_table_count != len(CORE_GOLD_TABLES)
+        ):
+            raise ValueError(
+                f"expected {args.expected_table_count} core Gold tables, "
+                f"pipeline defines {len(CORE_GOLD_TABLES)}"
+            )
         run_gold_pipeline(
             optimized=(
                 args.mode == "optimized"
-            )
+            ),
+            runtime_config=config,
         )
         return 0
 

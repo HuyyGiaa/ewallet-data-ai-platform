@@ -1,0 +1,19 @@
+## ~/miniconda3/envs/ewallet-ml/bin/python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security tests.llm_agent.test_mcp_sdk_conformance (existing ewallet-ml env, no SDK)
+fastapi 0.159.1 starlette 1.7.0
+........................................{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.072, "error_code": "feature_backend_error", "event": "tool_call_completed", "request_id": "f883285d-ca89-47f4-970f-fd1b46812678", "status": "unavailable", "tool_name": "feature_lookup"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.095, "error_code": null, "event": "tool_call_completed", "request_id": "rest-1", "status": "ok", "tool_name": "fraud_scoring"}
+..{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.181, "error_code": null, "event": "tool_call_completed", "request_id": "2b99727b-22e8-44eb-97fb-683814e54b3e", "status": "ok", "tool_name": "knowledge_search"}
+..{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+..{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.198, "error_code": null, "event": "tool_call_completed", "request_id": "6f9fdb9d-872d-42c4-9335-9c65785e7460", "status": "ok", "tool_name": "knowledge_search"}
+.{"code": "authentication_unavailable", "event": "request_rejected", "path": "/mcp", "status": 503}
+....{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+.{"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+...{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.1, "error_code": "internal_error", "event": "tool_call_completed", "request_id": "247e73a7-f2a2-4556-8b63-fe85cc7d350c", "status": "error", "tool_name": "feature_lookup"}
+.{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+.ssss
+----------------------------------------------------------------------
+Ran 64 tests in 0.571s
+
+OK (skipped=4)

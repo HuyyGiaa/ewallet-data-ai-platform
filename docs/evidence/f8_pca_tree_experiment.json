@@ -1,0 +1,44 @@
+{
+  "dataset_input_manifest_sha256": "c36fc8b64b21e4b48be44beb2fd4dd2ff9ae272b81cd90e6b429a6b7d3650c83",
+  "dataset_rows": 40148,
+  "decision": "PCA tree variants were removed from the active F8 matrix because validation PR-AUC decreased for both estimators and Random Forest fit time increased.",
+  "experiments": [
+    {
+      "fit_seconds": 5.126952716999767,
+      "name": "random_forest_full",
+      "output_features": 68,
+      "representation": "full",
+      "validation_f1": 0.7736625514403292,
+      "validation_pr_auc": 0.7590286889471779
+    },
+    {
+      "fit_seconds": 15.046660235000672,
+      "name": "random_forest_pca",
+      "output_features": 28,
+      "representation": "pca",
+      "validation_f1": 0.6926070038910506,
+      "validation_pr_auc": 0.6950449209073548
+    },
+    {
+      "fit_seconds": 0.5516527070003576,
+      "name": "hist_gradient_boosting_full",
+      "output_features": 68,
+      "representation": "full",
+      "validation_f1": 0.7935222672064778,
+      "validation_pr_auc": 0.7342605077461001
+    },
+    {
+      "fit_seconds": 0.6901047080000353,
+      "name": "hist_gradient_boosting_pca",
+      "output_features": 28,
+      "representation": "pca",
+      "validation_f1": 0.7171314741035857,
+      "validation_pr_auc": 0.6978659532117685
+    }
+  ],
+  "measured_at_utc": "2026-10-16T08:05:03.792101+00:00",
+  "name": "F8 PCA tree representation experiment",
+  "pca_variance": 0.95,
+  "status": "RETIRED_FROM_ACTIVE_CONFIG",
+  "test_partition_used_for_retirement_decision": false
+}

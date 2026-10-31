@@ -1,0 +1,13 @@
+dataset_path: ai_platform/ml/data/fraud_training_v1/trainable_dataset
+output_path: ai_platform/ml/artifacts/f8_local_baseline
+seed: 42
+
+model:
+  name: random_forest_full
+  estimator: random_forest
+  strategy: full
+  params:
+    n_estimators: 200
+    max_depth: 12
+    min_samples_leaf: 2
+    n_jobs: 1

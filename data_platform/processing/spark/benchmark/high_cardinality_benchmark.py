@@ -17,15 +17,16 @@ from __future__ import annotations
 import argparse
 import logging
 import time
+from urllib.parse import urlsplit
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
 from data_platform.processing.spark.common.spark_session import create_spark_session
 
 
 # Config
-SILVER_TRANSACTIONS = "s3a://silver-zone/transactions"
 DEFAULT_RSD = 0.05
 
 
@@ -39,18 +40,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def redacted_uri(uri: str) -> str:
+    parsed = urlsplit(uri)
+    if parsed.scheme in {"gs", "s3a"}:
+        return f"{parsed.scheme}://<redacted>{parsed.path}"
+    return uri
+
+
 # Read data
-def read_transactions(spark) -> DataFrame:
+def read_transactions(
+    spark,
+    *,
+    storage: StorageConfig,
+) -> DataFrame:
     """
     Read only valid transaction_id values from Silver.
     """
 
-    logger.info("Reading transactions from %s", SILVER_TRANSACTIONS)
+    path = storage.table_uri("silver", "transactions")
+    logger.info("Reading transactions from %s", redacted_uri(path))
 
     return (
         spark.read
         .format("delta")
-        .load(SILVER_TRANSACTIONS)
+        .load(path)
         .select("transaction_id")
         .filter(F.col("transaction_id").isNotNull())
     )
@@ -213,14 +226,18 @@ def run_benchmark(
     mode: str,
     rsd: float,
     keep_ui: bool,
+    runtime_config: RuntimeConfig | None = None,
 ) -> None:
 
     spark = None
+    config = runtime_config or load_runtime_config()
 
     try:
         spark = create_spark_session(
             app_name=f"EWallet-High-Cardinality-{mode}",
+            stage="dp2-gold",
             optimized=False,
+            runtime_config=config,
         )
 
         # Keep exact and approximate experiments
@@ -234,9 +251,11 @@ def run_benchmark(
             spark,
             mode,
         )
+        logger.info("Environment: %s", config.environment)
 
         transactions_df = read_transactions(
-            spark
+            spark,
+            storage=config.storage,
         )
 
         if mode == "exact":
@@ -275,13 +294,20 @@ def run_benchmark(
             logger.info("SparkSession stopped.")
 
 # CLI
-def parse_args():
+def parse_args(argv: list[str] | None = None):
 
     parser = argparse.ArgumentParser(
         description=(
             "Benchmark exact vs approximate "
             "distinct counting on transaction_id."
         )
+    )
+
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime storage and Spark profile (default: local).",
     )
 
     parser.add_argument(
@@ -307,7 +333,7 @@ def parse_args():
         help="Keep Spark UI alive after the benchmark.",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not 0 < args.rsd < 1:
         parser.error("--rsd must be between 0 and 1.")
@@ -316,12 +342,17 @@ def parse_args():
 
 
 # Entry point
-if __name__ == "__main__":
-
-    args = parse_args()
-
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    config = load_runtime_config(args.environment)
     run_benchmark(
         mode=args.mode,
         rsd=args.rsd,
         keep_ui=args.keep_ui,
+        runtime_config=config,
     )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

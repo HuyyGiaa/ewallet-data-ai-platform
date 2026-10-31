@@ -1,0 +1,88 @@
+{
+  "status": "READY",
+  "scope": "canonical_100gb_cloud_data_readiness",
+  "canonical_100gb_executed": false,
+  "dataset_version": "canonical-100gb-v1",
+  "calibration": {
+    "target_bytes": 100000000000,
+    "accepted_byte_range": [95000000000, 105000000000],
+    "measured_shard_bytes": 27059611,
+    "measured_shard_runtime_seconds": 20.585,
+    "measured_peak_rss_bytes": 300478464,
+    "bytes_per_logical_transaction": 270.59611,
+    "derived_shard_count": 3696,
+    "derived_logical_transactions": 369600000,
+    "estimated_total_bytes": 100012322256,
+    "disk_safety_pass": true
+  },
+  "local_parallel_generation": {
+    "scope": "generation_only_bounded_benchmark",
+    "canonical_runtime_claimed": false,
+    "gcs_upload_included": false,
+    "workload": {
+      "shard_count": 4,
+      "users_per_shard": 12500,
+      "merchants_per_shard": 300,
+      "transactions_per_shard": 100000,
+      "global_seed": 7001
+    },
+    "results": [
+      {
+        "workers": 1,
+        "wall_seconds": 98.791,
+        "speedup": 1.0
+      },
+      {
+        "workers": 2,
+        "wall_seconds": 47.094,
+        "speedup": 2.1
+      },
+      {
+        "workers": 4,
+        "wall_seconds": 28.212,
+        "speedup": 3.5,
+        "peak_aggregate_rss_gb": 1.314
+      }
+    ],
+    "recommended_workers": 4,
+    "determinism": {
+      "byte_identical_parquet": true,
+      "identical_per_shard_manifests": true,
+      "identical_checksums": true,
+      "deterministic_final_manifest_order": true
+    },
+    "resume_safety": {
+      "completed_shards_skipped_before_scheduling": true,
+      "duplicate_shard_scheduling_rejected": true,
+      "manifest_and_upload_coordinator_process_only": true,
+      "single_finalize_coordinator": true,
+      "in_flight_futures_bounded_by_workers": true,
+      "completed_shards_resumable_after_worker_failure": true
+    }
+  },
+  "bounded_cloud_evidence": {
+    "bronze_run_id": "r4-bronze-20261022-095608",
+    "silver_run_id": "s1b-silver-configfix-20261022-174352",
+    "core_gold_run_id": "s1b-gold-20261022-180212",
+    "historical_features_run_id": "s1b-features-20261022-181849",
+    "airflow_dp1_state": "success",
+    "airflow_dp2_state": "success",
+    "airflow_dp3_state": "success"
+  },
+  "runtime_guards": {
+    "immutable_source_version": true,
+    "immutable_run_scoped_outputs": true,
+    "resumable_source_publication": true,
+    "configurable_dataproc_ttl": true,
+    "canonical_dataproc_ttl": "8h",
+    "airflow_submit_timeout_hours": 10,
+    "gke_cpu_pool_target_size": 0,
+    "regional_cpu_quota_usage": 0,
+    "regional_cpu_quota_limit": 100
+  },
+  "limitations": [
+    "The canonical 100 GB source and Spark runs have not been executed.",
+    "Spark performance and optimization claims require measurements from the canonical run.",
+    "The source manifest total_bytes is authoritative after publication."
+  ]
+}

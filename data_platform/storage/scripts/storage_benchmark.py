@@ -4,18 +4,22 @@ import time
 
 import trino
 
+from data_platform.config import RuntimeConfig, load_runtime_config
+from data_platform.storage.scripts.config import require_local_runtime
 
-TRINO_HOST = "localhost"
-TRINO_PORT = 8081
 CATALOG = "delta"
 SCHEMA = "gold_zone"
 TABLE = "fact_transactions"
 
 
-def create_connection():
+def create_connection(runtime_config: RuntimeConfig):
+    host = runtime_config.services.trino_host
+    port = runtime_config.services.trino_port
+    if host is None or port is None:
+        raise RuntimeError("Trino is not configured for this runtime profile.")
     return trino.dbapi.connect(
-        host=TRINO_HOST,
-        port=TRINO_PORT,
+        host=host,
+        port=port,
         user="benchmark",
         catalog=CATALOG,
         schema=SCHEMA,
@@ -33,7 +37,13 @@ def run_query(cursor, query: str):
     return result, elapsed
 
 
-def benchmark(start_date: str, end_date: str, runs: int) -> None:
+def benchmark(
+    start_date: str,
+    end_date: str,
+    runs: int,
+    runtime_config: RuntimeConfig,
+) -> None:
+    require_local_runtime(runtime_config, "storage_benchmark")
     query = f"""
         SELECT
             COUNT(*) AS transaction_count,
@@ -44,7 +54,7 @@ def benchmark(start_date: str, end_date: str, runs: int) -> None:
                              AND DATE '{end_date}'
     """
 
-    connection = create_connection()
+    connection = create_connection(runtime_config)
     cursor = connection.cursor()
 
     print(f"Table: {CATALOG}.{SCHEMA}.{TABLE}")
@@ -72,21 +82,39 @@ def benchmark(start_date: str, end_date: str, runs: int) -> None:
     connection.close()
 
 
-def parse_args():
+def parse_args(argv: list[str] | None = None):
     parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime profile; this command only accepts local.",
+    )
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--end-date", required=True)
     parser.add_argument("--runs", type=int, default=5)
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    if args.environment != "local":
+        raise RuntimeError(
+            "storage_benchmark is a local-only command; "
+            f"selected environment={args.environment!r}"
+        )
+    config = load_runtime_config(args.environment)
 
     benchmark(
         start_date=args.start_date,
         end_date=args.end_date,
         runs=args.runs,
+        runtime_config=config,
     )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

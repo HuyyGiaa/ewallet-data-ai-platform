@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Jenkins stage "Helm atomic deploy, rollout and smoke".
+# usage: deploy_atomic.sh <dev|gcp|gke-cpu> <image-digests.json> <evidence-dir>
+# Env: KUBE_CONTEXT (required, never the kubeconfig default), RELEASE (default
+# llm-agent), NAMESPACE (default ewallet-agents), EXTRA_VALUES (space-separated
+# chart values files layered after values-<environment>.yaml).
+set -euo pipefail
+environment=$1 digests=$2 evidence=$3
+[[ "$environment" =~ ^(dev|gcp|gke-cpu)$ ]] || { echo "environment must be dev, gcp or gke-cpu" >&2; exit 2; }
+[ -n "${KUBE_CONTEXT:-}" ] || { echo "KUBE_CONTEXT is required" >&2; exit 2; }
+release=${RELEASE:-llm-agent}
+namespace=${NAMESPACE:-ewallet-agents}
+root=$(cd "$(dirname "$0")/../.." && pwd)
+chart="$root/infra/helm/llm-agent-platform"
+mkdir -p "$evidence"
+
+args=(upgrade --install "$release" "$chart" -f "$chart/values-$environment.yaml"
+      --kube-context "$KUBE_CONTEXT" --namespace default --atomic --wait --timeout 15m)
+for extra in ${EXTRA_VALUES:-}; do
+  [ -f "$extra" ] || { echo "EXTRA_VALUES file $extra missing" >&2; exit 2; }
+  args+=(-f "$extra")
+done
+mcp=$(python3 -c '
+import json, re, sys
+data = json.load(open(sys.argv[1]))
+image = data["images"].get("mcp-tools")
+if image:
+    ref = image.get("digest_ref") or ""
+    if not re.fullmatch(r"[a-z0-9.-]+/[a-z0-9._/-]+@sha256:[0-9a-f]{64}", ref):
+        sys.exit("mcp-tools has no pushed immutable digest")
+    print(ref, data["git_sha"])
+' "$digests")
+if [ -n "$mcp" ]; then
+  read -r ref git_sha <<< "$mcp"
+  args+=(--set "mcpServices.image=$ref" --set "mcpServices.identity.imageDigest=${ref#*@}"
+         --set "mcpServices.identity.gitSha=$git_sha")
+fi
+vllm=$(python3 -c '
+import json, re, sys
+image = json.load(open(sys.argv[1]))["images"].get("vllm-cpu-model")
+if image:
+    ref = image.get("digest_ref") or ""
+    if not re.fullmatch(r"[a-z0-9.-]+/[a-z0-9._/-]+@sha256:[0-9a-f]{64}", ref):
+        sys.exit("vllm-cpu-model has no pushed immutable digest")
+    print(ref)
+' "$digests")
+[ -z "$vllm" ] || args+=(--set "vllm.image=$vllm")
+helm "${args[@]}" | tee "$evidence/helm-upgrade.txt"
+helm history "$release" --kube-context "$KUBE_CONTEXT" --namespace default -o json > "$evidence/helm-history.json"
+for deployment in $(kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy -o name); do
+  kubectl --context "$KUBE_CONTEXT" -n "$namespace" rollout status "$deployment" --timeout=10m | tee -a "$evidence/rollout.txt"
+done
+kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy,pods -o wide > "$evidence/workloads.txt"

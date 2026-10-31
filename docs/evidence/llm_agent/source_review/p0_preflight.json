@@ -1,0 +1,17 @@
+{
+  "architecture": {
+    "a2a": "kagent-native-a2a",
+    "external_gateway": "istio-ambient-gateway-api",
+    "llm_route": "modelconfig-agentgateway-vllm",
+    "mcp_gateway_role": "policy-only"
+  },
+  "component_count": 12,
+  "gate": "A",
+  "release_id": "llm-agent-v1",
+  "rendered_environments": [
+    "dev",
+    "gcp"
+  ],
+  "runtime_verified": false,
+  "status": "SOURCE_ONLY_PASS"
+}

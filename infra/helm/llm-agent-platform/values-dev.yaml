@@ -1,0 +1,3 @@
+gateway:
+  enabled: false
+  hostname: agents.dev.example.invalid

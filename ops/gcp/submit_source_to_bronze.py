@@ -1,0 +1,349 @@
+"""Render or execute the R4 source-to-Bronze Dataproc Serverless batch."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import shlex
+import subprocess
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from data_platform.config.spark_benchmark import (
+    load_pair_manifest,
+    method2_runtime_properties,
+    validate_pair_member,
+)
+from ops.gcp.dataproc_batch_properties import (
+    DEFAULT_PERFORMANCE_PROFILE,
+    add_performance_profile_argument,
+    add_spark_profile_argument,
+    build_dataproc_batch_properties,
+    profile_summary,
+    resolve_submission_profile,
+    serialize_dataproc_batch_properties,
+)
+from data_platform.config.spark_profiles import (
+    require_benchmark_pair,
+    require_profile_binding,
+    validate_git_sha,
+)
+from ops.gcp.package_python_job import build_python_archive
+from ops.gcp.submit_dataproc_delta_smoke import (
+    TERRAFORM_DEV_ROOT,
+    dependency_jar_paths,
+    ensure_delta_dependencies,
+)
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_TO_BRONZE_SCRIPT = (
+    REPOSITORY_ROOT / "data_platform/ingestion/spark/source_to_bronze.py"
+)
+DEFAULT_ARCHIVE = REPOSITORY_ROOT / "tmp/dataproc/ewallet-python.zip"
+_SAFE_ID = re.compile(r"^[a-z][a-z0-9-]{2,48}[a-z0-9]$")
+_SAFE_TTL = re.compile(r"^[1-9][0-9]*[smhd]$")
+
+
+@dataclass(frozen=True)
+class CloudRuntime:
+    project_id: str
+    region: str
+    data_bucket: str
+    temporary_bucket: str
+    subnet: str
+    service_account_email: str
+    performance_tier: str
+
+
+def _value(outputs: Mapping[str, Any], name: str) -> Any:
+    entry = outputs.get(name)
+    if not isinstance(entry, Mapping) or "value" not in entry:
+        raise ValueError(f"Terraform output {name!r} is missing")
+    return entry["value"]
+
+
+def load_cloud_runtime(outputs: Mapping[str, Any]) -> CloudRuntime:
+    project = str(_value(outputs, "project_id"))
+    region = str(_value(outputs, "region"))
+    data_bucket = str(_value(outputs, "data_bucket_name"))
+    temp_bucket = str(_value(outputs, "temporary_bucket_name"))
+    accounts = _value(outputs, "service_account_emails")
+    batch = _value(outputs, "dataproc_batch_runtime")
+    if not isinstance(accounts, Mapping) or not isinstance(batch, Mapping):
+        raise ValueError("Terraform identity and Dataproc outputs must be objects")
+    spark_account = str(accounts.get("spark", ""))
+    expected = {
+        "project_id": project,
+        "region": region,
+        "staging_bucket": temp_bucket,
+        "service_account_email": spark_account,
+        "execution_mode": "serverless-batch",
+        "performance_tier": "standard",
+    }
+    for name, expected_value in expected.items():
+        if batch.get(name) != expected_value:
+            raise ValueError(f"Terraform Dataproc {name} is inconsistent")
+    values = [project, region, data_bucket, temp_bucket, spark_account, batch.get("subnet")]
+    if any(not isinstance(item, str) or not item for item in values):
+        raise ValueError("Terraform cloud runtime contains an empty value")
+    return CloudRuntime(
+        project_id=project,
+        region=region,
+        data_bucket=data_bucket,
+        temporary_bucket=temp_bucket,
+        subnet=str(batch["subnet"]),
+        service_account_email=spark_account,
+        performance_tier="standard",
+    )
+
+
+def _validate_id(value: str, name: str) -> str:
+    if not _SAFE_ID.fullmatch(value):
+        raise ValueError(f"{name} is not a safe GCP identifier")
+    return value
+
+
+def _validate_ttl(value: str) -> str:
+    if not _SAFE_TTL.fullmatch(value):
+        raise ValueError("ttl must be a positive integer followed by s, m, h, or d")
+    return value
+
+
+def build_submission_command(
+    runtime: CloudRuntime,
+    *,
+    dataset_version: str,
+    run_id: str,
+    script_path: Path = SOURCE_TO_BRONZE_SCRIPT,
+    archive_path: Path = DEFAULT_ARCHIVE,
+    jar_paths: Sequence[Path] | None = None,
+    ttl: str = "2h",
+    performance_profile: str = DEFAULT_PERFORMANCE_PROFILE,
+    spark_profile: str | None = None,
+    benchmark_id: str | None = None,
+    git_sha: str | None = None,
+    pair_manifest: Mapping[str, object] | None = None,
+) -> tuple[str, ...]:
+    run_id = _validate_id(run_id, "run_id")
+    dataset_version = _validate_id(dataset_version, "dataset_version")
+    ttl = _validate_ttl(ttl)
+    execution_profile = resolve_submission_profile(
+        spark_profile=spark_profile,
+        performance_profile=(
+            performance_profile
+            if performance_profile != DEFAULT_PERFORMANCE_PROFILE
+            else None
+        ),
+    )
+    require_benchmark_pair(
+        spark_profile=spark_profile, benchmark_id=benchmark_id
+    )
+    if spark_profile is not None and ttl != "8h":
+        raise ValueError("full-scale benchmark submissions require ttl=8h")
+    if benchmark_id is not None:
+        require_profile_binding(
+            run_id,
+            benchmark_id=benchmark_id,
+            profile=spark_profile,
+            stage="bronze",
+        )
+        if git_sha is None:
+            raise ValueError("benchmark submissions require --git-sha")
+        git_sha = validate_git_sha(git_sha)
+    source_manifest = (
+        f"gs://{runtime.data_bucket}/source/{dataset_version}/"
+        "_control/dataset_manifest.json"
+    )
+    bronze_root = (
+        f"gs://{runtime.data_bucket}/lakehouse/runs/{run_id}/bronze"
+    )
+    if benchmark_id is not None:
+        if pair_manifest is None:
+            raise ValueError("benchmark submissions require --pair-manifest")
+        validate_pair_member(
+            pair_manifest,
+            spark_profile=str(spark_profile),
+            benchmark_id=benchmark_id,
+            stage="dp1-bronze",
+            dataset_version=dataset_version,
+            git_sha=str(git_sha),
+            upstream_run_ids=(dataset_version,),
+            output_run_id=run_id,
+            output_root=bronze_root,
+        )
+    jars = tuple(jar_paths or dependency_jar_paths())
+    property_items = list(
+        build_dataproc_batch_properties(
+            performance_tier=runtime.performance_tier,
+            data_bucket=runtime.data_bucket,
+            profile=execution_profile,
+            stage="dp1-bronze",
+        )
+    )
+    if benchmark_id is not None:
+        property_items.extend(
+            f"{key}={value}"
+            for key, value in method2_runtime_properties(
+                pair_manifest, str(spark_profile)
+            ).items()
+        )
+    properties = serialize_dataproc_batch_properties(property_items)
+    application_args = [
+        f"--source-manifest-uri={source_manifest}",
+        f"--dataset-version={dataset_version}",
+        f"--bronze-root={bronze_root}",
+        f"--run-id={run_id}",
+        f"--batch-id={run_id}",
+        "--runtime-version=2.2",
+    ]
+    if benchmark_id is not None:
+        application_args.extend(
+            (
+                f"--benchmark-id={benchmark_id}",
+                f"--spark-profile={spark_profile}",
+                f"--git-sha={git_sha}",
+            )
+        )
+    labels = "component=source-bronze,phase=r4"
+    if benchmark_id is not None:
+        labels += (
+            f",benchmark_id={benchmark_id},spark_profile={spark_profile},"
+            f"git_sha={git_sha}"
+        )
+    return (
+        "gcloud",
+        "dataproc",
+        "batches",
+        "submit",
+        "pyspark",
+        str(script_path),
+        f"--batch={run_id}",
+        f"--project={runtime.project_id}",
+        f"--region={runtime.region}",
+        "--version=2.2",
+        f"--service-account={runtime.service_account_email}",
+        f"--subnet={runtime.subnet}",
+        "--jars=" + ",".join(str(path) for path in jars),
+        f"--py-files={archive_path}",
+        f"--deps-bucket=gs://{runtime.temporary_bucket}",
+        f"--staging-bucket={runtime.temporary_bucket}",
+        f"--ttl={ttl}",
+        f"--labels={labels}",
+        f"--properties={properties}",
+        "--",
+        *application_args,
+    )
+
+
+def assert_bronze_prefix_absent(
+    runtime: CloudRuntime,
+    *,
+    run_id: str,
+    runner: Callable[..., Any] = subprocess.run,
+) -> None:
+    run_id = _validate_id(run_id, "run_id")
+    bronze_root = f"gs://{runtime.data_bucket}/lakehouse/runs/{run_id}/bronze"
+    completed = runner(
+        ["gcloud", "storage", "ls", f"{bronze_root}/**"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode == 0 and completed.stdout.strip():
+        raise ValueError(
+            f"Bronze output prefix already exists and is immutable: {bronze_root}"
+        )
+    missing = (
+        completed.returncode == 1
+        and "matched no objects" in completed.stderr.lower()
+    )
+    if completed.returncode != 0 and not missing:
+        raise RuntimeError(
+            f"Could not verify Bronze output prefix: {completed.stderr.strip()}"
+        )
+
+
+def _load_outputs(path: Path | None, runner: Callable[..., Any]) -> Mapping[str, Any]:
+    if path is not None:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        completed = runner(
+            ["terraform", f"-chdir={TERRAFORM_DEV_ROOT}", "output", "-json"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        value = json.loads(completed.stdout)
+    if not isinstance(value, Mapping):
+        raise ValueError("Terraform output JSON must be an object")
+    return value
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset-version", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--terraform-output-json", type=Path)
+    parser.add_argument("--ttl", default="2h")
+    add_performance_profile_argument(parser)
+    add_spark_profile_argument(parser)
+    parser.add_argument("--benchmark-id")
+    parser.add_argument("--git-sha")
+    parser.add_argument("--pair-manifest", type=Path)
+    parser.add_argument("--execute", action="store_true")
+    return parser.parse_args(argv)
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    runner: Callable[..., Any] = subprocess.run,
+) -> int:
+    args = parse_args(argv)
+    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    jar_paths = dependency_jar_paths()
+    archive = DEFAULT_ARCHIVE
+    if args.execute:
+        assert_bronze_prefix_absent(runtime, run_id=args.run_id, runner=runner)
+        jar_paths = ensure_delta_dependencies()
+        archive = build_python_archive(REPOSITORY_ROOT, DEFAULT_ARCHIVE)
+    command = build_submission_command(
+        runtime,
+        dataset_version=args.dataset_version,
+        run_id=args.run_id,
+        ttl=args.ttl,
+        performance_profile=args.performance_profile or DEFAULT_PERFORMANCE_PROFILE,
+        spark_profile=args.spark_profile,
+        benchmark_id=args.benchmark_id,
+        git_sha=args.git_sha,
+        pair_manifest=(
+            load_pair_manifest(args.pair_manifest)
+            if args.pair_manifest is not None
+            else None
+        ),
+        archive_path=archive,
+        jar_paths=jar_paths,
+    )
+    if not args.execute:
+        print("DRY RUN — no Dataproc batch was submitted")
+        if args.spark_profile:
+            print("\n".join(profile_summary(args.spark_profile, stage="dp1-bronze")))
+        if args.benchmark_id:
+            print(f"BENCHMARK_ID: {args.benchmark_id}")
+            print(
+                "PAIR_MANIFEST_DIGEST: "
+                f"{load_pair_manifest(args.pair_manifest)['pair_manifest_digest']}"
+            )
+        print(shlex.join(command))
+        return 0
+    runner(command, check=True)
+    print(f"R4 source-to-Bronze batch submitted: {args.run_id}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

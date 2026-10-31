@@ -30,11 +30,15 @@ import sys
 import time
 from dataclasses import dataclass
 
+from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.storage.scripts.config import (
-    BRONZE_BUCKET,
     BRONZE_SCHEMA,
-    OFFLINE_TABLES,
+    FRAUD_LABEL_TABLE,
     TRINO_CATALOG,
+    offline_tables,
+    registration_table_uri,
+    require_local_runtime,
+    trino_registration_layers,
 )
 from data_platform.storage.scripts.delta_writer import (
     DeltaWriteResult,
@@ -95,12 +99,28 @@ def configure_logging(verbose: bool = False) -> None:
         logging.getLogger("trino").setLevel(logging.WARNING)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Ghi dữ liệu offline thành Delta Lake và đăng ký "
             "các bảng Bronze vào Trino."
         )
+    )
+
+    parser.add_argument(
+        "--environment",
+        choices=["local", "dev", "gcp"],
+        default="local",
+        help="Runtime profile; this command only accepts local.",
+    )
+
+    parser.add_argument(
+        "--include-fraud-labels",
+        action="store_true",
+        help=(
+            "Require and bootstrap fraud_labels as the eighth logical Bronze "
+            "dataset. Legacy mode remains the default."
+        ),
     )
 
     parser.add_argument(
@@ -138,11 +158,12 @@ def parse_args() -> argparse.Namespace:
         help="Bật DEBUG logging.",
     )
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def validate_selected_tables(
     selected_tables: list[str] | None,
+    include_fraud_labels: bool = False,
 ) -> list[str]:
     """
     Kiểm tra danh sách bảng người dùng truyền vào.
@@ -150,11 +171,18 @@ def validate_selected_tables(
     Returns:
         Danh sách bảng theo đúng thứ tự cần xử lý.
     """
+    supported_tables = offline_tables(include_fraud_labels)
+
     if selected_tables is None:
-        return list(OFFLINE_TABLES)
+        return list(supported_tables)
+
+    if FRAUD_LABEL_TABLE in selected_tables and not include_fraud_labels:
+        raise StorageInitializationError(
+            "fraud_labels requires explicit --include-fraud-labels mode."
+        )
 
     invalid_tables = sorted(
-        set(selected_tables).difference(OFFLINE_TABLES)
+        set(selected_tables).difference(supported_tables)
     )
 
     if invalid_tables:
@@ -162,26 +190,27 @@ def validate_selected_tables(
             "Các bảng không hợp lệ: "
             f"{', '.join(invalid_tables)}. "
             "Danh sách được hỗ trợ: "
-            f"{', '.join(OFFLINE_TABLES)}"
+            f"{', '.join(supported_tables)}"
         )
 
     # Loại trùng nhưng giữ nguyên thứ tự nhập.
     return list(dict.fromkeys(selected_tables))
 
 
-def initialize_infrastructure() -> None:
+def initialize_infrastructure(config: RuntimeConfig) -> None:
     """Kiểm tra MinIO và các bucket bắt buộc."""
     logger.info("========== KIỂM TRA HẠ TẦNG MINIO ==========")
 
-    minio_client = create_minio_client()
+    minio_client = create_minio_client(config)
     check_minio_connection(minio_client)
-    ensure_required_buckets(minio_client)
+    ensure_required_buckets(minio_client, config)
 
 
 def bootstrap_table(
     cursor,
     table_name: str,
     mode: str,
+    runtime_config: RuntimeConfig,
 ) -> StorageTableResult:
     """
     Ghi một bảng vào Delta Lake, đăng ký và xác minh qua Trino.
@@ -192,17 +221,22 @@ def bootstrap_table(
 
     delta_result: DeltaWriteResult = write_delta_table(
         table_name=table_name,
-        bucket=BRONZE_BUCKET,
         mode=mode,
+        runtime_config=runtime_config,
     )
+
+    bronze_layer = trino_registration_layers(
+        runtime_config=runtime_config,
+    )["bronze"]
 
     trino_result = register_and_verify_table(
         cursor=cursor,
         table_name=table_name,
         expected_rows=delta_result.delta_rows,
         schema_name=BRONZE_SCHEMA,
-        bucket_name=BRONZE_BUCKET,
         ensure_schema_exists=False,
+        table_location=registration_table_uri(bronze_layer, table_name),
+        schema_location_root=str(bronze_layer["root"]),
     )
 
     elapsed_seconds = time.perf_counter() - started_at
@@ -283,13 +317,17 @@ def run(
     tables: list[str],
     mode: str,
     continue_on_error: bool,
+    runtime_config: RuntimeConfig | None = None,
 ) -> int:
     """Điều phối toàn bộ quá trình bootstrap."""
     results: list[StorageTableResult] = []
     failed_tables: list[tuple[str, str]] = []
+    config = runtime_config or load_runtime_config()
+    require_local_runtime(config, "init_storage")
+    bronze_layer = trino_registration_layers(runtime_config=config)["bronze"]
 
     logger.info("Bắt đầu bootstrap Storage Layer.")
-    logger.info("Bucket đích: %s", BRONZE_BUCKET)
+    logger.info("Bronze root: %s", config.storage.bronze_root)
     logger.info(
         "Trino schema: %s.%s",
         TRINO_CATALOG,
@@ -299,19 +337,19 @@ def run(
     logger.info("Số bảng: %d", len(tables))
     logger.info("Danh sách: %s", ", ".join(tables))
 
-    initialize_infrastructure()
+    initialize_infrastructure(config)
 
     logger.info("")
     logger.info("========== KIỂM TRA TRINO ==========")
 
-    with trino_cursor() as cursor:
+    with trino_cursor(config) as cursor:
         check_trino_connection(cursor)
 
         # Chỉ cần tạo schema một lần trước vòng lặp.
         ensure_schema(
             cursor=cursor,
             schema_name=BRONZE_SCHEMA,
-            bucket_name=BRONZE_BUCKET,
+            location_root=str(bronze_layer["root"]),
         )
 
         for index, table_name in enumerate(tables, start=1):
@@ -328,6 +366,7 @@ def run(
                     cursor=cursor,
                     table_name=table_name,
                     mode=mode,
+                    runtime_config=config,
                 )
                 results.append(result)
 
@@ -363,17 +402,27 @@ def run(
     return 0
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     configure_logging(verbose=args.verbose)
 
     try:
-        tables = validate_selected_tables(args.tables)
+        if args.environment != "local":
+            raise RuntimeError(
+                "init_storage is a local-only command; "
+                f"selected environment={args.environment!r}"
+            )
+        config = load_runtime_config(args.environment)
+        tables = validate_selected_tables(
+            args.tables,
+            include_fraud_labels=args.include_fraud_labels,
+        )
 
         return run(
             tables=tables,
             mode=args.mode,
             continue_on_error=args.continue_on_error,
+            runtime_config=config,
         )
 
     except (

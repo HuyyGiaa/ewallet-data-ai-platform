@@ -1,0 +1,138 @@
+{{- /*
+Phase D MCP tool servers behind the policy-only MCP Gateway. Disabled until a
+reviewed server image exists. No allow flow is added here: the namespace
+default-deny keeps them unreachable until the MCP Gateway identity and the
+Feast/KServe egress targets are read back (see networkFlows.unresolved).
+*/ -}}
+{{- if .Values.mcpServices.enabled }}
+{{- $mcp := .Values.mcpServices }}
+{{- if not (regexMatch "^[^@\\s]+@sha256:[0-9a-f]{64}$" ($mcp.image | default "")) }}
+{{- fail "mcpServices.image must be pinned by an immutable sha256 digest" }}
+{{- end }}
+{{- if not (regexMatch "^[0-9a-f]{40}$" ($mcp.identity.gitSha | default "")) }}
+{{- fail "mcpServices.identity.gitSha must be a full commit SHA" }}
+{{- end }}
+{{- if ne (printf "sha256:%s" (splitList "@sha256:" $mcp.image | last)) $mcp.identity.imageDigest }}
+{{- fail "mcpServices.identity.imageDigest must equal the image digest" }}
+{{- end }}
+{{- range $key := list "configRevision" "promptRevision" "modelRevision" "featureRevision" "corpusRevision" }}
+{{- if not (index $mcp.identity $key) }}
+{{- fail (printf "mcpServices.identity.%s is required" $key) }}
+{{- end }}
+{{- end }}
+{{- range $name, $service := $mcp.services }}
+{{- range $envName, $value := $service.env }}
+{{- if not $value }}
+{{- fail (printf "mcpServices.services.%s.env.%s is required" $name $envName) }}
+{{- end }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: mcp-server
+spec:
+  replicas: {{ $mcp.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app.kubernetes.io/name: {{ $name }}}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/component: mcp-server
+    spec:
+      serviceAccountName: {{ $service.serviceAccount }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mcp-server
+          image: {{ $mcp.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "uvicorn", "--factory", {{ $service.app | quote }},
+                    "--host", "0.0.0.0", "--port", {{ $mcp.port | quote }}, "--no-access-log"]
+          env:
+            - {name: EWALLET_GIT_SHA, value: {{ $mcp.identity.gitSha | quote }}}
+            - {name: EWALLET_IMAGE_DIGEST, value: {{ $mcp.identity.imageDigest | quote }}}
+            - {name: EWALLET_CONFIG_REVISION, value: {{ $mcp.identity.configRevision | quote }}}
+            - {name: EWALLET_PROMPT_REVISION, value: {{ $mcp.identity.promptRevision | quote }}}
+            - {name: EWALLET_MODEL_REVISION, value: {{ $mcp.identity.modelRevision | quote }}}
+            - {name: EWALLET_FEATURE_REVISION, value: {{ $mcp.identity.featureRevision | quote }}}
+            - {name: EWALLET_CORPUS_REVISION, value: {{ $mcp.identity.corpusRevision | quote }}}
+            - {name: EWALLET_TOOL_MAX_CONCURRENCY, value: {{ $mcp.maxConcurrency | quote }}}
+            - {name: EWALLET_TOOL_MAX_TIMEOUT_MS, value: {{ $mcp.maxTimeoutMs | quote }}}
+            # Transport and authorization limits (ai_platform/llm_agent/tools/security.py).
+            - {name: EWALLET_MCP_ALLOWED_ORIGINS, value: {{ join "," $mcp.http.allowedOrigins | quote }}}
+            - {name: EWALLET_MCP_MAX_BODY_BYTES, value: {{ $mcp.http.maxBodyBytes | quote }}}
+            - {name: EWALLET_MCP_MAX_INFLIGHT, value: {{ $mcp.http.maxInflightRequests | quote }}}
+            - {name: EWALLET_MCP_BODY_TIMEOUT_SECONDS, value: {{ $mcp.http.bodyReadTimeoutSeconds | quote }}}
+            - {name: EWALLET_MCP_TOOL_GRANTS, value: {{ $service.toolGrants | default dict | toJson | quote }}}
+            {{- range $envName, $value := $service.env }}
+            - {name: {{ $envName }}, value: {{ $value | quote }}}
+            {{- end }}
+          ports:
+            - {name: http, containerPort: {{ $mcp.port }}}
+          startupProbe:
+            httpGet: {path: /health/live, port: http}
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 15
+            failureThreshold: 3
+          # Transport readiness only: 503 when callers cannot be authenticated.
+          # Tool backends never gate it; see /v1/capabilities.
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml $mcp.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: {{ $name }}}
+  ports:
+    - {name: http, port: {{ $mcp.port }}, targetPort: http}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: {{ $name }}}
+{{- end }}
+{{- end }}

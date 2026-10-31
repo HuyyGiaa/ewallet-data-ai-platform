@@ -1,0 +1,10 @@
+# Mirror of the direct pins in ai_platform/ml/pyproject.toml (uv.lock is authoritative;
+# tests/unit/test_uv_dependency_contract.py keeps them equal). For legacy runtimes only.
+pandas==2.3.3
+pyarrow==25.0.1
+scikit-learn==1.7.2
+PyYAML==6.0.3
+mlflow==3.17.1
+psycopg2-binary==2.9.13
+google-cloud-storage==3.4.1
+joblib==1.6.0

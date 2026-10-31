@@ -1,0 +1,23 @@
+# Locked remediation inputs for the vllm-cpu-model image (Dockerfile stage
+# "remediated"). The image's own Python environment is the pinned upstream
+# vLLM 0.32.0 venv and is not re-resolved: only these locked artifacts are
+# installed into it (--require-hashes --no-deps), see remediate.py.
+[project]
+name = "ewallet-vllm-cpu-model-remediation"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+  # Trivy GHSA-6q48-6c7w-9gw2 (CRITICAL) in the upstream 2026.7.22.
+  "certifi==2026.10.18",
+]
+
+[dependency-groups]
+# Not installed: the source of setuptools' vendored jaraco.context 6.1.0 and
+# wheel 0.46.3, copied into the upstream setuptools 78.1.1 (pinned by vLLM).
+vendored-source = [
+  "setuptools==82.0.1",
+]
+
+[tool.uv]
+package = false
+default-groups = []

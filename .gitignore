@@ -73,5 +73,29 @@ redis-data/
 tmp/
 temp/
 
+# Feast local runtime
+ai_platform/features/feast/feature_repo/data/
+ai_platform/features/feast/.venv/
+
+# Generated ML datasets and build manifests
+ai_platform/ml/data/
+ai_platform/ml/artifacts/
+
 # Local AI handoff context
 E_WALLET_PROJECT_CONTEXT.md
+
+# =========================
+# Terraform runtime
+# =========================
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+
+# Local Flink benchmark runtime evidence (kept on the benchmark PC, not in Git)
+evidence/flink-benchmark/

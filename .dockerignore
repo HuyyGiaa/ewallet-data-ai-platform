@@ -1,6 +1,7 @@
 # Git
 .git
 .gitignore
+.worktrees
 
 # IDE
 .vscode
@@ -28,9 +29,11 @@ venv
 output
 **/output
 data_platform/generation/output
+docs/evidence
 
 # Runtime state
 **/logs
+**/runtime
 **/*.log
 
 **/airflow.db

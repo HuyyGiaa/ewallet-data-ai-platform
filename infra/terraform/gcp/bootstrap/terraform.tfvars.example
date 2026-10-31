@@ -1,0 +1,3 @@
+project_id        = "ewallet-data-ai-platform-hg26"
+region            = "asia-southeast1"
+state_bucket_name = "ewallet-data-ai-platform-hg26-tfstate"

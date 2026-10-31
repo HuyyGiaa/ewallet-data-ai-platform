@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "scope": "bounded_airflow_orchestration_replay",
+  "canonical_100gb": false,
+  "airflow_version": "3.3.1",
+  "dataset_version": "r4-pilot-1gb-v1",
+  "submission_policy": "Dataproc submission tasks marked success because their bounded batches had already succeeded; all preflight and persisted-output validations executed",
+  "dags": {
+    "dp1_source_to_bronze": {
+      "run_id": "manual__2026-10-22T18:29:50.251574+00:00",
+      "state": "success",
+      "validated": ["source_manifest", "bronze_exact_8_table_delta_set"]
+    },
+    "dp2_bronze_to_curated": {
+      "run_id": "manual__2026-10-22T18:30:14.787854+00:00",
+      "state": "success",
+      "validated": ["bronze_exact_8_table_delta_set", "silver_exact_8_table_delta_set", "core_gold_exact_11_table_delta_set"]
+    },
+    "dp3_historical_features": {
+      "run_id": "manual__2026-10-22T18:30:55.495937+00:00",
+      "state": "success",
+      "validated": ["silver_exact_8_table_delta_set", "core_gold_exact_11_table_delta_set", "historical_features_exact_4_table_delta_set"]
+    }
+  },
+  "validations": {
+    "dagbag_import_errors": 0,
+    "dag_count": 3,
+    "manual_schedule": true,
+    "max_active_runs_one": true,
+    "absolute_developer_paths": 0,
+    "spark_runs_outside_scheduler": true,
+    "immutable_run_scoped_outputs": true
+  }
+}

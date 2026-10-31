@@ -1,0 +1,4 @@
+# Mirror of the direct pins in ai_platform/ml/pipelines/pyproject.toml (uv.lock is authoritative;
+# tests/unit/test_uv_dependency_contract.py keeps them equal). For legacy runtimes only.
+kfp==2.17.3
+PyYAML==6.0.3

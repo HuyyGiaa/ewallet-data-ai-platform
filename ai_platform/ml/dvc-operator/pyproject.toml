@@ -1,0 +1,14 @@
+# Dedicated DVC operator environment (docs/ml/ml2_training_snapshot_operator_runbook.md).
+# Separate from the F9 runtime (ai_platform/ml) on purpose: DVC is an operator
+# tool and is never installed into the training/KFP image. ops/gcp/ml2_operator_guard.py
+# rejects any DVC other than 3.63.0.
+#   uv sync --locked --project ai_platform/ml/dvc-operator
+#   export DVC_BIN="$PWD/ai_platform/ml/dvc-operator/.venv/bin/dvc"
+[project]
+name = "ewallet-dvc-operator"
+version = "0.1.0"
+requires-python = ">=3.10,<3.13"
+dependencies = ["dvc==3.63.0"]
+
+[tool.uv]
+package = false

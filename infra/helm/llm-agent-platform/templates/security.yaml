@@ -1,0 +1,208 @@
+# The namespace is deny-by-default at the Istio L4 and Kubernetes L3/L4 layers.
+# Each enforced flow in .Values.networkFlows opens exactly one source identity
+# to one destination port, as an Istio principal rule plus a NetworkPolicy
+# ingress/egress pair. Unresolved flows stay denied; see the flow ConfigMap.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec: {}
+{{- range $flow := include "llm-agent-platform.enforcedFlows" . | fromYamlArray }}
+{{- $src := index $.Values.networkFlows.workloads $flow.from }}
+{{- $dst := index $.Values.networkFlows.workloads $flow.to }}
+{{- if not (and $src $dst) }}
+{{- fail (printf "network flow %s references an undeclared workload" $flow.name) }}
+{{- end }}
+{{- if not (and $src.serviceAccount $src.podLabels $dst.serviceAccount $dst.podLabels) }}
+{{- fail (printf "network flow %s needs a ServiceAccount and pod labels on both ends" $flow.name) }}
+{{- end }}
+{{- if not (and (kindIs "float64" $flow.port) (ge (int $flow.port) 1) (le (int $flow.port) 65535)) }}
+{{- fail (printf "network flow %s needs one numeric port" $flow.name) }}
+{{- end }}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-{{ $flow.name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml $dst.podLabels | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - {{ printf "%s/ns/%s/sa/%s" $.Values.networkFlows.trustDomain $.Values.namespace.name $src.serviceAccount }}
+      to:
+        - operation:
+            ports: [{{ int $flow.port | quote }}]
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# Confirm the DNS namespace/pod labels and networkPolicy.dns.nodeLocalIP on
+# the target cluster before rollout.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cluster-dns
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.dns.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dns.podLabels | nindent 14 }}
+    {{- with .Values.networkPolicy.dns.nodeLocalIP }}
+        - ipBlock:
+            cidr: {{ . }}/32
+    {{- end }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+{{- range $workload := .Values.networkPolicy.metadataAccess }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-metadata-{{ $workload }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml (index $.Values.networkFlows.workloads $workload).podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: {cidr: 169.254.169.254/32}
+      ports:
+        - {protocol: TCP, port: 80}
+    - to:
+        - ipBlock: {cidr: 169.254.169.252/32}
+      ports:
+        - {protocol: TCP, port: 988}
+{{- end }}
+{{- if .Values.namespace.ambient }}
+{{- $rendered := dict "vllm" .Values.vllm.enabled "agentgateway" .Values.agentgateway.enabled
+      "feature-rag-mcp" .Values.mcpServices.enabled "drift-mcp" .Values.mcpServices.enabled
+      "otel-collector" .Values.otelCollector.enabled }}
+{{- range $workload, $ports := .Values.networkPolicy.ambient.probePorts }}
+{{- if index $rendered $workload }}
+{{- $labels := (index $.Values.networkFlows.workloads $workload).podLabels }}
+---
+# Kubelet probes reach ambient pods from the ztunnel SNAT address only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-{{ $workload }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $labels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ $.Values.networkPolicy.ambient.probeSource }}
+      ports:
+        {{- range $port := $ports }}
+        - {protocol: TCP, port: {{ int $port }}}
+        {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range $flow := include "llm-agent-platform.enforcedFlows" . | fromYamlArray }}
+{{- $src := index $.Values.networkFlows.workloads $flow.from }}
+{{- $dst := index $.Values.networkFlows.workloads $flow.to }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $flow.name }}-ingress
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $dst.podLabels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $src.podLabels | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: {{ int $flow.port }}}
+        {{- if $.Values.namespace.ambient }}
+        - {protocol: TCP, port: {{ int $.Values.networkPolicy.ambient.hbonePort }}}
+        {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $flow.name }}-egress
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $src.podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $dst.podLabels | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: {{ int $flow.port }}}
+        {{- if $.Values.namespace.ambient }}
+        - {protocol: TCP, port: {{ int $.Values.networkPolicy.ambient.hbonePort }}}
+        {{- end }}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-agent-network-flows
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  enforced.json: {{ include "llm-agent-platform.enforcedFlows" . | fromYamlArray | toJson | quote }}
+  {{- $unresolved := .Values.networkFlows.unresolved }}
+  {{- if .Values.llmd.enabled }}
+  {{- $unresolved = concat $unresolved .Values.llmd.unresolvedFlows }}
+  {{- end }}
+  unresolved.json: {{ $unresolved | toJson | quote }}

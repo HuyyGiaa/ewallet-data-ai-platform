@@ -1,0 +1,9 @@
+name: cloud-pilot-1gb
+target_bytes: 1000000000
+tolerance_ratio: 0.15
+global_seed: 7001
+users_per_shard: 12500
+merchants_per_shard: 300
+transactions_per_shard: 100000
+minimum_free_disk_bytes: 21474836480
+staging_safety_multiplier: 3.0

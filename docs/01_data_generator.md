@@ -36,7 +36,12 @@ transformation, streaming processing và performance optimization.
 
 ### 2.1 Logical Datasets
 
-Generator tạo 7 logical datasets:
+Before fraud support, the Phase 1 generator produced 7 logical datasets and
+8 physical Parquet outputs. Fraud Generator V1 adds the separate
+`fraud_labels` dataset, bringing the current design to 8 logical datasets and
+9 physical outputs.
+
+Generator tạo 8 logical datasets:
 
 | Dataset | Grain | Key Columns |
 |---|---|---|
@@ -47,12 +52,13 @@ Generator tạo 7 logical datasets:
 | `transactions` | one row per transaction event | `transaction_id`, `account_id`, `user_id`, `device_id`, `type`, `amount`, `currency`, `status`, `channel`, `old_balance`, `new_balance`, `merchant_id`, `counterparty_account_id`, `timestamp`, `ingested_at` |
 | `balance_snapshots` | one row per account/day | `account_id`, `snapshot_date`, `closing_balance` |
 | `login_events` | one row per login attempt | `login_id`, `user_id`, `device_id`, `login_ts`, `is_success` |
+| `fraud_labels` | one row per unique logical transaction | `transaction_id`, `label`, `fraud_type` |
 
-Although there are 7 logical datasets, the transaction source is
+Although there are 8 logical datasets, the transaction source is
 physically exported as two Parquet batches to demonstrate schema
 evolution.
 
-Therefore, the final offline output contains 8 physical Parquet files.
+Therefore, the final offline output contains 9 physical Parquet files.
 
 ```text
 data_platform/generation/output/offline/
@@ -63,12 +69,18 @@ data_platform/generation/output/offline/
 ├── transactions_v1.parquet
 ├── transactions_v2.parquet
 ├── balance_snapshots.parquet
-└── login_events.parquet
+├── login_events.parquet
+└── fraud_labels.parquet
 ```
+
+Fraud behavior is expressed through existing transaction attributes and
+event-time patterns. No fraud, label, or scenario column is added to either
+transaction schema. Ground truth remains separate so ingestion and downstream
+features cannot accidentally depend on a source-level target column.
 
 ---
 
-## 3. Final Offline Dataset
+## 3. Full-Scale Offline Profile
 
 The final coursework dataset uses:
 
@@ -78,24 +90,43 @@ n_merchants: 300
 n_devices_per_user: 1
 days_history: 150
 
+accounts:
+  count_distribution: {1: 0.70, 2: 0.25, 3: 0.05}
+  activity_profile_order: [primary, secondary, dormant]
+  activity_weights: {primary: 1.0, secondary: 0.35, dormant: 0.08}
+
+legitimate_device_churn:
+  enabled: true
+  user_rate: 0.12
+  devices_per_selected_user: 1
+  recent_window_days: 7
+  first_transaction_age_minutes_max: 10080
+
 duplicate_rate_offline: 0.02
-schema_change_date: "2026-05-01"
+generation:
+  temporal:
+    start_timestamp: "2026-01-01T00:00:00"
+    end_timestamp: "2026-05-31T23:59:59"
+schema_evolution:
+  enabled: true
+  cutover_timestamp: "2026-03-15T00:00:00"
+fraud:
+  enabled: true
+  prevalence:
+    target_rate: 0.02
 ```
 
-The final generated volume is:
+At full scale, the configured base transaction volume remains:
 
 | Dataset | Rows |
 |---|---:|
 | Users | 500,000 |
-| Accounts | 500,000 |
+| Accounts | Distribution-driven; expected average 1.35 per user |
 | Merchants | 300 |
-| Devices | 500,000 |
+| Devices | 500,000 initial devices plus configured churn and takeover devices |
 | Original transactions | 4,000,000 |
 | Transactions after issue injection | 4,080,000 |
-| Transaction schema V1 | 899,818 |
-| Transaction schema V2 | 3,180,182 |
-| Balance snapshots | 3,895,224 |
-| Login events | 3,997,362 |
+| Fraud labels | 4,000,000 |
 
 The 4,000,000 original transactions are generated before offline
 duplicates are injected.
@@ -122,8 +153,10 @@ resulting in:
 4,080,000 Bronze-source transaction rows
 ```
 
-The duplicates are intentionally preserved in the source so that the
-Silver transformation can demonstrate deduplication later.
+The duplicates are intentionally preserved in the transaction source.
+`fraud_labels` remains at logical grain, so the 80,000 physical duplicates do
+not create duplicate labels. Exact V1/V2, snapshot, and login counts depend on
+the deterministic configured window and seed and are validated after each run.
 
 ---
 
@@ -265,7 +298,9 @@ source.
 The configured schema-change boundary is:
 
 ```yaml
-schema_change_date: "2026-05-01"
+schema_evolution:
+  enabled: true
+  cutover_timestamp: "2026-03-15T00:00:00"
 ```
 
 Transactions are split into two physical batches.
@@ -276,12 +311,6 @@ Records before the schema-change date are exported as:
 
 ```text
 transactions_v1.parquet
-```
-
-Final size:
-
-```text
-899,818 rows
 ```
 
 The V1 physical schema does **not** contain:
@@ -298,12 +327,6 @@ Records from the schema-change date onward are exported as:
 transactions_v2.parquet
 ```
 
-Final size:
-
-```text
-3,180,182 rows
-```
-
 V2 introduces the new column:
 
 ```text
@@ -317,7 +340,7 @@ Schema V1
 14 columns
 channel absent
         ↓
-2026-05-01
+2026-03-15T00:00:00
         ↓
 Schema V2
 15 columns
@@ -330,36 +353,69 @@ The two batches still represent one logical dataset:
 transactions
 ```
 
-and their total row count is:
-
-```text
-899,818
-+ 3,180,182
------------
-4,080,000
-```
+and their combined physical row count includes the configured duplicate rows.
 
 The Bronze Delta ingestion later writes V1 first and appends V2 using
 schema merging so that the same Delta table evolves to include
 `channel`.
 
-### Evidence
-
-The final 500k-user generator run confirms that the two source batches
-have different physical schemas:
-
-![Schema evolution source](evidence/storage/07_schema_evolution_source_500k.png)
-
-The terminal output shows:
+The fixed generation window guarantees rows on both sides of the cutover:
 
 ```text
-Schema V1: 899,818 rows | channel=False
-Schema V2: 3,180,182 rows | channel=True
+2026-01-01T00:00:00
+        < 2026-03-15T00:00:00
+        < 2026-05-31T23:59:59
 ```
 
-This demonstrates that schema evolution is produced at the source level
-rather than being simulated only by setting old `channel` values to
-NULL.
+The generator fails clearly if the invariant is invalid or either physical
+schema version would be empty. This keeps schema evolution at the source level
+rather than simulating it by setting old `channel` values to NULL.
+
+---
+
+## 5.1 Synthetic Fraud Ground Truth
+
+Fraud Generator V1 injects four controlled behavior patterns:
+
+| Scenario | Injected behavior | Intended future signal |
+|---|---|---|
+| `velocity` | Multiple transactions for dominant and lower-activity accounts inside a short configured event-time window | 5-minute and 1-hour transaction counts |
+| `amount_anomaly` | Amount relative to that account's median rather than one global threshold | Account-relative amount deviation |
+| `account_takeover` | Targets one victim account and combines a probabilistic new device with relative amount/channel changes | Device recency, account activity, and identity behavior |
+| `merchant_burst` | Concentrated payment activity at an existing merchant | Merchant-level velocity |
+
+The label contract is:
+
+```text
+transaction_id  string, unique and non-null
+label           binary integer in {0, 1}, non-null
+fraud_type      null for normal rows; controlled scenario name for fraud rows
+```
+
+Injection occurs after time skew and before duplicate injection. At that point
+each `transaction_id` is still unique, allowing the label table to keep one row
+per logical transaction. Duplicate source rows are then added without adding
+labels. When `fraud.enabled` is false, the same nine-output contract is kept and
+`fraud_labels` contains all-zero labels.
+
+Base generation and fraud injection use separate deterministic random streams.
+The fixed temporal boundaries and seed-controlled UUIDs make the same config and
+seed reproducible.
+
+This is controlled synthetic fraud for system and ML evaluation. It is not real
+banking fraud and is not statistically representative of real-world prevalence.
+The generator also remains a synthetic wallet model rather than a double-entry
+ledger or production accounting engine.
+
+Account multiplicity and internal activity weights are configuration-driven.
+The profile name is not persisted in `accounts`; transactions select a user and
+then one of that user's accounts using the configured weights. Legitimate device
+churn creates normal recent-device activity, so device novelty is no longer a
+fraud-only shortcut. Transactions and logins never use a device before its
+`first_seen_at`. Used churn devices and newly injected takeover devices both
+receive a configurable device-age window at their first transaction instead of
+a scenario-specific exact timestamp. Amount anomalies use only strict PRE-T
+account history (`timestamp < fraud transaction timestamp`) as their baseline.
 
 ---
 
@@ -396,11 +452,8 @@ closing_balance
 This helps maintain consistency between transaction history and daily
 account balances.
 
-The final dataset contains:
-
-```text
-3,895,224 balance snapshots
-```
+The exact row count depends on the configured temporal range and generated
+account activity.
 
 ---
 
@@ -424,11 +477,8 @@ login_ts
 is_success
 ```
 
-The final dataset contains:
-
-```text
-3,997,362 login events
-```
+The exact row count depends on the configured user scale and deterministic
+random seed.
 
 `login_id` is also useful as another example of a high-cardinality
 identifier.
@@ -652,15 +702,69 @@ n_merchants: 300
 n_devices_per_user: 1
 days_history: 150
 
+accounts:
+  count_distribution: {1: 0.70, 2: 0.25, 3: 0.05}
+  activity_profile_order: [primary, secondary, dormant]
+  activity_weights: {primary: 1.0, secondary: 0.35, dormant: 0.08}
+
+legitimate_device_churn:
+  enabled: true
+  user_rate: 0.12
+  devices_per_selected_user: 1
+  min_days_after_start: 7
+  min_days_before_end: 7
+  recent_window_days: 7
+  activity_weight: 0.75
+  first_transaction_age_minutes_max: 10080
+
+generation:
+  temporal:
+    start_timestamp: "2026-01-01T00:00:00"
+    end_timestamp: "2026-05-31T23:59:59"
+
+schema_evolution:
+  enabled: true
+  cutover_timestamp: "2026-03-15T00:00:00"
+
 skew_ratio_hour: 0.75
 skew_ratio_channel: 0.60
 
 duplicate_rate_offline: 0.02
-schema_change_date: "2026-05-01"
 
 merchant_skew_top_pct: 0.05
 merchant_skew_traffic_pct: 0.80
 channel_loyal_weight: 0.9
+
+fraud:
+  enabled: true
+  random_seed: 1042
+  prevalence:
+    target_rate: 0.02
+  scenarios:
+    velocity:
+      enabled: true
+      weight: 0.25
+      burst_size: 4
+      window_minutes: 5
+    amount_anomaly:
+      enabled: true
+      weight: 0.25
+      amount_multiplier_min: 4.0
+      amount_multiplier_max: 8.0
+    account_takeover:
+      enabled: true
+      weight: 0.25
+      amount_multiplier_min: 1.5
+      amount_multiplier_max: 3.0
+      new_device_probability: 0.65
+      new_device_age_minutes_min: 1
+      new_device_age_minutes_max: 10080
+      change_channel_probability: 0.7
+    merchant_burst:
+      enabled: true
+      weight: 0.25
+      burst_size: 5
+      window_minutes: 10
 
 base_events_per_min: 50
 burst_multiplier: 30
@@ -679,8 +783,8 @@ random_seed: 42
 output_dir: "output/offline"
 ```
 
-A fixed random seed is used to make the generated scenarios
-reproducible.
+Fixed base and fraud random seeds are used to make the generated entities,
+identifiers, timestamps, and fraud scenarios reproducible.
 
 ---
 
@@ -698,13 +802,28 @@ The configured relative output directory:
 output_dir: "output/offline"
 ```
 
-is resolved under the `data_generator` directory.
+is resolved under the `data_platform/generation` directory.
 
 Therefore, generated files are stored at:
 
 ```text
 data_platform/generation/output/offline/
 ```
+
+For a quick isolated fraud validation run, use:
+
+```bash
+python -m data_platform.generation.src.offline.offline_generator \
+  --config config/settings_fraud_dev.yaml
+```
+
+This profile writes to the ignored path:
+
+```text
+data_platform/generation/output/fraud_dev/
+```
+
+It does not overwrite the full-scale offline output.
 
 The generated Parquet files are local source/staging data.
 
@@ -790,18 +909,16 @@ The final generator produces a controlled E-wallet workload containing:
 
 ```text
 500,000 users
-500,000 accounts
+account count driven by the configured 1/2/3-account distribution
 300 merchants
-500,000 devices
+500,000 initial devices plus legitimate churn and takeover devices
 
 4,000,000 original transactions
 4,080,000 transaction rows after duplicate injection
+4,000,000 unique fraud-label rows
 
-899,818 schema-V1 transaction rows
-3,180,182 schema-V2 transaction rows
-
-3,895,224 balance snapshots
-3,997,362 login events
+9 physical Parquet outputs
+8 logical datasets
 ```
 
 The dataset contains controlled examples of:
@@ -816,9 +933,24 @@ Schema evolution
 Streaming duplicates
 Late arrivals
 Traffic bursts
+Velocity fraud bursts
+Account-relative amount anomalies
+Account-takeover device behavior
+Merchant fraud bursts
 ```
 
 These characteristics provide the input required for the downstream
 Bronze/Silver/Gold batch pipeline, Spark performance experiments,
 Flink streaming pipeline, storage optimization and metadata lineage
 demonstrated in the remaining coursework.
+
+`fraud_labels` is now canonical in Bronze and Silver. Historical Gold fraud
+features, Feast, ML training, and model serving remain separate follow-up work.
+
+F4C regenerated and validated the persisted canonical dataset with the F4B
+realism model. The current run contains 674,383 accounts and 572,632 devices;
+149,709 users have more than one account. It retains 4,000,000 logical
+transactions, 80,000 intentional physical duplicates, and 80,000 fraud labels
+with `label=1` across the four configured scenarios. The measured manifest and
+validation results are in
+[`evidence/f4c_canonical_regeneration.json`](evidence/f4c_canonical_regeneration.json).

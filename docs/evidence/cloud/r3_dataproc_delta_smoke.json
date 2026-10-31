@@ -1,0 +1,45 @@
+{
+  "amount_sum": 210.75,
+  "batch_id": "r3-smoke-20261021-190532",
+  "distinct_transaction_ids": 6,
+  "duration_seconds": 32.333,
+  "evidence_uri": "gs://ewallet-data-ai-platform-hg26-temp/dataproc-smoke/delta/r3-smoke-20261021-190532/evidence.json",
+  "final_delta_version": 1,
+  "final_rows": 6,
+  "finished_at": "2026-10-21T19:07:16.429651+00:00",
+  "initial_delta_version": 0,
+  "initial_rows": 4,
+  "microsecond_timestamp": "2026-01-01T00:00:00.123456+00:00",
+  "project_id": "ewallet-data-ai-platform-hg26",
+  "recorded_at": "2026-10-21T19:07:31.076175+00:00",
+  "region": "asia-southeast1",
+  "run_uri": "gs://ewallet-data-ai-platform-hg26-temp/dataproc-smoke/delta/r3-smoke-20261021-190532",
+  "runtime_version": "2.2",
+  "schema": [
+    {
+      "name": "transaction_id",
+      "type": "string"
+    },
+    {
+      "name": "user_id",
+      "type": "string"
+    },
+    {
+      "name": "amount",
+      "type": "double"
+    },
+    {
+      "name": "event_timestamp",
+      "type": "timestamp"
+    }
+  ],
+  "schema_version": "r3-dataproc-delta-smoke-v1",
+  "service_account_email": "ewallet-spark@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "spark_application_id": "app-20261021190645917-0511",
+  "spark_version": "3.5.3",
+  "staging_bucket": "ewallet-data-ai-platform-hg26-temp",
+  "started_at": "2026-10-21T19:06:44.099073+00:00",
+  "status": "PASS",
+  "table_uri": "gs://ewallet-data-ai-platform-hg26-temp/dataproc-smoke/delta/r3-smoke-20261021-190532/table",
+  "timestamp_precision_pass": true
+}

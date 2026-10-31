@@ -1,0 +1,7 @@
+apiVersion: v2
+name: llm-agent-platform
+description: Frozen E-Wallet LLM and Agent platform boundaries
+type: application
+version: 0.1.0
+appVersion: "llm-agent-v1"
+kubeVersion: ">=1.30.0-0"

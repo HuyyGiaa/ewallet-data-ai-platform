@@ -1,0 +1,12 @@
+# agentgateway v1.7.0 controller: Gateway API mode with Inference Extension,
+# used only for the llm-inference-gateway in ewallet-agents.
+inferenceExtension:
+  enabled: true
+rbac:
+  # Namespaced writes only where the inference Gateway lives.
+  gatewayNamespaces: [ewallet-agents]
+controller:
+  replicaCount: 1
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 500m, memory: 512Mi}

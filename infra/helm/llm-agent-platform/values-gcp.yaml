@@ -1,0 +1,4 @@
+gateway:
+  enabled: true
+  hostname: agents.ewallet.example.invalid
+  tlsSecretName: ewallet-agent-gateway-tls

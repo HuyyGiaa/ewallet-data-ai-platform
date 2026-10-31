@@ -25,14 +25,18 @@ ewallet-data-ai-platform/
 │   └── metadata/
 ├── infra/
 │   └── docker/
+├── ai_platform/
+│   ├── features/feast/
+│   └── ml/training/
 ├── notebooks/
 ├── docs/
 └── tests/
 ```
 
-Phase 2 plans reserve an `ai_platform/` domain for `ml`, `llm`, `agents`, and
-`serving`. Those directories are not created until their first implementation
-exists.
+Phase 2 uses `ai_platform/features/feast/` for offline historical feature
+retrieval and `ai_platform/ml/training/` for the supervised dataset contract,
+derived transformations, bounded build, and validation. Model training, online
+serving, LLM, and agent domains are still deferred.
 
 ## Architecture at a glance
 
@@ -57,6 +61,10 @@ flowchart LR
     CONTRACTS["Versioned YAML<br/>data contracts"]
     AIRFLOW["Airflow control plane"]
     DATAHUB["DataHub<br/>catalog, lineage, assertions"]
+    ADAPTER["Microsecond-safe<br/>Parquet snapshot adapter"]
+    FEAST["Feast offline<br/>PIT retrieval"]
+    LABELS["Silver fraud labels"]
+    TRAIN["ML training dataset<br/>bounded build"]
 
     GEN -->|offline| PQ --> BR
     BR -->|Spark| SI -->|Spark| GO
@@ -69,6 +77,9 @@ flowchart LR
     BR --> TRINO
     SI --> TRINO
     GO --> TRINO
+    GO --> ADAPTER --> FEAST
+    SI --> LABELS --> TRAIN
+    FEAST --> TRAIN
     BR --> DQ
     SI --> DQ
     GO --> DQ
@@ -99,7 +110,7 @@ flowchart TD
     VG --> REG["Register existing Delta tables in Trino"]
     REG --> INGEST["Ingest Trino metadata into DataHub"]
     INGEST --> LIN["Publish selected direct lineage"]
-    LIN --> ASSERT["Evaluate and publish 8 selected assertions"]
+    LIN --> ASSERT["Evaluate and publish 15 selected assertions"]
 
     AIRFLOW["Airflow"] -.orchestrates through validate_gold.-> BR
     AIRFLOW -.-> VB
@@ -112,16 +123,23 @@ flowchart TD
 The current Airflow DAG stops after Gold validation. Trino registration and
 DataHub publication are explicit post-pipeline operations.
 
+Feast is also outside the DAG. Its explicit exporter reads the active four
+Gold feature snapshots and writes ignored local Parquet runtime data while
+preserving UTC microseconds. Feast's Dask offline store retrieves point-in-time
+features from that adapter; it does not compute the Gold aggregates.
+
 ## Layer responsibilities
 
 ### Bronze
 
-- Ingests seven offline datasets into persisted Delta tables in MinIO.
+- Ingests eight offline datasets into persisted Delta tables in MinIO.
 - Preserves intentional transaction duplicates and historical nulls caused by
   schema evolution.
 - Merges transaction V1, which has no `channel`, with V2, which adds it.
 - Validates readability, required columns, compatible types, non-empty tables,
   and the final presence/type of `transactions.channel`.
+- Preserves `fraud_labels` at one row per logical transaction while retaining
+  intentional physical duplicates in `transactions`.
 
 Bronze validation intentionally does not apply Silver business cleaning.
 
@@ -131,7 +149,8 @@ Bronze validation intentionally does not apply Silver business cleaning.
 - Deduplicates transactions by `transaction_id`.
 - Normalizes historical missing channels to `UNKNOWN`.
 - Enforces required fields, domains, ranges, logical keys, and foreign keys.
-- Produces seven cleaned Delta tables.
+- Produces eight cleaned Delta tables, including trusted `fraud_labels` target
+  truth without copying it into Gold.
 
 ### Gold
 
@@ -139,6 +158,9 @@ Bronze validation intentionally does not apply Silver business cleaning.
 - Builds transaction, login-event, and balance-snapshot facts.
 - Builds `obt_transaction_enriched` for flattened analytics.
 - Builds `feat_user_90d` directly from `fact_transactions` and `dim_user`.
+- Builds four event-time fraud feature tables from `silver.transactions`; the
+  device table also reads `silver.devices`. Every historical window is
+  `[T-window, T)` and excludes same-timestamp peers.
 - Builds `opt_merchant_performance` for merchant analytics.
 - Validates grain, relationships, metric ranges, and cross-layer populations.
 
@@ -149,18 +171,49 @@ Trino is the SQL query surface over the Delta tables. Spark creates the data;
 locations in the Trino metastore. It is metadata-only, idempotent, and fails if
 an existing table points at the wrong location.
 
+### Feast offline retrieval
+
+Feast defines four entities and four FeatureViews that map exactly to the F5
+atomic historical feature contract. A bounded entity dataframe supplies entity
+keys and `event_timestamp`; Feast returns the matching historical snapshots.
+The local Parquet adapter retains `timestamp[us, tz=UTC]`. Trino is not the
+canonical Feast source because its millisecond representation collapses 11
+distinct merchant snapshot keys. No Feast online store or materialization is
+configured. See the [Feast offline guide](ml/feast_offline.md).
+
+### Fraud training dataset
+
+F7 defines one supervised row per logical transaction at its UTC event time.
+It combines four request-time fields, 31 Feast historical features, six shared
+derived values, and the binary label joined one-to-one from
+`silver.fraud_labels`. IDs, target/evaluation metadata, and temporal split are
+kept outside the 41 model-feature columns. Current status, balance, ingestion
+time, current/future events, and same-timestamp peers are excluded.
+
+The 302-row stratified sample validates formulas and edge cases. The actual
+trainable artifact contains 40,148 rows selected by a deterministic,
+label-independent timestamp hash and is written to ignored ML-layer Parquet
+partitions. Full four-million-row materialization is rejected on this machine
+after measured memory protection, swap saturation, and limited disk headroom.
+See the [training dataset contract](ml/fraud_training_dataset.md).
+
 ### Validators and contracts
 
 The three validators are executable fail-hard gates. Their rules cover schema
 and persisted readability at Bronze, cleaning and referential rules at Silver,
 and analytical grains and population relationships at Gold.
 
-The contracts under `data_platform/contracts/` describe four stable interfaces:
+The contracts under `data_platform/contracts/` describe nine stable interfaces:
 
 - `silver.transactions`
+- `silver.fraud_labels`
 - `gold.fact_transactions`
 - `gold.obt_transaction_enriched`
 - `gold.feat_user_90d`
+- `gold.feat_user_behavior`
+- `gold.feat_account_behavior`
+- `gold.feat_device_behavior`
+- `gold.feat_merchant_behavior`
 
 The relationship is:
 
@@ -168,15 +221,16 @@ The relationship is:
 transformation behavior -> data contract -> validator -> selected DataHub assertion
 ```
 
-The eight DataHub assertions are a visible subset of validator coverage. They
+The fifteen DataHub assertions are a visible subset of validator coverage. They
 do not replace the full Silver and Gold validation suites.
 
 ### DataHub
 
 DataHub runs as a separate pinned Quickstart stack. It ingests table metadata
-from Trino, receives ten explicit direct lineage edges for the selected
-transaction path, and stores eight selected custom assertion definitions and
-their run results. DataHub does not move or transform Delta data.
+from Trino, receives sixteen explicit direct lineage edges for the selected
+transaction, feature, and fraud-label paths, and stores fifteen selected custom assertion
+definitions and their run results. DataHub does not move or transform Delta
+data.
 
 ### CDC and streaming
 
@@ -200,13 +254,16 @@ lakehouse sink or end-to-end exactly-once guarantee.
 | MinIO and Trino | Implemented and locally smoke-tested | `infra/docker/compose.storage.yml`, `infra/docker/compose.query.yml` |
 | Airflow batch orchestration | Implemented | `data_platform/orchestration/airflow/dags/ewallet_batch_pipeline.py` |
 | Trino registration | Implemented and idempotent | `data_platform/storage/scripts/register_trino_tables.py` |
-| Data contracts | Implemented for four selected datasets | `data_platform/contracts/` |
+| Data contracts | Implemented for nine selected datasets | `data_platform/contracts/` |
 | DataHub metadata and selected lineage | Implemented and runtime-validated | `data_platform/metadata/datahub/lineage/` |
-| DataHub selected assertions | Implemented; 8 definitions are idempotent | `data_platform/metadata/datahub/assertions/publish_assertions.py` |
+| DataHub selected assertions | Implemented; 15 canonical definitions are idempotent | `data_platform/metadata/datahub/assertions/publish_assertions.py` |
 | PostgreSQL/Debezium CDC | Implemented as a local experiment | `data_platform/ingestion/debezium/connector-config.json` |
 | PyFlink stream processing | Experimental | `data_platform/processing/flink/streaming_pipeline.py`, print sinks only |
 | Streaming/CDC lakehouse sink | Not implemented | No sink from Redpanda/Flink into Delta |
-| Phase 2 fraud ML/LLM/agent work | Planned | Outside the current repository phase |
+| Phase 2 historical fraud features | Implemented | `data_platform/processing/spark/gold/features/` |
+| Feast offline historical retrieval | Implemented and bounded-sample validated | `ai_platform/features/feast/` |
+| Fraud training dataset contract and build | Implemented; 40,148-row trainable materialization validated | `ai_platform/ml/training/` |
+| ML training, serving, and agent work | Planned | Outside F7 |
 
 ## Runtime boundaries and ports
 
@@ -240,12 +297,16 @@ known local configuration follow-up rather than silently changing Airflow.
 - Flink outputs are ephemeral print sinks and do not feed the lakehouse.
 - CDC events are published to Redpanda but are not consumed into Delta.
 - DataHub Quickstart is a separate local-development runtime.
-- The eight DataHub assertions cover selected contract rules, not every
+- The fifteen DataHub assertions cover selected contract rules, not every
   validator rule.
 - Local Compose files contain development credentials suitable only for the
   coursework environment.
 - Kafka Connect image-declared anonymous volumes remain technical debt.
 - Airflow needs a host-port override to coexist with DataHub GMS on `8080`.
+- Feast currently reads an explicitly refreshed local Parquet snapshot; it has
+  no incremental refresh or online serving path.
+- The F7 training build is a validated 40,148-row bounded materialization. Full
+  canonical materialization exceeds measured local memory/swap capacity.
 
 Operational commands are kept in the root `README.md`; detailed component
 documentation is indexed in `docs/README.md`.

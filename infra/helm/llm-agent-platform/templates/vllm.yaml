@@ -1,0 +1,252 @@
+{{- if .Values.vllm.enabled }}
+{{- $source := .Values.vllm.modelSource }}
+{{- if not (has $source.mode (list "huggingface" "staged" "image")) }}
+{{- fail "vllm.modelSource.mode must be huggingface, staged or image" }}
+{{- end }}
+{{- if eq $source.mode "image" }}
+{{- /* Image: pinned files baked into a derived image (checksums verified at build), no egress. */ -}}
+{{- if not (regexMatch "^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$" .Values.vllm.image) }}
+{{- fail "vllm.modelSource.mode=image needs vllm.image = the infra/docker/vllm-cpu-model image by digest" }}
+{{- end }}
+{{- if contains "vllm/vllm-openai-cpu" .Values.vllm.image }}
+{{- fail "vllm.modelSource.mode=image needs the derived model image, not the upstream vLLM image" }}
+{{- end }}
+{{- if not (hasSuffix (printf "/%s" .Values.vllm.modelRevision) $source.image.path) }}
+{{- fail "vllm.modelSource.image.path must end with vllm.modelRevision" }}
+{{- end }}
+{{- end }}
+{{- if eq $source.mode "staged" }}
+{{- /* Staged: pinned files on a read-only volume, checksum-verified, no egress. */ -}}
+{{- if not $source.staged.claimName }}
+{{- fail "vllm.modelSource.staged.claimName is required in staged mode" }}
+{{- end }}
+{{- if not (hasSuffix (printf "/%s" .Values.vllm.modelRevision) (printf "/%s" $source.staged.subPath)) }}
+{{- fail "vllm.modelSource.staged.subPath must end with vllm.modelRevision" }}
+{{- end }}
+{{- if not (regexMatch "^([0-9a-f]{64}  [^\\n]+\\n?)+$" ($source.staged.sha256sums | default "")) }}
+{{- fail "vllm.modelSource.staged.sha256sums must list sha256sum lines for every model file" }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-model-checksums
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  SHA256SUMS: |
+    {{- $source.staged.sha256sums | nindent 4 }}
+{{- end }}
+{{- range $name, $profile := dict "primary" .Values.vllm.primary "fallback" .Values.vllm.fallback }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-{{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: {{ $name }}
+spec:
+  replicas: {{ $profile.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      {{- toYaml $.Values.vllm.rollingUpdate | nindent 6 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+      app.kubernetes.io/instance: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+        app.kubernetes.io/instance: {{ $name }}
+        llm.ewallet.io/backend-version: {{ $name }}
+        {{- if and $.Values.llmd.enabled (eq $name "primary") }}
+        # Selected by the llm-d InferencePool; fallback stays a direct backend.
+        llm-d.ai/inference-pool: {{ $.Values.llmd.poolName }}
+        {{- end }}
+    spec:
+      serviceAccountName: vllm
+      automountServiceAccountToken: false
+      # Service links inject VLLM_*-prefixed variables that vLLM parses as its own config.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      # Pod Security Baseline: no added capabilities and no Unconfined seccomp.
+      # SYS_NICE/Unconfined only enable optional vLLM CPU NUMA tuning.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if eq $source.mode "staged" }}
+      initContainers:
+        # Refuse to serve unless every staged file matches the pinned checksums.
+        - name: verify-model
+          image: {{ $.Values.vllm.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "cd /models/{{ $source.staged.subPath }} && sha256sum --check --strict --quiet /checksums/SHA256SUMS"]
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: "1", memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - {name: model, mountPath: /models, readOnly: true}
+            - {name: checksums, mountPath: /checksums, readOnly: true}
+      {{- end }}
+      containers:
+        - name: vllm
+          image: {{ $.Values.vllm.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --model
+            {{- if eq $source.mode "staged" }}
+            - /models/{{ $source.staged.subPath }}
+            {{- else if eq $source.mode "image" }}
+            - {{ $source.image.path | quote }}
+            {{- else }}
+            - {{ $.Values.vllm.model | quote }}
+            - --revision
+            - {{ $.Values.vllm.modelRevision | quote }}
+            {{- end }}
+            - --served-model-name
+            - {{ $.Values.vllm.servedModelName | quote }}
+            - --dtype
+            - bfloat16
+            - --max-model-len
+            - "4096"
+            {{- if $.Values.vllm.toolCalling.enabled }}
+            {{- if not $.Values.vllm.toolCalling.parser }}
+            {{- fail "vllm.toolCalling.parser is required when tool calling is enabled" }}
+            {{- end }}
+            - --enable-auto-tool-choice
+            - --tool-call-parser
+            - {{ $.Values.vllm.toolCalling.parser | quote }}
+            {{- end }}
+            {{- with $.Values.vllm.reasoningParser }}
+            # Keeps model reasoning out of message content (it is never shown to callers).
+            - --reasoning-parser
+            - {{ . | quote }}
+            {{- end }}
+            {{- with $.Values.vllm.defaultChatTemplateKwargs }}
+            - --default-chat-template-kwargs
+            - {{ toJson . | quote }}
+            {{- end }}
+            - --max-num-seqs
+            - {{ $profile.maxNumSeqs | quote }}
+            - --max-num-queued-reqs
+            - {{ $profile.maxNumQueuedRequests | quote }}
+            {{- if $profile.prefixCaching }}
+            - --enable-prefix-caching
+            {{- end }}
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.vllm.apiKeySecret.name }}
+                  key: {{ $.Values.vllm.apiKeySecret.key }}
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: {{ $.Values.vllm.kvCacheSpaceGiB | quote }}
+            - name: VLLM_CPU_NUM_OF_RESERVED_CPU
+              value: "1"
+            # The container sees every host core; bound the OpenMP pool to the CPU limit.
+            - name: OMP_NUM_THREADS
+              value: {{ $.Values.vllm.ompThreads | quote }}
+            {{- if ne $source.mode "huggingface" }}
+            - {name: HF_HUB_OFFLINE, value: "1"}
+            - {name: TRANSFORMERS_OFFLINE, value: "1"}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8000
+          {{- if $.Values.vllm.warmup.enabled }}
+          # Warm start: the pod only takes traffic after one real tool-shaped
+          # completion. Measured locally, the first request after start took
+          # 122 s on CPU and the next one 10 s.
+          startupProbe:
+            exec:
+              command:
+                - python3
+                - -c
+                - |
+                  import json, os, urllib.request
+                  body = {"model": {{ $.Values.vllm.servedModelName | quote }}, "max_tokens": 16, "temperature": 0,
+                          "messages": [{"role": "user", "content": "Look up transaction warmup-0."}],
+                          "tools": [{"type": "function", "function": {"name": "feature_lookup", "parameters": {
+                              "type": "object", "properties": {"transaction_id": {"type": "string"}}}}}]}
+                  request = urllib.request.Request("http://127.0.0.1:8000/v1/chat/completions",
+                      data=json.dumps(body).encode(), method="POST", headers={
+                          "Content-Type": "application/json",
+                          "Authorization": "Bearer " + os.environ["VLLM_API_KEY"]})
+                  urllib.request.urlopen(request, timeout={{ $.Values.vllm.warmup.timeoutSeconds }}).read()
+            periodSeconds: 10
+            timeoutSeconds: {{ add $.Values.vllm.warmup.timeoutSeconds 5 }}
+            failureThreshold: {{ $.Values.vllm.warmup.failureThreshold }}
+          {{- else }}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            failureThreshold: 120
+            periodSeconds: 5
+          {{- end }}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml $.Values.vllm.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - {name: cache, mountPath: /root/.cache}
+            - {name: tmp, mountPath: /tmp}
+            # vLLM's engine message queue needs more than the 64 MiB default /dev/shm.
+            - {name: dshm, mountPath: /dev/shm}
+            {{- if eq $source.mode "staged" }}
+            - {name: model, mountPath: /models, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: cache
+          emptyDir: {sizeLimit: 8Gi}
+        - name: tmp
+          emptyDir: {sizeLimit: 1Gi}
+        - name: dshm
+          emptyDir: {medium: Memory, sizeLimit: {{ $.Values.vllm.shmSize }}}
+        {{- if eq $source.mode "staged" }}
+        - name: model
+          persistentVolumeClaim: {claimName: {{ $source.staged.claimName }}, readOnly: true}
+        - name: checksums
+          configMap: {name: vllm-model-checksums}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-{{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: {{ $name }}
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+{{- end }}
+{{- end }}

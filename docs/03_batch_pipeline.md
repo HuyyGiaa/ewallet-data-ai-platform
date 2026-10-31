@@ -60,6 +60,58 @@ Gold Validation
 
 Airflow orchestrates the same sequence as one batch DAG.
 
+**## Runtime Profile and Delta Table Resolution**
+
+Silver and Gold transformation logic is shared across all environments. The
+selected runtime profile supplies both the Spark settings and the physical
+storage roots:
+
+| Environment | Physical storage | Intended use |
+|---|---|---|
+| `local` | MinIO through `s3a://` | Existing local development stack |
+| `dev` | GCS development prefixes | Small cloud validation runs |
+| `gcp` | Canonical GCS prefixes | Measured cloud pipeline runs |
+
+The pipeline resolves a logical table at runtime. For example,
+`silver.transactions` becomes
+`<selected silver_root>/transactions`, while `gold.dim_merchant` becomes
+`<selected gold_root>/dim_merchant`. The same loaded configuration object is
+passed to the Spark session and the Delta read/write boundary, so compute and
+storage cannot silently select different environments.
+
+Run the transformations with an explicit profile:
+
+```bash
+python -m data_platform.processing.spark.silver.silver_pipeline \
+  --environment dev --mode optimized --include-fraud-labels
+
+python -m data_platform.processing.spark.gold.gold_pipeline \
+  --environment dev --mode optimized
+```
+
+Replacing `dev` with `local` or `gcp` changes infrastructure configuration;
+it does not change cleaning rules, table schemas, historical-feature
+semantics, or Gold business transformations. The GCP 100 GB execution is
+**NOT RUN** at this refactor checkpoint.
+
+Validators use the same profile and can therefore verify the table written by
+the corresponding pipeline:
+
+```bash
+python -m data_platform.quality.validate_bronze \
+  --environment dev --include-fraud-labels
+python -m data_platform.quality.validate_silver \
+  --environment dev --include-fraud-labels
+python -m data_platform.quality.validate_gold --environment dev
+```
+
+Data contracts remain independent of those physical locations. A Silver
+contract records `storage_layer: silver` and `storage_table: transactions`; at
+runtime the selected profile resolves that pair to the local MinIO or cloud
+GCS URI. A Gold contract similarly records `storage_layer: gold` and, for
+example, `storage_table: fact_transactions`. Contract columns, grain,
+relationships, and quality rules are unchanged by this location refactor.
+
 **## Final Offline Dataset**
 
 The final coursework dataset was generated with:
@@ -72,7 +124,7 @@ n\_merchants: 300
 
 n\_devices\_per\_user: 1
 
-days\_history: 90
+days\_history: 150
 
 duplicate\_rate\_offline: 0.02
 
@@ -86,19 +138,21 @@ The generated dataset contains:
 
 \| Users | 500,000 |
 
-\| Accounts | 500,000 |
+\| Accounts | 674,383 |
 
 \| Merchants | 300 |
 
-\| Devices | 500,000 |
+\| Devices | 572,632 |
 
 \| Transactions before duplicate injection | 4,000,000 |
 
 \| Bronze transactions after duplicate injection | 4,080,000 |
 
-\| Balance snapshots | 3,895,224 |
+\| Balance snapshots | 3,893,408 |
 
-\| Login events | 3,997,362 |
+\| Login events | 3,999,990 |
+
+\| Fraud labels | 4,000,000 |
 
 The generator intentionally introduces data characteristics that are
 
@@ -122,7 +176,7 @@ Examples include:
 
 **## Source Data**
 
-The offline generator produces seven source datasets:
+The canonical offline generator produces eight logical source datasets:
 
 \`\`\`text
 
@@ -140,13 +194,15 @@ balance\_snapshots
 
 login\_events
 
+fraud\_labels
+
 \`\`\`
 
 The files are written as Parquet under:
 
 \`\`\`text
 
-data\_generator/output/offline/
+data_platform/generation/output/offline/
 
 \`\`\`
 
@@ -530,11 +586,19 @@ obt\_transaction\_enriched
 
 \`\`\`
 
-**### Feature Table**
+**### Feature Tables**
 
 \`\`\`text
 
 feat\_user\_90d
+
+feat\_user\_behavior
+
+feat\_account\_behavior
+
+feat\_device\_behavior
+
+feat\_merchant\_behavior
 
 \`\`\`
 
@@ -546,7 +610,7 @@ opt\_merchant\_performance
 
 \`\`\`
 
-This produces a total of 11 Gold tables.
+This produces a total of 15 Gold tables.
 
 **## Dimensional Model**
 
@@ -702,6 +766,27 @@ The table can later be consumed by analytical or fraud-detection
 
 workloads.
 
+**## Historical Fraud Feature Tables**
+
+F5 adds event-driven snapshots at user, account, device, and merchant grain.
+Every window uses `[T-window, T)`: the current transaction and every peer for
+the same entity at the same timestamp are excluded. Counts and sums include
+historical transaction attempts regardless of status; failure-rate features
+use historical status. Cold-start counts and sums are zero, while averages,
+rates, standard deviations with fewer than two observations, and missing
+previous-account intervals remain null according to the feature contract.
+
+The implementation dependencies are:
+
+```text
+silver.transactions -> feat_user_behavior
+silver.transactions -> feat_account_behavior
+silver.transactions + silver.devices -> feat_device_behavior
+silver.transactions (eligible payments) -> feat_merchant_behavior
+```
+
+`silver.fraud_labels` is not read during feature computation.
+
 **## Gold Validation**
 
 The Gold validation step checks that the analytical layer has been
@@ -800,13 +885,13 @@ The final 500k-user dataset contains both schema versions:
 
 \`\`\`text
 
-Schema V1: 899,818 rows
+Schema V1: 1,970,866 rows
 
     channel column absent in the source schema
 
         ↓
 
-Schema V2: 3,180,182 rows
+Schema V2: 2,109,134 rows
 
     channel column present in the source schema
 
@@ -816,7 +901,7 @@ The two versions contain a total of:
 
 \`\`\`text
 
-899,818 + 3,180,182 = 4,080,000 Bronze transactions
+1,970,866 + 2,109,134 = 4,080,000 Bronze transactions
 
 \`\`\`
 
@@ -836,13 +921,13 @@ The final Bronze verification produced:
 
 Total rows:          4,080,000
 
-V1 rows:               899,818
+V1 rows:             1,970,866
 
-V2 rows:             3,180,182
+V2 rows:             2,109,134
 
-V1 channel NULL:       899,818
+V1 channel NULL:     1,970,866
 
-V2 channel present:  3,180,182
+V2 channel present:  2,109,134
 
 \`\`\`
 

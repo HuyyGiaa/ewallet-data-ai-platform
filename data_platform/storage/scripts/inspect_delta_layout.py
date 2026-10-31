@@ -1,22 +1,19 @@
+import argparse
 from statistics import median
+
 from deltalake import DeltaTable
 
-
-STORAGE_OPTIONS = {
-    "AWS_ACCESS_KEY_ID": "minioadmin",
-    "AWS_SECRET_ACCESS_KEY": "minioadmin",
-    "AWS_REGION": "us-east-1",
-    "AWS_ENDPOINT_URL": "http://localhost:9000",
-    "AWS_VIRTUAL_HOSTED_STYLE_REQUEST": "false",
-    "allow_http": "true",
-}
+from data_platform.config import RuntimeConfig, load_runtime_config
+from data_platform.storage.scripts.config import (
+    deltalake_storage_options,
+    require_local_runtime,
+    storage_table_uri,
+)
 
 TABLES = {
-    "silver.transactions": "s3://silver-zone/transactions",
-    "gold.fact_transactions": "s3://gold-zone/fact_transactions",
-    "gold.obt_transaction_enriched": (
-        "s3://gold-zone/obt_transaction_enriched"
-    ),
+    "silver.transactions": ("silver", "transactions"),
+    "gold.fact_transactions": ("gold", "fact_transactions"),
+    "gold.obt_transaction_enriched": ("gold", "obt_transaction_enriched"),
 }
 
 
@@ -24,10 +21,14 @@ def bytes_to_mb(size_bytes: int) -> float:
     return size_bytes / (1024 * 1024)
 
 
-def inspect_table(name: str, uri: str) -> None:
+def inspect_table(
+    name: str,
+    uri: str,
+    storage_options: dict[str, str],
+) -> None:
     table = DeltaTable(
         uri,
-        storage_options=STORAGE_OPTIONS,
+        storage_options=storage_options,
     )
 
     actions = table.get_add_actions(flatten=True)
@@ -87,9 +88,40 @@ def inspect_table(name: str, uri: str) -> None:
             )
 
 
+def inspect_runtime_tables(runtime_config: RuntimeConfig) -> None:
+    require_local_runtime(runtime_config, "inspect_delta_layout")
+    storage_options = deltalake_storage_options(runtime_config)
+    for name, (layer, table_name) in TABLES.items():
+        uri = storage_table_uri(
+            runtime_config.storage,
+            layer,
+            table_name,
+            delta_rs=True,
+        )
+        inspect_table(name, uri, storage_options)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Inspect file layout for local MinIO Delta tables."
+    )
+    parser.add_argument(
+        "--environment",
+        default="local",
+        choices=("local", "dev", "gcp"),
+        help="Runtime profile. This command only permits local.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    for name, uri in TABLES.items():
-        inspect_table(name, uri)
+    args = parse_args()
+    if args.environment != "local":
+        raise RuntimeError(
+            "inspect_delta_layout is a local-only command; "
+            f"selected environment={args.environment!r}"
+        )
+    inspect_runtime_tables(load_runtime_config(args.environment))
 
 
 if __name__ == "__main__":

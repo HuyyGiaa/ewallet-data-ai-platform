@@ -1,0 +1,319 @@
+{
+ "_meta": {
+  "gateway_image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+  "kind": "OFFLINE_MOCK_BACKEND",
+  "note": "mock vLLM, not a model; not runtime evidence"
+ },
+ "all_backends_down": {
+  "backend_requests": {
+   "fallback": [],
+   "primary": [
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    },
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    }
+   ]
+  },
+  "first_turn": {
+   "error": "{\"error\": {\"message\": \"mock unavailable\"}}",
+   "latency_s": 0.257,
+   "status": 503
+  },
+  "fixture_only": true,
+  "model": "ewallet-fraud-llm",
+  "stream": false,
+  "tool_choice": "required",
+  "verdict": "FAIL"
+ },
+ "ok_non_stream": {
+  "backend_requests": {
+   "fallback": [],
+   "primary": [
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    },
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 0
+    }
+   ]
+  },
+  "first_turn": {
+   "backend": "primary",
+   "finish_reason": "tool_calls",
+   "first_byte_s": null,
+   "latency_s": 0.006,
+   "status": 200,
+   "tool_calls": [
+    {
+     "function": {
+      "arguments": "{\"transaction_id\": \"tx-demo-001\"}",
+      "name": "feature_lookup"
+     },
+     "id": "call_mock_1",
+     "type": "function"
+    }
+   ],
+   "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 42,
+    "total_tokens": 49
+   }
+  },
+  "fixture_only": true,
+  "model": "ewallet-fraud-llm",
+  "second_turn": {
+   "backend": "primary",
+   "finish_reason": "stop",
+   "first_byte_s": null,
+   "latency_s": 0.044,
+   "reply_chars": 43,
+   "status": 200,
+   "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 42,
+    "total_tokens": 49
+   }
+  },
+  "stream": false,
+  "tool_call_errors": [],
+  "tool_choice": "required",
+  "verdict": "PASS"
+ },
+ "ok_stream": {
+  "backend_requests": {
+   "fallback": [],
+   "primary": [
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": true,
+     "tools": 1
+    },
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": true,
+     "tools": 0
+    }
+   ]
+  },
+  "first_turn": {
+   "backend": "primary",
+   "finish_reason": "tool_calls",
+   "first_byte_s": 0.007,
+   "latency_s": 0.007,
+   "status": 200,
+   "tool_calls": [
+    {
+     "function": {
+      "arguments": "{\"transaction_id\": \"tx-demo-001\"}",
+      "name": "feature_lookup"
+     },
+     "id": "call_mock_1",
+     "type": "function"
+    }
+   ],
+   "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 42,
+    "total_tokens": 49
+   }
+  },
+  "fixture_only": true,
+  "model": "ewallet-fraud-llm",
+  "second_turn": {
+   "backend": "primary",
+   "finish_reason": "stop",
+   "first_byte_s": 0.002,
+   "latency_s": 0.002,
+   "reply_chars": 44,
+   "status": 200,
+   "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 42,
+    "total_tokens": 49
+   }
+  },
+  "stream": true,
+  "tool_call_errors": [],
+  "tool_choice": "required",
+  "verdict": "PASS"
+ },
+ "primary_500_not_replayed": {
+  "backend_requests": {
+   "fallback": [],
+   "primary": [
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    }
+   ]
+  },
+  "first_turn": {
+   "error": "{\"error\": {\"message\": \"mock engine error\"}}",
+   "latency_s": 0.005,
+   "status": 500
+  },
+  "fixture_only": true,
+  "model": "ewallet-fraud-llm",
+  "stream": false,
+  "tool_choice": "required",
+  "verdict": "FAIL"
+ },
+ "primary_down_503": {
+  "backend_requests": {
+   "fallback": [],
+   "primary": [
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    },
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    }
+   ]
+  },
+  "first_turn": {
+   "error": "{\"error\": {\"message\": \"mock unavailable\"}}",
+   "latency_s": 0.259,
+   "status": 503
+  },
+  "fixture_only": true,
+  "model": "ewallet-fraud-llm",
+  "stream": false,
+  "tool_choice": "required",
+  "verdict": "FAIL"
+ },
+ "primary_down_then_failover": {
+  "backend_requests": {
+   "fallback": [
+    {
+     "auth_ok": true,
+     "backend": "fallback",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    },
+    {
+     "auth_ok": true,
+     "backend": "fallback",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 0
+    }
+   ],
+   "primary": [
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    },
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    }
+   ]
+  },
+  "first_turn": {
+   "backend": "fallback",
+   "finish_reason": "tool_calls",
+   "first_byte_s": null,
+   "latency_s": 0.003,
+   "status": 200,
+   "tool_calls": [
+    {
+     "function": {
+      "arguments": "{\"transaction_id\": \"tx-demo-001\"}",
+      "name": "feature_lookup"
+     },
+     "id": "call_mock_1",
+     "type": "function"
+    }
+   ],
+   "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 42,
+    "total_tokens": 49
+   }
+  },
+  "fixture_only": true,
+  "model": "ewallet-fraud-llm",
+  "preceding_request_status": 503,
+  "second_turn": {
+   "backend": "fallback",
+   "finish_reason": "stop",
+   "first_byte_s": null,
+   "latency_s": 0.044,
+   "reply_chars": 43,
+   "status": 200,
+   "usage": {
+    "completion_tokens": 7,
+    "prompt_tokens": 42,
+    "total_tokens": 49
+   }
+  },
+  "stream": false,
+  "tool_call_errors": [],
+  "tool_choice": "required",
+  "verdict": "PASS"
+ },
+ "primary_slow_beyond_backend_budget": {
+  "backend_requests": {
+   "fallback": [],
+   "primary": [
+    {
+     "auth_ok": true,
+     "backend": "primary",
+     "model": "ewallet-fraud-llm-v1",
+     "stream": false,
+     "tools": 1
+    }
+   ]
+  },
+  "first_turn": {
+   "error": "request timeout",
+   "latency_s": 4.018,
+   "status": 504
+  },
+  "fixture_only": true,
+  "model": "ewallet-fraud-llm",
+  "stream": false,
+  "tool_choice": "required",
+  "verdict": "FAIL"
+ }
+}

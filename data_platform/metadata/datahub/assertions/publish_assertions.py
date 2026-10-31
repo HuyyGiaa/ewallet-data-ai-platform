@@ -22,20 +22,23 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from datahub.emitter.mce_builder import make_assertion_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import (
+    AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
+)
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.sdk import DataHubClient
-from trino.dbapi import connect
-
-from data_platform.storage.scripts.config import (
-    TRINO_CATALOG,
-    TRINO_HOST,
-    TRINO_PORT,
-    TRINO_USER,
+from data_platform.config import RuntimeConfig, load_runtime_config
+from data_platform.storage.scripts.trino_client import (
+    create_trino_connection as create_runtime_trino_connection,
 )
 
 
 DATAHUB_ENV = "PROD"
-DEFAULT_DATAHUB_GMS_URL = "http://localhost:8080"
 ASSERTION_TYPE = "E-Wallet Data Contract"
 ASSERTION_PLATFORM_URN = str(DataPlatformUrn("trino"))
 
@@ -105,6 +108,26 @@ def evaluate_rate_range(row: Sequence[object]) -> Evaluation:
             "invalid_count": invalid_count,
             "minimum": row[1],
             "maximum": row[2],
+        },
+    )
+
+
+def evaluate_exact_coverage(row: Sequence[object]) -> Evaluation:
+    orphan_count = int(row[0])
+    missing_count = int(row[1])
+    label_count = int(row[2])
+    transaction_count = int(row[3])
+    return Evaluation(
+        passed=(
+            orphan_count == 0
+            and missing_count == 0
+            and label_count == transaction_count
+        ),
+        observed={
+            "orphan_count": orphan_count,
+            "missing_count": missing_count,
+            "label_count": label_count,
+            "transaction_count": transaction_count,
         },
     )
 
@@ -314,6 +337,212 @@ ASSERTIONS = (
 )
 
 
+FEATURE_ASSERTIONS = (
+    AssertionSpec(
+        assertion_id="gold_feat_user_behavior_contract",
+        dataset_name="delta.gold_zone.feat_user_behavior",
+        description="User feature snapshots have a unique grain, required keys, and valid ranges.",
+        expected="duplicate or invalid row count = 0",
+        contract_path="data_platform/contracts/gold_feat_user_behavior.yml",
+        validator_rule="feat_user_behavior.persisted_contract",
+        cost="HIGH",
+        query="""
+            SELECT sum(invalid_count) FROM (
+                SELECT count(*) invalid_count FROM (
+                    SELECT user_id, event_timestamp FROM delta.gold_zone.feat_user_behavior
+                    GROUP BY user_id, event_timestamp HAVING count(*) > 1
+                ) duplicates
+                UNION ALL
+                SELECT count_if(user_id IS NULL OR event_timestamp IS NULL
+                    OR user_tx_count_5m < 0 OR user_tx_count_5m > user_tx_count_1h
+                    OR user_tx_count_1h > user_tx_count_24h
+                    OR (user_failed_rate_24h IS NOT NULL
+                        AND (user_failed_rate_24h < 0 OR user_failed_rate_24h > 1)))
+                FROM delta.gold_zone.feat_user_behavior
+            ) checks
+        """,
+        evaluator=evaluate_zero,
+        field_paths=("user_id", "event_timestamp"),
+    ),
+    AssertionSpec(
+        assertion_id="gold_feat_account_behavior_contract",
+        dataset_name="delta.gold_zone.feat_account_behavior",
+        description="Account feature snapshots have a unique grain, required keys, and valid ranges.",
+        expected="duplicate or invalid row count = 0",
+        contract_path="data_platform/contracts/gold_feat_account_behavior.yml",
+        validator_rule="feat_account_behavior.persisted_contract",
+        cost="HIGH",
+        query="""
+            SELECT sum(invalid_count) FROM (
+                SELECT count(*) invalid_count FROM (
+                    SELECT account_id, event_timestamp FROM delta.gold_zone.feat_account_behavior
+                    GROUP BY account_id, event_timestamp HAVING count(*) > 1
+                ) duplicates
+                UNION ALL
+                SELECT count_if(account_id IS NULL OR event_timestamp IS NULL
+                    OR account_tx_count_5m < 0 OR account_tx_count_5m > account_tx_count_1h
+                    OR account_tx_count_1h > account_tx_count_24h
+                    OR (account_failed_rate_24h IS NOT NULL
+                        AND (account_failed_rate_24h < 0 OR account_failed_rate_24h > 1)))
+                FROM delta.gold_zone.feat_account_behavior
+            ) checks
+        """,
+        evaluator=evaluate_zero,
+        field_paths=("account_id", "event_timestamp"),
+    ),
+    AssertionSpec(
+        assertion_id="gold_feat_device_behavior_contract",
+        dataset_name="delta.gold_zone.feat_device_behavior",
+        description="Device feature snapshots have a unique grain, required keys, and valid ranges.",
+        expected="duplicate or invalid row count = 0",
+        contract_path="data_platform/contracts/gold_feat_device_behavior.yml",
+        validator_rule="feat_device_behavior.persisted_contract",
+        cost="HIGH",
+        query="""
+            SELECT sum(invalid_count) FROM (
+                SELECT count(*) invalid_count FROM (
+                    SELECT device_id, event_timestamp FROM delta.gold_zone.feat_device_behavior
+                    GROUP BY device_id, event_timestamp HAVING count(*) > 1
+                ) duplicates
+                UNION ALL
+                SELECT count_if(device_id IS NULL OR event_timestamp IS NULL
+                    OR device_age_seconds < 0 OR device_tx_count_1h < 0
+                    OR device_tx_count_1h > device_tx_count_24h
+                    OR (device_failed_rate_24h IS NOT NULL
+                        AND (device_failed_rate_24h < 0 OR device_failed_rate_24h > 1)))
+                FROM delta.gold_zone.feat_device_behavior
+            ) checks
+        """,
+        evaluator=evaluate_zero,
+        field_paths=("device_id", "event_timestamp"),
+    ),
+    AssertionSpec(
+        assertion_id="gold_feat_merchant_behavior_contract",
+        dataset_name="delta.gold_zone.feat_merchant_behavior",
+        description="Merchant feature snapshots have required keys and valid feature ranges.",
+        expected="invalid required-field or range row count = 0",
+        contract_path="data_platform/contracts/gold_feat_merchant_behavior.yml",
+        validator_rule="feat_merchant_behavior.persisted_contract",
+        cost="HIGH",
+        query="""
+            SELECT count_if(merchant_id IS NULL OR event_timestamp IS NULL
+                OR merchant_tx_count_10m < 0
+                OR merchant_tx_count_10m > merchant_tx_count_1h
+                OR merchant_tx_count_1h > merchant_tx_count_24h
+                OR merchant_unique_users_10m > merchant_unique_users_1h)
+            FROM delta.gold_zone.feat_merchant_behavior
+        """,
+        evaluator=evaluate_zero,
+        field_paths=("merchant_id", "event_timestamp"),
+    ),
+)
+
+
+FRAUD_ASSERTIONS = (
+    AssertionSpec(
+        assertion_id="silver_fraud_labels_unique_transaction_id",
+        dataset_name="delta.silver_zone.fraud_labels",
+        description="Silver fraud labels contain one row per transaction_id.",
+        expected="duplicate transaction_id group count = 0",
+        contract_path="data_platform/contracts/silver_fraud_labels.yml",
+        validator_rule="fraud_labels.duplicate_key",
+        cost="MEDIUM",
+        query="""
+            SELECT count(*)
+            FROM (
+                SELECT transaction_id
+                FROM delta.silver_zone.fraud_labels
+                GROUP BY transaction_id
+                HAVING count(*) > 1
+            ) duplicate_groups
+        """,
+        evaluator=evaluate_zero,
+        field_paths=("transaction_id",),
+    ),
+    AssertionSpec(
+        assertion_id="silver_fraud_labels_required_domain_semantics",
+        dataset_name="delta.silver_zone.fraud_labels",
+        description=(
+            "Silver fraud labels have required keys and binary labels, with "
+            "fraud_type present only for controlled positive-label values."
+        ),
+        expected="invalid required/domain/conditional row count = 0",
+        contract_path="data_platform/contracts/silver_fraud_labels.yml",
+        validator_rule="fraud_labels.required_domain_semantics",
+        cost="LOW",
+        query="""
+            SELECT count_if(
+                transaction_id IS NULL
+                OR label IS NULL
+                OR label NOT IN (0, 1)
+                OR (label = 0 AND fraud_type IS NOT NULL)
+                OR (label = 1 AND fraud_type IS NULL)
+                OR (
+                    label = 1
+                    AND fraud_type NOT IN (
+                        'velocity',
+                        'amount_anomaly',
+                        'account_takeover',
+                        'merchant_burst'
+                    )
+                )
+            )
+            FROM delta.silver_zone.fraud_labels
+        """,
+        evaluator=evaluate_zero,
+        field_paths=("transaction_id", "label", "fraud_type"),
+    ),
+    AssertionSpec(
+        assertion_id="silver_fraud_labels_exact_transaction_coverage",
+        dataset_name="delta.silver_zone.fraud_labels",
+        description=(
+            "Silver fraud labels and Silver transactions have exactly the "
+            "same transaction_id population."
+        ),
+        expected=(
+            "0 orphan labels, 0 missing labels, and equal label/transaction "
+            "row counts"
+        ),
+        contract_path="data_platform/contracts/silver_fraud_labels.yml",
+        validator_rule="fraud_labels.exact_transaction_coverage",
+        cost="HIGH",
+        query="""
+            SELECT
+                (
+                    SELECT count(*)
+                    FROM delta.silver_zone.fraud_labels labels
+                    LEFT JOIN delta.silver_zone.transactions transactions
+                        ON labels.transaction_id = transactions.transaction_id
+                    WHERE transactions.transaction_id IS NULL
+                ),
+                (
+                    SELECT count(*)
+                    FROM delta.silver_zone.transactions transactions
+                    LEFT JOIN delta.silver_zone.fraud_labels labels
+                        ON transactions.transaction_id = labels.transaction_id
+                    WHERE labels.transaction_id IS NULL
+                ),
+                (SELECT count(*) FROM delta.silver_zone.fraud_labels),
+                (SELECT count(*) FROM delta.silver_zone.transactions)
+        """,
+        evaluator=evaluate_exact_coverage,
+        field_paths=("transaction_id",),
+    ),
+)
+
+
+def get_assertions(
+    include_fraud_labels: bool = False,
+    include_feature_tables: bool = False,
+) -> tuple[AssertionSpec, ...]:
+    assertions = ASSERTIONS
+    if include_fraud_labels:
+        assertions += FRAUD_ASSERTIONS
+    if include_feature_tables:
+        assertions += FEATURE_ASSERTIONS
+    return assertions
+
+
 @dataclass(frozen=True)
 class AssertionResult:
     spec: AssertionSpec
@@ -321,12 +550,18 @@ class AssertionResult:
     runtime_seconds: float
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Evaluate eight selected contract assertions through Trino and "
+            "Evaluate selected contract assertions through Trino and "
             "optionally publish definitions and run results to DataHub."
         )
+    )
+    parser.add_argument(
+        "--environment",
+        choices=("local", "dev", "gcp"),
+        default="local",
+        help="Runtime profile providing DataHub and optional Trino endpoints.",
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
@@ -345,19 +580,31 @@ def parse_args() -> argparse.Namespace:
         help="Run small evaluator and deterministic-identity checks only.",
     )
     parser.add_argument(
-        "--datahub-gms-url",
-        default=os.getenv("DATAHUB_GMS_URL", DEFAULT_DATAHUB_GMS_URL),
+        "--include-fraud-labels",
+        action="store_true",
         help=(
-            "DataHub GMS URL for --publish (default: DATAHUB_GMS_URL or "
-            f"{DEFAULT_DATAHUB_GMS_URL})."
+            "Require and evaluate the three Silver fraud-label assertions. "
+            "Use only after fraud tables exist in Trino/DataHub."
         ),
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--include-feature-tables",
+        action="store_true",
+        help="Evaluate four canonical Gold historical-feature assertions.",
+    )
+    parser.add_argument(
+        "--datahub-gms-url",
+        default=None,
+        help=(
+            "Optional explicit override for the profile DataHub GMS URL."
+        ),
+    )
+    return parser.parse_args(argv)
 
 
-def run_self_test() -> bool:
-    assertion_ids = [spec.assertion_id for spec in ASSERTIONS]
-    assertion_urns = [spec.assertion_urn for spec in ASSERTIONS]
+def run_self_test(assertions: Sequence[AssertionSpec] = ASSERTIONS) -> bool:
+    assertion_ids = [spec.assertion_id for spec in assertions]
+    assertion_urns = [spec.assertion_urn for spec in assertions]
     checks = (
         ("zero_pass", evaluate_zero((0,)).passed),
         ("zero_fail", not evaluate_zero((1,)).passed),
@@ -365,6 +612,14 @@ def run_self_test() -> bool:
         ("equal_fail", not evaluate_equal_counts((9, 10)).passed),
         ("range_pass", evaluate_rate_range((0, 0.2, 0.9)).passed),
         ("range_fail", not evaluate_rate_range((1, -0.1, 0.9)).passed),
+        (
+            "coverage_pass",
+            evaluate_exact_coverage((0, 0, 10, 10)).passed,
+        ),
+        (
+            "coverage_fail",
+            not evaluate_exact_coverage((0, 1, 10, 11)).passed,
+        ),
         (
             "unique_assertion_ids",
             len(assertion_ids) == len(set(assertion_ids)),
@@ -375,8 +630,8 @@ def run_self_test() -> bool:
         ),
         (
             "stable_assertion_urn",
-            ASSERTIONS[0].assertion_urn
-            == make_assertion_urn(ASSERTIONS[0].assertion_id),
+            assertions[0].assertion_urn
+            == make_assertion_urn(assertions[0].assertion_id),
         ),
     )
 
@@ -388,18 +643,24 @@ def run_self_test() -> bool:
     return all_passed
 
 
-def create_trino_connection():
-    return connect(
-        host=TRINO_HOST,
-        port=TRINO_PORT,
-        user=TRINO_USER,
-        catalog=TRINO_CATALOG,
-        http_scheme="http",
-    )
+def resolve_datahub_gms_url(
+    runtime_config: RuntimeConfig,
+    override: str | None,
+) -> str:
+    return (override or runtime_config.services.datahub_gms_url).rstrip("/")
 
 
-def evaluate_assertions() -> list[AssertionResult]:
-    connection = create_trino_connection()
+def create_trino_connection(runtime_config: RuntimeConfig):
+    """Create the assertion reader from the selected runtime profile."""
+    return create_runtime_trino_connection(runtime_config)
+
+
+def evaluate_assertions(
+    assertions: Sequence[AssertionSpec] = ASSERTIONS,
+    runtime_config: RuntimeConfig | None = None,
+) -> list[AssertionResult]:
+    config = runtime_config or load_runtime_config()
+    connection = create_trino_connection(config)
     cursor = connection.cursor()
     results: list[AssertionResult] = []
 
@@ -408,7 +669,7 @@ def evaluate_assertions() -> list[AssertionResult]:
         if cursor.fetchone()[0] != 1:
             raise RuntimeError("Trino connection check returned an unexpected result.")
 
-        for spec in ASSERTIONS:
+        for spec in assertions:
             started_at = time.perf_counter()
             cursor.execute(spec.query)
             row = cursor.fetchone()
@@ -462,8 +723,11 @@ def create_datahub_client(gms_url: str) -> DataHubClient:
     return client
 
 
-def verify_target_datasets(client: DataHubClient) -> None:
-    dataset_urns = sorted({spec.dataset_urn for spec in ASSERTIONS})
+def verify_target_datasets(
+    client: DataHubClient,
+    assertions: Sequence[AssertionSpec] = ASSERTIONS,
+) -> None:
+    dataset_urns = sorted({spec.dataset_urn for spec in assertions})
     for dataset_urn in dataset_urns:
         client.entities.get(dataset_urn)
         print(f"PASS | datahub_dataset_exists | urn={dataset_urn}")
@@ -472,8 +736,10 @@ def verify_target_datasets(client: DataHubClient) -> None:
 def publish_assertions(
     client: DataHubClient,
     results: Sequence[AssertionResult],
+    gms_url: str,
 ) -> None:
     timestamp_millis = int(time.time() * 1000)
+    emitter = DatahubRestEmitter(gms_server=gms_url)
 
     for result in results:
         spec = result.spec
@@ -504,21 +770,31 @@ def publish_assertions(
             sort_keys=True,
             default=str,
         )
-        reported = client.assertions.report_assertion_result(
-            urn=spec.assertion_urn,
-            timestamp_millis=timestamp_millis,
-            type="SUCCESS" if result.evaluation.passed else "FAILURE",
-            properties=[
-                {"key": "observed", "value": observed},
-                {"key": "expected", "value": spec.expected},
-                {"key": "validator_rule", "value": spec.validator_rule},
-                {"key": "contract", "value": spec.contract_path},
-            ],
-        )
-        if not reported:
-            raise RuntimeError(
-                f"DataHub did not accept the run result for {spec.assertion_id}."
+        emitter.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=spec.assertion_urn,
+                aspect=AssertionRunEventClass(
+                    timestampMillis=timestamp_millis,
+                    runId=str(timestamp_millis),
+                    asserteeUrn=spec.dataset_urn,
+                    assertionUrn=spec.assertion_urn,
+                    status=AssertionRunStatusClass.COMPLETE,
+                    result=AssertionResultClass(
+                        type=(
+                            AssertionResultTypeClass.SUCCESS
+                            if result.evaluation.passed
+                            else AssertionResultTypeClass.FAILURE
+                        ),
+                        nativeResults={
+                            "observed": observed,
+                            "expected": spec.expected,
+                            "validator_rule": spec.validator_rule,
+                            "contract": spec.contract_path,
+                        },
+                    ),
+                ),
             )
+        )
 
         status = "SUCCESS" if result.evaluation.passed else "FAILURE"
         print(
@@ -527,23 +803,32 @@ def publish_assertions(
         )
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    assertions = get_assertions(
+        args.include_fraud_labels,
+        args.include_feature_tables,
+    )
 
     if args.self_test:
-        return 0 if run_self_test() else 1
+        return 0 if run_self_test(assertions) else 1
 
     try:
+        config = load_runtime_config(args.environment)
+        datahub_gms_url = resolve_datahub_gms_url(
+            config,
+            args.datahub_gms_url,
+        )
         client = None
         if args.publish:
-            client = create_datahub_client(args.datahub_gms_url)
-            verify_target_datasets(client)
+            client = create_datahub_client(datahub_gms_url)
+            verify_target_datasets(client, assertions)
 
-        results = evaluate_assertions()
+        results = evaluate_assertions(assertions, config)
         print_results(results)
 
         if client is not None:
-            publish_assertions(client, results)
+            publish_assertions(client, results, datahub_gms_url)
 
         pass_count = sum(result.evaluation.passed for result in results)
         fail_count = len(results) - pass_count

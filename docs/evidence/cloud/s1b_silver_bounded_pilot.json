@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "recorded_at": "2026-10-22T17:52:54Z",
+  "project_id": "ewallet-data-ai-platform-hg26",
+  "region": "asia-southeast1",
+  "runtime_version": "2.2.89",
+  "dataset_version": "r4-pilot-1gb-v1",
+  "source_bronze_run_id": "r4-bronze-20261022-095608",
+  "silver_run_id": "s1b-silver-configfix-20261022-174352",
+  "batch_uuid": "063fe48a-f788-40d9-ad37-73560775ac26",
+  "bronze_root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/r4-bronze-20261022-095608/bronze",
+  "silver_root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/s1b-silver-configfix-20261022-174352/silver",
+  "spark_runtime_seconds": 326.69,
+  "output_bytes": 1622083745,
+  "output_object_count": 4738,
+  "tables": {
+    "users": 462500,
+    "accounts": 624191,
+    "merchants": 11100,
+    "devices": 529637,
+    "transactions": 3700000,
+    "balance_snapshots": 3601178,
+    "login_events": 3703228,
+    "fraud_labels": 3700000
+  },
+  "transaction_quality": {
+    "bronze_rows": 3774000,
+    "bronze_unique_transaction_ids": 3700000,
+    "duplicate_rows_removed": 74000,
+    "silver_duplicate_transaction_ids": 0,
+    "bronze_null_channels": 1825724,
+    "silver_null_channels": 0,
+    "latest_ingested_at_semantics": "PASS",
+    "v1_missing_channel_to_unknown": "PASS"
+  },
+  "label_isolation": {
+    "fraud_labels_separate_table": true,
+    "fraud_label_rows": 3700000,
+    "transaction_rows": 3700000,
+    "transaction_schema_contains_label": false,
+    "transaction_schema_contains_fraud_type": false
+  },
+  "validation": {
+    "dataproc_batch_state": "SUCCEEDED",
+    "eight_table_selection": "PASS",
+    "delta_commit_row_counts": "PASS",
+    "transaction_dq": "PASS",
+    "fraud_silver_regression_tests": "9/9 PASS",
+    "runtime_config_tests": "30/30 PASS",
+    "python_compile": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "scope": {
+    "bounded_pilot": true,
+    "canonical_100gb": false,
+    "gold_run": false,
+    "historical_features_run": false
+  }
+}

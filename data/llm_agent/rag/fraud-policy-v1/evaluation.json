@@ -1,0 +1,17 @@
+{
+  "evaluation_revision": "fraud-policy-eval-v1-20261030",
+  "top_k": 2,
+  "score_threshold": 0.0,
+  "queries": [
+    {
+      "query_id": "account-takeover-step-up",
+      "text": "When must an account takeover alert fail closed to manual review?",
+      "expected_document_ids": ["policy-account-takeover"]
+    },
+    {
+      "query_id": "payment-citation-fields",
+      "text": "Which revisions and source fields must a payment anomaly citation preserve?",
+      "expected_document_ids": ["policy-payment-anomaly"]
+    }
+  ]
+}

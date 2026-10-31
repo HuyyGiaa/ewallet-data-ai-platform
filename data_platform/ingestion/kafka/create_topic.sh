@@ -3,8 +3,8 @@
 # Cách chạy: bash create_topic.sh
 
 TOPIC="transactions.raw"
-PARTITIONS=3          # đủ để demo song song hóa, không cần nhiều hơn cho quy mô coursework
-REPLICATION=1         # single-node, không cần replication factor cao
+PARTITIONS=3
+REPLICATION=1
 
 docker exec -it redpanda rpk topic create "$TOPIC" \
   --partitions "$PARTITIONS" \
