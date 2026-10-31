@@ -14,7 +14,7 @@ class Ml2OperatorGuardTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.base = Path(self.temporary.name)
         self.root = self.base / "repo"
-        subprocess.run(["git", "init", "-b", "codex/ml1-training-snapshot", self.root], check=True, capture_output=True)
+        subprocess.run(["git", "init", "-b", "feature/phase2-fraud-platform", self.root], check=True, capture_output=True)
         subprocess.run(["git", "-C", self.root, "config", "user.email", "test@example.invalid"], check=True)
         subprocess.run(["git", "-C", self.root, "config", "user.name", "Test"], check=True)
         (self.root / "tracked").write_text("ok\n")
@@ -41,7 +41,7 @@ class Ml2OperatorGuardTest(unittest.TestCase):
     def _validate(self, **overrides: object) -> None:
         values = {
             "expected_reviewed_git_sha": self.sha,
-            "expected_branch": "codex/ml1-training-snapshot",
+            "expected_branch": "feature/phase2-fraud-platform",
             "evidence_paths": (self.evidence,),
             "dvc_executable": "dvc",
         }
