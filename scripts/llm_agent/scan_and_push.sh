@@ -8,7 +8,7 @@ set -euo pipefail
 digests=$1
 trivy_image=docker.io/aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
 root=$(cd "$(dirname "$0")/../.." && pwd)
-report_dir=$(dirname "$digests")/scans
+report_dir=$(cd "$(dirname "$digests")" && pwd)/scans  # docker -v needs an absolute path
 mkdir -p "$report_dir"
 for image in $(python3 -c 'import json,sys; print(" ".join(sorted(json.load(open(sys.argv[1]))["images"])))' "$digests"); do
   ref=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["images"][sys.argv[2]]["tag_ref"])' "$digests" "$image")

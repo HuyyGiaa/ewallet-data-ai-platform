@@ -113,6 +113,14 @@ class ScanPushTests(ScriptHarness):
         self.assertIn("--exit-code 1 --severity CRITICAL,HIGH", calls[scan])
         self.assertEqual(json.loads(path.read_text())["images"]["mcp-tools"]["digest_ref"], f"{REGISTRY}/mcp-tools@{DIGEST}")
 
+    def test_relative_digests_path_mounts_an_absolute_report_dir(self):
+        path = self.digests()
+        proc = subprocess.run([str(SCRIPTS / "scan_and_push.sh"), path.name], capture_output=True, text=True,
+                              env=self.env, cwd=path.parent, check=False)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        scan = next(c for c in self.calls() if "aquasec/trivy" in c)
+        self.assertIn(f"-v {path.parent.resolve()}/scans:/out", scan)
+
     def test_vulnerable_image_is_never_pushed(self):
         proc = self.run_script("scan_and_push.sh", self.digests(), FAKE_EXIT="1")
         self.assertNotEqual(proc.returncode, 0)
