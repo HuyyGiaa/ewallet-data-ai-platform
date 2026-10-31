@@ -217,9 +217,28 @@ class OutputSummaryTest(unittest.TestCase):
 
         result = feature_oracle(topics)
 
-        self.assertEqual(21, result["mismatch_count"])
+        self.assertEqual(24, result["mismatch_count"])
         self.assertEqual(20, result["mismatch_count_sampled"])
         self.assertEqual(20, len(result["mismatches"]))
+        self.assertFalse(result["passed"])
+
+    def test_feature_oracle_counts_every_missing_expected_update(self) -> None:
+        records, _manifest = build_payloads(functional_spec())
+        event = next(TransactionEvent.from_json(payload) for _key, payload in records if payload.startswith('{"account_id"'))
+        topics = {
+            "raw": [(event.transaction_id, event.to_json(), 1)],
+            "accepted": [(event.transaction_id, json.dumps({
+                "transaction_id": event.transaction_id,
+                "disposition": "ON_TIME",
+            }), 2)],
+            "online": [],
+        }
+
+        result = feature_oracle(topics)
+
+        self.assertEqual(4, result["mismatch_count"])
+        self.assertEqual(4, result["mismatch_count_sampled"])
+        self.assertTrue(all(item["actual"] is None for item in result["mismatches"]))
         self.assertFalse(result["passed"])
 
     def test_acceptance_requires_complete_passing_oracle_only_when_requested(self) -> None:
@@ -242,6 +261,13 @@ class OutputSummaryTest(unittest.TestCase):
             {"passed": False, "compared": 1, "mismatch_count": 1, "mismatches": [{}]},
             {"passed": True, "compared": 0, "mismatch_count": 0, "mismatches": []},
             {"passed": True, "compared": 1, "mismatches": []},
+            {
+                "passed": True,
+                "compared": 1,
+                "mismatch_count": False,
+                "mismatch_count_sampled": False,
+                "mismatches": [],
+            },
         ):
             summary = dict(basic)
             if oracle is not None:

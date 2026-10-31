@@ -184,8 +184,11 @@ def acceptance_passed(summary: dict, *, require_oracle: bool) -> bool:
         and isinstance(compared, int)
         and not isinstance(compared, bool)
         and compared > 0
+        and isinstance(mismatch_count, int)
+        and not isinstance(mismatch_count, bool)
         and mismatch_count == 0
         and isinstance(mismatch_count_sampled, int)
+        and not isinstance(mismatch_count_sampled, bool)
         and isinstance(mismatches, list)
         and mismatch_count_sampled == len(mismatches)
     )
@@ -227,18 +230,27 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
     mismatches = []
     mismatch_count = 0
     compared = 0
+    seen = set()
+
+    def record_mismatch(key, want, got) -> None:
+        nonlocal mismatch_count
+        mismatch_count += 1
+        if len(mismatches) < 20:
+            mismatches.append({"key": list(key), "expected": want, "actual": got})
+
     for _key, value, _ts in topics["online"]:
         item = json.loads(value)
         key = (item["view_name"], item["entity_value"], item["source_event_id"])
         compared += 1
         want = expected.get(key)
         got = item["values"]
-        if want is None or set(want) != set(got) or any(
+        if key in seen or want is None or set(want) != set(got) or any(
             not _close(want[name], got[name]) for name in want
         ):
-            mismatch_count += 1
-            if len(mismatches) < 20:
-                mismatches.append({"key": list(key), "expected": want, "actual": got})
+            record_mismatch(key, want, got)
+        seen.add(key)
+    for key in sorted(expected.keys() - seen):
+        record_mismatch(key, expected[key], None)
     return {
         "compared": compared,
         "mismatch_count": mismatch_count,
