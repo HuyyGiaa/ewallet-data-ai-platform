@@ -56,6 +56,8 @@ _ALLOWLIST = {
         "localhost:8080",
         "localhost:8081",
     },
+    # Container-internal JobManager healthcheck of the local Flink benchmark.
+    "infra/docker/flink-benchmark/compose.yml": {"localhost:8081"},
 }
 
 _LOCAL_PROFILE_ENVIRONMENT = {
