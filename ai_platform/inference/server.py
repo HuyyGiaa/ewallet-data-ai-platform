@@ -19,6 +19,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from prometheus_client import make_asgi_app
 
+from ai_platform.features.feast.registry_mirror import mirror_from_environment
 from ai_platform.inference.app import create_app
 
 
@@ -38,6 +39,14 @@ def configure_telemetry() -> None:
 
 
 def build():
+    # Read-only object-level mirror; Feast's GCS store would need buckets.get.
+    mirror = mirror_from_environment()
+    if mirror is not None:
+        logging.getLogger("ewallet.fraud_inference").info(
+            '{"event":"feast_registry_mirrored","uri":"%s","generation":%d}',
+            mirror.uri,
+            mirror.generation,
+        )
     configure_telemetry()
     app = create_app()
     app.mount("/metrics", make_asgi_app())

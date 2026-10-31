@@ -29,6 +29,7 @@ from time import perf_counter
 import pandas as pd
 from feast import FeatureStore
 
+from ai_platform.features.feast.registry_mirror import mirror_from_environment
 from ai_platform.features.feast.retrieval.bounded_dask import (
     bounded_dask_source,
     build_bounded_source_plan,
@@ -82,7 +83,7 @@ def apply(store: FeatureStore) -> dict[str, object]:
     applied = sorted(view.name for view in store.list_feature_views())
     if applied != sorted(FEATURE_SPECS):
         raise RuntimeError(f"unexpected online FeatureViews: {applied}")
-    return {"feature_views": applied, "registry": os.environ["EWALLET_FEAST_REGISTRY"]}
+    return {"feature_views": applied}
 
 
 def _materialize_view(
@@ -242,6 +243,11 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--sample-size", type=int, default=5)
     args = parser.parse_args(argv)
 
+    registry_uri = os.environ.get("EWALLET_FEAST_REGISTRY", "")
+    mirror = mirror_from_environment()
+    generation_before = mirror.generation if mirror else None
+    if args.command == "apply" and mirror is not None and mirror.generation != 0:
+        raise FileExistsError(f"online registry already exists: {registry_uri}")
     store = get_online_store()
     started = datetime.now(timezone.utc)
     if args.command == "apply":
@@ -252,12 +258,17 @@ def main(argv: list[str] | None = None) -> int:
         result = materialize_incremental(store, args.end)
     else:
         result = parity(store, args.cutover, args.sample_window_start, args.sample_size)
+    generation_after = generation_before
+    if mirror is not None and args.command != "parity":
+        generation_after = mirror.push()
     evidence = {
         "schema_version": "feast-online-operation-evidence-v1",
         "command": args.command,
         "started_at": started.isoformat(),
         "finished_at": datetime.now(timezone.utc).isoformat(),
-        "registry": os.environ["EWALLET_FEAST_REGISTRY"],
+        "registry": registry_uri,
+        "registry_generation_before": generation_before,
+        "registry_generation_after": generation_after,
         "offline_data_root": os.environ["EWALLET_FEAST_OFFLINE_DATA_ROOT"],
         "git_sha": os.environ.get("EWALLET_GIT_SHA", "unknown"),
         **result,
