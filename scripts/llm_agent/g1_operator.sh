@@ -301,6 +301,28 @@ failover)
   k -n "$NS" wait --for=delete pod -l app.kubernetes.io/name=vllm,app.kubernetes.io/instance=primary --timeout=5m
   [ "$(k -n "$NS" get pods -l app.kubernetes.io/instance=primary --no-headers 2>/dev/null | grep -c . || true)" = 0 ] \
     || die "primary pods still present"
+  # agentgateway health is passive: the primary is evicted only after failed
+  # requests (offline mock: two), and later requests go to the fallback. Probe
+  # with 1-token requests until one is served by the fallback; every status on
+  # the way is evidence of the eviction.
+  mkdir -p "$evidence/failover"
+  k -n "$NS" port-forward svc/agentgateway 13001:3000 > "$evidence/failover/probe-port-forward.log" 2>&1 &
+  probe_pf=$!
+  sleep 3
+  served=""
+  for attempt in 1 2 3 4 5 6; do
+    out=$(curl -s -o /dev/null -D - -w 'status=%{http_code}\n' --max-time 120 \
+      -H "Authorization: Bearer $(api_key agentgateway-client-key)" -H 'Content-Type: application/json' \
+      -d '{"model":"ewallet-fraud-llm","messages":[{"role":"user","content":"ping"}],"max_tokens":1}' \
+      http://127.0.0.1:13001/v1/chat/completions || true)
+    status=$(echo "$out" | sed -n 's/^status=//p')
+    backend=$(echo "$out" | tr -d '\r' | sed -n 's/^x-ewallet-backend: //Ip')
+    echo "attempt=$attempt status=$status backend=${backend:-none}" | tee -a "$evidence/failover/eviction.txt"
+    if [ "$status" = 200 ] && [ "$backend" = fallback ]; then served=yes; break; fi
+    sleep 2
+  done
+  kill "$probe_pf" 2>/dev/null || true
+  [ -n "$served" ] || die "the gateway never served from the fallback (see failover/eviction.txt)"
   G1_APPROVED_STAGES="" "$0" smoke-gateway "$evidence/failover"
   after=$(fallback_requests)
   python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(r["first_turn"].get("backend") != "fallback")' \
