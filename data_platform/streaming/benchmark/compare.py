@@ -10,6 +10,8 @@ import argparse
 import json
 from pathlib import Path
 
+from data_platform.streaming.benchmark.outputs import acceptance_passed
+
 
 def _load(path: Path):
     return json.loads(path.read_text()) if path.is_file() else {}
@@ -69,11 +71,17 @@ def run_row(run: Path) -> dict:
 def validate_run(run: Path) -> None:
     """Only runs the driver finalized as complete count as performance evidence."""
     meta = _load(run / "run.json")
+    outputs = _load(run / "outputs_summary.json")
     problems = []
     if meta.get("status") != "complete":
         problems.append(f"status={meta.get('status')!r} failures={meta.get('failures')}")
-    if not _load(run / "outputs_summary.json").get("functional_checks", {}).get("all_passed"):
+    mode = meta.get("mode")
+    if mode not in {"functional", "performance"}:
+        problems.append(f"unsupported or missing mode={mode!r}")
+    if not outputs.get("functional_checks", {}).get("all_passed"):
         problems.append("functional checks missing or failed")
+    elif mode == "functional" and not acceptance_passed(outputs, require_oracle=True):
+        problems.append("feature oracle missing, incomplete or failed")
     if not ((_last_snapshot(run).get("checkpoints") or {}).get("counts") or {}).get("completed"):
         problems.append("no completed checkpoint in metrics")
     if problems:
@@ -86,6 +94,8 @@ def report(baseline: Path, optimized: Path, *, require_valid: bool = True) -> st
             validate_run(run)
     rows = {"baseline": run_row(baseline), "optimized": run_row(optimized)}
     same_input = rows["baseline"]["input_sha256"] == rows["optimized"]["input_sha256"] and rows["baseline"]["input_sha256"]
+    if require_valid and not same_input:
+        raise ValueError("logical input payload SHA-256 is missing or mismatched")
     parity = {
         key: rows["baseline"]["parity"].get(key) == rows["optimized"]["parity"].get(key)
         for key in ("accepted_sha256", "online_sha256", "late_sha256", "dlq_count")

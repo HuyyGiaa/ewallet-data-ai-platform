@@ -166,6 +166,31 @@ def functional_checks(summary: dict, manifest: dict) -> dict:
     return {"all_passed": all(checks.values()), **checks}
 
 
+def acceptance_passed(summary: dict, *, require_oracle: bool) -> bool:
+    """Return whether output evidence is complete for the requested run mode."""
+    if summary.get("functional_checks", {}).get("all_passed") is not True:
+        return False
+    if not require_oracle:
+        return True
+    oracle = summary.get("feature_oracle")
+    if not isinstance(oracle, dict):
+        return False
+    compared = oracle.get("compared")
+    mismatch_count = oracle.get("mismatch_count")
+    mismatch_count_sampled = oracle.get("mismatch_count_sampled")
+    mismatches = oracle.get("mismatches")
+    return (
+        oracle.get("passed") is True
+        and isinstance(compared, int)
+        and not isinstance(compared, bool)
+        and compared > 0
+        and mismatch_count == 0
+        and isinstance(mismatch_count_sampled, int)
+        and isinstance(mismatches, list)
+        and mismatch_count_sampled == len(mismatches)
+    )
+
+
 def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
     """Recompute every emitted online update with the pure-Python reference state.
 
@@ -200,6 +225,7 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
                 expected[(view, snapshot.entity_value, event.event_id)] = snapshot.values
         index += len(group)
     mismatches = []
+    mismatch_count = 0
     compared = 0
     for _key, value, _ts in topics["online"]:
         item = json.loads(value)
@@ -210,10 +236,16 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
         if want is None or set(want) != set(got) or any(
             not _close(want[name], got[name]) for name in want
         ):
+            mismatch_count += 1
             if len(mismatches) < 20:
                 mismatches.append({"key": list(key), "expected": want, "actual": got})
-    return {"compared": compared, "mismatch_count_sampled": len(mismatches), "mismatches": mismatches,
-            "passed": compared > 0 and not mismatches}
+    return {
+        "compared": compared,
+        "mismatch_count": mismatch_count,
+        "mismatch_count_sampled": len(mismatches),
+        "mismatches": mismatches,
+        "passed": compared > 0 and mismatch_count == 0,
+    }
 
 
 def _close(a, b) -> bool:
@@ -249,7 +281,7 @@ def main(argv=None) -> int:
     summary["collected_at"] = datetime.now().astimezone().isoformat()
     (args.run_dir / "outputs_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True))
     print(json.dumps({"record_counts": summary["record_counts"], "functional_checks": summary["functional_checks"]}))
-    return 0 if summary["functional_checks"]["all_passed"] else 2
+    return 0 if acceptance_passed(summary, require_oracle=args.oracle) else 2
 
 
 if __name__ == "__main__":

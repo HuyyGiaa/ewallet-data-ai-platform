@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from data_platform.streaming.benchmark.compare import report
+from data_platform.streaming.benchmark import outputs as benchmark_outputs
 from data_platform.streaming.benchmark.dataset import (
     MAX_EVENTS,
     ReplaySpec,
@@ -19,7 +20,7 @@ from data_platform.streaming.benchmark.dataset import (
     functional_spec,
     performance_spec,
 )
-from data_platform.streaming.benchmark.outputs import percentile, summarize
+from data_platform.streaming.benchmark.outputs import feature_oracle, percentile, summarize
 from data_platform.streaming.config.settings import (
     BASELINE,
     OPTIMIZED,
@@ -196,6 +197,58 @@ class OutputSummaryTest(unittest.TestCase):
         self.assertIsNone(percentile([], 50))
         self.assertEqual(3, percentile([1, 2, 3, 4], 75))
 
+    def test_feature_oracle_reports_total_mismatches_beyond_sample_cap(self) -> None:
+        records, _manifest = build_payloads(functional_spec())
+        event = next(TransactionEvent.from_json(payload) for _key, payload in records if payload.startswith('{"account_id"'))
+        actual = json.dumps({
+            "view_name": "device_behavior",
+            "entity_value": event.device_id,
+            "source_event_id": event.event_id,
+            "values": {"device_age_seconds": -1.0},
+        })
+        topics = {
+            "raw": [(event.transaction_id, event.to_json(), 1)],
+            "accepted": [(event.transaction_id, json.dumps({
+                "transaction_id": event.transaction_id,
+                "disposition": "ON_TIME",
+            }), 2)],
+            "online": [(str(index), actual, 3 + index) for index in range(21)],
+        }
+
+        result = feature_oracle(topics)
+
+        self.assertEqual(21, result["mismatch_count"])
+        self.assertEqual(20, result["mismatch_count_sampled"])
+        self.assertEqual(20, len(result["mismatches"]))
+        self.assertFalse(result["passed"])
+
+    def test_acceptance_requires_complete_passing_oracle_only_when_requested(self) -> None:
+        basic = {"functional_checks": {"all_passed": True}}
+        valid = {
+            **basic,
+            "feature_oracle": {
+                "passed": True,
+                "compared": 1,
+                "mismatch_count": 0,
+                "mismatch_count_sampled": 0,
+                "mismatches": [],
+            },
+        }
+
+        self.assertTrue(benchmark_outputs.acceptance_passed(valid, require_oracle=True))
+        self.assertTrue(benchmark_outputs.acceptance_passed(basic, require_oracle=False))
+        for oracle in (
+            None,
+            {"passed": False, "compared": 1, "mismatch_count": 1, "mismatches": [{}]},
+            {"passed": True, "compared": 0, "mismatch_count": 0, "mismatches": []},
+            {"passed": True, "compared": 1, "mismatches": []},
+        ):
+            summary = dict(basic)
+            if oracle is not None:
+                summary["feature_oracle"] = oracle
+            with self.subTest(oracle=oracle):
+                self.assertFalse(benchmark_outputs.acceptance_passed(summary, require_oracle=True))
+
     def test_compare_reports_missing_metrics_as_na(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base, opt = Path(tmp, "b"), Path(tmp, "o")
@@ -208,11 +261,26 @@ class OutputSummaryTest(unittest.TestCase):
 
 
 class RunValidityTest(unittest.TestCase):
-    def _run(self, root: Path, status: str, passed: bool, completed: int) -> Path:
+    def _run(
+        self,
+        root: Path,
+        status: str,
+        passed: bool,
+        completed: int,
+        *,
+        mode: str = "performance",
+        payload_sha256: str | None = "abc",
+        oracle: dict | None = None,
+    ) -> Path:
         run = root / status
         (run / "metrics").mkdir(parents=True)
-        (run / "run.json").write_text(json.dumps({"status": status, "failures": []}))
-        (run / "outputs_summary.json").write_text(json.dumps({"functional_checks": {"all_passed": passed}}))
+        (run / "input").mkdir()
+        (run / "run.json").write_text(json.dumps({"status": status, "failures": [], "mode": mode}))
+        outputs = {"functional_checks": {"all_passed": passed}}
+        if oracle is not None:
+            outputs["feature_oracle"] = oracle
+        (run / "outputs_summary.json").write_text(json.dumps(outputs))
+        (run / "input/input_manifest.json").write_text(json.dumps({"payload_sha256": payload_sha256}))
         (run / "metrics/snapshot_0000.json").write_text(json.dumps({"checkpoints": {"counts": {"completed": completed}}}))
         return run
 
@@ -225,6 +293,40 @@ class RunValidityTest(unittest.TestCase):
                         self._run(Path(tmp) / "c", "complete", True, 0)):
                 with self.subTest(run=bad), self.assertRaisesRegex(ValueError, "invalid run"):
                     report(good, bad)
+
+    def test_compare_requires_complete_passing_oracle_for_functional_runs(self) -> None:
+        valid_oracle = {
+            "passed": True,
+            "compared": 1,
+            "mismatch_count": 0,
+            "mismatch_count_sampled": 0,
+            "mismatches": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            good = self._run(Path(tmp, "good"), "complete", True, 1, mode="functional", oracle=valid_oracle)
+            report(good, good)
+            for index, oracle in enumerate((
+                None,
+                {**valid_oracle, "passed": False, "mismatch_count": 1},
+                {"passed": True, "compared": 1, "mismatches": []},
+            )):
+                bad = self._run(Path(tmp, f"bad-{index}"), "complete", True, 1, mode="functional", oracle=oracle)
+                with self.subTest(oracle=oracle), self.assertRaisesRegex(ValueError, "feature oracle"):
+                    report(good, bad)
+
+    def test_compare_allows_performance_run_without_feature_oracle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run = self._run(Path(tmp), "complete", True, 1, mode="performance")
+            report(run, run)
+
+    def test_compare_rejects_mismatched_or_missing_logical_input_hashes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = self._run(Path(tmp, "baseline"), "complete", True, 1, payload_sha256="abc")
+            mismatched = self._run(Path(tmp, "mismatched"), "complete", True, 1, payload_sha256="def")
+            missing = self._run(Path(tmp, "missing"), "complete", True, 1, payload_sha256=None)
+            for other in (mismatched, missing):
+                with self.subTest(run=other), self.assertRaisesRegex(ValueError, "payload SHA-256"):
+                    report(baseline, other)
 
     def test_driver_no_longer_swallows_failures(self) -> None:
         script = (ROOT / "scripts/streaming/flink_bench.sh").read_text()
