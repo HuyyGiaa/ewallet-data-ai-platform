@@ -223,6 +223,67 @@ llmd:
       reason: The EPP watches Pods and InferencePools through a namespaced Role; the API server endpoint is cluster-specific.
       gate: Read back the API server endpoint IPs and allow only them on 443 from llmd-epp.
 
+# kagent 0.10.3 Agents on Agent Substrate 0.0.9 (rubric edai-2 rows 19-22,
+# 25-27). Disabled until the kagent controller, Substrate and the MCP Gateway
+# are deployed (docs/llm_agent/runtime_runbook.md R3).
+# Business roles (no duplicate logical agents for historical names):
+#   drift-specialist        = Feature / Risk specialist (rows 19-21)
+#   feature-rag-specialist  = Fraud Investigation / Evidence specialist (row 22)
+#   fraud-coordinator       = Coordinator, delegates by native A2A (rows 25-26)
+agents:
+  enabled: false
+  # Substrate WorkerPool per agent. Substrate 0.0.9 WorkerPool.spec.template
+  # has no serviceAccountName (it is pruned), so per-agent mesh identity is
+  # NOT source-defined; see docs/llm_agent/agents.md.
+  workerPool:
+    ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9
+    sandboxClass: gvisor
+    replicas: 1
+    resources:
+      requests: {cpu: 500m, memory: 1Gi}
+      limits: {cpu: 1500m, memory: 2Gi}
+  # gs://<bucket>/<prefix>/ for Substrate snapshots; required when enabled.
+  snapshotsLocation: ""
+  runtime: go
+  mcpGatewayUrl: http://mcp-gateway.ewallet-agents.svc.cluster.local:8080
+  mcpTimeout: 30s
+  allowedDomains:
+    llm: agentgateway.ewallet-agents.svc.cluster.local
+    mcp: mcp-gateway.ewallet-agents.svc.cluster.local
+    a2a: a2a-gateway.ewallet-agents.svc.cluster.local
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  # Prompt identity: prompts/<agent>/<version>.md, sha256 in prompts/manifest.json.
+  mcpServers:
+    feature-rag-mcp: {path: /feature-rag/mcp, tools: [feature_lookup, fraud_scoring, knowledge_search]}
+    drift-mcp: {path: /drift/mcp, tools: [drift_detection]}
+  specialists:
+    drift-specialist:
+      displayName: Feature / Risk specialist
+      businessRole: feature-risk
+      version: "1.0.0"
+      promptVersion: v1
+      rubricRows: "19,20,21"
+      tools:
+        feature-rag-mcp: [feature_lookup]
+        drift-mcp: [drift_detection]
+    feature-rag-specialist:
+      displayName: Fraud Investigation / Evidence specialist
+      businessRole: fraud-investigation
+      version: "1.0.0"
+      promptVersion: v1
+      rubricRows: "22"
+      tools:
+        feature-rag-mcp: [feature_lookup, fraud_scoring, knowledge_search]
+  coordinator:
+    name: fraud-coordinator
+    displayName: Fraud Investigation Coordinator
+    version: "1.0.0"
+    promptVersion: v1
+    rubricRows: "25,26"
+    delegates: [feature-rag-specialist, drift-specialist]
+
 # Phase D MCP tool servers (ai_platform/llm_agent/tools). Disabled: no reviewed
 # server image exists, and every value below must come from a real build and
 # deployment readback, never from placeholders.
