@@ -47,12 +47,14 @@ ISTIOD = (0.1, 0.25)
 ISTIO_PER_NODE = (0.2 + 0.1, 0.5 + 0.1)  # ztunnel + istio-cni
 STAGES: dict[str, dict[str, Any]] = {
     "g0": {"sets": None, "crds": []},
-    "g1": {"sets": [], "crds": ["authorizationpolicies.security.istio.io", "modelconfigs.kagent.dev"]},
+    # G1 runs without kagent (owner decision): ModelConfig moves to g3.
+    "g1": {"sets": [], "crds": ["authorizationpolicies.security.istio.io"]},
     "g2": {"sets": ["llmd.enabled=true"],
            "crds": ["inferencepools.inference.networking.k8s.io", "httproutes.gateway.networking.k8s.io"]},
     "g3": {"sets": ["llmd.enabled=true", "agents.enabled=true", "mcpGateway.enabled=true",
                     "a2aGateway.enabled=true"],
-           "crds": ["sandboxagents.kagent.dev", "remotemcpservers.kagent.dev", "workerpools.ate.dev"]},
+           "crds": ["modelconfigs.kagent.dev", "sandboxagents.kagent.dev", "remotemcpservers.kagent.dev",
+                    "workerpools.ate.dev"]},
 }
 ORDER = list(STAGES)
 
@@ -154,6 +156,8 @@ def collect(stage: str, context: str, extra_sets: list[str]) -> dict[str, Any]:
         planned = [ISTIOD[0] + ISTIO_PER_NODE[0] * len(ready), ISTIOD[1] + ISTIO_PER_NODE[1] * len(ready)]
     if STAGES[stage]["sets"] is not None:
         args = ["helm", "template", "llm-agent", str(CHART), "-f", str(CHART / "values-gke-cpu.yaml")]
+        if stage in ("g1", "g2"):
+            args += ["-f", str(CHART / "values-gke-cpu-g1.yaml")]
         for item in STAGES[stage]["sets"] + extra_sets:
             args += ["--set", item]
         try:

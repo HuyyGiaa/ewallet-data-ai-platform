@@ -5,7 +5,8 @@
 # ISTIO_CHART_DIR (optional: pre-downloaded <chart>-<version>.tgz files).
 # Every chart is checked against its sha256 in versions.env before use.
 # plan renders the four charts; apply installs base -> istiod -> cni -> ztunnel
-# (same release names as the kind mesh) and reads back the CNI bin dir.
+# (same release names as the kind mesh), then fails unless the installed CNI
+# bin dir equals values-gke.yaml cniBinDir and both DaemonSets roll out.
 set -euo pipefail
 mode=$1 evidence=$2
 [[ "$mode" =~ ^(plan|apply)$ ]] || { echo "mode must be plan or apply" >&2; exit 2; }
@@ -38,6 +39,10 @@ for chart in "${order[@]}"; do
   helm template "${releases[$chart]}" "$work/$chart-$ISTIO_VERSION.tgz" --namespace istio-system \
     -f "$profile/values-gke.yaml" > "$evidence/istio-$chart.yaml"
 done
+expected_bin=$(python3 -c 'import sys, yaml; print((yaml.safe_load(open(sys.argv[1])).get("cni") or {}).get("cniBinDir") or "")' \
+  "$profile/values-gke.yaml")
+[ -n "$expected_bin" ] || { echo "values-gke.yaml must pin cni.cniBinDir" >&2; exit 1; }
+grep -q "path: $expected_bin\$" "$evidence/istio-cni.yaml" || { echo "cni render does not use $expected_bin" >&2; exit 1; }
 [ "$mode" = plan ] && exit 0
 
 for chart in "${order[@]}"; do
@@ -47,4 +52,8 @@ for chart in "${order[@]}"; do
 done
 kubectl --context "$KUBE_CONTEXT" -n istio-system get ds istio-cni-node \
   -o jsonpath='{.spec.template.spec.volumes[?(@.name=="cni-bin-dir")].hostPath.path}' > "$evidence/cni-bin-dir.txt"
+[ "$(cat "$evidence/cni-bin-dir.txt")" = "$expected_bin" ] || { echo "installed cni bin dir is not $expected_bin" >&2; exit 1; }
+for ds in istio-cni-node ztunnel; do
+  kubectl --context "$KUBE_CONTEXT" -n istio-system rollout status "ds/$ds" --timeout=5m | tee -a "$evidence/rollout.txt"
+done
 kubectl --context "$KUBE_CONTEXT" -n istio-system get ds,deploy,pods,resourcequota -o wide > "$evidence/istio-system.txt"

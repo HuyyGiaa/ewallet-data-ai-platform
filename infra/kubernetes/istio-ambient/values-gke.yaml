@@ -1,8 +1,13 @@
 # Shared by the istiod, istio-cni and ztunnel charts (all in istio-system).
 # platform=gke: the cni and ztunnel charts create the ResourceQuota GKE needs
-# for system-node-critical pods outside kube-system, and cni autodetects the
-# GKE CNI bin dir at install time (offline renders show /opt/cni/bin; read the
-# installed DaemonSet back).
+# for system-node-critical pods outside kube-system.
+# cni.cniBinDir: with platform=gke the 1.30.7 cni chart renders /opt/cni/bin
+# (also with --kube-version v1.36.4-gke.2046003, and a top-level cniBinDir is
+# ignored); only the nested key the gke profile uses takes effect. GKE nodes
+# keep CNI plugins in /home/kubernetes/bin; a wrong dir leaves new pods unable
+# to start. istio_ambient_gke.sh fails unless render and install read this back.
+cni:
+  cniBinDir: /home/kubernetes/bin
 profile: ambient
 global:
   platform: gke

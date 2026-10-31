@@ -51,6 +51,11 @@ networkPolicy:
       feature-rag-mcp: [8080]
       drift-mcp: [8080]
       otel-collector: [13133]
+  # Workloads (networkFlows names) that call Google APIs through Workload
+  # Identity: egress to the GKE metadata server only (169.254.169.254:80 and
+  # gke-metadata-server 169.254.169.252:988). None in G1: vLLM and agentgateway
+  # use no Google credentials.
+  metadataAccess: []
 
 # Least-privilege allow-flows on top of the Istio and Kubernetes default-deny.
 # A flow is enforced only when both ends are workloads this chart owns, so its

@@ -112,26 +112,115 @@ permission); enforcement is a time-box plus the resize to 0:
 gcloud container clusters resize ewallet-dev --node-pool cpu-pool --num-nodes 0 --zone asia-southeast1-b
 ```
 
-## Rollout order (each step: owner approval, `gke_preflight` GO, apply, evidence)
+## G1 capacity at 3 nodes (requests)
+
+Per node: GKE DaemonSets 0.41 CPU / 0.78 GiB + ztunnel/istio-cni 0.30 / 0.60 +
+Calico (readable only after enabling; budgeted 0.25 / 0.30) = 0.96 / 1.68.
+Cluster: GKE system 0.33 / 0.54, Kubeflow + MLflow 1.12 / 4.32, istiod
+0.10 / 0.25, Calico typha/autoscalers (budgeted 0.40 / 0.50), G1 4.20 / 8.25.
+Total 9.03 CPU of 11.76 allocatable (77 %) and ≈19 GiB of ≈39 GiB: **GO** under
+the 85 % headroom. Packing: a node has 2.96 CPU free after its DaemonSets, so
+each vLLM pod (2 CPU) takes its own node with 0.96 left; the remaining 2.15 CPU
+of small pods fit in 0.96 + 0.96 + 2.96. The Calico figures are budgets, not
+readings: `g1_operator.sh scale-up` reads the real calico-node rollout and
+`gke_preflight --stage g1` re-checks capacity before `deploy`.
+
+## G1 operator runbook (`scripts/llm_agent/g1_operator.sh <stage> <evidence-dir>`)
+
+Every stage checks `KUBE_CONTEXT` is the ewallet-dev context, reads its result
+back and exits non-zero otherwise. A stage that changes GKE or Artifact
+Registry runs only when listed in `G1_APPROVED_STAGES`; `cleanup` always runs.
 
 ```bash
-python3 -m ops.llm_agent.gke_preflight --stage <g0|g1|g2|g3> --context "$CTX" --kubeconfig "$KUBECONFIG" \
-    [--set vllm.image=<vllm-cpu-model digest ref>] --json-output docs/evidence/llm_agent/gke_cpu/preflight_<stage>.json
+export KUBECONFIG=<scratch>/gke-dns.kubeconfig
+export KUBE_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+E=docs/evidence/llm_agent/g1_$(date -u +%Y%m%dT%H%M%SZ); OP=scripts/llm_agent/g1_operator.sh
+export DIGESTS=$E/image-digests.json AR_REPO=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform
+export G1_APPROVED_STAGES=<the stages the owner approved, comma-separated>
 ```
 
-1. **Network and resources**: NetworkPolicy enforcement (above); resize `cpu-pool` 0 -> 3; G0 Istio ambient
-   (`KUBE_CONTEXT=$CTX scripts/llm_agent/istio_ambient_gke.sh plan|apply <ev>`, read back `cni-bin-dir.txt`).
-2. **CPU vLLM direct**: `scripts/llm_agent/build_vllm_model_image.sh <staged model dir> <AR repo> <sha> <digests.json>`,
-   `scan_and_push.sh` (Trivy HIGH/CRITICAL gate on the upstream vLLM base: expect findings, owner decision),
-   kagent CRDs 0.10.3 by digest, Secret `vllm-api-key` from a generated token (never printed),
-   `KUBE_CONTEXT=$CTX scripts/llm_agent/deploy_atomic.sh gke-cpu <digests.json> <ev>`;
-   `smoke_tool_call.py` to vLLM via port-forward (non-stream, `--stream`, wrong key -> 401).
-3. **agentgateway**: the same smoke against `ewallet-fraud-llm`, fallback test (scale primary to 0), benchmark.
-4. **llm-d**: GAIE v1.6.2 CRDs + router v0.9.0 (`router-values-local.yaml` CPU budget), `--set llmd.enabled=true`.
-5. **kagent + native A2A**: Substrate 0.0.9 + kagent 0.10.3 (`kagent-values-local.yaml`), approved
-   `agents.snapshotsLocation`, agents enabled.
-6. **MCP identity**: MCP stays DenyAll until docs/llm_agent/mcp_gateway.md's identity gate passes.
-7. **Business E2E**: Feast Online/Redis, KServe, RAG publication, drift baseline.
+| # | Stage | Changes | Verified by (fails closed) |
+|---|---|---|---|
+| 0 | `status` | nothing | cluster JSON, pool size |
+| 1 | `netpol-enable` | 2 cluster updates (pool must be 0) | `networkPolicy.enabled` and addon read back |
+| 2 | `image-build` (local, `MODEL_DIR=<staged Qwen3 dir>`) | local image only | SHA256SUMS before build and inside the image |
+| 3 | `image-push` | Artifact Registry push | Trivy HIGH/CRITICAL gate first; pushed digest recorded |
+| 4 | `scale-up` (`NODES=3`, max 3) | resize 0 -> 3 | NetworkPolicy enabled first; 3 Ready nodes; calico-node rolled out |
+| 5 | `istio` | Istio 1.30.7 ambient | chart sha256; CNI bin dir `/home/kubernetes/bin` in render and on the DaemonSet; cni + ztunnel rolled out |
+| 6 | `namespace` | the chart's Namespace | `istio.io/dataplane-mode=ambient` read back |
+| 7 | `secret` | Secret `vllm-api-key` | fresh 64-hex token via a 0600 file, never printed or on argv; refuses to overwrite |
+| 8 | `deploy` | Helm release (G1 overlay, no kagent) | `gke_preflight --stage g1` GO; `--atomic --wait`; pod image IDs |
+| 9 | `netpol-verify` | throwaway curl pods | matrix below; any mismatch fails |
+| 10 | `smoke-direct` | nothing | tool call 200, stream 200, wrong key 401 |
+| 11 | `smoke-gateway` | nothing | same through agentgateway (`ewallet-fraud-llm`) |
+| 12 | `failover` | primary 0 -> back to 1 | request served by `fallback` |
+| 13 | `evidence` | nothing | nodes, pods, image IDs, helm history, top, redacted vLLM log |
+| 14 | `cleanup [--uninstall]` | resize to 0 (optional uninstall) | pool size 0 read back |
 
-The CPU budgets are the local ones (ModelConfig 200 s > agentgateway 180/170/160/160 s > llm-d route 155 s;
-A2A 660 s < kagent client 700 s), checked by `tests/llm_agent/test_r2_r3_budgets.py` for `gke-cpu`.
+`netpol-verify` matrix (pinned `curlimages/curl` by digest, unprivileged, no SA token):
+
+| Row | Expect |
+|---|---|
+| unlabelled pod -> Internet (huggingface.co) | deny |
+| unlabelled pod -> vllm-primary:8000 | deny |
+| unlabelled pod -> agentgateway:4000 | deny |
+| pod in another namespace -> vllm-primary:8000 | deny |
+| pod with the agentgateway label but another ServiceAccount -> vLLM | deny (NetworkPolicy allows, Istio AuthorizationPolicy refuses) |
+| vLLM pod -> Internet | deny |
+| kubelet probes (vLLM Ready) | allow |
+| DNS (a deny must be a timeout/refusal, never curl exit 6) | allow |
+| agentgateway -> vLLM | allow (proven by `smoke-gateway`) |
+
+Offline, `tests/llm_agent/test_gke_cpu_profile.py::G1ReachabilityTests` evaluates
+the rendered policies with Kubernetes semantics: among the G1 workloads only
+agentgateway -> vLLM on 8000 and 15008 is allowed; 169.254.7.127 reaches only
+probe ports; DNS (kube-dns and 169.254.20.10) is the only other egress; the
+metadata server is closed unless `networkPolicy.metadataAccess` names a workload.
+
+## Cost exposure
+
+3 × e2-standard-4 ≈ 0.52 USD/h while nodes exist (nothing else in G1 scales
+with time except the pre-existing cluster fee). A 3-hour G1 session ≈ 1.56 USD;
+a forgotten pool ≈ 12.4 USD/day. Artifact Registry: the model image (≈7.5 GB)
+≈ 0.75 USD/month until deleted. No budget is enforced by the platform: the
+operator runs `cleanup` at the end of every session and after any failed stage.
+
+## After G1 (unchanged order, each with its own approval and preflight)
+
+3. agentgateway benchmark beyond the smoke latencies; 4. llm-d: GAIE v1.6.2
+CRDs + router v0.9.0 (`router-values-local.yaml` CPU budget); 5. kagent +
+Substrate + native A2A (ModelConfig readback moves here); 6. MCP identity gate;
+7. business E2E (Feast Online/Redis, KServe, RAG, drift).
+
+## Image vulnerability gate (vllm-cpu-model)
+
+Evidence: `docs/evidence/llm_agent/gke_cpu/trivy_vllm_cpu_20261031.json`
+(Trivy 0.75.0 with the `scan_and_push.sh` flags; local builds, no push).
+
+| Image | HIGH/CRITICAL fixed vulns | Secret findings |
+|---|---|---|
+| upstream `vllm-openai-cpu` v0.32.0 @827ef381 | 10 (2 CRITICAL) in 8 packages | 11 |
+| `remediated` stage, round 1 | 6 (pip copies outside the venv) | 11 |
+| `remediated` stage, final | **0** | 11 |
+| final + `trivy-secret-allow.yaml` | 0 | **0** (exit 0) |
+
+Remediation (`infra/docker/vllm-cpu-model/remediate.py`, every download by sha256):
+libbrotli1 -> 1.0.9-2ubuntu0.1; venv certifi -> 2026.10.18 (`--require-hashes`);
+setuptools stays 78.1.1 (vLLM 0.32.0 pins `setuptools==78.1.1`) and only its
+vendored jaraco.context 5.3.0 / wheel 0.45.1 are replaced by 6.1.0 / 0.46.3 from
+the setuptools 82.0.1 wheel; pip is removed everywhere it was found (venv, the
+uv-managed base interpreter, the ensurepip wheel, uv's cache), which removes
+its vendored certifi/urllib3/msgpack/pkg_resources. Import checks in the build:
+certifi, setuptools(.command.bdist_wheel), pkg_resources, torch.utils.cpp_extension, vllm.
+The vendored-package swap is the one non-standard step; the G1 startup probe
+(a real tool-shaped completion) is its runtime proof.
+
+**Owner decision (secret scanner).** The 11 secret findings are one false
+positive: rule `gcp-service-account` matches the anthropic SDK docstring
+``sending `{"type": "service_account"}` `` (no `private_key`; vLLM depends on the
+SDK). `trivy-secret-allow.yaml` lists exactly those 7 files by anchored path.
+It is **not** wired into `scan_and_push.sh`: approving it means passing
+`--secret-config` for this image only. Without that approval `image-push`
+fails closed and G1 stays NO-GO. Alternatives: an upstream vLLM release whose
+SDK no longer matches (re-pin and re-validate), or removing the SDK (breaks
+vLLM's Anthropic-compatible endpoint imports; not recommended).

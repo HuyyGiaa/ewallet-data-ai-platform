@@ -176,7 +176,19 @@ class ModelImageModeTests(unittest.TestCase):
     def test_recipe_pins_the_same_base_and_checksums(self):
         dockerfile = (ROOT / "infra/docker/vllm-cpu-model/Dockerfile").read_text()
         base = yaml.safe_load((CHART / "values.yaml").read_text())["vllm"]["image"]
-        self.assertIn(f"FROM {base}\n", dockerfile)
+        self.assertIn(f"FROM {base} AS remediated\n", dockerfile)
+        self.assertIn("FROM remediated\n", dockerfile)
+
+    def test_remediation_is_pinned_and_the_gate_stays_strict(self):
+        script = (ROOT / "infra/docker/vllm-cpu-model/remediate.py").read_text()
+        self.assertRegex(script, r'CERTIFI = "certifi==2026\.10\.18 --hash=sha256:[0-9a-f]{64}')
+        self.assertRegex(script, r'SETUPTOOLS_SHA256 = "[0-9a-f]{64}"')
+        self.assertIn("--require-hashes", script)
+        dockerfile = (ROOT / "infra/docker/vllm-cpu-model/Dockerfile").read_text()
+        self.assertIn("libbrotli1=1.0.9-2ubuntu0.1", dockerfile)
+        gate = (ROOT / "scripts/llm_agent/scan_and_push.sh").read_text()
+        self.assertIn("--exit-code 1 --severity CRITICAL,HIGH", gate)
+        self.assertFalse(list(ROOT.glob("**/.trivyignore*")))
         local = yaml.safe_load((CHART / "values-local.yaml").read_text())["vllm"]["modelSource"]["staged"]["sha256sums"]
         self.assertEqual((ROOT / "infra/docker/vllm-cpu-model/SHA256SUMS").read_text(), local)
 
@@ -206,6 +218,9 @@ class IstioProfileTests(unittest.TestCase):
             self.assertRegex(env[f"ISTIO_{chart}_DIGEST"], r"^sha256:[0-9a-f]{64}$")
         values = yaml.safe_load((ISTIO / "values-gke.yaml").read_text())
         self.assertEqual((values["profile"], values["global"]["platform"]), ("ambient", "gke"))
+        # Only the nested key takes effect in the 1.30.7 cni chart with platform=gke.
+        self.assertEqual(values["cni"]["cniBinDir"], "/home/kubernetes/bin")
+        self.assertNotIn("cniBinDir", values)
 
 
 class IstioScriptTests(ScriptHarness):
@@ -224,6 +239,10 @@ class IstioScriptTests(ScriptHarness):
         (self.repo / "infra/kubernetes/istio-ambient").mkdir(parents=True)
         shutil.copy(ROOT / "scripts/llm_agent/istio_ambient_gke.sh", self.repo / "scripts/llm_agent/")
         shutil.copy(ISTIO / "values-gke.yaml", self.repo / "infra/kubernetes/istio-ambient/")
+        for name, body in (("helm", 'echo "$*" >> "$FAKE_LOG"; [ "$1" = template ] && echo "            path: /home/kubernetes/bin"; exit 0'),
+                           ("kubectl", 'echo "$*" | sed "s/^/kubectl /" >> "$FAKE_LOG"; case "$*" in *jsonpath*) printf "%s" "${FAKE_CNI_DIR:-/home/kubernetes/bin}";; esac; exit 0')):
+            path = self.bin / name
+            path.write_text("#!/usr/bin/env bash\n" + body + "\n")
         (self.repo / "infra/kubernetes/istio-ambient/versions.env").write_text(
             "ISTIO_VERSION=1.30.7\nISTIO_CHART_REPO=https://invalid.example\n" + "\n".join(lines) + "\n")
 
@@ -235,14 +254,14 @@ class IstioScriptTests(ScriptHarness):
     def test_plan_renders_and_installs_nothing(self):
         proc = self.run_istio("plan", KUBE_CONTEXT=pf.EXPECTED_CONTEXT)
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(len([c for c in self.calls() if c.startswith("helm template")]), 4)
-        self.assertFalse([c for c in self.calls() if c.startswith("helm upgrade")])
+        self.assertEqual(len([c for c in self.calls() if c.startswith("template")]), 4)
+        self.assertFalse([c for c in self.calls() if c.startswith("upgrade")])
 
     def test_apply_installs_in_order_with_explicit_context(self):
         proc = self.run_istio("apply", KUBE_CONTEXT=pf.EXPECTED_CONTEXT)
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        upgrades = [c for c in self.calls() if c.startswith("helm upgrade")]
-        self.assertEqual([c.split()[3] for c in upgrades], ["istio-base", "istiod", "istio-cni", "ztunnel"])
+        upgrades = [c for c in self.calls() if c.startswith("upgrade")]
+        self.assertEqual([c.split()[2] for c in upgrades], ["istio-base", "istiod", "istio-cni", "ztunnel"])
         for call in upgrades:
             self.assertIn(f"--kube-context {pf.EXPECTED_CONTEXT}", call)
             self.assertIn("values-gke.yaml", call)
@@ -254,7 +273,12 @@ class IstioScriptTests(ScriptHarness):
         for env in ({}, {"KUBE_CONTEXT": "kind-llm-agent-local"}):
             with self.subTest(env=env):
                 self.assertNotEqual(self.run_istio("apply", **env).returncode, 0)
-        self.assertFalse([c for c in self.calls() if c.startswith("helm upgrade")])
+        self.assertFalse([c for c in self.calls() if c.startswith("upgrade")])
+
+    def test_apply_fails_when_the_installed_cni_dir_differs(self):
+        proc = self.run_istio("apply", KUBE_CONTEXT=pf.EXPECTED_CONTEXT, FAKE_CNI_DIR="/opt/cni/bin")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("installed cni bin dir", proc.stderr)
 
 
 if __name__ == "__main__":
@@ -282,3 +306,164 @@ class DeployModelImageTests(ScriptHarness):
                                self.dir / "ev", KUBE_CONTEXT=pf.EXPECTED_CONTEXT)
         self.assertNotEqual(proc.returncode, 0)
         self.assertFalse([c for c in self.calls() if c.startswith("helm upgrade")])
+
+
+# --- G1 effective NetworkPolicy reachability (Kubernetes semantics, offline) ---
+
+def g1_documents(*overrides):
+    args = [HELM, "template", "x", str(CHART), "-f", str(CHART / "values-gke-cpu.yaml"),
+            "-f", str(CHART / "values-gke-cpu-g1.yaml"), "--set", f"vllm.image={MODEL_IMAGE}"]
+    for item in overrides:
+        args += ["--set", item]
+    out = subprocess.run(args, capture_output=True, text=True, check=True).stdout
+    return [d for d in yaml.safe_load_all(out) if d]
+
+
+NS_LABELS = {"kubernetes.io/metadata.name": "ewallet-agents", "istio.io/dataplane-mode": "ambient"}
+
+
+def pod(labels, namespace="ewallet-agents"):
+    ns_labels = NS_LABELS if namespace == "ewallet-agents" else {"kubernetes.io/metadata.name": namespace}
+    return {"namespace": namespace, "labels": labels, "namespace_labels": ns_labels}
+
+
+GATEWAY = pod({"app.kubernetes.io/name": "agentgateway"})
+VLLM = pod({"app.kubernetes.io/name": "vllm", "app.kubernetes.io/instance": "primary"})
+INTRUDER = pod({"g1-test": "unlabelled"})
+OTHER_NS = pod({"app.kubernetes.io/name": "agentgateway"}, namespace="kubeflow")
+KUBE_DNS = pod({"k8s-app": "kube-dns"}, namespace="kube-system")
+PROBE = {"ip": "169.254.7.127"}
+INTERNET = {"ip": "18.244.0.1"}
+METADATA = {"ip": "169.254.169.254"}
+GKE_METADATA = {"ip": "169.254.169.252"}
+NODELOCAL = {"ip": "169.254.20.10"}
+
+
+@unittest.skipUnless(HELM, "helm binary unavailable")
+class G1ReachabilityTests(unittest.TestCase):
+    """15008 and the probe/DNS openings authorize nothing beyond the declared flow."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.docs = g1_documents()
+
+    def allows(self, src, dst, port, docs=None):
+        from ops.llm_agent.policy_lint import allows
+        return allows(docs or self.docs, src, dst, port, namespace="ewallet-agents")
+
+    def test_only_the_gateway_reaches_vllm_and_only_on_8000_and_hbone(self):
+        endpoints = {"gateway": GATEWAY, "vllm": VLLM, "intruder": INTRUDER, "other-ns": OTHER_NS}
+        ports = (8000, 4000, 3000, 15008, 15020, 8080, 9090)
+        allowed = {(s, d, p) for s, src in endpoints.items() for d, dst in endpoints.items() if s != d
+                   for p in ports if self.allows(src, dst, p)}
+        # other-ns is outside the namespace: its own (absent) policies do not isolate it,
+        # but no rule in ewallet-agents admits it.
+        self.assertEqual(allowed, {("gateway", "vllm", 8000), ("gateway", "vllm", 15008)})
+
+    def test_kubelet_probe_address_reaches_only_probe_ports(self):
+        self.assertTrue(self.allows(PROBE, VLLM, 8000))
+        self.assertTrue(self.allows(PROBE, GATEWAY, 4000))
+        for dst, port in ((VLLM, 15008), (VLLM, 15020), (GATEWAY, 3000), (GATEWAY, 15008), (INTRUDER, 80)):
+            self.assertFalse(self.allows(PROBE, dst, port), (dst, port))
+        self.assertFalse(self.allows({"ip": "10.216.0.9"}, VLLM, 8000))
+
+    def test_dns_allowed_and_everything_else_outbound_denied(self):
+        for src in (GATEWAY, VLLM, INTRUDER):
+            self.assertTrue(self.allows(src, KUBE_DNS, 53))
+            self.assertTrue(self.allows(src, NODELOCAL, 53))
+            for dst, port in ((INTERNET, 443), (METADATA, 80), (GKE_METADATA, 988), (KUBE_DNS, 443)):
+                self.assertFalse(self.allows(src, dst, port), (src["labels"], dst, port))
+
+    def test_metadata_access_is_opt_in_per_workload(self):
+        docs = g1_documents("networkPolicy.metadataAccess={agentgateway}")
+        self.assertTrue(self.allows(GATEWAY, METADATA, 80, docs))
+        self.assertTrue(self.allows(GATEWAY, GKE_METADATA, 988, docs))
+        self.assertFalse(self.allows(GATEWAY, METADATA, 443, docs))
+        self.assertFalse(self.allows(VLLM, METADATA, 80, docs))
+
+    def test_g1_overlay_has_no_namespace_or_kagent_objects(self):
+        kinds = {d["kind"] for d in self.docs}
+        self.assertNotIn("Namespace", kinds)
+        self.assertNotIn("ModelConfig", kinds)
+        self.assertFalse([c for c in pf.stage_crds("g1") if "kagent" in c])
+
+
+# --- g1_operator.sh gates (fake gcloud/kubectl/helm) ---
+
+OPERATOR_FAKE = r"""#!/usr/bin/env bash
+echo "$(basename "$0") $*" >> "$FAKE_LOG"
+case "$(basename "$0") $*" in
+  "gcloud compute instance-groups"*) echo "${FAKE_POOL:-0}";;
+  *"describe --format=value(networkPolicy.enabled"*) printf '%s\t%s\n' "${FAKE_NP:-True}" "${FAKE_NP_ADDON_DISABLED:-False}";;
+  "kubectl"*"get nodes --no-headers"*) for i in 1 2 3; do echo "n$i   Ready   <none>"; done;;
+  "kubectl"*"get secret vllm-api-key -o jsonpath"*) printf '%s' "$(printf 'k%.0s' $(seq 1 64) | base64 -w0)";;
+  "kubectl"*"get secret vllm-api-key"*) exit "${FAKE_SECRET_EXISTS:-1}";;
+esac
+exit 0
+"""
+
+
+class OperatorGateTests(ScriptHarness):
+    def setUp(self):
+        super().setUp()
+        for name in ("gcloud", "kubectl", "helm", "openssl"):
+            path = self.bin / name
+            path.write_text(OPERATOR_FAKE if name != "openssl" else "#!/usr/bin/env bash\nprintf 'secret-token-value'\n")
+            path.chmod(0o755)
+
+    def op(self, stage, **env):
+        return self.run_script("g1_operator.sh", stage, self.dir / "ev", **{"KUBE_CONTEXT": pf.EXPECTED_CONTEXT, **env})
+
+    def mutations(self):
+        return [c for c in self.calls() if " update " in f" {c} " or " resize " in f" {c} " or " create secret" in c]
+
+    def test_refuses_any_other_context(self):
+        for ctx in ("", "kind-llm-agent-local", "gke_other_asia-southeast1-b_ewallet-dev"):
+            with self.subTest(ctx):
+                self.assertNotEqual(self.op("status", KUBE_CONTEXT=ctx).returncode, 0)
+        self.assertEqual(self.calls(), [])
+
+    def test_mutating_stage_needs_its_own_approval(self):
+        for stage in ("netpol-enable", "scale-up", "istio", "image-push", "namespace", "secret", "deploy", "failover"):
+            with self.subTest(stage):
+                proc = self.op(stage, G1_APPROVED_STAGES="status,cleanup")
+                self.assertNotEqual(proc.returncode, 0)
+                self.assertIn("G1_APPROVED_STAGES", proc.stderr)
+        self.assertEqual(self.mutations(), [])
+
+    def test_netpol_enable_only_on_an_empty_pool_and_reads_back(self):
+        self.assertNotEqual(self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable", FAKE_POOL="2").returncode, 0)
+        self.assertEqual(self.mutations(), [])
+        proc = self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable", FAKE_POOL="0", FAKE_NP="False")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("readback", proc.stderr)
+        proc = self.op("netpol-enable", G1_APPROVED_STAGES="netpol-enable", FAKE_POOL="0")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        updates = [c for c in self.calls() if " update " in f" {c} "]
+        self.assertIn("--update-addons=NetworkPolicy=ENABLED", updates[0])
+        self.assertIn("--enable-network-policy", updates[1])
+
+    def test_scale_up_is_bounded_and_needs_enforcement(self):
+        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", NODES="4").returncode, 0)
+        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", FAKE_NP="False").returncode, 0)
+        self.assertEqual(self.mutations(), [])
+        proc = self.op("scale-up", G1_APPROVED_STAGES="scale-up")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(any("resize ewallet-dev --node-pool cpu-pool --num-nodes 3" in c for c in self.calls()))
+
+    def test_cleanup_always_runs_and_reads_back_zero(self):
+        proc = self.op("cleanup")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(any("--num-nodes 0" in c for c in self.calls()))
+        self.assertNotEqual(self.op("cleanup", FAKE_POOL="3").returncode, 0)
+
+    def test_secret_is_fresh_never_on_a_command_line_and_never_overwritten(self):
+        proc = self.op("secret", G1_APPROVED_STAGES="secret")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        log = self.log.read_text()
+        self.assertIn("create secret generic vllm-api-key --from-file=api-key=", log)
+        self.assertNotIn("secret-token-value", log + proc.stdout + proc.stderr)
+        self.assertNotIn("from-literal", log)
+        before = len(self.mutations())
+        self.assertNotEqual(self.op("secret", G1_APPROVED_STAGES="secret", FAKE_SECRET_EXISTS="0").returncode, 0)
+        self.assertEqual(len(self.mutations()), before)

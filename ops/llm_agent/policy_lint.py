@@ -123,6 +123,72 @@ def flow_violations(documents: Iterable[Mapping[str, Any]], *, namespace: str) -
     return errors
 
 
+def _selects(selector: Mapping[str, Any] | None, labels: Mapping[str, str]) -> bool:
+    if selector is None:
+        return False
+    if selector.get("matchExpressions"):
+        raise ValueError("matchExpressions are not evaluated")
+    return all(labels.get(k) == v for k, v in (selector.get("matchLabels") or {}).items())
+
+
+def _in_cidr(ip: str, block: Mapping[str, Any]) -> bool:
+    import ipaddress
+
+    address = ipaddress.ip_address(ip)
+    if address not in ipaddress.ip_network(block["cidr"]):
+        return False
+    return not any(address in ipaddress.ip_network(cidr) for cidr in block.get("except", []))
+
+
+def _peer_matches(peer: Mapping[str, Any], endpoint: Mapping[str, Any], policy_ns: str) -> bool:
+    if "ipBlock" in peer:
+        return "ip" in endpoint and _in_cidr(endpoint["ip"], peer["ipBlock"])
+    if "labels" not in endpoint:
+        return False
+    if "namespaceSelector" in peer:
+        if not _selects(peer["namespaceSelector"], endpoint.get("namespace_labels", {})):
+            return False
+    elif endpoint.get("namespace") != policy_ns:
+        return False
+    return "podSelector" not in peer or _selects(peer["podSelector"], endpoint["labels"])
+
+
+def _direction_allows(policies: list[Mapping[str, Any]], pod: Mapping[str, Any], peer: Mapping[str, Any],
+                      port: int, direction: str) -> bool:
+    key, kind = ("ingress", "Ingress") if direction == "ingress" else ("egress", "Egress")
+    isolating = [p for p in policies if p["metadata"].get("namespace") == pod.get("namespace")
+                 and kind in p["spec"].get("policyTypes", [])
+                 and _selects(p["spec"].get("podSelector", {}), pod["labels"])]
+    if not isolating:
+        return True
+    for policy in isolating:
+        for rule in policy["spec"].get(key) or []:
+            peers = rule.get("from" if key == "ingress" else "to")
+            ports = rule.get("ports")
+            if ports and not any(int(p["port"]) == port and p.get("protocol", "TCP") == "TCP" for p in ports):
+                continue
+            if peers is None or any(_peer_matches(x, peer, policy["metadata"]["namespace"]) for x in peers):
+                return True
+    return False
+
+
+def allows(documents: Iterable[Mapping[str, Any]], source: Mapping[str, Any], destination: Mapping[str, Any],
+           port: int, *, namespace: str) -> bool:
+    """Whether rendered NetworkPolicies allow one TCP connection.
+
+    An endpoint is a pod ({"namespace", "labels", "namespace_labels"}) or an
+    address ({"ip"}). Kubernetes semantics: the source's egress and the
+    destination's ingress must both allow it; an address side is not isolated.
+    """
+
+    policies = [d for d in documents if d.get("kind") == "NetworkPolicy"]
+    for policy in policies:
+        policy.setdefault("metadata", {}).setdefault("namespace", namespace)
+    egress_ok = "labels" not in source or _direction_allows(policies, source, destination, port, "egress")
+    ingress_ok = "labels" not in destination or _direction_allows(policies, destination, source, port, "ingress")
+    return egress_ok and ingress_ok
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("rendered", type=Path, help="output of helm template")

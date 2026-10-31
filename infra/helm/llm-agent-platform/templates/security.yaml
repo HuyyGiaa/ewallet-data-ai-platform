@@ -84,6 +84,30 @@ spec:
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
+{{- range $workload := .Values.networkPolicy.metadataAccess }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-metadata-{{ $workload }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml (index $.Values.networkFlows.workloads $workload).podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: {cidr: 169.254.169.254/32}
+      ports:
+        - {protocol: TCP, port: 80}
+    - to:
+        - ipBlock: {cidr: 169.254.169.252/32}
+      ports:
+        - {protocol: TCP, port: 988}
+{{- end }}
 {{- if .Values.namespace.ambient }}
 {{- $rendered := dict "vllm" .Values.vllm.enabled "agentgateway" .Values.agentgateway.enabled
       "feature-rag-mcp" .Values.mcpServices.enabled "drift-mcp" .Values.mcpServices.enabled

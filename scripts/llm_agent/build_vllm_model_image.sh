@@ -12,10 +12,10 @@ recipe="$root/infra/docker/vllm-cpu-model"
 context=$(mktemp -d)
 trap 'rm -rf "$context"' EXIT
 while read -r _ file; do
-  mkdir -p "$context/$(dirname "$file")"
-  cp "$model/$file" "$context/$file"
+  mkdir -p "$context/model/$(dirname "$file")"
+  cp "$model/$file" "$context/model/$file"
 done < "$recipe/SHA256SUMS"
-cp "$recipe/SHA256SUMS" "$context/SHA256SUMS"
+cp "$recipe/SHA256SUMS" "$recipe/remediate.py" "$context/"
 ref="$repo/vllm-cpu-model:$git_sha"
 docker build -f "$recipe/Dockerfile" -t "$ref" "$context"
 python3 - "$out" "$ref" "$git_sha" <<'PY'
