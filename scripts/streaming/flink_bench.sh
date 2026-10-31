@@ -139,7 +139,8 @@ EOF
     >"$run/docker_stats.jsonl" 2>/dev/null &
   local stats_pid=$!
   local telemetry_pid=""
-  trap 'kill $stats_pid ${telemetry_pid:-} 2>/dev/null || true' RETURN
+  # EXIT too: die() exits without running RETURN traps, which leaked samplers.
+  trap 'kill $stats_pid ${telemetry_pid:-} 2>/dev/null || true' RETURN EXIT
 
   if [[ "$mode" == performance ]]; then
     echo "== sample Flink/Kafka telemetry during replay =="
