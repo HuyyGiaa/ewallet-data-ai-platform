@@ -13,5 +13,5 @@ spec:
   model: {{ .Values.modelConfig.model }}
   openAI:
     baseUrl: http://agentgateway.{{ .Values.namespace.name }}.svc.cluster.local:3000/v1
-    timeout: 30
+    timeout: {{ .Values.modelConfig.timeoutSeconds }}
 {{- end }}

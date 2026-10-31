@@ -1,0 +1,30 @@
+{
+ "endpointPickerRef_fields": [
+  "failureMode",
+  "group",
+  "kind",
+  "name",
+  "port"
+ ],
+ "endpointPickerRef_required": [
+  "name"
+ ],
+ "failureMode_default": "FailClose",
+ "failureMode_enum": [
+  "FailOpen",
+  "FailClose"
+ ],
+ "group": "inference.networking.k8s.io",
+ "spec_fields": [
+  "appProtocol",
+  "endpointPickerRef",
+  "selector",
+  "targetPorts"
+ ],
+ "spec_required": [
+  "selector",
+  "targetPorts"
+ ],
+ "targetPorts_maxItems": 8,
+ "version": "v1"
+}

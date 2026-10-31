@@ -53,6 +53,10 @@ spec:
         app.kubernetes.io/name: vllm
         app.kubernetes.io/instance: {{ $name }}
         llm.ewallet.io/backend-version: {{ $name }}
+        {{- if and $.Values.llmd.enabled (eq $name "primary") }}
+        # Selected by the llm-d InferencePool; fallback stays a direct backend.
+        llm-d.ai/inference-pool: {{ $.Values.llmd.poolName }}
+        {{- end }}
     spec:
       serviceAccountName: vllm
       automountServiceAccountToken: false

@@ -28,7 +28,7 @@ data:
       port: 3000
       policies:
         timeout:
-          requestTimeout: 28s
+          requestTimeout: {{ .Values.agentgateway.llmRequestTimeout }}
           backendRequestTimeout: {{ .Values.agentgateway.backendRequestTimeout }}
           responseIdleTimeout: {{ .Values.agentgateway.responseIdleTimeout }}
         localRateLimit:
@@ -43,6 +43,27 @@ data:
             type: tokens
             key: llm.requestModel
       models:
+        {{- if .Values.llmd.enabled }}
+        # llm-d inference-aware route: agentgateway (Gateway API mode) ->
+        # InferencePool -> llm-d EPP picks a primary vLLM pod.
+        - name: ewallet-fraud-llm-routed
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: {{ .Values.vllm.servedModelName }}
+            baseUrl: http://{{ .Values.llmd.gatewayName }}.{{ .Values.namespace.name }}.svc.cluster.local:{{ .Values.llmd.gatewayPort }}/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: {{ .Values.agentgateway.circuitBreakDuration }}
+          responseHeaders:
+            set:
+              x-ewallet-backend: llm-d
+        {{- end }}
         - name: ewallet-fraud-llm-primary
           visibility: internal
           provider:
@@ -82,8 +103,14 @@ data:
           routing:
             failover:
               targets:
+                {{- if .Values.llmd.enabled }}
+                - {model: ewallet-fraud-llm-routed, priority: 0}
+                - {model: ewallet-fraud-llm-primary, priority: 1}
+                - {model: ewallet-fraud-llm-fallback, priority: 2}
+                {{- else }}
                 - {model: ewallet-fraud-llm-primary, priority: 0}
                 - {model: ewallet-fraud-llm-fallback, priority: 1}
+                {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment

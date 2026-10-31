@@ -10,7 +10,7 @@ metadata:
   labels:
     {{- include "llm-agent-platform.labels" . | nindent 4 }}
 spec: {}
-{{- range $flow := .Values.networkFlows.enforced }}
+{{- range $flow := include "llm-agent-platform.enforcedFlows" . | fromYamlArray }}
 {{- $src := index $.Values.networkFlows.workloads $flow.from }}
 {{- $dst := index $.Values.networkFlows.workloads $flow.to }}
 {{- if not (and $src $dst) }}
@@ -80,7 +80,7 @@ spec:
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
-{{- range $flow := .Values.networkFlows.enforced }}
+{{- range $flow := include "llm-agent-platform.enforcedFlows" . | fromYamlArray }}
 {{- $src := index $.Values.networkFlows.workloads $flow.from }}
 {{- $dst := index $.Values.networkFlows.workloads $flow.to }}
 ---
@@ -134,5 +134,9 @@ metadata:
   labels:
     {{- include "llm-agent-platform.labels" . | nindent 4 }}
 data:
-  enforced.json: {{ .Values.networkFlows.enforced | toJson | quote }}
-  unresolved.json: {{ .Values.networkFlows.unresolved | toJson | quote }}
+  enforced.json: {{ include "llm-agent-platform.enforcedFlows" . | fromYamlArray | toJson | quote }}
+  {{- $unresolved := .Values.networkFlows.unresolved }}
+  {{- if .Values.llmd.enabled }}
+  {{- $unresolved = concat $unresolved .Values.llmd.unresolvedFlows }}
+  {{- end }}
+  unresolved.json: {{ $unresolved | toJson | quote }}

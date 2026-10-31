@@ -45,3 +45,13 @@ vllm:
 
 agentgateway:
   replicas: 1
+  # The 2026-10-31 kind smoke got HTTP 504 through agentgateway: a 256-token
+  # tool call on 2 CPU threads takes ~40-80 s, beyond the 28 s listener and
+  # 10 s idle budgets. Local CPU budgets (runtime gate: re-run the smoke).
+  requestTimeout: 180s
+  llmRequestTimeout: 170s
+  backendRequestTimeout: 160s
+  responseIdleTimeout: 160s
+
+modelConfig:
+  timeoutSeconds: 180

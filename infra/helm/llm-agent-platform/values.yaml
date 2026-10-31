@@ -59,6 +59,12 @@ networkFlows:
       serviceAccount: drift-mcp
       podLabels:
         app.kubernetes.io/name: drift-mcp
+    # Created by the pinned llm-d router chart (infra/helm/llm-d), rendered
+    # labels and ServiceAccount read from llm-d-router-gateway v0.9.0.
+    llmd-epp:
+      serviceAccount: ewallet-fraud-llm-epp
+      podLabels:
+        llm-d-router-gateway: ewallet-fraud-llm-epp
   enforced:
     - name: agentgateway-to-vllm
       from: agentgateway
@@ -159,7 +165,12 @@ agentgateway:
   enabled: true
   image: ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
   replicas: 2
+  # Entry route budget; the LLM listener budget stays just under it so the
+  # listener, not the entry route, answers a slow backend. CPU inference needs
+  # longer budgets (values-local.yaml): a non-streamed completion sends no byte
+  # until it is done, so responseIdleTimeout must cover the whole generation.
   requestTimeout: 30s
+  llmRequestTimeout: 28s
   backendRequestTimeout: 20s
   responseIdleTimeout: 10s
   retryAttempts: 2
@@ -180,6 +191,37 @@ agentgateway:
     limits:
       cpu: 500m
       memory: 512Mi
+
+# llm-d inference-aware routing (rubric edai-2 rows 3-6 link the llm-d
+# quickstart). Validated topology for the pinned versions:
+#   agentgateway (this chart, standalone: model policy, quotas, failover)
+#     -> llm-inference-gateway (agentgateway v1.7.0 controller, Gateway API mode)
+#     -> InferencePool (GAIE v1.6.2, inference.networking.k8s.io/v1)
+#     -> llm-d router EPP v0.9.0 picks one primary vLLM pod.
+# The direct primary and fallback vLLM backends stay as failover targets.
+# The router chart, CRDs and controller are installed from infra/helm/llm-d
+# (pins in versions.env); this chart only owns the Gateway and the flows.
+llmd:
+  enabled: false
+  poolName: ewallet-fraud-llm
+  gatewayName: llm-inference-gateway
+  gatewayClassName: agentgateway
+  gatewayPort: 80
+  # EPP scrapes vLLM /metrics on the serving port for its scorers.
+  networkFlows:
+    - name: llmd-epp-to-vllm-metrics
+      from: llmd-epp
+      to: vllm
+      port: 8000
+  unresolvedFlows:
+    - name: agentgateway-to-llm-inference-gateway
+      to: llm-inference-gateway:80
+      reason: The inference Gateway data plane is provisioned by the agentgateway controller; its pod labels and ServiceAccount are not source-defined.
+      gate: Read back the provisioned Deployment labels and ServiceAccount, then declare it as a workload with enforced flows to it, from it to llmd-epp:9002 (ext_proc) and to vllm:8000.
+    - name: llmd-epp-to-kube-apiserver
+      to: kubernetes.default.svc:443
+      reason: The EPP watches Pods and InferencePools through a namespaced Role; the API server endpoint is cluster-specific.
+      gate: Read back the API server endpoint IPs and allow only them on 443 from llmd-epp.
 
 # Phase D MCP tool servers (ai_platform/llm_agent/tools). Disabled: no reviewed
 # server image exists, and every value below must come from a real build and
@@ -238,6 +280,7 @@ modelConfig:
   enabled: true
   name: ewallet-global-llm
   model: ewallet-fraud-llm
+  timeoutSeconds: 30
   apiKeySecret:
     name: vllm-api-key
     key: api-key
