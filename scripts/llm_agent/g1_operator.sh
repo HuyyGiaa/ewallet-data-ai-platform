@@ -119,7 +119,7 @@ image-build)  # local only: uv contract, checksums, build; never pushes
 image-push)  # Trivy vuln + secret gate on the final image first; a finding stops the push
   : "${DIGESTS:?DIGESTS required}"
   "$root/scripts/llm_agent/scan_and_push.sh" "$DIGESTS"
-  cp "$DIGESTS" "$evidence/image-digests.json"
+  [ "$DIGESTS" -ef "$evidence/image-digests.json" ] || cp "$DIGESTS" "$evidence/image-digests.json"
   ;;
 
 scale-up)
