@@ -98,7 +98,25 @@ That is too much beside one vLLM pod on the laptop kind node (4 CPU / 9 GiB):
 run R3 with vLLM scaled to 0 (agent calls then fail over to an unavailable
 LLM, which is recorded), or on GKE with approval.
 
-## R4 and later
+## R4 — MCP Gateway and A2A gateway
 
-R4 MCP Gateway and A2A gateway, R5 Registry and KEDA, R6 E2E: see the
-sections added by each gate below.
+Locally, without a cluster (already run, evidence committed):
+`scripts/llm_agent/validate_gateway_configs.sh` and
+`scripts/llm_agent/gateway_smoke/run.sh`.
+
+In-cluster (needs the namespace enrolled in ambient, and ztunnel healthy: the
+kind ztunnel release is `failed` because of the host inotify limit, which
+needs an owner-approved sysctl):
+1. `--set mcpGateway.enabled=true --set a2aGateway.enabled=true`, with the
+   MCP servers at a reviewed image digest.
+2. Identity proof (docs/llm_agent/mcp_gateway.md): log `source.identity` at the
+   gateway for a call from each specialist worker. Without it, stop: the
+   result is DEPLOY_NO_GO.
+3. Negative tests:
+   - a pod outside the gateway calls an MCP server directly: denied (L4);
+   - `drift-specialist` calls `fraud_scoring`: filtered and denied;
+   - a spoofed `x-ewallet-caller` is overwritten.
+
+## R5 and later
+
+R5 Registry and KEDA, R6 E2E: see the sections added by each gate below.
