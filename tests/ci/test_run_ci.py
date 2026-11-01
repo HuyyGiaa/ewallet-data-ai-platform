@@ -46,6 +46,7 @@ class RunnerTests(unittest.TestCase):
                     commands=('python3 -c "print(1)"',),
                     build_artifact=None,
                     deployment_target=None,
+                    deploy_handler=None,
                 )
             },
         )

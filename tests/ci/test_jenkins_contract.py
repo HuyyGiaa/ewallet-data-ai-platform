@@ -60,6 +60,14 @@ class JenkinsSharedPipelineTests(unittest.TestCase):
         self.assertIn("jenkins_runtime_verified", self.text)
         self.assertNotIn('"jenkins_runtime_verified": true', self.text)
 
+    def test_controlled_release_uses_owner_input_and_shared_policy_dispatcher(self) -> None:
+        self.assertIn("input(", self.text)
+        self.assertIn("submitterParameter: 'APPROVED_BY'", self.text)
+        self.assertIn("python3 -m scripts.ci.release_policy", self.text)
+        self.assertIn("scripts/ci/deploy_release.sh", self.text)
+        self.assertIn("--execute", self.text)
+        self.assertNotIn("fail-closed until its release policy is installed", self.text)
+
 
 if __name__ == "__main__":
     unittest.main()

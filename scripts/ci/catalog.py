@@ -24,6 +24,7 @@ class Component:
     commands: tuple[str, ...]
     build_artifact: str | None
     deployment_target: str | None
+    deploy_handler: str | None
 
 
 @dataclass(frozen=True)
@@ -61,8 +62,14 @@ class Catalog:
         for name, component in self.components.items():
             if component.maturity not in {"active", "extension-only"}:
                 raise CatalogError(f"component {name} has invalid maturity {component.maturity}")
-            if component.maturity == "extension-only" and component.deployment_target:
+            if component.maturity == "extension-only" and (
+                component.deployment_target or component.deploy_handler
+            ):
                 raise CatalogError(f"extension-only component {name} cannot define a deployment target")
+            if component.deploy_handler and not component.deployment_target:
+                raise CatalogError(f"component {name} deploy handler requires a deployment target")
+            if component.deploy_handler and not (root / component.deploy_handler).is_file():
+                raise CatalogError(f"component {name} deploy handler does not exist: {component.deploy_handler}")
             if not component.source_paths:
                 raise CatalogError(f"component {name} has no source paths")
             for source in component.source_paths:
@@ -143,6 +150,7 @@ def load_catalog(path: Path) -> Catalog:
             commands=_strings(item.get("commands"), "commands", name),
             build_artifact=item.get("build_artifact"),
             deployment_target=item.get("deployment_target"),
+            deploy_handler=item.get("deploy_handler"),
         )
     return Catalog(
         schema_version=raw.get("schema_version"),

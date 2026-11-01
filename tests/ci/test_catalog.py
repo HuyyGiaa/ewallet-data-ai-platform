@@ -68,6 +68,7 @@ class InvalidCatalogTests(unittest.TestCase):
                     "commands": ["python3 -m unittest tests.ci.test_catalog"],
                     "build_artifact": None,
                     "deployment_target": None,
+                    "deploy_handler": None,
                 }
             },
         }
