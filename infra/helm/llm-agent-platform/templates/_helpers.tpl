@@ -16,6 +16,9 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- if .Values.otelCollector.enabled -}}
 {{- $flows = concat $flows .Values.otelCollector.networkFlows -}}
 {{- end -}}
+{{- if .Values.observabilityStack.enabled -}}
+{{- $flows = concat $flows .Values.observabilityStack.networkFlows -}}
+{{- end -}}
 {{- toYaml $flows -}}
 {{- end -}}
 

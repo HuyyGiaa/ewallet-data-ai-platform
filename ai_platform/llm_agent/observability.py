@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import os
+import time
 from typing import Callable, Mapping, Protocol
 
 
@@ -116,11 +117,29 @@ class OpenTelemetryToolTelemetry(JsonTelemetry):
     def record_tool_call(
         self, *, tool: str, outcome: str, duration_seconds: float, traceparent: str
     ) -> None:
+        from opentelemetry import propagate
+        from opentelemetry.trace import Status, StatusCode
+
         attributes = metric_attributes(service=self.service, tool=tool, outcome=outcome)
         self.calls.add(1, attributes)
         self.duration.record(duration_seconds, attributes)
+        ended_ns = time.time_ns()
+        span = self.tracer.start_span(
+            f"mcp.tool {tool}",
+            context=propagate.extract({"traceparent": traceparent}),
+            start_time=ended_ns - int(duration_seconds * 1_000_000_000),
+            attributes={"mcp.tool.name": tool, "mcp.outcome": outcome},
+        )
+        span.set_status(Status(StatusCode.ERROR if outcome == "error" else StatusCode.OK))
+        span.end(end_time=ended_ns)
+        context = span.get_span_context()
+        emitted_traceparent = (
+            f"00-{context.trace_id:032x}-{context.span_id:016x}-01"
+            if context.is_valid else traceparent
+        )
         super().record_tool_call(
-            tool=tool, outcome=outcome, duration_seconds=duration_seconds, traceparent=traceparent
+            tool=tool, outcome=outcome, duration_seconds=duration_seconds,
+            traceparent=emitted_traceparent,
         )
 
 

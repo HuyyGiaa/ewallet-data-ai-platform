@@ -177,6 +177,7 @@ spec:
           ports:
             - {name: entry, containerPort: 4000}
             - {name: llm-internal, containerPort: 3000}
+            - {name: metrics, containerPort: 15020}
           startupProbe:
             tcpSocket: {port: entry}
             failureThreshold: 30
@@ -217,4 +218,5 @@ spec:
   selector: {app.kubernetes.io/name: agentgateway}
   ports:
     - {name: llm, port: 3000, targetPort: entry}
+    - {name: metrics, port: 15020, targetPort: metrics}
 {{- end }}

@@ -97,6 +97,22 @@ networkFlows:
       serviceAccount: otel-collector
       podLabels:
         app.kubernetes.io/name: otel-collector
+    observability-prometheus:
+      serviceAccount: observability-prometheus
+      podLabels:
+        app.kubernetes.io/name: prometheus
+    observability-loki:
+      serviceAccount: observability-loki
+      podLabels:
+        app.kubernetes.io/name: loki
+    observability-tempo:
+      serviceAccount: observability-tempo
+      podLabels:
+        app.kubernetes.io/name: tempo
+    observability-grafana:
+      serviceAccount: observability-grafana
+      podLabels:
+        app.kubernetes.io/name: grafana
     # Created by the pinned llm-d router chart (infra/helm/llm-d), rendered
     # labels and ServiceAccount read from llm-d-router-gateway v0.9.0.
     llmd-epp:
@@ -449,6 +465,15 @@ observabilityStack:
   enabled: false
   adminSecretName: ewallet-grafana-admin
   retention: 24h
+  networkFlows:
+    - {name: prometheus-to-agentgateway, from: observability-prometheus, to: agentgateway, port: 15020}
+    - {name: prometheus-to-vllm, from: observability-prometheus, to: vllm, port: 8000}
+    - {name: prometheus-to-otel-collector, from: observability-prometheus, to: otel-collector, port: 8889}
+    - {name: otel-collector-to-loki, from: otel-collector, to: observability-loki, port: 3100}
+    - {name: otel-collector-to-tempo, from: otel-collector, to: observability-tempo, port: 4317}
+    - {name: grafana-to-prometheus, from: observability-grafana, to: observability-prometheus, port: 9090}
+    - {name: grafana-to-loki, from: observability-grafana, to: observability-loki, port: 3100}
+    - {name: grafana-to-tempo, from: observability-grafana, to: observability-tempo, port: 3200}
   prometheus:
     image: docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545
     resources:

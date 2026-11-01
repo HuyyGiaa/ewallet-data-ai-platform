@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 import unittest
 
 import yaml
+
+from ops.llm_agent.policy_lint import flow_violations
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +35,7 @@ class FoundationTests(unittest.TestCase):
         self.assertIn("adminSecretName", template)
         self.assertIn("GF_SECURITY_ADMIN_PASSWORD", template)
         self.assertIn("secretKeyRef", template)
+        self.assertIn("GF_PATHS_DATA", template)
 
     def test_prometheus_scrapes_required_real_sources(self) -> None:
         template = (CHART / "templates/observability-stack.yaml").read_text()
@@ -41,6 +47,10 @@ class FoundationTests(unittest.TestCase):
             "kube-state-metrics",
         ):
             self.assertIn(f"job_name: {job}", template)
+        self.assertIn("agentgateway:15020", template)
+        gateway = (CHART / "templates/agentgateway.yaml").read_text()
+        self.assertIn("name: metrics", gateway)
+        self.assertIn("15020", gateway)
         self.assertIn("metrics_path: /metrics", template)
         self.assertIn("name: otlp-grpc", template)
         self.assertIn("port: 4317", template)
@@ -83,6 +93,35 @@ class FoundationTests(unittest.TestCase):
             self.assertIn(metric, expressions)
         self.assertNotIn("vector(0)", expressions)
         self.assertNotIn(" or ", expressions)
+
+    @unittest.skipUnless(shutil.which("helm"), "helm binary unavailable")
+    def test_stack_internal_flows_survive_default_deny(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            override = Path(folder) / "stack.yaml"
+            override.write_text(yaml.safe_dump({
+                "observabilityStack": {"enabled": True},
+                "otelCollector": {"enabled": True, "logsEndpoint": "http://loki:3100/otlp",
+                                  "tracesEndpoint": "tempo:4317"},
+                "dashboards": {"enabled": True},
+            }))
+            rendered = subprocess.run(
+                [shutil.which("helm"), "template", "llm-agent", str(CHART),
+                 "-f", str(CHART / "values-local.yaml"), "-f", str(override)],
+                check=True, capture_output=True, text=True,
+            ).stdout
+        items = [item for item in yaml.safe_load_all(rendered) if item]
+        self.assertEqual(flow_violations(items, namespace="ewallet-agents"), [])
+        enforced = json.loads(next(
+            item for item in items
+            if item["kind"] == "ConfigMap" and item["metadata"]["name"] == "llm-agent-network-flows"
+        )["data"]["enforced.json"])
+        names = {flow["name"] for flow in enforced}
+        self.assertTrue({
+            "prometheus-to-agentgateway", "prometheus-to-vllm",
+            "prometheus-to-otel-collector", "otel-collector-to-loki",
+            "otel-collector-to-tempo", "grafana-to-prometheus",
+            "grafana-to-loki", "grafana-to-tempo",
+        } <= names)
 
 
 if __name__ == "__main__":

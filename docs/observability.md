@@ -39,6 +39,11 @@ trace backend duy nhất. Cả bốn backend cùng Collector đều dùng resour
 requests/limits; retention mặc định của local stack là 24 giờ. Stack là opt-in,
 disabled trong default, local mặc định và GKE values.
 
+Các flow nội bộ Prometheus/Collector/Loki/Tempo/Grafana được mở rõ ràng qua
+Istio AuthorizationPolicy và Kubernetes NetworkPolicy. Scrape kubelet/cAdvisor
+và kube-state-metrics vẫn cần cluster-specific cross-namespace/API-server
+identity/CIDR readback; không có catch-all egress được thêm ở source stage.
+
 Prometheus, Loki, Tempo và Grafana được chọn vì chúng khớp kiến trúc đã phê
 duyệt, có thể provision bằng file và đủ nhẹ cho local verification có kiểm
 soát. Không dùng Langfuse, PushGateway, Elasticsearch, VictoriaLogs, backend
@@ -139,4 +144,3 @@ pinned images, bounded resources và 24-hour local retention. Default/GKE
 profiles không deploy backend. Kết quả đạt `STATIC_VALIDATION_PASS`; không có
 GKE action, dashboard screenshot hoặc runtime readback mới, do đó EDAI-2 rows
 46-51 vẫn PARTIAL, 0 điểm awarded và chưa `RUBRIC_VERIFIED`.
-

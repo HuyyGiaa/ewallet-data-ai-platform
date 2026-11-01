@@ -1,12 +1,15 @@
 {{- if .Values.observabilityStack.enabled }}
 {{- $s := .Values.observabilityStack }}
+{{- range $name := list "prometheus" "loki" "tempo" "grafana" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: observability-prometheus
-  namespace: {{ .Values.namespace.name }}
-  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
-automountServiceAccountToken: true
+  name: observability-{{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels: {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+automountServiceAccountToken: {{ eq $name "prometheus" }}
+---
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -42,7 +45,7 @@ data:
         static_configs: [{targets: ['otel-collector:{{ .Values.otelCollector.prometheusPort }}']}]
       - job_name: agentgateway
         metrics_path: /metrics
-        static_configs: [{targets: ['agentgateway:3000']}]
+        static_configs: [{targets: ['agentgateway:15020']}]
       - job_name: vllm
         metrics_path: /metrics
         static_configs: [{targets: ['vllm-primary:8000', 'vllm-fallback:8000']}]
@@ -121,11 +124,8 @@ spec:
   template:
     metadata: {labels: {app.kubernetes.io/name: {{ $name }}}}
     spec:
-      {{- if eq $name "prometheus" }}
-      serviceAccountName: observability-prometheus
-      {{- else }}
-      automountServiceAccountToken: false
-      {{- end }}
+      serviceAccountName: observability-{{ $name }}
+      automountServiceAccountToken: {{ eq $name "prometheus" }}
       securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: {{ $name }}
@@ -144,6 +144,9 @@ spec:
               valueFrom: {secretKeyRef: {name: {{ $s.adminSecretName }}, key: username}}
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom: {secretKeyRef: {name: {{ $s.adminSecretName }}, key: password}}
+            - {name: GF_PATHS_DATA, value: /tmp/grafana-data}
+            - {name: GF_PATHS_LOGS, value: /tmp/grafana-logs}
+            - {name: GF_PATHS_PLUGINS, value: /tmp/grafana-plugins}
           {{- end }}
           ports:
             - {name: http, containerPort: {{ index (dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000) $name }}}

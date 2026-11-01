@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 from pathlib import Path
 import unittest
 
@@ -16,6 +17,10 @@ from ai_platform.llm_agent.observability import (
 
 ROOT = Path(__file__).resolve().parents[2]
 DASHBOARDS = ROOT / "infra/helm/llm-agent-platform/dashboards"
+HAS_OTEL_SDK = bool(
+    importlib.util.find_spec("opentelemetry")
+    and importlib.util.find_spec("opentelemetry.sdk")
+)
 
 
 class AITelemetryTests(unittest.TestCase):
@@ -92,6 +97,31 @@ class AITelemetryTests(unittest.TestCase):
             self.assertNotIn(" or ", expressions)
             for panel in dashboard["panels"]:
                 self.assertIn(panel["telemetryStatus"], ("source-verified", "runtime-pending"))
+
+    @unittest.skipUnless(HAS_OTEL_SDK, "OTel SDK project test")
+    def test_otel_tool_call_emits_child_span_with_semantic_status(self) -> None:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+        from ai_platform.llm_agent.observability import OpenTelemetryToolTelemetry
+
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        trace.set_tracer_provider(provider)
+        telemetry = OpenTelemetryToolTelemetry("drift-mcp")
+        telemetry.record_tool_call(
+            tool="drift_detection", outcome="error", duration_seconds=0.25,
+            traceparent="00-" + "a" * 32 + "-" + "b" * 16 + "-01",
+        )
+        span = exporter.get_finished_spans()[0]
+        self.assertEqual(span.name, "mcp.tool drift_detection")
+        self.assertEqual(f"{span.context.trace_id:032x}", "a" * 32)
+        self.assertEqual(f"{span.parent.span_id:016x}", "b" * 16)
+        self.assertEqual(span.attributes["mcp.tool.name"], "drift_detection")
+        self.assertEqual(span.attributes["mcp.outcome"], "error")
+        self.assertEqual(span.status.status_code.name, "ERROR")
 
 
 if __name__ == "__main__":
