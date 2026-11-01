@@ -81,6 +81,22 @@ class ReleasePolicyTests(unittest.TestCase):
                 {"git_sha": SHA, "artifacts": {}},
             )
 
+    def test_llm_release_preserves_existing_images_manifest_contract(self) -> None:
+        manifest = {
+            "git_sha": SHA,
+            "images": {
+                "mcp-tools": {"digest_ref": f"registry.example/ewallet/mcp-tools@{DIGEST}"},
+                "vllm-cpu-model": {"digest_ref": f"registry.example/ewallet/vllm@{DIGEST}"},
+            },
+        }
+        plan = build_release_plan(
+            CATALOG,
+            self.request(components=("llm-serving", "mcp-agents")),
+            manifest,
+        )
+        self.assertEqual([unit["component"] for unit in plan["units"]], ["llm-serving"])
+        self.assertEqual(len(plan["units"][0]["digest_refs"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from scripts.ci.catalog import Catalog, load_catalog
+from scripts.ci.catalog import Catalog, Component, load_catalog
 
 
 class ReleasePolicyError(ValueError):
@@ -70,6 +70,39 @@ def _ordered_deployable_components(catalog: Catalog, selected: set[str]) -> list
     return ordered
 
 
+def _manifest_refs(manifest: dict[str, Any]) -> dict[str, dict[str, list[str]]]:
+    result: dict[str, dict[str, list[str]]] = {"artifacts": {}, "images": {}}
+    artifacts = manifest.get("artifacts", {})
+    images = manifest.get("images", {})
+    _require(isinstance(artifacts, dict), "image manifest artifacts must be an object")
+    _require(isinstance(images, dict), "image manifest images must be an object")
+    _require(bool(artifacts) or bool(images), "image manifest has no artifacts or images")
+    for name, digest_ref in artifacts.items():
+        _require(isinstance(name, str), "image artifact names must be strings")
+        _require(
+            isinstance(digest_ref, str) and DIGEST_PATTERN.fullmatch(digest_ref) is not None,
+            f"image artifact {name} must use an immutable digest",
+        )
+        result["artifacts"][name] = [digest_ref]
+    for name, image in images.items():
+        _require(isinstance(name, str) and isinstance(image, dict), "image entries must be named objects")
+        digest_ref = image.get("digest_ref")
+        _require(
+            isinstance(digest_ref, str) and DIGEST_PATTERN.fullmatch(digest_ref) is not None,
+            f"image {name} must use an immutable digest",
+        )
+        result["images"][name] = [digest_ref]
+    return result
+
+
+def _selected_refs(component: Component, refs: dict[str, dict[str, list[str]]]) -> list[str]:
+    selector = component.release_artifact_selector or ""
+    namespace, key = selector.split("/", 1)
+    if key == "*":
+        return [ref for name in sorted(refs[namespace]) for ref in refs[namespace][name]]
+    return refs[namespace].get(key, [])
+
+
 def _validate_request(catalog: Catalog, request: ReleaseRequest, manifest: dict[str, Any]) -> None:
     _require(request.requested, "deployment is disabled by default")
     _require(
@@ -94,14 +127,6 @@ def _validate_request(catalog: Catalog, request: ReleaseRequest, manifest: dict[
     _require(not unknown, f"unknown release components: {sorted(unknown)}")
     _require(isinstance(manifest, dict), "image manifest must be an object")
     _require(manifest.get("git_sha") == request.git_sha, "image manifest git SHA must match checkout SHA")
-    artifacts = manifest.get("artifacts")
-    _require(isinstance(artifacts, dict), "image manifest artifacts must be an object")
-    for component, digest_ref in artifacts.items():
-        _require(isinstance(component, str), "image artifact component names must be strings")
-        _require(
-            isinstance(digest_ref, str) and DIGEST_PATTERN.fullmatch(digest_ref) is not None,
-            f"image artifact {component} must use an immutable digest",
-        )
 
 
 def build_release_plan(
@@ -114,13 +139,13 @@ def build_release_plan(
     _validate_request(catalog, request, image_manifest)
     ordered = _ordered_deployable_components(catalog, set(request.components))
     _require(bool(ordered), "release request has no deployable components")
-    artifacts = image_manifest["artifacts"]
-    units: list[dict[str, str]] = []
+    refs = _manifest_refs(image_manifest)
+    units: list[dict[str, Any]] = []
     for name in ordered:
         component = catalog.components[name]
-        digest_ref = artifacts.get(name)
+        digest_refs = _selected_refs(component, refs)
         _require(
-            isinstance(digest_ref, str) and DIGEST_PATTERN.fullmatch(digest_ref) is not None,
+            bool(digest_refs),
             f"deployable component {name} has no immutable digest",
         )
         units.append(
@@ -128,7 +153,8 @@ def build_release_plan(
                 "component": name,
                 "handler": component.deploy_handler or "",
                 "target": component.deployment_target or "",
-                "digest_ref": digest_ref,
+                "digest_ref": digest_refs[0],
+                "digest_refs": digest_refs,
             }
         )
     return {
@@ -199,6 +225,14 @@ def verify_release_plan(catalog: Catalog, plan: dict[str, Any]) -> None:
             isinstance(unit.get("digest_ref"), str)
             and DIGEST_PATTERN.fullmatch(unit["digest_ref"]) is not None,
             f"component {name} does not use an immutable digest",
+        )
+        digest_refs = unit.get("digest_refs")
+        _require(
+            isinstance(digest_refs, list)
+            and bool(digest_refs)
+            and unit["digest_ref"] == digest_refs[0]
+            and all(isinstance(ref, str) and DIGEST_PATTERN.fullmatch(ref) for ref in digest_refs),
+            f"component {name} immutable digest set is invalid",
         )
         names.append(name)
     expected = _ordered_deployable_components(catalog, set(names))

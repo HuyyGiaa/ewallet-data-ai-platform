@@ -41,6 +41,7 @@ class DeployDispatcherTests(unittest.TestCase):
                 "handler": "scripts/mlops/deploy_mlflow.sh",
                 "target": "infra/kubernetes/mlflow",
                 "digest_ref": DIGEST_REF,
+                "digest_refs": [DIGEST_REF],
             }],
         }
 
