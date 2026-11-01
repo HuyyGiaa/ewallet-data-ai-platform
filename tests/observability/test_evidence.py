@@ -49,10 +49,11 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(set(selected), set(range(46, 52)))
         for row in selected.values():
             self.assertEqual(row["status"], "PARTIAL")
-            self.assertEqual(row["assessment_basis"], "STATIC_VALIDATION_PASS")
+            self.assertEqual(row["assessment_basis"], "VERIFIED")
             self.assertEqual(row["runtime_evidence"], "")
             self.assertEqual(row["awarded_points"], "0")
             self.assertIn("docs/observability.md", row["source_paths"])
+            self.assertIn("static validation passed", row["notes"].lower())
 
         documentation = (ROOT / "docs/observability.md").read_text()
         for status in (

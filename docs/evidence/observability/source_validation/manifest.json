@@ -5,7 +5,7 @@
   "worktree": "/home/huyy-giaa/Develop/ewallet-pc-observability",
   "branch": "codex/pc-observability-20261101",
   "initial_sha": "e7dbbc27436faef5b06ba4c40df66a1639f46a28",
-  "source_sha": "8cf9069db6becae30ed99f9e77e78c641d909a67",
+  "source_sha": "825d6eba1e5c56d4eb6993d711c9d333f0d6fb3d",
   "status": "STATIC_VALIDATION_PASS",
   "local_runtime_verified": false,
   "gke_runtime_verified": false,
@@ -51,6 +51,6 @@
     {"path": "infra/helm/llm-agent-platform/dashboards/agent-mcp.json", "sha256": "1ce389ccbaaf36a1f3cdebbb53f1793a10401f43a97e320086d0429eeee8bc5b"},
     {"path": "scripts/observability/validate.py", "sha256": "8ca62c26323e4c317b855bb25dc50536a799474dc469e51bfd7a266909f3c6ce"},
     {"path": "docs/observability.md", "sha256": "fb13093b5ae916e2909f83164bdb4fa0d67a99768c24d70aba143c6dac975d44"},
-    {"path": "docs/rubric/rubric_evidence_matrix.csv", "sha256": "1dac61d407a4e181e46637c4bd04b0c2a6bbdbfb81574f0f0338019953c08041"}
+    {"path": "docs/rubric/rubric_evidence_matrix.csv", "sha256": "959ae8e0762cff87ce1870637029e67b22a7e9edc254a0be20ec8548c3f78041"}
   ]
 }
