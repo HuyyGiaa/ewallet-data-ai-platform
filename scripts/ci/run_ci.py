@@ -157,11 +157,22 @@ def main() -> int:
     parser.add_argument("--catalog", type=Path, default=Path("jenkins/catalog/components.json"))
     parser.add_argument("--scope", type=Path, required=True)
     parser.add_argument("--evidence-dir", type=Path, required=True)
+    parser.add_argument("--profile")
     parser.add_argument("--root", type=Path, default=Path.cwd())
     args = parser.parse_args()
     catalog = load_catalog(args.catalog)
     catalog.validate(args.root)
     scope = json.loads(args.scope.read_text(encoding="utf-8"))
+    selected = tuple(scope.get("components", []))
+    if args.profile:
+        if args.profile not in catalog.profiles:
+            parser.error(f"unknown catalog profile: {args.profile}")
+        allowed = catalog.profiles[args.profile]
+        selected = (
+            allowed
+            if scope.get("full_validation_reason")
+            else tuple(component for component in selected if component in allowed)
+        )
     metadata = {
         "git_branch": _git(args.root, "branch", "--show-current"),
         "git_sha": _git(args.root, "rev-parse", "HEAD"),
@@ -176,7 +187,7 @@ def main() -> int:
     }
     outcome = execute_components(
         catalog,
-        tuple(scope.get("components", [])),
+        selected,
         args.root,
         args.evidence_dir,
         metadata=metadata,

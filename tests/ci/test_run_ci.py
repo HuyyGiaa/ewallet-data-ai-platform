@@ -35,6 +35,7 @@ class RunnerTests(unittest.TestCase):
             shared_paths=("scripts/ci/",),
             python_projects=("project-a", "project-b"),
             legacy_path_components={"legacy/": ("legacy",)},
+            profiles={"all": ("one",)},
             components={
                 "one": Component(
                     name="one",

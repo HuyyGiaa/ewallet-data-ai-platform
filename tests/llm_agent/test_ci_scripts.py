@@ -179,15 +179,20 @@ class DeployRollbackTests(ScriptHarness):
 
 
 class JenkinsfileTests(unittest.TestCase):
-    def test_every_script_the_pipeline_calls_exists_and_is_executable(self):
+    def test_compatibility_entrypoint_and_existing_scripts_remain_available(self):
         text = (ROOT / "Jenkinsfile.llm-agent").read_text()
-        scripts = set(re.findall(r"(scripts/[\w/.-]+\.sh)", text))
-        self.assertTrue({"scripts/llm_agent/build_changed_images.sh", "scripts/llm_agent/scan_and_push.sh",
-                         "scripts/llm_agent/deploy_atomic.sh", "scripts/llm_agent/rollback.sh"} <= scripts)
-        for script in scripts:
+        self.assertIn("jenkins/pipeline/componentPipeline.groovy", text)
+        self.assertIn("profile: 'llm-agent'", text)
+        scripts = {
+            "scripts/llm_agent/build_changed_images.sh",
+            "scripts/llm_agent/scan_and_push.sh",
+            "scripts/llm_agent/deploy_atomic.sh",
+            "scripts/llm_agent/rollback.sh",
+        }
+        for script in sorted(scripts):
             path = ROOT / script
             self.assertTrue(path.exists(), script)
-            self.assertTrue(os.access(path, os.X_OK) or script.startswith("scripts/validation/"), script)
+            self.assertTrue(os.access(path, os.X_OK), script)
 
 
 if __name__ == "__main__":

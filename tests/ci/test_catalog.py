@@ -58,6 +58,7 @@ class InvalidCatalogTests(unittest.TestCase):
             "shared_paths": [],
             "python_projects": [],
             "legacy_path_components": {"tests/ci/": ["legacy-ci"]},
+            "profiles": {"all": ["one"]},
             "components": {
                 "one": {
                     "maturity": "active",

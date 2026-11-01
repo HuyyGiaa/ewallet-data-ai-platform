@@ -33,6 +33,7 @@ class Catalog:
     python_projects: tuple[str, ...]
     components: dict[str, Component]
     legacy_path_components: dict[str, tuple[str, ...]]
+    profiles: dict[str, tuple[str, ...]]
 
     @property
     def active_components(self) -> tuple[str, ...]:
@@ -45,6 +46,12 @@ class Catalog:
             raise CatalogError("catalog must define components")
         if not self.legacy_path_components:
             raise CatalogError("catalog must define legacy_path_components")
+        for profile, names in self.profiles.items():
+            unknown_profile_components = set(names) - set(self.components)
+            if unknown_profile_components:
+                raise CatalogError(
+                    f"profile {profile} has unknown components: {sorted(unknown_profile_components)}"
+                )
         for project in self.python_projects:
             directory = root / project
             for required in ("pyproject.toml", "uv.lock"):
@@ -145,6 +152,10 @@ def load_catalog(path: Path) -> Catalog:
         legacy_path_components={
             prefix: _strings(names, "legacy_path_components", prefix)
             for prefix, names in raw.get("legacy_path_components", {}).items()
+        },
+        profiles={
+            profile: _strings(names, "profiles", profile)
+            for profile, names in raw.get("profiles", {}).items()
         },
     )
 
