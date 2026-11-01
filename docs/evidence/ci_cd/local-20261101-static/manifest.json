@@ -1,0 +1,59 @@
+{
+  "build_number": "LOCAL",
+  "changed_files": [
+    "docs/superpowers/plans/2026-11-01-jenkins-platform-cicd.md",
+    "docs/superpowers/specs/2026-11-01-jenkins-platform-cicd-design.md",
+    "jenkins/catalog/components.json",
+    "ops/llm_agent/changed_components.py",
+    "scripts/ci/__init__.py",
+    "scripts/ci/catalog.py",
+    "scripts/ci/change_detection.py",
+    "tests/ci/__init__.py",
+    "tests/ci/test_catalog.py",
+    "tests/ci/test_change_detection.py",
+    "tests/unit/test_uv_dependency_contract.py"
+  ],
+  "commit_message": "feat(ci): add merge-base component detection",
+  "components": [
+    "ci-platform",
+    "data-platform",
+    "feast",
+    "fraud-api",
+    "fraud-serving",
+    "llm-serving",
+    "ml-training",
+    "mlflow",
+    "streaming"
+  ],
+  "full_validation_reason": "shared_path_changed",
+  "git_branch": "codex/pc-cicd-20261101",
+  "git_sha": "751087bfd85f4066f0af53442815b29e0f064d04",
+  "merge_base": "e7dbbc27436faef5b06ba4c40df66a1639f46a28",
+  "results": [
+    {
+      "argv": [
+        "uv",
+        "lock",
+        "--check"
+      ],
+      "classification": "MISSING_RUNTIME_DEPENDENCY",
+      "cwd": "ai_platform/features/feast",
+      "exit_code": 127,
+      "log": "logs/0001-uv-lock-ai_platform-features-feast.log",
+      "stage": "uv-lock:ai_platform/features/feast"
+    }
+  ],
+  "schema_version": 1,
+  "status": "FAILED",
+  "timestamp_utc": "2026-11-01T04:56:53.856570+00:00",
+  "trigger": "local-manual",
+  "verification": {
+    "cd_runtime_verified": false,
+    "jenkins_runtime_verified": false,
+    "local_ci_verified": false,
+    "source_ready": true,
+    "static_validation_pass": false
+  },
+  "working_tree_dirty": true,
+  "working_tree_status_sha256": "d3609bb016a8af61338e7fe081ecb76fb2da944dfe0cfc22cb671a85f66349fa"
+}

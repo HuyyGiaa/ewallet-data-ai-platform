@@ -1,0 +1,30 @@
+{
+  "changed_files": [
+    "docs/superpowers/plans/2026-11-01-jenkins-platform-cicd.md",
+    "docs/superpowers/specs/2026-11-01-jenkins-platform-cicd-design.md",
+    "jenkins/catalog/components.json",
+    "ops/llm_agent/changed_components.py",
+    "scripts/ci/__init__.py",
+    "scripts/ci/catalog.py",
+    "scripts/ci/change_detection.py",
+    "tests/ci/__init__.py",
+    "tests/ci/test_catalog.py",
+    "tests/ci/test_change_detection.py",
+    "tests/unit/test_uv_dependency_contract.py"
+  ],
+  "components": [
+    "ci-platform",
+    "data-platform",
+    "feast",
+    "fraud-api",
+    "fraud-serving",
+    "llm-serving",
+    "ml-training",
+    "mlflow",
+    "streaming"
+  ],
+  "full_validation_reason": "shared_path_changed",
+  "head": "751087bfd85f4066f0af53442815b29e0f064d04",
+  "merge_base": "e7dbbc27436faef5b06ba4c40df66a1639f46a28",
+  "target_ref": "origin/transfer/pc-base-20261101"
+}
