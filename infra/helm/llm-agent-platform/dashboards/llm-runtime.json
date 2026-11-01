@@ -1,0 +1,15 @@
+{
+  "title": "E-Wallet LLM Runtime",
+  "uid": "ewallet-llm-runtime",
+  "schemaVersion": 39,
+  "tags": ["ewallet", "llm", "vllm"],
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Input and output tokens", "telemetryStatus": "runtime-pending", "description": "Native vLLM metrics; verify labels against the deployed 0.32.0 runtime.", "targets": [{"refId": "A", "expr": "sum(rate(vllm:prompt_tokens_total[5m]))"}, {"refId": "B", "expr": "sum(rate(vllm:generation_tokens_total[5m]))"}]},
+    {"id": 2, "type": "timeseries", "title": "Time to first token p95", "telemetryStatus": "runtime-pending", "description": "Native vLLM histogram; no client-side substitute is claimed.", "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))"}]},
+    {"id": 3, "type": "timeseries", "title": "End-to-end latency p95", "telemetryStatus": "runtime-pending", "description": "Native vLLM histogram.", "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))"}]},
+    {"id": 4, "type": "timeseries", "title": "Running and waiting requests", "telemetryStatus": "runtime-pending", "description": "Native vLLM gauges.", "targets": [{"refId": "A", "expr": "sum(vllm:num_requests_running)"}, {"refId": "B", "expr": "sum(vllm:num_requests_waiting)"}]},
+    {"id": 5, "type": "timeseries", "title": "LLM errors and retries", "telemetryStatus": "source-verified", "description": "Metric names were read from the pinned agentgateway binary.", "targets": [{"refId": "A", "expr": "sum by (error_type) (rate(agentgateway_gen_ai_server_request_duration_count{error_type!=\"\"}[5m]))"}, {"refId": "B", "expr": "sum(rate(agentgateway_retries_total[5m]))"}]},
+    {"id": 6, "type": "timeseries", "title": "CPU and memory", "telemetryStatus": "source-verified", "description": "Standard cAdvisor series scoped to vLLM.", "targets": [{"refId": "A", "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"vllm-.*\",container=\"vllm\"}[5m]))"}, {"refId": "B", "expr": "sum(container_memory_working_set_bytes{pod=~\"vllm-.*\",container=\"vllm\"})"}]}
+  ]
+}

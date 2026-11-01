@@ -19,6 +19,7 @@ import logging
 import os
 import secrets
 import sys
+import time
 from typing import Any, Mapping
 from uuid import uuid4
 
@@ -32,6 +33,11 @@ from ai_platform.llm_agent.contracts import (
     TRACEPARENT_RE,
     RequestContext,
     VersionContext,
+)
+from ai_platform.llm_agent.observability import (
+    ToolTelemetry,
+    default_tool_telemetry,
+    mcp_semantic_outcome,
 )
 from ai_platform.llm_agent.tools.runtime import HTTP_STATUS, ToolExecutor, ToolHandler
 from ai_platform.llm_agent.tools.security import (
@@ -119,7 +125,8 @@ def _rpc_error(message_id: Any, code: int, message: str, status_code: int = 200)
     )
 
 
-def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHandler, grants: ToolGrants) -> None:
+def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHandler,
+                         grants: ToolGrants, telemetry: ToolTelemetry) -> None:
     model = handler.input_model
 
     async def call_tool(payload: model, request: Request) -> JSONResponse:  # type: ignore[valid-type]
@@ -127,7 +134,14 @@ def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHand
         if not grants.allows(principal, handler.name):
             raise BoundaryError(403, "tool_forbidden", "The principal may not call this tool")
         context = request_context(request.headers, principal)
+        started = time.perf_counter()
         response = await executor.call(handler.name, payload, context)
+        telemetry.record_tool_call(
+            tool=handler.name,
+            outcome="success" if response.status == "ok" else "error",
+            duration_seconds=time.perf_counter() - started,
+            traceparent=context.traceparent,
+        )
         return JSONResponse(status_code=HTTP_STATUS[response.status], content=response.to_dict())
 
     app.add_api_route(
@@ -138,11 +152,13 @@ def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHand
 
 def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator: Authenticator,
                     grants: ToolGrants, http_settings: HttpSecuritySettings | None = None,
-                    logger: logging.Logger | None = None) -> FastAPI:
+                    logger: logging.Logger | None = None,
+                    telemetry: ToolTelemetry | None = None) -> FastAPI:
     # No unauthenticated schema endpoints: /docs, /redoc and /openapi.json are off.
     app = FastAPI(title=f"E-Wallet {service_name}", version=SERVER_VERSION,
                   docs_url=None, redoc_url=None, openapi_url=None)
     app.state.executor = executor
+    telemetry = telemetry or default_tool_telemetry(service_name, logger)
     app.add_middleware(RequestSecurityMiddleware, settings=http_settings or HttpSecuritySettings(),
                        authenticator=authenticator, logger=logger)
 
@@ -166,7 +182,7 @@ def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator:
         return _error(500, request, "internal_error", "Internal tool error")
 
     for handler in executor.handlers.values():
-        _register_tool_route(app, executor, handler, grants)
+        _register_tool_route(app, executor, handler, grants, telemetry)
 
     @app.get("/health/live")
     async def live() -> dict[str, str]:
@@ -249,13 +265,21 @@ def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator:
             if not isinstance(arguments, dict):
                 return _rpc_error(message_id, -32602, "Invalid params")
             context = request_context(request.headers, principal)
+            started = time.perf_counter()
             response = await executor.call(name, arguments, context)
             payload = response.to_dict()
-            return _rpc_result(message_id, {
+            result = {
                 "content": [{"type": "text", "text": json.dumps(payload, sort_keys=True, default=str)}],
                 "structuredContent": payload,
                 "isError": response.status != "ok",
-            })
+            }
+            telemetry.record_tool_call(
+                tool=name,
+                outcome=mcp_semantic_outcome(result),
+                duration_seconds=time.perf_counter() - started,
+                traceparent=context.traceparent,
+            )
+            return _rpc_result(message_id, result)
         return _rpc_error(message_id, -32601, "Method not found")
 
     return app

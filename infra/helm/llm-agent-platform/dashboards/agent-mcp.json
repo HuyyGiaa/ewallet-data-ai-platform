@@ -1,0 +1,14 @@
+{
+  "title": "E-Wallet Agent & MCP",
+  "uid": "ewallet-agent-mcp",
+  "schemaVersion": 39,
+  "tags": ["ewallet", "agent", "mcp"],
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Agent executions", "telemetryStatus": "runtime-pending", "description": "Span-metric agent attributes require runtime trace readback.", "targets": [{"refId": "A", "expr": "sum by (gen_ai_agent_name) (rate(ewallet_traces_span_metrics_calls_total{gen_ai_agent_name!=\"\"}[5m]))"}]},
+    {"id": 2, "type": "timeseries", "title": "MCP calls by tool", "telemetryStatus": "source-verified", "description": "Gateway transport count plus application semantic outcome count.", "targets": [{"refId": "A", "expr": "sum by (resource) (rate(agentgateway_mcp_requests_total{method=\"tools/call\"}[5m]))"}, {"refId": "B", "expr": "sum by (tool, outcome) (rate(ewallet_mcp_tool_calls_total[5m]))"}]},
+    {"id": 3, "type": "timeseries", "title": "MCP tool latency p95", "telemetryStatus": "runtime-pending", "description": "Application OTel histogram.", "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, tool) (rate(ewallet_mcp_tool_duration_seconds_bucket[5m])))"}]},
+    {"id": 4, "type": "timeseries", "title": "MCP semantic failures", "telemetryStatus": "runtime-pending", "description": "Counts isError=true and non-ok structured status even when HTTP is 200.", "targets": [{"refId": "A", "expr": "sum by (tool) (rate(ewallet_mcp_tool_calls_total{outcome=\"error\"}[5m]))"}]},
+    {"id": 5, "type": "timeseries", "title": "Agent and tool failures from traces", "telemetryStatus": "runtime-pending", "description": "Requires trace readback to confirm kagent attributes.", "targets": [{"refId": "A", "expr": "sum by (gen_ai_agent_name, gen_ai_tool_name) (rate(ewallet_traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\"}[5m]))"}]}
+  ]
+}

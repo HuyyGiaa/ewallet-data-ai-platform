@@ -78,6 +78,11 @@ spec:
             - {name: EWALLET_MCP_MAX_INFLIGHT, value: {{ $mcp.http.maxInflightRequests | quote }}}
             - {name: EWALLET_MCP_BODY_TIMEOUT_SECONDS, value: {{ $mcp.http.bodyReadTimeoutSeconds | quote }}}
             - {name: EWALLET_MCP_TOOL_GRANTS, value: {{ $service.toolGrants | default dict | toJson | quote }}}
+            {{- if $.Values.otelCollector.enabled }}
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "otel-collector:4317"}
+            - {name: OTEL_EXPORTER_OTLP_INSECURE, value: "true"}
+            - {name: OTEL_PROPAGATORS, value: "tracecontext,baggage"}
+            {{- end }}
             {{- range $envName, $value := $service.env }}
             - {name: {{ $envName }}, value: {{ $value | quote }}}
             {{- end }}

@@ -11,4 +11,6 @@ metadata:
 data:
   llm-agent.json: {{ .Files.Get "dashboards/llm-agent.json" | quote }}
   platform-overview.json: {{ .Files.Get "dashboards/platform-overview.json" | quote }}
+  llm-runtime.json: {{ .Files.Get "dashboards/llm-runtime.json" | quote }}
+  agent-mcp.json: {{ .Files.Get "dashboards/agent-mcp.json" | quote }}
 {{- end }}
