@@ -24,9 +24,11 @@ except ModuleNotFoundError:  # pragma: no cover
 ROOT = Path(__file__).resolve().parents[2]
 PROJECTS = (
     "ai_platform/features/feast",
+    "ai_platform/inference",
     "ai_platform/ml",
     "ai_platform/ml/pipelines",
     "ai_platform/ml/dvc-operator",
+    "ai_platform/serving",
     "infra/docker/llm-agent-tooling",
     "infra/docker/vllm-cpu-model",
     "infra/kubernetes/mlflow/image",

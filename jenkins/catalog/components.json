@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "shared_paths": [
+    "Jenkinsfile",
+    "Jenkinsfile.llm-agent",
+    "jenkins/",
+    "scripts/ci/",
+    "tests/ci/",
+    "tests/unit/test_uv_dependency_contract.py"
+  ],
+  "python_projects": [
+    "ai_platform/features/feast",
+    "ai_platform/inference",
+    "ai_platform/ml",
+    "ai_platform/ml/dvc-operator",
+    "ai_platform/ml/pipelines",
+    "ai_platform/serving",
+    "infra/docker/llm-agent-tooling",
+    "infra/docker/vllm-cpu-model",
+    "infra/kubernetes/mlflow/image"
+  ],
+  "components": {
+    "ci-platform": {
+      "maturity": "active",
+      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci"],
+      "dependencies": [],
+      "python_projects": [],
+      "commands": ["python3 -m unittest discover -s tests/ci -t ."],
+      "build_artifact": null,
+      "deployment_target": null
+    },
+    "data-platform": {
+      "maturity": "active",
+      "source_paths": ["data_platform", "configs/environments", "tests/contract"],
+      "dependencies": [],
+      "python_projects": [],
+      "commands": ["python3 -m unittest tests.test_fraud_generator tests.unit.test_schema_inventory tests.contract.test_data_contract_locations"],
+      "build_artifact": null,
+      "deployment_target": null
+    },
+    "streaming": {
+      "maturity": "active",
+      "source_paths": ["data_platform/processing/flink", "configs/streaming", "tests/streaming"],
+      "dependencies": ["data-platform"],
+      "python_projects": [],
+      "commands": ["python3 -m unittest discover -s tests/streaming -t ."],
+      "build_artifact": null,
+      "deployment_target": null
+    },
+    "feast": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/features/feast", "tests/test_feast_offline.py", "tests/unit/test_feast_pit_validation.py"],
+      "dependencies": ["data-platform"],
+      "python_projects": ["ai_platform/features/feast"],
+      "commands": ["uv run --locked --project ai_platform/features/feast python -m unittest tests.test_feast_offline tests.unit.test_feast_pit_validation"],
+      "build_artifact": "ops/gcp/ml2_materialize/Dockerfile",
+      "deployment_target": "infra/kubernetes/feast-online"
+    },
+    "ml-training": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/ml", "tests/test_fraud_experiment.py", "tests/unit/test_kfp_canonical_contract.py"],
+      "dependencies": ["feast"],
+      "python_projects": ["ai_platform/ml", "ai_platform/ml/dvc-operator", "ai_platform/ml/pipelines"],
+      "commands": ["uv run --locked --project ai_platform/ml python -m unittest tests.test_fraud_experiment tests.unit.test_f9_canonical_contract", "uv run --locked --project ai_platform/ml/pipelines python -m unittest tests.unit.test_kfp_canonical_contract"],
+      "build_artifact": "infra/kubernetes/kfp/image/Dockerfile",
+      "deployment_target": "infra/kubernetes/kfp"
+    },
+    "mlflow": {
+      "maturity": "active",
+      "source_paths": ["infra/kubernetes/mlflow", "scripts/mlops/deploy_mlflow.sh", "tests/unit/test_deploy_mlflow_script.py"],
+      "dependencies": ["ml-training"],
+      "python_projects": ["infra/kubernetes/mlflow/image"],
+      "commands": ["uv run --locked --project infra/kubernetes/mlflow/image python -c \"import mlflow; print(mlflow.__version__)\"", "python3 -m unittest tests.unit.test_deploy_mlflow_script"],
+      "build_artifact": "infra/kubernetes/mlflow/image/Dockerfile",
+      "deployment_target": "infra/kubernetes/mlflow"
+    },
+    "fraud-serving": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/serving", "infra/kubernetes/fraud-serving", "tests/integration/test_kserve_fraud_wire.py"],
+      "dependencies": ["ml-training", "mlflow"],
+      "python_projects": ["ai_platform/serving"],
+      "commands": ["uv run --locked --project ai_platform/serving python -m unittest tests.integration.test_kserve_fraud_wire"],
+      "build_artifact": "ai_platform/serving/Dockerfile",
+      "deployment_target": "KServe InferenceService contract"
+    },
+    "fraud-api": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/inference", "tests/inference", "tests/integration/test_fraud_api_e2e.py"],
+      "dependencies": ["feast", "fraud-serving"],
+      "python_projects": ["ai_platform/inference"],
+      "commands": ["uv run --locked --project ai_platform/inference python -m unittest discover -s tests/inference -t ."],
+      "build_artifact": "ai_platform/inference/Dockerfile",
+      "deployment_target": null
+    },
+    "llm-serving": {
+      "maturity": "active",
+      "source_paths": ["infra/docker/vllm-cpu-model", "infra/helm/llm-agent-platform", "scripts/llm_agent", "tests/llm_agent"],
+      "dependencies": [],
+      "python_projects": ["infra/docker/vllm-cpu-model"],
+      "commands": ["python3 -m unittest tests.llm_agent.test_ci_scripts tests.llm_agent.test_gke_cpu_profile tests.llm_agent.test_vllm_runtime_chart"],
+      "build_artifact": "infra/docker/vllm-cpu-model/Dockerfile",
+      "deployment_target": "infra/helm/llm-agent-platform"
+    },
+    "rag-pipeline": {
+      "maturity": "extension-only",
+      "source_paths": ["ai_platform/llm_agent/rag", "data/llm_agent/rag", "scripts/validation/validate_rag_pipeline.sh"],
+      "dependencies": ["feast", "llm-serving"],
+      "python_projects": ["infra/docker/llm-agent-tooling"],
+      "commands": ["bash scripts/validation/validate_rag_pipeline.sh"],
+      "build_artifact": null,
+      "deployment_target": null
+    },
+    "mcp-agents": {
+      "maturity": "extension-only",
+      "source_paths": ["ai_platform/llm_agent/tools", "infra/kubernetes/kagent-platform", "infra/helm/agentregistry"],
+      "dependencies": ["rag-pipeline", "llm-serving"],
+      "python_projects": ["infra/docker/llm-agent-tooling"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --extra feast python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_registry_catalog"],
+      "build_artifact": "infra/docker/llm-agent-tooling/Dockerfile",
+      "deployment_target": null
+    },
+    "llm-d-routing": {
+      "maturity": "extension-only",
+      "source_paths": ["infra/helm/llm-d", "tests/llm_agent/test_llmd_routing.py"],
+      "dependencies": ["llm-serving"],
+      "python_projects": [],
+      "commands": ["python3 -m unittest tests.llm_agent.test_llmd_routing"],
+      "build_artifact": null,
+      "deployment_target": null
+    }
+  }
+}
