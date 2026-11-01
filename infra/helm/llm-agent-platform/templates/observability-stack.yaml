@@ -36,10 +36,6 @@ data:
     global:
       scrape_interval: 30s
       evaluation_interval: 30s
-    storage:
-      tsdb:
-        retention:
-          time: {{ $s.retention }}
     scrape_configs:
       - job_name: otel-collector
         metrics_path: /metrics
@@ -104,7 +100,12 @@ metadata:
 spec:
   type: ClusterIP
   selector: {app.kubernetes.io/name: {{ $name }}}
-  ports: [{name: http, port: {{ $port }}, targetPort: http}]
+  ports:
+    - {name: http, port: {{ $port }}, targetPort: http}
+    {{- if eq $name "tempo" }}
+    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
+    - {name: otlp-http, port: 4318, targetPort: otlp-http}
+    {{- end }}
 ---
 {{- end }}
 {{- range $name := list "prometheus" "loki" "tempo" "grafana" }}
@@ -136,6 +137,13 @@ spec:
           args: [-config.file=/etc/observability/loki.yaml]
           {{- else if eq $name "tempo" }}
           args: [-config.file=/etc/observability/tempo.yaml]
+          {{- end }}
+          {{- if eq $name "grafana" }}
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom: {secretKeyRef: {name: {{ $s.adminSecretName }}, key: username}}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $s.adminSecretName }}, key: password}}
           {{- end }}
           ports:
             - {name: http, containerPort: {{ index (dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000) $name }}}

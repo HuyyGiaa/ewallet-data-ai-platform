@@ -27,6 +27,9 @@ class FoundationTests(unittest.TestCase):
         self.assertIn("{{- if .Values.observabilityStack.enabled }}", template)
         self.assertIn("runAsNonRoot: true", template)
         self.assertIn("readOnlyRootFilesystem: true", template)
+        self.assertIn("adminSecretName", template)
+        self.assertIn("GF_SECURITY_ADMIN_PASSWORD", template)
+        self.assertIn("secretKeyRef", template)
 
     def test_prometheus_scrapes_required_real_sources(self) -> None:
         template = (CHART / "templates/observability-stack.yaml").read_text()
@@ -39,6 +42,10 @@ class FoundationTests(unittest.TestCase):
         ):
             self.assertIn(f"job_name: {job}", template)
         self.assertIn("metrics_path: /metrics", template)
+        self.assertIn("name: otlp-grpc", template)
+        self.assertIn("port: 4317", template)
+        prometheus_config = template.split("prometheus.yaml: |", 1)[1].split("loki.yaml: |", 1)[0]
+        self.assertNotIn("\n    storage:", prometheus_config)
         self.assertNotIn("request_id", template)
         self.assertNotIn("transaction_id", template)
         self.assertNotIn("user_id", template)
