@@ -1,0 +1,20 @@
+{
+  "title": "E-Wallet Platform Overview",
+  "uid": "ewallet-platform-overview",
+  "schemaVersion": 39,
+  "tags": ["ewallet", "platform", "observability"],
+  "time": {"from": "now-1h", "to": "now"},
+  "refresh": "30s",
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "API request rate", "targets": [{"refId": "A", "expr": "sum by (route, status) (rate(agentgateway_requests_total[5m]))"}]},
+    {"id": 2, "type": "timeseries", "title": "API error rate", "targets": [{"refId": "A", "expr": "sum(rate(agentgateway_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(agentgateway_requests_total[5m]))"}]},
+    {"id": 3, "type": "timeseries", "title": "API latency p50 p95 p99", "targets": [{"refId": "A", "expr": "histogram_quantile(0.50, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"}, {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"}, {"refId": "C", "expr": "histogram_quantile(0.99, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"}]},
+    {"id": 4, "type": "timeseries", "title": "Container CPU", "targets": [{"refId": "A", "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!=\"\"}[5m]))"}]},
+    {"id": 5, "type": "timeseries", "title": "Container memory", "targets": [{"refId": "A", "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\"})"}]},
+    {"id": 6, "type": "timeseries", "title": "Container network", "targets": [{"refId": "A", "expr": "sum by (namespace, pod) (rate(container_network_receive_bytes_total[5m]) + rate(container_network_transmit_bytes_total[5m]))"}]},
+    {"id": 7, "type": "timeseries", "title": "Container filesystem", "targets": [{"refId": "A", "expr": "sum by (namespace, pod) (container_fs_usage_bytes{container!=\"\"})"}]},
+    {"id": 8, "type": "timeseries", "title": "Pod restarts", "targets": [{"refId": "A", "expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[1h]))"}]},
+    {"id": 9, "type": "stat", "title": "OOMKilled containers", "targets": [{"refId": "A", "expr": "sum(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"})"}]},
+    {"id": 10, "type": "timeseries", "title": "Resource requests and limits", "targets": [{"refId": "A", "expr": "sum by (namespace, resource) (kube_pod_container_resource_requests)"}, {"refId": "B", "expr": "sum by (namespace, resource) (kube_pod_container_resource_limits)"}]}
+  ]
+}

@@ -6,6 +6,11 @@ gateway:
   enabled: false
   hostname: agents.local.example.invalid
 
+# Explicit opt-in for a local verification run. Backends remain off unless the
+# operator sets observabilityStack.enabled=true and provides the admin Secret.
+observabilityStack:
+  enabled: false
+
 vllm:
   modelSource:
     mode: staged

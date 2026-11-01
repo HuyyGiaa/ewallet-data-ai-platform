@@ -421,6 +421,8 @@ otelCollector:
   replicas: 1
   # host:port of an OTLP gRPC trace backend; empty keeps traces in the debug exporter only.
   tracesEndpoint: ""
+  # OTLP/HTTP endpoint for a log backend; empty keeps logs in debug only.
+  logsEndpoint: ""
   prometheusPort: 8889
   resources:
     requests: {cpu: 50m, memory: 128Mi}
@@ -439,6 +441,34 @@ otelCollector:
 dashboards:
   enabled: false
   namespace: ""
+
+# Bounded, single-node coursework backends. This stack is opt-in and remains
+# disabled in every GKE profile; production may provide equivalent managed
+# endpoints instead. Services are ClusterIP only.
+observabilityStack:
+  enabled: false
+  adminSecretName: ewallet-grafana-admin
+  retention: 24h
+  prometheus:
+    image: docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 768Mi}
+  loki:
+    image: docker.io/grafana/loki:3.5.7@sha256:bf26399a58b4719387b06abfd024ebca942d702b2e77cc600fa3439356584c73
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 300m, memory: 512Mi}
+  tempo:
+    image: docker.io/grafana/tempo:2.8.2@sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 300m, memory: 512Mi}
+  grafana:
+    image: docker.io/grafana/grafana:12.2.0@sha256:60794dc17e6a58d28539cfd3dd496a7f2da62e13ff54a4055431385eec5d6639
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 300m, memory: 384Mi}
 
 # Phase D MCP tool servers (ai_platform/llm_agent/tools). Disabled: no reviewed
 # server image exists, and every value below must come from a real build and

@@ -1,0 +1,167 @@
+{{- if .Values.observabilityStack.enabled }}
+{{- $s := .Values.observabilityStack }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: observability-prometheus
+  namespace: {{ .Values.namespace.name }}
+  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-observability-prometheus
+rules:
+  - apiGroups: [""]
+    resources: [nodes, nodes/proxy, services, endpoints, pods]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-observability-prometheus
+subjects:
+  - {kind: ServiceAccount, name: observability-prometheus, namespace: {{ .Values.namespace.name }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Release.Name }}-observability-prometheus}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-config
+  namespace: {{ .Values.namespace.name }}
+  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+    storage:
+      tsdb:
+        retention:
+          time: {{ $s.retention }}
+    scrape_configs:
+      - job_name: otel-collector
+        metrics_path: /metrics
+        static_configs: [{targets: ['otel-collector:{{ .Values.otelCollector.prometheusPort }}']}]
+      - job_name: agentgateway
+        metrics_path: /metrics
+        static_configs: [{targets: ['agentgateway:3000']}]
+      - job_name: vllm
+        metrics_path: /metrics
+        static_configs: [{targets: ['vllm-primary:8000', 'vllm-fallback:8000']}]
+      - job_name: kubernetes-cadvisor
+        scheme: https
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        kubernetes_sd_configs: [{role: node}]
+        metrics_path: /metrics/cadvisor
+        relabel_configs:
+          - {action: labelmap, regex: __meta_kubernetes_node_label_(.+)}
+          - {target_label: __address__, replacement: kubernetes.default.svc:443}
+          - {source_labels: [__meta_kubernetes_node_name], target_label: __metrics_path__, replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor}
+      - job_name: kube-state-metrics
+        metrics_path: /metrics
+        static_configs: [{targets: ['kube-state-metrics.kube-system.svc:8080']}]
+  loki.yaml: |
+    auth_enabled: false
+    server: {http_listen_port: 3100}
+    common:
+      path_prefix: /tmp/loki
+      storage: {filesystem: {chunks_directory: /tmp/loki/chunks, rules_directory: /tmp/loki/rules}}
+      replication_factor: 1
+      ring: {kvstore: {store: inmemory}}
+    schema_config:
+      configs:
+        - {from: '2024-01-01', store: tsdb, object_store: filesystem, schema: v13, index: {prefix: index_, period: 24h}}
+    limits_config: {retention_period: {{ $s.retention }}}
+    compactor: {working_directory: /tmp/loki/compactor, retention_enabled: true, delete_request_store: filesystem}
+  tempo.yaml: |
+    server: {http_listen_port: 3200}
+    distributor: {receivers: {otlp: {protocols: {grpc: {endpoint: 0.0.0.0:4317}, http: {endpoint: 0.0.0.0:4318}}}}}
+    ingester: {max_block_duration: 5m}
+    compactor: {compaction: {block_retention: {{ $s.retention }}}}
+    storage: {trace: {backend: local, local: {path: /tmp/tempo/blocks}, wal: {path: /tmp/tempo/wal}}}
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - {name: Prometheus, uid: prometheus, type: prometheus, access: proxy, url: 'http://prometheus:9090', isDefault: true}
+      - {name: Loki, uid: loki, type: loki, access: proxy, url: 'http://loki:3100'}
+      - {name: Tempo, uid: tempo, type: tempo, access: proxy, url: 'http://tempo:3200'}
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - {name: ewallet, folder: E-Wallet, type: file, options: {path: /var/lib/grafana/dashboards}}
+---
+{{- range $name, $port := dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000 }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels: {app.kubernetes.io/name: {{ $name }}}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: {{ $name }}}
+  ports: [{name: http, port: {{ $port }}, targetPort: http}]
+---
+{{- end }}
+{{- range $name := list "prometheus" "loki" "tempo" "grafana" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels: {app.kubernetes.io/name: {{ $name }}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app.kubernetes.io/name: {{ $name }}}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: {{ $name }}}}
+    spec:
+      {{- if eq $name "prometheus" }}
+      serviceAccountName: observability-prometheus
+      {{- else }}
+      automountServiceAccountToken: false
+      {{- end }}
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: {{ $name }}
+          image: {{ index $s $name "image" }}
+          imagePullPolicy: IfNotPresent
+          {{- if eq $name "prometheus" }}
+          args: [--config.file=/etc/prometheus/prometheus.yaml, --storage.tsdb.path=/tmp/prometheus, --storage.tsdb.retention.time={{ $s.retention }}]
+          {{- else if eq $name "loki" }}
+          args: [-config.file=/etc/observability/loki.yaml]
+          {{- else if eq $name "tempo" }}
+          args: [-config.file=/etc/observability/tempo.yaml]
+          {{- end }}
+          ports:
+            - {name: http, containerPort: {{ index (dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000) $name }}}
+            {{- if eq $name "tempo" }}
+            - {name: otlp-grpc, containerPort: 4317}
+            - {name: otlp-http, containerPort: 4318}
+            {{- end }}
+          resources: {{- toYaml (index $s $name "resources") | nindent 12 }}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, runAsNonRoot: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+          volumeMounts:
+            - {name: config, mountPath: /etc/observability, readOnly: true}
+            {{- if eq $name "prometheus" }}
+            - {name: config, mountPath: /etc/prometheus/prometheus.yaml, subPath: prometheus.yaml, readOnly: true}
+            {{- end }}
+            {{- if eq $name "grafana" }}
+            - {name: config, mountPath: /etc/grafana/provisioning/datasources/datasources.yaml, subPath: datasources.yaml, readOnly: true}
+            - {name: config, mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml, subPath: dashboards.yaml, readOnly: true}
+            - {name: dashboards, mountPath: /var/lib/grafana/dashboards, readOnly: true}
+            {{- end }}
+            - {name: scratch, mountPath: /tmp}
+      volumes:
+        - {name: config, configMap: {name: observability-config}}
+        - {name: scratch, emptyDir: {sizeLimit: 1Gi}}
+        {{- if eq $name "grafana" }}
+        - {name: dashboards, configMap: {name: llm-agent-dashboards}}
+        {{- end }}
+---
+{{- end }}
+{{- end }}

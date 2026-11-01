@@ -132,6 +132,12 @@ exporters:
     tls:
       insecure: true
   {{- end }}
+  {{- if $o.logsEndpoint }}
+  otlphttp/logs:
+    endpoint: {{ $o.logsEndpoint }}
+    tls:
+      insecure: true
+  {{- end }}
 connectors:
   # Calls, errors and latency per service and span from traces: agent runs
   # (kagent spans) and tool calls become countable even where no gateway
@@ -162,5 +168,5 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, attributes/redact, redaction, batch]
-      exporters: [debug]
+      exporters: [{{ if $o.logsEndpoint }}otlphttp/logs{{ else }}debug{{ end }}]
 {{- end }}

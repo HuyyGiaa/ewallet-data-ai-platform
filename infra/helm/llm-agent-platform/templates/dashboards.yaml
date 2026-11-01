@@ -10,4 +10,5 @@ metadata:
     grafana_dashboard: "1"
 data:
   llm-agent.json: {{ .Files.Get "dashboards/llm-agent.json" | quote }}
+  platform-overview.json: {{ .Files.Get "dashboards/platform-overview.json" | quote }}
 {{- end }}

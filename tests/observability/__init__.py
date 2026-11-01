@@ -1,0 +1,2 @@
+"""Observability contract tests."""
+
