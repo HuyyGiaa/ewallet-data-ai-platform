@@ -30,6 +30,7 @@ from ai_platform.inference.schemas import (
     HealthResponse,
 )
 from ai_platform.inference.service import InferenceService
+from ai_platform.inference.wire import FraudV2WireContract
 
 
 _CORRELATION_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -81,6 +82,7 @@ def _build_service(
             model_name=settings.model_name,
             model_version=settings.model_version,
             timeout_seconds=settings.kserve_timeout_seconds,
+            wire_contract=FraudV2WireContract(),
         ),
         telemetry=telemetry,
     )

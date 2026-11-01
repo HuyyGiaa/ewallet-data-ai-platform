@@ -14,7 +14,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 F9_IMAGE = (
     "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
-    "ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1"
+    "ewallet-platform/f9-kfp-runtime@sha256:"
+    "34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb"
 )
 MLFLOW_IMAGE = (
     "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"

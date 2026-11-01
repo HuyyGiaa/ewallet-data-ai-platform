@@ -151,6 +151,38 @@ class FeastOfflineHistoricalTest(unittest.TestCase):
             for feature in spec["features"]:
                 self.assertEqual(expected[feature], actual[f"{view_name}__{feature}"])
 
+    def test_bounded_combined_retrieval_equals_native_feast(self):
+        # Exact-timestamp rows, rows between updates (fallback pass) and a row
+        # before any history must all equal the unbounded native retrieval.
+        times = [
+            TIMES[1],
+            TIMES[2],
+            TIMES[1] + pd.Timedelta(minutes=1),
+            TIMES[0] - pd.Timedelta(minutes=1),
+        ]
+        entity = pd.DataFrame(
+            {
+                "transaction_id": [f"t{index}" for index in range(len(times))],
+                "user_id": ["u1"] * len(times),
+                "account_id": ["a1"] * len(times),
+                "device_id": ["d1"] * len(times),
+                "merchant_id": ["m1"] * len(times),
+                "event_timestamp": times,
+            }
+        )
+        bounded = retrieve_combined(self.store, entity).set_index("transaction_id")
+        for view_name, spec in FEATURE_SPECS.items():
+            native = retrieve_feature_view(self.store, view_name, entity).set_index(
+                "transaction_id"
+            )
+            for feature in spec["features"]:
+                column = f"{view_name}__{feature}"
+                pd.testing.assert_series_equal(
+                    native[column].astype("float64"),
+                    bounded[column].astype("float64"),
+                    check_names=False,
+                )
+
     def test_combined_retrieval_preserves_null_merchant_row(self):
         entity = pd.DataFrame(
             {

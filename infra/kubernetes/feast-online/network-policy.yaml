@@ -1,0 +1,25 @@
+# Only the Feast operator Jobs and the Fraud API (both in ml-platform, using the
+# existing Workload Identity KSA) may reach Redis.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-clients
+  namespace: feature-store
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ml-platform
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [feast-online-operator, fraud-api]
+      ports:
+        - port: 6379
+          protocol: TCP

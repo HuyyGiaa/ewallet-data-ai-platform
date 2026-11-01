@@ -7,6 +7,11 @@ from feast import FeatureStore
 
 from ai_platform.features.feast import FEATURE_REPO
 from ai_platform.features.feast.repository import feature_store_config_path
+from ai_platform.features.feast.retrieval.bounded_dask import (
+    bounded_dask_source,
+    build_bounded_source_plan,
+    build_exact_timestamp_plan,
+)
 from ai_platform.features.feast.schema import FEATURE_SPECS
 
 
@@ -72,6 +77,38 @@ def retrieve_feature_view(
     )
 
 
+def _bounded_snapshots(
+    store: FeatureStore, view_name: str, eligible: pd.DataFrame
+) -> pd.DataFrame:
+    """Feast PIT retrieval over a bounded FileSource scan.
+
+    Pass 1 reads only rows stamped at a requested T; rows it cannot match are
+    retried with the conservative ``[min(T)-TTL, max(T)]`` superset. Feast
+    still owns the join, TTL and tie-breaking in both passes. Without bounds
+    Feast 0.66 persists the whole source.
+    """
+
+    spec = FEATURE_SPECS[view_name]
+    probe = f"{view_name}__{spec['integer_features'][0]}"
+
+    def fetch(plan, entities: pd.DataFrame) -> pd.DataFrame:
+        with bounded_dask_source(plan):
+            return store.get_historical_features(
+                entity_df=entities,
+                features=feature_refs(view_name),
+                full_feature_names=True,
+            ).to_df()
+
+    exact = fetch(build_exact_timestamp_plan(store, view_name, eligible), eligible)
+    unmatched = exact[exact[probe].isna()]
+    if unmatched.empty:
+        return exact
+    keys = [spec["entity_key"], "event_timestamp"]
+    retry = unmatched[keys].drop_duplicates()
+    fallback = fetch(build_bounded_source_plan(store, view_name, retry), retry)
+    return pd.concat([exact[exact[probe].notna()], fallback], ignore_index=True)
+
+
 def retrieve_combined(
     store: FeatureStore,
     entity_df: pd.DataFrame,
@@ -96,11 +133,7 @@ def retrieve_combined(
             for column in feature_columns:
                 result[column] = pd.NA
             continue
-        snapshots = store.get_historical_features(
-            entity_df=eligible,
-            features=feature_refs(view_name),
-            full_feature_names=True,
-        ).to_df()
+        snapshots = _bounded_snapshots(store, view_name, eligible)
         result = result.merge(
             snapshots[[entity_key, "event_timestamp", *feature_columns]],
             on=[entity_key, "event_timestamp"],

@@ -16,7 +16,8 @@ TEST_IMAGE = (
 )
 CANONICAL_GENERATED_IMAGE = (
     "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/"
-    "ewallet-platform/f9-kfp-runtime:kfp-2.17.3-f9-v1"
+    "ewallet-platform/f9-kfp-runtime@sha256:"
+    "34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb"
 )
 
 
@@ -50,6 +51,7 @@ class KfpCanonicalCompileTest(unittest.TestCase):
             "experiment_name",
             "registered_model_name",
             "git_commit_sha",
+            "dvc_revision",
         ):
             self.assertIn(name, parameters)
 
@@ -149,7 +151,7 @@ class KfpCanonicalCompileTest(unittest.TestCase):
         status = (root / "README.md").read_text(encoding="utf-8")
         self.assertIn("USER_GENERATED", status)
         self.assertIn(
-            "4f8c039f76123519828702aea07765e5d882c453d98aab0aa408bd2dfebcf4b4",
+            "2258fa2ab811150f626c3072ec13e254124ed00be422d1aef7a65c930e275f70",
             status,
         )
 

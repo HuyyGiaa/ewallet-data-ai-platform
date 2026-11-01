@@ -274,6 +274,7 @@ def publish_to_mlflow(args: argparse.Namespace) -> None:
                 "orchestrator": "kfp-standalone",
                 "kfp_version": "2.17.3",
                 "runtime_image": args.runtime_image,
+                "dvc_revision": args.dvc_revision,
             },
         )
         _write_json(
@@ -294,6 +295,7 @@ def publish_to_mlflow(args: argparse.Namespace) -> None:
                 "production_promotion": "NOT_PERFORMED",
                 "snapshot_id": args.snapshot_id,
                 "git_commit_sha": args.git_commit_sha,
+                "dvc_revision": args.dvc_revision,
             },
         )
 
@@ -348,6 +350,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     _add_common(publish)
     publish.add_argument("--experiment-result", required=True)
     publish.add_argument("--git-commit-sha", required=True)
+    publish.add_argument("--dvc-revision", required=True)
     publish.add_argument("--output", required=True)
     return parser.parse_args(argv)
 

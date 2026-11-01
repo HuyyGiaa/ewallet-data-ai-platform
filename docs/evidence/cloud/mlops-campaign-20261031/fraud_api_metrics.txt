@@ -1,0 +1,12 @@
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="feature_retrieval"} 20.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="feature_assembly"} 20.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="model_inference"} 20.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="request"} 20.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="error",stage="feature_retrieval"} 3.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="error",stage="request"} 3.0
+fraud_inference_requests_total{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 20.0
+fraud_inference_requests_total{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="error"} 3.0
+fraud_inference_errors_total{error_code="missing_feature",otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version=""} 1.0
+fraud_inference_errors_total{error_code="stale_feature",otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version=""} 1.0
+fraud_inference_errors_total{error_code="invalid_feature_timestamp",otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version=""} 1.0
+fraud_inference_errors_total{error_code="invalid_request",otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version=""} 5.0

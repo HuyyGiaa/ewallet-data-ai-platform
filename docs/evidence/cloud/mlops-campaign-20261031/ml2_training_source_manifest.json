@@ -1,0 +1,163 @@
+{
+  "schema_version": "f7-training-source-v1",
+  "status": "COMPLETE",
+  "exported_at": "2026-10-31T16:32:00.752088+00:00",
+  "source_git_head": "e20ea1bb741eca3ab145cc8a3ee45a43cba89bc1",
+  "source": "active Silver Delta transactions + fraud_labels",
+  "scope": "hash_bounded",
+  "sample_modulus": 10000,
+  "sampling_key": "event_timestamp_us",
+  "sampling_reason": "Label-independent deterministic selection that retains all transactions sharing an event timestamp.",
+  "label_integrity": {
+    "status": "PASS",
+    "transactions": 369600000,
+    "labels": 369600000,
+    "matched": 369600000,
+    "duplicate_transactions": 0,
+    "duplicate_labels": 0,
+    "invalid_labels": 0,
+    "missing_labels": 0,
+    "orphan_labels": 0
+  },
+  "canonical_request_profile": {
+    "rows": 369600000,
+    "amount": {
+      "null_count": 0,
+      "distinct_count": 170254420,
+      "min": 10000.0,
+      "max": 15968775.02
+    },
+    "type": {
+      "null_count": 0,
+      "distinct_count": 4,
+      "values": [
+        "deposit",
+        "payment",
+        "transfer",
+        "withdraw"
+      ],
+      "split_distribution": {
+        "test:deposit": 11244844,
+        "test:payment": 22486988,
+        "test:transfer": 14064205,
+        "test:withdraw": 8438075,
+        "train:deposit": 51636865,
+        "train:payment": 103274734,
+        "train:transfer": 64536667,
+        "train:withdraw": 38718237,
+        "validation:deposit": 11042305,
+        "validation:payment": 22075937,
+        "validation:transfer": 13798746,
+        "validation:withdraw": 8282397
+      }
+    },
+    "channel": {
+      "null_count": 0,
+      "distinct_count": 4,
+      "values": [
+        "UNKNOWN",
+        "app",
+        "atm",
+        "web"
+      ],
+      "split_distribution": {
+        "test:app": 37652550,
+        "test:atm": 9288064,
+        "test:web": 9293498,
+        "train:UNKNOWN": 178677842,
+        "train:app": 53221857,
+        "train:atm": 13128226,
+        "train:web": 13138578,
+        "validation:app": 36956607,
+        "validation:atm": 9120018,
+        "validation:web": 9122760
+      }
+    },
+    "merchant_present": {
+      "null_count": 0,
+      "distinct_count": 2,
+      "values": [
+        false,
+        true
+      ],
+      "split_distribution": {
+        "test:False": 33747124,
+        "test:True": 22486988,
+        "train:False": 154891769,
+        "train:True": 103274734,
+        "validation:False": 33123448,
+        "validation:True": 22075937
+      }
+    }
+  },
+  "selected_split_profile": {
+    "test": {
+      "rows": 5565,
+      "normal": 5422,
+      "fraud": 143,
+      "fraud_rate": 0.025696316262354,
+      "min_timestamp_us": 1778295348378978,
+      "max_timestamp_us": 1780271725906173,
+      "fraud_types": {
+        "velocity": 29,
+        "amount_anomaly": 48,
+        "merchant_burst": 33,
+        "account_takeover": 33
+      }
+    },
+    "validation": {
+      "rows": 5613,
+      "normal": 5485,
+      "fraud": 128,
+      "fraud_rate": 0.022804204525209336,
+      "min_timestamp_us": 1776341776862953,
+      "max_timestamp_us": 1778293093516361,
+      "fraud_types": {
+        "merchant_burst": 37,
+        "account_takeover": 29,
+        "amount_anomaly": 35,
+        "velocity": 27
+      }
+    },
+    "train": {
+      "rows": 25870,
+      "normal": 25394,
+      "fraud": 476,
+      "fraud_rate": 0.018399690761499807,
+      "min_timestamp_us": 1767227839770511,
+      "max_timestamp_us": 1776341573727706,
+      "fraud_types": {
+        "amount_anomaly": 109,
+        "velocity": 115,
+        "merchant_burst": 123,
+        "account_takeover": 129
+      }
+    }
+  },
+  "timestamp_storage": "signed UTC epoch microseconds",
+  "output_columns": [
+    "transaction_id",
+    "event_timestamp_us",
+    "user_id",
+    "account_id",
+    "device_id",
+    "merchant_id",
+    "amount",
+    "type",
+    "channel",
+    "merchant_present",
+    "label",
+    "fraud_type",
+    "split"
+  ],
+  "written_rows": 37048,
+  "lineage": {
+    "dataset_version": "canonical-100gb-v1",
+    "source_silver_run_id": "ab-20261025134342-optimized-silver-r261025181923",
+    "source_feature_run_id": "ab-20261025134342-optimized-feat-r261026025955",
+    "source_silver_root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261025134342-optimized-silver-r261025181923/silver",
+    "snapshot_id": "training-20261031-151638-ml2",
+    "source_git_sha": "bbae48caef7f65fda0c9375a7a49afb2eca5eef4",
+    "feature_selection_digest": "sha256:903f3a73a2843f373481479c0d271816621ed502bd254c642e6ee20fa12aee62"
+  }
+}

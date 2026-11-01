@@ -1,0 +1,25 @@
+{
+  "experiment_id": "a2adefd6-cce9-4957-9e47-cc910477a979",
+  "finished_at": "2026-10-31T17:32:39.677577+00:00",
+  "package_sha256": "2258fa2ab811150f626c3072ec13e254124ed00be422d1aef7a65c930e275f70",
+  "parameters": {
+    "dataset_version": "canonical-100gb-v1",
+    "dvc_revision": "data/training-snapshots/training-20261031-151638-ml2.json.dvc@ef37cb3#md5=0ced5dc0f0070967be8100a2d7f1b317",
+    "experiment_name": "f9-fraud-canonical",
+    "feature_run_id": "ab-20261025134342-optimized-feat-r261026025955",
+    "git_commit_sha": "5a7fa02fd1eeea224eefe9f421ca2f8f711a35f2",
+    "mlflow_tracking_uri": "http://mlflow.ml-platform.svc.cluster.local:5000",
+    "registered_model_name": "fraud-detector",
+    "runtime_image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb",
+    "silver_run_id": "ab-20261025134342-optimized-silver-r261025181923",
+    "snapshot_id": "training-20261031-151638-ml2",
+    "snapshot_manifest_sha256": "bb311b8235b484de36cd4f33ea68da695a54de74657b8e91a456745e2200fa0e",
+    "snapshot_uri": "gs://ewallet-data-ai-platform-hg26-data/ml/training-snapshots/canonical-100gb-v1/training-20261031-151638-ml2"
+  },
+  "run_id": "dc29f5cc-cc9e-49ae-b861-eacddd6269b5",
+  "run_name": "f9-training-20261031-151638-ml2-r3",
+  "schema_version": "f9-kfp-run-evidence-v1",
+  "state": "SUCCEEDED",
+  "submitted_at": "2026-10-31T17:25:35.276014+00:00",
+  "tasks": {}
+}

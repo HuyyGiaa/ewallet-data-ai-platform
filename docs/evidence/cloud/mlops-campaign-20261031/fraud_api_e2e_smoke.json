@@ -1,0 +1,522 @@
+[
+  {
+    "request": {
+      "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "55561d92-d042-401c-b02a-b03e3ed280f7",
+      "account_id": "2d48f147-f98c-4819-b183-f94ca049c175",
+      "device_id": "e7765b81-c9f9-4147-aa00-46f34de1d7da",
+      "merchant_id": "e3e4aced-6b0d-40af-be5c-eef9255204c9",
+      "counterparty_account_id": null,
+      "type": "payment",
+      "amount": 275465.53,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9",
+      "fraud_probability": 0.0639895560144887,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:56Z",
+      "correlation_id": "smoke2-dc58ff4e"
+    },
+    "latency_ms": 239.5
+  },
+  {
+    "request": {
+      "transaction_id": "dd29a8c1-1c6a-4939-affe-4ed19951a14a",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "89e8f671-072e-4be2-a002-bf9a9a0a19e5",
+      "account_id": "ee3050eb-5c80-4c66-9380-24f7eb1f2dab",
+      "device_id": "dd65311d-6eed-4a5d-9d00-cfa027810a7b",
+      "merchant_id": "c06897d8-32b8-45ef-8601-b3bd008c8290",
+      "counterparty_account_id": null,
+      "type": "payment",
+      "amount": 316952.18,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "dd29a8c1-1c6a-4939-affe-4ed19951a14a",
+      "fraud_probability": 0.044537947916502,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:57Z",
+      "correlation_id": "smoke2-dd29a8c1"
+    },
+    "latency_ms": 188.0
+  },
+  {
+    "request": {
+      "transaction_id": "5d3a06dd-d636-4801-b49d-365b52a68655",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "b790d58d-466c-42ec-b1fb-43c54ad2fa46",
+      "account_id": "ed749301-7abd-48f9-a18d-1b7eb3ad14c6",
+      "device_id": "cd7d6b37-57d1-4528-984e-f92c5715f626",
+      "merchant_id": "fc2e3ddc-a430-47cc-bf64-6d35e0975eab",
+      "counterparty_account_id": null,
+      "type": "payment",
+      "amount": 429713.65,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "5d3a06dd-d636-4801-b49d-365b52a68655",
+      "fraud_probability": 0.05852808525221729,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:57Z",
+      "correlation_id": "smoke2-5d3a06dd"
+    },
+    "latency_ms": 178.6
+  },
+  {
+    "request": {
+      "transaction_id": "471d45bb-5f02-49f9-809d-2c13447ab43c",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "1990ba37-21f8-4697-a899-8b739cb8f29c",
+      "account_id": "c71894c6-9c2e-41e4-98b0-a2d9668ac739",
+      "device_id": "e94ae2ad-4e16-450e-8841-ae9037aaaf1c",
+      "merchant_id": "3fe29a76-d2fd-447e-a3e6-a90c144cea8e",
+      "counterparty_account_id": null,
+      "type": "payment",
+      "amount": 391136.78,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "471d45bb-5f02-49f9-809d-2c13447ab43c",
+      "fraud_probability": 0.07219589236693609,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:58Z",
+      "correlation_id": "smoke2-471d45bb"
+    },
+    "latency_ms": 187.8
+  },
+  {
+    "request": {
+      "transaction_id": "00d90ef8-701f-4658-9ae3-c361e1793745",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "3eb07b12-a82e-4380-8521-c5c9cda5c39a",
+      "account_id": "ade63ba2-968e-4d30-a860-1c03d2f0240d",
+      "device_id": "9350cf87-0f27-41f3-bca5-4447ebd46d9b",
+      "merchant_id": "9843ebb3-5716-4453-b1ce-71f43e481cc2",
+      "counterparty_account_id": null,
+      "type": "payment",
+      "amount": 157144.59,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "00d90ef8-701f-4658-9ae3-c361e1793745",
+      "fraud_probability": 0.13569229917045364,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:58Z",
+      "correlation_id": "smoke2-00d90ef8"
+    },
+    "latency_ms": 170.7
+  },
+  {
+    "request": {
+      "transaction_id": "6a997598-ef88-4757-a4d5-5e3d1760caf0",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "801aaf64-b201-41ce-9e76-e22f68c3c92b",
+      "account_id": "e72168b5-7c72-41ba-b8f4-adb62509885f",
+      "device_id": "666fa013-1e27-433d-a9c3-aea4d61f3a8f",
+      "merchant_id": null,
+      "counterparty_account_id": "5dc88640-5a23-4ec9-8f03-d5d8097ca34c",
+      "type": "transfer",
+      "amount": 1988572.31,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "6a997598-ef88-4757-a4d5-5e3d1760caf0",
+      "fraud_probability": 0.09881466692046079,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:55Z",
+      "correlation_id": "smoke2-6a997598"
+    },
+    "latency_ms": 177.6
+  },
+  {
+    "request": {
+      "transaction_id": "d5e96cfe-052c-4598-9d06-d44e7ac2041b",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "f1e6a808-91f3-40ff-84cd-c2143f0c9ffa",
+      "account_id": "4ad60311-a30e-484b-9518-0203b29fceac",
+      "device_id": "59eac8df-2727-4c72-9f0f-9db1b67c080c",
+      "merchant_id": null,
+      "counterparty_account_id": "3d88173a-4836-4300-a7cc-944ba0e4a6c1",
+      "type": "transfer",
+      "amount": 1506077.85,
+      "currency": "VND",
+      "channel": "atm"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "d5e96cfe-052c-4598-9d06-d44e7ac2041b",
+      "fraud_probability": 0.042157614170714924,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:55Z",
+      "correlation_id": "smoke2-d5e96cfe"
+    },
+    "latency_ms": 168.2
+  },
+  {
+    "request": {
+      "transaction_id": "846dd592-f01f-4652-bae1-8fedf531809b",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "54fe231f-133e-49ec-8b40-4e3250d77cf5",
+      "account_id": "e8d5a2df-2b75-4f32-94f4-c1eb0d15853e",
+      "device_id": "88e2ecb5-8026-454d-8462-471c36d5445c",
+      "merchant_id": null,
+      "counterparty_account_id": "aed650fc-a139-4d87-b128-0d972b624d29",
+      "type": "transfer",
+      "amount": 860971.35,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "846dd592-f01f-4652-bae1-8fedf531809b",
+      "fraud_probability": 0.03137117279768603,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:55Z",
+      "correlation_id": "smoke2-846dd592"
+    },
+    "latency_ms": 257.4
+  },
+  {
+    "request": {
+      "transaction_id": "f83f75e4-e54e-4b85-b227-29f693e6e2bd",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "9349ca15-ef30-404f-9e8b-1f8c93302541",
+      "account_id": "2053192f-570c-4789-8857-89e53c84be9d",
+      "device_id": "93a8b7ae-ed74-40e2-8640-d5b405001a0e",
+      "merchant_id": null,
+      "counterparty_account_id": "6a2ea1d0-c382-4526-994a-e1fe5ef86830",
+      "type": "transfer",
+      "amount": 743185.21,
+      "currency": "VND",
+      "channel": "atm"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "f83f75e4-e54e-4b85-b227-29f693e6e2bd",
+      "fraud_probability": 0.018886767617961472,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:57Z",
+      "correlation_id": "smoke2-f83f75e4"
+    },
+    "latency_ms": 287.1
+  },
+  {
+    "request": {
+      "transaction_id": "a43c372d-f9fb-4fa7-a936-ff4d10f5043d",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "0f45211b-a3e0-4682-bdb0-23593a2cf69f",
+      "account_id": "ecb734bf-1410-43d1-a4a2-e1ebee3ee094",
+      "device_id": "b2d59ab1-86c2-446f-85dd-5649332c2d93",
+      "merchant_id": null,
+      "counterparty_account_id": "1fd190d5-6f5d-4594-9691-887fde827f10",
+      "type": "transfer",
+      "amount": 1262325.53,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "a43c372d-f9fb-4fa7-a936-ff4d10f5043d",
+      "fraud_probability": 0.03297324346116686,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:57Z",
+      "correlation_id": "smoke2-a43c372d"
+    },
+    "latency_ms": 184.7
+  },
+  {
+    "request": {
+      "transaction_id": "ab709bc4-c19a-443b-a4a8-aab7e491a43b",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "ee0e2bfe-c78a-4740-a953-6b76682a2c89",
+      "account_id": "6ca90103-266a-4375-a830-1d9aaa0600e5",
+      "device_id": "d043cec5-45d2-41d4-a25b-ba66d55e2715",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "deposit",
+      "amount": 588770.48,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "ab709bc4-c19a-443b-a4a8-aab7e491a43b",
+      "fraud_probability": 0.014207642621050303,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:55Z",
+      "correlation_id": "smoke2-ab709bc4"
+    },
+    "latency_ms": 181.6
+  },
+  {
+    "request": {
+      "transaction_id": "f5a1689f-4629-492a-9f6f-c0a5e4e19597",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "91a849da-6f57-43d1-8546-c0006adcc633",
+      "account_id": "12f3e2fa-4943-4709-91d2-ec9e6091a8a4",
+      "device_id": "6d76da4e-1b1e-4d88-a07d-1e7fe80a9922",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "deposit",
+      "amount": 1378514.19,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "f5a1689f-4629-492a-9f6f-c0a5e4e19597",
+      "fraud_probability": 0.03126679803913998,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:55Z",
+      "correlation_id": "smoke2-f5a1689f"
+    },
+    "latency_ms": 372.3
+  },
+  {
+    "request": {
+      "transaction_id": "69f52dff-f216-47d4-94c7-a5b0b96c23c3",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "a228b649-f3e3-484f-83da-e7ca138efb69",
+      "account_id": "2ea745d9-8907-4a79-a1e3-68478300c169",
+      "device_id": "018d382b-ae37-4214-ae06-fa68e7c9d332",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "deposit",
+      "amount": 351908.04,
+      "currency": "VND",
+      "channel": "web"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "69f52dff-f216-47d4-94c7-a5b0b96c23c3",
+      "fraud_probability": 0.04737371864073767,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:56Z",
+      "correlation_id": "smoke2-69f52dff"
+    },
+    "latency_ms": 182.1
+  },
+  {
+    "request": {
+      "transaction_id": "2b91551b-f086-4f63-ae09-23482dbc9729",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "e375f00a-51a9-4eba-a8fd-d13fae850095",
+      "account_id": "529d7c66-8c3b-4a46-a437-482a31878b03",
+      "device_id": "f5b55020-3957-43b0-8f6f-31dcfb885442",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "deposit",
+      "amount": 935762.83,
+      "currency": "VND",
+      "channel": "web"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "2b91551b-f086-4f63-ae09-23482dbc9729",
+      "fraud_probability": 0.043480280582209554,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:58Z",
+      "correlation_id": "smoke2-2b91551b"
+    },
+    "latency_ms": 183.1
+  },
+  {
+    "request": {
+      "transaction_id": "aee21ec0-8c78-46ce-a6d0-3a335fe7a186",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "f0b3cc3d-7aa0-47ab-878d-6286a1e45a02",
+      "account_id": "e1e22b4f-ad1a-47a4-8542-2bf7e6c50e73",
+      "device_id": "8f05dc8f-f59e-405d-8fd7-2955dc6435f6",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "deposit",
+      "amount": 154667.89,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "aee21ec0-8c78-46ce-a6d0-3a335fe7a186",
+      "fraud_probability": 0.07248656645640567,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:58Z",
+      "correlation_id": "smoke2-aee21ec0"
+    },
+    "latency_ms": 253.9
+  },
+  {
+    "request": {
+      "transaction_id": "cdb429e0-0ba6-46cc-95dd-b687296bf955",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "f686316a-f4e8-4764-99c7-6874a3904a86",
+      "account_id": "f02cac13-dd10-4e31-ac31-7abb47a5c936",
+      "device_id": "c63369d3-1c87-49bb-b852-2783182acb6b",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "withdraw",
+      "amount": 150902.61,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "cdb429e0-0ba6-46cc-95dd-b687296bf955",
+      "fraud_probability": 0.059515874229176875,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:50Z",
+      "correlation_id": "smoke2-cdb429e0"
+    },
+    "latency_ms": 185.3
+  },
+  {
+    "request": {
+      "transaction_id": "99c3d739-5b1a-4654-a070-056d9935320c",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "0358e1b3-916c-48bf-bd8b-766e63d3ed65",
+      "account_id": "4efcea02-1e2d-4135-90e6-f90193022412",
+      "device_id": "85e8fccf-c4cc-4746-9cd6-c76b18fd7443",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "withdraw",
+      "amount": 504494.37,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "99c3d739-5b1a-4654-a070-056d9935320c",
+      "fraud_probability": 0.0950829796213843,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:51Z",
+      "correlation_id": "smoke2-99c3d739"
+    },
+    "latency_ms": 174.4
+  },
+  {
+    "request": {
+      "transaction_id": "d1aef5f7-442e-4e14-980f-643cdc45525e",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "9312623d-d0f8-4aeb-bcb6-ee2c2c805e2b",
+      "account_id": "2c11ea8b-a087-4a80-b0b1-f5d6e0d97dee",
+      "device_id": "71dd9043-4739-4fb1-b5d9-be52f5af5ef9",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "withdraw",
+      "amount": 472913.98,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "d1aef5f7-442e-4e14-980f-643cdc45525e",
+      "fraud_probability": 0.026519130683968085,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:52Z",
+      "correlation_id": "smoke2-d1aef5f7"
+    },
+    "latency_ms": 181.4
+  },
+  {
+    "request": {
+      "transaction_id": "8518ce71-60e6-4b2b-b964-105157b3f753",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "ad7c4a75-cfcd-4728-916f-741c25a8314c",
+      "account_id": "5dfd2c14-3ba0-49a3-8a8e-9a58a1057610",
+      "device_id": "30c5cb47-42a7-415f-9c65-59c9012ef7ed",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "withdraw",
+      "amount": 1279181.29,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "8518ce71-60e6-4b2b-b964-105157b3f753",
+      "fraud_probability": 0.038375687407432156,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:54Z",
+      "correlation_id": "smoke2-8518ce71"
+    },
+    "latency_ms": 188.2
+  },
+  {
+    "request": {
+      "transaction_id": "a0608db9-b489-41a7-98db-d949e04bc7cc",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "46461f32-0e3b-4705-99f4-b048b5330dc7",
+      "account_id": "f7a35591-32b7-4616-8bba-952fcb1f3068",
+      "device_id": "3023bade-df35-4dde-aee6-b4496bfa3fed",
+      "merchant_id": null,
+      "counterparty_account_id": null,
+      "type": "withdraw",
+      "amount": 372552.87,
+      "currency": "VND",
+      "channel": "app"
+    },
+    "status": 200,
+    "response": {
+      "transaction_id": "a0608db9-b489-41a7-98db-d949e04bc7cc",
+      "fraud_probability": 0.12704820338317954,
+      "fraud_prediction": 0,
+      "model_name": "fraud-detector",
+      "model_version": "1",
+      "feature_timestamp": "2026-05-31T23:59:54Z",
+      "correlation_id": "smoke2-a0608db9"
+    },
+    "latency_ms": 184.7
+  }
+]

@@ -190,6 +190,8 @@ class MlflowManualTrackingTest(unittest.TestCase):
                     "feature_schema_sha256": "b" * 64,
                     "git_commit_sha": "c" * 40,
                     "random_seed": 42,
+                    "dvc_revision": "data/training-snapshots/s.json.dvc@" + "d" * 40,
+                    "runtime_image": "registry.example/f9@sha256:" + "e" * 64,
                 },
             )
             loaded = mlflow.pyfunc.load_model(published.winner_model_uri)
@@ -221,6 +223,8 @@ class MlflowManualTrackingTest(unittest.TestCase):
                     "feature_schema_sha256": "b" * 64,
                     "git_commit_sha": "c" * 40,
                     "random_seed": 42,
+                    "dvc_revision": "data/training-snapshots/s.json.dvc@" + "d" * 40,
+                    "runtime_image": "registry.example/f9@sha256:" + "e" * 64,
                 },
             )
             registered = client.get_model_version(
@@ -241,6 +245,16 @@ class MlflowManualTrackingTest(unittest.TestCase):
         self.assertIsNone(published.registered_model_version)
         self.assertEqual(winner_only.parent_run_id, registered.run_id)
         self.assertEqual("snapshot-test-1", registered.tags["snapshot_id"])
+        self.assertEqual(
+            "data/training-snapshots/s.json.dvc@" + "d" * 40,
+            registered.tags["dvc_revision"],
+        )
+        candidate = client.get_model_version_by_alias(
+            "fraud-test-model", "candidate"
+        )
+        self.assertEqual(registered.version, candidate.version)
+        with self.assertRaises(mlflow.exceptions.MlflowException):
+            client.get_model_version_by_alias("fraud-test-model", "production")
         self.assertEqual(
             1,
             sum("test_pr_auc" in run.data.metrics for run in winner_children),

@@ -1,0 +1,3 @@
+{"event":"request_finished","path":"/v1/fraud/predict","status":422,"trace_id":"60732c487c0222046bac6b0986af3d4e","correlation_id":"5236d1bf-4346-4333-b462-88b10f7be815"}
+{"event":"request_finished","path":"/v1/fraud/predict","status":422,"trace_id":"85ae6758b8ce7462cf7518714a0e4a9f","correlation_id":"2f230b56-bca0-4dcd-931c-02516ccbff27"}
+{"event":"request_finished","path":"/v1/fraud/predict","status":422,"trace_id":"c2742911fd9c545690edbc250896620a","correlation_id":"b3bf7717-08ba-4d74-a017-206929c93d65"}
