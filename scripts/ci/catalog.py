@@ -32,6 +32,7 @@ class Catalog:
     shared_paths: tuple[str, ...]
     python_projects: tuple[str, ...]
     components: dict[str, Component]
+    legacy_path_components: dict[str, tuple[str, ...]]
 
     @property
     def active_components(self) -> tuple[str, ...]:
@@ -42,6 +43,8 @@ class Catalog:
             raise CatalogError(f"unsupported schema_version: {self.schema_version}")
         if not self.components:
             raise CatalogError("catalog must define components")
+        if not self.legacy_path_components:
+            raise CatalogError("catalog must define legacy_path_components")
         for project in self.python_projects:
             directory = root / project
             for required in ("pyproject.toml", "uv.lock"):
@@ -139,6 +142,10 @@ def load_catalog(path: Path) -> Catalog:
         shared_paths=_strings(raw.get("shared_paths"), "shared_paths", "catalog"),
         python_projects=_strings(raw.get("python_projects"), "python_projects", "catalog"),
         components=components,
+        legacy_path_components={
+            prefix: _strings(names, "legacy_path_components", prefix)
+            for prefix, names in raw.get("legacy_path_components", {}).items()
+        },
     )
 
 
