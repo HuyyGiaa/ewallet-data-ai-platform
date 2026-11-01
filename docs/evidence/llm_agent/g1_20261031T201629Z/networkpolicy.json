@@ -1,0 +1,9 @@
+{
+  "addonsConfig": {
+    "networkPolicyConfig": {}
+  },
+  "networkPolicy": {
+    "enabled": true,
+    "provider": "CALICO"
+  }
+}

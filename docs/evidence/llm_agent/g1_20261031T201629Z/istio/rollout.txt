@@ -1,0 +1,3 @@
+Waiting for daemon set "istio-cni-node" rollout to finish: 4 of 5 updated pods are available...
+daemon set "istio-cni-node" successfully rolled out
+daemon set "ztunnel" successfully rolled out

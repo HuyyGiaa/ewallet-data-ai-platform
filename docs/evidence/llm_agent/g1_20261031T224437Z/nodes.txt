@@ -1,0 +1,5 @@
+NAME                                     STATUS   ROLES    AGE   VERSION               INTERNAL-IP   EXTERNAL-IP      OS-IMAGE                             KERNEL-VERSION      CONTAINER-RUNTIME
+gke-ewallet-dev-cpu-pool-58daed59-hvd9   Ready    <none>   25m   v1.36.4-gke.2046003   10.20.0.42    34.177.80.152    Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-mb8v   Ready    <none>   48s   v1.36.4-gke.2046003   10.20.0.43    136.85.35.21     Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-nnft   Ready    <none>   70m   v1.36.4-gke.2046003   10.20.0.39    34.143.162.87    Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-v97b   Ready    <none>   48s   v1.36.4-gke.2046003   10.20.0.41    34.143.168.233   Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7

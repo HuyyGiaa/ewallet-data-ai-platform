@@ -1,0 +1,83 @@
+{
+  "allocatable": [
+    15.68,
+    51.85
+  ],
+  "api_key_secret": true,
+  "cluster_endpoints": [
+    "10.20.0.8",
+    "34.143.148.210",
+    "gke-50e37b8a555b45cca6b8ce3b3086aadaf2bc-198818809719.asia-southeast1-b.gke.goog"
+  ],
+  "context": "gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev",
+  "existing_requests": [
+    6.24,
+    13.59
+  ],
+  "helm_releases": [
+    {
+      "chart": "cert-manager-v1.16.2",
+      "name": "cert-manager",
+      "namespace": "cert-manager",
+      "status": "deployed"
+    },
+    {
+      "chart": "base-1.30.7",
+      "name": "istio-base",
+      "namespace": "istio-system",
+      "status": "deployed"
+    },
+    {
+      "chart": "cni-1.30.7",
+      "name": "istio-cni",
+      "namespace": "istio-system",
+      "status": "deployed"
+    },
+    {
+      "chart": "istiod-1.30.7",
+      "name": "istiod",
+      "namespace": "istio-system",
+      "status": "deployed"
+    },
+    {
+      "chart": "kserve-v0.16.0",
+      "name": "kserve",
+      "namespace": "kserve",
+      "status": "deployed"
+    },
+    {
+      "chart": "kserve-crd-v0.16.0",
+      "name": "kserve-crd",
+      "namespace": "kserve",
+      "status": "deployed"
+    },
+    {
+      "chart": "ztunnel-1.30.7",
+      "name": "ztunnel",
+      "namespace": "istio-system",
+      "status": "deployed"
+    }
+  ],
+  "networkpolicy_enforced": true,
+  "networkpolicy_waiver": false,
+  "nodes": [
+    "gke-ewallet-dev-cpu-pool-58daed59-hvd9",
+    "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "gke-ewallet-dev-cpu-pool-58daed59-nnft",
+    "gke-ewallet-dev-cpu-pool-58daed59-v97b"
+  ],
+  "planned_requests": [
+    4.2,
+    12.25
+  ],
+  "ready_nodes": 4,
+  "reasons": [],
+  "render_error": "",
+  "required_crds": [
+    "authorizationpolicies.security.istio.io"
+  ],
+  "server_host": "34.143.148.210",
+  "stage": "g1",
+  "timestamp": "2026-10-31T22:46:53+00:00",
+  "verdict": "GO"
+}

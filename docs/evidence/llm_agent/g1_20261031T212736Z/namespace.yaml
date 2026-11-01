@@ -1,0 +1,14 @@
+---
+# Source: llm-agent-platform/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted

@@ -1,0 +1,2 @@
+daemon set "istio-cni-node" successfully rolled out
+daemon set "ztunnel" successfully rolled out

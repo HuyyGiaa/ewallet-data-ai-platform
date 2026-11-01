@@ -1,0 +1,13 @@
+{
+ "git_sha": "726068bab19dab452843d2e29a44ac9a350b4f5a",
+ "images": {
+  "vllm-cpu-model": {
+   "components": [
+    "vllm"
+   ],
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:0122d24043b55e10531a9488c0f28220464a767cddca6969584b1f05d4d94373",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model:726068bab19dab452843d2e29a44ac9a350b4f5a",
+   "target": "vllm-cpu-model"
+  }
+ }
+}

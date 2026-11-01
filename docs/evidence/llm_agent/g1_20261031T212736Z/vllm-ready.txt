@@ -1,0 +1,2 @@
+vllm-fallback-6ccb5dfdd-7b6j8 ready=true
+vllm-primary-566fd488bd-7k525 ready=true

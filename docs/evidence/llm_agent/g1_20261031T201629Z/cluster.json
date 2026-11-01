@@ -1,0 +1,351 @@
+{
+  "addonsConfig": {
+    "dnsCacheConfig": {
+      "enabled": true
+    },
+    "gcePersistentDiskCsiDriverConfig": {
+      "enabled": true
+    },
+    "gcpFilestoreCsiDriverConfig": {
+      "enabled": true
+    },
+    "kubernetesDashboard": {
+      "disabled": true
+    },
+    "networkPolicyConfig": {
+      "disabled": true
+    },
+    "nodeReadinessConfig": {}
+  },
+  "anonymousAuthenticationConfig": {
+    "mode": "LIMITED"
+  },
+  "autopilot": {},
+  "autoscaling": {
+    "autoprovisioningNodePoolDefaults": {
+      "imageType": "COS_CONTAINERD",
+      "management": {
+        "autoRepair": true,
+        "autoUpgrade": true
+      },
+      "oauthScopes": [
+        "https://www.googleapis.com/auth/devstorage.read_only",
+        "https://www.googleapis.com/auth/logging.write",
+        "https://www.googleapis.com/auth/monitoring",
+        "https://www.googleapis.com/auth/service.management.readonly",
+        "https://www.googleapis.com/auth/servicecontrol",
+        "https://www.googleapis.com/auth/trace.append"
+      ],
+      "serviceAccount": "default"
+    },
+    "autoscalingProfile": "BALANCED"
+  },
+  "binaryAuthorization": {},
+  "clusterIpv4Cidr": "10.216.0.0/14",
+  "controlPlaneEgress": {
+    "mode": "VIA_CONTROL_PLANE"
+  },
+  "controlPlaneEndpointsConfig": {
+    "dnsEndpointConfig": {
+      "allowExternalTraffic": true,
+      "enableK8sCertsViaDns": false,
+      "enableK8sTokensViaDns": false,
+      "endpoint": "gke-50e37b8a555b45cca6b8ce3b3086aadaf2bc-198818809719.asia-southeast1-b.gke.goog"
+    },
+    "ipEndpointsConfig": {
+      "authorizedNetworksConfig": {
+        "cidrBlocks": [
+          {
+            "cidrBlock": "113.188.119.38/32"
+          }
+        ],
+        "enabled": true,
+        "gcpPublicCidrsAccessEnabled": true
+      },
+      "enablePublicEndpoint": true,
+      "enabled": true,
+      "privateEndpoint": "10.20.0.8",
+      "publicEndpoint": "34.143.148.210"
+    }
+  },
+  "createTime": "2026-10-22T09:34:08+00:00",
+  "currentMasterVersion": "1.36.4-gke.2046003",
+  "currentNodeCount": 1,
+  "currentNodeVersion": "1.36.4-gke.2046003",
+  "databaseEncryption": {
+    "currentState": "CURRENT_STATE_DECRYPTED",
+    "state": "DECRYPTED"
+  },
+  "defaultMaxPodsConstraint": {
+    "maxPodsPerNode": "110"
+  },
+  "endpoint": "34.143.148.210",
+  "enterpriseConfig": {
+    "clusterTier": "STANDARD"
+  },
+  "etag": "5d3cd667-f2f1-4a65-ac3c-fab4e5ac9592",
+  "id": "50e37b8a555b45cca6b8ce3b3086aadaf2bc898debd04b0384d4cd5594360cec",
+  "initialClusterVersion": "1.36.4-gke.1495002",
+  "initialNodeCount": 1,
+  "instanceGroupUrls": [
+    "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/instanceGroupManagers/gke-ewallet-dev-cpu-pool-58daed59-grp"
+  ],
+  "ipAllocationPolicy": {
+    "clusterIpv4Cidr": "10.216.0.0/14",
+    "clusterIpv4CidrBlock": "10.216.0.0/14",
+    "clusterSecondaryRangeName": "gke-ewallet-dev-pods-50e37b8a",
+    "defaultPodIpv4RangeUtilization": 0.001,
+    "networkTierConfig": {
+      "networkTier": "NETWORK_TIER_DEFAULT"
+    },
+    "podCidrOverprovisionConfig": {},
+    "servicesIpv4Cidr": "34.118.224.0/20",
+    "servicesIpv4CidrBlock": "34.118.224.0/20",
+    "stackType": "IPV4",
+    "useIpAliases": true
+  },
+  "labelFingerprint": "895c141e",
+  "legacyAbac": {},
+  "location": "asia-southeast1-b",
+  "locations": [
+    "asia-southeast1-b"
+  ],
+  "loggingConfig": {
+    "componentConfig": {
+      "enableComponents": [
+        "SYSTEM_COMPONENTS",
+        "WORKLOADS"
+      ]
+    }
+  },
+  "loggingService": "logging.googleapis.com/kubernetes",
+  "maintenancePolicy": {
+    "resourceVersion": "e3b0c442"
+  },
+  "masterAuth": {
+    "clientCertificateConfig": {},
+    "clusterCaCertificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVMRENDQXBTZ0F3SUJBZ0lRYWVQc05zemZicTJrNDdnQUpSRk4zekFOQmdrcWhraUc5dzBCQVFzRkFEQXYKTVMwd0t3WURWUVFERXlSaU9HRmlaR015WlMwMU56WXdMVFEwWWpRdE9EazFOeTFqTkRNd056SXhPVEkwWVdJdwpJQmNOTWpZeE1ESXlNRGd6TkRFeVdoZ1BNakExTmpFd01UUXdPVE0wTVRKYU1DOHhMVEFyQmdOVkJBTVRKR0k0CllXSmtZekpsTFRVM05qQXRORFJpTkMwNE9UVTNMV00wTXpBM01qRTVNalJoWWpDQ0FhSXdEUVlKS29aSWh2Y04KQVFFQkJRQURnZ0dQQURDQ0FZb0NnZ0dCQUtuWko4RzFUcG4wWDNMeXRGanFhUHpXdzA4aEpBb1RnZWxHMHdQdQo1TlViVWd3aWhpY2xCTjJzeHloeHBNOTFUWTNPY0tjK2RLUFY4bkZDNjVyZzV5RWJSaHNmUVlkYmVJVmtrb0NPCkxJZWlsRUlKdkhiYVJmWlMxZlVIQ0lwQ0VHS0Znb29ZQ0M4cFpXQ1FZbEVtbVR1SVpHSlROdnZ3SHoxSXZSa1EKNkN1RkpCRGtDNnRnWDVQTWFDY0lkY0VqdUxINVBnZndqVGdOWUNsQ2RJWFJzOXRPbEtHTnNYdytQbFovZzZmcgptY2I3MVhLMXV4OEtLUkN3dnZCdjFmT1lLbEYvVHlqUjRqTlpaeGcwTU14WmNLZ1RpK1RKZFo1Tnc0VjlPR0VRCjlRT2lFVEVOV1ZSb01SVEV4Y3cwQytvbVJJTjNySVlVQ1c4L3hLYW52S2dXTm9HSVppRjNqUWp6bC9iT0xLamEKSzNPTUxlU0lSdTVnbWMrSW0vZ2tSWkJPQU1KVnlBaldzcnUyT0RDYW1kdW9kVXR6VmU0ZnR0ZHJrYlUzTTQ0ZQprcVVmN3NiZ2o2cUlHTlRhNnhaN01JTHRTdDU5cFFwTTYrTllaYXFPMHNGbXBZN3FHd1pTZDFqV0hmT3BNRmdRCitBeHBSVWJlTEdJUmNTaFY2SU1vTVluWXdRSURBUUFCbzBJd1FEQU9CZ05WSFE4QkFmOEVCQU1DQWdRd0R3WUQKVlIwVEFRSC9CQVV3QXdFQi96QWRCZ05WSFE0RUZnUVVkTDJmUlJpd2lEVk52NFIwcFpIOWVjY2JGMkF3RFFZSgpLb1pJaHZjTkFRRUxCUUFEZ2dHQkFITzRaT0tUQmhTWEtnVGY4OWpaZlFqYUpKMzBUUXBnVlA0VFVyNFpYbzdkClZtMkdHek40MjFTZEsyTWJYajhDUjRWTUI1dWtSQ3ExWW1rS1R0TUdPRlhNckxwWjY5cVkxbGNhd2dLU1NzaisKdG5yUHVrWUxydVZ0T1R6bW5aTjdUdnpLMUt2dHN4OS9MZU90VThPaUhCV0pxRS9KSFlndW1zUFhzSG44c2xQUwo1VEkzdzVxZktoc081NjdWUGpDcHN4NzBwclB2SjVLTGNoR1EreUd3Sk5HQStsWElCUVBFcGZ6MU9jZ3B5OFVhCmx2Qkhrck1iaCtEcXRORjV3d2d2QmxDWFQ2RTdnSExWRE9tMEcwbXZzUmdCWmtsbXFGWXk3by9qNS9Pd0g1NW4KTHMxVTA4Ky9WQitHMEJva2ZOYWIrV1JrTEZDRTZlcnA3ZmhqRHVrdG9zVE5IVHNOejNLNmc3bEZ4VXFIODM3MgpxeHB5NU9ET1VMclRUR3JITStGSW9hVnhEbHlRTUo3UlhuenJHdFFqQUxJUDQwMERVVlQvVlk4VlhOQ2J0N2R5CnhLNDRLWGtlVVUwYUMxN2NZWWYrU2Y0LzhQYlVpNnU4NUJISW1HMTloQ25mQjRiOHRZdjdyeUJuMG45QWhNR1oKR0E0TWljL0dyRkFyeGlVWFdwZDU5QT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+  },
+  "masterAuthorizedNetworksConfig": {
+    "cidrBlocks": [
+      {
+        "cidrBlock": "113.188.119.38/32"
+      }
+    ],
+    "enabled": true,
+    "gcpPublicCidrsAccessEnabled": true
+  },
+  "monitoringConfig": {
+    "advancedDatapathObservabilityConfig": {},
+    "componentConfig": {
+      "enableComponents": [
+        "SYSTEM_COMPONENTS",
+        "STORAGE",
+        "HPA",
+        "POD",
+        "DAEMONSET",
+        "DEPLOYMENT",
+        "STATEFULSET",
+        "CADVISOR",
+        "KUBELET",
+        "DCGM",
+        "JOBSET"
+      ]
+    },
+    "managedPrometheusConfig": {
+      "enabled": true
+    }
+  },
+  "monitoringService": "monitoring.googleapis.com/kubernetes",
+  "name": "ewallet-dev",
+  "network": "ewallet-dev-vpc",
+  "networkConfig": {
+    "defaultSnatStatus": {},
+    "network": "projects/ewallet-data-ai-platform-hg26/global/networks/ewallet-dev-vpc",
+    "serviceExternalIpsConfig": {},
+    "subnetwork": "projects/ewallet-data-ai-platform-hg26/regions/asia-southeast1/subnetworks/ewallet-dev-asia-southeast1"
+  },
+  "nodeConfig": {
+    "bootDisk": {
+      "diskType": "pd-balanced",
+      "sizeGb": "50"
+    },
+    "diskSizeGb": 50,
+    "diskType": "pd-balanced",
+    "effectiveCgroupMode": "EFFECTIVE_CGROUP_MODE_V2",
+    "imageType": "COS_CONTAINERD",
+    "kubeletConfig": {
+      "insecureKubeletReadonlyPortEnabled": false,
+      "maxParallelImagePulls": 3
+    },
+    "labels": {
+      "workload": "cpu"
+    },
+    "loggingConfig": {},
+    "machineType": "e2-standard-4",
+    "metadata": {
+      "disable-legacy-endpoints": "true"
+    },
+    "nodeImageConfig": {
+      "image": "gke-1364-gke2046003-cos-129-19506-448-20-c-pre",
+      "imageProject": "gke-node-images"
+    },
+    "oauthScopes": [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ],
+    "resourceLabels": {
+      "goog-gke-node-pool-provisioning-model": "on-demand"
+    },
+    "serviceAccount": "ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+    "shieldedInstanceConfig": {
+      "enableIntegrityMonitoring": true,
+      "enableSecureBoot": true
+    },
+    "windowsNodeConfig": {},
+    "workloadMetadataConfig": {
+      "mode": "GKE_METADATA"
+    }
+  },
+  "nodeCreationConfig": {
+    "nodeCreationMode": "VIA_KUBELET"
+  },
+  "nodePoolAutoConfig": {
+    "nodeKubeletConfig": {
+      "insecureKubeletReadonlyPortEnabled": false
+    }
+  },
+  "nodePoolDefaults": {
+    "nodeConfigDefaults": {
+      "loggingConfig": {
+        "variantConfig": {
+          "variant": "DEFAULT"
+        }
+      },
+      "nodeKubeletConfig": {
+        "insecureKubeletReadonlyPortEnabled": false
+      }
+    }
+  },
+  "nodePools": [
+    {
+      "autoscaling": {},
+      "config": {
+        "bootDisk": {
+          "diskType": "pd-balanced",
+          "sizeGb": "50"
+        },
+        "diskSizeGb": 50,
+        "diskType": "pd-balanced",
+        "effectiveCgroupMode": "EFFECTIVE_CGROUP_MODE_V2",
+        "imageType": "COS_CONTAINERD",
+        "kubeletConfig": {
+          "insecureKubeletReadonlyPortEnabled": false,
+          "maxParallelImagePulls": 3
+        },
+        "labels": {
+          "workload": "cpu"
+        },
+        "loggingConfig": {},
+        "machineType": "e2-standard-4",
+        "metadata": {
+          "disable-legacy-endpoints": "true"
+        },
+        "nodeImageConfig": {
+          "image": "gke-1364-gke2046003-cos-129-19506-448-20-c-pre",
+          "imageProject": "gke-node-images"
+        },
+        "oauthScopes": [
+          "https://www.googleapis.com/auth/cloud-platform"
+        ],
+        "resourceLabels": {
+          "goog-gke-node-pool-provisioning-model": "on-demand"
+        },
+        "serviceAccount": "ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+        "shieldedInstanceConfig": {
+          "enableIntegrityMonitoring": true,
+          "enableSecureBoot": true
+        },
+        "windowsNodeConfig": {},
+        "workloadMetadataConfig": {
+          "mode": "GKE_METADATA"
+        }
+      },
+      "etag": "05f6aa38-686c-44af-9bdd-2d5cb4c52fc3",
+      "instanceGroupUrls": [
+        "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/instanceGroupManagers/gke-ewallet-dev-cpu-pool-58daed59-grp"
+      ],
+      "kubeletCertInfo": {
+        "tpmBootstrapCertExpireTime": "2031-10-24T16:05:53Z"
+      },
+      "locations": [
+        "asia-southeast1-b"
+      ],
+      "management": {
+        "autoRepair": true,
+        "autoUpgrade": true
+      },
+      "maxPodsConstraint": {
+        "maxPodsPerNode": "110"
+      },
+      "name": "cpu-pool",
+      "networkConfig": {
+        "networkTierConfig": {
+          "networkTier": "NETWORK_TIER_DEFAULT"
+        },
+        "podIpv4CidrBlock": "10.216.0.0/14",
+        "podIpv4RangeUtilization": 0.001,
+        "podRange": "gke-ewallet-dev-pods-50e37b8a",
+        "subnetwork": "projects/ewallet-data-ai-platform-hg26/regions/asia-southeast1/subnetworks/ewallet-dev-asia-southeast1"
+      },
+      "podIpv4CidrSize": 24,
+      "selfLink": "https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/clusters/ewallet-dev/nodePools/cpu-pool",
+      "status": "RUNNING",
+      "upgradeSettings": {
+        "maxSurge": 1,
+        "strategy": "SURGE"
+      },
+      "version": "1.36.4-gke.2046003"
+    }
+  ],
+  "notificationConfig": {
+    "pubsub": {}
+  },
+  "podAutoscaling": {
+    "hpaProfile": "PERFORMANCE"
+  },
+  "privateClusterConfig": {
+    "privateEndpoint": "10.20.0.8",
+    "publicEndpoint": "34.143.148.210"
+  },
+  "rbacBindingConfig": {
+    "enableInsecureBindingSystemAuthenticated": true,
+    "enableInsecureBindingSystemUnauthenticated": true
+  },
+  "releaseChannel": {
+    "channel": "REGULAR"
+  },
+  "resourceLabels": {
+    "environment": "dev",
+    "goog-terraform-provisioned": "true",
+    "managed_by": "terraform",
+    "project": "ewallet"
+  },
+  "satisfiesPzi": true,
+  "satisfiesPzs": false,
+  "securityPostureConfig": {
+    "mode": "BASIC",
+    "vulnerabilityMode": "VULNERABILITY_MODE_UNSPECIFIED"
+  },
+  "selfLink": "https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/clusters/ewallet-dev",
+  "servicesIpv4Cidr": "34.118.224.0/20",
+  "shieldedNodes": {
+    "enabled": true
+  },
+  "status": "RUNNING",
+  "subnetwork": "ewallet-dev-asia-southeast1",
+  "userManagedKeysConfig": {},
+  "workloadIdentityConfig": {
+    "workloadPool": "ewallet-data-ai-platform-hg26.svc.id.goog"
+  },
+  "zone": "asia-southeast1-b"
+}
