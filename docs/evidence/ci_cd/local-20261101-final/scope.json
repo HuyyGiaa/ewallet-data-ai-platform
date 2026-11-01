@@ -1,0 +1,18 @@
+{
+  "changed_files": [],
+  "components": [
+    "ci-platform",
+    "data-platform",
+    "feast",
+    "fraud-api",
+    "fraud-serving",
+    "llm-serving",
+    "ml-training",
+    "mlflow",
+    "streaming"
+  ],
+  "full_validation_reason": "invalid_head_sha",
+  "head": "HEAD",
+  "merge_base": null,
+  "target_ref": "origin/transfer/pc-base-20261101"
+}

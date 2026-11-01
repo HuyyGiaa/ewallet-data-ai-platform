@@ -566,6 +566,7 @@ Defaults are `localhost:8081` for Trino, `localhost:9000` for MinIO, and
 | [`docs/07_performance_benchmarks.md`](docs/07_performance_benchmarks.md) | Spark performance experiments |
 | [`docs/08_datahub_lineage.md`](docs/08_datahub_lineage.md) | Metadata ingestion, lineage, and assertions |
 | [`docs/cloud/configuration.md`](docs/cloud/configuration.md) | Local/dev/GCP runtime profiles and R1 validation |
+| [`docs/cloud/jenkins_cicd.md`](docs/cloud/jenkins_cicd.md) | Modular Jenkins orchestration, component scope, locked dependencies, controlled release and evidence |
 
 The next cloud task is reviewed Terraform provisioning. R1 does not regenerate
 the full dataset or run the cloud pipeline.

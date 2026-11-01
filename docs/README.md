@@ -15,6 +15,7 @@ component documents for implementation detail and recorded evidence.
 | [Performance benchmarks](07_performance_benchmarks.md) | Spark skew and cardinality experiments | Recorded benchmark |
 | [DataHub metadata and lineage](08_datahub_lineage.md) | Trino ingestion, direct lineage, assertions | Metadata operations |
 | [Runtime configuration](cloud/configuration.md) | Local/dev/GCP profiles, environment variables and preflight | Cloud refactor operations |
+| [Jenkins Platform CI/CD](cloud/jenkins_cicd.md) | Component catalog, merge-base scope, uv governance, controlled release and evidence reproduction | Source/static ready; Jenkins/CD runtime unverified |
 | [Terraform GCP foundation](cloud/terraform_gcp_foundation.md) | Remote state, GCS/IAM/VPC/registry modules, cost gates and apply/cleanup runbook | R2 infrastructure operations |
 | [Dataproc Delta-on-GCS smoke](cloud/dataproc_delta_smoke.md) | Cost-gated Spark/Delta/GCS compatibility job, submission, evidence and cleanup | R3 runtime decision checkpoint |
 | [Cloud Silver bounded pilot](cloud/silver_bounded_pilot.md) | Dry-run and user execution contract for the verified R4 Bronze pilot | Stage 1A runbook |
