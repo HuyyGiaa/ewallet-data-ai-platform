@@ -45,10 +45,10 @@ making every model and dataset version reproducible.
 
 This project addresses that problem through three connected layers:
 
-- **Data engineering:** deterministic offline and streaming generators feed a
-  Bronze/Silver/Gold Delta Lake. Spark handles batch transformations, Flink
-  handles event-time streams, Airflow orchestrates bounded workflows, and
-  DataHub records lineage and quality results.
+- **Data engineering:** deterministic offline data feeds the Bronze/Silver/Gold
+  Delta Lake, while versioned stream events flow through Redpanda and Flink.
+  Spark handles batch transformations, Airflow orchestrates bounded workflows,
+  and DataHub records lineage and quality results.
 - **Machine learning:** point-in-time feature tables feed Feast Offline and
   Online stores. Kubeflow Pipelines trains and evaluates candidates, MLflow
   records model/data lineage, and KServe hosts model-inside-image inference.
@@ -67,9 +67,10 @@ logic, and runtime claims are tied to preserved reports and evidence.
 - **Deterministic data at 100 GB scale.** Stable shard identities, create-only
   publication, resume safety, and a final manifest make parallel generation
   reproducible across worker counts.
-- **One lakehouse, two processing modes.** Spark builds validated batch layers;
-  Flink applies event-time validation, deduplication, windows, late-event
-  handling, and feature-update contracts.
+- **One lakehouse, distinct batch and streaming paths.** Spark implements the
+  DP1/DP2/DP3 boundaries. Historical Flink evidence covers event-time behavior,
+  while integrated Block A defines bootstrap, state, history, and online-update
+  contracts.
 - **Correctness before optimization.** A/B comparisons require equivalent
   inputs and semantic gates. Regressions and failed equivalence checks remain
   visible instead of being presented as gains.
@@ -79,8 +80,9 @@ logic, and runtime claims are tied to preserved reports and evidence.
 - **Reproducible ML delivery.** Immutable snapshots flow through a multi-step
   Kubeflow pipeline; MLflow binds the selected model to its dataset and runtime
   image; KServe serves the model from a digest-pinned image.
-- **Governed orchestration.** Airflow coordinates DP1, DP2, and DP3 stages;
-  DataHub captures dataset lineage, contracts, and result-bound assertions.
+- **Governed orchestration.** Three manual-trigger Airflow DAGs own DP1, DP2,
+  and DP3 separately. DataHub publishes verified lineage and selected
+  result-bound assertions without treating every defined check as executed.
 - **Measured storage design.** Delta compaction and PostgreSQL indexing are
   evaluated with before/after data, semantic equality checks, and documented
   read/write trade-offs.
@@ -121,16 +123,24 @@ IDs, exact source versions, correctness decisions, and scientific limitations.
 flowchart LR
     subgraph DATA["Data Generation"]
         DG["Deterministic Offline Generator"]
+        SRC[("Immutable GCS source<br/>Parquet + manifest")]
         SG["Streaming Generator"]
         RP["Redpanda"]
+        DG --> SRC
         SG --> RP
     end
 
     subgraph LAKE["Delta Lakehouse on GCS / MinIO"]
         B[("Bronze<br/>raw")]
         S[("Silver<br/>clean + deduplicated")]
-        G[("Gold<br/>analytics + features")]
-        B -->|Spark| S -->|Spark| G
+        G[("Core Gold<br/>dimensions · facts · OBT · aggregates")]
+        DP3["DP3 historical<br/>feature computation"]
+        HF[("Four historical<br/>feature tables")]
+        SRC -->|DP1 · Spark ingest| B
+        B -->|DP2 · normalize + validate| S
+        S -->|DP2 · build Core Gold| G
+        S --> DP3
+        G --> DP3 --> HF
     end
 
     subgraph FEATURES["Feast Feature Store"]
@@ -158,27 +168,26 @@ flowchart LR
         MCP --> RAG
     end
 
-    DG --> B
-    RP --> FLINK["Flink<br/>event-time processing"]
+    RP --> FLINK["Integrated Flink Block A<br/>event-time feature processing"]
     S --> BOOT["Silver bootstrap<br/>and state cutover"] --> RP
     FLINK -.->|accepted-history contract| HIST[("Immutable stream history<br/>GCS offline boundary")]
     FLINK -.->|complete FeatureView rows| PUSH["Feast PushSource"]
     PUSH -.-> ON
-    G --> OFF
+    HF --> OFF
     OFF -->|PIT snapshot| KFP
     ON -->|request-time features| API
     API -->|score + model metadata| CO
     MCP -->|features| ON
     MCP -->|inference| KS
 
-    AF["Airflow<br/>orchestration"] -.-> B
-    AF -.-> S
-    AF -.-> G
-    AF -.-> KFP
-    DH["DataHub<br/>lineage + quality"] -.-> B
+    AF1["Airflow DP1<br/>manual-trigger DAG"] -.-> B
+    AF2["Airflow DP2<br/>manual-trigger DAG"] -.-> S
+    AF2 -.-> G
+    AF3["Airflow DP3<br/>manual-trigger DAG"] -.-> HF
+    DH["DataHub<br/>lineage + selected quality"] -.-> B
     DH -.-> S
     DH -.-> G
-    DH -.-> OFF
+    DH -.-> HF
 
     ISTIO["Istio service mesh<br/>Gateway API · policy · mTLS boundaries"]
     ISTIO -.-> API
@@ -207,7 +216,7 @@ security control has been exercised in one runtime campaign.
 |---|---|
 | Data generation | Python, Faker, deterministic sharding, Parquet |
 | Batch processing | Apache Spark, PySpark, Delta Lake, Dataproc Serverless |
-| Streaming | Redpanda, Kafka Connect, Apache Flink / PyFlink, Redis |
+| Streaming | Redpanda, Apache Flink / PyFlink, GCS history, Feast PushSource, Redis |
 | Storage and query | Google Cloud Storage, MinIO, Delta Lake, Trino, PostgreSQL |
 | Orchestration and governance | Apache Airflow, DataHub, data contracts |
 | Feature platform | Feast Offline Store, Feast Online Store, Redis |
@@ -221,33 +230,52 @@ security control has been exercised in one runtime campaign.
 
 ## Data Engineering Platform
 
-The data layer starts with deterministic offline shards and controlled stream
-events. It deliberately introduces skew, duplicates, schema evolution, bursts,
-out-of-order delivery, and late arrival so pipeline behavior can be evaluated
-against known input characteristics.
+The data layer starts with immutable offline shards and controlled stream events. The generators deliberately introduce skew, duplicates, schema evolution, bursts, out-of-order delivery, and late arrival so pipeline behavior can be evaluated against known input characteristics.
 
-Spark builds the medallion layers:
+### DP1 — Bronze
 
-1. **Bronze** preserves source records and ingestion metadata.
-2. **Silver** validates schemas, normalizes records, and removes duplicates.
-3. **Gold** produces analytics tables, dimensions, aggregates, and historical
-   feature tables with business event timestamps.
+DP1 reads an immutable source manifest and Parquet datasets from GCS, submits a source-to-Bronze
+Spark job, and verifies the exact eight-table Delta output. Bronze remains source-shaped: it
+preserves raw business records while adding the ingestion information required to trace the run and
+reconcile transaction V1/V2 physical files.
 
-Flink complements the batch path with event-time validation, watermarks,
-deduplication, window aggregation, late-event routing, checkpoint contracts,
-and sinks for historical and online feature updates. Airflow expresses the
-DP1/DP2/DP3 dependencies and validation gates. DataHub records static lineage,
-contracts, and result-bound quality events.
+### DP2 — Silver and Core Gold
 
-![Data Engineering Architecture](docs/evidence/architecture/ewallet_architecture.png)
+DP2 normalizes types, cleans records, handles additive schema evolution, deduplicates transaction
+identities, and validates the eight Silver tables. It then builds the separate Core Gold boundary:
+dimensions, facts, analytical aggregates, and the denormalized transaction OBT. Core Gold business
+tables are not the four historical behavior-feature tables computed by DP3. The preserved Method 2
+campaign produced both variants, but its final Gold semantic-equivalence gate failed; the shorter
+observed Gold runtime was therefore not accepted as an optimization winner.
 
-*Data Engineering Architecture — Batch and streaming processing, lakehouse
-storage, orchestration, and data governance. MinIO represents the corresponding
-storage configuration; the canonical cloud deployment uses GCS.*
+### DP3 — Historical Features
 
-The diagram above is scoped to data engineering; it is not the complete
-end-to-end ML and agent architecture. Detailed designs and experiment outcomes
-are collected in the [EDAI-1 documentation index](docs/edai1/README.md).
+DP3 verifies the required validated Silver and Core Gold inputs, then computes four run-scoped
+behavior tables for user, account, device, and merchant entities. Their event-time windows preserve
+`[T-window,T)` semantics and form the historical feature boundary exported to Feast Offline. The
+DP3 Airflow DAG validates the four physical Delta outputs; the later independent PIT/Feast
+comparison and its DataHub events are not tasks inside the preserved DP3 DagRun.
+
+### Flink Streaming
+
+Two implementations have distinct evidence and responsibilities:
+
+- The **historical EDAI-1 streaming benchmark** demonstrates event-time processing, watermarks,
+  deduplication, late-event handling, windows, checkpoint behavior, and preserved runtime evidence.
+- **Integrated Streaming Block A** adds historical bootstrap, 31-feature state maintenance,
+  immutable GCS history, and Feast PushSource update contracts. Its source contracts do not by
+  themselves prove a current-version run writing and reading back both sinks.
+
+### Orchestration and Governance
+
+DP1, DP2, and DP3 are separate manual-trigger Airflow DAGs (`schedule=None`), each with its own
+upstream evidence, immutable run identity, and validation boundary; they are not one automatically
+scheduled end-to-end DAG.
+
+DataHub records metadata, deterministic lineage, contracts, and preserved quality events. Verified
+read-back includes Silver checks and four PIT feature-group assertions. The defined Core Gold
+row-level assertion has no execution history, so physical Gold verification is not presented as
+proof that every DataHub assertion ran. See the [EDAI-1 documentation index](docs/edai1/README.md) for detailed inventories, run identities, and validation boundaries.
 
 ---
 
