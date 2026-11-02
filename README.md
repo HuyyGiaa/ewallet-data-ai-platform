@@ -119,6 +119,12 @@ IDs, exact source versions, correctness decisions, and scientific limitations.
 
 ## System Architecture
 
+### End-to-End Platform Architecture
+
+![E-Wallet Data, ML & Agentic AI Platform Architecture](docs/assets/architecture/ewallet_platform_overview.png)
+
+*High-level architecture of the E-Wallet platform, covering data engineering, machine learning, RAG, agentic AI, and GKE infrastructure. Component-level implementation and experimental evidence are documented in the technical reports.*
+
 ```mermaid
 flowchart LR
     subgraph DATA["Data Generation"]
