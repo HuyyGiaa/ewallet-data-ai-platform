@@ -12,7 +12,7 @@ set -euo pipefail
 python -m ops.gcp.ml2_operator_guard preflight \
   --repo "$REPO_ROOT" \
   --expected-reviewed-git-sha "$EXPECTED_REVIEWED_GIT_SHA" \
-  --expected-branch codex/ml1-training-snapshot \
+  --expected-branch "${EXPECTED_BRANCH:-feature/phase2-fraud-platform}" \
   --dvc-executable "$DVC_BIN" \
   --evidence "$FEATURE_SELECTION_EVIDENCE" \
   --evidence "$PIT_EVIDENCE" \

@@ -1,0 +1,8 @@
+unknown_user 424 missing_feature
+stale_request_time 424 stale_feature
+future_features 424 invalid_feature_timestamp
+invalid_type 422 invalid_request
+payment_without_merchant 422 invalid_request
+malformed 422 invalid_request
+wrong_currency 422 invalid_request
+negative_amount 422 invalid_request

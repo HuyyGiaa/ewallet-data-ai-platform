@@ -1,0 +1,3 @@
+{"event": "infer", "request_id": "smoke2-d1aef5f7", "model_version": "1", "traceparent": "00-f91012c9c2cb40f7bc87a5b4d5c00ea5-47342c0193adc147-03"}
+{"event": "infer", "request_id": "smoke2-8518ce71", "model_version": "1", "traceparent": "00-e7c9b2cad9597e4ceb7a5e4e2bc80597-1b892257f64b0204-03"}
+{"event": "infer", "request_id": "smoke2-a0608db9", "model_version": "1", "traceparent": "00-d22634a4d9cd22bdee5c2553a260246a-5e4167d6db69e6e8-03"}

@@ -65,6 +65,11 @@ def response_data(timestamp: datetime = EVENT_TIME - timedelta(minutes=2)):
             "account_id": ["account-1"],
             "device_id": ["device-1"],
             "merchant_id": ["merchant-1"],
+            # Real Feast 0.66 output also carries a zero join-key timestamp.
+            "user_id__ts": [0],
+            "account_id__ts": [0],
+            "device_id__ts": [0],
+            "merchant_id__ts": [0],
         }
     )
     return result
@@ -179,6 +184,22 @@ class FeastOnlineAdapterTest(unittest.TestCase):
         result = self.run_async(FeastOnlineAdapter(store).get_features(request()))
         self.assertEqual(31, len(result.values))
         self.assertEqual(timedelta(minutes=10), DEFAULT_MAX_STALENESS)
+
+    def test_semantic_null_with_row_timestamp_is_present_not_missing(self) -> None:
+        # Observed in GKE: DP3 leaves failed_rate/std null by design; the row
+        # (timestamp) exists and the trained pipeline imputes the value.
+        data = response_data()
+        data["user_behavior__user_failed_rate_24h"] = [None]
+        data["account_behavior__account_std_amount_30d"] = [None]
+        result = self.run_async(FeastOnlineAdapter(FakeStore(data)).get_features(request()))
+        self.assertIsNone(result.values["user_behavior__user_failed_rate_24h"])
+        self.assertIsNotNone(result.timestamps["user_behavior__user_failed_rate_24h"])
+
+        absent_row = response_data()
+        absent_row["user_behavior__user_failed_rate_24h"] = [None]
+        absent_row["user_behavior__user_failed_rate_24h__ts"] = [None]
+        with self.assertRaises(MissingFeatureError):
+            self.run_async(FeastOnlineAdapter(FakeStore(absent_row)).get_features(request()))
 
     def test_missing_feature_value_and_timestamp_are_distinct_missing_failures(self) -> None:
         cases = []

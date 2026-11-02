@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     preflight.add_argument("--repo", type=Path, required=True)
     preflight.add_argument("--expected-reviewed-git-sha", required=True)
     preflight.add_argument(
-        "--expected-branch", default="codex/ml1-training-snapshot"
+        "--expected-branch", default="feature/phase2-fraud-platform"
     )
     preflight.add_argument("--evidence", type=Path, action="append", default=[])
     preflight.add_argument("--dvc-executable", required=True)

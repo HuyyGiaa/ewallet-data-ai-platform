@@ -26,6 +26,18 @@ HISTORICAL_FEATURE_COLUMNS = tuple(
     for feature in spec["features"]
 )
 
+# DP3 leaves these null by design (no prior window activity, fewer than two
+# samples, no failed-rate denominator, first transaction). They are present-but-
+# null, not missing, and the trained pipelines impute them.
+NULLABLE_HISTORICAL_FEATURE_COLUMNS = frozenset(
+    name
+    for name in HISTORICAL_FEATURE_COLUMNS
+    if any(
+        marker in name
+        for marker in ("_avg_amount_", "_std_amount_", "_failed_rate_", "_seconds_since_last")
+    )
+)
+
 DERIVED_FEATURE_COLUMNS = (
     "amount_ratio_to_user_avg_30d",
     "amount_zscore_user_30d",

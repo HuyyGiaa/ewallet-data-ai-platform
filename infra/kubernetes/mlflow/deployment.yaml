@@ -28,6 +28,7 @@ spec:
               --backend-store-uri="$MLFLOW_BACKEND_STORE_URI"
               --artifacts-destination="$MLFLOW_ARTIFACTS_DESTINATION"
               --serve-artifacts
+              --allowed-hosts="mlflow.ml-platform.svc.cluster.local:5000,mlflow.ml-platform.svc.cluster.local,mlflow.ml-platform:5000,mlflow:5000,localhost:5000,127.0.0.1:5000"
           env:
             - name: MLFLOW_BACKEND_STORE_URI
               valueFrom:
