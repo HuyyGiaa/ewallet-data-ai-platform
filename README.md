@@ -12,16 +12,54 @@ features from both batch and streaming paths. Those features are served through
 Feast, used for reproducible training orchestrated by Kubeflow Pipelines and
 tracked in MLflow, and consumed by a low-latency Fraud API backed by KServe. A
 CPU-first LLM layer with a kagent multi-agent system and policy-gated MCP tools
-then turns scores, features and policy documents into cited investigation
-answers.
+is being developed in a separate workstream to turn scores, features and policy
+documents into cited investigation answers. That workstream is not part of the
+currently published stable EDAI-1 + ML Platform checkpoint.
 
 > This is a coursework and research project. It is not an end-user wallet
 > application, and all transaction data is synthetic.
 
 ---
 
+## Project Status and Roadmap
+
+This branch is the published checkpoint for completed EDAI-1 documentation and
+the verified EDAI-2 ML Platform. Status labels are deliberately strict:
+`RUNTIME_VERIFIED` requires recorded execution evidence, while `SOURCE_READY`
+means that implementation exists but the corresponding runtime proof is still
+missing.
+
+| Workstream | Status | Current evidence and limitations |
+|---|---|---|
+| **EDAI-1 documentation and evidence** | **COMPLETED / PUBLISHED** | Evidence coverage is 59/100 fully evidenced, 41/100 partially evidenced and 0/100 without supporting evidence. These are evidence-coverage classifications, **not awarded grades** and not a claim that every literal rubric condition is complete. |
+| **EDAI-2 Feast materialisation — Row 11** | **RUNTIME_VERIFIED** | Bounded Offline-to-Online materialisation and incremental materialisation completed, followed by 155/155 online/offline parity comparisons. |
+| **EDAI-2 Flink dual-store delivery — Row 12** | **SOURCE_READY** | The current implementation has Offline and Online sink contracts, but a current-version job proving writes and read-back from both stores was **NOT_EXECUTED**. |
+| **EDAI-2 Kubeflow training — Row 13** | **RUNTIME_VERIFIED** | KFP run `dc29f5cc-cc9e-49ae-b861-eacddd6269b5` completed successfully. |
+| **EDAI-2 MLflow — Row 14** | **RUNTIME_VERIFIED / INCOMPLETE RUBRIC CONDITION** | Model, data and metadata versioning are verified. Model version 1 received alias `candidate`; the required automatic `latest` or `production` alias was not performed. |
+| **EDAI-2 KServe — Row 15** | **BUSINESS_E2E_VERIFIED** | A model-inside-image deployment returned successful versioned fraud predictions through the Fraud API. |
+| **LLM and Agent runtime** | **IN_PROGRESS — separate from this stable checkpoint** | The latest reported deployment was Helm `llm-agent` revision 21. A synthetic `Coordinator → A2A → Feature-RAG → MCP → Feast/KServe/RAG` request passed at source `aea8553`; newer source `81a2b21` was not deployed or runtime-verified. Agent Registry, KEDA multi-replica operation and complete OpenTelemetry collection remain unfinished. |
+| **CI/CD and Observability** | **PLANNED / PARTIAL SOURCE** | Selected pipeline and instrumentation contracts exist, but complete runtime execution, dashboards and submission evidence are not yet available. |
+
+Known experimental limitations remain visible rather than being converted into
+success claims:
+
+- Spark DP2 generated baseline and optimized Gold outputs, but its final
+  semantic-equivalence gate **FAILED**; no optimized Gold winner was selected.
+- The newer DP3 optimized profile was **NOT_EXECUTED**; historical measurements
+  belong to the earlier configuration recorded in the evidence report.
+- Flink current-version dual-store runtime is **NOT_VERIFIED**.
+- The PostgreSQL Warehouse index benchmark used an isolated local 2-million-row
+  synthetic fixture; it does not prove a production Gold-to-Warehouse path.
+
+The canonical status reports are the [EDAI-1 documentation index](docs/edai1/README.md),
+the [EDAI-1 rubric evidence matrix](docs/edai1/EDAI1_RUBRIC_COVERAGE.md), and the
+[EDAI-2 MLOps and Feature Store report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md).
+
+---
+
 ## Contents
 
+- [Project Status and Roadmap](#project-status-and-roadmap)
 - [Business Problems](#business-problems)
 - [Key Capabilities](#key-capabilities)
 - [System Architecture](#system-architecture)
@@ -36,6 +74,7 @@ answers.
 - [Cloud Deployment](#cloud-deployment)
 - [Testing & Reproducibility](#testing--reproducibility)
 - [Documentation](#documentation)
+- [Upcoming Work](#upcoming-work)
 - [Academic Context](#academic-context)
 
 ---
@@ -57,9 +96,10 @@ answers.
 
 - **Large-scale batch processing.** Apache Spark on Dataproc Serverless processes
   a canonical dataset sized at 100 GB through Bronze, Silver and Gold Delta tables.
-- **Event-driven streaming.** Redpanda topics and an Apache Flink (PyFlink) job
-  provide event-time processing, deduplication, late-event reconciliation,
-  bounded retries and a dead-letter path.
+- **Event-driven streaming (`SOURCE_READY`).** Redpanda topics and an Apache
+  Flink (PyFlink) job provide event-time processing, deduplication, late-event
+  reconciliation, bounded retries and a dead-letter path. Current-version
+  dual-store writes have not yet been runtime verified.
 - **Lakehouse storage.** Delta Lake on Google Cloud Storage provides ACID
   tables, schema enforcement and versioned reads. A MinIO profile keeps the
   same code runnable locally.
@@ -78,19 +118,21 @@ answers.
   online features, assembles the model input and returns the fraud
   probability and prediction together with the model version, feature timestamp
   and correlation ID.
-- **LLM inference.** vLLM serves a checksummed small model on CPU, and
-  agentgateway owns model routing and resilience. Optional llm-d inference
-  routing is also available.
-- **Multi-agent orchestration.** A kagent Coordinator delegates to specialist
-  agents over native A2A.
+- **LLM inference (`IN_PROGRESS`, separate workstream).** vLLM serves a
+  checksummed small model on CPU, and agentgateway owns model routing and
+  resilience. Optional llm-d inference routing is under continued development.
+- **Multi-agent orchestration (`IN_PROGRESS`, separate workstream).** A
+  historical kagent revision completed a bounded synthetic Coordinator-to-
+  Specialist E2E; the newest source has not inherited that runtime status.
 - **Secure tool integration.** Agents reach MCP tool services only through a
   policy-enforcing MCP Gateway, inside an Istio Ambient mesh with
   deny-by-default network policies.
 - **Data governance.** Versioned YAML data contracts, fail-hard validators for
   each layer, and DataHub metadata, lineage and assertions.
 - **Infrastructure and delivery.** Terraform-managed GCP foundation, Helm
-  charts, Jenkins pipelines that test against lockfiles, Trivy image scanning,
-  and OpenTelemetry instrumentation with Grafana dashboards.
+  charts and Trivy image scanning are present. Jenkins and OpenTelemetry/Grafana
+  contracts are partial and must not yet be read as fully verified CI/CD or
+  observability runtimes.
 
 ---
 
@@ -149,8 +191,8 @@ flowchart LR
     SI --> DP3 --> GO
     GO --> OFF --> KFP --> MLF --> KS
     GO -->|materialize| ON
-    FLINK -->|online updates| ON
-    FLINK -->|accepted events| BR
+    FLINK -.->|SOURCE_READY: online writes<br/>runtime not verified| ON
+    FLINK -.->|SOURCE_READY: offline history<br/>runtime not verified| BR
     ON --> API
     KS --> API
     AG --> LLM
@@ -162,9 +204,12 @@ flowchart LR
 
 **Layer 8, Infrastructure, Security & Observability**, spans all of the above:
 GKE, Dataproc, GCS and Artifact Registry are provisioned with Terraform. Istio
-Ambient and the Kubernetes Gateway API handle ingress and the mesh,
-Workload Identity provides cloud access, Jenkins provides CI/CD, and
-OpenTelemetry provides telemetry.
+Ambient provides the service mesh; Kubernetes Gateway API resources are used
+where implemented. AuthorizationPolicy and NetworkPolicy enforce internal
+boundaries. This does not imply that every ingress, HTTPS, authentication or
+rubric requirement is complete. Workload Identity provides cloud access;
+Jenkins and OpenTelemetry remain partial workstreams rather than fully verified
+platform-wide runtimes.
 
 | # | Layer | Responsibility | Primary source |
 |---|---|---|---|
@@ -192,10 +237,10 @@ OpenTelemetry provides telemetry.
 | Serving | KServe, FastAPI |
 | LLM | vLLM (CPU), agentgateway, llm-d inference routing |
 | Agents | kagent, native A2A, Model Context Protocol (MCP), RAG |
-| Infrastructure | Google Kubernetes Engine, Docker, Kubernetes, Helm, Terraform, Artifact Registry, KEDA |
+| Infrastructure | Google Kubernetes Engine, Docker, Kubernetes, Helm, Terraform, Artifact Registry; KEDA is planned for the unfinished multi-replica Agent work |
 | Networking & Security | Istio Ambient, Kubernetes Gateway API, NetworkPolicy, Workload Identity, Trivy |
-| CI/CD | Jenkins, GitHub |
-| Observability | OpenTelemetry Collector, Grafana dashboards |
+| CI/CD | GitHub; Jenkins source and selected contracts are present, full runtime verification remains incomplete |
+| Observability | OpenTelemetry instrumentation and Grafana definitions; complete collector/dashboard runtime remains unfinished |
 | Python tooling | `uv` with per-deployment `pyproject.toml` + `uv.lock` |
 
 ---
@@ -237,8 +282,10 @@ flowchart LR
 - **DP3:** four historical feature tables → temporal-contract validation →
   Feast snapshot export and point-in-time parity check.
 
-Each DAG publishes lineage and run evidence, and marks a run successful only
-after validation and read-back. DAG sources are in
+Each DAG is designed to publish lineage and run evidence and to mark a run
+successful only after validation and read-back. The historical DP2 campaign
+generated both Gold outputs but correctly remained `FAILED` when its final
+semantic gate did not pass. DAG sources are in
 [`data_platform/orchestration/airflow/dags`](data_platform/orchestration/airflow/dags).
 
 ### Data quality and validation
@@ -253,7 +300,10 @@ after validation and read-back. DAG sources are in
   `fraud_labels`.
 - **Semantic equivalence:** optimised Spark variants are compared against their
   baselines by content fingerprints, so a performance change cannot silently
-  change results.
+  change results. In the recorded DP2 Gold campaign, three double-aggregation
+  columns differed at IEEE-754 precision and the strict final gate failed; the
+  evidence supports the measured differences, while reduction order remains a
+  diagnosis rather than a proven execution-plan cause.
 - **Lineage:** DataHub receives dataset and job lineage derived from the actual
   implementation, with assertion results attached.
 
@@ -262,7 +312,9 @@ after validation and read-back. DAG sources are in
 ## Streaming Pipeline
 
 The streaming path handles transactions as they arrive and keeps online
-features current between batch materialisations.
+features current between batch materialisations. The implementation and focused
+tests are `SOURCE_READY`; a current-version runtime proving both Offline and
+Online Store writes and read-back is `NOT_EXECUTED`.
 
 ```mermaid
 flowchart LR
@@ -289,6 +341,9 @@ flowchart LR
   checkpoint interval, incremental RocksDB checkpoints) run on a pinned local
   Flink + Redpanda Compose stack and are compared on the same replayed
   dataset. See [`docs/streaming/flink_local_benchmark.md`](docs/streaming/flink_local_benchmark.md).
+
+Historical Flink benchmark evidence remains useful for the version that was
+executed, but it is not used as runtime proof for the latest dual-store source.
 
 ---
 
@@ -374,14 +429,18 @@ the feature timestamp and a correlation ID, so each decision can be traced. Impl
 
 ## LLM & Agentic AI
 
-The agentic layer helps analysts investigate flagged transactions. It does not
-make autonomous decisions: agents may only call approved tools and must cite
-what they return.
+The agentic layer is an active, separately published workstream. It helps
+analysts investigate flagged transactions and does not make autonomous
+decisions: agents may only call approved tools and must cite what they return.
+The latest reported live checkpoint was Helm `llm-agent` revision 21 at source
+`aea8553`, where one bounded synthetic business request passed through the full
+Coordinator/A2A/Feature-RAG/MCP path. Newer source `81a2b21` was not deployed or
+runtime-verified and is intentionally excluded from this stable branch.
 
 ```mermaid
 flowchart TB
-    U["Analyst / client"] --> GW["Istio Ambient ingress<br/>Kubernetes Gateway API"]
-    GW --> CO["kagent Coordinator"]
+    U["Analyst / client"] --> GW["Istio-secured internal route<br/>(historical runtime checkpoint)"]
+    GW --> CO["kagent Coordinator<br/>revision 21 evidence"]
     CO -- "native A2A" --> S1["Feature & RAG specialist"]
     CO -- "native A2A" --> S2["Drift & risk specialist"]
     S1 & S2 --> MG["MCP Gateway<br/>(policy-only proxy)"]
@@ -398,10 +457,10 @@ flowchart TB
   offline model image with primary and fallback backends. agentgateway owns
   model and backend routing, timeouts and retries. llm-d inference routing is
   an optional layer between them.
-- **kagent Coordinator and specialists.** Agents run as sandboxed kagent
-  resources with versioned prompts, fixed JSON answer shapes and explicit tool
-  allow-lists. Delegation uses kagent's native A2A protocol, routed through
-  agentgateway; there is no separate A2A runtime.
+- **kagent Coordinator and specialists.** The reported runtime used first-class
+  kagent Agent resources with fixed JSON contracts and explicit tool allow-
+  lists. Delegation used native A2A through the policy gateway. Agent Sandbox
+  and Substrate requirements are not claimed as complete.
 - **MCP Gateway.** The gateway is a policy-only proxy in front of four
   Streamable-HTTP MCP tool services. Agents cannot reach a tool server
   directly, and the servers keep a deny-all authenticator until access is
@@ -414,9 +473,9 @@ flowchart TB
   accounts and Workload Identity, with no static credentials in agent
   configuration. Tools fail closed: an unavailable model or retriever returns
   an error code, never a fabricated score or policy text.
-- **Operations.** KEDA autoscaling, an OpenTelemetry collector with redaction,
-  Grafana dashboards and an agent registry are packaged as opt-in components of
-  the [`llm-agent-platform`](infra/helm/llm-agent-platform) Helm chart.
+- **Operations roadmap.** Agent Registry, KEDA-backed multi-replica execution
+  and complete OpenTelemetry collection/dashboard evidence remain unfinished.
+  Their source or packaging must not be interpreted as deployed runtime proof.
 
 Design details: [`docs/llm_agent/agents.md`](docs/llm_agent/agents.md),
 [`docs/llm_agent/mcp_gateway.md`](docs/llm_agent/mcp_gateway.md),
@@ -586,7 +645,7 @@ supplied at runtime and are never committed.
 | Feast Offline + Training Snapshot | PIT retrieval and immutable snapshot | [Cloud Feast training snapshot](docs/ml/cloud_feast_training_snapshot.md), [ML-2 operator runbook](docs/ml/ml2_training_snapshot_operator_runbook.md) |
 | GKE, MLflow, KFP | MLOps runtime on Kubernetes | [GKE MLOps runtime gate](docs/ml/gke_mlops_runtime_gate.md), [Canonical KFP](docs/ml/kfp_canonical.md), [F9 MLflow](docs/ml/f9_mlflow_canonical.md) |
 | vLLM, agentgateway, kagent, MCP | LLM and agent platform on GKE (CPU) | [GKE CPU runtime](docs/llm_agent/gke_cpu_runtime.md), [Runtime runbook](docs/llm_agent/runtime_runbook.md) |
-| Jenkins, image scanning | CI/CD and OTel | [CI/CD and observability](docs/llm_agent/cicd_observability.md) |
+| Jenkins, image scanning | Partial CI/CD and observability source; complete runtime evidence remains planned | [CI/CD and observability](docs/llm_agent/cicd_observability.md) |
 
 Operator entry points live in [`scripts/mlops`](scripts/mlops),
 [`scripts/llm_agent`](scripts/llm_agent) and [`ops/gcp`](ops/gcp). Each runs a
@@ -612,6 +671,34 @@ dry run by default and needs an explicit flag before it changes anything.
 
 ## Documentation
 
+### Canonical submission reports
+
+The following reports are the primary navigation for this published branch.
+Older architecture and implementation documents remain useful supplementary
+references, but they do not override the status and provenance recorded here.
+
+**EDAI-1**
+
+- [Documentation index](docs/edai1/README.md)
+- [Rubric evidence coverage](docs/edai1/EDAI1_RUBRIC_COVERAGE.md)
+- [Docker optimization](docs/edai1/docker/DOCKER_OPTIMIZATION.md)
+- [Data generation and simulation](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md)
+- [Schema design](docs/edai1/SCHEMA_DESIGN.md)
+- [Spark optimization matrix](docs/edai1/OPTIMIZATION_MATRIX.md)
+- [Flink streaming](docs/edai1/streaming/FLINK_STREAMING.md)
+- [Airflow DP1/DP2/DP3 evidence](docs/edai1/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md)
+- [Storage and Warehouse optimization](docs/edai1/storage/STORAGE_OPTIMIZATION.md)
+- [DataHub governance](docs/edai1/datahub/DATAHUB_GOVERNANCE.md)
+- [Novel Idea 1 — deterministic sharding](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md)
+- [Novel Idea 2 — PIT leakage prevention](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md)
+
+**EDAI-2 ML Platform**
+
+- [MLOps and Feature Store report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md)
+- [Immutable MLOps campaign evidence](docs/evidence/cloud/mlops-campaign-20261031/)
+
+### Supplementary architecture and runbooks
+
 | Area | Start here |
 |---|---|
 | Architecture | [System architecture](docs/00_system_architecture.md) · [Cloud platform design](docs/superpowers/specs/2026-10-21-cloud-platform-refactor-design.md) · [Docs index](docs/README.md) |
@@ -623,6 +710,24 @@ dry run by default and needs an explicit flag before it changes anything.
 | Infrastructure | [Runtime configuration](docs/cloud/configuration.md) · [Terraform](docs/cloud/terraform_gcp_foundation.md) · [GKE CPU runtime](docs/llm_agent/gke_cpu_runtime.md) · [CI/CD & observability](docs/llm_agent/cicd_observability.md) |
 | Metadata & lineage | [DataHub lineage](docs/08_datahub_lineage.md) · [EDAI-1 workstream](docs/edai1/README.md) |
 | Evidence & reports | [Evidence directory](docs/evidence) · [Rubric audit](docs/rubric/rubric_audit.md) · [Source consolidation](docs/integration/20261031_source_consolidation.md) · [Submission integration](docs/integration/20261101_submission_integration.md) |
+
+---
+
+## Upcoming Work
+
+The next delivery sequence keeps verified components stable while completing
+the unfinished EDAI-2 workstreams:
+
+1. Reconcile the latest LLM/Agent source with the runtime-verified revision and
+   repeat one bounded business E2E before promotion.
+2. Finalize the RAG and MCP/A2A lifecycle, then deploy and verify Agent Registry.
+3. Add KEDA-backed multi-replica Coordinator and Specialist evidence.
+4. Complete the remaining Istio ingress, authentication and security rubric
+   requirements without introducing an unrelated NGINX architecture.
+5. Complete CI/CD execution evidence and end-to-end observability collection.
+6. Finish Testing & Reliability coverage, mutation, property-based and load
+   testing requirements.
+7. Publish the remaining EDAI-2 reports and immutable evidence bundles.
 
 ---
 
