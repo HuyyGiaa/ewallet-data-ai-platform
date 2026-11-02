@@ -1,226 +1,203 @@
 # E-Wallet Data & AI Platform
 
-An end-to-end data and fraud-intelligence platform for e-wallet transactions,
-built on Google Cloud. It covers the full path from synthetic transaction data
-to explainable, AI-assisted fraud investigation:
+An end-to-end fraud-intelligence platform for synthetic e-wallet transactions,
+built to study the engineering problems behind financial fraud detection:
+high-volume data, late and duplicate events, point-in-time-correct features,
+reproducible model training, low-latency inference, and grounded AI-assisted
+investigation.
 
-**Data Engineering → Streaming → Feature Engineering → MLOps → Real-Time Fraud Detection → LLM & Agentic AI**
+The repository connects a Delta Lake data platform, batch and event-time
+streaming pipelines, Feast feature serving, Kubeflow and MLflow model
+operations, KServe inference, and a CPU-first LLM/agent architecture. The
+emphasis is not only on implementation, but on measured experiments,
+correctness gates, immutable evidence, and explicit experiment boundaries.
 
-The platform generates realistic wallet activity at scale, curates it through a
-Delta Lake medallion lakehouse on GCS, and derives point-in-time-correct fraud
-features from both batch and streaming paths. Those features are served through
-Feast, used for reproducible training orchestrated by Kubeflow Pipelines and
-tracked in MLflow, and consumed by a low-latency Fraud API backed by KServe. A
-CPU-first LLM layer with a kagent multi-agent system and policy-gated MCP tools
-is being developed in a separate workstream to turn scores, features and policy
-documents into cited investigation answers. That workstream is not part of the
-currently published stable EDAI-1 + ML Platform checkpoint.
-
-> This is a coursework and research project. It is not an end-user wallet
-> application, and all transaction data is synthetic.
-
----
-
-## Project Status and Roadmap
-
-This branch is the published checkpoint for completed EDAI-1 documentation and
-the verified EDAI-2 ML Platform. Status labels are deliberately strict:
-`RUNTIME_VERIFIED` requires recorded execution evidence, while `SOURCE_READY`
-means that implementation exists but the corresponding runtime proof is still
-missing.
-
-| Workstream | Status | Current evidence and limitations |
-|---|---|---|
-| **EDAI-1 documentation and evidence** | **COMPLETED / PUBLISHED** | Evidence coverage is 59/100 fully evidenced, 41/100 partially evidenced and 0/100 without supporting evidence. These are evidence-coverage classifications, **not awarded grades** and not a claim that every literal rubric condition is complete. |
-| **EDAI-2 Feast materialisation — Row 11** | **RUNTIME_VERIFIED** | Bounded Offline-to-Online materialisation and incremental materialisation completed, followed by 155/155 online/offline parity comparisons. |
-| **EDAI-2 Flink dual-store delivery — Row 12** | **SOURCE_READY** | The current implementation has Offline and Online sink contracts, but a current-version job proving writes and read-back from both stores was **NOT_EXECUTED**. |
-| **EDAI-2 Kubeflow training — Row 13** | **RUNTIME_VERIFIED** | KFP run `dc29f5cc-cc9e-49ae-b861-eacddd6269b5` completed successfully. |
-| **EDAI-2 MLflow — Row 14** | **RUNTIME_VERIFIED / INCOMPLETE RUBRIC CONDITION** | Model, data and metadata versioning are verified. Model version 1 received alias `candidate`; the required automatic `latest` or `production` alias was not performed. |
-| **EDAI-2 KServe — Row 15** | **BUSINESS_E2E_VERIFIED** | A model-inside-image deployment returned successful versioned fraud predictions through the Fraud API. |
-| **LLM and Agent runtime** | **IN_PROGRESS — separate from this stable checkpoint** | The latest reported deployment was Helm `llm-agent` revision 21. A synthetic `Coordinator → A2A → Feature-RAG → MCP → Feast/KServe/RAG` request passed at source `aea8553`; newer source `81a2b21` was not deployed or runtime-verified. Agent Registry, KEDA multi-replica operation and complete OpenTelemetry collection remain unfinished. |
-| **CI/CD and Observability** | **PLANNED / PARTIAL SOURCE** | Selected pipeline and instrumentation contracts exist, but complete runtime execution, dashboards and submission evidence are not yet available. |
-
-Known experimental limitations remain visible rather than being converted into
-success claims:
-
-- Spark DP2 generated baseline and optimized Gold outputs, but its final
-  semantic-equivalence gate **FAILED**; no optimized Gold winner was selected.
-- The newer DP3 optimized profile was **NOT_EXECUTED**; historical measurements
-  belong to the earlier configuration recorded in the evidence report.
-- Flink current-version dual-store runtime is **NOT_VERIFIED**.
-- The PostgreSQL Warehouse index benchmark used an isolated local 2-million-row
-  synthetic fixture; it does not prove a production Gold-to-Warehouse path.
-
-The canonical status reports are the [EDAI-1 documentation index](docs/edai1/README.md),
-the [EDAI-1 rubric evidence matrix](docs/edai1/EDAI1_RUBRIC_COVERAGE.md), and the
-[EDAI-2 MLOps and Feature Store report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md).
+> **Coursework scope.** This is a research and engineering project, not an
+> end-user wallet application. All transaction data is synthetic; documented
+> measurements apply only to the named fixtures, runs, and source versions.
 
 ---
 
 ## Contents
 
-- [Project Status and Roadmap](#project-status-and-roadmap)
-- [Business Problems](#business-problems)
-- [Key Capabilities](#key-capabilities)
+- [Project Overview](#project-overview)
+- [Key Highlights](#key-highlights)
+- [Experimental Results](#experimental-results)
 - [System Architecture](#system-architecture)
 - [Technology Stack](#technology-stack)
-- [Data Processing Pipeline](#data-processing-pipeline)
-- [Streaming Pipeline](#streaming-pipeline)
-- [Machine Learning Pipeline](#machine-learning-pipeline)
-- [Real-Time Fraud Detection](#real-time-fraud-detection)
+- [Data Engineering Platform](#data-engineering-platform)
+- [ML Platform](#ml-platform)
 - [LLM & Agentic AI](#llm--agentic-ai)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Cloud Deployment](#cloud-deployment)
-- [Testing & Reproducibility](#testing--reproducibility)
+- [Novel Ideas](#novel-ideas)
+- [Quick Start](#quick-start)
 - [Documentation](#documentation)
-- [Upcoming Work](#upcoming-work)
-- [Academic Context](#academic-context)
+- [Repository Structure](#repository-structure)
 
 ---
 
-## Business Problems
+## Project Overview
 
-| Problem | How the platform addresses it |
-|---|---|
-| **Fraud detection** | Supervised models trained on four labelled synthetic fraud scenarios (velocity, amount anomaly, account takeover, merchant burst) with leakage-safe temporal splits. |
-| **Real-time transaction monitoring** | An event-time streaming job deduplicates, orders and enriches transactions as they arrive and keeps per-entity feature state current. |
-| **Historical and streaming feature engineering** | One feature contract for user, account, device and merchant behaviour, computed in batch for training and incrementally for serving. |
-| **Reproducible ML training** | Immutable training snapshots, locked dependency environments, pinned images, and every run recorded in MLflow. |
-| **Low-latency fraud scoring** | A Fraud API that assembles the exact 41-feature model input from Feast Online and calls a KServe predictor. |
-| **AI-assisted fraud investigation** | Specialist agents that query features, scores, drift signals and a fraud-policy corpus, then return structured, cited answers. |
+Fraud detection is a systems problem before it is a modeling problem. Real
+payment streams contain duplicates, skew, schema changes, out-of-order events,
+late labels, and features that can silently leak future information. A useful
+platform must preserve event-time semantics from ingestion to inference while
+making every model and dataset version reproducible.
+
+This project addresses that problem through three connected layers:
+
+- **Data engineering:** deterministic offline and streaming generators feed a
+  Bronze/Silver/Gold Delta Lake. Spark handles batch transformations, Flink
+  handles event-time streams, Airflow orchestrates bounded workflows, and
+  DataHub records lineage and quality results.
+- **Machine learning:** point-in-time feature tables feed Feast Offline and
+  Online stores. Kubeflow Pipelines trains and evaluates candidates, MLflow
+  records model/data lineage, and KServe hosts model-inside-image inference.
+- **AI-assisted investigation:** kagent coordinates specialist agents through
+  A2A and policy-gated MCP tools. Those tools retrieve fraud features, model
+  results, and cited RAG context without changing the underlying fraud score.
+
+The platform is intentionally modular. Each Python component owns its
+`pyproject.toml` and `uv.lock`, infrastructure is separated from application
+logic, and runtime claims are tied to preserved reports and evidence.
 
 ---
 
-## Key Capabilities
+## Key Highlights
 
-- **Large-scale batch processing.** Apache Spark on Dataproc Serverless processes
-  a canonical dataset sized at 100 GB through Bronze, Silver and Gold Delta tables.
-- **Event-driven streaming (`SOURCE_READY`).** Redpanda topics and an Apache
-  Flink (PyFlink) job provide event-time processing, deduplication, late-event
-  reconciliation, bounded retries and a dead-letter path. Current-version
-  dual-store writes have not yet been runtime verified.
-- **Lakehouse storage.** Delta Lake on Google Cloud Storage provides ACID
-  tables, schema enforcement and versioned reads. A MinIO profile keeps the
-  same code runnable locally.
-- **Feature Store.** Feast defines four entities and four FeatureViews. The
-  Offline Store serves point-in-time training retrieval, and the Redis-backed
-  Online Store serves request-time lookups.
-- **Experiment tracking and model versioning.** MLflow uses a PostgreSQL
-  backend and a GCS artifact store. DVC versions the provenance descriptors of
-  the training snapshots.
-- **ML workflow orchestration.** A compiled Kubeflow Pipelines (KFP 2.17.3)
-  DAG validates the snapshot, trains the candidate models, compares them and
-  registers the winner.
-- **Model serving.** KServe hosts the fraud model behind an immutable model
-  version and image digest.
-- **Real-time fraud scoring.** A FastAPI service validates requests, retrieves
-  online features, assembles the model input and returns the fraud
-  probability and prediction together with the model version, feature timestamp
-  and correlation ID.
-- **LLM inference (`IN_PROGRESS`, separate workstream).** vLLM serves a
-  checksummed small model on CPU, and agentgateway owns model routing and
-  resilience. Optional llm-d inference routing is under continued development.
-- **Multi-agent orchestration (`IN_PROGRESS`, separate workstream).** A
-  historical kagent revision completed a bounded synthetic Coordinator-to-
-  Specialist E2E; the newest source has not inherited that runtime status.
-- **Secure tool integration.** Agents reach MCP tool services only through a
-  policy-enforcing MCP Gateway, inside an Istio Ambient mesh with
-  deny-by-default network policies.
-- **Data governance.** Versioned YAML data contracts, fail-hard validators for
-  each layer, and DataHub metadata, lineage and assertions.
-- **Infrastructure and delivery.** Terraform-managed GCP foundation, Helm
-  charts and Trivy image scanning are present. Jenkins and OpenTelemetry/Grafana
-  contracts are partial and must not yet be read as fully verified CI/CD or
-  observability runtimes.
+- **Deterministic data at 100 GB scale.** Stable shard identities, create-only
+  publication, resume safety, and a final manifest make parallel generation
+  reproducible across worker counts.
+- **One lakehouse, two processing modes.** Spark builds validated batch layers;
+  Flink applies event-time validation, deduplication, windows, late-event
+  handling, and feature-update contracts.
+- **Correctness before optimization.** A/B comparisons require equivalent
+  inputs and semantic gates. Regressions and failed equivalence checks remain
+  visible instead of being presented as gains.
+- **Point-in-time-safe features.** Historical lookups use exclusive temporal
+  windows, label columns are excluded from Feast, and an independent oracle
+  checks retrieved values.
+- **Reproducible ML delivery.** Immutable snapshots flow through a multi-step
+  Kubeflow pipeline; MLflow binds the selected model to its dataset and runtime
+  image; KServe serves the model from a digest-pinned image.
+- **Governed orchestration.** Airflow coordinates DP1, DP2, and DP3 stages;
+  DataHub captures dataset lineage, contracts, and result-bound assertions.
+- **Measured storage design.** Delta compaction and PostgreSQL indexing are
+  evaluated with before/after data, semantic equality checks, and documented
+  read/write trade-offs.
+- **Agentic investigation boundaries.** kagent, A2A, MCP, RAG, and model routing
+  are separated from deterministic scoring, with Istio, AuthorizationPolicy,
+  NetworkPolicy, and service identity forming the intended security boundary.
+
+---
+
+## Experimental Results
+
+### At a Glance
+
+| Experiment | Recorded result | Scope and source |
+|---|---:|---|
+| Canonical dataset | **100,156,470,260 bytes** across 3,696 shards | Immutable synthetic-data manifest; [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
+| Duplicate simulation | **2.00%** added rows | 7,392,000 controlled duplicates in the canonical population; [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
+| Flink acceptance p95 | **10,896 → 7,256 ms** | Historical 100 EPS / 120 s A/B, overall verdict `MIXED`; [streaming report](docs/edai1/streaming/FLINK_STREAMING.md) |
+| Delta compaction | **2,188 → 151 files** | Bounded local Delta/Trino fixture with row/hash equality; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
+| PostgreSQL query latency | **65.776 → 19.913 ms** median | Seven-run, isolated 2-million-row local fixture; write overhead +78.14%; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
+| Feast Offline/Online parity | **155/155 comparisons** | Bounded MLOps campaign, 31 features, zero mismatches; [MLOps report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md) |
+| Kubeflow training | **Successful six-stage pipeline** | Run `dc29f5cc-cc9e-49ae-b861-eacddd6269b5`; [MLOps report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md) |
+| KServe inference | **HTTP 200 fraud predictions** | Baked model version 1 in a digest-pinned image; [MLOps report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md) |
+| PIT leakage validation | **310/310, zero mismatches** | 10 cases × 31 features, labels excluded; [PIT report](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
+
+The Spark experiments also produced important negative results. DP1 Bronze was
+10.05% slower and DP2 Silver was 31.62% slower under the tested optimized
+profiles. DP2 Gold showed a shorter runtime, but its final semantic-equivalence
+gate failed for three double aggregates, so no optimized winner was selected.
+See the [Spark Optimization Matrix](docs/edai1/OPTIMIZATION_MATRIX.md) for run
+IDs, exact source versions, correctness decisions, and scientific limitations.
 
 ---
 
 ## System Architecture
 
-The platform is organised in eight layers. Each layer has explicit, versioned
-contracts with its neighbours, so the batch, streaming, training and serving
-paths share one definition of the data and features.
-
 ```mermaid
 flowchart LR
-    subgraph ING["1 · Ingestion"]
-        GEN["Synthetic generator<br/>(sharded, deterministic)"]
-        RAW[("GCS source Parquet")]
-        RP["Redpanda<br/>transaction topics"]
+    subgraph DATA["Data Generation"]
+        DG["Deterministic Offline Generator"]
+        SG["Streaming Generator"]
+        RP["Redpanda"]
+        SG --> RP
     end
 
-    subgraph PROC["2 · Batch & Streaming Processing"]
-        DP1["DP1 · Source → Bronze"]
-        DP2["DP2 · Bronze → Silver + core Gold"]
-        DP3["DP3 · Historical features"]
-        FLINK["Flink job<br/>event time · dedup · state"]
+    subgraph LAKE["Delta Lakehouse on GCS / MinIO"]
+        B[("Bronze<br/>raw")]
+        S[("Silver<br/>clean + deduplicated")]
+        G[("Gold<br/>analytics + features")]
+        B -->|Spark| S -->|Spark| G
     end
 
-    subgraph LAKE["3 · Lakehouse & Data Quality"]
-        BR[("Bronze")] --> SI[("Silver")] --> GO[("Gold")]
-        DQ["Contracts + validators"]
-        DH["DataHub lineage"]
+    subgraph FEATURES["Feast Feature Store"]
+        OFF[("Offline Store<br/>historical features")]
+        MAT["Materialization"]
+        ON[("Online Store<br/>Redis")]
+        OFF --> MAT --> ON
     end
 
-    subgraph FS["4 · Feature Store"]
-        OFF["Feast Offline<br/>PIT snapshot"]
-        ON[("Feast Online<br/>Redis")]
+    subgraph ML["ML Platform"]
+        KFP["Kubeflow Pipelines<br/>validate · train · select · evaluate"]
+        MLF["MLflow<br/>lineage + registry"]
+        BAKE["Bake selected model<br/>into immutable image"]
+        KS["KServe<br/>model-inside-image"]
+        API["Fraud API"]
+        KFP --> MLF --> BAKE --> KS --> API
     end
 
-    subgraph ML["5 · Training & Tracking"]
-        KFP["Kubeflow Pipelines"]
-        MLF["MLflow Tracking<br/>+ Registry"]
+    subgraph AI["LLM & Agentic AI"]
+        CO["kagent Fraud Coordinator"]
+        A2A["A2A Specialist Agents"]
+        MCP["Policy-gated MCP Tools"]
+        RAG[("Fraud RAG Context")]
+        CO --> A2A --> MCP
+        MCP --> RAG
     end
 
-    subgraph SRV["6 · Serving"]
-        KS["KServe predictor"]
-        API["Fraud API<br/>(FastAPI)"]
-    end
+    DG --> B
+    RP --> FLINK["Flink<br/>event-time processing"]
+    S --> BOOT["Silver bootstrap<br/>and state cutover"] --> RP
+    FLINK -.->|accepted-history contract| HIST[("Immutable stream history<br/>GCS offline boundary")]
+    FLINK -.->|complete FeatureView rows| PUSH["Feast PushSource"]
+    PUSH -.-> ON
+    G --> OFF
+    OFF -->|PIT snapshot| KFP
+    ON -->|request-time features| API
+    API -->|score + model metadata| CO
+    MCP -->|features| ON
+    MCP -->|inference| KS
 
-    subgraph AI["7 · LLM & Agentic AI"]
-        AG["kagent agents"]
-        MCP["MCP Gateway → tools"]
-        LLM["agentgateway → vLLM"]
-    end
+    AF["Airflow<br/>orchestration"] -.-> B
+    AF -.-> S
+    AF -.-> G
+    AF -.-> KFP
+    DH["DataHub<br/>lineage + quality"] -.-> B
+    DH -.-> S
+    DH -.-> G
+    DH -.-> OFF
 
-    GEN --> RAW --> DP1 --> BR
-    GEN --> RP --> FLINK
-    BR --> DP2 --> SI
-    DP2 --> GO
-    SI --> DP3 --> GO
-    GO --> OFF --> KFP --> MLF --> KS
-    GO -->|materialize| ON
-    FLINK -.->|SOURCE_READY: online writes<br/>runtime not verified| ON
-    FLINK -.->|SOURCE_READY: offline history<br/>runtime not verified| BR
-    ON --> API
-    KS --> API
-    AG --> LLM
-    AG --> MCP --> API
-    MCP --> ON
-    DP1 & DP2 & DP3 -.-> DQ
-    DQ -.-> DH
+    ISTIO["Istio service mesh<br/>Gateway API · policy · mTLS boundaries"]
+    ISTIO -.-> API
+    ISTIO -.-> CO
+    ISTIO -.-> A2A
+    ISTIO -.-> MCP
 ```
 
-**Layer 8, Infrastructure, Security & Observability**, spans all of the above:
-GKE, Dataproc, GCS and Artifact Registry are provisioned with Terraform. Istio
-Ambient provides the service mesh; Kubernetes Gateway API resources are used
-where implemented. AuthorizationPolicy and NetworkPolicy enforce internal
-boundaries. This does not imply that every ingress, HTTPS, authentication or
-rubric requirement is complete. Workload Identity provides cloud access;
-Jenkins and OpenTelemetry remain partial workstreams rather than fully verified
-platform-wide runtimes.
+The primary scoring path is deterministic: validated data becomes historical
+features, Kubeflow trains a versioned model, Feast provides request-time
+features, and KServe returns a fraud prediction. The LLM layer consumes those
+results for investigation; it does not alter the score. Dashed Flink edges
+represent the immutable-history and PushSource interfaces rather than evidence
+that both sinks were exercised together in the latest source version.
 
-| # | Layer | Responsibility | Primary source |
-|---|---|---|---|
-| 1 | Data Ingestion | Deterministic sharded generation, schema evolution, fraud ground truth, Redpanda topics, PostgreSQL/Debezium CDC | [`data_platform/generation`](data_platform/generation), [`data_platform/ingestion`](data_platform/ingestion), [`data_platform/streaming/generator`](data_platform/streaming/generator) |
-| 2 | Batch & Streaming Processing | Spark DP1/DP2/DP3 jobs orchestrated by Airflow; Flink event-time feature job | [`data_platform/processing/spark`](data_platform/processing/spark), [`data_platform/orchestration/airflow/dags`](data_platform/orchestration/airflow/dags), [`data_platform/streaming`](data_platform/streaming) |
-| 3 | Lakehouse & Data Quality | Delta Lake on GCS, data contracts, layer validators, DataHub metadata | [`data_platform/storage`](data_platform/storage), [`data_platform/contracts`](data_platform/contracts), [`data_platform/quality`](data_platform/quality), [`data_platform/metadata`](data_platform/metadata) |
-| 4 | Feature Store | Feast entities and FeatureViews, PIT validation, snapshot export | [`ai_platform/features/feast`](ai_platform/features/feast) |
-| 5 | ML Training & Tracking | Training dataset contract, candidate models, KFP pipeline, MLflow tracking, DVC operator | [`ai_platform/ml`](ai_platform/ml) |
-| 6 | Model Serving & Fraud API | Request schemas, feature assembly, Feast Online client, KServe client, FastAPI app | [`ai_platform/inference`](ai_platform/inference) |
-| 7 | LLM & Agentic AI | MCP tool services, RAG pipeline, agent contracts, LLM benchmark harness | [`ai_platform/llm_agent`](ai_platform/llm_agent), [`infra/helm/llm-agent-platform`](infra/helm/llm-agent-platform) |
-| 8 | Infrastructure, Security & Observability | Terraform, Kubernetes manifests, Helm, Docker images, Jenkins, operator tooling | [`infra`](infra), [`ops`](ops), [`scripts`](scripts), [`Jenkinsfile.llm-agent`](Jenkinsfile.llm-agent) |
+Istio is the networking foundation for the Kubernetes architecture. Gateway
+API, service identity, AuthorizationPolicy, and NetworkPolicy are used where
+implemented; the diagram does not imply that every external ingress or
+security control has been exercised in one runtime campaign.
 
 ---
 
@@ -228,378 +205,185 @@ platform-wide runtimes.
 
 | Layer | Technologies |
 |---|---|
-| Data Engineering | Apache Spark, Google Cloud Dataproc Serverless, Delta Lake, Apache Airflow, Trino |
-| Streaming | Redpanda (Kafka API), Apache Flink 1.19 (PyFlink), Debezium / Kafka Connect |
-| Storage | Google Cloud Storage, MinIO (local profile), PostgreSQL, Redis |
-| Data Governance | YAML data contracts, layer validators, DataHub |
-| Feature Engineering | Feast 0.66 (Offline + Redis Online) |
-| ML & MLOps | scikit-learn, Kubeflow Pipelines 2.17, MLflow 3.17, DVC 3.63 |
-| Serving | KServe, FastAPI |
-| LLM | vLLM (CPU), agentgateway, llm-d inference routing |
-| Agents | kagent, native A2A, Model Context Protocol (MCP), RAG |
-| Infrastructure | Google Kubernetes Engine, Docker, Kubernetes, Helm, Terraform, Artifact Registry; KEDA is planned for the unfinished multi-replica Agent work |
-| Networking & Security | Istio Ambient, Kubernetes Gateway API, NetworkPolicy, Workload Identity, Trivy |
-| CI/CD | GitHub; Jenkins source and selected contracts are present, full runtime verification remains incomplete |
-| Observability | OpenTelemetry instrumentation and Grafana definitions; complete collector/dashboard runtime remains unfinished |
-| Python tooling | `uv` with per-deployment `pyproject.toml` + `uv.lock` |
+| Data generation | Python, Faker, deterministic sharding, Parquet |
+| Batch processing | Apache Spark, PySpark, Delta Lake, Dataproc Serverless |
+| Streaming | Redpanda, Kafka Connect, Apache Flink / PyFlink, Redis |
+| Storage and query | Google Cloud Storage, MinIO, Delta Lake, Trino, PostgreSQL |
+| Orchestration and governance | Apache Airflow, DataHub, data contracts |
+| Feature platform | Feast Offline Store, Feast Online Store, Redis |
+| Training and tracking | Kubeflow Pipelines, scikit-learn, MLflow, DVC |
+| Model serving | KServe, FastAPI, Pydantic |
+| LLM and agents | vLLM, kagent, agentgateway, MCP, A2A, RAG |
+| Platform and security | Kubernetes, Helm, Terraform, Istio, NetworkPolicy |
+| Reproducibility | `uv`, per-component lockfiles, immutable image digests |
 
 ---
 
-## Data Processing Pipeline
+## Data Engineering Platform
 
-### Source data generation
+The data layer starts with deterministic offline shards and controlled stream
+events. It deliberately introduces skew, duplicates, schema evolution, bursts,
+out-of-order delivery, and late arrival so pipeline behavior can be evaluated
+against known input characteristics.
 
-A deterministic, sharded generator produces eight related datasets: users,
-accounts, devices, merchants, transactions, balance snapshots, login events and
-fraud labels. It injects realistic data problems on purpose: duplicates, skewed
-merchants, late and out-of-order events, and a V1 → V2 schema change that adds
-`channel`. Fraud ground truth is written to a separate dataset, so features can
-never read labels by accident. Source files are published to an immutable,
-versioned GCS location together with a manifest. See
-[`docs/01_data_generator.md`](docs/01_data_generator.md) and
-[`docs/cloud/source_dataset_generation.md`](docs/cloud/source_dataset_generation.md).
+Spark builds the medallion layers:
 
-### Medallion lakehouse
+1. **Bronze** preserves source records and ingestion metadata.
+2. **Silver** validates schemas, normalizes records, and removes duplicates.
+3. **Gold** produces analytics tables, dimensions, aggregates, and historical
+   feature tables with business event timestamps.
 
-| Layer | Purpose |
-|---|---|
-| **Bronze** | Raw, append-only Delta tables. Keeps duplicates and schema-evolution nulls, and merges transactions V1 and V2. |
-| **Silver** | Typed, cleaned and deduplicated tables. Normalises domains and enforces keys, ranges and foreign keys. Fraud labels stay in a thin target table. |
-| **Gold** | Dimensions, facts, a transaction OBT, merchant analytics, and four point-in-time behaviour tables (user, account, device, merchant). |
+Flink complements the batch path with event-time validation, watermarks,
+deduplication, window aggregation, late-event routing, checkpoint contracts,
+and sinks for historical and online feature updates. Airflow expresses the
+DP1/DP2/DP3 dependencies and validation gates. DataHub records static lineage,
+contracts, and result-bound quality events.
 
-### Airflow data pipelines
+![Data Engineering Architecture](docs/evidence/architecture/ewallet_architecture.png)
 
-Three manual-trigger DAGs run each stage as an idempotent, evidence-producing
-unit. Spark runs on Dataproc, never inside the scheduler.
+*Data Engineering Architecture — Batch and streaming processing, lakehouse
+storage, orchestration, and data governance. MinIO represents the corresponding
+storage configuration; the canonical cloud deployment uses GCS.*
 
-```mermaid
-flowchart LR
-    A["DP1<br/>Source → Bronze"] --> B["DP2<br/>Bronze → Silver<br/>→ core Gold"] --> C["DP3<br/>Historical features<br/>→ Feast Offline export"]
-```
-
-- **DP1:** preflight → verify source shards → Bronze Spark batch → Bronze validation.
-- **DP2:** Silver batch → Silver validation → core Gold batch → Gold validation.
-- **DP3:** four historical feature tables → temporal-contract validation →
-  Feast snapshot export and point-in-time parity check.
-
-Each DAG is designed to publish lineage and run evidence and to mark a run
-successful only after validation and read-back. The historical DP2 campaign
-generated both Gold outputs but correctly remained `FAILED` when its final
-semantic gate did not pass. DAG sources are in
-[`data_platform/orchestration/airflow/dags`](data_platform/orchestration/airflow/dags).
-
-### Data quality and validation
-
-- **Contracts:** nine versioned YAML contracts describe the stable Silver and
-  Gold interfaces ([`data_platform/contracts`](data_platform/contracts)).
-- **Validators:** fail-hard Bronze, Silver and Gold validators read the
-  persisted Delta data and return non-zero on any violation
-  ([`data_platform/quality`](data_platform/quality)).
-- **Point-in-time rules:** historical features use a strict `[T − window, T)`
-  window with same-timestamp exclusion, and are never computed from
-  `fraud_labels`.
-- **Semantic equivalence:** optimised Spark variants are compared against their
-  baselines by content fingerprints, so a performance change cannot silently
-  change results. In the recorded DP2 Gold campaign, three double-aggregation
-  columns differed at IEEE-754 precision and the strict final gate failed; the
-  evidence supports the measured differences, while reduction order remains a
-  diagnosis rather than a proven execution-plan cause.
-- **Lineage:** DataHub receives dataset and job lineage derived from the actual
-  implementation, with assertion results attached.
+The diagram above is scoped to data engineering; it is not the complete
+end-to-end ML and agent architecture. Detailed designs and experiment outcomes
+are collected in the [EDAI-1 documentation index](docs/edai1/README.md).
 
 ---
 
-## Streaming Pipeline
+## ML Platform
 
-The streaming path handles transactions as they arrive and keeps online
-features current between batch materialisations. The implementation and focused
-tests are `SOURCE_READY`; a current-version runtime proving both Offline and
-Online Store writes and read-back is `NOT_EXECUTED`.
+The ML platform turns validated Gold feature tables into reproducible training
+and inference inputs:
 
-```mermaid
-flowchart LR
-    G["Streaming generator"] --> RAW["transactions.raw.v1"]
-    RAW --> F["Flink job<br/>validate · dedup · event time<br/>keyed feature state"]
-    F --> ACC["transactions.accepted.v1<br/>(historical sink)"]
-    F --> ONL["features.online.v1<br/>(Feast Online updates)"]
-    F --> RET["retry.v1"] --> F
-    F --> LATE["late events<br/>reconciliation"]
-    F --> DLQ["dead-letter topic"]
-```
+- **Feast** defines entity and feature-view contracts. Historical retrieval is
+  point-in-time correct, while bounded materialization populates Redis for
+  request-time lookup.
+- **Kubeflow Pipelines** validates an immutable snapshot, verifies chronological
+  splits, trains four candidates, selects on validation metrics, evaluates only
+  the winner on the held-out test set, and publishes lineage.
+- **MLflow** records parent/child runs, metrics, model artifacts, dataset
+  identity, Git revision, and image digest. The bounded campaign registered
+  `fraud-detector` model version 1 with the `candidate` alias.
+- **KServe** runs the selected model inside an immutable predictor image. The
+  Fraud API assembles online features and calls the private V2 inference path.
 
-- **Typed contracts** for events, topics (partitions, retention) and feature
-  keys, shared by the generator, the Flink job and the sinks
-  ([`data_platform/streaming/contracts`](data_platform/streaming/contracts)).
-- **Event-time semantics:** watermarks, a bounded allowed lateness, and
-  deduplication by transaction ID. Late records go to reconciliation instead of
-  being dropped.
-- **Feature state** per user, account, device and merchant, following the same
-  entity keys as the batch features.
-- **Failure routing:** a bounded retry topic and a dead-letter queue. Records
-  with invalid fields are rejected, not relabelled.
-- **Benchmark harness:** baseline and optimised Flink profiles (parallelism,
-  checkpoint interval, incremental RocksDB checkpoints) run on a pinned local
-  Flink + Redpanda Compose stack and are compared on the same replayed
-  dataset. See [`docs/streaming/flink_local_benchmark.md`](docs/streaming/flink_local_benchmark.md).
-
-Historical Flink benchmark evidence remains useful for the version that was
-executed, but it is not used as runtime proof for the latest dual-store source.
-
----
-
-## Machine Learning Pipeline
-
-```mermaid
-flowchart LR
-    GOLD[("Gold feature tables")] --> FO["Feast Offline<br/>point-in-time join"]
-    LBL[("Silver fraud labels")] --> SNAP
-    FO --> SNAP["Immutable Training Snapshot<br/>(GCS + manifest, DVC descriptor)"]
-    SNAP --> KFP["KFP pipeline<br/>validate → split → train candidates<br/>→ compare → test winner once"]
-    KFP --> MLF["MLflow Tracking + Registry"]
-    MLF --> APP["Manual champion approval"]
-    APP --> KS["KServe InferenceService"]
-```
-
-1. **Feast Offline.** Four entities (user, account, device, merchant) and four
-   FeatureViews are read from a Gold snapshot that keeps microsecond
-   precision. Point-in-time retrieval guarantees that each training row only
-   sees features available strictly before its transaction time.
-2. **Training Snapshot.** Request fields, PIT features and labels are combined
-   into a one-row-per-transaction dataset with chronological train, validation
-   and test splits. The snapshot is published once to immutable GCS with a
-   SHA-256 manifest. DVC tracks only its small provenance descriptor; the
-   lakehouse itself is never copied into DVC.
-3. **KFP training.** A compiled KFP pipeline validates the snapshot contract
-   and fits the configured candidates (Dummy baseline, Logistic Regression,
-   Random Forest, Histogram Gradient Boosting). Preprocessing is fitted on the
-   train split only. Validation PR-AUC, then F1, selects the winner, and only
-   the winner is evaluated on the test split.
-4. **MLflow.** Every candidate run, metric, parameter and artifact is logged.
-   The winner is registered as a model version, and promotion to champion is a
-   manual, auditable step.
-5. **KServe.** The approved version is served from an immutable artifact and
-   image digest.
-
-### Feature contract
-
-The model consumes exactly **41 inputs**, in a frozen column order shared by
-training and inference:
-
-| Group | Count | Source |
-|---|---:|---|
-| Historical features | 31 | Feast (user / account / device / merchant behaviour) |
-| Request-time fields | 4 | The incoming transaction |
-| Derived features | 6 | Shared transforms of request and historical values |
-| **Total model inputs** | **41** | |
-
-IDs, labels, fraud type, split markers, outcomes and ingestion timestamps never
-enter the estimator. The full design is in
-[`docs/ml/fraud_feature_design.md`](docs/ml/fraud_feature_design.md).
-
----
-
-## Real-Time Fraud Detection
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as Fraud API (FastAPI)
-    participant F as Feast Online (Redis)
-    participant K as KServe predictor
-    C->>A: Transaction (request-time fields)
-    A->>A: Validate request schema
-    A->>F: Fetch 31 historical features by entity keys
-    F-->>A: Feature values + freshness
-    A->>A: Assemble 41-column input in frozen order
-    A->>K: Predict
-    K-->>A: Fraud probability
-    A-->>C: Probability, prediction, model version, feature timestamp, correlation ID
-```
-
-`Transaction → Fraud API → Feast Online → Feature Assembly → KServe → Fraud Score`
-
-The API never accepts labels or client-computed aggregates. Requests are
-validated against strict schemas, and missing or stale online features (beyond a
-configured maximum staleness) fail closed with a typed error instead of being
-scored on guessed values. Every response carries the model name and version,
-the feature timestamp and a correlation ID, so each decision can be traced. Implementation:
-[`ai_platform/inference`](ai_platform/inference).
+The verified campaign includes two Feast materialization windows, 155 parity
+comparisons with zero mismatches, one successful Kubeflow run, MLflow model
+registration, a ready KServe InferenceService, and successful fraud prediction
+responses. The complete run identities and evidence are in the
+[MLOps & Feature Store report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md).
 
 ---
 
 ## LLM & Agentic AI
 
-The agentic layer is an active, separately published workstream. It helps
-analysts investigate flagged transactions and does not make autonomous
-decisions: agents may only call approved tools and must cite what they return.
-The latest reported live checkpoint was Helm `llm-agent` revision 21 at source
-`aea8553`, where one bounded synthetic business request passed through the full
-Coordinator/A2A/Feature-RAG/MCP path. Newer source `81a2b21` was not deployed or
-runtime-verified and is intentionally excluded from this stable branch.
+The AI investigation layer is designed around a strict separation of concerns:
+the fraud model scores a transaction, while agents retrieve and explain the
+evidence behind that score.
 
-```mermaid
-flowchart TB
-    U["Analyst / client"] --> GW["Istio-secured internal route<br/>(historical runtime checkpoint)"]
-    GW --> CO["kagent Coordinator<br/>revision 21 evidence"]
-    CO -- "native A2A" --> S1["Feature & RAG specialist"]
-    CO -- "native A2A" --> S2["Drift & risk specialist"]
-    S1 & S2 --> MG["MCP Gateway<br/>(policy-only proxy)"]
-    MG --> T1["feature_lookup"]
-    MG --> T2["fraud_scoring"]
-    MG --> T3["knowledge_search (RAG)"]
-    MG --> T4["drift_detection"]
-    CO & S1 & S2 --> AGW["agentgateway<br/>model routing"]
-    AGW --> LD["llm-d routing (optional)"] --> V["vLLM CPU backends"]
-    AGW --> V
-```
+- **Fraud Coordinator:** a kagent resource classifies the investigation intent
+  and delegates work rather than directly owning every data integration.
+- **Specialist agents:** context and risk specialists communicate through A2A
+  and retain separate tool grants.
+- **MCP tools:** authenticated tools expose bounded access to Feast features,
+  KServe results, and RAG retrieval; authorization applies to both discovery
+  and invocation.
+- **RAG:** fraud policies and technical context are retrieved with citations so
+  an answer can be traced back to source material.
+- **Networking:** agentgateway and Istio provide routing and policy boundaries;
+  Kubernetes Secrets and service identity keep credentials out of prompts and
+  responses.
 
-- **CPU-first inference.** vLLM serves a small open model from a checksummed,
-  offline model image with primary and fallback backends. agentgateway owns
-  model and backend routing, timeouts and retries. llm-d inference routing is
-  an optional layer between them.
-- **kagent Coordinator and specialists.** The reported runtime used first-class
-  kagent Agent resources with fixed JSON contracts and explicit tool allow-
-  lists. Delegation used native A2A through the policy gateway. Agent Sandbox
-  and Substrate requirements are not claimed as complete.
-- **MCP Gateway.** The gateway is a policy-only proxy in front of four
-  Streamable-HTTP MCP tool services. Agents cannot reach a tool server
-  directly, and the servers keep a deny-all authenticator until access is
-  explicitly configured.
-- **RAG investigation.** An immutable, checksummed fraud-policy corpus is
-  chunked, embedded and retrieved with exact source attribution, so answers
-  can cite their sources. A manual Airflow DAG refreshes the index.
-- **Security and policy.** The layer runs in an Istio Ambient mesh with
-  deny-by-default authorization and NetworkPolicy, least-privilege service
-  accounts and Workload Identity, with no static credentials in agent
-  configuration. Tools fail closed: an unavailable model or retriever returns
-  an error code, never a fabricated score or policy text.
-- **Operations roadmap.** Agent Registry, KEDA-backed multi-replica execution
-  and complete OpenTelemetry collection/dashboard evidence remain unfinished.
-  Their source or packaging must not be interpreted as deployed runtime proof.
-
-Design details: [`docs/llm_agent/agents.md`](docs/llm_agent/agents.md),
-[`docs/llm_agent/mcp_gateway.md`](docs/llm_agent/mcp_gateway.md),
-[`docs/llm_agent/phase_b_llm_gateway.md`](docs/llm_agent/phase_b_llm_gateway.md),
-[`docs/llm_agent/llm_d_inference_routing.md`](docs/llm_agent/llm_d_inference_routing.md),
-[`docs/llm_agent/phase_c_rag.md`](docs/llm_agent/phase_c_rag.md).
+Historical bounded evidence demonstrates a synthetic Coordinator-to-specialist
+path through A2A, MCP, Feast/KServe, and RAG. That result is tied to its recorded
+runtime source and is not used here to claim that every newer agent source
+revision or platform control has been deployed.
 
 ---
 
-## Project Structure
+## Novel Ideas
 
-```text
-ewallet-data-ai-platform/
-├── data_platform/                 # Data engineering domain
-│   ├── generation/                # Offline + sharded synthetic data generators
-│   ├── ingestion/                 # Redpanda topics, Debezium CDC, Spark ingestion
-│   ├── processing/spark/          # Silver, Gold and historical-feature Spark jobs
-│   ├── streaming/                 # Flink job, contracts, generator, sinks, benchmark
-│   ├── storage/                   # Delta I/O, Trino config, table registration
-│   ├── orchestration/airflow/     # DP1, DP2, DP3 and RAG DAGs
-│   ├── quality/                   # Bronze / Silver / Gold validators
-│   ├── contracts/                 # Versioned YAML data contracts
-│   ├── metadata/datahub/          # Lineage, assertions, DataHub runtime
-│   └── config/                    # Typed runtime-profile loader
-├── ai_platform/                   # ML and AI domain
-│   ├── features/feast/            # Feast repo, PIT validation, snapshot export
-│   ├── ml/                        # Training, modeling, MLflow tracking
-│   │   ├── pipelines/             # Kubeflow pipeline + compiler project
-│   │   └── dvc-operator/          # Locked DVC operator environment
-│   ├── inference/                 # Fraud API, feature assembly, KServe client
-│   └── llm_agent/                 # MCP tools, RAG, agent contracts
-├── configs/                       # Environment profiles (local/dev/gcp), MLOps, LLM, streaming
-├── infra/
-│   ├── terraform/gcp/             # GCP modules: network, IAM, GCS, GKE, Dataproc, AR, Jenkins VM
-│   ├── kubernetes/                # MLflow, KFP, kagent, Istio Ambient manifests
-│   ├── helm/                      # llm-agent-platform chart and upstream value overlays
-│   └── docker/                    # Compose stacks and locked image builds
-├── ops/                           # Operator tooling: GCP runners, preflights, validation
-├── scripts/                       # Shell entry points for MLOps, LLM/agents, streaming
-├── tests/                         # Unit, contract, inference, streaming and LLM tests
-├── docs/                          # Architecture, runbooks and recorded evidence
-├── notebooks/                     # Read-only validation and demo notebooks
-└── Jenkinsfile.llm-agent          # CI pipeline for the LLM/agent platform
-```
+### 1. Deterministic Sharding
+
+Large synthetic datasets are normally difficult to reproduce after a partial
+failure or a change in worker count. This project derives each shard from a
+stable identity and deterministic seed, writes through create-only publication,
+and commits a final manifest only after the complete shard set is valid.
+
+The implementation produced byte-identical bounded outputs across one, two,
+and four workers and published a complete 100,156,470,260-byte canonical
+manifest. See [Deterministic Sharding](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md).
+
+### 2. Point-in-Time Leakage Prevention
+
+Feature parity alone does not prove temporal correctness. The PIT validator
+therefore compares Feast retrieval against an independent direct-Gold oracle,
+uses exclusive historical windows, rejects label columns, and publishes
+result-bound governance events.
+
+The preserved run evaluated 10 cases × 31 features: all 310 comparable values
+matched, zero mismatches were recorded, and labels were not passed to Feast.
+See [Point-in-Time Leakage Prevention](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md).
 
 ---
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
-- Linux or WSL2, Git, Docker Engine with Compose v2
-- [`uv`](https://docs.astral.sh/uv/) 0.13 or newer (every Python environment is `uv`-locked)
-- A Java runtime compatible with your PySpark version (local Spark only); Helm 3 and Terraform for the infrastructure checks
-- For cloud work: the Google Cloud SDK and access to a GCP project
+- Linux or WSL2, Git, and Docker Engine with Compose v2
+- [`uv`](https://docs.astral.sh/uv/) 0.13 or newer
+- A Java runtime compatible with the selected PySpark environment
+- Helm, Terraform, and Google Cloud SDK only for the corresponding
+  infrastructure workflows
 
-### 1. Clone and configure
+### Clone and configure
 
 ```bash
 git clone https://github.com/HuyyGiaa/ewallet-data-ai-platform.git
 cd ewallet-data-ai-platform
-cp .env.example .env        # fill in values for your environment; never commit .env
+cp .env.example .env
 ```
 
-Runtime values come from `.env` keys and the profiles in
-[`configs/environments`](configs/environments) (`local`, `dev`, `gcp`). See the
-[runtime configuration guide](docs/cloud/configuration.md).
+Runtime profiles live under [`configs/environments`](configs/environments).
+Never commit `.env`, credentials, project IDs, tokens, or production secrets.
 
-### 2. Install locked Python environments
+### Install a locked component environment
 
-Each deployable unit owns its own `pyproject.toml` and `uv.lock`. There is no
-repository-wide environment, and builds never re-resolve dependencies.
-
-| Project | Purpose |
-|---|---|
-| `ai_platform/features/feast` | Feast offline, PIT validation, snapshot export |
-| `ai_platform/ml` | Training, evaluation, MLflow client, KFP components |
-| `ai_platform/ml/pipelines` | KFP 2.17.3 pipeline compilation |
-| `ai_platform/ml/dvc-operator` | DVC 3.63.0 operator |
-| `infra/docker/flink-benchmark` | Streaming generator, PyFlink job, benchmark harness |
-| `infra/docker/llm-agent-tooling` | MCP tool services and RAG |
-| `infra/docker/vllm-cpu-model` | vLLM CPU model image remediation |
-| `infra/kubernetes/mlflow/image` | MLflow server image |
+There is no repository-wide Python environment. Each deployable component owns
+its dependency graph and lockfile:
 
 ```bash
-uv lock --check --project ai_platform/features/feast    # verify the lock, never re-resolve
-uv sync --locked --project ai_platform/features/feast   # install exactly the lock
+uv lock --check --project ai_platform/features/feast
+uv sync --locked --project ai_platform/features/feast
 ```
 
-The full contract is documented in
-[`docs/ml/dependency_environments.md`](docs/ml/dependency_environments.md).
+Use the same `--project` pattern for `ai_platform/ml`,
+`ai_platform/ml/pipelines`, `ai_platform/inference`, or the relevant project
+under `infra/docker/`.
 
-### 3. Run the source validation gates
-
-```bash
-python3 ops/validation/validate_runtime_config.py                 # profiles, literals, contracts
-python3 -m ops.llm_agent.preflight --repository-root "$PWD"       # LLM/agent source contract
-```
-
-### 4. Run tests
+### Run bounded validation
 
 ```bash
-# Feature store, data platform, inference and contract tests
+# Feature Store tests in the locked Feast environment
 PYTHONPATH=. uv run --locked --project ai_platform/features/feast \
   python -m unittest discover -s tests -t .
 
-# Streaming (generator, Flink operators, benchmark harness)
+# Streaming tests in the locked benchmark environment
 PYTHONPATH=. uv run --locked --project infra/docker/flink-benchmark \
   python -m pytest -q tests/streaming
 
-# MCP tools and RAG
-uv run --locked --project infra/docker/llm-agent-tooling --extra feast \
-  python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_mcp_sdk_conformance \
-  tests.llm_agent.test_rag_online_retriever
+# Runtime-profile and source-contract checks
+python3 ops/validation/validate_runtime_config.py
+python3 -m ops.llm_agent.preflight --repository-root "$PWD"
 ```
 
-Tests that need an optional runtime, such as PySpark, Airflow or Helm, skip
-cleanly when it is missing. Spark-based tests need `PYSPARK_PYTHON` to point at
-the interpreter running the tests.
+Tests requiring optional services or runtimes skip when their prerequisites are
+unavailable. No benchmark or cloud workload is required to browse the reports
+and preserved evidence.
 
-### 5. Local platform stack (optional)
-
-The local profile runs Redpanda, Kafka Connect, MinIO and Trino as a single
-Compose project:
+### Start the local data services
 
 ```bash
 docker compose -p ewallet-data-ai-platform --project-directory . \
@@ -611,130 +395,77 @@ docker compose -p ewallet-data-ai-platform --project-directory . \
   up -d
 ```
 
-The local batch pipeline then runs stage by stage:
-
-```bash
-python -m data_platform.generation.src.offline.offline_generator
-python -m data_platform.storage.scripts.init_storage --environment local --include-fraud-labels
-python -m data_platform.quality.validate_bronze --environment local --include-fraud-labels
-python -m data_platform.processing.spark.silver.silver_pipeline --environment local --include-fraud-labels
-python -m data_platform.quality.validate_silver --environment local --include-fraud-labels
-python -m data_platform.processing.spark.gold.gold_pipeline --environment local
-python -m data_platform.quality.validate_gold --environment local
-```
-
-The local Flink benchmark stack is driven by
-[`scripts/streaming/flink_bench.sh`](scripts/streaming/flink_bench.sh)
-(`prereq`, `up`, `functional`, `perf`, `compare`, `down`). See its
-[runbook](docs/streaming/flink_local_benchmark.md).
-
----
-
-## Cloud Deployment
-
-The Google Cloud deployment is split into reviewed, cost-gated stages, and each
-stage has its own runbook. Project IDs, buckets, endpoints and credentials are
-supplied at runtime and are never committed.
-
-| Component | Role | Runbook |
-|---|---|---|
-| GCP project, VPC, IAM, GCS, Artifact Registry | Terraform foundation with remote state | [Terraform GCP foundation](docs/cloud/terraform_gcp_foundation.md) |
-| Delta Lake on GCS | Lakehouse storage layout | [GCS Delta Lake](docs/cloud/gcs_delta_lake.md) |
-| Dataproc Serverless | Spark runtime for DP1–DP3 | [Dataproc Delta smoke](docs/cloud/dataproc_delta_smoke.md), [Dataproc performance](docs/cloud/canonical_dataproc_performance.md) |
-| Airflow DP1 / DP2 / DP3 | Data pipeline orchestration | [DP2 Method 2 runbook](docs/cloud/dp2_method2_single_dag_runbook.md), [100 GB readiness](docs/cloud/canonical_100gb_readiness.md) |
-| Feast Offline + Training Snapshot | PIT retrieval and immutable snapshot | [Cloud Feast training snapshot](docs/ml/cloud_feast_training_snapshot.md), [ML-2 operator runbook](docs/ml/ml2_training_snapshot_operator_runbook.md) |
-| GKE, MLflow, KFP | MLOps runtime on Kubernetes | [GKE MLOps runtime gate](docs/ml/gke_mlops_runtime_gate.md), [Canonical KFP](docs/ml/kfp_canonical.md), [F9 MLflow](docs/ml/f9_mlflow_canonical.md) |
-| vLLM, agentgateway, kagent, MCP | LLM and agent platform on GKE (CPU) | [GKE CPU runtime](docs/llm_agent/gke_cpu_runtime.md), [Runtime runbook](docs/llm_agent/runtime_runbook.md) |
-| Jenkins, image scanning | Partial CI/CD and observability source; complete runtime evidence remains planned | [CI/CD and observability](docs/llm_agent/cicd_observability.md) |
-
-Operator entry points live in [`scripts/mlops`](scripts/mlops),
-[`scripts/llm_agent`](scripts/llm_agent) and [`ops/gcp`](ops/gcp). Each runs a
-dry run by default and needs an explicit flag before it changes anything.
-
----
-
-## Testing & Reproducibility
-
-| Practice | How it is enforced |
-|---|---|
-| **Unit and contract tests** | `tests/unit`, `tests/contract`, `tests/inference`, `tests/streaming`, `tests/llm_agent`, run in the locked environment that owns each component. |
-| **Integration tests** | Fraud API, Feast Online and KServe client tests run the service end to end against test doubles; DAG-import tests load the Airflow DAGs in an isolated `AIRFLOW_HOME`. |
-| **Schema and data quality** | Contract files plus fail-hard Bronze / Silver / Gold validators, and cloud-profile checks that reject stale local literals. |
-| **Semantic equivalence** | Optimised Spark runs must match baseline content fingerprints (volatile audit columns excluded) before a performance comparison counts. |
-| **Offline / online parity** | The Feast PIT validation and the 41-column frozen input order are tested on both the training and inference sides. |
-| **Reproducible environments** | `uv lock --check` and `uv sync --locked` for every project. A contract test fails if a project is unlocked, an image installs outside its lock, or a protected pin (Feast, KFP, MCP, DVC, PyFlink) drifts. |
-| **Image and version pinning** | Base images and tools are pinned by digest. Models are served from checksummed revisions, and KFP components reference immutable images. |
-| **Benchmark methodology** | A/B runs use identical inputs and semantics and differ only in declared knobs. Each run records its config hash and identities. Invalid runs are rejected rather than compared. |
-| **Evidence policy** | Runtime claims require machine-readable evidence under [`docs/evidence`](docs/evidence). Source, configuration and passing tests alone are not treated as deployment proof. |
+For the streaming benchmark lifecycle, use
+[`scripts/streaming/flink_bench.sh`](scripts/streaming/flink_bench.sh). Cloud,
+MLOps, and agent operations have separate cost-gated runbooks and should not be
+inferred from the local quick start.
 
 ---
 
 ## Documentation
 
-### Canonical submission reports
+### Canonical Reports
 
-The following reports are the primary navigation for this published branch.
-Older architecture and implementation documents remain useful supplementary
-references, but they do not override the status and provenance recorded here.
+| Area | Report | What it contains |
+|---|---|---|
+| EDAI-1 | [Documentation Index](docs/edai1/README.md) | Submission entry point, experiment summary, evidence navigation |
+| EDAI-1 | [Rubric Evidence Matrix](docs/edai1/EDAI1_RUBRIC_COVERAGE.md) | Requirement-to-source and requirement-to-evidence mapping |
+| Engineering | [Docker Optimization](docs/edai1/docker/DOCKER_OPTIMIZATION.md) | Multi-stage build and image-size A/B evidence |
+| Data | [Data Generation & Simulation](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) | Canonical dataset, skew, duplicates, schema evolution, late arrival |
+| Data | [Schema Design](docs/edai1/SCHEMA_DESIGN.md) | Zone schemas, SCD Type 2, feature timestamps, relationships |
+| Processing | [Spark Optimization Matrix](docs/edai1/OPTIMIZATION_MATRIX.md) | DP1/DP2/DP3 performance and correctness decisions |
+| Streaming | [Flink Streaming](docs/edai1/streaming/FLINK_STREAMING.md) | Event time, windows, late data, state, historical benchmark |
+| Orchestration | [Airflow DP1/DP2/DP3](docs/edai1/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) | DAG dependencies, validation, genuine historical UI evidence |
+| Storage | [Storage Optimization](docs/edai1/storage/STORAGE_OPTIMIZATION.md) | Delta compaction, pruning, PostgreSQL indexing |
+| Governance | [DataHub Governance](docs/edai1/datahub/DATAHUB_GOVERNANCE.md) | Lineage, contracts, assertions, evidence provenance |
+| Novel Idea | [Deterministic Sharding](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md) | Reproducible parallel generation and immutable publication |
+| Novel Idea | [PIT Leakage Prevention](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) | Independent oracle, label exclusion, governance events |
+| EDAI-2 | [MLOps & Feature Store](docs/edai2/mlops/MLOPS_FEATURE_STORE.md) | Feast, Kubeflow, MLflow, KServe contracts and runtime evidence |
 
-**EDAI-1**
-
-- [Documentation index](docs/edai1/README.md)
-- [Rubric evidence coverage](docs/edai1/EDAI1_RUBRIC_COVERAGE.md)
-- [Docker optimization](docs/edai1/docker/DOCKER_OPTIMIZATION.md)
-- [Data generation and simulation](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md)
-- [Schema design](docs/edai1/SCHEMA_DESIGN.md)
-- [Spark optimization matrix](docs/edai1/OPTIMIZATION_MATRIX.md)
-- [Flink streaming](docs/edai1/streaming/FLINK_STREAMING.md)
-- [Airflow DP1/DP2/DP3 evidence](docs/edai1/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md)
-- [Storage and Warehouse optimization](docs/edai1/storage/STORAGE_OPTIMIZATION.md)
-- [DataHub governance](docs/edai1/datahub/DATAHUB_GOVERNANCE.md)
-- [Novel Idea 1 — deterministic sharding](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md)
-- [Novel Idea 2 — PIT leakage prevention](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md)
-
-**EDAI-2 ML Platform**
-
-- [MLOps and Feature Store report](docs/edai2/mlops/MLOPS_FEATURE_STORE.md)
-- [Immutable MLOps campaign evidence](docs/evidence/cloud/mlops-campaign-20261031/)
-
-### Supplementary architecture and runbooks
-
-| Area | Start here |
-|---|---|
-| Architecture | [System architecture](docs/00_system_architecture.md) · [Cloud platform design](docs/superpowers/specs/2026-10-21-cloud-platform-refactor-design.md) · [Docs index](docs/README.md) |
-| Data platform | [Data generator](docs/01_data_generator.md) · [Schema design](docs/02_schema_design_example.md) · [Batch pipeline](docs/03_batch_pipeline.md) · [Airflow orchestration](docs/06_airflow_orchestration.md) · [Storage optimisation](docs/cloud/storage_optimization.md) |
-| Streaming | [Streaming pipeline](docs/04_streaming_pipeline.md) · [Flink local benchmark](docs/streaming/flink_local_benchmark.md) · [Generator compatibility](docs/streaming/generator_compatibility_20261031.md) |
-| Feast | [Feature design](docs/ml/fraud_feature_design.md) · [Feast offline](docs/ml/feast_offline.md) · [Cloud training snapshot](docs/ml/cloud_feast_training_snapshot.md) |
-| MLOps | [Training dataset](docs/ml/fraud_training_dataset.md) · [Modeling](docs/ml/fraud_modeling.md) · [F9 MLflow](docs/ml/f9_mlflow_canonical.md) · [KFP](docs/ml/kfp_canonical.md) · [Dependency environments](docs/ml/dependency_environments.md) |
-| LLM & agents | [Agents](docs/llm_agent/agents.md) · [MCP Gateway](docs/llm_agent/mcp_gateway.md) · [LLM gateway](docs/llm_agent/phase_b_llm_gateway.md) · [RAG](docs/llm_agent/phase_c_rag.md) · [Tool services](docs/llm_agent/phase_d_tool_services.md) |
-| Infrastructure | [Runtime configuration](docs/cloud/configuration.md) · [Terraform](docs/cloud/terraform_gcp_foundation.md) · [GKE CPU runtime](docs/llm_agent/gke_cpu_runtime.md) · [CI/CD & observability](docs/llm_agent/cicd_observability.md) |
-| Metadata & lineage | [DataHub lineage](docs/08_datahub_lineage.md) · [EDAI-1 workstream](docs/edai1/README.md) |
-| Evidence & reports | [Evidence directory](docs/evidence) · [Rubric audit](docs/rubric/rubric_audit.md) · [Source consolidation](docs/integration/20261031_source_consolidation.md) · [Submission integration](docs/integration/20261101_submission_integration.md) |
+Supporting architecture, runbooks, manifests, screenshots, and raw artifacts
+remain under [`docs/`](docs) and [`docs/evidence/`](docs/evidence). Historical
+evidence is labeled by its actual run and source version; rendered benchmark
+panels are not presented as native application UI.
 
 ---
 
-## Upcoming Work
+## Repository Structure
 
-The next delivery sequence keeps verified components stable while completing
-the unfinished EDAI-2 workstreams:
+```text
+ewallet-data-ai-platform/
+├── data_platform/
+│   ├── generation/                # Deterministic offline and stream generators
+│   ├── ingestion/                 # Redpanda, Kafka Connect and source ingestion
+│   ├── processing/spark/          # Bronze, Silver, Gold and feature jobs
+│   ├── streaming/                 # Flink contracts, operators and sinks
+│   ├── orchestration/airflow/     # DP1, DP2, DP3 and RAG DAGs
+│   ├── quality/                   # Fail-hard zone validators
+│   ├── contracts/                 # Versioned data contracts
+│   ├── metadata/datahub/          # Lineage and quality publication
+│   └── storage/                   # Delta, GCS/MinIO and Trino integration
+├── ai_platform/
+│   ├── features/feast/            # Feature definitions, PIT validation, snapshots
+│   ├── ml/                        # Training, MLflow and Kubeflow components
+│   ├── inference/                 # Fraud API, Feast assembly, KServe client
+│   └── llm_agent/                 # RAG, MCP tools and agent contracts
+├── configs/                       # Typed local, development and GCP profiles
+├── infra/
+│   ├── docker/                    # Compose stacks and locked image projects
+│   ├── kubernetes/                # MLflow, KFP, KServe, kagent and Istio resources
+│   ├── helm/                      # Application charts and value overlays
+│   └── terraform/gcp/             # GCP infrastructure modules
+├── ops/                           # Validation, GCP and deployment operators
+├── scripts/                       # MLOps, streaming and agent entry points
+├── tests/                         # Unit, contract, integration and bounded E2E tests
+├── docs/                          # Technical reports, runbooks and evidence
+└── notebooks/                     # Read-only validation and demonstration notebooks
+```
 
-1. Reconcile the latest LLM/Agent source with the runtime-verified revision and
-   repeat one bounded business E2E before promotion.
-2. Finalize the RAG and MCP/A2A lifecycle, then deploy and verify Agent Registry.
-3. Add KEDA-backed multi-replica Coordinator and Specialist evidence.
-4. Complete the remaining Istio ingress, authentication and security rubric
-   requirements without introducing an unrelated NGINX architecture.
-5. Complete CI/CD execution evidence and end-to-end observability collection.
-6. Finish Testing & Reliability coverage, mutation, property-based and load
-   testing requirements.
-7. Publish the remaining EDAI-2 reports and immutable evidence bundles.
+The repository follows domain boundaries rather than one global Python
+environment. Exact dependency versions, runtime profiles, experiment IDs, and
+evidence locations are documented by the component that owns them.
 
 ---
 
-## Academic Context
-
-This repository was developed as a coursework and research project
-on modern data, MLOps and agentic AI platforms. The mapping between the course
-rubric and the repository evidence is in [`docs/rubric`](docs/rubric).
-
-**Author and maintainer:** [@HuyyGiaa](https://github.com/HuyyGiaa)
+Developed as coursework and applied research in data engineering, MLOps, and
+agentic AI. Maintained by [@HuyyGiaa](https://github.com/HuyyGiaa).
