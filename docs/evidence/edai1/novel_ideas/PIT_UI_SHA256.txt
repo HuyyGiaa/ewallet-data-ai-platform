@@ -1,0 +1,2 @@
+6889e5d9c174b36d307cfdb28f0b44a16352008d7261d03975c912393370cd32  docs/evidence/edai1/novel_ideas/02_pit_cloud_run_success.png
+b6273d73740b683d499b2fb4e2f004ecefe4c32509c2f5c437319172bda34a81  docs/evidence/edai1/novel_ideas/03_pit_cloud_logging_310_pass.png

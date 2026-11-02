@@ -1,0 +1,7 @@
+{
+  "semantic_equivalence": true,
+  "baseline_median_ms": 65.776,
+  "optimized_median_ms": 19.913,
+  "read_improvement_percent": 69.73,
+  "write_overhead_percent": 78.14
+}

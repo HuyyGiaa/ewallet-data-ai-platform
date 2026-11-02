@@ -1,0 +1,385 @@
+{
+  "scope": "isolated local PostgreSQL container; no cloud or MLflow database access",
+  "started_at": "2026-10-29T14:20:01.705901+00:00",
+  "finished_at": "2026-10-29T14:20:13.592243+00:00",
+  "container": "edai1-warehouse-benchmark-20261029",
+  "image": "postgres:16",
+  "image_id": "sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54",
+  "dataset": {
+    "rows": 2000000,
+    "generator": "deterministic generate_series"
+  },
+  "query": "SELECT count(*) AS tx_count, round(sum(amount), 2) AS total_amount,\n       round(avg(amount), 2) AS avg_amount\nFROM fact_transactions\nWHERE event_date BETWEEN DATE '2026-06-01' AND DATE '2026-06-30'\n  AND merchant_id = 42\n  AND status = 'completed'",
+  "repeats": 7,
+  "warmups_per_variant": 1,
+  "semantic_equivalence": {
+    "passed": true,
+    "query_result_before": "7481|18710674.36|2501.09",
+    "query_result_after": "7481|18710674.36|2501.09",
+    "table_signature_before": "2000000|4999990000.00|1|2000000",
+    "table_signature_after": "2000000|4999990000.00|1|2000000"
+  },
+  "baseline": {
+    "runs": [
+      {
+        "planning_ms": 0.527,
+        "execution_ms": 68.83,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 12697,
+        "shared_read_blocks": 3970
+      },
+      {
+        "planning_ms": 0.631,
+        "execution_ms": 65.762,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 12793,
+        "shared_read_blocks": 3874
+      },
+      {
+        "planning_ms": 0.6,
+        "execution_ms": 61.043,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 12889,
+        "shared_read_blocks": 3778
+      },
+      {
+        "planning_ms": 0.579,
+        "execution_ms": 65.776,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 12985,
+        "shared_read_blocks": 3682
+      },
+      {
+        "planning_ms": 0.59,
+        "execution_ms": 63.556,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 13081,
+        "shared_read_blocks": 3586
+      },
+      {
+        "planning_ms": 0.623,
+        "execution_ms": 68.597,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 13177,
+        "shared_read_blocks": 3490
+      },
+      {
+        "planning_ms": 0.595,
+        "execution_ms": 66.436,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 13273,
+        "shared_read_blocks": 3394
+      }
+    ],
+    "median_execution_ms": 65.776,
+    "representative_explain_analyze_buffers": {
+      "Plan": {
+        "Node Type": "Aggregate",
+        "Strategy": "Plain",
+        "Partial Mode": "Finalize",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 34349.87,
+        "Total Cost": 34349.88,
+        "Plan Rows": 1,
+        "Plan Width": 72,
+        "Actual Startup Time": 64.801,
+        "Actual Total Time": 68.93,
+        "Actual Rows": 1,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 12601,
+        "Shared Read Blocks": 4066,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Gather",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Startup Cost": 34349.64,
+            "Total Cost": 34349.85,
+            "Plan Rows": 2,
+            "Plan Width": 72,
+            "Actual Startup Time": 64.611,
+            "Actual Total Time": 68.91,
+            "Actual Rows": 3,
+            "Actual Loops": 1,
+            "Workers Planned": 2,
+            "Workers Launched": 2,
+            "Single Copy": false,
+            "Shared Hit Blocks": 12601,
+            "Shared Read Blocks": 4066,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Aggregate",
+                "Strategy": "Plain",
+                "Partial Mode": "Partial",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 33349.64,
+                "Total Cost": 33349.65,
+                "Plan Rows": 1,
+                "Plan Width": 72,
+                "Actual Startup Time": 61.505,
+                "Actual Total Time": 61.506,
+                "Actual Rows": 1,
+                "Actual Loops": 3,
+                "Shared Hit Blocks": 12601,
+                "Shared Read Blocks": 4066,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Workers": [],
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": true,
+                    "Async Capable": false,
+                    "Relation Name": "fact_transactions",
+                    "Alias": "fact_transactions",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 33333.67,
+                    "Plan Rows": 3194,
+                    "Plan Width": 6,
+                    "Actual Startup Time": 0.053,
+                    "Actual Total Time": 60.99,
+                    "Actual Rows": 2494,
+                    "Actual Loops": 3,
+                    "Filter": "((event_date >= '2026-06-01'::date) AND (event_date <= '2026-06-30'::date) AND (merchant_id = 42) AND (status = 'completed'::text))",
+                    "Rows Removed by Filter": 664173,
+                    "Shared Hit Blocks": 12601,
+                    "Shared Read Blocks": 4066,
+                    "Shared Dirtied Blocks": 0,
+                    "Shared Written Blocks": 0,
+                    "Local Hit Blocks": 0,
+                    "Local Read Blocks": 0,
+                    "Local Dirtied Blocks": 0,
+                    "Local Written Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0,
+                    "Workers": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Planning": {
+        "Shared Hit Blocks": 118,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0
+      },
+      "Planning Time": 0.631,
+      "Triggers": [],
+      "Execution Time": 69.031
+    }
+  },
+  "optimized": {
+    "change": "partial covering index on (merchant_id,event_date) for completed rows",
+    "runs": [
+      {
+        "planning_ms": 0.616,
+        "execution_ms": 24.401,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 6572,
+        "shared_read_blocks": 0
+      },
+      {
+        "planning_ms": 0.802,
+        "execution_ms": 21.86,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 6572,
+        "shared_read_blocks": 0
+      },
+      {
+        "planning_ms": 0.81,
+        "execution_ms": 22.608,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 6572,
+        "shared_read_blocks": 0
+      },
+      {
+        "planning_ms": 0.739,
+        "execution_ms": 19.913,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 6572,
+        "shared_read_blocks": 0
+      },
+      {
+        "planning_ms": 0.597,
+        "execution_ms": 17.936,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 6572,
+        "shared_read_blocks": 0
+      },
+      {
+        "planning_ms": 0.675,
+        "execution_ms": 18.027,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 6572,
+        "shared_read_blocks": 0
+      },
+      {
+        "planning_ms": 0.573,
+        "execution_ms": 18.042,
+        "root_node": "Aggregate",
+        "shared_hit_blocks": 6572,
+        "shared_read_blocks": 0
+      }
+    ],
+    "median_execution_ms": 19.913,
+    "representative_explain_analyze_buffers": {
+      "Plan": {
+        "Node Type": "Aggregate",
+        "Strategy": "Plain",
+        "Partial Mode": "Simple",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Startup Cost": 13721.89,
+        "Total Cost": 13721.9,
+        "Plan Rows": 1,
+        "Plan Width": 72,
+        "Actual Startup Time": 16.513,
+        "Actual Total Time": 16.515,
+        "Actual Rows": 1,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 6572,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Heap Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "fact_transactions",
+            "Alias": "fact_transactions",
+            "Startup Cost": 211.53,
+            "Total Cost": 13684.59,
+            "Plan Rows": 7459,
+            "Plan Width": 6,
+            "Actual Startup Time": 2.457,
+            "Actual Total Time": 15.435,
+            "Actual Rows": 7481,
+            "Actual Loops": 1,
+            "Recheck Cond": "((merchant_id = 42) AND (event_date >= '2026-06-01'::date) AND (event_date <= '2026-06-30'::date) AND (status = 'completed'::text))",
+            "Rows Removed by Index Recheck": 0,
+            "Exact Heap Blocks": 6540,
+            "Lossy Heap Blocks": 0,
+            "Shared Hit Blocks": 6572,
+            "Shared Read Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Bitmap Index Scan",
+                "Parent Relationship": "Outer",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Index Name": "idx_fact_transactions_merchant_date_completed",
+                "Startup Cost": 0.0,
+                "Total Cost": 209.67,
+                "Plan Rows": 7459,
+                "Plan Width": 0,
+                "Actual Startup Time": 1.291,
+                "Actual Total Time": 1.292,
+                "Actual Rows": 7481,
+                "Actual Loops": 1,
+                "Index Cond": "((merchant_id = 42) AND (event_date >= '2026-06-01'::date) AND (event_date <= '2026-06-30'::date))",
+                "Shared Hit Blocks": 32,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          }
+        ]
+      },
+      "Planning": {
+        "Shared Hit Blocks": 151,
+        "Shared Read Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Dirtied Blocks": 0,
+        "Local Written Blocks": 0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0
+      },
+      "Planning Time": 0.498,
+      "Triggers": [],
+      "Execution Time": 16.621
+    },
+    "index_definition": "CREATE INDEX idx_fact_transactions_merchant_date_completed ON public.fact_transactions USING btree (merchant_id, event_date) INCLUDE (amount) WHERE (status = 'completed'::text)",
+    "index_size": "55 MB"
+  },
+  "read_improvement_percent": 69.73,
+  "write_tradeoff": {
+    "rows": 100000,
+    "without_secondary_index": {
+      "planning_ms": 0.152,
+      "execution_ms": 112.277,
+      "root_node": "ModifyTable",
+      "shared_hit_blocks": 101664,
+      "shared_read_blocks": 0
+    },
+    "with_secondary_index": {
+      "planning_ms": 0.146,
+      "execution_ms": 200.012,
+      "root_node": "ModifyTable",
+      "shared_hit_blocks": 299824,
+      "shared_read_blocks": 1
+    },
+    "overhead_percent": 78.14
+  }
+}
