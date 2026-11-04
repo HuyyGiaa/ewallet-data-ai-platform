@@ -1,6 +1,10 @@
 # EDAI-2 rubric evidence index (rows 3–57, 100 points)
 
-**Authority:** the original workbook `EDAI K11.xlsx` (sha256 `1b0f8801…`), sheet `edai-2 (50%)`. Requirements and deliverables are paraphrased from column B/C (requirement) and column D (deliverable).
+**Authority:** the original workbook `EDAI K11.xlsx` (sha256 `1b0f8801…`),
+sheet `edai-2 (50%)`. The row table below uses short reviewer-facing labels;
+the exact requirement, Deliverables wording and raw points are preserved by
+sheet and row in the
+[93-row workbook extract](../rubric/edai_k11_workbook_extract.json).
 
 **Status vocabulary.** Statuses are literal-compliance verdicts:
 

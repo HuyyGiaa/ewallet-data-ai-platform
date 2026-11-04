@@ -119,146 +119,22 @@ IDs, source versions, correctness decisions and limitations.
 
 ## System Architecture
 
-### End-to-End Platform Architecture
+![E-Wallet Data & AI Platform system architecture](docs/architecture/ewallet_system_architecture.svg)
 
-![E-Wallet Data, ML & Agentic AI Platform Architecture](docs/assets/architecture/ewallet_platform_overview.png)
+*Figure 1. End-to-end E-Wallet platform architecture. Numbered arrows follow the
+direction of data or requests, while colour separates the major data, ML,
+agent, observability, delivery and security flows. Component-level design,
+execution evidence and known limitations are documented in the EDAI-1 and
+EDAI-2 technical reports.*
 
-*High-level architecture of the E-Wallet platform, covering data engineering, machine learning, RAG, agentic AI, and GKE infrastructure. Component-level implementation and experimental evidence are documented in the technical reports.*
+[Open the editable Excalidraw source](docs/architecture/ewallet_system_architecture.excalidraw).
 
-```mermaid
-flowchart LR
-    %% Flows: D1–D13 = data/ML (developer/operator) flow; U1–U7 = analyst investigation flow.
-    %% Node status: solid = deployed (or run as a batch job); dashed = pilot or local; dotted grey = planned.
-    subgraph DATA["Data Generation"]
-        DG["Deterministic Offline Generator"]
-        SRC[("Immutable GCS source<br/>Parquet + manifest")]
-        SG["Streaming Generator"]
-        RP["Redpanda<br/>(local, historical)"]
-        DG -->|"D1 · Parquet shards + manifest"| SRC
-        SG -->|"stream events (local)"| RP
-    end
-
-    subgraph LAKE["Delta Lakehouse on GCS / MinIO"]
-        B[("Bronze<br/>raw")]
-        S[("Silver<br/>clean + deduplicated")]
-        G[("Core Gold<br/>dimensions · facts · OBT · aggregates")]
-        DP3["DP3 historical<br/>feature computation"]
-        HF[("Four historical<br/>feature tables")]
-        SRC -->|"D2 · DP1 Spark ingest"| B
-        B -->|"D3 · DP2 normalize + validate"| S
-        S -->|"D4 · DP2 build Core Gold"| G
-        S -->|"D5 · DP3 inputs"| DP3
-        G -->|"D5 · DP3 inputs"| DP3
-        DP3 -->|"D6 · PIT-safe features"| HF
-    end
-
-    subgraph FEATURES["Feast Feature Store"]
-        OFF[("Offline Store<br/>historical features")]
-        MAT["Materialization jobs<br/>(K8s Jobs, not Airflow)"]
-        ON[("Online Store<br/>Redis")]
-        OFF -->|"D8 · latest values"| MAT -->|"D9 · upsert"| ON
-    end
-
-    subgraph ML["ML Platform"]
-        KFP["Kubeflow Pipelines<br/>validate · train · select · evaluate"]
-        MLF["MLflow<br/>lineage + registry"]
-        BAKE["Bake selected model<br/>into immutable image"]
-        KS["KServe fraud-detector<br/>model-inside-image"]
-        API["Fraud API<br/>(FastAPI)"]
-        KFP -->|"D11 · metrics, model, data version"| MLF
-        MLF -->|"D12 · registered model"| BAKE
-        BAKE -->|"D13 · predictor image"| KS
-    end
-
-    subgraph AI["LLM & Agentic AI (GKE)"]
-        UI["kagent UI<br/>(analyst)"]
-        CO["Fraud Coordinator<br/>BYO, 2 replicas, HPA"]
-        A2A["a2a-gateway → Feature-RAG Specialist<br/>BYO, 2 replicas, HPA"]
-        MCP["mcp-gateway → MCP tools<br/>feature_lookup · fraud_scoring · knowledge_search"]
-        LLM["agentgateway → vLLM Qwen3-0.6B"]
-        RAG[("RAG chunks<br/>Feast/Redis")]
-        UI -->|"U1 · question"| CO
-        CO -->|"U2 · tool-call planning"| LLM
-        CO -->|"U3 · A2A task"| A2A
-        A2A -->|"U4 · MCP tools/call"| MCP
-        MCP -->|"U6 · citations"| RAG
-    end
-
-    RP --> FLINK["Flink job<br/>event-time features (local)"]
-    S --> BOOT["Silver bootstrap<br/>and state cutover"] --> RP
-    FLINK -.->|accepted-history contract| HIST[("Immutable stream history<br/>GCS offline boundary")]
-    FLINK -.->|"complete FeatureView rows (source only)"| PUSH["Feast PushSource"]
-    PUSH -.-> ON
-    HF -->|"D7 · register FeatureViews"| OFF
-    OFF -->|"D10 · PIT training snapshot"| KFP
-    ON -->|"request-time features"| API
-    API -->|"V2 infer"| KS
-    MCP -->|"U5a · online features"| ON
-    MCP -->|"U5b · V2 infer"| KS
-    CO -->|"U7 · grounded answer"| UI
-
-    AF1["Airflow DP1<br/>(local Airflow 3)"] -.->|orchestrates D2| B
-    AF2["Airflow DP2<br/>(local Airflow 3)"] -.->|orchestrates D3–D4| S
-    AF2 -.-> G
-    AF3["Airflow DP3<br/>(local Airflow 3)"] -.->|orchestrates D5–D6| HF
-    DH["DataHub<br/>(local Quickstart)"] -.->|lineage + assertions| B
-    DH -.-> S
-    DH -.-> G
-    DH -.-> HF
-
-    ISTIO["Istio ambient<br/>mTLS · AuthorizationPolicy"]
-    ISTIO -.-> API
-    ISTIO -.-> CO
-    ISTIO -.-> A2A
-    ISTIO -.-> MCP
-
-    subgraph EXT["Agent platform extensions"]
-        SBX["Substrate WorkerPool + SandboxAgent<br/>pilot (mock-model agent)"]
-        KEDA["KEDA autoscaling<br/>planned (template only)"]
-        AB["Agent / LLM A/B<br/>planned"]
-        NGX["External NGINX gateway, Vault<br/>planned"]
-    end
-
-    classDef pilot stroke-dasharray: 5 5
-    classDef planned fill:#eeeeee,stroke:#999999,color:#555555,stroke-dasharray: 2 2
-    class RP,FLINK,HIST,PUSH,BOOT,AF1,AF2,AF3,DH,SBX pilot
-    class KEDA,AB,NGX planned
-```
-
-**How to read the diagram.**
-
-- **Arrows follow the data.** The label on each arrow says what is transferred.
-- **Two numbered flows:**
-  - **D1–D13**, data/ML: generation → lakehouse → features → training → serving.
-  - **U1–U7**, analyst investigation: kagent UI → Coordinator → LLM planning → Specialist → MCP tools → Feast / KServe / RAG → grounded answer.
-- **Dashed edges** are orchestration, metadata or not-yet-exercised interfaces, not the main user flow.
-- **Node status:**
-  - Solid: deployed.
-  - Dashed: pilot, or run locally.
-  - Grey dotted: planned.
-
-**Deployment status of the components** (GKE `ewallet-dev`, as of 2026-11-04):
-
-| Status | Components |
-|---|---|
-| **Deployed on GKE** | KServe `fraud-detector`, Fraud API, MLflow, Kubeflow Pipelines, Feast online Redis, kagent (controller + UI), fraud-coordinator and feature-rag-specialist (2/2, HPA min 2 / max 3), drift-specialist, MCP servers + mcp-gateway, a2a-gateway, agentgateway + `vllm-primary` (`vllm-fallback` Deployment exists but is scaled to 0 replicas; failover was demonstrated during the initial deployment), Prometheus / Loki / Tempo / Grafana / Alloy / OTel collector, Jenkins, agentregistry, Istio ambient |
-| **Run as batch jobs** | Dataproc Serverless Spark DP1–DP3 (orchestrated by Airflow 3), Feast materialization Jobs, the Kubeflow training run, the RAG ingestion DAG |
-| **Pilot or local** | Substrate WorkerPool + SandboxAgent (mock model only); Redpanda + Flink (local cluster); DataHub (local deployment); llm-d EPP routing (benchmark only, not in the current deployment) |
-| **Planned** | KEDA ScaledObject (source only), Sandbox for the business agents, agent / LLM A/B experiments, external NGINX gateway with auth / HTTPS, Vault, Ansible, Flink → Feast dual-store push in the latest source |
-
-The overview image above colour-codes its flows but does not number them. It also shows "Autoscaling (HPA/KEDA)", "Sandbox", "Substrate" and "A/B Evaluation" in its *Agent Platform Extensions* band. In that band, only HPA autoscaling is deployed. Substrate and Sandbox run as a pilot, and KEDA and A/B evaluation are planned.
-
-The primary scoring path is deterministic: validated data becomes historical
-features, Kubeflow trains a versioned model, Feast provides request-time
-features, and KServe returns a fraud prediction. The LLM layer consumes those
-results for investigation; it does not alter the score. Dashed Flink edges
-represent the immutable-history and PushSource interfaces rather than evidence
-that both sinks were exercised together in the latest source version.
-
-Istio is the networking foundation for the Kubernetes architecture. Gateway
-API, service identity, AuthorizationPolicy, and NetworkPolicy are used where
-implemented; the diagram does not imply that every external ingress or
-security control has been exercised in one runtime.
+The diagram is a navigation view rather than standalone runtime proof. The
+[EDAI-1 reports](docs/edai1/README.md) cover data generation, batch and stream
+processing, orchestration, governance and storage. The [EDAI-2 reports](docs/edai2/README.md)
+cover feature engineering, training, serving, LLMs, RAG, agents, delivery and
+observability. Evidence status and unresolved proof gaps remain in the separate
+internal indexes linked from the [documentation index](docs/README.md).
 
 ---
 

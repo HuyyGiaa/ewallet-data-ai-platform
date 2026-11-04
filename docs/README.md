@@ -1,61 +1,43 @@
-# Documentation index
+# Documentation
 
-This is the central navigation entrypoint for the source integrated through I6.
-The owner-maintained Google Doc remains the frozen architecture and Living
-Decision authority. The local [system architecture](00_system_architecture.md)
-is a useful repository overview, but historical/runtime claims remain bounded
-by their exact evidence and Git identity.
+This index is the reviewer entry point for the E-Wallet Data & AI Platform.
+Technical reports explain the design, implementation, execution results,
+evidence and limitations. Rubric status is intentionally kept in separate
+internal tracking documents.
 
-## Main indexes
+## Canonical navigation
 
-| Area | Index | Scope |
+| Area | Entry point | Contents |
 |---|---|---|
-| EDAI-1 | [Data Platform documentation](edai1/README.md) | DP1-DP3, Spark, Flink, storage, Airflow, DataHub, schema, Docker, benchmarks |
-| EDAI-2 | [AI/ML/LLM documentation](edai2/README.md) | Feature Store, KFP, MLflow, KServe, LLM, RAG, agents, gateway, CI/CD, observability |
-| Runbooks | [Operations index](runbooks/README.md) | Operator procedures at their current paths |
-| Evidence | [Evidence index and handling rules](evidence/README.md) | Current evidence locations, provenance rules, and Phase B0 status |
-| Rubric | [Rubric evidence matrix](rubric/rubric_evidence_matrix.csv) | Evidence crosswalk; not an official score |
-| Document status | [Documentation registry](DOCUMENTATION_REGISTRY.csv) | Deterministic inventory with explicit status classifications |
+| System architecture | [Architecture in the root README](../README.md#system-architecture) | End-to-end data and request flows, with an [editable Excalidraw source](architecture/ewallet_system_architecture.excalidraw) |
+| EDAI-1 | [Data Engineering reports](edai1/README.md) | Data generation, Spark, Flink, Airflow, DataHub, schema design, storage and Docker |
+| EDAI-2 | [ML, LLM and Agent Platform reports](edai2/README.md) | Feast, Kubeflow, MLflow, KServe, LLM serving, RAG, agents, gateways, CI/CD, testing and observability |
+| Runbooks | [Operations and evidence runbooks](runbooks/README.md) | Reproducible operator procedures and evidence-collection boundaries |
+| Evidence | [Evidence index and handling rules](evidence/README.md) | Preserved runtime artifacts, screenshots and provenance requirements |
 
-No evidence artifact is moved by this index. Phase B1 migration is not part of
-I7.
+The exported architecture is available directly as
+[SVG](architecture/ewallet_system_architecture.svg). Historical documents and
+earlier architecture material remain in the repository for provenance, but are
+not part of this primary navigation.
 
-| Document | Purpose | Current role |
+## Internal evidence tracking
+
+These files preserve the 93-row workbook crosswalk and known proof gaps. They
+are review aids, not substitutes for the engineering reports.
+
+| Sheet | Evidence index | Gap ledger |
 |---|---|---|
-| [System architecture](00_system_architecture.md) | Main architecture, data/control flow, status, ports, limitations | Canonical overview |
-| [Data generator](01_data_generator.md) | Offline and streaming synthetic data behavior | Detailed reference |
-| [Schema design](02_schema_design_example.md) | Schemas, grains, and Gold model | Detailed reference |
-| [Batch pipeline](03_batch_pipeline.md) | Bronze, Silver, Gold transformations and checks | Detailed reference |
-| [Streaming pipeline](04_streaming_pipeline.md) | Redpanda and PyFlink experiment | Experimental path |
-| [Storage optimization](05_storage_optimization.md) | Delta layout and compaction benchmark | Recorded benchmark |
-| [Airflow orchestration](06_airflow_orchestration.md) | DAG, retries, concurrency, quality gates | Operations reference |
-| [Performance benchmarks](07_performance_benchmarks.md) | Spark skew and cardinality experiments | Recorded benchmark |
-| [DataHub metadata and lineage](08_datahub_lineage.md) | Trino ingestion, direct lineage, assertions | Metadata operations |
-| [Runtime configuration](cloud/configuration.md) | Local/dev/GCP profiles, environment variables and preflight | Cloud refactor operations |
-| [Jenkins Platform CI/CD](cloud/jenkins_cicd.md) | Component catalog, merge-base scope, uv governance, controlled release and evidence reproduction | Source/static ready; Jenkins/CD runtime unverified |
-| [Terraform GCP foundation](cloud/terraform_gcp_foundation.md) | Remote state, GCS/IAM/VPC/registry modules, cost gates and apply/cleanup runbook | R2 infrastructure operations |
-| [Dataproc Delta-on-GCS smoke](cloud/dataproc_delta_smoke.md) | Cost-gated Spark/Delta/GCS compatibility job, submission, evidence and cleanup | R3 runtime decision checkpoint |
-| [Cloud Silver bounded pilot](cloud/silver_bounded_pilot.md) | Dry-run and user execution contract for the verified R4 Bronze pilot | Stage 1A runbook |
-| [Cloud core Gold bounded pilot](cloud/core_gold_bounded_pilot.md) | Immutable bounded Silver-to-core-Gold run and validation | Stage 1B verified evidence |
-| [Cloud historical features bounded pilot](cloud/historical_features_bounded_pilot.md) | Immutable DP3 point-in-time feature run and validation | Stage 1B verified evidence |
-| [Cloud Feast and bounded training snapshot](ml/cloud_feast_training_snapshot.md) | Frozen DP3-to-Feast offline contract and future USER_RUN boundary | Ready for canonical DP3 output |
-| [Canonical F9 and MLflow](ml/f9_mlflow_canonical.md) | Bounded four-model experiment, PostgreSQL/GCS tracking, registry, evidence, and rollback | Ready for passed Feast snapshot |
-| [Observability](observability.md) | OTel, Prometheus, Loki, Tempo, Grafana dashboards, privacy contracts and rubric mapping | Static validation passed; runtime pending |
-| [Canonical standalone KFP](ml/kfp_canonical.md) | Pinned F9 orchestration DAG, component resources, future USER_RUN, evidence, and rollback | Ready after Feast/F9 prerequisites |
-| [Bounded GKE MLOps runtime gate](ml/gke_mlops_runtime_gate.md) | Dry-run-first image, PostgreSQL, MLflow and standalone KFP deployment/validation/cleanup | Source prepared for USER_RUN verification |
-| [Canonical 100 GB readiness](cloud/canonical_100gb_readiness.md) | Measured source plan and exact user-operated canonical commands | Ready, not executed |
-| [R1 configuration evidence](evidence/cloud/r1_config_foundation.json) | Machine-readable profile, literal-scan, compile, and regression results | Verified foundation evidence |
-| [R2 Terraform foundation evidence](evidence/cloud/r2_terraform_plan.json) | Applied state/bootstrap foundation, recovery record, final state counts and guardrails | Verified infrastructure evidence |
-| [R3 Dataproc Delta evidence](evidence/cloud/r3_dataproc_delta_smoke.json) | Delta write/append/read-back, schema and timestamp precision on GCS | Verified cloud runtime evidence |
-| [Silver bounded pilot evidence](evidence/cloud/s1b_silver_bounded_pilot.json) | Immutable Bronze-to-Silver run, persisted counts, schemas and DQ results | Stage 1B verified evidence |
-| [Core Gold bounded pilot evidence](evidence/cloud/s1b_core_gold_bounded_pilot.json) | Immutable core Gold run, persisted counts and leakage checks | Stage 1B verified evidence |
-| [Historical features bounded pilot evidence](evidence/cloud/s1b_historical_features_bounded_pilot.json) | Immutable DP3 run, feature counts and temporal checks | Stage 1B verified evidence |
-| [Bounded Airflow verification evidence](evidence/cloud/s1b_airflow_bounded_verification.json) | DP1/DP2/DP3 DagRun replay and persisted Delta validations | Stage 1B verified evidence |
-| [Fraud feature design](ml/fraud_feature_design.md) | Point-in-time user, account, device, and merchant feature contract | Implemented Gold contract |
-| [Feast offline retrieval](ml/feast_offline.md) | Entities, FeatureViews, source adapter, precision, PIT retrieval, and limits | Implemented bounded offline retrieval |
-| [Fraud training dataset](ml/fraud_training_dataset.md) | Supervised row contract, leakage boundary, temporal splits, and reproducible build | Implemented 40,148-row trainable materialization |
-| [Random Forest fraud baseline](ml/fraud_modeling.md) | Active preprocessing/model contract, historical model-selection evidence, runtime artifacts, and validation/test results | Implemented F8 local baseline |
+| EDAI-1 | [Rubric evidence index](edai1/RUBRIC_EVIDENCE_INDEX.md) | [Gap ledger](edai1/GAP_LEDGER.md) |
+| EDAI-2 | [Rubric evidence index](edai2/RUBRIC_EVIDENCE_INDEX.md) | [Gap ledger](edai2/GAP_LEDGER.md) |
 
-Evidence under `docs/evidence/` includes both historical run artifacts and
-machine-readable refactor gates. Current operational commands and the
-fresh-clone path are in the repository [README](../README.md).
+The exact workbook wording, including the requirement, Deliverables/Proof text
+and raw points for all 93 scored rows, is preserved in the
+[workbook extract](rubric/edai_k11_workbook_extract.json). Its recorded SHA-256
+matches the reviewed `EDAI K11.xlsx` workbook. The
+[evidence matrix](rubric/rubric_evidence_matrix.csv) retains source, runtime and
+missing-proof references for each sheet and row.
+
+Historical and superseded reports are catalogued in the
+[EDAI-1 historical-document register](edai1/HISTORICAL_DOCUMENTS.md) and the
+[EDAI-2 historical-document register](edai2/HISTORICAL_DOCUMENTS.md). No
+evidence artifact is relocated or deleted by this index.

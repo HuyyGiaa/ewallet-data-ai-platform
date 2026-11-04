@@ -1,6 +1,9 @@
 # EDAI-1 rubric evidence index (rows 3–40, 100 points)
 
 **Authority:** the original workbook `EDAI K11.xlsx`, sheet `edai-1 (50%)`.
+The row table below uses short reviewer-facing labels; the exact requirement,
+Proof/Deliverables wording and raw points are preserved by sheet and row in the
+[93-row workbook extract](../rubric/edai_k11_workbook_extract.json).
 
 This index is the N13 reviewer entry point. It reconciles three sources:
 - [EDAI1_RUBRIC_COVERAGE.md](EDAI1_RUBRIC_COVERAGE.md), the committed detailed matrix (kept unchanged);
