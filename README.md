@@ -119,14 +119,15 @@ IDs, source versions, correctness decisions and limitations.
 
 ## System Architecture
 
-The candidate [SVG export](docs/architecture/ewallet_system_architecture.svg)
-and [editable Excalidraw source](docs/architecture/ewallet_system_architecture.excalidraw)
-are retained under the canonical architecture directory for owner review. They
-are deliberately **not embedded as the final architecture** until the owner
-confirms that this is the intended Excalidraw export.
+![E-Wallet Data & AI Platform system architecture](docs/architecture/ewallet_system_architecture.svg)
 
-An approved diagram will be a navigation view rather than standalone runtime
-proof. The
+*Figure 1. Owner-approved end-to-end E-Wallet platform architecture. Numbered
+arrows follow the direction of data or requests, while colour separates the
+major data, ML, agent, observability, delivery and security flows.*
+
+[Open the editable Excalidraw source](docs/architecture/ewallet_system_architecture.excalidraw).
+
+The diagram is a navigation view rather than standalone runtime proof. The
 [EDAI-1 reports](docs/edai1/README.md) cover data generation, batch and stream
 processing, orchestration, governance and storage. The [EDAI-2 reports](docs/edai2/README.md)
 cover feature engineering, training, serving, LLMs, RAG, agents, delivery and

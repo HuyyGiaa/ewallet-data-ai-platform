@@ -9,7 +9,7 @@ internal tracking documents.
 
 | Area | Entry point | Contents |
 |---|---|---|
-| System architecture | [Architecture review status](../README.md#system-architecture) | Candidate [SVG](architecture/ewallet_system_architecture.svg) and [Excalidraw source](architecture/ewallet_system_architecture.excalidraw), pending owner approval |
+| System architecture | [Architecture in the root README](../README.md#system-architecture) | Owner-approved [SVG](architecture/ewallet_system_architecture.svg) and [editable Excalidraw source](architecture/ewallet_system_architecture.excalidraw) |
 | EDAI-1 | [Data Engineering reports](edai1/README.md) | Data generation, Spark, Flink, Airflow, DataHub, schema design, storage and Docker |
 | EDAI-2 | [ML, LLM and Agent Platform reports](edai2/README.md) | Feast, Kubeflow, MLflow, KServe, LLM serving, RAG, agents, gateways, CI/CD, testing and observability |
 | Runbooks | [Operations and evidence runbooks](runbooks/README.md) | Reproducible operator procedures and evidence-collection boundaries |
@@ -20,10 +20,9 @@ Infrastructure provisioning is documented in the compatibility-path
 path remains stable because repository contract tests and operator references
 depend on it.
 
-The candidate architecture is available directly as
-[SVG](architecture/ewallet_system_architecture.svg), but is not embedded as the
-final diagram while owner approval remains outstanding. A diagram is not
-runtime evidence by itself.
+The owner-approved architecture is available directly as
+[SVG](architecture/ewallet_system_architecture.svg). A diagram is not runtime
+evidence by itself.
 Historical documents and earlier architecture material are preserved in the
 [legacy-document archive](../archive/legacy-docs/README.md), but are not part of
 this primary navigation.
