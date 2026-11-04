@@ -3,7 +3,7 @@
 | Item | Value |
 |---|---|
 | Status | Runtime complete, documentation closed. Verdict **`MIXED`**: not a gain, not a failure |
-| Accepted run | attempt 3, [`g2_20261101T124444Z`](../../evidence/llm_agent/g2_20261101T124444Z/), exit 0 |
+| Accepted run | attempt 3, [`g2_20261101T124444Z`](../../evidence/llm_agent/g2_20261101T124444Z), exit 0 |
 | Runtime source SHA | `0c89af3b08561e4f9e58b7cc80273457ab6e4d0f` (the code that produced every number below) |
 | Reporting commits | later commits on `codex/llm-g2-llmd-routing`; runner fixes, evidence and documentation only, see §13 |
 | Branch base | O1 `9b47546` + G1/MLOps checkpoint `e7dbbc2` (merge `d26b9d1`) |
@@ -374,9 +374,9 @@ The scrape interval was not varied.
 
 | # | Run | SHA | Window (UTC) | Exit | Classification | Cause and correction |
 |---|---|---|---|---|---|---|
-| 1 | [`g2_20261101T095348Z`](../../evidence/llm_agent/g2_20261101T095348Z/) | `191b13c` | 09:53–11:25 | 1 | setup failure; **B2 retained for variability only** | The router was installed before the llm-agent O2 release that carries its NetworkPolicies. In the default-deny namespace its kubelet probes on 9003 timed out and it crash-looped; `--atomic` removed it before its logs were saved. Fixed in `db43c96`: policies first, no `--atomic` for the router, diagnostics kept |
-| 2 | [`g2_20261101T113055Z`](../../evidence/llm_agent/g2_20261101T113055Z/) | `db43c96` | 11:30–12:43 | 1 | gate failure; **B2 retained for variability only** | The router, O2 netpol, auth and smoke passed. During the O2 failover gate, llm-d and the direct primary were evicted at 12:25:03–06; 30 s later both were retried and the smoke's second turn got 503 at 12:25:36. Fixed in `0c89af3`: session eviction window 300 s, for B2 and O2 alike |
-| 3 | [`g2_20261101T124444Z`](../../evidence/llm_agent/g2_20261101T124444Z/) | `0c89af3` | 12:44–14:07 | **0** | **accepted matched benchmark** | All gates passed, B2 and O2 measured, cleanup verified |
+| 1 | [`g2_20261101T095348Z`](../../evidence/llm_agent/g2_20261101T095348Z) | `191b13c` | 09:53–11:25 | 1 | setup failure; **B2 retained for variability only** | The router was installed before the llm-agent O2 release that carries its NetworkPolicies. In the default-deny namespace its kubelet probes on 9003 timed out and it crash-looped; `--atomic` removed it before its logs were saved. Fixed in `db43c96`: policies first, no `--atomic` for the router, diagnostics kept |
+| 2 | [`g2_20261101T113055Z`](../../evidence/llm_agent/g2_20261101T113055Z) | `db43c96` | 11:30–12:43 | 1 | gate failure; **B2 retained for variability only** | The router, O2 netpol, auth and smoke passed. During the O2 failover gate, llm-d and the direct primary were evicted at 12:25:03–06; 30 s later both were retried and the smoke's second turn got 503 at 12:25:36. Fixed in `0c89af3`: session eviction window 300 s, for B2 and O2 alike |
+| 3 | [`g2_20261101T124444Z`](../../evidence/llm_agent/g2_20261101T124444Z) | `0c89af3` | 12:44–14:07 | **0** | **accepted matched benchmark** | All gates passed, B2 and O2 measured, cleanup verified |
 
 - **Accepted measurements:** only attempt 3's B2 and O2 enter the verdict.
 - **Retained baselines:** B2 from attempts 1 and 2 is used only as

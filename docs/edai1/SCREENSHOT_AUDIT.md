@@ -57,7 +57,7 @@ No EDAI-1 UI (Airflow, Spark history, Flink, DataHub, DBeaver/Trino) was running
 | 31 | DataHub: DP2 validation | No DP2 assertion UI | **MISSING** |
 | 32 | DataHub: DP3 lineage | DP3 feature lineage (HISTORICAL_UI) | **QUALIFIES** |
 | 33 | DataHub: DP3 validation | Feature metadata-contract assertions list/detail/logic (HISTORICAL_UI) | **QUALIFIES** for schema/physical validation; PIT results are machine-readable only |
-| 34 | Tables and relationships on each zone | DataHub lineage per zone, now embedded in [ALL_ZONES_SCHEMA.md](ALL_ZONES_SCHEMA.md) (HISTORICAL_UI) | **PARTIAL**: cross-zone lineage shown; no within-zone relationship diagram |
+| 34 | Tables and relationships on each zone | DataHub lineage per zone, now embedded in [ALL_ZONES_SCHEMA.md](schema/ALL_ZONES_SCHEMA.md) (HISTORICAL_UI) | **PARTIAL**: cross-zone lineage shown; no within-zone relationship diagram |
 | 35 | SCD2 dimension | LOCAL FIXTURE terminal only (REAL_TERMINAL, fixture); source not in the submission tree | **NOT QUALIFYING** |
 | 36 | `feat_` with `event_timestamp` + `created` | LOCAL FIXTURE terminal; DataHub feature schema shows `event_timestamp` only | **PARTIAL** |
 | 37 | Dim ↔ fact relationships (DBeaver-like export) | — | **MISSING** |

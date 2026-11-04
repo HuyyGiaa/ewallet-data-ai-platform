@@ -1,8 +1,8 @@
 # EDAI-2 CI/CD runtime evidence (2026-11-03)
 
-Index and verdicts: [`docs/edai2/cicd_rubric_evidence_20261103.md`](../../../edai2/cicd_rubric_evidence_20261103.md).
-Infrastructure review: [`docs/edai2/cicd_infra_change_review_20261103.md`](../../../edai2/cicd_infra_change_review_20261103.md).
-Batch D proposal: [`docs/edai2/batch_d_mcp_agent_cd_proposal_20261103.md`](../../../edai2/batch_d_mcp_agent_cd_proposal_20261103.md).
+Index and verdicts: [`docs/edai2/cicd_rubric_evidence_20261103.md`](../../../../archive/legacy-docs/docs/edai2/cicd_rubric_evidence_20261103.md).
+Infrastructure review: [`docs/edai2/cicd_infra_change_review_20261103.md`](../../../../archive/legacy-docs/docs/edai2/cicd_infra_change_review_20261103.md).
+Batch D proposal: [`docs/edai2/batch_d_mcp_agent_cd_proposal_20261103.md`](../../../../archive/legacy-docs/docs/edai2/batch_d_mcp_agent_cd_proposal_20261103.md).
 
 | Directory | Content |
 |---|---|

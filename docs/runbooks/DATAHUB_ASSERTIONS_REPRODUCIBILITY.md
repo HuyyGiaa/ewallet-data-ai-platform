@@ -148,7 +148,7 @@ the raw readback JSON.
 Organize approved screenshots according to
 [`docs/evidence/images/datahub/README.md`](../evidence/images/datahub/README.md)
 and explain their claim boundaries in
-[`docs/edai1/DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md`](../edai1/DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md).
+[`docs/edai1/DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md`](../../archive/legacy-docs/docs/edai1/DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md).
 The committed image set is a historical documentation snapshot, not proof of a
 post-merge rerun.
 

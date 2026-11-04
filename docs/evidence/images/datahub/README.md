@@ -35,4 +35,4 @@ not replace those machine-readable records.
 - `feat_device_lineage.png` was excluded because its companion capture contains
   a DataHub error; the successful `_v2` capture is used instead.
 
-See [the explanatory evidence report](../../../edai1/DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md).
+See [the explanatory evidence report](../../../../archive/legacy-docs/docs/edai1/DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md).

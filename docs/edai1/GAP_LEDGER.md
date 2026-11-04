@@ -7,14 +7,14 @@
 - **P2:** an owner-approved bounded run.
 - **P3:** implementation.
 
-[EDAI1_RUBRIC_COVERAGE.md](EDAI1_RUBRIC_COVERAGE.md) §8 already lists low-cost actions. This ledger keeps them and adds the N13 findings.
+[EDAI1_RUBRIC_COVERAGE.md](../../archive/legacy-docs/docs/edai1/EDAI1_RUBRIC_COVERAGE.md) §8 already lists low-cost actions. This ledger keeps them and adds the N13 findings.
 
 | Row | Pts | Class | Existing evidence | Missing proof | Recommended action | Priority |
 |---:|---:|---|---|---|---|---|
 | 35 | 2 | IMPLEMENTATION_MISSING (submission tree) | `scd2.py`, `build_dim_merchant_scd2` and `tests/test_merchant_scd2.py` exist as **uncommitted** work in the main checkout. 4 local tests passed (2026-11-02). LOCAL FIXTURE images | The source is in the submitted tree; a real (non-fixture) SCD2 table | Owner reviews and commits the uncommitted SCD2 work; then a bounded DP2 run that writes `dim_merchant` with `valid_from_ts`/`valid_to_ts`/`is_current`, with a captured query | P1 (commit) → P2 (run) |
 | 36 | 2 | IMPLEMENTATION_MISSING (submission tree) | `event_timestamp` on all `feat_` tables; `feat_user_90d.created_timestamp`. The `created` alias and builder changes are uncommitted | `created` in the submitted source; a materialized schema | Commit the feature-builder and contract changes; one bounded DP3 run; capture the schema | P1 → P2 |
-| 34 | 2 | SCREENSHOT_MISSING | Text inventory in [ALL_ZONES_SCHEMA.md](ALL_ZONES_SCHEMA.md); DataHub cross-zone lineage images now embedded there (N13) | A view of the relationships within a zone (especially Gold dim/fact) | Same capture as row 37 (DBeaver ER diagram per zone) | P1 |
-| 37 | 2 | SCREENSHOT_MISSING | Relationship tables in [SCHEMA_DESIGN.md](SCHEMA_DESIGN.md) | Dim ↔ fact ER export | DBeaver ER diagram of the Gold schema (the rubric suggests DBeaver) | P1 |
+| 34 | 2 | SCREENSHOT_MISSING | Text inventory in [ALL_ZONES_SCHEMA.md](schema/ALL_ZONES_SCHEMA.md); DataHub cross-zone lineage images now embedded there (N13) | A view of the relationships within a zone (especially Gold dim/fact) | Same capture as row 37 (DBeaver ER diagram per zone) | P1 |
+| 37 | 2 | SCREENSHOT_MISSING | Relationship tables in [SCHEMA_DESIGN.md](schema/SCHEMA_DESIGN.md) | Dim ↔ fact ER export | DBeaver ER diagram of the Gold schema (the rubric suggests DBeaver) | P1 |
 | 38 | 2 | DOCUMENTATION_MISSING | Zone-qualified names (`bronze.*`, `silver.*`, `gold.dim_*`, `fact_*`, `feat_*`) | Explicit `raw_`/`stg_` convention, or a stated "similar" mapping | Add a naming table mapping zone qualifiers to `raw_`/`stg_` and justify the choice | P1 |
 | 11 | 2 | SCREENSHOT_MISSING | DP1 Spark UI (3 images) plus N13 DP1 Airflow and Dataproc images | DP2/DP3 Spark UI | Recover Spark UI images from the Dataproc persistent history of the preserved DP2/DP3 batches, if still retained | P1 |
 | 13 | 3 | DOCUMENTATION_MISSING | V1/V2 normalization implemented; source/unified schema images | A row-specific chain: problem → code → before/after → result | Consolidate one section in OPTIMIZATION_MATRIX.md using the existing images | P1 |
@@ -33,7 +33,7 @@
 |---|---|
 | 19 | DOCUMENTATION gap closed: [FLINK_STREAMING.md](streaming/FLINK_STREAMING.md#31-window-processing-in-code) now shows the verbatim window and watermark code with an explanation |
 | 18 | Accepted as complete (historical), in agreement with the N13 inventory |
-| 38 (doc defect) | [ALL_ZONES_SCHEMA.md](ALL_ZONES_SCHEMA.md) wrongly claimed a `stg_` prefix for Silver; corrected. The row stays PARTIAL |
+| 38 (doc defect) | [ALL_ZONES_SCHEMA.md](schema/ALL_ZONES_SCHEMA.md) wrongly claimed a `stg_` prefix for Silver; corrected. The row stays PARTIAL |
 
 ## Process notes
 

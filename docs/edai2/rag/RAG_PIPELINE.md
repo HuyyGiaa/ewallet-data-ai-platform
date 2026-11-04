@@ -130,4 +130,5 @@ DataHub ran as a local Quickstart deployment during this run. Evidence: [`edai2_
 - **DataHub is not permanent.** DataHub is not deployed permanently in the cloud; it ran as a local Quickstart for the run.
 - **Small corpus.** The corpus is two policy documents (four chunks). This demonstrates the mechanism rather than retrieval quality at scale.
 
-Operating instructions: [`docs/llm_agent/rag_runbook.md`](../../llm_agent/rag_runbook.md).
+Operating instructions:
+[`docs/runbooks/edai2/llm_agent/rag_runbook.md`](../../runbooks/edai2/llm_agent/rag_runbook.md).

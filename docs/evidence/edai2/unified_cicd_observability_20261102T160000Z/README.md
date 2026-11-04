@@ -1,6 +1,6 @@
 # Unified EDAI-2 CI/CD and observability evidence
 
-Report: [`docs/edai2/cicd_observability_runtime_20261103.md`](../../../edai2/cicd_observability_runtime_20261103.md)
+Report: [`docs/edai2/cicd_observability_runtime_20261103.md`](../../../../archive/legacy-docs/docs/edai2/cicd_observability_runtime_20261103.md)
 
 ## Committed (sanitized)
 

@@ -10,7 +10,7 @@ did not select it (see [§8](#8-evaluator-errata)).
 | Branch | `codex/llm-o1-vllm-cpu-optimization` (on top of G1 `dedea5e`) |
 | Runtime commit (attempt 4) | `a194189d142bb0dfe98ea8882ce19f0b6f037f97` |
 | Report generator commit | `84c34487f9efdfbe67262db028c96b77fea799e1` |
-| Authoritative evidence | [`o1_20261101T052939Z`](../../evidence/llm_agent/o1_20261101T052939Z/) |
+| Authoritative evidence | [`o1_20261101T052939Z`](../../evidence/llm_agent/o1_20261101T052939Z) |
 | Evaluator output (preserved) | `selected: NO_GAIN`, `baseline_valid: false` |
 | Owner decision | C1 (`VLLM_CPU_OMP_THREADS_BIND=0-1`) selected for G2 |
 
@@ -338,10 +338,10 @@ attempt 1 nodes (`…-8wnf`, `…-mfgh`) were gone by then.
 
 | Attempt | Directory | Runner commit | Window (UTC) | Exit | Outcome | Files | Tree hash |
 |---|---|---|---|---|---|---|---|
-| 1 | [`o1_20261101T025115Z`](../../evidence/llm_agent/o1_20261101T025115Z/) | `7c40617` | 02:51–03:46 | 1 | Port-forward leaked through a function wrapper (`$!` was a subshell). C1 requests hit deleted B0' pods | 54 | `435030ad…4535a` |
-| 2 | [`o1_20261101T034723Z`](../../evidence/llm_agent/o1_20261101T034723Z/) | `a08f64b` | 03:47–04:30 | 143 | `wait` on a killed port-forward returned 143 under `set -e` | 43 | `ce6ad5d5…58bbc` |
-| 3 | [`o1_20261101T043036Z`](../../evidence/llm_agent/o1_20261101T043036Z/) | `2d1eb68` | 04:30–05:29 | 130 | Stopped by the operator: the production token budget (24 000/h) was exhausted by B0', and every C1 request got 429 | 60 | `8efa6355…4a851` |
-| **4** | [`o1_20261101T052939Z`](../../evidence/llm_agent/o1_20261101T052939Z/) | `a194189` | 05:29–08:46 | 0 | **Complete.** 144 requests, 0 × 429, evaluator `NO_GAIN` (§8) | 127 | `9597bfc0…10c0e` |
+| 1 | [`o1_20261101T025115Z`](../../evidence/llm_agent/o1_20261101T025115Z) | `7c40617` | 02:51–03:46 | 1 | Port-forward leaked through a function wrapper (`$!` was a subshell). C1 requests hit deleted B0' pods | 54 | `435030ad…4535a` |
+| 2 | [`o1_20261101T034723Z`](../../evidence/llm_agent/o1_20261101T034723Z) | `a08f64b` | 03:47–04:30 | 143 | `wait` on a killed port-forward returned 143 under `set -e` | 43 | `ce6ad5d5…58bbc` |
+| 3 | [`o1_20261101T043036Z`](../../evidence/llm_agent/o1_20261101T043036Z) | `2d1eb68` | 04:30–05:29 | 130 | Stopped by the operator: the production token budget (24 000/h) was exhausted by B0', and every C1 request got 429 | 60 | `8efa6355…4a851` |
+| **4** | [`o1_20261101T052939Z`](../../evidence/llm_agent/o1_20261101T052939Z) | `a194189` | 05:29–08:46 | 0 | **Complete.** 144 requests, 0 × 429, evaluator `NO_GAIN` (§8) | 127 | `9597bfc0…10c0e` |
 
 **Attempt 4 integrity.**
 - [`MANIFEST.sha256`](../../evidence/llm_agent/o1_20261101T052939Z/MANIFEST.sha256)

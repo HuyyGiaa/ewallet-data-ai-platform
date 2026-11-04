@@ -45,12 +45,12 @@ flowchart LR
 |---|---|
 | Containers and Compose | [Docker Optimisation](docker/DOCKER_OPTIMIZATION.md) |
 | Data generation | [Data Generation and Simulation](data_generator/DATA_GENERATION_AND_SIMULATION.md) |
-| Spark batch processing | [Spark Optimisation](OPTIMIZATION_MATRIX.md) |
+| Spark batch processing | [Spark Optimisation](spark/OPTIMIZATION_MATRIX.md) |
 | Stream processing | [Flink Streaming](streaming/FLINK_STREAMING.md) |
-| Orchestration | [Airflow Pipelines DP1, DP2, DP3](AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) |
+| Orchestration | [Airflow Pipelines DP1, DP2, DP3](airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) |
 | Storage | [Lakehouse and Warehouse Storage Optimisation](storage/STORAGE_OPTIMIZATION.md) |
 | Governance | [DataHub Lineage and Data Quality](datahub/DATAHUB_GOVERNANCE.md) |
-| Data model | [Schema Design](SCHEMA_DESIGN.md) and [All-Zones Schema](ALL_ZONES_SCHEMA.md) |
+| Data model | [Schema Design](schema/SCHEMA_DESIGN.md) and [All-Zones Schema](schema/ALL_ZONES_SCHEMA.md) |
 | Novel idea 1 | [Deterministic Sharded Generation](novel_ideas/01_DETERMINISTIC_SHARDING.md) |
 | Novel idea 2 | [Point-in-Time Leakage Prevention](novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
 
@@ -70,7 +70,7 @@ flowchart LR
 
 ## Evidence
 
-Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../evidence/edai1/). Each report embeds the images it relies on, and states what each one shows and which run produced it.
+Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../evidence/edai1). Each report embeds the images it relies on, and states what each one shows and which run produced it.
 
 | Folder | Content |
 |---|---|

@@ -9,16 +9,24 @@ internal tracking documents.
 
 | Area | Entry point | Contents |
 |---|---|---|
-| System architecture | [Architecture in the root README](../README.md#system-architecture) | End-to-end data and request flows, with an [editable Excalidraw source](architecture/ewallet_system_architecture.excalidraw) |
+| System architecture | [Architecture review status](../README.md#system-architecture) | Candidate [SVG](architecture/ewallet_system_architecture.svg) and [Excalidraw source](architecture/ewallet_system_architecture.excalidraw), pending owner approval |
 | EDAI-1 | [Data Engineering reports](edai1/README.md) | Data generation, Spark, Flink, Airflow, DataHub, schema design, storage and Docker |
 | EDAI-2 | [ML, LLM and Agent Platform reports](edai2/README.md) | Feast, Kubeflow, MLflow, KServe, LLM serving, RAG, agents, gateways, CI/CD, testing and observability |
 | Runbooks | [Operations and evidence runbooks](runbooks/README.md) | Reproducible operator procedures and evidence-collection boundaries |
 | Evidence | [Evidence index and handling rules](evidence/README.md) | Preserved runtime artifacts, screenshots and provenance requirements |
 
-The exported architecture is available directly as
-[SVG](architecture/ewallet_system_architecture.svg). Historical documents and
-earlier architecture material remain in the repository for provenance, but are
-not part of this primary navigation.
+Infrastructure provisioning is documented in the compatibility-path
+[Terraform GCP foundation runbook](cloud/terraform_gcp_foundation.md). That
+path remains stable because repository contract tests and operator references
+depend on it.
+
+The candidate architecture is available directly as
+[SVG](architecture/ewallet_system_architecture.svg), but is not embedded as the
+final diagram while owner approval remains outstanding. A diagram is not
+runtime evidence by itself.
+Historical documents and earlier architecture material are preserved in the
+[legacy-document archive](../archive/legacy-docs/README.md), but are not part of
+this primary navigation.
 
 ## Internal evidence tracking
 
@@ -37,7 +45,9 @@ matches the reviewed `EDAI K11.xlsx` workbook. The
 [evidence matrix](rubric/rubric_evidence_matrix.csv) retains source, runtime and
 missing-proof references for each sheet and row.
 
-Historical and superseded reports are catalogued in the
+Historical and superseded reports were relocated with history-preserving
+`git mv` operations and are catalogued in the
 [EDAI-1 historical-document register](edai1/HISTORICAL_DOCUMENTS.md) and the
-[EDAI-2 historical-document register](edai2/HISTORICAL_DOCUMENTS.md). No
-evidence artifact is relocated or deleted by this index.
+[EDAI-2 historical-document register](edai2/HISTORICAL_DOCUMENTS.md). Runtime
+evidence payloads were not relocated or regenerated; only documentation links
+to those artifacts were repaired.

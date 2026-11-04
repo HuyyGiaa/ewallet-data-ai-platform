@@ -112,24 +112,21 @@ The Spark experiments also produced important negative results. DP1 Bronze was
 10.05% slower and DP2 Silver was 31.62% slower under the tested optimized
 profiles. DP2 Gold showed a shorter runtime, but its final semantic-equivalence
 gate failed for three double aggregates, so no optimized winner was selected.
-See the [Spark Optimisation report](docs/edai1/OPTIMIZATION_MATRIX.md) for run
+See the [Spark Optimisation report](docs/edai1/spark/OPTIMIZATION_MATRIX.md) for run
 IDs, source versions, correctness decisions and limitations.
 
 ---
 
 ## System Architecture
 
-![E-Wallet Data & AI Platform system architecture](docs/architecture/ewallet_system_architecture.svg)
+The candidate [SVG export](docs/architecture/ewallet_system_architecture.svg)
+and [editable Excalidraw source](docs/architecture/ewallet_system_architecture.excalidraw)
+are retained under the canonical architecture directory for owner review. They
+are deliberately **not embedded as the final architecture** until the owner
+confirms that this is the intended Excalidraw export.
 
-*Figure 1. End-to-end E-Wallet platform architecture. Numbered arrows follow the
-direction of data or requests, while colour separates the major data, ML,
-agent, observability, delivery and security flows. Component-level design,
-execution evidence and known limitations are documented in the EDAI-1 and
-EDAI-2 technical reports.*
-
-[Open the editable Excalidraw source](docs/architecture/ewallet_system_architecture.excalidraw).
-
-The diagram is a navigation view rather than standalone runtime proof. The
+An approved diagram will be a navigation view rather than standalone runtime
+proof. The
 [EDAI-1 reports](docs/edai1/README.md) cover data generation, batch and stream
 processing, orchestration, governance and storage. The [EDAI-2 reports](docs/edai2/README.md)
 cover feature engineering, training, serving, LLMs, RAG, agents, delivery and
@@ -372,12 +369,12 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 | Overview | [EDAI-1 index](docs/edai1/README.md) |
 | Containers | [Docker Optimisation](docs/edai1/docker/DOCKER_OPTIMIZATION.md) |
 | Data generation | [Data Generation and Simulation](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
-| Batch processing | [Spark Optimisation](docs/edai1/OPTIMIZATION_MATRIX.md) |
+| Batch processing | [Spark Optimisation](docs/edai1/spark/OPTIMIZATION_MATRIX.md) |
 | Stream processing | [Flink Streaming](docs/edai1/streaming/FLINK_STREAMING.md) |
-| Orchestration | [Airflow Pipelines DP1–DP3](docs/edai1/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) |
+| Orchestration | [Airflow Pipelines DP1–DP3](docs/edai1/airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) |
 | Storage | [Lakehouse and Warehouse Storage Optimisation](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
 | Governance | [DataHub Lineage and Data Quality](docs/edai1/datahub/DATAHUB_GOVERNANCE.md) |
-| Data model | [Schema Design](docs/edai1/SCHEMA_DESIGN.md) |
+| Data model | [Schema Design](docs/edai1/schema/SCHEMA_DESIGN.md) |
 | Novel ideas | [Deterministic Sharded Generation](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md), [Point-in-Time Leakage Prevention](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
 
 ### EDAI-2: ML, LLM and Agent Platform
@@ -397,7 +394,9 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 
 ### Operations
 
-[Runbook index](docs/runbooks/README.md), including the [UI access runbook](docs/runbooks/edai2/UI_REPLAY.md).
+[Runbook index](docs/runbooks/README.md), including the
+[Terraform GCP foundation runbook](docs/cloud/terraform_gcp_foundation.md) and
+the [UI access runbook](docs/runbooks/edai2/UI_REPLAY.md).
 
 ---
 

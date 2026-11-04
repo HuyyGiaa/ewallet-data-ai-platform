@@ -50,7 +50,13 @@ kagent UI ── (2) A2A message/stream ──▶ a2a-gateway (agentgateway; A2A
                                  Feast Redis          KServe fraud-detector     RAG store (Feast/Redis)
 ```
 
-A third agent, `drift-specialist`, is a Declarative kagent agent. It answers data-drift questions with the `drift-mcp` tool server, through the same mcp-gateway.
+A third agent, `drift-specialist`, is a Declarative kagent agent. Its configured
+route is `fraud-coordinator → a2a-gateway → drift-specialist → mcp-gateway →
+drift-mcp`, where `drift_detection` is the only tool allowed on the final hop.
+Deployment/readiness and authorization evidence confirm that these endpoints
+exist, but the retained evidence does not contain a successful real-model trace
+across this complete drift route. It must therefore be read as configured
+connectivity, not as a demonstrated end-to-end delegation.
 
 Every box is a separate Kubernetes Deployment. Workloads run in three namespaces: `ewallet-agents`, `ewallet-mcp` and `kagent`. Traffic between them is constrained by NetworkPolicies and Istio ambient AuthorizationPolicies, so the arrows above are the only allowed paths.
 
@@ -279,6 +285,12 @@ A pilot `SandboxAgent` in the namespace `kagent-pilot` runs under gVisor on that
 
 ## 9. Limitations
 
+- **Drift delegation.** The A2A route, ready workloads and MCP authorization for
+  `drift-specialist`/`drift-mcp` are configured, and direct gateway
+  authentication failures were exercised. No retained request or trace proves
+  a successful Coordinator delegation followed by a real `drift_detection`
+  call through both gateways. The Feature-RAG trace in §6 does not prove this
+  separate path.
 - **Sandboxing.** The three business agents run as ordinary Deployments; only the pilot agent runs inside the gVisor sandbox. Moving the business agents onto SandboxAgents, and demonstrating many agents on a small worker pool, are future work.
 - **Autoscaling.** Autoscaling uses the Kubernetes HPA on CPU. A KEDA ScaledObject template, with a fallback replica count, exists in the chart, but KEDA is not installed in the cluster. No load test has been run to observe a scale-out event.
 - **MCP replicas.** Each MCP server runs a single replica. RollingUpdate prevents downtime during upgrades, but there is no automatic fallback if the server fails.

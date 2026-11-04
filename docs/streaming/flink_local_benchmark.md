@@ -132,6 +132,6 @@ so all timers fire before outputs are read.
 - Benchmark replay classifies lateness against an explicit logical watermark, so
   p=1 and p=4 agree at functional and 100 eps load. At 500 eps (backlog) online
   feature parity still fails; see
-  [results](flink_local_benchmark_results_20261101.md).
+  [results](../../archive/legacy-docs/docs/streaming/flink_local_benchmark_results_20261101.md).
 - Feast/Redis online writer, historical sink service and Silver bootstrap from the
   legacy branch are out of scope here; output stays in isolated Redpanda topics.
