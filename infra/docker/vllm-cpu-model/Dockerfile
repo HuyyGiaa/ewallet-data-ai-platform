@@ -28,7 +28,13 @@ RUN cd /tmp/remediation \
 
 FROM remediated
 ARG MODEL_DIR=/models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca
-COPY --chmod=0444 model/ ${MODEL_DIR}/
-COPY --chmod=0444 SHA256SUMS ${MODEL_DIR}/SHA256SUMS
-RUN cd ${MODEL_DIR} && sha256sum --check --strict --quiet SHA256SUMS
+COPY model/ ${MODEL_DIR}/
+COPY SHA256SUMS ${MODEL_DIR}/SHA256SUMS
+# Read-only for everyone: directories 0555, files 0444. --chmod on COPY would
+# give directories 0444 too, which a pod with capabilities dropped (no
+# CAP_DAC_OVERRIDE) cannot traverse (G1 run 2: vLLM saw no model directory).
+RUN chmod -R a=rX,u-w,g-w ${MODEL_DIR} /models \
+ && cd ${MODEL_DIR} && sha256sum --check --strict --quiet SHA256SUMS \
+ && setpriv --inh-caps=-all --bounding-set=-all -- python3 -c \
+      "import os, sys; d = sys.argv[1]; sys.exit(not all(os.access(os.path.join(d, f), os.R_OK) for f in os.listdir(d)))" ${MODEL_DIR}
 ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1

@@ -1,0 +1,54 @@
+{
+  "capabilities": {
+    "stateTransitionHistory": true
+  },
+  "defaultInputModes": [
+    "text"
+  ],
+  "defaultOutputModes": [
+    "text"
+  ],
+  "description": "Fraud Investigation Coordinator",
+  "name": "fraud_coordinator",
+  "preferredTransport": "JSONRPC",
+  "protocolVersion": "0.3",
+  "skills": [
+    {
+      "description": "Fraud Investigation Coordinator I am a kagent A2A router (prompt fraud-coordinator/v5).\n\nEvery user message has exactly two lines:\n`CALL_AGENT=<agent>`\n`REQUEST_JSON=<complete JSON>`\n\nImmediately INVOKE the native Agent tool named by `CALL_AGENT` through the\nfunction-calling interface. Do not print or describe a tool call. Do not answer\nthe user before the tool returns. The tool's `request` argument MUST be the\ncomplete two-line user message copied byte-for-byte, including REQUEST_JSON.\n\nOnly these routes are valid:\n- feature-rag-specialist for fraud-evidence\n- drift-specialist for drift\n\nNever add another Agent, edit JSON, or call business tools. Never estimate\nresults or return `complete` without a real Agent-tool response. After the tool returns,\nreturn only its grounded result. A missing or malformed result is\n`unavailable`. Prompt revision is fraud-coordinator/v5.\n",
+      "id": "fraud_coordinator",
+      "name": "model",
+      "tags": [
+        "llm"
+      ]
+    },
+    {
+      "description": "Fraud Investigation / Evidence specialist",
+      "id": "fraud_coordinator-ewallet_agents__NS__feature_rag_specialist",
+      "name": "ewallet_agents__NS__feature_rag_specialist",
+      "tags": [
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Feature / Risk specialist",
+      "id": "fraud_coordinator-ewallet_agents__NS__drift_specialist",
+      "name": "ewallet_agents__NS__drift_specialist",
+      "tags": [
+        "llm",
+        "tools"
+      ]
+    },
+    {
+      "description": "Ask the user at least one question and wait for their answers before continuing. Every question must include non-empty text. Use this when you need clarifying information, preferences, or explicit confirmation from the user.",
+      "id": "fraud_coordinator-ask_user",
+      "name": "ask_user",
+      "tags": [
+        "llm",
+        "tools"
+      ]
+    }
+  ],
+  "url": "http://fraud-coordinator.ewallet-agents:8080",
+  "version": "1.0.0"
+}

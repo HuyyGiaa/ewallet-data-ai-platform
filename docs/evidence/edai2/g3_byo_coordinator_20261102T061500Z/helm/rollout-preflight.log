@@ -1,0 +1,18 @@
+2026-11-02T06:22:18Z
+--- gateway/specialists preflight ---
+deployment.apps/a2a-gateway              1/1     1            1           12h
+deployment.apps/drift-specialist         1/1     1            1           12h
+deployment.apps/feature-rag-specialist   1/1     1            1           12h
+deployment.apps/fraud-coordinator        1/1     1            1           12h
+pod/a2a-gateway-6dfcf8bf7b-scbh5              1/1     Running   0          8h
+pod/drift-specialist-7fb847df9-qqxfn          1/1     Running   0          7h41m
+pod/feature-rag-specialist-5bb5fd8856-rvcml   1/1     Running   0          107m
+pod/fraud-coordinator-d4bbf565c-9xczf         1/1     Running   0          7m37s
+--- agent preflight ---
+NAME                     TYPE          RUNTIME   READY   ACCEPTED
+fraud-coordinator        BYO                     True    True
+feature-rag-specialist   Declarative   go        True    True
+drift-specialist         Declarative   go        True    True
+--- task preflight ---
+01a19ae6-62cb-740f-ab65-6d2dbbee11df|completed|2026-11-02 06:20:33.146049+00
+4ca77d1f-41f9-4b86-839f-2a4c1fd2a035|failed|2026-11-02 06:17:52.369243+00

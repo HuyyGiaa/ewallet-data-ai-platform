@@ -1,0 +1,50 @@
+[
+  {
+    "dag_id": "rag_fraud_policy_ingestion",
+    "logical_date": "2026-11-02T04:47:47.275782+00:00",
+    "task_id": "discover_documents",
+    "state": "success",
+    "start_date": "2026-11-02T04:47:48.910044+00:00",
+    "end_date": "2026-11-02T04:47:51.938274+00:00"
+  },
+  {
+    "dag_id": "rag_fraud_policy_ingestion",
+    "logical_date": "2026-11-02T04:47:47.275782+00:00",
+    "task_id": "parse_and_chunk",
+    "state": "success",
+    "start_date": "2026-11-02T04:47:51.976797+00:00",
+    "end_date": "2026-11-02T04:47:52.108438+00:00"
+  },
+  {
+    "dag_id": "rag_fraud_policy_ingestion",
+    "logical_date": "2026-11-02T04:47:47.275782+00:00",
+    "task_id": "generate_embeddings",
+    "state": "success",
+    "start_date": "2026-11-02T04:47:52.137759+00:00",
+    "end_date": "2026-11-02T04:47:52.727969+00:00"
+  },
+  {
+    "dag_id": "rag_fraud_policy_ingestion",
+    "logical_date": "2026-11-02T04:47:47.275782+00:00",
+    "task_id": "publish_feast_features",
+    "state": "success",
+    "start_date": "2026-11-02T04:47:52.750098+00:00",
+    "end_date": "2026-11-02T04:48:05.071096+00:00"
+  },
+  {
+    "dag_id": "rag_fraud_policy_ingestion",
+    "logical_date": "2026-11-02T04:47:47.275782+00:00",
+    "task_id": "validate_online_readback",
+    "state": "success",
+    "start_date": "2026-11-02T04:48:05.095497+00:00",
+    "end_date": "2026-11-02T04:48:10.315448+00:00"
+  },
+  {
+    "dag_id": "rag_fraud_policy_ingestion",
+    "logical_date": "2026-11-02T04:47:47.275782+00:00",
+    "task_id": "publish_datahub_lineage",
+    "state": "success",
+    "start_date": "2026-11-02T04:48:10.341012+00:00",
+    "end_date": "2026-11-02T04:48:10.442672+00:00"
+  }
+]

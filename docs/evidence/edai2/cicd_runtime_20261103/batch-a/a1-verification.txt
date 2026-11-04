@@ -1,0 +1,4 @@
+Batch A.1 bucket ewallet-data-ai-platform-hg26-cicd-builds
+added: [('roles/storage.legacyBucketReader', 'serviceAccount:ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com')]
+removed: none
+ewallet-cloudbuild roles on bucket: ['roles/storage.legacyBucketReader', 'roles/storage.objectCreator', 'roles/storage.objectViewer']

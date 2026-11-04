@@ -1,0 +1,33 @@
+{
+  "model": "ewallet-fraud-llm",
+  "messages": [
+    {
+      "role": "user",
+      "content": "You must call the supplied function once. Return no prose.\nCALL_AGENT=feature-rag-specialist\nREQUEST_JSON={\"transaction_id\":\"g3-native-probe-20261102\",\"operation\":\"capability_probe\",\"execute_business_tools\":false}"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "ewallet_agents__NS__feature_rag_specialist",
+        "description": "Fraud Investigation / Evidence specialist",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "request": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "request"
+          ]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "temperature": 0,
+  "max_tokens": 256,
+  "stream": false
+}

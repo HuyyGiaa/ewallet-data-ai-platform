@@ -1,0 +1,27 @@
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS     IMAGES                                                                                                                                                                 SELECTOR
+deployment.apps/agentgateway    2/2     2            2           59m   agentgateway   ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b                                                       app.kubernetes.io/name=agentgateway
+deployment.apps/vllm-fallback   1/1     1            1           59m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=fallback,app.kubernetes.io/name=vllm
+deployment.apps/vllm-primary    1/1     1            1           59m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm
+
+NAME                                READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/agentgateway-665c7f898b-bg8gr   1/1     Running   0          59m   10.216.5.29   gke-ewallet-dev-cpu-pool-58daed59-mb8v   <none>           <none>
+pod/agentgateway-665c7f898b-fgfmm   1/1     Running   0          59m   10.216.1.30   gke-ewallet-dev-cpu-pool-58daed59-nnft   <none>           <none>
+pod/vllm-fallback-d6c5b66c4-zrgm5   1/1     Running   0          59m   10.216.4.6    gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+pod/vllm-primary-76547d8c9d-qsbsh   1/1     Running   0          18m   10.216.0.9    gke-ewallet-dev-cpu-pool-58daed59-zrgm   <none>           <none>
+
+NAME                    TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE   SELECTOR
+service/agentgateway    ClusterIP   34.118.235.44    <none>        3000/TCP   59m   app.kubernetes.io/name=agentgateway
+service/vllm-fallback   ClusterIP   34.118.239.149   <none>        8000/TCP   59m   app.kubernetes.io/instance=fallback,app.kubernetes.io/name=vllm
+service/vllm-primary    ClusterIP   34.118.230.113   <none>        8000/TCP   59m   app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm
+
+NAME                                                                 POD-SELECTOR                          AGE
+networkpolicy.networking.k8s.io/allow-agentgateway-to-vllm-egress    app.kubernetes.io/name=agentgateway   59m
+networkpolicy.networking.k8s.io/allow-agentgateway-to-vllm-ingress   app.kubernetes.io/name=vllm           59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-agentgateway    app.kubernetes.io/name=agentgateway   59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-vllm            app.kubernetes.io/name=vllm           59m
+networkpolicy.networking.k8s.io/allow-cluster-dns                    <none>                                59m
+networkpolicy.networking.k8s.io/default-deny                         <none>                                59m
+
+NAME                                                               ACTION   AGE
+authorizationpolicy.security.istio.io/allow-agentgateway-to-vllm   ALLOW    59m
+authorizationpolicy.security.istio.io/default-deny                          59m

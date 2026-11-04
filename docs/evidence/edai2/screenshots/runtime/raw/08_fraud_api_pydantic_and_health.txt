@@ -1,0 +1,7 @@
+$ for p in /health/live /health/ready; do curl -s -w '  <- GET %{url_effective} HTTP %{http_code}\n' http://127.0.0.1:18100$p; done; echo; curl -s -X POST http://127.0.0.1:18100/v1/fraud/predict -H 'content-type: application/json' -d '{"transaction_id":"x","amount":-5,"currency":"USD"}' -w '\nPOST invalid payload -> HTTP %{http_code}\n' | python3 -c 'import sys;t=sys.stdin.read();print(t[:900])'
+{"status":"ok","service":"fraud-inference"}  <- GET http://127.0.0.1:18100/health/live HTTP 200
+{"status":"ready","service":"fraud-inference","scope":"dependency_connectivity","feature_materialization_verified":false,"offline_online_parity_verified":false}  <- GET http://127.0.0.1:18100/health/ready HTTP 200
+
+{"error":{"code":"invalid_request","message":"Request validation failed","correlation_id":"4c04582f-92c9-42c7-b442-2fa35a07e2a4","retryable":false,"details":[{"location":["body","event_timestamp"],"message":"Field required","type":"missing"},{"location":["body","user_id"],"message":"Field required","type":"missing"},{"location":["body","account_id"],"message":"Field required","type":"missing"},{"location":["body","device_id"],"message":"Field required","type":"missing"},{"location":["body","type"],"message":"Field required","type":"missing"},{"location":["body","amount"],"message":"Input should be greater than 0","type":"greater_than"},{"location":["body","currency"],"message":"Input should be 'VND'","type":"literal_error"},{"location":["body","channel"],"message":"Field required","type":"missing"}]}}
+POST invalid payload -> HTTP 422
+

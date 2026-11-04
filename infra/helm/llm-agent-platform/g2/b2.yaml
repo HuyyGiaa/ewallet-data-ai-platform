@@ -1,0 +1,4 @@
+# B2: standard routing. agentgateway -> Service vllm-primary (kube-proxy /
+# ztunnel connection-level load balancing over the two C1 replicas) -> fallback.
+llmd:
+  enabled: false

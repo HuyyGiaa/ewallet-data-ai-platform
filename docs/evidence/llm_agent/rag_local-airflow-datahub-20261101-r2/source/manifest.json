@@ -1,0 +1,26 @@
+{
+  "corpus_id": "ewallet-fraud-policy",
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "embedding_model_id": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "feature_index_revision": "fraud-policy-feast-v1",
+  "embedding_dimensions": 384,
+  "chunk_size_words": 80,
+  "chunk_overlap_words": 16,
+  "documents": [
+    {
+      "document_id": "policy-account-takeover",
+      "path": "policy-account-takeover.md",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+      "sha256": "c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+      "event_timestamp": "2026-10-30T00:00:00Z"
+    },
+    {
+      "document_id": "policy-payment-anomaly",
+      "path": "policy-payment-anomaly.md",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md",
+      "sha256": "b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+      "event_timestamp": "2026-10-30T00:00:00Z"
+    }
+  ]
+}

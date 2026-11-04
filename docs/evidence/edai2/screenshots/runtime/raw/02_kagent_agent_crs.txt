@@ -1,0 +1,7 @@
+$ kubectl -n ewallet-agents get agents.kagent.dev -o custom-columns=NAME:.metadata.name,TYPE:.spec.type,READY:.status.conditions[-1].status; echo; kubectl -n ewallet-agents get agents.kagent.dev fraud-coordinator -o jsonpath='{.spec.byo.deployment.image}{"\n"}'
+NAME                     TYPE          READY
+drift-specialist         Declarative   True
+feature-rag-specialist   BYO           True
+fraud-coordinator        BYO           True
+
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff

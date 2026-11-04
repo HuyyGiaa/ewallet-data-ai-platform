@@ -1,0 +1,5 @@
+## failure scenario: takeover r7 FAILED (kind --wait timeout) -> tool rollback
+{"step": "rollback", "result": {"source_active": 7, "source_archived": 0, "target_active": 0}, "state": {"source_active": 7, "source_archived": 0, "target_active": 0}}
+  active record ewallet-mcp rev 7 deployed
+28 objects; 0 missing; 2 pods
+vs baseline: missing 0 uid changed 0 spec changed 0 pods identical True owner ['ewallet-mcp']

@@ -201,7 +201,7 @@ In-cluster:
 1. Install agentregistry 0.4.0 by digest with
    `-f infra/helm/agentregistry/values.yaml`.
 2. Port-forward `svc/agentregistry 12121`.
-3. `python -m ops.llm_agent.registry_catalog publish --evidence ...`.
+3. `python -m ops.llm_agent.registry_catalog publish --registry http://127.0.0.1:12121 --confirm-live-write http://127.0.0.1:12121 --evidence ...` (run `prompt_registry verify-all` before and after; see `docs/edai2/prompt_registry_security_assessment_20261103.md` M3).
 4. Take a UI screenshot of the three agents (rows 8, 21, 26, 41).
 
 KEDA:

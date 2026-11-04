@@ -1,0 +1,13 @@
+# G2 serving, identical for B2 and O2 (docs/edai2/llm/llmd_g2_routing_benchmark.md):
+# two active C1 primary replicas (O1 selection: OpenMP threads pinned to CPUs
+# 0-1), the G1 fallback unchanged, and every LLM pod on the nodes added for the
+# G2 session (labelled ewallet.io/g2-llm=true by g2_experiment.sh), never on the
+# MLOps nodes. Each vLLM pod requests 2 CPU of an e2-standard-4 node (3.92
+# allocatable), so no two vLLM pods can share a node.
+vllm:
+  cpuThreadsBind: "0-1"
+  primary:
+    replicas: 2
+llmPlacement:
+  nodeSelector:
+    ewallet.io/g2-llm: "true"

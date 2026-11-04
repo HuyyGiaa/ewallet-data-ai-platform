@@ -1,0 +1,24 @@
+{
+  "identity": {
+    "baked_at": "2026-10-31T17:33:30.655468+00:00",
+    "model_tree_sha256": "1f1331c3b1672ab42d19f074d8fb06e68f48e4690381b64324f442656936a545",
+    "registered_model_name": "fraud-detector",
+    "registered_model_version": "1",
+    "resolved_alias": "candidate",
+    "run_id": "fd639926e00d43ea9c111f29ad03fab1",
+    "source": "models:/m-cbdd8bd94a6844f69334749eaaa1e635",
+    "source_git_sha": "12b6c81958fc909390fe423511ad478b2b2cb52f",
+    "tags": {
+      "dataset_version": "canonical-100gb-v1",
+      "dvc_revision": "data/training-snapshots/training-20261031-151638-ml2.json.dvc@ef37cb3#md5=0ced5dc0f0070967be8100a2d7f1b317",
+      "feature_run_id": "ab-20261025134342-optimized-feat-r261026025955",
+      "git_commit_sha": "5a7fa02fd1eeea224eefe9f421ca2f8f711a35f2",
+      "runtime_image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb",
+      "snapshot_id": "training-20261031-151638-ml2",
+      "snapshot_manifest_sha256": "bb311b8235b484de36cd4f33ea68da695a54de74657b8e91a456745e2200fa0e"
+    }
+  },
+  "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896",
+  "image_tag": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor:git-12b6c81958fc-mv1",
+  "status": "BUILT"
+}

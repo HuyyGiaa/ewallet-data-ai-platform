@@ -1,0 +1,10 @@
+{
+  "ai_platform/features/feast": "949f5629819cd8b196a3349b6d9abb29b25e2ec750866ac76711b40ba2492d74",
+  "ai_platform/inference": "0fe677cd76312e018fb4431bcaa4e41c81d48d02606ad91d30c467106b58be9d",
+  "ai_platform/ml": "c044ce4ad536d4b143ed9f06b0bb467bff247dcdb76bc669cef7bef1adb80b67",
+  "ai_platform/ml/dvc-operator": "dfae2e41323c0399cb96082b3c344315d9ac96d074bfac648f8a6a4e62385406",
+  "ai_platform/ml/pipelines": "3c55b936fbbd75410abf2d9b8e9736730adfdceb1714f37a3cd037ca4c26aab2",
+  "ai_platform/serving": "3ab4eee69506a8ba4d076344081d4efb454b81bad654503f6c222c7db710497c",
+  "infra/docker/vllm-cpu-model": "106f47f5c113f202c97b5e35a0bc3f706027edfd93b98d03eefad4e7145cb715",
+  "infra/kubernetes/mlflow/image": "1662242883c458c62ca9e8a0e96cd83487e2177ec146570f437e529044228f78"
+}

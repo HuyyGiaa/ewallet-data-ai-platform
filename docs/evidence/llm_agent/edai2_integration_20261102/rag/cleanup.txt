@@ -1,0 +1,1 @@
+PASS: all owned DB1 canary resources deleted

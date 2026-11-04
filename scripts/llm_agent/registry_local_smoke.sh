@@ -39,7 +39,7 @@ done
 version=$(curl -fsS "http://127.0.0.1:$port/v0/version" || echo '{}')
 cd "$root"
 set +e
-python3 -m ops.llm_agent.registry_catalog publish --registry "http://127.0.0.1:$port" --evidence "$out.publish"
+python3 -m ops.llm_agent.registry_catalog publish --all-prompt-versions --registry "http://127.0.0.1:$port" --confirm-live-write "http://127.0.0.1:$port" --evidence "$out.publish"
 status=$?
 set -e
 agents=$(curl -fsS "http://127.0.0.1:$port/v0/agents" || echo '{}')

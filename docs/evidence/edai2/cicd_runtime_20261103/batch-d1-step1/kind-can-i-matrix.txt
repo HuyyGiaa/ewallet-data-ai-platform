@@ -1,0 +1,34 @@
+OK       want=yes can-i get     secrets                                -n ewallet-mcp-release  -> yes
+OK       want=yes can-i list    secrets                                -n ewallet-mcp-release  -> yes
+OK       want=yes can-i watch   secrets                                -n ewallet-mcp-release  -> yes
+OK       want=yes can-i create  secrets                                -n ewallet-mcp-release  -> yes
+OK       want=yes can-i update  secrets                                -n ewallet-mcp-release  -> yes
+OK       want=yes can-i patch   secrets                                -n ewallet-mcp-release  -> yes
+OK       want=yes can-i delete  secrets                                -n ewallet-mcp-release  -> yes
+OK       want=no  can-i create  pods                                   -n ewallet-mcp-release  -> no
+OK       want=no  can-i create  deployments.apps                       -n ewallet-mcp-release  -> no
+OK       want=no  can-i create  jobs.batch                             -n ewallet-mcp-release  -> no
+OK       want=no  can-i create  configmaps                             -n ewallet-mcp-release  -> no
+OK       want=no  can-i create  serviceaccounts                        -n ewallet-mcp-release  -> no
+OK       want=no  can-i create  serviceaccounts/token                  -n ewallet-mcp-release  -> no
+OK       want=no  can-i create  roles.rbac.authorization.k8s.io        -n ewallet-mcp-release  -> no
+OK       want=no  can-i create  rolebindings.rbac.authorization.k8s.io -n ewallet-mcp-release  -> no
+OK       want=no  can-i bind    roles.rbac.authorization.k8s.io        -n ewallet-mcp-release  -> no
+OK       want=no  can-i escalate roles.rbac.authorization.k8s.io        -n ewallet-mcp-release  -> no
+OK       want=no  can-i impersonate serviceaccounts                        -n ewallet-mcp-release  -> no
+OK       want=no  can-i patch   resourcequotas                         -n ewallet-mcp-release  -> no
+OK       want=no  can-i patch   networkpolicies.networking.k8s.io      -n ewallet-mcp-release  -> no
+OK       want=no  can-i get     secrets                                -n ewallet-mcp          -> no
+OK       want=no  can-i list    secrets                                -n ewallet-mcp          -> no
+OK       want=no  can-i get     secrets                                -n ewallet-agents       -> no
+OK       want=no  can-i list    secrets                                -n ewallet-agents       -> no
+OK       want=no  can-i get     secrets                                -n feature-store        -> no
+OK       want=no  can-i list    secrets                                -n feature-store        -> no
+OK       want=no  can-i get     secrets                                -n default              -> no
+OK       want=no  can-i list    secrets                                -n default              -> no
+OK       want=no  can-i get     secrets                                -n ewallet-ci           -> no
+OK       want=no  can-i list    secrets                                -n ewallet-ci           -> no
+## quota blocks workloads even for cluster-admin (server dry-run)
+Error from server (Forbidden): pods "probe" is forbidden: exceeded quota: helm-records-only, requested: pods=1, used: pods=0, limited: pods=0
+## Jenkins can store a Helm-record-shaped Secret there (dry-run as Jenkins SA)
+secret/sh.helm.release.v1.probe.v1

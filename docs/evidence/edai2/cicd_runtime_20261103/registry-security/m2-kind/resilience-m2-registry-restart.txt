@@ -1,0 +1,15 @@
+## repeat FN4 under M2 2026-11-03T14:37:32Z
+deployment "prompt-registry-agentregistry" successfully rolled out
+prompt-registry-agentregistry-56fff9bfdf-8rvx4   Running   <none>                 true
+prompt-registry-agentregistry-57b5d94c9-5v86j    Running   2026-11-03T14:38:14Z   true
+t+5s pod/prompt-registry-agentregistry-56fff9bfdf-8rvx4 "verdict": "FAIL"   "drift-specialist/v1": "UNAVAILABLE: registry unavailable: Remote end closed connection without response",
+t+10s pod/prompt-registry-agentregistry-56fff9bfdf-8rvx4 "verdict": "FAIL"   "drift-specialist/v1": "UNAVAILABLE: registry unavailable: <urlopen error [Errno 111] Connection refused>",
+t+15s pod/prompt-registry-agentregistry-56fff9bfdf-8rvx4 "verdict": "FAIL"   "drift-specialist/v1": "UNAVAILABLE: registry unavailable: <urlopen error [Errno 111] Connection refused>",
+t+20s pod/prompt-registry-agentregistry-56fff9bfdf-8rvx4 "verdict": "FAIL"   "drift-specialist/v1": "UNAVAILABLE: registry unavailable: <urlopen error [Errno 111] Connection refused>",
+t+25s pod/prompt-registry-agentregistry-56fff9bfdf-8rvx4 "verdict": "FAIL"   "drift-specialist/v1": "UNAVAILABLE: registry unavailable: <urlopen error [Errno 111] Connection refused>",
+t+30s pod/prompt-registry-agentregistry-56fff9bfdf-8rvx4 "verdict": "FAIL"   "drift-specialist/v1": "UNAVAILABLE: registry unavailable: <urlopen error [Errno 111] Connection refused>",
+{"time":"2026-11-03T14:37:34.889360445Z","level":"info","msg":"UI handler initialized; web interface will be available","component":"default"}
+{"time":"2026-11-03T14:37:34.955110019Z","level":"info","msg":"MCP HTTP server starting","component":"default","address":":31313"}
+{"time":"2026-11-03T14:37:34.955363705Z","level":"info","msg":"HTTP server starting","component":"default","address":":8080"}
+{"time":"2026-11-03T14:37:34.955408193Z","level":"info","msg":"web UI available","component":"default","url":"http://localhost:8080/"}
+{"time":"2026-11-03T14:37:34.955414136Z","level":"info","msg":"API documentation available","component":"default","url":"http://localhost:8080/docs"}

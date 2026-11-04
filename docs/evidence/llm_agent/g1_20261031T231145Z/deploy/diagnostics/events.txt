@@ -1,0 +1,108 @@
+LAST SEEN   TYPE      REASON              OBJECT                                MESSAGE
+55m         Warning   Unhealthy           pod/vllm-primary-566fd488bd-9fj4w     Startup probe failed: Traceback (most recent call last):...
+55m         Warning   Unhealthy           pod/vllm-fallback-6ccb5dfdd-gz68f     Startup probe failed: Traceback (most recent call last):...
+54m         Normal    Scheduled           pod/np-internet-egress                Successfully assigned ewallet-agents/np-internet-egress to gke-ewallet-dev-cpu-pool-58daed59-hvd9
+54m         Normal    Pulling             pod/np-internet-egress                Pulling image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40"
+54m         Normal    Started             pod/np-internet-egress                Container started
+54m         Normal    Pulled              pod/np-internet-egress                Successfully pulled image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" in 906ms (906ms including waiting). Image size: 9882231 bytes.
+54m         Normal    Created             pod/np-internet-egress                Container created
+54m         Normal    Scheduled           pod/np-unlabelled-to-vllm             Successfully assigned ewallet-agents/np-unlabelled-to-vllm to gke-ewallet-dev-cpu-pool-58daed59-hvd9
+54m         Normal    Started             pod/np-unlabelled-to-vllm             Container started
+54m         Normal    Created             pod/np-unlabelled-to-vllm             Container created
+54m         Normal    Pulled              pod/np-unlabelled-to-vllm             Container image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" already present on machine and can be accessed by the pod
+54m         Normal    Scheduled           pod/np-unlabelled-to-gateway          Successfully assigned ewallet-agents/np-unlabelled-to-gateway to gke-ewallet-dev-cpu-pool-58daed59-hvd9
+54m         Normal    Pulled              pod/np-unlabelled-to-gateway          Container image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" already present on machine and can be accessed by the pod
+54m         Normal    Created             pod/np-unlabelled-to-gateway          Container created
+54m         Normal    Started             pod/np-unlabelled-to-gateway          Container started
+54m         Normal    Created             pod/np-gateway-label-wrong-sa         Container created
+54m         Normal    Pulled              pod/np-gateway-label-wrong-sa         Container image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" already present on machine and can be accessed by the pod
+54m         Normal    Scheduled           pod/np-gateway-label-wrong-sa         Successfully assigned ewallet-agents/np-gateway-label-wrong-sa to gke-ewallet-dev-cpu-pool-58daed59-26zn
+54m         Normal    Started             pod/np-gateway-label-wrong-sa         Container started
+50m         Normal    Pulled              pod/vllm-primary-566fd488bd-9fj4w     Container image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c" already present on machine and can be accessed by the pod
+50m         Normal    Created             pod/vllm-primary-566fd488bd-9fj4w     Container created
+50m         Warning   Unhealthy           pod/vllm-primary-566fd488bd-9fj4w     Startup probe failed: Traceback (most recent call last):...
+50m         Normal    Started             pod/vllm-primary-566fd488bd-9fj4w     Container started
+50m         Normal    Killing             pod/vllm-primary-566fd488bd-9fj4w     Stopping container vllm
+50m         Normal    Killing             pod/agentgateway-65fd56756-hzlfk      Stopping container agentgateway
+50m         Normal    Killing             pod/vllm-fallback-6ccb5dfdd-gz68f     Stopping container vllm
+50m         Normal    Killing             pod/agentgateway-65fd56756-xnvnz      Stopping container agentgateway
+45m         Normal    ScalingReplicaSet   deployment/vllm-fallback              Scaled up replica set vllm-fallback-7ffbbb7c86 from 0 to 1
+45m         Normal    ScalingReplicaSet   deployment/vllm-primary               Scaled up replica set vllm-primary-85bc57f7bb from 0 to 1
+45m         Normal    Scheduled           pod/vllm-primary-85bc57f7bb-l4k6j     Successfully assigned ewallet-agents/vllm-primary-85bc57f7bb-l4k6j to gke-ewallet-dev-cpu-pool-58daed59-v97b
+45m         Normal    Scheduled           pod/vllm-fallback-7ffbbb7c86-bjs5f    Successfully assigned ewallet-agents/vllm-fallback-7ffbbb7c86-bjs5f to gke-ewallet-dev-cpu-pool-58daed59-mb8v
+45m         Normal    ScalingReplicaSet   deployment/agentgateway               Scaled up replica set agentgateway-65fd56756 from 0 to 2
+45m         Normal    Scheduled           pod/agentgateway-65fd56756-vld2w      Successfully assigned ewallet-agents/agentgateway-65fd56756-vld2w to gke-ewallet-dev-cpu-pool-58daed59-hvd9
+45m         Normal    SuccessfulCreate    replicaset/vllm-fallback-7ffbbb7c86   Created pod: vllm-fallback-7ffbbb7c86-bjs5f
+45m         Normal    Scheduled           pod/agentgateway-65fd56756-bhdnk      Successfully assigned ewallet-agents/agentgateway-65fd56756-bhdnk to gke-ewallet-dev-cpu-pool-58daed59-nnft
+45m         Normal    SuccessfulCreate    replicaset/vllm-primary-85bc57f7bb    Created pod: vllm-primary-85bc57f7bb-l4k6j
+45m         Normal    SuccessfulCreate    replicaset/agentgateway-65fd56756     Created pod: agentgateway-65fd56756-vld2w
+45m         Normal    SuccessfulCreate    replicaset/agentgateway-65fd56756     Created pod: agentgateway-65fd56756-bhdnk
+45m         Normal    Pulled              pod/agentgateway-65fd56756-vld2w      Container image "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b" already present on machine and can be accessed by the pod
+45m         Normal    Pulling             pod/vllm-primary-85bc57f7bb-l4k6j     Pulling image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c"
+45m         Normal    Pulled              pod/agentgateway-65fd56756-bhdnk      Container image "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b" already present on machine and can be accessed by the pod
+45m         Normal    Created             pod/agentgateway-65fd56756-bhdnk      Container created
+45m         Normal    Pulling             pod/vllm-fallback-7ffbbb7c86-bjs5f    Pulling image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c"
+45m         Normal    Started             pod/agentgateway-65fd56756-vld2w      Container started
+45m         Normal    Created             pod/agentgateway-65fd56756-vld2w      Container created
+45m         Normal    Started             pod/agentgateway-65fd56756-bhdnk      Container started
+43m         Normal    Started             pod/vllm-primary-85bc57f7bb-l4k6j     Container started
+43m         Normal    Pulled              pod/vllm-primary-85bc57f7bb-l4k6j     Successfully pulled image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c" in 2m24.564s (2m24.564s including waiting). Image size: 4108513651 bytes.
+43m         Normal    Created             pod/vllm-primary-85bc57f7bb-l4k6j     Container created
+43m         Normal    Created             pod/vllm-fallback-7ffbbb7c86-bjs5f    Container created
+43m         Normal    Pulled              pod/vllm-fallback-7ffbbb7c86-bjs5f    Successfully pulled image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c" in 2m27.252s (2m27.252s including waiting). Image size: 4108513651 bytes.
+43m         Normal    Started             pod/vllm-fallback-7ffbbb7c86-bjs5f    Container started
+38m         Warning   Unhealthy           pod/vllm-fallback-7ffbbb7c86-bjs5f    Startup probe failed: Traceback (most recent call last):...
+38m         Warning   Unhealthy           pod/vllm-primary-85bc57f7bb-l4k6j     Startup probe failed: Traceback (most recent call last):...
+31m         Warning   Unhealthy           pod/vllm-primary-85bc57f7bb-l4k6j     Startup probe failed: Traceback (most recent call last):...
+31m         Warning   Unhealthy           pod/vllm-fallback-7ffbbb7c86-bjs5f    Startup probe failed: Traceback (most recent call last):...
+30m         Normal    Pulled              pod/np-internet-egress                Container image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" already present on machine and can be accessed by the pod
+30m         Normal    Scheduled           pod/np-internet-egress                Successfully assigned ewallet-agents/np-internet-egress to gke-ewallet-dev-cpu-pool-58daed59-hvd9
+30m         Normal    Created             pod/np-internet-egress                Container created
+30m         Normal    Started             pod/np-internet-egress                Container started
+30m         Normal    Created             pod/np-unlabelled-to-vllm             Container created
+30m         Normal    Started             pod/np-unlabelled-to-vllm             Container started
+30m         Normal    Pulled              pod/np-unlabelled-to-vllm             Container image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" already present on machine and can be accessed by the pod
+30m         Normal    Scheduled           pod/np-unlabelled-to-vllm             Successfully assigned ewallet-agents/np-unlabelled-to-vllm to gke-ewallet-dev-cpu-pool-58daed59-hvd9
+30m         Normal    Created             pod/np-unlabelled-to-gateway          Container created
+30m         Normal    Pulled              pod/np-unlabelled-to-gateway          Container image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" already present on machine and can be accessed by the pod
+30m         Normal    Scheduled           pod/np-unlabelled-to-gateway          Successfully assigned ewallet-agents/np-unlabelled-to-gateway to gke-ewallet-dev-cpu-pool-58daed59-hvd9
+30m         Normal    Started             pod/np-unlabelled-to-gateway          Container started
+29m         Normal    Scheduled           pod/np-gateway-label-wrong-sa         Successfully assigned ewallet-agents/np-gateway-label-wrong-sa to gke-ewallet-dev-cpu-pool-58daed59-v97b
+29m         Normal    Pulling             pod/np-gateway-label-wrong-sa         Pulling image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40"
+29m         Normal    Created             pod/np-gateway-label-wrong-sa         Container created
+29m         Normal    Pulled              pod/np-gateway-label-wrong-sa         Successfully pulled image "docker.io/curlimages/curl@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40" in 933ms (933ms including waiting). Image size: 9882231 bytes.
+29m         Normal    Started             pod/np-gateway-label-wrong-sa         Container started
+24m         Normal    Killing             pod/vllm-fallback-7ffbbb7c86-bjs5f    Stopping container vllm
+24m         Normal    Killing             pod/agentgateway-65fd56756-bhdnk      Stopping container agentgateway
+24m         Normal    Killing             pod/agentgateway-65fd56756-vld2w      Stopping container agentgateway
+24m         Normal    Killing             pod/vllm-primary-85bc57f7bb-l4k6j     Stopping container vllm
+18m         Normal    SuccessfulCreate    replicaset/vllm-primary-76547d8c9d    Created pod: vllm-primary-76547d8c9d-w5kvl
+18m         Normal    Scheduled           pod/vllm-primary-76547d8c9d-w5kvl     Successfully assigned ewallet-agents/vllm-primary-76547d8c9d-w5kvl to gke-ewallet-dev-cpu-pool-58daed59-zrgm
+18m         Normal    SuccessfulCreate    replicaset/vllm-fallback-d6c5b66c4    Created pod: vllm-fallback-d6c5b66c4-zrgm5
+18m         Normal    ScalingReplicaSet   deployment/vllm-primary               Scaled up replica set vllm-primary-76547d8c9d from 0 to 1
+18m         Normal    ScalingReplicaSet   deployment/vllm-fallback              Scaled up replica set vllm-fallback-d6c5b66c4 from 0 to 1
+18m         Normal    Scheduled           pod/vllm-fallback-d6c5b66c4-zrgm5     Successfully assigned ewallet-agents/vllm-fallback-d6c5b66c4-zrgm5 to gke-ewallet-dev-cpu-pool-58daed59-08s1
+18m         Normal    ScalingReplicaSet   deployment/agentgateway               Scaled up replica set agentgateway-665c7f898b from 0 to 2
+18m         Normal    SuccessfulCreate    replicaset/agentgateway-665c7f898b    Created pod: agentgateway-665c7f898b-fgfmm
+18m         Normal    SuccessfulCreate    replicaset/agentgateway-665c7f898b    Created pod: agentgateway-665c7f898b-bg8gr
+18m         Normal    Scheduled           pod/agentgateway-665c7f898b-fgfmm     Successfully assigned ewallet-agents/agentgateway-665c7f898b-fgfmm to gke-ewallet-dev-cpu-pool-58daed59-nnft
+18m         Normal    Scheduled           pod/agentgateway-665c7f898b-bg8gr     Successfully assigned ewallet-agents/agentgateway-665c7f898b-bg8gr to gke-ewallet-dev-cpu-pool-58daed59-mb8v
+18m         Normal    Started             pod/agentgateway-665c7f898b-fgfmm     Container started
+18m         Normal    Pulling             pod/vllm-primary-76547d8c9d-w5kvl     Pulling image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c"
+18m         Normal    Pulling             pod/vllm-fallback-d6c5b66c4-zrgm5     Pulling image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c"
+18m         Normal    Created             pod/agentgateway-665c7f898b-fgfmm     Container created
+18m         Normal    Pulling             pod/agentgateway-665c7f898b-bg8gr     Pulling image "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+18m         Normal    Pulled              pod/agentgateway-665c7f898b-fgfmm     Container image "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b" already present on machine and can be accessed by the pod
+18m         Normal    Created             pod/agentgateway-665c7f898b-bg8gr     Container created
+18m         Normal    Started             pod/agentgateway-665c7f898b-bg8gr     Container started
+18m         Normal    Pulled              pod/agentgateway-665c7f898b-bg8gr     Successfully pulled image "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b" in 7.894s (7.894s including waiting). Image size: 41372856 bytes.
+16m         Normal    Started             pod/vllm-primary-76547d8c9d-w5kvl     Container started
+16m         Normal    Created             pod/vllm-primary-76547d8c9d-w5kvl     Container created
+16m         Normal    Pulled              pod/vllm-primary-76547d8c9d-w5kvl     Successfully pulled image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c" in 2m25.57s (2m25.57s including waiting). Image size: 4108513651 bytes.
+16m         Normal    Created             pod/vllm-fallback-d6c5b66c4-zrgm5     Container created
+16m         Normal    Pulled              pod/vllm-fallback-d6c5b66c4-zrgm5     Successfully pulled image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c" in 2m26.353s (2m26.353s including waiting). Image size: 4108513651 bytes.
+16m         Normal    Started             pod/vllm-fallback-d6c5b66c4-zrgm5     Container started
+11m         Warning   Unhealthy           pod/vllm-fallback-d6c5b66c4-zrgm5     Startup probe failed: Traceback (most recent call last):...
+11m         Warning   Unhealthy           pod/vllm-primary-76547d8c9d-w5kvl     Startup probe failed: Traceback (most recent call last):...
+4m25s       Warning   Unhealthy           pod/vllm-fallback-d6c5b66c4-zrgm5     Startup probe failed: Traceback (most recent call last):...
+3m55s       Warning   Unhealthy           pod/vllm-primary-76547d8c9d-w5kvl     Startup probe failed: Traceback (most recent call last):...

@@ -10,6 +10,8 @@
 networkPolicy:
   dns:
     nodeLocalIP: 169.254.20.10
+    # kube-dns Service (read back on ewallet-dev; node-local-dns -localip has both).
+    serviceIP: 34.118.224.10
 
 gateway:
   # No external exposure until a hostname, TLS secret and Gateway API CRDs are
@@ -35,6 +37,19 @@ vllm:
     replicas: 1
   fallback:
     replicas: 1
+  # G1 run 4: vllm-primary was OOMKilled at the 8 Gi limit on its first real
+  # tool call (4 GiB KV cache + weights + torch runtime + 1 GiB /dev/shm, which
+  # counts against the limit). Qwen3-0.6B needs ~112 KiB KV per token, so 2 GiB
+  # still holds ~18k tokens (4 seqs x 4096). One vLLM pod per e2-standard-4 node
+  # (~13 GiB allocatable).
+  kvCacheSpaceGiB: 2
+  resources:
+    requests:
+      cpu: "2"
+      memory: 6Gi
+    limits:
+      cpu: "3"
+      memory: 10Gi
 
 # CPU budgets, the same nesting as values-local.yaml (a 256-token tool call on
 # 2 CPU threads takes ~40-80 s; the base GCP budgets of 35/28/20 s would 504).

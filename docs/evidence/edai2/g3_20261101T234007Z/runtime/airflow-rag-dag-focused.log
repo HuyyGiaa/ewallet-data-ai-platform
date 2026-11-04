@@ -1,0 +1,3 @@
+dag_id                                                 | fileloc                                               | owners  | is_paused | bundle_name                                      | bundle_version
+rag_fraud_policy                                       | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | True      | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/rag_fraud_policy |         |           |                                                  |

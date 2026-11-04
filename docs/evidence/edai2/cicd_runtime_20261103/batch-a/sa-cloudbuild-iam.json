@@ -1,0 +1,12 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iam.serviceAccountUser"
+    }
+  ],
+  "etag": "BwZfWXP5Xng=",
+  "version": 1
+}

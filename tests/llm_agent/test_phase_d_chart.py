@@ -133,6 +133,32 @@ class McpChartTests(unittest.TestCase):
                 proc = self.render(_merge(ENABLED, override), check=False)
                 self.assertNotEqual(proc.returncode, 0)
 
+    def test_each_mcp_service_loads_only_its_own_secret_table(self):
+        configured = _merge(ENABLED, {"mcpServices": {"services": {
+            "feature-rag-mcp": {
+                "authSecret": {"name": "feature-rag-table", "key": "auth-config.json"},
+            },
+            "drift-mcp": {
+                "authSecret": {"name": "drift-table", "key": "auth-config.json"},
+            },
+        }}})
+        items = self.render(configured)
+        deployments = {item["metadata"]["name"]: item for item in items if item["kind"] == "Deployment"}
+        for service, secret in (("feature-rag-mcp", "feature-rag-table"), ("drift-mcp", "drift-table")):
+            env = {item["name"]: item for item in
+                   deployments[service]["spec"]["template"]["spec"]["containers"][0]["env"]}
+            auth = env["EWALLET_MCP_SERVICE_TOKENS"]
+            self.assertNotIn("value", auth)
+            self.assertEqual(auth["valueFrom"]["secretKeyRef"], {
+                "name": secret, "key": "auth-config.json",
+            })
+
+    def test_mcp_auth_secret_name_requires_a_key(self):
+        invalid = _merge(ENABLED, {"mcpServices": {"services": {"drift-mcp": {
+            "authSecret": {"name": "drift-table", "key": ""},
+        }}}})
+        self.assertNotEqual(self.render(invalid, check=False).returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

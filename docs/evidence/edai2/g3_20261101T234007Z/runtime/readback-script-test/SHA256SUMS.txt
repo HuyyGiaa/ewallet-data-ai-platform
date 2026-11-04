@@ -1,0 +1,4 @@
+891f2757dafc33a3b9629f6faef87c86a8c23abc87f4e9657a8bf37a4f609fec  docs/evidence/edai2/g3_20261101T234007Z/runtime/readback-script-test/agent-mcp-status.json
+7453d574c01ca6e50379be67f1ee88c70f902719bbcc9753f362fde761c1285d  docs/evidence/edai2/g3_20261101T234007Z/runtime/readback-script-test/kube-context.txt
+cdf37fd0d372afab1b012531c2a0ad44a758635c5220bfb3306ed8fd7df38b32  docs/evidence/edai2/g3_20261101T234007Z/runtime/readback-script-test/pod-resources.txt
+6810adc59f6ff1884d957d5bd3a2144bdf3ac0df731794519a8d9cb930d529f0  docs/evidence/edai2/g3_20261101T234007Z/runtime/readback-script-test/runtime-health.txt

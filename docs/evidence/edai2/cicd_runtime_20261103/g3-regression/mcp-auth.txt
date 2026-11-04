@@ -1,0 +1,5 @@
+no_token http=401
+forged_token http=401
+revoked_token http=401
+positive rc=0 is_error False tools ['feature_lookup', 'fraud_scoring', 'knowledge_search']
+wrong_specialist rc=1 Unknown tool

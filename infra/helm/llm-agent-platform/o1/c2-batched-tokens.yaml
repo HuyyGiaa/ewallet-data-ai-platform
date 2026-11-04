@@ -1,0 +1,4 @@
+# C2 (scheduler/batching): smaller per-step token budget for chunked prefill
+# (--max-num-batched-tokens 512), so long prefills interleave with decodes.
+vllm:
+  maxNumBatchedTokens: 512

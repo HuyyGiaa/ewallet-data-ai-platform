@@ -1,0 +1,41 @@
+# cross-ref overlap analysis (read-only, git only) HEAD 26eaf8f
+## integration/final-integration-20261101 @50e9e73 merge-base e7dbbc2 | ours-ahead 161 commits / 1773 files | theirs-ahead 80 commits / 237 files | overlapping files 71
+     11 infra/docker
+     10 infra/helm
+      8 tests/ci
+      8 ai_platform/llm_agent
+      7 scripts/ci
+      5 tests/llm_agent
+      5 data_platform/metadata
+      3 tests/observability
+      2 scripts/validation
+      2 ops/llm_agent
+      2 docs/llm_agent
+      1 tests/unit
+## submission/edai1-ml-stable-20261102 @c754ecf merge-base 03f6b3c | ours-ahead 195 commits / 2184 files | theirs-ahead 16 commits / 249 files | overlapping files 136
+     30 data_platform/streaming
+     17 docs/evidence
+     12 infra/kubernetes
+     11 ai_platform/inference
+     10 ai_platform/features
+      9 ai_platform/ml
+      6 tests/unit
+      5 tests/streaming
+      5 ops/gcp
+      5 ai_platform/serving
+      4 infra/docker
+      3 tests/integration
+## origin/main @2033ab3 merge-base 03f6b3c | ours-ahead 195 commits / 2184 files | theirs-ahead 10 commits / 61 files | overlapping files 43
+     30 data_platform/streaming
+      5 tests/streaming
+      4 infra/docker
+      3 configs/streaming
+      1 tests/llm_agent
+## main @bf15328 merge-base bf15328 | ours-ahead 354 commits / 2849 files | theirs-ahead 0 commits / 0 files | overlapping files 0
+## codex/streaming-block-a @3fa7c48 merge-base bbae48c | ours-ahead 283 commits / 2569 files | theirs-ahead 3 commits / 56 files | overlapping files 56
+     38 data_platform/streaming
+      8 tests/streaming
+      4 ai_platform/features
+      3 configs/streaming
+      2 docs/superpowers
+      1 docs/streaming

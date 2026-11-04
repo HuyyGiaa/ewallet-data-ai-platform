@@ -1,0 +1,167 @@
+2026-11-01T03:47:23Z o1 start git=a08f64b117ab3d68bb05d5af0954dca2ee626951 configs=b0-prime,c1-thread-bind,c2-batched-tokens,c3-no-prefix-cache
+2026-11-01T03:47:25Z stage=scale-up git=a08f64b117ab3d68bb05d5af0954dca2ee626951
+Resizing ewallet-dev...
+.......................................................................................................................................................................................................................................................................................................................................................................................................................done.
+Updated [https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/clusters/ewallet-dev].
+node/gke-ewallet-dev-cpu-pool-58daed59-08s1 condition met
+node/gke-ewallet-dev-cpu-pool-58daed59-1hz5 condition met
+node/gke-ewallet-dev-cpu-pool-58daed59-mb8v condition met
+node/gke-ewallet-dev-cpu-pool-58daed59-nj9n condition met
+Waiting for daemon set "calico-node" rollout to finish: 3 of 4 updated pods are available...
+daemon set "calico-node" successfully rolled out
+2026-11-01T03:49:06Z stage=scale-up ok
+2026-11-01T03:49:08Z stage=istio git=a08f64b117ab3d68bb05d5af0954dca2ee626951
+Release "istio-base" has been upgraded. Happy Helming!
+NAME: istio-base
+LAST DEPLOYED: Sun Nov  1 10:49:11 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 8
+TEST SUITE: None
+NOTES:
+Istio base successfully installed!
+
+To learn more about the release, try:
+  $ helm status istio-base -n istio-system
+  $ helm get all istio-base -n istio-system
+Release "istiod" has been upgraded. Happy Helming!
+NAME: istiod
+LAST DEPLOYED: Sun Nov  1 10:49:18 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 8
+TEST SUITE: None
+NOTES:
+"istiod" successfully installed!
+
+To learn more about the release, try:
+  $ helm status istiod -n istio-system
+  $ helm get all istiod -n istio-system
+
+Next steps:
+  * Get started with ambient: https://istio.io/latest/docs/ops/ambient/getting-started/
+  * Review ambient's architecture: https://istio.io/latest/docs/ops/ambient/architecture/
+  * Review the list of actively supported releases, CVE publications and our hardening guide:
+    * https://istio.io/latest/docs/releases/supported-releases/
+    * https://istio.io/latest/news/security/
+    * https://istio.io/latest/docs/ops/best-practices/security/
+
+For further documentation see https://istio.io website
+Release "istio-cni" has been upgraded. Happy Helming!
+NAME: istio-cni
+LAST DEPLOYED: Sun Nov  1 10:49:23 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 8
+TEST SUITE: None
+NOTES:
+"istio-cni" successfully installed!
+
+To learn more about the release, try:
+  $ helm status istio-cni -n istio-system
+  $ helm get all istio-cni -n istio-system
+Release "ztunnel" has been upgraded. Happy Helming!
+NAME: ztunnel
+LAST DEPLOYED: Sun Nov  1 10:49:26 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 8
+TEST SUITE: None
+NOTES:
+ztunnel successfully installed!
+
+To learn more about the release, try:
+  $ helm status ztunnel -n istio-system
+  $ helm get all ztunnel -n istio-system
+daemon set "istio-cni-node" successfully rolled out
+daemon set "ztunnel" successfully rolled out
+2026-11-01T03:49:29Z stage=istio ok
+2026-11-01T03:49:29Z stage=namespace git=a08f64b117ab3d68bb05d5af0954dca2ee626951
+namespace/ewallet-agents unchanged
+2026-11-01T03:49:30Z stage=namespace ok
+2026-11-01T03:49:31Z stage=secret git=a08f64b117ab3d68bb05d5af0954dca2ee626951
+secret/vllm-api-key exists: kept, not overwritten
+secret/agentgateway-client-key exists: kept, not overwritten
+2026-11-01T03:49:32Z stage=secret ok
+daemon set "ztunnel" successfully rolled out
+daemon set "istio-cni-node" successfully rolled out
+daemon set "calico-node" successfully rolled out
+2026-11-01T03:49:33Z deploy b0-prime
+Release "llm-agent" does not exist. Installing it now.
+I1101 10:49:37.864646 2109874 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+I1101 10:49:37.874150 2109874 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+NAME: llm-agent
+LAST DEPLOYED: Sun Nov  1 10:49:34 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+deployment "agentgateway" successfully rolled out
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-fallback" successfully rolled out
+Waiting for deployment "vllm-primary" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-primary" successfully rolled out
+2026-11-01T04:09:31Z benchmark b0-prime
+{
+ "1": {
+  "status": "MEASURED",
+  "error_rate": 0.08333333333333333,
+  "ttft_ms": {
+   "p50": 8072.434749978129,
+   "p95": 63048.14774701663
+  },
+  "e2e_ms": {
+   "p50": 13830.564354982926,
+   "p95": 76895.08711750386,
+   "p99": 77015.81810590578
+  },
+  "output_tokens_per_second": 1.0690475134251167
+ },
+ "2": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 9736.125990006258,
+   "p95": 15815.468293850423
+  },
+  "e2e_ms": {
+   "p50": 35707.68495700031,
+   "p95": 71592.35442730424,
+   "p99": 72246.92137506383
+  },
+  "output_tokens_per_second": 3.3206332460496
+ },
+ "4": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 13359.179737512022,
+   "p95": 24381.032376905205
+  },
+  "e2e_ms": {
+   "p50": 61370.96139851201,
+   "p95": 156607.37816580368,
+   "p99": 156607.4388875594
+  },
+  "output_tokens_per_second": 3.4901382426979652
+ }
+}
+2026-11-01T04:28:01Z benchmark b0-prime reported failures
+2026-11-01T04:28:02Z cleanup (status 143)
+release "llm-agent" uninstalled
+node/gke-ewallet-dev-cpu-pool-58daed59-1hz5 cordoned
+Warning: ignoring DaemonSet-managed Pods: gmp-system/collector-fsfxl, istio-system/istio-cni-node-th7t4, istio-system/ztunnel-lgswv, kube-system/calico-node-k96z9, kube-system/filestore-node-sbxzc, kube-system/fluentbit-gke-wppmp, kube-system/gke-metadata-server-cltxt, kube-system/gke-metrics-agent-vrscg, kube-system/ip-masq-agent-mnbxh, kube-system/netd-cq9hk, kube-system/node-local-dns-tnvr4, kube-system/pdcsi-node-tj9mw
+evicting pod kube-system/konnectivity-agent-68b6ff9f6f-pd7g9
+pod/konnectivity-agent-68b6ff9f6f-pd7g9 evicted
+node/gke-ewallet-dev-cpu-pool-58daed59-1hz5 drained
+node/gke-ewallet-dev-cpu-pool-58daed59-nj9n cordoned
+Warning: ignoring DaemonSet-managed Pods: gmp-system/collector-qvmhp, istio-system/istio-cni-node-mlnpb, istio-system/ztunnel-xm9j2, kube-system/calico-node-g4wsx, kube-system/filestore-node-8xgkn, kube-system/fluentbit-gke-ll2w8, kube-system/gke-metadata-server-tnwmb, kube-system/gke-metrics-agent-4vnbd, kube-system/ip-masq-agent-hdfl8, kube-system/netd-llf8f, kube-system/node-local-dns-pqz2z, kube-system/pdcsi-node-4f7z6
+evicting pod kube-system/konnectivity-agent-68b6ff9f6f-6zkjj
+pod/konnectivity-agent-68b6ff9f6f-6zkjj evicted
+node/gke-ewallet-dev-cpu-pool-58daed59-nj9n drained
+Updated [https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/instanceGroupManagers/gke-ewallet-dev-cpu-pool-58daed59-grp].
+PROJECT                        ZONE               INSTANCE                                STATUS
+ewallet-data-ai-platform-hg26  asia-southeast1-b  gke-ewallet-dev-cpu-pool-58daed59-1hz5  SUCCESS
+ewallet-data-ai-platform-hg26  asia-southeast1-b  gke-ewallet-dev-cpu-pool-58daed59-nj9n  SUCCESS
+{"healthy": true, "pods": 24, "inferenceservices": {"fraud-serving/fraud-detector": true}}
+2026-11-01T04:30:20Z cleanup done

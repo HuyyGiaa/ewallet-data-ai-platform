@@ -159,12 +159,11 @@ class KServeV2ClientTest(unittest.TestCase):
             self.run_async(client.ready())
         self.assertEqual([], transport.get_calls)
 
-    def test_ready_accepts_optional_versions_on_exact_version_scoped_url(self):
+    def test_ready_uses_unversioned_kserve_routes(self):
         transport = FakeTransport(metadata_payload=metadata(include_versions=False))
         self.assertTrue(self.run_async(self.client(transport).ready()))
-        self.assertIn(
-            "/v2/models/ewallet-fraud-classifier/versions/7",
-            transport.get_calls[0][0],
+        self.assertTrue(
+            transport.get_calls[0][0].endswith("/v2/models/ewallet-fraud-classifier")
         )
         self.assertTrue(transport.get_calls[1][0].endswith("/ready"))
 
@@ -248,15 +247,15 @@ class KServeV2ClientTest(unittest.TestCase):
                         )
                     )
 
-    def test_response_model_version_is_optional_but_strict_when_present(self):
+    def test_response_model_version_is_required(self):
         response = prediction_response()
         response.pop("model_version")
-        result = self.run_async(
-            self.client(FakeTransport(prediction_payload=response)).predict(
-                vector(), correlation_id="corr-1"
+        with self.assertRaises(ModelResponseError):
+            self.run_async(
+                self.client(FakeTransport(prediction_payload=response)).predict(
+                    vector(), correlation_id="corr-1"
+                )
             )
-        )
-        self.assertEqual(MODEL_VERSION, result.model_version)
 
     def test_timeout_and_backend_failure_are_distinct(self):
         with self.assertRaises(ModelTimeoutError):

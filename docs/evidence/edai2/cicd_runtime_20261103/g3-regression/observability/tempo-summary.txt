@@ -1,0 +1,6 @@
+4fe1aad81a6a8bdd spans 36 {('fraud-coordinator', 'CLIENT'): 5, ('fraud-coordinator', 'INTERNAL'): 5, ('fraud-coordinator', 'SERVER'): 26}
+   mcp/backend spans: []
+bbd9ead6e913b956 spans 109 {('feature-rag-mcp', 'INTERNAL'): 22, ('feature-rag-mcp', 'SERVER'): 7, ('feature-rag-specialist', 'CLIENT'): 10, ('feature-rag-specialist', 'INTERNAL'): 5, ('feature-rag-specialist', 'SERVER'): 27, ('fraud-coordinator', 'CLIENT'): 6, ('fraud-coordinator', 'INTERNAL'): 5, ('fraud-coordinator', 'SERVER'): 27}
+   mcp/backend spans: ['feast-online.get_features', 'fraud_inference.feature_assembly', 'fraud_inference.feature_retrieval', 'fraud_inference.model_inference', 'fraud_inference.request', 'kserve.infer', 'mcp.tool feature_lookup', 'mcp.tool fraud_scoring', 'mcp.tool knowledge_search']
+c14021a9f46324dd spans 36 {('fraud-coordinator', 'CLIENT'): 5, ('fraud-coordinator', 'INTERNAL'): 5, ('fraud-coordinator', 'SERVER'): 26}
+   mcp/backend spans: []

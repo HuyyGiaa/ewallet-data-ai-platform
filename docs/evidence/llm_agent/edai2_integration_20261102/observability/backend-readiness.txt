@@ -1,0 +1,5 @@
+PROMETHEUS_READY
+Prometheus Server is Ready.
+
+TEMPO_READY
+ready

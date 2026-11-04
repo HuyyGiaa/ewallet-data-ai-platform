@@ -1,4 +1,9 @@
 {{- if .Values.llmd.enabled }}
+{{- if not (has .Values.llmd.mode (list "gateway" "standalone")) }}
+{{- fail "llmd.mode must be gateway or standalone" }}
+{{- end }}
+{{- end }}
+{{- if and .Values.llmd.enabled (eq .Values.llmd.mode "gateway") }}
 {{- if ne .Values.llmd.gatewayClassName "agentgateway" }}
 {{- fail "llmd.gatewayClassName: only the agentgateway v1.7.0 Inference Extension integration is validated" }}
 {{- end }}

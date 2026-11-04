@@ -1,0 +1,2 @@
+attempt=1 status=503 backend=primary
+attempt=2 status=200 backend=fallback

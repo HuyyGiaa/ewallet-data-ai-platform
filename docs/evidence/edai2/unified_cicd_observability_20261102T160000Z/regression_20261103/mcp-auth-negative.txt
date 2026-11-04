@@ -1,0 +1,4 @@
+# raw MCP initialize through mcp-gateway /feature-rag/mcp (2026-11-03)
+no_token http=401 {"request_id":"unknown","code":"authentication_required","message":"Authentication is required","retryable":false,"retry_after_ms":null}
+forged_token http=401 {"request_id":"unknown","code":"authentication_failed","message":"Credentials were not accepted","retryable":false,"retry_after_ms":null}
+revoked_token http=401 {"request_id":"unknown","code":"authentication_failed","message":"Credentials were not accepted","retryable":false,"retry_after_ms":null}

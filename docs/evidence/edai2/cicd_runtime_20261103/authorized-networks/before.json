@@ -1,0 +1,12 @@
+{
+  "masterAuthorizedNetworksConfig": {
+    "enabled": true,
+    "cidrBlocks": [
+      {
+        "cidrBlock": "113.188.119.38/32"
+      }
+    ],
+    "gcpPublicCidrsAccessEnabled": true
+  },
+  "status": "RUNNING"
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "kagent",
+    "namespace": "kagent",
+    "revision": "2",
+    "status": "deployed",
+    "chart": "kagent-0.10.3",
+    "app_version": ""
+  },
+  {
+    "name": "llm-agent",
+    "namespace": "default",
+    "revision": "15",
+    "status": "deployed",
+    "chart": "llm-agent-platform-0.1.0",
+    "app_version": "llm-agent-v1"
+  },
+  {
+    "name": "llm-agent-mcp",
+    "namespace": "ewallet-mcp",
+    "revision": "3",
+    "status": "deployed",
+    "chart": "llm-agent-platform-0.1.0",
+    "app_version": "llm-agent-v1"
+  }
+]

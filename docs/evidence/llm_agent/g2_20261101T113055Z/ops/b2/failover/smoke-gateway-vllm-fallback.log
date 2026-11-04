@@ -1,0 +1,18 @@
+INFO:     10.216.2.7:37855 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:58578 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:52:38 [loggers.py:335] Engine 000: Avg prompt throughput: 8.1 tokens/s, Avg generation throughput: 0.3 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 1.4%, Prefix cache hit rate: 42.3%
+INFO:     10.216.2.7:37855 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:37372 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:52:48 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 2.4 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 42.3%
+INFO:     169.254.7.127:46190 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:46194 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:52:58 [loggers.py:335] Engine 000: Avg prompt throughput: 13.3 tokens/s, Avg generation throughput: 5.3 tokens/s, Running: 0 reqs, Waiting: 1 reqs, Deferred: 1 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 34.7%
+INFO:     10.216.2.7:37855 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33480 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:53:08 [loggers.py:335] Engine 000: Avg prompt throughput: 7.3 tokens/s, Avg generation throughput: 4.9 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 1.4%, Prefix cache hit rate: 48.0%
+INFO:     10.216.2.7:37855 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60756 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:53:18 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 3.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 48.0%
+INFO:     169.254.7.127:60786 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60792 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:53:28 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 48.0%

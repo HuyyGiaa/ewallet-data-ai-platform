@@ -1,0 +1,89 @@
+Started by user admin
+Checking out git /opt/ewallet-source/repository.bundle into /var/jenkins_home/workspace/edai2-agent-negative@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb to read Jenkinsfile.llm-agent
+The recommended git tool is: NONE
+No credentials specified
+Cloning the remote Git repository
+Cloning repository /opt/ewallet-source/repository.bundle
+ > git init /var/jenkins_home/workspace/edai2-agent-negative@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+ > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+Avoid second fetch
+ > git rev-parse refs/remotes/origin/proof/agent^{commit} # timeout=10
+Checking out Revision 8fad87fd8c6a4bede4aec6ed844979424035de4f (refs/remotes/origin/proof/agent)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 8fad87fd8c6a4bede4aec6ed844979424035de4f # timeout=10
+Commit message: "test(cicd): stage isolated Agent proof"
+First time build. Skipping changelog.
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins in /var/jenkins_home/workspace/edai2-agent-negative
+[Pipeline] {
+[Pipeline] checkout
+The recommended git tool is: NONE
+No credentials specified
+Cloning the remote Git repository
+Cloning repository /opt/ewallet-source/repository.bundle
+ > git init /var/jenkins_home/workspace/edai2-agent-negative # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+ > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+Avoid second fetch
+ > git rev-parse refs/remotes/origin/proof/agent^{commit} # timeout=10
+Checking out Revision 8fad87fd8c6a4bede4aec6ed844979424035de4f (refs/remotes/origin/proof/agent)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 8fad87fd8c6a4bede4aec6ed844979424035de4f # timeout=10
+Commit message: "test(cicd): stage isolated Agent proof"
+[Pipeline] load
+[Pipeline] { (jenkins/pipeline/componentPipeline.groovy)
+[Pipeline] }
+[Pipeline] // load
+[Pipeline] properties
+[Pipeline] timeout
+Timeout set to expire in 1 hr 0 min
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Checkout and provenance)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Validate catalog and detect scope)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Component CI)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Intentional negative contract gate)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] junit
+Recording test results
+No test report files were found. Configuration error?
+None of the test reports contained any result
+[Checks API] No suitable checks publisher found.
+[Pipeline] archiveArtifacts
+Archiving artifacts
+Recording fingerprints
+[Pipeline] }
+[Pipeline] // timeout
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 42
+Finished: FAILURE

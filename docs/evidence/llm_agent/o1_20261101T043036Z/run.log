@@ -1,0 +1,53 @@
+2026-11-01T04:30:36Z o1 start git=2d1eb6888201a58ef8410219eae18d71b3c31c0b configs=b0-prime,c1-thread-bind,c2-batched-tokens,c3-no-prefix-cache
+{"healthy": true, "pods": 24, "inferenceservices": {"fraud-serving/fraud-detector": true}}
+{
+ "verdict": "FITS_SAFE_BUDGET",
+ "o1_nodes": [
+  "gke-ewallet-dev-cpu-pool-58daed59-svkv",
+  "gke-ewallet-dev-cpu-pool-58daed59-vvrr"
+ ],
+ "placement": [
+  {
+   "name": "vllm-fallback",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-svkv"
+  },
+  {
+   "name": "vllm-primary",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-vvrr"
+  },
+  {
+   "name": "agentgateway",
+   "cpu": 0.1,
+   "memory_gib": 0.125,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-svkv"
+  },
+  {
+   "name": "agentgateway",
+   "cpu": 0.1,
+   "memory_gib": 0.125,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-vvrr"
+  }
+ ],
+ "unplaced": []
+}
+2026-11-01T04:32:36Z deploy b0-prime
+2026-11-01T04:51:17Z benchmark b0-prime
+2026-11-01T05:09:43Z benchmark b0-prime reported failures
+{"samples": 56, "mlops_regressions": [], "guard_stop": null, "vllm_restarts": 0, "throttling": {"nr_periods": 11062, "nr_throttled": 0, "throttled_usec": 0, "usage_usec": 1554193106}}
+2026-11-01T05:09:44Z deploy c1-thread-bind
+2026-11-01T05:24:21Z benchmark c1-thread-bind
+2026-11-01T05:25:22Z benchmark c1-thread-bind reported failures
+{"samples": 4, "mlops_regressions": [], "guard_stop": null, "vllm_restarts": 0, "throttling": {"nr_periods": 608, "nr_throttled": 12, "throttled_usec": 5715, "usage_usec": 122237518}}
+2026-11-01T05:25:22Z deploy c2-batched-tokens
+Terminated
+2026-11-01T05:26:41Z interrupted
+2026-11-01T05:26:41Z cleanup (status 130)
+pool_size=2
+nodes_after=gke-ewallet-dev-cpu-pool-58daed59-08s1 gke-ewallet-dev-cpu-pool-58daed59-mb8v 
+mlops_nodes_before=gke-ewallet-dev-cpu-pool-58daed59-08s1 gke-ewallet-dev-cpu-pool-58daed59-mb8v 
+2026-11-01T05:29:24Z cleanup done
+exit=130

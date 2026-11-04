@@ -1,0 +1,66 @@
+diff -u -N /tmp/LIVE-1038424658/apps.v1.Deployment.ewallet-mcp.drift-mcp /tmp/MERGED-1368351886/apps.v1.Deployment.ewallet-mcp.drift-mcp
+--- /tmp/LIVE-1038424658/apps.v1.Deployment.ewallet-mcp.drift-mcp	2026-11-02 07:12:33.371186805 +0700
++++ /tmp/MERGED-1368351886/apps.v1.Deployment.ewallet-mcp.drift-mcp	2026-11-02 07:12:33.372186815 +0700
+@@ -6,7 +6,7 @@
+     meta.helm.sh/release-name: llm-agent-mcp
+     meta.helm.sh/release-namespace: ewallet-mcp
+   creationTimestamp: "2026-11-01T20:33:49Z"
+-  generation: 2
++  generation: 3
+   labels:
+     app.kubernetes.io/component: mcp-server
+     app.kubernetes.io/managed-by: Helm
+@@ -50,9 +50,9 @@
+         - --no-access-log
+         env:
+         - name: EWALLET_GIT_SHA
+-          value: b4111a57fc0285ce118ea036038f6abb7b046867
++          value: 642553f40cf395fed06eba52d04f6fa0db3fec94
+         - name: EWALLET_IMAGE_DIGEST
+-          value: sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac
++          value: sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058
+         - name: EWALLET_CONFIG_REVISION
+           value: g3-gke-v1
+         - name: EWALLET_PROMPT_REVISION
+@@ -83,7 +83,7 @@
+             secretKeyRef:
+               key: auth-config.json
+               name: mcp-auth-drift-mcp-r1-transition
+-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac
++        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058
+         imagePullPolicy: IfNotPresent
+         livenessProbe:
+           failureThreshold: 3
+diff -u -N /tmp/LIVE-1038424658/apps.v1.Deployment.ewallet-mcp.feature-rag-mcp /tmp/MERGED-1368351886/apps.v1.Deployment.ewallet-mcp.feature-rag-mcp
+--- /tmp/LIVE-1038424658/apps.v1.Deployment.ewallet-mcp.feature-rag-mcp	2026-11-02 07:12:33.524188322 +0700
++++ /tmp/MERGED-1368351886/apps.v1.Deployment.ewallet-mcp.feature-rag-mcp	2026-11-02 07:12:33.525188332 +0700
+@@ -6,7 +6,7 @@
+     meta.helm.sh/release-name: llm-agent-mcp
+     meta.helm.sh/release-namespace: ewallet-mcp
+   creationTimestamp: "2026-11-01T20:33:49Z"
+-  generation: 2
++  generation: 3
+   labels:
+     app.kubernetes.io/component: mcp-server
+     app.kubernetes.io/managed-by: Helm
+@@ -50,9 +50,9 @@
+         - --no-access-log
+         env:
+         - name: EWALLET_GIT_SHA
+-          value: b4111a57fc0285ce118ea036038f6abb7b046867
++          value: 642553f40cf395fed06eba52d04f6fa0db3fec94
+         - name: EWALLET_IMAGE_DIGEST
+-          value: sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac
++          value: sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058
+         - name: EWALLET_CONFIG_REVISION
+           value: g3-gke-v1
+         - name: EWALLET_PROMPT_REVISION
+@@ -112,7 +112,7 @@
+           value: redis
+         - name: EWALLET_RAG_RETRIEVER
+           value: feast-online-exact
+-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac
++        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058
+         imagePullPolicy: IfNotPresent
+         livenessProbe:
+           failureThreshold: 3

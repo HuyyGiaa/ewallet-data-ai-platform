@@ -1,0 +1,7 @@
+same-namespace redis (10.216.1.118:6379): PONG
+DNS resolve redis.feature-store: Address: 34.118.229.12
+production Feast Redis redis.feature-store:6379: BLOCKED
+Coordinator idempotency Redis ewallet-agents:6379: BLOCKED
+MCP gateway ewallet-agents:8080: BLOCKED
+Internet 142.250.0.1:443: BLOCKED
+metadata 169.254.169.254:80: BLOCKED

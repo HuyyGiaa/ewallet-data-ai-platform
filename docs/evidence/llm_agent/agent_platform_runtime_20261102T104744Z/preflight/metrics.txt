@@ -1,0 +1,21 @@
+NAME                     SERVICE                      AVAILABLE   AGE
+v1beta1.metrics.k8s.io   kube-system/metrics-server   True        34h
+NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+gke-ewallet-dev-cpu-pool-58daed59-08s1   380m         9%       4401Mi          33%
+gke-ewallet-dev-cpu-pool-58daed59-9v0c   265m         6%       3752Mi          28%
+gke-ewallet-dev-cpu-pool-58daed59-gz40   288m         7%       8936Mi          67%
+gke-ewallet-dev-cpu-pool-58daed59-mb8v   328m         8%       5869Mi          44%
+POD                                       NAME             CPU(cores)   MEMORY(bytes)
+a2a-gateway-6dfcf8bf7b-scbh5              agentgateway     1m           9Mi
+agentgateway-5d7b994c75-pffhj             agentgateway     1m           9Mi
+drift-mcp-c845bfc5f-4ttkw                 mcp-server       2m           37Mi
+drift-specialist-7fb847df9-qqxfn          kagent           1m           7Mi
+feature-rag-specialist-65464756b6-qd4pr   kagent           4m           83Mi
+fraud-coordinator-7bf69cb76c-qlt2m        kagent           4m           65Mi
+grafana-84d544f7f-fbfpk                   grafana          7m           94Mi
+loki-5f7948b5f7-94n9r                     loki             10m          57Mi
+mcp-gateway-db9ddd7b-wdxc9                agentgateway     1m           9Mi
+otel-collector-698bb96fcd-z8hb4           otel-collector   3m           43Mi
+prometheus-84c7f58cd8-6cxbb               prometheus       1m           26Mi
+tempo-c59569895-7cfcr                     tempo            5m           188Mi
+vllm-primary-588445cd8-wbbxf              vllm             21m          6196Mi

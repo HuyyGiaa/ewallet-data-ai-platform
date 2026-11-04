@@ -1,0 +1,1 @@
+deployment "fraud-coordinator" successfully rolled out

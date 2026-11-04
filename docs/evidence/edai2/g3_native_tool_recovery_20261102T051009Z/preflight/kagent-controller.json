@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "name": "kagent-controller",
+    "namespace": "kagent"
+  },
+  "spec": {
+    "replicas": 1,
+    "template": {
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/component": "controller",
+          "app.kubernetes.io/instance": "kagent",
+          "app.kubernetes.io/name": "kagent"
+        }
+      },
+      "spec": {
+        "serviceAccountName": "kagent-controller",
+        "containers": [
+          {
+            "name": "controller",
+            "image": "ghcr.io/kagent-dev/kagent/controller:0.10.3@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76",
+            "args": null,
+            "command": null,
+            "ports": [
+              {
+                "containerPort": 8083,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "KAGENT_NAMESPACE",
+                "value": "<valueFrom>"
+              },
+              {
+                "name": "K8S_POD_NAME",
+                "value": "<valueFrom>"
+              },
+              {
+                "name": "K8S_NODE_NAME",
+                "value": "<valueFrom>"
+              },
+              {
+                "name": "AUTH_MODE",
+                "value": "unsecure"
+              },
+              {
+                "name": "POSTGRES_PASSWORD",
+                "value": "<valueFrom>"
+              },
+              {
+                "name": "POSTGRES_DATABASE_URL",
+                "value": "postgres://kagent:$(POSTGRES_PASSWORD)@kagent-postgresql.kagent.svc:5432/kagent?sslmode=disable"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "status": {
+    "readyReplicas": 1,
+    "updatedReplicas": 1
+  }
+}

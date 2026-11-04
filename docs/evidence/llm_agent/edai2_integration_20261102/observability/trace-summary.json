@@ -1,0 +1,185 @@
+{
+  "interesting_spans": [
+    {
+      "duration_ms": 0.039,
+      "name": "POST / http receive",
+      "parent_span_id": "f6e12dc138cbdfc3",
+      "service": "fraud-coordinator",
+      "span_id": "746379026e42de5b",
+      "status": {}
+    },
+    {
+      "duration_ms": 0.06,
+      "name": "POST / http send",
+      "parent_span_id": "f6e12dc138cbdfc3",
+      "service": "fraud-coordinator",
+      "span_id": "3e186218750674d8",
+      "status": {}
+    },
+    {
+      "duration_ms": 0.033,
+      "name": "POST / http send",
+      "parent_span_id": "f6e12dc138cbdfc3",
+      "service": "fraud-coordinator",
+      "span_id": "0876d7403e1c2a97",
+      "status": {}
+    },
+    {
+      "duration_ms": 365.39,
+      "name": "POST /",
+      "parent_span_id": null,
+      "service": "fraud-coordinator",
+      "span_id": "f6e12dc138cbdfc3",
+      "status": {}
+    },
+    {
+      "duration_ms": 13.857,
+      "name": "GET",
+      "parent_span_id": "a5557deb386526ab",
+      "service": "fraud-coordinator",
+      "span_id": "23b653616fde23c7",
+      "status": {
+        "code": "STATUS_CODE_ERROR"
+      }
+    },
+    {
+      "duration_ms": 7.105,
+      "name": "POST",
+      "parent_span_id": "a5557deb386526ab",
+      "service": "fraud-coordinator",
+      "span_id": "1a6410309b53b5d4",
+      "status": {}
+    },
+    {
+      "duration_ms": 6.55,
+      "name": "POST",
+      "parent_span_id": "a5557deb386526ab",
+      "service": "fraud-coordinator",
+      "span_id": "6798e58e64e9245f",
+      "status": {}
+    },
+    {
+      "duration_ms": 333.349,
+      "name": "POST",
+      "parent_span_id": "087155c829f410bd",
+      "service": "fraud-coordinator",
+      "span_id": "3d0bf32304da97eb",
+      "status": {}
+    },
+    {
+      "duration_ms": 7.004,
+      "name": "POST",
+      "parent_span_id": "a5557deb386526ab",
+      "service": "fraud-coordinator",
+      "span_id": "840780b946dddbea",
+      "status": {}
+    },
+    {
+      "duration_ms": 7.392,
+      "name": "POST",
+      "parent_span_id": "a5557deb386526ab",
+      "service": "fraud-coordinator",
+      "span_id": "161cda6ad492c204",
+      "status": {}
+    },
+    {
+      "duration_ms": 338.679,
+      "name": "g3.coordinator.execute",
+      "parent_span_id": "aea42a238d8817c1",
+      "service": "fraud-coordinator",
+      "span_id": "087155c829f410bd",
+      "status": {}
+    },
+    {
+      "duration_ms": 0.043,
+      "name": "POST / http receive",
+      "parent_span_id": "755d30db49dba937",
+      "service": "feature-rag-specialist",
+      "span_id": "90ebeaa028f497a4",
+      "status": {}
+    },
+    {
+      "duration_ms": 0.21,
+      "name": "POST / http receive",
+      "parent_span_id": "755d30db49dba937",
+      "service": "feature-rag-specialist",
+      "span_id": "1c91d94db1042e79",
+      "status": {}
+    },
+    {
+      "duration_ms": 0.041,
+      "name": "POST / http send",
+      "parent_span_id": "755d30db49dba937",
+      "service": "feature-rag-specialist",
+      "span_id": "697d478c36b5b8a2",
+      "status": {}
+    },
+    {
+      "duration_ms": 0.027,
+      "name": "POST / http send",
+      "parent_span_id": "755d30db49dba937",
+      "service": "feature-rag-specialist",
+      "span_id": "f39bddc28046ac68",
+      "status": {}
+    },
+    {
+      "duration_ms": 321.04,
+      "name": "POST /",
+      "parent_span_id": "b3abb4e723239317",
+      "service": "feature-rag-specialist",
+      "span_id": "755d30db49dba937",
+      "status": {}
+    },
+    {
+      "duration_ms": 15.582,
+      "name": "GET",
+      "parent_span_id": "72c0e59255b2dda5",
+      "service": "feature-rag-specialist",
+      "span_id": "7223d6c30966edd5",
+      "status": {
+        "code": "STATUS_CODE_ERROR"
+      }
+    },
+    {
+      "duration_ms": 10.908,
+      "name": "POST",
+      "parent_span_id": "72c0e59255b2dda5",
+      "service": "feature-rag-specialist",
+      "span_id": "1ac18a711897eb94",
+      "status": {}
+    },
+    {
+      "duration_ms": 49.899,
+      "name": "POST",
+      "parent_span_id": "72c0e59255b2dda5",
+      "service": "feature-rag-specialist",
+      "span_id": "47fed19234dd89ea",
+      "status": {}
+    },
+    {
+      "duration_ms": 7.552,
+      "name": "POST",
+      "parent_span_id": "72c0e59255b2dda5",
+      "service": "feature-rag-specialist",
+      "span_id": "3454f217aa272a67",
+      "status": {}
+    },
+    {
+      "duration_ms": 7.893,
+      "name": "POST",
+      "parent_span_id": "72c0e59255b2dda5",
+      "service": "feature-rag-specialist",
+      "span_id": "d12d47884a416de8",
+      "status": {}
+    }
+  ],
+  "linked_parent_child_edges": 77,
+  "root_duration_ms": 365.39,
+  "services": {
+    "feature-rag-specialist": 42,
+    "fraud-coordinator": 37
+  },
+  "span_count": 79,
+  "trace_id": "11206d5194268089db547fc8bed734ae",
+  "verdict": "TEMPO_PERSISTED_AND_READ_BACK"
+}

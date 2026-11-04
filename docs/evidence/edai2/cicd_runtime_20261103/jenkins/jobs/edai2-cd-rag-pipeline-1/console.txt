@@ -1,0 +1,111 @@
+Started by user admin
+Checking out git /opt/ewallet-source/repository.bundle into /var/jenkins_home/workspace/edai2-cd-rag-pipeline@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb to read Jenkinsfile.llm-agent
+The recommended git tool is: NONE
+No credentials specified
+Cloning the remote Git repository
+Cloning repository /opt/ewallet-source/repository.bundle
+ > git init /var/jenkins_home/workspace/edai2-cd-rag-pipeline@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+ > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+Avoid second fetch
+ > git rev-parse refs/remotes/origin/release/rag-pipeline^{commit} # timeout=10
+Checking out Revision 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 (refs/remotes/origin/release/rag-pipeline)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 # timeout=10
+Commit message: "feat(rag): record the producing release SHA in publication.json"
+First time build. Skipping changelog.
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins in /var/jenkins_home/workspace/edai2-cd-rag-pipeline
+[Pipeline] {
+[Pipeline] checkout
+The recommended git tool is: NONE
+No credentials specified
+Cloning the remote Git repository
+Cloning repository /opt/ewallet-source/repository.bundle
+ > git init /var/jenkins_home/workspace/edai2-cd-rag-pipeline # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+ > git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+Avoid second fetch
+ > git rev-parse refs/remotes/origin/release/rag-pipeline^{commit} # timeout=10
+Checking out Revision 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 (refs/remotes/origin/release/rag-pipeline)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 # timeout=10
+Commit message: "feat(rag): record the producing release SHA in publication.json"
+[Pipeline] load
+[Pipeline] { (jenkins/pipeline/componentPipeline.groovy)
+[Pipeline] }
+[Pipeline] // load
+[Pipeline] timeout
+Timeout set to expire in 1 hr 0 min
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Checkout and provenance)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Validate catalog and detect scope)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Component CI)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Controlled release gate)
+[Pipeline] input
+Approve immutable release of 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 to gke-cpu?
+Approve release or Abort
+Approved by admin
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Verify release branch)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Build and publish images (Cloud Build))
+[Pipeline] sh
+cloud_build: POST https://cloudbuild.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/builds -> HTTP 400: {
+  "error": {
+    "code": 400,
+    "message": "invalid bucket \"ewallet-data-ai-platform-hg26-cicd-builds\"; service account ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com does not have access to the bucket",
+    "status": "FAILED_PRECONDITION"
+  }
+}
+
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] junit
+Recording test results
+[Checks API] No suitable checks publisher found.
+[Pipeline] archiveArtifacts
+Archiving artifacts
+Recording fingerprints
+[Pipeline] }
+[Pipeline] // timeout
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 1
+Finished: FAILURE

@@ -673,7 +673,15 @@ def generate_offline_datasets(cfg: dict) -> tuple[dict[str, pd.DataFrame], dict]
 def write_offline_datasets(datasets: dict[str, pd.DataFrame], out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, dataframe in datasets.items():
-        dataframe.to_parquet(out_dir / f"{name}.parquet", index=False)
+        # Canonical source contract: microsecond timestamps (canonical-100gb-v1 shards are
+        # timestamp[us]); pin it instead of inheriting the pyarrow default, and fail
+        # rather than silently truncate a sub-microsecond value.
+        dataframe.to_parquet(
+            out_dir / f"{name}.parquet",
+            index=False,
+            coerce_timestamps="us",
+            allow_truncated_timestamps=False,
+        )
 
 
 def main():

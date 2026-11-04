@@ -1,0 +1,14 @@
+$ kubectl get crd | grep -E 'sandboxagents|workerpools|actortemplates|sandboxconfigs'; echo; kubectl -n kagent-pilot get sandboxagents.kagent.dev,workerpools.ate.dev 2>&1; echo; kubectl get sandboxconfigs.ate.dev -A 2>&1
+actortemplates.ate.dev                                  2026-11-02T12:28:28Z
+sandboxagents.kagent.dev                                2026-11-01T17:21:12Z
+sandboxconfigs.ate.dev                                  2026-11-02T12:28:28Z
+workerpools.ate.dev                                     2026-11-02T12:28:28Z
+
+NAME                                          READY   ACCEPTED
+sandboxagent.kagent.dev/pilot-sandbox-agent   True    True
+
+NAME                              DESIRED   REPLICAS   AGE
+workerpool.ate.dev/kagent-pilot   1         1          44h
+
+NAME             CLASS    DEFAULT   AGE
+gvisor-default   gvisor   true      45h

@@ -1,0 +1,11 @@
+otelCollector:
+  enabled: true
+  tracesEndpoint: tempo.ewallet-agents.svc.cluster.local:4317
+  logsEndpoint: http://loki.ewallet-agents.svc.cluster.local:3100/otlp
+observabilityStack:
+  enabled: true
+  clusterMetrics:
+    enabled: false
+dashboards:
+  enabled: true
+  namespace: ewallet-agents

@@ -1,0 +1,29 @@
+{
+  "agents": {
+    "drift-specialist": {
+      "cardName": "drift_specialist",
+      "requiredSkills": [
+        "feature-risk-analysis"
+      ],
+      "version": "1.0.0"
+    },
+    "feature-rag-specialist": {
+      "cardName": "feature_rag_specialist",
+      "requiredSkills": [
+        "feature-rag-evidence"
+      ],
+      "version": "1.0.0"
+    },
+    "fraud-coordinator": {
+      "cardName": "fraud_coordinator",
+      "requiredSkills": [
+        "investigate-transaction"
+      ],
+      "version": "1.0.0"
+    }
+  },
+  "remoteMCPServers": [
+    "drift-mcp",
+    "feature-rag-mcp"
+  ]
+}

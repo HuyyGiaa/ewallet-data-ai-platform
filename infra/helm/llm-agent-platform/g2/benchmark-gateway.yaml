@@ -1,0 +1,19 @@
+# G2 benchmark session only, applied identically to B2 and O2; removed with the
+# release at cleanup. Not the O1 overlay (400 000/h). The production budget
+# (24 000 tokens/h per model) stays the chart default. One G2 pass (cold prefix,
+# warm-up, levels 1/2/4/8 of o1-workload-v1) is estimated conservatively at
+# ~42 000 tokens (g2_benchmark.py --budget; O1 measured ~33 000 for 1/2/4).
+# g2_preflight.py requires (2 passes + 8 000 gate tokens) x 1.5 <= capacity,
+# i.e. ~139 000. Request rate limit (12/s) unchanged.
+agentgateway:
+  tokenRate:
+    capacity: 150000
+    refill: 150000
+    interval: 1h
+# Passive eviction window for the session, also identical for B2 and O2. The G1
+# failover gate evicts the dead targets, then runs a streamed and a
+# non-streamed two-turn tool call on the fallback (~1-3 min on CPU). With the
+# production 30 s the evicted targets came back mid-test and the next turn got
+# 503 from them (G2 attempt 2, O2: llm-d and the direct primary both re-tried
+# at 12:25:36, 30 s after their eviction). Production keeps 30 s.
+  circuitBreakDuration: 300s

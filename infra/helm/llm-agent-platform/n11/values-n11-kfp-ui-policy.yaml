@@ -1,0 +1,6 @@
+# N11 packet C: Helm takes ownership of the N10-E2 hotfix NetworkPolicy
+# kubeflow/allow-kfp-ui-to-ml-pipeline (same name and spec). Apply only after
+# the adoption metadata step in n11/kfp-ui-policy-adoption.md.
+networkPolicy:
+  kfpUiIngress:
+    enabled: true

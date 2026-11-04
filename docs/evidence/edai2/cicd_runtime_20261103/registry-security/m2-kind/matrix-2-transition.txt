@@ -1,0 +1,44 @@
+## phase=2-transition 2026-11-03T14:32:31Z policies: networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/prompt-registry-db networkpolicy.networking.k8s.io/prompt-registry-server networkpolicy.networking.k8s.io/same-namespace-and-dns 
+source    target    result
+open      dns       RESOLVES
+open      reg-svc   BLOCKED
+open      reg-pod   BLOCKED
+open      mcp-svc   BLOCKED
+open      db-svc    BLOCKED
+open      db-pod    BLOCKED
+open      kubeapi   REACHABLE
+open      external  REACHABLE
+cicd      dns       RESOLVES
+cicd      reg-svc   BLOCKED
+cicd      reg-pod   BLOCKED
+cicd      mcp-svc   BLOCKED
+cicd      db-svc    BLOCKED
+cicd      db-pod    BLOCKED
+cicd      kubeapi   BLOCKED
+cicd      external  BLOCKED
+lateral   dns       RESOLVES
+lateral   reg-svc   REACHABLE
+lateral   reg-pod   REACHABLE
+lateral   mcp-svc   REACHABLE
+lateral   db-svc    REACHABLE
+lateral   db-pod    REACHABLE
+lateral   kubeapi   BLOCKED
+lateral   external  BLOCKED
+db        dns       RESOLVES
+db        reg-svc   REACHABLE
+db        reg-pod   REACHABLE
+db        mcp-svc   REACHABLE
+db        kubeapi   BLOCKED
+db        external  BLOCKED
+registry  dns       RESOLVES
+registry  mcp-svc   REACHABLE
+registry  db-svc    REACHABLE
+registry  db-pod    REACHABLE
+registry  kubeapi   BLOCKED
+registry  external  BLOCKED
+## functional (operator via port-forward, kind registry only)
+FN1 REST health http=200
+FN2 operator publish: PASS 17
+FN2 gate post: "verdict": "PASS"
+FN3 MCP: "serverInfo":{"name":"agentregistry-mcp","version":"v0.4.0"}
+ready: registry=true/restarts=2 db=true

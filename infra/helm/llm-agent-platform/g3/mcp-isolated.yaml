@@ -1,0 +1,70 @@
+# R1A-S1 source-only profile for a second, disjoint Helm release:
+#   helm template llm-agent-mcp ... -f g3/g3.yaml -f g3/mcp-isolated.yaml
+# The existing llm-agent release is not upgraded with this profile. It retains
+# the legacy gateway and MCP workloads for rollback until an approved cleanup.
+# ewallet-mcp is provisioned separately from infra/kubernetes/llm-agent-mcp;
+# keeping it out of this release prevents Helm uninstall from deleting the
+# namespace or externally managed immutable credentials and runtime inputs.
+namespace:
+  create: false
+  name: ewallet-mcp
+  ambient: true
+  podSecurity: {enforce: baseline, warn: restricted, audit: restricted}
+
+serviceAccounts: [feature-rag-mcp, drift-mcp]
+
+gateway: {enabled: false}
+vllm: {enabled: false}
+agentgateway: {enabled: false}
+llmd: {enabled: false}
+agents: {enabled: false}
+mcpGateway: {enabled: false}
+a2aGateway: {enabled: false}
+modelConfig: {enabled: false}
+otelCollector: {enabled: false}
+dashboards: {enabled: false}
+observabilityStack: {enabled: false}
+
+networkFlows:
+  enforced: []
+  unresolved: []
+
+mcpServices:
+  enabled: true
+  replicas: 1
+
+# Ingress is gateway-only. Feature-RAG gets only its two reviewed MLOps egress
+# paths; drift receives neither backend path. DNS and probes come from the
+# namespace security template and remain explicit.
+crossNamespace:
+  flows:
+    - name: mcp-gateway-to-feature-rag-mcp
+      direction: ingress
+      local: feature-rag-mcp
+      port: 8080
+      peer:
+        namespace: ewallet-agents
+        ambient: true
+        serviceAccount: mcp-gateway
+        podLabels: {app.kubernetes.io/name: mcp-gateway}
+    - name: mcp-gateway-to-drift-mcp
+      direction: ingress
+      local: drift-mcp
+      port: 8080
+      peer:
+        namespace: ewallet-agents
+        ambient: true
+        serviceAccount: mcp-gateway
+        podLabels: {app.kubernetes.io/name: mcp-gateway}
+    - name: feature-rag-mcp-to-feast-redis
+      direction: egress
+      local: feature-rag-mcp
+      port: 6379
+      peerIngress: true
+      peer: {namespace: feature-store, podLabels: {app.kubernetes.io/name: redis}}
+    - name: feature-rag-mcp-to-kserve-fraud-detector
+      direction: egress
+      local: feature-rag-mcp
+      port: 8080
+      peerIngress: true
+      peer: {namespace: fraud-serving, podLabels: {serving.kserve.io/inferenceservice: fraud-detector}}

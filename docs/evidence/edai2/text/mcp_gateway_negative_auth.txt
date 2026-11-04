@@ -1,0 +1,4 @@
+no-token-feature-rag route=/feature-rag/mcp http=401
+no-token-drift route=/drift/mcp http=401
+revoked-token-feature-rag route=/feature-rag/mcp http=401
+specialist-token-on-drift route=/drift/mcp http=401

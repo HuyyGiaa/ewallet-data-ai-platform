@@ -1,0 +1,53 @@
+# ewallet-prompts NetworkPolicy specs: live GKE (2026-11-03) vs proposed M2 (default-deny kept, same-namespace-and-dns deleted)
+--- live-gke
++++ proposed-m2
+@@ -3,10 +3,31 @@
+   policyTypes:
+   - Ingress
+   - Egress
+-same-namespace-and-dns:
++prompt-registry-db:
++  egress: []
++  ingress:
++  - from:
++    - podSelector:
++        matchLabels:
++          app.kubernetes.io/name: agentregistry
++    ports:
++    - port: 5432
++      protocol: TCP
++  podSelector:
++    matchLabels:
++      app.kubernetes.io/name: prompt-registry-db
++  policyTypes:
++  - Ingress
++  - Egress
++prompt-registry-server:
+   egress:
+-  - to:
+-    - podSelector: {}
++  - ports:
++    - port: 5432
++      protocol: TCP
++    to:
++    - podSelector:
++        matchLabels:
++          app.kubernetes.io/name: prompt-registry-db
+   - ports:
+     - port: 53
+       protocol: UDP
+@@ -24,10 +45,10 @@
+     to:
+     - ipBlock:
+         cidr: 34.118.224.10/32
+-  ingress:
+-  - from:
+-    - podSelector: {}
+-  podSelector: {}
++  ingress: []
++  podSelector:
++    matchLabels:
++      app.kubernetes.io/name: agentregistry
+   policyTypes:
+   - Ingress
+   - Egress

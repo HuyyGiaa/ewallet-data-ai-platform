@@ -1,0 +1,506 @@
+[
+ {
+  "file": "llm/01_kagent_drift_chat_modelconfig.png",
+  "sha256": "1a6c5aa54717effc9e3cca68f26426e6630a9abe7aedbbf6621c13039196f41c",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-kagent/c3-drift-session-final.png",
+  "campaign": "N10-E2 2026-11-04",
+  "identity": "kagent session 01a1a419; ModelConfig ewallet-global-llm",
+  "rubric_rows": "edai-2 3,4,7",
+  "caption": "drift-specialist chat answered by the deployed Qwen3-0.6B through ModelConfig ewallet-global-llm (header: OpenAI ewallet-fraud-llm)"
+ },
+ {
+  "file": "llm/02_grafana_tokens_per_request.png",
+  "sha256": "5df1a770ce37c0bdedf05f0bde6d538328de3b36076a081baaef3e1282a28f31",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row50-tokens-per-request-input--output--total.png",
+  "campaign": "N12 Gate F 2026-11-04",
+  "identity": "Helm r37",
+  "rubric_rows": "edai-2 3,6,50",
+  "caption": "vLLM input/output/total tokens per request"
+ },
+ {
+  "file": "llm/03_grafana_ttft.png",
+  "sha256": "e29818db678619c6dc006c1d3fec562460f860eabc38d6ba05e1f36e8f1cec88",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row50-time-to-first-token-p50--p95.png",
+  "campaign": "N12 Gate F",
+  "identity": "Helm r37",
+  "rubric_rows": "edai-2 6,50",
+  "caption": "vLLM time to first token p50/p95"
+ },
+ {
+  "file": "llm/04_grafana_generation_rtt.png",
+  "sha256": "0bf18ccc47e8e6ffcf0c9c6c2e7ddbbe43358d0acacd4f708a061265f8ab5ec9",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row50-generation-round-trip-time-p50--p95.png",
+  "campaign": "N12 Gate F",
+  "identity": "Helm r37",
+  "rubric_rows": "edai-2 6,50",
+  "caption": "vLLM end-to-end generation latency p50/p95"
+ },
+ {
+  "file": "llm/05_tempo_llm_gateway_spans.png",
+  "sha256": "75501c936dfc12111ccba59ed88e50a28da8f58727fda7c1945ae144d5b62e2b",
+  "source": "~/ewallet-evidence/n12-observability/O-packetB-rollout/row49-tempo-search-llm-gateway-spans.png",
+  "campaign": "N12 Packet B",
+  "identity": "trace f341b410568fb649ee0f95bba50cd27d",
+  "rubric_rows": "edai-2 5,49",
+  "caption": "agentgateway internal/llm route spans (agentgateway -> vLLM)"
+ },
+ {
+  "file": "agents/01_registry_catalog_agents.png",
+  "sha256": "0cc179c650c28fc72eb5670729c61c66f5fbbfa2aff24acc22c05d60b3c6156e",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-registry-scaling/registry-catalog-agents.png",
+  "campaign": "N10-E2 2026-11-04",
+  "identity": "agentregistry v0.4.0 ewallet-prompts",
+  "rubric_rows": "edai-2 8,21,26",
+  "caption": "Agent registry UI: 3 agents v1.0.0"
+ },
+ {
+  "file": "agents/02_registry_agent_fraud_coordinator.png",
+  "sha256": "999f65761dc1725eaa49cb33297361ebff7437e005bf00d4b3dfef0e7edecf10",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-registry-scaling/registry-agent-fraud-coordinator.png",
+  "campaign": "N10-E2",
+  "identity": "agentregistry",
+  "rubric_rows": "edai-2 8,26",
+  "caption": "fraud-coordinator entry in the registry"
+ },
+ {
+  "file": "agents/03_registry_catalog_mcp_servers.png",
+  "sha256": "3d6ef0cc86950015049c84488c8311e217139ceeab737b879b8ae3eb4df65fda",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-registry-scaling/registry-catalog-servers.png",
+  "campaign": "N10-E2",
+  "identity": "agentregistry",
+  "rubric_rows": "edai-2 8,18",
+  "caption": "drift-mcp and feature-rag-mcp published as MCP servers"
+ },
+ {
+  "file": "agents/04_registry_catalog_prompts.png",
+  "sha256": "96a2338e2ff10ee56078627a5449cff5b027eddaf71aa8069e4fe369e16f1d69",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-registry-scaling/registry-catalog-prompts.png",
+  "campaign": "N10-E2",
+  "identity": "agentregistry",
+  "rubric_rows": "edai-2 8,34",
+  "caption": "Versioned system prompts in the registry"
+ },
+ {
+  "file": "agents/05_registry_deployed.png",
+  "sha256": "ae5179c49699ddd8e305a7e12f5e89e9f977fd203afda202aebdcdedc2f0ba5c",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-registry-scaling/registry-deployed.png",
+  "campaign": "N10-E2",
+  "identity": "agentregistry",
+  "rubric_rows": "edai-2 8",
+  "caption": "Registry deployed view"
+ },
+ {
+  "file": "agents/06_kagent_agents_list.png",
+  "sha256": "e0b82b709a3f71aaff7b3f2c83707ee087e79d840aa0cb1d6f69cff8b3db1224",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/UI/kagent-ui-agents.png",
+  "campaign": "N10-E1 2026-11-04",
+  "identity": "kagent 0.10.3",
+  "rubric_rows": "edai-2 16,19,20,25",
+  "caption": "kagent UI agent list (coordinator, specialists, pilot sandbox agent)"
+ },
+ {
+  "file": "agents/07_kagent_coordinator_prompt.png",
+  "sha256": "55c253db0bc5ccae638f1a16a8dd411756f1f29b37a26a9fdd032930e387ce6b",
+  "source": "~/ewallet-evidence/n11-p0-p1-integration/G-ui-kagent/u1b-coordinator-nl-live-prompt.png",
+  "campaign": "N11 2026-11-04",
+  "identity": "session 01a1a4e8 request nl-eb00ade694f158ff85b004a35a9d1051",
+  "rubric_rows": "edai-2 16,22,25",
+  "caption": "Analyst question in kagent UI; LLM selects investigate_transaction"
+ },
+ {
+  "file": "agents/08_kagent_coordinator_answer.png",
+  "sha256": "4056843af2f37d5d6e538c6c18af469211333a1977edabe5c5b3e077b45a2a5d",
+  "source": "~/ewallet-evidence/n11-p0-p1-integration/G-ui-kagent/u1b-coordinator-nl-live-answer.png",
+  "campaign": "N11",
+  "identity": "trace 7e651a4f38c648bd2ca3ec22e33a5d7b",
+  "rubric_rows": "edai-2 9,16,22,25",
+  "caption": "Final grounded answer: Feast features, KServe probability 0.0639895560144887, 3 RAG citations"
+ },
+ {
+  "file": "agents/09_kagent_specialist_answer.png",
+  "sha256": "ccca417f25b1ecad71d9b2f5540997ca01eb36e14ea5becd6f78360533be3353",
+  "source": "~/ewallet-evidence/n11-p0-p1-integration/G-ui-kagent/u2-specialist-nl-live-answer.png",
+  "campaign": "N11",
+  "identity": "request nl-d61817187a5d735cea1ba3737dce93cb",
+  "rubric_rows": "edai-2 16,22",
+  "caption": "feature-rag-specialist answering directly in kagent UI with real MCP tool calls"
+ },
+ {
+  "file": "agents/10_kagent_rejection_missing_timestamp.png",
+  "sha256": "ca7c81a11f76096af9c160548871852f2cd3479b77013af057a69e1e8878ad20",
+  "source": "~/ewallet-evidence/n11-p0-p1-integration/G-ui-kagent/n2-missing-timestamp-live-rejection.png",
+  "campaign": "N11",
+  "identity": "negative N2",
+  "rubric_rows": "edai-2 16,22",
+  "caption": "Explicit rejection when a critical field is missing (no fabricated score)"
+ },
+ {
+  "file": "agents/11_kagent_rejection_unsupported.png",
+  "sha256": "9a51b7000b331f1bfcd16c24e6c626d9ea19a4ecb7bbd29bb88527e44fc94fc8",
+  "source": "~/ewallet-evidence/n11-p0-p1-integration/G-ui-kagent/n1-unsupported-live-rejection.png",
+  "campaign": "N11",
+  "identity": "negative N1",
+  "rubric_rows": "edai-2 16,22",
+  "caption": "Explicit rejection of an unsupported question"
+ },
+ {
+  "file": "agents/12_kagent_pii_prompt_answer.png",
+  "sha256": "e330fa8270700818b0b0bd1b4b5afed667d95c73a9517d7ab37694223066c206",
+  "source": "~/ewallet-evidence/n12-observability/M-section4/s4-coordinator-nl-pii-live-answer.png",
+  "campaign": "N12 Section 4",
+  "identity": "request nl-89422d35e28d62650705782f2f25b1f0",
+  "rubric_rows": "edai-2 22,50",
+  "caption": "Answer to a prompt containing synthetic PII; PII masked before the LLM and never echoed"
+ },
+ {
+  "file": "agents/13_tempo_gateway_spans_table.png",
+  "sha256": "a8ef97910e332cc659fbbcf48e9452e7f0dfa2d7b4eb6eedac01c4710a92e11a",
+  "source": "~/ewallet-evidence/n12-observability/O-packetB-rollout/row49-tempo-gateway-spans-table.png",
+  "campaign": "N12 Packet B",
+  "identity": "trace f341b410568fb649ee0f95bba50cd27d",
+  "rubric_rows": "edai-2 23,24,49",
+  "caption": "Spans of a2a-gateway, mcp-gateway and LLM gateway in one business trace"
+ },
+ {
+  "file": "agents/14_tempo_trace_waterfall.png",
+  "sha256": "eb2636ba06555ac1ac1ad85884fa051cd10b33e85184704840e8fea472fe9a15",
+  "source": "~/ewallet-evidence/n12-observability/O-packetB-rollout/row49-tempo-trace-all-gateways.png",
+  "campaign": "N12 Packet B",
+  "identity": "trace f341b410568fb649ee0f95bba50cd27d",
+  "rubric_rows": "edai-2 22,25,49",
+  "caption": "251-span trace across fraud-coordinator, gateways, feature-rag-specialist and feature-rag-mcp"
+ },
+ {
+  "file": "mlops/01_kfp_runs.png",
+  "sha256": "bad8bb34dffa9a1fafaf41a1650c4daf4f9e33c993dacad0bd01aa008145b15f",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-ui/kfp-runs.png",
+  "campaign": "N10-E2 2026-11-04",
+  "identity": "KFP run f9-training-20261031-151638-ml2-r3",
+  "rubric_rows": "edai-2 13",
+  "caption": "Kubeflow Pipelines run list"
+ },
+ {
+  "file": "mlops/02_kfp_run_graph.png",
+  "sha256": "85d8a811d38f5be8ab86a316a407459faca0f5ef5aaa03091ecdc21a28b65d09",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-ui/kfp-run-dc29f5cc-graph.png",
+  "campaign": "N10-E2",
+  "identity": "KFP run dc29f5cc-cc9e-49ae-b861-eacddd6269b5",
+  "rubric_rows": "edai-2 13",
+  "caption": "Successful training pipeline graph (validate-snapshot, split, 4x train, select, evaluate, publish)"
+ },
+ {
+  "file": "mlops/03_kfp_run_details.png",
+  "sha256": "3cd545ddc429d95c740b2d79a88013f957290480648f182d25c60f38291cc682",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-ui/kfp-run-dc29f5cc-details.png",
+  "campaign": "N10-E2",
+  "identity": "KFP run dc29f5cc",
+  "rubric_rows": "edai-2 13",
+  "caption": "Run details"
+ },
+ {
+  "file": "mlops/04_mlflow_experiments.png",
+  "sha256": "bf4ad83cd6528fb9982fcb11ea57aca0f88f48ef111d4fb6241357c23e5d31c4",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-ui/mlflow-experiments.png",
+  "campaign": "N10-E2",
+  "identity": "MLflow",
+  "rubric_rows": "edai-2 14",
+  "caption": "MLflow experiments"
+ },
+ {
+  "file": "mlops/05_mlflow_f9_runs.png",
+  "sha256": "78d692aec9b62be562f0b25e65575aef39563b425f5e48c9ffe69c1b16a534f5",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-ui/mlflow-experiment-f9-runs.png",
+  "campaign": "N10-E2",
+  "identity": "MLflow F9 experiment",
+  "rubric_rows": "edai-2 14",
+  "caption": "Training runs per candidate"
+ },
+ {
+  "file": "mlops/06_mlflow_run_artifacts.png",
+  "sha256": "1cda90958a90ce554677bf9531f21de89eaa0970a03df24181b9ab36acb91150",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-ui/mlflow-run-fd639926-artifacts.png",
+  "campaign": "N10-E2",
+  "identity": "run fd639926",
+  "rubric_rows": "edai-2 14",
+  "caption": "Run artifacts (reports, model)"
+ },
+ {
+  "file": "mlops/07_mlflow_registered_models.png",
+  "sha256": "8e9083925f910a97d03c7d501d964fe3aecdaef0f38a648ec268cd6785edf4cb",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-ui/mlflow-registered-models.png",
+  "campaign": "N10-E2",
+  "identity": "fraud-detector",
+  "rubric_rows": "edai-2 14",
+  "caption": "Registered model"
+ },
+ {
+  "file": "mlops/08_mlflow_model_version_1.png",
+  "sha256": "a5a621b37bdd266f6b074c61f5bac954ded0b54804a84de31dcad1e6d55de19d",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/UI/mlflow-model-version-1.png",
+  "campaign": "N10-E1",
+  "identity": "fraud-detector v1",
+  "rubric_rows": "edai-2 14",
+  "caption": "Model version 1 with alias and data-version tags"
+ },
+ {
+  "file": "cicd/01_jenkins_dashboard.png",
+  "sha256": "70a74dc49a295fbda204c679afec15206819d6e2781824cdedd7b126aecfa053",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/F-cicd/ui/jenkins-dashboard.png",
+  "campaign": "N9 readback (N10-E1)",
+  "identity": "Jenkins gen 13",
+  "rubric_rows": "edai-2 33-36",
+  "caption": "Jenkins jobs"
+ },
+ {
+  "file": "cicd/02_jenkins_build_history.png",
+  "sha256": "8a8bc679a4f149934ade10080c83c60e7fc11ed2230f8d0c62af464d6d7f1b06",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/F-cicd/ui/jenkins-build-history.png",
+  "campaign": "N9",
+  "identity": "builds docs#2/#3 ml-ci#3/#4 agent-ci#2 agent-negative#2",
+  "rubric_rows": "edai-2 33-35",
+  "caption": "Build history of the N9 CI campaign"
+ },
+ {
+  "file": "cicd/04_jenkins_ml_ci.png",
+  "sha256": "9296779e2654fa9d10b393791661495c944cfca2a391a25d02856af1ec3cf8b8",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/F-cicd/ui/jenkins-ml-full.png",
+  "campaign": "N9",
+  "identity": "edai2-ml-ci",
+  "rubric_rows": "edai-2 33",
+  "caption": "ML CI pipeline"
+ },
+ {
+  "file": "cicd/05_jenkins_platform_ci_stageview.png",
+  "sha256": "7b50302aa84e5a436b6bbda6a04e0cf493e052003904f1485f17e59fa0c28986",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/F-cicd/ui/jenkins-platform-full-stageview.png",
+  "campaign": "N9",
+  "identity": "edai2-docs-change-detection",
+  "rubric_rows": "edai-2 33-36",
+  "caption": "Platform CI stage view"
+ },
+ {
+  "file": "cicd/06_jenkins_negative_gate_stageview.png",
+  "sha256": "0ee92dcaeee67c7af931dd678354a4cddb074d33895d11504d30d1a69777969a",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/F-cicd/ui/jenkins-negative-gate-stageview.png",
+  "campaign": "N9",
+  "identity": "edai2-agent-negative #2 (exit 42)",
+  "rubric_rows": "edai-2 34",
+  "caption": "Intentional negative contract gate fails the build"
+ },
+ {
+  "file": "cicd/07_jenkins_cd_rag_stageview.png",
+  "sha256": "69928f73d7d13e24e03c65c66f57a5107b832a9ca0a1900954500a6f9b91d423",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-cd/ui/jenkins-cd-rag-stageview.png",
+  "campaign": "N10-E2 2026-11-04",
+  "identity": "edai2-cd-rag-pipeline #8",
+  "rubric_rows": "edai-2 9,33",
+  "caption": "RAG pipeline CD: 7 stages SUCCESS"
+ },
+ {
+  "file": "cicd/08_jenkins_cd_rag_build.png",
+  "sha256": "0fcf26c7ad9f6f429110f7d05cddd0deca78968eff4ac3fb4452698bfcdffc60",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-cd/ui/jenkins-cd-rag-build8.png",
+  "campaign": "N10-E2",
+  "identity": "edai2-cd-rag-pipeline #8",
+  "rubric_rows": "edai-2 33",
+  "caption": "CD build #8 summary"
+ },
+ {
+  "file": "cicd/09_jenkins_cd_rag_console.png",
+  "sha256": "c13ea835cf0b928e475e8d824e66d2debf294d4c7f03c598d8a1bba33eafd903",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-cd/ui/jenkins-cd-rag-build8-console.png",
+  "campaign": "N10-E2",
+  "identity": "Cloud Build c38e6e96; rag-ingestion@f89ecfa7",
+  "rubric_rows": "edai-2 9,33",
+  "caption": "Console: build, deploy to ewallet-cicd, smoke (4 chunks), cleanup"
+ },
+ {
+  "file": "observability/46_fraud_api_req_per_sec.png",
+  "sha256": "78ff68033b04db2f9ccc3256159372cf56815eb6610d48c76f7114708710098c",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row46-fraud-api-requests-per-second.png",
+  "campaign": "N12 Gate F",
+  "identity": "30 bounded requests n12-row46-*",
+  "rubric_rows": "edai-2 46",
+  "caption": "Fraud API req/s by outcome"
+ },
+ {
+  "file": "observability/46_fraud_api_total_requests.png",
+  "sha256": "9ee06eebbfeae49b43260196074531fbc8af6015266fc5049ad083fa0f9cdb1c",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row46-fraud-api-total-requests-time-range.png",
+  "campaign": "N12",
+  "identity": "n12-row46-*",
+  "rubric_rows": "edai-2 46",
+  "caption": "Fraud API total requests"
+ },
+ {
+  "file": "observability/46_fraud_api_failed_requests.png",
+  "sha256": "3e8c25bbd2b45dba9cb64dc58a08904d42d679ea54334ee33893164d1e7adde6",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row46-fraud-api-failed-requests-time-range.png",
+  "campaign": "N12",
+  "identity": "5 x 424 missing_feature",
+  "rubric_rows": "edai-2 46",
+  "caption": "Fraud API failed requests"
+ },
+ {
+  "file": "observability/47_cpu.png",
+  "sha256": "605c6520c53549b2b8f01c037bc6e3b69be099884bf8653ebc37c7ac704d806d",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row47-cpu.png",
+  "campaign": "N12 Gate D",
+  "identity": "Helm r35",
+  "rubric_rows": "edai-2 47",
+  "caption": "Container CPU (cAdvisor)"
+ },
+ {
+  "file": "observability/47_memory.png",
+  "sha256": "37bc1afafc51a69d599087a5dc0106b58866e552a5f2414ed7d7003c5d8a97f6",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row47-memory.png",
+  "campaign": "N12 Gate D",
+  "identity": "Helm r35",
+  "rubric_rows": "edai-2 47",
+  "caption": "Container memory"
+ },
+ {
+  "file": "observability/47_network.png",
+  "sha256": "8abdd3c2579a16937ae8f6f2e6ddb0c51fcb7d5f97ce9f95bb8eee9583c40fbd",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row47-network.png",
+  "campaign": "N12 Gate D",
+  "identity": "Helm r35",
+  "rubric_rows": "edai-2 47",
+  "caption": "Network receive/transmit"
+ },
+ {
+  "file": "observability/47_disk_io.png",
+  "sha256": "6966e3d54cd5a252b2774d6c61902ac9624bc3ff93604e331cd4bf7c07df353c",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row47-disk-io.png",
+  "campaign": "N12 Gate D",
+  "identity": "Helm r35",
+  "rubric_rows": "edai-2 47",
+  "caption": "Disk I/O"
+ },
+ {
+  "file": "observability/47_node_fs.png",
+  "sha256": "68cd54e0a5046bb0ce5a8ecd6bc2be528a3f34a0d08aa198267a22909b51b229",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row47-node-fs.png",
+  "campaign": "N12 Gate D",
+  "identity": "Helm r35",
+  "rubric_rows": "edai-2 47",
+  "caption": "Node root filesystem usage"
+ },
+ {
+  "file": "observability/47_pvc.png",
+  "sha256": "a4c312b1a7ec67f435b5f44476cd42c7f7a15b2ea731ed0a2157cc0507dda3c4",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row47-pvc.png",
+  "campaign": "N12 Gate D",
+  "identity": "Helm r35",
+  "rubric_rows": "edai-2 47",
+  "caption": "PVC usage"
+ },
+ {
+  "file": "observability/48_loki_gateways_by_trace.png",
+  "sha256": "4fffe2bbc5b05511966fdb70050408513bbf2eb188b666a78af0e7540d698741",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row48-loki-gateways-mcp-by-trace.png",
+  "campaign": "N12 Gate E",
+  "identity": "trace 6de09d68d7a4b70fc9012b00e41d13d7",
+  "rubric_rows": "edai-2 48",
+  "caption": "Gateway and MCP logs correlated by trace ID"
+ },
+ {
+  "file": "observability/48_loki_fraud_api_kserve.png",
+  "sha256": "1cc702153b257ed92e7ef14cdf5922f1a72ef6e9f427b142dcbbe333d6f3bd73",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row48-loki-fraud-api-kserve.png",
+  "campaign": "N12 Gate E",
+  "identity": "Helm r36",
+  "rubric_rows": "edai-2 48",
+  "caption": "Fraud API and KServe logs in Loki"
+ },
+ {
+  "file": "observability/48_loki_volume_by_service.png",
+  "sha256": "b59fdea8a365d2eaf48369a9ccd0f6d8ffde705d967c190e530d67718bf8220c",
+  "source": "~/ewallet-evidence/n12-observability/G-ui/row48-loki-volume-by-service.png",
+  "campaign": "N12 Gate E",
+  "identity": "Helm r36",
+  "rubric_rows": "edai-2 48",
+  "caption": "Log volume per service (8 services)"
+ },
+ {
+  "file": "observability/48_loki_agents_by_request_id.png",
+  "sha256": "bc42a8323ff9db47c96c598577601f61a7bb757de34998b5db078007678942ae",
+  "source": "~/ewallet-evidence/n11-p0-p1-integration/H-observability/ui/grafana-loki-agents-by-request-id.png",
+  "campaign": "N11",
+  "identity": "request nl-eb00ade694f158ff85b004a35a9d1051",
+  "rubric_rows": "edai-2 48",
+  "caption": "Agent audit logs by request ID"
+ },
+ {
+  "file": "observability/49_tempo_trace.png",
+  "sha256": "eb2636ba06555ac1ac1ad85884fa051cd10b33e85184704840e8fea472fe9a15",
+  "source": "~/ewallet-evidence/n12-observability/O-packetB-rollout/row49-tempo-trace-all-gateways.png",
+  "campaign": "N12 Packet B",
+  "identity": "trace f341b410568fb649ee0f95bba50cd27d",
+  "rubric_rows": "edai-2 49",
+  "caption": "Distributed trace"
+ },
+ {
+  "file": "observability/49_tempo_gateway_spans.png",
+  "sha256": "a8ef97910e332cc659fbbcf48e9452e7f0dfa2d7b4eb6eedac01c4710a92e11a",
+  "source": "~/ewallet-evidence/n12-observability/O-packetB-rollout/row49-tempo-gateway-spans-table.png",
+  "campaign": "N12 Packet B",
+  "identity": "trace f341b410568fb649ee0f95bba50cd27d",
+  "rubric_rows": "edai-2 49",
+  "caption": "Gateway spans in the trace"
+ },
+ {
+  "file": "observability/50_pii_caught.png",
+  "sha256": "522365227384e7018a7f6bb00b0fa250ab6aef9006f85182e02496536912ace9",
+  "source": "~/ewallet-evidence/n12-observability/M-section4/S4-row50-pii-caught.png",
+  "campaign": "N12 Section 4",
+  "identity": "request nl-89422d35e28d62650705782f2f25b1f0",
+  "rubric_rows": "edai-2 50",
+  "caption": "Prompts caught by the PII screen"
+ },
+ {
+  "file": "observability/50_pii_by_type.png",
+  "sha256": "cf4d1c229368977c618a022c5932219e8d6530ae9912f073443552dc4955604c",
+  "source": "~/ewallet-evidence/n12-observability/M-section4/S4-row50-pii-by-type.png",
+  "campaign": "N12 Section 4",
+  "identity": "same",
+  "rubric_rows": "edai-2 50",
+  "caption": "PII detections by type"
+ },
+ {
+  "file": "observability/51_agent_calls_replacement_window.png",
+  "sha256": "6e6e2793ec3095054fb6b542f4d2af5eb1487e2c4a2006a9c1e7d903737f52c4",
+  "source": "~/ewallet-evidence/n12-observability/L-G3-rollout/G3-row51-agent-calls-replacement-window-9-9.png",
+  "campaign": "N12 G3",
+  "identity": "F2 window, Helm r40",
+  "rubric_rows": "edai-2 51",
+  "caption": "Times each agent was called: 9/9 equals audit events"
+ },
+ {
+  "file": "observability/51_agent_calls_by_outcome.png",
+  "sha256": "e666de4bc2ef087a9089b753767847c177e3ef1e974b45654f31b940b319f2f8",
+  "source": "~/ewallet-evidence/n12-observability/M-section4/S4-row51-agent-calls-by-outcome.png",
+  "campaign": "N12 Section 4",
+  "identity": "Helm r40",
+  "rubric_rows": "edai-2 51",
+  "caption": "Agent calls by outcome"
+ },
+ {
+  "file": "observability/51_mcp_calls_per_tool.png",
+  "sha256": "dbd56b3fd5b1f0f839e915eff4ce76cfa3909a2a91952380ba4a0c2be6c1bc5c",
+  "source": "~/ewallet-evidence/n12-observability/L-G3-rollout/G3-row51-mcp-calls-per-tool-17-16-19.png",
+  "campaign": "N12 G3",
+  "identity": "Helm r40",
+  "rubric_rows": "edai-2 51",
+  "caption": "MCP tool calls per tool 17/16/19"
+ },
+ {
+  "file": "observability/51_mcp_failures_per_tool.png",
+  "sha256": "a600d9131da50a07a624dd85d52f243de28d9bdf31f59bd645d8fc8c0e525d0c",
+  "source": "~/ewallet-evidence/n12-observability/L-G3-rollout/G3-row51-mcp-failures-per-tool-1.png",
+  "campaign": "N12 G3",
+  "identity": "authorized negative test n12-tool-failure",
+  "rubric_rows": "edai-2 51",
+  "caption": "MCP failures per tool: feature_lookup = 1"
+ }
+]

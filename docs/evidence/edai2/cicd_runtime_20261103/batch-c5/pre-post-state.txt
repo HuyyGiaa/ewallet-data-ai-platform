@@ -1,0 +1,10 @@
+## before
+busyExecutors=0 queue=0
+[('edai2-agent-ci', 1), ('edai2-agent-negative', 1), ('edai2-cd-mcp-agents', None), ('edai2-cd-prompt-management', None), ('edai2-cd-rag-pipeline', 6), ('edai2-cd-streaming', None), ('edai2-docs-change-detection', 1), ('edai2-ml-ci', 2)]
+pvc=39eef168-18c6-44cd-a6d9-c718b57ddbc9 Bound 8Gi
+secret resourceVersion=1793632808479535022
+## after
+busyExecutors=0 queue=0
+[('edai2-agent-ci', 1), ('edai2-agent-negative', 1), ('edai2-cd-mcp-agents', None), ('edai2-cd-prompt-management', None), ('edai2-cd-rag-pipeline', 6), ('edai2-cd-streaming', None), ('edai2-docs-change-detection', 1), ('edai2-ml-ci', 2)]
+pvc=39eef168-18c6-44cd-a6d9-c718b57ddbc9 Bound 8Gi
+secret resourceVersion=1793632808479535022

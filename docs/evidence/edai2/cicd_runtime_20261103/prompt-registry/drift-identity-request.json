@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":"edai2-prompt-identity-001","method":"message/send","params":{"message":{"role":"user","messageId":"edai2-prompt-identity-001","contextId":"edai2-prompt-identity","parts":[{"kind":"text","text":"Do not call any tool. Reply only with the JSON identity fields your instructions define: contract_version and prompt_revision."}]}}}

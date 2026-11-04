@@ -1,0 +1,146 @@
+{
+  "title": "E-Wallet Agent & MCP",
+  "uid": "ewallet-agent-mcp",
+  "schemaVersion": 39,
+  "tags": [
+    "ewallet",
+    "agent",
+    "mcp"
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Times each agent was called (time range)",
+      "telemetryStatus": "runtime-pending",
+      "description": "Row 51: BYO agents from ewallet_agent_invocations_total; declarative agents from their invoke_agent span metric (cumulative since the collector started). Exact count from zero-initialized per-pod series: max_over_time - min_over_time per series, summed; no extrapolation. Limits: a process restart inside the same pod resets a series under the same identity and is under-counted; events after the last scrape in the range, or between the range start and the first sample of a series that predates the range, are not visible (one 30 s scrape interval); series that first appeared already incremented (images before F2) are not counted.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent) (max_over_time(ewallet_agent_invocations_total[$__range]) - min_over_time(ewallet_agent_invocations_total[$__range]))",
+          "legendFormat": "{{agent}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (span_name) (ewallet_traces_span_metrics_calls_total{span_name=~\"invoke_agent .*\"})",
+          "legendFormat": "{{span_name}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Agent calls by outcome (time range)",
+      "telemetryStatus": "runtime-pending",
+      "description": "Row 51: terminal task outcome per BYO agent. Exact count from zero-initialized per-pod series: max_over_time - min_over_time per series, summed; no extrapolation. Limits: a process restart inside the same pod resets a series under the same identity and is under-counted; events after the last scrape in the range, or between the range start and the first sample of a series that predates the range, are not visible (one 30 s scrape interval); series that first appeared already incremented (images before F2) are not counted.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent, mode, outcome) (max_over_time(ewallet_agent_invocations_total[$__range]) - min_over_time(ewallet_agent_invocations_total[$__range]))",
+          "legendFormat": "{{agent}} {{mode}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Times each MCP tool was called (total)",
+      "telemetryStatus": "source-verified",
+      "description": "Row 51: tools/call executions per tool, from the MCP servers. Cumulative counter totals: OTLP counters appear with their first increment already counted, so increase() over the range would miss it (N12 Gate F finding).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tool) (ewallet_ewallet_mcp_tool_calls_total)",
+          "legendFormat": "{{tool}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "MCP tool failures per tool (total)",
+      "telemetryStatus": "source-verified",
+      "description": "Row 51: tool calls with semantic outcome error, per tool. Cumulative counter totals: OTLP counters appear with their first increment already counted, so increase() over the range would miss it (N12 Gate F finding).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tool) (ewallet_ewallet_mcp_tool_calls_total{outcome=\"error\"})",
+          "legendFormat": "{{tool}}"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Agent executions",
+      "telemetryStatus": "runtime-pending",
+      "description": "Span-metric agent attributes require runtime trace readback.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (gen_ai_agent_name) (rate(ewallet_traces_span_metrics_calls_total{gen_ai_agent_name!=\"\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "MCP calls by tool",
+      "telemetryStatus": "source-verified",
+      "description": "Gateway transport count plus application semantic outcome count.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (resource) (rate(agentgateway_mcp_requests_total{method=\"tools/call\"}[5m]))"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (tool, outcome) (rate(ewallet_ewallet_mcp_tool_calls_total[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "MCP tool latency p95",
+      "telemetryStatus": "runtime-pending",
+      "description": "Application OTel histogram.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, tool) (rate(ewallet_ewallet_mcp_tool_duration_seconds_bucket[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "MCP semantic failures",
+      "telemetryStatus": "runtime-pending",
+      "description": "Counts isError=true and non-ok structured status even when HTTP is 200.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tool) (rate(ewallet_ewallet_mcp_tool_calls_total{outcome=\"error\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Agent and tool failures from traces",
+      "telemetryStatus": "runtime-pending",
+      "description": "Requires trace readback to confirm kagent attributes.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (gen_ai_agent_name, gen_ai_tool_name) (rate(ewallet_traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\"}[5m]))"
+        }
+      ]
+    }
+  ]
+}

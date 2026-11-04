@@ -1,0 +1,383 @@
+2026-11-02T00:17:38.435508Z [warning  ] Could not import graphviz. Rendering graph to the graphical format will not be possible.
+You might need to install the graphviz package and necessary system packages.
+Run `pip install graphviz` to attempt to install it. [py.warnings] category=UserWarning filename=/home/huyy-giaa/miniconda3/envs/airflow/lib/python3.10/site-packages/airflow/cli/commands/dag_command.py lineno=57
+dag_id                                                 | fileloc                                               | owners  | is_paused | bundle_name                                      | bundle_version
+=======================================================+=======================================================+=========+===========+==================================================+===============
+aggregate_regional_sales                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+asset1_producer                                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_de |         |           |                                                  |
+                                                       | corator.py                                            |         |           |                                                  |
+asset2_producer                                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_de |         |           |                                                  |
+                                                       | corator.py                                            |         |           |                                                  |
+asset_alias_example_alias_consumer                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias.py                                                |         |           |                                                  |
+asset_alias_example_alias_consumer_with_no_taskflow    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias_with_no_taskflow.py                               |         |           |                                                  |
+asset_alias_example_alias_producer                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias.py                                                |         |           |                                                  |
+asset_alias_example_alias_producer_with_no_taskflow    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias_with_no_taskflow.py                               |         |           |                                                  |
+asset_consumes_1                                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+asset_consumes_1_and_2                                 | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+asset_consumes_1_never_scheduled                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+asset_consumes_unknown_never_scheduled                 | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+asset_produces_1                                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+asset_produces_2                                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+asset_s3_bucket_consumer                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias.py                                                |         |           |                                                  |
+asset_s3_bucket_consumer_with_no_taskflow              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias_with_no_taskflow.py                               |         |           |                                                  |
+asset_s3_bucket_producer                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias.py                                                |         |           |                                                  |
+asset_s3_bucket_producer_with_no_taskflow              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | ias_with_no_taskflow.py                               |         |           |                                                  |
+asset_with_extra_by_context                            | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_outlet_e |         |           |                                                  |
+                                                       | vent_extra.py                                         |         |           |                                                  |
+asset_with_extra_by_yield                              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_outlet_e |         |           |                                                  |
+                                                       | vent_extra.py                                         |         |           |                                                  |
+asset_with_extra_from_classic_operator                 | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_outlet_e |         |           |                                                  |
+                                                       | vent_extra.py                                         |         |           |                                                  |
+child_dag                                              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_external_task_child_deferrable.py          |         |           |                                                  |
+clean_and_combine_player_stats                         | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+compute_player_odds                                    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+conditional_asset_and_time_based_timetable             | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+consume_1_and_2_with_asset_expressions                 | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+consume_1_or_2_with_asset_expressions                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+consume_1_or_both_2_and_3_with_asset_expressions       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_assets.p |         |           |                                                  |
+                                                       | y                                                     |         |           |                                                  |
+consumes_asset_decorator                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_de |         |           |                                                  |
+                                                       | corator.py                                            |         |           |                                                  |
+daily_inference                                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+daily_team_a_rollup                                    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+dp1_source_to_bronze                                   | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp1_source_to_br |         |           |                                                  |
+                                                       | onze.py                                               |         |           |                                                  |
+dp1_source_to_bronze                                   | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp1_source_to_br |         |           |                                                  |
+                                                       | onze.py                                               |         |           |                                                  |
+dp1_source_to_bronze                                   | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp1_source_to_br |         |           |                                                  |
+                                                       | onze.py                                               |         |           |                                                  |
+dp1_source_to_bronze                                   | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp1_source_to_br |         |           |                                                  |
+                                                       | onze.py                                               |         |           |                                                  |
+dp1_source_to_bronze                                   | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp1_source_to_br |         |           |                                                  |
+                                                       | onze.py                                               |         |           |                                                  |
+dp1_source_to_bronze                                   | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp1_source_to_br |         |           |                                                  |
+                                                       | onze.py                                               |         |           |                                                  |
+dp2_bronze_to_curated                                  | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp2_bronze_to_cu |         |           |                                                  |
+                                                       | rated.py                                              |         |           |                                                  |
+dp2_bronze_to_curated                                  | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp2_bronze_to_cu |         |           |                                                  |
+                                                       | rated.py                                              |         |           |                                                  |
+dp2_bronze_to_curated                                  | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp2_bronze_to_cu |         |           |                                                  |
+                                                       | rated.py                                              |         |           |                                                  |
+dp2_bronze_to_curated                                  | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp2_bronze_to_cu |         |           |                                                  |
+                                                       | rated.py                                              |         |           |                                                  |
+dp2_bronze_to_curated                                  | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp2_bronze_to_cu |         |           |                                                  |
+                                                       | rated.py                                              |         |           |                                                  |
+dp3_historical_features                                | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp3_historical_f |         |           |                                                  |
+                                                       | eatures.py                                            |         |           |                                                  |
+dp3_historical_features                                | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | False     | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/dp3_historical_f |         |           |                                                  |
+                                                       | eatures.py                                            |         |           |                                                  |
+example_analytics                                      | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-common-sql-example-dags | None
+                                                       | 0/site-packages/airflow/providers/common/sql/example_ |         |           |                                                  |
+                                                       | dags/example_analytics.py                             |         |           |                                                  |
+example_asset_state_store_consumer                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_st |         |           |                                                  |
+                                                       | ate_store.py                                          |         |           |                                                  |
+example_asset_state_store_producer                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_st |         |           |                                                  |
+                                                       | ate_store.py                                          |         |           |                                                  |
+example_asset_with_watchers                            | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_wi |         |           |                                                  |
+                                                       | th_watchers.py                                        |         |           |                                                  |
+example_bash_decorator                                 | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_bash_decorator.py                          |         |           |                                                  |
+example_bash_operator                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_bash_operator.py                           |         |           |                                                  |
+example_branch_datetime_operator                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_branch_datetime_operator.py                |         |           |                                                  |
+example_branch_datetime_operator_2                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_branch_datetime_operator.py                |         |           |                                                  |
+example_branch_datetime_operator_3                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_branch_datetime_operator.py                |         |           |                                                  |
+example_branch_dop_operator_v3                         | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_branch_p |         |           |                                                  |
+                                                       | ython_dop_operator_3.py                               |         |           |                                                  |
+example_branch_labels                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_branch_l |         |           |                                                  |
+                                                       | abels.py                                              |         |           |                                                  |
+example_branch_operator                                | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_branch_operator.py                         |         |           |                                                  |
+example_branch_python_operator_decorator               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_branch_operator_decorator.py               |         |           |                                                  |
+example_complex                                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_complex. |         |           |                                                  |
+                                                       | py                                                    |         |           |                                                  |
+example_custom_weight                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_custom_w |         |           |                                                  |
+                                                       | eight.py                                              |         |           |                                                  |
+example_dag_decorator                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_dag_deco |         |           |                                                  |
+                                                       | rator.py                                              |         |           |                                                  |
+example_display_name                                   | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_display_ |         |           |                                                  |
+                                                       | name.py                                               |         |           |                                                  |
+example_dynamic_task_mapping                           | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_dynamic_ |         |           |                                                  |
+                                                       | task_mapping.py                                       |         |           |                                                  |
+example_dynamic_task_mapping_with_no_taskflow_operator | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+s                                                      | 0/site-packages/airflow/example_dags/example_dynamic_ |         |           |                                                  |
+                                                       | task_mapping_with_no_taskflow_operators.py            |         |           |                                                  |
+example_external_task                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_external_task_parent_deferrable.py         |         |           |                                                  |
+example_external_task_marker_child                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_external_task_marker_dag.py                |         |           |                                                  |
+example_external_task_marker_parent                    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_external_task_marker_dag.py                |         |           |                                                  |
+example_failed_dag                                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_failed_d |         |           |                                                  |
+                                                       | ag.py                                                 |         |           |                                                  |
+example_hitl_operator                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_hitl_operator.py                           |         |           |                                                  |
+example_measurement_correction_decorator               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_measurement_correction_decorator.py        |         |           |                                                  |
+example_measurement_correction_operator                | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_measurement_correction_operator.py         |         |           |                                                  |
+example_nested_branch_dag                              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_nested_b |         |           |                                                  |
+                                                       | ranch_dag.py                                          |         |           |                                                  |
+example_params_trigger_ui                              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_params_t |         |           |                                                  |
+                                                       | rigger_ui.py                                          |         |           |                                                  |
+example_params_ui_tutorial                             | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_params_u |         |           |                                                  |
+                                                       | i_tutorial.py                                         |         |           |                                                  |
+example_passing_params_via_test_command                | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_passing_ |         |           |                                                  |
+                                                       | params_via_test_command.py                            |         |           |                                                  |
+example_python_decorator                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_python_decorator.py                        |         |           |                                                  |
+example_python_operator                                | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_python_operator.py                         |         |           |                                                  |
+example_retry_policy                                   | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_retry_po |         |           |                                                  |
+                                                       | licy.py                                               |         |           |                                                  |
+example_sensor_decorator                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_sensor_decorator.py                        |         |           |                                                  |
+example_sensors                                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_sensors.py                                 |         |           |                                                  |
+example_setup_teardown                                 | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_setup_te |         |           |                                                  |
+                                                       | ardown.py                                             |         |           |                                                  |
+example_setup_teardown_taskflow                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_setup_te |         |           |                                                  |
+                                                       | ardown_taskflow.py                                    |         |           |                                                  |
+example_short_circuit_decorator                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_short_circuit_decorator.py                 |         |           |                                                  |
+example_short_circuit_operator                         | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_short_circuit_operator.py                  |         |           |                                                  |
+example_simplest_dag                                   | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_simplest |         |           |                                                  |
+                                                       | _dag.py                                               |         |           |                                                  |
+example_skip_dag                                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_skip_dag |         |           |                                                  |
+                                                       | .py                                                   |         |           |                                                  |
+example_task_group                                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_task_gro |         |           |                                                  |
+                                                       | up.py                                                 |         |           |                                                  |
+example_task_group_decorator                           | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_task_gro |         |           |                                                  |
+                                                       | up_decorator.py                                       |         |           |                                                  |
+example_task_group_mapping                             | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_dynamic_ |         |           |                                                  |
+                                                       | task_mapping.py                                       |         |           |                                                  |
+example_task_mapping_second_order                      | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_dynamic_ |         |           |                                                  |
+                                                       | task_mapping.py                                       |         |           |                                                  |
+example_task_state_store                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_task_sta |         |           |                                                  |
+                                                       | te_store.py                                           |         |           |                                                  |
+example_task_state_store_mapped                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_task_sta |         |           |                                                  |
+                                                       | te_store_mapped.py                                    |         |           |                                                  |
+example_time_delta_sensor_async                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_time_del |         |           |                                                  |
+                                                       | ta_sensor_async.py                                    |         |           |                                                  |
+example_trigger_controller_dag                         | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_trigger_controller_dag.py                  |         |           |                                                  |
+example_trigger_target_dag                             | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_trigger_ |         |           |                                                  |
+                                                       | target_dag.py                                         |         |           |                                                  |
+example_weekday_branch_operator                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_branch_day_of_week_operator.py             |         |           |                                                  |
+example_workday_timetable                              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_workday_ |         |           |                                                  |
+                                                       | timetable.py                                          |         |           |                                                  |
+example_xcom                                           | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_xcom.py  |         |           |                                                  |
+example_xcom_args                                      | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_xcomargs |         |           |                                                  |
+                                                       | .py                                                   |         |           |                                                  |
+example_xcom_args_with_operators                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_xcomargs |         |           |                                                  |
+                                                       | .py                                                   |         |           |                                                  |
+ingest_region_stats                                    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+ingest_regional_sales                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+ingest_team_a_player_stats                             | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+latest_only                                            | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | apache-airflow-providers-standard-example-dags   | None
+                                                       | 0/site-packages/airflow/providers/standard/example_da |         |           |                                                  |
+                                                       | gs/example_latest_only.py                             |         |           |                                                  |
+latest_only_with_trigger                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_latest_o |         |           |                                                  |
+                                                       | nly_with_trigger.py                                   |         |           |                                                  |
+live_region_player_stats                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+monthly_team_a_rollup                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+multi_region_player_stats                              | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+player_odds_quality_check_wont_ever_to_trigger         | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+rag_fraud_policy                                       | /home/huyy-giaa/Develop/ewallet-data-ai-platform/data | airflow | True      | dags-folder                                      | None
+                                                       | _platform/orchestration/airflow/dags/rag_fraud_policy |         |           |                                                  |
+                                                       | .py                                                   |         |           |                                                  |
+read_asset_event                                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_inlet_ev |         |           |                                                  |
+                                                       | ent_extra.py                                          |         |           |                                                  |
+read_asset_event_from_classic                          | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_inlet_ev |         |           |                                                  |
+                                                       | ent_extra.py                                          |         |           |                                                  |
+regional_stats_breakdown                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+scatter_live_region_to_segments                        | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+segment_region_stats_early_rollup                      | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+segment_region_stats_rollup                            | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+summarize_live_region_stats                            | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+team_analytics_producer                                | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | low_teams.py                                          |         |           |                                                  |
+team_b_player_stats                                    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+team_c_player_stats                                    | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+team_ml_consumer                                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_al |         |           |                                                  |
+                                                       | low_teams.py                                          |         |           |                                                  |
+trailing_week_inference                                | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+train_weekly_model                                     | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/example_asset_pa |         |           |                                                  |
+                                                       | rtition.py                                            |         |           |                                                  |
+tutorial                                               | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/tutorial.py      |         |           |                                                  |
+tutorial_dag                                           | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/tutorial_dag.py  |         |           |                                                  |
+tutorial_objectstorage                                 | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/tutorial_objects |         |           |                                                  |
+                                                       | torage.py                                             |         |           |                                                  |
+tutorial_taskflow_api                                  | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/tutorial_taskflo |         |           |                                                  |
+                                                       | w_api.py                                              |         |           |                                                  |
+tutorial_taskflow_api_virtualenv                       | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/tutorial_taskflo |         |           |                                                  |
+                                                       | w_api_virtualenv.py                                   |         |           |                                                  |
+tutorial_taskflow_templates                            | /home/huyy-giaa/miniconda3/envs/airflow/lib/python3.1 | airflow | True      | example_dags                                     | None
+                                                       | 0/site-packages/airflow/example_dags/tutorial_taskflo |         |           |                                                  |
+                                                       | w_templates.py                                        |         |           |                                                  |

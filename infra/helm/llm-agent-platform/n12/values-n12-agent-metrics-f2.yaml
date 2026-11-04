@@ -1,0 +1,12 @@
+# N12 packet F2: agent images with a per-replica service.instance.id, zero-
+# initialised bounded counters and an immediate flush. They ship together with
+# the restart-safe agent/PII panels from the same chart revision.
+# Images built from 0c2ae1d08a0d298dd818d5f9d5b55ad85a32ba32.
+agents:
+  coordinator:
+    byo:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+  specialists:
+    feature-rag-specialist:
+      byo:
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:5f848a1ce7942f4fd5027264bc54c3164d09065d3c8932fcd4a93bce8db57606

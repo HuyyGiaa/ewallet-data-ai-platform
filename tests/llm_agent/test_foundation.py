@@ -66,6 +66,16 @@ class FoundationTest(unittest.TestCase):
             ["rag-pipeline"],
         )
 
+    def test_integrated_rag_runtime_paths_remain_in_legacy_mapping(self) -> None:
+        self.assertEqual(
+            detect([
+                "Jenkinsfile.rag",
+                "infra/docker/rag-ingestion/uv.lock",
+                "ops/llm_agent/rag_ingest.py",
+            ]),
+            ["rag-pipeline"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

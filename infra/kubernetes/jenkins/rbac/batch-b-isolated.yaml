@@ -1,0 +1,109 @@
+# Batch B: rights for ServiceAccount ewallet-ci/jenkins inside the two isolated
+# namespaces only (infra/kubernetes/cicd-runtime/namespaces.yaml). No Secret
+# verbs, no ClusterRole, no access to any production namespace.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-bounded-workloads
+  namespace: ewallet-cicd
+rules:
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  - cronjobs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  - pods/log
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-prompt-registry
+  namespace: ewallet-prompts
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+# pods/portforward create was removed by M1 (owner DECISION 3, applied on GKE
+# 2026-11-03T14:12:29Z): no Jenkins workflow publishes prompts, so the only
+# non-human path to the unauthenticated registry API is closed. Rollback:
+# re-apply this Role from commit ba85e92.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-bounded-workloads
+  namespace: ewallet-cicd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-bounded-workloads
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: ewallet-ci
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-prompt-registry
+  namespace: ewallet-prompts
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-prompt-registry
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: ewallet-ci

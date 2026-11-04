@@ -1,0 +1,3 @@
+{"agent": "drift-specialist", "bytes": 794, "sha256": "9330dda3061ba50246e15d4d91065ccbfd5b40afc634a380b5e7f72632cd6945", "source": "registry", "version": "v1"}
+{"agent": "drift-specialist", "bytes": 1012, "sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef", "source": "registry", "version": "v2"}
+prompt_registry: drift-specialist/v9 is not in the Git prompt manifest

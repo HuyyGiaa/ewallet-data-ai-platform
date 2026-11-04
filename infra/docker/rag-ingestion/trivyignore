@@ -1,0 +1,8 @@
+# Reviewed Trivy exceptions for the RAG ingestion runtime (Jenkinsfile.rag). Each entry expires.
+#
+# CVE-2026-112940 (filelock < 4.2.1, HIGH): only filelock.ReadWriteLock (SQLite-backed) is affected.
+# No package in this lock imports ReadWriteLock (huggingface-hub, acryl-datahub use FileLock/SoftFileLock;
+# checked 2026-11-01). The fix, filelock 4.2.1+, requires Python >= 3.11, while this runtime must match the
+# Airflow 3.3.1 / Feast 0.66 interpreter (3.10). Exploitation also needs rename access in the private
+# HF cache directory of the Airflow user. Remove when the runtime moves to Python 3.11.
+CVE-2026-112940 exp:2027-01-31

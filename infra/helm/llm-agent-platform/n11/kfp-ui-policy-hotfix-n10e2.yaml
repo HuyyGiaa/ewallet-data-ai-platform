@@ -1,0 +1,25 @@
+# N10-E2 approved additive correction (owner approval 2026-11-04). Not part of any Helm release.
+# Root cause: kubeflow/allow-ewallet-agents-otel-to-kfp (llm-agent chart) selects app=ml-pipeline and admits only
+# ewallet-agents/otel-collector:8888, implicitly denying ml-pipeline-ui. This policy re-admits exactly the UI pod
+# (Deployment selector labels) on the REST port the UI uses (8888). Nothing else is opened.
+# Rollback: kubectl -n kubeflow delete networkpolicy allow-kfp-ui-to-ml-pipeline
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kfp-ui-to-ml-pipeline
+  namespace: kubeflow
+  labels:
+    ewallet.io/change: n10-e2-kfp-ui-recovery
+spec:
+  podSelector:
+    matchLabels:
+      app: ml-pipeline
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ml-pipeline-ui
+              application-crd-id: kubeflow-pipelines
+      ports:
+        - {protocol: TCP, port: 8888}

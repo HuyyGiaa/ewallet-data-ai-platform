@@ -1,0 +1,10 @@
+Found 2 pods, using pod/vllm-primary-66c5f9687c-4j9mr
+INFO:     169.254.7.127:52310 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:51:18 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 3.7 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 48.6%
+INFO:     169.254.7.127:34036 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:34048 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:51:28 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 48.6%
+INFO:     169.254.7.127:38364 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33736 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:41142 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:41158 - "GET /health HTTP/1.1" 200 OK

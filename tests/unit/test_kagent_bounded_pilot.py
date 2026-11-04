@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,6 +16,10 @@ PILOT = ROOT / "infra" / "kubernetes" / "kagent-pilot"
 
 def load_documents(path: Path) -> list[dict]:
     return [doc for doc in yaml.safe_load_all(path.read_text()) if doc]
+
+
+def load_documents_from_text(text: str) -> list[dict]:
+    return [doc for doc in yaml.safe_load_all(text) if doc]
 
 
 class KagentBoundedPilotTest(unittest.TestCase):
@@ -36,8 +42,8 @@ class KagentBoundedPilotTest(unittest.TestCase):
 
     def test_kagent_disables_unneeded_components_and_scopes_rbac(self) -> None:
         values = yaml.safe_load((PILOT / "values" / "kagent.yaml").read_text())
-        self.assertEqual(values["rbac"]["namespaces"], ["kagent"])
-        self.assertEqual(values["controller"]["watchNamespaces"], ["kagent"])
+        self.assertEqual(values["rbac"]["namespaces"], ["kagent-pilot"])
+        self.assertEqual(values["controller"]["watchNamespaces"], ["kagent-pilot"])
         self.assertTrue(values["controller"]["substrate"]["enabled"])
         self.assertEqual(values["substrateWorkerPool"]["replicas"], 1)
         self.assertEqual(values["ui"]["replicas"], 0)
@@ -62,6 +68,21 @@ class KagentBoundedPilotTest(unittest.TestCase):
         ):
             self.assertFalse(values[component]["enabled"], component)
 
+    def test_runtime_overlay_preserves_production_watch_and_isolates_worker(self) -> None:
+        values = yaml.safe_load(
+            (PILOT / "values" / "kagent-runtime-overlay.yaml").read_text()
+        )
+        self.assertEqual(
+            values["controller"]["watchNamespaces"],
+            ["ewallet-agents", "kagent-pilot"],
+        )
+        self.assertEqual(
+            values["controller"]["substrate"]["defaultWorkerPool"]["namespace"],
+            "kagent-pilot",
+        )
+        self.assertEqual(values["substrateWorkerPool"]["replicas"], 1)
+        self.assertIn("@sha256:", values["substrateWorkerPool"]["ateomImage"])
+
     def test_mock_is_internal_deterministic_and_hardened(self) -> None:
         docs = load_documents(PILOT / "manifests" / "mock-openai.yaml")
         by_kind = {doc["kind"]: doc for doc in docs}
@@ -80,6 +101,11 @@ class KagentBoundedPilotTest(unittest.TestCase):
         self.assertIn("KAGENT_PILOT_OK", script)
         self.assertIn("/v1/chat/completions", script)
         compile(script, "mock-openai/server.py", "exec")
+        policy = next(doc for doc in docs if doc["kind"] == "NetworkPolicy")
+        self.assertEqual(
+            policy["spec"]["ingress"][0]["from"][0]["podSelector"]["matchLabels"],
+            {"ate.dev/worker-pool": "kagent-pilot"},
+        )
 
     def test_model_and_sandbox_form_the_intended_path(self) -> None:
         model_docs = load_documents(PILOT / "manifests" / "model-config.yaml")
@@ -90,7 +116,7 @@ class KagentBoundedPilotTest(unittest.TestCase):
         self.assertNotIn("apiKeySecretRef", model["spec"])
         self.assertEqual(
             model["spec"]["openAI"]["baseUrl"],
-            "http://mock-openai.kagent.svc.cluster.local:8080/v1",
+            "http://mock-openai.kagent-pilot.svc.cluster.local:8080/v1",
         )
         agent = load_documents(PILOT / "manifests" / "sandbox-agent.yaml")[0]
         self.assertEqual(agent["kind"], "SandboxAgent")
@@ -99,8 +125,56 @@ class KagentBoundedPilotTest(unittest.TestCase):
         self.assertEqual(agent["spec"]["substrate"]["workerPoolRef"]["name"], "kagent-pilot")
         self.assertEqual(
             agent["spec"]["sandbox"]["network"]["allowedDomains"],
-            ["mock-openai.kagent.svc.cluster.local"],
+            ["mock-openai.kagent-pilot.svc.cluster.local"],
         )
+        self.assertEqual(agent["spec"]["declarative"]["runtime"], "go")
+        self.assertFalse(agent["spec"]["declarative"]["executeCodeBlocks"])
+        self.assertNotIn("RemoteMCPServer", (PILOT / "manifests" / "sandbox-agent.yaml").read_text())
+
+    def test_worker_egress_is_allowlisted_and_has_no_public_cidr(self) -> None:
+        policy = load_documents(PILOT / "manifests" / "worker-egress.yaml")[0]
+        self.assertEqual(policy["kind"], "NetworkPolicy")
+        self.assertEqual(
+            policy["spec"]["podSelector"]["matchLabels"],
+            {"ate.dev/worker-pool": "kagent-pilot"},
+        )
+        self.assertEqual(policy["spec"]["policyTypes"], ["Egress"])
+        egress = policy["spec"]["egress"]
+        self.assertTrue(egress)
+        serialized = yaml.safe_dump(egress)
+        self.assertNotIn("0.0.0.0/0", serialized)
+        self.assertNotIn("169.254.169.254", serialized)
+        self.assertIn("34.118.224.10/32", serialized)
+        self.assertIn("mock-openai", serialized)
+        self.assertIn("kube-dns", serialized)
+        self.assertIn("atenet-router", serialized)
+        for rule in egress:
+            self.assertIn("to", rule)
+            for peer in rule["to"]:
+                if "ipBlock" in peer:
+                    self.assertEqual(peer["ipBlock"], {"cidr": "34.118.224.10/32"})
+                    continue
+                self.assertIn("podSelector", peer)
+                if "namespaceSelector" in peer:
+                    self.assertIn(
+                        "kubernetes.io/metadata.name",
+                        peer["namespaceSelector"]["matchLabels"],
+                    )
+
+    def test_pilot_never_references_production_credentials_or_tools(self) -> None:
+        manifest_text = "\n".join(
+            path.read_text() for path in sorted((PILOT / "manifests").glob("*.yaml"))
+        ).lower()
+        for forbidden in (
+            "mcp-token-",
+            "mcp-auth-",
+            "feast-online-redis",
+            "fraud-scoring",
+            "feature_lookup",
+            "knowledge_search",
+            "drift_detection",
+        ):
+            self.assertNotIn(forbidden, manifest_text)
 
     def test_no_external_service_or_cluster_admin(self) -> None:
         manifest_text = "\n".join(
@@ -122,10 +196,10 @@ spec:
     spec:
       initContainers:
         - name: init
-          image: example.invalid/init:1
+          image: example.invalid/init@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
       containers:
         - name: ate-api-server
-          image: example.invalid/api:1
+          image: example.invalid/api@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ---
 apiVersion: v1
 kind: Service
@@ -152,6 +226,203 @@ spec: {}
                     ):
                         self.assertIn("requests", container["resources"])
                         self.assertIn("limits", container["resources"])
+
+    def test_substrate_post_renderer_pins_every_runtime_image(self) -> None:
+        # This deterministic fixture protects fail-closed pinning in clean
+        # checkouts without requiring a network pull of the chart.
+        rendered = """
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: ate-controller}
+spec:
+  template:
+    spec:
+      containers:
+        - {name: ate-controller, image: ghcr.io/kagent-dev/substrate/atecontroller:v0.0.9}
+        - {name: already-pinned, image: example.invalid/approved@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+"""
+        bounded = subprocess.run(
+            [str(PILOT / "scripts" / "substrate_resource_post_renderer.py")],
+            input=rendered,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        images = [
+            container["image"]
+            for document in yaml.safe_load_all(bounded)
+            if document
+            for container in document["spec"]["template"]["spec"]["containers"]
+        ]
+        self.assertTrue(all("@sha256:" in image for image in images))
+
+    def test_substrate_post_renderer_rejects_unknown_mutable_image(self) -> None:
+        rendered = """
+apiVersion: batch/v1
+kind: Job
+metadata: {name: unreviewed}
+spec:
+  template:
+    spec:
+      containers:
+        - {name: unknown, image: example.invalid/new:latest}
+"""
+        result = subprocess.run(
+            [str(PILOT / "scripts" / "substrate_resource_post_renderer.py")],
+            input=rendered,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unreviewed mutable Substrate image", result.stderr)
+
+    def test_kagent_runtime_post_renderer_isolates_env_source_rbac(self) -> None:
+        rendered = """
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: kagent-ate-api-env-sources, namespace: ewallet-agents}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: kagent-ate-api-env-sources, namespace: ewallet-agents}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: kagent-ate-api-env-sources, namespace: kagent}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: kagent-ate-api-env-sources, namespace: kagent}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: kagent-ate-api-env-sources, namespace: kagent-pilot}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: kagent-ate-api-env-sources, namespace: kagent-pilot}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: kagent-postgresql, namespace: kagent}
+spec:
+  template:
+    spec: {containers: [{name: postgresql, image: example.invalid/postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}]}
+---
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata: {name: kagent-pilot, namespace: kagent}
+spec: {replicas: 1}
+"""
+        result = subprocess.run(
+            [str(PILOT / "scripts" / "kagent_runtime_post_renderer.py")],
+            input=rendered,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        documents = load_documents_from_text(result.stdout)
+        identities = {
+            (
+                document["kind"],
+                document.get("metadata", {}).get("namespace", ""),
+                document.get("metadata", {}).get("name", ""),
+            )
+            for document in documents
+        }
+        self.assertNotIn(
+            ("Role", "ewallet-agents", "kagent-ate-api-env-sources"), identities
+        )
+        self.assertNotIn(
+            ("RoleBinding", "ewallet-agents", "kagent-ate-api-env-sources"), identities
+        )
+        self.assertNotIn(("Role", "kagent", "kagent-ate-api-env-sources"), identities)
+        self.assertNotIn(("RoleBinding", "kagent", "kagent-ate-api-env-sources"), identities)
+        self.assertIn(("Role", "kagent-pilot", "kagent-ate-api-env-sources"), identities)
+        self.assertIn(("RoleBinding", "kagent-pilot", "kagent-ate-api-env-sources"), identities)
+        self.assertIn(("WorkerPool", "kagent-pilot", "kagent-pilot"), identities)
+        postgres = next(document for document in documents if document["kind"] == "Deployment")
+        self.assertEqual(
+            postgres["spec"]["template"]["spec"]["nodeSelector"],
+            {"ewallet.io/g3-llm": "true"},
+        )
+
+    def test_kagent_runtime_post_renderer_fails_on_unexpected_rbac_shape(self) -> None:
+        rendered = """
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: kagent-ate-api-env-sources, namespace: kagent}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: kagent-postgresql, namespace: kagent}
+spec: {template: {spec: {containers: []}}}
+"""
+        result = subprocess.run(
+            [str(PILOT / "scripts" / "kagent_runtime_post_renderer.py")],
+            input=rendered,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("expected exactly the pilot env-source", result.stderr)
+
+    def test_privileged_psa_is_confined_to_pilot_namespace(self) -> None:
+        namespace = load_documents(PILOT / "manifests" / "namespace.yaml")[0]
+        self.assertEqual(namespace["metadata"]["name"], "kagent-pilot")
+        labels = namespace["metadata"]["labels"]
+        self.assertEqual(labels["pod-security.kubernetes.io/enforce"], "privileged")
+        for path in (PILOT / "manifests").glob("*.yaml"):
+            for document in load_documents(path):
+                metadata = document.get("metadata", {})
+                if document.get("kind") != "Namespace" and metadata.get("namespace"):
+                    self.assertEqual(metadata["namespace"], "kagent-pilot", path.name)
+
+    def test_render_audit_fails_closed_on_cluster_scope_and_privilege(self) -> None:
+        rendered = """
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pilot-cluster-role
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: atelet
+  namespace: ate-system
+spec:
+  template:
+    spec:
+      volumes:
+        - name: runtime
+          hostPath: {path: /run/ateom}
+      containers:
+        - name: atelet
+          securityContext: {privileged: true}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "substrate.yaml").write_text(rendered)
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(PILOT / "scripts" / "audit_render.py"),
+                    str(root),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 2)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["verdict"], "BLOCKED_PENDING_OWNER_APPROVAL")
+        self.assertEqual(report["clusterScoped"][0]["kind"], "ClusterRole")
+        self.assertEqual(
+            report["privilegedWorkloads"][0]["reasons"],
+            ["hostPath:runtime", "privileged:atelet"],
+        )
 
 
 if __name__ == "__main__":

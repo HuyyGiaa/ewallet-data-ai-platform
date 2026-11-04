@@ -1,0 +1,88 @@
+{
+  "transport": "official-mcp-sdk-streamable-http",
+  "protocol_version": "2025-06-18",
+  "server": "feature-rag-mcp",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "tool": "knowledge_search",
+  "latency_ms": 195.523,
+  "is_error": false,
+  "structured_content": {
+    "request_id": "eecda3a0-b966-42f6-993f-3dabbf5b05ba",
+    "tool_name": "knowledge_search",
+    "status": "ok",
+    "result": {
+      "query_sha256": "02a83b681a3766af3b56928cc5ca24c3befc81d1cbcf65e6c5a9f0d58c974383",
+      "results": [
+        {
+          "rank": 1,
+          "chunk_id": "policy-payment-anomaly:0000",
+          "document_id": "policy-payment-anomaly",
+          "score": 0.49425804103295834,
+          "quote": "# Payment anomaly review policy This demonstration policy requires enhanced review for unusual payment amount, velocity, merchant, device, or geography patterns. The evidence bundle must separate historical Feast features, request-time attributes, derived features, registered model output, and policy knowledge. Retrieval"
+        },
+        {
+          "rank": 2,
+          "chunk_id": "policy-account-takeover:0000",
+          "document_id": "policy-account-takeover",
+          "score": 0.4664269647229036,
+          "quote": "# Account takeover review policy This demonstration policy requires step-up review when a transaction follows a new-device login, a rapid credential reset, or an impossible-travel signal. Analysts must review the account history, device binding, recent failed login count, and the"
+        },
+        {
+          "rank": 3,
+          "chunk_id": "policy-account-takeover:0001",
+          "document_id": "policy-account-takeover",
+          "score": 0.4522020703117881,
+          "quote": "the source policy identifier and the exact policy revision. If required features are missing, stale, or inconsistent, the decision must fail closed to manual review. Services must not log raw credentials, payment account numbers, secrets, or hidden model reasoning. Any"
+        }
+      ],
+      "retrieval_backend": "feast-online-redis+exact-cosine",
+      "trust_anchor": "source_corpus"
+    },
+    "versions": {
+      "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+      "image_digest": "sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+      "config_revision": "g3-gke-v1",
+      "prompt_revision": "v2",
+      "model_revision": "fraud-detector/1",
+      "feature_revision": "fraud-policy-feast-v1",
+      "corpus_revision": "fraud-policy-v1-20261030"
+    },
+    "citations": [
+      {
+        "document_id": "policy-payment-anomaly",
+        "chunk_id": "policy-payment-anomaly:0000",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md",
+        "source_checksum": "sha256:b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.49425804103295834
+      },
+      {
+        "document_id": "policy-account-takeover",
+        "chunk_id": "policy-account-takeover:0000",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+        "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.4664269647229036
+      },
+      {
+        "document_id": "policy-account-takeover",
+        "chunk_id": "policy-account-takeover:0001",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+        "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.4522020703117881
+      }
+    ],
+    "fallback_used": false
+  }
+}

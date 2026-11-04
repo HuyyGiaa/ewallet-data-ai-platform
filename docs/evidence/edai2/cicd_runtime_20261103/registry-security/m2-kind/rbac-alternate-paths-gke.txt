@@ -1,0 +1,50 @@
+# GKE RBAC: principals able to act on namespace ewallet-prompts (cluster-wide bindings + bindings in the namespace)
+## pods/exec create: 1
+   Group:system:masters via ClusterRoleBinding cluster-admin
+## pods/portforward create: 2
+   Group:system:masters via ClusterRoleBinding cluster-admin
+   User:system:resource-tracker via ClusterRoleBinding system:resource-tracker
+## pods create: 11
+   Group:system:masters via ClusterRoleBinding cluster-admin
+   ServiceAccount:ate-system/ate-controller via ClusterRoleBinding ate-controller
+   ServiceAccount:cert-manager/cert-manager via ClusterRoleBinding cert-manager-controller-challenges
+   ServiceAccount:kube-system/daemon-set-controller via ClusterRoleBinding system:controller:daemon-set-controller
+   ServiceAccount:kube-system/job-controller via ClusterRoleBinding system:controller:job-controller
+   ServiceAccount:kube-system/persistent-volume-binder via ClusterRoleBinding system:controller:persistent-volume-binder
+   ServiceAccount:kube-system/replicaset-controller via ClusterRoleBinding system:controller:replicaset-controller
+   ServiceAccount:kube-system/replication-controller via ClusterRoleBinding system:controller:replication-controller
+   ServiceAccount:kube-system/statefulset-controller via ClusterRoleBinding system:controller:statefulset-controller
+   User:kube-system/system:cluster-autoscaler via ClusterRoleBinding cluster-autoscaler
+   User:system:gke-common-webhooks via ClusterRoleBinding system:gke-common-webhooks
+## deployments patch: 5
+   Group:system:masters via ClusterRoleBinding cluster-admin
+   ServiceAccount:ate-system/ate-controller via ClusterRoleBinding ate-controller
+   ServiceAccount:istio-system/istiod via ClusterRoleBinding istiod-gateway-controller-istio-system
+   ServiceAccount:kserve/kserve-controller-manager via ClusterRoleBinding kserve-manager-rolebinding
+   ServiceAccount:kube-system/generic-garbage-collector via ClusterRoleBinding system:controller:generic-garbage-collector
+## networkpolicies create/patch: 2
+   Group:system:masters via ClusterRoleBinding cluster-admin
+   ServiceAccount:kube-system/generic-garbage-collector via ClusterRoleBinding system:controller:generic-garbage-collector
+## secrets get: 22
+   Group:system:masters via ClusterRoleBinding cluster-admin
+   ServiceAccount:ate-system/ate-controller via ClusterRoleBinding ate-controller
+   ServiceAccount:cert-manager/cert-manager via ClusterRoleBinding cert-manager-controller-certificates
+   ServiceAccount:cert-manager/cert-manager via ClusterRoleBinding cert-manager-controller-challenges
+   ServiceAccount:cert-manager/cert-manager via ClusterRoleBinding cert-manager-controller-clusterissuers
+   ServiceAccount:cert-manager/cert-manager via ClusterRoleBinding cert-manager-controller-issuers
+   ServiceAccount:cert-manager/cert-manager via ClusterRoleBinding cert-manager-controller-orders
+   ServiceAccount:cert-manager/cert-manager-cainjector via ClusterRoleBinding cert-manager-cainjector
+   ServiceAccount:istio-system/istio-reader-service-account via ClusterRoleBinding istio-reader-clusterrole-istio-system
+   ServiceAccount:istio-system/istiod via ClusterRoleBinding istiod-clusterrole-istio-system
+   ServiceAccount:kserve/kserve-controller-manager via ClusterRoleBinding kserve-manager-rolebinding
+   ServiceAccount:kube-system/generic-garbage-collector via ClusterRoleBinding system:controller:generic-garbage-collector
+   ServiceAccount:kube-system/namespace-controller via ClusterRoleBinding system:controller:namespace-controller
+   User:system:cloud-controller-manager via ClusterRoleBinding system:cloud-controller-manager
+   User:system:controller:glbc via ClusterRoleBinding system:glbc-status
+   User:system:gcp-controller-manager via ClusterRoleBinding system:gcp-controller-manager
+   User:system:gke-common-webhooks via ClusterRoleBinding system:gke-common-webhooks
+   User:system:kube-controller-manager via ClusterRoleBinding system:kube-controller-manager
+   User:system:kubestore-collector via ClusterRoleBinding system:kubestore-collector
+   User:system:l4-lb-controller via ClusterRoleBinding system:glbc-status
+   User:system:l7-lb-controller via ClusterRoleBinding system:glbc-status
+   User:system:l7-lb-controller-neg via ClusterRoleBinding system:glbc-status

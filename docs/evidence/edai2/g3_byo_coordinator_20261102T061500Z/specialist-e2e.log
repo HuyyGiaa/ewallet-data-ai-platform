@@ -1,0 +1,1 @@
+2026-11-02T06:15:52.267567576Z {"level":"info","timestamp":"2026-11-02T06:15:52.267Z","logger":"kagent-executor","caller":"a2a/executor.go:145","msg":"Execute","taskID":"01a19ae6-62cb-740f-ab65-6d2dbbee11df","contextID":"01a19ae6-62cb-74d9-95aa-75fabf5c9142","appName":"ewallet_agents__NS__feature_rag_specialist","userID":"A2A_USER_01a19ae6-62cb-74d9-95aa-75fabf5c9142"}

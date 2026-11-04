@@ -1,0 +1,701 @@
+2026-11-01T05:29:39Z o1 start git=a194189d142bb0dfe98ea8882ce19f0b6f037f97 configs=b0-prime,c1-thread-bind,c2-batched-tokens,c3-no-prefix-cache
+2026-11-01T05:29:41Z stage=scale-up git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+Resizing ewallet-dev...
+...............................................................................................................................................................................................................................................................................................................................................................................................done.
+Updated [https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/clusters/ewallet-dev].
+node/gke-ewallet-dev-cpu-pool-58daed59-08s1 condition met
+node/gke-ewallet-dev-cpu-pool-58daed59-4z9k condition met
+node/gke-ewallet-dev-cpu-pool-58daed59-9gpp condition met
+node/gke-ewallet-dev-cpu-pool-58daed59-mb8v condition met
+Waiting for daemon set "calico-node" rollout to finish: 2 of 4 updated pods are available...
+Waiting for daemon set "calico-node" rollout to finish: 3 of 4 updated pods are available...
+daemon set "calico-node" successfully rolled out
+2026-11-01T05:31:17Z stage=scale-up ok
+2026-11-01T05:31:18Z stage=istio git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+Release "istio-base" has been upgraded. Happy Helming!
+NAME: istio-base
+LAST DEPLOYED: Sun Nov  1 12:31:22 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 10
+TEST SUITE: None
+NOTES:
+Istio base successfully installed!
+
+To learn more about the release, try:
+  $ helm status istio-base -n istio-system
+  $ helm get all istio-base -n istio-system
+Release "istiod" has been upgraded. Happy Helming!
+NAME: istiod
+LAST DEPLOYED: Sun Nov  1 12:31:30 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 10
+TEST SUITE: None
+NOTES:
+"istiod" successfully installed!
+
+To learn more about the release, try:
+  $ helm status istiod -n istio-system
+  $ helm get all istiod -n istio-system
+
+Next steps:
+  * Get started with ambient: https://istio.io/latest/docs/ops/ambient/getting-started/
+  * Review ambient's architecture: https://istio.io/latest/docs/ops/ambient/architecture/
+  * Review the list of actively supported releases, CVE publications and our hardening guide:
+    * https://istio.io/latest/docs/releases/supported-releases/
+    * https://istio.io/latest/news/security/
+    * https://istio.io/latest/docs/ops/best-practices/security/
+
+For further documentation see https://istio.io website
+Release "istio-cni" has been upgraded. Happy Helming!
+NAME: istio-cni
+LAST DEPLOYED: Sun Nov  1 12:31:35 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 10
+TEST SUITE: None
+NOTES:
+"istio-cni" successfully installed!
+
+To learn more about the release, try:
+  $ helm status istio-cni -n istio-system
+  $ helm get all istio-cni -n istio-system
+Release "ztunnel" has been upgraded. Happy Helming!
+NAME: ztunnel
+LAST DEPLOYED: Sun Nov  1 12:31:38 2026
+NAMESPACE: istio-system
+STATUS: deployed
+REVISION: 10
+TEST SUITE: None
+NOTES:
+ztunnel successfully installed!
+
+To learn more about the release, try:
+  $ helm status ztunnel -n istio-system
+  $ helm get all ztunnel -n istio-system
+daemon set "istio-cni-node" successfully rolled out
+daemon set "ztunnel" successfully rolled out
+2026-11-01T05:31:43Z stage=istio ok
+2026-11-01T05:31:44Z stage=namespace git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+namespace/ewallet-agents unchanged
+2026-11-01T05:31:45Z stage=namespace ok
+2026-11-01T05:31:45Z stage=secret git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+secret/vllm-api-key exists: kept, not overwritten
+secret/agentgateway-client-key exists: kept, not overwritten
+2026-11-01T05:31:46Z stage=secret ok
+daemon set "ztunnel" successfully rolled out
+daemon set "istio-cni-node" successfully rolled out
+daemon set "calico-node" successfully rolled out
+2026-11-01T05:31:48Z deploy b0-prime
+Release "llm-agent" does not exist. Installing it now.
+I1101 12:31:52.385652 2294134 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+I1101 12:31:52.389724 2294134 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+NAME: llm-agent
+LAST DEPLOYED: Sun Nov  1 12:31:49 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+deployment "agentgateway" successfully rolled out
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-fallback" successfully rolled out
+deployment "vllm-primary" successfully rolled out
+2026-11-01T05:50:50Z benchmark b0-prime
+{
+ "1": {
+  "status": "MEASURED",
+  "error_rate": 0.08333333333333333,
+  "ttft_ms": {
+   "p50": 7809.963259001961,
+   "p95": 61393.06725599454
+  },
+  "e2e_ms": {
+   "p50": 13281.69659001287,
+   "p95": 74456.17672448861,
+   "p99": 74479.2623584799
+  },
+  "output_tokens_per_second": 1.104714910475744
+ },
+ "2": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 8886.140025002533,
+   "p95": 11562.694072851444
+  },
+  "e2e_ms": {
+   "p50": 34049.53131500224,
+   "p95": 69607.52859605418,
+   "p99": 70368.27221440326
+  },
+  "output_tokens_per_second": 3.438133773223326
+ },
+ "4": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 12869.944210498943,
+   "p95": 23424.499101596302
+  },
+  "e2e_ms": {
+   "p50": 59183.72243500198,
+   "p95": 151064.824612753,
+   "p99": 151077.96108335024
+  },
+  "output_tokens_per_second": 3.6217706033941117
+ }
+}
+2026-11-01T06:08:44Z benchmark b0-prime reported failures
+2026-11-01T06:08:45Z deploy c1-thread-bind
+I1101 13:08:50.361126 2351916 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+I1101 13:08:50.576178 2351916 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+Release "llm-agent" has been upgraded. Happy Helming!
+NAME: llm-agent
+LAST DEPLOYED: Sun Nov  1 13:08:45 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 2
+TEST SUITE: None
+deployment "agentgateway" successfully rolled out
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-fallback" successfully rolled out
+deployment "vllm-primary" successfully rolled out
+2026-11-01T06:23:37Z benchmark c1-thread-bind
+{
+ "1": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 4917.776304500876,
+   "p95": 60264.578976592704
+  },
+  "e2e_ms": {
+   "p50": 11160.81907149055,
+   "p95": 74731.59387835179,
+   "p99": 107042.91345646959
+  },
+  "output_tokens_per_second": 2.205814589340141
+ },
+ "2": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 5261.023835992091,
+   "p95": 7494.821831547597
+  },
+  "e2e_ms": {
+   "p50": 22560.795997997047,
+   "p95": 46601.71113915858,
+   "p99": 46912.5338742428
+  },
+  "output_tokens_per_second": 5.181955412951645
+ },
+ "4": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 8058.127759999479,
+   "p95": 13182.512603014766
+  },
+  "e2e_ms": {
+   "p50": 39799.92110650346,
+   "p95": 98716.82410700741,
+   "p99": 98716.84692541981
+  },
+  "output_tokens_per_second": 5.483595902684333
+ }
+}
+2026-11-01T06:34:48Z deploy c2-batched-tokens
+I1101 13:34:53.932187 2394168 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+I1101 13:34:54.140222 2394168 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+Release "llm-agent" has been upgraded. Happy Helming!
+NAME: llm-agent
+LAST DEPLOYED: Sun Nov  1 13:34:49 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 3
+TEST SUITE: None
+deployment "agentgateway" successfully rolled out
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-fallback" successfully rolled out
+deployment "vllm-primary" successfully rolled out
+2026-11-01T06:49:23Z benchmark c2-batched-tokens
+{
+ "1": {
+  "status": "MEASURED",
+  "error_rate": 0.08333333333333333,
+  "ttft_ms": {
+   "p50": 7685.137577995192,
+   "p95": 61312.52864100679
+  },
+  "e2e_ms": {
+   "p50": 13620.324863994028,
+   "p95": 74906.19965249789,
+   "p99": 74946.98770649848
+  },
+  "output_tokens_per_second": 1.1314739741952566
+ },
+ "2": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 9449.156665490591,
+   "p95": 17985.484808092588
+  },
+  "e2e_ms": {
+   "p50": 34817.692757511395,
+   "p95": 69349.99643519841,
+   "p99": 69798.78903263685
+  },
+  "output_tokens_per_second": 3.308779706051489
+ },
+ "4": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 15931.449337003869,
+   "p95": 23349.448724389367
+  },
+  "e2e_ms": {
+   "p50": 60860.2119165007,
+   "p95": 151337.3661912512,
+   "p99": 151562.30745505076
+  },
+  "output_tokens_per_second": 3.6048369639608238
+ }
+}
+2026-11-01T07:07:15Z benchmark c2-batched-tokens reported failures
+2026-11-01T07:07:16Z deploy c3-no-prefix-cache
+I1101 14:07:21.749876 2444804 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+I1101 14:07:21.993750 2444804 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+Release "llm-agent" has been upgraded. Happy Helming!
+NAME: llm-agent
+LAST DEPLOYED: Sun Nov  1 14:07:16 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 4
+TEST SUITE: None
+deployment "agentgateway" successfully rolled out
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-fallback" successfully rolled out
+Waiting for deployment "vllm-primary" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-primary" successfully rolled out
+2026-11-01T07:24:57Z benchmark c3-no-prefix-cache
+{
+ "1": {
+  "status": "MEASURED",
+  "error_rate": 0.16666666666666666,
+  "ttft_ms": {
+   "p50": 40993.67435599561,
+   "p95": 96694.27239952778
+  },
+  "e2e_ms": {
+   "p50": 46050.70758899092,
+   "p95": 110718.9967458907,
+   "p99": 131780.2825355684
+  },
+  "output_tokens_per_second": 0.5443761440047051
+ },
+ "2": {
+  "status": "MEASURED",
+  "error_rate": 0.6666666666666666,
+  "ttft_ms": {
+   "p50": 57582.31121949211,
+   "p95": 104422.13542359968
+  },
+  "e2e_ms": {
+   "p50": 61271.81063449825,
+   "p95": 110530.5194719127,
+   "p99": 110543.9697191937
+  },
+  "output_tokens_per_second": 0.15420704752466638
+ },
+ "4": {
+  "status": "MEASURED",
+  "error_rate": 1.0,
+  "ttft_ms": {
+   "p50": null,
+   "p95": null
+  },
+  "e2e_ms": {
+   "p50": null,
+   "p95": null,
+   "p99": null
+  },
+  "output_tokens_per_second": 0.0
+ }
+}
+2026-11-01T08:05:12Z benchmark c3-no-prefix-cache reported failures
+2026-11-01T08:05:13Z selected=NO_GAIN (functional/security gates run on b0-prime)
+I1101 15:05:19.246317 2534686 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+I1101 15:05:19.480503 2534686 warnings.go:107] "Warning: would violate PodSecurity \"restricted:latest\": runAsNonRoot != true (pod or container \"vllm\" must set securityContext.runAsNonRoot=true)"
+Release "llm-agent" has been upgraded. Happy Helming!
+NAME: llm-agent
+LAST DEPLOYED: Sun Nov  1 15:05:14 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 5
+TEST SUITE: None
+deployment "agentgateway" successfully rolled out
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+Waiting for deployment "vllm-fallback" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-fallback" successfully rolled out
+Waiting for deployment "vllm-primary" rollout to finish: 0 of 1 updated replicas are available...
+deployment "vllm-primary" successfully rolled out
+2026-11-01T08:22:41Z stage=netpol-verify git=84c34487f9efdfbe67262db028c96b77fea799e1
+internet-egress	deny	deny	https://huggingface.co	rc=28
+unlabelled-to-vllm	deny	deny	http://vllm-primary.ewallet-agents.svc.cluster.local:8000/health	rc=28
+unlabelled-to-gateway	deny	deny	http://agentgateway.ewallet-agents.svc.cluster.local:4000/	rc=56
+other-ns-to-vllm	deny	deny	http://vllm-primary.ewallet-agents.svc.cluster.local:8000/health	rc=28
+gateway-label-wrong-sa	deny	deny	http://vllm-primary.ewallet-agents.svc.cluster.local:8000/health	rc=56
+vllm-internet	deny	deny
+vllm-fallback-756f9b865c-r6g8z ready=true
+vllm-primary-5c57848ff7-65vcs ready=true
+2026-11-01T08:23:31Z stage=netpol-verify ok
+2026-11-01T08:23:32Z stage=smoke-direct git=84c34487f9efdfbe67262db028c96b77fea799e1
+{
+  "model": "ewallet-fraud-llm-v1",
+  "stream": true,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "PASS",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 196,
+      "total_tokens": 222,
+      "completion_tokens": 26,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": null,
+    "latency_s": 12.52,
+    "first_byte_s": 7.246,
+    "tool_calls": [
+      {
+        "function": {
+          "name": "feature_lookup",
+          "arguments": "{\"transaction_id\": \"tx-demo-001\"}"
+        },
+        "id": "chatcmpl-tool-8ebf15dafe990f00",
+        "type": "function"
+      }
+    ]
+  },
+  "tool_call_errors": [],
+  "second_turn": {
+    "status": 200,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 133,
+      "total_tokens": 178,
+      "completion_tokens": 45,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": null,
+    "latency_s": 22.877,
+    "first_byte_s": 13.661,
+    "reply_chars": 178
+  },
+  "endpoint": "http://127.0.0.1:18000"
+}
+{
+  "model": "ewallet-fraud-llm-v1",
+  "stream": false,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "PASS",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 196,
+      "total_tokens": 222,
+      "completion_tokens": 26,
+      "prompt_tokens_details": null,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": null,
+    "latency_s": 12.386,
+    "first_byte_s": null,
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-b93e3db689dcb845",
+        "type": "function",
+        "function": {
+          "name": "feature_lookup",
+          "arguments": "{\"transaction_id\": \"tx-demo-001\"}"
+        }
+      }
+    ]
+  },
+  "tool_call_errors": [],
+  "second_turn": {
+    "status": 200,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 133,
+      "total_tokens": 186,
+      "completion_tokens": 53,
+      "prompt_tokens_details": null,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": null,
+    "latency_s": 11.842,
+    "first_byte_s": null,
+    "reply_chars": 205
+  },
+  "endpoint": "http://127.0.0.1:18000"
+}
+wrong-key status 401
+missing-key status 401
+2026-11-01T08:24:35Z stage=smoke-direct ok
+2026-11-01T08:24:37Z stage=smoke-gateway git=84c34487f9efdfbe67262db028c96b77fea799e1
+{
+  "model": "ewallet-fraud-llm",
+  "stream": true,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "PASS",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 196,
+      "total_tokens": 222,
+      "completion_tokens": 26,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "primary",
+    "latency_s": 12.839,
+    "first_byte_s": 7.29,
+    "tool_calls": [
+      {
+        "function": {
+          "name": "feature_lookup",
+          "arguments": "{\"transaction_id\": \"tx-demo-001\"}"
+        },
+        "id": "chatcmpl-tool-9533db0ad9d5663d",
+        "type": "function"
+      }
+    ]
+  },
+  "tool_call_errors": [],
+  "second_turn": {
+    "status": 200,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 133,
+      "total_tokens": 186,
+      "completion_tokens": 53,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "primary",
+    "latency_s": 11.782,
+    "first_byte_s": 0.82,
+    "reply_chars": 205
+  },
+  "endpoint": "http://127.0.0.1:13000"
+}
+{
+  "model": "ewallet-fraud-llm",
+  "stream": false,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "PASS",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 196,
+      "completion_tokens": 26,
+      "total_tokens": 222,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "primary",
+    "latency_s": 13.092,
+    "first_byte_s": null,
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-87fb767f3648629d",
+        "type": "function",
+        "function": {
+          "name": "feature_lookup",
+          "arguments": "{\"transaction_id\": \"tx-demo-001\"}"
+        }
+      }
+    ]
+  },
+  "tool_call_errors": [],
+  "second_turn": {
+    "status": 200,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 133,
+      "completion_tokens": 53,
+      "total_tokens": 186,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "primary",
+    "latency_s": 12.198,
+    "first_byte_s": null,
+    "reply_chars": 205
+  },
+  "endpoint": "http://127.0.0.1:13000"
+}
+wrong-key status 401
+missing-key status 401
+backend-key-key status 401
+2026-11-01T08:25:31Z stage=smoke-gateway ok
+2026-11-01T08:25:33Z stage=failover git=84c34487f9efdfbe67262db028c96b77fea799e1
+deployment.apps/vllm-primary scaled
+pod/vllm-primary-5c57848ff7-65vcs condition met
+attempt=1 status=503 backend=primary
+attempt=2 status=200 backend=fallback
+2026-11-01T08:25:59Z stage=smoke-gateway git=84c34487f9efdfbe67262db028c96b77fea799e1
+{
+  "model": "ewallet-fraud-llm",
+  "stream": true,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "PASS",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 196,
+      "total_tokens": 222,
+      "completion_tokens": 26,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "fallback",
+    "latency_s": 12.29,
+    "first_byte_s": 7.14,
+    "tool_calls": [
+      {
+        "function": {
+          "name": "feature_lookup",
+          "arguments": "{\"transaction_id\": \"tx-demo-001\"}"
+        },
+        "id": "chatcmpl-tool-b6bf031a1978a813",
+        "type": "function"
+      }
+    ]
+  },
+  "tool_call_errors": [],
+  "second_turn": {
+    "status": 200,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 133,
+      "total_tokens": 178,
+      "completion_tokens": 45,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "fallback",
+    "latency_s": 22.777,
+    "first_byte_s": 13.795,
+    "reply_chars": 178
+  },
+  "endpoint": "http://127.0.0.1:13000"
+}
+{
+  "model": "ewallet-fraud-llm",
+  "stream": false,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "PASS",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 196,
+      "completion_tokens": 26,
+      "total_tokens": 222,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "fallback",
+    "latency_s": 12.157,
+    "first_byte_s": null,
+    "tool_calls": [
+      {
+        "id": "chatcmpl-tool-9f6eba351e3b3e3e",
+        "type": "function",
+        "function": {
+          "name": "feature_lookup",
+          "arguments": "{\"transaction_id\": \"tx-demo-001\"}"
+        }
+      }
+    ]
+  },
+  "tool_call_errors": [],
+  "second_turn": {
+    "status": 200,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 133,
+      "completion_tokens": 53,
+      "total_tokens": 186,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "fallback",
+    "latency_s": 12.133,
+    "first_byte_s": null,
+    "reply_chars": 205
+  },
+  "endpoint": "http://127.0.0.1:13000"
+}
+wrong-key status 401
+missing-key status 401
+backend-key-key status 401
+2026-11-01T08:27:03Z stage=smoke-gateway ok
+fallback vllm:request_success_total 1 -> 6
+2026-11-01T08:27:27Z stage=failover ok
+{"healthy": true, "pods": 24, "inferenceservices": {"fraud-serving/fraud-detector": true}}
+2026-11-01T08:44:36Z o1 complete
+2026-11-01T08:44:36Z cleanup (status 0)
+release "llm-agent" uninstalled
+node/gke-ewallet-dev-cpu-pool-58daed59-4z9k cordoned
+Warning: ignoring DaemonSet-managed Pods: gmp-system/collector-5vw49, istio-system/istio-cni-node-zk59g, istio-system/ztunnel-sxlg4, kube-system/calico-node-v2mps, kube-system/filestore-node-ssrnn, kube-system/fluentbit-gke-c8j7c, kube-system/gke-metadata-server-gzpvt, kube-system/gke-metrics-agent-pngzz, kube-system/ip-masq-agent-648t2, kube-system/netd-hbf79, kube-system/node-local-dns-hf8mm, kube-system/pdcsi-node-xzwfr
+evicting pod kube-system/konnectivity-agent-68b6ff9f6f-b7kfk
+pod/konnectivity-agent-68b6ff9f6f-b7kfk evicted
+node/gke-ewallet-dev-cpu-pool-58daed59-4z9k drained
+node/gke-ewallet-dev-cpu-pool-58daed59-9gpp cordoned
+Warning: ignoring DaemonSet-managed Pods: gmp-system/collector-s2qrx, istio-system/istio-cni-node-mhtdj, istio-system/ztunnel-vw927, kube-system/calico-node-6cqxc, kube-system/filestore-node-zmpb9, kube-system/fluentbit-gke-bpgbv, kube-system/gke-metadata-server-jrx5b, kube-system/gke-metrics-agent-65qtx, kube-system/ip-masq-agent-tdntn, kube-system/netd-pvbf7, kube-system/node-local-dns-fpmph, kube-system/pdcsi-node-9j4fd
+evicting pod kube-system/konnectivity-agent-68b6ff9f6f-f9f4c
+evicting pod kube-system/konnectivity-agent-68b6ff9f6f-4kwk2
+pod/konnectivity-agent-68b6ff9f6f-4kwk2 evicted
+pod/konnectivity-agent-68b6ff9f6f-f9f4c evicted
+node/gke-ewallet-dev-cpu-pool-58daed59-9gpp drained
+Updated [https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/instanceGroupManagers/gke-ewallet-dev-cpu-pool-58daed59-grp].
+PROJECT                        ZONE               INSTANCE                                STATUS
+ewallet-data-ai-platform-hg26  asia-southeast1-b  gke-ewallet-dev-cpu-pool-58daed59-4z9k  SUCCESS
+ewallet-data-ai-platform-hg26  asia-southeast1-b  gke-ewallet-dev-cpu-pool-58daed59-9gpp  SUCCESS
+{"healthy": true, "pods": 24, "inferenceservices": {"fraud-serving/fraud-detector": true}}
+2026-11-01T08:46:55Z cleanup done

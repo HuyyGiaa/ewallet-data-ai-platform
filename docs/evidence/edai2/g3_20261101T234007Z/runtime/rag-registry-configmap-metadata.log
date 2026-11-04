@@ -1,0 +1,5 @@
+configmap= feast-registry-rag
+immutable= True
+keys= ['registry.db']
+registry_sha256= 52cd294cfebf6d3bc47a613eab0835531d3b481f65811bfdb6258d6fbdbd4a1f
+origin_basename= feast-rag-registry.db

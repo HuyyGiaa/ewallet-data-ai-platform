@@ -1,0 +1,15 @@
+{
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "chunk_count": 4,
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "embedding_dimensions": 384,
+  "published_rows": 4,
+  "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+  "readback_status": "MATCH",
+  "online_store": "redis",
+  "min_recall_at_k": 1.0,
+  "max_citation_errors": 0,
+  "max_empty_retrieval_rate": 0.0,
+  "forbidden_redis_targets": ["feature-store"]
+}

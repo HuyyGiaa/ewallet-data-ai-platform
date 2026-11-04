@@ -1,0 +1,8 @@
+# C3 (prefix caching): B0-prime already runs with prefix caching (G1 primary
+# explicitly, fallback by vLLM default). C3 turns it off on both, to measure its
+# contribution on the repeated-prefix workload (cold and warm passes).
+vllm:
+  primary:
+    prefixCaching: false
+  fallback:
+    prefixCaching: false

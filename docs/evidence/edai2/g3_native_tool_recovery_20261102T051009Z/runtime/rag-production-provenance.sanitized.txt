@@ -1,0 +1,32 @@
+=== production Redis target (credentials removed) ===
+{"format": "feast-kv", "host": "redis.feature-store.svc.cluster.local", "port": 6379, "db": 0, "has_password": true}
+=== production registry identity ===
+{
+  "metadata": {
+    "name": "feast-registry-rag",
+    "namespace": "ewallet-mcp",
+    "uid": "448971d1-cf1b-4ed7-9c81-d4ad54d1b4d1",
+    "resourceVersion": "1793565202712895020",
+    "immutable": true,
+    "annotations": {
+      "origin": "/home/huyy-giaa/ewallet-evidence/g3-r1a-s2-20261101T203052Z/runtime/feast-rag-registry.db",
+      "sha256": "52cd294cfebf6d3bc47a613eab0835531d3b481f65811bfdb6258d6fbdbd4a1f"
+    }
+  },
+  "binary_data_keys": [
+    "registry.db"
+  ]
+}
+=== production MCP deployment identity ===
+{
+  "metadata": {
+    "name": "feature-rag-mcp",
+    "namespace": "ewallet-mcp",
+    "revision": "3",
+    "release": "llm-agent-mcp"
+  },
+  "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+  "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+  "registry": "/feast/rag/registry.db",
+  "online_store": "redis"
+}

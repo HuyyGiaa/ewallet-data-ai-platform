@@ -1,0 +1,2 @@
+missing_auth_http=401
+wrong_auth_http=401

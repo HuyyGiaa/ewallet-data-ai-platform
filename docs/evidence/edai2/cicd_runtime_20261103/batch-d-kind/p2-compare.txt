@@ -1,0 +1,2 @@
+objects 28 | uid changed [] | spec changed [] | pods identical True
+owner ns after: ['ewallet-mcp-release']

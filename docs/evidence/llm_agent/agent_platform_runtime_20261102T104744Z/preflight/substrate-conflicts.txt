@@ -1,0 +1,40 @@
+NAME         	NAMESPACE   	REVISION	UPDATED                                	STATUS  	CHART                   	APP VERSION
+sandboxagents.kagent.dev                                2026-11-01T17:21:12Z
+NAME                                                                                                         CREATED AT
+clusterrole.rbac.authorization.k8s.io/cert-manager-controller-certificates                                   2026-10-31T16:45:55Z
+clusterrole.rbac.authorization.k8s.io/cert-manager-controller-certificatesigningrequests                     2026-10-31T16:45:55Z
+clusterrole.rbac.authorization.k8s.io/gce:beta:kubelet-certificate-bootstrap                                 2026-10-22T09:37:07Z
+clusterrole.rbac.authorization.k8s.io/gce:beta:kubelet-certificate-rotation                                  2026-10-22T09:37:08Z
+clusterrole.rbac.authorization.k8s.io/gke-managed-cim:kube-state-metrics                                     2026-10-22T09:37:19Z
+clusterrole.rbac.authorization.k8s.io/istiod-gateway-controller-istio-system                                 2026-10-31T20:40:35Z
+clusterrole.rbac.authorization.k8s.io/read-updateinfo                                                        2026-10-22T09:39:01Z
+clusterrole.rbac.authorization.k8s.io/system:aggregate-to-admin                                              2026-10-22T09:36:36Z
+clusterrole.rbac.authorization.k8s.io/system:aggregate-to-edit                                               2026-10-22T09:36:36Z
+clusterrole.rbac.authorization.k8s.io/system:aggregate-to-view                                               2026-10-22T09:36:36Z
+clusterrole.rbac.authorization.k8s.io/system:certificates.k8s.io:certificatesigningrequests:nodeclient       2026-10-22T09:36:37Z
+clusterrole.rbac.authorization.k8s.io/system:certificates.k8s.io:certificatesigningrequests:selfnodeclient   2026-10-22T09:36:37Z
+clusterrole.rbac.authorization.k8s.io/system:certificates.k8s.io:kube-apiserver-client-approver              2026-10-22T09:36:37Z
+clusterrole.rbac.authorization.k8s.io/system:certificates.k8s.io:kube-apiserver-client-kubelet-approver      2026-10-22T09:36:37Z
+clusterrole.rbac.authorization.k8s.io/system:certificates.k8s.io:kubelet-serving-approver                    2026-10-22T09:36:37Z
+clusterrole.rbac.authorization.k8s.io/system:certificates.k8s.io:legacy-unknown-approver                     2026-10-22T09:36:37Z
+clusterrole.rbac.authorization.k8s.io/system:controller:certificate-controller                               2026-10-22T09:36:39Z
+clusterrole.rbac.authorization.k8s.io/system:controller:statefulset-controller                               2026-10-22T09:36:39Z
+clusterrole.rbac.authorization.k8s.io/system:managed-certificate-controller                                  2026-10-22T09:38:33Z
+clusterrolebinding.rbac.authorization.k8s.io/cert-manager-controller-certificates                            ClusterRole/cert-manager-controller-certificates                            42h
+clusterrolebinding.rbac.authorization.k8s.io/cert-manager-controller-certificatesigningrequests              ClusterRole/cert-manager-controller-certificatesigningrequests              42h
+clusterrolebinding.rbac.authorization.k8s.io/cluster-autoscaler-updateinfo                                   ClusterRole/read-updateinfo                                                 11d
+clusterrolebinding.rbac.authorization.k8s.io/gce:beta:kubelet-certificate-bootstrap                          ClusterRole/gce:beta:kubelet-certificate-bootstrap                          11d
+clusterrolebinding.rbac.authorization.k8s.io/gce:beta:kubelet-certificate-rotation                           ClusterRole/gce:beta:kubelet-certificate-rotation                           11d
+clusterrolebinding.rbac.authorization.k8s.io/gke-managed-cim:kube-state-metrics                              ClusterRole/gke-managed-cim:kube-state-metrics                              11d
+clusterrolebinding.rbac.authorization.k8s.io/istiod-gateway-controller-istio-system                          ClusterRole/istiod-gateway-controller-istio-system                          38h
+clusterrolebinding.rbac.authorization.k8s.io/kubelet-bootstrap-certificate-bootstrap                         ClusterRole/gce:beta:kubelet-certificate-bootstrap                          11d
+clusterrolebinding.rbac.authorization.k8s.io/kubelet-nodepool-certificate-bootstrap                          ClusterRole/gce:beta:kubelet-certificate-bootstrap                          11d
+clusterrolebinding.rbac.authorization.k8s.io/system:controller:certificate-controller                        ClusterRole/system:controller:certificate-controller                        11d
+clusterrolebinding.rbac.authorization.k8s.io/system:controller:statefulset-controller                        ClusterRole/system:controller:statefulset-controller                        11d
+clusterrolebinding.rbac.authorization.k8s.io/system:managed-certificate-controller                           ClusterRole/system:managed-certificate-controller                           11d
+validatingadmissionpolicy.admissionregistration.k8s.io/validate-node-providerid                           1             <unset>     11d
+validatingadmissionpolicybinding.admissionregistration.k8s.io/validate-node-providerid-binding                     validate-node-providerid                           <unset>    11d
+NAME             STATUS   AGE
+kagent           Active   17h
+ewallet-agents   Active   38h
+Error from server (NotFound): namespaces "ate-system" not found

@@ -1,0 +1,10 @@
+{
+  "title": "E-Wallet ML Drift & Pipeline", "uid": "ewallet-ml-drift-pipeline", "schemaVersion": 41,
+  "tags": ["ewallet", "ml", "drift", "pipeline"], "refresh": "1m", "time": {"from": "now-24h", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Drift tool outcomes", "telemetryStatus": "runtime-pending", "targets": [{"refId": "A", "expr": "sum by (outcome) (rate(ewallet_ewallet_mcp_tool_calls_total{tool=\"drift_detection\"}[15m]))"}]},
+    {"id": 2, "type": "timeseries", "title": "Feature retrieval failures", "telemetryStatus": "source-verified", "targets": [{"refId": "A", "expr": "sum(rate(ewallet_backend_client_requests_total{backend=\"feast-online\",outcome=\"error\"}[15m]))"}]},
+    {"id": 3, "type": "stat", "title": "KFP API health", "telemetryStatus": "runtime-pending", "targets": [{"refId": "A", "expr": "max(ewallet_httpcheck_status{http_url=~\".*ml-pipeline.*\",http_status_class=\"2xx\"})"}]},
+    {"id": 4, "type": "stat", "title": "MLflow API health", "telemetryStatus": "runtime-pending", "targets": [{"refId": "A", "expr": "max(ewallet_httpcheck_status{http_url=~\".*mlflow.*\",http_status_class=\"2xx\"})"}]}
+  ]
+}

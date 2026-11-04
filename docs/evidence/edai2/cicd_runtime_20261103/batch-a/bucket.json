@@ -1,0 +1,30 @@
+{
+  "creation_time": "2026-11-03T06:31:55+0000",
+  "default_storage_class": "STANDARD",
+  "generation": 1793687515025954269,
+  "lifecycle_config": {
+    "rule": [
+      {
+        "action": {
+          "type": "Delete"
+        },
+        "condition": {
+          "age": 30
+        }
+      }
+    ]
+  },
+  "location": "ASIA-SOUTHEAST1",
+  "location_type": "region",
+  "metageneration": 6,
+  "name": "ewallet-data-ai-platform-hg26-cicd-builds",
+  "public_access_prevention": "enforced",
+  "satisfies_pzs": true,
+  "soft_delete_policy": {
+    "effectiveTime": "2026-11-03T06:31:55.947000+00:00",
+    "retentionDurationSeconds": "604800"
+  },
+  "storage_url": "gs://ewallet-data-ai-platform-hg26-cicd-builds/",
+  "uniform_bucket_level_access": true,
+  "update_time": "2026-11-03T06:35:16+0000"
+}

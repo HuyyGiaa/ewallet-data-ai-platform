@@ -1,0 +1,9 @@
+experiment 1
+parent fd639926e00d43ea9c111f29ad03fab1 winner random_forest
+  hist_gradient_boosting   run=ae7d5ef0 val_pr_auc=0.7757 val_roc_auc=0.9207 val_f1=0.8472 test_pr_auc=None test_roc_auc=None test_f1=None
+  random_forest            run=7872fe3b val_pr_auc=0.8022 val_roc_auc=0.9334 val_f1=0.8584 test_pr_auc=0.863982840570225 test_roc_auc=0.9549065836413679 test_f1=0.8854961832061069
+  logistic_regression      run=ef0c5732 val_pr_auc=0.7454 val_roc_auc=0.9163 val_f1=0.7860 test_pr_auc=None test_roc_auc=None test_f1=None
+  dummy_baseline           run=d04748e0 val_pr_auc=0.0228 val_roc_auc=0.5000 val_f1=0.0446 test_pr_auc=None test_roc_auc=None test_f1=None
+registered fraud-detector version 1 run fd639926 aliases {'candidate': '1'}
+tags {'dataset_version': 'canonical-100gb-v1', 'dvc_revision': 'data/training-snapshots/training-20261031-151638-ml2.json.dvc@ef37cb3#md5=0ced5dc0f0070967be8100a2d7f1b317', 'feature_run_id': 'ab-20261025134342-optimized-feat-r261026025955', 'git_commit_sha': '5a7fa02fd1eeea224eefe9f421ca2f8f711a35f2', 'runtime_image': 'asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb', 'snapshot_id': 'training-20261031-151638-ml2', 'snapshot_manifest_sha256': 'bb311b8235b484de36cd4f33ea68da695a54de74657b8e91a456745e2200fa0e'}
+params {'snapshot_id': 'training-20261031-151638-ml2', 'snapshot_row_count': '37048', 'feature_count': '41', 'train_row_count': '25870', 'validation_row_count': '5613', 'test_row_count': '5565', 'dvc_revision': 'data/training-snapshots/training-20261031-151638-ml2.json.dvc@ef37cb3#md5=0ced5dc0f0070967be8100a2d7f1b317', 'runtime_image': 'asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/f9-kfp-runtime@sha256:34812d9dc7709be4feaa4791e3032a194ebcd895ae9c474fa0d245f0bd5c07fb', 'git_commit_sha': '5a7fa02fd1eeea224eefe9f421ca2f8f711a35f2', 'random_seed': '42'}

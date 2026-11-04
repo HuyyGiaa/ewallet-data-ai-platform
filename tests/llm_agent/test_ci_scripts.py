@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -43,6 +44,11 @@ class ScriptHarness(unittest.TestCase):
             path = self.bin / name
             path.write_text(FAKE.format(ref_base=f"{REGISTRY}/mcp-tools", digest=DIGEST))
             path.chmod(path.stat().st_mode | stat.S_IEXEC)
+        # Scripts under test call python3 (e.g. PyYAML parsing); resolve it to the locked
+        # interpreter running this test, not whatever /usr/bin/python3 happens to provide.
+        python3 = self.bin / "python3"
+        python3.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+        python3.chmod(python3.stat().st_mode | stat.S_IEXEC)
         self.log = self.dir / "calls.log"
         self.env = {"PATH": f"{self.bin}:/usr/bin:/bin", "FAKE_LOG": str(self.log), "HOME": str(self.dir)}
 
@@ -113,6 +119,14 @@ class ScanPushTests(ScriptHarness):
         self.assertIn("--exit-code 1 --severity CRITICAL,HIGH", calls[scan])
         self.assertEqual(json.loads(path.read_text())["images"]["mcp-tools"]["digest_ref"], f"{REGISTRY}/mcp-tools@{DIGEST}")
 
+    def test_relative_digests_path_mounts_an_absolute_report_dir(self):
+        path = self.digests()
+        proc = subprocess.run([str(SCRIPTS / "scan_and_push.sh"), path.name], capture_output=True, text=True,
+                              env=self.env, cwd=path.parent, check=False)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        scan = next(c for c in self.calls() if "aquasec/trivy" in c)
+        self.assertIn(f"-v {path.parent.resolve()}/scans:/out", scan)
+
     def test_vulnerable_image_is_never_pushed(self):
         proc = self.run_script("scan_and_push.sh", self.digests(), FAKE_EXIT="1")
         self.assertNotEqual(proc.returncode, 0)
@@ -171,11 +185,35 @@ class DeployRollbackTests(ScriptHarness):
 
 
 class JenkinsfileTests(unittest.TestCase):
-    def test_every_script_the_pipeline_calls_exists_and_is_executable(self):
+    def test_compatibility_entrypoint_and_existing_scripts_remain_available(self):
         text = (ROOT / "Jenkinsfile.llm-agent").read_text()
-        scripts = set(re.findall(r"(scripts/[\w/.-]+\.sh)", text))
-        self.assertTrue({"scripts/llm_agent/build_changed_images.sh", "scripts/llm_agent/scan_and_push.sh",
-                         "scripts/llm_agent/deploy_atomic.sh", "scripts/llm_agent/rollback.sh"} <= scripts)
+        self.assertIn("jenkins/pipeline/componentPipeline.groovy", text)
+        self.assertIn("profile: 'llm-agent'", text)
+        scripts = {
+            "scripts/llm_agent/build_changed_images.sh",
+            "scripts/llm_agent/scan_and_push.sh",
+            "scripts/llm_agent/deploy_atomic.sh",
+            "scripts/llm_agent/rollback.sh",
+        }
+        for script in sorted(scripts):
+            path = ROOT / script
+            self.assertTrue(path.exists(), script)
+            self.assertTrue(os.access(path, os.X_OK), script)
+
+    def test_every_script_the_pipeline_calls_exists_and_is_executable(self):
+        entrypoint = (ROOT / "Jenkinsfile.llm-agent").read_text()
+        self.assertIn("load 'jenkins/pipeline/componentPipeline.groovy'", entrypoint)
+
+        pipeline = (ROOT / "jenkins/pipeline/componentPipeline.groovy").read_text()
+        catalog = json.loads((ROOT / "jenkins/catalog/components.json").read_text())
+        scripts = set(re.findall(r"(scripts/[\w/.-]+\.sh)", pipeline))
+        for component in catalog["profiles"]["llm-agent"]:
+            handler = catalog["components"][component].get("deploy_handler")
+            if handler:
+                scripts.add(handler)
+
+        self.assertIn("scripts/ci/deploy_release.sh", scripts)
+        self.assertIn("scripts/llm_agent/deploy_atomic.sh", scripts)
         for script in scripts:
             path = ROOT / script
             self.assertTrue(path.exists(), script)

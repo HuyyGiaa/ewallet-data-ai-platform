@@ -1,0 +1,376 @@
+./design/EP-476-OIDC-Authentication.md:255:   - Register KAgent as a client in the OIDC provider with appropriate redirect URIs
+./go/adk/cmd/main.go:101:		"remoteAgents", len(agentConfig.RemoteAgents))
+./go/core/test/e2e/foundry_test.go:101:			fmt.Fprint(w, `{"id":"chatcmpl-foundry-mem-2","object":"chat.completion","created":0,"model":"gpt-4-1-nano","choices":[{"index":0,"message":{"role":"assistant","content":"I have saved your preferences to memory: you prefer dark mode and Go over Python."},"finish_reason":"stop"}]}`)
+./go/core/test/e2e/foundry_test.go:104:			fmt.Fprint(w, `{"id":"chatcmpl-foundry-mem-4","object":"chat.completion","created":0,"model":"gpt-4-1-nano","choices":[{"index":0,"message":{"role":"assistant","content":"Based on your memory, you prefer dark mode and Go over Python."},"finish_reason":"stop"}]}`)
+./go/core/test/e2e/foundry_test.go:107:			fmt.Fprint(w, `{"id":"chatcmpl-foundry-mem-1","object":"chat.completion","created":0,"model":"gpt-4-1-nano","choices":[{"index":0,"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_save_1","type":"function","function":{"name":"save_memory","arguments":"{\"content\": \"User prefers dark mode and Go over Python\"}"}}]},"finish_reason":"tool_calls"}]}`)
+./go/core/test/e2e/foundry_test.go:110:			fmt.Fprint(w, `{"id":"chatcmpl-foundry-mem-3","object":"chat.completion","created":0,"model":"gpt-4-1-nano","choices":[{"index":0,"message":{"role":"assistant","content":"","tool_calls":[{"id":"call_load_1","type":"function","function":{"name":"load_memory","arguments":"{\"query\": \"user preferences\"}"}}]},"finish_reason":"tool_calls"}]}`)
+./go/core/test/e2e/mocks/invoke_crewai_agent.json:24:            "finish_reason": "stop"
+./go/core/test/e2e/mocks/invoke_crewai_agent.json:50:            "finish_reason": "stop"
+./helm/kagent-crds/templates/kagent.dev_agents.yaml:2396:                  AllowedNamespaces defines which namespaces are allowed to reference this Agent as a tool.
+./helm/kagent-crds/templates/kagent.dev_agents.yaml:2398:                  If not specified, only Agents in the same namespace can reference this Agent as a tool.
+./go/core/test/e2e/mocks/invoke_golang_adk_agent.json:24:            "finish_reason": "stop"
+./go/core/test/e2e/mocks/invoke_inline_agent.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_inline_agent.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_langgraph_agent.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_langgraph_agent.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_langgraph_agent.json:60:            "finish_reason": "stop"
+./go/core/test/e2e/mocks/invoke_remotemcpserver_tls_agent.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_remotemcpserver_tls_agent.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_mcp_agent.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_mcp_agent.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_skill.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_skill.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_skill.json:59:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_skill.json:70:            "finish_reason": "tool_calls",
+./go/core/test/e2e/mocks/invoke_skill_network.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_skill_network.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_memory_agent.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_memory_agent.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_memory_agent.json:61:            "finish_reason": "stop"
+./go/core/test/e2e/mocks/invoke_memory_agent.json:86:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_memory_agent.json:97:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_memory_agent.json:124:            "finish_reason": "stop"
+./go/core/test/e2e/mocks/invoke_openai_agent.json:23:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_openai_agent.json:34:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_openai_agent.json:61:            "finish_reason": "stop"
+./go/core/test/e2e/mocks/invoke_openai_agent.json:86:              "tool_calls": [
+./go/core/test/e2e/mocks/invoke_openai_agent.json:97:            "finish_reason": "tool_calls"
+./go/core/test/e2e/mocks/invoke_openai_agent.json:124:            "finish_reason": "stop"
+./go/core/test/e2e/mocks/invoke_passthrough_agent.json:32:            "finish_reason": "stop"
+./go/api/v1alpha1/agent_types.go:99:	Agent *AgentTool `json:"agent,omitempty"`
+./go/api/v1alpha1/agent_types.go:102:type AgentTool struct {
+./helm/kagent-crds/templates/kagent.dev_sandboxagents.yaml:53:                  AllowedNamespaces defines which namespaces are allowed to reference this Agent as a tool.
+./helm/kagent-crds/templates/kagent.dev_sandboxagents.yaml:55:                  If not specified, only Agents in the same namespace can reference this Agent as a tool.
+./go/api/v1alpha1/zz_generated.deepcopy.go:225:func (in *AgentTool) DeepCopyInto(out *AgentTool) {
+./go/api/v1alpha1/zz_generated.deepcopy.go:229:// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new AgentTool.
+./go/api/v1alpha1/zz_generated.deepcopy.go:230:func (in *AgentTool) DeepCopy() *AgentTool {
+./go/api/v1alpha1/zz_generated.deepcopy.go:234:	out := new(AgentTool)
+./go/api/v1alpha1/zz_generated.deepcopy.go:927:		*out = new(AgentTool)
+./go/api/v1alpha2/agent_types.go:105:	// AllowedNamespaces defines which namespaces are allowed to reference this Agent as a tool.
+./go/api/v1alpha2/agent_types.go:107:	// If not specified, only Agents in the same namespace can reference this Agent as a tool.
+./go/adk/pkg/config/config_usage.go:82:			"remoteAgentsCount", len(config.RemoteAgents))
+./go/adk/pkg/agent/agent.go:53:	var remoteAgentTools []tool.Tool
+./go/adk/pkg/agent/agent.go:63:		remoteAgentTools = append(remoteAgentTools, remoteTool)
+./go/adk/pkg/agent/agent.go:67:	localTools, err := buildAgentTools(agentConfig, remoteAgentTools, extraTools, log)
+./go/adk/pkg/agent/agent.go:154:func buildAgentTools(agentConfig *adk.AgentConfig, remoteAgentTools, extraTools []tool.Tool, log logr.Logger) ([]tool.Tool, error) {
+./go/adk/pkg/agent/agent.go:163:	localTools = append(localTools, remoteAgentTools...)
+./go/core/internal/controller/reconciler/reconciler.go:817:			if err := a.validateAgentToolReference(ctx, agent.GetNamespace(), tool.Agent); err != nil {
+./go/core/internal/controller/reconciler/reconciler.go:826:// validateAgentToolReference validates a reference to an Agent as a tool.
+./go/core/internal/controller/reconciler/reconciler.go:830:func (a *kagentReconciler) validateAgentToolReference(ctx context.Context, sourceNamespace string, ref *v1alpha2.TypedReference) error {
+./go/adk/pkg/agent/agent_test.go:343:func TestBuildAgentTools_WiresSkillsToolsFromEnv(t *testing.T) {
+./go/adk/pkg/agent/agent_test.go:362:	tools, err := buildAgentTools(&adk.AgentConfig{}, nil, nil, logr.Discard())
+./go/adk/pkg/agent/agent_test.go:364:		t.Fatalf("buildAgentTools() error = %v", err)
+./go/api/config/crd/bases/kagent.dev_sandboxagents.yaml:53:                  AllowedNamespaces defines which namespaces are allowed to reference this Agent as a tool.
+./go/api/config/crd/bases/kagent.dev_sandboxagents.yaml:55:                  If not specified, only Agents in the same namespace can reference this Agent as a tool.
+./go/adk/pkg/models/anthropic_adk.go:21:// anthropicStopReasonToGenai maps Anthropic stop_reason to genai.FinishReason.
+./go/adk/pkg/models/anthropic_adk.go:22:func anthropicStopReasonToGenai(reason anthropic.StopReason) genai.FinishReason {
+./go/adk/pkg/models/anthropic_adk.go:25:		return genai.FinishReasonMaxTokens
+./go/adk/pkg/models/anthropic_adk.go:27:		return genai.FinishReasonStop
+./go/adk/pkg/models/anthropic_adk.go:29:		return genai.FinishReasonStop
+./go/adk/pkg/models/anthropic_adk.go:31:		return genai.FinishReasonStop
+./go/adk/pkg/models/anthropic_adk.go:362:		FinishReason:  anthropicStopReasonToGenai(stopReason),
+./go/adk/pkg/models/anthropic_adk.go:410:		FinishReason:  anthropicStopReasonToGenai(message.StopReason),
+./go/adk/pkg/models/azure_openai_test.go:84:		fmt.Fprint(w, `{"id":"chatcmpl-test","object":"chat.completion","created":0,"model":"gpt-4o","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`)
+./go/adk/pkg/models/azure_openai_test.go:129:		fmt.Fprint(w, `{"id":"chatcmpl-test","object":"chat.completion","created":0,"model":"gpt-4o","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`)
+./go/adk/pkg/agent/testdata/mock_openai.json:24:            "finish_reason": "stop"
+./go/adk/pkg/models/bedrock.go:296:	var finishReason genai.FinishReason
+./go/adk/pkg/models/bedrock.go:302:	var completedToolCalls []*genai.Part
+./go/adk/pkg/models/bedrock.go:387:				completedToolCalls = append(completedToolCalls, &genai.Part{FunctionCall: functionCall})
+./go/adk/pkg/models/bedrock.go:428:	finalParts = append(finalParts, completedToolCalls...)
+./go/adk/pkg/models/bedrock.go:437:		FinishReason:  finishReason,
+./go/adk/pkg/models/bedrock.go:553:		FinishReason:  finishReason,
+./go/adk/pkg/models/bedrock.go:868:// bedrockStopReasonToGenai maps Bedrock stop reason to genai.FinishReason.
+./go/adk/pkg/models/bedrock.go:869:func bedrockStopReasonToGenai(reason types.StopReason) genai.FinishReason {
+./go/adk/pkg/models/bedrock.go:872:		return genai.FinishReasonMaxTokens
+./go/adk/pkg/models/bedrock.go:874:		return genai.FinishReasonStop
+./go/adk/pkg/models/bedrock.go:876:		return genai.FinishReasonStop // Tool use is handled separately in content
+./go/adk/pkg/models/bedrock.go:878:		return genai.FinishReasonSafety
+./go/adk/pkg/models/bedrock.go:880:		return genai.FinishReasonStop
+./go/api/config/crd/bases/kagent.dev_agents.yaml:2396:                  AllowedNamespaces defines which namespaces are allowed to reference this Agent as a tool.
+./go/api/config/crd/bases/kagent.dev_agents.yaml:2398:                  If not specified, only Agents in the same namespace can reference this Agent as a tool.
+./go/adk/pkg/models/bedrock_test.go:19:		expected genai.FinishReason
+./go/adk/pkg/models/bedrock_test.go:21:		{name: "max tokens", reason: types.StopReasonMaxTokens, expected: genai.FinishReasonMaxTokens},
+./go/adk/pkg/models/bedrock_test.go:22:		{name: "end turn", reason: types.StopReasonEndTurn, expected: genai.FinishReasonStop},
+./go/adk/pkg/models/bedrock_test.go:23:		{name: "stop sequence", reason: types.StopReasonStopSequence, expected: genai.FinishReasonStop},
+./go/adk/pkg/models/bedrock_test.go:24:		{name: "tool use", reason: types.StopReasonToolUse, expected: genai.FinishReasonStop},
+./go/adk/pkg/models/bedrock_test.go:25:		{name: "guardrail intervened", reason: types.StopReasonGuardrailIntervened, expected: genai.FinishReasonSafety},
+./go/adk/pkg/models/bedrock_test.go:26:		{name: "content filtered", reason: types.StopReasonContentFiltered, expected: genai.FinishReasonSafety},
+./go/adk/pkg/models/bedrock_test.go:27:		{name: "unknown", reason: types.StopReason("unknown"), expected: genai.FinishReasonStop},
+./go/adk/pkg/models/foundry_test.go:49:		fmt.Fprint(w, `{"id":"chatcmpl-test","object":"chat.completion","created":0,"model":"gpt-4-1-nano","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`)
+./go/adk/pkg/models/foundry_test.go:148:		fmt.Fprint(w, `{"id":"chatcmpl-test","object":"chat.completion","created":0,"model":"gpt-4-1-nano","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`)
+./python/samples/langgraph/hitl-tools/hitl_tools/agent.py:95:    assert isinstance(last_message, AIMessage) and last_message.tool_calls
+./python/samples/langgraph/hitl-tools/hitl_tools/agent.py:99:    for tool_call in last_message.tool_calls:
+./python/samples/langgraph/hitl-tools/hitl_tools/agent.py:162:    if isinstance(last_message, AIMessage) and last_message.tool_calls:
+./go/adk/pkg/models/ollama_adk.go:66:	var aggregatedToolCalls []api.ToolCall
+./go/adk/pkg/models/ollama_adk.go:79:		aggregatedToolCalls = append(aggregatedToolCalls, resp.Message.ToolCalls...)
+./go/adk/pkg/models/ollama_adk.go:111:			for _, tc := range aggregatedToolCalls {
+./go/adk/pkg/models/ollama_adk.go:123:			var finishReason genai.FinishReason
+./go/adk/pkg/models/ollama_adk.go:125:				finishReason = genai.FinishReasonMaxTokens
+./go/adk/pkg/models/ollama_adk.go:127:				finishReason = genai.FinishReasonStop
+./go/adk/pkg/models/ollama_adk.go:147:				FinishReason:  finishReason,
+./go/adk/pkg/models/ollama_adk.go:197:	for _, tc := range finalResponse.Message.ToolCalls {
+./go/adk/pkg/models/ollama_adk.go:209:	var finishReason genai.FinishReason
+./go/adk/pkg/models/ollama_adk.go:211:		finishReason = genai.FinishReasonMaxTokens
+./go/adk/pkg/models/ollama_adk.go:213:		finishReason = genai.FinishReasonStop
+./go/adk/pkg/models/ollama_adk.go:233:		FinishReason:  finishReason,
+./go/adk/pkg/models/ollama_adk.go:323:				ToolCalls: toolCalls,
+./go/adk/pkg/models/ollama_stream_test.go:15:// TestGenerateStreamingAggregatesToolCalls verifies that tool calls emitted by
+./go/adk/pkg/models/ollama_stream_test.go:18:// behavior (e.g. glm-5.2) where tool_calls arrive before the terminating chunk.
+./go/adk/pkg/models/ollama_stream_test.go:19:func TestGenerateStreamingAggregatesToolCalls(t *testing.T) {
+./go/adk/pkg/models/ollama_stream_test.go:23:		`{"model":"glm-5.2","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_1","function":{"index":0,"name":"show-weather-dashboard","arguments":{"location":"New York"}}}]},"done":false}`,
+./go/adk/pkg/models/sapaicore_adk.go:242:			msg := map[string]any{"role": "assistant", "tool_calls": toolCalls}
+./go/adk/pkg/models/sapaicore_adk.go:353:			if tcs, ok := delta["tool_calls"].([]any); ok {
+./go/adk/pkg/models/sapaicore_adk.go:381:			if fr, ok := choice["finish_reason"].(string); ok && fr != "" {
+./go/adk/pkg/models/sapaicore_adk.go:442:		FinishReason:  openAIFinishReasonToGenai(finishReason),
+./go/adk/pkg/models/sapaicore_adk.go:474:	if toolCalls, ok := msg["tool_calls"].([]any); ok {
+./go/adk/pkg/models/sapaicore_adk.go:507:	if f, ok := firstChoice["finish_reason"].(string); ok {
+./go/adk/pkg/models/sapaicore_adk.go:514:		FinishReason:  openAIFinishReasonToGenai(fr),
+./go/adk/pkg/models/sapaicore_adk_test.go:149:	toolCalls, ok := msg["tool_calls"].([]map[string]any)
+./go/adk/pkg/models/sapaicore_adk_test.go:151:		t.Fatalf("tool_calls = %v, want non-empty slice", msg["tool_calls"])
+./go/adk/pkg/models/sapaicore_adk_test.go:154:		t.Errorf("tool_calls[0].id = %v, want call_1", toolCalls[0]["id"])
+./go/adk/pkg/models/sapaicore_adk_test.go:659:					"finish_reason": "stop",
+./go/adk/pkg/models/sapaicore_adk_test.go:694:				"finish_reason": "tool_calls",
+./go/adk/pkg/models/sapaicore_adk_test.go:698:					"tool_calls": []any{
+./go/adk/pkg/models/sapaicore_adk_test.go:847:		"finish_reason": reason,
+./go/adk/pkg/models/sapaicore_adk_test.go:904:			"tool_calls": []any{map[string]any{
+./go/adk/pkg/models/sapaicore_adk_test.go:916:			"tool_calls": []any{map[string]any{
+./go/adk/pkg/models/sapaicore_adk_test.go:923:		"finish_reason": "tool_calls",
+./go/adk/pkg/models/sapaicore_adk_test.go:1131:func TestHandleStream_FinishReasonAtChoiceLevel(t *testing.T) {
+./go/adk/pkg/models/sapaicore_adk_test.go:1132:	// finish_reason sits at the choice top level (not inside delta),
+./go/adk/pkg/models/sapaicore_adk_test.go:1138:		"finish_reason": "length", // top-level, not inside delta
+./go/adk/pkg/models/sapaicore_adk_test.go:1152:	if final.FinishReason != openAIFinishReasonToGenai("length") {
+./go/adk/pkg/models/sapaicore_adk_test.go:1153:		t.Errorf("FinishReason = %v, want MAX_TOKENS (length)", final.FinishReason)
+./go/adk/pkg/models/openai_adk.go:35:// openAIFinishReasonToGenai maps OpenAI finish_reason to genai.FinishReason.
+./go/adk/pkg/models/openai_adk.go:36:func openAIFinishReasonToGenai(reason string) genai.FinishReason {
+./go/adk/pkg/models/openai_adk.go:39:		return genai.FinishReasonMaxTokens
+./go/adk/pkg/models/openai_adk.go:41:		return genai.FinishReasonSafety
+./go/adk/pkg/models/openai_adk.go:43:		return genai.FinishReasonStop // includes "stop", "tool_calls", and empty
+./go/adk/pkg/models/openai_adk.go:178:		params.ToolChoice = openai.ChatCompletionToolChoiceOptionUnionParam{
+./go/adk/pkg/models/openai_adk.go:325:				ToolCalls: toolCalls,
+./go/adk/pkg/models/openai_adk.go:415:				TurnComplete: choice.FinishReason != "",
+./go/adk/pkg/models/openai_adk.go:421:		for _, tc := range delta.ToolCalls {
+./go/adk/pkg/models/openai_adk.go:440:		if choice.FinishReason != "" {
+./go/adk/pkg/models/openai_adk.go:441:			finishReason = choice.FinishReason
+./go/adk/pkg/models/openai_adk.go:454:	nToolCalls := len(toolCallsAcc)
+./go/adk/pkg/models/openai_adk.go:455:	indices := make([]int64, 0, nToolCalls)
+./go/adk/pkg/models/openai_adk.go:460:	finalParts := make([]*genai.Part, 0, 1+nToolCalls)
+./go/adk/pkg/models/openai_adk.go:491:		FinishReason:  openAIFinishReasonToGenai(finishReason),
+./go/adk/pkg/models/openai_adk.go:521:	nParts += len(msg.ToolCalls)
+./go/adk/pkg/models/openai_adk.go:526:	for _, tc := range msg.ToolCalls {
+./go/adk/pkg/models/openai_adk.go:552:		FinishReason:  openAIFinishReasonToGenai(choice.FinishReason),
+./python/packages/kagent-adk/src/kagent/adk/_remote_a2a_tool.py:3:Replaces the upstream ``AgentTool(RemoteA2aAgent(...))`` pairing with a single
+./python/packages/kagent-adk/src/kagent/adk/_remote_a2a_tool.py:223:        """Same schema as AgentTool for agents without an input schema."""
+./go/adk/pkg/models/openai_adk_test.go:344:	toolCalls, ok := assistantObj["tool_calls"].([]any)
+./go/adk/pkg/models/openai_adk_test.go:346:		t.Fatalf("assistant tool_calls = %#v, want 1 tool call", assistantObj["tool_calls"])
+./go/adk/pkg/models/openai_adk_test.go:369:			"finish_reason":"tool_calls",
+./go/adk/pkg/models/openai_adk_test.go:372:				"tool_calls":[{
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:19:// Test_AdkApiTranslator_SandboxAgentTool tests that agent tool references are
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:21:func Test_AdkApiTranslator_SandboxAgentTool(t *testing.T) {
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:38:	agentToolRef := func(name, kind string) *v1alpha2.Tool {
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:79:				Spec:       declarativeSpec(agentToolRef("shared-name", "SandboxAgent")),
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:87:				Spec:       declarativeSpec(agentToolRef("shared-name", "")),
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:95:				Spec:       declarativeSpec(agentToolRef("shared-name", "Agent")),
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:103:				Spec:       declarativeSpec(agentToolRef("shared-name", "AgentHarness")),
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:112:				Spec:       declarativeSpec(agentToolRef("does-not-exist", "SandboxAgent")),
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:122:					AgentSpec: declarativeSpec(agentToolRef("shared-name", "SandboxAgent")),
+./go/core/internal/controller/translator/agent/sandbox_agent_tool_test.go:132:				Spec:       declarativeSpec(agentToolRef("shared-name", "SandboxAgent")),
+./go/adk/pkg/models/openai_responses.go:41:		params.ToolChoice = responses.ResponseNewParamsToolChoiceUnion{
+./go/adk/pkg/models/openai_responses.go:42:			OfToolChoiceMode: param.NewOpt(responses.ToolChoiceOptionsAuto),
+./go/adk/pkg/models/openai_responses.go:263:	var finishReason = genai.FinishReasonStop
+./go/adk/pkg/models/openai_responses.go:300:			finishReason = responsesStatusToFinishReason(v.Response.Status)
+./go/adk/pkg/models/openai_responses.go:303:			finishReason = genai.FinishReasonMaxTokens
+./go/adk/pkg/models/openai_responses.go:326:		FinishReason:  finishReason,
+./go/adk/pkg/models/openai_responses.go:360:		FinishReason:  responsesStatusToFinishReason(resp.Status),
+./go/adk/pkg/models/openai_responses.go:376:func responsesStatusToFinishReason(status responses.ResponseStatus) genai.FinishReason {
+./go/adk/pkg/models/openai_responses.go:379:		return genai.FinishReasonMaxTokens
+./go/adk/pkg/models/openai_responses.go:381:		return genai.FinishReasonOther
+./go/adk/pkg/models/openai_responses.go:383:		return genai.FinishReasonStop
+./go/core/internal/controller/translator/agent/adk_api_translator_test.go:23:// Test_AdkApiTranslator_CrossNamespaceAgentTool tests that the translator can
+./go/core/internal/controller/translator/agent/adk_api_translator_test.go:27:func Test_AdkApiTranslator_CrossNamespaceAgentTool(t *testing.T) {
+./go/adk/pkg/session/session.go:185:		if e.Content == nil && e.Author == "" && e.InvocationID == "" && e.FinishReason == "" && !e.Partial {
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:12:# Based on Google GenAI types.py FinishReason enum (excluding STOP)
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:15:    genai_types.FinishReason.MAX_TOKENS: "Response was truncated due to maximum token limit. Try asking a shorter question or breaking it into parts.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:17:    genai_types.FinishReason.SAFETY: "Response was blocked due to safety concerns. Please rephrase your request to avoid potentially harmful content.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:18:    genai_types.FinishReason.RECITATION: "Response was blocked due to unauthorized citations. Please rephrase your request.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:19:    genai_types.FinishReason.BLOCKLIST: "Response was blocked due to restricted terminology. Please rephrase your request using different words.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:20:    genai_types.FinishReason.PROHIBITED_CONTENT: "Response was blocked due to prohibited content. Please rephrase your request.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:21:    genai_types.FinishReason.SPII: "Response was blocked due to sensitive personal information concerns. Please avoid including personal details.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:23:    genai_types.FinishReason.MALFORMED_FUNCTION_CALL: "The agent generated an invalid function call. This may be due to complex input data. Try rephrasing your request or breaking it into simpler steps.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:25:    genai_types.FinishReason.OTHER: "An unexpected error occurred during processing. Please try again or rephrase your request.",
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:30:    genai_types.FinishReason.STOP,  # Normal completion
+./python/packages/kagent-adk/src/kagent/adk/converters/error_mappings.py:41:        error_code: The error code from the ADK event (e.g., finish_reason)
+./python/packages/kagent-langgraph/src/kagent/langgraph/_converters.py:62:            if hasattr(message, "tool_calls") and message.tool_calls:
+./python/packages/kagent-langgraph/src/kagent/langgraph/_converters.py:63:                msg_content += f":tools:{len(message.tool_calls)}"
+./python/packages/kagent-langgraph/src/kagent/langgraph/_converters.py:77:                if hasattr(message, "tool_calls") and message.tool_calls:
+./python/packages/kagent-langgraph/src/kagent/langgraph/_converters.py:78:                    for tool_call in message.tool_calls:
+./python/packages/kagent-adk/src/kagent/adk/models/_bedrock.py:271:def _stop_reason_to_finish_reason(stop_reason: str) -> types.FinishReason:
+./python/packages/kagent-adk/src/kagent/adk/models/_bedrock.py:273:        return types.FinishReason.MAX_TOKENS
+./python/packages/kagent-adk/src/kagent/adk/models/_bedrock.py:275:        return types.FinishReason.SAFETY
+./python/packages/kagent-adk/src/kagent/adk/models/_bedrock.py:276:    return types.FinishReason.STOP
+./python/packages/kagent-adk/src/kagent/adk/models/_bedrock.py:458:                    finish_reason=_stop_reason_to_finish_reason(stop_reason),
+./python/packages/kagent-adk/src/kagent/adk/models/_bedrock.py:489:                    finish_reason=_stop_reason_to_finish_reason(stop_reason),
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:125:        remote_agent_toolset = None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:128:                remote_agent_toolset = tool
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:131:        assert remote_agent_toolset is not None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:135:        async with remote_agent_toolset._httpx_client as client:
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:168:    remote_agent_toolset = None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:171:            remote_agent_toolset = tool
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:174:    assert remote_agent_toolset is not None, (
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:179:    assert remote_agent_toolset._tool.name == "remote_agent"
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:203:        remote_agent_toolset = None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:206:                remote_agent_toolset = tool
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:209:        assert remote_agent_toolset is not None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:213:        async with remote_agent_toolset._httpx_client as client:
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:254:        remote_agent_toolset = None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:257:                remote_agent_toolset = tool
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:260:        assert remote_agent_toolset is not None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:263:        async with remote_agent_toolset._httpx_client as client:
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:303:        remote_agent_toolset = None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:306:                remote_agent_toolset = tool
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:309:        assert remote_agent_toolset is not None
+./python/packages/kagent-adk/tests/unittests/test_proxy_integration.py:313:        async with remote_agent_toolset._httpx_client as client:
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:26:def _done_reason_to_finish_reason(done_reason: str) -> types.FinishReason:
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:28:        return types.FinishReason.MAX_TOKENS
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:29:    return types.FinishReason.STOP
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:65:            tool_calls = [
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:74:            messages.append(OllamaMessage(role="assistant", tool_calls=tool_calls))
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:200:                tool_calls = []
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:209:                    tool_calls.extend(chunk.message.tool_calls or [])
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:223:                        final_parts.extend(_convert_tool_call_to_part(tc) for tc in tool_calls)
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:224:                        finish_reason = _done_reason_to_finish_reason(chunk.done_reason) if chunk.done_reason else None
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:236:                            finish_reason=finish_reason,
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:250:                for tc in response.message.tool_calls or []:
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:252:                finish_reason = _done_reason_to_finish_reason(response.done_reason) if response.done_reason else None
+./python/packages/kagent-adk/src/kagent/adk/models/_ollama.py:262:                    finish_reason=finish_reason,
+./python/packages/kagent-adk/tests/unittests/converters/test_event_converter.py:47:            error_code=genai_types.FinishReason.STOP, content=None, invocation_id="test_invocation_1"
+./python/packages/kagent-adk/tests/unittests/converters/test_event_converter.py:69:            error_code=genai_types.FinishReason.STOP, content=content_mock, invocation_id="test_invocation_2"
+./python/packages/kagent-adk/tests/unittests/converters/test_event_converter.py:87:            error_code=genai_types.FinishReason.STOP, content=None, invocation_id="test_invocation_3"
+./python/packages/kagent-adk/tests/unittests/converters/test_event_converter.py:107:            error_code=genai_types.FinishReason.MALFORMED_FUNCTION_CALL, content=None, invocation_id="test_invocation_4"
+./python/packages/kagent-adk/tests/unittests/converters/test_event_converter.py:121:        assert error_event.metadata[error_code_key] == str(genai_types.FinishReason.MALFORMED_FUNCTION_CALL)
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:63:        tool_calls: list[dict[str, Any]] = []
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:80:                tool_calls.append(tc)
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:88:        if tool_calls:
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:94:            msg["tool_calls"] = tool_calls
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:363:        tool_calls_acc: dict[int, dict[str, Any]] = {}
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:364:        finish_reason_str: Optional[str] = None
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:402:                    if delta.get("tool_calls"):
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:403:                        for tc in delta["tool_calls"]:
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:405:                            if idx not in tool_calls_acc:
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:406:                                tool_calls_acc[idx] = {"id": "", "name": "", "arguments": ""}
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:408:                                tool_calls_acc[idx]["id"] = tc["id"]
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:411:                                tool_calls_acc[idx]["name"] = func["name"]
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:413:                                tool_calls_acc[idx]["arguments"] += func["arguments"]
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:415:                    if choice.get("finish_reason"):
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:416:                        finish_reason_str = choice["finish_reason"]
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:429:        for idx in sorted(tool_calls_acc.keys()):
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:430:            tc = tool_calls_acc[idx]
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:440:        fr = self._map_finish_reason(finish_reason_str)
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:446:            finish_reason=fr,
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:463:            for tc in msg.get("tool_calls", []):
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:485:        stop_reason = result.get("choices", [{}])[0].get("finish_reason", "stop")
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:486:        fr = self._map_finish_reason(stop_reason)
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:490:            finish_reason=fr,
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:495:    def _map_finish_reason(reason: Optional[str]) -> types.FinishReason:
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:497:            return types.FinishReason.MAX_TOKENS
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:499:            return types.FinishReason.SAFETY
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:500:        if reason == "tool_calls":
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:501:            return types.FinishReason.STOP
+./python/packages/kagent-adk/src/kagent/adk/models/_sap_ai_core.py:502:        return types.FinishReason.STOP
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:224:        # Handle function calls (assistant messages with tool_calls)
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:226:            tool_calls = []
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:242:                tool_calls.append(tool_call)
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:271:                tool_calls=tool_calls,
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:380:    if hasattr(message, "tool_calls") and message.tool_calls:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:381:        for tool_call in message.tool_calls:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:410:    finish_reason = types.FinishReason.STOP
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:411:    if choice.finish_reason == "length":
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:412:        finish_reason = types.FinishReason.MAX_TOKENS
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:413:    elif choice.finish_reason == "content_filter":
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:414:        finish_reason = types.FinishReason.SAFETY
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:416:    return LlmResponse(content=content, usage_metadata=usage_metadata, finish_reason=finish_reason)
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:526:def _responses_status_to_finish_reason(status: Optional[str]) -> types.FinishReason:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:529:        return types.FinishReason.MAX_TOKENS
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:531:        return types.FinishReason.OTHER
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:532:    return types.FinishReason.STOP
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:585:        finish_reason=_responses_status_to_finish_reason(response.status),
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:733:                    kwargs["tool_choice"] = "auto"
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:739:                finish_reason = None
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:742:                tool_calls_acc: dict[int, dict[str, Any]] = {}
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:757:                                content=content, partial=True, turn_complete=chunk.choices[0].finish_reason is not None
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:761:                        if hasattr(delta, "tool_calls") and delta.tool_calls:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:762:                            for tool_call_chunk in delta.tool_calls:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:764:                                if idx not in tool_calls_acc:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:765:                                    tool_calls_acc[idx] = {
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:773:                                    tool_calls_acc[idx]["id"] = tool_call_chunk.id
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:776:                                        tool_calls_acc[idx]["name"] = tool_call_chunk.function.name
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:778:                                        tool_calls_acc[idx]["arguments"] += tool_call_chunk.function.arguments
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:783:                                    tool_calls_acc[idx]["thought_signature"] = thought_signature
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:785:                        if chunk.choices[0].finish_reason:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:786:                            finish_reason = chunk.choices[0].finish_reason
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:803:                for idx in sorted(tool_calls_acc.keys()):
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:804:                    tc = tool_calls_acc[idx]
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:819:                final_reason = types.FinishReason.STOP
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:820:                if finish_reason == "length":
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:821:                    final_reason = types.FinishReason.MAX_TOKENS
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:822:                elif finish_reason == "content_filter":
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:823:                    final_reason = types.FinishReason.SAFETY
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:824:                elif finish_reason == "tool_calls":
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:825:                    final_reason = types.FinishReason.STOP  # Tool calls is a normal completion
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:832:                    finish_reason=final_reason,
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:876:                    kwargs["tool_choice"] = "auto"
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:883:                tool_calls: dict[str, types.Part] = {}
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:902:                            if call_id not in tool_calls:
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:904:                            tool_calls[call_id] = _responses_tool_call_part(item)
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:934:                    final_parts.append(tool_calls[call_id])
+./python/packages/kagent-adk/src/kagent/adk/models/_openai.py:940:                    finish_reason=_responses_status_to_finish_reason(status),
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:102:        tool_calls = msg["tool_calls"]
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:103:        assert len(tool_calls) == 1
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:104:        assert tool_calls[0]["id"] == "call_1"
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:105:        assert tool_calls[0]["function"]["name"] == "get_weather"
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:106:        assert json.loads(tool_calls[0]["function"]["arguments"]) == {"city": "Berlin"}
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:128:        assert "tool_calls" in result[0]
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:445:                "choices": [{"finish_reason": "stop", "message": {"content": "Hello!"}}],
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:463:                    "finish_reason": "tool_calls",
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:466:                        "tool_calls": [
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:494:            "choices": [{"finish_reason": "stop", "message": {"content": "ok"}}],
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:522:        return {"delta": {}, "finish_reason": reason}
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:559:                            "tool_calls": [
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:569:                        "delta": {"tool_calls": [{"index": 0, "function": {"arguments": '"default"}'}}]},
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:570:                        "finish_reason": "tool_calls",
+./python/packages/kagent-adk/tests/unittests/models/test_sap_ai_core.py:670:        ok_resp.json.return_value = {"choices": [{"finish_reason": "stop", "message": {"content": "retry ok"}}]}
+./python/packages/kagent-adk/tests/unittests/models/test_tls_e2e.py:67:                        "finish_reason": "stop",
+./python/packages/kagent-adk/tests/unittests/models/test_ollama.py:53:        mock_response.message.tool_calls = []
+./python/packages/kagent-adk/tests/unittests/models/test_ollama.py:80:        mock_response.message.tool_calls = []
+./python/packages/kagent-adk/tests/unittests/models/test_ollama.py:96:    async def test_generate_content_streaming_accumulates_tool_calls_before_done_chunk(self):
+./python/packages/kagent-adk/tests/unittests/models/test_ollama.py:105:        tool_chunk.message.tool_calls = [tool_call]
+./python/packages/kagent-adk/tests/unittests/models/test_ollama.py:110:        done_chunk.message.tool_calls = None
+./python/packages/kagent-adk/tests/unittests/models/test_openai_responses.py:43:        parallel_tool_calls=True,
+./python/packages/kagent-adk/tests/unittests/models/test_openai_responses.py:44:        tool_choice="auto",
+./python/packages/kagent-adk/tests/unittests/models/test_openai_responses.py:233:    assert llm_response.finish_reason == types.FinishReason.STOP
+./python/packages/kagent-adk/tests/unittests/models/test_openai_responses.py:261:    assert llm_response.finish_reason == types.FinishReason.MAX_TOKENS
+./python/packages/kagent-adk/tests/unittests/models/test_openai_responses.py:311:                finish_reason="stop",
+./python/packages/kagent-adk/tests/unittests/models/test_openai_responses.py:388:    assert kwargs["tool_choice"] == "auto"
+./python/packages/kagent-adk/tests/unittests/models/test_openai_responses.py:523:    assert results[0].finish_reason == types.FinishReason.STOP
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:48:            self.finish_reason = "stop"
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:71:        tool_calls = None
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:80:        finish_reason = None
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:87:                self.finish_reason = reason
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:96:        def __init__(self, text=None, finish_reason=None):
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:97:            self.choices = [MockChunkChoice(text, finish_reason)]
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:106:    chunks.append(MockChunk(finish_reason="stop"))
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:121:                    finish_reason=types.FinishReason.STOP,
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:520:        tool_calls = None
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:524:        def __init__(self, finish_reason=None):
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:526:            self.finish_reason = finish_reason
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:540:        def __init__(self, finish_reason=None, include_usage=False):
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:541:            self.choices = [MockChunkChoice(finish_reason)]
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:550:                # Final chunk with finish_reason and usage (when stream_options is set)
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:551:                yield MockChunk(finish_reason="stop", include_usage=True)
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:934:        assert assistant_messages[0]["tool_calls"][0]["extra_content"] == {"google": {"thought_signature": "YWJj"}}
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:957:        def __init__(self, *, content: str | None = None, tool_calls: list | None = None):
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:960:            self.tool_calls = tool_calls
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:969:        def __init__(self, message, finish_reason: str = "stop"):
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:971:            self.finish_reason = finish_reason
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:981:                tool_calls=[
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:1003:                tool_calls=[
+./python/packages/kagent-adk/tests/unittests/models/test_openai.py:1035:        assert assistant_messages[0]["tool_calls"][0]["extra_content"] == {"google": {"thought_signature": "YWJj"}}

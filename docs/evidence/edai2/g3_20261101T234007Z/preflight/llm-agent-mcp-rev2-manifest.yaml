@@ -1,0 +1,634 @@
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mcp-gateway-to-feature-rag-mcp-ingress
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: feature-rag-mcp
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-agents}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp-gateway
+      ports:
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mcp-gateway-to-drift-mcp-ingress
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: drift-mcp
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-agents}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp-gateway
+      ports:
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-feature-rag-mcp-to-feast-redis-egress
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: feature-rag-mcp
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: feature-store}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - {protocol: TCP, port: 6379}
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+# Additive ingress in feature-store: only ewallet-mcp/feature-rag-mcp on 6379.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ewallet-mcp-feature-rag-mcp-to-feast-redis
+  namespace: feature-store
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-mcp}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: feature-rag-mcp
+      ports:
+        - {protocol: TCP, port: 6379}
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-feature-rag-mcp-to-kserve-fraud-detector-egress
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: feature-rag-mcp
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: fraud-serving}
+          podSelector:
+            matchLabels:
+              serving.kserve.io/inferenceservice: fraud-detector
+      ports:
+        - {protocol: TCP, port: 8080}
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+# Additive ingress in fraud-serving: only ewallet-mcp/feature-rag-mcp on 8080.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ewallet-mcp-feature-rag-mcp-to-kserve-fraud-detector
+  namespace: fraud-serving
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: fraud-detector
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-mcp}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: feature-rag-mcp
+      ports:
+        - {protocol: TCP, port: 8080}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# Source: llm-agent-platform/templates/security.yaml
+# Confirm the DNS namespace/pod labels and networkPolicy.dns.nodeLocalIP on
+# the target cluster before rollout.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cluster-dns
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+        - ipBlock:
+            cidr: 169.254.20.10/32
+        - ipBlock:
+            cidr: 34.118.224.10/32
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# Source: llm-agent-platform/templates/security.yaml
+# Kubelet probes reach ambient pods from the ztunnel SNAT address only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-drift-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: drift-mcp
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 169.254.7.127/32
+      ports:
+        - {protocol: TCP, port: 8080}
+---
+# Source: llm-agent-platform/templates/security.yaml
+# Kubelet probes reach ambient pods from the ztunnel SNAT address only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-feature-rag-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: feature-rag-mcp
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 169.254.7.127/32
+      ports:
+        - {protocol: TCP, port: 8080}
+---
+# Source: llm-agent-platform/templates/mcp-services.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: drift-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: drift-mcp}
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: feature-rag-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: drift-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/architecture-contract.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-agent-architecture-contract
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+data:
+  external_gateway: istio-ambient-gateway-api
+  a2a: kagent-native-a2a
+  llm_route: modelconfig-agentgateway-vllm
+  mcp_gateway_role: policy-only
+  contract_version: llm-agent-contracts/v1
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-agent-network-flows
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+data:
+  enforced.json: "[]"
+  unresolved.json: "[]"
+---
+# Source: llm-agent-platform/templates/mcp-services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: drift-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: drift-mcp}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+# Source: llm-agent-platform/templates/mcp-services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: feature-rag-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: feature-rag-mcp}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+# Source: llm-agent-platform/templates/mcp-services.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drift-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+    app.kubernetes.io/name: drift-mcp
+    app.kubernetes.io/component: mcp-server
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app.kubernetes.io/name: drift-mcp}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: drift-mcp
+        app.kubernetes.io/component: mcp-server
+    spec:
+      serviceAccountName: drift-mcp
+      automountServiceAccountToken: false
+      nodeSelector:
+        ewallet.io/g3-llm: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mcp-server
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "uvicorn", "--factory", "ai_platform.llm_agent.tools.service:create_drift_app",
+                    "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+          env:
+            - {name: EWALLET_GIT_SHA, value: "b4111a57fc0285ce118ea036038f6abb7b046867"}
+            - {name: EWALLET_IMAGE_DIGEST, value: "sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac"}
+            - {name: EWALLET_CONFIG_REVISION, value: "g3-gke-v1"}
+            - {name: EWALLET_PROMPT_REVISION, value: "v2"}
+            - {name: EWALLET_MODEL_REVISION, value: "fraud-detector/1"}
+            - {name: EWALLET_FEATURE_REVISION, value: "canonical-100gb-v1/online-20261031-163506"}
+            - {name: EWALLET_CORPUS_REVISION, value: "fraud-policy-v1-20261030"}
+            - {name: EWALLET_TOOL_MAX_CONCURRENCY, value: "8"}
+            - {name: EWALLET_TOOL_MAX_TIMEOUT_MS, value: "20000"}
+            # Transport and authorization limits (ai_platform/llm_agent/tools/security.py).
+            - {name: EWALLET_MCP_ALLOWED_ORIGINS, value: ""}
+            - {name: EWALLET_MCP_MAX_BODY_BYTES, value: "65536"}
+            - {name: EWALLET_MCP_MAX_INFLIGHT, value: "32"}
+            - {name: EWALLET_MCP_BODY_TIMEOUT_SECONDS, value: "10"}
+            - {name: EWALLET_MCP_TOOL_GRANTS, value: "{\"drift-specialist\":[\"drift_detection\"]}"}
+            - {name: EWALLET_MCP_DISCOVERY_SUBJECTS, value: "[\"kagent-controller\"]"}
+            # Service-scoped trusted token table. Credential values are supplied
+            # only by Kubernetes Secret and never rendered into a ConfigMap.
+            - name: EWALLET_MCP_SERVICE_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-drift-mcp-r1-transition
+                  key: auth-config.json
+          ports:
+            - {name: http, containerPort: 8080}
+          startupProbe:
+            httpGet: {path: /health/live, port: http}
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 15
+            failureThreshold: 3
+          # Transport readiness only: 503 when callers cannot be authenticated.
+          # Tool backends never gate it; see /v1/capabilities.
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+# Source: llm-agent-platform/templates/mcp-services.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feature-rag-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+    app.kubernetes.io/name: feature-rag-mcp
+    app.kubernetes.io/component: mcp-server
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app.kubernetes.io/name: feature-rag-mcp}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feature-rag-mcp
+        app.kubernetes.io/component: mcp-server
+    spec:
+      serviceAccountName: feature-rag-mcp
+      automountServiceAccountToken: false
+      nodeSelector:
+        ewallet.io/g3-llm: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mcp-server
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "uvicorn", "--factory", "ai_platform.llm_agent.tools.service:create_feature_rag_app",
+                    "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+          env:
+            - {name: EWALLET_GIT_SHA, value: "b4111a57fc0285ce118ea036038f6abb7b046867"}
+            - {name: EWALLET_IMAGE_DIGEST, value: "sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac"}
+            - {name: EWALLET_CONFIG_REVISION, value: "g3-gke-v1"}
+            - {name: EWALLET_PROMPT_REVISION, value: "v2"}
+            - {name: EWALLET_MODEL_REVISION, value: "fraud-detector/1"}
+            - {name: EWALLET_FEATURE_REVISION, value: "canonical-100gb-v1/online-20261031-163506"}
+            - {name: EWALLET_CORPUS_REVISION, value: "fraud-policy-v1-20261030"}
+            - {name: EWALLET_TOOL_MAX_CONCURRENCY, value: "8"}
+            - {name: EWALLET_TOOL_MAX_TIMEOUT_MS, value: "20000"}
+            # Transport and authorization limits (ai_platform/llm_agent/tools/security.py).
+            - {name: EWALLET_MCP_ALLOWED_ORIGINS, value: ""}
+            - {name: EWALLET_MCP_MAX_BODY_BYTES, value: "65536"}
+            - {name: EWALLET_MCP_MAX_INFLIGHT, value: "32"}
+            - {name: EWALLET_MCP_BODY_TIMEOUT_SECONDS, value: "10"}
+            - {name: EWALLET_MCP_TOOL_GRANTS, value: "{\"drift-specialist\":[\"feature_lookup\"],\"feature-rag-specialist\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"]}"}
+            - {name: EWALLET_MCP_DISCOVERY_SUBJECTS, value: "[\"kagent-controller\"]"}
+            # Feast Online Redis connection string (Secret replicated from the
+            # MLOps namespace by ops/llm_agent/g3_mlops_access.sh; never rendered).
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: feast-online-redis, key: connection_string}
+            # Service-scoped trusted token table. Credential values are supplied
+            # only by Kubernetes Secret and never rendered into a ConfigMap.
+            - name: EWALLET_MCP_SERVICE_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-auth-feature-rag-mcp-r1-transition
+                  key: auth-config.json
+            - {name: EWALLET_FEAST_REGISTRY, value: "/feast/fraud/registry.db"}
+            - {name: EWALLET_FEAST_REPO_PATH, value: "/workspace/ai_platform/features/feast/online_repo"}
+            - {name: EWALLET_KSERVE_BASE_URL, value: "http://fraud-detector-predictor.fraud-serving.svc.cluster.local"}
+            - {name: EWALLET_MODEL_NAME, value: "fraud-detector"}
+            - {name: EWALLET_MODEL_VERSION, value: "1"}
+            - {name: EWALLET_RAG_EMBEDDER, value: "local-onnx"}
+            - {name: EWALLET_RAG_FEAST_PROJECT, value: "ewallet_rag"}
+            - {name: EWALLET_RAG_FEAST_REGISTRY, value: "/feast/rag/registry.db"}
+            - {name: EWALLET_RAG_MANIFEST, value: "/workspace/data/llm_agent/rag/fraud-policy-v1/manifest.json"}
+            - {name: EWALLET_RAG_MODEL_CACHE, value: "/opt/hf-cache"}
+            - {name: EWALLET_RAG_ONLINE_STORE, value: "redis"}
+            - {name: EWALLET_RAG_RETRIEVER, value: "feast-online-exact"}
+          ports:
+            - {name: http, containerPort: 8080}
+          startupProbe:
+            httpGet: {path: /health/live, port: http}
+            failureThreshold: 30
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 15
+            failureThreshold: 3
+          # Transport readiness only: 503 when callers cannot be authenticated.
+          # Tool backends never gate it; see /v1/capabilities.
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: fraud-registry, mountPath: /feast/fraud, readOnly: true}
+            - {name: rag-registry, mountPath: /feast/rag, readOnly: true}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+        # Immutable Feast registry snapshot (ConfigMap created from a pinned
+        # object with a sha256 check), so the pod needs no GCS IAM.
+        - name: fraud-registry
+          configMap: {name: feast-registry-fraud-online}
+        # Immutable Feast registry snapshot (ConfigMap created from a pinned
+        # object with a sha256 check), so the pod needs no GCS IAM.
+        - name: rag-registry
+          configMap: {name: feast-registry-rag}
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-mcp-gateway-to-feature-rag-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: feature-rag-mcp
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/ewallet-agents/sa/mcp-gateway
+      to:
+        - operation:
+            ports: ["8080"]
+---
+# Source: llm-agent-platform/templates/cross-namespace.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-mcp-gateway-to-drift-mcp
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: drift-mcp
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/ewallet-agents/sa/mcp-gateway
+      to:
+        - operation:
+            ports: ["8080"]
+---
+# Source: llm-agent-platform/templates/security.yaml
+# The namespace is deny-by-default at the Istio L4 and Kubernetes L3/L4 layers.
+# Each enforced flow in .Values.networkFlows opens exactly one source identity
+# to one destination port, as an Istio principal rule plus a NetworkPolicy
+# ingress/egress pair. Unresolved flows stay denied; see the flow ConfigMap.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec: {}

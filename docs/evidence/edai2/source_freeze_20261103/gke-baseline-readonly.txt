@@ -1,0 +1,46 @@
+# GKE ewallet-dev read-only baseline 2026-11-03T15:07:33Z (kubectl/helm get/list only)
+## helm releases
+cert-manager cert-manager r1 deployed cert-manager-v1.16.2
+istio-base istio-system r13 deployed base-1.30.7
+istio-cni istio-system r13 deployed cni-1.30.7
+istiod istio-system r13 deployed istiod-1.30.7
+kagent kagent r5 deployed kagent-0.10.3
+kagent-crds kagent r1 deployed kagent-crds-0.10.3
+kserve kserve r1 deployed kserve-v0.16.0
+kserve-crd kserve r1 deployed kserve-crd-v0.16.0
+llm-agent default r32 deployed llm-agent-platform-0.1.0
+llm-agent-mcp ewallet-mcp r6 deployed llm-agent-platform-0.1.0
+prompt-registry ewallet-prompts r1 deployed agentregistry-0.4.0
+substrate ate-system r1 deployed substrate-0.0.9
+substrate-crds ate-system r1 deployed substrate-crds-0.0.9
+ztunnel istio-system r13 deployed ztunnel-1.30.7
+## M1 role
+[{"apiGroups":[""],"resources":["pods","services"],"verbs":["get","list","watch"]}]
+## jenkins can-i portforward ewallet-prompts: no
+## D1 namespace: Error from server (NotFound): namespaces "ewallet-mcp-release" not found
+## VAP/bindings named ewallet-*: 0
+## ewallet-prompts netpol: networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/same-namespace-and-dns 
+## r33 markers: managed CM Error from server (NotFound): configmaps "drift-specialist-prompt-managed" not found ; drift systemMessageFrom=drift-specialist-prompt-v2
+## rag cronjob: suspend=true asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/rag-ingestion@sha256:1dd91888548968e304d735d962c4eb3fc50560d092ca050efb6240e64e2dcba3 jobs=0
+## workload images
+ewallet-ci/Deployment/jenkins gen=12 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-controller@sha256:9c301d1a7fa4e8a6a2de8eafbc85c664eda292c6170f1168f71982c1fee5565d 
+ewallet-prompts/Deployment/prompt-registry-agentregistry gen=1 ghcr.io/agentregistry-dev/agentregistry/server@sha256:a2f69bd36fcdb8000d9a72fd6eef88f0c4aebc17ff3c55ea3ed174ae0bb12e3c 
+ewallet-prompts/Deployment/prompt-registry-db gen=1 docker.io/library/postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81 
+ewallet-mcp/Deployment/drift-mcp gen=5 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f 
+ewallet-mcp/Deployment/feature-rag-mcp gen=5 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f 
+ewallet-agents/Deployment/a2a-gateway gen=3 ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b 
+ewallet-agents/Deployment/agentgateway gen=1 ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b 
+ewallet-agents/Deployment/drift-mcp gen=1 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0 
+ewallet-agents/Deployment/drift-specialist gen=11 ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f 
+ewallet-agents/Deployment/feature-rag-specialist gen=15 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:bb0fae06250038e6489524426969597517e94a885c629531ee0ccbc3c40cd4d0 
+ewallet-agents/Deployment/fraud-coordinator gen=363 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:e85a03f2872d4db34e04cfce4c40198f6e7ff7f97dd398ceb4ad6089d70d8df6 
+ewallet-agents/Deployment/grafana gen=3 docker.io/grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8 
+ewallet-agents/Deployment/loki gen=1 docker.io/grafana/loki:3.5.7@sha256:bf26399a58b4719387b06abfd024ebca942d702b2e77cc600fa3439356584c73 
+ewallet-agents/Deployment/mcp-gateway gen=4 ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b 
+ewallet-agents/Deployment/otel-collector gen=2 docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6 
+ewallet-agents/Deployment/prometheus gen=3 docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545 
+ewallet-agents/Deployment/tempo gen=1 docker.io/grafana/tempo:2.8.2@sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d 
+ewallet-agents/Deployment/vllm-fallback gen=1 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c 
+ewallet-agents/Deployment/vllm-primary gen=1 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c 
+ewallet-agents/StatefulSet/coordinator-idempotency-redis gen=3 docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952 
+## port-forwards on executor host: 0

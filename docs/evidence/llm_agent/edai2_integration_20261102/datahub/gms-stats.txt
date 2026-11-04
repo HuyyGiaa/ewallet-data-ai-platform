@@ -1,0 +1,4 @@
+datahub-mysql-1 372.9MiB / 30.21GiB 0.42%
+datahub-opensearch-1 1.134GiB / 30.21GiB 2.97%
+datahub-kafka-broker-1 424.5MiB / 30.21GiB 4.59%
+datahub-datahub-gms-quickstart-1 1.338GiB / 30.21GiB 6.25%

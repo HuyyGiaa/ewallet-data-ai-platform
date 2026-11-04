@@ -1,0 +1,19 @@
+DATA | ML    | KFP                          | [('', '1')] | health only
+GAP  | ML    | KFP workflow run status      | [] | no exporter
+DATA | ML    | MLflow                       | [('', '1')] | health only
+DATA | ML    | Feast Online (client)        | [('', '8')] | client-side
+DATA | ML    | Feast freshness              | [('', '8')] | 
+DATA | ML    | KServe scrape                | [('', '1')] | server scrape
+DATA | ML    | KServe inference (client)    | [('', '4')] | client-side
+DATA | ML    | Fraud API scrape             | [('', '1')] | 
+DATA | LLM   | vLLM primary                 | [('', '1')] | 
+DATA | LLM   | vLLM requests                | [('', '42')] | 
+DATA | LLM   | agentgateway (LLM)           | [('', '129')] | 
+GAP  | LLM   | A2A/MCP gateways             | [] | not scraped
+DATA | Agent | Coordinator server spans     | [('', '8999')] | span metrics
+DATA | Agent | Feature-RAG specialist       | [('', '8895')] | span metrics
+DATA | Agent | MCP tool calls               | [('feature_lookup', '4'), ('fraud_scoring', '4'), ('knowledge_search', '6')] | 
+DATA | Agent | RAG knowledge_search         | [('', '6')] | 
+GAP  | Agent | Idempotency Redis            | [] | no exporter
+GAP  | Agent | HPA replicas                 | [] | no kube-state-metrics
+GAP  | Infra | Container CPU/RAM            | [] | no cAdvisor scrape

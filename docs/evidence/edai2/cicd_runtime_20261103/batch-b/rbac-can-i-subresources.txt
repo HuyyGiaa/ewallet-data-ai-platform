@@ -1,0 +1,7 @@
+OK want=yes can-i create pods/portforward -n ewallet-prompts -> yes
+OK want=no can-i create pods/exec -n ewallet-cicd -> no
+OK want=no can-i create pods/exec -n ewallet-prompts -> no
+OK want=yes can-i get pods/log -n ewallet-cicd -> yes
+OK want=no can-i create pods/portforward -n ewallet-cicd -> no
+OK want=no can-i create pods/portforward -n ewallet-agents -> no
+OK want=no can-i create serviceaccounts/token -n ewallet-cicd -> no

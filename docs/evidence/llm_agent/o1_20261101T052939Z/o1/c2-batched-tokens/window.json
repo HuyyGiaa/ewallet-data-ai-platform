@@ -1,0 +1,18 @@
+{
+  "start": "2026-11-01T06:49:22Z",
+  "samples": 54,
+  "mlops_regressions": [],
+  "guard_stop": null,
+  "oom_or_eviction_events": [],
+  "vllm_restarts": 0,
+  "throttling": {
+    "nr_periods": 10726,
+    "nr_throttled": 0,
+    "throttled_usec": 0,
+    "usage_usec": 1524813572
+  },
+  "mlops_node_cpu_pct_peak": 10.0,
+  "mlops_node_mem_pct_peak": 44.0,
+  "mlops_cpu_m_peak": 124,
+  "gateway_cpu_m_peak": 4
+}

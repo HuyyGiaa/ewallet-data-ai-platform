@@ -1,0 +1,6 @@
+branch=codex/llm-g2-llmd-routing
+head_before_commit=7ef4dd9d7b3d18bba922308cc22de2e017faa125
+tree_before_commit=0b75cecb4079dce47c7c2a4948441405bd1bb8ec
+helm_llm_agent=15 deployed llm-agent-platform-0.1.0
+helm_llm_agent_mcp=3 deployed llm-agent-platform-0.1.0
+helm_kagent=2 deployed kagent-0.10.3

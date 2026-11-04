@@ -1,0 +1,5 @@
+A. live r32 manifest vs current source with r32 values: 185 objects; added [] removed []
+   changed fields: none
+B. r33 (drift promptSource=registry) vs r32: added [] removed []
+   ('Agent', 'ewallet-agents', 'drift-specialist') /metadata/annotations/ewallet.io/prompt-source : None -> registry
+   ('Agent', 'ewallet-agents', 'drift-specialist') /spec/declarative/systemMessageFrom/name : drift-specialist-prompt-v2 -> drift-specialist-prompt-managed

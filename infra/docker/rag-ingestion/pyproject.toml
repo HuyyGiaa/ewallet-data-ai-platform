@@ -1,0 +1,25 @@
+[project]
+name = "ewallet-rag-ingestion"
+version = "0.1.0"
+description = "Task runtime for the rag_fraud_policy Airflow DAG (parse, chunk, embed, Feast publish, DataHub)"
+# Matches the local Airflow 3 interpreter and the Feast 0.66 project (3.10).
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "acryl-datahub[datahub-rest]==1.7.0.5",
+    "feast[gcp,redis]==0.66.0",
+    "gcsfs==2025.12.0",
+    "huggingface-hub==2.4.0",
+    "numpy==2.2.6",
+    "onnxruntime==1.23.2",
+    "pandas==2.3.3",
+    "pyarrow==25.0.1",
+    "tokenizers==0.23.3",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+]

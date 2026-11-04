@@ -1,0 +1,6 @@
+from ewallet-cicd -> prompt-registry-agentregistry:12121 BLOCKED
+from ewallet-cicd -> prompt-registry-agentregistry:31313 BLOCKED
+from ewallet-cicd -> prompt-registry-db:5432 BLOCKED
+from ewallet-prompts -> prompt-registry-agentregistry:12121 REACHABLE
+from ewallet-prompts -> prompt-registry-agentregistry:31313 REACHABLE
+from ewallet-prompts -> prompt-registry-db:5432 REACHABLE

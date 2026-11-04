@@ -1,0 +1,113 @@
+# Row 33 bounded CD target. The deployed artifact is a suspended CronJob that
+# pins the RAG ingestion image by digest; deploying never starts ingestion.
+# The CD smoke Job is created from it against an ephemeral Redis in the same
+# namespace, so production Feast Online Redis (DB0/DB1) is never addressed.
+# __RAG_IMAGE__ and __RELEASE_SHA__ are filled by scripts/ci/deploy/rag_pipeline.sh.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-cd-redis
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/name: rag-cd-redis, app.kubernetes.io/part-of: ewallet-cicd}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: rag-cd-redis}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: rag-cd-redis, app.kubernetes.io/part-of: ewallet-cicd}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: redis
+          # Same digest as the approved Coordinator idempotency Redis.
+          image: docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
+          args: ["--save", "", "--appendonly", "no", "--protected-mode", "no"]
+          ports: [{name: redis, containerPort: 6379}]
+          readinessProbe:
+            exec: {command: [redis-cli, ping]}
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+          volumeMounts: [{name: data, mountPath: /data}]
+      volumes: [{name: data, emptyDir: {sizeLimit: 256Mi}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-cd-redis
+  namespace: ewallet-cicd
+spec:
+  selector: {app.kubernetes.io/name: rag-cd-redis}
+  ports: [{name: redis, port: 6379, targetPort: redis}]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rag-ingestion
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/name: rag-ingestion, app.kubernetes.io/part-of: ewallet-cicd}
+  annotations:
+    ewallet.io/release-sha: "__RELEASE_SHA__"
+spec:
+  suspend: true
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels: {app.kubernetes.io/name: rag-ingestion, app.kubernetes.io/part-of: ewallet-cicd}
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels: {app.kubernetes.io/name: rag-ingestion, app.kubernetes.io/part-of: ewallet-cicd}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: rag-ingestion
+              image: "__RAG_IMAGE__"
+              args: ["cd-__RELEASE_SHORT__"]
+              env:
+                - {name: EWALLET_RAG_FEAST_REGISTRY, value: /work/feast/registry.db}
+                - {name: EWALLET_RAG_FEAST_PROJECT, value: ewallet_rag_cd}
+                - {name: EWALLET_REDIS_CONNECTION_STRING, value: "rag-cd-redis.ewallet-cicd.svc.cluster.local:6379,db=0"}
+                - {name: EWALLET_RAG_PUBLICATION_BASE, value: /work/feast}
+                - {name: EWALLET_RAG_EMBED_THREADS, value: "2"}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              resources:
+                requests: {cpu: 500m, memory: 1Gi}
+                limits: {cpu: "1", memory: 2Gi}
+              volumeMounts:
+                - {name: runs, mountPath: /workspace/docs/evidence/llm_agent}
+                - {name: work, mountPath: /work}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - {name: runs, emptyDir: {sizeLimit: 256Mi}}
+            - {name: work, emptyDir: {sizeLimit: 512Mi}}
+            - {name: tmp, emptyDir: {sizeLimit: 256Mi}}

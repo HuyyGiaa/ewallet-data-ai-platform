@@ -1,0 +1,31 @@
+source git_sha: 5a1c56c6818088a2f9ea6cdfc57eb4e1fadf34f7 components: ['agents', 'mcp-agents', 'rag-pipeline']
+commands executed:
+   uv-lock:infra/docker/g3-byo-coordinator exit 0 
+   uv-sync:infra/docker/g3-byo-coordinator exit 0 
+   uv-lock:infra/docker/llm-agent-tooling exit 0 
+   uv-sync:infra/docker/llm-agent-tooling exit 0 
+   uv-lock:infra/docker/rag-ingestion exit 0 
+   uv-sync:infra/docker/rag-ingestion exit 0 
+   component:agents:1 exit 0 --project infra/docker/g3-byo-coordinator python -m scripts.ci.junit_unittest --junit-xml evidence/ci/jenkins-edai2-cd-rag-pipeline-7/junit/junit-0007-component-agents-1.xml --suite-name component:agents:1 tests.llm_agent.test_g3_byo_coordinator tests.llm_agent.test_g3_byo_feature_rag_specialist tests.llm_agent.test_g3_durable_idempotency
+   component:agents:2 exit 0 infra/docker/llm-agent-tooling python -m scripts.ci.junit_unittest --junit-xml evidence/ci/jenkins-edai2-cd-rag-pipeline-7/junit/junit-0008-component-agents-2.xml --suite-name component:agents:2 tests.llm_agent.test_g3_business_request tests.llm_agent.test_g3_orchestration tests.llm_agent.test_g3_programmatic_coordinator tests.llm_agent.test_g3_runtime_config
+   component:mcp-agents:1 exit 0 -m scripts.ci.junit_unittest --junit-xml evidence/ci/jenkins-edai2-cd-rag-pipeline-7/junit/junit-0009-component-mcp-agents-1.xml --suite-name component:mcp-agents:1 tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security tests.llm_agent.test_mcp_production_authenticator tests.llm_agent.test_agents_chart tests.llm_agent.test_phase_d_chart tests.llm_agent.test_registry_catalog
+   component:rag-pipeline:1 exit 0 /usr/bin/bash scripts/validation/validate_rag_pipeline.sh
+   component:rag-pipeline:2 exit 0 /usr/bin/python3 -m scripts.ci.junit_unittest --junit-xml evidence/ci/jenkins-edai2-cd-rag-pipeline-7/junit/junit-0011-component-rag-pipeline-2.xml --suite-name component:rag-pipeline:2 tests.llm_agent.test_phase_c
+   component:rag-pipeline:3 exit 0 --project infra/docker/rag-ingestion python -m scripts.ci.junit_unittest --junit-xml evidence/ci/jenkins-edai2-cd-rag-pipeline-7/junit/junit-0012-component-rag-pipeline-3.xml --suite-name component:rag-pipeline:3 tests.llm_agent.test_rag_airflow_ingestion tests.llm_agent.test_rag_online_retriever tests.llm_agent.test_rag_chunk_lookup
+
+JUnit suites:
+  component:agents:1: {'tests': 36, 'failures': 0, 'errors': 0, 'skipped': 0} skip-reasons={}
+     modules: {'test_g3_byo_coordinator': 14, 'test_g3_byo_feature_rag_specialist': 9, 'test_g3_durable_idempotency': 13}
+  component:agents:2: {'tests': 73, 'failures': 0, 'errors': 0, 'skipped': 22} skip-reasons={'helm binary unavailable': 22}
+     modules: {'test_g3_business_request': 4, 'test_g3_orchestration': 4, 'test_g3_programmatic_coordinator': 25, 'test_g3_runtime_config': 40}
+  component:mcp-agents:1: {'tests': 138, 'failures': 0, 'errors': 0, 'skipped': 39} skip-reasons={'helm binary unavailable': 39}
+     modules: {'test_phase_d_tools': 48, 'test_phase_d_security': 29, 'test_mcp_production_authenticator': 13, 'test_agents_chart': 33, 'test_phase_d_chart': 7, 'test_registry_catalog': 8}
+  component:rag-pipeline:2: {'tests': 11, 'failures': 0, 'errors': 0, 'skipped': 0} skip-reasons={}
+     modules: {'test_phase_c': 11}
+  component:rag-pipeline:3: {'tests': 50, 'failures': 0, 'errors': 0, 'skipped': 1} skip-reasons={'set EWALLET_RAG_MODEL_TESTS=1': 1}
+     modules: {'test_rag_airflow_ingestion': 33, 'test_rag_online_retriever': 11, 'test_rag_chunk_lookup': 6}
+TOTAL {'tests': 308, 'failures': 0, 'errors': 0, 'skipped': 62} passed 246 deselected 0 (unittest has no deselection)
+release-change test collected: test_cd_contract_matches_the_corpus_manifest True
+release-change test collected: test_publication_records_the_release_that_produced_it True
+release-change test collected: test_image_release_sha_identifies_runs_without_git True
+release-change test collected: test_full_pipeline_publishes_reads_back_and_cites_sources True

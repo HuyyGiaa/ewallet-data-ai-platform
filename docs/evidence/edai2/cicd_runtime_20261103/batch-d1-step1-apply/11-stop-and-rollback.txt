@@ -1,0 +1,16 @@
+## STOP: condition differs from review
+2026-11-03T13:20:02Z
+istio-ca-crl         pilot-discovery
+istio-ca-root-cert   pilot-discovery
+kube-root-ca.crt     kube-controller-manager
+NAME                  STATUS   AGE   LABELS
+ewallet-mcp-release   Active   22s   app.kubernetes.io/part-of=ewallet-ci,ewallet.io/purpose=helm-release-records,kubernetes.io/metadata.name=ewallet-mcp-release,pod-security.kubernetes.io/audit=restricted,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn=restricted
+## objects present before rollback (all auto-created)
+xargs: warning: options --max-args and --replace/-I/-i are mutually exclusive, ignoring previous --max-args value
+configmap/istio-ca-crl
+configmap/istio-ca-root-cert
+configmap/kube-root-ca.crt
+serviceaccount/default
+## rollback stage 1
+namespace "ewallet-mcp-release" deleted
+Error from server (NotFound): namespaces "ewallet-mcp-release" not found

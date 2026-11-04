@@ -1,0 +1,215 @@
+{
+  "classification": "source_render_only",
+  "clusterScoped": [
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "mcpservers.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "agentharnesses.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "agents.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "memories.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "modelconfigs.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "modelproviderconfigs.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "remotemcpservers.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "sandboxagents.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "toolservers.kagent.dev",
+      "namespace": null,
+      "source": "kagent-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "actortemplates.ate.dev",
+      "namespace": null,
+      "source": "substrate-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "sandboxconfigs.ate.dev",
+      "namespace": null,
+      "source": "substrate-crds.yaml"
+    },
+    {
+      "apiVersion": "apiextensions.k8s.io/v1",
+      "kind": "CustomResourceDefinition",
+      "name": "workerpools.ate.dev",
+      "namespace": null,
+      "source": "substrate-crds.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRole",
+      "name": "ate-api-server-role",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRole",
+      "name": "atelet-role",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRole",
+      "name": "atenet-router",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRole",
+      "name": "oidc-discovery-viewer",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRole",
+      "name": "ate-controller",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRoleBinding",
+      "name": "ate-api-server-binding",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRoleBinding",
+      "name": "ate-controller",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRoleBinding",
+      "name": "atelet-binding",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRoleBinding",
+      "name": "atenet-router",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "ClusterRoleBinding",
+      "name": "oidc-discovery-viewer",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "ate.dev/v1alpha1",
+      "kind": "SandboxConfig",
+      "name": "gvisor-default",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "admissionregistration.k8s.io/v1",
+      "kind": "ValidatingAdmissionPolicy",
+      "name": "sandboxconfig-assets",
+      "namespace": null,
+      "source": "substrate.yaml"
+    },
+    {
+      "apiVersion": "admissionregistration.k8s.io/v1",
+      "kind": "ValidatingAdmissionPolicyBinding",
+      "name": "sandboxconfig-assets",
+      "namespace": null,
+      "source": "substrate.yaml"
+    }
+  ],
+  "documentCount": 80,
+  "kindCounts": {
+    "ClusterRole": 5,
+    "ClusterRoleBinding": 5,
+    "ConfigMap": 7,
+    "CustomResourceDefinition": 12,
+    "DaemonSet": 1,
+    "Deployment": 8,
+    "Job": 2,
+    "PersistentVolumeClaim": 2,
+    "Role": 5,
+    "RoleBinding": 5,
+    "SandboxConfig": 1,
+    "Secret": 4,
+    "Service": 10,
+    "ServiceAccount": 9,
+    "StatefulSet": 1,
+    "ValidatingAdmissionPolicy": 1,
+    "ValidatingAdmissionPolicyBinding": 1,
+    "WorkerPool": 1
+  },
+  "privilegedWorkloads": [
+    {
+      "apiVersion": "apps/v1",
+      "kind": "DaemonSet",
+      "name": "atelet",
+      "namespace": "ate-system",
+      "reasons": [
+        "hostPath:run-ateom",
+        "privileged:atelet"
+      ],
+      "source": "substrate.yaml"
+    }
+  ],
+  "verdict": "BLOCKED_PENDING_OWNER_APPROVAL"
+}

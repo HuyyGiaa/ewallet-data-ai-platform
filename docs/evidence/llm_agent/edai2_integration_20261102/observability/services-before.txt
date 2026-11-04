@@ -1,0 +1,5 @@
+Error from server (NotFound): services "otel-collector" not found
+Error from server (NotFound): services "prometheus" not found
+Error from server (NotFound): services "loki" not found
+Error from server (NotFound): services "tempo" not found
+Error from server (NotFound): services "grafana" not found

@@ -19,17 +19,20 @@ if dag is not None:
     report["bash_commands_contain_jinja"] = {t.task_id: ("{{" in t.bash_command) for t in dag.tasks}
     report["env_param_templates"] = {t.task_id: sorted(k for k, v in (t.env or {}).items() if "{{" in str(v)) for t in dag.tasks}
     report["append_env"] = {t.task_id: t.append_env for t in dag.tasks}
-    report["interpreter_env_present"] = all("EWALLET_AIRFLOW_PYTHON" in (t.env or {}) for t in dag.tasks)
+    report["interpreter_env_present"] = all("EWALLET_RAG_PYTHON" in (t.env or {}) for t in dag.tasks)
+    report["retries"] = {t.task_id: t.retries for t in dag.tasks}
+    report["execution_timeout_seconds"] = {t.task_id: t.execution_timeout.total_seconds() for t in dag.tasks}
     defaults = dag.params.validate()
     report["param_defaults"] = defaults
     env = dag.get_template_env()
-    t = dag.get_task("build_feast_publication_artifact")
-    report["rendered_env_defaults"] = {k: env.from_string(v).render(params=defaults) for k, v in t.env.items() if k.startswith("RAG_")}
+    t = dag.get_task("publish_feast_features")
+    report["rendered_env_defaults"] = {k: env.from_string(v).render(params=defaults, run_id="manual__2026-11-01T00:00:00+00:00")
+                                       for k, v in t.env.items() if k.startswith("RAG_")}
     rejected = {}
-    for name, value in (("evidence_dir", "docs/evidence/llm_agent/rag/x'; touch /tmp/p; '"),
-                        ("evidence_dir", "docs/evidence/llm_agent/rag/run-001\n"),
-                        ("embedding_endpoint", "http://attacker.example:8000"),
-                        ("api_key_file", "/etc/shadow"), ("online_store", "sqlite")):
+    for name, value in (("run_label", "x'; touch /tmp/p; '"), ("run_label", "run-001\n"),
+                        ("source_location", "/etc"), ("source_location", "data/llm_agent/rag/../../etc"),
+                        ("source_location", "http://attacker.example/x"), ("online_store", "memory"),
+                        ("datahub_mode", "skip")):
         params = copy.deepcopy(dag.params)
         try:
             params[name] = value

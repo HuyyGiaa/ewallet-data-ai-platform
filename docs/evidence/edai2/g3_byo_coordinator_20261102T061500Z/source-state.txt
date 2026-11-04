@@ -1,0 +1,15 @@
+captured_utc=2026-11-02T06:30:54Z
+worktree=/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2
+branch=codex/llm-g2-llmd-routing
+head=ce05f0f98b3775da2d313f5632970d0134771249
+tree=00bed36ec763b7086659f3f5dd54c7d9d5e87ec1
+--- commits ---
+ce05f0f98b3775da2d313f5632970d0134771249 fix(g3): bound specialist execution at eight minutes
+9b292345a25c04f36d4be0b217fe92ab0a2720f8 fix(g3): validate complete BYO runtime image
+f6aab2d9ecc8bd4097b01962f3f5bb222b1427d7 fix(g3): install Git in BYO image build stage
+d09c175cc9981c6c209b2b43ba58d3e979dade5f feat(g3): add deterministic BYO coordinator runtime
+e7c36570b5d5c722884c1a8a61c9e0fc89baa714 feat(g3): prototype deterministic BYO coordinator
+--- status ---
+?? docs/evidence/edai2/g3_byo_coordinator_20261102T061500Z/
+?? docs/evidence/llm_agent/g3_20261101T170735Z/
+?? docs/evidence/llm_agent/rag_g3-gke-feast-redis/

@@ -1,0 +1,59 @@
+{
+  "run_id": "observability-source-validation-20261101T051846Z",
+  "timestamp_utc": "2026-11-01T05:18:46Z",
+  "environment": "local-source-static",
+  "worktree": "/home/huyy-giaa/Develop/ewallet-pc-observability",
+  "branch": "codex/pc-observability-20261101",
+  "initial_sha": "e7dbbc27436faef5b06ba4c40df66a1639f46a28",
+  "source_sha": "1ad47bf7fe5da9f84accb7c2d584d962d6a64da4",
+  "artifact_bundle_sha": "a39d924e437bca59ac234451ea7bc092b7263a8f",
+  "status": "STATIC_VALIDATION_PASS",
+  "local_runtime_verified": false,
+  "gke_runtime_verified": false,
+  "rubric_verified": false,
+  "commands": [
+    {
+      "command": "python3 -m unittest tests.observability.test_foundation tests.llm_agent.test_observability_chart -v",
+      "result": "PASS: 7 passed, 4 skipped before Helm was placed on PATH; rerun with Helm passed all 11"
+    },
+    {
+      "command": "MCP locked environment: tests.observability.test_ai_telemetry + tests.llm_agent.test_phase_d_tools",
+      "result": "PASS: 49 passed"
+    },
+    {
+      "command": "helm lint and enabled local helm template render",
+      "result": "PASS with Helm 3.19.0"
+    },
+    {
+      "command": "uv lock --check and uv sync --locked --no-dev",
+      "result": "PASS for infra/docker/llm-agent-tooling"
+    },
+    {
+      "command": "promtool check config against the rendered Prometheus configuration",
+      "result": "PASS with prom/prometheus:v3.7.3 pinned digest"
+    },
+    {
+      "command": "otelcol-contrib validate against the rendered Collector configuration",
+      "result": "PASS with OpenTelemetry Collector Contrib 0.162.0 pinned digest"
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -v",
+      "result": "BASELINE NOT GREEN: 695 run, 7 failures, 40 errors, 111 skipped; failures are outside observability and are listed in the final report"
+    }
+  ],
+  "artifacts": [
+    {"path": "ai_platform/llm_agent/observability.py", "sha256": "6ed034240c1004905610c7f8a2dce207cc93cd6a73167028ff010216ac850b7b"},
+    {"path": "ai_platform/llm_agent/tools/service.py", "sha256": "f015fbaa0f017d02bef785e28dc7a77cffc683cf14e1e2da2d22ea537a0dd7b4"},
+    {"path": "infra/helm/llm-agent-platform/values.yaml", "sha256": "c6e59f8557fcdd9e9cc26fe3953c4a23087ee594e710999c3e080c6238bc71dc"},
+    {"path": "infra/helm/llm-agent-platform/templates/_helpers.tpl", "sha256": "dd1c8c2ed88d265c022a79e6f3808c37d4c180398845a76d17d1d1932b73e12c"},
+    {"path": "infra/helm/llm-agent-platform/templates/agentgateway.yaml", "sha256": "cd2cf61ebb79819669f60b55e81c18b863f5bce8351f3bc5d52a696d35958dfa"},
+    {"path": "infra/helm/llm-agent-platform/templates/otel-collector.yaml", "sha256": "38e939a93980ea26d70a9af662efb7ed96da5d414aa50728a10c6e60c299592c"},
+    {"path": "infra/helm/llm-agent-platform/templates/observability-stack.yaml", "sha256": "c106b5d3a9b24111f3a2fec24350b3ecf931afbef9c324fcda6a14fb111cdb55"},
+    {"path": "infra/helm/llm-agent-platform/dashboards/platform-overview.json", "sha256": "c4f2fb4c72cbc379cfdf9ceb57127475e2067146c9199edfba862674f5360447"},
+    {"path": "infra/helm/llm-agent-platform/dashboards/llm-runtime.json", "sha256": "828d57b3c389e5e38e8f78ece35cba9e53175c3cc0d732d8b3da40bbd381a97b"},
+    {"path": "infra/helm/llm-agent-platform/dashboards/agent-mcp.json", "sha256": "1ce389ccbaaf36a1f3cdebbb53f1793a10401f43a97e320086d0429eeee8bc5b"},
+    {"path": "scripts/observability/validate.py", "sha256": "8ca62c26323e4c317b855bb25dc50536a799474dc469e51bfd7a266909f3c6ce"},
+    {"path": "docs/observability.md", "sha256": "f8f3807d6f2efc05f4b8ea432bbab3a96ab2606e5b0e49ae3800d1360d7bf8b9"},
+    {"path": "docs/rubric/rubric_evidence_matrix.csv", "sha256": "7a4af7d31ea3071686b2285da25c7004b12a0f32d602bfd79a0c8182e7496a43"}
+  ]
+}

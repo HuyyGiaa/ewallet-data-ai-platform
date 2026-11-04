@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import time
-from typing import Protocol
+from typing import Iterator, Mapping, Protocol
 
 class TelemetryHooks(Protocol):
     def request(self, *, correlation_id: str): ...
@@ -23,6 +23,18 @@ class EventLogger(Protocol):
     ) -> None: ...
 
 
+class BackendTelemetry(Protocol):
+    def operation(
+        self,
+        backend: str,
+        operation: str,
+        *,
+        attributes: Mapping[str, str] | None = None,
+    ) -> Iterator[None]: ...
+
+    def record_feast_freshness(self, seconds: float) -> None: ...
+
+
 class NoopTelemetry:
     @contextmanager
     def request(self, *, correlation_id: str):
@@ -34,6 +46,78 @@ class NoopTelemetry:
 
     def record_error(self, code: str) -> None:
         return None
+
+
+class NoopBackendTelemetry:
+    @contextmanager
+    def operation(
+        self,
+        backend: str,
+        operation: str,
+        *,
+        attributes: Mapping[str, str] | None = None,
+    ):
+        yield
+
+    def record_feast_freshness(self, seconds: float) -> None:
+        return None
+
+
+class OpenTelemetryBackendTelemetry:
+    """Bounded backend metrics plus explicit Feast/KServe child spans."""
+
+    _BACKENDS = frozenset({"feast-online", "kserve"})
+    _OPERATIONS = frozenset({"get_features", "ready", "infer"})
+
+    def __init__(self) -> None:
+        from opentelemetry import metrics, trace
+
+        self._tracer = trace.get_tracer("ewallet.ml_backends")
+        meter = metrics.get_meter("ewallet.ml_backends")
+        self._requests = meter.create_counter("backend_client_requests_total")
+        self._latency = meter.create_histogram(
+            "backend_client_latency_seconds", unit="s"
+        )
+        self._freshness = meter.create_histogram(
+            "feast_feature_freshness_seconds", unit="s"
+        )
+
+    @contextmanager
+    def operation(
+        self,
+        backend: str,
+        operation: str,
+        *,
+        attributes: Mapping[str, str] | None = None,
+    ):
+        if backend not in self._BACKENDS or operation not in self._OPERATIONS:
+            raise ValueError("backend telemetry dimension is not allowlisted")
+        safe_attributes = {
+            key: value
+            for key, value in (attributes or {}).items()
+            if key in {"model.name", "model.version"}
+        }
+        dimensions = {"backend": backend, "operation": operation}
+        started = time.perf_counter()
+        outcome = "success"
+        with self._tracer.start_as_current_span(
+            f"{backend}.{operation}",
+            attributes={**dimensions, **safe_attributes},
+        ) as span:
+            try:
+                yield
+            except Exception as error:
+                outcome = "error"
+                span.record_exception(error)
+                raise
+            finally:
+                measured = {**dimensions, "outcome": outcome}
+                self._requests.add(1, measured)
+                self._latency.record(time.perf_counter() - started, measured)
+
+    def record_feast_freshness(self, seconds: float) -> None:
+        if seconds >= 0:
+            self._freshness.record(seconds, {"backend": "feast-online"})
 
 
 class OpenTelemetryHooks:
@@ -132,3 +216,16 @@ def default_telemetry() -> TelemetryHooks:
         return OpenTelemetryHooks()
     except ImportError:
         return NoopTelemetry()
+
+
+_BACKEND_TELEMETRY: BackendTelemetry | None = None
+
+
+def default_backend_telemetry() -> BackendTelemetry:
+    global _BACKEND_TELEMETRY
+    if _BACKEND_TELEMETRY is None:
+        try:
+            _BACKEND_TELEMETRY = OpenTelemetryBackendTelemetry()
+        except ImportError:
+            _BACKEND_TELEMETRY = NoopBackendTelemetry()
+    return _BACKEND_TELEMETRY

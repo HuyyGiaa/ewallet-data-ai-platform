@@ -1,0 +1,13 @@
+Forwarding from 127.0.0.1:18000 -> 8000
+Forwarding from [::1]:18000 -> 8000
+Handling connection for 18000
+Handling connection for 18000
+Handling connection for 18000
+Handling connection for 18000
+Handling connection for 18000
+Handling connection for 18000
+Handling connection for 18000
+Handling connection for 18000
+Handling connection for 18000
+E1101 10:44:50.503337 2028524 portforward.go:549] "An error occurred forwarding" err="error forwarding port 8000 to pod d20c1587c212727f0de55582470d2b791fa1596586a32549a1dbbb74d7beb28e, uid : failed to find sandbox \"d20c1587c212727f0de55582470d2b791fa1596586a32549a1dbbb74d7beb28e\" in store: not found" localPort=18000 remotePort=8000
+error: lost connection to pod

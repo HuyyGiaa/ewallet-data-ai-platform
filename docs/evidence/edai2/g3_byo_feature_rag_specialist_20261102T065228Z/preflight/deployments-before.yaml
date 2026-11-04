@@ -1,0 +1,522 @@
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "7"
+      ewallet.io/display-name: Fraud Investigation / Evidence specialist
+      ewallet.io/prompt-sha256: a3ccfe5ce07f05ea155bfb3ff658df4dff8ac928f0ea23fb35481dc7519b2112
+      ewallet.io/rubric-rows: "22"
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 7
+    labels:
+      app: kagent
+      app.kubernetes.io/managed-by: kagent
+      app.kubernetes.io/name: feature-rag-specialist
+      app.kubernetes.io/part-of: kagent
+      ewallet.io/agent: feature-rag-specialist
+      kagent: feature-rag-specialist
+    name: feature-rag-specialist
+    namespace: ewallet-agents
+    ownerReferences:
+    - apiVersion: kagent.dev/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: Agent
+      name: feature-rag-specialist
+      uid: da3f7e26-412f-4f06-b5c8-4bc8fabf48cd
+    resourceVersion: "1793594114273919016"
+    uid: 390a5d44-4ea1-4339-8a5f-de72ed4241e8
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: kagent
+        kagent: feature-rag-specialist
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          ewallet.io/mcp-gateway-config-sha256: ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4
+          kagent.dev/config-hash: "6056086259485296940"
+        labels:
+          app: kagent
+          app.kubernetes.io/managed-by: kagent
+          app.kubernetes.io/name: feature-rag-specialist
+          app.kubernetes.io/part-of: kagent
+          ewallet.io/agent: feature-rag-specialist
+          kagent: feature-rag-specialist
+      spec:
+        containers:
+        - args:
+          - --host
+          - 0.0.0.0
+          - --port
+          - "8080"
+          - --filepath
+          - /config
+          env:
+          - name: OPENAI_API_KEY
+            valueFrom:
+              secretKeyRef:
+                key: api-key
+                name: agentgateway-client-key
+          - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+            value: otel-collector.ewallet-agents.svc.cluster.local:4317
+          - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+            value: "true"
+          - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+            value: grpc
+          - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+            value: "15000"
+          - name: OTEL_LOGGING_ENABLED
+            value: "false"
+          - name: OTEL_TRACING_ENABLED
+            value: "true"
+          - name: KAGENT_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: KAGENT_NAME
+            value: feature-rag-specialist
+          - name: KAGENT_URL
+            value: http://kagent-controller.kagent:8083
+          image: ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f
+          imagePullPolicy: IfNotPresent
+          name: kagent
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /config
+            name: config
+          - mountPath: /var/run/secrets/tokens
+            name: kagent-token
+        dnsPolicy: ClusterFirst
+        nodeSelector:
+          ewallet.io/g3-llm: "true"
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: feature-rag-specialist
+        serviceAccountName: feature-rag-specialist
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: config
+          secret:
+            defaultMode: 420
+            secretName: feature-rag-specialist
+        - name: kagent-token
+          projected:
+            defaultMode: 420
+            sources:
+            - serviceAccountToken:
+                audience: kagent
+                expirationSeconds: 3600
+                path: kagent-token
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:25Z"
+      lastUpdateTime: "2026-11-01T17:35:25Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-11-01T17:35:05Z"
+      lastUpdateTime: "2026-11-02T04:35:13Z"
+      message: ReplicaSet "feature-rag-specialist-5bb5fd8856" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 7
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "216"
+      ewallet.io/display-name: Fraud Investigation Coordinator
+      ewallet.io/prompt-sha256: 416963bcfe2c1e1774d4dac20605cf5e56fb36450bbb7053ad5c53cdee41afb6
+      ewallet.io/rubric-rows: 25,26
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 354
+    labels:
+      app: kagent
+      app.kubernetes.io/managed-by: kagent
+      app.kubernetes.io/name: fraud-coordinator
+      app.kubernetes.io/part-of: kagent
+      ewallet.io/agent: fraud-coordinator
+      kagent: fraud-coordinator
+    name: fraud-coordinator
+    namespace: ewallet-agents
+    ownerReferences:
+    - apiVersion: kagent.dev/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: Agent
+      name: fraud-coordinator
+      uid: 0f493645-0c86-4a57-acbc-68aab17b4545
+    resourceVersion: "1793600601980991003"
+    uid: c64f35f4-4c3c-47d1-a8d5-db21dd33d6a3
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: kagent
+        kagent: fraud-coordinator
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          ewallet.io/a2a-gateway-config-sha256: 86e9f7330d869cef6475141b4f6d9710aa538f840f100ff300f881875636bee6
+          ewallet.io/coordinator-runtime: byo-v1
+          kagent.dev/config-hash: "11300352858484312788"
+        labels:
+          app: kagent
+          app.kubernetes.io/managed-by: kagent
+          app.kubernetes.io/name: fraud-coordinator
+          app.kubernetes.io/part-of: kagent
+          ewallet.io/agent: fraud-coordinator
+          kagent: fraud-coordinator
+      spec:
+        containers:
+        - env:
+          - name: OTEL_TRACING_ENABLED
+            value: "true"
+          - name: OTEL_LOGGING_ENABLED
+            value: "false"
+          - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+            value: otel-collector.ewallet-agents.svc.cluster.local:4317
+          - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+            value: "true"
+          - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+            value: grpc
+          - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+            value: "15000"
+          - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+            value: otel-collector.ewallet-agents.svc.cluster.local:4317
+          - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+            value: "true"
+          - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+            value: grpc
+          - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+            value: "15000"
+          - name: OTEL_LOGGING_ENABLED
+            value: "false"
+          - name: OTEL_TRACING_ENABLED
+            value: "true"
+          - name: KAGENT_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: KAGENT_NAME
+            value: fraud-coordinator
+          - name: KAGENT_URL
+            value: http://kagent-controller.kagent:8083
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446
+          imagePullPolicy: IfNotPresent
+          name: kagent
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 15
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /config
+            name: config
+          - mountPath: /var/run/secrets/tokens
+            name: kagent-token
+        dnsPolicy: ClusterFirst
+        nodeSelector:
+          ewallet.io/g3-llm: "true"
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: fraud-coordinator
+        serviceAccountName: fraud-coordinator
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: config
+          secret:
+            defaultMode: 420
+            secretName: fraud-coordinator
+        - name: kagent-token
+          projected:
+            defaultMode: 420
+            sources:
+            - serviceAccountToken:
+                audience: kagent
+                expirationSeconds: 3600
+                path: kagent-token
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-11-02T00:30:26Z"
+      lastUpdateTime: "2026-11-02T00:30:26Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-11-01T17:35:05Z"
+      lastUpdateTime: "2026-11-02T06:22:53Z"
+      message: ReplicaSet "fraud-coordinator-7bf69cb76c" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 354
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "5"
+      ewallet.io/display-name: Feature / Risk specialist
+      ewallet.io/prompt-sha256: 0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef
+      ewallet.io/rubric-rows: 19,20,21
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 5
+    labels:
+      app: kagent
+      app.kubernetes.io/managed-by: kagent
+      app.kubernetes.io/name: drift-specialist
+      app.kubernetes.io/part-of: kagent
+      ewallet.io/agent: drift-specialist
+      kagent: drift-specialist
+    name: drift-specialist
+    namespace: ewallet-agents
+    ownerReferences:
+    - apiVersion: kagent.dev/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: Agent
+      name: drift-specialist
+      uid: 853175e0-c62b-4f14-854e-7b23011f0211
+    resourceVersion: "1793572832076479009"
+    uid: 6fae60a1-f4bd-45aa-93e4-900d7bb60029
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: kagent
+        kagent: drift-specialist
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          ewallet.io/mcp-gateway-config-sha256: ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4
+          kagent.dev/config-hash: "10702642579326035465"
+        labels:
+          app: kagent
+          app.kubernetes.io/managed-by: kagent
+          app.kubernetes.io/name: drift-specialist
+          app.kubernetes.io/part-of: kagent
+          ewallet.io/agent: drift-specialist
+          kagent: drift-specialist
+      spec:
+        containers:
+        - args:
+          - --host
+          - 0.0.0.0
+          - --port
+          - "8080"
+          - --filepath
+          - /config
+          env:
+          - name: OPENAI_API_KEY
+            valueFrom:
+              secretKeyRef:
+                key: api-key
+                name: agentgateway-client-key
+          - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+            value: otel-collector.ewallet-agents.svc.cluster.local:4317
+          - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+            value: "true"
+          - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+            value: grpc
+          - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+            value: "15000"
+          - name: OTEL_LOGGING_ENABLED
+            value: "false"
+          - name: OTEL_TRACING_ENABLED
+            value: "true"
+          - name: KAGENT_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: KAGENT_NAME
+            value: drift-specialist
+          - name: KAGENT_URL
+            value: http://kagent-controller.kagent:8083
+          image: ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f
+          imagePullPolicy: IfNotPresent
+          name: kagent
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /config
+            name: config
+          - mountPath: /var/run/secrets/tokens
+            name: kagent-token
+        dnsPolicy: ClusterFirst
+        nodeSelector:
+          ewallet.io/g3-llm: "true"
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccount: drift-specialist
+        serviceAccountName: drift-specialist
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: config
+          secret:
+            defaultMode: 420
+            secretName: drift-specialist
+        - name: kagent-token
+          projected:
+            defaultMode: 420
+            sources:
+            - serviceAccountToken:
+                audience: kagent
+                expirationSeconds: 3600
+                path: kagent-token
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:25Z"
+      lastUpdateTime: "2026-11-01T17:35:25Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-11-01T17:35:05Z"
+      lastUpdateTime: "2026-11-01T22:40:31Z"
+      message: ReplicaSet "drift-specialist-7fb847df9" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 5
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+kind: List
+metadata:
+  resourceVersion: ""

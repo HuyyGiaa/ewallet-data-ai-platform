@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Fake helm for the offline G2 runner simulation. `template` runs the real helm
+($G2_SIM_REAL_HELM); `upgrade --install` renders with the real helm too and
+stores what the cluster would run (Deployments, the agentgateway ConfigMap,
+pods on the G2-labelled nodes, routing mode)."""
+
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import simstate  # noqa: E402
+
+REAL = os.environ["G2_SIM_REAL_HELM"]
+argv = sys.argv[1:]
+with simstate.locked() as s:
+    s["calls"].append("helm " + " ".join(argv)[:150])
+verb = argv[0] if argv else ""
+
+if verb == "template":
+    os.execv(REAL, [REAL, *argv])
+if verb == "pull":
+    dest = Path(argv[argv.index("-d") + 1])
+    shutil.copy(os.environ["G2_SIM_ROUTER_CHART"], dest / Path(os.environ["G2_SIM_ROUTER_CHART"]).name)
+    sys.exit(0)
+if verb == "list":
+    for r in simstate.read()["releases"]:
+        print(r)
+    sys.exit(0)
+if verb == "history":
+    print("[]")
+    sys.exit(0)
+if verb == "uninstall":
+    name = argv[1]
+    with simstate.locked() as s:
+        if name in s["releases"]:
+            s["releases"].remove(name)
+        keep = "llmd-router" if name == "llm-agent" else None
+        for pod in list(s["pods"]):
+            owner = "llmd-router" if pod.startswith("llmd-router") else "llm-agent"
+            if owner == name:
+                s["pods"].pop(pod)
+        if name == "llm-agent":
+            s["deployments"], s["configmap"], s["routing"] = {}, None, None
+    sys.exit(0)
+if verb == "upgrade":
+    release, chart = argv[2], argv[3]
+    if release == "llmd-router" and simstate.read()["routing"] != "o2":
+        # Default-deny namespace: without the O2 allow policies the router never gets Ready.
+        sys.stderr.write("simulated: router probes blocked, O2 policies not applied\n")
+        sys.exit(1)
+    if simstate.fail_at(f"deploy-{release}"):
+        sys.stderr.write("simulated helm failure\n")
+        sys.exit(1)
+    keep, skip = [], {"--kube-context", "--namespace", "--timeout"}
+    j = 4
+    while j < len(argv):
+        a = argv[j]
+        if a in skip:
+            j += 2
+            continue
+        if a in ("--atomic", "--wait"):
+            j += 1
+            continue
+        keep.append(a)
+        j += 1
+    rendered = subprocess.run([REAL, "template", release, chart, "-n", "ewallet-agents", *keep],
+                              capture_output=True, text=True)
+    if rendered.returncode:
+        sys.stderr.write(rendered.stderr)
+        sys.exit(1)
+    docs = [d for d in yaml.safe_load_all(rendered.stdout) if d]
+    with simstate.locked() as s:
+        if release not in s["releases"]:
+            s["releases"].append(release)
+        g2_nodes = sorted(n for n, labels in s["nodes"].items() if labels.get("ewallet.io/g2-llm") == "true")
+        if not g2_nodes:
+            sys.stderr.write("no G2 nodes\n")
+            sys.exit(1)
+        s.setdefault("deployments", {})
+        for d in docs:
+            if d["kind"] == "Deployment":
+                name = d["metadata"]["name"]
+                s["deployments"][name] = d
+                existing = [p for p, v in s["pods"].items() if v.get("deployment") == name]
+                labels = d["spec"]["template"]["metadata"]["labels"]
+                image = d["spec"]["template"]["spec"]["containers"][0]["image"]
+                for k in range(len(existing), d["spec"].get("replicas", 1)):
+                    if name == "vllm-primary":
+                        node = g2_nodes[k]
+                    elif name == "vllm-fallback":
+                        node = g2_nodes[2]
+                    else:
+                        node = g2_nodes[k % len(g2_nodes)]
+                    pod = simstate.new_pod(s, name, node, labels, image)
+                    s["pods"][pod]["deployment"] = name
+            if d["kind"] == "ConfigMap" and d["metadata"]["name"] == "agentgateway-llm-config":
+                s["configmap"] = d
+                s["routing"] = "o2" if "ewallet-fraud-llm-routed" in d["data"]["config.yaml"] else "b2"
+    print(f"Release {release} upgraded")
+    sys.exit(0)
+sys.stderr.write(f"fake helm: unsupported call: {' '.join(argv)}\n")
+sys.exit(3)

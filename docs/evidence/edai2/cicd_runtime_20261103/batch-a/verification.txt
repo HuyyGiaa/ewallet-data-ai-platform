@@ -1,0 +1,14 @@
+project bindings removed: none
+project bindings added:   [('projects/ewallet-data-ai-platform-hg26/roles/ewalletCicdBuildSubmitter', 'serviceAccount:ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com')]
+project roles held by ewallet-jenkins: ['projects/ewallet-data-ai-platform-hg26/roles/ewalletCicdBuildSubmitter']
+project roles held by ewallet-cloudbuild: none
+repo ewallet-platform added: [('roles/artifactregistry.writer', 'serviceAccount:ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com')] removed: none
+bucket bindings: [('roles/storage.legacyBucketOwner', 'ewallet-data-ai-platform-hg26'), ('roles/storage.legacyBucketOwner', 'ewallet-data-ai-platform-hg26'), ('roles/storage.legacyBucketReader', 'ewallet-data-ai-platform-hg26'), ('roles/storage.legacyObjectOwner', 'ewallet-data-ai-platform-hg26'), ('roles/storage.legacyObjectOwner', 'ewallet-data-ai-platform-hg26'), ('roles/storage.legacyObjectReader', 'ewallet-data-ai-platform-hg26'), ('roles/storage.objectCreator', 'ewallet-cloudbuild'), ('roles/storage.objectCreator', 'ewallet-jenkins'), ('roles/storage.objectViewer', 'ewallet-cloudbuild'), ('roles/storage.objectViewer', 'ewallet-jenkins')]
+actAs on ewallet-cloudbuild: [('roles/iam.serviceAccountUser', 'serviceAccount:ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com')]
+WI on ewallet-jenkins: [('roles/iam.workloadIdentityUser', 'serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-ci/jenkins]')]
+bucket: ASIA-SOUTHEAST1 uniform= True pap= enforced lifecycle= {'rule': [{'action': {'type': 'Delete'}, 'condition': {'age': 30}}]}
+custom role permissions: ['cloudbuild.builds.create', 'cloudbuild.builds.get', 'cloudbuild.builds.update']
+ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com user-managed keys: 0
+ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com user-managed keys: 0
+ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com user-managed keys: 0
+ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com user-managed keys: 0

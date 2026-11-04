@@ -1,0 +1,119 @@
+test_feast_redis_connection_is_derived_without_changing_credentials (tests.llm_agent.test_rag_db1_canary.CanaryManifestTests.test_feast_redis_connection_is_derived_without_changing_credentials) ... ok
+test_manifest_is_isolated_hardened_and_contains_no_secret_values (tests.llm_agent.test_rag_db1_canary.CanaryManifestTests.test_manifest_is_isolated_hardened_and_contains_no_secret_values) ... ok
+test_mcp_client_uses_the_production_service_token_header (tests.llm_agent.test_rag_db1_canary.CanaryManifestTests.test_mcp_client_uses_the_production_service_token_header) ... ok
+test_mutable_image_and_invalid_identity_are_rejected (tests.llm_agent.test_rag_db1_canary.CanaryManifestTests.test_mutable_image_and_invalid_identity_are_rejected) ... ok
+test_real_mcp_response_binds_to_immutable_airflow_publication (tests.llm_agent.test_rag_db1_canary.CanaryReadAfterWriteTests.test_real_mcp_response_binds_to_immutable_airflow_publication) ... ok
+test_tampered_citation_is_rejected (tests.llm_agent.test_rag_db1_canary.CanaryReadAfterWriteTests.test_tampered_citation_is_rejected) ... ok
+test_backend_errors_map_to_fail_closed_codes (tests.llm_agent.test_rag_online_retriever.FeastChunkRowSourceTests.test_backend_errors_map_to_fail_closed_codes) ... ok
+test_batches_all_ids_in_one_call_with_the_view_features (tests.llm_agent.test_rag_online_retriever.FeastChunkRowSourceTests.test_batches_all_ids_in_one_call_with_the_view_features) ... ok
+test_backend_outage_is_unavailable_not_empty (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_backend_outage_is_unavailable_not_empty) ... ok
+test_embedder_must_match_the_corpus_model (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_embedder_must_match_the_corpus_model) ... ok
+test_knowledge_search_tool_returns_bound_citations (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_knowledge_search_tool_returns_bound_citations) ... ok
+test_min_score_bounds_results (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_min_score_bounds_results) ... ok
+test_ranks_the_matching_chunk_first_with_full_provenance (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_ranks_the_matching_chunk_first_with_full_provenance) ... ok
+test_rows_are_cached_within_the_window (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_rows_are_cached_within_the_window) ... ok
+test_tampered_or_foreign_rows_are_rejected (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_tampered_or_foreign_rows_are_rejected) ... ok
+test_unmaterialized_index_fails_closed (tests.llm_agent.test_rag_online_retriever.FeastOnlineExactRetrieverTests.test_unmaterialized_index_fails_closed) ... ok
+test_retriever_is_opt_in_and_misconfiguration_fails (tests.llm_agent.test_rag_online_retriever.ProductionWiringTests.test_retriever_is_opt_in_and_misconfiguration_fails) ... ok
+test_initialize_discover_and_call (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_initialize_discover_and_call) ... ok
+test_malformed_messages_return_sdk_valid_errors (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_malformed_messages_return_sdk_valid_errors) ... ok
+test_rejections_surface_as_sdk_errors (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_rejections_surface_as_sdk_errors) ... ok
+test_tool_execution_failure_is_in_band (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_tool_execution_failure_is_in_band) ... ok
+test_disabled_by_default (tests.llm_agent.test_observability_chart.CollectorTests.test_disabled_by_default) ... ok
+test_every_pipeline_redacts_before_export (tests.llm_agent.test_observability_chart.CollectorTests.test_every_pipeline_redacts_before_export) ... ok
+test_existing_mcp_services_are_not_rolled_by_default (tests.llm_agent.test_observability_chart.CollectorTests.test_existing_mcp_services_are_not_rolled_by_default) ... ok
+test_exporter_flows_are_enforced_and_workload_hardened (tests.llm_agent.test_observability_chart.CollectorTests.test_exporter_flows_are_enforced_and_workload_hardened) ... ok
+test_traces_go_to_the_backend_only_when_configured (tests.llm_agent.test_observability_chart.CollectorTests.test_traces_go_to_the_backend_only_when_configured) ... ok
+test_collector_configs_passed_the_pinned_binary (tests.llm_agent.test_observability_chart.DashboardTests.test_collector_configs_passed_the_pinned_binary) ... ok
+test_redaction_smoke_evidence_shows_no_leak (tests.llm_agent.test_observability_chart.DashboardTests.test_redaction_smoke_evidence_shows_no_leak) ... ok
+test_verified_panels_use_metric_names_read_from_the_binary (tests.llm_agent.test_observability_chart.DashboardTests.test_verified_panels_use_metric_names_read_from_the_binary) ... ok
+test_collector_has_bounded_log_and_trace_exports (tests.observability.test_foundation.FoundationTests.test_collector_has_bounded_log_and_trace_exports) ... ok
+test_namespace_scoped_mode_has_no_cluster_rbac_or_cluster_discovery (tests.observability.test_foundation.FoundationTests.test_namespace_scoped_mode_has_no_cluster_rbac_or_cluster_discovery) ... ok
+test_platform_dashboard_preserves_missing_telemetry (tests.observability.test_foundation.FoundationTests.test_platform_dashboard_preserves_missing_telemetry) ... ok
+test_prometheus_scrapes_required_real_sources (tests.observability.test_foundation.FoundationTests.test_prometheus_scrapes_required_real_sources) ... ok
+test_stack_internal_flows_survive_default_deny (tests.observability.test_foundation.FoundationTests.test_stack_internal_flows_survive_default_deny) ... ok
+test_stack_is_opt_in_and_resource_bounded (tests.observability.test_foundation.FoundationTests.test_stack_is_opt_in_and_resource_bounded) ... ok
+test_standalone_llmd_metrics_are_scraped_only_with_g2_routing (tests.observability.test_foundation.FoundationTests.test_standalone_llmd_metrics_are_scraped_only_with_g2_routing) ... ok
+test_final_set_reuses_release_tokens_and_keeps_transition_set (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_final_set_reuses_release_tokens_and_keeps_transition_set) ... ok
+test_initial_and_repeated_preparation_are_create_then_noop (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_initial_and_repeated_preparation_are_create_then_noop) ... ok
+test_new_release_coexists_and_never_mutates_old_release (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_new_release_coexists_and_never_mutates_old_release) ... ok
+test_partial_or_conflicting_release_fails_without_creation (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_partial_or_conflicting_release_fails_without_creation) ... ok
+test_final_set_contains_only_current_release (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_final_set_contains_only_current_release) ... ok
+test_invalid_previous_table_fails_closed_without_rendering_a_token (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_invalid_previous_table_fails_closed_without_rendering_a_token) ... ok
+test_one_distinct_token_per_granted_pair_plus_one_revoked_per_server (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_one_distinct_token_per_granted_pair_plus_one_revoked_per_server) ... ok
+test_release_identity_is_bounded_and_not_token_material (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_release_identity_is_bounded_and_not_token_material) ... ok
+test_revoked_pair_gets_no_header_secret (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_revoked_pair_gets_no_header_secret) ... ok
+test_secret_placement_separates_client_and_server_material (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_secret_placement_separates_client_and_server_material) ... ok
+test_secrets_never_put_one_agent_token_in_another_agent_secret (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_secrets_never_put_one_agent_token_in_another_agent_secret) ... ok
+test_transition_tables_accept_old_and_new_without_broadening_subjects (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_transition_tables_accept_old_and_new_without_broadening_subjects) ... ok
+test_a2a_config_checksum_rolls_only_the_coordinator (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_a2a_config_checksum_rolls_only_the_coordinator) ... ok
+test_agent_mode_renders_kagent_agents_without_substrate (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_agent_mode_renders_kagent_agents_without_substrate) ... ok
+test_coordinator_delegates_only_and_specialists_hold_least_privilege (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_coordinator_delegates_only_and_specialists_hold_least_privilege) ... ok
+test_cross_namespace_ingress_requires_a_mesh_principal (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_cross_namespace_ingress_requires_a_mesh_principal) ... ok
+test_cutover_changes_backends_but_preserves_legacy_workloads (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_cutover_changes_backends_but_preserves_legacy_workloads) ... ok
+test_explicitly_disabled_service_is_not_rendered (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_explicitly_disabled_service_is_not_rendered) ... ok
+test_feature_rag_mcp_gets_secrets_by_reference_and_registry_snapshots (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_feature_rag_mcp_gets_secrets_by_reference_and_registry_snapshots) ... ok
+test_gateways_authorize_per_identity (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_gateways_authorize_per_identity) ... ok
+test_invalid_backend_namespace_fails_closed (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_invalid_backend_namespace_fails_closed) ... ok
+test_invalid_credential_identifiers_fail_render (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_invalid_credential_identifiers_fail_render) ... ok
+test_isolated_namespace_has_an_external_lifecycle (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_isolated_namespace_has_an_external_lifecycle) ... ok
+test_isolated_profile_has_disjoint_mcp_only_ownership (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_isolated_profile_has_disjoint_mcp_only_ownership) ... ok
+test_kagent_controller_discovers_tools_with_its_own_list_only_credential (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_kagent_controller_discovers_tools_with_its_own_list_only_credential) ... ok
+test_malformed_service_configuration_fails_closed (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_malformed_service_configuration_fails_closed) ... ok
+test_mcp_config_checksum_rolls_only_specialists (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_mcp_config_checksum_rolls_only_specialists) ... ok
+test_missing_service_entry_is_ignored (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_missing_service_entry_is_ignored) ... ok
+test_mlops_access_is_two_scoped_additive_policies (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_mlops_access_is_two_scoped_additive_policies) ... ok
+test_release_scoped_references_support_server_first_promotion_and_rollback (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_release_scoped_references_support_server_first_promotion_and_rollback) ... ok
+test_revision3_null_service_cutover_skips_disabled_legacy_workload (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_revision3_null_service_cutover_skips_disabled_legacy_workload) ... ok
+test_sandbox_mode_still_requires_snapshots (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_sandbox_mode_still_requires_snapshots) ... ok
+test_single_replica_pdb_is_service_scoped (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_single_replica_pdb_is_service_scoped) ... ok
+test_destination_namespace_is_validated (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_destination_namespace_is_validated) ... ok
+test_invalid_destination_fails_before_reading_source (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_invalid_destination_fails_before_reading_source) ... usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: destination namespace must be a Kubernetes DNS label
+ok
+test_registry_configmap_is_immutable_and_digest_annotated (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_registry_configmap_is_immutable_and_digest_annotated) ... ok
+test_replicated_secret_keeps_data_only (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_replicated_secret_keeps_data_only) ... ok
+test_secret_copy_requires_approval_before_reading_source (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_secret_copy_requires_approval_before_reading_source) ... usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: replicate-secret requires --approve-sensitive-copy before reading Secret material
+ok
+test_adds_g3_selector_only_where_missing (tests.llm_agent.test_g3_runtime_config.PostRendererTests.test_adds_g3_selector_only_where_missing) ... ok
+test_g3_byo_feature_rag_specialist (unittest.loader._FailedTest.test_g3_byo_feature_rag_specialist) ... ERROR
+test_a2a_message_contract_and_gateway_header_are_exact (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_a2a_message_contract_and_gateway_header_are_exact) ... ok
+test_authz_rejects_non_gateway_endpoints_and_credentials_in_url (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_authz_rejects_non_gateway_endpoints_and_credentials_in_url) ... ok
+test_backend_output_and_rag_citation_are_preserved (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_backend_output_and_rag_citation_are_preserved) ... ok
+test_bounded_input_and_output_sizes (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_bounded_input_and_output_sizes) ... ok
+test_duplicate_request_is_idempotent_and_conflict_is_rejected (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_duplicate_request_is_idempotent_and_conflict_is_rejected) ... ok
+test_explicit_drift_request_routes_to_drift_specialist (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_explicit_drift_request_routes_to_drift_specialist) ... ok
+test_explicit_fraud_investigation_routes_to_feature_specialist (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_explicit_fraud_investigation_routes_to_feature_specialist) ... ok
+test_http_adapter_emits_actual_bounded_json_rpc_post (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_http_adapter_emits_actual_bounded_json_rpc_post) ... ok
+test_invalid_nested_arguments_fail_closed (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_invalid_nested_arguments_fail_closed) ... ok
+test_literal_placeholder_is_rejected (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_literal_placeholder_is_rejected) ... ok
+test_mismatched_response_identity_and_unrequested_feature_fail (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_mismatched_response_identity_and_unrequested_feature_fail) ... ok
+test_missing_transaction_id_fails_before_transport (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_missing_transaction_id_fails_before_transport) ... ok
+test_no_direct_gateway_bypass_or_arbitrary_host_header (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_no_direct_gateway_bypass_or_arbitrary_host_header) ... ok
+test_no_unsolicited_drift (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_no_unsolicited_drift) ... ok
+test_only_completed_terminal_task_is_accepted (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_only_completed_terminal_task_is_accepted) ... ok
+test_pseudo_tool_text_is_not_executable (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_pseudo_tool_text_is_not_executable) ... ok
+test_sessions_are_isolated (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_sessions_are_isolated) ... ok
+test_synthesizer_cannot_fabricate_business_fields (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_synthesizer_cannot_fabricate_business_fields) ... ok
+test_timeout_and_cancellation_fail_closed (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_timeout_and_cancellation_fail_closed) ... ok
+test_unsupported_capability_is_rejected_by_typed_contract (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_unsupported_capability_is_rejected_by_typed_contract) ... ok
+test_valid_transaction_identity_is_preserved_byte_for_byte (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_valid_transaction_identity_is_preserved_byte_for_byte) ... ok
+
+======================================================================
+ERROR: test_g3_byo_feature_rag_specialist (unittest.loader._FailedTest.test_g3_byo_feature_rag_specialist)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_g3_byo_feature_rag_specialist
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_g3_byo_feature_rag_specialist.py", line 9, in <module>
+    from a2a.server.agent_execution import RequestContext
+ModuleNotFoundError: No module named 'a2a'
+
+
+----------------------------------------------------------------------
+Ran 97 tests in 3.712s
+
+FAILED (errors=1)

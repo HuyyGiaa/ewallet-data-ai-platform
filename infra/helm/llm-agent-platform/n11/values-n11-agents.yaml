@@ -1,0 +1,18 @@
+# N11 packet A: kagent Chat streaming + bounded natural-language intake (LLM
+# tool call) + OTLP audit logs for the two BYO agents. Images built from
+# 017431d856cb546f599566e4b86ab9f0a3625dd6 (scripts/llm_agent/build_g3_byo_*.sh).
+agents:
+  coordinator:
+    byo:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:1bc072b3258c6f25041611f8e093c747e1a1994da1eb526a8d291080ca576d1a
+      naturalLanguageIntake:
+        enabled: true
+  specialists:
+    feature-rag-specialist:
+      byo:
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:f32c0d3393a0a2b7827a5bb329623360962b37a210e6ae30fe626affa7b57b1b
+        naturalLanguageIntake:
+          enabled: true
+  byoTelemetry:
+    auditLogs:
+      enabled: true

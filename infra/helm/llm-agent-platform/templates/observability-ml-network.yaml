@@ -1,0 +1,72 @@
+{{- if and .Values.observabilityStack.enabled .Values.observabilityStack.mlPlatform.enabled }}
+{{- $namespace := .Values.namespace.name }}
+{{- range $flow := list
+      (dict "name" "prometheus-to-fraud-api" "local" "observability-prometheus" "peerNamespace" "ml-platform" "peerLabels" (dict "app.kubernetes.io/name" "fraud-api") "port" 8080)
+      (dict "name" "prometheus-to-kserve" "local" "observability-prometheus" "peerNamespace" "fraud-serving" "peerLabels" (dict "serving.kserve.io/inferenceservice" "fraud-detector") "port" 8080)
+      (dict "name" "otel-to-mlflow" "local" "otel-collector" "peerNamespace" "ml-platform" "peerLabels" (dict "app.kubernetes.io/name" "mlflow") "port" 5000)
+      (dict "name" "otel-to-kfp" "local" "otel-collector" "peerNamespace" "kubeflow" "peerLabels" (dict "app" "ml-pipeline") "port" 8888)
+}}
+{{- $local := index $.Values.networkFlows.workloads $flow.local }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $flow.name }}-egress
+  namespace: {{ $namespace }}
+  labels: {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- toYaml $local.podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $flow.peerNamespace }}}
+          podSelector:
+            matchLabels: {{- toYaml $flow.peerLabels | nindent 14 }}
+      ports: [{protocol: TCP, port: {{ $flow.port }}}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $namespace }}-{{ $flow.name }}
+  namespace: {{ $flow.peerNamespace }}
+  labels: {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- toYaml $flow.peerLabels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $namespace }}}
+          podSelector:
+            matchLabels: {{- toYaml $local.podLabels | nindent 14 }}
+      ports: [{protocol: TCP, port: {{ $flow.port }}}]
+{{- end }}
+{{- /* N11: allow-ewallet-agents-otel-to-kfp above is the only Ingress policy that
+selects app=ml-pipeline, so once it exists the KFP UI can no longer reach the
+API (N10-E2 root cause). This compensating allow is the exact object applied as
+the N10-E2 hotfix (same name and spec): only ml-pipeline-ui Pods, only TCP 8888.
+Opt-in, because the live object must first be adopted by this release
+(n11/kfp-ui-policy-adoption.md); creating it without adoption fails the upgrade. */}}
+{{- $kfpUi := dig "kfpUiIngress" dict .Values.networkPolicy }}
+{{- if (dig "enabled" false $kfpUi) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kfp-ui-to-ml-pipeline
+  namespace: kubeflow
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    ewallet.io/change: n10-e2-kfp-ui-recovery
+spec:
+  podSelector: {matchLabels: {app: ml-pipeline}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: ml-pipeline-ui, application-crd-id: kubeflow-pipelines}}
+      ports: [{protocol: TCP, port: 8888}]
+{{- end }}
+{{- end }}

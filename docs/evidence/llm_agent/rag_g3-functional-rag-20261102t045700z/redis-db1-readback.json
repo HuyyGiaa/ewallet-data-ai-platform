@@ -1,0 +1,9 @@
+{
+  "db": 1,
+  "dbsize": 4,
+  "first_scan_cursor": 0,
+  "matching_keys": 4,
+  "types": {
+    "hash": 4
+  }
+}

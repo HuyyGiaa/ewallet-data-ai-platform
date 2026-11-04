@@ -1,0 +1,140 @@
+diff -u -N /tmp/LIVE-3389422625/apps.v1.Deployment.ewallet-ci.jenkins /tmp/MERGED-1191364750/apps.v1.Deployment.ewallet-ci.jenkins
+--- /tmp/LIVE-3389422625/apps.v1.Deployment.ewallet-ci.jenkins	2026-11-03 13:51:41.991819961 +0700
++++ /tmp/MERGED-1191364750/apps.v1.Deployment.ewallet-ci.jenkins	2026-11-03 13:51:41.993819980 +0700
+@@ -6,7 +6,7 @@
+     kubectl.kubernetes.io/last-applied-configuration: |
+       {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app.kubernetes.io/name":"jenkins","app.kubernetes.io/part-of":"ewallet-ci"},"name":"jenkins","namespace":"ewallet-ci"},"spec":{"replicas":1,"selector":{"matchLabels":{"app.kubernetes.io/name":"jenkins"}},"strategy":{"type":"Recreate"},"template":{"metadata":{"annotations":{"ewallet.io/source-sha":"8d34a1aacd81ae12cf9a183995d26aaab82e77b7"},"labels":{"app.kubernetes.io/name":"jenkins","app.kubernetes.io/part-of":"ewallet-ci"}},"spec":{"automountServiceAccountToken":false,"containers":[{"env":[{"name":"CASC_JENKINS_CONFIG","value":"/var/jenkins_config/jenkins.yaml"},{"name":"JAVA_OPTS","value":"-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true"},{"name":"JENKINS_ADMIN_USER","valueFrom":{"secretKeyRef":{"key":"username","name":"jenkins-admin"}}},{"name":"JENKINS_ADMIN_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"jenkins-admin"}}},{"name":"EDAI2_SOURCE_SHA","value":"8d34a1aacd81ae12cf9a183995d26aaab82e77b7"},{"name":"EDAI2_BASE_SHA","value":"8d34a1aacd81ae12cf9a183995d26aaab82e77b7"},{"name":"EDAI2_ML_SHA","value":"8074651d25c8c42ddba074952e4fa1706753a446"},{"name":"EDAI2_AGENT_SHA","value":"8fad87fd8c6a4bede4aec6ed844979424035de4f"},{"name":"EDAI2_DOCS_SHA","value":"7570de8c5235bdd1502e97a55df61e1630432577"}],"image":"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-controller@sha256:9c301d1a7fa4e8a6a2de8eafbc85c664eda292c6170f1168f71982c1fee5565d","imagePullPolicy":"IfNotPresent","livenessProbe":{"failureThreshold":5,"httpGet":{"path":"/login","port":"http"},"initialDelaySeconds":120,"periodSeconds":30,"timeoutSeconds":5},"name":"jenkins","ports":[{"containerPort":8080,"name":"http","protocol":"TCP"}],"readinessProbe":{"failureThreshold":18,"httpGet":{"path":"/login","port":"http"},"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5},"resources":{"limits":{"cpu":"3","memory":"4Gi"},"requests":{"cpu":"1","memory":"2Gi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":1000},"volumeMounts":[{"mountPath":"/var/jenkins_home","name":"home"},{"mountPath":"/var/jenkins_config","name":"config","readOnly":true},{"mountPath":"/opt/ewallet-source","name":"source","readOnly":true},{"mountPath":"/tmp","name":"tmp"}]}],"initContainers":[{"args":["cp /snapshot/repository.bundle /source/repository.bundle; cp /snapshot/source-metadata.txt /source/source-metadata.txt; test \"$(sha256sum /source/repository.bundle | awk '{print $1}')\" = \"$(awk -F= '/^bundle_sha256=/{print $2}' /source/source-metadata.txt)\""],"command":["/bin/sh","-ec"],"image":"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:45f2a58cf1136338b45b13a5db2fb2e1e9c99daef71569d1202d81ddc10eed10","imagePullPolicy":"IfNotPresent","name":"immutable-source","resources":{"limits":{"cpu":"100m","memory":"128Mi"},"requests":{"cpu":"25m","memory":"32Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":1000},"volumeMounts":[{"mountPath":"/source","name":"source"}]}],"securityContext":{"fsGroup":1000,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}},"serviceAccountName":"jenkins","volumes":[{"name":"home","persistentVolumeClaim":{"claimName":"jenkins-home"}},{"configMap":{"name":"jenkins-casc"},"name":"config"},{"emptyDir":{},"name":"source"},{"emptyDir":{"sizeLimit":"1Gi"},"name":"tmp"}]}}}}
+   creationTimestamp: "2026-11-02T15:20:11Z"
+-  generation: 6
++  generation: 7
+   labels:
+     app.kubernetes.io/name: jenkins
+     app.kubernetes.io/part-of: ewallet-ci
+@@ -26,7 +26,7 @@
+   template:
+     metadata:
+       annotations:
+-        ewallet.io/source-sha: 8d34a1aacd81ae12cf9a183995d26aaab82e77b7
++        ewallet.io/source-sha: 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8
+       labels:
+         app.kubernetes.io/name: jenkins
+         app.kubernetes.io/part-of: ewallet-ci
+@@ -49,7 +49,7 @@
+               key: password
+               name: jenkins-admin
+         - name: EDAI2_SOURCE_SHA
+-          value: 8d34a1aacd81ae12cf9a183995d26aaab82e77b7
++          value: 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8
+         - name: EDAI2_BASE_SHA
+           value: 8d34a1aacd81ae12cf9a183995d26aaab82e77b7
+         - name: EDAI2_ML_SHA
+@@ -113,6 +113,9 @@
+           readOnly: true
+         - mountPath: /tmp
+           name: tmp
++        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
++          name: kube-api
++          readOnly: true
+       dnsPolicy: ClusterFirst
+       initContainers:
+       - args:
+@@ -122,7 +125,7 @@
+         command:
+         - /bin/sh
+         - -ec
+-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:45f2a58cf1136338b45b13a5db2fb2e1e9c99daef71569d1202d81ddc10eed10
++        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:bbd9791603c0328c76264dc13d92c82f3b8121cb30d8f0dcc567221b35423ea1
+         imagePullPolicy: IfNotPresent
+         name: immutable-source
+         resources:
+@@ -170,6 +173,24 @@
+       - emptyDir:
+           sizeLimit: 1Gi
+         name: tmp
++      - name: kube-api
++        projected:
++          defaultMode: 420
++          sources:
++          - serviceAccountToken:
++              expirationSeconds: 3600
++              path: token
++          - configMap:
++              items:
++              - key: ca.crt
++                path: ca.crt
++              name: kube-root-ca.crt
++          - downwardAPI:
++              items:
++              - fieldRef:
++                  apiVersion: v1
++                  fieldPath: metadata.namespace
++                path: namespace
+ status:
+   availableReplicas: 1
+   conditions:
+diff -u -N /tmp/LIVE-3389422625/networking.k8s.io.v1.NetworkPolicy.ewallet-ci.jenkins-runtime-allow /tmp/MERGED-1191364750/networking.k8s.io.v1.NetworkPolicy.ewallet-ci.jenkins-runtime-allow
+--- /tmp/LIVE-3389422625/networking.k8s.io.v1.NetworkPolicy.ewallet-ci.jenkins-runtime-allow	2026-11-03 13:51:42.353823308 +0700
++++ /tmp/MERGED-1191364750/networking.k8s.io.v1.NetworkPolicy.ewallet-ci.jenkins-runtime-allow	2026-11-03 13:51:42.353823308 +0700
+@@ -5,7 +5,7 @@
+     kubectl.kubernetes.io/last-applied-configuration: |
+       {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"jenkins-runtime-allow","namespace":"ewallet-ci"},"spec":{"egress":[{"ports":[{"port":53,"protocol":"UDP"},{"port":53,"protocol":"TCP"}],"to":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"kube-system"}}}]},{"ports":[{"port":53,"protocol":"UDP"},{"port":53,"protocol":"TCP"}],"to":[{"ipBlock":{"cidr":"34.118.224.10/32"}}]},{"ports":[{"port":443,"protocol":"TCP"}],"to":[{"ipBlock":{"cidr":"0.0.0.0/0"}}]}],"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ewallet-ci"}}}],"ports":[{"port":8080,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"app.kubernetes.io/name":"jenkins"}},"policyTypes":["Ingress","Egress"]}}
+   creationTimestamp: "2026-11-02T15:20:11Z"
+-  generation: 2
++  generation: 3
+   name: jenkins-runtime-allow
+   namespace: ewallet-ci
+   resourceVersion: "1793633369732015021"
+@@ -35,6 +35,18 @@
+     to:
+     - ipBlock:
+         cidr: 0.0.0.0/0
++  - ports:
++    - port: 80
++      protocol: TCP
++    to:
++    - ipBlock:
++        cidr: 169.254.169.254/32
++  - ports:
++    - port: 988
++      protocol: TCP
++    to:
++    - ipBlock:
++        cidr: 169.254.169.252/32
+   ingress:
+   - from:
+     - namespaceSelector:
+diff -u -N /tmp/LIVE-3389422625/v1.ConfigMap.ewallet-ci.jenkins-casc /tmp/MERGED-1191364750/v1.ConfigMap.ewallet-ci.jenkins-casc
+--- /tmp/LIVE-3389422625/v1.ConfigMap.ewallet-ci.jenkins-casc	2026-11-03 13:51:41.799818186 +0700
++++ /tmp/MERGED-1191364750/v1.ConfigMap.ewallet-ci.jenkins-casc	2026-11-03 13:51:41.799818186 +0700
+@@ -29,6 +29,7 @@
+             context.with {
+               stringParam('EXPECTED_GIT_SHA', expectedSha, 'Exact immutable snapshot SHA')
+               stringParam('TARGET_BRANCH', "${EDAI2_BASE_SHA}", 'Immutable base SHA for merge-base detection')
++              stringParam('RELEASE_BRANCH', '', 'release/<name> ref that must resolve to EXPECTED_GIT_SHA before any release')
+               booleanParam('INTENTIONAL_GATE_FAILURE', negative, 'Fail before release for negative proof')
+               booleanParam('DEPLOY_APPROVED', false, 'No deployment is approved in the Jenkins proof')
+               choiceParam('ENVIRONMENT', ['dev', 'gcp', 'gke-cpu'], 'Validated release target')
+@@ -62,6 +63,12 @@
+           createPipeline('edai2-agent-ci', '*/proof/agent', 'Jenkinsfile.llm-agent', "${EDAI2_AGENT_SHA}", false)
+           createPipeline('edai2-docs-change-detection', '*/proof/docs', 'Jenkinsfile', "${EDAI2_DOCS_SHA}", false)
+           createPipeline('edai2-agent-negative', '*/proof/agent', 'Jenkinsfile.llm-agent', "${EDAI2_AGENT_SHA}", true)
++          // Release jobs: no default SHA and DEPLOY_APPROVED=false, so a deployment
++          // needs an explicit SHA, an explicit approval flag and the input step.
++          createPipeline('edai2-cd-mcp-agents', '*/release/mcp-agents', 'Jenkinsfile.llm-agent', '', false)
++          createPipeline('edai2-cd-rag-pipeline', '*/release/rag-pipeline', 'Jenkinsfile.llm-agent', '', false)
++          createPipeline('edai2-cd-prompt-management', '*/release/prompt-management', 'Jenkinsfile.llm-agent', '', false)
++          createPipeline('edai2-cd-streaming', '*/release/streaming', 'Jenkinsfile', '', false)
+ kind: ConfigMap
+ metadata:
+   annotations:
+diff -u -N /tmp/LIVE-3389422625/v1.ServiceAccount.ewallet-ci.jenkins /tmp/MERGED-1191364750/v1.ServiceAccount.ewallet-ci.jenkins
+--- /tmp/LIVE-3389422625/v1.ServiceAccount.ewallet-ci.jenkins	2026-11-03 13:51:41.486815292 +0700
++++ /tmp/MERGED-1191364750/v1.ServiceAccount.ewallet-ci.jenkins	2026-11-03 13:51:41.486815292 +0700
+@@ -3,6 +3,7 @@
+ kind: ServiceAccount
+ metadata:
+   annotations:
++    iam.gke.io/gcp-service-account: ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+     kubectl.kubernetes.io/last-applied-configuration: |
+       {"apiVersion":"v1","automountServiceAccountToken":false,"kind":"ServiceAccount","metadata":{"annotations":{},"name":"jenkins","namespace":"ewallet-ci"}}
+   creationTimestamp: "2026-11-02T15:20:10Z"

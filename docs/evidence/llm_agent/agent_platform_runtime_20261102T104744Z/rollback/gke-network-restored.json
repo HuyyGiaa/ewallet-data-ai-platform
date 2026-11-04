@@ -1,0 +1,17 @@
+{
+  "cluster": "ewallet-dev",
+  "project": "ewallet-data-ai-platform-hg26",
+  "location": "asia-southeast1-b",
+  "cleanup_result": "PASS",
+  "temporary_cidr_removed": "171.239.81.235/32",
+  "masterAuthorizedNetworksConfig": {
+    "enabled": true,
+    "gcpPublicCidrsAccessEnabled": true,
+    "cidrBlocks": [
+      {
+        "cidrBlock": "113.188.119.38/32"
+      }
+    ]
+  },
+  "note": "Management-plane readback after successful gcloud update; endpoint omitted from committed evidence."
+}

@@ -7,8 +7,12 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
   "fastapi==0.159.1",
   "numpy==2.2.6",
+  "opentelemetry-api==1.45.1",
+  "opentelemetry-exporter-otlp-proto-grpc==1.45.1",
+  "opentelemetry-sdk==1.45.1",
   "pandas==2.3.3",
   "pydantic==2.14.1",
+  "pyyaml==6.0.3",
   "uvicorn==0.54.0",
 ]
 
@@ -16,6 +20,14 @@ dependencies = [
 # Only feature-rag-mcp's production wiring imports Feast.
 feast = [
   "feast[redis]==0.66.0",
+]
+# Query-time embeddings for knowledge_search (feast-online-exact, local-onnx):
+# the same pins as the rag-ingestion runtime, so queries and the published
+# corpus share one MiniLM ONNX model and tokenizer.
+rag-query = [
+  "huggingface-hub==2.4.0",
+  "onnxruntime==1.23.2",
+  "tokenizers==0.23.3",
 ]
 
 [dependency-groups]

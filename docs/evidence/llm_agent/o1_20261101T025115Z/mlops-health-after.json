@@ -1,0 +1,158 @@
+{
+  "pods": {
+    "cert-manager/cert-manager-7b7c4d58c4-qgv7m": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "cert-manager/cert-manager-cainjector-6b95b7d4d4-wq5sc": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "cert-manager/cert-manager-webhook-66465b85d8-lg27w": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "feature-store/redis-0": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "fraud-serving/fraud-detector-predictor-6b649bc8b6-48csb": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kserve/kserve-controller-manager-88cdd4954-s2vdh": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kubeflow/cache-deployer-deployment-6c8f84d957-k65rs": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/cache-server-6cdb876bd4-ksww6": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kubeflow/controller-manager-67b4c49686-sqwbs": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/metadata-envoy-deployment-867c98f8bc-48wz6": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kubeflow/metadata-grpc-deployment-84c6f9cf79-7lwfc": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/metadata-writer-5cdd66d5c4-s8zb2": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kubeflow/ml-pipeline-7bf5bdc78-t8sjq": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/ml-pipeline-persistenceagent-7bbbc8977f-6pgwh": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kubeflow/ml-pipeline-scheduledworkflow-766f78cc69-ff786": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kubeflow/ml-pipeline-ui-547694958d-htb5j": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/ml-pipeline-viewer-crd-869754d49-skg2z": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/ml-pipeline-visualizationserver-7dff9f68f9-f87q8": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/mysql-5b6cf8556-g82g8": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "kubeflow/seaweedfs-5f6996f6f-8js87": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "kubeflow/workflow-controller-65dbbbbd96-4dhqk": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "ml-platform/fraud-api-6dbb7d4456-9f6xq": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    },
+    "ml-platform/mlflow-df68bccb-zcxsw": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v"
+    },
+    "ml-platform/mlflow-postgresql-0": {
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1"
+    }
+  },
+  "inferenceservices": {
+    "fraud-serving/fraud-detector": true
+  },
+  "node_pressure": {
+    "gke-ewallet-dev-cpu-pool-58daed59-08s1": [],
+    "gke-ewallet-dev-cpu-pool-58daed59-8wnf": [],
+    "gke-ewallet-dev-cpu-pool-58daed59-mb8v": [],
+    "gke-ewallet-dev-cpu-pool-58daed59-mfgh": []
+  },
+  "healthy": true
+}

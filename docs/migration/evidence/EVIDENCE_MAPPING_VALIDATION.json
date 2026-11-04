@@ -1,0 +1,47 @@
+{
+  "DIFFERENT_CONTENT_COLLISION_GROUPS": 85,
+  "DIFFERENT_CONTENT_COLLISION_ROWS": 327,
+  "ORIGINAL_COLLISION_GROUPS": 238,
+  "ORIGINAL_COLLISION_ROWS": 762,
+  "SAME_CONTENT_DUPLICATE_GROUPS": 116,
+  "SAME_CONTENT_DUPLICATE_ROWS": 260,
+  "UNKNOWN_HASH_GROUPS": 37,
+  "UNKNOWN_HASH_ROWS": 175,
+  "artifacts_migrated": 0,
+  "collision_classifications": {
+    "DIFFERENT_CONTENT_COLLISION": 273,
+    "EXTERNAL_LARGE_ARTIFACT": 134,
+    "MISCLASSIFIED_ARTIFACT": 204,
+    "NO_ORIGINAL_COLLISION": 550,
+    "SAME_CONTENT_DUPLICATE": 128,
+    "UNKNOWN_HASH": 156
+  },
+  "corrected_destination_collision_count": 0,
+  "corrected_destination_collision_rows": 0,
+  "external_artifact_references": 134,
+  "manual_review_items": 245,
+  "migration_dispositions": {
+    "BLOCKED_FOR_REVIEW": 164,
+    "EXTERNAL_REFERENCE": 134,
+    "KEEP_IN_PLACE": 81,
+    "NOT_EVIDENCE": 204,
+    "PLANNED": 862
+  },
+  "not_evidence_items": 204,
+  "path_reference_classes": {
+    "DOCUMENTATION_ONLY": 356,
+    "REFERENCED_BY_CODE": 1,
+    "REFERENCED_BY_DOCUMENTATION": 21,
+    "REFERENCED_BY_INFRASTRUCTURE": 1,
+    "REFERENCED_BY_TESTS": 2,
+    "UNKNOWN": 1064
+  },
+  "phase_b0_only": true,
+  "schema_version": "1.0",
+  "source_rows_processed": 1445,
+  "status": "PASS",
+  "verification_statuses": {
+    "UNKNOWN_HASH": 398,
+    "VERIFIED_SHA256": 1047
+  }
+}

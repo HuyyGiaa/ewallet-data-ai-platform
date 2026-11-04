@@ -1,0 +1,8 @@
+{
+  "verdict": "G3_SMOKE_PASS",
+  "request_id": "g3-edai2-otel-20261102-002",
+  "elapsed_seconds": 0.419,
+  "feature_count": 4,
+  "citation_count": 3,
+  "model_version": "1"
+}

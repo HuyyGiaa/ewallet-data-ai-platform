@@ -1,0 +1,14 @@
+cert-manager cert-manager 1
+istio-base istio-system 13
+istio-cni istio-system 13
+istiod istio-system 13
+kagent kagent 5
+kagent-crds kagent 1
+kserve kserve 1
+kserve-crd kserve 1
+llm-agent default 32
+llm-agent-mcp ewallet-mcp 6
+substrate ate-system 1
+substrate-crds ate-system 1
+ztunnel istio-system 13
+

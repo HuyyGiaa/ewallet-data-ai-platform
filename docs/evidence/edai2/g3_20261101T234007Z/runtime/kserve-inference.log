@@ -1,0 +1,13 @@
+Script started on 2026-11-02 06:51:17+07:00 [COMMAND="kubectl logs -n fraud-serving -l serving.kserve.io/inferenceservice=fraud-detector --all-containers --since=20m | tail -n 80" <not executed on terminal>]
+2026-11-01 23:51:14.623 1 kserve.trace kserve.io.v2.health.live: 0.0007870000000593791 ['http_status:200', 'http_method:GET', 'time:cpu']
+2026-11-01 23:51:15.427 uvicorn.access INFO:     10.216.4.19:36042 1 - "GET /v2/models/fraud-detector HTTP/1.1" 200 OK
+2026-11-01 23:51:15.428 1 kserve.trace kserve.io.v2.models.fraud-detector: 0.0011897087097167969 ['http_status:200', 'http_method:GET', 'time:wall']
+2026-11-01 23:51:15.428 1 kserve.trace kserve.io.v2.models.fraud-detector: 0.0011880000000132895 ['http_status:200', 'http_method:GET', 'time:cpu']
+2026-11-01 23:51:15.433 1 kserve.trace kserve.io.v2.models.fraud-detector.ready: 0.0009369850158691406 ['http_status:200', 'http_method:GET', 'time:wall']
+2026-11-01 23:51:15.433 1 kserve.trace kserve.io.v2.models.fraud-detector.ready: 0.0009360000000242508 ['http_status:200', 'http_method:GET', 'time:cpu']
+2026-11-01 23:51:15.432 uvicorn.access INFO:     10.216.4.19:36058 1 - "GET /v2/models/fraud-detector/ready HTTP/1.1" 200 OK
+2026-11-01 23:51:16.674 1 kserve.trace kserve.io.v2.models.fraud-detector.ready: 0.001016855239868164 ['http_status:200', 'http_method:GET', 'time:wall']
+2026-11-01 23:51:16.674 1 kserve.trace kserve.io.v2.models.fraud-detector.ready: 0.00101399999999785 ['http_status:200', 'http_method:GET', 'time:cpu']
+2026-11-01 23:51:16.673 uvicorn.access INFO:     10.20.0.45:45782 1 - "GET /v2/models/fraud-detector/ready HTTP/1.1" 200 OK
+
+Script done on 2026-11-02 06:51:17+07:00 [COMMAND_EXIT_CODE="0"]

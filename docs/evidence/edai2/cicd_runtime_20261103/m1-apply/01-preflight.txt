@@ -1,0 +1,19 @@
+2026-11-03T14:12:15Z
+## preflight: no Jenkins pipeline/CI script references pods/portforward, ewallet-prompts or :12121 (grep of jenkins/, scripts/ci/, jenkins.yaml: 0 hits)
+## server dry-run
+role.rbac.authorization.k8s.io/jenkins-prompt-registry configured (server dry run)
+## diff
+diff -u -N /tmp/LIVE-943529066/rbac.authorization.k8s.io.v1.Role.ewallet-prompts.jenkins-prompt-registry /tmp/MERGED-3101274041/rbac.authorization.k8s.io.v1.Role.ewallet-prompts.jenkins-prompt-registry
+--- /tmp/LIVE-943529066/rbac.authorization.k8s.io.v1.Role.ewallet-prompts.jenkins-prompt-registry	2026-11-03 21:12:16.425100628 +0700
++++ /tmp/MERGED-3101274041/rbac.authorization.k8s.io.v1.Role.ewallet-prompts.jenkins-prompt-registry	2026-11-03 21:12:16.425100628 +0700
+@@ -19,9 +19,3 @@
+   - get
+   - list
+   - watch
+-- apiGroups:
+-  - ""
+-  resources:
+-  - pods/portforward
+-  verbs:
+-  - create
+diff exit 1

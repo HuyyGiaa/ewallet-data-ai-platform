@@ -1,0 +1,50 @@
+{
+  "model": "ewallet-fraud-llm",
+  "stream": true,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "PASS",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": "tool_calls",
+    "usage": {
+      "prompt_tokens": 196,
+      "total_tokens": 222,
+      "completion_tokens": 26,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "fallback",
+    "latency_s": 7.661,
+    "first_byte_s": 4.109,
+    "tool_calls": [
+      {
+        "function": {
+          "name": "feature_lookup",
+          "arguments": "{\"transaction_id\": \"tx-demo-001\"}"
+        },
+        "id": "chatcmpl-tool-95fd031f7e6ab966",
+        "type": "function"
+      }
+    ]
+  },
+  "tool_call_errors": [],
+  "second_turn": {
+    "status": 200,
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 133,
+      "total_tokens": 186,
+      "completion_tokens": 53,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "backend": "fallback",
+    "latency_s": 14.761,
+    "first_byte_s": 7.637,
+    "reply_chars": 205
+  },
+  "endpoint": "http://127.0.0.1:13000"
+}

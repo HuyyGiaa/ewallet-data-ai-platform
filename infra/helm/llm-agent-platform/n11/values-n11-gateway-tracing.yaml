@@ -1,0 +1,4 @@
+# N11 packet B: agentgateway, mcp-gateway and a2a-gateway export spans to the
+# shared otel-collector (existing gateway -> otel-collector:4317 flows).
+gatewayTracing:
+  enabled: true

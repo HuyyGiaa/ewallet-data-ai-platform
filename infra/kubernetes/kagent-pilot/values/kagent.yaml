@@ -1,11 +1,11 @@
 rbac:
   namespaces:
-    - kagent
+    - kagent-pilot
 
 controller:
   replicas: 1
   watchNamespaces:
-    - kagent
+    - kagent-pilot
   auth:
     mode: unsecure
   metrics:
@@ -27,8 +27,19 @@ controller:
       namespace: ate-system
       serviceAccount: ate-api-server
     defaultWorkerPool:
-      namespace: kagent
+      namespace: kagent-pilot
       name: kagent-pilot
+  env:
+    - name: SSL_CERT_FILE
+      value: /etc/substrate-ca/ca.crt
+  volumes:
+    - name: substrate-ateapi-ca
+      configMap:
+        name: substrate-ateapi-ca
+  volumeMounts:
+    - name: substrate-ateapi-ca
+      mountPath: /etc/substrate-ca
+      readOnly: true
 
 database:
   postgres:
@@ -50,7 +61,6 @@ substrateWorkerPool:
   ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9
   sandboxClass: gvisor
   template:
-    serviceAccountName: kagent-pilot-worker
     resources:
       requests:
         cpu: 500m

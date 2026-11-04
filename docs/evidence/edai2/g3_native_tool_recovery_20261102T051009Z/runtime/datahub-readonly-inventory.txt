@@ -1,0 +1,356 @@
+=== containers ===
+{"Command":"\"/bin/sh -c /datahub…\"","CreatedAt":"2026-11-01 04:53:24 +0700 +07","ID":"014f80a9fb98","Image":"acryldata/datahub-gms:v1.7.0.1","Labels":"com.docker.compose.config-hash=9318f09ccd7b219e2a0247ef1179be7f5fe98b24bfc3a454e193a1acd42ca647,com.docker.compose.container-number=1,com.docker.compose.depends_on=system-update-quickstart:service_completed_successfully:false,com.docker.compose.image=sha256:74e15e982b94d0e147de41d05133ef3df48f74a1004a9c997805e0aa7e010173,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml,com.docker.compose.project.working_dir=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache,com.docker.compose.project=datahub,com.docker.compose.replace=datahub-gms-quickstart-1,com.docker.compose.service=datahub-gms-quickstart,com.docker.compose.version=5.1.3,dev.chainguard.image.title=wolfi-base,dev.chainguard.package.main=,io.datahubproject.datahub.component=gms,org.opencontainers.image.authors=Chainguard Team https://www.chainguard.dev/,org.opencontainers.image.created=2026-09-02T14:00:50Z,org.opencontainers.image.source=https://github.com/chainguard-images/images/tree/main/images/wolfi-base,org.opencontainers.image.title=wolfi-base,org.opencontainers.image.url=https://images.chainguard.dev/directory/image/wolfi-base/overview,org.opencontainers.image.vendor=Chainguard","LocalVolumes":"0","Mounts":"/home/huyy-gia…,/home/huyy-gia…","Names":"datahub-datahub-gms-quickstart-1","Networks":"datahub_network","Platform":{"architecture":"amd64","os":"linux"},"Ports":"","RunningFor":"31 hours ago","Size":"745MB (virtual 2.3GB)","State":"exited","Status":"Exited (143) 9 hours ago"}
+{"Command":"\"/bin/bash /start_da…\"","CreatedAt":"2026-10-02 11:42:14 +0700 +07","ID":"cfdea0722e92","Image":"acryldata/datahub-actions:v1.7.0.1-slim","Labels":"com.docker.compose.config-hash=d85d43ea80953dc8b7f35ee509a47a1de38d4adf84011472ab83a911a3468fde,com.docker.compose.container-number=1,com.docker.compose.depends_on=datahub-gms-quickstart:service_healthy:false,com.docker.compose.image=sha256:e55fbb8938b7b33791d554c3eb10c79fde0e88720d7a4d010f88bdd68b062bd3,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml,com.docker.compose.project.working_dir=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache,com.docker.compose.project=datahub,com.docker.compose.replace=datahub-actions-quickstart-1,com.docker.compose.service=datahub-actions-quickstart,com.docker.compose.version=5.1.3,dev.chainguard.image.title=wolfi-base,dev.chainguard.package.main=,org.opencontainers.image.authors=Chainguard Team https://www.chainguard.dev/,org.opencontainers.image.created=2026-09-02T14:00:50Z,org.opencontainers.image.source=https://github.com/chainguard-images/images/tree/main/images/wolfi-base,org.opencontainers.image.title=wolfi-base,org.opencontainers.image.url=https://images.chainguard.dev/directory/image/wolfi-base/overview,org.opencontainers.image.vendor=Chainguard","LocalVolumes":"0","Mounts":"/home/huyy-gia…,/home/huyy-gia…","Names":"datahub-datahub-actions-quickstart-1","Networks":"datahub_network","Platform":{"architecture":"amd64","os":"linux"},"Ports":"","RunningFor":"4 weeks ago","Size":"384MB (virtual 1.83GB)","State":"exited","Status":"Exited (137) 31 hours ago"}
+{"Command":"\"/bin/sh -c ./start.…\"","CreatedAt":"2026-10-02 11:42:13 +0700 +07","ID":"037bd380fc08","Image":"acryldata/datahub-frontend-react:v1.7.0.1","Labels":"com.docker.compose.config-hash=4de7ae3ca75f695daef3460caaf5eab6106a5cddb5faf860290e3990cb175752,com.docker.compose.container-number=1,com.docker.compose.depends_on=system-update-quickstart:service_completed_successfully:false,com.docker.compose.image=sha256:99513cc1c45e4cc053ceb0f9aeb04a3263a8a747907bb0e85cac2eb03461310d,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml,com.docker.compose.project.working_dir=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache,com.docker.compose.project=datahub,com.docker.compose.replace=frontend-quickstart-1,com.docker.compose.service=frontend-quickstart,com.docker.compose.version=5.1.3,dev.chainguard.image.title=wolfi-base,dev.chainguard.package.main=,org.opencontainers.image.authors=Chainguard Team https://www.chainguard.dev/,org.opencontainers.image.created=2026-09-02T14:00:50Z,org.opencontainers.image.source=https://github.com/chainguard-images/images/tree/main/images/wolfi-base,org.opencontainers.image.title=wolfi-base,org.opencontainers.image.url=https://images.chainguard.dev/directory/image/wolfi-base/overview,org.opencontainers.image.vendor=Chainguard","LocalVolumes":"0","Mounts":"/home/huyy-gia…","Names":"datahub-frontend-quickstart-1","Networks":"datahub_network","Platform":{"architecture":"amd64","os":"linux"},"Ports":"","RunningFor":"4 weeks ago","Size":"115kB (virtual 933MB)","State":"exited","Status":"Exited (143) 9 hours ago"}
+{"Command":"\"/datahub/datahub-up…\"","CreatedAt":"2026-10-02 11:42:13 +0700 +07","ID":"9a881fe9a6fe","Image":"acryldata/datahub-upgrade:v1.7.0.1","Labels":"com.docker.compose.config-hash=1a9b2a25564d37a42be6edced75547cc57a48128d860bdd64eb9259bd54fbd13,com.docker.compose.container-number=1,com.docker.compose.depends_on=mysql:service_healthy:false,opensearch:service_healthy:false,kafka-broker:service_healthy:false,com.docker.compose.image=sha256:c3db54d8fb94bc761be611c014c5ede3fd02daac1f15c8c177d69eceee79a24c,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml,com.docker.compose.project.working_dir=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache,com.docker.compose.project=datahub,com.docker.compose.replace=system-update-quickstart-1,com.docker.compose.service=system-update-quickstart,com.docker.compose.version=5.1.3,datahub_setup_job=true,dev.chainguard.image.title=wolfi-base,dev.chainguard.package.main=,org.opencontainers.image.authors=Chainguard Team https://www.chainguard.dev/,org.opencontainers.image.created=2026-09-02T14:00:50Z,org.opencontainers.image.source=https://github.com/chainguard-images/images/tree/main/images/wolfi-base,org.opencontainers.image.title=wolfi-base,org.opencontainers.image.url=https://images.chainguard.dev/directory/image/wolfi-base/overview,org.opencontainers.image.vendor=Chainguard","LocalVolumes":"0","Mounts":"/home/huyy-gia…","Names":"datahub-system-update-quickstart-1","Networks":"datahub_network","Platform":{"architecture":"amd64","os":"linux"},"Ports":"","RunningFor":"4 weeks ago","Size":"19.2MB (virtual 997MB)","State":"exited","Status":"Exited (0) 31 hours ago"}
+{"Command":"\"/bin/bash -c '# Gen…\"","CreatedAt":"2026-10-02 11:42:09 +0700 +07","ID":"83db4e7397c8","Image":"confluentinc/cp-kafka:8.2.2","Labels":"architecture=x86_64,build-date=2026-06-02T05:44:58Z,com.docker.compose.config-hash=15da3e3bae3b24e13f969e3420103c60ee71dbcb9123344d7073ff3b3ac4ac1a,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:8e01c0305844d6c05bfb8e86479f5f363bb6a53497625395943a9da780de67ce,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml,com.docker.compose.project.working_dir=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache,com.docker.compose.project=datahub,com.docker.compose.replace=kafka-broker-1,com.docker.compose.service=kafka-broker,com.docker.compose.version=5.1.3,com.redhat.component=ubi9-minimal-container,com.redhat.license_terms=https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI,cpe=cpe:/a:redhat:enterprise_linux:9::appstream,description=Common base image for Confluent lightweight Docker images.,distribution-scope=public,io.buildah.version=1.42.2,io.confluent.docker.build.number=d56d85b0,io.confluent.docker.git.id=9a12a1a,io.confluent.docker.git.repo=confluentinc/kafka-images,io.confluent.docker=true,io.k8s.description=The Universal Base Image Minimal is a stripped down image that uses microdnf as a package manager. This base image is freely redistributable, but Red Hat only supports Red Hat technologies through subscriptions for Red Hat products. This image is maintained by Red Hat and updated regularly.,io.k8s.display-name=Red Hat Universal Base Image 9 Minimal,io.openshift.expose-services=,io.openshift.tags=minimal rhel9,maintainer=partner-support@confluent.io,name=cp-kafka,org.opencontainers.image.created=2026-06-02T05:44:58Z,org.opencontainers.image.revision=842dd1c603c36c8d242d5ec075adccffb3bfea5c,release=8.2.2-22,summary=Confluent platform Kafka.,url=https://catalog.redhat.com/en/search?searchType=containers,vcs-ref=842dd1c603c36c8d242d5ec075adccffb3bfea5c,vcs-type=git,vendor=Confluent,version=9a12a1a","LocalVolumes":"2","Mounts":"185de5d15ec543…,datahub_broker","Names":"datahub-kafka-broker-1","Networks":"datahub_network","Platform":{"architecture":"amd64","os":"linux"},"Ports":"","RunningFor":"4 weeks ago","Size":"696kB (virtual 568MB)","State":"exited","Status":"Exited (143) 9 hours ago"}
+{"Command":"\"docker-entrypoint.s…\"","CreatedAt":"2026-10-02 11:42:09 +0700 +07","ID":"afbfbcb3ea86","Image":"mysql:8.2","Labels":"com.docker.compose.config-hash=a489d20d8068723298fb94a9062f5738657a8bb3f2844ef7f34d2fcf0694d4a0,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:212fe73edca5df6ff14826d5eb975c914bfb91f82a2e923f9050568f99525da1,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml,com.docker.compose.project.working_dir=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache,com.docker.compose.project=datahub,com.docker.compose.replace=mysql-1,com.docker.compose.service=mysql,com.docker.compose.version=5.1.3","LocalVolumes":"1","Mounts":"datahub_mysqld…","Names":"datahub-mysql-1","Networks":"datahub_network","Platform":{"architecture":"amd64","os":"linux"},"Ports":"","RunningFor":"4 weeks ago","Size":"20.5kB (virtual 664MB)","State":"exited","Status":"Exited (0) 9 hours ago"}
+{"Command":"\"./opensearch-docker…\"","CreatedAt":"2026-10-02 11:42:09 +0700 +07","ID":"df2405e732e0","Image":"opensearchproject/opensearch:2.19.3","Labels":"DOCKERFILE=https://github.com/opensearch-project/opensearch-build/blob/main/docker/release/dockerfiles/opensearch.al2.dockerfile,com.docker.compose.config-hash=1bd764a42671ee7b16c13b249243ad5ec347cd340f9cb9f81e900b357914f4a0,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:e96cc6ae1500a073d973c0906f30f7cf4d9c461f32f855f9242a2da933660cdd,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml,com.docker.compose.project.working_dir=/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache,com.docker.compose.project=datahub,com.docker.compose.replace=opensearch-1,com.docker.compose.service=opensearch,com.docker.compose.version=5.1.3,org.label-schema.build-date=2025-10-15T19:15:23Z,org.label-schema.description=11238,org.label-schema.license=Apache-2.0,org.label-schema.name=opensearch,org.label-schema.schema-version=1.0,org.label-schema.url=https://opensearch.org,org.label-schema.vcs-url=https://github.com/opensearch-project/OpenSearch,org.label-schema.vendor=OpenSearch,org.label-schema.version=2.19.3","LocalVolumes":"1","Mounts":"datahub_osdata","Names":"datahub-opensearch-1","Networks":"datahub_network","Platform":{"architecture":"amd64","os":"linux"},"Ports":"","RunningFor":"4 weeks ago","Size":"1.92MB (virtual 1.47GB)","State":"exited","Status":"Exited (143) 9 hours ago"}
+=== named volumes ===
+datahub_broker
+datahub_mysqldata
+datahub_osdata
+=== networks ===
+datahub_network
+=== inspect ownership/mounts without secrets ===
+{
+  "Name": "/datahub-datahub-gms-quickstart-1",
+  "State": {
+    "Status": "exited",
+    "ExitCode": 143,
+    "OOMKilled": false,
+    "FinishedAt": "2026-11-01T20:22:41.736441273Z"
+  },
+  "Config": {
+    "Image": "acryldata/datahub-gms:v1.7.0.1",
+    "Labels": {
+      "com.docker.compose.config-hash": "9318f09ccd7b219e2a0247ef1179be7f5fe98b24bfc3a454e193a1acd42ca647",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "system-update-quickstart:service_completed_successfully:false",
+      "com.docker.compose.image": "sha256:74e15e982b94d0e147de41d05133ef3df48f74a1004a9c997805e0aa7e010173",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "datahub",
+      "com.docker.compose.project.config_files": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml",
+      "com.docker.compose.project.working_dir": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache",
+      "com.docker.compose.replace": "datahub-gms-quickstart-1",
+      "com.docker.compose.service": "datahub-gms-quickstart",
+      "com.docker.compose.version": "5.1.3",
+      "dev.chainguard.image.title": "wolfi-base",
+      "dev.chainguard.package.main": "",
+      "io.datahubproject.datahub.component": "gms",
+      "org.opencontainers.image.authors": "Chainguard Team https://www.chainguard.dev/",
+      "org.opencontainers.image.created": "2026-09-02T14:00:50Z",
+      "org.opencontainers.image.source": "https://github.com/chainguard-images/images/tree/main/images/wolfi-base",
+      "org.opencontainers.image.title": "wolfi-base",
+      "org.opencontainers.image.url": "https://images.chainguard.dev/directory/image/wolfi-base/overview",
+      "org.opencontainers.image.vendor": "Chainguard"
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "bind",
+      "Name": null,
+      "Source": "/home/huyy-giaa/.datahub/plugins",
+      "Destination": "/etc/datahub/plugins",
+      "RW": true
+    },
+    {
+      "Type": "bind",
+      "Name": null,
+      "Source": "/home/huyy-giaa/.datahub/search",
+      "Destination": "/etc/datahub/search",
+      "RW": true
+    }
+  ],
+  "NetworkMode": "datahub_network"
+}
+{
+  "Name": "/datahub-datahub-actions-quickstart-1",
+  "State": {
+    "Status": "exited",
+    "ExitCode": 137,
+    "OOMKilled": false,
+    "FinishedAt": "2026-10-31T22:09:48.099696886Z"
+  },
+  "Config": {
+    "Image": "acryldata/datahub-actions:v1.7.0.1-slim",
+    "Labels": {
+      "com.docker.compose.config-hash": "d85d43ea80953dc8b7f35ee509a47a1de38d4adf84011472ab83a911a3468fde",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "datahub-gms-quickstart:service_healthy:false",
+      "com.docker.compose.image": "sha256:e55fbb8938b7b33791d554c3eb10c79fde0e88720d7a4d010f88bdd68b062bd3",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "datahub",
+      "com.docker.compose.project.config_files": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml",
+      "com.docker.compose.project.working_dir": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache",
+      "com.docker.compose.replace": "datahub-actions-quickstart-1",
+      "com.docker.compose.service": "datahub-actions-quickstart",
+      "com.docker.compose.version": "5.1.3",
+      "dev.chainguard.image.title": "wolfi-base",
+      "dev.chainguard.package.main": "",
+      "org.opencontainers.image.authors": "Chainguard Team https://www.chainguard.dev/",
+      "org.opencontainers.image.created": "2026-09-02T14:00:50Z",
+      "org.opencontainers.image.source": "https://github.com/chainguard-images/images/tree/main/images/wolfi-base",
+      "org.opencontainers.image.title": "wolfi-base",
+      "org.opencontainers.image.url": "https://images.chainguard.dev/directory/image/wolfi-base/overview",
+      "org.opencontainers.image.vendor": "Chainguard"
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "bind",
+      "Name": null,
+      "Source": "/home/huyy-giaa/.aws",
+      "Destination": "/home/datahub/.aws",
+      "RW": false
+    },
+    {
+      "Type": "bind",
+      "Name": null,
+      "Source": "/home/huyy-giaa/.aws/sso/cache",
+      "Destination": "/home/datahub/.aws/sso/cache",
+      "RW": true
+    }
+  ],
+  "NetworkMode": "datahub_network"
+}
+{
+  "Name": "/datahub-frontend-quickstart-1",
+  "State": {
+    "Status": "exited",
+    "ExitCode": 143,
+    "OOMKilled": false,
+    "FinishedAt": "2026-11-01T20:22:41.153381572Z"
+  },
+  "Config": {
+    "Image": "acryldata/datahub-frontend-react:v1.7.0.1",
+    "Labels": {
+      "com.docker.compose.config-hash": "4de7ae3ca75f695daef3460caaf5eab6106a5cddb5faf860290e3990cb175752",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "system-update-quickstart:service_completed_successfully:false",
+      "com.docker.compose.image": "sha256:99513cc1c45e4cc053ceb0f9aeb04a3263a8a747907bb0e85cac2eb03461310d",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "datahub",
+      "com.docker.compose.project.config_files": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml",
+      "com.docker.compose.project.working_dir": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache",
+      "com.docker.compose.replace": "frontend-quickstart-1",
+      "com.docker.compose.service": "frontend-quickstart",
+      "com.docker.compose.version": "5.1.3",
+      "dev.chainguard.image.title": "wolfi-base",
+      "dev.chainguard.package.main": "",
+      "org.opencontainers.image.authors": "Chainguard Team https://www.chainguard.dev/",
+      "org.opencontainers.image.created": "2026-09-02T14:00:50Z",
+      "org.opencontainers.image.source": "https://github.com/chainguard-images/images/tree/main/images/wolfi-base",
+      "org.opencontainers.image.title": "wolfi-base",
+      "org.opencontainers.image.url": "https://images.chainguard.dev/directory/image/wolfi-base/overview",
+      "org.opencontainers.image.vendor": "Chainguard"
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "bind",
+      "Name": null,
+      "Source": "/home/huyy-giaa/.datahub/plugins",
+      "Destination": "/etc/datahub/plugins",
+      "RW": true
+    }
+  ],
+  "NetworkMode": "datahub_network"
+}
+{
+  "Name": "/datahub-system-update-quickstart-1",
+  "State": {
+    "Status": "exited",
+    "ExitCode": 0,
+    "OOMKilled": false,
+    "FinishedAt": "2026-10-31T21:53:51.057431484Z"
+  },
+  "Config": {
+    "Image": "acryldata/datahub-upgrade:v1.7.0.1",
+    "Labels": {
+      "com.docker.compose.config-hash": "1a9b2a25564d37a42be6edced75547cc57a48128d860bdd64eb9259bd54fbd13",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "mysql:service_healthy:false,opensearch:service_healthy:false,kafka-broker:service_healthy:false",
+      "com.docker.compose.image": "sha256:c3db54d8fb94bc761be611c014c5ede3fd02daac1f15c8c177d69eceee79a24c",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "datahub",
+      "com.docker.compose.project.config_files": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml",
+      "com.docker.compose.project.working_dir": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache",
+      "com.docker.compose.replace": "system-update-quickstart-1",
+      "com.docker.compose.service": "system-update-quickstart",
+      "com.docker.compose.version": "5.1.3",
+      "datahub_setup_job": "true",
+      "dev.chainguard.image.title": "wolfi-base",
+      "dev.chainguard.package.main": "",
+      "org.opencontainers.image.authors": "Chainguard Team https://www.chainguard.dev/",
+      "org.opencontainers.image.created": "2026-09-02T14:00:50Z",
+      "org.opencontainers.image.source": "https://github.com/chainguard-images/images/tree/main/images/wolfi-base",
+      "org.opencontainers.image.title": "wolfi-base",
+      "org.opencontainers.image.url": "https://images.chainguard.dev/directory/image/wolfi-base/overview",
+      "org.opencontainers.image.vendor": "Chainguard"
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "bind",
+      "Name": null,
+      "Source": "/home/huyy-giaa/.datahub/plugins",
+      "Destination": "/etc/datahub/plugins",
+      "RW": true
+    }
+  ],
+  "NetworkMode": "datahub_network"
+}
+{
+  "Name": "/datahub-kafka-broker-1",
+  "State": {
+    "Status": "exited",
+    "ExitCode": 143,
+    "OOMKilled": false,
+    "FinishedAt": "2026-11-01T20:22:42.134228083Z"
+  },
+  "Config": {
+    "Image": "confluentinc/cp-kafka:8.2.2",
+    "Labels": {
+      "architecture": "x86_64",
+      "build-date": "2026-06-02T05:44:58Z",
+      "com.docker.compose.config-hash": "15da3e3bae3b24e13f969e3420103c60ee71dbcb9123344d7073ff3b3ac4ac1a",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "",
+      "com.docker.compose.image": "sha256:8e01c0305844d6c05bfb8e86479f5f363bb6a53497625395943a9da780de67ce",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "datahub",
+      "com.docker.compose.project.config_files": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml",
+      "com.docker.compose.project.working_dir": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache",
+      "com.docker.compose.replace": "kafka-broker-1",
+      "com.docker.compose.service": "kafka-broker",
+      "com.docker.compose.version": "5.1.3",
+      "com.redhat.component": "ubi9-minimal-container",
+      "com.redhat.license_terms": "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI",
+      "cpe": "cpe:/a:redhat:enterprise_linux:9::appstream",
+      "description": "Common base image for Confluent lightweight Docker images.",
+      "distribution-scope": "public",
+      "io.buildah.version": "1.42.2",
+      "io.confluent.docker": "true",
+      "io.confluent.docker.build.number": "d56d85b0",
+      "io.confluent.docker.git.id": "9a12a1a",
+      "io.confluent.docker.git.repo": "confluentinc/kafka-images",
+      "io.k8s.description": "The Universal Base Image Minimal is a stripped down image that uses microdnf as a package manager. This base image is freely redistributable, but Red Hat only supports Red Hat technologies through subscriptions for Red Hat products. This image is maintained by Red Hat and updated regularly.",
+      "io.k8s.display-name": "Red Hat Universal Base Image 9 Minimal",
+      "io.openshift.expose-services": "",
+      "io.openshift.tags": "minimal rhel9",
+      "maintainer": "partner-support@confluent.io",
+      "name": "cp-kafka",
+      "org.opencontainers.image.created": "2026-06-02T05:44:58Z",
+      "org.opencontainers.image.revision": "842dd1c603c36c8d242d5ec075adccffb3bfea5c",
+      "release": "8.2.2-22",
+      "summary": "Confluent platform Kafka.",
+      "url": "https://catalog.redhat.com/en/search?searchType=containers",
+      "vcs-ref": "842dd1c603c36c8d242d5ec075adccffb3bfea5c",
+      "vcs-type": "git",
+      "vendor": "Confluent",
+      "version": "9a12a1a"
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "volume",
+      "Name": "185de5d15ec5432ae058cb1b0cd80c3582c4d11ffb7be5fbeca02144e8c47569",
+      "Source": "/var/lib/docker/volumes/185de5d15ec5432ae058cb1b0cd80c3582c4d11ffb7be5fbeca02144e8c47569/_data",
+      "Destination": "/etc/kafka/secrets",
+      "RW": true
+    },
+    {
+      "Type": "volume",
+      "Name": "datahub_broker",
+      "Source": "/var/lib/docker/volumes/datahub_broker/_data",
+      "Destination": "/var/lib/kafka/data",
+      "RW": true
+    }
+  ],
+  "NetworkMode": "datahub_network"
+}
+{
+  "Name": "/datahub-mysql-1",
+  "State": {
+    "Status": "exited",
+    "ExitCode": 0,
+    "OOMKilled": false,
+    "FinishedAt": "2026-11-01T20:22:44.358837414Z"
+  },
+  "Config": {
+    "Image": "mysql:8.2",
+    "Labels": {
+      "com.docker.compose.config-hash": "a489d20d8068723298fb94a9062f5738657a8bb3f2844ef7f34d2fcf0694d4a0",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "",
+      "com.docker.compose.image": "sha256:212fe73edca5df6ff14826d5eb975c914bfb91f82a2e923f9050568f99525da1",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "datahub",
+      "com.docker.compose.project.config_files": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml",
+      "com.docker.compose.project.working_dir": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache",
+      "com.docker.compose.replace": "mysql-1",
+      "com.docker.compose.service": "mysql",
+      "com.docker.compose.version": "5.1.3"
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "volume",
+      "Name": "datahub_mysqldata",
+      "Source": "/var/lib/docker/volumes/datahub_mysqldata/_data",
+      "Destination": "/var/lib/mysql",
+      "RW": true
+    }
+  ],
+  "NetworkMode": "datahub_network"
+}
+{
+  "Name": "/datahub-opensearch-1",
+  "State": {
+    "Status": "exited",
+    "ExitCode": 143,
+    "OOMKilled": false,
+    "FinishedAt": "2026-11-01T20:22:41.376836587Z"
+  },
+  "Config": {
+    "Image": "opensearchproject/opensearch:2.19.3",
+    "Labels": {
+      "DOCKERFILE": "https://github.com/opensearch-project/opensearch-build/blob/main/docker/release/dockerfiles/opensearch.al2.dockerfile",
+      "com.docker.compose.config-hash": "1bd764a42671ee7b16c13b249243ad5ec347cd340f9cb9f81e900b357914f4a0",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "",
+      "com.docker.compose.image": "sha256:e96cc6ae1500a073d973c0906f30f7cf4d9c461f32f855f9242a2da933660cdd",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "datahub",
+      "com.docker.compose.project.config_files": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache/docker-compose.v1.7.0.1.kafka-9093.yml",
+      "com.docker.compose.project.working_dir": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/data_platform/metadata/datahub/runtime/.cache",
+      "com.docker.compose.replace": "opensearch-1",
+      "com.docker.compose.service": "opensearch",
+      "com.docker.compose.version": "5.1.3",
+      "org.label-schema.build-date": "2025-10-15T19:15:23Z",
+      "org.label-schema.description": "11238",
+      "org.label-schema.license": "Apache-2.0",
+      "org.label-schema.name": "opensearch",
+      "org.label-schema.schema-version": "1.0",
+      "org.label-schema.url": "https://opensearch.org",
+      "org.label-schema.vcs-url": "https://github.com/opensearch-project/OpenSearch",
+      "org.label-schema.vendor": "OpenSearch",
+      "org.label-schema.version": "2.19.3"
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "volume",
+      "Name": "datahub_osdata",
+      "Source": "/var/lib/docker/volumes/datahub_osdata/_data",
+      "Destination": "/usr/share/opensearch/data",
+      "RW": true
+    }
+  ],
+  "NetworkMode": "datahub_network"
+}
+=== endpoint probes ===
+http://127.0.0.1:8080/health 404
+http://127.0.0.1:18080/health 000
+http://127.0.0.1:9002/health 000

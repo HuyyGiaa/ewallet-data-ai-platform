@@ -1,0 +1,5 @@
+NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+gke-ewallet-dev-cpu-pool-58daed59-08s1   422m         10%      4410Mi          33%
+gke-ewallet-dev-cpu-pool-58daed59-9v0c   300m         7%       3459Mi          26%
+gke-ewallet-dev-cpu-pool-58daed59-gz40   308m         7%       8933Mi          67%
+gke-ewallet-dev-cpu-pool-58daed59-mb8v   330m         8%       5873Mi          44%

@@ -1,0 +1,1 @@
+tool calls for edai2-g3-post-m1-20261103-141340: 3 -> "tool_name": "feature_lookup" "tool_name": "fraud_scoring" "tool_name": "knowledge_search" 

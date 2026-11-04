@@ -1,0 +1,22 @@
+{
+  "airflow_run_id": "g3-functional-rag-20261102t045700z",
+  "chunk_ids": [
+    "policy-account-takeover:0000",
+    "policy-account-takeover:0001",
+    "policy-payment-anomaly:0000",
+    "policy-payment-anomaly:0001"
+  ],
+  "document_ids": [
+    "policy-account-takeover",
+    "policy-payment-anomaly"
+  ],
+  "isolated_readback": "PASS",
+  "production_db0_cutover": "NOT_PERFORMED",
+  "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+  "redis_db": 1,
+  "redis_matching_keys": 4,
+  "registry": "gs://ewallet-data-ai-platform-hg26-data/features/registries/rag/runs/g3-functional-rag-20261102t045700z/registry.db",
+  "registry_sha256": "77aaae132c82d4c7ce05ad103b55194fd389a46bca2113ceb7359f823ddc7cd9",
+  "verdict": "MCP_CANARY_READ_AFTER_WRITE_PASS",
+  "verified_citations": 4
+}

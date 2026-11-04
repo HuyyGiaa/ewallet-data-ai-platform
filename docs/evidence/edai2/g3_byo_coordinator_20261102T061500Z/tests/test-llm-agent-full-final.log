@@ -1,0 +1,324 @@
+...........................................usage: python -m unittest [-h] [--config {b2,o2}] [--gateway GATEWAY]
+                          [--context CONTEXT] [--namespace NAMESPACE]
+                          [--pods PODS] [--epp-metrics EPP_METRICS]
+                          [--levels LEVELS] [--timeout TIMEOUT]
+                          [--allocated-cpu ALLOCATED_CPU]
+                          [--resources RESOURCES] [--stop-file STOP_FILE]
+                          [--output OUTPUT] [--budget]
+python -m unittest: error: concurrency levels must be 1-8
+...................sss.sssssEE..........E..................................usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: destination namespace must be a Kubernetes DNS label
+...usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: replicate-secret requires --approve-sensitive-copy before reading Secret material
+...........................................................Essss.............................................................................sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss...............................usage: python -m unittest [-h] [--endpoint ENDPOINT] [--model MODEL]
+                          [--tool-choice {required,auto}] [--stream]
+                          [--timeout TIMEOUT] [--evidence EVIDENCE]
+python -m unittest: error: local-only smoke: endpoint must be http://127.0.0.1:<port>
+...........ssssssssssssssssssssssssssssssssssss....sssssssssss...........ssss......E...
+======================================================================
+ERROR: test_g3_business_request (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_g3_business_request
+Traceback (most recent call last):
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_g3_business_request.py", line 6, in <module>
+    from pydantic import ValidationError
+ModuleNotFoundError: No module named 'pydantic'
+
+
+======================================================================
+ERROR: test_g3_byo_coordinator (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_g3_byo_coordinator
+Traceback (most recent call last):
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_g3_byo_coordinator.py", line 9, in <module>
+    import httpx
+ModuleNotFoundError: No module named 'httpx'
+
+
+======================================================================
+ERROR: test_g3_programmatic_coordinator (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_g3_programmatic_coordinator
+Traceback (most recent call last):
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_g3_programmatic_coordinator.py", line 7, in <module>
+    from pydantic import ValidationError
+ModuleNotFoundError: No module named 'pydantic'
+
+
+======================================================================
+ERROR: test_mcp_production_authenticator (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_mcp_production_authenticator
+Traceback (most recent call last):
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/home/huyy-giaa/miniconda3/envs/fintech/lib/python3.10/unittest/loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_mcp_production_authenticator.py", line 10, in <module>
+    from ai_platform.llm_agent.tools.security import (
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/ai_platform/llm_agent/tools/security.py", line 33, in <module>
+    from starlette.datastructures import Headers
+ModuleNotFoundError: No module named 'starlette'
+
+
+======================================================================
+ERROR: test_vendored_swap_comes_from_the_locked_wheel (test_vllm_model_image.RecipeTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_vllm_model_image.py", line 62, in test_vendored_swap_comes_from_the_locked_wheel
+    module = remediate()
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_vllm_model_image.py", line 30, in remediate
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/vllm-cpu-model/remediate.py", line 26, in <module>
+    import tomllib
+ModuleNotFoundError: No module named 'tomllib'
+
+----------------------------------------------------------------------
+Ran 457 tests in 17.006s
+
+FAILED (errors=5, skipped=140)
+{
+ "1": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 36002.709253839435,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ },
+ "2": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 45048.13104372978,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ }
+}
+{"status": "BLOCKED_METRICS_MISSING", "missing": {"a": ["vllm:request_success", "vllm:prompt_tokens", "vllm:generation_tokens"], "b": ["vllm:request_success", "vllm:prompt_tokens", "vllm:generation_tokens"]}}
+{
+ "1": {
+  "status": "BLOCKED_GATEWAY_RATE_LIMIT",
+  "error_rate": null,
+  "ttft_ms": null,
+  "e2e_ms": null,
+  "output_tokens_per_second": null,
+  "requests_share": null
+ }
+}
+{
+ "1": {
+  "status": "ATTRIBUTION_MISMATCH",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 45466.55836401185,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ },
+ "2": {
+  "status": "ATTRIBUTION_MISMATCH",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 50394.81222524729,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 6000/6000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 6000/6000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c2-batched-tokens | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 4.00 | 2.00 | 0 | 0.50 | 0% | -/- | - |
+| c2-batched-tokens | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 4.00 | 2.00 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "c1-thread-bind",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": true,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": -0.4
+  },
+  "reasons": []
+ },
+ "c2-batched-tokens": {
+  "qualifies": true,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 0.14285714285714285,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": []
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 10% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 10% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "level 1: errors 10%, timeouts 0%",
+   "level 4: errors 10%, timeouts 0%"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "MLOps regressions: ['x']"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "different workload"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 20000/20000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 20000/20000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 1.0
+  },
+  "reasons": [
+   "level 1: E2E p95 +100%",
+   "level 4: E2E p95 +100%"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.70 | 1.85 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.70 | 1.85 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 0.0571428571428572,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "no defensible gain at level 4 (tokens/s +6%, TTFT p50 +0%)"
+  ]
+ }
+}

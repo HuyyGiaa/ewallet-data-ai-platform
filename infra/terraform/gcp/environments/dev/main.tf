@@ -126,3 +126,14 @@ module "jenkins_vm" {
 
   depends_on = [module.project_services, module.network, module.iam]
 }
+
+module "cicd_build" {
+  source = "../../modules/cicd_build"
+  count  = var.enable_in_cluster_cd ? 1 : 0
+
+  project_id             = var.project_id
+  region                 = var.region
+  artifact_repository_id = module.artifact_registry.repository_id
+
+  depends_on = [module.project_services, module.artifact_registry]
+}

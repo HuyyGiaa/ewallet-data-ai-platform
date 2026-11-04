@@ -57,6 +57,22 @@ ENVS = {
 
 
 class BudgetNestingTests(unittest.TestCase):
+    def test_kagent_native_proxy_routes_agent_tools_without_reproxying_mcp(self):
+        for env, files in ENVS.items():
+            with self.subTest(env):
+                chart, kagent = load(*files["chart"]), load(*files["kagent"])
+                self.assertEqual(
+                    kagent["proxy"]["url"],
+                    "http://a2a-gateway.ewallet-agents.svc.cluster.local:8083",
+                )
+                # Pinned kagent 0.10.3 treats only <service>.<namespace> and
+                # *.svc.cluster.local as internal proxy candidates. The valid
+                # Kubernetes .svc address therefore stays on the MCP Gateway.
+                self.assertEqual(
+                    chart["agents"]["mcpGatewayUrl"],
+                    "http://mcp-gateway.ewallet-agents.svc:8080",
+                )
+
     def test_llmd_route_answers_before_the_llm_listener_gives_up(self):
         for env, files in ENVS.items():
             with self.subTest(env):

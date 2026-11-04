@@ -1,0 +1,123 @@
+Started by user admin
+Checking out git /opt/ewallet-source/repository.bundle into /var/jenkins_home/workspace/edai2-cd-rag-pipeline@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb to read Jenkinsfile.llm-agent
+The recommended git tool is: NONE
+No credentials specified
+ > git rev-parse --resolve-git-dir /var/jenkins_home/workspace/edai2-cd-rag-pipeline@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb/.git # timeout=10
+Fetching changes from the remote Git repository
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+Cleaning workspace
+ > git rev-parse --verify HEAD # timeout=10
+Resetting working tree
+ > git reset --hard # timeout=10
+ > git clean -fdx # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse refs/remotes/origin/release/rag-pipeline^{commit} # timeout=10
+Checking out Revision 48bf89c5c26fe6da9ba1b61fd0725535299f289b (refs/remotes/origin/release/rag-pipeline)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 48bf89c5c26fe6da9ba1b61fd0725535299f289b # timeout=10
+Commit message: "feat(rag): validation report names the release it validated"
+ > git rev-list --no-walk 19582d6d090c696fd8bc73847b886861736cf364 # timeout=10
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins in /var/jenkins_home/workspace/edai2-cd-rag-pipeline
+[Pipeline] {
+[Pipeline] checkout
+The recommended git tool is: NONE
+No credentials specified
+ > git rev-parse --resolve-git-dir /var/jenkins_home/workspace/edai2-cd-rag-pipeline/.git # timeout=10
+Fetching changes from the remote Git repository
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+Cleaning workspace
+ > git rev-parse --verify HEAD # timeout=10
+Resetting working tree
+ > git reset --hard # timeout=10
+ > git clean -fdx # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse refs/remotes/origin/release/rag-pipeline^{commit} # timeout=10
+Checking out Revision 48bf89c5c26fe6da9ba1b61fd0725535299f289b (refs/remotes/origin/release/rag-pipeline)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 48bf89c5c26fe6da9ba1b61fd0725535299f289b # timeout=10
+Commit message: "feat(rag): validation report names the release it validated"
+[Pipeline] load
+[Pipeline] { (jenkins/pipeline/componentPipeline.groovy)
+[Pipeline] }
+[Pipeline] // load
+[Pipeline] timeout
+Timeout set to expire in 1 hr 0 min
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Checkout and provenance)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Validate catalog and detect scope)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Component CI)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Controlled release gate)
+[Pipeline] input
+Approve immutable release of 48bf89c5c26fe6da9ba1b61fd0725535299f289b to gke-cpu?
+Approve release or Abort
+Approved by admin
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Verify release branch)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Build and publish images (Cloud Build))
+[Pipeline] sh
+{"builder": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36", "git_sha": "48bf89c5c26fe6da9ba1b61fd0725535299f289b", "images": {"rag-ingestion": {"build_id": "cd907cfb-bd10-428a-b960-e6eb27b4a295", "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/rag-ingestion@sha256:fdea35ee185e5489592cbfd7f31acf0c0e8b4cb43860c288b79c817ab0fffb8c", "dockerfile": "infra/docker/rag-ingestion/Dockerfile", "source_object": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/48bf89c5c26fe6da9ba1b61fd0725535299f289b/rag-ingestion.tar.gz#1793691787628033", "source_sha256": "694009506d1783b2fbcf6e8ce4551bb18d11eb83704583efa057c65f9fc82625", "target": null}}}
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy and verify)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+Traceback (most recent call last):
+  File "<stdin>", line 8, in <module>
+  File "/var/jenkins_home/workspace/edai2-cd-rag-pipeline/scripts/ci/catalog.py", line 176, in load_catalog
+    path.read_text(encoding="utf-8"),
+    ^^^^^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'read_text'
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] junit
+Recording test results
+[Checks API] No suitable checks publisher found.
+[Pipeline] archiveArtifacts
+Archiving artifacts
+Recording fingerprints
+[Pipeline] }
+[Pipeline] // timeout
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 1
+Finished: FAILURE

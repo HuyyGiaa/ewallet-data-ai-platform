@@ -1,0 +1,3 @@
+NAME                                 READY   STATUS        RESTARTS   AGE     IP            NODE                                     NOMINATED NODE   READINESS GATES
+fraud-coordinator-7bf69cb76c-qlt2m   1/1     Running       0          22s     10.216.1.57   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+fraud-coordinator-d4bbf565c-9xczf    1/1     Terminating   0          8m15s   10.216.1.56   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>

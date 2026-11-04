@@ -1,0 +1,4 @@
+## registry scaled to 0
+prompt_registry: registry unavailable: Remote end closed connection without response
+{"agent": "drift-specialist", "bytes": 1012, "sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef", "source": "pinned-git-fallback", "version": "v2"}
+{"agent": "drift-specialist", "bytes": 1012, "sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef", "source": "registry", "version": "v2"}

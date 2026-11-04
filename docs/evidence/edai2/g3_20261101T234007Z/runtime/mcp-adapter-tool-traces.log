@@ -1,0 +1,2 @@
+{"duration_seconds":0.164574,"event":"mcp.tool.completed","outcome":"success","service":"feature-rag-mcp","severity":"INFO","span_id":"d9230d7917653701","timestamp":"2026-11-02T00:14:53.227644+00:00","tool":"feature_lookup","trace_id":"33333333333333333333333333333333"}
+{"duration_seconds":0.098954,"event":"mcp.tool.completed","outcome":"success","service":"feature-rag-mcp","severity":"INFO","span_id":"3bcb8afc05a7a27e","timestamp":"2026-11-02T00:14:53.441599+00:00","tool":"fraud_scoring","trace_id":"33333333333333333333333333333333"}

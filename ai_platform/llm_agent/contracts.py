@@ -13,7 +13,7 @@ TRACEPARENT_RE = re.compile(
 )
 REVISION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$")
 TOOL_NAMES = frozenset(
-    {"feature_lookup", "fraud_scoring", "knowledge_search", "drift_detection"}
+    {"feature_lookup", "fraud_scoring", "knowledge_search", "chunk_lookup", "drift_detection"}
 )
 
 

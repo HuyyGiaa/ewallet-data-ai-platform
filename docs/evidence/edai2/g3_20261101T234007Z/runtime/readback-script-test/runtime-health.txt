@@ -1,0 +1,39 @@
+NAME     	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART                   	APP VERSION
+llm-agent	default  	12      	2026-11-02 07:00:36.881273306 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+NAME                                     READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS     IMAGES                                                                                                                                                                 SELECTOR
+deployment.apps/a2a-gateway              1/1     1            1           6h47m   agentgateway   ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b                                                       app.kubernetes.io/name=a2a-gateway
+deployment.apps/agentgateway             1/1     1            1           6h47m   agentgateway   ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b                                                       app.kubernetes.io/name=agentgateway
+deployment.apps/drift-mcp                1/1     1            1           6h47m   mcp-server     asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0        app.kubernetes.io/name=drift-mcp
+deployment.apps/drift-specialist         1/1     1            1           6h47m   kagent         ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f                                                    app=kagent,kagent=drift-specialist
+deployment.apps/feature-rag-specialist   1/1     1            1           6h47m   kagent         ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f                                                    app=kagent,kagent=feature-rag-specialist
+deployment.apps/fraud-coordinator        1/1     1            1           6h47m   kagent         ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f                                                    app=kagent,kagent=fraud-coordinator
+deployment.apps/mcp-gateway              1/1     1            1           6h47m   agentgateway   ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b                                                       app.kubernetes.io/name=mcp-gateway
+deployment.apps/vllm-fallback            0/0     0            0           6h47m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=fallback,app.kubernetes.io/name=vllm
+deployment.apps/vllm-primary             1/1     1            1           6h47m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm
+
+NAME                                          READY   STATUS    RESTARTS   AGE     IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/a2a-gateway-6dfcf8bf7b-scbh5              1/1     Running   0          155m    10.216.1.36   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/agentgateway-5d7b994c75-pffhj             1/1     Running   0          6h47m   10.216.1.9    gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/drift-mcp-c845bfc5f-4ttkw                 1/1     Running   0          6h47m   10.216.1.10   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/drift-specialist-7fb847df9-qqxfn          1/1     Running   0          102m    10.216.1.41   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/feature-rag-specialist-86c6446948-wlkn5   1/1     Running   0          22m     10.216.1.45   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/fraud-coordinator-f7b7c698-4njkw          1/1     Running   0          129m    10.216.1.40   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/mcp-gateway-db9ddd7b-wdxc9                1/1     Running   0          129m    10.216.1.39   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/vllm-primary-588445cd8-wbbxf              1/1     Running   0          6h47m   10.216.0.7    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                                                                                                                                                            SELECTOR
+deployment.apps/drift-mcp         1/1     1            1           3h49m   mcp-server   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058   app.kubernetes.io/name=drift-mcp
+deployment.apps/feature-rag-mcp   1/1     1            1           3h49m   mcp-server   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058   app.kubernetes.io/name=feature-rag-mcp
+
+NAME                                   READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/drift-mcp-768467cb87-8572r         1/1     Running   0          10m   10.216.1.46   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+pod/feature-rag-mcp-655bf579c6-p6494   1/1     Running   0          10m   10.216.1.47   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+NAME                     READY   AGE   CONTAINERS   IMAGES
+statefulset.apps/redis   1/1     31h   redis        redis@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
+
+NAME          READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/redis-0   1/1     Running   0          24h   10.216.4.25   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+NAME                                                URL                                               READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION   AGE
+inferenceservice.serving.kserve.io/fraud-detector   http://fraud-detector-fraud-serving.example.com   True                                                                  30h
+
+NAME                                            READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/fraud-detector-predictor-6b649bc8b6-48csb   1/1     Running   0          24h   10.216.4.10   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>

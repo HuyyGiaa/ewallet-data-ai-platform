@@ -1,0 +1,415 @@
+{
+  "completed_at": "2026-10-31T21:13:49.936200+00:00",
+  "feast_dataset": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+  "quality_checks": [
+    {
+      "assertion_id": "source_checksums_match_manifest",
+      "observed": {
+        "checksum_mismatches": 0,
+        "document_count": 2
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "chunk_id_unique_and_deterministic",
+      "observed": {
+        "chunk_count": 4,
+        "deterministic": true,
+        "unique": 4
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "embedding_dimension_finite_nonzero",
+      "observed": {
+        "dimensions": 384,
+        "invalid_vectors": 0,
+        "vector_count": 4
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "online_rows_match_offline_publication",
+      "observed": {
+        "offline_rows": 4,
+        "online_rows": 4,
+        "readback_status": "MATCH"
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "retrieval_returns_cited_source",
+      "observed": {
+        "citation_errors": 0,
+        "empty_retrieval_rate": 0.0,
+        "recall_at_k": 1.0
+      },
+      "passed": true
+    }
+  ],
+  "record_count": 25,
+  "records": [
+    {
+      "aspect": "datasetProperties",
+      "payload": {
+        "customProperties": {
+          "corpus_revision": "fraud-policy-v1-20261030",
+          "document_count": "2",
+          "manifest_sha256": "e5a282c6c2864e8ea6de67adcdfd4b18fc4624bdfb06fc8339528ae5d22a24b9"
+        },
+        "description": "Versioned fraud-policy documents ingested by the rag_fraud_policy DAG",
+        "name": "fraud-policy corpus fraud-policy-v1-20261030",
+        "qualifiedName": "data/llm_agent/rag/fraud-policy-v1"
+      },
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "payload": {
+        "customProperties": {
+          "airflow_run_id": "local-airflow-dagstest-20261101",
+          "corpus_revision": "fraud-policy-v1-20261030",
+          "embedding_dimensions": "384",
+          "embedding_model_id": "sentence-transformers/all-MiniLM-L6-v2",
+          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+          "feature_index_revision": "fraud-policy-feast-v1",
+          "online_store": "sqlite",
+          "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+          "row_count": "4",
+          "source_git_sha": "2ac4ceb6d7057c9e8311f0ffea056a67002c6372"
+        },
+        "description": "Fraud-policy chunks and embeddings published through Feast (offline parquet + online)",
+        "name": "fraud_policy_chunks fraud-policy-feast-v1",
+        "qualifiedName": "/tmp/rag-dag-test.67B71Q/feast/fraud-policy-feast-v1/chunks.parquet"
+      },
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "payload": {
+        "fields": [
+          {
+            "fieldPath": "chunk_id",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "document_id",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "chunk_text",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "source_uri",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "source_checksum",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "corpus_revision",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "embedding_model_revision",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "feature_index_revision",
+            "isPartitioningKey": false,
+            "nativeDataType": "string",
+            "nullable": false
+          },
+          {
+            "fieldPath": "embedding",
+            "isPartitioningKey": false,
+            "nativeDataType": "array<float32>",
+            "nullable": false
+          },
+          {
+            "fieldPath": "event_timestamp",
+            "isPartitioningKey": false,
+            "nativeDataType": "timestamp",
+            "nullable": false
+          },
+          {
+            "fieldPath": "publication_timestamp",
+            "isPartitioningKey": false,
+            "nativeDataType": "timestamp",
+            "nullable": false
+          }
+        ],
+        "hash": "212ee48ce002254feb12fd13e9de246d7b9b111a68836e81a9414e402d10b678",
+        "platform": "urn:li:dataPlatform:feast",
+        "rawSchema": "[[\"chunk_id\", \"string\"], [\"document_id\", \"string\"], [\"chunk_text\", \"string\"], [\"source_uri\", \"string\"], [\"source_checksum\", \"string\"], [\"corpus_revision\", \"string\"], [\"embedding_model_revision\", \"string\"], [\"feature_index_revision\", \"string\"], [\"embedding\", \"array<float32>\"], [\"event_timestamp\", \"timestamp\"], [\"publication_timestamp\", \"timestamp\"]]",
+        "schemaName": "fraud_policy_chunks",
+        "version": 0
+      },
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "payload": {
+        "upstreams": [
+          {
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      },
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+    },
+    {
+      "aspect": "dataFlowInfo",
+      "payload": {
+        "customProperties": {
+          "airflow_run_id": "local-airflow-dagstest-20261101",
+          "orchestrator": "airflow",
+          "source_git_sha": "2ac4ceb6d7057c9e8311f0ffea056a67002c6372"
+        },
+        "env": "PROD",
+        "name": "rag_fraud_policy"
+      },
+      "urn": "urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "payload": {
+        "customProperties": {
+          "airflow_run_id": "local-airflow-dagstest-20261101",
+          "source_git_sha": "2ac4ceb6d7057c9e8311f0ffea056a67002c6372"
+        },
+        "flowUrn": "urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp)",
+        "name": "discover_documents",
+        "type": "BATCH"
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),discover_documents)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "payload": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+        ],
+        "outputDatasets": []
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),discover_documents)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "payload": {
+        "customProperties": {
+          "airflow_run_id": "local-airflow-dagstest-20261101",
+          "source_git_sha": "2ac4ceb6d7057c9e8311f0ffea056a67002c6372"
+        },
+        "flowUrn": "urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp)",
+        "name": "parse_and_chunk",
+        "type": "BATCH"
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),parse_and_chunk)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "payload": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+        ],
+        "outputDatasets": []
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),parse_and_chunk)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "payload": {
+        "customProperties": {
+          "airflow_run_id": "local-airflow-dagstest-20261101",
+          "source_git_sha": "2ac4ceb6d7057c9e8311f0ffea056a67002c6372"
+        },
+        "flowUrn": "urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp)",
+        "name": "generate_embeddings",
+        "type": "BATCH"
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),generate_embeddings)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "payload": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+        ],
+        "outputDatasets": []
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),generate_embeddings)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "payload": {
+        "customProperties": {
+          "airflow_run_id": "local-airflow-dagstest-20261101",
+          "source_git_sha": "2ac4ceb6d7057c9e8311f0ffea056a67002c6372"
+        },
+        "flowUrn": "urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp)",
+        "name": "publish_feast_features",
+        "type": "BATCH"
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),publish_feast_features)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "payload": {
+        "inputDatasets": [],
+        "outputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+        ]
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),publish_feast_features)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "payload": {
+        "customProperties": {
+          "airflow_run_id": "local-airflow-dagstest-20261101",
+          "source_git_sha": "2ac4ceb6d7057c9e8311f0ffea056a67002c6372"
+        },
+        "flowUrn": "urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp)",
+        "name": "validate_online_readback",
+        "type": "BATCH"
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),validate_online_readback)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "payload": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+        ],
+        "outputDatasets": []
+      },
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),validate_online_readback)"
+    },
+    {
+      "aspect": "assertionInfo",
+      "payload": {
+        "description": "Every source document's SHA-256 equals the versioned manifest",
+        "entity": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "logic": "source_checksums_match_manifest",
+        "type": "E-Wallet RAG Data Contract"
+      },
+      "urn": "urn:li:assertion:811a24f3669608043eb2e796109d3b2c"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "payload": {
+        "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "observed": "{\"checksum_mismatches\": 0, \"document_count\": 2}",
+        "result": "SUCCESS",
+        "runId": "local-airflow-dagstest-20261101",
+        "timestampMillis": 1793481229936
+      },
+      "urn": "urn:li:assertion:811a24f3669608043eb2e796109d3b2c"
+    },
+    {
+      "aspect": "assertionInfo",
+      "payload": {
+        "description": "chunk_id is unique and rebuilt identically from the manifest chunking parameters",
+        "entity": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "logic": "chunk_id_unique_and_deterministic",
+        "type": "E-Wallet RAG Data Contract"
+      },
+      "urn": "urn:li:assertion:82c2799938b860cb1848b6230ff6b555"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "payload": {
+        "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "observed": "{\"chunk_count\": 4, \"deterministic\": true, \"unique\": 4}",
+        "result": "SUCCESS",
+        "runId": "local-airflow-dagstest-20261101",
+        "timestampMillis": 1793481229936
+      },
+      "urn": "urn:li:assertion:82c2799938b860cb1848b6230ff6b555"
+    },
+    {
+      "aspect": "assertionInfo",
+      "payload": {
+        "description": "Every embedding has the manifest dimension, finite values and unit L2 norm",
+        "entity": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "logic": "embedding_dimension_finite_nonzero",
+        "type": "E-Wallet RAG Data Contract"
+      },
+      "urn": "urn:li:assertion:9f1d8da37a80bf451d435939b49d963f"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "payload": {
+        "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "observed": "{\"dimensions\": 384, \"invalid_vectors\": 0, \"vector_count\": 4}",
+        "result": "SUCCESS",
+        "runId": "local-airflow-dagstest-20261101",
+        "timestampMillis": 1793481229936
+      },
+      "urn": "urn:li:assertion:9f1d8da37a80bf451d435939b49d963f"
+    },
+    {
+      "aspect": "assertionInfo",
+      "payload": {
+        "description": "Feast Online returns every published chunk with identical provenance and revisions",
+        "entity": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "logic": "online_rows_match_offline_publication",
+        "type": "E-Wallet RAG Data Contract"
+      },
+      "urn": "urn:li:assertion:7bf2c9888af3149c7594ea0d3dbc9fa9"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "payload": {
+        "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "observed": "{\"offline_rows\": 4, \"online_rows\": 4, \"readback_status\": \"MATCH\"}",
+        "result": "SUCCESS",
+        "runId": "local-airflow-dagstest-20261101",
+        "timestampMillis": 1793481229936
+      },
+      "urn": "urn:li:assertion:7bf2c9888af3149c7594ea0d3dbc9fa9"
+    },
+    {
+      "aspect": "assertionInfo",
+      "payload": {
+        "description": "Each evaluation query retrieves at least one chunk citing a manifest document",
+        "entity": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "logic": "retrieval_returns_cited_source",
+        "type": "E-Wallet RAG Data Contract"
+      },
+      "urn": "urn:li:assertion:65cf60032d43218cab937dc40eca9531"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "payload": {
+        "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "observed": "{\"citation_errors\": 0, \"empty_retrieval_rate\": 0.0, \"recall_at_k\": 1.0}",
+        "result": "SUCCESS",
+        "runId": "local-airflow-dagstest-20261101",
+        "timestampMillis": 1793481229936
+      },
+      "urn": "urn:li:assertion:65cf60032d43218cab937dc40eca9531"
+    }
+  ],
+  "run_id": "local-airflow-dagstest-20261101",
+  "stage": "datahub",
+  "status": "PLAN_ONLY_NOT_PUBLISHED"
+}

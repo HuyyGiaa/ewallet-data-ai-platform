@@ -11,9 +11,9 @@ controller:
   replicas: 1
   watchNamespaces:
     - ewallet-agents
-  # Native kagent A2A between agents is addressed through A2A_BASE_URL. Pointing
-  # it at the agentgateway A2A route (a2a-gateway) puts every agent-to-agent
-  # call behind agentgateway policy (rubric row 24) without another A2A runtime.
+  # The controller advertises its own A2A endpoint at this base URL. Agent-tool
+  # outbound routing is controlled separately by proxy.url below in kagent
+  # 0.10.3; A2A_BASE_URL alone does not rewrite remote_agents in config.json.
   a2aBaseUrl: http://a2a-gateway.ewallet-agents.svc.cluster.local:8083
   # Caller budget above the a2a-gateway budget (150 s in llm-agent-platform values).
   a2aClientTimeout: 180s
@@ -94,3 +94,12 @@ cilium-debug-agent:
   enabled: false
 oauth2-proxy:
   enabled: false
+
+# kagent 0.10.3 applies this supported controller proxy to internally-built
+# Agent-tool URLs and supplies x-kagent-host with the original Agent Service.
+# The project A2A gateway matches only the two declared Specialist hosts and
+# remains fail-closed for every other destination. RemoteMCPServer URLs use the
+# Kubernetes .svc form in llm-agent-platform values, which the pinned
+# translator intentionally leaves on the separate MCP Gateway path.
+proxy:
+  url: http://a2a-gateway.ewallet-agents.svc.cluster.local:8083

@@ -1,0 +1,7 @@
+## incident: unintended non-dry-run write during probe (executor error)
+registry v2 == git v2 + '\nprobe\n': True | registry sha d0174b5ef3d3034e
+production drift-specialist reads: drift-specialist-prompt-v2 sha=0c0798e185cd5f86 (Git ConfigMap, not the registry)
+resolver against tampered registry: prompt_registry: drift-specialist/v2 sha256 d0174b5ef3d3034e9763bfd2e421a1d56a3d3e997a04ae64cf1b392f281d499e differs fro
+## restore from Git
+republish PASS 17
+verify-all after restore rc=0 matches=12/12

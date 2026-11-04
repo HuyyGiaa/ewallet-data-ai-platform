@@ -1,0 +1,10 @@
+## GKE read-only preflight
+namespace ewallet-mcp-release exists: no
+  would create: Namespace - ewallet-mcp-release
+  would create: ResourceQuota ewallet-mcp-release helm-records-only
+  would create: NetworkPolicy ewallet-mcp-release default-deny
+  would create: Role ewallet-mcp-release jenkins-helm-records
+  would create: RoleBinding ewallet-mcp-release jenkins-helm-records
+  namespace/ewallet-mcp-release created (server dry run)
+existing objects touched: none (all 5 objects are new; no existing name matched)
+sha256 of package: 8a6c0c4c19943fc499bf521dfca64ab04fbd053278d60cfd2a4a2b4f7129b619

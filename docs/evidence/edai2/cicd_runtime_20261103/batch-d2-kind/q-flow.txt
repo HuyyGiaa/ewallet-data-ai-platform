@@ -1,0 +1,45 @@
+## backup
+{"step": "backup", "result": "/tmp/claude-1000/-home-huyy-giaa-Develop-ewallet-data-ai-platform/f10d7888-8f02-490a-8a08-dcc49b3e529e/scratchpad/batchd2/private/records-backup.json", "state": {"source_
+## archive
+{"step": "archive", "result": 6, "state": {"source_active": 0, "source_archived": 6, "target_active": 0}}
+## hazard checks while ONLY archived records exist in ewallet-mcp (no active record anywhere)
+helm list -n ewallet-mcp: []
+helm uninstall -n ewallet-mcp: Error: uninstall: Release not loaded: llm-agent-mcp: release: not found
+helm upgrade -n ewallet-mcp: Error: UPGRADE FAILED: "llm-agent-mcp" has no deployed releases
+helm rollback -n ewallet-mcp: Error: release: not found
+28 objects; 0 missing; 2 pods
+## copy history
+{"step": "copy", "result": 6, "state": {"source_active": 0, "source_archived": 6, "target_active": 6}}
+  rev 1 superseded
+  rev 2 superseded
+  rev 3 superseded
+  rev 4 superseded
+  rev 5 superseded
+  rev 6 deployed
+## takeover
+helm_release_rehome: helm --kube-context kind-llm-agent-local upgrade llm-agent-mcp infra/helm/llm-agent-platform... failed: Error: UPGRADE FAILED: context deadline exceeded
+
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;print(json.load(sys.stdin)['state'])
+                          ~~~~~~~~~^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.13/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+  rev 5 superseded complete
+  rev 6 deployed complete
+  rev 7 failed exceeded
+28 objects; 0 missing; 2 pods
+q1-after-archive missing 0 uid changed 0 spec changed 0 pods identical True owner ['ewallet-mcp']
+q2-after-takeover missing 0 uid changed 0 spec changed 0 pods identical True owner ['ewallet-mcp-release']

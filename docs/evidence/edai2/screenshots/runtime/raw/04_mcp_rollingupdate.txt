@@ -1,0 +1,8 @@
+$ kubectl -n ewallet-mcp get deploy -o custom-columns=NAME:.metadata.name,READY:.status.readyReplicas,STRATEGY:.spec.strategy.type,MAX_UNAVAILABLE:.spec.strategy.rollingUpdate.maxUnavailable,MAX_SURGE:.spec.strategy.rollingUpdate.maxSurge,IMAGE:.spec.template.spec.containers[0].image | cut -c1-170; echo; helm list -A | grep -E 'NAME|llm-agent'
+NAME              READY   STRATEGY        MAX_UNAVAILABLE   MAX_SURGE   IMAGE
+drift-mcp         1       RollingUpdate   0                 1           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:320
+feature-rag-mcp   1       RollingUpdate   0                 1           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:320
+
+NAME           	NAMESPACE      	REVISION	UPDATED                                	STATUS  	CHART                   	APP VERSION 
+llm-agent      	default        	41      	2026-11-04 15:00:21.514912436 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+llm-agent-mcp  	ewallet-mcp    	6       	2026-11-02 21:53:21.797838693 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1

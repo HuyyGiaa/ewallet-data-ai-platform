@@ -150,3 +150,57 @@ Readback: Google Drive API revision
 `AHj4eMRje5RZBmxo_LvgIQ8muVpAZACdgUL3AYwSvNPOjhzrWFYoJGyP6JhKfL3P2HiMuKK3tt60BcSDuZkVQ7rEL5V8xBdKttMclyI7Xhs`
 was read back on 30/10/2026 ICT. Decision number, both Git SHAs, test result,
 explicit absence of runtime evidence, rubric state and Phase D next gate matched.
+
+## 21.220 — EDAI-2 Agent Platform P1–P4 closure — SYNC_PENDING
+
+Date: 02/11/2026 (ICT)
+
+Implementation HEAD: `a89cd4ad54eb36a5f0bdbda4293c729160cf4722`.
+Evidence-binding commit: `195a4b2093e146cd39f2c6d8436e86ebf51ad6b3`.
+Branch: `codex/llm-g2-llmd-routing`. Canonical/main were not modified, merged
+or pushed.
+
+Decision: Kubernetes kagent `Agent` and `RemoteMCPServer` CRDs remain the only
+Agent registry source of truth. A versioned, fail-closed captured-inventory
+probe now verifies complete Agent/MCP inventory, controller ownership,
+readiness, Agent Card versions and skills without exporting Secret material.
+No parallel registry service was introduced.
+
+For the current `Agent`/BYO mode, native `autoscaling/v2` HPA owns replicas of
+the exact kagent-generated Deployments while the Agent CR omits its replica
+field. The bounded G3 source profile renders three HPAs at 2–3 replicas, CPU
+target 60%, one-pod transitions, five-minute scale-down stabilization and one
+PDB per Agent. Sandbox mode retains KEDA against the supported Substrate
+WorkerPool scale target. This is SOURCE_READY only; no Helm upgrade, scale test
+or cloud mutation ran.
+
+The isolated SandboxAgent pilot pins kagent `0.10.3` and Agent Substrate
+`0.0.9`, uses a deterministic internal mock, zero production tools/credentials,
+restricted network and bounded resources. All four OCI digests and CRD schemas
+validated. The render contains 80 documents, including 25 cluster-scoped
+objects; `DaemonSet/atelet` is privileged and uses hostPath. P3/P4 runtime is
+therefore `BLOCKED_PENDING_OWNER_APPROVAL`. No Substrate resources were
+installed.
+
+Validation: 142 focused/combined tests PASS across source/chart/pilot/G3 BYO/
+MCP security suites; G3 Helm render/lint PASS; pilot digest/schema/render audit
+PASS; evidence checksum and secret-pattern scan PASS. Historical G3 evidence
+continues to show three Agents Ready/Accepted, two RemoteMCPServers Accepted and
+the recorded Helm revisions `llm-agent=24`, `llm-agent-mcp=3`, `kagent=2`.
+Those are historical records, not a fresh cluster readback.
+
+Current runtime blocker: GKE is RUNNING, but the active public IPv4
+`171.239.81.235` is outside the sole master authorized network
+`113.188.119.38/32`; `/readyz` timed out. Changing the authorized network was
+not approved. Consequently P1 is historical-runtime-verified/current-readback-
+blocked; P2 runtime is BLOCKED; P3/P4 runtime remains approval-gated. No rubric
+row is promoted to runtime VERIFIED by this source campaign.
+
+Next gates: separately approve a bounded P2 Helm rollout and measured
+scale-out/scale-in/state/security/G3 regression; separately review and approve
+all Substrate cluster-scoped RBAC/admission objects and privileged hostPath
+DaemonSet before any isolated P3/P4 runtime pilot. Preserve the existing G3
+architecture, MCP grants, Secrets, models, data and rollback revisions.
+
+Google Docs status: `SYNC_PENDING`. Copy this addendum into the canonical
+Living Decisions document and read it back before changing the status.

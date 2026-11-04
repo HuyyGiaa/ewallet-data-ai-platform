@@ -1,0 +1,1091 @@
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# Source: llm-agent-platform/templates/security.yaml
+# Confirm the DNS namespace/pod labels and networkPolicy.dns.nodeLocalIP on
+# the target cluster before rollout.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cluster-dns
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+        - ipBlock:
+            cidr: 169.254.20.10/32
+        - ipBlock:
+            cidr: 34.118.224.10/32
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# Source: llm-agent-platform/templates/security.yaml
+# Kubelet probes reach ambient pods from the ztunnel SNAT address only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-agentgateway
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: agentgateway
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 169.254.7.127/32
+      ports:
+        - {protocol: TCP, port: 4000}
+---
+# Source: llm-agent-platform/templates/security.yaml
+# Kubelet probes reach ambient pods from the ztunnel SNAT address only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-llmd-router
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      llm-d-router-standalone: llmd-router-epp
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 169.254.7.127/32
+      ports:
+        - {protocol: TCP, port: 19001}
+        - {protocol: TCP, port: 9003}
+---
+# Source: llm-agent-platform/templates/security.yaml
+# Kubelet probes reach ambient pods from the ztunnel SNAT address only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-vllm
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 169.254.7.127/32
+      ports:
+        - {protocol: TCP, port: 8000}
+---
+# Source: llm-agent-platform/templates/security.yaml
+# The EPP lists and watches the primary pods: API server only, nothing else.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llmd-router-to-kube-apiserver
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      llm-d-router-standalone: llmd-router-epp
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: {cidr: 192.0.2.1/32}
+      ports:
+        - {protocol: TCP, port: 443}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agentgateway-to-vllm-ingress
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agentgateway
+      ports:
+        - {protocol: TCP, port: 8000}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agentgateway-to-vllm-egress
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: agentgateway
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vllm
+      ports:
+        - {protocol: TCP, port: 8000}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agentgateway-to-llmd-router-ingress
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      llm-d-router-standalone: llmd-router-epp
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agentgateway
+      ports:
+        - {protocol: TCP, port: 8081}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agentgateway-to-llmd-router-egress
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: agentgateway
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              llm-d-router-standalone: llmd-router-epp
+      ports:
+        - {protocol: TCP, port: 8081}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llmd-router-to-vllm-ingress
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              llm-d-router-standalone: llmd-router-epp
+      ports:
+        - {protocol: TCP, port: 8000}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llmd-router-to-vllm-egress
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  podSelector:
+    matchLabels:
+      llm-d-router-standalone: llmd-router-epp
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vllm
+      ports:
+        - {protocol: TCP, port: 8000}
+        - {protocol: TCP, port: 15008}
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agentgateway
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vllm
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-gateway
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: a2a-gateway
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: feature-rag-mcp
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: drift-mcp
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fraud-coordinator
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: feature-rag-specialist
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: drift-specialist
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+automountServiceAccountToken: false
+---
+# Source: llm-agent-platform/templates/agentgateway.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-llm-config
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+data:
+  config.yaml: |
+    # yaml-language-server: $schema=https://agentgateway.dev/schema/config
+    gateways:
+      default:
+        port: 4000
+    routes:
+      # Entry hop to the in-process LLM listener: one overall budget and no
+      # per-hop timeout. With a per-hop timeout equal to the backend budget,
+      # the hop timed out first and the retry replayed the whole CPU
+      # generation (offline mock, 2026-10-31: two backend requests, then 504
+      # at the entry budget). Retry stays for 502/503 only, which the LLM
+      # listener returns when vLLM is unreachable or refusing.
+      - policies:
+          apiKey:
+            mode: strict
+            keys:
+              - key: "$GATEWAY_CLIENT_KEY"
+          timeout:
+            requestTimeout: 180s
+          retry:
+            attempts: 1
+            backoff: 250ms
+            codes: [502,503]
+        backends:
+          - host: 127.0.0.1:3000
+    llm:
+      port: 3000
+      policies:
+        timeout:
+          requestTimeout: 170s
+          backendRequestTimeout: 160s
+          responseIdleTimeout: 160s
+
+        localRateLimit:
+          - maxTokens: 12
+            tokensPerFill: 12
+            fillInterval: 1s
+            type: requests
+            key: llm.requestModel
+          - maxTokens: 150000
+            tokensPerFill: 150000
+            fillInterval: 1h
+            type: tokens
+            key: llm.requestModel
+      models:
+        # llm-d inference-aware route: agentgateway -> (gateway mode) inference
+        # Gateway + InferencePool, or (standalone mode) the llm-d router's Envoy
+        # -> llm-d EPP picks a primary vLLM pod.
+        - name: ewallet-fraud-llm-routed
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: ewallet-fraud-llm-v1
+            baseUrl: http://llmd-router-epp.ewallet-agents.svc.cluster.local:8081/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: 30s
+          responseHeaders:
+            set:
+              x-ewallet-backend: llm-d
+        - name: ewallet-fraud-llm-primary
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: ewallet-fraud-llm-v1
+            baseUrl: http://vllm-primary.ewallet-agents.svc.cluster.local:8000/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: 30s
+          responseHeaders:
+            set:
+              x-ewallet-backend: primary
+        - name: ewallet-fraud-llm-fallback
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: ewallet-fraud-llm-v1
+            baseUrl: http://vllm-fallback.ewallet-agents.svc.cluster.local:8000/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: 30s
+          responseHeaders:
+            set:
+              x-ewallet-backend: fallback
+      virtualModels:
+        - name: ewallet-fraud-llm
+          routing:
+            failover:
+              targets:
+                - {model: ewallet-fraud-llm-routed, priority: 0}
+                - {model: ewallet-fraud-llm-primary, priority: 1}
+                - {model: ewallet-fraud-llm-fallback, priority: 2}
+---
+# Source: llm-agent-platform/templates/architecture-contract.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-agent-architecture-contract
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+data:
+  external_gateway: istio-ambient-gateway-api
+  a2a: kagent-native-a2a
+  llm_route: modelconfig-agentgateway-vllm
+  mcp_gateway_role: policy-only
+  contract_version: llm-agent-contracts/v1
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-agent-network-flows
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+data:
+  enforced.json: "[{\"from\":\"agentgateway\",\"name\":\"agentgateway-to-vllm\",\"port\":8000,\"to\":\"vllm\"},{\"from\":\"agentgateway\",\"name\":\"agentgateway-to-llmd-router\",\"port\":8081,\"to\":\"llmd-router\"},{\"from\":\"llmd-router\",\"name\":\"llmd-router-to-vllm\",\"port\":8000,\"to\":\"vllm\"}]"
+  unresolved.json: "[{\"gate\":\"Read back the WorkerPool/SandboxAgent pod identity, then declare it as a workload and an enforced flow.\",\"name\":\"agents-to-agentgateway\",\"reason\":\"SandboxAgent egress runs on the Substrate WorkerPool; its pod labels, namespace and ServiceAccount are not source-defined.\",\"to\":\"agentgateway:4000\"},{\"gate\":\"Read back kagent controller and WorkerPool identities.\",\"name\":\"coordinator-to-specialists-native-a2a\",\"reason\":\"Native kagent A2A is served by the kagent controller outside this chart; controller and sandbox identities are not source-defined.\",\"to\":\"kagent-controller:8083 /api/a2a/\\u003cnamespace\\u003e/\\u003cagent\\u003e\"},{\"gate\":\"Read back each WorkerPool's pod ServiceAccount and labels, set mcpGateway.callerServiceAccounts, then declare the worker workloads and enforced flows.\",\"name\":\"agents-to-mcp-gateway\",\"reason\":\"The MCP Gateway and its flows to the MCP servers are source-defined (mcpGateway.enabled), but agent worker pods run on Substrate WorkerPools whose ServiceAccount and labels are not source-definable in Substrate 0.0.9.\",\"to\":\"mcp-gateway:8080\"},{\"gate\":\"Read back the controller labels and add a namespaced ingress/egress pair.\",\"name\":\"a2a-gateway-to-kagent-controller\",\"reason\":\"Cross-namespace flow to the kagent controller; its pod labels come from the kagent chart and this chart only renders same-namespace flows.\",\"to\":\"kagent-controller.kagent:8083\"},{\"gate\":\"ML Platform runtime readback of namespaces, labels and ports.\",\"name\":\"mcp-to-rag-feast-kserve-fraud-scoring\",\"reason\":\"Endpoints live in ML/Data Platform namespaces that are not deployed or contract-pinned for this chart.\",\"to\":\"Feast online store, RAG embedding, KServe fraud-scoring\"},{\"gate\":\"Read back the kagent controller, worker and Prometheus identities, then add their flows.\",\"name\":\"otlp-exporters-to-collector\",\"reason\":\"Chart-owned exporters get enforced flows when otelCollector.enabled; kagent controller/agent workers and Prometheus (another namespace) have no source-defined identity.\",\"to\":\"otel-collector:4317\"},{\"gate\":\"Only for vllm.modelSource.mode=huggingface. The staged mode (checksum-verified read-only PVC, offline vLLM) needs no egress; GCP still needs the PVC source (e.g. GCS FUSE) chosen.\",\"name\":\"vllm-model-bootstrap\",\"reason\":\"vLLM downloads the pinned revision at startup, but NetworkPolicy cannot express an FQDN and a CIDR guess would be a broad egress.\",\"to\":\"huggingface.co:443\"},{\"gate\":\"Define the coordinator A2A backend and read back the Gateway deployment labels and ServiceAccount.\",\"name\":\"external-gateway-to-coordinator\",\"reason\":\"The HTTPRoute backend Service is not defined in source, and the Istio Gateway pod ingress and health-check ports are not opened.\",\"to\":\"fraud-coordinator-a2a:8083\"}]"
+---
+# Source: llm-agent-platform/templates/agentgateway.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentgateway
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: agentgateway}
+  ports:
+    - {name: llm, port: 3000, targetPort: entry}
+---
+# Source: llm-agent-platform/templates/vllm.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-fallback
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: fallback
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+---
+# Source: llm-agent-platform/templates/vllm.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-primary
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: primary
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+---
+# Source: llm-agent-platform/templates/agentgateway.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentgateway
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+    app.kubernetes.io/name: agentgateway
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app.kubernetes.io/name: agentgateway}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: agentgateway}
+    spec:
+      serviceAccountName: agentgateway
+      automountServiceAccountToken: false
+      # Keeps LLM serving off nodes it was not budgeted for (O1: the nodes added
+      # for the session, never the MLOps nodes). No tolerations, no PriorityClass.
+      nodeSelector:
+        ewallet.io/g2-llm: "true"
+      containers:
+        - name: agentgateway
+          image: ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+          imagePullPolicy: IfNotPresent
+          args: ["-f", "/config/config.yaml"]
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: api-key
+            - name: GATEWAY_CLIENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentgateway-client-key
+                  key: api-key
+          ports:
+            - {name: entry, containerPort: 4000}
+            - {name: llm-internal, containerPort: 3000}
+          startupProbe:
+            tcpSocket: {port: entry}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            tcpSocket: {port: entry}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: entry}
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          configMap: {name: agentgateway-llm-config}
+        - name: tmp
+          emptyDir: {sizeLimit: 128Mi}
+---
+# Source: llm-agent-platform/templates/vllm.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-fallback
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: fallback
+spec:
+  replicas: 1
+  # Image pull plus the warm-up startup probe (up to failureThreshold x period)
+  # must fit before the rollout is declared stuck (default 600 s).
+  progressDeadlineSeconds: 1800
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+      app.kubernetes.io/instance: fallback
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+        app.kubernetes.io/instance: fallback
+        llm.ewallet.io/backend-version: fallback
+    spec:
+      serviceAccountName: vllm
+      automountServiceAccountToken: false
+      # Keeps LLM serving off nodes it was not budgeted for (O1: the nodes added
+      # for the session, never the MLOps nodes). No tolerations, no PriorityClass.
+      nodeSelector:
+        ewallet.io/g2-llm: "true"
+      # Service links inject VLLM_*-prefixed variables that vLLM parses as its own config.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      # Pod Security Baseline: no added capabilities and no Unconfined seccomp.
+      # SYS_NICE/Unconfined only enable optional vLLM CPU NUMA tuning.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vllm
+          image: placeholder.invalid/x@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          args:
+            - --model
+            - "/models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca"
+            - --served-model-name
+            - "ewallet-fraud-llm-v1"
+            - --dtype
+            - bfloat16
+            - --max-model-len
+            - "4096"
+            - --enable-auto-tool-choice
+            - --tool-call-parser
+            - "hermes"
+            # Keeps model reasoning out of message content (it is never shown to callers).
+            - --reasoning-parser
+            - "qwen3"
+            - --default-chat-template-kwargs
+            - "{\"enable_thinking\":false}"
+            - --max-num-seqs
+            - "2"
+            - --max-num-queued-reqs
+            - "4"
+            - --enable-prefix-caching
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: api-key
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: "2"
+            - name: VLLM_CPU_NUM_OF_RESERVED_CPU
+              value: "1"
+            # The container sees every host core; bound the OpenMP pool to the CPU limit.
+            - name: OMP_NUM_THREADS
+              value: "2"
+            # 'auto' (G1) bound inference to one logical core (core ids=[2],
+            # reserved [3]) on e2-standard-4; a range pins the OpenMP pool.
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: "0-1"
+            - {name: HF_HUB_OFFLINE, value: "1"}
+            - {name: TRANSFORMERS_OFFLINE, value: "1"}
+          ports:
+            - name: http
+              containerPort: 8000
+          # Warm start: the pod only takes traffic after one real tool-shaped
+          # completion. Measured locally, the first request after start took
+          # 122 s on CPU and the next one 10 s.
+          startupProbe:
+            exec:
+              command:
+                - python3
+                - -c
+                - |
+                  import json, os, urllib.request
+                  # Shaped like a real tool call (system prompt + described tool,
+                          # ~200 prompt tokens): on CPU the first request of a new
+                          # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.
+                  body = {"model": "ewallet-fraud-llm-v1", "max_tokens": 32, "temperature": 0,
+                          "messages": [
+                              {"role": "system", "content": "You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data."},
+                              {"role": "user", "content": "Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture."}],
+                          "tools": [{"type": "function", "function": {"name": "feature_lookup",
+                              "description": "Retrieve a test transaction feature fixture.", "parameters": {
+                              "type": "object", "properties": {"transaction_id": {"type": "string"}},
+                              "required": ["transaction_id"], "additionalProperties": False}}}],
+                          "tool_choice": "required"}
+                  request = urllib.request.Request("http://127.0.0.1:8000/v1/chat/completions",
+                      data=json.dumps(body).encode(), method="POST", headers={
+                          "Content-Type": "application/json",
+                          "Authorization": "Bearer " + os.environ["VLLM_API_KEY"]})
+                  urllib.request.urlopen(request, timeout=240).read()
+            periodSeconds: 10
+            timeoutSeconds: 245
+            failureThreshold: 90
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: "3"
+              memory: 10Gi
+            requests:
+              cpu: "2"
+              memory: 6Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - {name: cache, mountPath: /root/.cache}
+            - {name: tmp, mountPath: /tmp}
+            # vLLM's engine message queue needs more than the 64 MiB default /dev/shm.
+            - {name: dshm, mountPath: /dev/shm}
+      volumes:
+        - name: cache
+          emptyDir: {sizeLimit: 8Gi}
+        - name: tmp
+          emptyDir: {sizeLimit: 1Gi}
+        - name: dshm
+          emptyDir: {medium: Memory, sizeLimit: 1Gi}
+---
+# Source: llm-agent-platform/templates/vllm.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-primary
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: primary
+spec:
+  replicas: 2
+  # Image pull plus the warm-up startup probe (up to failureThreshold x period)
+  # must fit before the rollout is declared stuck (default 600 s).
+  progressDeadlineSeconds: 1800
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+      app.kubernetes.io/instance: primary
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+        app.kubernetes.io/instance: primary
+        llm.ewallet.io/backend-version: primary
+    spec:
+      serviceAccountName: vllm
+      automountServiceAccountToken: false
+      # Keeps LLM serving off nodes it was not budgeted for (O1: the nodes added
+      # for the session, never the MLOps nodes). No tolerations, no PriorityClass.
+      nodeSelector:
+        ewallet.io/g2-llm: "true"
+      # Service links inject VLLM_*-prefixed variables that vLLM parses as its own config.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      # Pod Security Baseline: no added capabilities and no Unconfined seccomp.
+      # SYS_NICE/Unconfined only enable optional vLLM CPU NUMA tuning.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vllm
+          image: placeholder.invalid/x@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          args:
+            - --model
+            - "/models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca"
+            - --served-model-name
+            - "ewallet-fraud-llm-v1"
+            - --dtype
+            - bfloat16
+            - --max-model-len
+            - "4096"
+            - --enable-auto-tool-choice
+            - --tool-call-parser
+            - "hermes"
+            # Keeps model reasoning out of message content (it is never shown to callers).
+            - --reasoning-parser
+            - "qwen3"
+            - --default-chat-template-kwargs
+            - "{\"enable_thinking\":false}"
+            - --max-num-seqs
+            - "4"
+            - --max-num-queued-reqs
+            - "8"
+            - --enable-prefix-caching
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-api-key
+                  key: api-key
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: "2"
+            - name: VLLM_CPU_NUM_OF_RESERVED_CPU
+              value: "1"
+            # The container sees every host core; bound the OpenMP pool to the CPU limit.
+            - name: OMP_NUM_THREADS
+              value: "2"
+            # 'auto' (G1) bound inference to one logical core (core ids=[2],
+            # reserved [3]) on e2-standard-4; a range pins the OpenMP pool.
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: "0-1"
+            - {name: HF_HUB_OFFLINE, value: "1"}
+            - {name: TRANSFORMERS_OFFLINE, value: "1"}
+          ports:
+            - name: http
+              containerPort: 8000
+          # Warm start: the pod only takes traffic after one real tool-shaped
+          # completion. Measured locally, the first request after start took
+          # 122 s on CPU and the next one 10 s.
+          startupProbe:
+            exec:
+              command:
+                - python3
+                - -c
+                - |
+                  import json, os, urllib.request
+                  # Shaped like a real tool call (system prompt + described tool,
+                          # ~200 prompt tokens): on CPU the first request of a new
+                          # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.
+                  body = {"model": "ewallet-fraud-llm-v1", "max_tokens": 32, "temperature": 0,
+                          "messages": [
+                              {"role": "system", "content": "You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data."},
+                              {"role": "user", "content": "Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture."}],
+                          "tools": [{"type": "function", "function": {"name": "feature_lookup",
+                              "description": "Retrieve a test transaction feature fixture.", "parameters": {
+                              "type": "object", "properties": {"transaction_id": {"type": "string"}},
+                              "required": ["transaction_id"], "additionalProperties": False}}}],
+                          "tool_choice": "required"}
+                  request = urllib.request.Request("http://127.0.0.1:8000/v1/chat/completions",
+                      data=json.dumps(body).encode(), method="POST", headers={
+                          "Content-Type": "application/json",
+                          "Authorization": "Bearer " + os.environ["VLLM_API_KEY"]})
+                  urllib.request.urlopen(request, timeout=240).read()
+            periodSeconds: 10
+            timeoutSeconds: 245
+            failureThreshold: 90
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: "3"
+              memory: 10Gi
+            requests:
+              cpu: "2"
+              memory: 6Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - {name: cache, mountPath: /root/.cache}
+            - {name: tmp, mountPath: /tmp}
+            # vLLM's engine message queue needs more than the 64 MiB default /dev/shm.
+            - {name: dshm, mountPath: /dev/shm}
+      volumes:
+        - name: cache
+          emptyDir: {sizeLimit: 8Gi}
+        - name: tmp
+          emptyDir: {sizeLimit: 1Gi}
+        - name: dshm
+          emptyDir: {medium: Memory, sizeLimit: 1Gi}
+---
+# Source: llm-agent-platform/templates/security.yaml
+# The namespace is deny-by-default at the Istio L4 and Kubernetes L3/L4 layers.
+# Each enforced flow in .Values.networkFlows opens exactly one source identity
+# to one destination port, as an Istio principal rule plus a NetworkPolicy
+# ingress/egress pair. Unresolved flows stay denied; see the flow ConfigMap.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec: {}
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-agentgateway-to-vllm
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/ewallet-agents/sa/agentgateway
+      to:
+        - operation:
+            ports: ["8000"]
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-agentgateway-to-llmd-router
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  selector:
+    matchLabels:
+      llm-d-router-standalone: llmd-router-epp
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/ewallet-agents/sa/agentgateway
+      to:
+        - operation:
+            ports: ["8081"]
+---
+# Source: llm-agent-platform/templates/security.yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-llmd-router-to-vllm
+  namespace: ewallet-agents
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "llm-agent-v1"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/ewallet-agents/sa/llmd-router-epp
+      to:
+        - operation:
+            ports: ["8000"]

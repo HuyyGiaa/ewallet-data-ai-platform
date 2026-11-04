@@ -1,0 +1,291 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-10-31T21:36:48Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-vllm-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793482608104879022"
+    uid: 54f2eb07-9a10-4320-b819-14c6b492406c
+  spec:
+    egress:
+    - ports:
+      - port: 8000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: vllm
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-10-31T21:36:48Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-vllm-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793482608106607022"
+    uid: ccad3124-02bb-4f1a-9940-3bf73b05a055
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: agentgateway
+      ports:
+      - port: 8000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: vllm
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-10-31T21:36:48Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-agentgateway
+    namespace: ewallet-agents
+    resourceVersion: "1793482608102223018"
+    uid: 60577c80-3299-4c24-ad53-57bb79162f20
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 4000
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-10-31T21:36:48Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-vllm
+    namespace: ewallet-agents
+    resourceVersion: "1793482608105007013"
+    uid: 5e89b469-16a0-45c7-975e-bd0fb65afb62
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8000
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: vllm
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-10-31T21:36:48Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-cluster-dns
+    namespace: ewallet-agents
+    resourceVersion: "1793482608115471003"
+    uid: 701ee0f3-195d-4192-bfea-ab974f3f5233
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      - ipBlock:
+          cidr: 169.254.20.10/32
+    podSelector: {}
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-10-31T21:36:48Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: default-deny
+    namespace: ewallet-agents
+    resourceVersion: "1793482608107791003"
+    uid: 4292fd19-429b-4af7-a838-3444ff6eea4f
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"redis-clients","namespace":"feature-store"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ml-platform"}},"podSelector":{"matchExpressions":[{"key":"app.kubernetes.io/name","operator":"In","values":["feast-online-operator","fraud-api"]}]}}],"ports":[{"port":6379,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"app.kubernetes.io/name":"redis"}},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2026-10-31T16:33:59Z"
+    generation: 1
+    name: redis-clients
+    namespace: feature-store
+    resourceVersion: "1793464439246911017"
+    uid: 7e1eb5ac-659b-4a04-8b93-a828a65708c9
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ml-platform
+        podSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - feast-online-operator
+            - fraud-api
+      ports:
+      - port: 6379
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: redis
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"fraud-detector-clients","namespace":"fraud-serving"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ml-platform"}},"podSelector":{"matchLabels":{"app.kubernetes.io/name":"fraud-api"}}}],"ports":[{"port":8080,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"serving.kserve.io/inferenceservice":"fraud-detector"}},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2026-10-31T17:37:37Z"
+    generation: 1
+    name: fraud-detector-clients
+    namespace: fraud-serving
+    resourceVersion: "1793468257259071011"
+    uid: 548721bb-bdb6-48eb-8001-459edfaea934
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ml-platform
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: fraud-api
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        serving.kserve.io/inferenceservice: fraud-detector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"labels":{"application-crd-id":"kubeflow-pipelines"},"name":"seaweedfs","namespace":"kubeflow"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchExpressions":[{"key":"app.kubernetes.io/part-of","operator":"In","values":["kubeflow-profile"]}]}}],"ports":[{"port":8333}]},{"from":[{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"In","values":["istio-system"]}]}}]},{"from":[{"podSelector":{}}],"ports":[{"port":8333}]}],"podSelector":{"matchExpressions":[{"key":"app","operator":"In","values":["seaweedfs"]}]},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2026-10-27T17:01:39Z"
+    generation: 1
+    labels:
+      application-crd-id: kubeflow-pipelines
+    name: seaweedfs
+    namespace: kubeflow
+    resourceVersion: "1793120499703487017"
+    uid: 64aeaff5-2835-4c19-93ff-598ae91719da
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/part-of
+            operator: In
+            values:
+            - kubeflow-profile
+      ports:
+      - port: 8333
+        protocol: TCP
+    - from:
+      - namespaceSelector:
+          matchExpressions:
+          - key: kubernetes.io/metadata.name
+            operator: In
+            values:
+            - istio-system
+    - from:
+      - podSelector: {}
+      ports:
+      - port: 8333
+        protocol: TCP
+    podSelector:
+      matchExpressions:
+      - key: app
+        operator: In
+        values:
+        - seaweedfs
+    policyTypes:
+    - Ingress
+kind: List
+metadata:
+  resourceVersion: ""

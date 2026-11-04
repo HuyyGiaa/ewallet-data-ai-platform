@@ -1,0 +1,10 @@
+## workload
+automountServiceAccountToken=false sa=prompt-registry-agentregistry ports=8080 31313 volumes=tmp
+service ports: 12121 31313 type=ClusterIP
+RBAC objects for registry SA: []
+## networkpolicies in ewallet-prompts
+  default-deny types ['Ingress', 'Egress'] ingress None egress None
+  same-namespace-and-dns types ['Ingress', 'Egress'] ingress [{'from': [{'podSelector': {}}]}] egress [{'to': [{'podSelector': {}}]}, {'ports': [{'port': 53, 'protocol': 'UDP'}, {'port': 53, 'protocol': 'TCP'}], 'to': [{'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'kube-system'}}}]}, {'ports': [{'port': 53, 'protocol': 'UDP'}, {'port': 53, 'protocol': 'TCP'}], 'to': [{'ipBlock': {'cidr': '34.118.224.10/32'}}]}]
+## who can port-forward into ewallet-prompts (all ServiceAccounts in the cluster)
+  yes: ewallet-ci/jenkins
+  checked 156 service accounts

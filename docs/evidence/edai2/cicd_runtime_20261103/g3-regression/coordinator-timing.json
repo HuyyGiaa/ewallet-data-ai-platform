@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 1.22,
+  "polls": 0,
+  "terminal_state": "completed",
+  "response": "docs/evidence/edai2/cicd_runtime_20261103/g3-regression/coordinator-response.json"
+}

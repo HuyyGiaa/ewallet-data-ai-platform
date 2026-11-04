@@ -1,0 +1,85 @@
+// CI/CD for the RAG Data Pipeline (rag_fraud_policy Airflow DAG).
+// test → build the locked task runtime → (approved) deploy and trigger.
+// Secrets come only from Jenkins credentials; nothing is stored in source.
+pipeline {
+  agent any
+  options { timestamps(); disableConcurrentBuilds(); timeout(time: 40, unit: 'MINUTES') }
+  parameters {
+    string(name: 'EXPECTED_GIT_SHA', defaultValue: '', description: 'Exact reviewed Git SHA')
+    string(name: 'AIRFLOW_PYTHON', defaultValue: '', description: 'Interpreter of the target Airflow 3 environment (DAG parse)')
+    booleanParam(name: 'DEPLOY_APPROVED', defaultValue: false, description: 'Explicit authorization to trigger the DAG')
+    string(name: 'AIRFLOW_API_URL', defaultValue: '', description: 'Airflow 3 API base URL, e.g. http://127.0.0.1:8080')
+  }
+  environment {
+    UV_PROJECT = 'infra/docker/rag-ingestion'
+    UV_VERSION = '0.13.5'
+    EVIDENCE_DIR = "evidence/rag/${BUILD_TAG}"
+  }
+  stages {
+    stage('Checkout exact SHA') {
+      steps {
+        checkout scm
+        sh '''test -n "$EXPECTED_GIT_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_GIT_SHA"
+          mkdir -p "$EVIDENCE_DIR"
+          git rev-parse HEAD > "$EVIDENCE_DIR/git-sha.txt"'''
+      }
+    }
+    stage('Lockfile consistency') {
+      steps {
+        sh '''test "$(uv --version | cut -d' ' -f2)" = "$UV_VERSION"
+          uv lock --check --project "$UV_PROJECT" > "$EVIDENCE_DIR/uv-lock-check.txt" 2>&1 || { cat "$EVIDENCE_DIR/uv-lock-check.txt"; exit 1; }; cat "$EVIDENCE_DIR/uv-lock-check.txt"'''
+      }
+    }
+    stage('Unit, contract and Feast tests (locked env)') {
+      steps {
+        sh '''uv sync --locked --project "$UV_PROJECT" > "$EVIDENCE_DIR/uv-sync-dev.txt" 2>&1 || { cat "$EVIDENCE_DIR/uv-sync-dev.txt"; exit 1; }; cat "$EVIDENCE_DIR/uv-sync-dev.txt"
+          uv run --locked --project "$UV_PROJECT" python -m pytest -q -p no:cacheprovider \
+            tests/llm_agent/test_rag_airflow_ingestion.py tests/llm_agent/test_rag_online_retriever.py \
+            tests/llm_agent/test_rag_chunk_lookup.py tests/llm_agent/test_phase_c.py > "$EVIDENCE_DIR/pytest.txt" 2>&1 || { cat "$EVIDENCE_DIR/pytest.txt"; exit 1; }; cat "$EVIDENCE_DIR/pytest.txt"'''
+      }
+    }
+    stage('Dependency and secret scan (Trivy)') {
+      steps {
+        // Same pinned scanner as scripts/llm_agent/scan_and_push.sh; reviewed, expiring exceptions only.
+        sh '''docker run --rm -v "$PWD/$UV_PROJECT:/src:ro" \
+            docker.io/aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa \
+            fs --quiet --skip-dirs /src/.venv --scanners vuln,secret --severity CRITICAL,HIGH --ignore-unfixed \
+            --ignorefile /src/trivyignore --exit-code 1 /src > "$EVIDENCE_DIR/trivy.txt" 2>&1 || { cat "$EVIDENCE_DIR/trivy.txt"; exit 1; }; cat "$EVIDENCE_DIR/trivy.txt"'''
+      }
+    }
+    stage('DAG parse (real Airflow, isolated home)') {
+      steps {
+        sh '''test -x "$AIRFLOW_PYTHON"
+          bash scripts/validation/validate_rag_dag_import.sh "$AIRFLOW_PYTHON" "$EVIDENCE_DIR/dag-parse.json"'''
+      }
+    }
+    stage('Build production task runtime') {
+      steps {
+        // The DAG tasks execute this interpreter; --no-dev drops test tooling.
+        sh '''uv sync --locked --no-dev --project "$UV_PROJECT" > "$EVIDENCE_DIR/uv-sync-prod.txt" 2>&1 || { cat "$EVIDENCE_DIR/uv-sync-prod.txt"; exit 1; }; cat "$EVIDENCE_DIR/uv-sync-prod.txt"
+          "$UV_PROJECT/.venv/bin/python" -c "import feast, onnxruntime, tokenizers, datahub; print(feast.__version__)" \
+            > "$EVIDENCE_DIR/runtime-import.txt"
+          cat "$EVIDENCE_DIR/runtime-import.txt"'''
+      }
+    }
+    stage('Trigger rag_fraud_policy') {
+      when { expression { return params.DEPLOY_APPROVED } }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'airflow-api', usernameVariable: 'AF_USER', passwordVariable: 'AF_PASSWORD')]) {
+          sh '''test -n "$AIRFLOW_API_URL"
+            TOKEN=$(curl -fsS -X POST "$AIRFLOW_API_URL/auth/token" -H 'Content-Type: application/json' \
+              -d "{\\"username\\": \\"$AF_USER\\", \\"password\\": \\"$AF_PASSWORD\\"}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
+            curl -fsS -X POST "$AIRFLOW_API_URL/api/v2/dags/rag_fraud_policy/dagRuns" \
+              -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+              -d "{\\"logical_date\\": null, \\"conf\\": {\\"run_label\\": \\"jenkins-${BUILD_NUMBER}\\"}}" \
+              > "$EVIDENCE_DIR/dag-run.json"
+            cat "$EVIDENCE_DIR/dag-run.json"'''
+        }
+      }
+    }
+  }
+  post {
+    always { archiveArtifacts artifacts: "${EVIDENCE_DIR}/**", allowEmptyArchive: false, fingerprint: true }
+  }
+}

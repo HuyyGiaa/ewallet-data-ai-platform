@@ -1,0 +1,23 @@
+{
+  "feature-rag-specialist": [
+    "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:bb0fae06250038e6489524426969597517e94a885c629531ee0ccbc3c40cd4d0"
+  ],
+  "fraud-coordinator": [
+    "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446"
+  ],
+  "grafana": [
+    "docker.io/grafana/grafana:12.2.0@sha256:60794dc17e6a58d28539cfd3dd496a7f2da62e13ff54a4055431385eec5d6639"
+  ],
+  "loki": [
+    "docker.io/grafana/loki:3.5.7@sha256:bf26399a58b4719387b06abfd024ebca942d702b2e77cc600fa3439356584c73"
+  ],
+  "otel-collector": [
+    "docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6"
+  ],
+  "prometheus": [
+    "docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545"
+  ],
+  "tempo": [
+    "docker.io/grafana/tempo:2.8.2@sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d"
+  ]
+}

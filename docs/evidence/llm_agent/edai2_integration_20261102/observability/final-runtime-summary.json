@@ -1,0 +1,109 @@
+{
+  "g3_pods": [
+    {
+      "name": "a2a-gateway-6dfcf8bf7b-scbh5",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "agentgateway-5d7b994c75-pffhj",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "drift-specialist-7fb847df9-qqxfn",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "feature-rag-specialist-65464756b6-qd4pr",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "fraud-coordinator-7bf69cb76c-qlt2m",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "mcp-gateway-db9ddd7b-wdxc9",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    }
+  ],
+  "helm": [
+    {
+      "chart": "kagent-0.10.3",
+      "name": "kagent",
+      "namespace": "kagent",
+      "revision": "2",
+      "status": "deployed"
+    },
+    {
+      "chart": "llm-agent-platform-0.1.0",
+      "name": "llm-agent",
+      "namespace": "default",
+      "revision": "24",
+      "status": "deployed"
+    },
+    {
+      "chart": "llm-agent-platform-0.1.0",
+      "name": "llm-agent-mcp",
+      "namespace": "ewallet-mcp",
+      "revision": "3",
+      "status": "deployed"
+    }
+  ],
+  "node_count": 4,
+  "observability_cluster_role_bindings": [],
+  "observability_cluster_roles": [],
+  "observability_pods": [
+    {
+      "name": "grafana-84d544f7f-fbfpk",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "loki-5f7948b5f7-94n9r",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "otel-collector-698bb96fcd-z8hb4",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "prometheus-84c7f58cd8-6cxbb",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    },
+    {
+      "name": "tempo-c59569895-7cfcr",
+      "namespace": "ewallet-agents",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0
+    }
+  ]
+}

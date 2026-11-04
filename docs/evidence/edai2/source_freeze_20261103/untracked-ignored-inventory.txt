@@ -1,0 +1,30 @@
+# ignored entries (git ls-files -o -i --exclude-standard --directory) at 26eaf8f
+109	private evidence (ignored by evidence .gitignore)
+55	build/cache (.venv, __pycache__, tool caches)
+1	other: .superpowers/sdd/pasted-text.txt-1546406e-ac83-44e0-99b3-77836a18dc60/
+1	other: .superpowers/sdd/pasted-text.txt/
+1	other: .superpowers/sdd/.gitignore
+1	other: .superpowers/sdd/2026-11-02-g3-byo-feature-rag-specialist/
+1	other: .superpowers/sdd/2026-11-02-edai2-agent-platform/
+1	other: .superpowers/sdd/2026-11-02-coordinator-idempotency/
+1	other: .superpowers/sdd/
+1	other: .superpowers/
+1	other: infra/terraform/gcp/environments/dev/.terraform/
+
+## other ignored (full)
+.superpowers/
+.superpowers/sdd/
+.superpowers/sdd/.gitignore
+.superpowers/sdd/2026-11-02-coordinator-idempotency/
+.superpowers/sdd/2026-11-02-edai2-agent-platform/
+.superpowers/sdd/2026-11-02-g3-byo-feature-rag-specialist/
+.superpowers/sdd/pasted-text.txt-1546406e-ac83-44e0-99b3-77836a18dc60/
+.superpowers/sdd/pasted-text.txt/
+infra/terraform/gcp/environments/dev/.terraform/
+
+# untracked (not ignored), by top directory
+     10 docs/evidence/edai2/source_freeze_20261103
+     75 docs/evidence/edai2/unified_cicd_observability_20261102T160000Z
+    605 docs/evidence/llm_agent/agent_idempotency_runtime_20261102T114946Z
+     36 docs/evidence/llm_agent/g3_20261101T170735Z
+      9 docs/evidence/llm_agent/rag_g3-gke-feast-redis

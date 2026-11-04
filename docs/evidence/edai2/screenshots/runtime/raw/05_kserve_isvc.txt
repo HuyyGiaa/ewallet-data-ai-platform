@@ -1,0 +1,8 @@
+$ kubectl -n fraud-serving get inferenceservice fraud-detector; echo; kubectl -n fraud-serving get pods -l serving.kserve.io/inferenceservice=fraud-detector; echo; kubectl -n fraud-serving get inferenceservice fraud-detector -o jsonpath='{.spec.predictor.containers[0].image}{"\n"}'
+NAME             URL                                               READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION   AGE
+fraud-detector   http://fraud-detector-fraud-serving.example.com   True                                                                  3d15h
+
+NAME                                        READY   STATUS    RESTARTS   AGE
+fraud-detector-predictor-6b649bc8b6-48csb   1/1     Running   0          3d9h
+
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896

@@ -1,0 +1,1 @@
+fraud-serving   fraud-detector   http://fraud-detector-fraud-serving.example.com   True                           168m

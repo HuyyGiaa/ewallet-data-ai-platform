@@ -1,0 +1,12 @@
+captured_utc=2026-11-02T10:23:17Z
+worktree=/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2
+branch=codex/llm-g2-llmd-routing
+campaign_head_at_capture=a89cd4ad54eb36a5f0bdbda4293c729160cf4722
+start_head=d792250248850d9712ce5ab9526df14dc9cdf8ef
+canonical_worktree=/home/huyy-giaa/Develop/ewallet-data-ai-platform
+canonical_branch=feature/phase2-fraud-platform
+canonical_head=e8093fc0e6fb48fe5913cbeee6c48f068a3b5882
+canonical_mutated=false
+merge_or_push_performed=false
+preexisting_untracked_preserved=docs/evidence/llm_agent/g3_20261101T170735Z/
+preexisting_untracked_preserved=docs/evidence/llm_agent/rag_g3-gke-feast-redis/

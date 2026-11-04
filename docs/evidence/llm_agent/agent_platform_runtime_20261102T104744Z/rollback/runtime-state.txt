@@ -1,0 +1,34 @@
+2026-11-02T17:58:20+07:00
+NAME: llm-agent
+LAST DEPLOYED: Mon Nov  2 17:55:51 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 26
+TEST SUITE: None
+REVISION	UPDATED                 	STATUS    	CHART                   	APP VERSION 	DESCRIPTION
+23      	Mon Nov  2 15:18:40 2026	superseded	llm-agent-platform-0.1.0	llm-agent-v1	Persist Prometheus numeric non-root identity
+24      	Mon Nov  2 15:21:41 2026	superseded	llm-agent-platform-0.1.0	llm-agent-v1	Allow exact G3 agent OTLP identities
+25      	Mon Nov  2 17:50:46 2026	superseded	llm-agent-platform-0.1.0	llm-agent-v1	EDAI-2 bounded Agent HPA/PDB rollout; preserve live Agent Card contract
+26      	Mon Nov  2 17:55:51 2026	deployed  	llm-agent-platform-0.1.0	llm-agent-v1	Rollback to 24
+No resources found in ewallet-agents namespace.
+NAME        MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+drift-mcp   1               N/A               0                     17h
+NAME                     TYPE          RUNTIME   READY   ACCEPTED
+drift-specialist         Declarative   go        True    True
+feature-rag-specialist   BYO                     True    True
+fraud-coordinator        BYO                     True    True
+NAME              PROTOCOL          URL                                                          ACCEPTED
+drift-mcp         STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp         True
+feature-rag-mcp   STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp   True
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                                                                                                                SELECTOR
+fraud-coordinator        1/1     1            1           17h   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446              app=kagent,kagent=fraud-coordinator
+feature-rag-specialist   1/1     1            1           17h   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:bb0fae06250038e6489524426969597517e94a885c629531ee0ccbc3c40cd4d0   app=kagent,kagent=feature-rag-specialist
+drift-specialist         1/1     1            1           17h   kagent       ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f                                                                   app=kagent,kagent=drift-specialist
+NAME                                      READY   STATUS    RESTARTS   AGE     IP            NODE                                     NOMINATED NODE   READINESS GATES
+drift-specialist-7fb847df9-6xmgf          1/1     Running   0          7m      10.216.0.8    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+feature-rag-specialist-65464756b6-mrkf6   1/1     Running   0          7m      10.216.0.9    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+fraud-coordinator-7bf69cb76c-rtqcd        1/1     Running   0          5m35s   10.216.0.10   gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+NAME      READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+redis-0   1/1     Running   0          34h   10.216.4.25   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+NAME             URL                                               READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION   AGE
+fraud-detector   http://fraud-detector-fraud-serving.example.com   True                                                                  41h

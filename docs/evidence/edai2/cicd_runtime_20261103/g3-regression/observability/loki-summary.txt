@@ -1,0 +1,2 @@
+loki lines for trace 3 ['feature_lookup', 'fraud_scoring', 'knowledge_search']
+{"status":"success","data":["feature-rag-mcp"]}

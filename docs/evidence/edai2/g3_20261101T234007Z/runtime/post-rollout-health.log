@@ -1,0 +1,14 @@
+Script started on 2026-11-02 06:51:17+07:00 [COMMAND="helm history llm-agent-mcp -n ewallet-mcp; kubectl get pods -n ewallet-mcp -o wide; kubectl get inferenceservice fraud-detector -n fraud-serving; kubectl get remotemcpserver -n ewallet-agents" <not executed on terminal>]
+REVISION	UPDATED                 	STATUS    	CHART                   	APP VERSION 	DESCRIPTION
+1       	Mon Nov  2 03:33:46 2026	superseded	llm-agent-platform-0.1.0	llm-agent-v1	Install complete
+2       	Mon Nov  2 06:45:14 2026	deployed  	llm-agent-platform-0.1.0	llm-agent-v1	Upgrade complete
+NAME                               READY   STATUS    RESTARTS   AGE    IP            NODE                                     NOMINATED NODE   READINESS GATES
+drift-mcp-c45899d86-6j9r6          1/1     Running   0          6m1s   10.216.1.43   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+feature-rag-mcp-754d46459f-kzf5x   1/1     Running   0          6m1s   10.216.1.44   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+NAME             URL                                               READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION   AGE
+fraud-detector   http://fraud-detector-fraud-serving.example.com   True                                                                  30h
+NAME              PROTOCOL          URL                                                          ACCEPTED
+drift-mcp         STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp         True
+feature-rag-mcp   STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp   True
+
+Script done on 2026-11-02 06:51:18+07:00 [COMMAND_EXIT_CODE="0"]

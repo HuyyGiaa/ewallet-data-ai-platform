@@ -1,0 +1,10 @@
+PASS status_ok
+PASS unavailable_empty
+PASS feast_4_features
+PASS kserve_model
+PASS schema_sha
+PASS probability_numeric
+PASS rag_citations>=1
+PASS replay_mmfhh_identical
+PASS replay_mxcsp_identical
+probability 0.0639895560144887 citations 3 request_id edai2-g3-regression-20261103-081009

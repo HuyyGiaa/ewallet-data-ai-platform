@@ -1,0 +1,56 @@
+# Batch D1 step 1 (PROPOSAL: exact change package, NOT APPLIED).
+# Creates only an empty, workload-free namespace that will later hold the Helm
+# release records of llm-agent-mcp, and lets ServiceAccount ewallet-ci/jenkins
+# manage Secrets there and nowhere else. It grants no right in ewallet-mcp,
+# ewallet-agents or any other production namespace, changes no existing object,
+# and is inert until the separately approved record migration (step 2).
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-mcp-release
+  labels:
+    app.kubernetes.io/part-of: ewallet-ci
+    ewallet.io/purpose: helm-release-records
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# Records only: no Pods (so no Secret can ever be mounted here), Services, PVCs
+# or load balancers; Secrets capped for 10 revisions of one release plus margin.
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: helm-records-only, namespace: ewallet-mcp-release}
+spec:
+  hard:
+    pods: "0"
+    services: "0"
+    persistentvolumeclaims: "0"
+    replicationcontrollers: "0"
+    count/deployments.apps: "0"
+    count/statefulsets.apps: "0"
+    count/jobs.batch: "0"
+    count/cronjobs.batch: "0"
+    configmaps: "2"
+    secrets: "20"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny, namespace: ewallet-mcp-release}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: jenkins-helm-records, namespace: ewallet-mcp-release}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: jenkins-helm-records, namespace: ewallet-mcp-release}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: jenkins-helm-records}
+subjects: [{kind: ServiceAccount, name: jenkins, namespace: ewallet-ci}]

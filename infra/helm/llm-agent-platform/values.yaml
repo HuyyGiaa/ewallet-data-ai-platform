@@ -38,6 +38,10 @@ networkPolicy:
     # NodeLocal DNSCache link-local listener (GKE: 169.254.20.10); "" when the
     # cluster has no NodeLocal DNSCache.
     nodeLocalIP: ""
+    # kube-dns ClusterIP. With NodeLocal DNSCache, node-local-dns also listens
+    # on it and the query is never DNATed to a kube-dns pod, so the pod
+    # selector alone does not match (G1 run 3: external names failed, rc=6).
+    serviceIP: ""
   # With namespace.ambient, ztunnel carries every in-mesh flow as HBONE to the
   # destination pod on 15008, and kubelet probes arrive SNATed from
   # 169.254.7.127 (Istio: ambient mode and Kubernetes NetworkPolicy).
@@ -51,6 +55,15 @@ networkPolicy:
       feature-rag-mcp: [8080]
       drift-mcp: [8080]
       otel-collector: [13133]
+      # Envoy /ready and the EPP gRPC health port.
+      llmd-router: [19001, 9003]
+      mcp-gateway: [8080]
+      a2a-gateway: [8083]
+      # kagent 0.10.3 Agent pods serve A2A and their probes on 8080.
+      fraud-coordinator: [8080]
+      drift-specialist: [8080]
+      feature-rag-specialist: [8080]
+      coordinator-idempotency-redis: [6379]
   # Workloads (networkFlows names) that call Google APIs through Workload
   # Identity: egress to the GKE metadata server only (169.254.169.254:80 and
   # gke-metadata-server 169.254.169.252:988). None in G1: vLLM and agentgateway
@@ -93,12 +106,53 @@ networkFlows:
       serviceAccount: otel-collector
       podLabels:
         app.kubernetes.io/name: otel-collector
+    observability-prometheus:
+      serviceAccount: observability-prometheus
+      podLabels:
+        app.kubernetes.io/name: prometheus
+    # N12 pod-log forwarder (templates/pod-logs.yaml); referenced only when
+    # podLogs.enabled adds the observability-alloy-to-loki flow.
+    observability-alloy:
+      serviceAccount: observability-alloy
+      podLabels:
+        app.kubernetes.io/name: alloy
+    observability-loki:
+      serviceAccount: observability-loki
+      podLabels:
+        app.kubernetes.io/name: loki
+    observability-tempo:
+      serviceAccount: observability-tempo
+      podLabels:
+        app.kubernetes.io/name: tempo
+    observability-grafana:
+      serviceAccount: observability-grafana
+      podLabels:
+        app.kubernetes.io/name: grafana
     # Created by the pinned llm-d router chart (infra/helm/llm-d), rendered
     # labels and ServiceAccount read from llm-d-router-gateway v0.9.0.
     llmd-epp:
       serviceAccount: ewallet-fraud-llm-epp
       podLabels:
         llm-d-router-gateway: ewallet-fraud-llm-epp
+    # llm-d-router-standalone v1.0.0, release llmd-router (G2): EPP + Envoy pod.
+    llmd-router:
+      serviceAccount: llmd-router-epp
+      podLabels:
+        llm-d-router-standalone: llmd-router-epp
+    # kagent 0.10.3 Agent Deployments (agents.mode agent): one ServiceAccount
+    # and label per agent, so each has its own mesh identity.
+    fraud-coordinator:
+      serviceAccount: fraud-coordinator
+      podLabels: {ewallet.io/agent: fraud-coordinator}
+    drift-specialist:
+      serviceAccount: drift-specialist
+      podLabels: {ewallet.io/agent: drift-specialist}
+    feature-rag-specialist:
+      serviceAccount: feature-rag-specialist
+      podLabels: {ewallet.io/agent: feature-rag-specialist}
+    coordinator-idempotency-redis:
+      serviceAccount: coordinator-idempotency-redis
+      podLabels: {app.kubernetes.io/name: coordinator-idempotency-redis}
   enforced:
     - name: agentgateway-to-vllm
       from: agentgateway
@@ -177,11 +231,17 @@ vllm:
     maxUnavailable: 0
     maxSurge: 1
   # Startup probe sends one tool-shaped completion; Ready only once it succeeds.
+  # Longer than warmup failureThreshold x 10 s plus an image pull.
+  progressDeadlineSeconds: 1800
   warmup:
     enabled: true
     timeoutSeconds: 240
     failureThreshold: 90
   ompThreads: 2
+  # VLLM_CPU_OMP_THREADS_BIND: 'auto' is vLLM's default (and what G1 ran).
+  cpuThreadsBind: auto
+  # --max-num-batched-tokens per engine step; unset = vLLM default (G1).
+  maxNumBatchedTokens: null
   kvCacheSpaceGiB: 4
   apiKeySecret:
     name: vllm-api-key
@@ -195,7 +255,9 @@ vllm:
     replicas: 1
     maxNumSeqs: 2
     maxNumQueuedRequests: 4
-    prefixCaching: false
+    # G1 rendered no flag and vLLM V1 enabled it by default (engine log:
+    # enable_prefix_caching=True); now explicit, same effective behaviour.
+    prefixCaching: true
   resources:
     requests:
       cpu: "2"
@@ -204,8 +266,19 @@ vllm:
       cpu: "3"
       memory: 8Gi
 
+# Optional node selector for vLLM and agentgateway pods (empty = scheduler's choice, G1).
+llmPlacement:
+  nodeSelector: {}
+
 agentgateway:
   enabled: true
+  # Client authentication on the entry route (apiKey, strict): callers present
+  # this key; the gateway swaps in the vLLM key (vllm.apiKeySecret) towards the
+  # backend, so clients never hold the backend credential. G1 run 5 showed the
+  # gateway accepted any key before this.
+  clientKeySecret:
+    name: agentgateway-client-key
+    key: api-key
   image: ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
   replicas: 2
   # Entry route budget; the LLM listener budget stays just under it so the
@@ -251,6 +324,31 @@ agentgateway:
 # (pins in versions.env); this chart only owns the Gateway and the flows.
 llmd:
   enabled: false
+  # gateway: the design above (Gateway API, GAIE and agentgateway controller
+  # CRDs, cluster-scoped). standalone (G2): llm-d-router-standalone v1.0.0,
+  # EPP + Envoy sidecar selecting the primary pods by label, no CRDs
+  # (infra/helm/llm-d/standalone-values-g2.yaml). agentgateway stays in front
+  # of both for authentication, rate limits and failover.
+  mode: gateway
+  standalone:
+    # Service and pod identity rendered by the router chart (release llmd-router).
+    service: llmd-router-epp
+    port: 8081
+    networkFlows:
+      - name: agentgateway-to-llmd-router
+        from: agentgateway
+        to: llmd-router
+        port: 8081
+      # Envoy forwards the picked request and the EPP scrapes /metrics, both on 8000.
+      - name: llmd-router-to-vllm
+        from: llmd-router
+        to: vllm
+        port: 8000
+    # The EPP lists and watches pods (namespaced Role): egress to the API server
+    # only, read back per cluster (kubernetes Service ClusterIP and endpoints).
+    apiServer:
+      cidrs: []
+      ports: [443]
   poolName: ewallet-fraud-llm
   gatewayName: llm-inference-gateway
   gatewayClassName: agentgateway
@@ -290,10 +388,20 @@ agents:
     resources:
       requests: {cpu: 500m, memory: 1Gi}
       limits: {cpu: 1500m, memory: 2Gi}
-  # gs://<bucket>/<prefix>/ for Substrate snapshots; required when enabled.
+  # sandbox: SandboxAgent on Substrate WorkerPools (design target for rows 20
+  # and 27). agent: kagent 0.10.3 Agent Deployments, used while Substrate is not
+  # approved (owner decision 2026-11-01); rows 20/27 stay open in that mode.
+  mode: sandbox
+  # Agent Deployment replicas (mode agent; scaling evidence is a separate gate).
+  replicas: 1
+  # gs://<bucket>/<prefix>/ for Substrate snapshots; required in sandbox mode.
   snapshotsLocation: ""
   runtime: go
-  mcpGatewayUrl: http://mcp-gateway.ewallet-agents.svc.cluster.local:8080
+  # The .svc form is a valid Kubernetes service address and is intentionally
+  # not classified as an internally-built URL by pinned kagent 0.10.3. This
+  # keeps RemoteMCPServer traffic on the dedicated MCP Gateway when the native
+  # kagent controller proxy is enabled for Agent-tool A2A routing.
+  mcpGatewayUrl: http://mcp-gateway.ewallet-agents.svc:8080
   mcpTimeout: 30s
   allowedDomains:
     llm: agentgateway.ewallet-agents.svc.cluster.local
@@ -309,6 +417,23 @@ agents:
   # name must be read back from the a2a-gateway first.
   autoscaling:
     enabled: false
+    # Native HPA for kagent Agent/BYO mode. kagent 0.10.3 intentionally leaves
+    # a generated Deployment's replicas untouched when the Agent deployment
+    # replicas field is absent, so HPA and the reconciler have one owner each.
+    agent:
+      minReplicas: 2
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        periodSeconds: 60
+        pods: 1
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        periodSeconds: 60
+        pods: 1
+    # The remaining settings apply only to sandbox mode and target a
+    # WorkerPool scale subresource through KEDA.
     minReplicas: 1
     maxReplicas: 3
     cooldownSeconds: 300
@@ -329,26 +454,120 @@ agents:
       displayName: Feature / Risk specialist
       businessRole: feature-risk
       version: "1.0.0"
-      promptVersion: v1
+      promptVersion: v2
       rubricRows: "19,20,21"
+      a2aSkill:
+        enabled: true
+        id: feature-risk-analysis
+        name: Feature and risk analysis
+        description: Grounded feature lookup and drift evidence for an approved baseline.
+        tags: [fraud, features, drift]
       tools:
         feature-rag-mcp: [feature_lookup]
         drift-mcp: [drift_detection]
+      # One credential per destination service. References only; Secret values
+      # are provisioned out of band during an authorized runtime task.
+      authHeaderSecrets: {}
     feature-rag-specialist:
       displayName: Fraud Investigation / Evidence specialist
       businessRole: fraud-investigation
       version: "1.0.0"
-      promptVersion: v1
+      promptVersion: v5
       rubricRows: "22"
+      a2aSkill:
+        enabled: true
+        id: feature-rag-evidence
+        name: Feature, score and policy evidence
+        description: Grounded Feast, KServe and cited policy evidence for one transaction.
+        tags: [fraud, features, rag]
+      # Owner-gated deterministic replacement for this Specialist only.
+      # The image must be a private immutable Artifact Registry digest.
+      byo:
+        enabled: false
+        image: ""
+        # Same opt-in bounded intake as the Coordinator (kagent Chat questions).
+        naturalLanguageIntake:
+          enabled: false
+          timeoutSeconds: 190
       tools:
         feature-rag-mcp: [feature_lookup, fraud_scoring, knowledge_search]
+      authHeaderSecrets: {}
   coordinator:
     name: fraud-coordinator
     displayName: Fraud Investigation Coordinator
     version: "1.0.0"
-    promptVersion: v1
+    promptVersion: v5
     rubricRows: "25,26"
+    a2aSkill:
+      enabled: true
+      id: investigate-transaction
+      name: Investigate a transaction
+      description: Grounded fraud investigation with model score, features, drift and policy citations.
+      tags: [fraud, investigation]
     delegates: [feature-rag-specialist, drift-specialist]
+    # Owner-gated replacement for the declarative Coordinator only. The image
+    # must be a private immutable Artifact Registry digest built from this repo.
+    byo:
+      enabled: false
+      image: ""
+      # kagent Chat natural-language intake (N11): one LLM tool call through
+      # agentgateway selects investigate_transaction; arguments are grounded in
+      # the analyst text before the unchanged typed path runs. Off by default.
+      naturalLanguageIntake:
+        enabled: false
+        # Must exceed agentgateway.requestTimeout (nested budgets, chart guard).
+        timeoutSeconds: 190
+  # Bounded OTLP audit records (ids, status, codes; no prompts or business
+  # data) from the BYO agents to the shared collector -> Loki. Off by default.
+  byoTelemetry:
+    auditLogs:
+      enabled: false
+    # N12: bounded OTLP counters (agent invocations, PII prompt screening).
+    metrics:
+      enabled: false
+
+# Dedicated, authenticated durability authority for the BYO Coordinator.
+# It never shares data, credentials or lifecycle with Feast/RAG Redis. The
+# Secret is created out of band and must contain connection_url, password and
+# users.acl; Helm never renders credential material.
+idempotencyRedis:
+  enabled: false
+  name: coordinator-idempotency-redis
+  image: docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
+  port: 6379
+  secret:
+    name: coordinator-idempotency-redis-auth
+    connectionUrlKey: connection_url
+    passwordKey: password
+    aclKey: users.acl
+  config:
+    maxmemory: 128mb
+    maxmemoryPolicy: noeviction
+    appendfsync: everysec
+  storage:
+    size: 1Gi
+    storageClassName: ""
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 250m, memory: 256Mi}
+  coordinator:
+    tenant: ewallet-agents
+    principal: cluster.local/ns/kagent/sa/kagent-controller
+    redisTimeoutSeconds: "1.0"
+    leaseMs: "600000"
+    completedTtlMs: "86400000"
+    duplicateWaitSeconds: "15"
+    duplicatePollSeconds: "0.1"
+  networkFlows:
+    - name: fraud-coordinator-to-coordinator-idempotency-redis
+      from: fraud-coordinator
+      to: coordinator-idempotency-redis
+      port: 6379
+
+# Flows to workloads in other namespaces (templates/cross-namespace.yaml).
+# Empty by default; profiles add the kagent controller and the MLOps backends.
+crossNamespace:
+  flows: []
 
 # Policy-only MCP Gateway (rubric row 23) and A2A entrypoint (row 24): two
 # agentgateway v1.7.0 standalone instances, separate from the LLM agentgateway.
@@ -362,6 +581,18 @@ mcpGateway:
   enabled: false
   replicas: 2
   port: 8080
+  # mesh-identity lets agentgateway filter tools from source.identity.
+  # ambient-backend-token is for Ambient L4, where ztunnel enforces the exact
+  # SPIFFE caller but standalone agentgateway cannot observe source.identity;
+  # the MCP server then applies the service-token subject's tool grants.
+  authorizationMode: mesh-identity
+  # Empty means this release's namespace. A cutover profile may point the
+  # existing gateway at MCP Services in another namespace without moving or
+  # duplicating the gateway itself.
+  backendNamespace: ""
+  # Cross-namespace backends in the ambient mesh are reached over HBONE as
+  # well as their service port. Ignored while backendNamespace is local.
+  backendAmbient: true
   rateLimit: {capacity: 20, refill: 20, interval: 1s}
   # Nested: RemoteMCPServer (agents.mcpTimeout) > this > mcpServices.maxTimeoutMs.
   requestTimeout: 25s
@@ -395,6 +626,11 @@ a2aGateway:
   # Worker ServiceAccounts allowed to call agents over A2A (runtime readback).
   callerServiceAccounts:
     fraud-coordinator: ""
+  # The proxy is the only workload allowed to reach Specialist A2A Services.
+  # Direct Coordinator -> Specialist remains denied by default-deny.
+  networkFlows:
+    - {name: a2a-gateway-to-drift-specialist, from: a2a-gateway, to: drift-specialist, port: 8080}
+    - {name: a2a-gateway-to-feature-rag-specialist, from: a2a-gateway, to: feature-rag-specialist, port: 8080}
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: 500m, memory: 256Mi}
@@ -404,14 +640,30 @@ a2aGateway:
 # OTLP backend (Jaeger/Tempo, row 39/49) when one is configured.
 otelCollector:
   enabled: false
+  # Separate MCP releases may already be stable. Do not roll chart-owned MCP
+  # Deployments merely because a collector is added; opt in after a dedicated
+  # semantic diff when MCP trace export is required.
+  injectMcpServices: false
   image: docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6
   replicas: 1
   # host:port of an OTLP gRPC trace backend; empty keeps traces in the debug exporter only.
   tracesEndpoint: ""
+  # OTLP/HTTP endpoint for a log backend; empty keeps logs in debug only.
+  logsEndpoint: ""
   prometheusPort: 8889
+  mlPlatformProbes:
+    enabled: false
+    interval: 30s
+    mlflowHealthUrl: http://mlflow.ml-platform.svc.cluster.local:5000/health
+    kfpHealthUrl: http://ml-pipeline.kubeflow.svc.cluster.local:8888/apis/v2beta1/healthz
   resources:
     requests: {cpu: 50m, memory: 128Mi}
     limits: {cpu: 500m, memory: 512Mi}
+  # N11 opt-in: top-level `gatewayTracing: {enabled: true}` (outside this map,
+  # so the observability checksum and Prometheus/Grafana stay unchanged) makes
+  # agentgateway/mcp-gateway/a2a-gateway export spans over the flows below.
+  # Enabling it rolls those gateways and, through the config hash
+  # annotations, the Agents that call them.
   # Chart-owned OTLP exporters (enforced when enabled).
   networkFlows:
     - {name: agentgateway-to-otel-collector, from: agentgateway, to: otel-collector, port: 4317}
@@ -420,6 +672,9 @@ otelCollector:
     - {name: feature-rag-mcp-to-otel-collector, from: feature-rag-mcp, to: otel-collector, port: 4317}
     - {name: drift-mcp-to-otel-collector, from: drift-mcp, to: otel-collector, port: 4317}
     - {name: llmd-epp-to-otel-collector, from: llmd-epp, to: otel-collector, port: 4317}
+    - {name: fraud-coordinator-to-otel-collector, from: fraud-coordinator, to: otel-collector, port: 4317}
+    - {name: feature-rag-specialist-to-otel-collector, from: feature-rag-specialist, to: otel-collector, port: 4317}
+    - {name: drift-specialist-to-otel-collector, from: drift-specialist, to: otel-collector, port: 4317}
 
 # Grafana dashboard ConfigMap (rubric rows 37, 46-51); metric names are in
 # dashboards/llm-agent.json with a verified/unverified status per panel.
@@ -427,12 +682,82 @@ dashboards:
   enabled: false
   namespace: ""
 
+# Bounded, opt-in source contract restored from I7. It stays disabled in every
+# GKE profile; managed equivalents may be used by a separately authorized run.
+observabilityStack:
+  enabled: false
+  # Opt-in only: requires cluster-scoped read RBAC. Keep disabled for the
+  # EDAI-2 bounded rollout, which scrapes chart-owned namespace Services only.
+  clusterMetrics:
+    enabled: false
+    # Opt-in keys (read with defaults so the observability checksum of existing
+    # releases is unchanged):
+    #   apiServer.cidrs: kubernetes Service ClusterIP and API-server endpoint
+    #     /32s, read back per cluster (`kubectl get svc,endpoints kubernetes -n default`).
+    #   kubelet.cidrs: node subnet; Prometheus scrapes <InternalIP>:10250 directly.
+    #   kubeStateMetricsTarget: host:port of an existing kube-state-metrics;
+    #     unset = no scrape job.
+  adminSecretName: ewallet-grafana-admin
+  retention: 24h
+  mlPlatform:
+    enabled: false
+    fraudApiMetricsTarget: fraud-api.ml-platform.svc.cluster.local:80
+    kserveMetricsTarget: fraud-detector-predictor.fraud-serving.svc.cluster.local:80
+  networkFlows:
+    - {name: prometheus-to-agentgateway, from: observability-prometheus, to: agentgateway, port: 15020}
+    - {name: prometheus-to-vllm, from: observability-prometheus, to: vllm, port: 8000}
+    - {name: prometheus-to-otel-collector, from: observability-prometheus, to: otel-collector, port: 8889}
+    - {name: otel-collector-to-loki, from: otel-collector, to: observability-loki, port: 3100}
+    - {name: otel-collector-to-tempo, from: otel-collector, to: observability-tempo, port: 4317}
+    - {name: grafana-to-prometheus, from: observability-grafana, to: observability-prometheus, port: 9090}
+    - {name: grafana-to-loki, from: observability-grafana, to: observability-loki, port: 3100}
+    - {name: grafana-to-tempo, from: observability-grafana, to: observability-tempo, port: 3200}
+  # Added only when both the opt-in stack and G2 standalone llm-d routing are
+  # enabled. The v1.0.0 router Service exposes EPP /metrics on 9090.
+  llmdStandaloneNetworkFlows:
+    - {name: prometheus-to-llmd-epp, from: observability-prometheus, to: llmd-router, port: 9090}
+  prometheus:
+    image: docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 768Mi}
+  loki:
+    image: docker.io/grafana/loki:3.5.7@sha256:bf26399a58b4719387b06abfd024ebca942d702b2e77cc600fa3439356584c73
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 300m, memory: 512Mi}
+  tempo:
+    image: docker.io/grafana/tempo:2.8.2@sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 300m, memory: 512Mi}
+  grafana:
+    # 12.3+ includes the extracted Tempo data-source health implementation;
+    # 12.2 returned plugin.notImplemented despite a healthy Tempo /api/echo.
+    image: docker.io/grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 300m, memory: 384Mi}
+
+# Rollback-safe credential references. ``legacy`` preserves the existing
+# unversioned Secret names. A reviewed rollout first changes serverSet to a
+# transition set while clients remain legacy, then changes clientRelease.
+# Secret values are prepared outside Helm and never appear in values/rendering.
+mcpCredentialLifecycle:
+  serverSet: legacy
+  clientRelease: legacy
+
 # Phase D MCP tool servers (ai_platform/llm_agent/tools). Disabled: no reviewed
 # server image exists, and every value below must come from a real build and
 # deployment readback, never from placeholders.
 mcpServices:
   enabled: false
   image: ""
+  # A backend-only MCP release can export telemetry to the shared collector
+  # without deploying a second collector in its own namespace.
+  observability:
+    otlpEndpoint: ""
+    insecure: true
   replicas: 2
   port: 8080
   maxConcurrency: 8
@@ -464,9 +789,17 @@ mcpServices:
   services:
     feature-rag-mcp:
       serviceAccount: feature-rag-mcp
+      pdb: {enabled: true}
       app: ai_platform.llm_agent.tools.service:create_feature_rag_app
       # Verified subject -> granted tools; empty denies every tool.
       toolGrants: {}
+      # Service-specific trusted token table. Empty name keeps production
+      # authentication fail-closed and readiness at 503.
+      authSecret: {name: "", key: auth-config.json}
+      # Feast Online Redis credential (Secret name/key) and immutable registry
+      # snapshots mounted from ConfigMaps; empty keeps the production default.
+      redisSecret: {}
+      registrySnapshots: []
       env:
         EWALLET_FEAST_REPO_PATH: ""
         EWALLET_KSERVE_BASE_URL: ""
@@ -476,9 +809,11 @@ mcpServices:
         EWALLET_RAG_ONLINE_STORE: redis
     drift-mcp:
       serviceAccount: drift-mcp
+      pdb: {enabled: true}
       app: ai_platform.llm_agent.tools.service:create_drift_app
       # Verified subject -> granted tools; empty denies every tool.
       toolGrants: {}
+      authSecret: {name: "", key: auth-config.json}
       env: {}
 
 modelConfig:
@@ -487,6 +822,15 @@ modelConfig:
   model: ewallet-fraud-llm
   # Must exceed agentgateway.requestTimeout (chart guard).
   timeoutSeconds: 35
+  # Clients (agents) authenticate to agentgateway with the gateway client key,
+  # never with the vLLM backend key.
   apiKeySecret:
-    name: vllm-api-key
+    name: agentgateway-client-key
     key: api-key
+
+# N12 (edai-2 row 48): Kubernetes-API pod-log forwarder (Grafana Alloy) for
+# workloads that cannot export OTLP logs. Off by default; see
+# templates/pod-logs.yaml. Keys: enabled, image (digest-pinned),
+# apiServer.cidrs, sources (optional override), stabilityLevel.
+podLogs:
+  enabled: false

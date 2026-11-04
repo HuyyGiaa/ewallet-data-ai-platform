@@ -81,6 +81,10 @@ spec:
         - ipBlock:
             cidr: {{ . }}/32
     {{- end }}
+    {{- with .Values.networkPolicy.dns.serviceIP }}
+        - ipBlock:
+            cidr: {{ . }}/32
+    {{- end }}
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
@@ -111,7 +115,13 @@ spec:
 {{- if .Values.namespace.ambient }}
 {{- $rendered := dict "vllm" .Values.vllm.enabled "agentgateway" .Values.agentgateway.enabled
       "feature-rag-mcp" .Values.mcpServices.enabled "drift-mcp" .Values.mcpServices.enabled
-      "otel-collector" .Values.otelCollector.enabled }}
+      "otel-collector" .Values.otelCollector.enabled
+      "llmd-router" (and .Values.llmd.enabled (eq .Values.llmd.mode "standalone"))
+      "mcp-gateway" .Values.mcpGateway.enabled "a2a-gateway" .Values.a2aGateway.enabled
+      "fraud-coordinator" (and .Values.agents.enabled (eq .Values.agents.mode "agent"))
+      "drift-specialist" (and .Values.agents.enabled (eq .Values.agents.mode "agent"))
+      "feature-rag-specialist" (and .Values.agents.enabled (eq .Values.agents.mode "agent")) }}
+{{- $_ := set $rendered "coordinator-idempotency-redis" .Values.idempotencyRedis.enabled }}
 {{- range $workload, $ports := .Values.networkPolicy.ambient.probePorts }}
 {{- if index $rendered $workload }}
 {{- $labels := (index $.Values.networkFlows.workloads $workload).podLabels }}
@@ -139,6 +149,34 @@ spec:
         {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
+{{- if and .Values.llmd.enabled (eq .Values.llmd.mode "standalone") }}
+{{- if not .Values.llmd.standalone.apiServer.cidrs }}
+{{- fail "llmd.mode=standalone needs llmd.standalone.apiServer.cidrs (read back the kubernetes Service and endpoints)" }}
+{{- end }}
+---
+# The EPP lists and watches the primary pods: API server only, nothing else.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llmd-router-to-kube-apiserver
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml (index .Values.networkFlows.workloads "llmd-router").podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- range .Values.llmd.standalone.apiServer.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        {{- range .Values.llmd.standalone.apiServer.ports }}
+        - {protocol: TCP, port: {{ int . }}}
+        {{- end }}
 {{- end }}
 {{- range $flow := include "llm-agent-platform.enforcedFlows" . | fromYamlArray }}
 {{- $src := index $.Values.networkFlows.workloads $flow.from }}
@@ -202,7 +240,7 @@ metadata:
 data:
   enforced.json: {{ include "llm-agent-platform.enforcedFlows" . | fromYamlArray | toJson | quote }}
   {{- $unresolved := .Values.networkFlows.unresolved }}
-  {{- if .Values.llmd.enabled }}
+  {{- if and .Values.llmd.enabled (eq .Values.llmd.mode "gateway") }}
   {{- $unresolved = concat $unresolved .Values.llmd.unresolvedFlows }}
   {{- end }}
   unresolved.json: {{ $unresolved | toJson | quote }}

@@ -1,0 +1,1 @@
+{"direct_backend_bypass": {"error": "TimeoutError", "status": null}, "wrong_credential_via_gateway": {"body": "client must accept both application/json and text/event-stream", "status": 406}}

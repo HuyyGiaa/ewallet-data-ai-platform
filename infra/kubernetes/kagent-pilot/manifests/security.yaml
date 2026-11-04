@@ -2,18 +2,19 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: mock-openai
-  namespace: kagent
+  namespace: kagent-pilot
 automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: pilot-sandbox-agent
-  namespace: kagent
+  namespace: kagent-pilot
 automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kagent-pilot-worker
-  namespace: kagent
+  name: default
+  namespace: kagent-pilot
+automountServiceAccountToken: false

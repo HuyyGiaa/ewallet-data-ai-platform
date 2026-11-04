@@ -1,0 +1,17 @@
+[
+ {
+  "file": "mcp_gateway_negative_auth.txt",
+  "sha256": "6e8e74042619b82b7ceff89c9a9594bde068edbb456498946e56e2ed36912da3",
+  "source": "~/ewallet-evidence/n11-p0-p1-integration/F-regression/negative/mcp-negative-summary.txt"
+ },
+ {
+  "file": "prod_objects_before_rag_cd.txt",
+  "sha256": "8adf726b161953e4c0db47150e73bb20fc4e8644d4d35ac6c615e0b3044b7383",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-cd/prod-before.txt"
+ },
+ {
+  "file": "prod_objects_after_rag_cd.txt",
+  "sha256": "8adf726b161953e4c0db47150e73bb20fc4e8644d4d35ac6c615e0b3044b7383",
+  "source": "~/ewallet-evidence/n10-final-cloud-e2e-20261104/E2-cd/prod-after.txt"
+ }
+]

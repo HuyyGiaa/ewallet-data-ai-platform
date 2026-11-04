@@ -1,0 +1,9 @@
+internet-egress	deny	deny	https://huggingface.co	rc=28
+unlabelled-to-vllm	deny	deny	http://vllm-primary.ewallet-agents.svc.cluster.local:8000/health	rc=28
+unlabelled-to-gateway	deny	deny	http://agentgateway.ewallet-agents.svc.cluster.local:4000/	rc=56
+other-ns-to-vllm	deny	deny	http://vllm-primary.ewallet-agents.svc.cluster.local:8000/health	rc=28
+gateway-label-wrong-sa	deny	deny	http://vllm-primary.ewallet-agents.svc.cluster.local:8000/health	rc=56
+unlabelled-to-llmd-router	deny	deny	http://llmd-router-epp.ewallet-agents.svc.cluster.local:8081/v1/models	rc=28
+other-ns-to-llmd-router	deny	deny	http://llmd-router-epp.ewallet-agents.svc.cluster.local:8081/v1/models	rc=28
+router-label-wrong-sa-to-vllm	deny	deny	http://vllm-primary.ewallet-agents.svc.cluster.local:8000/health	rc=56
+vllm-internet	deny	deny

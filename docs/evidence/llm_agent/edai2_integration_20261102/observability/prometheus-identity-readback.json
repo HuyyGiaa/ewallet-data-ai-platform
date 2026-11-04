@@ -1,0 +1,6 @@
+{
+  "ready": 1,
+  "runAsUser": 65534,
+  "runAsGroup": 65534,
+  "image": "docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545"
+}

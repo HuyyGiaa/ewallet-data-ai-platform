@@ -1,0 +1,10 @@
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS     IMAGES                                                                                                                                                                 SELECTOR
+deployment.apps/agentgateway    2/2     2            2           113m   agentgateway   ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b                                                       app.kubernetes.io/name=agentgateway
+deployment.apps/vllm-fallback   1/1     1            1           113m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=fallback,app.kubernetes.io/name=vllm
+deployment.apps/vllm-primary    1/1     1            1           113m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm
+
+NAME                                 READY   STATUS    RESTARTS   AGE    IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/agentgateway-cf6c5d6db-6nnkv     1/1     Running   0          113m   10.216.0.7    gke-ewallet-dev-cpu-pool-58daed59-9gpp   <none>           <none>
+pod/agentgateway-cf6c5d6db-6qmfk     1/1     Running   0          113m   10.216.1.6    gke-ewallet-dev-cpu-pool-58daed59-4z9k   <none>           <none>
+pod/vllm-fallback-6d5f665c7f-v8d6j   1/1     Running   0          17m    10.216.0.10   gke-ewallet-dev-cpu-pool-58daed59-9gpp   <none>           <none>
+pod/vllm-primary-5fd885bc99-q5tbc    1/1     Running   0          17m    10.216.1.10   gke-ewallet-dev-cpu-pool-58daed59-4z9k   <none>           <none>

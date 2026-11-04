@@ -1,0 +1,164 @@
+{
+  "verdict": "MIXED",
+  "fairness_issues": [],
+  "rules": {
+    "gain": 0.1,
+    "max_throughput_loss": 0.05,
+    "max_tail_regression": 0.1,
+    "loaded_levels": [
+      4,
+      8
+    ]
+  },
+  "levels": {
+    "1": {
+      "output_tokens_per_second": -0.10739708047722785,
+      "ttft_p50": 0.3674081220785863,
+      "e2e_p95": 0.11527164974450543,
+      "error_rate": {
+        "b2": 0.0,
+        "o2": 0.0
+      },
+      "gain": false,
+      "regression": [
+        "tokens/s",
+        "TTFT p50",
+        "E2E p95"
+      ]
+    },
+    "2": {
+      "output_tokens_per_second": -0.11536929370918203,
+      "ttft_p50": 0.27898411955897306,
+      "e2e_p95": -0.21354426410326954,
+      "error_rate": {
+        "b2": 0.0,
+        "o2": 0.0
+      },
+      "gain": false,
+      "regression": [
+        "tokens/s",
+        "TTFT p50"
+      ]
+    },
+    "4": {
+      "output_tokens_per_second": 0.27460549366948617,
+      "ttft_p50": -0.3384928797280541,
+      "e2e_p95": -0.15702595223745452,
+      "error_rate": {
+        "b2": 0.0,
+        "o2": 0.0
+      },
+      "gain": true,
+      "regression": []
+    },
+    "8": {
+      "output_tokens_per_second": 0.45904987217311977,
+      "ttft_p50": -0.23363711728072623,
+      "e2e_p95": -0.2725034451771777,
+      "error_rate": {
+        "b2": 0.0,
+        "o2": 0.0
+      },
+      "gain": true,
+      "regression": []
+    }
+  },
+  "gain_levels": [
+    "4",
+    "8"
+  ],
+  "regression_levels": [
+    "1",
+    "2"
+  ],
+  "balance": {
+    "b2": {
+      "per_level": {
+        "1": {
+          "pods_serving": 1,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-d7ggp": 0.0,
+            "vllm-primary-66c5f9687c-wr29m": 1.0
+          },
+          "requests_max_share": 1.0,
+          "prompt_tokens_max_share": 1.0
+        },
+        "2": {
+          "pods_serving": 2,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-d7ggp": 0.16666666666666666,
+            "vllm-primary-66c5f9687c-wr29m": 0.8333333333333334
+          },
+          "requests_max_share": 0.8333333333333334,
+          "prompt_tokens_max_share": 0.7512143290831815
+        },
+        "4": {
+          "pods_serving": 2,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-d7ggp": 0.3333333333333333,
+            "vllm-primary-66c5f9687c-wr29m": 0.6666666666666666
+          },
+          "requests_max_share": 0.6666666666666666,
+          "prompt_tokens_max_share": 0.7298117789921068
+        },
+        "8": {
+          "pods_serving": 2,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-d7ggp": 0.25,
+            "vllm-primary-66c5f9687c-wr29m": 0.75
+          },
+          "requests_max_share": 0.75,
+          "prompt_tokens_max_share": 0.8797814207650273
+        }
+      },
+      "both_pods_served": true,
+      "mean_imbalance": 0.3125
+    },
+    "o2": {
+      "per_level": {
+        "1": {
+          "pods_serving": 2,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-4zjmb": 0.3333333333333333,
+            "vllm-primary-66c5f9687c-xxjwz": 0.6666666666666666
+          },
+          "requests_max_share": 0.6666666666666666,
+          "prompt_tokens_max_share": 0.6080752884031573
+        },
+        "2": {
+          "pods_serving": 2,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-4zjmb": 0.3333333333333333,
+            "vllm-primary-66c5f9687c-xxjwz": 0.6666666666666666
+          },
+          "requests_max_share": 0.6666666666666666,
+          "prompt_tokens_max_share": 0.6080752884031573
+        },
+        "4": {
+          "pods_serving": 2,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-4zjmb": 0.3333333333333333,
+            "vllm-primary-66c5f9687c-xxjwz": 0.6666666666666666
+          },
+          "requests_max_share": 0.6666666666666666,
+          "prompt_tokens_max_share": 0.6080752884031573
+        },
+        "8": {
+          "pods_serving": 2,
+          "requests_share": {
+            "vllm-primary-66c5f9687c-4zjmb": 0.3333333333333333,
+            "vllm-primary-66c5f9687c-xxjwz": 0.6666666666666666
+          },
+          "requests_max_share": 0.6666666666666666,
+          "prompt_tokens_max_share": 0.6080752884031573
+        }
+      },
+      "both_pods_served": true,
+      "mean_imbalance": 0.16666666666666663
+    }
+  },
+  "epp_decisions": {
+    "decisions": 0,
+    "per_pod": {}
+  }
+}

@@ -1,0 +1,14 @@
+AR tag c9afc5b... -> sha256:1dd91888548968e304d735d962c4eb3fc50560d092ca050efb6240e64e2dcba3
+Cloud Build aae05981: SUCCESS VERIFIED ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com ['sha256:1dd91888548968e304d735d962c4eb3fc50560d092ca050efb6240e64e2dcba3']
+provenance occurrences (Container Analysis): 3 ['https://slsa.dev/provenance/v0.1', None, 'https://slsa.dev/provenance/v1']
+GKE CronJob image: sha256:1dd91888548968e304d735d962c4eb3fc50560d092ca050efb6240e64e2dcba3 suspend=true release-sha=c9afc5b145b2c0ac1f412f29249f12b5ba86024a
+run #6 junit xml in archive: 3  manifest git_sha: c9afc5b145b2c0ac1f412f29249f12b5ba86024a
+run #7 junit xml in archive: 5  manifest git_sha: 5a1c56c6818088a2f9ea6cdfc57eb4e1fadf34f7
+evidence screenshots/jenkins-cd-rag-pipeline-stageview.png: present
+evidence screenshots/jenkins-cd-rag-pipeline-6-tests.png: present
+evidence screenshots/jenkins-cd-rag-pipeline-7-tests.png: present
+evidence rag-cd-run6/postdeploy-state.txt: present
+evidence jenkins/jobs/edai2-cd-rag-pipeline-7/junit-analysis.txt: present
+source links resolvable at c9afc5b: yes
+source links resolvable at 5a1c56c: yes
+checksum manifest verify rc=0

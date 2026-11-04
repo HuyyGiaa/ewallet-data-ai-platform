@@ -1,0 +1,23 @@
+$ python3 - 'n13-doc-20261104T093242Z' <<'PY'
+import json,sys,urllib.request
+case=json.load(open('docs/evidence/cloud/mlops-campaign-20261031/fraud_api_e2e_smoke.json'))[0]
+r=urllib.request.Request('http://127.0.0.1:18100/v1/fraud/predict',data=json.dumps(case['request']).encode(),headers={'content-type':'application/json','x-correlation-id':sys.argv[1]},method='POST')
+resp=urllib.request.urlopen(r,timeout=30); body=json.load(resp)
+print('POST /v1/fraud/predict -> HTTP',resp.status); print(json.dumps(body,indent=1))
+print('expected fraud_probability (recorded 2026-10-31):',case['response']['fraud_probability'],'| equal:',body['fraud_probability']==case['response']['fraud_probability'])
+PY
+sleep 3; echo; echo '$ kubectl -n fraud-serving logs deploy/fraud-detector-predictor --since=2m | grep n13-doc-20261104T093242Z'; kubectl -n fraud-serving logs deploy/fraud-detector-predictor --since=2m | grep 'n13-doc-20261104T093242Z' | cut -c1-200 | head -3
+POST /v1/fraud/predict -> HTTP 200
+{
+ "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9",
+ "fraud_probability": 0.0639895560144887,
+ "fraud_prediction": 0,
+ "model_name": "fraud-detector",
+ "model_version": "1",
+ "feature_timestamp": "2026-05-31T23:59:56Z",
+ "correlation_id": "n13-doc-20261104T093242Z"
+}
+expected fraud_probability (recorded 2026-10-31): 0.0639895560144887 | equal: True
+
+$ kubectl -n fraud-serving logs deploy/fraud-detector-predictor --since=2m | grep n13-doc-20261104T093242Z
+{"event": "infer", "request_id": "n13-doc-20261104T093242Z", "model_version": "1", "traceparent": "00-bf86d7fd7e02ace497212f411f16bb0f-ee4195a21fc24d43-03"}

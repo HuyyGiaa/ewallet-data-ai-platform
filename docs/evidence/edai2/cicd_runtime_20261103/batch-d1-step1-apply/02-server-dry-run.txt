@@ -1,0 +1,5 @@
+namespace/ewallet-mcp-release serverside-applied (server dry run)
+Error from server (NotFound): namespaces "ewallet-mcp-release" not found
+Error from server (NotFound): namespaces "ewallet-mcp-release" not found
+Error from server (NotFound): namespaces "ewallet-mcp-release" not found
+Error from server (NotFound): namespaces "ewallet-mcp-release" not found

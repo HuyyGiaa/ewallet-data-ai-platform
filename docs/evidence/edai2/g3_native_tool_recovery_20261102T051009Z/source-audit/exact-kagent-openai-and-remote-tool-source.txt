@@ -1,0 +1,926 @@
+=== openai_adk request construction ===
+	return part
+}
+
+// Name implements model.LLM.
+func (m *OpenAIModel) Name() string {
+	return m.Config.Model
+}
+
+func (m *OpenAIModel) apiFormat() string {
+	if m.Config != nil && m.Config.APIFormat != "" {
+		return m.Config.APIFormat
+	}
+	return OpenAIAPIFormatChatCompletions
+}
+
+// GenerateContent implements model.LLM. Uses only ADK/genai types.
+func (m *OpenAIModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
+	return func(yield func(*model.LLMResponse, error) bool) {
+		modelName := req.Model
+		if modelName == "" {
+			modelName = m.Config.Model
+		}
+		if m.IsAzure && m.Config.Model != "" {
+			modelName = m.Config.Model
+		}
+		telemetry.SetLLMRequestAttributes(ctx, modelName, req)
+
+		switch m.apiFormat() {
+		case OpenAIAPIFormatResponses:
+			generateContentResponses(ctx, m, req, modelName, stream, yield)
+		default:
+			generateContentChatCompletions(ctx, m, req, modelName, stream, yield)
+		}
+	}
+}
+
+func generateContentChatCompletions(
+	ctx context.Context,
+	m *OpenAIModel,
+	req *model.LLMRequest,
+	modelName string,
+	stream bool,
+	yield func(*model.LLMResponse, error) bool,
+) {
+	messages, systemInstruction := genaiContentsToOpenAIMessages(req.Contents, req.Config)
+	params := openai.ChatCompletionNewParams{
+		Model:    shared.ChatModel(modelName),
+		Messages: messages,
+	}
+	if systemInstruction != "" {
+		params.Messages = append([]openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(systemInstruction),
+		}, params.Messages...)
+	}
+	applyOpenAIConfig(&params, m.Config)
+
+	if req.Config != nil && len(req.Config.Tools) > 0 {
+		params.Tools = genaiToolsToOpenAITools(req.Config.Tools)
+		params.ToolChoice = openai.ChatCompletionToolChoiceOptionUnionParam{
+			OfAuto: openai.String("auto"),
+		}
+	}
+
+	if stream {
+		runStreaming(ctx, m, params, yield)
+	} else {
+		runNonStreaming(ctx, m, params, yield)
+	}
+}
+
+func applyOpenAIConfig(params *openai.ChatCompletionNewParams, cfg *OpenAIConfig) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Temperature != nil {
+		params.Temperature = openai.Float(*cfg.Temperature)
+	}
+	// max_tokens and max_completion_tokens are mutually exclusive on the OpenAI
+	// API: reasoning models (GPT-5 / o-series) reject max_tokens, while some
+	// OpenAI-compatible endpoints only accept max_tokens. Never send both;
+	// max_completion_tokens (the modern, superset parameter) takes precedence
+	// when both are configured.
+	if cfg.MaxCompletionTokens != nil {
+		params.MaxCompletionTokens = openai.Int(int64(*cfg.MaxCompletionTokens))
+	} else if cfg.MaxTokens != nil {
+		params.MaxTokens = openai.Int(int64(*cfg.MaxTokens))
+	}
+	if cfg.TopP != nil {
+		params.TopP = openai.Float(*cfg.TopP)
+	}
+	if cfg.FrequencyPenalty != nil {
+		params.FrequencyPenalty = openai.Float(*cfg.FrequencyPenalty)
+	}
+	if cfg.PresencePenalty != nil {
+		params.PresencePenalty = openai.Float(*cfg.PresencePenalty)
+	}
+	if cfg.Seed != nil {
+		params.Seed = openai.Int(int64(*cfg.Seed))
+	}
+	if cfg.N != nil {
+		params.N = openai.Int(int64(*cfg.N))
+	}
+	if cfg.ReasoningEffort != nil {
+		params.ReasoningEffort = shared.ReasoningEffort(*cfg.ReasoningEffort)
+	}
+}
+
+func genaiContentsToOpenAIMessages(contents []*genai.Content, config *genai.GenerateContentConfig) ([]openai.ChatCompletionMessageParamUnion, string) {
+	systemInstruction := mergeSystemInstructionFromConfig("", config)
+
+	functionResponses := make(map[string]*genai.FunctionResponse)
+=== openai response parsing ===
+				if extraContent := openAIExtraContentForThoughtSignature(thoughtSignatures[fc.ID]); extraContent != nil {
+					toolCall.SetExtraFields(map[string]any{openAIExtraContentKey: extraContent})
+				}
+				toolCalls = append(toolCalls, openai.ChatCompletionMessageToolCallUnionParam{
+					OfFunction: &toolCall,
+				})
+				contentStr := "No response available for this function call."
+				if fr := functionResponses[fc.ID]; fr != nil {
+					contentStr = extractFunctionResponseContent(fr.Response)
+				}
+				toolMessage := openai.ChatCompletionToolMessageParam{
+					Content: openai.ChatCompletionToolMessageParamContentUnion{
+						OfString: param.NewOpt(contentStr),
+					},
+					ToolCallID: fc.ID,
+					Role:       constant.Tool("tool"),
+				}
+				if extraContent := openAIExtraContentForThoughtSignature(thoughtSignatures[fc.ID]); extraContent != nil {
+					toolMessage.SetExtraFields(map[string]any{openAIExtraContentKey: extraContent})
+				}
+				toolResponseMessages = append(toolResponseMessages, openai.ChatCompletionMessageParamUnion{OfTool: &toolMessage})
+			}
+			textContent := strings.Join(textParts, "\n")
+			asst := openai.ChatCompletionAssistantMessageParam{
+				Role:      constant.Assistant("assistant"),
+				ToolCalls: toolCalls,
+			}
+			if len(textParts) > 0 {
+				asst.Content.OfString = param.NewOpt(textContent)
+			}
+			messages = append(messages, openai.ChatCompletionMessageParamUnion{OfAssistant: &asst})
+			messages = append(messages, toolResponseMessages...)
+		} else {
+			if len(contentParts) > 0 {
+				parts := make([]openai.ChatCompletionContentPartUnionParam, 0, len(textParts)+len(contentParts))
+				for _, t := range textParts {
+					parts = append(parts, openai.TextContentPart(t))
+				}
+				parts = append(parts, contentParts...)
+				messages = append(messages, openai.UserMessage(parts))
+			} else if len(textParts) > 0 {
+				messages = append(messages, openai.UserMessage(strings.Join(textParts, "\n")))
+			}
+		}
+	}
+	return messages, systemInstruction
+}
+
+func genaiToolsToOpenAITools(tools []*genai.Tool) []openai.ChatCompletionToolUnionParam {
+	var out []openai.ChatCompletionToolUnionParam
+	for _, t := range tools {
+		if t == nil || t.FunctionDeclarations == nil {
+			continue
+		}
+		for _, fd := range t.FunctionDeclarations {
+			if fd == nil {
+				continue
+			}
+			paramsMap := make(shared.FunctionParameters)
+			if fd.ParametersJsonSchema != nil {
+				if m := parametersJsonSchemaToMap(fd.ParametersJsonSchema); m != nil {
+					maps.Copy(paramsMap, m)
+				}
+			} else if fd.Parameters != nil {
+				if m := genaiSchemaToMap(fd.Parameters); m != nil {
+					maps.Copy(paramsMap, m)
+				}
+			}
+			// OpenAI requires object schemas to have a "properties" field.
+			if _, ok := paramsMap["type"]; !ok {
+				paramsMap["type"] = "object"
+			}
+			if paramsMap["type"] == "object" {
+				if _, ok := paramsMap["properties"]; !ok {
+					paramsMap["properties"] = map[string]any{}
+				}
+			}
+			def := shared.FunctionDefinitionParam{
+				Name:        fd.Name,
+				Parameters:  paramsMap,
+				Description: openai.String(fd.Description),
+			}
+			out = append(out, openai.ChatCompletionFunctionTool(def))
+		}
+	}
+	return out
+}
+
+func runStreaming(ctx context.Context, m *OpenAIModel, params openai.ChatCompletionNewParams, yield func(*model.LLMResponse, error) bool) {
+	params.StreamOptions = openai.ChatCompletionStreamOptionsParam{
+		IncludeUsage: param.NewOpt(true),
+	}
+	stream := m.Client.Chat.Completions.NewStreaming(ctx, params, openAIPassthroughOpts(ctx, m)...)
+	defer stream.Close()
+
+	var aggregatedText strings.Builder
+	toolCallsAcc := make(map[int64]map[string]any)
+	var finishReason string
+	var promptTokens, completionTokens int64
+
+	for stream.Next() {
+		chunk := stream.Current()
+		if chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0 {
+			promptTokens = chunk.Usage.PromptTokens
+			completionTokens = chunk.Usage.CompletionTokens
+		}
+		if len(chunk.Choices) == 0 {
+			continue
+		}
+		choice := chunk.Choices[0]
+		delta := choice.Delta
+		if delta.Content != "" {
+			aggregatedText.WriteString(delta.Content)
+			if !yield(&model.LLMResponse{
+				Partial:      true,
+				TurnComplete: choice.FinishReason != "",
+				Content:      &genai.Content{Role: string(genai.RoleModel), Parts: []*genai.Part{{Text: delta.Content}}},
+			}, nil) {
+				return
+			}
+		}
+		for _, tc := range delta.ToolCalls {
+			idx := tc.Index
+			if toolCallsAcc[idx] == nil {
+				toolCallsAcc[idx] = map[string]any{"id": "", "name": "", "arguments": "", "thought_signature": []byte(nil)}
+			}
+			if tc.ID != "" {
+				toolCallsAcc[idx]["id"] = tc.ID
+			}
+			if tc.Function.Name != "" {
+				toolCallsAcc[idx]["name"] = tc.Function.Name
+			}
+			if tc.Function.Arguments != "" {
+				prev, _ := toolCallsAcc[idx]["arguments"].(string)
+				toolCallsAcc[idx]["arguments"] = prev + tc.Function.Arguments
+			}
+			if thoughtSignature := extractThoughtSignatureFromExtraFields(tc.JSON.ExtraFields); len(thoughtSignature) > 0 {
+				toolCallsAcc[idx]["thought_signature"] = thoughtSignature
+			}
+		}
+		if choice.FinishReason != "" {
+			finishReason = choice.FinishReason
+		}
+	}
+
+	if err := stream.Err(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return
+		}
+		_ = yield(&model.LLMResponse{ErrorCode: "STREAM_ERROR", ErrorMessage: err.Error()}, nil)
+		return
+	}
+
+	// Final response: build parts in index order
+	nToolCalls := len(toolCallsAcc)
+	indices := make([]int64, 0, nToolCalls)
+	for k := range toolCallsAcc {
+		indices = append(indices, k)
+	}
+	slices.Sort(indices)
+	finalParts := make([]*genai.Part, 0, 1+nToolCalls)
+	text := aggregatedText.String()
+	if text != "" {
+		finalParts = append(finalParts, &genai.Part{Text: text})
+	}
+	for _, idx := range indices {
+		tc := toolCallsAcc[idx]
+		argsStr, _ := tc["arguments"].(string)
+		var args map[string]any
+		if argsStr != "" {
+			_ = json.Unmarshal([]byte(argsStr), &args)
+		}
+		name, _ := tc["name"].(string)
+		id, _ := tc["id"].(string)
+		if name != "" || id != "" {
+			thoughtSignature, _ := tc["thought_signature"].([]byte)
+			p := newFunctionCallPart(name, args, id, thoughtSignature)
+			finalParts = append(finalParts, p)
+		}
+	}
+
+	var usage *genai.GenerateContentResponseUsageMetadata
+	if promptTokens > 0 || completionTokens > 0 {
+		usage = &genai.GenerateContentResponseUsageMetadata{
+			PromptTokenCount:     int32(promptTokens),
+			CandidatesTokenCount: int32(completionTokens),
+		}
+	}
+	resp := &model.LLMResponse{
+		Partial:       false,
+		TurnComplete:  true,
+		FinishReason:  openAIFinishReasonToGenai(finishReason),
+		UsageMetadata: usage,
+		Content:       &genai.Content{Role: string(genai.RoleModel), Parts: finalParts},
+	}
+	telemetry.SetLLMResponseAttributes(ctx, resp)
+	_ = yield(resp, nil)
+}
+
+func runNonStreaming(ctx context.Context, m *OpenAIModel, params openai.ChatCompletionNewParams, yield func(*model.LLMResponse, error) bool) {
+	completion, err := m.Client.Chat.Completions.New(ctx, params, openAIPassthroughOpts(ctx, m)...)
+	if err != nil {
+		yield(nil, fmt.Errorf("OpenAI chat completion request failed: %w", err))
+		return
+	}
+	if len(completion.Choices) == 0 {
+		yield(&model.LLMResponse{ErrorCode: "API_ERROR", ErrorMessage: "No choices in response"}, nil)
+		return
+	}
+	resp := chatCompletionToLLMResponse(completion)
+	telemetry.SetLLMResponseAttributes(ctx, resp)
+	yield(resp, nil)
+}
+
+func chatCompletionToLLMResponse(completion *openai.ChatCompletion) *model.LLMResponse {
+	choice := completion.Choices[0]
+	msg := choice.Message
+	nParts := 0
+	if msg.Content != "" {
+		nParts++
+	}
+	nParts += len(msg.ToolCalls)
+	parts := make([]*genai.Part, 0, nParts)
+	if msg.Content != "" {
+		parts = append(parts, &genai.Part{Text: msg.Content})
+	}
+	for _, tc := range msg.ToolCalls {
+		if tc.Type == openAIToolTypeFunction && tc.Function.Name != "" {
+			var args map[string]any
+			if tc.Function.Arguments != "" {
+				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+			}
+			functionToolCall := tc.AsFunction()
+			p := newFunctionCallPart(
+				tc.Function.Name,
+				args,
+				tc.ID,
+				extractThoughtSignatureFromExtraFields(functionToolCall.JSON.ExtraFields),
+			)
+			parts = append(parts, p)
+		}
+	}
+	var usage *genai.GenerateContentResponseUsageMetadata
+	if completion.Usage.PromptTokens > 0 || completion.Usage.CompletionTokens > 0 {
+		usage = &genai.GenerateContentResponseUsageMetadata{
+			PromptTokenCount:     int32(completion.Usage.PromptTokens),
+			CandidatesTokenCount: int32(completion.Usage.CompletionTokens),
+		}
+	}
+	return &model.LLMResponse{
+		Partial:       false,
+		TurnComplete:  true,
+		FinishReason:  openAIFinishReasonToGenai(choice.FinishReason),
+		UsageMetadata: usage,
+		Content:       &genai.Content{Role: string(genai.RoleModel), Parts: parts},
+	}
+}
+=== remote a2a tool schema ===
+"""Remote A2A agent tool with HITL propagation.
+
+Replaces the upstream ``AgentTool(RemoteA2aAgent(...))`` pairing with a single
+``BaseTool`` that directly manages the A2A conversation with a remote agent.
+
+When the remote agent returns ``TaskState.input_required`` (i.e. one of its
+tools needs human approval), this tool calls ``request_confirmation()`` to
+surface the HITL prompt to the parent agent's flow. On resume the user's
+decision is forwarded to the remote agent's pending task.
+
+This is a BaseToolset wrapper around KAgentRemoteA2ATool for runner cleanup purposes.
+"""
+
+import logging
+import uuid
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from urllib.parse import urlparse
+
+import httpx
+from a2a.client import Client as A2AClient
+from a2a.client.card_resolver import A2ACardResolver
+from a2a.client.client import ClientConfig as A2AClientConfig
+from a2a.client.client_factory import ClientFactory as A2AClientFactory
+from a2a.client.errors import A2AClientHTTPError
+from a2a.client.middleware import ClientCallContext, ClientCallInterceptor
+from a2a.types import (
+    AgentCard,
+    DataPart,
+    Role,
+    Task,
+    TaskState,
+    TextPart,
+)
+from a2a.types import (
+    Message as A2AMessage,
+)
+from a2a.types import (
+    Part as A2APart,
+)
+from a2a.types import (
+    TransportProtocol as A2ATransport,
+)
+from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.base_toolset import BaseToolset
+from google.adk.tools.tool_context import ToolContext
+from google.genai import types as genai_types
+from kagent.core.a2a import (
+    KAGENT_HITL_DECISION_TYPE_APPROVE,
+    KAGENT_HITL_DECISION_TYPE_BATCH,
+    KAGENT_HITL_DECISION_TYPE_KEY,
+    KAGENT_HITL_DECISION_TYPE_REJECT,
+    extract_hitl_info_from_task,
+)
+
+logger = logging.getLogger("kagent_adk." + __name__)
+
+_USER_ID_CONTEXT_KEY = "x-user-id"
+_SOURCE_HEADER = "x-kagent-source"
+_SOURCE_SUBAGENT = "agent"
+_HEADERS_STATE_KEY = "headers"
+_EXTRA_HEADERS_CONTEXT_KEY = "_a2a_extra_headers"
+
+# Conversation-lineage headers propagated on outbound A2A calls so a remote
+# agent can correlate this turn with the originating chat conversation —
+# useful when downstream code keys per-conversation state (sessions, sandbox
+# pods, cache entries) on a stable identifier across A2A hops.
+#
+# `x-kagent-parent-context-id` is the immediate caller's A2A context_id
+# (the session id of the agent that ran this tool). It changes with every
+# hop in a chain of A2A calls.
+#
+# `x-kagent-root-context-id` is the top-of-chain context_id — the agent at
+# the start of the chain (typically the user-facing chat agent). It stays
+# stable across every hop and across every turn of the same conversation,
+# so downstream agents can use it to key state that should outlive a single
+# A2A call (e.g. claim a per-conversation worker pod that survives between
+# turns).
+PARENT_CONTEXT_ID_HEADER = "x-kagent-parent-context-id"
+ROOT_CONTEXT_ID_HEADER = "x-kagent-root-context-id"
+
+
+class _SubagentInterceptor(ClientCallInterceptor):
+    """
+    Injects the authenticated user's ID as an ``x-user-id`` HTTP header,
+    marks the request as originating from an agent call via
+    ``x-kagent-source: agent``, and forwards any pre-computed propagation
+    headers stored in the call context state under ``_EXTRA_HEADERS_CONTEXT_KEY``.
+    """
+
+    async def intercept(self, method_name, request_payload, http_kwargs, agent_card, context):
+        headers = dict(http_kwargs.get("headers", {}))
+        headers[_SOURCE_HEADER] = _SOURCE_SUBAGENT
+
+        if context:
+            if _USER_ID_CONTEXT_KEY in context.state:
+                headers["x-user-id"] = context.state[_USER_ID_CONTEXT_KEY]
+            extra = context.state.get(_EXTRA_HEADERS_CONTEXT_KEY)
+            if extra:
+                headers.update(extra)
+        http_kwargs["headers"] = headers
+        return request_payload, http_kwargs
+
+
+def _extract_text_from_task(task: Task) -> str:
+    """Extract text content from a completed task's artifacts or status message."""
+    # Prefer artifacts (the canonical result)
+    if task.artifacts:
+        texts: list[str] = []
+        for artifact in task.artifacts:
+            if artifact.parts:
+                for part in artifact.parts:
+                    root = part.root if hasattr(part, "root") else part
+                    if isinstance(root, TextPart) and root.text:
+                        texts.append(root.text)
+        if texts:
+            return "\n".join(texts)
+
+    # Fall back to status message
+    if task.status and task.status.message and task.status.message.parts:
+        texts = []
+        for part in task.status.message.parts:
+            root = part.root if hasattr(part, "root") else part
+            if isinstance(root, TextPart) and root.text:
+                texts.append(root.text)
+        if texts:
+            return "\n".join(texts)
+
+    return ""
+
+
+def _extract_usage_from_task(task: Task) -> Optional[dict]:
+    """Extract kagent_usage_metadata from a completed task.
+
+    The A2A task_manager merges the final TaskStatusUpdateEvent.metadata into
+    task.metadata. The agent executor now adds the last LLM invocation's
+    usage_metadata to run_metadata before publishing the final event, so it
+    is available here for non-streaming callers like KAgentRemoteA2ATool.
+    """
+    if task.metadata:
+        usage = task.metadata.get("kagent_usage_metadata")
+        if usage and isinstance(usage, dict):
+            return usage
+    return None
+
+
+@runtime_checkable
+class SubagentSessionProvider(Protocol):
+    """Protocol for tools that delegate to a subagent and can expose
+    the subagent's session ID for live activity polling."""
+
+    name: str
+
+    @property
+    def subagent_session_id(self) -> str | None: ...
+
+
+class KAgentRemoteA2ATool(BaseTool):
+    """A tool that calls a remote A2A agent and propagates HITL state."""
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        description: str,
+        agent_card_url: str,
+        httpx_client: Optional[httpx.AsyncClient] = None,
+        header_provider: Optional[Callable[[Optional[ReadonlyContext]], dict[str, str]]] = None,
+    ) -> None:
+        super().__init__(name=name, description=description)
+        self._agent_card_url = agent_card_url
+        self._httpx_client = httpx_client
+        self._header_provider = header_provider
+        self._a2a_client: Optional[A2AClient] = None
+        self._agent_card: Optional[AgentCard] = None
+        # Pre-generate context_id for UI session polling
+        self._last_context_id: str = str(uuid.uuid4())
+
+    @property
+    def subagent_session_id(self) -> str | None:
+        """The subagent's session ID (== context_id sent in the A2A message)."""
+        return self._last_context_id
+
+    async def _ensure_client(self) -> A2AClient:
+        """Lazily resolve the agent card and initialize the A2A client."""
+        if self._a2a_client is not None:
+            return self._a2a_client
+
+        if self._httpx_client is None:
+            raise RuntimeError(
+                f"No httpx client provided for remote A2A tool '{self.name}'. "
+                "Use KAgentRemoteA2AToolset to manage the client lifecycle."
+            )
+
+        # Resolve the agent card from URL
+        parsed = urlparse(self._agent_card_url)
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        resolver = A2ACardResolver(httpx_client=self._httpx_client, base_url=base_url)
+        self._agent_card = await resolver.get_agent_card(relative_card_path=parsed.path)
+
+        if not self._agent_card.url:
+            raise ValueError(f"Agent card for {self.name} has no RPC URL")
+
+        # Auto-populate description from agent card if we don't have one
+        if not self.description and self._agent_card.description:
+            self.description = self._agent_card.description
+
+        # Create the A2A client.
+        config = A2AClientConfig(
+            httpx_client=self._httpx_client,
+            streaming=False,
+            polling=False,
+            supported_transports=[A2ATransport.jsonrpc],
+        )
+        factory = A2AClientFactory(config=config)
+        self._a2a_client = factory.create(
+            self._agent_card,
+            interceptors=[_SubagentInterceptor()],
+        )
+        return self._a2a_client
+
+    def _get_declaration(self) -> genai_types.FunctionDeclaration:
+        """Same schema as AgentTool for agents without an input schema."""
+        return genai_types.FunctionDeclaration(
+            name=self.name,
+            description=self.description,
+            parameters=genai_types.Schema(
+                type=genai_types.Type.OBJECT,
+                properties={
+                    "request": genai_types.Schema(type=genai_types.Type.STRING),
+                },
+                required=["request"],
+            ),
+        )
+
+    def _build_call_context(self, tool_context: ToolContext) -> ClientCallContext:
+        state: dict[str, Any] = {_USER_ID_CONTEXT_KEY: tool_context.session.user_id}
+
+        # Derive conversation lineage so the remote agent can correlate this
+        # turn with the originating chat conversation. See the header constant
+        # docstrings at the top of this module for the parent/root semantics.
+        lineage_headers = self._build_lineage_headers(tool_context)
+
+        if self._header_provider:
+            extra_headers = self._header_provider(tool_context)
+            if extra_headers:
+                # Merge caller-supplied headers on top of lineage so a custom
+                # provider can override the defaults if it really wants to,
+                # but the typical case (no custom provider) just gets lineage.
+                lineage_headers.update(extra_headers)
+
+        if lineage_headers:
+            state[_EXTRA_HEADERS_CONTEXT_KEY] = lineage_headers
+        return ClientCallContext(state=state)
+
+    def _build_lineage_headers(self, tool_context: ToolContext) -> dict[str, str]:
+        """Compute the parent/root context_id headers for an outbound A2A call.
+
+        - ``x-kagent-parent-context-id`` is set to this agent's own current
+          session id (the immediate caller of the remote agent).
+        - ``x-kagent-root-context-id`` is forwarded unchanged when we were
+          ourselves called by an upstream agent that set it. If no upstream
+          root header is present we are the top of the chain, so our own
+          session id becomes the root.
+
+        Returns an empty dict when no session id can be resolved (e.g. tests
+        that pass a stub tool_context); the outbound request then matches
+        existing behavior.
+        """
+        parent_context_id: Optional[str] = None
+        inbound_headers: dict[str, Any] = {}
+
+        # ToolContext exposes `.session` (the ADK session for the current
+        # invocation). The session id IS the A2A context_id for kagent agents,
+        # per the request_converter that maps `request.context_id` to
+        # `session_id` in kagent.adk.converters.request_converter.
+        session = getattr(tool_context, "session", None)
+        if session is not None:
+            parent_context_id = getattr(session, "id", None)
+            state = getattr(session, "state", None)
+            if isinstance(state, dict):
+                hdrs = state.get(_HEADERS_STATE_KEY)
+                if isinstance(hdrs, dict):
+                    inbound_headers = hdrs
+
+        if not parent_context_id:
+            return {}
+
+        root_context_id = inbound_headers.get(ROOT_CONTEXT_ID_HEADER) or parent_context_id
+
+=== go agent remote wiring ===
+package agent
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/go-logr/logr"
+	"github.com/kagent-dev/kagent/go/adk/pkg/mcp"
+	"github.com/kagent-dev/kagent/go/adk/pkg/models"
+	"github.com/kagent-dev/kagent/go/adk/pkg/sts"
+	"github.com/kagent-dev/kagent/go/adk/pkg/tools"
+	"github.com/kagent-dev/kagent/go/api/adk"
+	"google.golang.org/adk/v2/agent"
+	"google.golang.org/adk/v2/agent/llmagent"
+	adkmodel "google.golang.org/adk/v2/model"
+	adkgemini "google.golang.org/adk/v2/model/gemini"
+	"google.golang.org/adk/v2/tool"
+	"google.golang.org/adk/v2/tool/loadmemorytool"
+	"google.golang.org/adk/v2/tool/preloadmemorytool"
+	"google.golang.org/genai"
+)
+
+// Default model names used when not specified in configuration
+const (
+	DefaultGeminiModel    = "gemini-2.0-flash"
+	DefaultAnthropicModel = "claude-sonnet-4-20250514"
+	DefaultOllamaModel    = "llama3.2"
+)
+
+// CreateGoogleADKAgent creates a Google ADK agent from AgentConfig.
+// agentName is used as the ADK agent identity (appears in event Author field).
+// extraTools are appended to the agent's tool list (e.g. save_memory).
+// Optional stsPlugin can be provided for token propagation to MCP tools; pass
+// nil if token propagation is not needed.
+func CreateGoogleADKAgent(ctx context.Context, agentConfig *adk.AgentConfig, agentName string, stsPlugin *sts.TokenPropagationPlugin, extraTools ...tool.Tool) (agent.Agent, error) {
+	log := logr.FromContextOrDiscard(ctx)
+
+	if agentConfig == nil {
+		return nil, fmt.Errorf("agent config is required")
+	}
+
+	propagateToken := strings.ToLower(os.Getenv("KAGENT_PROPAGATE_TOKEN")) == "true"
+	var dynamicHeaderProvider mcp.DynamicHeaderProvider
+	if stsPlugin != nil {
+		dynamicHeaderProvider = stsPlugin.HeaderProvider
+	}
+	toolsets := mcp.CreateToolsets(ctx, agentConfig.HttpTools, agentConfig.SseTools, propagateToken, dynamicHeaderProvider)
+	mcpAppToolNames := mcp.MCPAppToolNamesFromToolsets(toolsets)
+
+	var remoteAgentTools []tool.Tool
+	for _, remoteAgent := range agentConfig.RemoteAgents {
+		if remoteAgent.Url == "" {
+			log.Info("Skipping remote agent with empty URL", "name", remoteAgent.Name)
+			continue
+		}
+		remoteTool, err := tools.NewKAgentRemoteA2ATool(remoteAgent.Name, remoteAgent.Description, remoteAgent.Url, nil, remoteAgent.Headers, propagateToken, remoteAgent.IsolateSessions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create remote A2A tool for %s: %w", remoteAgent.Name, err)
+		}
+		remoteAgentTools = append(remoteAgentTools, remoteTool)
+		log.Info("Wired remote A2A agent tool", "name", remoteAgent.Name, "url", remoteAgent.Url)
+	}
+
+	localTools, err := buildAgentTools(agentConfig, remoteAgentTools, extraTools, log)
+	if err != nil {
+		return nil, err
+	}
+
+	if agentConfig.Model == nil {
+		return nil, fmt.Errorf("model configuration is required")
+	}
+
+	llmModel, err := CreateLLM(ctx, agentConfig.Model, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM: %w", err)
+	}
+
+	if agentName == "" {
+		agentName = "agent"
+	}
+
+	// Collect tool names that require approval from HttpTools and SseTools.
+	approvalSet := make(map[string]bool)
+	for _, ht := range agentConfig.HttpTools {
+		for _, name := range ht.RequireApproval {
+			approvalSet[name] = true
+		}
+	}
+	for _, st := range agentConfig.SseTools {
+		for _, name := range st.RequireApproval {
+			approvalSet[name] = true
+		}
+	}
+
+	// Build BeforeToolCallbacks. Approval gating runs first.
+	beforeToolCallbacks := []llmagent.BeforeToolCallback{}
+	// Strip synthetic HITL tool messages from the model request to avoid unnecessary token usage.
+	beforeModelCallbacks := []llmagent.BeforeModelCallback{}
+
+	if len(approvalSet) > 0 {
+		log.Info("Wiring approval callback", "toolCount", len(approvalSet))
+		beforeToolCallbacks = append(beforeToolCallbacks, MakeApprovalCallback(approvalSet))
+		beforeModelCallbacks = append(beforeModelCallbacks, MakeStripConfirmationPartsCallback())
+	}
+	if len(mcpAppToolNames) > 0 {
+		// For MCP App-capable tools, keep rich tool payloads in chat history for UI rendering,
+		// but compact what is sent back to the model to avoid redundant polling/tool churn.
+		log.Info("Wiring MCP App model result callback", "toolCount", len(mcpAppToolNames))
+		beforeModelCallbacks = append(beforeModelCallbacks, MakeMCPAppModelResultCallback(mcpAppToolNames))
+	}
+	beforeToolCallbacks = append(beforeToolCallbacks, makeBeforeToolCallback(log))
+
+	llmAgentConfig := llmagent.Config{
+		Name:                  agentName,
+		Description:           agentConfig.Description,
+		Instruction:           agentConfig.Instruction,
+		Model:                 llmModel,
+		GenerateContentConfig: generateContentConfig(agentConfig.Model),
+		IncludeContents:       llmagent.IncludeContentsDefault,
+		Tools:                 localTools,
+		Toolsets:              toolsets,
+		BeforeToolCallbacks:   beforeToolCallbacks,
+		BeforeModelCallbacks:  beforeModelCallbacks,
+		AfterToolCallbacks: []llmagent.AfterToolCallback{
+			makeAfterToolCallback(log),
+		},
+		OnToolErrorCallbacks: []llmagent.OnToolErrorCallback{
+			makeOnToolErrorCallback(log),
+		},
+	}
+
+	log.Info("Creating Google ADK LLM agent",
+		"name", llmAgentConfig.Name,
+		"hasDescription", llmAgentConfig.Description != "",
+		"hasInstruction", llmAgentConfig.Instruction != "",
+		"toolsCount", len(llmAgentConfig.Tools),
+		"toolsetsCount", len(llmAgentConfig.Toolsets))
+
+	llmAgent, err := llmagent.New(llmAgentConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM agent: %w", err)
+	}
+
+	log.Info("Successfully created Google ADK LLM agent",
+		"toolsCount", len(llmAgentConfig.Tools),
+		"toolsetsCount", len(llmAgentConfig.Toolsets))
+
+	return llmAgent, nil
+}
+
+func buildAgentTools(agentConfig *adk.AgentConfig, remoteAgentTools, extraTools []tool.Tool, log logr.Logger) ([]tool.Tool, error) {
+	var localTools []tool.Tool
+	if agentConfig.Memory != nil {
+		log.Info("Memory configuration detected, adding memory tools")
+		localTools = []tool.Tool{
+			preloadmemorytool.New(),
+			loadmemorytool.New(),
+		}
+	}
+	localTools = append(localTools, remoteAgentTools...)
+	localTools = append(localTools, extraTools...)
+
+	skillsDirectory := strings.TrimSpace(os.Getenv("KAGENT_SKILLS_FOLDER"))
+	if skillsDirectory != "" {
+		skillsTools, err := tools.NewSkillsTools(skillsDirectory)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create skills tools: %w", err)
+		}
+		localTools = append(localTools, skillsTools...)
+		log.Info("Wired local skills tools", "skillsDirectory", skillsDirectory, "toolCount", len(skillsTools))
+	}
+
+	askUserTool, err := tools.NewAskUserTool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ask_user tool: %w", err)
+	}
+	localTools = append(localTools, askUserTool)
+	return localTools, nil
+}
+
+// generateContentConfig returns the agent-level generation config derived from
+// the model definition, or nil when the model doesn't specify any. ADK seeds
+// each LLMRequest.Config from this value, so per-request mutations (e.g. in
+// before-model callbacks) still take precedence.
+//
+// The native Gemini models read generation config from the per-request
+// LLMRequest.Config rather than from the model definition, so a
+// ModelConfig-level setting such as maxOutputTokens must be applied here.
+func generateContentConfig(m adk.Model) *genai.GenerateContentConfig {
+	var maxOutputTokens *int
+	switch m := m.(type) {
+	case *adk.Gemini:
+		maxOutputTokens = m.MaxOutputTokens
+	case *adk.GeminiVertexAI:
+		maxOutputTokens = m.MaxOutputTokens
+	}
+	if maxOutputTokens == nil || *maxOutputTokens <= 0 {
+		return nil
+	}
+	return &genai.GenerateContentConfig{MaxOutputTokens: int32(*maxOutputTokens)}
+}
+
+// CreateLLM creates an adkmodel.LLM from the model configuration.
+// This is exported to allow reuse of model creation logic (e.g., for memory summarization).
+func CreateLLM(ctx context.Context, m adk.Model, log logr.Logger) (adkmodel.LLM, error) {
+	switch m := m.(type) {
+	case *adk.OpenAI:
+		cfg := &models.OpenAIConfig{
+			TransportConfig:     transportConfigFromBase(m.BaseModel, m.Timeout),
+			Model:               m.Model,
+			BaseUrl:             m.BaseUrl,
+			FrequencyPenalty:    m.FrequencyPenalty,
+			MaxTokens:           m.MaxTokens,
+			MaxCompletionTokens: m.MaxCompletionTokens,
+			N:                   m.N,
+			PresencePenalty:     m.PresencePenalty,
+			ReasoningEffort:     m.ReasoningEffort,
+			Seed:                m.Seed,
+			Temperature:         m.Temperature,
+			TopP:                m.TopP,
+			APIFormat:           m.APIFormat,
+		}
+		return models.NewOpenAIModelWithLogger(cfg, log)
+
+	case *adk.AzureOpenAI:
+		cfg := &models.AzureOpenAIConfig{
+			TransportConfig: transportConfigFromBase(m.BaseModel, nil),
+=== live sanitized coordinator config ===
+{
+  "model": {
+    "type": "openai",
+    "model": "ewallet-fraud-llm",
+    "base_url": "http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1",
+    "timeout": 200,
+    "api_format": "chatCompletions"
+  },
+  "description": "Fraud Investigation Coordinator",
+  "instruction": "You are a kagent A2A router (prompt fraud-coordinator/v5).\n\nEvery user message has exactly two lines:\n`CALL_AGENT=<agent>`\n`REQUEST_JSON=<complete JSON>`\n\nImmediately INVOKE the native Agent tool named by `CALL_AGENT` through the\nfunction-calling interface. Do not print or describe a tool call. Do not answer\nthe user before the tool returns. The tool's `request` argument MUST be the\ncomplete two-line user message copied byte-for-byte, including REQUEST_JSON.\n\nOnly these routes are valid:\n- feature-rag-specialist for fraud-evidence\n- drift-specialist for drift\n\nNever add another Agent, edit JSON, or call business tools. Never estimate\nresults or return `complete` without a real Agent-tool response. After the tool returns,\nreturn only its grounded result. A missing or malformed result is\n`unavailable`. Prompt revision is fraud-coordinator/v5.\n",
+  "remote_agents": [
+    {
+      "name": "ewallet_agents__NS__feature_rag_specialist",
+      "url": "http://a2a-gateway.ewallet-agents.svc.cluster.local:8083",
+      "headers": {
+        "x-kagent-host": "feature-rag-specialist.ewallet-agents"
+      },
+      "description": "Fraud Investigation / Evidence specialist",
+      "isolate_sessions": true
+    },
+    {
+      "name": "ewallet_agents__NS__drift_specialist",
+      "url": "http://a2a-gateway.ewallet-agents.svc.cluster.local:8083",
+      "headers": {
+        "x-kagent-host": "drift-specialist.ewallet-agents"
+      },
+      "description": "Feature / Risk specialist",
+      "isolate_sessions": true
+    }
+  ],
+  "execute_code": false,
+  "stream": false
+}

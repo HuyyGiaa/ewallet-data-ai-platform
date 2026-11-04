@@ -1,0 +1,10 @@
+{
+  "citation_count": 3,
+  "elapsed_seconds": 0.595,
+  "feature_count": 4,
+  "has_fraud_score": true,
+  "http_status": 200,
+  "request_id": "g3-byo-specialist-20261102-001",
+  "response": "docs/evidence/edai2/g3_byo_feature_rag_specialist_20261102T065228Z/e2e/specialist-response-r21.json",
+  "status": "ok"
+}

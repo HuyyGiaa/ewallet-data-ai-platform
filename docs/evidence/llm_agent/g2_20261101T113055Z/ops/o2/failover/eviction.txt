@@ -1,0 +1,3 @@
+attempt=1 status=503 backend=llm-d
+attempt=2 status=503 backend=primary
+attempt=3 status=200 backend=fallback

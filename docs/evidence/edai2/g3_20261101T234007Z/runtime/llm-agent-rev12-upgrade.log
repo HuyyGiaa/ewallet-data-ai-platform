@@ -1,0 +1,10 @@
+Script started on 2026-11-02 07:00:36+07:00 [COMMAND="helm upgrade llm-agent infra/helm/llm-agent-platform -n default --reuse-values --set-string agents.specialists.feature-rag-specialist.promptVersion=v3 --atomic --wait --timeout 10m" <not executed on terminal>]
+Release "llm-agent" has been upgraded. Happy Helming!
+NAME: llm-agent
+LAST DEPLOYED: Mon Nov  2 07:00:36 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 12
+TEST SUITE: None
+
+Script done on 2026-11-02 07:00:54+07:00 [COMMAND_EXIT_CODE="0"]

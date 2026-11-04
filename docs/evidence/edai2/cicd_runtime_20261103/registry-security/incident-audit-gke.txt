@@ -1,0 +1,16 @@
+## GKE Cloud Audit Logs (read-only query, 2026-11-03), filter:
+## resource.type=k8s_cluster, resourceName ~ namespaces/ewallet-prompts/pods/*/portforward,
+## 10:55:00Z..11:15:00Z
+2026-11-03T11:05:02.572111Z io.k8s.core.v1.pods.portforward.get <operator: project owner Google account> core/v1/namespaces/ewallet-prompts/pods/prompt-registry-agentregistry-8687d9b776-9fq7r/portforward
+2026-11-03T11:08:56.856026Z io.k8s.core.v1.pods.portforward.get <operator: project owner Google account> core/v1/namespaces/ewallet-prompts/pods/prompt-registry-agentregistry-8687d9b776-9fq7r/portforward
+entries 2 (no other principal opened a port-forward to the registry in the window)
+
+## Registry server logs: agentregistry 0.4.0 does not log HTTP requests
+## (pod prompt-registry-agentregistry-8687d9b776-9fq7r, started 08:17:39Z, 0 restarts:
+## 8 log lines in total, all startup). No server-side record of the write exists.
+
+## Registry object state after restore (GET, read-only)
+drift-specialist-system/v2 uid 3461f370-3475-4342-a7d0-f502b3a38b5d (unchanged: updated in place)
+createdAt 2026-11-03T08:18:18.541794Z  updatedAt 2026-11-03T11:06:47.273296Z (= restore)
+labels ewallet.io/prompt-sha256 = 0c0798e1... (Git), description = Git catalog text
+drift-specialist-system/v1 updatedAt 2026-11-03T08:18:18.512188Z (never touched)

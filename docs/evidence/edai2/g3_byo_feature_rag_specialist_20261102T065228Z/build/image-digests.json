@@ -1,0 +1,9 @@
+{
+ "git_sha": "7b0c3d49530e0d3aed08ec502a146290e7b0d139",
+ "images": {
+  "g3-byo-feature-rag-specialist": {
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:92c5730b8695b5c2e7dd687077a640044837d080210f6c20730ab5c9e4c7d7c9",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:7b0c3d49530e0d3aed08ec502a146290e7b0d139"
+  }
+ }
+}

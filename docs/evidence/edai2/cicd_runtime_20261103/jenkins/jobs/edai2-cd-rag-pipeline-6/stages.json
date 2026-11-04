@@ -1,0 +1,121 @@
+{
+ "_links": {
+  "self": {
+   "href": "/job/edai2-cd-rag-pipeline/6/wfapi/describe"
+  },
+  "changesets": {
+   "href": "/job/edai2-cd-rag-pipeline/6/wfapi/changesets"
+  },
+  "artifacts": {
+   "href": "/job/edai2-cd-rag-pipeline/6/wfapi/artifacts"
+  }
+ },
+ "id": "6",
+ "name": "#6",
+ "status": "SUCCESS",
+ "startTimeMillis": 1793692667073,
+ "endTimeMillis": 1793692987281,
+ "durationMillis": 320208,
+ "queueDurationMillis": 15,
+ "pauseDurationMillis": 0,
+ "stages": [
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/6/execution/node/13/wfapi/describe"
+    }
+   },
+   "id": "13",
+   "name": "Checkout and provenance",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793692688329,
+   "durationMillis": 413,
+   "pauseDurationMillis": 0
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/6/execution/node/18/wfapi/describe"
+    }
+   },
+   "id": "18",
+   "name": "Validate catalog and detect scope",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793692688779,
+   "durationMillis": 760,
+   "pauseDurationMillis": 0
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/6/execution/node/27/wfapi/describe"
+    }
+   },
+   "id": "27",
+   "name": "Component CI",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793692689579,
+   "durationMillis": 46622,
+   "pauseDurationMillis": 0
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/6/execution/node/32/wfapi/describe"
+    }
+   },
+   "id": "32",
+   "name": "Controlled release gate",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793692736243,
+   "durationMillis": 1141,
+   "pauseDurationMillis": 1006
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/6/execution/node/37/wfapi/describe"
+    }
+   },
+   "id": "37",
+   "name": "Verify release branch",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793692737421,
+   "durationMillis": 441,
+   "pauseDurationMillis": 0
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/6/execution/node/46/wfapi/describe"
+    }
+   },
+   "id": "46",
+   "name": "Build and publish images (Cloud Build)",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793692737903,
+   "durationMillis": 171361,
+   "pauseDurationMillis": 0
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/6/execution/node/51/wfapi/describe"
+    }
+   },
+   "id": "51",
+   "name": "Deploy and verify",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793692909305,
+   "durationMillis": 77021,
+   "pauseDurationMillis": 0
+  }
+ ]
+}

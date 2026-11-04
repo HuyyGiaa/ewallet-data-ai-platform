@@ -1,0 +1,7 @@
+{
+  "name": "feature-rag-mcp",
+  "images": [
+    "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058"
+  ],
+  "ready": 1
+}

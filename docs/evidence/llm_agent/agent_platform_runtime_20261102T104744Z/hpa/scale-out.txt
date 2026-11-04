@@ -1,0 +1,131 @@
+2026-11-02T17:53:56+07:00
+NAME                     REFERENCE                           TARGETS         MINPODS   MAXPODS   REPLICAS   AGE
+drift-specialist         Deployment/drift-specialist         cpu: 74%/60%    2         3         3          2m48s
+feature-rag-specialist   Deployment/feature-rag-specialist   cpu: 499%/60%   2         3         3          2m48s
+fraud-coordinator        Deployment/fraud-coordinator        cpu: 334%/60%   2         3         3          2m48s
+Name:                                                  drift-specialist
+Namespace:                                             ewallet-agents
+Labels:                                                app.kubernetes.io/managed-by=Helm
+                                                       app.kubernetes.io/part-of=ewallet-llm-agent
+                                                       app.kubernetes.io/version=llm-agent-v1
+                                                       ewallet.io/agent=drift-specialist
+Annotations:                                           meta.helm.sh/release-name: llm-agent
+                                                       meta.helm.sh/release-namespace: default
+CreationTimestamp:                                     Mon, 02 Nov 2026 17:51:08 +0700
+Reference:                                             Deployment/drift-specialist
+Metrics:                                               ( current / target )
+  resource cpu on pods  (as a percentage of request):  74% (74m) / 60%
+Min replicas:                                          2
+Max replicas:                                          3
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 60 seconds
+  Scale Down:
+    Stabilization Window: 300 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 60 seconds
+Deployment pods:    3 current / 3 desired
+Conditions:
+  Type            Status  Reason              Message
+  ----            ------  ------              -------
+  AbleToScale     True    ReadyForNewScale    recommended size matches current size
+  ScalingActive   True    ValidMetricFound    the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+  ScalingLimited  False   DesiredWithinRange  the desired count is within the acceptable range
+
+
+Name:                                                  feature-rag-specialist
+Namespace:                                             ewallet-agents
+Labels:                                                app.kubernetes.io/managed-by=Helm
+                                                       app.kubernetes.io/part-of=ewallet-llm-agent
+                                                       app.kubernetes.io/version=llm-agent-v1
+                                                       ewallet.io/agent=feature-rag-specialist
+Annotations:                                           meta.helm.sh/release-name: llm-agent
+                                                       meta.helm.sh/release-namespace: default
+CreationTimestamp:                                     Mon, 02 Nov 2026 17:51:08 +0700
+Reference:                                             Deployment/feature-rag-specialist
+Metrics:                                               ( current / target )
+  resource cpu on pods  (as a percentage of request):  499% (499m) / 60%
+Min replicas:                                          2
+Max replicas:                                          3
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 60 seconds
+  Scale Down:
+    Stabilization Window: 300 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 60 seconds
+Deployment pods:    3 current / 3 desired
+Conditions:
+  Type            Status  Reason            Message
+  ----            ------  ------            -------
+  AbleToScale     True    ReadyForNewScale  recommended size matches current size
+  ScalingActive   True    ValidMetricFound  the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+  ScalingLimited  True    TooManyReplicas   the desired replica count is more than the maximum replica count
+
+
+Name:                                                  fraud-coordinator
+Namespace:                                             ewallet-agents
+Labels:                                                app.kubernetes.io/managed-by=Helm
+                                                       app.kubernetes.io/part-of=ewallet-llm-agent
+                                                       app.kubernetes.io/version=llm-agent-v1
+                                                       ewallet.io/agent=fraud-coordinator
+Annotations:                                           meta.helm.sh/release-name: llm-agent
+                                                       meta.helm.sh/release-namespace: default
+CreationTimestamp:                                     Mon, 02 Nov 2026 17:51:08 +0700
+Reference:                                             Deployment/fraud-coordinator
+Metrics:                                               ( current / target )
+  resource cpu on pods  (as a percentage of request):  334% (334m) / 60%
+Min replicas:                                          2
+Max replicas:                                          3
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 60 seconds
+  Scale Down:
+    Stabilization Window: 300 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 60 seconds
+Deployment pods:    3 current / 3 desired
+Conditions:
+  Type            Status  Reason            Message
+  ----            ------  ------            -------
+  AbleToScale     True    ReadyForNewScale  recommended size matches current size
+  ScalingActive   True    ValidMetricFound  the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+  ScalingLimited  True    TooManyReplicas   the desired replica count is more than the maximum replica count
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                                                                                                                SELECTOR
+drift-specialist         3/3     3            3           17h   kagent       ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f                                                                   app=kagent,kagent=drift-specialist
+feature-rag-specialist   3/3     3            3           17h   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:bb0fae06250038e6489524426969597517e94a885c629531ee0ccbc3c40cd4d0   app=kagent,kagent=feature-rag-specialist
+fraud-coordinator        3/3     3            3           17h   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446              app=kagent,kagent=fraud-coordinator
+NAME                                      READY   STATUS    RESTARTS   AGE     IP            NODE                                     NOMINATED NODE   READINESS GATES
+drift-specialist-7fb847df9-6xmgf          1/1     Running   0          2m34s   10.216.0.8    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+drift-specialist-7fb847df9-q2qf5          1/1     Running   0          43s     10.216.1.70   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+drift-specialist-7fb847df9-qqxfn          1/1     Running   0          12h     10.216.1.41   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+feature-rag-specialist-65464756b6-mrkf6   1/1     Running   0          2m34s   10.216.0.9    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+feature-rag-specialist-65464756b6-qd4pr   1/1     Running   0          3h53m   10.216.1.59   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+feature-rag-specialist-65464756b6-shdbf   1/1     Running   0          84s     10.216.1.69   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+fraud-coordinator-7bf69cb76c-6pnfn        1/1     Running   0          2m34s   10.216.1.68   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+fraud-coordinator-7bf69cb76c-qlt2m        1/1     Running   0          4h31m   10.216.1.57   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+fraud-coordinator-7bf69cb76c-rtqcd        1/1     Running   0          69s     10.216.0.10   gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+NAME                     MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+drift-mcp                1               N/A               0                     17h
+drift-specialist         1               N/A               2                     2m57s
+feature-rag-specialist   1               N/A               2                     2m57s
+fraud-coordinator        1               N/A               2                     2m56s
+LAST SEEN   TYPE     REASON              OBJECT                                           MESSAGE
+2m34s       Normal   SuccessfulRescale   horizontalpodautoscaler/drift-specialist         New size: 2; reason: cpu resource utilization (percentage of request) above target
+2m34s       Normal   SuccessfulRescale   horizontalpodautoscaler/feature-rag-specialist   New size: 2; reason: cpu resource utilization (percentage of request) above target
+2m34s       Normal   SuccessfulRescale   horizontalpodautoscaler/fraud-coordinator        New size: 2; reason: cpu resource utilization (percentage of request) above target
+84s         Normal   SuccessfulRescale   horizontalpodautoscaler/feature-rag-specialist   New size: 3; reason: cpu resource utilization (percentage of request) above target
+69s         Normal   SuccessfulRescale   horizontalpodautoscaler/fraud-coordinator        New size: 3; reason: cpu resource utilization (percentage of request) above target
+43s         Normal   SuccessfulRescale   horizontalpodautoscaler/drift-specialist         New size: 3; reason: cpu resource utilization (percentage of request) above target

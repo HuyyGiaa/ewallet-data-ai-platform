@@ -1,0 +1,104 @@
+{
+  "is_error": false,
+  "protocol_version": "2025-06-18",
+  "server": "feature-rag-mcp",
+  "structured_content": {
+    "citations": [
+      {
+        "chunk_id": "policy-account-takeover:0000",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "document_id": "policy-account-takeover",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.6731997896475385,
+        "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md"
+      },
+      {
+        "chunk_id": "policy-account-takeover:0001",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "document_id": "policy-account-takeover",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.2100535776796758,
+        "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md"
+      },
+      {
+        "chunk_id": "policy-payment-anomaly:0000",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "document_id": "policy-payment-anomaly",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.1862678014634948,
+        "source_checksum": "sha256:b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md"
+      },
+      {
+        "chunk_id": "policy-payment-anomaly:0001",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "document_id": "policy-payment-anomaly",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.06841736013896098,
+        "source_checksum": "sha256:b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md"
+      }
+    ],
+    "fallback_used": false,
+    "request_id": "e6e71845-344b-40da-b5fe-eba915a3b544",
+    "result": {
+      "query_sha256": "41a2dca0dff3dedd32d40f6d05e4b77287a8d43f5a5e8100f2372e9e0096bebc",
+      "results": [
+        {
+          "chunk_id": "policy-account-takeover:0000",
+          "document_id": "policy-account-takeover",
+          "quote": "# Account takeover review policy This demonstration policy requires step-up review when a transaction follows a new-device login, a rapid credential reset, or an impossible-travel signal. Analysts must review the account history, device binding, recent failed login count, and the",
+          "rank": 1,
+          "score": 0.6731997896475385
+        },
+        {
+          "chunk_id": "policy-account-takeover:0001",
+          "document_id": "policy-account-takeover",
+          "quote": "the source policy identifier and the exact policy revision. If required features are missing, stale, or inconsistent, the decision must fail closed to manual review. Services must not log raw credentials, payment account numbers, secrets, or hidden model reasoning. Any",
+          "rank": 2,
+          "score": 0.2100535776796758
+        },
+        {
+          "chunk_id": "policy-payment-anomaly:0000",
+          "document_id": "policy-payment-anomaly",
+          "quote": "# Payment anomaly review policy This demonstration policy requires enhanced review for unusual payment amount, velocity, merchant, device, or geography patterns. The evidence bundle must separate historical Feast features, request-time attributes, derived features, registered model output, and policy knowledge. Retrieval",
+          "rank": 3,
+          "score": 0.1862678014634948
+        },
+        {
+          "chunk_id": "policy-payment-anomaly:0001",
+          "document_id": "policy-payment-anomaly",
+          "quote": "must not invent missing facts. Empty retrieval, low similarity, stale features, serving errors, or policy conflicts must be visible to the coordinator and may require human review. Production promotion requires correlated traces, security-policy checks, rollback readiness, and runtime readback rather",
+          "rank": 4,
+          "score": 0.06841736013896098
+        }
+      ],
+      "retrieval_backend": "feast-online-redis+exact-cosine",
+      "trust_anchor": "source_corpus"
+    },
+    "status": "ok",
+    "tool_name": "knowledge_search",
+    "versions": {
+      "config_revision": "rag-db1-canary/g3-functional-rag-20261102t045700z",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "feature_revision": "fraud-policy-feast-v1",
+      "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+      "image_digest": "sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+      "model_revision": "fraud-detector/1",
+      "prompt_revision": "v2"
+    }
+  },
+  "tool": "knowledge_search",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "transport": "official-mcp-sdk-streamable-http"
+}

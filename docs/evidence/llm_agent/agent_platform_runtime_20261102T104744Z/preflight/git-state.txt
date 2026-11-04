@@ -1,0 +1,8 @@
+2026-11-02T17:48:48+07:00
+/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2
+codex/llm-g2-llmd-routing
+98680a5f85a328342421bda91c6e7b286eb5cf40
+## codex/llm-g2-llmd-routing
+?? docs/evidence/llm_agent/agent_platform_runtime_20261102T104744Z/
+?? docs/evidence/llm_agent/g3_20261101T170735Z/
+?? docs/evidence/llm_agent/rag_g3-gke-feast-redis/

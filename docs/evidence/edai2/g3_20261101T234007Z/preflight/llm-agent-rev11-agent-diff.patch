@@ -1,0 +1,28 @@
+--- rev10/Agent/feature-rag-specialist
++++ rev11/Agent/feature-rag-specialist
+@@ -3,14 +3,14 @@
+ metadata:
+   annotations:
+     ewallet.io/display-name: Fraud Investigation / Evidence specialist
+-    ewallet.io/prompt-sha256: 13fd68c9de70d05acbbe69439b286e8057427b6a0047d3a55e2f420c89aad46a
++    ewallet.io/prompt-sha256: d7cc00cccdc97bdc89986b8d26b6b05f49436f366547631567ea90515790eed1
+     ewallet.io/rubric-rows: '22'
+   labels:
+     app.kubernetes.io/managed-by: Helm
+     app.kubernetes.io/part-of: ewallet-llm-agent
+     app.kubernetes.io/version: llm-agent-v1
+     ewallet.io/agent: feature-rag-specialist
+-    ewallet.io/prompt-version: v2
++    ewallet.io/prompt-version: v3
+   name: feature-rag-specialist
+   namespace: ewallet-agents
+ spec:
+@@ -46,7 +46,7 @@
+     stream: false
+     systemMessageFrom:
+       key: system.md
+-      name: feature-rag-specialist-prompt-v2
++      name: feature-rag-specialist-prompt-v3
+       type: ConfigMap
+     tools:
+     - headersFrom:

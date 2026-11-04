@@ -1,0 +1,540 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "kagent.dev/v1alpha2",
+            "kind": "Agent",
+            "metadata": {
+                "annotations": {
+                    "ewallet.io/display-name": "Feature / Risk specialist",
+                    "ewallet.io/prompt-sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef",
+                    "ewallet.io/rubric-rows": "19,20,21",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 3,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1",
+                    "ewallet.io/agent": "drift-specialist",
+                    "ewallet.io/prompt-version": "v2"
+                },
+                "name": "drift-specialist",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793572829610383013",
+                "uid": "853175e0-c62b-4f14-854e-7b23011f0211"
+            },
+            "spec": {
+                "declarative": {
+                    "deployment": {
+                        "annotations": {
+                            "ewallet.io/mcp-gateway-config-sha256": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4"
+                        },
+                        "labels": {
+                            "ewallet.io/agent": "drift-specialist"
+                        },
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "podSecurityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "replicas": 1,
+                        "resources": {
+                            "limits": {
+                                "cpu": "500m",
+                                "memory": "512Mi"
+                            },
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "256Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            }
+                        },
+                        "serviceAccountName": "drift-specialist"
+                    },
+                    "executeCodeBlocks": false,
+                    "modelConfig": "ewallet-global-llm",
+                    "runtime": "go",
+                    "stream": false,
+                    "systemMessageFrom": {
+                        "key": "system.md",
+                        "name": "drift-specialist-prompt-v2",
+                        "type": "ConfigMap"
+                    },
+                    "tools": [
+                        {
+                            "headersFrom": [
+                                {
+                                    "name": "X-Ewallet-MCP-Service-Token",
+                                    "valueFrom": {
+                                        "key": "token",
+                                        "name": "mcp-token-drift-specialist-drift-mcp-r1-release1",
+                                        "type": "Secret"
+                                    }
+                                }
+                            ],
+                            "mcpServer": {
+                                "apiGroup": "kagent.dev",
+                                "kind": "RemoteMCPServer",
+                                "name": "drift-mcp",
+                                "requireApproval": [],
+                                "toolNames": [
+                                    "drift_detection"
+                                ]
+                            },
+                            "type": "McpServer"
+                        },
+                        {
+                            "headersFrom": [
+                                {
+                                    "name": "X-Ewallet-MCP-Service-Token",
+                                    "valueFrom": {
+                                        "key": "token",
+                                        "name": "mcp-token-drift-specialist-feature-rag-mcp-r1-release1",
+                                        "type": "Secret"
+                                    }
+                                }
+                            ],
+                            "mcpServer": {
+                                "apiGroup": "kagent.dev",
+                                "kind": "RemoteMCPServer",
+                                "name": "feature-rag-mcp",
+                                "requireApproval": [],
+                                "toolNames": [
+                                    "feature_lookup"
+                                ]
+                            },
+                            "type": "McpServer"
+                        }
+                    ]
+                },
+                "description": "Feature / Risk specialist",
+                "type": "Declarative",
+                "version": "1.0.0"
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T21:05:03Z",
+                        "message": "Agent configuration accepted",
+                        "observedGeneration": 3,
+                        "reason": "Reconciled",
+                        "status": "True",
+                        "type": "Accepted"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:25Z",
+                        "message": "Deployment is ready",
+                        "observedGeneration": 3,
+                        "reason": "DeploymentReady",
+                        "status": "True",
+                        "type": "Ready"
+                    }
+                ],
+                "observedGeneration": 3
+            }
+        },
+        {
+            "apiVersion": "kagent.dev/v1alpha2",
+            "kind": "Agent",
+            "metadata": {
+                "annotations": {
+                    "ewallet.io/display-name": "Fraud Investigation / Evidence specialist",
+                    "ewallet.io/prompt-sha256": "d7cc00cccdc97bdc89986b8d26b6b05f49436f366547631567ea90515790eed1",
+                    "ewallet.io/rubric-rows": "22",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 4,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1",
+                    "ewallet.io/agent": "feature-rag-specialist",
+                    "ewallet.io/prompt-version": "v3"
+                },
+                "name": "feature-rag-specialist",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793577650044735003",
+                "uid": "da3f7e26-412f-4f06-b5c8-4bc8fabf48cd"
+            },
+            "spec": {
+                "declarative": {
+                    "deployment": {
+                        "annotations": {
+                            "ewallet.io/mcp-gateway-config-sha256": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4"
+                        },
+                        "labels": {
+                            "ewallet.io/agent": "feature-rag-specialist"
+                        },
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "podSecurityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "replicas": 1,
+                        "resources": {
+                            "limits": {
+                                "cpu": "500m",
+                                "memory": "512Mi"
+                            },
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "256Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            }
+                        },
+                        "serviceAccountName": "feature-rag-specialist"
+                    },
+                    "executeCodeBlocks": false,
+                    "modelConfig": "ewallet-global-llm",
+                    "runtime": "go",
+                    "stream": false,
+                    "systemMessageFrom": {
+                        "key": "system.md",
+                        "name": "feature-rag-specialist-prompt-v3",
+                        "type": "ConfigMap"
+                    },
+                    "tools": [
+                        {
+                            "headersFrom": [
+                                {
+                                    "name": "X-Ewallet-MCP-Service-Token",
+                                    "valueFrom": {
+                                        "key": "token",
+                                        "name": "mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1",
+                                        "type": "Secret"
+                                    }
+                                }
+                            ],
+                            "mcpServer": {
+                                "apiGroup": "kagent.dev",
+                                "kind": "RemoteMCPServer",
+                                "name": "feature-rag-mcp",
+                                "requireApproval": [],
+                                "toolNames": [
+                                    "feature_lookup",
+                                    "fraud_scoring",
+                                    "knowledge_search"
+                                ]
+                            },
+                            "type": "McpServer"
+                        }
+                    ]
+                },
+                "description": "Fraud Investigation / Evidence specialist",
+                "type": "Declarative",
+                "version": "1.0.0"
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T21:05:03Z",
+                        "message": "Agent configuration accepted",
+                        "observedGeneration": 4,
+                        "reason": "Reconciled",
+                        "status": "True",
+                        "type": "Accepted"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:26Z",
+                        "message": "Deployment is ready",
+                        "observedGeneration": 4,
+                        "reason": "DeploymentReady",
+                        "status": "True",
+                        "type": "Ready"
+                    }
+                ],
+                "observedGeneration": 4
+            }
+        },
+        {
+            "apiVersion": "kagent.dev/v1alpha2",
+            "kind": "Agent",
+            "metadata": {
+                "annotations": {
+                    "ewallet.io/display-name": "Fraud Investigation Coordinator",
+                    "ewallet.io/prompt-sha256": "187d672ed7aba86252abd88bafc9a27c5fe6ce9fbe62ee9e3101f29a37a87f66",
+                    "ewallet.io/rubric-rows": "25,26",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 2,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1",
+                    "ewallet.io/agent": "fraud-coordinator",
+                    "ewallet.io/prompt-version": "v2"
+                },
+                "name": "fraud-coordinator",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793571235526927010",
+                "uid": "0f493645-0c86-4a57-acbc-68aab17b4545"
+            },
+            "spec": {
+                "declarative": {
+                    "a2aConfig": {
+                        "skills": [
+                            {
+                                "description": "Grounded fraud investigation with model score, features, drift and policy citations.",
+                                "id": "investigate-transaction",
+                                "inputModes": [
+                                    "text"
+                                ],
+                                "name": "Investigate a transaction",
+                                "outputModes": [
+                                    "text"
+                                ],
+                                "tags": [
+                                    "fraud",
+                                    "investigation"
+                                ]
+                            }
+                        ]
+                    },
+                    "deployment": {
+                        "annotations": {
+                            "ewallet.io/a2a-gateway-config-sha256": "86e9f7330d869cef6475141b4f6d9710aa538f840f100ff300f881875636bee6"
+                        },
+                        "labels": {
+                            "ewallet.io/agent": "fraud-coordinator"
+                        },
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "podSecurityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "replicas": 1,
+                        "resources": {
+                            "limits": {
+                                "cpu": "500m",
+                                "memory": "512Mi"
+                            },
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "256Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            }
+                        },
+                        "serviceAccountName": "fraud-coordinator"
+                    },
+                    "executeCodeBlocks": false,
+                    "modelConfig": "ewallet-global-llm",
+                    "runtime": "go",
+                    "stream": false,
+                    "systemMessageFrom": {
+                        "key": "system.md",
+                        "name": "fraud-coordinator-prompt-v2",
+                        "type": "ConfigMap"
+                    },
+                    "tools": [
+                        {
+                            "agent": {
+                                "name": "feature-rag-specialist"
+                            },
+                            "type": "Agent"
+                        },
+                        {
+                            "agent": {
+                                "name": "drift-specialist"
+                            },
+                            "type": "Agent"
+                        }
+                    ]
+                },
+                "description": "Fraud Investigation Coordinator",
+                "type": "Declarative",
+                "version": "1.0.0"
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:05Z",
+                        "message": "Agent configuration accepted",
+                        "observedGeneration": 2,
+                        "reason": "Reconciled",
+                        "status": "True",
+                        "type": "Accepted"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:25Z",
+                        "message": "Deployment is ready",
+                        "observedGeneration": 2,
+                        "reason": "DeploymentReady",
+                        "status": "True",
+                        "type": "Ready"
+                    }
+                ],
+                "observedGeneration": 2
+            }
+        },
+        {
+            "apiVersion": "kagent.dev/v1alpha2",
+            "kind": "RemoteMCPServer",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:05Z",
+                "generation": 4,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "drift-mcp",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793571237005247003",
+                "uid": "b91666aa-7d50-4620-9bb7-7a06d01f1cee"
+            },
+            "spec": {
+                "description": "drift-mcp via the MCP Gateway",
+                "headersFrom": [
+                    {
+                        "name": "X-Ewallet-MCP-Service-Token",
+                        "valueFrom": {
+                            "key": "token",
+                            "name": "mcp-token-kagent-controller-drift-mcp-r1-release1",
+                            "type": "Secret"
+                        }
+                    }
+                ],
+                "protocol": "STREAMABLE_HTTP",
+                "terminateOnClose": true,
+                "timeout": "30s",
+                "url": "http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp"
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T21:05:02Z",
+                        "message": "Remote MCP server configuration accepted",
+                        "observedGeneration": 4,
+                        "reason": "Reconciled",
+                        "status": "True",
+                        "type": "Accepted"
+                    }
+                ],
+                "discoveredTools": [
+                    {
+                        "description": "Compare one monitored feature's current window with a versioned baseline and return an explainable PSI breakdown. Classification uses only the baseline's own thresholds.",
+                        "name": "drift_detection"
+                    }
+                ],
+                "observedGeneration": 4
+            }
+        },
+        {
+            "apiVersion": "kagent.dev/v1alpha2",
+            "kind": "RemoteMCPServer",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:05Z",
+                "generation": 4,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "feature-rag-mcp",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793571237195727007",
+                "uid": "4a067797-828a-4abb-b0fb-69fc4b905cb4"
+            },
+            "spec": {
+                "description": "feature-rag-mcp via the MCP Gateway",
+                "headersFrom": [
+                    {
+                        "name": "X-Ewallet-MCP-Service-Token",
+                        "valueFrom": {
+                            "key": "token",
+                            "name": "mcp-token-kagent-controller-feature-rag-mcp-r1-release1",
+                            "type": "Secret"
+                        }
+                    }
+                ],
+                "protocol": "STREAMABLE_HTTP",
+                "terminateOnClose": true,
+                "timeout": "30s",
+                "url": "http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp"
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T21:05:03Z",
+                        "message": "Remote MCP server configuration accepted",
+                        "observedGeneration": 4,
+                        "reason": "Reconciled",
+                        "status": "True",
+                        "type": "Accepted"
+                    }
+                ],
+                "discoveredTools": [
+                    {
+                        "description": "Return the authorized historical online features (Feast Online, freshness-checked) for one canonical transaction. Fails closed when features are missing or stale.",
+                        "name": "feature_lookup"
+                    },
+                    {
+                        "description": "Score one canonical transaction with the registered KServe fraud model. Returns the model's probability and provenance; never a synthetic score.",
+                        "name": "fraud_scoring"
+                    },
+                    {
+                        "description": "Search the versioned fraud-policy corpus and return citations bound to the published manifest (document checksum, chunk, corpus/embedding/index revisions).",
+                        "name": "knowledge_search"
+                    },
+                    {
+                        "description": "Return one published fraud-policy chunk by chunk_id from Feast Online, with its document, source checksum and corpus/embedding/index revisions.",
+                        "name": "chunk_lookup"
+                    }
+                ],
+                "observedGeneration": 4
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

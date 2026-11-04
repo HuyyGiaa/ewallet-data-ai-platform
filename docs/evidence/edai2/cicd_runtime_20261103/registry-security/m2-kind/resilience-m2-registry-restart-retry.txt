@@ -1,0 +1,5 @@
+## FN4 repeat with port-forward retry 2026-11-03T14:39:20Z policies: networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/prompt-registry-db networkpolicy.networking.k8s.io/prompt-registry-server 
+deployment "prompt-registry-agentregistry" successfully rolled out
+attempt 1: "verdict": "PASS"
+prompt-registry-agentregistry-56fff9bfdf-8rvx4   false   0
+prompt-registry-agentregistry-659fbf7d5b-p7zx7   true    0

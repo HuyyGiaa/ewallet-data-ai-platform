@@ -1,0 +1,7 @@
+# O2: llm-d routing. agentgateway -> llm-d router (Envoy + EPP, release
+# llmd-router from infra/helm/llm-d/standalone-values-g2.yaml) -> one of the two
+# C1 replicas; direct primary and fallback stay agentgateway failover targets.
+# llmd.standalone.apiServer.cidrs is read back and set by g2_experiment.sh.
+llmd:
+  enabled: true
+  mode: standalone

@@ -1,0 +1,29 @@
+## 1 gate pre on empty registry (all NOT_PUBLISHED tolerated)
+ "verdict": "PASS"
+## 2 gate post on empty registry
+ "verdict": "FAIL"
+## 3 live publish without confirmation
+registry_catalog.py: error: a live publish requires --confirm-live-write equal to --registry
+## 4 guarded publish (pre gate, publish, post gate)
+verdict PASS readback 17 pre True post_match 12
+## 5 default probe (dry-run only)
+verdict PASS writes [{'dryRun': 'true', 'target': 'drift-specialist-system/v2'}] dry_status 200 unchanged True
+## 6 live write to a pinned prompt is refused before any request
+registry_security_probe: drift-specialist-system is a Git-pinned prompt; live writes to it are never allowed
+## 7 live write without --write-target
+registry_security_probe: --allow-live-write requires --write-target NAME/TAG
+## 8 explicit guarded live write to a throwaway target via the API
+declared target live write HTTP 200
+other target refused: live write to security-probe-guard/t2 differs from --write-target security-probe-guard/t1
+readback 200
+## 9 post gate unaffected by the throwaway object
+ "verdict": "PASS"
+## 10 tamper (local throwaway registry only), then gates
+  "drift-specialist/v2": "MISMATCH: drift-specialist/v2 sha256 d0174b5ef3d3034e9763bfd2e421a1d56a3d3e997a04ae64cf1b392f281d499e differs from the Git manifest 0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef",
+ "verdict": "FAIL"
+configmap promotion:
+prompt_registry: M3 gate failed; refusing to render a ConfigMap: {"drift-specialist/v2": "
+normal publish:
+FAIL M3 pre-publication gate
+restore publish:
+PASS post_match 12

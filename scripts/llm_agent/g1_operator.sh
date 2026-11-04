@@ -15,7 +15,10 @@
 #   failure, Ctrl-C, SIGTERM or SIGHUP. Host loss: see "Recovery" in the runbook.
 #
 # Stage env: image-build: MODEL_DIR, AR_REPO, DIGESTS; image-push, deploy,
-# session: DIGESTS; scale-up: NODES (1-3, default 3).
+# session: DIGESTS; scale-up: NODES (1-4, default 3; 4 when sharing the pool
+# with other workloads). G1_CLEANUP_NODES (0-2, default 0): the pool size cleanup
+# leaves behind for other workstreams; above 0 the G1 release is uninstalled
+# first so nothing of G1 competes with them.
 set -euo pipefail
 stage=${1:-} evidence=${2:-}
 PROJECT=ewallet-data-ai-platform-hg26 ZONE=asia-southeast1-b CLUSTER=ewallet-dev POOL=cpu-pool NS=ewallet-agents
@@ -65,20 +68,35 @@ verify_cluster() {  # the context must point at this cluster, not just carry its
   server=${server#https://}
   contains "$(echo "$endpoints" | tr '\t;' '  ')" "${server%%:*}" || die "kubeconfig server $server is not $CLUSTER"
 }
-api_key() { k -n "$NS" get secret vllm-api-key -o jsonpath='{.data.api-key}' | base64 -d; }
-port_forward() {  # <target> <local:remote>; echoes the pid
-  k -n "$NS" port-forward "$1" "$2" >/dev/null 2>&1 &
+api_key() { k -n "$NS" get secret "${1:-vllm-api-key}" -o jsonpath='{.data.api-key}' | base64 -d; }
+port_forward() {  # <target> <local:remote>; echoes kubectl's own pid (not a subshell's)
+  kubectl --context "$KUBE_CONTEXT" -n "$NS" port-forward "$1" "$2" >/dev/null 2>&1 &
   echo $!
 }
+diagnose() {  # [label]; pods, events and logs, before any cleanup removes them
+  mkdir -p "$evidence/${2:-diagnostics}"
+  k -n "$NS" get pods -o wide > "$evidence/${2:-diagnostics}/pods.txt" 2>&1 || true
+  k -n "$NS" describe pods > "$evidence/${2:-diagnostics}/describe-pods.txt" 2>&1 || true
+  k -n "$NS" get events --sort-by=.lastTimestamp > "$evidence/${2:-diagnostics}/events.txt" 2>&1 || true
+  for pod in $(k -n "$NS" get pods -o name 2>/dev/null); do
+    k -n "$NS" logs "$pod" --all-containers --tail=300 2>&1 | grep -viE 'authorization|bearer|api[-_]key' \
+      > "$evidence/${2:-diagnostics}/${pod#pod/}.log" || true
+    # The container that crashed (OOMKilled, CrashLoop) keeps the useful lines.
+    k -n "$NS" logs "$pod" --all-containers --previous --tail=300 2>/dev/null | grep -viE 'authorization|bearer|api[-_]key' \
+      > "$evidence/${2:-diagnostics}/${pod#pod/}.previous.log" || true
+  done
+}
 cleanup() {  # idempotent; also the session's exit/failure/interrupt handler
+  local keep=${G1_CLEANUP_NODES:-0}
+  [[ "$keep" =~ ^[0-2]$ ]] || die "G1_CLEANUP_NODES must be 0-2"
   k delete namespace "$TEST_NS" --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  if [ "${1:-}" = --uninstall ]; then
-    helm uninstall llm-agent --kube-context "$KUBE_CONTEXT" --namespace default || true
+  if [ "${1:-}" = --uninstall ] || [ "$keep" != 0 ]; then
+    helm uninstall llm-agent --kube-context "$KUBE_CONTEXT" --namespace default --wait --timeout 10m || true
   fi
-  gcloud container clusters resize "$CLUSTER" --node-pool "$POOL" --num-nodes 0 \
+  gcloud container clusters resize "$CLUSTER" --node-pool "$POOL" --num-nodes "$keep" \
     --zone "$ZONE" --project "$PROJECT" --quiet
-  [ "$(pool_size)" = 0 ] && [ "$(pool_instances)" = 0 ] || die "readback: $POOL still has nodes"
-  echo "pool_size=0 instances=0 $(date -u +%FT%TZ)" | tee -a "$evidence/cleanup.txt"
+  [ "$(pool_size)" = "$keep" ] && [ "$(pool_instances)" = "$keep" ] || die "readback: $POOL is not at $keep nodes"
+  echo "pool_size=$keep instances=$keep $(date -u +%FT%TZ)" | tee -a "$evidence/cleanup.txt"
 }
 
 # cleanup must work even when the kubeconfig does not (it only needs gcloud).
@@ -114,12 +132,12 @@ image-build)  # local only: uv contract, checksums, build; never pushes
 image-push)  # Trivy vuln + secret gate on the final image first; a finding stops the push
   : "${DIGESTS:?DIGESTS required}"
   "$root/scripts/llm_agent/scan_and_push.sh" "$DIGESTS"
-  cp "$DIGESTS" "$evidence/image-digests.json"
+  [ "$DIGESTS" -ef "$evidence/image-digests.json" ] || cp "$DIGESTS" "$evidence/image-digests.json"
   ;;
 
 scale-up)
   nodes=${NODES:-3}
-  [[ "$nodes" =~ ^[1-3]$ ]] || die "NODES must be 1-3 (G1 ceiling)"
+  [[ "$nodes" =~ ^[1-4]$ ]] || die "NODES must be 1-4 (G1 ceiling)"
   netpol_enabled || die "NetworkPolicy enforcement must be enabled before nodes exist"
   gcloud container clusters resize "$CLUSTER" --node-pool "$POOL" --num-nodes "$nodes" \
     --zone "$ZONE" --project "$PROJECT" --quiet
@@ -148,18 +166,23 @@ namespace)
   ;;
 
 secret)
-  # A fresh token, never printed, never on a command line; an existing Secret is kept as is.
-  if k -n "$NS" get secret vllm-api-key >/dev/null 2>&1; then
-    echo "secret/vllm-api-key exists: kept, not overwritten" | tee "$evidence/secret.txt"
-  else
-    token_file=$(mktemp)
-    trap 'rm -f "$token_file"' EXIT
-    chmod 600 "$token_file"
-    openssl rand -hex 32 | tr -d '\n' > "$token_file"
-    k -n "$NS" create secret generic vllm-api-key --from-file=api-key="$token_file" >/dev/null
-    echo "secret/vllm-api-key created (value not recorded)" | tee "$evidence/secret.txt"
-  fi
-  [ "$(api_key | wc -c)" -eq 64 ] || die "readback: Secret has no 64-character api-key"
+  # vllm-api-key (gateway -> vLLM) and agentgateway-client-key (clients -> gateway):
+  # fresh tokens, never printed, never on a command line; existing Secrets are kept.
+  token_file=$(mktemp)
+  trap 'rm -f "$token_file"' EXIT
+  chmod 600 "$token_file"
+  : > "$evidence/secret.txt"
+  for name in vllm-api-key agentgateway-client-key; do
+    if k -n "$NS" get secret "$name" >/dev/null 2>&1; then
+      echo "secret/$name exists: kept, not overwritten" | tee -a "$evidence/secret.txt"
+    else
+      openssl rand -hex 32 | tr -d '\n' > "$token_file"
+      k -n "$NS" create secret generic "$name" --from-file=api-key="$token_file" >/dev/null
+      echo "secret/$name created (value not recorded)" | tee -a "$evidence/secret.txt"
+    fi
+    [ "$(api_key "$name" | wc -c)" -eq 64 ] || die "readback: Secret $name has no 64-character api-key"
+  done
+  [ "$(api_key vllm-api-key)" != "$(api_key agentgateway-client-key)" ] || die "client and backend keys must differ"
   ;;
 
 preflight)
@@ -173,8 +196,10 @@ preflight)
 deploy)
   : "${DIGESTS:?DIGESTS required}"
   "$0" preflight "$evidence"  # GO required
-  EXTRA_VALUES="$chart/values-gke-cpu-g1.yaml" KUBE_CONTEXT="$KUBE_CONTEXT" \
-    "$root/scripts/llm_agent/deploy_atomic.sh" gke-cpu "$DIGESTS" "$evidence/deploy"
+  # 2.9 GB image pull plus a CPU warm-up completion: wait up to 30 min.
+  HELM_TIMEOUT=30m EXTRA_VALUES="$chart/values-gke-cpu-g1.yaml" KUBE_CONTEXT="$KUBE_CONTEXT" \
+    "$root/scripts/llm_agent/deploy_atomic.sh" gke-cpu "$DIGESTS" "$evidence/deploy" || { diagnose x deploy/diagnostics; die "deploy failed (diagnostics in $evidence/deploy/diagnostics)"; }
+  diagnose x deploy/diagnostics
   k -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
     > "$evidence/image-ids.txt"
   ;;
@@ -190,13 +215,18 @@ netpol-verify)
     local rc=0
     k -n "$ns" run "np-$name" --image="$CURL_IMAGE" --restart=Never --labels="$labels" --rm -i --quiet \
       --pod-running-timeout=3m \
-      --overrides='{"spec":{"automountServiceAccountToken":false,"securityContext":{"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}}}' \
+      --overrides='{"spec":{"automountServiceAccountToken":false,"securityContext":{"runAsNonRoot":true,"runAsUser":100,"runAsGroup":101,"seccompProfile":{"type":"RuntimeDefault"}}}}' \
       --command -- curl -sS -o /dev/null --max-time 8 "$@" >/dev/null 2>&1 || rc=$?
-    local got=deny
-    [ "$rc" -eq 0 ] && got=allow
-    # curl exit 6 = name not resolved: DNS itself is broken, never a valid deny.
-    [ "$rc" -eq 6 ] && got=dns-failure
-    printf '%s\t%s\t%s\t%s\n' "$name" "$expect" "$got" "$*" | tee -a "$results"
+    # A deny only counts when curl itself ran and failed at the network: 7
+    # refused, 28 timeout, 35 TLS, 52 empty reply, 56 reset. 6 = DNS broken.
+    # Anything else (pod never started, kubectl error) is an error, never a deny.
+    local got=error
+    case "$rc" in
+      0) got=allow ;;
+      7|28|35|52|56) got=deny ;;
+      6) got=dns-failure ;;
+    esac
+    printf '%s\t%s\t%s\t%s\trc=%s\n' "$name" "$expect" "$got" "$*" "$rc" | tee -a "$results"
   }
   vllm="http://vllm-primary.$NS.svc.cluster.local:8000/health"
   gw="http://agentgateway.$NS.svc.cluster.local:4000/"
@@ -205,6 +235,14 @@ netpol-verify)
   probe unlabelled-to-gateway "$NS" g1-test=unlabelled deny "$gw"
   probe other-ns-to-vllm "$TEST_NS" g1-test=other-ns deny "$vllm"
   probe gateway-label-wrong-sa "$NS" app.kubernetes.io/name=agentgateway deny "$vllm"  # NetworkPolicy allows; Istio denies the SA
+  # G2 O2: the llm-d router is reachable from agentgateway only, so no client
+  # gets past the gateway's authentication through it.
+  if k -n "$NS" get svc llmd-router-epp >/dev/null 2>&1; then
+    router="http://llmd-router-epp.$NS.svc.cluster.local:8081/v1/models"
+    probe unlabelled-to-llmd-router "$NS" g1-test=unlabelled deny "$router"
+    probe other-ns-to-llmd-router "$TEST_NS" g1-test=other-ns deny "$router"
+    probe router-label-wrong-sa-to-vllm "$NS" llm-d-router-standalone=llmd-router-epp deny "$vllm"
+  fi
   if k -n "$NS" exec deploy/vllm-primary -- python3 -c \
       'import urllib.request; urllib.request.urlopen("https://huggingface.co", timeout=8)' >/dev/null 2>&1; then
     printf 'vllm-internet\tdeny\tallow\n' | tee -a "$results"
@@ -222,19 +260,35 @@ netpol-verify)
   ;;
 
 smoke-direct | smoke-gateway)
-  if [ "$stage" = smoke-direct ]; then target=svc/vllm-primary ports=18000:8000 model=ewallet-fraud-llm-v1
-  else target=svc/agentgateway ports=13000:3000 model=ewallet-fraud-llm; fi
-  pf=$(port_forward "$target" "$ports")
-  trap 'kill "$pf" 2>/dev/null || true' EXIT
+  if [ "$stage" = smoke-direct ]; then target=svc/vllm-primary ports=18000:8000 model=ewallet-fraud-llm-v1 key=vllm-api-key
+  else target=svc/agentgateway ports=13000:3000 model=ewallet-fraud-llm key=agentgateway-client-key; fi
+  kubectl --context "$KUBE_CONTEXT" -n "$NS" port-forward "$target" "$ports" > "$evidence/$stage-port-forward.log" 2>&1 &
+  pf=$!
+  since=$(date -u +%FT%TZ)
+  # Whatever happens, keep this request window's server-side logs.
+  trap 'kill "$pf" 2>/dev/null || true; for d in vllm-primary vllm-fallback agentgateway; do
+          k -n "$NS" logs "deploy/$d" --since-time="$since" --all-containers 2>&1 \
+            | grep -viE "authorization|bearer|api[-_]key" > "$evidence/$stage-$d.log" || true; done' EXIT
   sleep 3
   endpoint="http://127.0.0.1:${ports%%:*}"
-  EWALLET_VLLM_API_KEY=$(api_key) python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
-    --model "$model" --evidence "$evidence/$stage-non-stream.json"
-  EWALLET_VLLM_API_KEY=$(api_key) python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
+  # Stream first: bytes flow during a slow CPU generation, and its timings show
+  # how long a silent non-stream request has to survive the port-forward.
+  EWALLET_VLLM_API_KEY=$(api_key "$key") python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
     --model "$model" --stream --evidence "$evidence/$stage-stream.json"
-  code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer wrong-key' "$endpoint/v1/models")
-  echo "wrong-key status $code" | tee "$evidence/$stage-wrong-key.txt"
-  [ "$code" = 401 ] || die "wrong key was not rejected with 401"
+  EWALLET_VLLM_API_KEY=$(api_key "$key") python3 "$root/scripts/llm_agent/smoke_tool_call.py" --endpoint "$endpoint" \
+    --model "$model" --evidence "$evidence/$stage-non-stream.json"
+  : > "$evidence/$stage-auth.txt"
+  for case in wrong missing backend-key; do  # the backend key must not open the gateway
+    case $case in
+      wrong) hdr=(-H 'Authorization: Bearer wrong-key') ;;
+      missing) hdr=() ;;
+      backend-key) [ "$stage" = smoke-gateway ] || continue; hdr=(-H "Authorization: Bearer $(api_key vllm-api-key)") ;;
+    esac
+    code=$(curl -s -o /dev/null -w '%{http_code}' "${hdr[@]}" -H 'Content-Type: application/json' \
+      -d '{"model":"'"$model"'","messages":[{"role":"user","content":"hi"}],"max_tokens":1}' "$endpoint/v1/chat/completions")
+    echo "$case-key status $code" | tee -a "$evidence/$stage-auth.txt"
+    [ "$code" = 401 ] || die "$case key was not rejected with 401 on /v1/chat/completions"
+  done
   ;;
 
 failover)
@@ -250,11 +304,36 @@ failover)
     kill "$pf" 2>/dev/null || true
   }
   before=$(fallback_requests)
+  # Restore the replica count that was running (G1: 1; G2: 2 C1 replicas).
+  primaries=$(k -n "$NS" get deploy vllm-primary -o jsonpath='{.spec.replicas}')
+  [[ "$primaries" =~ ^[1-9]$ ]] || die "unexpected vllm-primary replicas: $primaries"
   k -n "$NS" scale deploy/vllm-primary --replicas=0
-  trap 'k -n "$NS" scale deploy/vllm-primary --replicas=1 >/dev/null && k -n "$NS" rollout status deploy/vllm-primary --timeout=20m >/dev/null' EXIT
+  trap 'k -n "$NS" scale deploy/vllm-primary --replicas="$primaries" >/dev/null && k -n "$NS" rollout status deploy/vllm-primary --timeout=30m >/dev/null' EXIT
   k -n "$NS" wait --for=delete pod -l app.kubernetes.io/name=vllm,app.kubernetes.io/instance=primary --timeout=5m
   [ "$(k -n "$NS" get pods -l app.kubernetes.io/instance=primary --no-headers 2>/dev/null | grep -c . || true)" = 0 ] \
     || die "primary pods still present"
+  # agentgateway health is passive: the primary is evicted only after failed
+  # requests (offline mock: two), and later requests go to the fallback. Probe
+  # with 1-token requests until one is served by the fallback; every status on
+  # the way is evidence of the eviction.
+  mkdir -p "$evidence/failover"
+  kubectl --context "$KUBE_CONTEXT" -n "$NS" port-forward svc/agentgateway 13001:3000 > "$evidence/failover/probe-port-forward.log" 2>&1 &
+  probe_pf=$!
+  sleep 3
+  served=""
+  for attempt in 1 2 3 4 5 6; do
+    out=$(curl -s -o /dev/null -D - -w 'status=%{http_code}\n' --max-time 120 \
+      -H "Authorization: Bearer $(api_key agentgateway-client-key)" -H 'Content-Type: application/json' \
+      -d '{"model":"ewallet-fraud-llm","messages":[{"role":"user","content":"ping"}],"max_tokens":1}' \
+      http://127.0.0.1:13001/v1/chat/completions || true)
+    status=$(echo "$out" | sed -n 's/^status=//p')
+    backend=$(echo "$out" | tr -d '\r' | sed -n 's/^x-ewallet-backend: //Ip')
+    echo "attempt=$attempt status=$status backend=${backend:-none}" | tee -a "$evidence/failover/eviction.txt"
+    if [ "$status" = 200 ] && [ "$backend" = fallback ]; then served=yes; break; fi
+    sleep 2
+  done
+  kill "$probe_pf" 2>/dev/null || true
+  [ -n "$served" ] || die "the gateway never served from the fallback (see failover/eviction.txt)"
   G1_APPROVED_STAGES="" "$0" smoke-gateway "$evidence/failover"
   after=$(fallback_requests)
   python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(r["first_turn"].get("backend") != "fallback")' \
@@ -273,7 +352,7 @@ benchmark)
       | awk '{gsub("m","",$2); gsub("Mi","",$3); c+=$2; m+=$3} END {printf "{\"cpu_millicores\": %d, \"memory_mib\": %d}\n", c, m}'
   }
   sample > "$samples"
-  EWALLET_VLLM_API_KEY=$(api_key) timeout 45m python3 "$root/scripts/llm_agent/g1_benchmark.py" \
+  EWALLET_VLLM_API_KEY=$(api_key agentgateway-client-key) timeout 45m python3 "$root/scripts/llm_agent/g1_benchmark.py" \
     --endpoint http://127.0.0.1:13000 --model ewallet-fraud-llm --requests "${BENCH_REQUESTS:-8}" \
     --concurrency "${BENCH_CONCURRENCY:-1}" --resources "$samples" --output "$evidence/benchmark.json" &
   bench=$!
@@ -317,6 +396,7 @@ session)
     trap - EXIT INT TERM HUP
     [ -n "$child" ] && kill -TERM -- "-$child" 2>/dev/null
     kill -TERM "${watchdog:-}" 2>/dev/null
+    [ "$status" = 0 ] || diagnose x session-failure-diagnostics
     record "session ending (status $status): cleanup"
     (set -e; cleanup) || status=1
     exit "$status"

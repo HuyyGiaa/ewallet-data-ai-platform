@@ -1,0 +1,13 @@
+WI identity: 200 ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+cloudbuild builds.get (nonexistent id) -> 404 means permitted: HTTP 404
+cloudbuild builds.list (not in custom role) -> 403: HTTP 403
+GCS list cicd-builds bucket -> 200: HTTP 200
+GCS list {P}_cloudbuild bucket -> 403: HTTP 403
+GCS list canonical data buckets (project list) -> 403: HTTP 403
+AR list repositories -> 403: HTTP 403
+GKE get cluster -> 403: HTTP 403
+k8s list jobs ewallet-cicd -> 200: HTTP 200
+k8s list secrets ewallet-cicd -> 403: HTTP 403
+k8s list pods ewallet-agents -> 403: HTTP 403
+k8s list secrets ewallet-mcp -> 403: HTTP 403
+k8s list secrets ewallet-ci -> 403: HTTP 403

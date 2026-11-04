@@ -1,7 +1,24 @@
 # Documentation index
 
-Start with the [system architecture](00_system_architecture.md), then use the
-component documents for implementation detail and recorded evidence.
+This is the central navigation entrypoint for the source integrated through I6.
+The owner-maintained Google Doc remains the frozen architecture and Living
+Decision authority. The local [system architecture](00_system_architecture.md)
+is a useful repository overview, but historical/runtime claims remain bounded
+by their exact evidence and Git identity.
+
+## Main indexes
+
+| Area | Index | Scope |
+|---|---|---|
+| EDAI-1 | [Data Platform documentation](edai1/README.md) | DP1-DP3, Spark, Flink, storage, Airflow, DataHub, schema, Docker, benchmarks |
+| EDAI-2 | [AI/ML/LLM documentation](edai2/README.md) | Feature Store, KFP, MLflow, KServe, LLM, RAG, agents, gateway, CI/CD, observability |
+| Runbooks | [Operations index](runbooks/README.md) | Operator procedures at their current paths |
+| Evidence | [Evidence index and handling rules](evidence/README.md) | Current evidence locations, provenance rules, and Phase B0 status |
+| Rubric | [Rubric evidence matrix](rubric/rubric_evidence_matrix.csv) | Evidence crosswalk; not an official score |
+| Document status | [Documentation registry](DOCUMENTATION_REGISTRY.csv) | Deterministic inventory with explicit status classifications |
+
+No evidence artifact is moved by this index. Phase B1 migration is not part of
+I7.
 
 | Document | Purpose | Current role |
 |---|---|---|
@@ -15,6 +32,7 @@ component documents for implementation detail and recorded evidence.
 | [Performance benchmarks](07_performance_benchmarks.md) | Spark skew and cardinality experiments | Recorded benchmark |
 | [DataHub metadata and lineage](08_datahub_lineage.md) | Trino ingestion, direct lineage, assertions | Metadata operations |
 | [Runtime configuration](cloud/configuration.md) | Local/dev/GCP profiles, environment variables and preflight | Cloud refactor operations |
+| [Jenkins Platform CI/CD](cloud/jenkins_cicd.md) | Component catalog, merge-base scope, uv governance, controlled release and evidence reproduction | Source/static ready; Jenkins/CD runtime unverified |
 | [Terraform GCP foundation](cloud/terraform_gcp_foundation.md) | Remote state, GCS/IAM/VPC/registry modules, cost gates and apply/cleanup runbook | R2 infrastructure operations |
 | [Dataproc Delta-on-GCS smoke](cloud/dataproc_delta_smoke.md) | Cost-gated Spark/Delta/GCS compatibility job, submission, evidence and cleanup | R3 runtime decision checkpoint |
 | [Cloud Silver bounded pilot](cloud/silver_bounded_pilot.md) | Dry-run and user execution contract for the verified R4 Bronze pilot | Stage 1A runbook |
@@ -22,6 +40,7 @@ component documents for implementation detail and recorded evidence.
 | [Cloud historical features bounded pilot](cloud/historical_features_bounded_pilot.md) | Immutable DP3 point-in-time feature run and validation | Stage 1B verified evidence |
 | [Cloud Feast and bounded training snapshot](ml/cloud_feast_training_snapshot.md) | Frozen DP3-to-Feast offline contract and future USER_RUN boundary | Ready for canonical DP3 output |
 | [Canonical F9 and MLflow](ml/f9_mlflow_canonical.md) | Bounded four-model experiment, PostgreSQL/GCS tracking, registry, evidence, and rollback | Ready for passed Feast snapshot |
+| [Observability](observability.md) | OTel, Prometheus, Loki, Tempo, Grafana dashboards, privacy contracts and rubric mapping | Static validation passed; runtime pending |
 | [Canonical standalone KFP](ml/kfp_canonical.md) | Pinned F9 orchestration DAG, component resources, future USER_RUN, evidence, and rollback | Ready after Feast/F9 prerequisites |
 | [Bounded GKE MLOps runtime gate](ml/gke_mlops_runtime_gate.md) | Dry-run-first image, PostgreSQL, MLflow and standalone KFP deployment/validation/cleanup | Source prepared for USER_RUN verification |
 | [Canonical 100 GB readiness](cloud/canonical_100gb_readiness.md) | Measured source plan and exact user-operated canonical commands | Ready, not executed |

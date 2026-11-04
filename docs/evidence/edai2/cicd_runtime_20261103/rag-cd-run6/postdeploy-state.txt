@@ -1,0 +1,13 @@
+## ewallet-cicd after run 6
+cronjob.batch/rag-ingestion   0 3 * * *   <none>   True   0     <none>   106s
+## CronJob
+suspend=true image=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/rag-ingestion@sha256:1dd91888548968e304d735d962c4eb3fc50560d092ca050efb6240e64e2dcba3 release-sha=c9afc5b145b2c0ac1f412f29249f12b5ba86024a managedBy=ewallet-jenkins-cd
+## Cloud Build aae05981
+SUCCESS	projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com	VERIFIED	gs://ewallet-data-ai-platform-hg26-cicd-build-logs	sha256:1dd91888548968e304d735d962c4eb3fc50560d092ca050efb6240e64e2dcba3
+## Provenance (Container Analysis)
+provenance entries 2 kind BUILD builder {"intotoStatement": {"_type": "https://in-toto.io/Statement/v0.1", "predicateType": "https://slsa.dev/provenance/v0.1", "slsaProvenance": {"builder": {"id": "https://cloudbuild.googleapis.com/GoogleHostedWorker@v0.3"}, "materials": [{"digest": {"md5": "5d61f0bc24290b31cbe7560c27815a9f", "sha256": "b
+## G3 releases
+istiod 13
+kagent 5
+llm-agent 32
+llm-agent-mcp 6

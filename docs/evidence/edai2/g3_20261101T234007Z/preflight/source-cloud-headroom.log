@@ -1,0 +1,38 @@
+Script started on 2026-11-02 06:45:06+07:00 [COMMAND="git rev-parse --show-toplevel; git branch --show-current; git rev-parse HEAD; git rev-parse HEAD^{tree}; git status --porcelain=v2 --branch; free -h; gcloud config list --format=json; kubectl config current-context; helm list -A -o json; kubectl get nodes -o wide; kubectl top nodes" <not executed on terminal>]
+/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2
+codex/llm-g2-llmd-routing
+b4111a57fc0285ce118ea036038f6abb7b046867
+bccf815d624e15578e17b901008169667a956562
+# branch.oid b4111a57fc0285ce118ea036038f6abb7b046867
+# branch.head codex/llm-g2-llmd-routing
+? docs/evidence/edai2/
+? docs/evidence/llm_agent/g3_20261101T170735Z/
+? docs/evidence/llm_agent/rag_g3-gke-feast-redis/
+               total        used        free      shared  buff/cache   available
+Mem:            30Gi        19Gi       1.2Gi       5.0Gi        12Gi        10Gi
+Swap:          8.0Gi       7.9Gi       122Mi
+{
+  "compute": {
+    "region": "asia-southeast1",
+    "zone": "asia-southeast1-b"
+  },
+  "core": {
+    "account": "giahuy39919030@gmail.com",
+    "disable_usage_reporting": "True",
+    "project": "ewallet-data-ai-platform-hg26"
+  }
+}
+gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+[{"name":"cert-manager","namespace":"cert-manager","revision":"1","updated":"2026-10-31 23:45:47.759382847 +0700 +07","status":"deployed","chart":"cert-manager-v1.16.2","app_version":"v1.16.2"},{"name":"istio-base","namespace":"istio-system","revision":"13","updated":"2026-11-01 19:46:07.372035097 +0700 +07","status":"deployed","chart":"base-1.30.7","app_version":"1.30.7"},{"name":"istio-cni","namespace":"istio-system","revision":"13","updated":"2026-11-01 19:46:20.665479437 +0700 +07","status":"deployed","chart":"cni-1.30.7","app_version":"1.30.7"},{"name":"istiod","namespace":"istio-system","revision":"13","updated":"2026-11-01 19:46:15.789551942 +0700 +07","status":"deployed","chart":"istiod-1.30.7","app_version":"1.30.7"},{"name":"kagent","namespace":"kagent","revision":"2","updated":"2026-11-02 04:35:49.614239438 +0700 +07","status":"deployed","chart":"kagent-0.10.3","app_version":""},{"name":"kagent-crds","namespace":"kagent","revision":"1","updated":"2026-11-02 00:21:10.308093322 +0700 +07","status":"deployed","chart":"kagent-crds-0.10.3","app_version":""},{"name":"kserve","namespace":"kserve","revision":"1","updated":"2026-10-31 23:46:51.279849443 +0700 +07","status":"deployed","chart":"kserve-v0.16.0","app_version":""},{"name":"kserve-crd","namespace":"kserve","revision":"1","updated":"2026-10-31 23:46:41.35893481 +0700 +07","status":"deployed","chart":"kserve-crd-v0.16.0","app_version":""},{"name":"llm-agent","namespace":"default","revision":"10","updated":"2026-11-02 05:40:14.928137058 +0700 +07","status":"deployed","chart":"llm-agent-platform-0.1.0","app_version":"llm-agent-v1"},{"name":"llm-agent-mcp","namespace":"ewallet-mcp","revision":"1","updated":"2026-11-02 03:33:46.957462889 +0700 +07","status":"deployed","chart":"llm-agent-platform-0.1.0","app_version":"llm-agent-v1"},{"name":"ztunnel","namespace":"istio-system","revision":"13","updated":"2026-11-01 19:46:25.93387463 +0700 +07","status":"deployed","chart":"ztunnel-1.30.7","app_version":"1.30.7"}]
+NAME                                     STATUS   ROLES    AGE     VERSION               INTERNAL-IP    EXTERNAL-IP      OS-IMAGE                             KERNEL-VERSION      CONTAINER-RUNTIME
+gke-ewallet-dev-cpu-pool-58daed59-08s1   Ready    <none>   24h     v1.36.4-gke.2046003   10.20.0.45     34.143.168.233   Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-9v0c   Ready    <none>   6h25m   v1.36.4-gke.2046003   10.20.15.192   34.143.162.87    Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-gz40   Ready    <none>   6h25m   v1.36.4-gke.2046003   10.20.0.60     136.85.71.81     Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-mb8v   Ready    <none>   24h     v1.36.4-gke.2046003   10.20.0.43     136.85.35.21     Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
+gke-ewallet-dev-cpu-pool-58daed59-08s1   339m         8%       4399Mi          33%
+gke-ewallet-dev-cpu-pool-58daed59-9v0c   217m         5%       2130Mi          16%
+gke-ewallet-dev-cpu-pool-58daed59-gz40   280m         7%       8898Mi          67%
+gke-ewallet-dev-cpu-pool-58daed59-mb8v   294m         7%       5863Mi          44%
+
+Script done on 2026-11-02 06:45:10+07:00 [COMMAND_EXIT_CODE="0"]

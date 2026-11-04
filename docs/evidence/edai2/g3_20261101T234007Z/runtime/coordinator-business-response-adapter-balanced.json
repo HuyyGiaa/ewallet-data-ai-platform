@@ -1,0 +1,147 @@
+{
+  "jsonrpc": "2.0",
+  "id": "g3-adapter-e2e-balanced-001",
+  "result": {
+    "kind": "task",
+    "id": "01a199a5-2041-7ab7-ace3-a6986507ba66",
+    "artifacts": [
+      {
+        "artifactId": "01a199a8-a293-715c-bedf-c3b1ca232ffd",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"status\":\"partial\",\"decision_support\":\"The request exceeded the maximum context length for the feature lookup. Please reduce the input prompt length to comply with the model's constraints. The original transaction details include 4097 input tokens, which exceeds the model's limit of 4096 tokens. Please adjust the parameters before proceeding with the feature lookup.\",\"features\":{}, \"fraud_score\":null, \"drift\":[],\"citations\":[],\"unavailable\":[\"input_tokens\"],\"contract_version\":\"g3-orchestration/v1\",\"prompt_revision\":\"fraud-coordinator/v2\"}"
+          }
+        ]
+      }
+    ],
+    "contextId": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+    "history": [
+      {
+        "kind": "message",
+        "messageId": "g3-adapter-e2e-balanced-001",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "Delegate to Feature-RAG. Preserve every transaction field. Call feature_lookup and fraud_scoring only. Transaction: {\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"event_timestamp\":\"2026-06-01T00:00:00+00:00\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\",\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"counterparty_account_id\":null,\"type\":\"payment\",\"amount\":275465.53,\"currency\":\"VND\",\"channel\":\"app\"}. Return backend status, probability, prediction, and model."
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "kind": "message",
+        "messageId": "g3-adapter-e2e-balanced-001",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "Delegate to Feature-RAG. Preserve every transaction field. Call feature_lookup and fraud_scoring only. Transaction: {\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"event_timestamp\":\"2026-06-01T00:00:00+00:00\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\",\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"counterparty_account_id\":null,\"type\":\"payment\",\"amount\":275465.53,\"currency\":\"VND\",\"channel\":\"app\"}. Return backend status, probability, prediction, and model."
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "kind": "message",
+        "messageId": "01a199a6-55f8-704a-b327-044c28a3e150",
+        "contextId": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+        "metadata": {
+          "adk_app_name": "ewallet_agents__NS__fraud_coordinator",
+          "adk_author": "fraud_coordinator",
+          "adk_invocation_id": "e-c7a54d89-206c-462b-9d92-7a5ad42d9a75",
+          "adk_session_id": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+          "adk_usage_metadata": {
+            "candidatesTokenCount": 273,
+            "promptTokenCount": 977
+          },
+          "adk_user_id": "A2A_USER_01a199a5-2041-7b86-900d-74e5ad5b9129"
+        },
+        "parts": [
+          {
+            "kind": "data",
+            "data": {
+              "args": {
+                "request": "Feature lookup for fraud detection with the provided transaction details: transaction_id: dc58ff4e-b5f7-4486-b1f8-4c31383741a9, event_timestamp: 2026-06-01T00:00:00+00:00, user_id: 55561d92-d042-401c-b02a-b03e3ed280f7, account_id: 2d48f147-f98c-4819-b183-f94ca049c175, device_id: e7765b81-c9f9-4147-aa00-46f34de1d7da, merchant_id: e3e4aced-6b0d-40af-be5c-eef9255204c9, type: payment, amount: 275465.53, currency: VND, channel: app."
+              },
+              "id": "chatcmpl-tool-8e4194700344aafb",
+              "name": "ewallet_agents__NS__feature_rag_specialist"
+            },
+            "metadata": {
+              "adk_is_long_running": false,
+              "adk_type": "function_call"
+            }
+          }
+        ],
+        "role": "agent",
+        "taskId": "01a199a5-2041-7ab7-ace3-a6986507ba66"
+      },
+      {
+        "kind": "message",
+        "messageId": "01a199a7-b275-7c34-9ef6-d0605c689840",
+        "contextId": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+        "metadata": {
+          "adk_app_name": "ewallet_agents__NS__fraud_coordinator",
+          "adk_author": "fraud_coordinator",
+          "adk_invocation_id": "e-c7a54d89-206c-462b-9d92-7a5ad42d9a75",
+          "adk_session_id": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+          "adk_user_id": "A2A_USER_01a199a5-2041-7b86-900d-74e5ad5b9129"
+        },
+        "parts": [
+          {
+            "kind": "data",
+            "data": {
+              "id": "chatcmpl-tool-8e4194700344aafb",
+              "name": "ewallet_agents__NS__feature_rag_specialist",
+              "response": {
+                "error": "OpenAI chat completion request failed: POST \"http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1/chat/completions\": 400 Bad Request {\"message\":\"This model's maximum context length is 4096 tokens. However, your prompt contains at least 4097 input tokens, which exceeds this limit even without any output tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=4097)\",\"type\":\"BadRequestError\",\"param\":\"input_tokens\",\"code\":400}",
+                "subagent_session_id": "01a1992d-2afb-704b-b464-649adafba4c9"
+              }
+            },
+            "metadata": {
+              "adk_type": "function_response"
+            }
+          }
+        ],
+        "role": "agent",
+        "taskId": "01a199a5-2041-7ab7-ace3-a6986507ba66"
+      },
+      {
+        "kind": "message",
+        "messageId": "01a199a8-a293-707d-9154-b445ba565c61",
+        "contextId": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+        "metadata": {
+          "adk_app_name": "ewallet_agents__NS__fraud_coordinator",
+          "adk_author": "fraud_coordinator",
+          "adk_invocation_id": "e-c7a54d89-206c-462b-9d92-7a5ad42d9a75",
+          "adk_session_id": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+          "adk_usage_metadata": {
+            "candidatesTokenCount": 120,
+            "promptTokenCount": 1424
+          },
+          "adk_user_id": "A2A_USER_01a199a5-2041-7b86-900d-74e5ad5b9129"
+        },
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"status\":\"partial\",\"decision_support\":\"The request exceeded the maximum context length for the feature lookup. Please reduce the input prompt length to comply with the model's constraints. The original transaction details include 4097 input tokens, which exceeds the model's limit of 4096 tokens. Please adjust the parameters before proceeding with the feature lookup.\",\"features\":{}, \"fraud_score\":null, \"drift\":[],\"citations\":[],\"unavailable\":[\"input_tokens\"],\"contract_version\":\"g3-orchestration/v1\",\"prompt_revision\":\"fraud-coordinator/v2\"}"
+          }
+        ],
+        "role": "agent",
+        "taskId": "01a199a5-2041-7ab7-ace3-a6986507ba66"
+      }
+    ],
+    "metadata": {
+      "adk_app_name": "ewallet_agents__NS__fraud_coordinator",
+      "adk_author": "fraud_coordinator",
+      "adk_invocation_id": "e-c7a54d89-206c-462b-9d92-7a5ad42d9a75",
+      "adk_session_id": "01a199a5-2041-7b86-900d-74e5ad5b9129",
+      "adk_usage_metadata": {
+        "candidatesTokenCount": 120,
+        "promptTokenCount": 1424
+      },
+      "adk_user_id": "A2A_USER_01a199a5-2041-7b86-900d-74e5ad5b9129"
+    },
+    "status": {
+      "state": "completed",
+      "timestamp": "2026-11-02T00:28:48.147091089Z"
+    }
+  }
+}

@@ -1,8 +1,10 @@
 # Phase D authentication compatibility preflight
 
-Status: **PROPOSED — AWAITING ARCHITECTURE APPROVAL.** No authentication
-adapter is implemented; production keeps `DenyAllAuthenticator`. No RBAC,
-IAM, token automount or cluster change was made. Date: 2026-10-31.
+Status: **HISTORICAL PREFLIGHT, SUPERSEDED FOR G3 SOURCE.** The G3 offline
+source implements service-scoped Secret-token authentication described in
+`g3_offline_source.md`. No RBAC, IAM, token automount or cluster change was
+made. The alternatives below are retained as decision history, not current
+implementation guidance. Date: 2026-10-31.
 
 The canonical Google Doc (Architecture Freeze, Living Decisions up to 21.263)
 returned HTTP 401 from this environment and was **not read**. Frozen contracts

@@ -1,0 +1,146 @@
+{{- /*
+N12 (edai-2 row 48): stdout logs of workloads that cannot export OTLP logs
+(agentgateway v1.7.0 gateways, the Fraud API, the KServe predictor) are read
+through the Kubernetes API (`pods/log`) by Grafana Alloy and pushed to the
+existing Loki. No hostPath, no node agent, no privileged namespace: every
+namespace keeps Pod Security `baseline`. RBAC is a namespaced Role per source
+namespace (pods get/list/watch, pods/log get). Lines pass a redaction stage
+before leaving the pod. Agents and MCP servers already export OTLP logs and are
+not tailed, to avoid duplicates.
+*/}}
+{{- $p := .Values.podLogs | default dict }}
+{{- if (dig "enabled" false $p) }}
+{{- if not (and .Values.observabilityStack.enabled .Values.otelCollector.enabled) }}
+{{- fail "podLogs requires observabilityStack.enabled (Loki)" }}
+{{- end }}
+{{- $ns := .Values.namespace.name }}
+{{- $cidrs := dig "apiServer" "cidrs" list $p }}
+{{- if not $cidrs }}
+{{- fail "podLogs.apiServer.cidrs must list the kubernetes Service ClusterIP and endpoint /32s" }}
+{{- end }}
+{{- $image := dig "image" "" $p }}
+{{- if not (regexMatch "^[a-z0-9./-]+(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}$" $image) }}
+{{- fail "podLogs.image must be pinned by sha256 digest" }}
+{{- end }}
+{{- $sources := dig "sources" list $p }}
+{{- if not $sources }}
+{{- $sources = list
+      (dict "namespace" $ns "label" "app.kubernetes.io/name" "values" (list "agentgateway" "mcp-gateway" "a2a-gateway"))
+      (dict "namespace" "ml-platform" "label" "app.kubernetes.io/name" "values" (list "fraud-api"))
+      (dict "namespace" "fraud-serving" "label" "serving.kserve.io/inferenceservice" "values" (list "fraud-detector")) }}
+{{- end }}
+{{- $namespaces := list }}
+{{- range $sources }}{{- $namespaces = append $namespaces .namespace }}{{- end }}
+{{- $namespaces = $namespaces | uniq | sortAlpha }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: observability-alloy
+  namespace: {{ $ns }}
+  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
+automountServiceAccountToken: true
+{{- range $namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: observability-alloy-pod-logs
+  namespace: {{ . }}
+  labels: {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: observability-alloy-pod-logs
+  namespace: {{ . }}
+  labels: {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+subjects:
+  - {kind: ServiceAccount, name: observability-alloy, namespace: {{ $ns }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: observability-alloy-pod-logs}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-alloy-config
+  namespace: {{ $ns }}
+  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  config.alloy: |
+    {{- include "llm-agent-platform.alloyConfig" (dict "root" . "sources" $sources "namespaces" $namespaces) | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: observability-alloy
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: alloy
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: alloy}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: alloy}
+      annotations:
+        checksum/config: {{ include "llm-agent-platform.alloyConfig" (dict "root" . "sources" $sources "namespaces" $namespaces) | sha256sum }}
+    spec:
+      serviceAccountName: observability-alloy
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      {{- with .Values.llmPlacement.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: alloy
+          image: {{ $image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --storage.path=/tmp/alloy
+            - --server.http.listen-addr=127.0.0.1:12345
+            - --stability.level={{ dig "stabilityLevel" "public-preview" $p }}
+            - --disable-reporting
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          volumeMounts:
+            - {name: config, mountPath: /etc/alloy, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          configMap: {name: observability-alloy-config}
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability-alloy-to-kube-apiserver
+  namespace: {{ $ns }}
+  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: alloy}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- range $cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+{{- end }}

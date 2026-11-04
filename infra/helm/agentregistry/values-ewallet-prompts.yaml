@@ -1,0 +1,12 @@
+# Overlay for the in-cluster install (helm release prompt-registry, namespace
+# ewallet-prompts), applied after values.yaml. External Postgres from
+# infra/kubernetes/prompt-registry/postgres.yaml; URL in Secret prompt-registry-db.
+image:
+  digest: sha256:a2f69bd36fcdb8000d9a72fd6eef88f0c4aebc17ff3c55ea3ed174ae0bb12e3c
+database:
+  postgres:
+    type: external
+    external:
+      secretRef:
+        name: prompt-registry-db
+        key: AGENT_REGISTRY_DATABASE_URL

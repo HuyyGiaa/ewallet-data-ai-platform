@@ -1,0 +1,4 @@
+records in ewallet-mcp owner=helm: 
+## uninstall of that leftover failed record
+Error: uninstall: Release not loaded: llm-agent-mcp: release: not found
+28 objects; 0 missing; 2 pods

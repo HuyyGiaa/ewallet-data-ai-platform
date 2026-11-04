@@ -1,0 +1,292 @@
+{
+  "items": [
+    {
+      "name": "fraud-coordinator",
+      "annotations": {
+        "ewallet.io/a2a-gateway-config-sha256": "86e9f7330d869cef6475141b4f6d9710aa538f840f100ff300f881875636bee6",
+        "kagent.dev/config-hash": "16128218116543120130"
+      },
+      "serviceAccountName": "fraud-coordinator",
+      "containers": [
+        {
+          "name": "kagent",
+          "image": "ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f",
+          "args": [
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8080",
+            "--filepath",
+            "/config"
+          ],
+          "command": null,
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http",
+              "protocol": "TCP"
+            }
+          ],
+          "env": [
+            {
+              "name": "OPENAI_API_KEY",
+              "value": "<valueFrom>"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+              "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+              "value": "true"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+              "value": "grpc"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+              "value": "15000"
+            },
+            {
+              "name": "OTEL_LOGGING_ENABLED",
+              "value": "false"
+            },
+            {
+              "name": "OTEL_TRACING_ENABLED",
+              "value": "true"
+            },
+            {
+              "name": "KAGENT_NAMESPACE",
+              "value": "<valueFrom>"
+            },
+            {
+              "name": "KAGENT_NAME",
+              "value": "fraud-coordinator"
+            },
+            {
+              "name": "KAGENT_URL",
+              "value": "http://kagent-controller.kagent:8083"
+            }
+          ]
+        }
+      ],
+      "status": {
+        "readyReplicas": 1,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "name": "feature-rag-specialist",
+      "annotations": {
+        "ewallet.io/mcp-gateway-config-sha256": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4",
+        "kagent.dev/config-hash": "6056086259485296940"
+      },
+      "serviceAccountName": "feature-rag-specialist",
+      "containers": [
+        {
+          "name": "kagent",
+          "image": "ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f",
+          "args": [
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8080",
+            "--filepath",
+            "/config"
+          ],
+          "command": null,
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http",
+              "protocol": "TCP"
+            }
+          ],
+          "env": [
+            {
+              "name": "OPENAI_API_KEY",
+              "value": "<valueFrom>"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+              "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+              "value": "true"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+              "value": "grpc"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+              "value": "15000"
+            },
+            {
+              "name": "OTEL_LOGGING_ENABLED",
+              "value": "false"
+            },
+            {
+              "name": "OTEL_TRACING_ENABLED",
+              "value": "true"
+            },
+            {
+              "name": "KAGENT_NAMESPACE",
+              "value": "<valueFrom>"
+            },
+            {
+              "name": "KAGENT_NAME",
+              "value": "feature-rag-specialist"
+            },
+            {
+              "name": "KAGENT_URL",
+              "value": "http://kagent-controller.kagent:8083"
+            }
+          ]
+        }
+      ],
+      "status": {
+        "readyReplicas": 1,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "name": "drift-specialist",
+      "annotations": {
+        "ewallet.io/mcp-gateway-config-sha256": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4",
+        "kagent.dev/config-hash": "10702642579326035465"
+      },
+      "serviceAccountName": "drift-specialist",
+      "containers": [
+        {
+          "name": "kagent",
+          "image": "ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f",
+          "args": [
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8080",
+            "--filepath",
+            "/config"
+          ],
+          "command": null,
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http",
+              "protocol": "TCP"
+            }
+          ],
+          "env": [
+            {
+              "name": "OPENAI_API_KEY",
+              "value": "<valueFrom>"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+              "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+              "value": "true"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+              "value": "grpc"
+            },
+            {
+              "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+              "value": "15000"
+            },
+            {
+              "name": "OTEL_LOGGING_ENABLED",
+              "value": "false"
+            },
+            {
+              "name": "OTEL_TRACING_ENABLED",
+              "value": "true"
+            },
+            {
+              "name": "KAGENT_NAMESPACE",
+              "value": "<valueFrom>"
+            },
+            {
+              "name": "KAGENT_NAME",
+              "value": "drift-specialist"
+            },
+            {
+              "name": "KAGENT_URL",
+              "value": "http://kagent-controller.kagent:8083"
+            }
+          ]
+        }
+      ],
+      "status": {
+        "readyReplicas": 1,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "name": "a2a-gateway",
+      "annotations": {
+        "checksum/config": "86e9f7330d869cef6475141b4f6d9710aa538f840f100ff300f881875636bee6"
+      },
+      "serviceAccountName": "a2a-gateway",
+      "containers": [
+        {
+          "name": "agentgateway",
+          "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+          "args": [
+            "-f",
+            "/config/config.yaml"
+          ],
+          "command": null,
+          "ports": [
+            {
+              "containerPort": 8083,
+              "name": "http",
+              "protocol": "TCP"
+            }
+          ],
+          "env": []
+        }
+      ],
+      "status": {
+        "readyReplicas": 1,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "name": "mcp-gateway",
+      "annotations": {
+        "checksum/config": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4"
+      },
+      "serviceAccountName": "mcp-gateway",
+      "containers": [
+        {
+          "name": "agentgateway",
+          "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+          "args": [
+            "-f",
+            "/config/config.yaml"
+          ],
+          "command": null,
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http",
+              "protocol": "TCP"
+            }
+          ],
+          "env": []
+        }
+      ],
+      "status": {
+        "readyReplicas": 1,
+        "updatedReplicas": 1
+      }
+    }
+  ]
+}

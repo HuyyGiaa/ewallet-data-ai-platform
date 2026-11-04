@@ -1,0 +1,5 @@
+r32-equivalent (git CM): systemMessageFrom=drift-specialist-prompt-v2 cm-source=pinned-git-fallback hash=12191494160716088411 pod=drift-specialist-canary-65df68f455-rdfnc
+resolver: registry v2 rendered
+r33 (registry CM): systemMessageFrom=drift-specialist-prompt-managed cm-source=registry hash=12191494160716088411 pod=drift-specialist-canary-65df68f455-rdfnc
+rollback to r32 (git CM): systemMessageFrom=drift-specialist-prompt-v2 cm-source=registry hash=12191494160716088411 pod=drift-specialist-canary-65df68f455-rdfnc
+back on r33 for regression: systemMessageFrom=drift-specialist-prompt-managed cm-source=registry hash=12191494160716088411 pod=drift-specialist-canary-65df68f455-rdfnc

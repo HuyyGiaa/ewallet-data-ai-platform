@@ -1,0 +1,377 @@
+Name:             agentgateway-665c7f898b-bg8gr
+Namespace:        ewallet-agents
+Priority:         0
+Service Account:  agentgateway
+Node:             gke-ewallet-dev-cpu-pool-58daed59-mb8v/10.20.0.43
+Start Time:       Sun, 01 Nov 2026 06:14:07 +0700
+Labels:           app.kubernetes.io/name=agentgateway
+                  pod-template-hash=665c7f898b
+                  topology.kubernetes.io/region=asia-southeast1
+                  topology.kubernetes.io/zone=asia-southeast1-b
+Annotations:      ambient.istio.io/redirection: enabled
+                  cni.projectcalico.org/containerID: ab503434af0a3751a25eb7f93b7a53c1e2369abaa262fe8b0f70a26fc1e27813
+                  cni.projectcalico.org/podIP: 10.216.5.29/32
+                  cni.projectcalico.org/podIPs: 10.216.5.29/32
+Status:           Running
+IP:               10.216.5.29
+IPs:
+  IP:           10.216.5.29
+Controlled By:  ReplicaSet/agentgateway-665c7f898b
+Containers:
+  agentgateway:
+    Container ID:    containerd://87c89b70234bd5de76cb0933cd0658918161f30e39409eb3f32b44db7f052dfb
+    Image:           ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+    Image ID:        ghcr.io/agentgateway/agentgateway@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+    Ports:           4000/TCP (entry), 3000/TCP (llm-internal)
+    Host Ports:      0/TCP (entry), 0/TCP (llm-internal)
+    SeccompProfile:  RuntimeDefault
+    Args:
+      -f
+      /config/config.yaml
+    State:          Running
+      Started:      Sun, 01 Nov 2026 06:14:16 +0700
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     500m
+      memory:  512Mi
+    Requests:
+      cpu:      100m
+      memory:   128Mi
+    Liveness:   tcp-socket :entry delay=0s timeout=1s period=15s successThreshold=1 failureThreshold=3
+    Readiness:  tcp-socket :entry delay=0s timeout=1s period=5s successThreshold=1 failureThreshold=3
+    Startup:    tcp-socket :entry delay=0s timeout=1s period=2s successThreshold=1 failureThreshold=30
+    Environment:
+      VLLM_API_KEY:        <set to the key 'api-key' in secret 'vllm-api-key'>             Optional: false
+      GATEWAY_CLIENT_KEY:  <set to the key 'api-key' in secret 'agentgateway-client-key'>  Optional: false
+    Mounts:
+      /config from config (ro)
+      /tmp from tmp (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  config:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      agentgateway-llm-config
+    Optional:  false
+  tmp:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   128Mi
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             agentgateway-665c7f898b-fgfmm
+Namespace:        ewallet-agents
+Priority:         0
+Service Account:  agentgateway
+Node:             gke-ewallet-dev-cpu-pool-58daed59-nnft/10.20.0.39
+Start Time:       Sun, 01 Nov 2026 06:14:07 +0700
+Labels:           app.kubernetes.io/name=agentgateway
+                  pod-template-hash=665c7f898b
+                  topology.kubernetes.io/region=asia-southeast1
+                  topology.kubernetes.io/zone=asia-southeast1-b
+Annotations:      ambient.istio.io/redirection: enabled
+                  cni.projectcalico.org/containerID: 5c758712ed9eb9eecb7d616576d65b0c2a6d2a99ad21ba740eb887d9546b63c9
+                  cni.projectcalico.org/podIP: 10.216.1.30/32
+                  cni.projectcalico.org/podIPs: 10.216.1.30/32
+Status:           Running
+IP:               10.216.1.30
+IPs:
+  IP:           10.216.1.30
+Controlled By:  ReplicaSet/agentgateway-665c7f898b
+Containers:
+  agentgateway:
+    Container ID:    containerd://6fefe554cb6d4693a4595719ae7f6793b8066a7ce0359ff861b84ffa81d8d617
+    Image:           ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+    Image ID:        ghcr.io/agentgateway/agentgateway@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
+    Ports:           4000/TCP (entry), 3000/TCP (llm-internal)
+    Host Ports:      0/TCP (entry), 0/TCP (llm-internal)
+    SeccompProfile:  RuntimeDefault
+    Args:
+      -f
+      /config/config.yaml
+    State:          Running
+      Started:      Sun, 01 Nov 2026 06:14:08 +0700
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     500m
+      memory:  512Mi
+    Requests:
+      cpu:      100m
+      memory:   128Mi
+    Liveness:   tcp-socket :entry delay=0s timeout=1s period=15s successThreshold=1 failureThreshold=3
+    Readiness:  tcp-socket :entry delay=0s timeout=1s period=5s successThreshold=1 failureThreshold=3
+    Startup:    tcp-socket :entry delay=0s timeout=1s period=2s successThreshold=1 failureThreshold=30
+    Environment:
+      VLLM_API_KEY:        <set to the key 'api-key' in secret 'vllm-api-key'>             Optional: false
+      GATEWAY_CLIENT_KEY:  <set to the key 'api-key' in secret 'agentgateway-client-key'>  Optional: false
+    Mounts:
+      /config from config (ro)
+      /tmp from tmp (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  config:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      agentgateway-llm-config
+    Optional:  false
+  tmp:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   128Mi
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             vllm-fallback-d6c5b66c4-zrgm5
+Namespace:        ewallet-agents
+Priority:         0
+Service Account:  vllm
+Node:             gke-ewallet-dev-cpu-pool-58daed59-08s1/10.20.0.45
+Start Time:       Sun, 01 Nov 2026 06:14:07 +0700
+Labels:           app.kubernetes.io/instance=fallback
+                  app.kubernetes.io/name=vllm
+                  llm.ewallet.io/backend-version=fallback
+                  pod-template-hash=d6c5b66c4
+                  topology.kubernetes.io/region=asia-southeast1
+                  topology.kubernetes.io/zone=asia-southeast1-b
+Annotations:      ambient.istio.io/redirection: enabled
+                  cni.projectcalico.org/containerID: 254e9f6fc358692d51b5894b423972eb05062b2a40aad7183cdd9bde1ae3244d
+                  cni.projectcalico.org/podIP: 10.216.4.6/32
+                  cni.projectcalico.org/podIPs: 10.216.4.6/32
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.216.4.6
+IPs:
+  IP:           10.216.4.6
+Controlled By:  ReplicaSet/vllm-fallback-d6c5b66c4
+Containers:
+  vllm:
+    Container ID:    containerd://7d9b1ae8c07ab0e709c8fe501d4f1b4df604de3a2c9e6354595130ee4e379f2b
+    Image:           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+    Image ID:        asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+    Port:            8000/TCP (http)
+    Host Port:       0/TCP (http)
+    SeccompProfile:  RuntimeDefault
+    Args:
+      --model
+      /models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca
+      --served-model-name
+      ewallet-fraud-llm-v1
+      --dtype
+      bfloat16
+      --max-model-len
+      4096
+      --enable-auto-tool-choice
+      --tool-call-parser
+      hermes
+      --reasoning-parser
+      qwen3
+      --default-chat-template-kwargs
+      {"enable_thinking":false}
+      --max-num-seqs
+      2
+      --max-num-queued-reqs
+      4
+    State:          Running
+      Started:      Sun, 01 Nov 2026 06:16:34 +0700
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     3
+      memory:  10Gi
+    Requests:
+      cpu:      2
+      memory:   6Gi
+    Liveness:   http-get http://:http/health delay=0s timeout=3s period=30s successThreshold=1 failureThreshold=3
+    Readiness:  http-get http://:http/health delay=0s timeout=3s period=10s successThreshold=1 failureThreshold=3
+    Startup:    exec [python3 -c import json, os, urllib.request
+# Shaped like a real tool call (system prompt + described tool,
+        # ~200 prompt tokens): on CPU the first request of a new
+        # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.
+body = {"model": "ewallet-fraud-llm-v1", "max_tokens": 32, "temperature": 0,
+        "messages": [
+            {"role": "system", "content": "You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data."},
+            {"role": "user", "content": "Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture."}],
+        "tools": [{"type": "function", "function": {"name": "feature_lookup",
+            "description": "Retrieve a test transaction feature fixture.", "parameters": {
+            "type": "object", "properties": {"transaction_id": {"type": "string"}},
+            "required": ["transaction_id"], "additionalProperties": False}}}],
+        "tool_choice": "required"}
+request = urllib.request.Request("http://127.0.0.1:8000/v1/chat/completions",
+    data=json.dumps(body).encode(), method="POST", headers={
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + os.environ["VLLM_API_KEY"]})
+urllib.request.urlopen(request, timeout=240).read()
+] delay=0s timeout=245s period=10s successThreshold=1 failureThreshold=90
+    Environment:
+      VLLM_API_KEY:                  <set to the key 'api-key' in secret 'vllm-api-key'>  Optional: false
+      VLLM_CPU_KVCACHE_SPACE:        2
+      VLLM_CPU_NUM_OF_RESERVED_CPU:  1
+      OMP_NUM_THREADS:               2
+      HF_HUB_OFFLINE:                1
+      TRANSFORMERS_OFFLINE:          1
+    Mounts:
+      /dev/shm from dshm (rw)
+      /root/.cache from cache (rw)
+      /tmp from tmp (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  cache:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  8Gi
+  tmp:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  1Gi
+  dshm:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      Memory
+    SizeLimit:   1Gi
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             vllm-primary-76547d8c9d-w5kvl
+Namespace:        ewallet-agents
+Priority:         0
+Service Account:  vllm
+Node:             gke-ewallet-dev-cpu-pool-58daed59-zrgm/10.20.0.44
+Start Time:       Sun, 01 Nov 2026 06:14:07 +0700
+Labels:           app.kubernetes.io/instance=primary
+                  app.kubernetes.io/name=vllm
+                  llm.ewallet.io/backend-version=primary
+                  pod-template-hash=76547d8c9d
+                  topology.kubernetes.io/region=asia-southeast1
+                  topology.kubernetes.io/zone=asia-southeast1-b
+Annotations:      ambient.istio.io/redirection: enabled
+                  cni.projectcalico.org/containerID: 0f56787aa82537627c3ca7d25e2c679e10a28639185783185bbe522d18380e67
+                  cni.projectcalico.org/podIP: 10.216.0.6/32
+                  cni.projectcalico.org/podIPs: 10.216.0.6/32
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.216.0.6
+IPs:
+  IP:           10.216.0.6
+Controlled By:  ReplicaSet/vllm-primary-76547d8c9d
+Containers:
+  vllm:
+    Container ID:    containerd://d8f0e3aafdbec04d91d59c974ccabf9d21dc12831958bf4778c1d712b891dd78
+    Image:           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+    Image ID:        asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+    Port:            8000/TCP (http)
+    Host Port:       0/TCP (http)
+    SeccompProfile:  RuntimeDefault
+    Args:
+      --model
+      /models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca
+      --served-model-name
+      ewallet-fraud-llm-v1
+      --dtype
+      bfloat16
+      --max-model-len
+      4096
+      --enable-auto-tool-choice
+      --tool-call-parser
+      hermes
+      --reasoning-parser
+      qwen3
+      --default-chat-template-kwargs
+      {"enable_thinking":false}
+      --max-num-seqs
+      4
+      --max-num-queued-reqs
+      8
+      --enable-prefix-caching
+    State:          Running
+      Started:      Sun, 01 Nov 2026 06:16:33 +0700
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     3
+      memory:  10Gi
+    Requests:
+      cpu:      2
+      memory:   6Gi
+    Liveness:   http-get http://:http/health delay=0s timeout=3s period=30s successThreshold=1 failureThreshold=3
+    Readiness:  http-get http://:http/health delay=0s timeout=3s period=10s successThreshold=1 failureThreshold=3
+    Startup:    exec [python3 -c import json, os, urllib.request
+# Shaped like a real tool call (system prompt + described tool,
+        # ~200 prompt tokens): on CPU the first request of a new
+        # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.
+body = {"model": "ewallet-fraud-llm-v1", "max_tokens": 32, "temperature": 0,
+        "messages": [
+            {"role": "system", "content": "You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data."},
+            {"role": "user", "content": "Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture."}],
+        "tools": [{"type": "function", "function": {"name": "feature_lookup",
+            "description": "Retrieve a test transaction feature fixture.", "parameters": {
+            "type": "object", "properties": {"transaction_id": {"type": "string"}},
+            "required": ["transaction_id"], "additionalProperties": False}}}],
+        "tool_choice": "required"}
+request = urllib.request.Request("http://127.0.0.1:8000/v1/chat/completions",
+    data=json.dumps(body).encode(), method="POST", headers={
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + os.environ["VLLM_API_KEY"]})
+urllib.request.urlopen(request, timeout=240).read()
+] delay=0s timeout=245s period=10s successThreshold=1 failureThreshold=90
+    Environment:
+      VLLM_API_KEY:                  <set to the key 'api-key' in secret 'vllm-api-key'>  Optional: false
+      VLLM_CPU_KVCACHE_SPACE:        2
+      VLLM_CPU_NUM_OF_RESERVED_CPU:  1
+      OMP_NUM_THREADS:               2
+      HF_HUB_OFFLINE:                1
+      TRANSFORMERS_OFFLINE:          1
+    Mounts:
+      /dev/shm from dshm (rw)
+      /root/.cache from cache (rw)
+      /tmp from tmp (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  cache:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  8Gi
+  tmp:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  1Gi
+  dshm:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      Memory
+    SizeLimit:   1Gi
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s

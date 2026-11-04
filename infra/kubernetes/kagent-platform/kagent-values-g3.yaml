@@ -1,0 +1,37 @@
+# G3 overlay on kagent-values.yaml (kagent 0.10.3, digest in
+# infra/kubernetes/kagent-pilot/versions.env). Owner decision 2026-11-01:
+# kagent without Substrate until the Substrate/gVisor audit is approved, and no
+# cluster-scoped object beyond the 9 kagent.dev CRDs (kagent-crds chart).
+#  - controller metrics off: the chart renders its two ClusterRoles
+#    (metrics-auth, metrics-reader) only when metrics are enabled;
+#  - RBAC stays namespaced (rbac.namespaces in kagent-values.yaml);
+#  - every kagent pod runs on the temporary G3 nodes, never on MLOps nodes.
+controller:
+  metrics:
+    enabled: false
+  substrate:
+    enabled: false
+  nodeSelector:
+    ewallet.io/g3-llm: 'true'
+  image:
+    tag: 0.10.3@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76
+  agentImage:
+    tag: 0.10.3@sha256:9a41ef053b264630ae078d2d2c7c72a85d5d77e6b2ce392169006f84055dacfb
+    fullDigest: sha256:56091a1be9bffa5653ed9795fb70a4c8ef82d0a981e55d3562fcfd84386e926d
+  goAgentImage:
+    tag: 0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f
+    fullDigest: sha256:ad8f3497eb34906d183a48dffadbd941801093cd961d215ee62ecb8161012f13
+  skillsInitImage:
+    tag: 0.10.3@sha256:523028f1c7fb361c7f8d1b23a63a44295315cce9cd4d7dd7cb929755da9f9f84
+ui:
+  nodeSelector:
+    ewallet.io/g3-llm: 'true'
+  image:
+    tag: 0.10.3@sha256:13f62914b66e19d394eea5fe04db85f689457ad582ef6b2ebd3bb44ec01a1127
+nodeSelector:
+  ewallet.io/g3-llm: 'true'
+database:
+  postgres:
+    bundled:
+      image:
+        tag: 18.6-alpine3.23@sha256:1a0c23d53c1ad77468c8653fa6eed4f4105cfbef9e6f027bc1dfeb16949a8c29

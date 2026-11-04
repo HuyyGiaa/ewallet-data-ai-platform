@@ -1,0 +1,5 @@
+namespace/ewallet-mcp-release created
+resourcequota/helm-records-only created
+networkpolicy.networking.k8s.io/default-deny created
+role.rbac.authorization.k8s.io/jenkins-helm-records created
+rolebinding.rbac.authorization.k8s.io/jenkins-helm-records created

@@ -82,6 +82,37 @@ class ProcessingTest(unittest.TestCase):
         later = self.event(4, self.t + timedelta(seconds=1), user_id="user-001")
         self.assertEqual(3, state.snapshot(later)["user_behavior"].values["user_tx_count_5m"])
 
+    def test_device_age_learns_first_observed_event_when_dimension_is_missing(self) -> None:
+        state = HistoricalFeatureState()
+        first = self.event(1, self.t, device_id="device-cold-start")
+        later = self.event(
+            2,
+            self.t + timedelta(minutes=40),
+            device_id="device-cold-start",
+        )
+
+        first_snapshot = state.snapshot_group([first])[first.transaction_id]["device_behavior"]
+
+        self.assertEqual(0.0, first_snapshot.values["device_age_seconds"])
+        self.assertEqual(
+            2400.0,
+            state.snapshot(later)["device_behavior"].values["device_age_seconds"],
+        )
+
+    def test_device_age_prefers_canonical_dimension_over_observed_events(self) -> None:
+        state = HistoricalFeatureState(
+            device_first_seen={"device-known": self.t - timedelta(days=1)}
+        )
+        first = self.event(1, self.t, device_id="device-known")
+        state.snapshot_group([first])
+
+        later = self.event(2, self.t + timedelta(hours=1), device_id="device-known")
+
+        self.assertEqual(
+            90000.0,
+            state.snapshot(later)["device_behavior"].values["device_age_seconds"],
+        )
+
     def test_snapshot_covers_exact_31_feature_contract(self) -> None:
         state = HistoricalFeatureState(
             device_first_seen={"device-001": self.t - timedelta(days=1)}

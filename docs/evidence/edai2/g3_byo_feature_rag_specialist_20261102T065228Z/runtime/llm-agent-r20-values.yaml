@@ -1,0 +1,254 @@
+a2aGateway:
+  callerServiceAccounts:
+    fraud-coordinator: fraud-coordinator
+  enabled: true
+  kagentA2A: kagent-controller.kagent.svc.cluster.local:8083
+  requestTimeout: 660s
+agentgateway:
+  backendRequestTimeout: 160s
+  llmRequestTimeout: 170s
+  replicas: 1
+  requestTimeout: 180s
+  responseIdleTimeout: 160s
+agents:
+  coordinator:
+    byo:
+      enabled: true
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446
+    promptVersion: v5
+  enabled: true
+  mcpServers:
+    drift-mcp:
+      discoveryHeaderSecret:
+        key: token
+        name: mcp-token-kagent-controller-drift-mcp
+    feature-rag-mcp:
+      discoveryHeaderSecret:
+        key: token
+        name: mcp-token-kagent-controller-feature-rag-mcp
+  mode: agent
+  replicas: 1
+  specialists:
+    drift-specialist:
+      authHeaderSecrets:
+        drift-mcp:
+          key: token
+          name: mcp-token-drift-specialist-drift-mcp
+        feature-rag-mcp:
+          key: token
+          name: mcp-token-drift-specialist-feature-rag-mcp
+    feature-rag-specialist:
+      authHeaderSecrets:
+        feature-rag-mcp:
+          key: token
+          name: mcp-token-feature-rag-specialist-feature-rag-mcp
+      byo:
+        enabled: true
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:92c5730b8695b5c2e7dd687077a640044837d080210f6c20730ab5c9e4c7d7c9
+      promptVersion: v5
+crossNamespace:
+  flows:
+  - direction: egress
+    local: a2a-gateway
+    name: a2a-gateway-to-kagent-controller
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+    port: 8083
+  - direction: egress
+    local: fraud-coordinator
+    name: fraud-coordinator-to-kagent-controller
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+    port: 8083
+  - direction: egress
+    local: drift-specialist
+    name: drift-specialist-to-kagent-controller
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+    port: 8083
+  - direction: egress
+    local: feature-rag-specialist
+    name: feature-rag-specialist-to-kagent-controller
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+    port: 8083
+  - direction: ingress
+    local: fraud-coordinator
+    name: kagent-controller-to-fraud-coordinator
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+      serviceAccount: kagent-controller
+    port: 8080
+  - direction: ingress
+    local: drift-specialist
+    name: kagent-controller-to-drift-specialist
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+      serviceAccount: kagent-controller
+    port: 8080
+  - direction: ingress
+    local: feature-rag-specialist
+    name: kagent-controller-to-feature-rag-specialist
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+      serviceAccount: kagent-controller
+    port: 8080
+  - direction: egress
+    local: feature-rag-mcp
+    name: feature-rag-mcp-to-feast-redis
+    peer:
+      namespace: feature-store
+      podLabels:
+        app.kubernetes.io/name: redis
+    peerIngress: true
+    port: 6379
+  - direction: egress
+    local: feature-rag-mcp
+    name: feature-rag-mcp-to-kserve-fraud-detector
+    peer:
+      namespace: fraud-serving
+      podLabels:
+        serving.kserve.io/inferenceservice: fraud-detector
+    peerIngress: true
+    port: 8080
+  - direction: ingress
+    local: mcp-gateway
+    name: kagent-controller-to-mcp-gateway
+    peer:
+      ambient: true
+      namespace: kagent
+      podLabels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kagent
+      serviceAccount: kagent-controller
+    port: 8080
+gateway:
+  enabled: false
+llmPlacement:
+  nodeSelector:
+    ewallet.io/g3-llm: "true"
+mcpCredentialLifecycle:
+  clientRelease: r1-release1
+  serverSet: legacy
+mcpGateway:
+  authorizationMode: ambient-backend-token
+  backendAmbient: true
+  backendNamespace: ewallet-mcp
+  callerServiceAccounts:
+    drift-specialist: drift-specialist
+    feature-rag-specialist: feature-rag-specialist
+  discoveryCallers:
+  - namespace: kagent
+    serviceAccount: kagent-controller
+  enabled: true
+  replicas: 1
+mcpServices:
+  enabled: true
+  identity:
+    configRevision: g3-gke-v1
+    corpusRevision: fraud-policy-v1-20261030
+    featureRevision: canonical-100gb-v1/online-20261031-163506
+    gitSha: 695279967f30451d7157228f67faa36842fa0aa4
+    imageDigest: sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0
+    modelRevision: fraud-detector/1
+    promptRevision: v2
+  image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0
+  replicas: 1
+  services:
+    drift-mcp:
+      authSecret:
+        key: auth-config.json
+        name: mcp-auth-drift-mcp
+      toolGrants:
+        drift-specialist:
+        - drift_detection
+    feature-rag-mcp: null
+modelConfig:
+  enabled: true
+  timeoutSeconds: 200
+namespace:
+  create: false
+networkFlows:
+  enforced:
+  - from: agentgateway
+    name: agentgateway-to-vllm
+    port: 8000
+    to: vllm
+  - from: fraud-coordinator
+    name: fraud-coordinator-to-agentgateway
+    port: 4000
+    to: agentgateway
+  - from: drift-specialist
+    name: drift-specialist-to-agentgateway
+    port: 4000
+    to: agentgateway
+  - from: feature-rag-specialist
+    name: feature-rag-specialist-to-agentgateway
+    port: 4000
+    to: agentgateway
+  - from: drift-specialist
+    name: drift-specialist-to-mcp-gateway
+    port: 8080
+    to: mcp-gateway
+  - from: feature-rag-specialist
+    name: feature-rag-specialist-to-mcp-gateway
+    port: 8080
+    to: mcp-gateway
+  - from: fraud-coordinator
+    name: fraud-coordinator-to-a2a-gateway
+    port: 8083
+    to: a2a-gateway
+networkPolicy:
+  dns:
+    nodeLocalIP: 169.254.20.10
+    serviceIP: 34.118.224.10
+vllm:
+  cpuThreadsBind: 0-1
+  fallback:
+    replicas: 0
+  image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+  kvCacheSpaceGiB: 2
+  modelSource:
+    image:
+      path: /models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca
+    mode: image
+  primary:
+    replicas: 1
+  resources:
+    limits:
+      cpu: "3"
+      memory: 10Gi
+    requests:
+      cpu: "2"
+      memory: 6Gi
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1

@@ -1,0 +1,128 @@
+{
+ "airflow_version": "3.3.1",
+ "append_env": {
+  "discover_documents": true,
+  "generate_embeddings": true,
+  "parse_and_chunk": true,
+  "publish_datahub_lineage": true,
+  "publish_feast_features": true,
+  "validate_online_readback": true
+ },
+ "bash_commands_contain_jinja": {
+  "discover_documents": false,
+  "generate_embeddings": false,
+  "parse_and_chunk": false,
+  "publish_datahub_lineage": false,
+  "publish_feast_features": false,
+  "validate_online_readback": false
+ },
+ "dag_ids": [
+  "rag_fraud_policy"
+ ],
+ "env_param_templates": {
+  "discover_documents": [
+   "RAG_AIRFLOW_RUN_ID",
+   "RAG_DATAHUB_MODE",
+   "RAG_ONLINE_STORE",
+   "RAG_RUN_LABEL",
+   "RAG_SOURCE_LOCATION"
+  ],
+  "generate_embeddings": [
+   "RAG_AIRFLOW_RUN_ID",
+   "RAG_DATAHUB_MODE",
+   "RAG_ONLINE_STORE",
+   "RAG_RUN_LABEL",
+   "RAG_SOURCE_LOCATION"
+  ],
+  "parse_and_chunk": [
+   "RAG_AIRFLOW_RUN_ID",
+   "RAG_DATAHUB_MODE",
+   "RAG_ONLINE_STORE",
+   "RAG_RUN_LABEL",
+   "RAG_SOURCE_LOCATION"
+  ],
+  "publish_datahub_lineage": [
+   "RAG_AIRFLOW_RUN_ID",
+   "RAG_DATAHUB_MODE",
+   "RAG_ONLINE_STORE",
+   "RAG_RUN_LABEL",
+   "RAG_SOURCE_LOCATION"
+  ],
+  "publish_feast_features": [
+   "RAG_AIRFLOW_RUN_ID",
+   "RAG_DATAHUB_MODE",
+   "RAG_ONLINE_STORE",
+   "RAG_RUN_LABEL",
+   "RAG_SOURCE_LOCATION"
+  ],
+  "validate_online_readback": [
+   "RAG_AIRFLOW_RUN_ID",
+   "RAG_DATAHUB_MODE",
+   "RAG_ONLINE_STORE",
+   "RAG_RUN_LABEL",
+   "RAG_SOURCE_LOCATION"
+  ]
+ },
+ "execution_timeout_seconds": {
+  "discover_documents": 300.0,
+  "generate_embeddings": 1200.0,
+  "parse_and_chunk": 300.0,
+  "publish_datahub_lineage": 600.0,
+  "publish_feast_features": 900.0,
+  "validate_online_readback": 900.0
+ },
+ "import_errors": {},
+ "interpreter_env_present": true,
+ "malicious_param_results": {
+  "datahub_mode='skip'": "ParamValidationError",
+  "online_store='memory'": "ParamValidationError",
+  "run_label=\"x'; touch /tmp/p; '\"": "ParamValidationError",
+  "run_label='run-001\\n'": "ParamValidationError",
+  "source_location='/etc'": "ParamValidationError",
+  "source_location='data/llm_agent/rag/../../etc'": "ParamValidationError",
+  "source_location='http://attacker.example/x'": "ParamValidationError"
+ },
+ "operators": [
+  "BashOperator"
+ ],
+ "param_defaults": {
+  "datahub_mode": "publish",
+  "online_store": "redis",
+  "run_label": "",
+  "source_location": "data/llm_agent/rag/fraud-policy-v1"
+ },
+ "python": "3.10.20",
+ "rendered_env_defaults": {
+  "RAG_AIRFLOW_RUN_ID": "manual__2026-11-01T00:00:00+00:00",
+  "RAG_DATAHUB_MODE": "publish",
+  "RAG_ONLINE_STORE": "redis",
+  "RAG_RUN_LABEL": "",
+  "RAG_SOURCE_LOCATION": "data/llm_agent/rag/fraud-policy-v1"
+ },
+ "retries": {
+  "discover_documents": 2,
+  "generate_embeddings": 2,
+  "parse_and_chunk": 2,
+  "publish_datahub_lineage": 2,
+  "publish_feast_features": 2,
+  "validate_online_readback": 2
+ },
+ "tasks": {
+  "discover_documents": [
+   "parse_and_chunk"
+  ],
+  "generate_embeddings": [
+   "publish_feast_features"
+  ],
+  "parse_and_chunk": [
+   "generate_embeddings"
+  ],
+  "publish_datahub_lineage": [],
+  "publish_feast_features": [
+   "validate_online_readback"
+  ],
+  "validate_online_readback": [
+   "publish_datahub_lineage"
+  ]
+ }
+}

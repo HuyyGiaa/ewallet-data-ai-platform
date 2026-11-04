@@ -151,15 +151,13 @@ class PhaseCRagTest(unittest.TestCase):
         self.assertEqual(result["metrics"]["query_count"], 2.0)
         self.assertTrue(all(item["citations"] for item in result["results"]))
 
-    def test_airflow_dag_preserves_manual_source_only_gate(self):
+    def test_airflow_dag_orchestrates_every_ingestion_stage(self):
         source = (ROOT / "data_platform/orchestration/airflow/dags/rag_fraud_policy.py").read_text()
         self.assertIn('dag_id="rag_fraud_policy"', source)
         self.assertIn('schedule=None', source)
         self.assertIn('max_active_runs=1', source)
-        self.assertIn('build_feast_publication_artifact', source)
-        self.assertIn('evaluate_retrieval_with_citations', source)
-        self.assertIn('verify_source_artifacts_and_runtime_gate', source)
-        self.assertNotIn('python_module_command("feast', source)
+        stages = [line.split('"')[3] for line in source.splitlines() if line.strip().startswith('("') and "timedelta" in line]
+        self.assertEqual(stages, ["discover", "chunk", "embed", "publish", "validate", "datahub"])
         self.assertNotIn('DatahubRestEmitter', source)
 
     def test_artifact_verifier_rejects_runtime_claim_and_accepts_provenance(self):

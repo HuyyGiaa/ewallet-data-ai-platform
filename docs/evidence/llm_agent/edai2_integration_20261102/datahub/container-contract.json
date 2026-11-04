@@ -1,0 +1,64 @@
+[
+  {
+    "name": "/datahub-mysql-1",
+    "image": "mysql:8.2",
+    "depends_on": "",
+    "memory_limit": 0,
+    "ports": {
+      "3306/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "3306"
+        }
+      ]
+    }
+  },
+  {
+    "name": "/datahub-opensearch-1",
+    "image": "opensearchproject/opensearch:2.19.3",
+    "depends_on": "",
+    "memory_limit": 0,
+    "ports": {
+      "9200/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "9200"
+        }
+      ]
+    }
+  },
+  {
+    "name": "/datahub-kafka-broker-1",
+    "image": "confluentinc/cp-kafka:8.2.2",
+    "depends_on": "",
+    "memory_limit": 0,
+    "ports": {
+      "9092/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "9093"
+        }
+      ]
+    }
+  },
+  {
+    "name": "/datahub-datahub-gms-quickstart-1",
+    "image": "acryldata/datahub-gms:v1.7.0.1",
+    "depends_on": "system-update-quickstart:service_completed_successfully:false",
+    "memory_limit": 0,
+    "ports": {
+      "4319/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "4319"
+        }
+      ],
+      "8080/tcp": [
+        {
+          "HostIp": "",
+          "HostPort": "18080"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,400 @@
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/P0_ROOT_CAUSE.md:17:- Its native kagent Agent-tool call emitted only
+scripts/validation/run_rag_dag_isolated.sh:5:# uses the explicit sqlite local-dev profile. DataHub runs plan_only unless the
+scripts/validation/run_rag_dag_isolated.sh:6:# optional third argument is "publish" and DATAHUB_GMS_URL is set, which
+scripts/validation/run_rag_dag_isolated.sh:7:# publishes to and reads back from that DataHub.
+scripts/validation/run_rag_dag_isolated.sh:24:[[ "${DATAHUB_MODE}" == plan_only || -n "${DATAHUB_GMS_URL:-}" ]] || { echo "ERROR: publish needs DATAHUB_GMS_URL" >&2; exit 2; }
+scripts/validation/run_rag_dag_isolated.sh:52:    DATAHUB_GMS_URL="${DATAHUB_GMS_URL:-}" EWALLET_RAG_ENV_FILE="${RUN_ENV_FILE}" \
+scripts/validation/run_rag_dag_isolated.sh:102:            validate_online_readback publish_datahub_lineage; do
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/LIVING_DECISION_WRITEBACK.md:13:revisions, test counts, successful RAG DagRun, plan-only DataHub boundary,
+ops/validation/validate_runtime_config.py:55:    "data_platform/metadata/datahub/lineage/trino_recipe.yml": {
+ops/validation/validate_runtime_config.py:69:    "DATAHUB_GMS_URL": "http://datahub-gms.metadata.svc.cluster.local:8080",
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:9:remains blocked. At Helm revision 15 the model emitted a textual pseudo-call
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:20:Feast keys and production RAG DB0 untouched. DataHub remained plan-only because
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:22:DataHub publication/readback is claimed.
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:109:partial because all five quality checks passed locally while DataHub runtime
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:119:3. Start/reuse DataHub only after the host resource gate is safe, publish the
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:120:   already constructed 25 records, and independently read back lineage and
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:121:   assertions.
+ai_platform/features/feast/validation/canonical_sample.py:174:    expected_lineage: Mapping[str, str] | None = None,
+ai_platform/features/feast/validation/canonical_sample.py:182:        if expected_lineage is None:
+ai_platform/features/feast/validation/canonical_sample.py:183:            raise ValueError("GCP PIT validation requires expected export lineage")
+ai_platform/features/feast/validation/canonical_sample.py:196:            expected_lineage=expected_lineage,
+ai_platform/features/feast/validation/canonical_sample.py:201:            expected_snapshot_id=expected_lineage["snapshot_id"],
+ai_platform/features/feast/validation/canonical_sample.py:203:            expected_execution_git_sha=expected_lineage["execution_git_sha"],
+ai_platform/features/feast/validation/canonical_sample.py:258:        "validation_export_lineage": (
+ai_platform/features/feast/validation/canonical_sample.py:259:            None if manifest is None else manifest.get("lineage")
+ai_platform/features/feast/validation/canonical_sample.py:299:def _expected_lineage(args: argparse.Namespace) -> dict[str, str] | None:
+ai_platform/features/feast/validation/canonical_sample.py:315:        raise ValueError(f"expected validation export lineage is incomplete: {missing}")
+ai_platform/features/feast/validation/canonical_sample.py:332:            expected_lineage=_expected_lineage(args),
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/P0_RUNTIME_ATTEMPT_2.md:25:previously made kagent emit a real Agent function call, while local validation
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/P0_RUNTIME_ATTEMPT_3.md:14:returned an ordinary text object of the following shape instead of emitting a
+ai_platform/features/feast/validation/contracts.py:32:    expected_lineage: Mapping[str, str] | None = None,
+ai_platform/features/feast/validation/contracts.py:49:    if expected_lineage is not None:
+ai_platform/features/feast/validation/contracts.py:50:        lineage = manifest.get("lineage")
+ai_platform/features/feast/validation/contracts.py:51:        if not isinstance(lineage, Mapping):
+ai_platform/features/feast/validation/contracts.py:52:            raise ValueError("validation sample export lineage is missing")
+ai_platform/features/feast/validation/contracts.py:53:        for name, value in expected_lineage.items():
+ai_platform/features/feast/validation/contracts.py:54:            if lineage.get(name) != value:
+ai_platform/features/feast/validation/contracts.py:56:                    f"validation sample export lineage mismatch: {name}"
+tests/unit/test_silver_cloud_runtime.py:19:            "DATAHUB_GMS_URL": "http://datahub.invalid:8080",
+tests/unit/test_silver_cloud_runtime.py:70:    def test_cloud_lineage_arguments_are_required_together(self) -> None:
+tests/unit/test_submit_bronze_to_silver.py:92:    def test_command_pins_lineage_run_roots_and_all_eight_tables(self) -> None:
+ai_platform/features/feast/repository.py:49:    lineage: Mapping[str, object] | None = None,
+ai_platform/features/feast/repository.py:60:        "lineage": dict(lineage or {}),
+ai_platform/features/feast/cloud_boundary.py:35:    """All immutable roots and lineage IDs for one bounded training snapshot."""
+tests/unit/test_verified_cloud_metadata.py:5:from data_platform.metadata.datahub.lineage.cloud_discovery import _select_batches
+tests/unit/test_verified_cloud_metadata.py:6:from data_platform.metadata.datahub.lineage.verified_cloud_publisher import (
+tests/unit/test_verified_cloud_metadata.py:53:        "lineage": [{"downstream": bronze, "upstreams": [source]}],
+tests/unit/test_verified_cloud_metadata.py:80:def test_verified_records_and_semantic_readback_cover_dataset_job_and_lineage():
+tests/unit/test_verified_cloud_metadata.py:83:    # 2 properties + 2 schemas + flow + job + job I/O + lineage.
+tests/unit/test_verified_cloud_metadata.py:94:def test_publisher_fails_closed_for_unverified_lineage_or_synthetic_inventory():
+tests/unit/test_verified_cloud_metadata.py:102:    broken["lineage"][0]["upstreams"] = ["urn:li:dataset:missing"]
+tests/unit/test_spark_method2_contract.py:143:    def test_winner_rejects_cross_lineage_evidence(self) -> None:
+ai_platform/features/feast/sources/export_validation_samples.py:393:            "lineage": {
+ai_platform/features/feast/sources/export_validation_samples.py:428:                "DATAHUB_GMS_URL": (
+ai_platform/features/feast/sources/export_validation_samples.py:429:                    os.environ.get("DATAHUB_GMS_URL")
+ai_platform/features/feast/sources/export_validation_samples.py:468:                raise ValueError("gcp validation Silver lineage is inconsistent")
+ai_platform/features/feast/sources/export_validation_samples.py:470:                raise ValueError("gcp validation feature lineage is inconsistent")
+ops/llm_agent/verify_rag_artifacts.py:28:    plan = build.get("datahub_lineage_plan", {})
+ops/llm_agent/verify_rag_artifacts.py:30:        raise ValueError("DataHub plan must require runtime lineage readback")
+ai_platform/features/feast/sources/export_gold_to_parquet.py:137:def bind_cloud_feature_lineage(
+ai_platform/features/feast/sources/export_gold_to_parquet.py:180:        runtime_config = bind_cloud_feature_lineage(
+ai_platform/features/feast/sources/export_gold_to_parquet.py:242:        lineage={
+ai_platform/features/feast/sources/export_gold_to_parquet.py:275:        cloud_lineage = (
+ai_platform/features/feast/sources/export_gold_to_parquet.py:282:            if any(value is None for value in (*cloud_lineage, args.dataset_version)):
+tests/unit/test_f9_canonical_contract.py:100:    def test_manifest_lineage_counts_and_hashes_are_captured(self) -> None:
+tests/unit/test_f9_canonical_contract.py:117:                "lineage": {
+tests/unit/test_f9_canonical_contract.py:167:                "lineage": {
+tests/unit/test_f9_canonical_contract.py:189:    def test_manifest_lineage_mismatch_fails_closed(self) -> None:
+tests/unit/test_f9_canonical_contract.py:205:                        "lineage": {
+ops/llm_agent/rag_pipeline.py:15:    datahub_lineage_plan,
+ops/llm_agent/rag_pipeline.py:99:        "datahub_lineage_plan": datahub_lineage_plan(
+tests/unit/test_deploy_mlflow_script.py:68:                      # Real kubectl emits nothing when the requested image is unchanged.
+ops/llm_agent/rag_ingest.py:12:  datahub   → datahub.json     lineage + quality assertions with readback
+ops/llm_agent/rag_ingest.py:50:    "DATAHUB_GMS_URL", "DATAHUB_GMS_TOKEN", "HF_HOME", "GOOGLE_APPLICATION_CREDENTIALS",
+ops/llm_agent/rag_ingest.py:57:    Lets an operator configure Redis/Feast/DataHub for the DAG without
+ops/llm_agent/rag_ingest.py:373:    records = governance.lineage_records(documents=documents, embeddings=embeddings, publication=publication,
+ops/llm_agent/rag_ingest.py:375:    records += governance.assertion_records(checks, feast_dataset=feast_dataset,
+ops/llm_agent/rag_ingest.py:379:               "quality_checks": [{"assertion_id": c.assertion_id, "passed": c.passed, "observed": dict(c.observed)}
+ops/llm_agent/rag_ingest.py:383:        log("datahub", "PLAN_ONLY: nothing published to DataHub", records=len(records))
+ops/llm_agent/rag_ingest.py:386:    url = os.environ.get("DATAHUB_GMS_URL", "").strip()
+ops/llm_agent/rag_ingest.py:388:        raise ValueError("DATAHUB_GMS_URL is not configured; set it or trigger with datahub_mode=plan_only")
+ops/llm_agent/rag_ingest.py:390:        records, governance.RagDataHubAdapter(url, os.environ.get("DATAHUB_GMS_TOKEN") or None))
+ops/llm_agent/rag_ingest.py:393:        raise ValueError("a RAG quality assertion failed (published to DataHub as FAILURE)")
+tests/unit/test_spark_runtime_config.py:22:    "DATAHUB_GMS_URL": "http://datahub-gms.example:8080",
+tests/unit/test_cloud_airflow_dags.py:129:    def test_quota_guards_share_profile_and_emit_per_handoff_evidence(self) -> None:
+tests/unit/test_cloud_airflow_dags.py:171:    def test_dp1_baseline_command_renders_exact_profile_and_lineage(self) -> None:
+tests/unit/test_datahub_result_assertions.py:8:from data_platform.metadata.datahub.assertions.result_bound_publisher import (
+tests/unit/test_datahub_result_assertions.py:10:    DataHubAdapter,
+tests/unit/test_datahub_result_assertions.py:16:from data_platform.metadata.datahub.assertions import recover_validation_results
+tests/unit/test_datahub_result_assertions.py:17:from data_platform.metadata.datahub.assertions.validation_artifact import (
+tests/unit/test_datahub_result_assertions.py:25:        "assertion_id": "dq_dp2_transactions_unique",
+tests/unit/test_datahub_result_assertions.py:47:    assert item.assertion_urn == "urn:li:assertion:dq_dp2_transactions_unique"
+tests/unit/test_datahub_result_assertions.py:94:        self.definitions[item.assertion_urn] = value
+tests/unit/test_datahub_result_assertions.py:95:        return {"urn": item.assertion_urn}
+tests/unit/test_datahub_result_assertions.py:99:        self.runs[(item.assertion_urn, item.run_id)] = value
+tests/unit/test_datahub_result_assertions.py:100:        return {"urn": item.assertion_urn, "runId": item.run_id}
+tests/unit/test_datahub_result_assertions.py:103:        value = self.definitions[item.assertion_urn]
+tests/unit/test_datahub_result_assertions.py:104:        return value, {"raw": {"assertionInfo": value}}
+tests/unit/test_datahub_result_assertions.py:107:        value = self.runs[(item.assertion_urn, item.run_id)]
+tests/unit/test_datahub_result_assertions.py:108:        return value, {"raw": {"assertionRunEvent": value}}
+tests/unit/test_datahub_result_assertions.py:113:            for (assertion_urn, _), value in self.runs.items()
+tests/unit/test_datahub_result_assertions.py:114:            if assertion_urn == item.assertion_urn
+tests/unit/test_datahub_result_assertions.py:162:    adapter.runs[(item.assertion_urn, "fake-run")] = {"result_type": "SUCCESS"}
+tests/unit/test_datahub_result_assertions.py:163:    with pytest.raises(RuntimeError, match="already contains assertionRunEvent"):
+tests/unit/test_datahub_result_assertions.py:205:            assert urn == item.assertion_urn
+tests/unit/test_datahub_result_assertions.py:211:    adapter = DataHubAdapter.__new__(DataHubAdapter)
+tests/unit/test_datahub_result_assertions.py:215:    assert raw["aspects"] == ["assertionInfo"]
+tests/unit/test_datahub_result_assertions.py:229:                                "assertionUrn": expected["assertion_urn"],
+tests/unit/test_datahub_result_assertions.py:260:            assertion_id="dq_dp2_gold_fact_integrity",
+tests/unit/test_cloud_feast_training_boundary.py:125:    def test_manifest_contract_records_lineage_and_temporal_rules(self) -> None:
+tests/unit/test_cloud_feast_training_boundary.py:174:    def test_future_commands_bind_every_lineage_root(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:1:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/P0_ROOT_CAUSE.md:17:- Its native kagent Agent-tool call emitted only
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:2:scripts/validation/run_rag_dag_isolated.sh:5:# uses the explicit sqlite local-dev profile. DataHub runs plan_only unless the
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:3:scripts/validation/run_rag_dag_isolated.sh:6:# optional third argument is "publish" and DATAHUB_GMS_URL is set, which
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:4:scripts/validation/run_rag_dag_isolated.sh:7:# publishes to and reads back from that DataHub.
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:5:scripts/validation/run_rag_dag_isolated.sh:24:[[ "${DATAHUB_MODE}" == plan_only || -n "${DATAHUB_GMS_URL:-}" ]] || { echo "ERROR: publish needs DATAHUB_GMS_URL" >&2; exit 2; }
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:6:scripts/validation/run_rag_dag_isolated.sh:52:    DATAHUB_GMS_URL="${DATAHUB_GMS_URL:-}" EWALLET_RAG_ENV_FILE="${RUN_ENV_FILE}" \
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:7:scripts/validation/run_rag_dag_isolated.sh:102:            validate_online_readback publish_datahub_lineage; do
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:8:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/LIVING_DECISION_WRITEBACK.md:13:revisions, test counts, successful RAG DagRun, plan-only DataHub boundary,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:9:ops/validation/validate_runtime_config.py:55:    "data_platform/metadata/datahub/lineage/trino_recipe.yml": {
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:10:ops/validation/validate_runtime_config.py:69:    "DATAHUB_GMS_URL": "http://datahub-gms.metadata.svc.cluster.local:8080",
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:11:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:9:remains blocked. At Helm revision 15 the model emitted a textual pseudo-call
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:12:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:20:Feast keys and production RAG DB0 untouched. DataHub remained plan-only because
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:13:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:22:DataHub publication/readback is claimed.
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:14:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:109:partial because all five quality checks passed locally while DataHub runtime
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:15:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:119:3. Start/reuse DataHub only after the host resource gate is safe, publish the
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:16:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:120:   already constructed 25 records, and independently read back lineage and
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:17:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:121:   assertions.
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:18:ai_platform/features/feast/validation/canonical_sample.py:174:    expected_lineage: Mapping[str, str] | None = None,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:19:ai_platform/features/feast/validation/canonical_sample.py:182:        if expected_lineage is None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:20:ai_platform/features/feast/validation/canonical_sample.py:183:            raise ValueError("GCP PIT validation requires expected export lineage")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:21:ai_platform/features/feast/validation/canonical_sample.py:196:            expected_lineage=expected_lineage,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:22:ai_platform/features/feast/validation/canonical_sample.py:201:            expected_snapshot_id=expected_lineage["snapshot_id"],
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:23:ai_platform/features/feast/validation/canonical_sample.py:203:            expected_execution_git_sha=expected_lineage["execution_git_sha"],
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:24:ai_platform/features/feast/validation/canonical_sample.py:258:        "validation_export_lineage": (
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:25:ai_platform/features/feast/validation/canonical_sample.py:259:            None if manifest is None else manifest.get("lineage")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:26:ai_platform/features/feast/validation/canonical_sample.py:299:def _expected_lineage(args: argparse.Namespace) -> dict[str, str] | None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:27:ai_platform/features/feast/validation/canonical_sample.py:315:        raise ValueError(f"expected validation export lineage is incomplete: {missing}")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:28:ai_platform/features/feast/validation/canonical_sample.py:332:            expected_lineage=_expected_lineage(args),
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:29:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/P0_RUNTIME_ATTEMPT_2.md:25:previously made kagent emit a real Agent function call, while local validation
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:30:docs/evidence/edai2/g3_functional_closure_20261102T042311Z/P0_RUNTIME_ATTEMPT_3.md:14:returned an ordinary text object of the following shape instead of emitting a
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:31:ai_platform/features/feast/validation/contracts.py:32:    expected_lineage: Mapping[str, str] | None = None,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:32:ai_platform/features/feast/validation/contracts.py:49:    if expected_lineage is not None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:33:ai_platform/features/feast/validation/contracts.py:50:        lineage = manifest.get("lineage")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:34:ai_platform/features/feast/validation/contracts.py:51:        if not isinstance(lineage, Mapping):
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:35:ai_platform/features/feast/validation/contracts.py:52:            raise ValueError("validation sample export lineage is missing")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:36:ai_platform/features/feast/validation/contracts.py:53:        for name, value in expected_lineage.items():
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:37:ai_platform/features/feast/validation/contracts.py:54:            if lineage.get(name) != value:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:38:ai_platform/features/feast/validation/contracts.py:56:                    f"validation sample export lineage mismatch: {name}"
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:39:tests/unit/test_silver_cloud_runtime.py:19:            "DATAHUB_GMS_URL": "http://datahub.invalid:8080",
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:40:tests/unit/test_silver_cloud_runtime.py:70:    def test_cloud_lineage_arguments_are_required_together(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:41:tests/unit/test_submit_bronze_to_silver.py:92:    def test_command_pins_lineage_run_roots_and_all_eight_tables(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:42:ai_platform/features/feast/repository.py:49:    lineage: Mapping[str, object] | None = None,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:43:ai_platform/features/feast/repository.py:60:        "lineage": dict(lineage or {}),
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:44:ai_platform/features/feast/cloud_boundary.py:35:    """All immutable roots and lineage IDs for one bounded training snapshot."""
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:45:tests/unit/test_verified_cloud_metadata.py:5:from data_platform.metadata.datahub.lineage.cloud_discovery import _select_batches
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:46:tests/unit/test_verified_cloud_metadata.py:6:from data_platform.metadata.datahub.lineage.verified_cloud_publisher import (
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:47:tests/unit/test_verified_cloud_metadata.py:53:        "lineage": [{"downstream": bronze, "upstreams": [source]}],
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:48:tests/unit/test_verified_cloud_metadata.py:80:def test_verified_records_and_semantic_readback_cover_dataset_job_and_lineage():
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:49:tests/unit/test_verified_cloud_metadata.py:83:    # 2 properties + 2 schemas + flow + job + job I/O + lineage.
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:50:tests/unit/test_verified_cloud_metadata.py:94:def test_publisher_fails_closed_for_unverified_lineage_or_synthetic_inventory():
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:51:tests/unit/test_verified_cloud_metadata.py:102:    broken["lineage"][0]["upstreams"] = ["urn:li:dataset:missing"]
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:52:tests/unit/test_spark_method2_contract.py:143:    def test_winner_rejects_cross_lineage_evidence(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:53:ai_platform/features/feast/sources/export_validation_samples.py:393:            "lineage": {
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:54:ai_platform/features/feast/sources/export_validation_samples.py:428:                "DATAHUB_GMS_URL": (
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:55:ai_platform/features/feast/sources/export_validation_samples.py:429:                    os.environ.get("DATAHUB_GMS_URL")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:56:ai_platform/features/feast/sources/export_validation_samples.py:468:                raise ValueError("gcp validation Silver lineage is inconsistent")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:57:ai_platform/features/feast/sources/export_validation_samples.py:470:                raise ValueError("gcp validation feature lineage is inconsistent")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:58:ops/llm_agent/verify_rag_artifacts.py:28:    plan = build.get("datahub_lineage_plan", {})
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:59:ops/llm_agent/verify_rag_artifacts.py:30:        raise ValueError("DataHub plan must require runtime lineage readback")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:60:ai_platform/features/feast/sources/export_gold_to_parquet.py:137:def bind_cloud_feature_lineage(
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:61:ai_platform/features/feast/sources/export_gold_to_parquet.py:180:        runtime_config = bind_cloud_feature_lineage(
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:62:ai_platform/features/feast/sources/export_gold_to_parquet.py:242:        lineage={
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:63:ai_platform/features/feast/sources/export_gold_to_parquet.py:275:        cloud_lineage = (
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:64:ai_platform/features/feast/sources/export_gold_to_parquet.py:282:            if any(value is None for value in (*cloud_lineage, args.dataset_version)):
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:65:tests/unit/test_f9_canonical_contract.py:100:    def test_manifest_lineage_counts_and_hashes_are_captured(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:66:tests/unit/test_f9_canonical_contract.py:117:                "lineage": {
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:67:tests/unit/test_f9_canonical_contract.py:167:                "lineage": {
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:68:tests/unit/test_f9_canonical_contract.py:189:    def test_manifest_lineage_mismatch_fails_closed(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:69:tests/unit/test_f9_canonical_contract.py:205:                        "lineage": {
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:70:ops/llm_agent/rag_pipeline.py:15:    datahub_lineage_plan,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:71:ops/llm_agent/rag_pipeline.py:99:        "datahub_lineage_plan": datahub_lineage_plan(
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:72:tests/unit/test_deploy_mlflow_script.py:68:                      # Real kubectl emits nothing when the requested image is unchanged.
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:73:ops/llm_agent/rag_ingest.py:12:  datahub   → datahub.json     lineage + quality assertions with readback
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:74:ops/llm_agent/rag_ingest.py:50:    "DATAHUB_GMS_URL", "DATAHUB_GMS_TOKEN", "HF_HOME", "GOOGLE_APPLICATION_CREDENTIALS",
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:75:ops/llm_agent/rag_ingest.py:57:    Lets an operator configure Redis/Feast/DataHub for the DAG without
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:76:ops/llm_agent/rag_ingest.py:373:    records = governance.lineage_records(documents=documents, embeddings=embeddings, publication=publication,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:77:ops/llm_agent/rag_ingest.py:375:    records += governance.assertion_records(checks, feast_dataset=feast_dataset,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:78:ops/llm_agent/rag_ingest.py:379:               "quality_checks": [{"assertion_id": c.assertion_id, "passed": c.passed, "observed": dict(c.observed)}
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:79:ops/llm_agent/rag_ingest.py:383:        log("datahub", "PLAN_ONLY: nothing published to DataHub", records=len(records))
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:80:ops/llm_agent/rag_ingest.py:386:    url = os.environ.get("DATAHUB_GMS_URL", "").strip()
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:81:ops/llm_agent/rag_ingest.py:388:        raise ValueError("DATAHUB_GMS_URL is not configured; set it or trigger with datahub_mode=plan_only")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:82:ops/llm_agent/rag_ingest.py:390:        records, governance.RagDataHubAdapter(url, os.environ.get("DATAHUB_GMS_TOKEN") or None))
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:83:ops/llm_agent/rag_ingest.py:393:        raise ValueError("a RAG quality assertion failed (published to DataHub as FAILURE)")
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:84:tests/unit/test_spark_runtime_config.py:22:    "DATAHUB_GMS_URL": "http://datahub-gms.example:8080",
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:85:tests/unit/test_cloud_airflow_dags.py:129:    def test_quota_guards_share_profile_and_emit_per_handoff_evidence(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:86:tests/unit/test_cloud_airflow_dags.py:171:    def test_dp1_baseline_command_renders_exact_profile_and_lineage(self) -> None:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:87:tests/unit/test_datahub_result_assertions.py:8:from data_platform.metadata.datahub.assertions.result_bound_publisher import (
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:88:tests/unit/test_datahub_result_assertions.py:10:    DataHubAdapter,
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:89:tests/unit/test_datahub_result_assertions.py:16:from data_platform.metadata.datahub.assertions import recover_validation_results
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:90:tests/unit/test_datahub_result_assertions.py:17:from data_platform.metadata.datahub.assertions.validation_artifact import (
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:91:tests/unit/test_datahub_result_assertions.py:25:        "assertion_id": "dq_dp2_transactions_unique",
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:92:tests/unit/test_datahub_result_assertions.py:47:    assert item.assertion_urn == "urn:li:assertion:dq_dp2_transactions_unique"
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:93:tests/unit/test_datahub_result_assertions.py:94:        self.definitions[item.assertion_urn] = value
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:94:tests/unit/test_datahub_result_assertions.py:95:        return {"urn": item.assertion_urn}
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:95:tests/unit/test_datahub_result_assertions.py:99:        self.runs[(item.assertion_urn, item.run_id)] = value
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:96:tests/unit/test_datahub_result_assertions.py:100:        return {"urn": item.assertion_urn, "runId": item.run_id}
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:97:tests/unit/test_datahub_result_assertions.py:103:        value = self.definitions[item.assertion_urn]
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:98:tests/unit/test_datahub_result_assertions.py:104:        return value, {"raw": {"assertionInfo": value}}
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:99:tests/unit/test_datahub_result_assertions.py:107:        value = self.runs[(item.assertion_urn, item.run_id)]
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:100:tests/unit/test_datahub_result_assertions.py:108:        return value, {"raw": {"assertionRunEvent": value}}
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:101:tests/unit/test_datahub_result_assertions.py:113:            for (assertion_urn, _), value in self.runs.items()
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:102:tests/unit/test_datahub_result_assertions.py:114:            if assertion_urn == item.assertion_urn
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:103:tests/unit/test_datahub_result_assertions.py:162:    adapter.runs[(item.assertion_urn, "fake-run")] = {"result_type": "SUCCESS"}
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/datahub-source-rg.txt:104:tests/unit/test_datahub_result_assertions.py:163:    with pytest.raises(RuntimeError, match="already contains assertionRunEvent"):
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/kagent-toolcall-rg.txt:117:./go/adk/pkg/models/ollama_stream_test.go:15:// TestGenerateStreamingAggregatesToolCalls verifies that tool calls emitted by
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:435:# Conversation-lineage headers propagated on outbound A2A calls so a remote
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:610:        # Derive conversation lineage so the remote agent can correlate this
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:613:        lineage_headers = self._build_lineage_headers(tool_context)
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:618:                # Merge caller-supplied headers on top of lineage so a custom
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:620:                # but the typical case (no custom provider) just gets lineage.
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:621:                lineage_headers.update(extra_headers)
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:623:        if lineage_headers:
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:624:            state[_EXTRA_HEADERS_CONTEXT_KEY] = lineage_headers
+docs/evidence/edai2/g3_native_tool_recovery_20261102T051009Z/source-audit/exact-kagent-openai-and-remote-tool-source.txt:627:    def _build_lineage_headers(self, tool_context: ToolContext) -> dict[str, str]:
+tests/unit/test_gold_cloud_runtime.py:22:                "DATAHUB_GMS_URL": "http://datahub.invalid:8080",
+tests/unit/test_spark_semantic_equivalence.py:127:    def test_equivalence_fails_closed_for_schema_content_or_lineage(self) -> None:
+tests/unit/test_spark_semantic_equivalence.py:137:        for mutation in ("schema", "fingerprint", "lineage"):
+tests/unit/test_spark_semantic_equivalence.py:147:            if mutation == "lineage":
+ai_platform/llm_agent/tools/service.py:101:    # x-ewallet-actor is an assertion, never an identity: it must match the principal.
+scripts/llm_agent/g3_native_tool_probe.py:7:This module deliberately models the schema emitted by kagent 0.10.3's
+tests/unit/test_dataproc_performance_profile.py:127:                "DATAHUB_GMS_URL": "http://datahub.invalid:8080",
+tests/unit/test_dataproc_performance_profile.py:138:    def test_all_eight_stage_profiles_emit_managed_spark_compatible_properties(self) -> None:
+tests/unit/test_dataproc_performance_profile.py:275:    def test_canonical_ml_loader_rejects_baseline_lineage_before_read(self) -> None:
+tests/unit/test_dataproc_performance_profile.py:287:            with self.assertRaisesRegex(ValueError, "optimized Spark lineage"):
+tests/unit/test_dataproc_performance_profile.py:290:    def test_invalid_output_lineage_is_rejected_even_with_explicit_input(self) -> None:
+tests/unit/test_runtime_config.py:38:  datahub_gms_url: ${{DATAHUB_GMS_URL:-http://localhost:8080}}
+ops/gcp/submit_historical_features.py:306:        print(f"Core Gold lineage root: {roots[1]}")
+ops/gcp/run_storage_benchmark.py:109:            raise ValueError("selected table is outside exact approved optimized lineage")
+ops/gcp/run_storage_benchmark.py:205:            raise ValueError("all source run IDs must identify optimized Spark lineage")
+ai_platform/ml/training/materialize.py:595:        "lineage": {
+tests/unit/test_historical_feature_cloud_runtime.py:25:                "DATAHUB_GMS_URL": "http://datahub.invalid:8080",
+tests/unit/test_historical_feature_cloud_runtime.py:46:    def test_cloud_lineage_args_are_required_together(self) -> None:
+tests/unit/test_ml1_training_snapshot_contract.py:67:    evidence["completion_marker_lineage"] = {
+tests/unit/test_ml1_training_snapshot_contract.py:124:    def test_dvc_rejects_inconsistent_manifest_registry_and_marker_lineage(self) -> None:
+tests/unit/test_ml1_training_snapshot_contract.py:134:            "marker-lineage": lambda item: item["completion_marker_lineage"].__setitem__(
+ai_platform/ml/training/export_training_source.py:297:            "lineage": {
+ai_platform/ml/training/export_training_source.py:330:                "DATAHUB_GMS_URL": (
+ai_platform/ml/training/export_training_source.py:331:                    os.environ.get("DATAHUB_GMS_URL")
+ai_platform/ml/training/export_training_source.py:343:        cloud_lineage = (
+ai_platform/ml/training/export_training_source.py:354:            if any(value is None for value in cloud_lineage):
+ai_platform/ml/training/export_training_source.py:366:                raise ValueError("gcp training source Silver lineage is inconsistent")
+tests/unit/test_feast_training_gcp_runtime.py:234:                    "validation_export_lineage": {
+tests/unit/test_feast_training_gcp_runtime.py:562:    def test_training_source_manifest_must_match_canonical_lineage(self) -> None:
+tests/unit/test_feast_training_gcp_runtime.py:579:            "lineage": {
+tests/unit/test_feast_training_gcp_runtime.py:598:        manifest["lineage"]["snapshot_id"] = "stale-snapshot"
+tests/unit/test_feast_training_gcp_runtime.py:599:        with self.assertRaisesRegex(ValueError, "lineage"):
+ai_platform/ml/training/source_contract.py:54:    lineage = manifest.get("lineage")
+ai_platform/ml/training/source_contract.py:55:    expected_lineage = {
+ai_platform/ml/training/source_contract.py:63:    if not isinstance(lineage, Mapping) or any(
+ai_platform/ml/training/source_contract.py:64:        lineage.get(key) != value for key, value in expected_lineage.items()
+ai_platform/ml/training/source_contract.py:66:        raise ValueError("training source lineage does not match requested snapshot")
+ai_platform/llm_agent/rag/feast_contract.py:40:def datahub_lineage_plan(*, corpus_revision: str, feature_index_revision: str) -> dict[str, object]:
+tests/unit/test_feast_metadata_runtime_config.py:120:        self.assertEqual({}, manifest["lineage"])
+tests/unit/test_feast_metadata_runtime_config.py:127:            lineage={
+tests/unit/test_feast_metadata_runtime_config.py:132:        self.assertEqual("baseline", manifest["lineage"]["spark_profile"])
+tests/unit/test_feast_metadata_runtime_config.py:174:            bind_cloud_feature_lineage,
+tests/unit/test_feast_metadata_runtime_config.py:189:        bound = bind_cloud_feature_lineage(
+tests/unit/test_feast_metadata_runtime_config.py:198:            bind_cloud_feature_lineage(
+tests/unit/test_feast_metadata_runtime_config.py:228:    "DataHub SDK is installed in the metadata environment",
+tests/unit/test_feast_metadata_runtime_config.py:230:class DataHubRuntimeConfigTest(unittest.TestCase):
+tests/unit/test_feast_metadata_runtime_config.py:232:        "data_platform.metadata.datahub.lineage.create_lineage.DatahubRestEmitter"
+tests/unit/test_feast_metadata_runtime_config.py:234:    def test_emitter_uses_profile_gms_endpoint(self, emitter) -> None:
+tests/unit/test_feast_metadata_runtime_config.py:235:        from data_platform.metadata.datahub.lineage.create_lineage import (
+tests/unit/test_feast_metadata_runtime_config.py:236:            create_emitter,
+tests/unit/test_feast_metadata_runtime_config.py:240:        create_emitter(config)
+tests/unit/test_feast_metadata_runtime_config.py:241:        emitter.assert_called_once_with(
+tests/unit/test_feast_metadata_runtime_config.py:246:        from data_platform.metadata.datahub.lineage.create_lineage import (
+tests/unit/test_feast_metadata_runtime_config.py:253:    @patch("data_platform.metadata.datahub.lineage.create_lineage.trino_cursor")
+tests/unit/test_feast_metadata_runtime_config.py:254:    def test_lineage_precheck_passes_selected_profile_to_trino(self, cursor) -> None:
+tests/unit/test_feast_metadata_runtime_config.py:255:        from data_platform.metadata.datahub.lineage.create_lineage import (
+tests/unit/test_feast_metadata_runtime_config.py:263:            "data_platform.metadata.datahub.lineage.create_lineage."
+tests/unit/test_feast_metadata_runtime_config.py:266:            "data_platform.metadata.datahub.lineage.create_lineage."
+tests/unit/test_feast_metadata_runtime_config.py:273:    def test_existing_and_feature_lineage_edges_are_preserved(self) -> None:
+tests/unit/test_feast_metadata_runtime_config.py:274:        from data_platform.metadata.datahub.lineage.create_lineage import (
+tests/unit/test_feast_metadata_runtime_config.py:276:            get_lineage,
+tests/unit/test_feast_metadata_runtime_config.py:279:        mapping = get_lineage(include_fraud_labels=False)
+tests/unit/test_feast_metadata_runtime_config.py:294:        from data_platform.metadata.datahub.lineage.create_lineage import (
+tests/unit/test_feast_metadata_runtime_config.py:295:            get_lineage,
+tests/unit/test_feast_metadata_runtime_config.py:298:        mapping = get_lineage(include_fraud_labels=True)
+tests/unit/test_feast_metadata_runtime_config.py:307:    def test_assertion_endpoint_defaults_to_runtime_profile(self) -> None:
+tests/unit/test_feast_metadata_runtime_config.py:308:        from data_platform.metadata.datahub.assertions.publish_assertions import (
+tests/unit/test_feast_metadata_runtime_config.py:326:        "data_platform.metadata.datahub.assertions.publish_assertions."
+tests/unit/test_feast_metadata_runtime_config.py:329:    def test_assertion_reader_passes_runtime_profile_to_trino_client(
+tests/unit/test_feast_metadata_runtime_config.py:333:        from data_platform.metadata.datahub.assertions.publish_assertions import (
+ops/gcp/recover_dp2_method2.py:424:    """Bind every invocation to immutable source, attempt and cancelled lineage."""
+ops/gcp/recover_dp2_method2.py:706:        "technical_gates": "quota_lineage_immutability_and_terminal_state",
+scripts/benchmark_datahub_publisher_image.py:76:        "baseline": "edai1/datahub-lineage-publisher:baseline-20261029",
+scripts/benchmark_datahub_publisher_image.py:77:        "optimized": "edai1/datahub-lineage-publisher:optimized-20261029",
+ai_platform/ml/training/dvc_revision.py:103:    lineage_names = (
+ai_platform/ml/training/dvc_revision.py:112:        for name in lineage_names
+ai_platform/ml/training/dvc_revision.py:114:        raise ValueError("DVC preparation received incomplete source lineage")
+ai_platform/ml/training/dvc_revision.py:133:    completion_lineage = publication.get("completion_marker_lineage")
+ai_platform/ml/training/dvc_revision.py:134:    expected_completion_lineage = {
+ai_platform/ml/training/dvc_revision.py:148:    if completion_lineage != expected_completion_lineage:
+ai_platform/ml/training/dvc_revision.py:149:        raise ValueError("DVC publication and completion-marker lineage mismatch")
+ai_platform/ml/training/dvc_revision.py:173:        "lineage": {name: publication[name] for name in lineage_names},
+ai_platform/llm_agent/observability.py:174:        emitted_traceparent = (
+ai_platform/llm_agent/observability.py:180:            traceparent=emitted_traceparent,
+ai_platform/llm_agent/rag/governance.py:1:"""DataHub lineage and data-quality assertions for the RAG ingestion DAG.
+ai_platform/llm_agent/rag/governance.py:4:so they are tested without DataHub. Publication puts each aspect and reads it
+ai_platform/llm_agent/rag/governance.py:5:back; a missing aspect or a mismatch fails the task. ``RagDataHubAdapter``
+ai_platform/llm_agent/rag/governance.py:6:extends the existing ``verified_cloud_publisher.DataHubAdapter`` with the two
+ai_platform/llm_agent/rag/governance.py:7:assertion aspects; the DataHub SDK is imported only by the adapter.
+ai_platform/llm_agent/rag/governance.py:18:from data_platform.metadata.datahub.lineage.verified_cloud_publisher import flow_urn, job_urn
+ai_platform/llm_agent/rag/governance.py:57:def assertion_urn(assertion_id: str, feature_index_revision: str) -> str:
+ai_platform/llm_agent/rag/governance.py:58:    digest = hashlib.sha256(f"{DAG_ID}:{feature_index_revision}:{assertion_id}".encode()).hexdigest()[:32]
+ai_platform/llm_agent/rag/governance.py:59:    return f"urn:li:assertion:{digest}"
+ai_platform/llm_agent/rag/governance.py:64:    assertion_id: str
+ai_platform/llm_agent/rag/governance.py:105:def lineage_records(*, documents: Mapping[str, Any], embeddings: Mapping[str, Any], publication: Mapping[str, Any],
+ai_platform/llm_agent/rag/governance.py:163:def assertion_records(checks: Sequence[QualityCheck], *, feast_dataset: str, feature_index_revision: str,
+ai_platform/llm_agent/rag/governance.py:167:        urn = assertion_urn(check.assertion_id, feature_index_revision)
+ai_platform/llm_agent/rag/governance.py:168:        records.append((urn, "assertionInfo", {
+ai_platform/llm_agent/rag/governance.py:170:            "logic": check.assertion_id,
+ai_platform/llm_agent/rag/governance.py:172:        records.append((urn, "assertionRunEvent", {
+ai_platform/llm_agent/rag/governance.py:182:TIMESERIES_ASPECTS = frozenset({"assertionRunEvent"})
+ai_platform/llm_agent/rag/governance.py:198:            raise RuntimeError(f"DataHub readback mismatch urn={urn} aspect={aspect}")
+ai_platform/llm_agent/rag/governance.py:203:class RagDataHubAdapter:
+ai_platform/llm_agent/rag/governance.py:204:    """The existing lineage adapter plus custom assertion aspects."""
+ai_platform/llm_agent/rag/governance.py:207:        from data_platform.metadata.datahub.lineage.verified_cloud_publisher import DataHubAdapter
+ai_platform/llm_agent/rag/governance.py:209:        self._lineage = DataHubAdapter(url, token)
+ai_platform/llm_agent/rag/governance.py:212:        if aspect not in ("assertionInfo", "assertionRunEvent"):
+ai_platform/llm_agent/rag/governance.py:213:            self._lineage.put(urn, aspect, payload)
+ai_platform/llm_agent/rag/governance.py:215:        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+ai_platform/llm_agent/rag/governance.py:221:        if aspect == "assertionInfo":
+ai_platform/llm_agent/rag/governance.py:229:                timestampMillis=payload["timestampMillis"], runId=payload["runId"], assertionUrn=urn,
+ai_platform/llm_agent/rag/governance.py:233:        self._lineage.emitter.emit_mcp(MetadataChangeProposalWrapper(entityUrn=urn, aspect=value))
+ai_platform/llm_agent/rag/governance.py:236:        if aspect not in ("assertionInfo", "assertionRunEvent"):
+ai_platform/llm_agent/rag/governance.py:237:            return self._lineage.get(urn, aspect)
+ai_platform/llm_agent/rag/governance.py:240:        graph = self._lineage.graph
+ai_platform/llm_agent/rag/governance.py:241:        if aspect == "assertionInfo":
+tests/unit/test_datahub_publisher_image_contract.py:18:    assert dockerfile.count("COPY data_platform/metadata/datahub/lineage/cloud_lineage.py") == 2
+tests/unit/test_datahub_publisher_image_contract.py:23:    service = compose["services"]["datahub-lineage-publisher"]
+tests/unit/test_datahub_publisher_image_contract.py:30:    assert service["command"] == ["--output", "/tmp/lineage-plan.json"]
+ai_platform/ml/modeling/data.py:16:from data_platform.config.spark_profiles import require_optimized_lineage
+ai_platform/ml/modeling/data.py:72:            require_optimized_lineage(str(manifest.get("spark_profile", "")))
+scripts/run_dp2_method2.sh:15:Without --execute this performs local lineage/identity checks and prints the
+ops/gcp/publish_training_snapshot.py:142:def _expected_training_lineage(
+ops/gcp/publish_training_snapshot.py:155:def _expected_pit_lineage(boundary: CloudFeastTrainingBoundary) -> dict[str, str]:
+ops/gcp/publish_training_snapshot.py:156:    lineage = _expected_training_lineage(boundary)
+ops/gcp/publish_training_snapshot.py:157:    lineage["snapshot_id"] = boundary.resolved_feast_snapshot_id
+ops/gcp/publish_training_snapshot.py:158:    return lineage
+ops/gcp/publish_training_snapshot.py:184:    lineage = evidence.get("validation_export_lineage")
+ops/gcp/publish_training_snapshot.py:185:    if not isinstance(lineage, Mapping):
+ops/gcp/publish_training_snapshot.py:186:        raise ValueError("PIT evidence lineage is missing")
+ops/gcp/publish_training_snapshot.py:187:    for name, value in _expected_pit_lineage(boundary).items():
+ops/gcp/publish_training_snapshot.py:188:        if lineage.get(name) != value:
+ops/gcp/publish_training_snapshot.py:189:            raise ValueError(f"PIT evidence lineage mismatch: {name}")
+ops/gcp/publish_training_snapshot.py:190:    if lineage.get("execution_git_sha") != registry_identity.execution_git_sha:
+ops/gcp/publish_training_snapshot.py:191:        raise ValueError("PIT evidence lineage mismatch: execution_git_sha")
+ops/gcp/publish_training_snapshot.py:247:    lineage = manifest.get("lineage")
+ops/gcp/publish_training_snapshot.py:248:    if not isinstance(lineage, Mapping):
+ops/gcp/publish_training_snapshot.py:249:        raise ValueError("training snapshot manifest lineage is missing")
+ops/gcp/publish_training_snapshot.py:250:    for name, value in _expected_training_lineage(boundary).items():
+ops/gcp/publish_training_snapshot.py:251:        if lineage.get(name) != value:
+ops/gcp/publish_training_snapshot.py:252:            raise ValueError(f"training snapshot manifest lineage mismatch: {name}")
+ops/gcp/publish_training_snapshot.py:428:        **_expected_training_lineage(boundary),
+ops/gcp/publish_training_snapshot.py:468:        **_expected_training_lineage(boundary),
+ops/gcp/publish_training_snapshot.py:479:        "completion_marker_lineage": {
+tests/unit/test_feast_pit_validation.py:152:    def test_validation_manifest_requires_exact_lineage_and_counts(self) -> None:
+tests/unit/test_feast_pit_validation.py:153:        lineage = {
+tests/unit/test_feast_pit_validation.py:165:            "lineage": dict(lineage),
+tests/unit/test_feast_pit_validation.py:171:                root, expected_lineage=lineage
+tests/unit/test_feast_pit_validation.py:174:            manifest["lineage"]["snapshot_id"] = "wrong-snapshot"
+tests/unit/test_feast_pit_validation.py:176:            with self.assertRaisesRegex(ValueError, "lineage mismatch"):
+tests/unit/test_feast_pit_validation.py:177:                require_validation_export_manifest(root, expected_lineage=lineage)
+tests/unit/test_edai1_evidence_and_lineage.py:3:from data_platform.metadata.datahub.lineage.cloud_lineage import build_plan
+tests/unit/test_edai1_evidence_and_lineage.py:4:from data_platform.metadata.datahub.lineage.cloud_publisher import (
+tests/unit/test_edai1_evidence_and_lineage.py:11:def test_cloud_lineage_plan_has_stable_operational_entities():
+tests/unit/test_edai1_evidence_and_lineage.py:16:    assert plan["dataset_lineage_count"] == 31
+tests/unit/test_edai1_evidence_and_lineage.py:22:    assert len({edge["downstream"] for edge in plan["dataset_lineage"]}) == 31
+tests/unit/test_edai1_evidence_and_lineage.py:24:        edge for edge in plan["dataset_lineage"]
+tests/unit/test_publish_training_snapshot.py:118:                    "validation_export_lineage": {
+tests/unit/test_publish_training_snapshot.py:143:            "lineage": {
+tests/unit/test_publish_training_snapshot.py:297:    def test_incomplete_or_wrong_source_lineage_fails_before_writes(self) -> None:
+tests/unit/test_publish_training_snapshot.py:298:        for mutation in ("incomplete", "lineage"):
+tests/unit/test_publish_training_snapshot.py:307:                    manifest["lineage"]["source_silver_run_id"] = "wrong-silver-run"
+tests/observability/test_ai_telemetry.py:78:        emitted: list[dict[str, object]] = []
+tests/observability/test_ai_telemetry.py:79:        telemetry = JsonTelemetry("drift-mcp", sink=emitted.append)
+tests/observability/test_ai_telemetry.py:84:        self.assertEqual(emitted[0]["trace_id"], "a" * 32)
+tests/observability/test_ai_telemetry.py:85:        self.assertEqual(emitted[0]["span_id"], "b" * 16)
+tests/observability/test_ai_telemetry.py:116:    def test_otel_tool_call_emits_child_span_with_semantic_status(self) -> None:
+ai_platform/ml/tracking/snapshot.py:123:    lineage = manifest.get("lineage")
+ai_platform/ml/tracking/snapshot.py:124:    if not isinstance(lineage, dict):
+ai_platform/ml/tracking/snapshot.py:125:        raise ValueError("snapshot manifest lineage is required")
+ai_platform/ml/tracking/snapshot.py:126:    expected_lineage = {
+ai_platform/ml/tracking/snapshot.py:132:    for field, wanted in expected_lineage.items():
+ai_platform/ml/tracking/snapshot.py:133:        if lineage.get(field) != wanted:
+ai_platform/ml/tracking/snapshot.py:135:                f"snapshot manifest {field}={lineage.get(field)!r} != {wanted!r}"
+tests/contract/test_no_runtime_literals.py:63:                "DATAHUB_GMS_URL": "https://datahub.example.test",

@@ -1,0 +1,85 @@
+2026-11-01T09:53:48Z g2 start git=191b13cf4cbdb284c4126ab2a1b87357345478b3 levels=1,2,4,8
+{
+ "ok": true,
+ "problems": [],
+ "token_budget": {
+  "rate": {
+   "maxTokens": 150000,
+   "tokensPerFill": 150000,
+   "fillInterval": "1h",
+   "type": "tokens",
+   "key": "llm.requestModel"
+  },
+  "per_pass": {
+   "per_level": 9736,
+   "levels": 4,
+   "pass_total": 42290
+  },
+  "required_with_margin": 138870
+ }
+}
+{"healthy": true, "pods": 24, "inferenceservices": {"fraud-serving/fraud-detector": true}}
+{
+ "verdict": "FITS_SAFE_BUDGET",
+ "g2_nodes": [
+  "gke-ewallet-dev-cpu-pool-58daed59-fmzk",
+  "gke-ewallet-dev-cpu-pool-58daed59-l511",
+  "gke-ewallet-dev-cpu-pool-58daed59-vm30"
+ ],
+ "placement": [
+  {
+   "name": "vllm-fallback",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-fmzk"
+  },
+  {
+   "name": "vllm-primary",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-l511"
+  },
+  {
+   "name": "vllm-primary",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-vm30"
+  },
+  {
+   "name": "llmd-router-epp",
+   "cpu": 0.2,
+   "memory_gib": 0.375,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-fmzk"
+  },
+  {
+   "name": "agentgateway",
+   "cpu": 0.1,
+   "memory_gib": 0.125,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-l511"
+  },
+  {
+   "name": "agentgateway",
+   "cpu": 0.1,
+   "memory_gib": 0.125,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-vm30"
+  }
+ ],
+ "unplaced": []
+}
+2026-11-01T09:55:37Z gate A: deploy B2 (two C1 replicas)
+2026-11-01T10:12:23Z gate B: netpol-verify
+2026-11-01T10:13:14Z gate B: smoke-direct
+2026-11-01T10:13:58Z gate B: smoke-gateway
+2026-11-01T10:14:42Z gate B: failover
+Warning: would violate PodSecurity "restricted:latest": runAsNonRoot != true (pod or container "vllm" must set securityContext.runAsNonRoot=true)
+2026-11-01T10:59:49Z benchmark b2 pods=vllm-primary-7784db5cd9-7blh2,vllm-primary-7784db5cd9-88xhf,
+2026-11-01T11:12:45Z gate D: install llmd-router and switch agentgateway to it
+2026-11-01T11:22:48Z FAIL: router install
+2026-11-01T11:22:48Z cleanup (status 1)
+pool_size=2
+nodes_after=gke-ewallet-dev-cpu-pool-58daed59-08s1 gke-ewallet-dev-cpu-pool-58daed59-mb8v 
+mlops_nodes_before=gke-ewallet-dev-cpu-pool-58daed59-08s1 gke-ewallet-dev-cpu-pool-58daed59-mb8v 
+llm_releases_after=
+ewallet_agents_objects_after=configmap/istio-ca-crl 
+2026-11-01T11:25:41Z cleanup done
+exit=1

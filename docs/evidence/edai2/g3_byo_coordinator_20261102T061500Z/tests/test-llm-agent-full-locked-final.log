@@ -1,0 +1,372 @@
+/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/g3-byo-coordinator/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+2026-11-02 13:29:33,878 - root - INFO - Logging configured with level: INFO
+E.....................E........2026-11-02 13:29:34,526 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: ff5343ae-e031-46d1-bed5-e00c2e0e844b, context_id: session-byo-1).
+2026-11-02 13:29:34,527 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+.2026-11-02 13:29:34,532 - httpx - INFO - HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-11-02 13:29:34,534 - httpx - INFO - HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+2026-11-02 13:29:34,536 - httpx - INFO - HTTP Request: GET http://testserver/.well-known/agent-card.json "HTTP/1.1 200 OK"
+.2026-11-02 13:29:34,539 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: ee99439b-232c-4563-9496-994fd2ea8d6c, context_id: session-invalid).
+2026-11-02 13:29:34,540 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+.2026-11-02 13:29:34,544 - a2a.server.apps.jsonrpc.jsonrpc_app - WARNING - Request Error (ID: g3-byo-001): Code=-32600, Message='Payload too large'
+2026-11-02 13:29:34,544 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+.2026-11-02 13:29:34,548 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 111fb08a-7e9d-4ad8-b88d-b2dc7a230cf3, context_id: session-duplicate).
+2026-11-02 13:29:34,549 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+2026-11-02 13:29:34,550 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 28e7f378-4d11-4698-bd31-7c4bb00a5546, context_id: session-duplicate).
+2026-11-02 13:29:34,552 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+.2026-11-02 13:29:34,557 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 42e04bd4-c410-4566-9c94-05153a0af9d9, context_id: session-restart).
+2026-11-02 13:29:34,557 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+2026-11-02 13:29:34,561 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+.................................EEEEEEEEE...........EEEEEEssssssssssssssssssssssssssssssE...............EEEE
+======================================================================
+ERROR: test_agents_chart (unittest.loader._FailedTest.test_agents_chart)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_agents_chart
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_agents_chart.py", line 18, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_g2 (unittest.loader._FailedTest.test_g2)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_g2
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_g2.py", line 22, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_g3_runtime_config (unittest.loader._FailedTest.test_g3_runtime_config)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_g3_runtime_config
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_g3_runtime_config.py", line 16, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_gke_cpu_profile (unittest.loader._FailedTest.test_gke_cpu_profile)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_gke_cpu_profile
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_gke_cpu_profile.py", line 16, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_llmd_routing (unittest.loader._FailedTest.test_llmd_routing)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_llmd_routing
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_llmd_routing.py", line 18, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_mcp_production_authenticator (unittest.loader._FailedTest.test_mcp_production_authenticator)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_mcp_production_authenticator
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_mcp_production_authenticator.py", line 20, in <module>
+    from tests.llm_agent.test_phase_d_tools import (
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_d_tools.py", line 29, in <module>
+    from ai_platform.inference.assembler import HistoricalFeatureSet
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/ai_platform/inference/assembler.py", line 12, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+
+
+======================================================================
+ERROR: test_mcp_sdk_conformance (unittest.loader._FailedTest.test_mcp_sdk_conformance)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_mcp_sdk_conformance
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_mcp_sdk_conformance.py", line 21, in <module>
+    from tests.llm_agent.test_phase_d_tools import (
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_d_tools.py", line 29, in <module>
+    from ai_platform.inference.assembler import HistoricalFeatureSet
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/ai_platform/inference/assembler.py", line 12, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+
+
+======================================================================
+ERROR: test_o1 (unittest.loader._FailedTest.test_o1)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_o1
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_o1.py", line 14, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_observability_chart (unittest.loader._FailedTest.test_observability_chart)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_observability_chart
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_observability_chart.py", line 13, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_phase_abc_p0_fixes (unittest.loader._FailedTest.test_phase_abc_p0_fixes)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_phase_abc_p0_fixes
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_abc_p0_fixes.py", line 24, in <module>
+    import jsonschema
+ModuleNotFoundError: No module named 'jsonschema'
+
+
+======================================================================
+ERROR: test_phase_b (unittest.loader._FailedTest.test_phase_b)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_phase_b
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_b.py", line 7, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_phase_d_chart (unittest.loader._FailedTest.test_phase_d_chart)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_phase_d_chart
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_d_chart.py", line 13, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_phase_d_security (unittest.loader._FailedTest.test_phase_d_security)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_phase_d_security
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_d_security.py", line 14, in <module>
+    from tests.llm_agent.test_phase_d_tools import (
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_d_tools.py", line 29, in <module>
+    from ai_platform.inference.assembler import HistoricalFeatureSet
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/ai_platform/inference/assembler.py", line 12, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+
+
+======================================================================
+ERROR: test_phase_d_tools (unittest.loader._FailedTest.test_phase_d_tools)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_phase_d_tools
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_d_tools.py", line 29, in <module>
+    from ai_platform.inference.assembler import HistoricalFeatureSet
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/ai_platform/inference/assembler.py", line 12, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+
+
+======================================================================
+ERROR: test_policy_gateways (unittest.loader._FailedTest.test_policy_gateways)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_policy_gateways
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_policy_gateways.py", line 18, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_r1_runtime_prep (unittest.loader._FailedTest.test_r1_runtime_prep)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_r1_runtime_prep
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_r1_runtime_prep.py", line 19, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_r2_r3_budgets (unittest.loader._FailedTest.test_r2_r3_budgets)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_r2_r3_budgets
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_r2_r3_budgets.py", line 17, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_rag_chunk_lookup (unittest.loader._FailedTest.test_rag_chunk_lookup)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_rag_chunk_lookup
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_rag_chunk_lookup.py", line 12, in <module>
+    from tests.llm_agent.test_phase_d_tools import ENV, FASTAPI, SUBJECT, asgi, rpc, run
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_phase_d_tools.py", line 29, in <module>
+    from ai_platform.inference.assembler import HistoricalFeatureSet
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/ai_platform/inference/assembler.py", line 12, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+
+
+======================================================================
+ERROR: test_registry_catalog (unittest.loader._FailedTest.test_registry_catalog)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_registry_catalog
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_registry_catalog.py", line 10, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_trivy_secret_config (unittest.loader._FailedTest.test_trivy_secret_config)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_trivy_secret_config
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_trivy_secret_config.py", line 21, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_vllm_model_image (unittest.loader._FailedTest.test_vllm_model_image)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_vllm_model_image
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_vllm_model_image.py", line 19, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+======================================================================
+ERROR: test_vllm_runtime_chart (unittest.loader._FailedTest.test_vllm_runtime_chart)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_vllm_runtime_chart
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_vllm_runtime_chart.py", line 12, in <module>
+    import yaml
+ModuleNotFoundError: No module named 'yaml'
+
+
+----------------------------------------------------------------------
+Ran 145 tests in 0.629s
+
+FAILED (errors=22, skipped=30)

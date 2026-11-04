@@ -1,0 +1,18 @@
+{
+  "probe": "probe-coordinator-like-auto",
+  "http_status": 200,
+  "finish_reason": "stop",
+  "content": "<tool_call>\n{\"name\": \"ewallet_agents__NS__feature_rag_specialist\", \"arguments\": {\"request\": \"CALL_AGENT=feature-rag-specialist\\nREQUEST_JSON={\"transaction_id\":\"g3-native-probe-20261102\",\"operation\":\"capability_probe\",\"execute_business_tools\":false}\"}}\n</tool_call>",
+  "tool_calls": null,
+  "usage": {
+    "prompt_tokens": 575,
+    "completion_tokens": 69,
+    "total_tokens": 644,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "model": "ewallet-fraud-llm-v1",
+  "id": "chatcmpl-a24ee0eb71ce915f",
+  "error": null
+}

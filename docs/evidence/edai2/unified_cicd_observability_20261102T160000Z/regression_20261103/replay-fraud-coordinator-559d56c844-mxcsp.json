@@ -1,0 +1,40 @@
+{
+  "id": "edai2-regression-20261103-001",
+  "jsonrpc": "2.0",
+  "result": {
+    "artifacts": [
+      {
+        "artifactId": "result-fda15d06-41f8-4899-abf7-324ad811217b",
+        "name": "validated-fraud-investigation",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"citations\":[{\"chunk_id\":\"policy-payment-anomaly:0000\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-payment-anomaly\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.49425804103295834,\"source_checksum\":\"sha256:b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md\"},{\"chunk_id\":\"policy-account-takeover:0000\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-account-takeover\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.4664269647229036,\"source_checksum\":\"sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md\"},{\"chunk_id\":\"policy-account-takeover:0001\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-account-takeover\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.4522020703117881,\"source_checksum\":\"sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md\"}],\"contract_version\":\"g3-orchestration/v1\",\"coordinator_revision\":\"programmatic-coordinator/byo-v1\",\"decision_support\":\"Bằng chứng chuyên gia đã được xác thực; các giá trị nguồn được giữ nguyên bên dưới.\",\"drift\":[],\"features\":{\"account_behavior__account_tx_count_1h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"account_behavior__account_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"merchant_behavior__merchant_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":6},\"user_behavior__user_avg_amount_30d\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":474960.33}},\"fraud_score\":{\"feature_timestamp\":\"2026-05-31T23:59:56+00:00\",\"fraud_prediction\":0,\"fraud_probability\":0.0639895560144887,\"model_input_schema_sha256\":\"03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176\",\"model_name\":\"fraud-detector\",\"model_version\":\"1\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\"},\"request_id\":\"edai2-regression-20261103-001\",\"status\":\"ok\",\"unavailable\":[]}"
+          }
+        ]
+      }
+    ],
+    "contextId": "edai2-regression-context-001",
+    "history": [
+      {
+        "contextId": "edai2-regression-context-001",
+        "kind": "message",
+        "messageId": "edai2-regression-20261103-001",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "CALL_AGENT=feature-rag-specialist\nREQUEST_JSON={\"capabilities\":[\"fraud-evidence\"],\"contract_version\":\"g3-business-request/v1\",\"feature_names\":[\"account_behavior__account_tx_count_1h\",\"account_behavior__account_tx_count_24h\",\"user_behavior__user_avg_amount_30d\",\"merchant_behavior__merchant_tx_count_24h\"],\"knowledge_query\":\"payment anomaly policy and step-up authentication requirements\",\"request_id\":\"edai2-regression-20261103-001\",\"requested_tools\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"],\"target_agent\":\"feature-rag-specialist\",\"transaction\":{\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"amount\":275465.53,\"channel\":\"app\",\"counterparty_account_id\":null,\"currency\":\"VND\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"event_timestamp\":\"2026-06-01T00:00:00Z\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"type\":\"payment\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\"}}"
+          }
+        ],
+        "role": "user",
+        "taskId": "fda15d06-41f8-4899-abf7-324ad811217b"
+      }
+    ],
+    "id": "fda15d06-41f8-4899-abf7-324ad811217b",
+    "kind": "task",
+    "status": {
+      "state": "completed",
+      "timestamp": "2026-11-03T04:31:29.918513+00:00"
+    }
+  }
+}

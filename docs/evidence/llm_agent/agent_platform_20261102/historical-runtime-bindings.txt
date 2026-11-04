@@ -1,0 +1,9 @@
+classification=HISTORICAL_RUNTIME_EVIDENCE_NOT_CURRENT_READBACK
+
+b059dda197c0c9b0f0570c87cbbe3a65e768f4048193c92e0f5df33616b44f79  docs/evidence/edai2/g3_functional_closure_20261102T042311Z/agents-mcp-current.json
+21a0b765c6f48b6c5e59f94e3f26bf0028a91026165a3771066e9c0341623aba  docs/evidence/llm_agent/edai2_integration_20261102/observability/final-runtime-summary.json
+b37f41c1b7b355fb2964617b1f3f206d738afa75f94e3d53126913d15e86364b  infra/kubernetes/kagent-platform/agent-registry-contract.json
+
+The first file records three Agents Accepted/Ready and two RemoteMCPServers Accepted.
+The second records historical Helm llm-agent=24, llm-agent-mcp=3, kagent=2 and running G3/observability pods.
+Current cluster state was not re-verified because the GKE API was unreachable from the active authorized network.

@@ -6,56 +6,16 @@ import argparse
 import json
 from pathlib import Path
 
+from scripts.ci.catalog import load_catalog
 
-PATH_COMPONENTS = {
-    "ai_platform/llm_agent/rag/": {"rag-pipeline"},
-    "ai_platform/features/feast/feature_repo/rag_": {"rag-pipeline"},
-    "data/llm_agent/rag/": {"rag-pipeline"},
-    "ops/llm_agent/rag_": {"rag-pipeline"},
-    "ops/llm_agent/run_rag_": {"rag-pipeline"},
-    "ops/llm_agent/verify_rag_": {"rag-pipeline"},
-    "ai_platform/llm_agent/": {"feature-rag-mcp", "drift-mcp", "mcp-gateway"},
-    "infra/docker/llm-agent-tooling/": {"feature-rag-mcp", "drift-mcp", "platform-tooling"},
-    "ops/llm_agent/registry_catalog": {"agent-registry"},
-    "ops/llm_agent/": {"platform-tooling"},
-    "infra/helm/llm-agent-platform/": {"platform-routing"},
-    "infra/helm/llm-agent-platform/prompts/": {
-        "fraud-coordinator",
-        "feature-rag-specialist",
-        "drift-specialist",
-        "agent-registry",
-    },
-    "infra/helm/llm-agent-platform/templates/agents.yaml": {
-        "fraud-coordinator",
-        "feature-rag-specialist",
-        "drift-specialist",
-    },
-    "infra/helm/llm-agent-platform/templates/policy-gateways.yaml": {"mcp-gateway", "a2a-gateway"},
-    "infra/helm/llm-d/": {"llm-d-router"},
-    "infra/helm/agentregistry/": {"agent-registry"},
-    "infra/helm/keda/": {"agent-autoscaling"},
-    "infra/kubernetes/kagent-platform/": {
-        "fraud-coordinator",
-        "feature-rag-specialist",
-        "drift-specialist",
-    },
-    "infra/kubernetes/kagent-pilot/": {
-        "fraud-coordinator",
-        "feature-rag-specialist",
-        "drift-specialist",
-    },
-    "data_platform/orchestration/airflow/": {"rag-pipeline"},
-    "data_platform/processing/flink/": {
-        "streaming-to-offline",
-        "streaming-to-online",
-    },
-}
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def detect(paths: list[str]) -> list[str]:
+    mapping = load_catalog(ROOT / "jenkins/catalog/components.json").legacy_path_components
     components: set[str] = set()
     for path in paths:
-        for prefix, names in sorted(PATH_COMPONENTS.items(), key=lambda item: -len(item[0])):
+        for prefix, names in sorted(mapping.items(), key=lambda item: -len(item[0])):
             if path.startswith(prefix):
                 components.update(names)
                 break

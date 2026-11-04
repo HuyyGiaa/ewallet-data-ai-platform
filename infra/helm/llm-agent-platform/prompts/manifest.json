@@ -7,6 +7,13 @@
    "sha256": "9330dda3061ba50246e15d4d91065ccbfd5b40afc634a380b5e7f72632cd6945",
    "version": "v1"
   },
+  "drift-specialist/v2": {
+   "agent": "drift-specialist",
+   "langfuse_name": "ewallet/drift-specialist",
+   "path": "drift-specialist/v2.md",
+   "sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef",
+   "version": "v2"
+  },
   "feature-rag-specialist/v1": {
    "agent": "feature-rag-specialist",
    "langfuse_name": "ewallet/feature-rag-specialist",
@@ -14,12 +21,68 @@
    "sha256": "391413680be342fe4b8ad9543a36b25c3ef3506ad6f4f75db1834f6ae44a2cb6",
    "version": "v1"
   },
+  "feature-rag-specialist/v2": {
+   "agent": "feature-rag-specialist",
+   "langfuse_name": "ewallet/feature-rag-specialist",
+   "path": "feature-rag-specialist/v2.md",
+   "sha256": "13fd68c9de70d05acbbe69439b286e8057427b6a0047d3a55e2f420c89aad46a",
+   "version": "v2"
+  },
+  "feature-rag-specialist/v3": {
+   "agent": "feature-rag-specialist",
+   "langfuse_name": "ewallet/feature-rag-specialist",
+   "path": "feature-rag-specialist/v3.md",
+   "sha256": "d7cc00cccdc97bdc89986b8d26b6b05f49436f366547631567ea90515790eed1",
+   "version": "v3"
+  },
+  "feature-rag-specialist/v4": {
+   "agent": "feature-rag-specialist",
+   "langfuse_name": "ewallet/feature-rag-specialist",
+   "path": "feature-rag-specialist/v4.md",
+   "sha256": "c1f6305f67e21ab55762669acb95545f623c525f81402ea2f36c66c3f0a84ff9",
+   "version": "v4"
+  },
+  "feature-rag-specialist/v5": {
+   "agent": "feature-rag-specialist",
+   "langfuse_name": "ewallet/feature-rag-specialist",
+   "path": "feature-rag-specialist/v5.md",
+   "sha256": "a3ccfe5ce07f05ea155bfb3ff658df4dff8ac928f0ea23fb35481dc7519b2112",
+   "version": "v5"
+  },
   "fraud-coordinator/v1": {
    "agent": "fraud-coordinator",
    "langfuse_name": "ewallet/fraud-coordinator",
    "path": "fraud-coordinator/v1.md",
    "sha256": "413d20a9229d38fb5004610c04824233584ebfa2d63110a4950a172ffb208bb1",
    "version": "v1"
+  },
+  "fraud-coordinator/v2": {
+   "agent": "fraud-coordinator",
+   "langfuse_name": "ewallet/fraud-coordinator",
+   "path": "fraud-coordinator/v2.md",
+   "sha256": "187d672ed7aba86252abd88bafc9a27c5fe6ce9fbe62ee9e3101f29a37a87f66",
+   "version": "v2"
+  },
+  "fraud-coordinator/v3": {
+   "agent": "fraud-coordinator",
+   "langfuse_name": "ewallet/fraud-coordinator",
+   "path": "fraud-coordinator/v3.md",
+   "sha256": "dfd5cd8260c6c1bc7d21c3e6b006b22bc0f9f93793bbd74c7d18725f181def7b",
+   "version": "v3"
+  },
+  "fraud-coordinator/v4": {
+   "agent": "fraud-coordinator",
+   "langfuse_name": "ewallet/fraud-coordinator",
+   "path": "fraud-coordinator/v4.md",
+   "sha256": "0410ff956263e98fa21022a0078e540ad96f1c4f5abcd88d6a456c8bf697d184",
+   "version": "v4"
+  },
+  "fraud-coordinator/v5": {
+   "agent": "fraud-coordinator",
+   "langfuse_name": "ewallet/fraud-coordinator",
+   "path": "fraud-coordinator/v5.md",
+   "sha256": "416963bcfe2c1e1774d4dac20605cf5e56fb36450bbb7053ad5c53cdee41afb6",
+   "version": "v5"
   }
  },
  "schema": "ewallet-prompt-registry/v1"

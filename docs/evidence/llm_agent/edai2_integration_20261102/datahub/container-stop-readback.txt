@@ -1,0 +1,4 @@
+/datahub-datahub-gms-quickstart-1 exited 143
+/datahub-kafka-broker-1 exited 143
+/datahub-opensearch-1 exited 143
+/datahub-mysql-1 exited 0

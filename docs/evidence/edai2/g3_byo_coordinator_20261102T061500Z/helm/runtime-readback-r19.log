@@ -1,0 +1,100 @@
+2026-11-02T06:22:48Z
+--- agent/deployment/service ---
+0f493645-0c86-4a57-acbc-68aab17b4545
+9
+BYO
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446
+[{"lastTransitionTime":"2026-11-01T17:35:05Z","message":"Agent configuration accepted","observedGeneration":9,"reason":"Reconciled","status":"True","type":"Accepted"},{"lastTransitionTime":"2026-11-02T00:30:26Z","message":"Deployment is ready","observedGeneration":9,"reason":"DeploymentReady","status":"True","type":"Ready"}]
+c64f35f4-4c3c-47d1-a8d5-db21dd33d6a3
+fraud-coordinator
+{"ewallet.io/g3-llm":"true"}
+{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446
+45a7853f-e917-4485-b29d-cd931bfb2717
+ClusterIP
+34.118.233.179
+[{"appProtocol":"kgateway.dev/a2a","name":"http","port":8080,"protocol":"TCP","targetPort":8080}]
+--- pod image id ---
+fraud-coordinator-7bf69cb76c-qlt2m|Running|false|asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446|gke-ewallet-dev-cpu-pool-58daed59-9v0c
+fraud-coordinator-d4bbf565c-9xczf|Running|true|asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:999a00ce14abbf919cdf6c171fd558c68a0ccd96e08e8aa322fbd6b8a13c48f9|gke-ewallet-dev-cpu-pool-58daed59-9v0c
+--- health logs ---
+2026-11-02 06:14:51,390 - root - INFO - Logging configured with level: INFO
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+INFO:     169.254.7.127:41886 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:15:01,799 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.13s.
+INFO:     169.254.7.127:52836 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:55614 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:15:32,279 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:15:37,281 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.82s.
+2026-11-02 06:15:44,439 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 7.92s.
+INFO:     169.254.7.127:51450 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38812 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38824 - "GET /ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38828 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:15:52,279 - httpx - INFO - HTTP Request: GET http://kagent-controller.kagent:8083/api/tasks/4ca77d1f-41f9-4b86-839f-2a4c1fd2a035 "HTTP/1.1 404 Not Found"
+2026-11-02 06:15:52,280 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 4ca77d1f-41f9-4b86-839f-2a4c1fd2a035, context_id: 01170c77-40e5-42f2-9f9d-5f27b698b72f).
+2026-11-02 06:15:52,294 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 06:15:52,302 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+INFO:     169.254.7.127:45458 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:16:05,685 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:16:10,691 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.97s.
+INFO:     169.254.7.127:46876 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:16:24,957 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 14.96s.
+INFO:     169.254.7.127:35202 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:16:39,918 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:16:44,926 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.18s.
+INFO:     169.254.7.127:36044 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:59166 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:42662 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:17:17,767 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:17:22,774 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.08s.
+INFO:     169.254.7.127:50974 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:42466 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:17:52,376 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+INFO:     127.0.0.1:38844 - "POST / HTTP/1.1" 200 OK
+2026-11-02 06:17:54,708 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:17:59,715 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.87s.
+INFO:     169.254.7.127:47750 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:18:00,596 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.95s.
+INFO:     169.254.7.127:37694 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:40926 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:18:33,554 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:18:38,556 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.07s.
+2026-11-02 06:18:41,415 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 3.31s.
+INFO:     169.254.7.127:34682 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:46586 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:19:07,499 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:19:12,500 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.09s.
+INFO:     169.254.7.127:37832 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:19:27,830 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 16.58s.
+INFO:     169.254.7.127:52918 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:19:44,411 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+INFO:     169.254.7.127:46730 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:19:49,413 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.98s.
+INFO:     169.254.7.127:45360 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:20:03,198 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 19.12s.
+INFO:     169.254.7.127:47790 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:20:22,318 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:20:27,320 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.97s.
+INFO:     169.254.7.127:51248 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:20:42,014 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 14.90s.
+INFO:     169.254.7.127:57952 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:20:56,910 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+INFO:     169.254.7.127:51352 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:21:01,912 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.00s.
+INFO:     169.254.7.127:49336 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:54444 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:21:35,434 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 06:21:40,435 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.82s.
+INFO:     169.254.7.127:34260 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36096 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:22:10,770 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+INFO:     169.254.7.127:33300 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:22:15,771 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.10s.
+2026-11-02 06:22:22,040 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 9.58s.
+INFO:     169.254.7.127:44506 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:52360 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 06:22:45,245 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE

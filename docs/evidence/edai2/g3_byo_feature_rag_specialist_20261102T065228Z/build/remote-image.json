@@ -1,0 +1,9 @@
+{
+  "image_summary": {
+    "digest": "sha256:92c5730b8695b5c2e7dd687077a640044837d080210f6c20730ab5c9e4c7d7c9",
+    "fully_qualified_digest": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:92c5730b8695b5c2e7dd687077a640044837d080210f6c20730ab5c9e4c7d7c9",
+    "registry": "asia-southeast1-docker.pkg.dev",
+    "repository": "ewallet-platform",
+    "slsa_build_level": "unknown"
+  }
+}

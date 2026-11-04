@@ -1,0 +1,21 @@
+{
+  "jsonrpc": "2.0",
+  "id": "g3-adapter-score-001",
+  "method": "tools/call",
+  "params": {
+    "name": "fraud_scoring",
+    "arguments": {
+      "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9",
+      "event_timestamp": "2026-06-01T00:00:00+00:00",
+      "user_id": "55561d92-d042-401c-b02a-b03e3ed280f7",
+      "account_id": "2d48f147-f98c-4819-b183-f94ca049c175",
+      "device_id": "e7765b81-c9f9-4147-aa00-46f34de1d7da",
+      "merchant_id": "e3e4aced-6b0d-40af-be5c-eef9255204c9",
+      "counterparty_account_id": null,
+      "type": "payment",
+      "amount": 275465.53,
+      "currency": "VND",
+      "channel": "app"
+    }
+  }
+}

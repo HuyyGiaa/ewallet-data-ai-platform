@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 0.399,
+  "polls": 0,
+  "terminal_state": "completed",
+  "response": "docs/evidence/edai2/g3_byo_feature_rag_specialist_20261102T065228Z/e2e/coordinator-response.json"
+}

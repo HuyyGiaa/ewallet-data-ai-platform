@@ -1,0 +1,2 @@
+ewallet-cicd      Active   2s    app.kubernetes.io/part-of=ewallet-ci,kubernetes.io/metadata.name=ewallet-cicd,pod-security.kubernetes.io/audit=restricted,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn=restricted
+ewallet-prompts   Active   2s    app.kubernetes.io/part-of=ewallet-agents,kubernetes.io/metadata.name=ewallet-prompts,pod-security.kubernetes.io/audit=restricted,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn=restricted

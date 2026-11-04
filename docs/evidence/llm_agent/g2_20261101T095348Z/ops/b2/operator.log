@@ -1,0 +1,8 @@
+2026-11-01T10:12:24Z stage=netpol-verify git=191b13cf4cbdb284c4126ab2a1b87357345478b3
+2026-11-01T10:13:14Z stage=netpol-verify ok
+2026-11-01T10:13:14Z stage=smoke-direct git=191b13cf4cbdb284c4126ab2a1b87357345478b3
+2026-11-01T10:13:56Z stage=smoke-direct ok
+2026-11-01T10:13:59Z stage=smoke-gateway git=191b13cf4cbdb284c4126ab2a1b87357345478b3
+2026-11-01T10:14:40Z stage=smoke-gateway ok
+2026-11-01T10:14:43Z stage=failover git=191b13cf4cbdb284c4126ab2a1b87357345478b3
+2026-11-01T10:16:17Z stage=failover ok

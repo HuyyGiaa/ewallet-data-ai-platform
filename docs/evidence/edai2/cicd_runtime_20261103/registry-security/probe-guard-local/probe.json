@@ -1,0 +1,24 @@
+{
+ "dry_run_write": {
+  "sha256_after": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef",
+  "status": 200,
+  "subject": "drift-specialist-system/v2",
+  "unchanged": true
+ },
+ "reads": {
+  "/openapi.json": 200,
+  "/v0/agents": 200,
+  "/v0/health": 200,
+  "/v0/mcpservers": 200,
+  "/v0/skills": 200,
+  "/v0/version": 200
+ },
+ "registry": "http://127.0.0.1:12131",
+ "verdict": "PASS",
+ "writes": [
+  {
+   "dryRun": "true",
+   "target": "drift-specialist-system/v2"
+  }
+ ]
+}

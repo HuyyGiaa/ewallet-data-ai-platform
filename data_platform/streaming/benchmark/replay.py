@@ -11,8 +11,10 @@ Usage (inside the bench container, see docs/streaming/flink_local_benchmark.md):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from data_platform.streaming.benchmark.dataset import (
@@ -22,9 +24,51 @@ from data_platform.streaming.benchmark.dataset import (
     performance_spec,
 )
 from data_platform.streaming.contracts.topics import TOPICS, topic_name
+from data_platform.streaming.contracts.events import TransactionEvent
 
 
 BENCH_TOPICS = ("raw", "retry", "dlq", "late", "accepted", "online")
+INITIAL_WATERMARK_MS = -(2**63)
+MAX_OUT_OF_ORDERNESS_MS = 120_000
+ALLOWED_LATENESS_MS = 600_000
+
+
+def instrument_records(records) -> tuple[list[tuple[str, str]], int]:
+    """Wrap valid benchmark events with a deterministic pre-event watermark."""
+    result, max_event_ms = [], None
+    for key, payload in records:
+        try:
+            event = TransactionEvent.from_json(payload)
+        except (KeyError, TypeError, ValueError):
+            result.append((key, payload))
+            continue
+        event_ms = int(event.event_time.timestamp() * 1000)
+        logical_watermark = (
+            INITIAL_WATERMARK_MS
+            if max_event_ms is None
+            else max_event_ms - MAX_OUT_OF_ORDERNESS_MS - 1
+        )
+        wrapped = json.dumps(
+            {
+                "kind": "BENCHMARK_EVENT",
+                "event": event.to_dict(),
+                "logical_watermark_ms": logical_watermark,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        result.append((key, wrapped))
+        max_event_ms = event_ms if max_event_ms is None else max(max_event_ms, event_ms)
+    if max_event_ms is None:
+        raise ValueError("benchmark dataset contains no valid events")
+    return result, max_event_ms
+
+
+def payload_digest(records) -> str:
+    digest = hashlib.sha256()
+    for key, payload in records:
+        digest.update(key.encode() + b"\0" + payload.encode() + b"\n")
+    return digest.hexdigest()
 
 
 def create_topics(bootstrap_servers: str, namespace: str) -> list[str]:
@@ -55,7 +99,9 @@ def create_topics(bootstrap_servers: str, namespace: str) -> list[str]:
     return names
 
 
-def publish(records, bootstrap_servers: str, topic: str, target_rate: float) -> dict:
+def publish(
+    records, bootstrap_servers: str, topic: str, target_rate: float, *, partition: int | None = None
+) -> dict:
     from confluent_kafka import Producer
 
     producer = Producer(
@@ -73,6 +119,7 @@ def publish(records, bootstrap_servers: str, topic: str, target_rate: float) -> 
         if error is not None:
             failures.append(str(error))
 
+    started_at = datetime.now(timezone.utc)
     started = time.perf_counter()
     for index, (key, payload) in enumerate(records):
         due = started + index / target_rate
@@ -81,7 +128,11 @@ def publish(records, bootstrap_servers: str, topic: str, target_rate: float) -> 
             time.sleep(delay)
         while True:
             try:
-                producer.produce(topic, key=key.encode(), value=payload.encode(), on_delivery=on_delivery)
+                routing = {} if partition is None else {"partition": partition}
+                producer.produce(
+                    topic, key=key.encode(), value=payload.encode(),
+                    on_delivery=on_delivery, **routing,
+                )
                 break
             except BufferError:
                 producer.poll(0.05)
@@ -101,6 +152,39 @@ def publish(records, bootstrap_servers: str, topic: str, target_rate: float) -> 
         # Measured, not assumed: the generator may fall behind the target.
         "achieved_send_rate_eps": round(count / send_seconds, 2) if send_seconds > 0 else None,
         "achieved_acked_rate_eps": round(count / (acked - started), 2),
+        "fixed_partition": partition,
+        "started_at": started_at.isoformat(),
+        "finished_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def publish_drain_markers(
+    bootstrap_servers: str, topic: str, max_event_ms: int, *, partitions: list[int]
+) -> dict:
+    """Advance every active benchmark partition beyond all feature timers."""
+    from confluent_kafka import Producer
+
+    marker_ms = max_event_ms + ALLOWED_LATENESS_MS + MAX_OUT_OF_ORDERNESS_MS + 1_000
+    producer = Producer({"bootstrap.servers": bootstrap_servers, "acks": "all"})
+    payload = json.dumps(
+        {"kind": "BENCHMARK_WATERMARK", "event_time_ms": marker_ms},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    for partition in partitions:
+        producer.produce(
+            topic,
+            key=f"benchmark-watermark-{partition}".encode(),
+            value=payload.encode(),
+            partition=partition,
+        )
+    remaining = producer.flush(60)
+    if remaining:
+        raise RuntimeError(f"drain markers incomplete: undelivered={remaining}")
+    return {
+        "marker_event_time_ms": marker_ms,
+        "partitions": partitions,
+        "records_published": len(partitions),
     }
 
 
@@ -126,7 +210,9 @@ def main(argv=None) -> int:
         if args.rate is None:
             raise SystemExit("--rate is required in performance mode")
         spec = performance_spec(args.rate, args.duration_seconds)
-    records, manifest = build_payloads(spec)
+    logical_records, manifest = build_payloads(spec)
+    records, max_event_ms = instrument_records(logical_records)
+    manifest["transport_payload_sha256"] = payload_digest(records)
     manifest["namespace"] = args.namespace
     manifest["raw_topic"] = topic_name("raw", args.namespace)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -134,7 +220,35 @@ def main(argv=None) -> int:
         if not args.skip_create_topics:
             manifest["topics_created"] = create_topics(args.bootstrap_servers, args.namespace)
         if not args.create_topics_only:
-            manifest["publish"] = publish(records, args.bootstrap_servers, manifest["raw_topic"], spec.target_rate)
+            # Functional correctness must not depend on Kafka's key-to-partition
+            # assignment or on source parallelism.  One ordered partition gives
+            # baseline and optimized the exact same watermark progression.  Perf
+            # runs remain distributed so they can exercise all source subtasks.
+            partition = 0 if args.mode == "functional" else None
+            manifest["publish"] = publish(
+                records,
+                args.bootstrap_servers,
+                manifest["raw_topic"],
+                spec.target_rate,
+                partition=partition,
+            )
+            partitions = list(range(TOPICS["raw"].partitions))
+            manifest["drain"] = publish_drain_markers(
+                args.bootstrap_servers,
+                manifest["raw_topic"],
+                max_event_ms,
+                partitions=partitions,
+            )
+            if args.mode == "performance":
+                speedup = spec.event_interval_seconds * spec.target_rate
+                horizon_s = (MAX_OUT_OF_ORDERNESS_MS + ALLOWED_LATENESS_MS) / 1000
+                warmup_s = horizon_s / speedup
+                manifest["phases"] = {
+                    "event_time_speedup": speedup,
+                    "warmup_seconds": warmup_s,
+                    "steady_state_seconds": max(0.0, args.duration_seconds - warmup_s),
+                    "drain": "partition-wide watermark markers after producer completion",
+                }
     (args.out / "input_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True))
     print(json.dumps({k: manifest.get(k) for k in ("namespace", "emitted_records", "payload_sha256", "publish")}))
     return 0

@@ -1,0 +1,17 @@
+backup {'source_active': 7, 'source_archived': 0, 'target_active': 0}
+archive {'source_active': 0, 'source_archived': 7, 'target_active': 0}
+copy {'source_active': 0, 'source_archived': 7, 'target_active': 7}
+takeover {'source_active': 0, 'source_archived': 7, 'target_active': 8}
+  rev 1 superseded   rev 2 superseded   rev 3 superseded   rev 4 superseded   rev 5 superseded   rev 6 superseded   rev 7 superseded   rev 8 deployed 
+28 objects; 0 missing; 2 pods
+## rollback inside the new namespace to r7
+Rollback was a success! Happy Helming!
+  rev 8 superseded complete
+  rev 9 deployed 7
+28 objects; 0 missing; 2 pods
+## hazard: admin 'helm upgrade --install -n ewallet-mcp' after migration (no guard)
+Release "llm-agent-mcp" does not exist. Installing it now.
+Error: Unable to continue with install: NetworkPolicy "allow-mcp-gateway-to-feature-rag-mcp-ingress" in namespace "ewallet-mcp" exists and cannot be imported into the current release: invalid ownership metadata; annotation validation error: key "meta.helm.sh/release-namespace" must equal "ewallet-mcp": current value is "ewallet-mcp-release"
+  owner now: ewallet-mcp-release  records: ewallet-mcp-release(r9) 
+r1-migrated missing 0 uid changed 0 spec changed 0 pods identical True owner ['ewallet-mcp-release']
+r2-after-rollback missing 0 uid changed 0 spec changed 0 pods identical True owner ['ewallet-mcp-release']

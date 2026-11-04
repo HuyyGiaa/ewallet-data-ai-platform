@@ -1,0 +1,19 @@
+captured_utc=2026-11-02T10:23:17Z
+project=ewallet-data-ai-platform-hg26
+cluster=ewallet-dev
+zone=asia-southeast1-b
+status=RUNNING
+master_version=1.36.4-gke.2046003
+public_endpoint=34.143.148.210
+private_endpoint=10.20.0.8
+master_authorized_network=113.188.119.38/32
+observed_public_ipv4=171.239.81.235
+
+read_only_command:
+  kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev --request-timeout=15s get --raw=/readyz
+exit=1
+stderr=Unable to connect to the server: context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+
+classification=CURRENT_RUNTIME_READBACK_BLOCKED
+mutation_performed=false
+reason=Active client IP is outside the configured master authorized network. Changing that network was not authorized.

@@ -1,0 +1,14 @@
+=== AIRFLOW PROCESSES ===
+  43594  2-19:17:48 airflow api_server -- host:0.0.0.0 port:8080
+  43595  2-19:17:48 /home/huyy-giaa/miniconda3/envs/airflow/bin/python3.10 /home/huyy-giaa/miniconda3/envs/airflow/bin/airflow scheduler
+  43596  2-19:17:48 /home/huyy-giaa/miniconda3/envs/airflow/bin/python3.10 /home/huyy-giaa/miniconda3/envs/airflow/bin/airflow dag-processor
+  51271  2-19:09:59 airflow api_server -- host:127.0.0.1 port:8084
+  51273  2-19:09:59 /home/huyy-giaa/miniconda3/envs/airflow/bin/python3.10 /home/huyy-giaa/miniconda3/envs/airflow/bin/airflow dag-processor
+ 720504  1-21:54:52 /home/huyy-giaa/miniconda3/envs/airflow/bin/python3.10 /home/huyy-giaa/miniconda3/envs/airflow/bin/airflow scheduler
+=== AIRFLOW VERSION ===
+/bin/bash: line 6: airflow: command not found
+=== RAG DAG ===
+/bin/bash: line 8: airflow: command not found
+=== RAG RUNS ===
+/bin/bash: line 10: airflow: command not found
+=== DATAHUB/RELATED CONTAINERS ===

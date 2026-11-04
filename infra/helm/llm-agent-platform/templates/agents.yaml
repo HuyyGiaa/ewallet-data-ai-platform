@@ -1,10 +1,19 @@
 {{- if .Values.agents.enabled }}
 {{- $a := .Values.agents }}
 {{- $ns := .Values.namespace.name }}
+{{- $credentialRelease := .Values.mcpCredentialLifecycle.clientRelease }}
+{{- if not (or (eq $credentialRelease "legacy") (regexMatch "^[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?$" $credentialRelease)) }}
+{{- fail "mcpCredentialLifecycle.clientRelease must be legacy or a 1..24 character lowercase DNS label" }}
+{{- end }}
 {{- if not .Values.modelConfig.enabled }}
 {{- fail "agents.enabled needs modelConfig.enabled (agents use the global ModelConfig)" }}
 {{- end }}
-{{- if not (regexMatch "^gs://[a-z0-9][-a-z0-9_.]{1,61}[a-z0-9]/.+/$" $a.snapshotsLocation) }}
+{{- if not (has $a.mode (list "sandbox" "agent")) }}
+{{- fail "agents.mode must be sandbox (Substrate SandboxAgent) or agent (kagent Agent)" }}
+{{- end }}
+{{- $sandbox := eq $a.mode "sandbox" }}
+{{- $agentAutoscaling := and $a.autoscaling.enabled (not $sandbox) }}
+{{- if and $sandbox (not (regexMatch "^gs://[a-z0-9][-a-z0-9_.]{1,61}[a-z0-9]/.+/$" $a.snapshotsLocation)) }}
 {{- fail "agents.snapshotsLocation must be gs://<bucket>/<prefix>/" }}
 {{- end }}
 {{- $manifest := .Files.Get "prompts/manifest.json" | fromJson }}
@@ -13,12 +22,24 @@
 {{- $_ := set $all $a.coordinator.name $a.coordinator }}
 {{- range $name := keys $all | sortAlpha }}
 {{- $spec := index $all $name }}
+{{- $isCoordinator := eq $name $a.coordinator.name }}
+{{- $byo := index $spec "byo" | default dict }}
+{{- $byoEnabled := index $byo "enabled" | default false }}
 {{- $key := printf "%s/%s" $name $spec.promptVersion }}
 {{- $prompt := index $manifest.prompts $key }}
 {{- if not $prompt }}
 {{- fail (printf "agent %s: prompt %s is not in prompts/manifest.json" $name $key) }}
 {{- end }}
 {{- $text := $.Files.Get (printf "prompts/%s" $prompt.path) }}
+{{- /* git: kagent reads the chart-rendered <agent>-prompt-<version>. registry: it reads
+       <agent>-prompt-managed, written by ops/llm_agent/prompt_registry.py from
+       agentregistry at promptVersion and verified against the same manifest sha256.
+       The Git copy is still rendered for audit and as the rollback target. */}}
+{{- $promptSource := index $spec "promptSource" | default "git" }}
+{{- if not (has $promptSource (list "git" "registry")) }}
+{{- fail (printf "agent %s: promptSource must be git or registry" $name) }}
+{{- end }}
+{{- $promptConfigMap := ternary (printf "%s-prompt-managed" $name) (printf "%s-prompt-%s" $name $spec.promptVersion) (eq $promptSource "registry") }}
 {{- if ne (sha256sum $text) $prompt.sha256 }}
 {{- fail (printf "agent %s: prompt %s does not match its manifest sha256 (bump the version)" $name $key) }}
 {{- end }}
@@ -39,6 +60,7 @@ metadata:
     ewallet.io/langfuse-prompt: {{ $prompt.langfuse_name }}
 data:
   system.md: {{ $text | quote }}
+{{- if $sandbox }}
 ---
 apiVersion: ate.dev/v1alpha1
 kind: WorkerPool
@@ -55,9 +77,13 @@ spec:
   template:
     resources:
       {{- toYaml $a.workerPool.resources | nindent 6 }}
+{{- end }}
 ---
 apiVersion: kagent.dev/v1alpha2
-kind: SandboxAgent
+# sandbox: Substrate SandboxAgent (rows 20, 27; needs Substrate). agent: kagent
+# 0.10.3 Agent, a Deployment per agent with its own ServiceAccount, i.e. a
+# source-defined mesh identity for the MCP and A2A gateways.
+kind: {{ ternary "SandboxAgent" "Agent" $sandbox }}
 metadata:
   name: {{ $name }}
   namespace: {{ $ns }}
@@ -69,42 +95,211 @@ metadata:
     ewallet.io/display-name: {{ $spec.displayName | quote }}
     ewallet.io/rubric-rows: {{ $spec.rubricRows | quote }}
     ewallet.io/prompt-sha256: {{ $prompt.sha256 }}
+    {{- if eq $promptSource "registry" }}
+    ewallet.io/prompt-source: registry
+    {{- end }}
 spec:
   description: {{ $spec.displayName | quote }}
   version: {{ $spec.version | quote }}
+  {{- if $byoEnabled }}
+  {{- if and (not $isCoordinator) (ne $name "feature-rag-specialist") }}
+  {{- fail (printf "agent %s: BYO runtime is not approved" $name) }}
+  {{- end }}
+  {{- $byoImage := index $byo "image" | default "" }}
+  {{- if not (regexMatch "^[a-z0-9.-]+-docker\\.pkg\\.dev/[a-z0-9-]+/[a-z0-9_-]+/[a-z0-9._-]+@sha256:[0-9a-f]{64}$" $byoImage) }}
+  {{- fail (printf "agent %s: byo.image must be a private Artifact Registry image pinned by sha256 digest" $name) }}
+  {{- end }}
+  type: BYO
+  byo:
+    deployment:
+      image: {{ $byoImage | quote }}
+      imagePullPolicy: IfNotPresent
+      {{- if not $agentAutoscaling }}
+      replicas: {{ $a.replicas }}
+      {{- end }}
+      serviceAccountName: {{ $name }}
+      {{- if not $isCoordinator }}
+      args: ["ai_platform.llm_agent.byo_feature_rag_specialist"]
+      {{- end }}
+      labels:
+        ewallet.io/agent: {{ $name }}
+      annotations:
+        {{- if $isCoordinator }}
+        ewallet.io/a2a-gateway-config-sha256: {{ include "llm-agent-platform.a2aGatewayConfig" $ | sha256sum }}
+        ewallet.io/coordinator-runtime: byo-v1
+        {{- else }}
+        ewallet.io/mcp-gateway-config-sha256: {{ include "llm-agent-platform.mcpGatewayConfig" $ | sha256sum }}
+        ewallet.io/specialist-runtime: byo-v1
+        {{- end }}
+      env:
+        - name: OTEL_TRACING_ENABLED
+          value: "true"
+        - name: OTEL_LOGGING_ENABLED
+          value: "false"
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: "otel-collector.ewallet-agents.svc.cluster.local:4317"
+        - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+          value: grpc
+        - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+          value: "15000"
+        {{- if $.Values.agents.byoTelemetry.auditLogs.enabled }}
+        {{- if not $.Values.otelCollector.enabled }}
+        {{- fail "agents.byoTelemetry.auditLogs requires otelCollector.enabled (shared Loki pipeline)" }}
+        {{- end }}
+        # Bounded audit records only (ids, status, codes); kagent's
+        # OTEL_LOGGING_ENABLED above stays false for kagent-managed runtimes.
+        - name: EWALLET_OTEL_LOGS_ENABLED
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: "otel-collector.{{ $.Values.namespace.name }}.svc.cluster.local:4317"
+        {{- end }}
+        {{- if (dig "metrics" "enabled" false $.Values.agents.byoTelemetry) }}
+        {{- if not $.Values.otelCollector.enabled }}
+        {{- fail "agents.byoTelemetry.metrics requires otelCollector.enabled" }}
+        {{- end }}
+        # Bounded counters (agent_metrics.py): invocations per agent/mode/outcome
+        # and PII prompt screening; exported as ewallet_* by the collector.
+        - name: EWALLET_OTEL_METRICS_ENABLED
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: "otel-collector.{{ $.Values.namespace.name }}.svc.cluster.local:4317"
+        {{- end }}
+        {{- $nl := index $byo "naturalLanguageIntake" | default dict }}
+        {{- /* BYO is approved only for the Coordinator and feature-rag-specialist. */}}
+        {{- if (index $nl "enabled") }}
+        {{- if not $.Values.agentgateway.enabled }}
+        {{- fail "coordinator natural-language intake requires agentgateway.enabled" }}
+        {{- end }}
+        {{- $nlTimeoutMs := mul (int (index $nl "timeoutSeconds" | default 190)) 1000 }}
+        {{- $gatewayMs := include "llm-agent-platform.durationMs" $.Values.agentgateway.requestTimeout | int }}
+        {{- if or (le $nlTimeoutMs $gatewayMs) (gt $nlTimeoutMs 200000) }}
+        {{- fail "naturalLanguageIntake.timeoutSeconds must exceed agentgateway.requestTimeout and be at most 200" }}
+        {{- end }}
+        # The LLM only selects the single approved tool and extracts its
+        # arguments; the agent grounds them in the analyst text and runs its
+        # unchanged deterministic path. Same client key and agentgateway
+        # entry (port 4000 behind Service port 3000) as the ModelConfig.
+        - name: EWALLET_NL_INTAKE_ENABLED
+          value: "true"
+        - name: EWALLET_LLM_BASE_URL
+          value: "http://agentgateway.{{ $.Values.namespace.name }}.svc.cluster.local:3000/v1"
+        - name: EWALLET_LLM_MODEL
+          value: {{ $.Values.modelConfig.model | quote }}
+        - name: EWALLET_LLM_TIMEOUT_SECONDS
+          value: {{ index $nl "timeoutSeconds" | default 190 | quote }}
+        - name: EWALLET_LLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.agentgateway.clientKeySecret.name }}
+              key: {{ $.Values.agentgateway.clientKeySecret.key }}
+        {{- end }}
+        {{- if and $isCoordinator $.Values.idempotencyRedis.enabled }}
+        - name: EWALLET_IDEMPOTENCY_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.idempotencyRedis.secret.name }}
+              key: {{ $.Values.idempotencyRedis.secret.connectionUrlKey }}
+        - name: EWALLET_IDEMPOTENCY_TENANT
+          value: {{ $.Values.idempotencyRedis.coordinator.tenant | quote }}
+        - name: EWALLET_IDEMPOTENCY_PRINCIPAL
+          value: {{ $.Values.idempotencyRedis.coordinator.principal | quote }}
+        - name: EWALLET_IDEMPOTENCY_REDIS_TIMEOUT_SECONDS
+          value: {{ $.Values.idempotencyRedis.coordinator.redisTimeoutSeconds | quote }}
+        - name: EWALLET_IDEMPOTENCY_LEASE_MS
+          value: {{ $.Values.idempotencyRedis.coordinator.leaseMs | quote }}
+        - name: EWALLET_IDEMPOTENCY_COMPLETED_TTL_MS
+          value: {{ $.Values.idempotencyRedis.coordinator.completedTtlMs | quote }}
+        - name: EWALLET_IDEMPOTENCY_WAIT_SECONDS
+          value: {{ $.Values.idempotencyRedis.coordinator.duplicateWaitSeconds | quote }}
+        - name: EWALLET_IDEMPOTENCY_POLL_SECONDS
+          value: {{ $.Values.idempotencyRedis.coordinator.duplicatePollSeconds | quote }}
+        {{- end }}
+        {{- if not $isCoordinator }}
+        {{- $server := "feature-rag-mcp" }}
+        {{- $auth := index ($spec.authHeaderSecrets | default dict) $server | default dict }}
+        {{- $authName := ternary $auth.name (printf "mcp-token-%s-%s-%s" $name $server $credentialRelease) (eq $credentialRelease "legacy") }}
+        {{- $authKey := $auth.key | default "token" }}
+        {{- if not $authName }}
+        {{- fail (printf "agent %s: BYO runtime requires the existing %s credential Secret reference" $name $server) }}
+        {{- end }}
+        - name: EWALLET_MCP_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ $authName }}
+              key: {{ $authKey }}
+        {{- end }}
+      {{- with $.Values.llmPlacement.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      resources:
+        {{- toYaml $a.resources | nindent 8 }}
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: {drop: [ALL]}
+  {{- else }}
   type: Declarative
   declarative:
     runtime: {{ $a.runtime }}
     modelConfig: {{ $.Values.modelConfig.name }}
     systemMessageFrom:
       type: ConfigMap
-      name: {{ $name }}-prompt-{{ $spec.promptVersion }}
+      name: {{ $promptConfigMap }}
       key: system.md
     stream: false
     executeCodeBlocks: false
-    {{- if eq $name $a.coordinator.name }}
+    {{- $skill := index $spec "a2aSkill" | default dict }}
+    {{- $skillEnabled := true }}
+    {{- if hasKey $skill "enabled" }}
+    {{- $skillEnabled = $skill.enabled }}
+    {{- end }}
+    {{- if and $skillEnabled (not (and $skill.id $skill.name $skill.description $skill.tags)) }}
+    {{- fail (printf "agent %s: a2aSkill needs id, name, description and tags" $name) }}
+    {{- end }}
+    {{- if $skillEnabled }}
     a2aConfig:
       skills:
-        - id: investigate-transaction
-          name: Investigate a transaction
-          description: Grounded fraud investigation with model score, features, drift and policy citations.
+        - id: {{ $skill.id | quote }}
+          name: {{ $skill.name | quote }}
+          description: {{ $skill.description | quote }}
           inputModes: [text]
           outputModes: [text]
-          tags: [fraud, investigation]
+          tags: {{ toJson $skill.tags }}
+    {{- end }}
+    {{- if eq $name $a.coordinator.name }}
     tools:
       {{- range $delegate := $spec.delegates }}
       {{- if not (hasKey $a.specialists $delegate) }}
       {{- fail (printf "coordinator delegate %s is not a declared specialist" $delegate) }}
       {{- end }}
       - type: Agent
+        # kagent otherwise reuses one remote-Agent session across independent
+        # Coordinator requests. Tool results then accumulate until the 4096
+        # token Specialist context is exhausted.
+        isolateSessions: true
         agent:
           name: {{ $delegate }}
       {{- end }}
     {{- else }}
+    {{- range $server, $auth := ($spec.authHeaderSecrets | default dict) }}
+    {{- if not (hasKey $spec.tools $server) }}
+    {{- fail (printf "agent %s: auth secret references ungranted server %s" $name $server) }}
+    {{- end }}
+    {{- if or (and $auth.name (not $auth.key)) (and $auth.key (not $auth.name)) }}
+    {{- fail (printf "agent %s server %s: auth secret requires both name and key" $name $server) }}
+    {{- end }}
+    {{- end }}
     tools:
       {{- range $server := keys $spec.tools | sortAlpha }}
       {{- $granted := index $spec.tools $server }}
       {{- $offered := (index $a.mcpServers $server).tools }}
+      {{- $auth := index ($spec.authHeaderSecrets | default dict) $server | default dict }}
+      {{- $authName := ternary $auth.name (printf "mcp-token-%s-%s-%s" $name $server $credentialRelease) (eq $credentialRelease "legacy") }}
       {{- range $tool := $granted }}
       {{- if not (has $tool $offered) }}
       {{- fail (printf "agent %s: tool %s is not served by %s" $name $tool $server) }}
@@ -117,10 +312,46 @@ spec:
           name: {{ $server }}
           toolNames: {{ toJson $granted }}
           requireApproval: []
+        {{- if $authName }}
+        # kagent 0.10.3 resolves this service-scoped credential from a Secret
+        # in the Agent namespace. No token is stored in chart values.
+        headersFrom:
+          - name: X-Ewallet-MCP-Service-Token
+            valueFrom:
+              type: Secret
+              name: {{ $authName }}
+              key: {{ $auth.key }}
+        {{- end }}
       {{- end }}
     {{- end }}
     deployment:
-      replicas: 1
+      {{- if not $agentAutoscaling }}
+      replicas: {{ $a.replicas }}
+      {{- end }}
+      {{- if not $sandbox }}
+      serviceAccountName: {{ $name }}
+      labels:
+        ewallet.io/agent: {{ $name }}
+      {{- if or (and $isCoordinator $.Values.a2aGateway.enabled) (and (not $isCoordinator) $.Values.mcpGateway.enabled) }}
+      annotations:
+      {{- if and $isCoordinator $.Values.a2aGateway.enabled }}
+      # kagent 0.10.3 resolves delegated Agent Cards when the worker starts and
+      # retains a failed resolution. Roll the Coordinator whenever its A2A
+      # routing contract changes so a repaired Gateway is actually re-read.
+        ewallet.io/a2a-gateway-config-sha256: {{ include "llm-agent-platform.a2aGatewayConfig" $ | sha256sum }}
+      {{- end }}
+      {{- if and (not $isCoordinator) $.Values.mcpGateway.enabled }}
+      # kagent 0.10.3 resolves RemoteMCPServer tools when a Specialist worker
+      # starts. Roll only Specialists when their canonical MCP Gateway routing
+      # contract changes so the process registry cannot retain stale tools.
+        ewallet.io/mcp-gateway-config-sha256: {{ include "llm-agent-platform.mcpGatewayConfig" $ | sha256sum }}
+      {{- end }}
+      {{- end }}
+      {{- with $.Values.llmPlacement.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       resources:
         {{- toYaml $a.resources | nindent 8 }}
       podSecurityContext:
@@ -129,6 +360,8 @@ spec:
       securityContext:
         allowPrivilegeEscalation: false
         capabilities: {drop: [ALL]}
+  {{- end }}
+  {{- if $sandbox }}
   substrate:
     workerPoolRef:
       apiGroup: ate.dev
@@ -145,6 +378,7 @@ spec:
         {{- else }}
         - {{ $a.allowedDomains.mcp }}
         {{- end }}
+  {{- end }}
 {{- end }}
 {{- range $server := keys $a.mcpServers | sortAlpha }}
 ---
@@ -159,6 +393,16 @@ metadata:
 spec:
   description: {{ printf "%s via the MCP Gateway" $server | quote }}
   url: {{ printf "%s%s" $a.mcpGatewayUrl (index $a.mcpServers $server).path | quote }}
+  {{- with (index $a.mcpServers $server).discoveryHeaderSecret }}
+  # The kagent controller's own list-only credential (tool discovery for this
+  # RemoteMCPServer); the server never lets it call a tool.
+  headersFrom:
+    - name: X-Ewallet-MCP-Service-Token
+      valueFrom:
+        type: Secret
+        name: {{ ternary .name (printf "mcp-token-kagent-controller-%s-%s" $server $credentialRelease) (eq $credentialRelease "legacy") }}
+        key: {{ .key }}
+  {{- end }}
   protocol: STREAMABLE_HTTP
   timeout: {{ $a.mcpTimeout }}
   terminateOnClose: true

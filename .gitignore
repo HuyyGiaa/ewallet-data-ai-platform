@@ -76,6 +76,8 @@ temp/
 # Feast local runtime
 ai_platform/features/feast/feature_repo/data/
 ai_platform/features/feast/.venv/
+# Local-dev Feast publication of the RAG DAG (sqlite profile); canonical target is GCS
+data/rag/feast/
 
 # Generated ML datasets and build manifests
 ai_platform/ml/data/

@@ -1,0 +1,4 @@
+received system sha256 40761728d80f39675564ef91c60317397479f9f3e8a9c1ef27f16c28b8af152c bytes 1163 | reply prompt_revision drift-specialist/v2
+registry v2 sha256 0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef bytes 1012
+registry v2 contained verbatim: True | starts with it: True
+runtime-added text: '\n\nYou are an agent. Your internal name is "drift_specialist_canary". The description about you is "Feature / Risk specialist (registry-prompt canary)".'

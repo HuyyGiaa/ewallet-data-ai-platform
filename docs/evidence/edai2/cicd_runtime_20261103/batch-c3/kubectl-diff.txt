@@ -1,0 +1,39 @@
+diff -u -N /tmp/LIVE-725484939/apps.v1.Deployment.ewallet-ci.jenkins /tmp/MERGED-2211002650/apps.v1.Deployment.ewallet-ci.jenkins
+--- /tmp/LIVE-725484939/apps.v1.Deployment.ewallet-ci.jenkins	2026-11-03 14:40:01.172770968 +0700
++++ /tmp/MERGED-2211002650/apps.v1.Deployment.ewallet-ci.jenkins	2026-11-03 14:40:01.172770968 +0700
+@@ -6,7 +6,7 @@
+     kubectl.kubernetes.io/last-applied-configuration: |
+       {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app.kubernetes.io/name":"jenkins","app.kubernetes.io/part-of":"ewallet-ci"},"name":"jenkins","namespace":"ewallet-ci"},"spec":{"replicas":1,"selector":{"matchLabels":{"app.kubernetes.io/name":"jenkins"}},"strategy":{"type":"Recreate"},"template":{"metadata":{"annotations":{"ewallet.io/source-sha":"19582d6d090c696fd8bc73847b886861736cf364"},"labels":{"app.kubernetes.io/name":"jenkins","app.kubernetes.io/part-of":"ewallet-ci"}},"spec":{"automountServiceAccountToken":false,"containers":[{"env":[{"name":"CASC_JENKINS_CONFIG","value":"/var/jenkins_config/jenkins.yaml"},{"name":"JAVA_OPTS","value":"-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true"},{"name":"JENKINS_ADMIN_USER","valueFrom":{"secretKeyRef":{"key":"username","name":"jenkins-admin"}}},{"name":"JENKINS_ADMIN_PASSWORD","valueFrom":{"secretKeyRef":{"key":"password","name":"jenkins-admin"}}},{"name":"EDAI2_SOURCE_SHA","value":"19582d6d090c696fd8bc73847b886861736cf364"},{"name":"EDAI2_BASE_SHA","value":"8d34a1aacd81ae12cf9a183995d26aaab82e77b7"},{"name":"EDAI2_ML_SHA","value":"8074651d25c8c42ddba074952e4fa1706753a446"},{"name":"EDAI2_AGENT_SHA","value":"8fad87fd8c6a4bede4aec6ed844979424035de4f"},{"name":"EDAI2_DOCS_SHA","value":"7570de8c5235bdd1502e97a55df61e1630432577"}],"image":"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-controller@sha256:9c301d1a7fa4e8a6a2de8eafbc85c664eda292c6170f1168f71982c1fee5565d","imagePullPolicy":"IfNotPresent","livenessProbe":{"failureThreshold":5,"httpGet":{"path":"/login","port":"http"},"initialDelaySeconds":120,"periodSeconds":30,"timeoutSeconds":5},"name":"jenkins","ports":[{"containerPort":8080,"name":"http","protocol":"TCP"}],"readinessProbe":{"failureThreshold":18,"httpGet":{"path":"/login","port":"http"},"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5},"resources":{"limits":{"cpu":"3","memory":"4Gi"},"requests":{"cpu":"1","memory":"2Gi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":1000},"volumeMounts":[{"mountPath":"/var/jenkins_home","name":"home"},{"mountPath":"/var/jenkins_config","name":"config","readOnly":true},{"mountPath":"/opt/ewallet-source","name":"source","readOnly":true},{"mountPath":"/tmp","name":"tmp"},{"mountPath":"/var/run/secrets/kubernetes.io/serviceaccount","name":"kube-api","readOnly":true}]}],"initContainers":[{"args":["cp /snapshot/repository.bundle /source/repository.bundle; cp /snapshot/source-metadata.txt /source/source-metadata.txt; test \"$(sha256sum /source/repository.bundle | awk '{print $1}')\" = \"$(awk -F= '/^bundle_sha256=/{print $2}' /source/source-metadata.txt)\""],"command":["/bin/sh","-ec"],"image":"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:18d443cf6bc1703817680a623f2887ee5e38b26d741d22855fd22de92072028b","imagePullPolicy":"IfNotPresent","name":"immutable-source","resources":{"limits":{"cpu":"100m","memory":"128Mi"},"requests":{"cpu":"25m","memory":"32Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":1000},"volumeMounts":[{"mountPath":"/source","name":"source"}]}],"securityContext":{"fsGroup":1000,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}},"serviceAccountName":"jenkins","volumes":[{"name":"home","persistentVolumeClaim":{"claimName":"jenkins-home"}},{"configMap":{"name":"jenkins-casc"},"name":"config"},{"emptyDir":{},"name":"source"},{"emptyDir":{"sizeLimit":"1Gi"},"name":"tmp"},{"name":"kube-api","projected":{"sources":[{"serviceAccountToken":{"expirationSeconds":3600,"path":"token"}},{"configMap":{"items":[{"key":"ca.crt","path":"ca.crt"}],"name":"kube-root-ca.crt"}},{"downwardAPI":{"items":[{"fieldRef":{"fieldPath":"metadata.namespace"},"path":"namespace"}]}}]}}]}}}}
+   creationTimestamp: "2026-11-02T15:20:11Z"
+-  generation: 9
++  generation: 10
+   labels:
+     app.kubernetes.io/name: jenkins
+     app.kubernetes.io/part-of: ewallet-ci
+@@ -26,7 +26,7 @@
+   template:
+     metadata:
+       annotations:
+-        ewallet.io/source-sha: 19582d6d090c696fd8bc73847b886861736cf364
++        ewallet.io/source-sha: 48bf89c5c26fe6da9ba1b61fd0725535299f289b
+       labels:
+         app.kubernetes.io/name: jenkins
+         app.kubernetes.io/part-of: ewallet-ci
+@@ -49,7 +49,7 @@
+               key: password
+               name: jenkins-admin
+         - name: EDAI2_SOURCE_SHA
+-          value: 19582d6d090c696fd8bc73847b886861736cf364
++          value: 48bf89c5c26fe6da9ba1b61fd0725535299f289b
+         - name: EDAI2_BASE_SHA
+           value: 8d34a1aacd81ae12cf9a183995d26aaab82e77b7
+         - name: EDAI2_ML_SHA
+@@ -125,7 +125,7 @@
+         command:
+         - /bin/sh
+         - -ec
+-        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:18d443cf6bc1703817680a623f2887ee5e38b26d741d22855fd22de92072028b
++        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:3132cb67955335cd88989059c965289177630c0a8ec3ce04c6bca210cec566c5
+         imagePullPolicy: IfNotPresent
+         name: immutable-source
+         resources:

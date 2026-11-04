@@ -1,0 +1,103 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.98kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c
+#2 DONE 0.0s
+
+#3 [internal] load metadata for ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff
+#3 DONE 1.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 709B done
+#4 DONE 0.0s
+
+#5 FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff
+#5 resolve ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff 0.0s done
+#5 DONE 0.0s
+
+#6 [deps 1/6] FROM docker.io/library/python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c
+#6 resolve docker.io/library/python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 31.67kB done
+#7 DONE 0.0s
+
+#8 [runtime  4/13] COPY --from=deps /opt/venv /opt/venv
+#8 CACHED
+
+#9 [runtime  3/13] RUN apt-get update  && apt-get -y --no-install-recommends upgrade  && rm -rf /var/lib/apt/lists/*  && groupadd --system --gid 10001 app  && useradd --system --uid 10001 --gid app --no-create-home app
+#9 CACHED
+
+#10 [deps 4/6] RUN apt-get update  && apt-get install -y --no-install-recommends git ca-certificates  && rm -rf /var/lib/apt/lists/*
+#10 CACHED
+
+#11 [deps 6/6] RUN uv sync --locked --no-dev --no-install-project --no-cache       --python /usr/local/bin/python3.12
+#11 CACHED
+
+#12 [runtime  5/13] COPY ai_platform/__init__.py ai_platform/__init__.py
+#12 CACHED
+
+#13 [runtime  2/13] WORKDIR /workspace
+#13 CACHED
+
+#14 [deps 2/6] COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /usr/local/bin/uv
+#14 CACHED
+
+#15 [deps 3/6] WORKDIR /opt/coordinator-project
+#15 CACHED
+
+#16 [deps 5/6] COPY infra/docker/g3-byo-coordinator/pyproject.toml infra/docker/g3-byo-coordinator/uv.lock ./
+#16 CACHED
+
+#17 [runtime  6/13] COPY ai_platform/inference ai_platform/inference
+#17 CACHED
+
+#18 [runtime  7/13] COPY ai_platform/llm_agent ai_platform/llm_agent
+#18 DONE 0.1s
+
+#19 [runtime  8/13] COPY ai_platform/features/__init__.py ai_platform/features/__init__.py
+#19 DONE 0.1s
+
+#20 [runtime  9/13] COPY ai_platform/features/feast/__init__.py ai_platform/features/feast/__init__.py
+#20 DONE 0.1s
+
+#21 [runtime 10/13] COPY ai_platform/features/feast/schema.py ai_platform/features/feast/schema.py
+#21 DONE 0.1s
+
+#22 [runtime 11/13] COPY ai_platform/ml/__init__.py ai_platform/ml/__init__.py
+#22 DONE 0.1s
+
+#23 [runtime 12/13] COPY ai_platform/ml/training ai_platform/ml/training
+#23 DONE 0.1s
+
+#24 [runtime 13/13] RUN python -m compileall -q ai_platform
+#24 DONE 0.4s
+
+#25 exporting to image
+#25 exporting layers
+#25 exporting layers 0.5s done
+#25 exporting manifest sha256:9013010782ce5cae35cfecdf108539e518a1e4fe9204a53ee4b2fafd598572fa 0.0s done
+#25 exporting config sha256:cbe3832087266481eb8e8e5c3a43bfd255c0de3fbdce53f82e3e895af2d34b4a 0.0s done
+#25 exporting attestation manifest sha256:d4002bf36f54ae6915b033e5faa6f0aee2a592bd9258fa8763dc6b0f29532dec 0.0s done
+#25 exporting manifest list sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446
+#25 exporting manifest list sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446 0.0s done
+#25 naming to asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:ce05f0f98b3775da2d313f5632970d0134771249 done
+#25 unpacking to asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:ce05f0f98b3775da2d313f5632970d0134771249
+#25 unpacking to asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:ce05f0f98b3775da2d313f5632970d0134771249 0.2s done
+#25 DONE 0.8s
+2026-11-02 06:20:31,828 - root - INFO - Logging configured with level: INFO
+G3 BYO Fraud Coordinator
+{"org.opencontainers.image.revision":"ce05f0f98b3775da2d313f5632970d0134771249","org.opencontainers.image.source":"ewallet-data-ai-platform"}
+{
+ "git_sha": "ce05f0f98b3775da2d313f5632970d0134771249",
+ "images": {
+  "g3-byo-coordinator": {
+   "digest_ref": null,
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:ce05f0f98b3775da2d313f5632970d0134771249"
+  }
+ }
+}

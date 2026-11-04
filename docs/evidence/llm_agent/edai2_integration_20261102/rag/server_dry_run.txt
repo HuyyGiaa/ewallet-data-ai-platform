@@ -1,0 +1,4 @@
+deployment.apps/rag-db1-canary
+networkpolicy.networking.k8s.io/allow-ambient-probes-rag-db1-canary
+networkpolicy.networking.k8s.io/allow-rag-db1-canary-to-feast-redis
+networkpolicy.networking.k8s.io/allow-ewallet-mcp-rag-db1-canary-to-feast-redis

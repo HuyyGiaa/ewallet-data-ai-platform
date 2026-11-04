@@ -1,0 +1,13 @@
+# N12 packet D (edai-2 row 47; computing telemetry for rows 47-49): Prometheus
+# scrapes cAdvisor (CPU, RAM, network, disk I/O) and kubelet PVC volume stats
+# directly from each kubelet (<InternalIP>:10250, TLS verified with the cluster
+# CA). ClusterRole: nodes get/list/watch and nodes/metrics get only (no
+# nodes/proxy). Egress: API server (node discovery) and node subnet :10250.
+# Values read back from ewallet-dev on 2026-11-04.
+observabilityStack:
+  clusterMetrics:
+    enabled: true
+    apiServer:
+      cidrs: [34.118.224.1/32, 10.20.0.8/32]
+    kubelet:
+      cidrs: [10.20.0.0/20]

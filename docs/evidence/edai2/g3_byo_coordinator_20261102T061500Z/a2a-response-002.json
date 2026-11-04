@@ -1,0 +1,39 @@
+{
+  "id": "g3-byo-e2e-20261102-002",
+  "jsonrpc": "2.0",
+  "result": {
+    "contextId": "8dc86230-e08d-4d44-9eee-1b5ac2ede5f3",
+    "history": [
+      {
+        "contextId": "8dc86230-e08d-4d44-9eee-1b5ac2ede5f3",
+        "kind": "message",
+        "messageId": "g3-byo-e2e-20261102-002",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "CALL_AGENT=feature-rag-specialist\nREQUEST_JSON={\"capabilities\":[\"fraud-evidence\"],\"contract_version\":\"g3-business-request/v1\",\"feature_names\":[\"account_behavior__account_tx_count_1h\",\"account_behavior__account_tx_count_24h\",\"user_behavior__user_avg_amount_30d\",\"merchant_behavior__merchant_tx_count_24h\"],\"knowledge_query\":\"payment anomaly policy and step-up authentication requirements\",\"request_id\":\"g3-byo-e2e-20261102-002\",\"requested_tools\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"],\"target_agent\":\"feature-rag-specialist\",\"transaction\":{\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"amount\":275465.53,\"channel\":\"app\",\"counterparty_account_id\":null,\"currency\":\"VND\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"event_timestamp\":\"2026-06-01T00:00:00Z\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"type\":\"payment\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\"}}"
+          }
+        ],
+        "role": "user",
+        "taskId": "5e4de2c3-9b10-4ac8-a287-27cc862ec133"
+      }
+    ],
+    "id": "5e4de2c3-9b10-4ac8-a287-27cc862ec133",
+    "kind": "task",
+    "status": {
+      "message": {
+        "kind": "message",
+        "messageId": "ccce40d5-e464-45b8-9ca0-1a00964b3551",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"code\":\"invalid_specialist_evidence\",\"coordinator_revision\":\"programmatic-coordinator/byo-v1\",\"message\":\"Specialist evidence failed validation\",\"status\":\"error\"}"
+          }
+        ],
+        "role": "agent"
+      },
+      "state": "failed",
+      "timestamp": "2026-11-02T06:25:40.634648+00:00"
+    }
+  }
+}

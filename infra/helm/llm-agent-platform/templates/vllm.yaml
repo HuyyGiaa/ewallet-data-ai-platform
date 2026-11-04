@@ -51,6 +51,9 @@ metadata:
     app.kubernetes.io/instance: {{ $name }}
 spec:
   replicas: {{ $profile.replicas }}
+  # Image pull plus the warm-up startup probe (up to failureThreshold x period)
+  # must fit before the rollout is declared stuck (default 600 s).
+  progressDeadlineSeconds: {{ $.Values.vllm.progressDeadlineSeconds }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -65,13 +68,19 @@ spec:
         app.kubernetes.io/name: vllm
         app.kubernetes.io/instance: {{ $name }}
         llm.ewallet.io/backend-version: {{ $name }}
-        {{- if and $.Values.llmd.enabled (eq $name "primary") }}
+        {{- if and $.Values.llmd.enabled (eq $.Values.llmd.mode "gateway") (eq $name "primary") }}
         # Selected by the llm-d InferencePool; fallback stays a direct backend.
         llm-d.ai/inference-pool: {{ $.Values.llmd.poolName }}
         {{- end }}
     spec:
       serviceAccountName: vllm
       automountServiceAccountToken: false
+      {{- with $.Values.llmPlacement.nodeSelector }}
+      # Keeps LLM serving off nodes it was not budgeted for (O1: the nodes added
+      # for the session, never the MLOps nodes). No tolerations, no PriorityClass.
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       # Service links inject VLLM_*-prefixed variables that vLLM parses as its own config.
       enableServiceLinks: false
       terminationGracePeriodSeconds: 60
@@ -143,8 +152,16 @@ spec:
             - {{ $profile.maxNumSeqs | quote }}
             - --max-num-queued-reqs
             - {{ $profile.maxNumQueuedRequests | quote }}
+            {{- /* Explicit both ways: vLLM V1 enables prefix caching by default, so
+                 omitting the flag left the G1 fallback with it on. */}}
             {{- if $profile.prefixCaching }}
             - --enable-prefix-caching
+            {{- else }}
+            - --no-enable-prefix-caching
+            {{- end }}
+            {{- with $.Values.vllm.maxNumBatchedTokens }}
+            - --max-num-batched-tokens
+            - {{ . | quote }}
             {{- end }}
           env:
             - name: VLLM_API_KEY
@@ -159,6 +176,10 @@ spec:
             # The container sees every host core; bound the OpenMP pool to the CPU limit.
             - name: OMP_NUM_THREADS
               value: {{ $.Values.vllm.ompThreads | quote }}
+            # 'auto' (G1) bound inference to one logical core (core ids=[2],
+            # reserved [3]) on e2-standard-4; a range pins the OpenMP pool.
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: {{ $.Values.vllm.cpuThreadsBind | quote }}
             {{- if ne $source.mode "huggingface" }}
             - {name: HF_HUB_OFFLINE, value: "1"}
             - {name: TRANSFORMERS_OFFLINE, value: "1"}
@@ -177,10 +198,18 @@ spec:
                 - -c
                 - |
                   import json, os, urllib.request
-                  body = {"model": {{ $.Values.vllm.servedModelName | quote }}, "max_tokens": 16, "temperature": 0,
-                          "messages": [{"role": "user", "content": "Look up transaction warmup-0."}],
-                          "tools": [{"type": "function", "function": {"name": "feature_lookup", "parameters": {
-                              "type": "object", "properties": {"transaction_id": {"type": "string"}}}}}]}
+                  # Shaped like a real tool call (system prompt + described tool,
+                          # ~200 prompt tokens): on CPU the first request of a new
+                          # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.
+                  body = {"model": {{ $.Values.vllm.servedModelName | quote }}, "max_tokens": 32, "temperature": 0,
+                          "messages": [
+                              {"role": "system", "content": "You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data."},
+                              {"role": "user", "content": "Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture."}],
+                          "tools": [{"type": "function", "function": {"name": "feature_lookup",
+                              "description": "Retrieve a test transaction feature fixture.", "parameters": {
+                              "type": "object", "properties": {"transaction_id": {"type": "string"}},
+                              "required": ["transaction_id"], "additionalProperties": False}}}],
+                          "tool_choice": "required"}
                   request = urllib.request.Request("http://127.0.0.1:8000/v1/chat/completions",
                       data=json.dumps(body).encode(), method="POST", headers={
                           "Content-Type": "application/json",

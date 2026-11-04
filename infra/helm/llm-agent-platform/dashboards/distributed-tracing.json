@@ -1,0 +1,9 @@
+{
+  "title": "E-Wallet Distributed Tracing", "uid": "ewallet-distributed-tracing", "schemaVersion": 41,
+  "tags": ["ewallet", "tempo", "tracing"], "refresh": "30s", "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Cross-platform spans by service", "telemetryStatus": "runtime-verified", "targets": [{"refId": "A", "expr": "sum by (service_name, span_name) (rate(ewallet_traces_span_metrics_calls_total[5m]))"}]},
+    {"id": 2, "type": "timeseries", "title": "Span error rate", "telemetryStatus": "runtime-verified", "targets": [{"refId": "A", "expr": "sum by (service_name, span_name) (rate(ewallet_traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\"}[5m]))"}]},
+    {"id": 3, "type": "timeseries", "title": "Span duration p95", "telemetryStatus": "runtime-verified", "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, service_name, span_name) (rate(ewallet_traces_span_metrics_duration_milliseconds_bucket[5m])))"}]}
+  ]
+}

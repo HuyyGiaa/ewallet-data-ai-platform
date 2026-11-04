@@ -1,0 +1,23 @@
+{
+    "apiVersion": "v1",
+    "data": {
+        "config.yaml": "# yaml-language-server: $schema=https://agentgateway.dev/schema/config\ngateways:\n  default:\n    port: 4000\nroutes:\n  # Entry hop to the in-process LLM listener: one overall budget and no\n  # per-hop timeout. With a per-hop timeout equal to the backend budget,\n  # the hop timed out first and the retry replayed the whole CPU\n  # generation (offline mock, 2026-10-31: two backend requests, then 504\n  # at the entry budget). Retry stays for 502/503 only, which the LLM\n  # listener returns when vLLM is unreachable or refusing.\n  - policies:\n      apiKey:\n        mode: strict\n        keys:\n          - key: \"$GATEWAY_CLIENT_KEY\"\n      timeout:\n        requestTimeout: 180s\n      retry:\n        attempts: 1\n        backoff: 250ms\n        codes: [502,503]\n    backends:\n      - host: 127.0.0.1:3000\nllm:\n  port: 3000\n  policies:\n    timeout:\n      requestTimeout: 170s\n      backendRequestTimeout: 160s\n      responseIdleTimeout: 160s\n\n    localRateLimit:\n      - maxTokens: 12\n        tokensPerFill: 12\n        fillInterval: 1s\n        type: requests\n        key: llm.requestModel\n      - maxTokens: 150000\n        tokensPerFill: 150000\n        fillInterval: 1h\n        type: tokens\n        key: llm.requestModel\n  models:\n    - name: ewallet-fraud-llm-primary\n      visibility: internal\n      provider:\n        custom:\n          formats:\n            - type: completions\n      params:\n        model: ewallet-fraud-llm-v1\n        baseUrl: http://vllm-primary.ewallet-agents.svc.cluster.local:8000/v1\n        apiKey: \"$VLLM_API_KEY\"\n      health:\n        eviction:\n          consecutiveFailures: 2\n          duration: 30s\n      responseHeaders:\n        set:\n          x-ewallet-backend: primary\n    - name: ewallet-fraud-llm-fallback\n      visibility: internal\n      provider:\n        custom:\n          formats:\n            - type: completions\n      params:\n        model: ewallet-fraud-llm-v1\n        baseUrl: http://vllm-fallback.ewallet-agents.svc.cluster.local:8000/v1\n        apiKey: \"$VLLM_API_KEY\"\n      health:\n        eviction:\n          consecutiveFailures: 2\n          duration: 30s\n      responseHeaders:\n        set:\n          x-ewallet-backend: fallback\n  virtualModels:\n    - name: ewallet-fraud-llm\n      routing:\n        failover:\n          targets:\n            - {model: ewallet-fraud-llm-primary, priority: 0}\n            - {model: ewallet-fraud-llm-fallback, priority: 1}\n"
+    },
+    "kind": "ConfigMap",
+    "metadata": {
+        "annotations": {
+            "meta.helm.sh/release-name": "llm-agent",
+            "meta.helm.sh/release-namespace": "default"
+        },
+        "creationTimestamp": "2026-11-01T11:32:57Z",
+        "labels": {
+            "app.kubernetes.io/managed-by": "Helm",
+            "app.kubernetes.io/part-of": "ewallet-llm-agent",
+            "app.kubernetes.io/version": "llm-agent-v1"
+        },
+        "name": "agentgateway-llm-config",
+        "namespace": "ewallet-agents",
+        "resourceVersion": "1793532777326383015",
+        "uid": "51137e29-64bc-451d-9852-c2e139caf588"
+    }
+}

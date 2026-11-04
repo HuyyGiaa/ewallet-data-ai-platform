@@ -1,0 +1,17 @@
+## CD upgrade as Jenkins SA (new image digest, identity sha, reuse values)
+REVISION: 2
+image now: sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+## rollback as Jenkins SA to r1
+Rollback was a success! Happy Helming!
+image now: sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f
+  rev 1 complete Install llm-agent-v1
+  rev 2 complete Upgrade llm-agent-v1
+  rev 3 1 to Rollback
+## negative tests as Jenkins SA
+get secrets ewallet-mcp: no  list: no
+get secret feast-online-redis: Forbidden
+helm list -n ewallet-mcp: forbidden
+helm install record into ewallet-mcp (split-brain attempt): forbidden
+secrets in ewallet-agents / default / feature-store: no no no 
+create pods in ewallet-mcp-release: no  exec in ewallet-mcp: no
+owner ns still: ewallet-mcp-release

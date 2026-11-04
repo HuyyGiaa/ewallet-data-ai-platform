@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 87.5,
+  "polls": 0,
+  "terminal_state": "failed",
+  "response": "docs/evidence/edai2/g3_byo_coordinator_20261102T061500Z/a2a-response-002.json"
+}

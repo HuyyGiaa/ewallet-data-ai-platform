@@ -13,7 +13,12 @@ registry entry, the SandboxAgent and the prompt ConfigMap cannot drift:
 usage:
   python -m ops.llm_agent.registry_catalog render [--git-sha SHA] > catalog.yaml
   python -m ops.llm_agent.registry_catalog publish --registry http://127.0.0.1:12121 \
-      [--dry-run] [--evidence out.json]
+      --confirm-live-write http://127.0.0.1:12121 [--evidence out.json]
+  python -m ops.llm_agent.registry_catalog publish --registry URL --dry-run
+
+A live publish needs an explicit ``--registry`` and ``--confirm-live-write`` equal to
+it: a port-forward to the GKE registry and a local registry share 127.0.0.1:12121,
+so no write may rely on a default URL (incident F9, 2026-11-03).
 
 ``publish`` posts the multi-document YAML to ``/v0/apply`` and then reads every
 entry back (``/v0/{agents,prompts,mcpservers}/{name}/{tag}``), comparing the
@@ -36,6 +41,8 @@ import urllib.request
 
 import yaml
 
+from ops.llm_agent.prompt_registry import gate as prompt_gate
+
 ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "infra/helm/llm-agent-platform"
 API_VERSION = "ar.dev/v1alpha1"
@@ -48,22 +55,33 @@ def _agents(values: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     return agents
 
 
-def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str) -> list[dict[str, Any]]:
+def _prompt_document(name: str, version: str, display_name: str, entry: Mapping[str, Any],
+                     prompts_dir: Path) -> dict[str, Any]:
+    text = (prompts_dir / entry["path"]).read_text(encoding="utf-8")
+    if hashlib.sha256(text.encode()).hexdigest() != entry["sha256"]:
+        raise ValueError(f"prompt {name}/{version} does not match its manifest sha256")
+    return {
+        "apiVersion": API_VERSION, "kind": "Prompt",
+        "metadata": {"name": f"{name}-system", "tag": version,
+                     "labels": {"ewallet.io/agent": name, "ewallet.io/prompt-sha256": entry["sha256"][:63]}},
+        "spec": {"description": f"System prompt of {display_name} ({entry['sha256']})", "content": text},
+    }
+
+
+def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
+                  all_prompt_versions: bool = False) -> list[dict[str, Any]]:
+    """Catalog documents; ``all_prompt_versions`` also publishes every pinned older/newer prompt."""
+
     manifest = json.loads((prompts_dir / "manifest.json").read_text(encoding="utf-8"))["prompts"]
     documents: list[dict[str, Any]] = []
     agents = _agents(values)
     for name in sorted(agents):
         spec = agents[name]
-        entry = manifest[f"{name}/{spec['promptVersion']}"]
-        text = (prompts_dir / entry["path"]).read_text(encoding="utf-8")
-        if hashlib.sha256(text.encode()).hexdigest() != entry["sha256"]:
-            raise ValueError(f"prompt {name}/{spec['promptVersion']} does not match its manifest sha256")
-        documents.append({
-            "apiVersion": API_VERSION, "kind": "Prompt",
-            "metadata": {"name": f"{name}-system", "tag": spec["promptVersion"],
-                         "labels": {"ewallet.io/agent": name, "ewallet.io/prompt-sha256": entry["sha256"][:63]}},
-            "spec": {"description": f"System prompt of {spec['displayName']} ({entry['sha256']})", "content": text},
-        })
+        versions = sorted(key.split("/", 1)[1] for key in manifest if key.split("/", 1)[0] == name) \
+            if all_prompt_versions else [spec["promptVersion"]]
+        for version in versions:
+            documents.append(_prompt_document(name, version, spec["displayName"], manifest[f"{name}/{version}"],
+                                              prompts_dir))
     for server in sorted(values["mcpServers"]):
         route = values["mcpServers"][server]
         documents.append({
@@ -177,18 +195,40 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=["render", "publish"])
     parser.add_argument("--git-sha", default="")
-    parser.add_argument("--registry", default="http://127.0.0.1:12121")
+    parser.add_argument("--registry")
+    parser.add_argument("--restore-from-git", action="store_true",
+                        help="restore after tampering: the pre gate tolerates MISMATCH; the post gate stays strict")
+    parser.add_argument("--confirm-live-write", metavar="URL",
+                        help="required for a non-dry-run publish; must equal --registry")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--evidence", type=Path)
+    parser.add_argument("--all-prompt-versions", action="store_true",
+                        help="publish every version pinned in prompts/manifest.json, not only the deployed one")
     args = parser.parse_args(argv)
     git_sha = args.git_sha or subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
                                              text=True, check=True).stdout.strip()
     values = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["agents"]
-    documents = build_catalog(values, CHART / "prompts", git_sha)
+    documents = build_catalog(values, CHART / "prompts", git_sha, all_prompt_versions=args.all_prompt_versions)
     if args.command == "render":
         yaml.safe_dump_all(documents, sys.stdout, sort_keys=False)
         return 0
+    if not args.registry:
+        parser.error("publish requires an explicit --registry")
+    if not args.dry_run and args.confirm_live_write != args.registry:
+        parser.error("a live publish requires --confirm-live-write equal to --registry")
+    gates: dict[str, Any] = {}
+    if not args.dry_run:
+        ok, gates["pre"] = prompt_gate(args.registry, "pre", allow_tampered=args.restore_from_git)
+        if not ok:
+            print(json.dumps({"verdict": "FAIL", "reason": "M3 pre-publication gate", "gate": gates},
+                             indent=1, sort_keys=True))
+            return 1
     report = publish(documents, args.registry, dry_run=args.dry_run, token=os.environ.get("ARCTL_API_TOKEN"))
+    if not args.dry_run:
+        ok, gates["post"] = prompt_gate(args.registry, "post")
+        report["gate"] = gates
+        if not ok:
+            report["verdict"] = "FAIL"
     report["git_sha"] = git_sha
     text = json.dumps(report, indent=1, sort_keys=True)
     if args.evidence:

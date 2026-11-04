@@ -1,0 +1,17 @@
+{
+  "changed_files": [
+    "ai_platform/llm_agent/tools/service.py",
+    "tests/llm_agent/test_phase_d_tools.py"
+  ],
+  "components": [
+    "llm-d-routing",
+    "llm-serving",
+    "mcp-agents",
+    "observability",
+    "rag-pipeline"
+  ],
+  "full_validation_reason": null,
+  "head": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+  "merge_base": "089cedc6b825ce1648eca63114ef8df3f6a55899",
+  "target_ref": "089cedc6b825ce1648eca63114ef8df3f6a55899"
+}

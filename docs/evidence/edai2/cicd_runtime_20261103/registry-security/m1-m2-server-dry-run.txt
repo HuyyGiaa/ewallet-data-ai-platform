@@ -1,0 +1,3 @@
+role.rbac.authorization.k8s.io/jenkins-prompt-registry configured (server dry run)
+networkpolicy.networking.k8s.io/prompt-registry-db created (server dry run)
+networkpolicy.networking.k8s.io/prompt-registry-server created (server dry run)

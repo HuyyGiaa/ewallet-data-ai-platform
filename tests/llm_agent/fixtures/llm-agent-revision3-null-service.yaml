@@ -1,0 +1,5 @@
+# Sanitized regression input read from the deployed llm-agent revision 3.
+# No credential values are stored in Helm values.
+mcpServices:
+  services:
+    feature-rag-mcp: null

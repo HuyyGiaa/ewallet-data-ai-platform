@@ -1,0 +1,14 @@
+NAME          	NAMESPACE   	REVISION	UPDATED                                	STATUS  	CHART                   	APP VERSION 
+cert-manager  	cert-manager	1       	2026-10-31 23:45:47.759382847 +0700 +07	deployed	cert-manager-v1.16.2    	v1.16.2     
+istio-base    	istio-system	13      	2026-11-01 19:46:07.372035097 +0700 +07	deployed	base-1.30.7             	1.30.7      
+istio-cni     	istio-system	13      	2026-11-01 19:46:20.665479437 +0700 +07	deployed	cni-1.30.7              	1.30.7      
+istiod        	istio-system	13      	2026-11-01 19:46:15.789551942 +0700 +07	deployed	istiod-1.30.7           	1.30.7      
+kagent        	kagent      	5       	2026-11-02 19:37:39.542960891 +0700 +07	deployed	kagent-0.10.3           	            
+kagent-crds   	kagent      	1       	2026-11-02 00:21:10.308093322 +0700 +07	deployed	kagent-crds-0.10.3      	            
+kserve        	kserve      	1       	2026-10-31 23:46:51.279849443 +0700 +07	deployed	kserve-v0.16.0          	            
+kserve-crd    	kserve      	1       	2026-10-31 23:46:41.35893481 +0700 +07 	deployed	kserve-crd-v0.16.0      	            
+llm-agent     	default     	32      	2026-11-03 11:38:16.991561202 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+llm-agent-mcp 	ewallet-mcp 	6       	2026-11-02 21:53:21.797838693 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+substrate     	ate-system  	1       	2026-11-02 19:28:51.782404012 +0700 +07	deployed	substrate-0.0.9         	v0.0.9      
+substrate-crds	ate-system  	1       	2026-11-02 19:28:28.166609859 +0700 +07	deployed	substrate-crds-0.0.9    	v0.0.9      
+ztunnel       	istio-system	13      	2026-11-01 19:46:25.93387463 +0700 +07 	deployed	ztunnel-1.30.7          	1.30.7      

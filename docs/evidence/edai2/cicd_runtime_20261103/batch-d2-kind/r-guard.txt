@@ -1,0 +1,12 @@
+validatingadmissionpolicy.admissionregistration.k8s.io/ewallet-helm-record-home-llm-agent-mcp created
+validatingadmissionpolicybinding.admissionregistration.k8s.io/ewallet-helm-record-home-llm-agent-mcp created
+## deliberate misuse: helm upgrade --install --take-ownership -n ewallet-mcp (guard ON)
+Error: create: failed to create: secrets "sh.helm.release.v1.llm-agent-mcp.v1" is forbidden: ValidatingAdmissionPolicy 'ewallet-helm-record-home-llm-agent-mcp' with binding 'ewallet-helm-record-home-llm-agent-mcp' denied request: llm-agent-mcp Helm records liv
+  owner: ewallet-mcp-release  active records ewallet-mcp: 0
+## relabel an archived record back to owner=helm (guard ON)
+The secrets "sh.helm.release.v1.llm-agent-mcp.v7" is invalid: : ValidatingAdmissionPolicy 'ewallet-helm-record-home-llm-agent-mcp' with binding 'ewallet-helm-record-home-llm-agent-mcp' denied request: llm-agent-mcp Helm 
+## normal CD in the new namespace still works (guard ON)
+REVISION: 10
+## other releases/secrets in ewallet-mcp unaffected (guard ON)
+secret/guard-probe
+28 objects; 0 missing; 2 pods

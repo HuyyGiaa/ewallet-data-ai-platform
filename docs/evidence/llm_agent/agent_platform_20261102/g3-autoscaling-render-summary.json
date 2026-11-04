@@ -1,0 +1,16 @@
+{
+  "classification": "source_render_only",
+  "profile": "g3",
+  "agentCount": 3,
+  "horizontalPodAutoscalerCount": 3,
+  "agentPodDisruptionBudgetCount": 3,
+  "scaledObjectCount": 0,
+  "agentReplicaFieldOmitted": true,
+  "minimumReplicas": 2,
+  "maximumReplicas": 3,
+  "targetCpuUtilizationPercent": 60,
+  "scaleDownStabilizationSeconds": 300,
+  "immutableMcpImageDigestValidated": true,
+  "helmLint": "PASS",
+  "runtimeVerified": false
+}

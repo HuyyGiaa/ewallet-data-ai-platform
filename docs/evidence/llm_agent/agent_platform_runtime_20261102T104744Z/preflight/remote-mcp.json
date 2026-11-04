@@ -1,0 +1,135 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "kagent.dev/v1alpha2",
+            "kind": "RemoteMCPServer",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:05Z",
+                "generation": 4,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "drift-mcp",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793571237005247003",
+                "uid": "b91666aa-7d50-4620-9bb7-7a06d01f1cee"
+            },
+            "spec": {
+                "description": "drift-mcp via the MCP Gateway",
+                "headersFrom": [
+                    {
+                        "name": "X-Ewallet-MCP-Service-Token",
+                        "valueFrom": {
+                            "key": "token",
+                            "name": "mcp-token-kagent-controller-drift-mcp-r1-release1",
+                            "type": "Secret"
+                        }
+                    }
+                ],
+                "protocol": "STREAMABLE_HTTP",
+                "terminateOnClose": true,
+                "timeout": "30s",
+                "url": "http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp"
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T21:05:02Z",
+                        "message": "Remote MCP server configuration accepted",
+                        "observedGeneration": 4,
+                        "reason": "Reconciled",
+                        "status": "True",
+                        "type": "Accepted"
+                    }
+                ],
+                "discoveredTools": [
+                    {
+                        "description": "Compare one monitored feature's current window with a versioned baseline and return an explainable PSI breakdown. Classification uses only the baseline's own thresholds.",
+                        "name": "drift_detection"
+                    }
+                ],
+                "observedGeneration": 4
+            }
+        },
+        {
+            "apiVersion": "kagent.dev/v1alpha2",
+            "kind": "RemoteMCPServer",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:05Z",
+                "generation": 4,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "feature-rag-mcp",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793571237195727007",
+                "uid": "4a067797-828a-4abb-b0fb-69fc4b905cb4"
+            },
+            "spec": {
+                "description": "feature-rag-mcp via the MCP Gateway",
+                "headersFrom": [
+                    {
+                        "name": "X-Ewallet-MCP-Service-Token",
+                        "valueFrom": {
+                            "key": "token",
+                            "name": "mcp-token-kagent-controller-feature-rag-mcp-r1-release1",
+                            "type": "Secret"
+                        }
+                    }
+                ],
+                "protocol": "STREAMABLE_HTTP",
+                "terminateOnClose": true,
+                "timeout": "30s",
+                "url": "http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp"
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T21:05:03Z",
+                        "message": "Remote MCP server configuration accepted",
+                        "observedGeneration": 4,
+                        "reason": "Reconciled",
+                        "status": "True",
+                        "type": "Accepted"
+                    }
+                ],
+                "discoveredTools": [
+                    {
+                        "description": "Return the authorized historical online features (Feast Online, freshness-checked) for one canonical transaction. Fails closed when features are missing or stale.",
+                        "name": "feature_lookup"
+                    },
+                    {
+                        "description": "Score one canonical transaction with the registered KServe fraud model. Returns the model's probability and provenance; never a synthetic score.",
+                        "name": "fraud_scoring"
+                    },
+                    {
+                        "description": "Search the versioned fraud-policy corpus and return citations bound to the published manifest (document checksum, chunk, corpus/embedding/index revisions).",
+                        "name": "knowledge_search"
+                    },
+                    {
+                        "description": "Return one published fraud-policy chunk by chunk_id from Feast Online, with its document, source checksum and corpus/embedding/index revisions.",
+                        "name": "chunk_lookup"
+                    }
+                ],
+                "observedGeneration": 4
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

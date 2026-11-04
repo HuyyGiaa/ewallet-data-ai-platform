@@ -106,6 +106,24 @@ def percentile(values: list[float], q: float) -> float | None:
     return ordered[rank]
 
 
+def normalize_benchmark_raw(records: list[tuple[str, str, int]]) -> tuple[list[tuple[str, str, int]], int]:
+    """Remove drain controls and unwrap benchmark-only event envelopes."""
+    logical, controls = [], 0
+    for key, value, timestamp in records:
+        try:
+            raw = json.loads(value)
+        except json.JSONDecodeError:
+            logical.append((key, value, timestamp))
+            continue
+        if raw.get("kind") == "BENCHMARK_WATERMARK":
+            controls += 1
+            continue
+        if raw.get("kind") == "BENCHMARK_EVENT":
+            value = json.dumps(raw["event"], sort_keys=True, separators=(",", ":"))
+        logical.append((key, value, timestamp))
+    return logical, controls
+
+
 def digest(lines) -> str:
     result = hashlib.sha256()
     for line in sorted(lines):
@@ -122,6 +140,23 @@ def summarize(topics: dict[str, list[tuple[str, str, int]]], manifest: dict) -> 
     dispositions = Counter(json.loads(value).get("disposition", "") for _k, value, _t in accepted)
     accepted_keys = [key for key, _v, _t in accepted]
     online_lines = [value for _k, value, _t in topics["online"]]
+    raw_event_times = {}
+    for _key, value, timestamp in raw:
+        try:
+            event = json.loads(value)
+            raw_event_times[event["event_id"]] = min(
+                timestamp, raw_event_times.get(event["event_id"], timestamp)
+            )
+        except (KeyError, TypeError, json.JSONDecodeError):
+            continue
+    feature_latencies = []
+    for _key, value, timestamp in topics["online"]:
+        try:
+            source_event_id = json.loads(value)["source_event_id"]
+            if source_event_id in raw_event_times:
+                feature_latencies.append(timestamp - raw_event_times[source_event_id])
+        except (KeyError, TypeError, json.JSONDecodeError):
+            continue
     window_s = None
     if raw and accepted:
         window_s = (max(ts for *_x, ts in accepted) - min(ts for *_x, ts in raw)) / 1000
@@ -139,6 +174,14 @@ def summarize(topics: dict[str, list[tuple[str, str, int]]], manifest: dict) -> 
             "max": max(latencies) if latencies else None,
         },
         "processing_throughput_eps": round(len(accepted) / window_s, 2) if window_s else None,
+        "feature_processing_latency_ms": {
+            "definition": "LogAppendTime(online feature) - LogAppendTime(source raw event)",
+            "samples": len(feature_latencies),
+            "p50": percentile(feature_latencies, 50),
+            "p95": percentile(feature_latencies, 95),
+            "p99": percentile(feature_latencies, 99),
+            "max": max(feature_latencies) if feature_latencies else None,
+        },
         "parity": {
             "accepted_sha256": digest(f"{k}|{json.loads(v).get('disposition')}" for k, v, _t in accepted),
             "online_sha256": digest(online_lines),
@@ -159,11 +202,39 @@ def functional_checks(summary: dict, manifest: dict) -> dict:
         == manifest["unique_transactions"]
         and summary["accepted_duplicate_keys"] == 0,
         "invalid_records_reach_dlq": counts["dlq"] == manifest["invalid_records"],
-        "too_late_not_more_than_injected": counts["late"] <= manifest["late_arrival_transactions"],
+        "too_late_matches_injected": counts["late"] == manifest["late_arrival_transactions"],
         "online_features_emitted": counts["online"] > 0,
         "no_retry_records": counts["retry"] == 0,
     }
     return {"all_passed": all(checks.values()), **checks}
+
+
+def acceptance_passed(summary: dict, *, require_oracle: bool) -> bool:
+    """Return whether output evidence is complete for the requested run mode."""
+    if summary.get("functional_checks", {}).get("all_passed") is not True:
+        return False
+    if not require_oracle:
+        return True
+    oracle = summary.get("feature_oracle")
+    if not isinstance(oracle, dict):
+        return False
+    compared = oracle.get("compared")
+    mismatch_count = oracle.get("mismatch_count")
+    mismatch_count_sampled = oracle.get("mismatch_count_sampled")
+    mismatches = oracle.get("mismatches")
+    return (
+        oracle.get("passed") is True
+        and isinstance(compared, int)
+        and not isinstance(compared, bool)
+        and compared > 0
+        and isinstance(mismatch_count, int)
+        and not isinstance(mismatch_count, bool)
+        and mismatch_count == 0
+        and isinstance(mismatch_count_sampled, int)
+        and not isinstance(mismatch_count_sampled, bool)
+        and isinstance(mismatches, list)
+        and mismatch_count_sampled == len(mismatches)
+    )
 
 
 def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
@@ -191,6 +262,7 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
     events = sorted((raw_events[tx] for tx in eligible), key=lambda e: (e.event_time, e.transaction_id))
     state = HistoricalFeatureState(history_ttl=BASELINE.history_ttl)
     expected = {}
+    expected_timestamps = {}
     index = 0
     while index < len(events):
         group = [e for e in events[index:] if e.event_time == events[index].event_time]
@@ -198,22 +270,45 @@ def feature_oracle(topics: dict[str, list[tuple[str, str, int]]]) -> dict:
         for event in group:
             for view, snapshot in snapshots[event.transaction_id].items():
                 expected[(view, snapshot.entity_value, event.event_id)] = snapshot.values
+                expected_timestamps[(view, snapshot.entity_value, event.event_id)] = snapshot.feature_timestamp
         index += len(group)
     mismatches = []
+    mismatch_count = 0
     compared = 0
+    seen = set()
+    emitted_timestamps = []
+
+    def record_mismatch(key, want, got) -> None:
+        nonlocal mismatch_count
+        mismatch_count += 1
+        if len(mismatches) < 20:
+            mismatches.append({"key": list(key), "expected": want, "actual": got})
+
     for _key, value, _ts in topics["online"]:
         item = json.loads(value)
         key = (item["view_name"], item["entity_value"], item["source_event_id"])
         compared += 1
         want = expected.get(key)
         got = item["values"]
-        if want is None or set(want) != set(got) or any(
+        if item.get("feature_timestamp"):
+            emitted_timestamps.append(datetime.fromisoformat(item["feature_timestamp"]))
+        if key in seen or want is None or set(want) != set(got) or any(
             not _close(want[name], got[name]) for name in want
         ):
-            if len(mismatches) < 20:
-                mismatches.append({"key": list(key), "expected": want, "actual": got})
-    return {"compared": compared, "mismatch_count_sampled": len(mismatches), "mismatches": mismatches,
-            "passed": compared > 0 and not mismatches}
+            record_mismatch(key, want, got)
+        seen.add(key)
+    if emitted_timestamps:
+        finalized_through = max(emitted_timestamps)
+        for key in sorted(expected.keys() - seen):
+            if expected_timestamps[key] <= finalized_through:
+                record_mismatch(key, expected[key], None)
+    return {
+        "compared": compared,
+        "mismatch_count": mismatch_count,
+        "mismatch_count_sampled": len(mismatches),
+        "mismatches": mismatches,
+        "passed": compared > 0 and mismatch_count == 0,
+    }
 
 
 def _close(a, b) -> bool:
@@ -243,13 +338,26 @@ def main(argv=None) -> int:
         return 0 if state["quiesced"] else 3
     manifest = json.loads((args.run_dir / "input" / "input_manifest.json").read_text())
     topics = {name: read_topic(args.bootstrap_servers, topic_name(name, args.namespace)) for name in BENCH_TOPICS}
+    topics["raw"], control_records = normalize_benchmark_raw(topics["raw"])
     summary = summarize(topics, manifest)
+    summary["benchmark_control_records"] = control_records
+    summary["watermark_trace"] = [
+        {
+            key: item.get(key)
+            for key in (
+                "event_id", "transaction_id", "event_time", "arrival_time",
+                "observed_watermark", "trace_id", "disposition",
+            )
+        }
+        for _key, value, _timestamp in topics["late"][:50]
+        for item in [json.loads(value)]
+    ]
     if args.oracle:
         summary["feature_oracle"] = feature_oracle(topics)
     summary["collected_at"] = datetime.now().astimezone().isoformat()
     (args.run_dir / "outputs_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True))
     print(json.dumps({"record_counts": summary["record_counts"], "functional_checks": summary["functional_checks"]}))
-    return 0 if summary["functional_checks"]["all_passed"] else 2
+    return 0 if acceptance_passed(summary, require_oracle=args.oracle) else 2
 
 
 if __name__ == "__main__":

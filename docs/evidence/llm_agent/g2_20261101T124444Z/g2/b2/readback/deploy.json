@@ -1,0 +1,259 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "annotations": {
+            "deployment.kubernetes.io/revision": "1",
+            "meta.helm.sh/release-name": "llm-agent",
+            "meta.helm.sh/release-namespace": "default"
+        },
+        "creationTimestamp": "2026-11-01T12:46:44Z",
+        "generation": 3,
+        "labels": {
+            "app.kubernetes.io/instance": "primary",
+            "app.kubernetes.io/managed-by": "Helm",
+            "app.kubernetes.io/name": "vllm",
+            "app.kubernetes.io/part-of": "ewallet-llm-agent",
+            "app.kubernetes.io/version": "llm-agent-v1"
+        },
+        "name": "vllm-primary",
+        "namespace": "ewallet-agents",
+        "resourceVersion": "1793539264184863001",
+        "uid": "72d8044e-a147-4d4e-b49b-a0b0618f2376"
+    },
+    "spec": {
+        "progressDeadlineSeconds": 1800,
+        "replicas": 2,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "app.kubernetes.io/instance": "primary",
+                "app.kubernetes.io/name": "vllm"
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": 0,
+                "maxUnavailable": 1
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "labels": {
+                    "app.kubernetes.io/instance": "primary",
+                    "app.kubernetes.io/name": "vllm",
+                    "llm.ewallet.io/backend-version": "primary"
+                }
+            },
+            "spec": {
+                "automountServiceAccountToken": false,
+                "containers": [
+                    {
+                        "args": [
+                            "--model",
+                            "/models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca",
+                            "--served-model-name",
+                            "ewallet-fraud-llm-v1",
+                            "--dtype",
+                            "bfloat16",
+                            "--max-model-len",
+                            "4096",
+                            "--enable-auto-tool-choice",
+                            "--tool-call-parser",
+                            "hermes",
+                            "--reasoning-parser",
+                            "qwen3",
+                            "--default-chat-template-kwargs",
+                            "{\"enable_thinking\":false}",
+                            "--max-num-seqs",
+                            "4",
+                            "--max-num-queued-reqs",
+                            "8",
+                            "--enable-prefix-caching"
+                        ],
+                        "env": [
+                            {
+                                "name": "VLLM_API_KEY",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "api-key",
+                                        "name": "vllm-api-key"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "VLLM_CPU_KVCACHE_SPACE",
+                                "value": "2"
+                            },
+                            {
+                                "name": "VLLM_CPU_NUM_OF_RESERVED_CPU",
+                                "value": "1"
+                            },
+                            {
+                                "name": "OMP_NUM_THREADS",
+                                "value": "2"
+                            },
+                            {
+                                "name": "VLLM_CPU_OMP_THREADS_BIND",
+                                "value": "0-1"
+                            },
+                            {
+                                "name": "HF_HUB_OFFLINE",
+                                "value": "1"
+                            },
+                            {
+                                "name": "TRANSFORMERS_OFFLINE",
+                                "value": "1"
+                            }
+                        ],
+                        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c",
+                        "imagePullPolicy": "IfNotPresent",
+                        "livenessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "path": "/health",
+                                "port": "http",
+                                "scheme": "HTTP"
+                            },
+                            "periodSeconds": 30,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 3
+                        },
+                        "name": "vllm",
+                        "ports": [
+                            {
+                                "containerPort": 8000,
+                                "name": "http",
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "readinessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "path": "/health",
+                                "port": "http",
+                                "scheme": "HTTP"
+                            },
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 3
+                        },
+                        "resources": {
+                            "limits": {
+                                "cpu": "3",
+                                "memory": "10Gi"
+                            },
+                            "requests": {
+                                "cpu": "2",
+                                "memory": "6Gi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            },
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "startupProbe": {
+                            "exec": {
+                                "command": [
+                                    "python3",
+                                    "-c",
+                                    "import json, os, urllib.request\n# Shaped like a real tool call (system prompt + described tool,\n        # ~200 prompt tokens): on CPU the first request of a new\n        # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.\nbody = {\"model\": \"ewallet-fraud-llm-v1\", \"max_tokens\": 32, \"temperature\": 0,\n        \"messages\": [\n            {\"role\": \"system\", \"content\": \"You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data.\"},\n            {\"role\": \"user\", \"content\": \"Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture.\"}],\n        \"tools\": [{\"type\": \"function\", \"function\": {\"name\": \"feature_lookup\",\n            \"description\": \"Retrieve a test transaction feature fixture.\", \"parameters\": {\n            \"type\": \"object\", \"properties\": {\"transaction_id\": {\"type\": \"string\"}},\n            \"required\": [\"transaction_id\"], \"additionalProperties\": False}}}],\n        \"tool_choice\": \"required\"}\nrequest = urllib.request.Request(\"http://127.0.0.1:8000/v1/chat/completions\",\n    data=json.dumps(body).encode(), method=\"POST\", headers={\n        \"Content-Type\": \"application/json\",\n        \"Authorization\": \"Bearer \" + os.environ[\"VLLM_API_KEY\"]})\nurllib.request.urlopen(request, timeout=240).read()\n"
+                                ]
+                            },
+                            "failureThreshold": 90,
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 245
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/root/.cache",
+                                "name": "cache"
+                            },
+                            {
+                                "mountPath": "/tmp",
+                                "name": "tmp"
+                            },
+                            {
+                                "mountPath": "/dev/shm",
+                                "name": "dshm"
+                            }
+                        ]
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "enableServiceLinks": false,
+                "nodeSelector": {
+                    "ewallet.io/g2-llm": "true"
+                },
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "serviceAccount": "vllm",
+                "serviceAccountName": "vllm",
+                "terminationGracePeriodSeconds": 60,
+                "volumes": [
+                    {
+                        "emptyDir": {
+                            "sizeLimit": "8Gi"
+                        },
+                        "name": "cache"
+                    },
+                    {
+                        "emptyDir": {
+                            "sizeLimit": "1Gi"
+                        },
+                        "name": "tmp"
+                    },
+                    {
+                        "emptyDir": {
+                            "medium": "Memory",
+                            "sizeLimit": "1Gi"
+                        },
+                        "name": "dshm"
+                    }
+                ]
+            }
+        }
+    },
+    "status": {
+        "availableReplicas": 2,
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-11-01T12:46:44Z",
+                "lastUpdateTime": "2026-11-01T13:03:03Z",
+                "message": "ReplicaSet \"vllm-primary-66c5f9687c\" has successfully progressed.",
+                "reason": "NewReplicaSetAvailable",
+                "status": "True",
+                "type": "Progressing"
+            },
+            {
+                "lastTransitionTime": "2026-11-01T13:20:58Z",
+                "lastUpdateTime": "2026-11-01T13:20:58Z",
+                "message": "Deployment has minimum availability.",
+                "reason": "MinimumReplicasAvailable",
+                "status": "True",
+                "type": "Available"
+            }
+        ],
+        "observedGeneration": 3,
+        "readyReplicas": 2,
+        "replicas": 2,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 2
+    }
+}

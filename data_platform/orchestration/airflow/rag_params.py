@@ -1,65 +1,98 @@
-"""Airflow-free parameter contract for the manual fraud-policy RAG DAG.
+"""Airflow-free parameter and command contract for the fraud-policy RAG DAG.
 
 Values reach BashOperator tasks only as environment variables that the shell
 expands once inside double quotes; they are never rendered into Bash source.
 The JSON schemas are enforced by Airflow when a run is triggered and by
-``validate_rag_params`` for direct callers and tests.
+``validate_rag_params`` for direct callers and tests. Credentials (Redis,
+Feast registry, DataHub) are inherited from the worker environment and never
+appear in params or DAG source.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
 from typing import Any, Mapping
 
 
-EVIDENCE_ROOT = "docs/evidence/llm_agent/rag"
+RAG_PYTHON_ENV_VAR = "EWALLET_RAG_PYTHON"
+RAG_RUNTIME_PROJECT = "infra/docker/rag-ingestion"
+DEFAULT_ENV_FILE = str(Path.home() / ".config/ewallet-rag/runtime.env")
+RAG_STAGES = ("discover", "chunk", "embed", "publish", "validate", "datahub")
 
 # "(?![\s\S])" is end-of-input in both Python and ECMA-262; "$" would also
 # accept a trailing newline under the re.search used by jsonschema.
 RAG_PARAM_SCHEMAS: dict[str, dict[str, Any]] = {
-    "embedding_endpoint": {
-        "default": "http://rag-embedding.ewallet-agents.svc.cluster.local:8000",
+    # A repository corpus directory or a GCS prefix holding manifest.json.
+    "source_location": {
+        "default": "data/llm_agent/rag/fraud-policy-v1",
         "type": "string",
-        "pattern": r"^https?://rag-embedding\.ewallet-agents\.svc(?:\.cluster\.local)?:8000(?![\s\S])",
+        "pattern": r"^(?!.*\.\.)(?:data/llm_agent/rag/[a-z0-9][a-z0-9._-]{0,63}"
+                   r"|gs://[a-z0-9][a-z0-9._-]{2,62}(?:/[A-Za-z0-9._-]{1,100}){1,8})(?![\s\S])",
     },
-    "api_key_file": {
-        "default": "/var/run/secrets/rag-embedding/api-key",
+    # redis = canonical Feast Online; sqlite = explicit local-dev profile.
+    "online_store": {"default": "redis", "type": "string", "enum": ["redis", "sqlite"]},
+    # plan_only is an explicit, recorded choice; publish fails without DataHub configuration.
+    "datahub_mode": {"default": "publish", "type": "string", "enum": ["publish", "plan_only"]},
+    # Empty: the evidence run id is derived from the Airflow run id.
+    "run_label": {
+        "default": "",
         "type": "string",
-        "pattern": r"^/var/run/secrets/rag-embedding/[A-Za-z0-9_-]{1,64}(?![\s\S])",
-    },
-    "online_store": {"default": "redis", "type": "string", "enum": ["redis"]},
-    # One immutable directory per run: the runners open outputs with mode "x".
-    "evidence_dir": {
-        "default": f"{EVIDENCE_ROOT}/manual-run-id",
-        "type": "string",
-        "pattern": rf"^{re.escape(EVIDENCE_ROOT)}/[a-z0-9][a-z0-9_-]{{2,79}}(?![\s\S])",
+        "pattern": r"^(?:[a-z0-9][a-z0-9_-]{2,63})?(?![\s\S])",
     },
 }
 
 RAG_PARAM_ENV = {
-    "embedding_endpoint": "RAG_EMBEDDING_ENDPOINT",
-    "api_key_file": "RAG_API_KEY_FILE",
+    "source_location": "RAG_SOURCE_LOCATION",
     "online_store": "RAG_ONLINE_STORE",
-    "evidence_dir": "RAG_EVIDENCE_DIR",
+    "datahub_mode": "RAG_DATAHUB_MODE",
+    "run_label": "RAG_RUN_LABEL",
 }
 
 
-# Shell prefix that fails before any embedding call when an output identity is reused.
-EVIDENCE_DIR_GUARD = (
-    'test ! -e "${RAG_EVIDENCE_DIR}" || '
-    '{ echo "ERROR: evidence_dir already exists: ${RAG_EVIDENCE_DIR}" >&2; exit 1; }; '
+def rag_python(repository_root: Path) -> str:
+    """The uv-locked runtime interpreter (``uv sync --locked --no-dev``), overridable."""
+
+    default = repository_root / RAG_RUNTIME_PROJECT / ".venv/bin/python"
+    return os.environ.get(RAG_PYTHON_ENV_VAR, str(default))
+
+
+def rag_task_environment(repository_root: Path) -> dict[str, str]:
+    """Task env; its values are the only place params and the run id are templated."""
+
+    return {
+        RAG_PYTHON_ENV_VAR: rag_python(repository_root),
+        # Private KEY=VALUE file with Redis/Feast/DataHub settings (ops.llm_agent.rag_ingest),
+        # so they can change without restarting the shared scheduler.
+        "EWALLET_RAG_ENV_FILE": os.environ.get("EWALLET_RAG_ENV_FILE", DEFAULT_ENV_FILE),
+        "RAG_AIRFLOW_RUN_ID": "{{ run_id }}",
+        **{env: f"{{{{ params.{name} }}}}" for name, env in RAG_PARAM_ENV.items()},
+    }
+
+
+# Fails before any work when the locked runtime has not been synced.
+RUNTIME_GUARD = (
+    f'test -x "${{{RAG_PYTHON_ENV_VAR}}}" || '
+    f'{{ echo "ERROR: ${{{RAG_PYTHON_ENV_VAR}}} is not executable; run: '
+    f'uv sync --locked --no-dev --project {RAG_RUNTIME_PROJECT}" >&2; exit 1; }}; '
 )
 
 
-def rag_task_environment(base: Mapping[str, str]) -> dict[str, str]:
-    """Return the task env whose values are the only place params are templated."""
+def rag_stage_command(stage: str) -> str:
+    if stage not in RAG_STAGES:
+        raise ValueError(f"unknown RAG stage: {stage}")
+    return (
+        RUNTIME_GUARD
+        + f'"${{{RAG_PYTHON_ENV_VAR}}}" -m ops.llm_agent.rag_ingest {stage}'
+        + ' --airflow-run-id "${RAG_AIRFLOW_RUN_ID}" --run-label "${RAG_RUN_LABEL}"'
+        + ' --source-location "${RAG_SOURCE_LOCATION}"'
+        + ' --online-store "${RAG_ONLINE_STORE}" --datahub-mode "${RAG_DATAHUB_MODE}"'
+    )
 
-    return {**base, **{env: f"{{{{ params.{name} }}}}" for name, env in RAG_PARAM_ENV.items()}}
 
-
-def validate_rag_params(values: Mapping[str, Any], *, repository_root: Path | None = None) -> dict[str, str]:
-    """Validate a complete parameter set; optionally reject a reused evidence_dir."""
+def validate_rag_params(values: Mapping[str, Any]) -> dict[str, str]:
+    """Validate a complete parameter set exactly as the Airflow JSON schemas do."""
 
     unexpected = set(values) - set(RAG_PARAM_SCHEMAS)
     if unexpected:
@@ -74,6 +107,4 @@ def validate_rag_params(values: Mapping[str, Any], *, repository_root: Path | No
         if "pattern" in schema and not re.fullmatch(schema["pattern"], value):
             raise ValueError(f"{name} does not match its allowed pattern")
         result[name] = value
-    if repository_root is not None and (repository_root / result["evidence_dir"]).exists():
-        raise ValueError(f"evidence_dir already exists; output identity must be unique: {result['evidence_dir']}")
     return result

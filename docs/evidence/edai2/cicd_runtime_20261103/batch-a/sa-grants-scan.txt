@@ -1,0 +1,9 @@
+ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+ewallet-spark@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+ewallet-serving@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+ewallet-training@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+ewallet-generator@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+ewallet-ci@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+198818809719-compute@developer.gserviceaccount.com: no ewallet-jenkins/cloudbuild grants
+ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com: [('roles/iam.serviceAccountUser', 'ewallet-jenkins')]

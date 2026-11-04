@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+    meta.helm.sh/release-name: llm-agent
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2026-11-01T17:35:04Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+  name: agentgateway
+  namespace: ewallet-agents
+  resourceVersion: "1793554504519583012"
+  uid: d1f21b19-16fe-462d-811a-cab5160ee4bb
+spec:
+  clusterIP: 34.118.233.175
+  clusterIPs:
+  - 34.118.233.175
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: llm
+    port: 3000
+    protocol: TCP
+    targetPort: entry
+  - name: metrics
+    port: 15020
+    protocol: TCP
+    targetPort: metrics
+  selector:
+    app.kubernetes.io/name: agentgateway
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

@@ -1,0 +1,22 @@
+Script started on 2026-11-02 06:58:34+07:00 [COMMAND="PYTHONPATH=. infra/docker/llm-agent-tooling/.venv/bin/python -m unittest -v tests.llm_agent.test_agents_chart.AgentManifestTests" <not executed on terminal>]
+test_changed_prompt_without_version_bump_fails_render (tests.llm_agent.test_agents_chart.AgentManifestTests.test_changed_prompt_without_version_bump_fails_render) ... ok
+test_coordinator_delegates_by_native_a2a_only (tests.llm_agent.test_agents_chart.AgentManifestTests.test_coordinator_delegates_by_native_a2a_only) ... ok
+test_disabled_by_default (tests.llm_agent.test_agents_chart.AgentManifestTests.test_disabled_by_default) ... ok
+test_every_agent_resource_matches_the_served_crd_schema (tests.llm_agent.test_agents_chart.AgentManifestTests.test_every_agent_resource_matches_the_served_crd_schema) ... ok
+test_feature_rag_prompt_pins_nested_transaction_arguments (tests.llm_agent.test_agents_chart.AgentManifestTests.test_feature_rag_prompt_pins_nested_transaction_arguments) ... ok
+test_invalid_agent_auth_secret_references_fail_render (tests.llm_agent.test_agents_chart.AgentManifestTests.test_invalid_agent_auth_secret_references_fail_render) ... ok
+test_invalid_configurations_are_rejected (tests.llm_agent.test_agents_chart.AgentManifestTests.test_invalid_configurations_are_rejected) ... ok
+test_one_coordinator_two_specialists_with_business_roles (tests.llm_agent.test_agents_chart.AgentManifestTests.test_one_coordinator_two_specialists_with_business_roles) ... ok
+test_prompts_are_versioned_and_checksum_bound (tests.llm_agent.test_agents_chart.AgentManifestTests.test_prompts_are_versioned_and_checksum_bound) ... ok
+test_service_scoped_secret_headers_preserve_existing_specialist_roles (tests.llm_agent.test_agents_chart.AgentManifestTests.test_service_scoped_secret_headers_preserve_existing_specialist_roles) ... ok
+test_specialist_tool_allowlists_are_least_privilege (tests.llm_agent.test_agents_chart.AgentManifestTests.test_specialist_tool_allowlists_are_least_privilege) ... ok
+test_tools_are_reached_only_through_the_mcp_gateway (tests.llm_agent.test_agents_chart.AgentManifestTests.test_tools_are_reached_only_through_the_mcp_gateway) ... ok
+test_validator_catches_the_pruned_worker_service_account (tests.llm_agent.test_agents_chart.AgentManifestTests.test_validator_catches_the_pruned_worker_service_account) ... ok
+test_worker_pools_are_per_agent_and_snapshots_isolated (tests.llm_agent.test_agents_chart.AgentManifestTests.test_worker_pools_are_per_agent_and_snapshots_isolated) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.579s
+
+OK
+
+Script done on 2026-11-02 06:58:35+07:00 [COMMAND_EXIT_CODE="0"]

@@ -1,0 +1,233 @@
+#!/usr/bin/env python3
+"""Fake kubectl for the offline G2 runner simulation (only the calls g2_experiment.sh,
+deploy_atomic.sh and g2_guard.py make). Unknown calls fail loudly."""
+
+import base64
+import json
+import os
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import simstate  # noqa: E402
+
+NS = "ewallet-agents"
+args, ns = [], None
+argv = sys.argv[1:]
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a in ("--context", "-n", "--namespace"):
+        if a != "--context":
+            ns = argv[i + 1]
+        i += 2
+        continue
+    if a.startswith("--request-timeout"):
+        i += 1
+        continue
+    args.append(a)
+    i += 1
+with simstate.locked() as s:
+    s["calls"].append(" ".join(args)[:160])
+state = simstate.read()
+line = " ".join(args)
+
+
+def opt(name, default=None):
+    for j, a in enumerate(args):
+        if a == name and j + 1 < len(args):
+            return args[j + 1]
+        if a.startswith(name + "="):
+            return a.split("=", 1)[1]
+    return default
+
+
+def node_obj(name, labels):
+    return {"metadata": {"name": name, "labels": {"node.kubernetes.io/instance-type": "e2-standard-4", **labels}},
+            "status": {"allocatable": {"cpu": "3920m", "memory": "13591636Ki"},
+                       "conditions": [{"type": "Ready", "status": "True"}, {"type": "MemoryPressure", "status": "False"}]}}
+
+
+def nodes(selector=None):
+    out = []
+    for name, labels in state["nodes"].items():
+        if selector:
+            k, v = selector.split("=")
+            if labels.get(k) != v:
+                continue
+        out.append((name, labels))
+    return out
+
+
+def pod_obj(name, p, namespace=NS):
+    labels = p["labels"]
+    containers = [{"name": "vllm", "image": p["image"], "resources": {"requests": {"cpu": "2", "memory": "6Gi"}}}] \
+        if labels.get("app.kubernetes.io/name") == "vllm" else \
+        [{"name": "c", "image": p["image"], "resources": {"requests": {"cpu": "100m", "memory": "128Mi"}}}]
+    return {"metadata": {"name": name, "namespace": namespace, "labels": labels},
+            "spec": {"nodeName": p["node"], "containers": containers},
+            "status": {"phase": "Running", "podIP": p["ip"], "startTime": p["started"],
+                       "containerStatuses": [{"name": containers[0]["name"], "ready": True, "restartCount": 0,
+                                              "imageID": "sim@" + p["image"].split("@")[-1]}]}}
+
+
+MLOPS = {f"fraud-serving/fraud-detector-{i}": "sim-mlops-a" for i in range(2)}
+
+
+def llm_pods(selector=None):
+    out = []
+    for name, p in sorted(state["pods"].items()):
+        if selector:
+            ok = all(p["labels"].get(k) == v for k, v in (kv.split("=") for kv in selector.split(",")))
+            if not ok:
+                continue
+        out.append((name, p))
+    return out
+
+
+def jsonpath(items, expr):
+    """The few jsonpath shapes the scripts use."""
+    if "nodeName" in expr:
+        return "".join(p["node"] + "\n" for _, p in items)
+    if "containers[0].image" in expr:
+        return "".join(p["image"] + "\n" for _, p in items)
+    if ".metadata.name" in expr and '","' in expr:
+        return "".join(n + "," for n, _ in items)
+    if "startTime" in expr:
+        return "".join(p["started"] + "\n" for _, p in items)
+    if "restartCount" in expr:
+        return "".join("0\n" for _ in items)
+    return ""
+
+
+verb = args[0] if args else ""
+if verb == "config":
+    sys.exit(0)
+if verb == "get":
+    what = args[1]
+    out_fmt = opt("-o")
+    selector = opt("-l")
+    if what == "nodes":
+        sel = nodes(selector)
+        if out_fmt == "name":
+            print("\n".join(f"node/{n}" for n, _ in sel))
+        elif out_fmt == "json":
+            print(json.dumps({"items": [node_obj(n, l) for n, l in sel]}))
+        else:
+            print("NAME STATUS\n" + "\n".join(f"{n} Ready" for n, _ in sel))
+        sys.exit(0)
+    if what == "pods" and "-A" in args:
+        items = [{"metadata": {"name": n.split("/")[1], "namespace": "fraud-serving", "labels": {}},
+                  "spec": {"nodeName": node, "containers": [{"resources": {"requests": {"cpu": "500m", "memory": "1Gi"}}}]},
+                  "status": {"phase": "Running", "containerStatuses": [{"ready": True, "restartCount": 0}]}}
+                 for n, node in MLOPS.items()]
+        items += [pod_obj(n, p) for n, p in llm_pods()]
+        print(json.dumps({"items": items}))
+        sys.exit(0)
+    if what.startswith("inferenceservices"):
+        print(json.dumps({"items": [{"metadata": {"name": "fraud-detector", "namespace": "fraud-serving"},
+                                     "status": {"conditions": [{"type": "Ready", "status": "True"}]}}]}))
+        sys.exit(0)
+    if what == "events":
+        sys.exit(0)
+    if what == "pods":
+        items = llm_pods(selector)
+        if out_fmt == "json":
+            print(json.dumps({"items": [pod_obj(n, p) for n, p in items]}))
+        elif out_fmt and out_fmt.startswith("jsonpath"):
+            sys.stdout.write(jsonpath(items, out_fmt))
+        else:
+            print("NAME NODE\n" + "\n".join(f"{n} {p['node']}" for n, p in items))
+        sys.exit(0)
+    if what == "svc" and args[2] == "kubernetes":
+        print("34.118.224.1")
+        sys.exit(0)
+    if what == "svc":
+        sys.exit(0 if args[2] == "llmd-router-epp" and "llmd-router" in state["releases"] else 1)
+    if what == "endpointslices":
+        print("443" if "ports" in (out_fmt or "") else "10.0.0.2")
+        sys.exit(0)
+    if what == "secret":
+        key = os.environ.get("G2_SIM_KEY", "sim-client-key") if args[2] == "agentgateway-client-key" else "b" * 64
+        sys.stdout.write(base64.b64encode(key.encode()).decode())  # jsonpath .data is base64
+        sys.exit(0)
+    if what == "deploy" and len(args) > 2 and args[2] == "vllm-primary":
+        dep = state["deployments"]["vllm-primary"]
+        print(json.dumps(dep))
+        sys.exit(0)
+    if what == "deploy" and out_fmt == "name":
+        print("\n".join(f"deployment.apps/{d}" for d in sorted(state.get("deployments", {}))))
+        sys.exit(0)
+    if what == "configmap" and args[2] == "agentgateway-llm-config":
+        print(json.dumps(state["configmap"]))
+        sys.exit(0)
+    if what.startswith("deploy,") or what == "networkpolicy":
+        if "release" in os.environ.get("G2_SIM_FAIL", "") and state["releases"]:
+            print("deployment.apps/leftover")
+        for d in sorted(state.get("deployments", {})) if state["releases"] else []:
+            print(f"deployment.apps/{d}")
+        sys.exit(0)
+if verb == "top":
+    if args[1] == "nodes":
+        for n, _ in nodes():
+            print(f"{n} 400m 10% 4000Mi 30%")
+    else:
+        target_ns = ns or NS
+        if target_ns == NS:
+            for n, p in llm_pods():
+                c = "vllm" if p["labels"].get("app.kubernetes.io/name") == "vllm" else "c"
+                print(f"{n} {c} 1500m 6200Mi" if "--containers" in args else f"{n} 1500m 6200Mi")
+        elif target_ns == "fraud-serving":
+            print("fraud-detector-0 50m 300Mi")
+    sys.exit(0)
+if verb in ("wait", "label", "drain", "delete", "apply", "create", "describe", "run"):
+    if verb == "label":
+        with simstate.locked() as s:
+            k, v = args[3].split("=")
+            s["nodes"][args[2]][k] = v
+    sys.exit(0)
+if verb == "rollout":
+    if args[1] == "restart":
+        with simstate.locked() as s:
+            for target in args[2:]:
+                name = target.split("/")[1]
+                for pod in [p for p, v in s["pods"].items() if v.get("deployment") == name]:
+                    old = s["pods"].pop(pod)
+                    new = simstate.new_pod(s, name, old["node"], old["labels"], old["image"])
+                    s["pods"][new]["deployment"] = name
+    if args[1] == "status" and simstate.fail_at("rollout"):
+        sys.exit(1)
+    sys.exit(0)
+if verb == "exec":
+    pod = args[1]
+    if "cpu.stat" in line:
+        print("usage_usec 100\nnr_periods 10\nnr_throttled 0\nthrottled_usec 0")
+        sys.exit(0)
+    if pod not in state["pods"]:
+        sys.exit(1)
+    counters = state["counters"].get(pod, {})
+    if simstate.fail_at("metrics-missing"):
+        print("vllm:num_requests_running 0")
+        sys.exit(0)
+    print("# HELP x\nvllm:num_requests_waiting 0\nvllm:num_requests_running 0\nvllm:kv_cache_usage_perc 0.1")
+    print('vllm:cache_config_info{block_size="16"} 1')
+    for key in ("vllm:request_success", "vllm:prompt_tokens", "vllm:generation_tokens",
+                "vllm:prefix_cache_queries", "vllm:prefix_cache_hits"):
+        print(f'{key}_total{{model_name="m"}} {counters.get(key, 0)}')
+    sys.exit(0)
+if verb == "logs":
+    if "--previous" in args:
+        sys.exit(0)
+    # Only the EPP container logs decisions; Envoy's are empty here, as an
+    # empty log once could end the run under set -e.
+    if "-c" in args and args[args.index("-c") + 1] == "epp":
+        for entry in state["epp"]:
+            print(json.dumps(entry))
+    sys.exit(0)
+if verb == "port-forward":
+    target, ports = args[1], args[2]
+    mode = "epp" if "llmd-router" in target else "gateway"
+    os.execvp(sys.executable, [sys.executable, str(Path(__file__).resolve().parents[1] / "mock_server.py"),
+                               mode, ports.split(":")[0]])
+sys.stderr.write(f"fake kubectl: unsupported call: {line}\n")
+sys.exit(3)

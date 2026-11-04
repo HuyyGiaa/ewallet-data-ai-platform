@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "name": "fraud-coordinator-cf5df85dc-xnq4r",
+      "volumes": [
+        {
+          "name": "config",
+          "secret": {
+            "defaultMode": 420,
+            "secretName": "fraud-coordinator"
+          }
+        },
+        {
+          "name": "kagent-token",
+          "projected": {
+            "defaultMode": 420,
+            "sources": [
+              {
+                "serviceAccountToken": {
+                  "audience": "kagent",
+                  "expirationSeconds": 3600,
+                  "path": "kagent-token"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "volumeMounts": [
+        {
+          "name": "kagent",
+          "volumeMounts": [
+            {
+              "mountPath": "/config",
+              "name": "config"
+            },
+            {
+              "mountPath": "/var/run/secrets/tokens",
+              "name": "kagent-token"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

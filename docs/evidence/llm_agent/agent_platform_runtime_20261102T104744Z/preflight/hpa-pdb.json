@@ -1,0 +1,340 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+                "annotations": {
+                    "components.gke.io/component-name": "cluster-infra-metrics",
+                    "components.gke.io/component-version": "1.36.0-gke.7",
+                    "components.gke.io/layer": "addon"
+                },
+                "creationTimestamp": "2026-10-22T09:37:19Z",
+                "labels": {
+                    "addonmanager.kubernetes.io/mode": "Reconcile"
+                },
+                "name": "kube-state-metrics",
+                "namespace": "gke-managed-cim",
+                "resourceVersion": "1793616365136543018",
+                "uid": "a36ec9af-daa0-4893-b53f-a9f180de9e02"
+            },
+            "spec": {
+                "behavior": {
+                    "scaleDown": {
+                        "policies": [
+                            {
+                                "periodSeconds": 1800,
+                                "type": "Pods",
+                                "value": 1
+                            }
+                        ],
+                        "selectPolicy": "Max",
+                        "stabilizationWindowSeconds": 3600
+                    },
+                    "scaleUp": {
+                        "policies": [
+                            {
+                                "periodSeconds": 300,
+                                "type": "Pods",
+                                "value": 1
+                            }
+                        ],
+                        "selectPolicy": "Max",
+                        "stabilizationWindowSeconds": 900
+                    }
+                },
+                "maxReplicas": 10,
+                "metrics": [
+                    {
+                        "resource": {
+                            "name": "memory",
+                            "target": {
+                                "averageValue": "400Mi",
+                                "type": "AverageValue"
+                            }
+                        },
+                        "type": "Resource"
+                    }
+                ],
+                "minReplicas": 1,
+                "scaleTargetRef": {
+                    "apiVersion": "apps/v1",
+                    "kind": "StatefulSet",
+                    "name": "kube-state-metrics"
+                }
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-10-22T09:40:09Z",
+                        "message": "recommended size matches current size",
+                        "reason": "ReadyForNewScale",
+                        "status": "True",
+                        "type": "AbleToScale"
+                    },
+                    {
+                        "lastTransitionTime": "2026-10-31T23:09:59Z",
+                        "message": "the HPA was able to successfully calculate a replica count from memory resource",
+                        "reason": "ValidMetricFound",
+                        "status": "True",
+                        "type": "ScalingActive"
+                    },
+                    {
+                        "lastTransitionTime": "2026-10-22T09:40:09Z",
+                        "message": "the desired count is within the acceptable range",
+                        "reason": "DesiredWithinRange",
+                        "status": "False",
+                        "type": "ScalingLimited"
+                    }
+                ],
+                "currentMetrics": [
+                    {
+                        "resource": {
+                            "current": {
+                                "averageUtilization": 43,
+                                "averageValue": "58183680",
+                                "value": "58183680"
+                            },
+                            "name": "memory"
+                        },
+                        "type": "Resource"
+                    }
+                ],
+                "currentReplicas": 1,
+                "desiredReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "istiod",
+                    "meta.helm.sh/release-namespace": "istio-system"
+                },
+                "creationTimestamp": "2026-10-31T20:40:36Z",
+                "labels": {
+                    "app": "istiod",
+                    "app.kubernetes.io/instance": "istiod",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "istiod",
+                    "app.kubernetes.io/part-of": "istio",
+                    "app.kubernetes.io/version": "1.30.7",
+                    "helm.sh/chart": "istiod-1.30.7",
+                    "install.operator.istio.io/owning-resource": "unknown",
+                    "istio.io/rev": "default",
+                    "operator.istio.io/component": "Pilot",
+                    "release": "istiod"
+                },
+                "name": "istiod",
+                "namespace": "istio-system",
+                "resourceVersion": "1793616500159967002",
+                "uid": "0814bc96-be9d-47cd-8eac-ddb140ce5edf"
+            },
+            "spec": {
+                "maxReplicas": 5,
+                "metrics": [
+                    {
+                        "resource": {
+                            "name": "cpu",
+                            "target": {
+                                "averageUtilization": 80,
+                                "type": "Utilization"
+                            }
+                        },
+                        "type": "Resource"
+                    }
+                ],
+                "minReplicas": 1,
+                "scaleTargetRef": {
+                    "apiVersion": "apps/v1",
+                    "kind": "Deployment",
+                    "name": "istiod"
+                }
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-10-31T20:49:49Z",
+                        "message": "recommended size matches current size",
+                        "reason": "ReadyForNewScale",
+                        "status": "True",
+                        "type": "AbleToScale"
+                    },
+                    {
+                        "lastTransitionTime": "2026-10-31T21:31:48Z",
+                        "message": "the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)",
+                        "reason": "ValidMetricFound",
+                        "status": "True",
+                        "type": "ScalingActive"
+                    },
+                    {
+                        "lastTransitionTime": "2026-10-31T20:40:51Z",
+                        "message": "the desired count is within the acceptable range",
+                        "reason": "DesiredWithinRange",
+                        "status": "False",
+                        "type": "ScalingLimited"
+                    }
+                ],
+                "currentMetrics": [
+                    {
+                        "resource": {
+                            "current": {
+                                "averageUtilization": 3,
+                                "averageValue": "3m",
+                                "value": "3m"
+                            },
+                            "name": "cpu"
+                        },
+                        "type": "Resource"
+                    }
+                ],
+                "currentReplicas": 1,
+                "desiredReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "policy/v1",
+            "kind": "PodDisruptionBudget",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "drift-mcp",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793554529489343012",
+                "uid": "a203c2c0-1050-488d-8dbf-e1a19c1b2db2"
+            },
+            "spec": {
+                "minAvailable": 1,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "drift-mcp"
+                    }
+                }
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "message": "",
+                        "observedGeneration": 1,
+                        "reason": "InsufficientPods",
+                        "status": "False",
+                        "type": "DisruptionAllowed"
+                    }
+                ],
+                "currentHealthy": 1,
+                "desiredHealthy": 1,
+                "disruptionsAllowed": 0,
+                "expectedPods": 1,
+                "observedGeneration": 1
+            }
+        },
+        {
+            "apiVersion": "policy/v1",
+            "kind": "PodDisruptionBudget",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "llm-agent-mcp",
+                    "meta.helm.sh/release-namespace": "ewallet-mcp"
+                },
+                "creationTimestamp": "2026-11-01T20:33:49Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "drift-mcp",
+                "namespace": "ewallet-mcp",
+                "resourceVersion": "1793578376716175011",
+                "uid": "70d86e07-93a0-452b-884d-3bb06cc60982"
+            },
+            "spec": {
+                "minAvailable": 1,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "drift-mcp"
+                    }
+                }
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-02T00:12:54Z",
+                        "message": "",
+                        "observedGeneration": 1,
+                        "reason": "InsufficientPods",
+                        "status": "False",
+                        "type": "DisruptionAllowed"
+                    }
+                ],
+                "currentHealthy": 1,
+                "desiredHealthy": 1,
+                "disruptionsAllowed": 0,
+                "expectedPods": 1,
+                "observedGeneration": 1
+            }
+        },
+        {
+            "apiVersion": "policy/v1",
+            "kind": "PodDisruptionBudget",
+            "metadata": {
+                "annotations": {
+                    "components.gke.io/component-name": "filestorecsi",
+                    "components.gke.io/component-version": "1.36.23",
+                    "components.gke.io/layer": "addon"
+                },
+                "creationTimestamp": "2026-10-22T09:37:38Z",
+                "generation": 1,
+                "labels": {
+                    "addonmanager.kubernetes.io/mode": "Reconcile",
+                    "k8s-app": "filestore-lock-release-controller"
+                },
+                "name": "filestore-lock-release-controller-pdb",
+                "namespace": "kube-system",
+                "resourceVersion": "1793488120910767014",
+                "uid": "41bdcf95-8b79-4ba3-b52f-c75c67cae65c"
+            },
+            "spec": {
+                "maxUnavailable": 1,
+                "selector": {
+                    "matchLabels": {
+                        "k8s-app": "filestore-lock-release-controller"
+                    }
+                }
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-10-31T23:08:40Z",
+                        "message": "",
+                        "observedGeneration": 1,
+                        "reason": "SufficientPods",
+                        "status": "True",
+                        "type": "DisruptionAllowed"
+                    }
+                ],
+                "currentHealthy": 1,
+                "desiredHealthy": 0,
+                "disruptionsAllowed": 1,
+                "expectedPods": 1,
+                "observedGeneration": 1
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

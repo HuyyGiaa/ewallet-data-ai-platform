@@ -1,0 +1,6 @@
+2026-11-01T12:46:02Z stage=istio git=0c89af3b08561e4f9e58b7cc80273457ab6e4d0f
+2026-11-01T12:46:35Z stage=istio ok
+2026-11-01T12:46:36Z stage=namespace git=0c89af3b08561e4f9e58b7cc80273457ab6e4d0f
+2026-11-01T12:46:37Z stage=namespace ok
+2026-11-01T12:46:37Z stage=secret git=0c89af3b08561e4f9e58b7cc80273457ab6e4d0f
+2026-11-01T12:46:38Z stage=secret ok

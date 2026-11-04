@@ -1,0 +1,9 @@
+2026-11-03T13:18:15Z
+8a6c0c4c19943fc499bf521dfca64ab04fbd053278d60cfd2a4a2b4f7129b619  infra/kubernetes/jenkins/rbac/batch-d1-step1.yaml
+objects: 5
+kind: Namespace
+kind: ResourceQuota
+kind: NetworkPolicy
+kind: Role
+kind: RoleBinding
+Error from server (NotFound): namespaces "ewallet-mcp-release" not found

@@ -1,0 +1,55 @@
+  + Exception Group Traceback (most recent call last):
+  |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/scripts/llm_agent/g3_mcp_smoke.py", line 76, in <module>
+  |     raise SystemExit(main())
+  |                      ^^^^^^
+  |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/scripts/llm_agent/g3_mcp_smoke.py", line 68, in main
+  |     report = asyncio.run(_run(args.endpoint, token, args.tool, arguments, args.timeout))
+  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 195, in run
+  |     return runner.run(main)
+  |            ^^^^^^^^^^^^^^^^
+  |   File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+  |     return future.result()
+  |            ^^^^^^^^^^^^^^^
+  |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/scripts/llm_agent/g3_mcp_smoke.py", line 35, in _run
+  |     async with streamable_http_client(endpoint, http_client=client) as (read, write):
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 231, in __aexit__
+  |     await self.gen.athrow(value)
+  |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/mcp/client/streamable_http.py", line 771, in streamable_http_client
+  |     anyio.create_task_group() as tg,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 847, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/mcp/client/streamable_http.py", line 788, in streamable_http_client
+    |     yield read_stream, write_stream
+    |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/scripts/llm_agent/g3_mcp_smoke.py", line 36, in _run
+    |     async with ClientSession(read, write) as session:
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/mcp/client/session.py", line 514, in __aexit__
+    |     result = await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 847, in __aexit__
+    |     raise BaseExceptionGroup(
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Traceback (most recent call last):
+      |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/scripts/llm_agent/g3_mcp_smoke.py", line 37, in _run
+      |     initialized = await session.initialize()
+      |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/mcp/client/session.py", line 654, in initialize
+      |     result = await self.send_request(
+      |              ^^^^^^^^^^^^^^^^^^^^^^^^
+      |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/mcp/client/session.py", line 586, in send_request
+      |     raw = await self._dispatcher.send_raw_request(method, data.get("params"), opts)
+      |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |   File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/llm-agent-tooling/.venv/lib/python3.12/site-packages/mcp/shared/jsonrpc_dispatcher.py", line 461, in send_raw_request
+      |     raise MCPError(code=outcome.code, message=outcome.message, data=outcome.data)
+      | mcp.shared.exceptions.MCPError: Server returned an error response
+      +------------------------------------

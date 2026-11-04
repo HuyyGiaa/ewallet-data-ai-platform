@@ -1,0 +1,8 @@
+{
+  "pod": "rag-db1-canary-67f54cccc-54wrl",
+  "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+  "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+  "ready": true,
+  "restarts": 0,
+  "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+}

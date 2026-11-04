@@ -1,0 +1,10 @@
+[
+ {
+  "file": "01_dp1_baseline_airflow_run_success_20261030.png",
+  "sha256": "12c4fd83b80894c7de749a9f5b56e165a372abac373787db99596401706a7acb",
+  "source": "~/ewallet-evidence/spark-method2-final/ab-20261029174838/dp1-airflow-preserved-20261030T140501Z/DAG1_baseline/Screenshot From 2026-10-30 14-31-37.png",
+  "campaign": "spark-method2-final ab-20261029174838 (2026-10-30)",
+  "rubric_rows": "edai-1 11,15,22,23",
+  "caption": "Airflow 127.0.0.1:8084, DagRun ab-20261029174838-baseline-dp1-r261029174838, 4/4 tasks Success, 14:10:45-14:28:04"
+ }
+]

@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 0.521,
+  "polls": 0,
+  "terminal_state": "completed",
+  "response": "docs/evidence/edai2/unified_cicd_observability_20261102T160000Z/regression_20261103/coordinator-response-002.json"
+}

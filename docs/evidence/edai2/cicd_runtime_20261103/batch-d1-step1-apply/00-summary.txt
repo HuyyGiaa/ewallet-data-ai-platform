@@ -1,0 +1,19 @@
+D1 step 1 apply attempt, GKE ewallet-dev, 2026-11-03 (owner DECISION 2)
+Result: STOPPED (condition differs from review); rolled back; GKE state identical to before.
+
+Preflight passed: sha256 8a6c0c4c...9b619, 5 objects, namespace absent, 0 busy Jenkins
+executors, no pending Helm release, no Job/Pod in ewallet-cicd.
+Server dry-run: Namespace accepted; the 4 namespaced objects cannot be dry-run before
+their namespace exists (same as the reviewed package), so the apply was staged:
+  13:19:40Z stage 1 Namespace applied
+  stage 2 server dry-run of ResourceQuota/NetworkPolicy/Role/RoleBinding: all accepted
+Discrepancy: the new namespace already held 3 ConfigMaps (kube-root-ca.crt from
+kube-controller-manager; istio-ca-root-cert and istio-ca-crl from istiod pilot-discovery,
+present in 24/26 namespaces). The reviewed quota "configmaps: 2" would start at 3/2 and
+prevent istiod from recreating its CA ConfigMaps. Kind validation had no Istio.
+Action: STOP per directive; 13:20:02Z namespace deleted (contained only auto-created
+objects); stage 2 never applied.
+Post-check: Helm records (68) identical; Jenkins can-i --list in 8 namespaces identical.
+Proposed fix (NOT applied, approval requested): batch-d1-step1-r2.yaml,
+sha256 f019e772e660ab130aea1cd546b854e751071a41dd76e41b5a6b384f9f9beb63,
+identical except configmaps "4" and comments.

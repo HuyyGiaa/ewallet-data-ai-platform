@@ -1,0 +1,13 @@
+PASS  DAG source has the six ingestion tasks
+PASS  uv lock consistent (infra/docker/rag-ingestion)
+PASS  locked task runtime present (~/Develop/ewallet-data-ai-platform/.worktrees/rag-canonical-20261101/infra/docker/rag-ingestion/.venv/bin/python)
+FAIL  runtime env file exists and is private (~/.config/ewallet-rag/runtime.env)
+FAIL  runtime env sets EWALLET_RAG_FEAST_REGISTRY
+FAIL  runtime env sets EWALLET_REDIS_CONNECTION_STRING
+FAIL  runtime env sets EWALLET_RAG_PUBLICATION_BASE
+FAIL  runtime env sets DATAHUB_GMS_URL
+PASS  live Airflow parses rag_fraud_policy without import errors
+FAIL  Airflow DAGs folder is this checkout
+FAIL  Feast Online Redis answers PING
+FAIL  DataHub GMS healthy
+FAIL  GCS publication base readable

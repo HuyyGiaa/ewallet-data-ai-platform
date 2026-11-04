@@ -1,0 +1,14 @@
+{
+ "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+ "images": {
+  "mcp-tools": {
+   "components": [
+    "drift-mcp",
+    "feature-rag-mcp"
+   ],
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools:642553f40cf395fed06eba52d04f6fa0db3fec94",
+   "target": "mcp-server"
+  }
+ }
+}

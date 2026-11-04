@@ -1,0 +1,65 @@
+{
+  "all_pass": true,
+  "captured_at_utc": "2026-11-01T23:51:52.296167+00:00",
+  "cases": [
+    {
+      "attempted_tool": "feature_lookup",
+      "call_exception": {
+        "message": "Unknown tool",
+        "type": "MCPError"
+      },
+      "case": "controller_discovery_only",
+      "credential_material_recorded": false,
+      "denied": true,
+      "initialize": "accepted",
+      "pass": true,
+      "visible_tools": [
+        "feature_lookup",
+        "fraud_scoring",
+        "knowledge_search",
+        "chunk_lookup"
+      ]
+    },
+    {
+      "attempted_tool": "fraud_scoring",
+      "call_exception": {
+        "message": "Unknown tool",
+        "type": "MCPError"
+      },
+      "case": "drift_specialist_scope",
+      "credential_material_recorded": false,
+      "denied": true,
+      "initialize": "accepted",
+      "pass": true,
+      "visible_tools": [
+        "feature_lookup"
+      ]
+    },
+    {
+      "attempted_tool": "feature_lookup",
+      "case": "revoked_credential",
+      "credential_material_recorded": false,
+      "denied": true,
+      "pass": true,
+      "session_exception": {
+        "message": "Server returned an error response",
+        "type": "MCPError"
+      }
+    },
+    {
+      "attempted_tool": "feature_lookup",
+      "case": "unknown_credential",
+      "credential_material_recorded": false,
+      "denied": true,
+      "pass": true,
+      "session_exception": {
+        "message": "Server returned an error response",
+        "type": "MCPError"
+      }
+    }
+  ],
+  "helm_revision": 2,
+  "image_digest": "sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac",
+  "source_git_sha": "b4111a57fc0285ce118ea036038f6abb7b046867",
+  "transport": "MCP Streamable HTTP via mcp-gateway"
+}

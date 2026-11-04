@@ -1,0 +1,5 @@
+release=llm-agent namespace=default from_revision=31 source_sha=2078a79
+changed: ConfigMap/ewallet-agents/llm-agent-dashboards data[agent-mcp.json, ml-drift-pipeline.json]
+changed: Deployment/ewallet-agents/grafana annotation checksum/dashboards
+added/removed objects: none
+rollback: helm rollback llm-agent 31 -n default --wait --timeout 10m

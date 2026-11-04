@@ -39,9 +39,10 @@ from ai_platform.llm_agent.rag.pipeline import (
 )
 from data_platform.orchestration.airflow import python_runtime
 from data_platform.orchestration.airflow.rag_params import (
-    EVIDENCE_DIR_GUARD,
     RAG_PARAM_ENV,
     RAG_PARAM_SCHEMAS,
+    RUNTIME_GUARD,
+    rag_stage_command,
     rag_task_environment,
     validate_rag_params,
 )
@@ -189,18 +190,17 @@ class P0AirflowParameterTests(unittest.TestCase):
 
     def test_malicious_and_invalid_values_are_rejected_by_both_validators(self):
         prefixes = {
-            "embedding_endpoint": "http://rag-embedding.ewallet-agents.svc:8000",
-            "api_key_file": "/var/run/secrets/rag-embedding/",
+            "source_location": "data/llm_agent/rag/",
             "online_store": "",
-            "evidence_dir": "docs/evidence/llm_agent/rag/",
+            "datahub_mode": "",
+            "run_label": "run",
         }
         extra = {
-            "embedding_endpoint": ("http://attacker.example:8000", "file:///etc/passwd",
-                                   "http://rag-embedding.ewallet-agents.svc:8000/../x"),
-            "api_key_file": ("/etc/shadow", "/var/run/secrets/rag-embedding/../../token"),
-            "online_store": ("sqlite", "REDIS"),
-            "evidence_dir": ("/tmp/run-001", "docs/evidence/llm_agent/other/run-001",
-                             "docs/evidence/llm_agent/rag/A1", "docs/evidence/llm_agent/rag/ab"),
+            "source_location": ("/etc", "data/llm_agent/rag/../../etc", "http://attacker.example/x",
+                                "gs://bucket", "gs://bucket/../x", "data/llm_agent/other/x"),
+            "online_store": ("REDIS", "memory"),
+            "datahub_mode": ("skip", "PUBLISH"),
+            "run_label": ("A1x", "ab", "-abc", "a" * 65),
         }
         for name, schema in RAG_PARAM_SCHEMAS.items():
             json_schema = {k: v for k, v in schema.items() if k != "default"}
@@ -211,13 +211,14 @@ class P0AirflowParameterTests(unittest.TestCase):
                     with self.assertRaises(jsonschema.ValidationError):
                         jsonschema.validate(value, json_schema)
 
-    def test_boundary_lengths_for_evidence_identity(self):
-        root = "docs/evidence/llm_agent/rag/"
-        validate_rag_params({"evidence_dir": root + "a" * 3})
-        validate_rag_params({"evidence_dir": root + "a" * 80})
-        for value in (root + "a" * 2, root + "a" * 81, root + "-abc"):
-            with self.subTest(value=value), self.assertRaises(ValueError):
-                validate_rag_params({"evidence_dir": value})
+    def test_boundary_values_for_run_label_and_source(self):
+        for value in ("", "a" * 3, "a" * 64, "run-001_x"):
+            with self.subTest(value=value):
+                validate_rag_params({"run_label": value})
+        for value in ("data/llm_agent/rag/fraud-policy-v1", "gs://ewallet-bucket/rag/fraud-policy-v1"):
+            with self.subTest(value=value):
+                validate_rag_params({"source_location": value})
+        validate_rag_params({"online_store": "sqlite", "datahub_mode": "plan_only"})
 
     def test_unexpected_and_non_string_parameters_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "unexpected"):
@@ -225,55 +226,52 @@ class P0AirflowParameterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "string"):
             validate_rag_params({"online_store": ["redis"]})
 
-    def test_duplicate_output_identity_is_rejected(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            values = {"evidence_dir": "docs/evidence/llm_agent/rag/run-001"}
-            validate_rag_params(values, repository_root=root)
-            (root / values["evidence_dir"]).mkdir(parents=True)
-            with self.assertRaisesRegex(ValueError, "already exists"):
-                validate_rag_params(values, repository_root=root)
+    def test_params_and_run_id_are_templated_only_into_env_values(self):
+        env = rag_task_environment(ROOT)
+        self.assertEqual(env["RAG_AIRFLOW_RUN_ID"], "{{ run_id }}")
+        for name, variable in RAG_PARAM_ENV.items():
+            self.assertEqual(env[variable], f"{{{{ params.{name} }}}}")
+        for stage in ("discover", "chunk", "embed", "publish", "validate", "datahub"):
+            self.assertNotIn("{{", rag_stage_command(stage))
+        with self.assertRaises(ValueError):
+            rag_stage_command("rm")
 
-    def test_runtime_guard_stops_a_reused_evidence_dir_in_bash(self):
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "run-001"
-            command = EVIDENCE_DIR_GUARD + "echo proceeded"
-            env = {**os.environ, "RAG_EVIDENCE_DIR": str(target)}
-            fresh = subprocess.run(["bash", "-c", command], env=env, capture_output=True, text=True)
-            self.assertEqual((fresh.returncode, fresh.stdout.strip()), (0, "proceeded"))
-            target.mkdir()
-            reused = subprocess.run(["bash", "-c", command], env=env, capture_output=True, text=True)
-            self.assertEqual(reused.returncode, 1)
-            self.assertNotIn("proceeded", reused.stdout)
+    def test_runtime_guard_stops_when_locked_interpreter_is_missing(self):
+        command = RUNTIME_GUARD + "echo proceeded"
+        env = {**os.environ, "EWALLET_RAG_PYTHON": "/nonexistent/python"}
+        missing = subprocess.run(["bash", "-c", command], env=env, capture_output=True, text=True)
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("uv sync --locked --no-dev", missing.stderr)
+        env["EWALLET_RAG_PYTHON"] = shutil.which("python3")
+        present = subprocess.run(["bash", "-c", command], env=env, capture_output=True, text=True)
+        self.assertEqual((present.returncode, present.stdout.strip()), (0, "proceeded"))
 
     def test_shell_env_expansion_does_not_reparse_metacharacters(self):
         with tempfile.TemporaryDirectory() as folder:
             marker = Path(folder) / "marker"
             evil = f"$(touch {marker})' ; touch {marker} ; #`touch {marker}`"
-            command = EVIDENCE_DIR_GUARD + 'printf "%s" "${RAG_EVIDENCE_DIR}/publication.json"'
-            proc = subprocess.run(["bash", "-c", command], env={**os.environ, "RAG_EVIDENCE_DIR": evil},
+            proc = subprocess.run(["bash", "-c", 'printf "%s" --run-label "${RAG_RUN_LABEL}"'],
+                                  env={**os.environ, "RAG_RUN_LABEL": evil},
                                   capture_output=True, text=True, check=True)
-            self.assertEqual(proc.stdout, evil + "/publication.json")
+            self.assertEqual(proc.stdout, "--run-label" + evil)
+            self.assertFalse(marker.exists())
             self.assertFalse(marker.exists(), "injected shell expression must never execute")
 
     def test_params_are_templated_only_into_environment_values(self):
-        env = rag_task_environment({"BASE": "1"})
-        self.assertEqual(env["BASE"], "1")
-        for name, variable in RAG_PARAM_ENV.items():
-            self.assertEqual(env[variable], f"{{{{ params.{name} }}}}")
         tree = ast.parse(DAG.read_text(encoding="utf-8"))
         commands = [
             node.value for node in ast.walk(tree)
             if isinstance(node, ast.keyword) and node.arg == "bash_command"
         ]
-        self.assertEqual(len(commands), 4)
+        # One BashOperator constructed per stage in a loop over TASKS.
+        self.assertEqual(len(commands), 1)
         for command in commands:
             for literal in ast.walk(command):
                 if isinstance(literal, ast.Constant) and isinstance(literal.value, str):
                     self.assertNotIn("{{", literal.value)
                     self.assertNotIn("params.", literal.value)
         source = DAG.read_text(encoding="utf-8")
-        self.assertEqual(source.count("env=RAG_ENV"), 4)
+        self.assertEqual(source.count("env=RAG_ENV"), 1)
         self.assertNotIn("shell=True", source)
 
     def test_dag_runner_modules_pass_the_airflow_module_allowlist(self):

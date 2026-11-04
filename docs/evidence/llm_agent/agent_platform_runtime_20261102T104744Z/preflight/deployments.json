@@ -1,0 +1,3023 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "3",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 3,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "a2a-gateway",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "a2a-gateway",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793569684550015019",
+                "uid": "f9f8fab3-f03e-43a3-beec-2c922dfb5031"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "a2a-gateway"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 1,
+                        "maxUnavailable": 0
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "checksum/config": "86e9f7330d869cef6475141b4f6d9710aa538f840f100ff300f881875636bee6"
+                        },
+                        "labels": {
+                            "app.kubernetes.io/name": "a2a-gateway"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "-f",
+                                    "/config/config.yaml"
+                                ],
+                                "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 15,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": "http"
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "name": "agentgateway",
+                                "ports": [
+                                    {
+                                        "containerPort": 8083,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 5,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": "http"
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "256Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "50m",
+                                        "memory": "64Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsNonRoot": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/config",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "a2a-gateway",
+                        "serviceAccountName": "a2a-gateway",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "a2a-gateway-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "64Mi"
+                                },
+                                "name": "tmp"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:15Z",
+                        "lastUpdateTime": "2026-11-01T17:35:15Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "lastUpdateTime": "2026-11-01T21:48:04Z",
+                        "message": "ReplicaSet \"a2a-gateway-6dfcf8bf7b\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 3,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "agentgateway",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "agentgateway",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793554515551407013",
+                "uid": "b9e9ae00-f9fd-43bc-9d4b-3132b175088b"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "agentgateway"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 1,
+                        "maxUnavailable": 0
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/name": "agentgateway"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "-f",
+                                    "/config/config.yaml"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "VLLM_API_KEY",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "api-key",
+                                                "name": "vllm-api-key"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "GATEWAY_CLIENT_KEY",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "api-key",
+                                                "name": "agentgateway-client-key"
+                                            }
+                                        }
+                                    }
+                                ],
+                                "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 15,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": "entry"
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "name": "agentgateway",
+                                "ports": [
+                                    {
+                                        "containerPort": 4000,
+                                        "name": "entry",
+                                        "protocol": "TCP"
+                                    },
+                                    {
+                                        "containerPort": 3000,
+                                        "name": "llm-internal",
+                                        "protocol": "TCP"
+                                    },
+                                    {
+                                        "containerPort": 15020,
+                                        "name": "metrics",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 5,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": "entry"
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "128Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsNonRoot": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "startupProbe": {
+                                    "failureThreshold": 30,
+                                    "periodSeconds": 2,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": "entry"
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/config",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {},
+                        "serviceAccount": "agentgateway",
+                        "serviceAccountName": "agentgateway",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "agentgateway-llm-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "128Mi"
+                                },
+                                "name": "tmp"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:15Z",
+                        "lastUpdateTime": "2026-11-01T17:35:15Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "lastUpdateTime": "2026-11-01T17:35:15Z",
+                        "message": "ReplicaSet \"agentgateway-5d7b994c75\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/component": "mcp-server",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "drift-mcp",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "drift-mcp",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793554529523007007",
+                "uid": "4846e12c-0690-4f42-bf4e-1d86d803e1df"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "drift-mcp"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 1,
+                        "maxUnavailable": 0
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/component": "mcp-server",
+                            "app.kubernetes.io/name": "drift-mcp"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "command": [
+                                    "python",
+                                    "-m",
+                                    "uvicorn",
+                                    "--factory",
+                                    "ai_platform.llm_agent.tools.service:create_drift_app",
+                                    "--host",
+                                    "0.0.0.0",
+                                    "--port",
+                                    "8080",
+                                    "--no-access-log"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "EWALLET_GIT_SHA",
+                                        "value": "695279967f30451d7157228f67faa36842fa0aa4"
+                                    },
+                                    {
+                                        "name": "EWALLET_IMAGE_DIGEST",
+                                        "value": "sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0"
+                                    },
+                                    {
+                                        "name": "EWALLET_CONFIG_REVISION",
+                                        "value": "g3-gke-v1"
+                                    },
+                                    {
+                                        "name": "EWALLET_PROMPT_REVISION",
+                                        "value": "v2"
+                                    },
+                                    {
+                                        "name": "EWALLET_MODEL_REVISION",
+                                        "value": "fraud-detector/1"
+                                    },
+                                    {
+                                        "name": "EWALLET_FEATURE_REVISION",
+                                        "value": "canonical-100gb-v1/online-20261031-163506"
+                                    },
+                                    {
+                                        "name": "EWALLET_CORPUS_REVISION",
+                                        "value": "fraud-policy-v1-20261030"
+                                    },
+                                    {
+                                        "name": "EWALLET_TOOL_MAX_CONCURRENCY",
+                                        "value": "8"
+                                    },
+                                    {
+                                        "name": "EWALLET_TOOL_MAX_TIMEOUT_MS",
+                                        "value": "20000"
+                                    },
+                                    {
+                                        "name": "EWALLET_MCP_ALLOWED_ORIGINS"
+                                    },
+                                    {
+                                        "name": "EWALLET_MCP_MAX_BODY_BYTES",
+                                        "value": "65536"
+                                    },
+                                    {
+                                        "name": "EWALLET_MCP_MAX_INFLIGHT",
+                                        "value": "32"
+                                    },
+                                    {
+                                        "name": "EWALLET_MCP_BODY_TIMEOUT_SECONDS",
+                                        "value": "10"
+                                    },
+                                    {
+                                        "name": "EWALLET_MCP_TOOL_GRANTS",
+                                        "value": "{\"drift-specialist\":[\"drift_detection\"]}"
+                                    },
+                                    {
+                                        "name": "EWALLET_MCP_SERVICE_TOKENS",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "auth-config.json",
+                                                "name": "mcp-auth-drift-mcp"
+                                            }
+                                        }
+                                    }
+                                ],
+                                "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/health/live",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 15,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 1
+                                },
+                                "name": "mcp-server",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/health/ready",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 5
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "256Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "startupProbe": {
+                                    "failureThreshold": 30,
+                                    "httpGet": {
+                                        "path": "/health/live",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 2,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 1
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsGroup": 10001,
+                            "runAsNonRoot": true,
+                            "runAsUser": 10001,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "drift-mcp",
+                        "serviceAccountName": "drift-mcp",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "64Mi"
+                                },
+                                "name": "tmp"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:29Z",
+                        "lastUpdateTime": "2026-11-01T17:35:29Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "lastUpdateTime": "2026-11-01T17:35:29Z",
+                        "message": "ReplicaSet \"drift-mcp-c845bfc5f\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "5",
+                    "ewallet.io/display-name": "Feature / Risk specialist",
+                    "ewallet.io/prompt-sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef",
+                    "ewallet.io/rubric-rows": "19,20,21",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:05Z",
+                "generation": 5,
+                "labels": {
+                    "app": "kagent",
+                    "app.kubernetes.io/managed-by": "kagent",
+                    "app.kubernetes.io/name": "drift-specialist",
+                    "app.kubernetes.io/part-of": "kagent",
+                    "ewallet.io/agent": "drift-specialist",
+                    "kagent": "drift-specialist"
+                },
+                "name": "drift-specialist",
+                "namespace": "ewallet-agents",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "kagent.dev/v1alpha2",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Agent",
+                        "name": "drift-specialist",
+                        "uid": "853175e0-c62b-4f14-854e-7b23011f0211"
+                    }
+                ],
+                "resourceVersion": "1793572832076479009",
+                "uid": "6fae60a1-f4bd-45aa-93e4-900d7bb60029"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app": "kagent",
+                        "kagent": "drift-specialist"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 1,
+                        "maxUnavailable": 0
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "ewallet.io/mcp-gateway-config-sha256": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4",
+                            "kagent.dev/config-hash": "10702642579326035465"
+                        },
+                        "labels": {
+                            "app": "kagent",
+                            "app.kubernetes.io/managed-by": "kagent",
+                            "app.kubernetes.io/name": "drift-specialist",
+                            "app.kubernetes.io/part-of": "kagent",
+                            "ewallet.io/agent": "drift-specialist",
+                            "kagent": "drift-specialist"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "args": [
+                                    "--host",
+                                    "0.0.0.0",
+                                    "--port",
+                                    "8080",
+                                    "--filepath",
+                                    "/config"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "OPENAI_API_KEY",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "api-key",
+                                                "name": "agentgateway-client-key"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                                        "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+                                        "value": "grpc"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+                                        "value": "15000"
+                                    },
+                                    {
+                                        "name": "OTEL_LOGGING_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "OTEL_TRACING_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "KAGENT_NAMESPACE",
+                                        "valueFrom": {
+                                            "fieldRef": {
+                                                "apiVersion": "v1",
+                                                "fieldPath": "metadata.namespace"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KAGENT_NAME",
+                                        "value": "drift-specialist"
+                                    },
+                                    {
+                                        "name": "KAGENT_URL",
+                                        "value": "http://kagent-controller.kagent:8083"
+                                    }
+                                ],
+                                "image": "ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "kagent",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/.well-known/agent-card.json",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 1,
+                                    "periodSeconds": 1,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 5
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "256Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/config",
+                                        "name": "config"
+                                    },
+                                    {
+                                        "mountPath": "/var/run/secrets/tokens",
+                                        "name": "kagent-token"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "drift-specialist",
+                        "serviceAccountName": "drift-specialist",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "name": "config",
+                                "secret": {
+                                    "defaultMode": 420,
+                                    "secretName": "drift-specialist"
+                                }
+                            },
+                            {
+                                "name": "kagent-token",
+                                "projected": {
+                                    "defaultMode": 420,
+                                    "sources": [
+                                        {
+                                            "serviceAccountToken": {
+                                                "audience": "kagent",
+                                                "expirationSeconds": 3600,
+                                                "path": "kagent-token"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:25Z",
+                        "lastUpdateTime": "2026-11-01T17:35:25Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:05Z",
+                        "lastUpdateTime": "2026-11-01T22:40:31Z",
+                        "message": "ReplicaSet \"drift-specialist-7fb847df9\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 5,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "9",
+                    "ewallet.io/display-name": "Fraud Investigation / Evidence specialist",
+                    "ewallet.io/prompt-sha256": "a3ccfe5ce07f05ea155bfb3ff658df4dff8ac928f0ea23fb35481dc7519b2112",
+                    "ewallet.io/rubric-rows": "22",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:05Z",
+                "generation": 9,
+                "labels": {
+                    "app": "kagent",
+                    "app.kubernetes.io/managed-by": "kagent",
+                    "app.kubernetes.io/name": "feature-rag-specialist",
+                    "app.kubernetes.io/part-of": "kagent",
+                    "ewallet.io/agent": "feature-rag-specialist",
+                    "kagent": "feature-rag-specialist"
+                },
+                "name": "feature-rag-specialist",
+                "namespace": "ewallet-agents",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "kagent.dev/v1alpha2",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Agent",
+                        "name": "feature-rag-specialist",
+                        "uid": "da3f7e26-412f-4f06-b5c8-4bc8fabf48cd"
+                    }
+                ],
+                "resourceVersion": "1793602882601615016",
+                "uid": "390a5d44-4ea1-4339-8a5f-de72ed4241e8"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app": "kagent",
+                        "kagent": "feature-rag-specialist"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 1,
+                        "maxUnavailable": 0
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "ewallet.io/mcp-gateway-config-sha256": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4",
+                            "ewallet.io/specialist-runtime": "byo-v1",
+                            "kagent.dev/config-hash": "11963532746613139586"
+                        },
+                        "labels": {
+                            "app": "kagent",
+                            "app.kubernetes.io/managed-by": "kagent",
+                            "app.kubernetes.io/name": "feature-rag-specialist",
+                            "app.kubernetes.io/part-of": "kagent",
+                            "ewallet.io/agent": "feature-rag-specialist",
+                            "kagent": "feature-rag-specialist"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "args": [
+                                    "ai_platform.llm_agent.byo_feature_rag_specialist"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "OTEL_TRACING_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OTEL_LOGGING_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                                        "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+                                        "value": "grpc"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+                                        "value": "15000"
+                                    },
+                                    {
+                                        "name": "EWALLET_MCP_SERVICE_TOKEN",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "token",
+                                                "name": "mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                                        "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+                                        "value": "grpc"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+                                        "value": "15000"
+                                    },
+                                    {
+                                        "name": "OTEL_LOGGING_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "OTEL_TRACING_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "KAGENT_NAMESPACE",
+                                        "valueFrom": {
+                                            "fieldRef": {
+                                                "apiVersion": "v1",
+                                                "fieldPath": "metadata.namespace"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KAGENT_NAME",
+                                        "value": "feature-rag-specialist"
+                                    },
+                                    {
+                                        "name": "KAGENT_URL",
+                                        "value": "http://kagent-controller.kagent:8083"
+                                    }
+                                ],
+                                "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:bb0fae06250038e6489524426969597517e94a885c629531ee0ccbc3c40cd4d0",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "kagent",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/.well-known/agent-card.json",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 15,
+                                    "periodSeconds": 15,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 15
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "256Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/config",
+                                        "name": "config"
+                                    },
+                                    {
+                                        "mountPath": "/var/run/secrets/tokens",
+                                        "name": "kagent-token"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "feature-rag-specialist",
+                        "serviceAccountName": "feature-rag-specialist",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "name": "config",
+                                "secret": {
+                                    "defaultMode": 420,
+                                    "secretName": "feature-rag-specialist"
+                                }
+                            },
+                            {
+                                "name": "kagent-token",
+                                "projected": {
+                                    "defaultMode": 420,
+                                    "sources": [
+                                        {
+                                            "serviceAccountToken": {
+                                                "audience": "kagent",
+                                                "expirationSeconds": 3600,
+                                                "path": "kagent-token"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:25Z",
+                        "lastUpdateTime": "2026-11-01T17:35:25Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:05Z",
+                        "lastUpdateTime": "2026-11-02T07:00:54Z",
+                        "message": "ReplicaSet \"feature-rag-specialist-65464756b6\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 9,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "216",
+                    "ewallet.io/display-name": "Fraud Investigation Coordinator",
+                    "ewallet.io/prompt-sha256": "416963bcfe2c1e1774d4dac20605cf5e56fb36450bbb7053ad5c53cdee41afb6",
+                    "ewallet.io/rubric-rows": "25,26",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:05Z",
+                "generation": 354,
+                "labels": {
+                    "app": "kagent",
+                    "app.kubernetes.io/managed-by": "kagent",
+                    "app.kubernetes.io/name": "fraud-coordinator",
+                    "app.kubernetes.io/part-of": "kagent",
+                    "ewallet.io/agent": "fraud-coordinator",
+                    "kagent": "fraud-coordinator"
+                },
+                "name": "fraud-coordinator",
+                "namespace": "ewallet-agents",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "kagent.dev/v1alpha2",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "Agent",
+                        "name": "fraud-coordinator",
+                        "uid": "0f493645-0c86-4a57-acbc-68aab17b4545"
+                    }
+                ],
+                "resourceVersion": "1793600601980991003",
+                "uid": "c64f35f4-4c3c-47d1-a8d5-db21dd33d6a3"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app": "kagent",
+                        "kagent": "fraud-coordinator"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 1,
+                        "maxUnavailable": 0
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "ewallet.io/a2a-gateway-config-sha256": "86e9f7330d869cef6475141b4f6d9710aa538f840f100ff300f881875636bee6",
+                            "ewallet.io/coordinator-runtime": "byo-v1",
+                            "kagent.dev/config-hash": "11300352858484312788"
+                        },
+                        "labels": {
+                            "app": "kagent",
+                            "app.kubernetes.io/managed-by": "kagent",
+                            "app.kubernetes.io/name": "fraud-coordinator",
+                            "app.kubernetes.io/part-of": "kagent",
+                            "ewallet.io/agent": "fraud-coordinator",
+                            "kagent": "fraud-coordinator"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "env": [
+                                    {
+                                        "name": "OTEL_TRACING_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OTEL_LOGGING_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                                        "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+                                        "value": "grpc"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+                                        "value": "15000"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                                        "value": "otel-collector.ewallet-agents.svc.cluster.local:4317"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_INSECURE",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+                                        "value": "grpc"
+                                    },
+                                    {
+                                        "name": "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+                                        "value": "15000"
+                                    },
+                                    {
+                                        "name": "OTEL_LOGGING_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "OTEL_TRACING_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "KAGENT_NAMESPACE",
+                                        "valueFrom": {
+                                            "fieldRef": {
+                                                "apiVersion": "v1",
+                                                "fieldPath": "metadata.namespace"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KAGENT_NAME",
+                                        "value": "fraud-coordinator"
+                                    },
+                                    {
+                                        "name": "KAGENT_URL",
+                                        "value": "http://kagent-controller.kagent:8083"
+                                    }
+                                ],
+                                "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "kagent",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/.well-known/agent-card.json",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 15,
+                                    "periodSeconds": 15,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 15
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "256Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/config",
+                                        "name": "config"
+                                    },
+                                    {
+                                        "mountPath": "/var/run/secrets/tokens",
+                                        "name": "kagent-token"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "fraud-coordinator",
+                        "serviceAccountName": "fraud-coordinator",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "name": "config",
+                                "secret": {
+                                    "defaultMode": 420,
+                                    "secretName": "fraud-coordinator"
+                                }
+                            },
+                            {
+                                "name": "kagent-token",
+                                "projected": {
+                                    "defaultMode": 420,
+                                    "sources": [
+                                        {
+                                            "serviceAccountToken": {
+                                                "audience": "kagent",
+                                                "expirationSeconds": 3600,
+                                                "path": "kagent-token"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-02T00:30:26Z",
+                        "lastUpdateTime": "2026-11-02T00:30:26Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:05Z",
+                        "lastUpdateTime": "2026-11-02T06:22:53Z",
+                        "message": "ReplicaSet \"fraud-coordinator-7bf69cb76c\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 354,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-02T08:16:05Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "grafana"
+                },
+                "name": "grafana",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793607387513263015",
+                "uid": "c8c07da2-13db-4da2-bdf4-6894ce811914"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "grafana"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": "25%",
+                        "maxUnavailable": "25%"
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/name": "grafana"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "env": [
+                                    {
+                                        "name": "GF_SECURITY_ADMIN_USER",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "username",
+                                                "name": "ewallet-grafana-admin"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "GF_SECURITY_ADMIN_PASSWORD",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "password",
+                                                "name": "ewallet-grafana-admin"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "GF_PATHS_DATA",
+                                        "value": "/tmp/grafana-data"
+                                    },
+                                    {
+                                        "name": "GF_PATHS_LOGS",
+                                        "value": "/tmp/grafana-logs"
+                                    },
+                                    {
+                                        "name": "GF_PATHS_PLUGINS",
+                                        "value": "/tmp/grafana-plugins"
+                                    }
+                                ],
+                                "image": "docker.io/grafana/grafana:12.2.0@sha256:60794dc17e6a58d28539cfd3dd496a7f2da62e13ff54a4055431385eec5d6639",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "grafana",
+                                "ports": [
+                                    {
+                                        "containerPort": 3000,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "300m",
+                                        "memory": "384Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "50m",
+                                        "memory": "128Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsNonRoot": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/etc/observability",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/etc/grafana/provisioning/datasources/datasources.yaml",
+                                        "name": "config",
+                                        "readOnly": true,
+                                        "subPath": "datasources.yaml"
+                                    },
+                                    {
+                                        "mountPath": "/etc/grafana/provisioning/dashboards/dashboards.yaml",
+                                        "name": "config",
+                                        "readOnly": true,
+                                        "subPath": "dashboards.yaml"
+                                    },
+                                    {
+                                        "mountPath": "/var/lib/grafana/dashboards",
+                                        "name": "dashboards",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "scratch"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "observability-grafana",
+                        "serviceAccountName": "observability-grafana",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "observability-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "scratch"
+                            },
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "llm-agent-dashboards"
+                                },
+                                "name": "dashboards"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:27Z",
+                        "lastUpdateTime": "2026-11-02T08:16:27Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:05Z",
+                        "lastUpdateTime": "2026-11-02T08:16:27Z",
+                        "message": "ReplicaSet \"grafana-84d544f7f\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-02T08:16:05Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "loki"
+                },
+                "name": "loki",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793607372678399000",
+                "uid": "ba548e52-5666-4ae7-b1d7-81cca97bd488"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "loki"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": "25%",
+                        "maxUnavailable": "25%"
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/name": "loki"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "-config.file=/etc/observability/loki.yaml"
+                                ],
+                                "image": "docker.io/grafana/loki:3.5.7@sha256:bf26399a58b4719387b06abfd024ebca942d702b2e77cc600fa3439356584c73",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "loki",
+                                "ports": [
+                                    {
+                                        "containerPort": 3100,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "300m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "50m",
+                                        "memory": "128Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsNonRoot": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/etc/observability",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "scratch"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "observability-loki",
+                        "serviceAccountName": "observability-loki",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "observability-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "scratch"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:12Z",
+                        "lastUpdateTime": "2026-11-02T08:16:12Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:05Z",
+                        "lastUpdateTime": "2026-11-02T08:16:12Z",
+                        "message": "ReplicaSet \"loki-5f7948b5f7\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "4",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 4,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "mcp-gateway",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "mcp-gateway",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793571236723631013",
+                "uid": "f2cf4fa2-5896-4c51-af74-f6f8d0120828"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "mcp-gateway"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 1,
+                        "maxUnavailable": 0
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "checksum/config": "ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4"
+                        },
+                        "labels": {
+                            "app.kubernetes.io/name": "mcp-gateway"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "-f",
+                                    "/config/config.yaml"
+                                ],
+                                "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 15,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": "http"
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "name": "agentgateway",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "periodSeconds": 5,
+                                    "successThreshold": 1,
+                                    "tcpSocket": {
+                                        "port": "http"
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "256Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "50m",
+                                        "memory": "64Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsNonRoot": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/config",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "mcp-gateway",
+                        "serviceAccountName": "mcp-gateway",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "mcp-gateway-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "64Mi"
+                                },
+                                "name": "tmp"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:15Z",
+                        "lastUpdateTime": "2026-11-01T17:35:15Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "lastUpdateTime": "2026-11-01T22:13:56Z",
+                        "message": "ReplicaSet \"mcp-gateway-db9ddd7b\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 4,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-02T08:16:05Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "otel-collector",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "otel-collector",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793607383471311011",
+                "uid": "904f0f94-5d1f-4a30-8757-39db4e714d25"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "otel-collector"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": "25%",
+                        "maxUnavailable": "25%"
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "checksum/config": "8d50e85798b819cd6e2c7814eb9831d1f9864ca817e8c579ac8a6e4c922d2fd0"
+                        },
+                        "labels": {
+                            "app.kubernetes.io/name": "otel-collector"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "--config=/conf/config.yaml"
+                                ],
+                                "image": "docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/",
+                                        "port": "health",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 20,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 1
+                                },
+                                "name": "otel-collector",
+                                "ports": [
+                                    {
+                                        "containerPort": 4317,
+                                        "name": "otlp-grpc",
+                                        "protocol": "TCP"
+                                    },
+                                    {
+                                        "containerPort": 4318,
+                                        "name": "otlp-http",
+                                        "protocol": "TCP"
+                                    },
+                                    {
+                                        "containerPort": 8889,
+                                        "name": "prometheus",
+                                        "protocol": "TCP"
+                                    },
+                                    {
+                                        "containerPort": 13133,
+                                        "name": "health",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/",
+                                        "port": "health",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "50m",
+                                        "memory": "128Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsNonRoot": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/conf",
+                                        "name": "config",
+                                        "readOnly": true
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "otel-collector",
+                        "serviceAccountName": "otel-collector",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "otel-collector-config"
+                                },
+                                "name": "config"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:23Z",
+                        "lastUpdateTime": "2026-11-02T08:16:23Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:05Z",
+                        "lastUpdateTime": "2026-11-02T08:16:23Z",
+                        "message": "ReplicaSet \"otel-collector-698bb96fcd\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "2",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-02T08:16:05Z",
+                "generation": 2,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "prometheus"
+                },
+                "name": "prometheus",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793607461937599010",
+                "uid": "0b971315-583e-495c-8258-33a7a0422f69"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "prometheus"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": "25%",
+                        "maxUnavailable": "25%"
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/name": "prometheus"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "--config.file=/etc/prometheus/prometheus.yaml",
+                                    "--storage.tsdb.path=/tmp/prometheus",
+                                    "--storage.tsdb.retention.time=24h"
+                                ],
+                                "image": "docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "prometheus",
+                                "ports": [
+                                    {
+                                        "containerPort": 9090,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "500m",
+                                        "memory": "768Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "256Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsGroup": 65534,
+                                    "runAsNonRoot": true,
+                                    "runAsUser": 65534,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/etc/observability",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/etc/prometheus/prometheus.yaml",
+                                        "name": "config",
+                                        "readOnly": true,
+                                        "subPath": "prometheus.yaml"
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "scratch"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "observability-prometheus",
+                        "serviceAccountName": "observability-prometheus",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "observability-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "scratch"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-02T08:17:40Z",
+                        "lastUpdateTime": "2026-11-02T08:17:40Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:05Z",
+                        "lastUpdateTime": "2026-11-02T08:17:41Z",
+                        "message": "ReplicaSet \"prometheus-84c7f58cd8\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 2,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-02T08:16:05Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "tempo"
+                },
+                "name": "tempo",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793607373453535024",
+                "uid": "0ea6307f-1b1f-4a6d-ac06-a3f5e4b817ee"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "tempo"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": "25%",
+                        "maxUnavailable": "25%"
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/name": "tempo"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "-config.file=/etc/observability/tempo.yaml"
+                                ],
+                                "image": "docker.io/grafana/tempo:2.8.2@sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d",
+                                "imagePullPolicy": "IfNotPresent",
+                                "name": "tempo",
+                                "ports": [
+                                    {
+                                        "containerPort": 3200,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    },
+                                    {
+                                        "containerPort": 4317,
+                                        "name": "otlp-grpc",
+                                        "protocol": "TCP"
+                                    },
+                                    {
+                                        "containerPort": 4318,
+                                        "name": "otlp-http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "300m",
+                                        "memory": "512Mi"
+                                    },
+                                    "requests": {
+                                        "cpu": "50m",
+                                        "memory": "128Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": true,
+                                    "runAsNonRoot": true,
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/etc/observability",
+                                        "name": "config",
+                                        "readOnly": true
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "scratch"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "runAsNonRoot": true,
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "observability-tempo",
+                        "serviceAccountName": "observability-tempo",
+                        "terminationGracePeriodSeconds": 30,
+                        "volumes": [
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "name": "observability-config"
+                                },
+                                "name": "config"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "scratch"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:13Z",
+                        "lastUpdateTime": "2026-11-02T08:16:13Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-02T08:16:05Z",
+                        "lastUpdateTime": "2026-11-02T08:16:13Z",
+                        "message": "ReplicaSet \"tempo-c59569895\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/instance": "fallback",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "vllm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "vllm-fallback",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793554505071375017",
+                "uid": "45965e42-fe02-41fc-b5c6-024830eb42a0"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 1800,
+                "replicas": 0,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/instance": "fallback",
+                        "app.kubernetes.io/name": "vllm"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 0,
+                        "maxUnavailable": 1
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/instance": "fallback",
+                            "app.kubernetes.io/name": "vllm",
+                            "llm.ewallet.io/backend-version": "fallback"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "--model",
+                                    "/models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca",
+                                    "--served-model-name",
+                                    "ewallet-fraud-llm-v1",
+                                    "--dtype",
+                                    "bfloat16",
+                                    "--max-model-len",
+                                    "4096",
+                                    "--enable-auto-tool-choice",
+                                    "--tool-call-parser",
+                                    "hermes",
+                                    "--reasoning-parser",
+                                    "qwen3",
+                                    "--default-chat-template-kwargs",
+                                    "{\"enable_thinking\":false}",
+                                    "--max-num-seqs",
+                                    "2",
+                                    "--max-num-queued-reqs",
+                                    "4",
+                                    "--enable-prefix-caching"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "VLLM_API_KEY",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "api-key",
+                                                "name": "vllm-api-key"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "VLLM_CPU_KVCACHE_SPACE",
+                                        "value": "2"
+                                    },
+                                    {
+                                        "name": "VLLM_CPU_NUM_OF_RESERVED_CPU",
+                                        "value": "1"
+                                    },
+                                    {
+                                        "name": "OMP_NUM_THREADS",
+                                        "value": "2"
+                                    },
+                                    {
+                                        "name": "VLLM_CPU_OMP_THREADS_BIND",
+                                        "value": "0-1"
+                                    },
+                                    {
+                                        "name": "HF_HUB_OFFLINE",
+                                        "value": "1"
+                                    },
+                                    {
+                                        "name": "TRANSFORMERS_OFFLINE",
+                                        "value": "1"
+                                    }
+                                ],
+                                "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/health",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 30,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 3
+                                },
+                                "name": "vllm",
+                                "ports": [
+                                    {
+                                        "containerPort": 8000,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/health",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 3
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "3",
+                                        "memory": "10Gi"
+                                    },
+                                    "requests": {
+                                        "cpu": "2",
+                                        "memory": "6Gi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "startupProbe": {
+                                    "exec": {
+                                        "command": [
+                                            "python3",
+                                            "-c",
+                                            "import json, os, urllib.request\n# Shaped like a real tool call (system prompt + described tool,\n        # ~200 prompt tokens): on CPU the first request of a new\n        # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.\nbody = {\"model\": \"ewallet-fraud-llm-v1\", \"max_tokens\": 32, \"temperature\": 0,\n        \"messages\": [\n            {\"role\": \"system\", \"content\": \"You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data.\"},\n            {\"role\": \"user\", \"content\": \"Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture.\"}],\n        \"tools\": [{\"type\": \"function\", \"function\": {\"name\": \"feature_lookup\",\n            \"description\": \"Retrieve a test transaction feature fixture.\", \"parameters\": {\n            \"type\": \"object\", \"properties\": {\"transaction_id\": {\"type\": \"string\"}},\n            \"required\": [\"transaction_id\"], \"additionalProperties\": False}}}],\n        \"tool_choice\": \"required\"}\nrequest = urllib.request.Request(\"http://127.0.0.1:8000/v1/chat/completions\",\n    data=json.dumps(body).encode(), method=\"POST\", headers={\n        \"Content-Type\": \"application/json\",\n        \"Authorization\": \"Bearer \" + os.environ[\"VLLM_API_KEY\"]})\nurllib.request.urlopen(request, timeout=240).read()\n"
+                                        ]
+                                    },
+                                    "failureThreshold": 90,
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 245
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/root/.cache",
+                                        "name": "cache"
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    },
+                                    {
+                                        "mountPath": "/dev/shm",
+                                        "name": "dshm"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "enableServiceLinks": false,
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "vllm",
+                        "serviceAccountName": "vllm",
+                        "terminationGracePeriodSeconds": 60,
+                        "volumes": [
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "8Gi"
+                                },
+                                "name": "cache"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "tmp"
+                            },
+                            {
+                                "emptyDir": {
+                                    "medium": "Memory",
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "dshm"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:05Z",
+                        "lastUpdateTime": "2026-11-01T17:35:05Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "lastUpdateTime": "2026-11-01T17:35:05Z",
+                        "message": "ReplicaSet \"vllm-fallback-6d975c8c48\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "terminatingReplicas": 0
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "deployment.kubernetes.io/revision": "1",
+                    "meta.helm.sh/release-name": "llm-agent",
+                    "meta.helm.sh/release-namespace": "default"
+                },
+                "creationTimestamp": "2026-11-01T17:35:04Z",
+                "generation": 1,
+                "labels": {
+                    "app.kubernetes.io/instance": "primary",
+                    "app.kubernetes.io/managed-by": "Helm",
+                    "app.kubernetes.io/name": "vllm",
+                    "app.kubernetes.io/part-of": "ewallet-llm-agent",
+                    "app.kubernetes.io/version": "llm-agent-v1"
+                },
+                "name": "vllm-primary",
+                "namespace": "ewallet-agents",
+                "resourceVersion": "1793555525874223001",
+                "uid": "51daa593-9bc9-40e7-b547-277c497bdace"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 1800,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/instance": "primary",
+                        "app.kubernetes.io/name": "vllm"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 0,
+                        "maxUnavailable": 1
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app.kubernetes.io/instance": "primary",
+                            "app.kubernetes.io/name": "vllm",
+                            "llm.ewallet.io/backend-version": "primary"
+                        }
+                    },
+                    "spec": {
+                        "automountServiceAccountToken": false,
+                        "containers": [
+                            {
+                                "args": [
+                                    "--model",
+                                    "/models/Qwen3-0.6B/c1899de289a04d12100db370d81485cdf75e47ca",
+                                    "--served-model-name",
+                                    "ewallet-fraud-llm-v1",
+                                    "--dtype",
+                                    "bfloat16",
+                                    "--max-model-len",
+                                    "4096",
+                                    "--enable-auto-tool-choice",
+                                    "--tool-call-parser",
+                                    "hermes",
+                                    "--reasoning-parser",
+                                    "qwen3",
+                                    "--default-chat-template-kwargs",
+                                    "{\"enable_thinking\":false}",
+                                    "--max-num-seqs",
+                                    "4",
+                                    "--max-num-queued-reqs",
+                                    "8",
+                                    "--enable-prefix-caching"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "VLLM_API_KEY",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "api-key",
+                                                "name": "vllm-api-key"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "VLLM_CPU_KVCACHE_SPACE",
+                                        "value": "2"
+                                    },
+                                    {
+                                        "name": "VLLM_CPU_NUM_OF_RESERVED_CPU",
+                                        "value": "1"
+                                    },
+                                    {
+                                        "name": "OMP_NUM_THREADS",
+                                        "value": "2"
+                                    },
+                                    {
+                                        "name": "VLLM_CPU_OMP_THREADS_BIND",
+                                        "value": "0-1"
+                                    },
+                                    {
+                                        "name": "HF_HUB_OFFLINE",
+                                        "value": "1"
+                                    },
+                                    {
+                                        "name": "TRANSFORMERS_OFFLINE",
+                                        "value": "1"
+                                    }
+                                ],
+                                "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c",
+                                "imagePullPolicy": "IfNotPresent",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/health",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 30,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 3
+                                },
+                                "name": "vllm",
+                                "ports": [
+                                    {
+                                        "containerPort": 8000,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/health",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 3
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "3",
+                                        "memory": "10Gi"
+                                    },
+                                    "requests": {
+                                        "cpu": "2",
+                                        "memory": "6Gi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "seccompProfile": {
+                                        "type": "RuntimeDefault"
+                                    }
+                                },
+                                "startupProbe": {
+                                    "exec": {
+                                        "command": [
+                                            "python3",
+                                            "-c",
+                                            "import json, os, urllib.request\n# Shaped like a real tool call (system prompt + described tool,\n        # ~200 prompt tokens): on CPU the first request of a new\n        # shape took 190 s on GKE (G1 run 5) after a 16-token warm-up.\nbody = {\"model\": \"ewallet-fraud-llm-v1\", \"max_tokens\": 32, \"temperature\": 0,\n        \"messages\": [\n            {\"role\": \"system\", \"content\": \"You are in a test environment. Use the provided feature_lookup tool; never invent real fraud data.\"},\n            {\"role\": \"user\", \"content\": \"Use feature_lookup for transaction tx-warmup-001, then summarize the returned fixture.\"}],\n        \"tools\": [{\"type\": \"function\", \"function\": {\"name\": \"feature_lookup\",\n            \"description\": \"Retrieve a test transaction feature fixture.\", \"parameters\": {\n            \"type\": \"object\", \"properties\": {\"transaction_id\": {\"type\": \"string\"}},\n            \"required\": [\"transaction_id\"], \"additionalProperties\": False}}}],\n        \"tool_choice\": \"required\"}\nrequest = urllib.request.Request(\"http://127.0.0.1:8000/v1/chat/completions\",\n    data=json.dumps(body).encode(), method=\"POST\", headers={\n        \"Content-Type\": \"application/json\",\n        \"Authorization\": \"Bearer \" + os.environ[\"VLLM_API_KEY\"]})\nurllib.request.urlopen(request, timeout=240).read()\n"
+                                        ]
+                                    },
+                                    "failureThreshold": 90,
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 245
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/root/.cache",
+                                        "name": "cache"
+                                    },
+                                    {
+                                        "mountPath": "/tmp",
+                                        "name": "tmp"
+                                    },
+                                    {
+                                        "mountPath": "/dev/shm",
+                                        "name": "dshm"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "enableServiceLinks": false,
+                        "nodeSelector": {
+                            "ewallet.io/g3-llm": "true"
+                        },
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "seccompProfile": {
+                                "type": "RuntimeDefault"
+                            }
+                        },
+                        "serviceAccount": "vllm",
+                        "serviceAccountName": "vllm",
+                        "terminationGracePeriodSeconds": 60,
+                        "volumes": [
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "8Gi"
+                                },
+                                "name": "cache"
+                            },
+                            {
+                                "emptyDir": {
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "tmp"
+                            },
+                            {
+                                "emptyDir": {
+                                    "medium": "Memory",
+                                    "sizeLimit": "1Gi"
+                                },
+                                "name": "dshm"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "lastUpdateTime": "2026-11-01T17:35:04Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-11-01T17:35:04Z",
+                        "lastUpdateTime": "2026-11-01T17:52:05Z",
+                        "message": "ReplicaSet \"vllm-primary-588445cd8\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 1,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "terminatingReplicas": 0,
+                "updatedReplicas": 1
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

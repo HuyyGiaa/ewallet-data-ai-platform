@@ -1,0 +1,20 @@
+$ uv --version
+uv 0.13.5 (x86_64-unknown-linux-gnu)
+$ uv lock --check --project infra/docker/rag-ingestion
+Using CPython 3.10.22
+Resolved 161 packages in 1ms
+$ uv sync --locked --no-dev --project infra/docker/rag-ingestion   (clean .venv)
+Using CPython 3.10.22
+Resolved 161 packages in 1ms
+Installed 154 packages in 31ms
+python 3.10.22 feast 0.66.0 onnxruntime 1.23.2 tokenizers 0.23.3 acryl-datahub 1.7.0.5
+pytest in production env: ModuleNotFoundError: No module named 'pytest'
+$ uv sync --locked --project infra/docker/rag-ingestion
+Installed 3 packages in 4ms
+ + iniconfig==2.3.1
+ + pluggy==1.7.0
+ + pytest==9.2.0
+$ uv run --locked --project infra/docker/rag-ingestion python -m pytest tests/llm_agent/test_rag_airflow_ingestion.py tests/llm_agent/test_rag_online_retriever.py tests/llm_agent/test_phase_c.py
+49 passed, 1 skipped, 21 subtests passed in 3.64s
+$ EWALLET_RAG_MODEL_TESTS=1 (pinned ONNX model)
+1 passed, 27 deselected in 0.49s

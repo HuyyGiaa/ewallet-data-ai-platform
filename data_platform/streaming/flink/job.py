@@ -3,11 +3,54 @@
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
 from data_platform.streaming.config.settings import OperatingMode, RuntimeSettings, load_profile, profile_by_name
+from data_platform.streaming.contracts.events import TransactionEvent
 from data_platform.streaming.contracts.topics import CONSUMER_GROUPS, TOPICS, consumer_group, topic_name
+
+
+SOURCE_NO_TIMESTAMP = -(2**63)
+
+
+def source_event_time_ms(payload: str | bytes) -> int:
+    """Extract canonical event time without letting bad/control rows move watermarks."""
+    try:
+        raw = json.loads(payload)
+        if not isinstance(raw, dict):
+            return SOURCE_NO_TIMESTAMP
+        kind = raw.get("kind")
+        if kind == "BENCHMARK_WATERMARK":
+            return int(raw["event_time_ms"])
+        if kind in {"BENCHMARK_EVENT", "BOOTSTRAP"}:
+            event_payload = raw["event"]
+        elif "original_event" in raw and "retry_count" in raw:
+            event_payload = raw["original_event"]
+        elif kind is None:
+            event_payload = raw
+        else:
+            return SOURCE_NO_TIMESTAMP
+        event = TransactionEvent.from_dict(event_payload)
+        return int(event.event_time.timestamp() * 1000)
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return SOURCE_NO_TIMESTAMP
+
+
+class SourceEventTimestampAssigner:
+    def __init__(self, benchmark_replay: bool = False) -> None:
+        self.benchmark_replay = benchmark_replay
+
+    def extract_timestamp(self, value, record_timestamp) -> int:
+        if not self.benchmark_replay:
+            try:
+                kind = json.loads(value).get("kind")
+            except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+                kind = None
+            if kind in {"BENCHMARK_EVENT", "BENCHMARK_WATERMARK"}:
+                return SOURCE_NO_TIMESTAMP
+        return source_event_time_ms(value)
 
 
 @dataclass(frozen=True)
@@ -28,10 +71,44 @@ def build_job_plan(profile_name: str) -> FlinkJobPlan:
     return FlinkJobPlan(profile, TOPICS["raw"].name, CONSUMER_GROUPS["flink"], TOPICS["accepted"].name, TOPICS["online"].name, TOPICS["retry"].name, TOPICS["late"].name, TOPICS["dlq"].name, ("transaction-dedup", "event-time-disposition", "entity-fan-out", "user-feature-state", "account-feature-state", "device-feature-state", "merchant-feature-state"))
 
 
-class EventTimestampAssigner:
-    def extract_timestamp(self, value, record_timestamp) -> int:
-        from data_platform.streaming.flink.records import RuntimeEvent
-        return int(RuntimeEvent.from_json(value).event.event_time.timestamp() * 1000)
+def uses_source_idleness(mode: OperatingMode) -> bool:
+    """Benchmark replay drains every partition with markers instead.
+
+    Under backpressure an idle-marked split lets the drain marker advance the
+    watermark past records still queued on that split; their timers then never
+    fire. Production keeps idleness so a quiet partition cannot stall timers.
+    """
+    return mode is not OperatingMode.BENCHMARK_REPLAY
+
+
+def source_topic_names(mode: OperatingMode, namespace: str | None) -> tuple[str, ...]:
+    raw_topic = topic_name("raw", namespace)
+    if mode is OperatingMode.BENCHMARK_REPLAY:
+        return (raw_topic,)
+    return (raw_topic, topic_name("retry", namespace))
+
+
+def build_source_watermark_strategy(profile, mode: OperatingMode):
+    from pyflink.common import Duration, WatermarkStrategy
+
+    strategy = WatermarkStrategy.for_bounded_out_of_orderness(
+        Duration.of_millis(int(profile.event_time.max_out_of_orderness.total_seconds() * 1000))
+    )
+    if uses_source_idleness(mode):
+        strategy = strategy.with_idleness(
+            Duration.of_millis(int(profile.event_time.idle_timeout.total_seconds() * 1000))
+        )
+    return strategy.with_timestamp_assigner(
+        SourceEventTimestampAssigner(benchmark_replay=mode is OperatingMode.BENCHMARK_REPLAY)
+    )
+
+
+def _from_source_with_watermarks(env, source, watermark_strategy, parallelism: int):
+    return (
+        env.from_source(source, watermark_strategy, "redpanda-raw-and-retry")
+        .uid("block-a-redpanda-source-v1")
+        .set_parallelism(parallelism)
+    )
 
 
 @dataclass
@@ -85,6 +162,7 @@ def _parse_operator(settings: RuntimeSettings):
         settings.source_run_id if bootstrap_only else None,
         settings.cutover_iso if bootstrap_only else None,
         bootstrap_only=bootstrap_only,
+        benchmark_replay=settings.mode is OperatingMode.BENCHMARK_REPLAY,
     )
 
 
@@ -97,7 +175,7 @@ def _state_backend(profile):
 
 
 def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
-    from pyflink.common import Configuration, Duration, Types, WatermarkStrategy
+    from pyflink.common import Configuration, Types
     from pyflink.common.restart_strategy import RestartStrategies
     from pyflink.common.serialization import SimpleStringSchema
     from pyflink.datastream import CheckpointingMode, ExternalizedCheckpointCleanup, StreamExecutionEnvironment
@@ -108,43 +186,50 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
 
     if not settings.kafka_connector_jar.is_file():
         raise FileNotFoundError(f"Kafka connector JAR not found: {settings.kafka_connector_jar}")
+    namespace = settings.namespace
+    input_parallelism = settings.profile.parallelism
     env = StreamExecutionEnvironment.get_execution_environment()
     runtime_configuration = Configuration()
     if settings.savepoint_path:
         runtime_configuration.set_string("execution.savepoint.path", settings.savepoint_path)
     env.configure(runtime_configuration)
-    env.set_parallelism(settings.profile.parallelism)
+    env.set_parallelism(input_parallelism)
     env.set_state_backend(_state_backend(settings.profile))
-    env.add_jars(settings.kafka_connector_jar.resolve().as_uri())
     env.enable_checkpointing(int(settings.profile.checkpoint_interval.total_seconds() * 1000), getattr(CheckpointingMode, settings.profile.checkpoint_mode))
     checkpoint = env.get_checkpoint_config()
     checkpoint.set_checkpoint_storage_dir(settings.checkpoint_storage)
     checkpoint.enable_externalized_checkpoints(ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION)
     env.set_restart_strategy(RestartStrategies.fixed_delay_restart(settings.profile.restart_attempts, int(settings.profile.restart_delay.total_seconds() * 1000)))
 
-    namespace = settings.namespace
     # A benchmark namespace is always fresh, so it replays its bounded topic from the start.
     offsets = KafkaOffsetsInitializer.earliest() if settings.mode in {OperatingMode.FIRST_DEPLOY_BOOTSTRAP, OperatingMode.BENCHMARK_REPLAY} else KafkaOffsetsInitializer.committed_offsets(KafkaOffsetResetStrategy.LATEST)
-    source_topics = (topic_name("raw", namespace), topic_name("retry", namespace))
+    source_topics = source_topic_names(settings.mode, namespace)
     source = (KafkaSource.builder().set_bootstrap_servers(settings.bootstrap_servers).set_topics(*source_topics).set_group_id(consumer_group("flink", namespace)).set_starting_offsets(offsets).set_value_only_deserializer(SimpleStringSchema()).build())
-    raw = env.from_source(source, WatermarkStrategy.no_watermarks(), "redpanda-raw-and-retry").uid("block-a-redpanda-source-v1")
+    # The benchmark envelope supplies deterministic logical watermark progress,
+    # so correctness can exercise the real profile parallelism (1 versus 4).
+    raw = _from_source_with_watermarks(
+        env,
+        source,
+        build_source_watermark_strategy(settings.profile, settings.mode),
+        input_parallelism,
+    )
     parsed = raw.map(
         _parse_operator(settings), output_type=Types.STRING()
-    ).name("canonical-parse-and-validate")
+    ).name("canonical-parse-and-validate").set_parallelism(input_parallelism)
     invalid = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "DLQ").map(InvalidJson(), output_type=Types.STRING())
     control = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "BOOTSTRAP_COMPLETE").map(BootstrapCompletionMetric(), output_type=Types.STRING()).name("bootstrap-completion-gate")
     if settings.mode is OperatingMode.FIRST_DEPLOY_BOOTSTRAP:
-        valid = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID" and RuntimeEvent.from_json(raw).bootstrap)
+        timed_input = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID" and RuntimeEvent.from_json(raw).bootstrap)
     else:
-        valid = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID" and not RuntimeEvent.from_json(raw).bootstrap)
-    watermark = (WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_millis(int(settings.profile.event_time.max_out_of_orderness.total_seconds() * 1000))).with_idleness(Duration.of_millis(int(settings.profile.event_time.idle_timeout.total_seconds() * 1000))).with_timestamp_assigner(EventTimestampAssigner()))
-    timed = valid.assign_timestamps_and_watermarks(watermark)
-    deduped = timed.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(ManagedDeduplicate(int(settings.profile.dedup_ttl.total_seconds())), output_type=Types.STRING()).name("transaction-dedup").uid("block-a-transaction-dedup-v1")
-    unique = deduped.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID")
-    disposed = unique.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(EventTimeDisposition(int(settings.profile.event_time.allowed_lateness.total_seconds() * 1000)), output_type=Types.STRING()).name("event-time-disposition")
+        timed_input = parsed.filter(lambda raw: RuntimeEvent.from_json(raw).route in {"VALID", "WATERMARK"} and not RuntimeEvent.from_json(raw).bootstrap)
+    timed_input = timed_input.set_parallelism(input_parallelism)
+    timed = timed_input.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
+    deduped = timed.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(ManagedDeduplicate(int(settings.profile.dedup_ttl.total_seconds())), output_type=Types.STRING()).name("transaction-dedup").uid("block-a-transaction-dedup-v1").set_parallelism(input_parallelism)
+    unique = deduped.filter(lambda raw: RuntimeEvent.from_json(raw).route == "VALID").set_parallelism(input_parallelism)
+    disposed = unique.key_by(lambda raw: RuntimeEvent.from_json(raw).event.transaction_id).process(EventTimeDisposition(int(settings.profile.event_time.allowed_lateness.total_seconds() * 1000), benchmark_logical_watermark=settings.mode is OperatingMode.BENCHMARK_REPLAY), output_type=Types.STRING()).name("event-time-disposition").set_parallelism(input_parallelism)
     historical = disposed.filter(lambda raw: RuntimeEvent.from_json(raw).route in {"ELIGIBLE", "TOO_LATE"} and not RuntimeEvent.from_json(raw).bootstrap and RuntimeEvent.from_json(raw).retry_count == 0).map(HistoricalJson(), output_type=Types.STRING())
     late = disposed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "TOO_LATE" and not RuntimeEvent.from_json(raw).bootstrap and RuntimeEvent.from_json(raw).retry_count == 0).map(LateJson(), output_type=Types.STRING())
-    eligible = disposed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "ELIGIBLE")
+    eligible = disposed.filter(lambda raw: RuntimeEvent.from_json(raw).route == "ELIGIBLE").set_parallelism(input_parallelism)
     entities = eligible.flat_map(EntityFanOut(), output_type=Types.STRING()).name("entity-fan-out")
     feature_outputs = entities.key_by(lambda raw: EntityEvent.from_json(raw).state_key).process(ManagedHistoricalFeatures(int(settings.profile.event_time.allowed_lateness.total_seconds() * 1000), int(settings.profile.history_ttl.total_seconds() * 1000)), output_type=Types.STRING()).name("managed-31-feature-state").uid("block-a-managed-feature-state-v1")
 

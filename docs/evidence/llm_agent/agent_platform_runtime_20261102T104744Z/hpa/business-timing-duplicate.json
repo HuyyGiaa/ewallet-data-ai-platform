@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 0.407,
+  "polls": 0,
+  "terminal_state": "completed",
+  "response": "docs/evidence/llm_agent/agent_platform_runtime_20261102T104744Z/hpa/business-response-duplicate.json"
+}

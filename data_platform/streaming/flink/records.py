@@ -20,6 +20,9 @@ class RuntimeEvent:
     online_enabled: bool = True
     device_first_seen_iso: str | None = None
     account_anchor_iso: str | None = None
+    logical_watermark_ms: int | None = None
+    control_event_time_ms: int | None = None
+    observed_watermark_ms: int | None = None
 
     def to_json(self) -> str:
         return json.dumps(
@@ -34,6 +37,9 @@ class RuntimeEvent:
                 "online_enabled": self.online_enabled,
                 "device_first_seen_iso": self.device_first_seen_iso,
                 "account_anchor_iso": self.account_anchor_iso,
+                "logical_watermark_ms": self.logical_watermark_ms,
+                "control_event_time_ms": self.control_event_time_ms,
+                "observed_watermark_ms": self.observed_watermark_ms,
             },
             sort_keys=True,
             separators=(",", ":"),

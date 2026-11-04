@@ -1,0 +1,3 @@
+## helm uninstall of the OLD record (ewallet-mcp) while objects are owned by ewallet-mcp-release
+release "llm-agent-mcp" uninstalled
+MISSING after old-record uninstall: 28 ['AuthorizationPolicy/ewallet-agents/allow-ewallet-mcp-drift-mcp-to-shared-otel', 'AuthorizationPolicy/ewallet-agents/allow-ewallet-mcp-feature-rag-mcp-to-shared-otel', 'AuthorizationPolicy/ewallet-mcp/allow-mcp-gateway-to-drift-mcp', 'AuthorizationPolicy/ewallet-mcp/allow-mcp-gateway-to-feature-rag-mcp', 'AuthorizationPolicy/ewallet-mcp/default-deny']

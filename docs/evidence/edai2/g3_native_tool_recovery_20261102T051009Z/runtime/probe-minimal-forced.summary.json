@@ -1,0 +1,27 @@
+{
+  "probe": "probe-minimal-forced",
+  "http_status": 200,
+  "finish_reason": "stop",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "chatcmpl-tool-9790a9d046228f2d",
+      "type": "function",
+      "function": {
+        "name": "ewallet_agents__NS__feature_rag_specialist",
+        "arguments": "{\"request\": \"CALL_AGENT=feature-rag-specialist\\nREQUEST_JSON={\"}"
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 221,
+    "completion_tokens": 45,
+    "total_tokens": 266,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "model": "ewallet-fraud-llm-v1",
+  "id": "chatcmpl-9cea75384375c9e1",
+  "error": null
+}

@@ -1,0 +1,9 @@
+authorizationpolicy.security.istio.io/allow-drift-specialist-to-otel-collector            ALLOW    5s
+authorizationpolicy.security.istio.io/allow-feature-rag-specialist-to-otel-collector      ALLOW    5s
+authorizationpolicy.security.istio.io/allow-fraud-coordinator-to-otel-collector           ALLOW    5s
+networkpolicy.networking.k8s.io/allow-drift-specialist-to-otel-collector-egress               ewallet.io/agent=drift-specialist            19s
+networkpolicy.networking.k8s.io/allow-drift-specialist-to-otel-collector-ingress              app.kubernetes.io/name=otel-collector        19s
+networkpolicy.networking.k8s.io/allow-feature-rag-specialist-to-otel-collector-egress         ewallet.io/agent=feature-rag-specialist      19s
+networkpolicy.networking.k8s.io/allow-feature-rag-specialist-to-otel-collector-ingress        app.kubernetes.io/name=otel-collector        19s
+networkpolicy.networking.k8s.io/allow-fraud-coordinator-to-otel-collector-egress              ewallet.io/agent=fraud-coordinator           20s
+networkpolicy.networking.k8s.io/allow-fraud-coordinator-to-otel-collector-ingress             app.kubernetes.io/name=otel-collector        20s

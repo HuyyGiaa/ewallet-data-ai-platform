@@ -1,0 +1,6 @@
+up agentgateway http://agentgateway:15020/metrics
+up fraud-api http://fraud-api.ml-platform.svc.cluster.local:80/metrics
+up kserve-fraud-detector http://fraud-detector-predictor.fraud-serving.svc.cluster.local:80/metrics
+up otel-collector http://otel-collector:8889/metrics
+up vllm http://vllm-primary:8000/metrics
+down vllm http://vllm-fallback:8000/metrics

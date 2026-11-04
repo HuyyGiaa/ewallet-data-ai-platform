@@ -1,0 +1,315 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-ci
+  labels:
+    app.kubernetes.io/part-of: ewallet-ci
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: jenkins-runtime
+  namespace: ewallet-ci
+spec:
+  hard:
+    requests.cpu: "2500m"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 6Gi
+    persistentvolumeclaims: "1"
+    requests.storage: 8Gi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: ewallet-ci
+  annotations:
+    # Least-privilege Cloud Build submitter (infra/terraform/gcp/modules/cicd_build).
+    iam.gke.io/gcp-service-account: "ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-home
+  namespace: ewallet-ci
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-casc
+  namespace: ewallet-ci
+data:
+  jenkins.yaml: |
+    jenkins:
+      systemMessage: "EDAI-2 bounded runtime proof — immutable local source snapshot"
+      numExecutors: 1
+      mode: NORMAL
+      disableRememberMe: true
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+            - id: "${JENKINS_ADMIN_USER}"
+              password: "${JENKINS_ADMIN_PASSWORD}"
+      authorizationStrategy:
+        loggedInUsersCanDoAnything:
+          allowAnonymousRead: false
+      crumbIssuer:
+        standard: {}
+      remotingSecurity:
+        enabled: true
+    unclassified:
+      location:
+        url: "http://jenkins.ewallet-ci.svc.cluster.local:8080/"
+    jobs:
+      - script: |
+          def sourceBundle = '/opt/ewallet-source/repository.bundle'
+          def addParameters = { context, expectedSha, negative ->
+            context.with {
+              stringParam('EXPECTED_GIT_SHA', expectedSha, 'Exact immutable snapshot SHA')
+              stringParam('TARGET_BRANCH', "${EDAI2_BASE_SHA}", 'Immutable base SHA for merge-base detection')
+              stringParam('RELEASE_BRANCH', '', 'release/<name> ref that must resolve to EXPECTED_GIT_SHA before any release')
+              booleanParam('INTENTIONAL_GATE_FAILURE', negative, 'Fail before release for negative proof')
+              booleanParam('DEPLOY_APPROVED', false, 'No deployment is approved in the Jenkins proof')
+              choiceParam('ENVIRONMENT', ['dev', 'gcp', 'gke-cpu'], 'Validated release target')
+              stringParam('KUBE_CONTEXT', '', 'Must remain empty for CI-only proof')
+              stringParam('IMAGE_MANIFEST', '', 'Must remain empty for CI-only proof')
+            }
+          }
+          def createPipeline = { jobName, branchName, pipelineScriptPath, expectedSha, negative ->
+            pipelineJob(jobName) {
+              description("Immutable staging-snapshot proof; source " + expectedSha)
+              disabled(false)
+              keepDependencies(false)
+              logRotator { numToKeep(10); artifactNumToKeep(10) }
+              parameters { addParameters(delegate, expectedSha, negative) }
+              definition {
+                cpsScm {
+                  lightweight(false)
+                  scriptPath(pipelineScriptPath)
+                  scm {
+                    git {
+                      remote { url(sourceBundle) }
+                      branch(branchName)
+                      extensions { cleanBeforeCheckout() }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          createPipeline('edai2-ml-ci', '*/proof/ml', 'Jenkinsfile.ml', "${EDAI2_ML_SHA}", false)
+          createPipeline('edai2-agent-ci', '*/proof/agent', 'Jenkinsfile.llm-agent', "${EDAI2_AGENT_SHA}", false)
+          createPipeline('edai2-docs-change-detection', '*/proof/docs', 'Jenkinsfile', "${EDAI2_DOCS_SHA}", false)
+          createPipeline('edai2-agent-negative', '*/proof/agent', 'Jenkinsfile.llm-agent', "${EDAI2_AGENT_SHA}", true)
+          // Release jobs: no default SHA and DEPLOY_APPROVED=false, so a deployment
+          // needs an explicit SHA, an explicit approval flag and the input step.
+          createPipeline('edai2-cd-mcp-agents', '*/release/mcp-agents', 'Jenkinsfile.llm-agent', '', false)
+          createPipeline('edai2-cd-rag-pipeline', '*/release/rag-pipeline', 'Jenkinsfile.llm-agent', '', false)
+          createPipeline('edai2-cd-prompt-management', '*/release/prompt-management', 'Jenkinsfile.llm-agent', '', false)
+          createPipeline('edai2-cd-streaming', '*/release/streaming', 'Jenkinsfile', '', false)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: ewallet-ci
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/part-of: ewallet-ci
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jenkins
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jenkins
+        app.kubernetes.io/part-of: ewallet-ci
+      annotations:
+        ewallet.io/source-sha: "19582d6d090c696fd8bc73847b886861736cf364"
+    spec:
+      serviceAccountName: jenkins
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: immutable-source
+          image: "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:18d443cf6bc1703817680a623f2887ee5e38b26d741d22855fd22de92072028b"
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              cp /snapshot/repository.bundle /source/repository.bundle;
+              cp /snapshot/source-metadata.txt /source/source-metadata.txt;
+              test "$(sha256sum /source/repository.bundle | awk '{print $1}')" = "$(awk -F= '/^bundle_sha256=/{print $2}' /source/source-metadata.txt)"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 100m, memory: 128Mi}
+          volumeMounts:
+            - name: source
+              mountPath: /source
+      containers:
+        - name: jenkins
+          image: "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-controller@sha256:9c301d1a7fa4e8a6a2de8eafbc85c664eda292c6170f1168f71982c1fee5565d"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_config/jenkins.yaml
+            - name: JAVA_OPTS
+              value: >-
+                -Djenkins.install.runSetupWizard=false
+                -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true
+            - name: JENKINS_ADMIN_USER
+              valueFrom:
+                secretKeyRef: {name: jenkins-admin, key: username}
+            - name: JENKINS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: jenkins-admin, key: password}
+            - {name: EDAI2_SOURCE_SHA, value: "19582d6d090c696fd8bc73847b886861736cf364"}
+            - {name: EDAI2_BASE_SHA, value: "8d34a1aacd81ae12cf9a183995d26aaab82e77b7"}
+            - {name: EDAI2_ML_SHA, value: "8074651d25c8c42ddba074952e4fa1706753a446"}
+            - {name: EDAI2_AGENT_SHA, value: "8fad87fd8c6a4bede4aec6ed844979424035de4f"}
+            - {name: EDAI2_DOCS_SHA, value: "7570de8c5235bdd1502e97a55df61e1630432577"}
+          ports:
+            - {name: http, containerPort: 8080, protocol: TCP}
+          readinessProbe:
+            httpGet: {path: /login, port: http}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+          livenessProbe:
+            httpGet: {path: /login, port: http}
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: "1", memory: 2Gi}
+            limits: {cpu: "3", memory: 4Gi}
+          volumeMounts:
+            - {name: home, mountPath: /var/jenkins_home}
+            - {name: config, mountPath: /var/jenkins_config, readOnly: true}
+            - {name: source, mountPath: /opt/ewallet-source, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            # Short-lived token for the namespace-scoped Roles in cd-rbac.yaml only.
+            - {name: kube-api, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
+      volumes:
+        - name: home
+          persistentVolumeClaim: {claimName: jenkins-home}
+        - name: config
+          configMap: {name: jenkins-casc}
+        - name: source
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {sizeLimit: 1Gi}
+        - name: kube-api
+          projected:
+            sources:
+              - serviceAccountToken: {path: token, expirationSeconds: 3600}
+              - configMap:
+                  name: kube-root-ca.crt
+                  items: [{key: ca.crt, path: ca.crt}]
+              - downwardAPI:
+                  items: [{path: namespace, fieldRef: {fieldPath: metadata.namespace}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  namespace: ewallet-ci
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: jenkins
+  ports:
+    - {name: http, port: 8080, targetPort: http, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jenkins-default-deny
+  namespace: ewallet-ci
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jenkins-runtime-allow
+  namespace: ewallet-ci
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: jenkins
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ewallet-ci
+      ports:
+        - {port: 8080, protocol: TCP}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - to:
+        - ipBlock:
+            cidr: 34.118.224.10/32
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - {port: 443, protocol: TCP}
+    # GKE metadata server for Workload Identity tokens only.
+    - to:
+        - ipBlock: {cidr: 169.254.169.254/32}
+      ports:
+        - {port: 80, protocol: TCP}
+    - to:
+        - ipBlock: {cidr: 169.254.169.252/32}
+      ports:
+        - {port: 988, protocol: TCP}

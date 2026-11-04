@@ -1,0 +1,10 @@
+Evidence secret scan: PASS
+Scope: docs/evidence/llm_agent/edai2_integration_20261102
+Patterns checked: private keys, JWTs, Bearer values, Redis URIs with embedded
+passwords, credential assignments, and Kubernetes Secret payload documents.
+Result: no private key, JWT, Bearer credential, embedded Redis password, or
+Secret data/stringData payload was found.
+All matched credential-like fields were non-secret configuration: boolean
+service-account-token settings, Grafana dashboard environment placeholders,
+and Kubernetes Secret resource names. Secret values were neither printed nor
+stored.

@@ -1,0 +1,3 @@
+registry v1 sha 9330dda3061ba502 prefix-of-received: True
+registry v2 sha 0c0798e185cd5f86 prefix-of-received: False
+reply prompt_revision drift-specialist/v1

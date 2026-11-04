@@ -1,0 +1,15 @@
+# tracked uv.lock files at HEAD 26eaf8f
+lock | sha256 | last commit | requires-python | packages | used by catalog components
+ai_platform/features/feast/uv.lock | 949f5629819cd8b1 | 0466ba4 | ==3.10.* | 104 | feast
+ai_platform/inference/uv.lock | 0fe677cd76312e01 | b21b89c | ==3.10.* | 105 | fraud-api
+ai_platform/ml/dvc-operator/uv.lock | dfae2e41323c0399 | ef37cb3 | >=3.10, <3.13 | 112 | -
+ai_platform/ml/pipelines/uv.lock | 3c55b936fbbd7541 | e51423a | ==3.10.* | 38 | ml-training
+ai_platform/ml/uv.lock | c044ce4ad536d4b1 | e51423a | ==3.10.* | 103 | ml-training
+ai_platform/serving/uv.lock | 3ab4eee69506a8ba | 559a00e | ==3.10.* | 119 | fraud-serving
+data_platform/metadata/datahub/uv.lock | 6f44b661ab3ff683 | d597176 | ==3.10.* | 80 | data-governance
+infra/docker/flink-benchmark/uv.lock | 125e8f4450c3a234 | d597176 | >=3.10, <3.12 | 54 | -
+infra/docker/g3-byo-coordinator/uv.lock | 2cf466c3c1fc8b0c | 688679b | ==3.12.* | 77 | agents
+infra/docker/llm-agent-tooling/uv.lock | 715f424402911737 | ddd41a0 | >=3.10, <3.13 | 120 | agents,ci-platform,mcp-agents,observability,prompt-management
+infra/docker/rag-ingestion/uv.lock | 20c00145ff1f8cb3 | c6aa2b8 | ==3.10.* | 164 | rag-pipeline
+infra/docker/vllm-cpu-model/uv.lock | 106f47f5c113f202 | 03f6b3c | ==3.12.* | 3 | -
+infra/kubernetes/mlflow/image/uv.lock | 1662242883c458c6 | e51423a | ==3.10.* | 103 | mlflow

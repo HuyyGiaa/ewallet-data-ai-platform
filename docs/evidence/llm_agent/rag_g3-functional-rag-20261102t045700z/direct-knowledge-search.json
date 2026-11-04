@@ -1,0 +1,68 @@
+{
+  "citations": [
+    {
+      "chunk_id": "policy-account-takeover:0000",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-account-takeover",
+      "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "feature_revision": "fraud-policy-feast-v1",
+      "score": 0.6633774209521979,
+      "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md"
+    },
+    {
+      "chunk_id": "policy-account-takeover:0001",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-account-takeover",
+      "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "feature_revision": "fraud-policy-feast-v1",
+      "score": 0.33356781545408515,
+      "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md"
+    },
+    {
+      "chunk_id": "policy-payment-anomaly:0001",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-payment-anomaly",
+      "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "feature_revision": "fraud-policy-feast-v1",
+      "score": 0.2586255132286003,
+      "source_checksum": "sha256:b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md"
+    }
+  ],
+  "path": "direct tool call (no MCP gateway, no authentication)",
+  "result": {
+    "query_sha256": "547fbe6758bbda6d8a45abcadce8f74e2abee666ed98e04c3abf44cd2b6339b7",
+    "results": [
+      {
+        "chunk_id": "policy-account-takeover:0000",
+        "document_id": "policy-account-takeover",
+        "quote": "# Account takeover review policy This demonstration policy requires step-up review when a transaction follows a new-device login, a rapid credential reset, or an impossible-travel signal. Analysts must review the account history, device binding, recent failed login count, and the",
+        "rank": 1,
+        "score": 0.6633774209521979
+      },
+      {
+        "chunk_id": "policy-account-takeover:0001",
+        "document_id": "policy-account-takeover",
+        "quote": "the source policy identifier and the exact policy revision. If required features are missing, stale, or inconsistent, the decision must fail closed to manual review. Services must not log raw credentials, payment account numbers, secrets, or hidden model reasoning. Any",
+        "rank": 2,
+        "score": 0.33356781545408515
+      },
+      {
+        "chunk_id": "policy-payment-anomaly:0001",
+        "document_id": "policy-payment-anomaly",
+        "quote": "must not invent missing facts. Empty retrieval, low similarity, stale features, serving errors, or policy conflicts must be visible to the coordinator and may require human review. Production promotion requires correlated traces, security-policy checks, rollback readiness, and runtime readback rather",
+        "rank": 3,
+        "score": 0.2586255132286003
+      }
+    ],
+    "retrieval_backend": "feast-online-redis+exact-cosine",
+    "trust_anchor": "source_corpus"
+  },
+  "tool": "knowledge_search",
+  "version_overrides": {
+    "corpus_revision": "fraud-policy-v1-20261030",
+    "feature_revision": "fraud-policy-feast-v1"
+  }
+}

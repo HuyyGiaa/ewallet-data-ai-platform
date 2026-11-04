@@ -1,0 +1,12 @@
+{
+ "verdict": "MIXED",
+ "fairness_issues": [],
+ "gain_levels": [
+  "4",
+  "8"
+ ],
+ "regression_levels": [
+  "1",
+  "2"
+ ]
+}

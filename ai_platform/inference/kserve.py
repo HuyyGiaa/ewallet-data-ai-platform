@@ -18,6 +18,10 @@ from ai_platform.inference.errors import (
     ModelTimeoutError,
 )
 from ai_platform.inference.schemas import ModelPrediction
+from ai_platform.inference.observability import (
+    BackendTelemetry,
+    default_backend_telemetry,
+)
 
 
 class JsonTransport(Protocol):
@@ -139,6 +143,7 @@ class KServeV2Client:
         timeout_seconds: float,
         transport: JsonTransport | None = None,
         wire_contract: KServeWireContract | None = None,
+        backend_telemetry: BackendTelemetry | None = None,
     ) -> None:
         if not base_url.startswith(("http://", "https://")):
             raise ValueError("base_url must use http or https")
@@ -151,11 +156,11 @@ class KServeV2Client:
         self.timeout_seconds = float(timeout_seconds)
         self._transport = transport or UrllibJsonTransport()
         self._wire_contract = wire_contract
+        self._telemetry = backend_telemetry or default_backend_telemetry()
         model = quote(model_name, safe="")
-        version = quote(model_version, safe="")
-        self._model_url = (
-            f"{base_url.rstrip('/')}/v2/models/{model}/versions/{version}"
-        )
+        # KServe 0.16 serves V2 without version-scoped routes; the deployed
+        # version is enforced through every inference response instead.
+        self._model_url = f"{base_url.rstrip('/')}/v2/models/{model}"
         self._signature_validated = False
 
     def _require_wire_contract(self) -> KServeWireContract:
@@ -188,21 +193,26 @@ class KServeV2Client:
             raise ModelBackendError() from exc
 
     async def ready(self) -> bool:
-        contract = self._require_wire_contract()
-        metadata = await self._backend_call(
-            self._transport.get_json(
-                self._model_url, timeout_seconds=self.timeout_seconds
+        with self._telemetry.operation(
+            "kserve",
+            "ready",
+            attributes={"model.name": self.model_name, "model.version": self.model_version},
+        ):
+            contract = self._require_wire_contract()
+            metadata = await self._backend_call(
+                self._transport.get_json(
+                    self._model_url, timeout_seconds=self.timeout_seconds
+                )
             )
-        )
-        self._validate_metadata(metadata, contract)
-        await self._backend_call(
-            self._transport.get_json(
-                self._model_url + "/ready",
-                timeout_seconds=self.timeout_seconds,
+            self._validate_metadata(metadata, contract)
+            await self._backend_call(
+                self._transport.get_json(
+                    self._model_url + "/ready",
+                    timeout_seconds=self.timeout_seconds,
+                )
             )
-        )
-        self._signature_validated = True
-        return True
+            self._signature_validated = True
+            return True
 
     def _validate_metadata(
         self, metadata: object, contract: KServeWireContract
@@ -211,8 +221,10 @@ class KServeV2Client:
             raise ModelSignatureError()
         if metadata.get("name") != self.model_name:
             raise ModelSignatureError()
-        if "versions" in metadata:
-            versions = metadata["versions"]
+        versions = metadata.get("versions")
+        # KServe 0.16 reports ``"versions": null``; the version is then
+        # enforced on every inference response.
+        if versions is not None:
             if (
                 not isinstance(versions, list)
                 or self.model_version not in versions
@@ -264,14 +276,19 @@ class KServeV2Client:
             propagate.inject(headers)
         except ImportError:
             pass
-        response = await self._backend_call(
-            self._transport.post_json(
-                self._model_url + "/infer",
-                payload,
-                timeout_seconds=self.timeout_seconds,
-                headers=headers,
+        with self._telemetry.operation(
+            "kserve",
+            "infer",
+            attributes={"model.name": self.model_name, "model.version": self.model_version},
+        ):
+            response = await self._backend_call(
+                self._transport.post_json(
+                    self._model_url + "/infer",
+                    payload,
+                    timeout_seconds=self.timeout_seconds,
+                    headers=headers,
+                )
             )
-        )
         return self._decode_response(response, correlation_id, contract)
 
     def _decode_response(
@@ -284,10 +301,7 @@ class KServeV2Client:
             raise ModelResponseError()
         if response.get("model_name") != self.model_name:
             raise ModelResponseError()
-        if (
-            "model_version" in response
-            and response["model_version"] != self.model_version
-        ):
+        if response.get("model_version") != self.model_version:
             raise ModelResponseError()
         if response.get("id") != correlation_id:
             raise ModelResponseError()

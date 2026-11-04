@@ -1,0 +1,135 @@
+{
+  "headroom": {
+    "cpu": 0.3,
+    "memory_gib": 0.75
+  },
+  "nodes": [
+    {
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+      "allocatable_cpu": 3.92,
+      "allocatable_mem_gib": 12.961994171142578,
+      "requested_cpu": 2.36,
+      "requested_mem_gib": 5.772,
+      "safe_cpu": 1.26,
+      "safe_mem_gib": 6.44,
+      "g2": false
+    },
+    {
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-1dx2",
+      "allocatable_cpu": 3.92,
+      "allocatable_mem_gib": 12.961994171142578,
+      "requested_cpu": 0.833,
+      "requested_mem_gib": 1.482,
+      "safe_cpu": 2.787,
+      "safe_mem_gib": 10.73,
+      "g2": true
+    },
+    {
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-70nj",
+      "allocatable_cpu": 3.92,
+      "allocatable_mem_gib": 12.961997985839844,
+      "requested_cpu": 0.833,
+      "requested_mem_gib": 1.482,
+      "safe_cpu": 2.787,
+      "safe_mem_gib": 10.73,
+      "g2": true
+    },
+    {
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+      "allocatable_cpu": 3.92,
+      "allocatable_mem_gib": 12.961986541748047,
+      "requested_cpu": 2.212,
+      "requested_mem_gib": 4.851,
+      "safe_cpu": 1.408,
+      "safe_mem_gib": 7.361,
+      "g2": false
+    },
+    {
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-t8dq",
+      "allocatable_cpu": 3.92,
+      "allocatable_mem_gib": 12.961990356445312,
+      "requested_cpu": 0.833,
+      "requested_mem_gib": 1.482,
+      "safe_cpu": 2.787,
+      "safe_mem_gib": 10.73,
+      "g2": true
+    }
+  ],
+  "planned": [
+    {
+      "name": "agentgateway",
+      "cpu": 0.1,
+      "memory_gib": 0.125
+    },
+    {
+      "name": "agentgateway",
+      "cpu": 0.1,
+      "memory_gib": 0.125
+    },
+    {
+      "name": "vllm-fallback",
+      "cpu": 2.0,
+      "memory_gib": 6.0
+    },
+    {
+      "name": "vllm-primary",
+      "cpu": 2.0,
+      "memory_gib": 6.0
+    },
+    {
+      "name": "vllm-primary",
+      "cpu": 2.0,
+      "memory_gib": 6.0
+    },
+    {
+      "name": "llmd-router-epp",
+      "cpu": 0.2,
+      "memory_gib": 0.375
+    }
+  ],
+  "placement": [
+    {
+      "name": "vllm-fallback",
+      "cpu": 2.0,
+      "memory_gib": 6.0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-1dx2"
+    },
+    {
+      "name": "vllm-primary",
+      "cpu": 2.0,
+      "memory_gib": 6.0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-70nj"
+    },
+    {
+      "name": "vllm-primary",
+      "cpu": 2.0,
+      "memory_gib": 6.0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-t8dq"
+    },
+    {
+      "name": "llmd-router-epp",
+      "cpu": 0.2,
+      "memory_gib": 0.375,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-1dx2"
+    },
+    {
+      "name": "agentgateway",
+      "cpu": 0.1,
+      "memory_gib": 0.125,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-70nj"
+    },
+    {
+      "name": "agentgateway",
+      "cpu": 0.1,
+      "memory_gib": 0.125,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-t8dq"
+    }
+  ],
+  "unplaced": [],
+  "verdict": "FITS_SAFE_BUDGET",
+  "g2_nodes": [
+    "gke-ewallet-dev-cpu-pool-58daed59-1dx2",
+    "gke-ewallet-dev-cpu-pool-58daed59-70nj",
+    "gke-ewallet-dev-cpu-pool-58daed59-t8dq"
+  ]
+}

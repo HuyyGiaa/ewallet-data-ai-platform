@@ -1,0 +1,94 @@
+2026-11-02 07:00:45,688 - root - INFO - Logging configured with level: INFO
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+INFO:     169.254.7.127:55778 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:00:58,297 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.89s.
+2026-11-02 07:01:00,819 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 4.53s.
+INFO:     127.0.0.1:58166 - "GET /ready HTTP/1.1" 200 OK
+2026-11-02 07:01:04,287 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:01:04,287 - mcp.client.streamable_http - INFO - Received session ID: eyJ0IjoibWNwIiwicyI6W3sidCI6ImZlYXR1cmUtcmFnIn1dLCJyIjoiNTFlODUzNjYtMTMwYS00ZDc2LTk1OTAtNGMxN2I2YzQ5MzM1In0
+2026-11-02 07:01:04,289 - httpx - INFO - HTTP Request: GET http://kagent-controller.kagent:8083/api/tasks/745de56c-7a64-4815-9d84-bcda8d7a93c5 "HTTP/1.1 404 Not Found"
+2026-11-02 07:01:04,291 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 745de56c-7a64-4815-9d84-bcda8d7a93c5, context_id: 9bea0177-56b3-47ed-9808-0e35314d844d).
+2026-11-02 07:01:04,303 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:01:04,304 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 202 Accepted"
+2026-11-02 07:01:04,305 - httpx2 - INFO - HTTP Request: GET http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 405 Method Not Allowed"
+2026-11-02 07:01:04,306 - mcp.client.streamable_http - INFO - GET stream disconnected, reconnecting in 1000ms...
+2026-11-02 07:01:04,313 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:01:04,320 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:01:04,392 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:01:04,478 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:01:04,501 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:01:04,507 - httpx2 - INFO - HTTP Request: DELETE http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 202 Accepted"
+2026-11-02 07:01:04,507 - mcp.client.streamable_http - WARNING - Session termination failed: 202
+2026-11-02 07:01:04,517 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:01:04,526 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+INFO:     127.0.0.1:58178 - "POST / HTTP/1.1" 200 OK
+INFO:     169.254.7.127:34358 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:48450 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:01:27,868 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 07:01:32,872 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.12s.
+INFO:     169.254.7.127:49892 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:01:47,637 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 14.01s.
+INFO:     169.254.7.127:33012 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:02:01,650 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 07:02:06,652 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.98s.
+INFO:     169.254.7.127:49538 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:02:20,621 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 17.11s.
+INFO:     169.254.7.127:53508 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:02:26,953 - httpx - INFO - HTTP Request: GET http://kagent-controller.kagent:8083/api/tasks/a7ef3027-8061-4492-a939-ddb990c03f70 "HTTP/1.1 404 Not Found"
+2026-11-02 07:02:26,954 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: a7ef3027-8061-4492-a939-ddb990c03f70, context_id: d16f8766-85e2-4094-a66f-444e850cd543).
+2026-11-02 07:02:26,955 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:26,955 - mcp.client.streamable_http - INFO - Received session ID: eyJ0IjoibWNwIiwicyI6W3sidCI6ImZlYXR1cmUtcmFnIn1dLCJyIjoiYjZmYWM3Y2YtNThjYS00YjRhLWI2MzAtY2IwMjEzYjVjNjVlIn0
+2026-11-02 07:02:26,965 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:02:26,966 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 202 Accepted"
+2026-11-02 07:02:26,967 - httpx2 - INFO - HTTP Request: GET http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 405 Method Not Allowed"
+2026-11-02 07:02:26,968 - mcp.client.streamable_http - INFO - GET stream disconnected, reconnecting in 1000ms...
+2026-11-02 07:02:26,975 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:02:26,982 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:27,012 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:27,092 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:27,111 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:27,117 - httpx2 - INFO - HTTP Request: DELETE http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 202 Accepted"
+2026-11-02 07:02:27,118 - mcp.client.streamable_http - WARNING - Session termination failed: 202
+2026-11-02 07:02:27,127 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:02:27,138 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+INFO:     10.216.1.36:44111 - "POST / HTTP/1.1" 200 OK
+2026-11-02 07:02:37,729 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+INFO:     169.254.7.127:45724 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:02:42,732 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.10s.
+INFO:     127.0.0.1:50064 - "GET /ready HTTP/1.1" 200 OK
+2026-11-02 07:02:54,005 - httpx - INFO - HTTP Request: GET http://kagent-controller.kagent:8083/api/tasks/32559e3c-8f7c-4cd3-a219-213e73b3da5e "HTTP/1.1 404 Not Found"
+2026-11-02 07:02:54,005 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 32559e3c-8f7c-4cd3-a219-213e73b3da5e, context_id: 2e978b5d-bfbd-48f9-8c22-ba48e7a7f7a9).
+2026-11-02 07:02:54,014 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:02:54,022 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:02:54,031 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+INFO:     127.0.0.1:50072 - "POST / HTTP/1.1" 200 OK
+2026-11-02 07:02:54,091 - httpx - INFO - HTTP Request: GET http://kagent-controller.kagent:8083/api/tasks/431afad4-e5b9-432f-b77b-0501ac53d9fb "HTTP/1.1 404 Not Found"
+2026-11-02 07:02:54,091 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 431afad4-e5b9-432f-b77b-0501ac53d9fb, context_id: 3534a189-f3ba-4eff-bca0-89fa0c418649).
+2026-11-02 07:02:54,094 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:54,094 - mcp.client.streamable_http - INFO - Received session ID: eyJ0IjoibWNwIiwicyI6W3sidCI6ImZlYXR1cmUtcmFnIn1dLCJyIjoiZjcwNzVlNjEtMjBiMy00YThjLTg4Y2EtN2I0MzcwZDM4OTEwIn0
+2026-11-02 07:02:54,099 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:02:54,107 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 202 Accepted"
+2026-11-02 07:02:54,107 - httpx2 - INFO - HTTP Request: GET http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 405 Method Not Allowed"
+2026-11-02 07:02:54,108 - mcp.client.streamable_http - INFO - GET stream disconnected, reconnecting in 1000ms...
+2026-11-02 07:02:54,109 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-02 07:02:54,123 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:54,175 - httpx2 - INFO - HTTP Request: POST http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 200 OK"
+2026-11-02 07:02:54,180 - httpx2 - INFO - HTTP Request: DELETE http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp "HTTP/1.1 202 Accepted"
+2026-11-02 07:02:54,181 - mcp.client.streamable_http - WARNING - Session termination failed: 202
+2026-11-02 07:02:54,190 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+INFO:     127.0.0.1:50072 - "POST / HTTP/1.1" 200 OK
+INFO:     169.254.7.127:58364 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:35434 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:03:12,102 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 07:03:17,107 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 1.03s.
+2026-11-02 07:03:20,144 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 3.91s.
+INFO:     169.254.7.127:59304 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:57446 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:03:48,189 - opentelemetry.exporter.otlp.proto.grpc.exporter - ERROR - Failed to export traces to otel-collector.ewallet-agents.svc.cluster.local:4317, error code: StatusCode.UNAVAILABLE
+2026-11-02 07:03:53,191 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 0.99s.
+INFO:     169.254.7.127:45224 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-02 07:04:07,486 - opentelemetry.exporter.otlp.proto.grpc.exporter - WARNING - Transient error StatusCode.UNAVAILABLE encountered while exporting traces to otel-collector.ewallet-agents.svc.cluster.local:4317, retrying in 18.63s.
+INFO:     169.254.7.127:38146 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK

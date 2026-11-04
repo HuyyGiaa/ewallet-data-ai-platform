@@ -1,0 +1,11 @@
+Script started on 2026-11-02 06:58:35+07:00 [COMMAND="helm lint infra/helm/llm-agent-platform -f infra/helm/llm-agent-platform/values-gcp.yaml -f infra/helm/llm-agent-platform/values-gke-cpu.yaml -f infra/helm/llm-agent-platform/values-gke-cpu-g1.yaml -f infra/helm/llm-agent-platform/g3/g3.yaml" <not executed on terminal>]
+engine.go:227: [INFO] Fail: vllm.modelSource.mode=image needs vllm.image = the infra/docker/vllm-cpu-model image by digest
+engine.go:227: [INFO] Fail: mcpServices.image must be pinned by an immutable sha256 digest
+engine.go:227: [INFO] Fail: mcpServices.identity.gitSha must be a full commit SHA
+engine.go:227: [INFO] Fail: mcpServices.identity.imageDigest must equal the image digest
+==> Linting infra/helm/llm-agent-platform
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+
+Script done on 2026-11-02 06:58:35+07:00 [COMMAND_EXIT_CODE="0"]

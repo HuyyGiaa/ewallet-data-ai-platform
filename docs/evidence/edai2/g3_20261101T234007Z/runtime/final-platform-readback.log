@@ -1,0 +1,191 @@
+2026-11-02T07:34:22+07:00
+=== git ===
+/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2
+codex/llm-g2-llmd-routing
+72820408db5c65a9329625da6552455b7d5f5253
+?? docs/evidence/edai2/
+?? docs/evidence/llm_agent/g3_20261101T170735Z/
+?? docs/evidence/llm_agent/rag_g3-gke-feast-redis/
+=== helm ===
+kagent       	kagent      	2       	2026-11-02 04:35:49.614239438 +0700 +07	deployed	kagent-0.10.3
+llm-agent    	default     	12      	2026-11-02 07:00:36.881273306 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+llm-agent-mcp	ewallet-mcp 	3       	2026-11-02 07:12:43.095008335 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+=== workload ready ===
+ewallet-agents   deployment.apps/a2a-gateway                          1/1     1            1           6h59m
+ewallet-agents   deployment.apps/agentgateway                         1/1     1            1           6h59m
+ewallet-agents   deployment.apps/drift-mcp                            1/1     1            1           6h59m
+ewallet-agents   deployment.apps/drift-specialist                     1/1     1            1           6h59m
+ewallet-agents   deployment.apps/feature-rag-specialist               1/1     1            1           6h59m
+ewallet-agents   deployment.apps/fraud-coordinator                    1/1     1            1           6h59m
+ewallet-agents   deployment.apps/mcp-gateway                          1/1     1            1           6h59m
+ewallet-agents   deployment.apps/vllm-fallback                        0/0     0            0           6h59m
+ewallet-agents   deployment.apps/vllm-primary                         1/1     1            1           6h59m
+ewallet-mcp      deployment.apps/drift-mcp                            1/1     1            1           4h
+ewallet-mcp      deployment.apps/feature-rag-mcp                      1/1     1            1           4h
+fraud-serving    deployment.apps/fraud-detector-predictor             1/1     1            1           30h
+kagent           deployment.apps/kagent-controller                    1/1     1            1           7h13m
+kagent           deployment.apps/kagent-postgresql                    1/1     1            1           7h13m
+kagent           deployment.apps/kagent-ui                            1/1     1            1           7h13m
+ml-platform      deployment.apps/fraud-api                            1/1     1            1           30h
+ml-platform      deployment.apps/mlflow                               1/1     1            1           5d8h
+feature-store     statefulset.apps/redis                1/1     32h
+ml-platform       statefulset.apps/mlflow-postgresql    1/1     5d9h
+=== pods ===
+NAME                               READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+drift-mcp-768467cb87-8572r         1/1     Running   0          21m   10.216.1.46   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+feature-rag-mcp-655bf579c6-p6494   1/1     Running   0          21m   10.216.1.47   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+NAME                                      READY   STATUS    RESTARTS   AGE     IP            NODE                                     NOMINATED NODE   READINESS GATES
+a2a-gateway-6dfcf8bf7b-scbh5              1/1     Running   0          166m    10.216.1.36   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+agentgateway-5d7b994c75-pffhj             1/1     Running   0          6h59m   10.216.1.9    gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+drift-mcp-c845bfc5f-4ttkw                 1/1     Running   0          6h59m   10.216.1.10   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+drift-specialist-7fb847df9-qqxfn          1/1     Running   0          113m    10.216.1.41   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+feature-rag-specialist-86c6446948-wlkn5   1/1     Running   0          33m     10.216.1.45   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+fraud-coordinator-f7b7c698-9thnc          1/1     Running   0          4m1s    10.216.1.48   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+mcp-gateway-db9ddd7b-wdxc9                1/1     Running   0          140m    10.216.1.39   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+vllm-primary-588445cd8-wbbxf              1/1     Running   0          6h59m   10.216.0.7    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none>           <none>
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+fraud-api-6dbb7d4456-9f6xq   1/1     Running   0          24h   10.216.4.19   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+mlflow-df68bccb-zcxsw        1/1     Running   0          25h   10.216.5.26   gke-ewallet-dev-cpu-pool-58daed59-mb8v   <none>           <none>
+mlflow-postgresql-0          1/1     Running   0          24h   10.216.4.24   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+NAME      READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+redis-0   1/1     Running   0          24h   10.216.4.25   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+NAME                                        READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+fraud-detector-predictor-6b649bc8b6-48csb   1/1     Running   0          24h   10.216.4.10   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+=== RemoteMCPServer ===
+NAMESPACE        NAME              PROTOCOL          URL                                                          ACCEPTED
+ewallet-agents   drift-mcp         STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp         True
+ewallet-agents   feature-rag-mcp   STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp   True
+=== policies ===
+NAME                                                                                      ACTION   AGE
+authorizationpolicy.security.istio.io/allow-a2a-gateway-to-drift-specialist               ALLOW    179m
+authorizationpolicy.security.istio.io/allow-a2a-gateway-to-feature-rag-specialist         ALLOW    179m
+authorizationpolicy.security.istio.io/allow-agentgateway-to-vllm                          ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-drift-specialist-to-agentgateway              ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-drift-specialist-to-mcp-gateway               ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-feature-rag-specialist-to-agentgateway        ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-feature-rag-specialist-to-mcp-gateway         ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-fraud-coordinator-to-a2a-gateway              ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-fraud-coordinator-to-agentgateway             ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-kagent-controller-to-drift-specialist         ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-kagent-controller-to-feature-rag-specialist   ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-kagent-controller-to-fraud-coordinator        ALLOW    6h59m
+authorizationpolicy.security.istio.io/allow-kagent-controller-to-mcp-gateway              ALLOW    3h31m
+authorizationpolicy.security.istio.io/default-deny                                                 6h59m
+
+NAME                                                                                          POD-SELECTOR                              AGE
+networkpolicy.networking.k8s.io/allow-a2a-gateway-to-drift-specialist-egress                  app.kubernetes.io/name=a2a-gateway        179m
+networkpolicy.networking.k8s.io/allow-a2a-gateway-to-drift-specialist-ingress                 ewallet.io/agent=drift-specialist         179m
+networkpolicy.networking.k8s.io/allow-a2a-gateway-to-feature-rag-specialist-egress            app.kubernetes.io/name=a2a-gateway        179m
+networkpolicy.networking.k8s.io/allow-a2a-gateway-to-feature-rag-specialist-ingress           ewallet.io/agent=feature-rag-specialist   179m
+networkpolicy.networking.k8s.io/allow-a2a-gateway-to-kagent-controller-egress                 app.kubernetes.io/name=a2a-gateway        6h59m
+networkpolicy.networking.k8s.io/allow-agentgateway-to-vllm-egress                             app.kubernetes.io/name=agentgateway       6h59m
+networkpolicy.networking.k8s.io/allow-agentgateway-to-vllm-ingress                            app.kubernetes.io/name=vllm               6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-a2a-gateway                              app.kubernetes.io/name=a2a-gateway        6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-agentgateway                             app.kubernetes.io/name=agentgateway       6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-drift-mcp                                app.kubernetes.io/name=drift-mcp          6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-drift-specialist                         ewallet.io/agent=drift-specialist         6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-feature-rag-mcp                          app.kubernetes.io/name=feature-rag-mcp    6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-feature-rag-specialist                   ewallet.io/agent=feature-rag-specialist   6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-fraud-coordinator                        ewallet.io/agent=fraud-coordinator        6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-mcp-gateway                              app.kubernetes.io/name=mcp-gateway        6h59m
+networkpolicy.networking.k8s.io/allow-ambient-probes-vllm                                     app.kubernetes.io/name=vllm               6h59m
+networkpolicy.networking.k8s.io/allow-cluster-dns                                             <none>                                    6h59m
+networkpolicy.networking.k8s.io/allow-drift-specialist-to-agentgateway-egress                 ewallet.io/agent=drift-specialist         6h59m
+networkpolicy.networking.k8s.io/allow-drift-specialist-to-agentgateway-ingress                app.kubernetes.io/name=agentgateway       6h59m
+networkpolicy.networking.k8s.io/allow-drift-specialist-to-kagent-controller-egress            ewallet.io/agent=drift-specialist         6h59m
+networkpolicy.networking.k8s.io/allow-drift-specialist-to-mcp-gateway-egress                  ewallet.io/agent=drift-specialist         6h59m
+networkpolicy.networking.k8s.io/allow-drift-specialist-to-mcp-gateway-ingress                 app.kubernetes.io/name=mcp-gateway        6h59m
+networkpolicy.networking.k8s.io/allow-feature-rag-mcp-to-feast-redis-egress                   app.kubernetes.io/name=feature-rag-mcp    6h59m
+networkpolicy.networking.k8s.io/allow-feature-rag-mcp-to-kserve-fraud-detector-egress         app.kubernetes.io/name=feature-rag-mcp    6h59m
+networkpolicy.networking.k8s.io/allow-feature-rag-specialist-to-agentgateway-egress           ewallet.io/agent=feature-rag-specialist   6h59m
+networkpolicy.networking.k8s.io/allow-feature-rag-specialist-to-agentgateway-ingress          app.kubernetes.io/name=agentgateway       6h59m
+networkpolicy.networking.k8s.io/allow-feature-rag-specialist-to-kagent-controller-egress      ewallet.io/agent=feature-rag-specialist   6h59m
+networkpolicy.networking.k8s.io/allow-feature-rag-specialist-to-mcp-gateway-egress            ewallet.io/agent=feature-rag-specialist   6h59m
+networkpolicy.networking.k8s.io/allow-feature-rag-specialist-to-mcp-gateway-ingress           app.kubernetes.io/name=mcp-gateway        6h59m
+networkpolicy.networking.k8s.io/allow-fraud-coordinator-to-a2a-gateway-egress                 ewallet.io/agent=fraud-coordinator        6h59m
+networkpolicy.networking.k8s.io/allow-fraud-coordinator-to-a2a-gateway-ingress                app.kubernetes.io/name=a2a-gateway        6h59m
+networkpolicy.networking.k8s.io/allow-fraud-coordinator-to-agentgateway-egress                ewallet.io/agent=fraud-coordinator        6h59m
+networkpolicy.networking.k8s.io/allow-fraud-coordinator-to-agentgateway-ingress               app.kubernetes.io/name=agentgateway       6h59m
+networkpolicy.networking.k8s.io/allow-fraud-coordinator-to-kagent-controller-egress           ewallet.io/agent=fraud-coordinator        6h59m
+networkpolicy.networking.k8s.io/allow-kagent-controller-to-drift-specialist-ingress           ewallet.io/agent=drift-specialist         6h59m
+networkpolicy.networking.k8s.io/allow-kagent-controller-to-feature-rag-specialist-ingress     ewallet.io/agent=feature-rag-specialist   6h59m
+networkpolicy.networking.k8s.io/allow-kagent-controller-to-fraud-coordinator-ingress          ewallet.io/agent=fraud-coordinator        6h59m
+networkpolicy.networking.k8s.io/allow-kagent-controller-to-mcp-gateway-ingress                app.kubernetes.io/name=mcp-gateway        3h31m
+networkpolicy.networking.k8s.io/allow-mcp-gateway-to-drift-mcp-cross-namespace-egress         app.kubernetes.io/name=mcp-gateway        3h33m
+networkpolicy.networking.k8s.io/allow-mcp-gateway-to-feature-rag-mcp-cross-namespace-egress   app.kubernetes.io/name=mcp-gateway        3h33m
+networkpolicy.networking.k8s.io/default-deny                                                  <none>                                    6h59m
+NAME                                                  POD-SELECTOR                   AGE
+allow-ewallet-agents-feature-rag-mcp-to-feast-redis   app.kubernetes.io/name=redis   6h59m
+allow-ewallet-mcp-feature-rag-mcp-to-feast-redis      app.kubernetes.io/name=redis   4h
+redis-clients                                         app.kubernetes.io/name=redis   32h
+NAME                                                            POD-SELECTOR                                        AGE
+allow-ewallet-agents-feature-rag-mcp-to-kserve-fraud-detector   serving.kserve.io/inferenceservice=fraud-detector   6h59m
+allow-ewallet-mcp-feature-rag-mcp-to-kserve-fraud-detector      serving.kserve.io/inferenceservice=fraud-detector   4h
+fraud-detector-clients                                          serving.kserve.io/inferenceservice=fraud-detector   30h
+=== services (type/ports) ===
+NAME                     TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)              AGE     SELECTOR
+a2a-gateway              ClusterIP   34.118.234.165   <none>        8083/TCP             6h59m   app.kubernetes.io/name=a2a-gateway
+agentgateway             ClusterIP   34.118.233.175   <none>        3000/TCP,15020/TCP   6h59m   app.kubernetes.io/name=agentgateway
+drift-mcp                ClusterIP   34.118.229.154   <none>        8080/TCP             6h59m   app.kubernetes.io/name=drift-mcp
+drift-specialist         ClusterIP   34.118.228.95    <none>        8080/TCP             6h59m   app=kagent,kagent=drift-specialist
+feature-rag-specialist   ClusterIP   34.118.233.199   <none>        8080/TCP             6h59m   app=kagent,kagent=feature-rag-specialist
+fraud-coordinator        ClusterIP   34.118.233.179   <none>        8080/TCP             6h59m   app=kagent,kagent=fraud-coordinator
+mcp-gateway              ClusterIP   34.118.233.125   <none>        8080/TCP             6h59m   app.kubernetes.io/name=mcp-gateway
+vllm-fallback            ClusterIP   34.118.228.21    <none>        8000/TCP             6h59m   app.kubernetes.io/instance=fallback,app.kubernetes.io/name=vllm
+vllm-primary             ClusterIP   34.118.234.202   <none>        8000/TCP             6h59m   app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm
+NAME              TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE   SELECTOR
+drift-mcp         ClusterIP   34.118.233.33   <none>        8080/TCP   4h    app.kubernetes.io/name=drift-mcp
+feature-rag-mcp   ClusterIP   34.118.225.90   <none>        8080/TCP   4h    app.kubernetes.io/name=feature-rag-mcp
+=== top pods ===
+NAMESPACE         NAME                                                 CPU(cores)   MEMORY(bytes)
+ewallet-agents    vllm-primary-588445cd8-wbbxf                         20m          6186Mi
+ml-platform       mlflow-df68bccb-zcxsw                                17m          1595Mi
+kubeflow          mysql-5b6cf8556-g82g8                                8m           441Mi
+ewallet-mcp       feature-rag-mcp-655bf579c6-p6494                     2m           259Mi
+fraud-serving     fraud-detector-predictor-6b649bc8b6-48csb            4m           178Mi
+gmp-system        collector-96ck8                                      16m          163Mi
+gmp-system        collector-b9hq6                                      15m          147Mi
+kube-system       gke-metrics-agent-n8d28                              10m          140Mi
+kube-system       gke-metrics-agent-7gxcb                              14m          137Mi
+kube-system       gke-metrics-agent-6qgq7                              12m          134Mi
+ml-platform       fraud-api-6dbb7d4456-9f6xq                           7m           132Mi
+gmp-system        collector-ctqrg                                      8m           116Mi
+kubeflow          ml-pipeline-visualizationserver-7dff9f68f9-f87q8     1m           110Mi
+kube-system       calico-node-nfgr5                                    62m          109Mi
+kube-system       calico-node-5gnsz                                    45m          108Mi
+kube-system       gke-metrics-agent-n9lzp                              8m           104Mi
+kube-system       calico-node-rvb97                                    61m          103Mi
+kube-system       calico-node-gs276                                    43m          102Mi
+kube-system       fluentbit-gke-rg85b                                  21m          101Mi
+kubeflow          seaweedfs-5f6996f6f-8js87                            5m           100Mi
+kube-system       fluentbit-gke-mkm6s                                  19m          96Mi
+kube-system       fluentbit-gke-hxt9t                                  19m          95Mi
+gmp-system        collector-qrzzn                                      13m          92Mi
+kagent            kagent-ui-7fc9467f99-khkgc                           1m           86Mi
+kube-system       netd-d55n8                                           2m           84Mi
+kubeflow          ml-pipeline-ui-547694958d-htb5j                      2m           78Mi
+kube-system       netd-xdz6d                                           1m           78Mi
+kube-system       netd-8gkzc                                           2m           73Mi
+kubeflow          metadata-writer-5cdd66d5c4-s8zb2                     1m           66Mi
+kube-system       fluentbit-gke-6bf27                                  15m          65Mi
+gke-managed-cim   kube-state-metrics-0                                 4m           54Mi
+feature-store     redis-0                                              33m          53Mi
+kagent            kagent-postgresql-58997cbd8-nps2r                    27m          47Mi
+cert-manager      cert-manager-cainjector-6b95b7d4d4-wq5sc             3m           47Mi
+=== nodes (no mutation) ===
+NAME                                     STATUS   ROLES    AGE     VERSION               INTERNAL-IP    EXTERNAL-IP      OS-IMAGE                             KERNEL-VERSION      CONTAINER-RUNTIME
+gke-ewallet-dev-cpu-pool-58daed59-08s1   Ready    <none>   25h     v1.36.4-gke.2046003   10.20.0.45     34.143.168.233   Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-9v0c   Ready    <none>   7h14m   v1.36.4-gke.2046003   10.20.15.192   34.143.162.87    Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-gz40   Ready    <none>   7h14m   v1.36.4-gke.2046003   10.20.0.60     136.85.71.81     Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-mb8v   Ready    <none>   25h     v1.36.4-gke.2046003   10.20.0.43     136.85.35.21     Container-Optimized OS from Google   6.12.105+ (amd64)   containerd://2.2.7
+=== local RAM ===
+               total        used        free      shared  buff/cache   available
+Mem:            30Gi        19Gi       1.5Gi       5.0Gi        12Gi        10Gi
+Swap:          8.0Gi       8.0Gi       880Ki
+=== local relevant background ===
+    PID    PPID %MEM   RSS     ELAPSED CMD
+4016698 3835072  0.1 55364       03:23 kubectl -n ewallet-agents port-forward svc/fraud-coordinator 18083:8080
+4012726 3835072  0.1 54288       14:51 kubectl port-forward -n kagent svc/kagent-ui 18085:8080
+4010048 3835072  0.1 53208       20:51 kubectl port-forward -n ewallet-agents svc/mcp-gateway 18082:8080
+4018124 4017657  0.0  6748       00:00 rg kubectl.*port-forward|docker build|buildx|trivy|helm upgrade|g3_a2a_smoke|PID
+4017657 3835072  0.0  3812       00:05 /bin/bash -lc set -o pipefail EVID=docs/evidence/edai2/g3_20261101T234007Z {   date -Is   echo '=== git ==='   git rev-parse --show-toplevel   git branch --show-current   git rev-parse HEAD   git status --short   echo '=== helm ==='   helm list -A | rg '^(llm-agent|llm-agent-mcp|kagent)\s'   echo '=== workload ready ==='   kubectl get deploy,statefulset -A | rg 'ewallet-mcp|ewallet-agents|ml-platform|feature-store|fraud-serving|kagent'   echo '=== pods ==='   kubectl get pods -n ewallet-mcp -o wide   kubectl get pods -n ewallet-agents -o wide   kubectl get pods -n ml-platform -o wide   kubectl get pods -n feature-store -o wide   kubectl get pods -n fraud-serving -o wide   echo '=== RemoteMCPServer ==='   kubectl get remotemcpservers.kagent.dev -A -o wide   echo '=== policies ==='   kubectl get authorizationpolicy,networkpolicy -n ewallet-agents   kubectl get networkpolicy -n feature-store   kubectl get networkpolicy -n fraud-serving   echo '=== services (type/ports) ==='   kubectl get svc -n ewallet-agents -o wide   kubectl get svc -n ewallet-mcp -o wide   echo '=== top pods ==='   kubectl top pods -A --sort-by=memory | head -35   echo '=== nodes (no mutation) ==='   kubectl get nodes -o wide   echo '=== local RAM ==='   free -h   echo '=== local relevant background ==='   ps -eo pid,ppid,%mem,rss,etime,cmd --sort=-rss | rg 'kubectl.*port-forward|docker build|buildx|trivy|helm upgrade|g3_a2a_smoke|PID' | head -40 } > "$EVID/runtime/final-platform-readback.log" 2>&1 cat "$EVID/runtime/final-platform-readback.log"

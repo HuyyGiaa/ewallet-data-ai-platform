@@ -1,0 +1,9 @@
+create pods/portforward      no
+get pods                     yes
+list pods                    yes
+get services                 yes
+create pods                  no
+create pods/exec             no
+get secrets                  no
+create secrets               no
+patch deployments.apps       no

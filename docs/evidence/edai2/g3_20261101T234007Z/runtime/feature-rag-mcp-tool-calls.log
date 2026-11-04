@@ -1,0 +1,9 @@
+Script started on 2026-11-02 06:51:17+07:00 [COMMAND="kubectl logs -n ewallet-mcp deploy/feature-rag-mcp --since=20m | rg 'tool_call_completed|mcp.tool.completed|b8766f2b32dc8a50730b50bd01f77ac9' | tail -n 12" <not executed on terminal>]
+{"actor_id": "feature-rag-specialist", "duration_ms": 149.796, "error_code": null, "event": "tool_call_completed", "request_id": "299880e3-cecd-46e8-a9e5-756e17a786e1", "status": "ok", "tool_name": "feature_lookup"}
+{"duration_seconds":0.195253,"event":"mcp.tool.completed","outcome":"success","service":"feature-rag-mcp","severity":"INFO","span_id":"f534acf2416b8038","timestamp":"2026-11-01T23:50:42.114974+00:00","tool":"feature_lookup","trace_id":"e1ea00daf3bfde00106a1ccc2455c43e"}
+{"actor_id": "feature-rag-specialist", "duration_ms": 6.721, "error_code": null, "event": "tool_call_completed", "request_id": "25a76719-53dc-4b41-9685-21124d6f2125", "status": "ok", "tool_name": "feature_lookup"}
+{"duration_seconds":0.007249,"event":"mcp.tool.completed","outcome":"success","service":"feature-rag-mcp","severity":"INFO","span_id":"99c32d836fd22651","timestamp":"2026-11-01T23:50:57.508829+00:00","tool":"feature_lookup","trace_id":"b8766f2b32dc8a50730b50bd01f77ac9"}
+{"actor_id": "feature-rag-specialist", "duration_ms": 203.255, "error_code": null, "event": "tool_call_completed", "request_id": "d0f23d48-720a-40d6-9128-f8c7befa8561", "status": "ok", "tool_name": "fraud_scoring"}
+{"duration_seconds":0.203541,"event":"mcp.tool.completed","outcome":"success","service":"feature-rag-mcp","severity":"INFO","span_id":"1ea1bc1507ec90d4","timestamp":"2026-11-01T23:50:57.835249+00:00","tool":"fraud_scoring","trace_id":"b8766f2b32dc8a50730b50bd01f77ac9"}
+
+Script done on 2026-11-02 06:51:17+07:00 [COMMAND_EXIT_CODE="0"]

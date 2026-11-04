@@ -1,0 +1,192 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.14kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c
+#2 DONE 0.0s
+
+#3 [internal] load metadata for ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff
+#3 DONE 1.9s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 709B done
+#4 DONE 0.0s
+
+#5 [deps 1/6] FROM docker.io/library/python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c
+#5 resolve docker.io/library/python:3.12.12-slim-trixie@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c 0.0s done
+#5 DONE 0.0s
+
+#6 FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff
+#6 resolve ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 159.25kB done
+#7 DONE 0.0s
+
+#8 [deps 3/6] WORKDIR /opt/coordinator-project
+#8 CACHED
+
+#9 [deps 2/6] COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /usr/local/bin/uv
+#9 CACHED
+
+#10 [deps 4/6] RUN apt-get update  && apt-get install -y --no-install-recommends git ca-certificates  && rm -rf /var/lib/apt/lists/*
+#10 CACHED
+
+#11 [deps 5/6] COPY infra/docker/g3-byo-coordinator/pyproject.toml infra/docker/g3-byo-coordinator/uv.lock ./
+#11 DONE 0.1s
+
+#12 [deps 6/6] RUN uv sync --locked --no-dev --no-install-project --no-cache       --python /usr/local/bin/python3.12
+#12 0.429 Using CPython 3.12.12 interpreter at: /usr/local/bin/python3.12
+#12 0.431 Creating virtual environment at: /opt/venv
+#12 0.471 Resolved 76 packages in 15ms
+#12 0.508    Updating https://github.com/kagent-dev/kagent.git (8878c39ac64421cb665c8e62ecc6411dd12f2fc2)
+#12 0.911 Downloading cryptography (4.5MiB)
+#12 0.911 Downloading grpcio (7.0MiB)
+#12 0.917 Downloading pydantic-core (2.1MiB)
+#12 0.918 Downloading openai (1.1MiB)
+#12 3.306  Downloaded openai
+#12 4.053  Downloaded pydantic-core
+#12 5.441  Downloaded cryptography
+#12 6.089  Downloaded grpcio
+#12 7.930     Updated https://github.com/kagent-dev/kagent.git (8878c39ac64421cb665c8e62ecc6411dd12f2fc2)
+#12 7.931    Building kagent-core @ git+https://github.com/kagent-dev/kagent.git@8878c39ac64421cb665c8e62ecc6411dd12f2fc2#subdirectory=python/packages/kagent-core
+#12 9.051       Built kagent-core @ git+https://github.com/kagent-dev/kagent.git@8878c39ac64421cb665c8e62ecc6411dd12f2fc2#subdirectory=python/packages/kagent-core
+#12 9.054 Prepared 72 packages in 8.57s
+#12 9.132 Installed 72 packages in 77ms
+#12 9.132  + a2a-sdk==0.3.26
+#12 9.133  + annotated-doc==0.0.5
+#12 9.133  + annotated-types==0.8.0
+#12 9.133  + anyio==4.16.0
+#12 9.133  + asgiref==3.13.0
+#12 9.133  + attrs==26.1.0
+#12 9.133  + certifi==2026.10.23
+#12 9.133  + cffi==2.1.1
+#12 9.133  + charset-normalizer==3.5.2
+#12 9.133  + click==8.5.0
+#12 9.133  + cryptography==50.0.2
+#12 9.133  + distro==1.9.0
+#12 9.133  + fastapi==0.141.1
+#12 9.133  + google-api-core==2.34.0
+#12 9.133  + google-auth==2.62.0
+#12 9.133  + googleapis-common-protos==1.76.0
+#12 9.133  + grpcio==1.85.1
+#12 9.133  + h11==0.16.0
+#12 9.133  + httpcore==1.0.9
+#12 9.133  + httpcore2==2.16.0
+#12 9.133  + httpx==0.28.1
+#12 9.133  + httpx-sse==0.4.3
+#12 9.133  + httpx2==2.16.0
+#12 9.133  + idna==3.20
+#12 9.133  + importlib-metadata==8.7.1
+#12 9.133  + jiter==0.18.0
+#12 9.133  + jsonschema==4.26.0
+#12 9.133  + jsonschema-specifications==2025.9.1
+#12 9.133  + kagent-core==0.1.0 (from git+https://github.com/kagent-dev/kagent.git@8878c39ac64421cb665c8e62ecc6411dd12f2fc2#subdirectory=python/packages/kagent-core)
+#12 9.133  + mcp==2.3.0
+#12 9.133  + mcp-types==2.3.0
+#12 9.133  + openai==2.21.0
+#12 9.133  + opentelemetry-api==1.38.0
+#12 9.133  + opentelemetry-exporter-otlp-proto-common==1.38.0
+#12 9.133  + opentelemetry-exporter-otlp-proto-grpc==1.38.0
+#12 9.133  + opentelemetry-exporter-otlp-proto-http==1.38.0
+#12 9.133  + opentelemetry-instrumentation==0.59b0
+#12 9.133  + opentelemetry-instrumentation-anthropic==0.52.6
+#12 9.133  + opentelemetry-instrumentation-asgi==0.59b0
+#12 9.133  + opentelemetry-instrumentation-fastapi==0.59b0
+#12 9.133  + opentelemetry-instrumentation-google-generativeai==0.52.6
+#12 9.133  + opentelemetry-instrumentation-httpx==0.59b0
+#12 9.133  + opentelemetry-instrumentation-openai==0.52.6
+#12 9.133  + opentelemetry-proto==1.38.0
+#12 9.133  + opentelemetry-sdk==1.38.0
+#12 9.133  + opentelemetry-semantic-conventions==0.59b0
+#12 9.133  + opentelemetry-semantic-conventions-ai==0.4.16
+#12 9.133  + opentelemetry-util-http==0.59b0
+#12 9.133  + packaging==26.3
+#12 9.133  + proto-plus==1.29.0
+#12 9.133  + protobuf==6.33.6
+#12 9.133  + pyasn1==0.6.5
+#12 9.133  + pyasn1-modules==0.4.2
+#12 9.133  + pycparser==3.12
+#12 9.133  + pydantic==2.14.1
+#12 9.133  + pydantic-core==2.50.1
+#12 9.133  + pyjwt==2.15.1
+#12 9.133  + python-multipart==0.0.33
+#12 9.133  + referencing==0.37.0
+#12 9.133  + requests==2.34.2
+#12 9.133  + rpds-py==2026.9.1
+#12 9.133  + sniffio==1.3.1
+#12 9.133  + sse-starlette==3.6.0
+#12 9.133  + starlette==1.10.0
+#12 9.133  + tqdm==4.70.1
+#12 9.133  + truststore==0.10.5
+#12 9.133  + typing-extensions==4.16.0
+#12 9.133  + typing-inspection==0.4.4
+#12 9.133  + urllib3==2.8.0
+#12 9.133  + uvicorn==0.38.0
+#12 9.133  + wrapt==1.17.3
+#12 9.133  + zipp==4.1.2
+#12 DONE 9.2s
+
+#13 [runtime  2/13] WORKDIR /workspace
+#13 CACHED
+
+#14 [runtime  3/13] RUN apt-get update  && apt-get -y --no-install-recommends upgrade  && rm -rf /var/lib/apt/lists/*  && groupadd --system --gid 10001 app  && useradd --system --uid 10001 --gid app --no-create-home app
+#14 CACHED
+
+#15 [runtime  4/13] COPY --from=deps /opt/venv /opt/venv
+#15 DONE 0.2s
+
+#16 [runtime  5/13] COPY ai_platform/__init__.py ai_platform/__init__.py
+#16 DONE 0.1s
+
+#17 [runtime  6/13] COPY ai_platform/inference ai_platform/inference
+#17 DONE 0.1s
+
+#18 [runtime  7/13] COPY ai_platform/llm_agent ai_platform/llm_agent
+#18 DONE 0.1s
+
+#19 [runtime  8/13] COPY ai_platform/features/__init__.py ai_platform/features/__init__.py
+#19 DONE 0.1s
+
+#20 [runtime  9/13] COPY ai_platform/features/feast/__init__.py ai_platform/features/feast/__init__.py
+#20 DONE 0.1s
+
+#21 [runtime 10/13] COPY ai_platform/features/feast/schema.py ai_platform/features/feast/schema.py
+#21 DONE 0.1s
+
+#22 [runtime 11/13] COPY ai_platform/ml/__init__.py ai_platform/ml/__init__.py
+#22 DONE 0.2s
+
+#23 [runtime 12/13] COPY ai_platform/ml/training ai_platform/ml/training
+#23 DONE 0.1s
+
+#24 [runtime 13/13] RUN python -m compileall -q ai_platform
+#24 DONE 0.4s
+
+#25 exporting to image
+#25 exporting layers
+#25 exporting layers 2.2s done
+#25 exporting manifest sha256:f16d529086040954608ae710260229de913660f2a31e1b8b3bee6e6360417c00 0.0s done
+#25 exporting config sha256:5c9e380b8a790f1a717ab5b5da5399128e075d116f34b32c982dfb6f6a663bad 0.0s done
+#25 exporting attestation manifest sha256:cc39c37b8c6873ff22cd9e79f419ce5e2ffbd75e6830078c5730a44e02dc8280 0.0s done
+#25 exporting manifest list sha256:92c5730b8695b5c2e7dd687077a640044837d080210f6c20730ab5c9e4c7d7c9
+#25 exporting manifest list sha256:92c5730b8695b5c2e7dd687077a640044837d080210f6c20730ab5c9e4c7d7c9 0.0s done
+#25 naming to asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:7b0c3d49530e0d3aed08ec502a146290e7b0d139 done
+#25 unpacking to asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:7b0c3d49530e0d3aed08ec502a146290e7b0d139
+#25 unpacking to asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:7b0c3d49530e0d3aed08ec502a146290e7b0d139 0.8s done
+#25 DONE 3.1s
+2026-11-02 06:53:39,453 - root - INFO - Logging configured with level: INFO
+G3 BYO Feature-RAG Specialist
+{"org.opencontainers.image.revision":"7b0c3d49530e0d3aed08ec502a146290e7b0d139","org.opencontainers.image.source":"ewallet-data-ai-platform"}
+{
+ "git_sha": "7b0c3d49530e0d3aed08ec502a146290e7b0d139",
+ "images": {
+  "g3-byo-feature-rag-specialist": {
+   "digest_ref": null,
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:7b0c3d49530e0d3aed08ec502a146290e7b0d139"
+  }
+ }
+}

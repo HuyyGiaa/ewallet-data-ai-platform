@@ -69,7 +69,7 @@ MUTANTS = (
      "if False:", RAG_TESTS),
     ("ai_platform/llm_agent/rag/pipeline.py", "if chunk is None or chunk.document_id != citation.document_id:", "if chunk is None:", P0_TESTS),
     ("ai_platform/llm_agent/rag/pipeline.py", "if seen != set(canonical.chunks):", "if False:", P0_TESTS),
-    ("data_platform/orchestration/airflow/rag_params.py", "if repository_root is not None and", "if False and repository_root is not None and", P0_TESTS),
+    ("data_platform/orchestration/airflow/rag_params.py", 'if "pattern" in schema and not re.fullmatch(schema["pattern"], value):', "if False:", P0_TESTS),
 )
 
 

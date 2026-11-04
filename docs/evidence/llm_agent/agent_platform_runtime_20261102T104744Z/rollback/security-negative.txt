@@ -1,0 +1,8 @@
+captured_after=helm rollback llm-agent revision 24 (new deployed revision 26)
+
+PASS direct Coordinator -> Feature-RAG Specialist denied: TimeoutError
+PASS direct Coordinator -> MCP Gateway denied: TimeoutError
+PASS allowed Feature-RAG identity with deliberately wrong MCP token rejected: HTTP 401
+
+No credential values were read, printed or persisted. The wrong-token test used
+the literal value `definitely-wrong`.

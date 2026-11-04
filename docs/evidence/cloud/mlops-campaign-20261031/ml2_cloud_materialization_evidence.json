@@ -1,0 +1,43 @@
+{
+  "chunk_size": 40000,
+  "execution_id": "ml2-mat-261031163234",
+  "finished_at": "2026-10-31T17:07:59.548539+00:00",
+  "objects": [
+    {
+      "bytes": 12522,
+      "generation": 1793466479114026,
+      "path": "manifest.json",
+      "sha256": "bb311b8235b484de36cd4f33ea68da695a54de74657b8e91a456745e2200fa0e"
+    },
+    {
+      "bytes": 65,
+      "generation": 1793466479187780,
+      "path": "manifest.sha256",
+      "sha256": "c9594c289ad99ed6463fd9b14fae5670a67090863d23be84169796e0a02d5225"
+    },
+    {
+      "bytes": 1475174,
+      "generation": 1793466479268852,
+      "path": "split=test/part-00000.parquet",
+      "sha256": "63a06811ac06fe19cf79025fd5a371aa9667e0792a3b0ed70cd3494de097da4d"
+    },
+    {
+      "bytes": 6567773,
+      "generation": 1793466479420652,
+      "path": "split=train/part-00000.parquet",
+      "sha256": "61bd839b3df30d8ccf6eb5f4e5972a02c8370d5ab7ace0ad2c573625897c7129"
+    },
+    {
+      "bytes": 1491316,
+      "generation": 1793466479527107,
+      "path": "split=validation/part-00000.parquet",
+      "sha256": "c42ca0b182ee36f021880181285271557ed2c0c5d3525b5386664fa8872ff6e2"
+    }
+  ],
+  "output_uri": "gs://ewallet-data-ai-platform-hg26-data/ml/training-staging/canonical-100gb-v1/training-20261031-151638-ml2/dataset/ml2-mat-261031163234",
+  "schema_version": "ml2-cloud-materialization-evidence-v1",
+  "snapshot_id": "training-20261031-151638-ml2",
+  "source_uri": "gs://ewallet-data-ai-platform-hg26-data/ml/training-staging/canonical-100gb-v1/training-20261031-151638-ml2/source",
+  "started_at": "2026-10-31T16:33:27.790897+00:00",
+  "status": "PASS"
+}

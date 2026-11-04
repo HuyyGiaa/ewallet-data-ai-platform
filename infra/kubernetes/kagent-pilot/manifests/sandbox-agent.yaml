@@ -2,7 +2,7 @@ apiVersion: kagent.dev/v1alpha2
 kind: SandboxAgent
 metadata:
   name: pilot-sandbox-agent
-  namespace: kagent
+  namespace: kagent-pilot
 spec:
   description: Minimal bounded SandboxAgent connectivity pilot
   version: "0.1.0"
@@ -42,4 +42,4 @@ spec:
   sandbox:
     network:
       allowedDomains:
-        - mock-openai.kagent.svc.cluster.local
+        - mock-openai.kagent-pilot.svc.cluster.local

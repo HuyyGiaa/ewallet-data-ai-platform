@@ -1,0 +1,5 @@
+OK want=no  can-i delete namespaces (cluster-scoped) -> no
+OK want=no  can-i create namespaces (cluster-scoped) -> no
+OK want=no  can-i create clusterrolebindings.rbac.authorization.k8s.io (cluster-scoped) -> no
+OK want=no  can-i create clusterroles.rbac.authorization.k8s.io (cluster-scoped) -> no
+OK want=no  can-i create validatingadmissionpolicybindings.admissionregistration.k8s.io (cluster-scoped) -> no

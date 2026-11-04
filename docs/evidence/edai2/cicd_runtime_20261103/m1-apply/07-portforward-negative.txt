@@ -1,0 +1,2 @@
+## negative: port-forward as ewallet-ci/jenkins
+error: error upgrading connection: unable to upgrade connection: pods "prompt-registry-agentregistry-8687d9b776-9fq7r" is forbidden: User "system:serviceaccount:ewallet-ci:jenkins" cannot create resource "pods/portforward" in API group "" in the namespace "ewallet-prompts"

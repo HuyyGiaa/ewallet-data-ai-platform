@@ -1,0 +1,1218 @@
+{
+ "_class": "org.jenkinsci.plugins.workflow.job.WorkflowRun",
+ "actions": [
+  {
+   "_class": "hudson.model.ParametersAction",
+   "parameters": [
+    {
+     "_class": "hudson.model.StringParameterValue",
+     "name": "EXPECTED_GIT_SHA",
+     "value": "19582d6d090c696fd8bc73847b886861736cf364"
+    },
+    {
+     "_class": "hudson.model.StringParameterValue",
+     "name": "TARGET_BRANCH",
+     "value": "468414c575b366713cd0e7b61a6a3a5757d628af"
+    },
+    {
+     "_class": "hudson.model.StringParameterValue",
+     "name": "RELEASE_BRANCH",
+     "value": "release/rag-pipeline"
+    },
+    {
+     "_class": "hudson.model.BooleanParameterValue",
+     "name": "INTENTIONAL_GATE_FAILURE",
+     "value": false
+    },
+    {
+     "_class": "hudson.model.BooleanParameterValue",
+     "name": "DEPLOY_APPROVED",
+     "value": true
+    },
+    {
+     "_class": "hudson.model.StringParameterValue",
+     "name": "ENVIRONMENT",
+     "value": "gke-cpu"
+    },
+    {
+     "_class": "hudson.model.StringParameterValue",
+     "name": "KUBE_CONTEXT",
+     "value": "in-cluster"
+    },
+    {
+     "_class": "hudson.model.StringParameterValue",
+     "name": "IMAGE_MANIFEST",
+     "value": ""
+    }
+   ]
+  },
+  {
+   "_class": "hudson.model.CauseAction",
+   "causes": [
+    {
+     "_class": "hudson.model.Cause$UserIdCause",
+     "shortDescription": "Started by user admin",
+     "userId": "admin",
+     "userName": "admin"
+    }
+   ]
+  },
+  {
+   "_class": "hudson.plugins.git.util.BuildData",
+   "buildsByBranchName": {
+    "refs/remotes/origin/release/rag-pipeline": {
+     "_class": "hudson.plugins.git.util.Build",
+     "buildNumber": 4,
+     "buildResult": null,
+     "marked": {
+      "SHA1": "19582d6d090c696fd8bc73847b886861736cf364",
+      "branch": [
+       {
+        "SHA1": "19582d6d090c696fd8bc73847b886861736cf364",
+        "name": "refs/remotes/origin/release/rag-pipeline"
+       }
+      ]
+     },
+     "revision": {
+      "SHA1": "19582d6d090c696fd8bc73847b886861736cf364",
+      "branch": [
+       {
+        "SHA1": "19582d6d090c696fd8bc73847b886861736cf364",
+        "name": "refs/remotes/origin/release/rag-pipeline"
+       }
+      ]
+     }
+    }
+   },
+   "lastBuiltRevision": {
+    "SHA1": "19582d6d090c696fd8bc73847b886861736cf364",
+    "branch": [
+     {
+      "SHA1": "19582d6d090c696fd8bc73847b886861736cf364",
+      "name": "refs/remotes/origin/release/rag-pipeline"
+     }
+    ]
+   },
+   "remoteUrls": [
+    "/opt/ewallet-source/repository.bundle"
+   ],
+   "scmName": ""
+  },
+  {},
+  {
+   "_class": "org.jenkinsci.plugins.workflow.libs.LibrariesAction",
+   "libraries": []
+  },
+  {
+   "_class": "org.jenkinsci.plugins.workflow.cps.EnvActionImpl",
+   "environment": {
+    "RELEASE_APPROVED_BY": "admin"
+   }
+  },
+  {
+   "_class": "org.jenkinsci.plugins.workflow.support.steps.input.InputAction",
+   "displayName": null,
+   "executions": [],
+   "waitingForInput": false
+  },
+  {
+   "_class": "org.jenkinsci.plugins.workflow.support.steps.input.ApproverAction",
+   "userId": "admin"
+  },
+  {
+   "_class": "hudson.tasks.junit.TestResultAction",
+   "failCount": 0,
+   "skipCount": 61,
+   "totalCount": 247,
+   "urlName": "testReport"
+  },
+  {},
+  {},
+  {},
+  {},
+  {
+   "_class": "org.jenkinsci.plugins.displayurlapi.actions.RunDisplayAction",
+   "artifactsUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/4/artifact",
+   "changesUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/changes",
+   "displayUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/4/",
+   "testsUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/4/testReport"
+  },
+  {
+   "_class": "org.jenkinsci.plugins.pipeline.modeldefinition.actions.RestartDeclarativePipelineAction",
+   "restartEnabled": false,
+   "restartableStages": []
+  },
+  {},
+  {
+   "_class": "org.jenkinsci.plugins.workflow.job.views.FlowGraphAction",
+   "nodes": [
+    {
+     "_class": "org.jenkinsci.plugins.workflow.graph.FlowStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.cps.nodes.StepEndNode"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.workflow.graph.FlowEndNode"
+    }
+   ]
+  },
+  {},
+  {}
+ ],
+ "artifacts": [
+  {
+   "displayPath": null,
+   "fileName": "cloud-build-rag-ingestion.json",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/build/cloud-build-rag-ingestion.json"
+  },
+  {
+   "displayPath": null,
+   "fileName": "cloud-build-rag-ingestion.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/build/cloud-build-rag-ingestion.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "catalog-validation.json",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/catalog-validation.json"
+  },
+  {
+   "displayPath": null,
+   "fileName": "component-matrix.md",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/component-matrix.md"
+  },
+  {
+   "displayPath": null,
+   "fileName": "git-status.txt",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/git-status.txt"
+  },
+  {
+   "displayPath": null,
+   "fileName": "jenkins-runtime-status.txt",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/jenkins-runtime-status.txt"
+  },
+  {
+   "displayPath": null,
+   "fileName": "junit-0007-component-agents-1.xml",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/junit/junit-0007-component-agents-1.xml"
+  },
+  {
+   "displayPath": null,
+   "fileName": "junit-0008-component-agents-2.xml",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/junit/junit-0008-component-agents-2.xml"
+  },
+  {
+   "displayPath": null,
+   "fileName": "junit-0009-component-mcp-agents-1.xml",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/junit/junit-0009-component-mcp-agents-1.xml"
+  },
+  {
+   "displayPath": null,
+   "fileName": "lock-hashes.json",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/lock-hashes.json"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0001-uv-lock-infra-docker-g3-byo-coordinator.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0001-uv-lock-infra-docker-g3-byo-coordinator.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0002-uv-sync-infra-docker-g3-byo-coordinator.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0002-uv-sync-infra-docker-g3-byo-coordinator.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0003-uv-lock-infra-docker-llm-agent-tooling.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0003-uv-lock-infra-docker-llm-agent-tooling.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0004-uv-sync-infra-docker-llm-agent-tooling.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0004-uv-sync-infra-docker-llm-agent-tooling.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0005-uv-lock-infra-docker-rag-ingestion.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0005-uv-lock-infra-docker-rag-ingestion.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0006-uv-sync-infra-docker-rag-ingestion.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0006-uv-sync-infra-docker-rag-ingestion.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0007-component-agents-1.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0007-component-agents-1.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0008-component-agents-2.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0008-component-agents-2.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0009-component-mcp-agents-1.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0009-component-mcp-agents-1.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "0010-component-rag-pipeline-1.log",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/logs/0010-component-rag-pipeline-1.log"
+  },
+  {
+   "displayPath": null,
+   "fileName": "manifest.json",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/manifest.json"
+  },
+  {
+   "displayPath": null,
+   "fileName": "release-branch.txt",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/release-branch.txt"
+  },
+  {
+   "displayPath": null,
+   "fileName": "scope.json",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/scope.json"
+  },
+  {
+   "displayPath": null,
+   "fileName": "SHA256SUMS",
+   "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-4/SHA256SUMS"
+  }
+ ],
+ "building": false,
+ "description": null,
+ "displayName": "#4",
+ "duration": 230165,
+ "estimatedDuration": 170697,
+ "executor": null,
+ "fullDisplayName": "edai2-cd-rag-pipeline #4",
+ "id": "4",
+ "keepLog": false,
+ "number": 4,
+ "queueId": 17,
+ "result": "FAILURE",
+ "timestamp": 1793690861559,
+ "url": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/4/",
+ "changeSets": [
+  {
+   "_class": "hudson.plugins.git.GitChangeSetList",
+   "items": [
+    {
+     "_class": "hudson.plugins.git.GitChangeSet",
+     "affectedPaths": [
+      "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/source-metadata.txt",
+      "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/source-snapshot-digest.txt",
+      "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/kubectl-diff.txt",
+      "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/jenkins-runtime-rendered.yaml",
+      "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/jobs.txt"
+     ],
+     "commitId": "104bbb70a6dabb43b17fd1f76ef94962d443795d",
+     "timestamp": 1793689983000,
+     "author": {
+      "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+      "fullName": "giahuy39919030"
+     },
+     "authorEmail": "giahuy39919030@gmail.com",
+     "comment": "docs(edai2): Jenkins source snapshot for RAG release 8625002\n\nOnly the snapshot digest and source SHA changed (kubectl diff); the\ncontroller image, identity, RBAC and jobs are unchanged.\n",
+     "date": "2026-11-03 14:13:03 +0700",
+     "id": "104bbb70a6dabb43b17fd1f76ef94962d443795d",
+     "msg": "docs(edai2): Jenkins source snapshot for RAG release 8625002",
+     "paths": [
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/jobs.txt"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/source-snapshot-digest.txt"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/jenkins-runtime-rendered.yaml"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/kubectl-diff.txt"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c1/source-metadata.txt"
+      }
+     ]
+    },
+    {
+     "_class": "hudson.plugins.git.GitChangeSet",
+     "affectedPaths": [
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/scope.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/artifacts.zip",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/console.txt",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/component-matrix.md",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0009-component-mcp-agents-1.xml",
+      "infra/terraform/gcp/modules/cicd_build/main.tf",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0007-component-agents-1.xml",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/api.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/SHA256SUMS",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/jenkins-runtime-status.txt",
+      "tests/ci/test_cloud_build.py",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/catalog-validation.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/tests.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/build/cloud-build-rag-ingestion.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/manifest.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0008-component-agents-2.xml",
+      "scripts/ci/cloud_build.py",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/stages.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/lock-hashes.json",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/release-branch.txt",
+      "infra/terraform/gcp/modules/cicd_build/outputs.tf",
+      "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/git-status.txt"
+     ],
+     "commitId": "468414c575b366713cd0e7b61a6a3a5757d628af",
+     "timestamp": 1793690535000,
+     "author": {
+      "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+      "fullName": "giahuy39919030"
+     },
+     "authorEmail": "giahuy39919030@gmail.com",
+     "comment": "fix(cicd): keep Cloud Build logs in a dedicated bucket\n\nRun 3 of edai2-cd-rag-pipeline built and pushed rag-ingestion\nsha256:9e89a378 but ended LOGGING_FAILURE: Cloud Build composes and deletes\nits log chunks, which the runner may not do in the create-only source\nbucket. Logs move to ...-cicd-build-logs, where only the runner may delete\nand Jenkins may read. Nothing was deployed by run 3.\n",
+     "date": "2026-11-03 14:22:15 +0700",
+     "id": "468414c575b366713cd0e7b61a6a3a5757d628af",
+     "msg": "fix(cicd): keep Cloud Build logs in a dedicated bucket",
+     "paths": [
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/scope.json"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/git-status.txt"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0007-component-agents-1.xml"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/SHA256SUMS"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/release-branch.txt"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/artifacts.zip"
+      },
+      {
+       "editType": "edit",
+       "file": "tests/ci/test_cloud_build.py"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/console.txt"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/catalog-validation.json"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/component-matrix.md"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0008-component-agents-2.xml"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/lock-hashes.json"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/build/cloud-build-rag-ingestion.json"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/stages.json"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/manifest.json"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/tests.json"
+      },
+      {
+       "editType": "edit",
+       "file": "infra/terraform/gcp/modules/cicd_build/main.tf"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/api.json"
+      },
+      {
+       "editType": "edit",
+       "file": "infra/terraform/gcp/modules/cicd_build/outputs.tf"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0009-component-mcp-agents-1.xml"
+      },
+      {
+       "editType": "add",
+       "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-3/a/archive/evidence/ci/jenkins-edai2-cd-rag-pipeline-3/jenkins-runtime-status.txt"
+      },
+      {
+       "editType": "edit",
+       "file": "scripts/ci/cloud_build.py"
+      }
+     ]
+    },
+    {
+     "_class": "hudson.plugins.git.GitChangeSet",
+     "affectedPaths": [
+      "tests/llm_agent/test_rag_airflow_ingestion.py",
+      "ops/llm_agent/rag_ingest.py"
+     ],
+     "commitId": "19582d6d090c696fd8bc73847b886861736cf364",
+     "timestamp": 1793690568000,
+     "author": {
+      "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+      "fullName": "giahuy39919030"
+     },
+     "authorEmail": "giahuy39919030@gmail.com",
+     "comment": "feat(rag): DataHub lineage plan names the release of its publication\n",
+     "date": "2026-11-03 14:22:48 +0700",
+     "id": "19582d6d090c696fd8bc73847b886861736cf364",
+     "msg": "feat(rag): DataHub lineage plan names the release of its publication",
+     "paths": [
+      {
+       "editType": "edit",
+       "file": "tests/llm_agent/test_rag_airflow_ingestion.py"
+      },
+      {
+       "editType": "edit",
+       "file": "ops/llm_agent/rag_ingest.py"
+      }
+     ]
+    }
+   ],
+   "kind": "git"
+  }
+ ],
+ "culprits": [
+  {
+   "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+   "description": null,
+   "fullName": "giahuy39919030",
+   "id": "giahuy39919030",
+   "property": [
+    {
+     "_class": "jenkins.security.ApiTokenProperty"
+    },
+    {
+     "_class": "jenkins.console.ConsoleUrlProviderUserProperty"
+    },
+    {
+     "_class": "com.cloudbees.plugins.credentials.UserCredentialsProvider$UserCredentialsProperty"
+    },
+    {
+     "_class": "jenkins.views.ViewsTabBarUserProperty"
+    },
+    {
+     "_class": "hudson.model.MyViewsProperty"
+    },
+    {
+     "_class": "org.jenkinsci.plugins.displayurlapi.user.PreferredProviderUserProperty"
+    },
+    {
+     "_class": "hudson.model.PaneStatusProperties"
+    },
+    {
+     "_class": "jenkins.security.seed.UserSeedProperty"
+    },
+    {
+     "_class": "hudson.search.UserSearchProperty",
+     "insensitiveSearch": true
+    },
+    {
+     "_class": "hudson.model.TimeZoneProperty"
+    },
+    {
+     "_class": "jenkins.model.experimentalflags.UserExperimentalFlagsProperty"
+    },
+    {
+     "_class": "hudson.tasks.Mailer$UserProperty",
+     "address": "giahuy39919030@gmail.com"
+    }
+   ]
+  }
+ ],
+ "inProgress": false,
+ "nextBuild": null,
+ "previousBuild": {
+  "actions": [
+   {
+    "_class": "hudson.model.ParametersAction",
+    "parameters": [
+     {
+      "_class": "hudson.model.StringParameterValue",
+      "name": "EXPECTED_GIT_SHA",
+      "value": "862500205215c5688fa402cb8f7e4a5b66c8b4a8"
+     },
+     {
+      "_class": "hudson.model.StringParameterValue",
+      "name": "TARGET_BRANCH",
+      "value": "b6d5761bc99066caf42e3c4676ce76d1287b204a"
+     },
+     {
+      "_class": "hudson.model.StringParameterValue",
+      "name": "RELEASE_BRANCH",
+      "value": "release/rag-pipeline"
+     },
+     {
+      "_class": "hudson.model.BooleanParameterValue",
+      "name": "INTENTIONAL_GATE_FAILURE",
+      "value": false
+     },
+     {
+      "_class": "hudson.model.BooleanParameterValue",
+      "name": "DEPLOY_APPROVED",
+      "value": true
+     },
+     {
+      "_class": "hudson.model.StringParameterValue",
+      "name": "ENVIRONMENT",
+      "value": "gke-cpu"
+     },
+     {
+      "_class": "hudson.model.StringParameterValue",
+      "name": "KUBE_CONTEXT",
+      "value": "in-cluster"
+     },
+     {
+      "_class": "hudson.model.StringParameterValue",
+      "name": "IMAGE_MANIFEST",
+      "value": ""
+     }
+    ]
+   },
+   {
+    "_class": "hudson.model.CauseAction",
+    "causes": [
+     {
+      "_class": "hudson.model.Cause$UserIdCause",
+      "shortDescription": "Started by user admin",
+      "userId": "admin",
+      "userName": "admin"
+     }
+    ]
+   },
+   {
+    "_class": "hudson.plugins.git.util.BuildData",
+    "buildsByBranchName": {
+     "refs/remotes/origin/release/rag-pipeline": {
+      "_class": "hudson.plugins.git.util.Build",
+      "buildNumber": 3,
+      "buildResult": null,
+      "marked": {
+       "SHA1": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+       "branch": [
+        {
+         "SHA1": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+         "name": "refs/remotes/origin/release/rag-pipeline"
+        }
+       ]
+      },
+      "revision": {
+       "SHA1": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+       "branch": [
+        {
+         "SHA1": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+         "name": "refs/remotes/origin/release/rag-pipeline"
+        }
+       ]
+      }
+     }
+    },
+    "lastBuiltRevision": {
+     "SHA1": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+     "branch": [
+      {
+       "SHA1": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+       "name": "refs/remotes/origin/release/rag-pipeline"
+      }
+     ]
+    },
+    "remoteUrls": [
+     "/opt/ewallet-source/repository.bundle"
+    ],
+    "scmName": ""
+   },
+   {},
+   {
+    "_class": "org.jenkinsci.plugins.workflow.libs.LibrariesAction"
+   },
+   {
+    "_class": "org.jenkinsci.plugins.workflow.cps.EnvActionImpl"
+   },
+   {
+    "_class": "org.jenkinsci.plugins.workflow.support.steps.input.InputAction"
+   },
+   {
+    "_class": "org.jenkinsci.plugins.workflow.support.steps.input.ApproverAction"
+   },
+   {
+    "_class": "hudson.tasks.junit.TestResultAction",
+    "failCount": 0,
+    "skipCount": 61,
+    "totalCount": 247,
+    "urlName": "testReport"
+   },
+   {},
+   {},
+   {},
+   {},
+   {
+    "_class": "org.jenkinsci.plugins.displayurlapi.actions.RunDisplayAction"
+   },
+   {
+    "_class": "org.jenkinsci.plugins.pipeline.modeldefinition.actions.RestartDeclarativePipelineAction"
+   },
+   {},
+   {
+    "_class": "org.jenkinsci.plugins.workflow.job.views.FlowGraphAction"
+   },
+   {},
+   {}
+  ],
+  "artifacts": [
+   {
+    "displayPath": null,
+    "fileName": "cloud-build-rag-ingestion.json",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/build/cloud-build-rag-ingestion.json"
+   },
+   {
+    "displayPath": null,
+    "fileName": "cloud-build-rag-ingestion.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/build/cloud-build-rag-ingestion.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "catalog-validation.json",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/catalog-validation.json"
+   },
+   {
+    "displayPath": null,
+    "fileName": "component-matrix.md",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/component-matrix.md"
+   },
+   {
+    "displayPath": null,
+    "fileName": "git-status.txt",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/git-status.txt"
+   },
+   {
+    "displayPath": null,
+    "fileName": "jenkins-runtime-status.txt",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/jenkins-runtime-status.txt"
+   },
+   {
+    "displayPath": null,
+    "fileName": "junit-0007-component-agents-1.xml",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0007-component-agents-1.xml"
+   },
+   {
+    "displayPath": null,
+    "fileName": "junit-0008-component-agents-2.xml",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0008-component-agents-2.xml"
+   },
+   {
+    "displayPath": null,
+    "fileName": "junit-0009-component-mcp-agents-1.xml",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/junit/junit-0009-component-mcp-agents-1.xml"
+   },
+   {
+    "displayPath": null,
+    "fileName": "lock-hashes.json",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/lock-hashes.json"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0001-uv-lock-infra-docker-g3-byo-coordinator.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0001-uv-lock-infra-docker-g3-byo-coordinator.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0002-uv-sync-infra-docker-g3-byo-coordinator.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0002-uv-sync-infra-docker-g3-byo-coordinator.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0003-uv-lock-infra-docker-llm-agent-tooling.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0003-uv-lock-infra-docker-llm-agent-tooling.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0004-uv-sync-infra-docker-llm-agent-tooling.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0004-uv-sync-infra-docker-llm-agent-tooling.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0005-uv-lock-infra-docker-rag-ingestion.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0005-uv-lock-infra-docker-rag-ingestion.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0006-uv-sync-infra-docker-rag-ingestion.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0006-uv-sync-infra-docker-rag-ingestion.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0007-component-agents-1.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0007-component-agents-1.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0008-component-agents-2.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0008-component-agents-2.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0009-component-mcp-agents-1.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0009-component-mcp-agents-1.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "0010-component-rag-pipeline-1.log",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/logs/0010-component-rag-pipeline-1.log"
+   },
+   {
+    "displayPath": null,
+    "fileName": "manifest.json",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/manifest.json"
+   },
+   {
+    "displayPath": null,
+    "fileName": "release-branch.txt",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/release-branch.txt"
+   },
+   {
+    "displayPath": null,
+    "fileName": "scope.json",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/scope.json"
+   },
+   {
+    "displayPath": null,
+    "fileName": "SHA256SUMS",
+    "relativePath": "evidence/ci/jenkins-edai2-cd-rag-pipeline-3/SHA256SUMS"
+   }
+  ],
+  "building": false,
+  "description": null,
+  "displayName": "#3",
+  "duration": 229137,
+  "estimatedDuration": 170697,
+  "executor": null,
+  "fullDisplayName": "edai2-cd-rag-pipeline #3",
+  "id": "3",
+  "keepLog": false,
+  "number": 3,
+  "queueId": 15,
+  "result": "FAILURE",
+  "timestamp": 1793689986998,
+  "url": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/3/",
+  "changeSets": [
+   {
+    "_class": "hudson.plugins.git.GitChangeSetList",
+    "items": [
+     {
+      "_class": "hudson.plugins.git.GitChangeSet",
+      "affectedPaths": [
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/casc-reload.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/pod.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/jobs.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/source-snapshot-digest.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/cd-job-defaults.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/kubectl-diff.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/jenkins-runtime-rendered.yaml",
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-c/identity-probes.txt"
+      ],
+      "commitId": "91a783c5b09acf66d71025205e67da4a0c37f608",
+      "timestamp": 1793688885000,
+      "author": {
+       "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+       "fullName": "giahuy39919030"
+      },
+      "authorEmail": "giahuy39919030@gmail.com",
+      "comment": "docs(edai2): batch C apply and Workload Identity verification\n\nJenkins now runs as ewallet-jenkins via Workload Identity with a projected\none-hour token; probes from the pod show builds.get permitted, builds.list,\nother buckets, Artifact Registry, GKE and every production namespace denied.\nThe four edai2-cd-* jobs were registered after a JCasC reload (new jobs\nwritten while an existing PVC is loaded are not picked up at boot).\n",
+      "date": "2026-11-03 13:54:45 +0700",
+      "id": "91a783c5b09acf66d71025205e67da4a0c37f608",
+      "msg": "docs(edai2): batch C apply and Workload Identity verification",
+      "paths": [
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/identity-probes.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/cd-job-defaults.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/jenkins-runtime-rendered.yaml"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/jobs.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/kubectl-diff.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/pod.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/source-snapshot-digest.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-c/casc-reload.txt"
+       }
+      ]
+     },
+     {
+      "_class": "hudson.plugins.git.GitChangeSet",
+      "affectedPaths": [
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/console.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/artifacts.zip",
+       "infra/terraform/gcp/modules/cicd_build/main.tf",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/api.json",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/tests.json",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/stages.json"
+      ],
+      "commitId": "7eb2c62cbce486e6baa9f73c47fc474ea996f22b",
+      "timestamp": 1793689089000,
+      "author": {
+       "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+       "fullName": "giahuy39919030"
+      },
+      "authorEmail": "giahuy39919030@gmail.com",
+      "comment": "fix(cicd): let the Cloud Build runner read its logs bucket metadata (proposed)\n\nedai2-cd-rag-pipeline #1 passed CI (186/0/61), approval and the release\nbranch gate, then Cloud Build rejected the request: the runner lacked\nstorage.buckets.get on the logs bucket. No image was built or deployed.\n",
+      "date": "2026-11-03 13:58:09 +0700",
+      "id": "7eb2c62cbce486e6baa9f73c47fc474ea996f22b",
+      "msg": "fix(cicd): let the Cloud Build runner read its logs bucket metadata",
+      "paths": [
+       {
+        "editType": "edit",
+        "file": "infra/terraform/gcp/modules/cicd_build/main.tf"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/stages.json"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/api.json"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/console.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/tests.json"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-1/artifacts.zip"
+       }
+      ]
+     },
+     {
+      "_class": "hudson.plugins.git.GitChangeSet",
+      "affectedPaths": [
+       "docs/evidence/edai2/cicd_runtime_20261103/batch-a/a1-verification.txt"
+      ],
+      "commitId": "d02c4e5dfc83a187ff474dd255cddb583d60f501",
+      "timestamp": 1793689240000,
+      "author": {
+       "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+       "fullName": "giahuy39919030"
+      },
+      "authorEmail": "giahuy39919030@gmail.com",
+      "comment": "docs(edai2): batch A.1 applied (bucket-scoped legacyBucketReader for the runner)\n",
+      "date": "2026-11-03 14:00:40 +0700",
+      "id": "d02c4e5dfc83a187ff474dd255cddb583d60f501",
+      "msg": "docs(edai2): batch A.1 applied (bucket-scoped legacyBucketReader for the",
+      "paths": [
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/batch-a/a1-verification.txt"
+       }
+      ]
+     },
+     {
+      "_class": "hudson.plugins.git.GitChangeSet",
+      "affectedPaths": [
+       "scripts/ci/cloud_build.py",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/tests.json",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/stages.json",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/api.json",
+       "tests/ci/test_cloud_build.py",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/console.txt",
+       "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/artifacts.zip"
+      ],
+      "commitId": "b6d5761bc99066caf42e3c4676ce76d1287b204a",
+      "timestamp": 1793689500000,
+      "author": {
+       "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+       "fullName": "giahuy39919030"
+      },
+      "authorEmail": "giahuy39919030@gmail.com",
+      "comment": "fix(ci): stage Cloud Build sources create-only and reuse identical uploads\n\nedai2-cd-rag-pipeline #2 failed closed: re-uploading the source object that\nrun #1 had created is an overwrite, which needs storage.objects.delete. The\nupload now uses ifGenerationMatch=0 and, on 412, reuses the existing object\nonly when its MD5 equals the git archive.\n",
+      "date": "2026-11-03 14:05:00 +0700",
+      "id": "b6d5761bc99066caf42e3c4676ce76d1287b204a",
+      "msg": "fix(ci): stage Cloud Build sources create-only and reuse identical",
+      "paths": [
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/stages.json"
+       },
+       {
+        "editType": "edit",
+        "file": "tests/ci/test_cloud_build.py"
+       },
+       {
+        "editType": "edit",
+        "file": "scripts/ci/cloud_build.py"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/artifacts.zip"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/console.txt"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/tests.json"
+       },
+       {
+        "editType": "add",
+        "file": "docs/evidence/edai2/cicd_runtime_20261103/jenkins/jobs/edai2-cd-rag-pipeline-2/api.json"
+       }
+      ]
+     },
+     {
+      "_class": "hudson.plugins.git.GitChangeSet",
+      "affectedPaths": [
+       "tests/llm_agent/test_rag_airflow_ingestion.py",
+       "ops/llm_agent/rag_ingest.py"
+      ],
+      "commitId": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+      "timestamp": 1793689817000,
+      "author": {
+       "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+       "fullName": "giahuy39919030"
+      },
+      "authorEmail": "giahuy39919030@gmail.com",
+      "comment": "feat(rag): tie each publication to the discovered corpus manifest hash\n\npublication.json now repeats documents.json's manifest_sha256, so a Feast\npublication names the exact corpus manifest it was built from.\n",
+      "date": "2026-11-03 14:10:17 +0700",
+      "id": "862500205215c5688fa402cb8f7e4a5b66c8b4a8",
+      "msg": "feat(rag): tie each publication to the discovered corpus manifest hash",
+      "paths": [
+       {
+        "editType": "edit",
+        "file": "tests/llm_agent/test_rag_airflow_ingestion.py"
+       },
+       {
+        "editType": "edit",
+        "file": "ops/llm_agent/rag_ingest.py"
+       }
+      ]
+     }
+    ],
+    "kind": "git"
+   }
+  ],
+  "culprits": [
+   {
+    "absoluteUrl": "http://jenkins.ewallet-ci.svc.cluster.local:8080/user/giahuy39919030",
+    "fullName": "giahuy39919030"
+   }
+  ],
+  "inProgress": false,
+  "nextBuild": {
+   "number": 4,
+   "url": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/4/"
+  },
+  "previousBuild": {
+   "number": 2,
+   "url": "http://jenkins.ewallet-ci.svc.cluster.local:8080/job/edai2-cd-rag-pipeline/2/"
+  }
+ }
+}

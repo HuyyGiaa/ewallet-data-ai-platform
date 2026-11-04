@@ -1,0 +1,27 @@
+live_objects=163
+candidate_objects=169
+
+added:
+  autoscaling/v2 HorizontalPodAutoscaler ewallet-agents/drift-specialist
+  autoscaling/v2 HorizontalPodAutoscaler ewallet-agents/feature-rag-specialist
+  autoscaling/v2 HorizontalPodAutoscaler ewallet-agents/fraud-coordinator
+  policy/v1 PodDisruptionBudget ewallet-agents/drift-specialist
+  policy/v1 PodDisruptionBudget ewallet-agents/feature-rag-specialist
+  policy/v1 PodDisruptionBudget ewallet-agents/fraud-coordinator
+
+removed: none
+
+changed:
+  Agent ewallet-agents/drift-specialist: deployment.replicas 1 -> omitted
+  Agent ewallet-agents/feature-rag-specialist: deployment.replicas 1 -> omitted
+  Agent ewallet-agents/fraud-coordinator: deployment.replicas 1 -> omitted
+
+Agent Card preservation:
+  drift-specialist live a2aConfig: absent
+  drift-specialist candidate a2aConfig: absent
+  feature-rag-specialist live/candidate a2aConfig: absent
+  fraud-coordinator live/candidate a2aConfig: absent
+
+candidate_sha256=d8c2a31900ac32e2d6e42a3dc39dbf25c9f1e0fcdcd60de0d8d0ccacca557009
+helm_lint=PASS
+helm_server_dry_run=PASS

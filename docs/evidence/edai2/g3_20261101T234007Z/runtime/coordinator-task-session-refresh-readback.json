@@ -1,0 +1,82 @@
+{
+  "id": "g3-task-final-readback",
+  "jsonrpc": "2.0",
+  "result": {
+    "contextId": "01a199aa-cc6a-7797-8806-f3fa02053887",
+    "history": [
+      {
+        "kind": "message",
+        "messageId": "g3-adapter-e2e-balanced-001",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "Delegate to Feature-RAG. Preserve every transaction field. Call feature_lookup and fraud_scoring only. Transaction: {\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"event_timestamp\":\"2026-06-01T00:00:00+00:00\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\",\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"counterparty_account_id\":null,\"type\":\"payment\",\"amount\":275465.53,\"currency\":\"VND\",\"channel\":\"app\"}. Return backend status, probability, prediction, and model."
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "kind": "message",
+        "messageId": "g3-adapter-e2e-balanced-001",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "Delegate to Feature-RAG. Preserve every transaction field. Call feature_lookup and fraud_scoring only. Transaction: {\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"event_timestamp\":\"2026-06-01T00:00:00+00:00\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\",\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"counterparty_account_id\":null,\"type\":\"payment\",\"amount\":275465.53,\"currency\":\"VND\",\"channel\":\"app\"}. Return backend status, probability, prediction, and model."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "id": "01a199aa-cc6a-76d1-8526-cd42df8e7d22",
+    "kind": "task",
+    "metadata": {
+      "adk_app_name": "ewallet_agents__NS__fraud_coordinator",
+      "adk_author": "fraud_coordinator",
+      "adk_invocation_id": "e-2cbea980-0025-47a5-a454-6e270a4a6a23",
+      "adk_session_id": "01a199aa-cc6a-7797-8806-f3fa02053887",
+      "adk_usage_metadata": {
+        "candidatesTokenCount": 44,
+        "promptTokenCount": 977
+      },
+      "adk_user_id": "A2A_USER_01a199aa-cc6a-7797-8806-f3fa02053887"
+    },
+    "status": {
+      "message": {
+        "contextId": "01a199aa-cc6a-7797-8806-f3fa02053887",
+        "kind": "message",
+        "messageId": "01a199ab-02d9-73fa-8ad7-1c9f7d46f889",
+        "metadata": {
+          "adk_app_name": "ewallet_agents__NS__fraud_coordinator",
+          "adk_author": "fraud_coordinator",
+          "adk_invocation_id": "e-2cbea980-0025-47a5-a454-6e270a4a6a23",
+          "adk_session_id": "01a199aa-cc6a-7797-8806-f3fa02053887",
+          "adk_usage_metadata": {
+            "candidatesTokenCount": 44,
+            "promptTokenCount": 977
+          },
+          "adk_user_id": "A2A_USER_01a199aa-cc6a-7797-8806-f3fa02053887"
+        },
+        "parts": [
+          {
+            "data": {
+              "args": {
+                "request": "feature lookup for transaction: {transaction_id}, fraud_scoring, and drift detection"
+              },
+              "id": "chatcmpl-tool-928419b5b384924a",
+              "name": "ewallet_agents__NS__feature_rag_specialist"
+            },
+            "kind": "data",
+            "metadata": {
+              "adk_is_long_running": false,
+              "adk_type": "function_call"
+            }
+          }
+        ],
+        "role": "agent",
+        "taskId": "01a199aa-cc6a-76d1-8526-cd42df8e7d22"
+      },
+      "state": "working",
+      "timestamp": "2026-11-02T00:31:23.865263204Z"
+    }
+  }
+}

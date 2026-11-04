@@ -1,0 +1,10 @@
+## migration rollback with guard: tool rollback while guard ON
+
+  state: {'source_active': 0, 'source_archived': 7, 'target_active': 10}
+## remove guard binding (audited step), then tool rollback
+validatingadmissionpolicybinding.admissionregistration.k8s.io "ewallet-helm-record-home-llm-agent-mcp" deleted
+  state {'source_active': 8, 'source_archived': 0, 'target_active': 0}
+  active record ewallet-mcp rev 8
+28 objects; 0 missing; 2 pods
+r4-guard missing 0 uid changed 0 spec changed 0 pods identical True owner ['ewallet-mcp-release']
+r5-after-rollback missing 0 uid changed 0 spec changed 0 pods identical True owner ['ewallet-mcp']

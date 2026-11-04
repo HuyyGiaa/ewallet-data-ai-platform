@@ -1,0 +1,25 @@
+# Review-only G3 overlay. It contains Secret references, never Secret objects
+# or credential values. Provisioning is a separate authorized runtime task.
+agents:
+  specialists:
+    drift-specialist:
+      # Existing G2 role is preserved: feature_lookup + drift_detection.
+      authHeaderSecrets:
+        feature-rag-mcp: {name: drift-to-feature-rag-mcp-token, key: token}
+        drift-mcp: {name: drift-to-drift-mcp-token, key: token}
+    feature-rag-specialist:
+      # Existing G2 role is preserved: feature_lookup + fraud_scoring + knowledge_search.
+      authHeaderSecrets:
+        feature-rag-mcp: {name: feature-rag-to-feature-rag-mcp-token, key: token}
+
+mcpServices:
+  services:
+    feature-rag-mcp:
+      authSecret: {name: feature-rag-mcp-service-token-table, key: auth-config.json}
+      toolGrants:
+        drift-specialist: [feature_lookup]
+        feature-rag-specialist: [feature_lookup, fraud_scoring, knowledge_search]
+    drift-mcp:
+      authSecret: {name: drift-mcp-service-token-table, key: auth-config.json}
+      toolGrants:
+        drift-specialist: [drift_detection]

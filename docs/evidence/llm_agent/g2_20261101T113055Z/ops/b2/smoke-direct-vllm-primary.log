@@ -1,0 +1,15 @@
+Found 2 pods, using pod/vllm-primary-66c5f9687c-4j9mr
+INFO:     127.0.0.1:59720 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:54690 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35604 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:57728 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:50:48 [loggers.py:335] Engine 000: Avg prompt throughput: 6.8 tokens/s, Avg generation throughput: 2.6 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 43.2%
+INFO:     169.254.7.127:49424 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:49426 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:50:58 [loggers.py:335] Engine 000: Avg prompt throughput: 13.3 tokens/s, Avg generation throughput: 5.3 tokens/s, Running: 0 reqs, Waiting: 1 reqs, Deferred: 1 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 35.3%
+INFO:     127.0.0.1:54986 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:39172 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 11:51:08 [loggers.py:335] Engine 000: Avg prompt throughput: 7.3 tokens/s, Avg generation throughput: 4.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 1.4%, Prefix cache hit rate: 48.6%
+INFO:     127.0.0.1:55000 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49054 - "POST /v1/chat/completions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49066 - "POST /v1/chat/completions HTTP/1.1" 401 Unauthorized

@@ -98,9 +98,12 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(kinds["vllm-primary"]["spec"]["replicas"], 1)
         self.assertEqual(kinds["vllm-fallback"]["spec"]["replicas"], 1)
         cpu, mem = pf.planned_requests(rendered)
-        # Two e2-standard-4 (2 x 3.92 CPU, 2 x ~13 GiB), with headroom for system pods.
         self.assertLessEqual(cpu, 5.0)
-        self.assertLessEqual(mem, 10.0)
+        self.assertLessEqual(mem, 14.0)
+        # One vLLM pod per e2-standard-4 (~13 GiB allocatable, ~0.8 GiB DaemonSets
+        # + ztunnel/cni): its memory limit must fit beside them.
+        limits = kinds["vllm-primary"]["spec"]["template"]["spec"]["containers"][0]["resources"]["limits"]
+        self.assertLessEqual(pf.mem_gib(limits["memory"]), 13.0 - 1.4 - 1.0)
         self.assertNotIn("kind: Gateway\n", rendered)
 
 
@@ -154,6 +157,23 @@ class EnforcedNetworkPolicyTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HELM, "helm binary unavailable")
+@unittest.skipUnless(HELM, "helm binary unavailable")
+class GatewayClientAuthTests(unittest.TestCase):
+    """G1 run 5: agentgateway accepted any key; clients now need the gateway key."""
+
+    def test_entry_route_requires_the_client_key_and_clients_never_get_the_backend_key(self):
+        docs = [d for d in yaml.safe_load_all(render().stdout) if d]
+        config = yaml.safe_load(next(d for d in docs if d["metadata"]["name"] == "agentgateway-llm-config")["data"]["config.yaml"])
+        entry = config["routes"][0]["policies"]
+        self.assertEqual(entry["apiKey"], {"mode": "strict", "keys": [{"key": "$GATEWAY_CLIENT_KEY"}]})
+        gateway = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "agentgateway")
+        env = {e["name"]: e["valueFrom"]["secretKeyRef"]["name"]
+               for e in gateway["spec"]["template"]["spec"]["containers"][0]["env"]}
+        self.assertEqual(env, {"VLLM_API_KEY": "vllm-api-key", "GATEWAY_CLIENT_KEY": "agentgateway-client-key"})
+        values = yaml.safe_load((CHART / "values.yaml").read_text())
+        self.assertEqual(values["modelConfig"]["apiKeySecret"]["name"], "agentgateway-client-key")
+
+
 class ModelImageModeTests(unittest.TestCase):
     def test_serves_the_baked_revision_offline(self):
         docs = [d for d in yaml.safe_load_all(render().stdout) if d and d["kind"] == "Deployment"]
@@ -338,6 +358,7 @@ INTERNET = {"ip": "18.244.0.1"}
 METADATA = {"ip": "169.254.169.254"}
 GKE_METADATA = {"ip": "169.254.169.252"}
 NODELOCAL = {"ip": "169.254.20.10"}
+KUBE_DNS_SERVICE = {"ip": "34.118.224.10"}
 
 
 @unittest.skipUnless(HELM, "helm binary unavailable")
@@ -372,6 +393,8 @@ class G1ReachabilityTests(unittest.TestCase):
         for src in (GATEWAY, VLLM, INTRUDER):
             self.assertTrue(self.allows(src, KUBE_DNS, 53))
             self.assertTrue(self.allows(src, NODELOCAL, 53))
+            self.assertTrue(self.allows(src, KUBE_DNS_SERVICE, 53))
+            self.assertFalse(self.allows(src, KUBE_DNS_SERVICE, 443))
             for dst, port in ((INTERNET, 443), (METADATA, 80), (GKE_METADATA, 988), (KUBE_DNS, 443)):
                 self.assertFalse(self.allows(src, dst, port), (src["labels"], dst, port))
 
@@ -402,8 +425,9 @@ case "$(basename "$0") $*" in
   "kubectl config view"*) printf '%s' "${FAKE_SERVER:-https://gke-x.asia-southeast1-b.gke.goog}";;
   "kubectl"*" wait "*) [ -n "${FAKE_HANG:-}" ] && sleep 60;;
   "kubectl"*"get nodes -l"*"--no-headers"*) for i in $(seq 1 "${FAKE_READY:-3}"); do echo "n$i   Ready   <none>"; done;;
+  "kubectl"*"get secret agentgateway-client-key -o jsonpath"*) printf '%s' "$(printf 'c%.0s' $(seq 1 64) | base64 -w0)";;
   "kubectl"*"get secret vllm-api-key -o jsonpath"*) printf '%s' "$(printf 'k%.0s' $(seq 1 64) | base64 -w0)";;
-  "kubectl"*"get secret vllm-api-key"*) exit "${FAKE_SECRET_EXISTS:-1}";;
+  "kubectl"*"get secret "*) exit "${FAKE_SECRET_EXISTS:-1}";;
   "kubectl"*"get deploy vllm-fallback"*) printf '%s' "${FAKE_FALLBACK_READY:-0}";;
   "kubectl"*"get ns ewallet-agents"*) printf 'ambient';;
 esac
@@ -470,7 +494,7 @@ class OperatorTests(ScriptHarness):
         self.assertIn("readback", proc.stderr)
 
     def test_scale_up_is_bounded_needs_enforcement_and_reads_back_exactly(self):
-        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", NODES="4").returncode, 0)
+        self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", NODES="5").returncode, 0)
         self.assertNotEqual(self.op("scale-up", G1_APPROVED_STAGES="scale-up", G1_RERUN="scale-up",
                                     FAKE_NP="False").returncode, 0)
         self.assertEqual(self.resizes(), [])
@@ -489,6 +513,7 @@ class OperatorTests(ScriptHarness):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         log = self.log.read_text()
         self.assertIn("create secret generic vllm-api-key --from-file=api-key=", log)
+        self.assertIn("create secret generic agentgateway-client-key --from-file=api-key=", log)
         self.assertNotIn("secret-token-value", log + proc.stdout + proc.stderr)
         self.assertNotIn("from-literal", log)
         before = log.count("create secret")
@@ -504,6 +529,17 @@ class OperatorTests(ScriptHarness):
         self.assertIn("--num-nodes 0", self.resizes()[-1])
         self.pool.write_text("3")
         self.assertNotEqual(self.op("cleanup", FAKE_RESIZE_STUCK="1").returncode, 0)
+
+    def test_cleanup_can_hand_the_pool_back_without_g1(self):
+        self.pool.write_text("4")
+        proc = self.op("cleanup", G1_CLEANUP_NODES="2")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        calls = self.calls()
+        uninstall = next(i for i, c in enumerate(calls) if c.startswith("helm uninstall llm-agent"))
+        resize = next(i for i, c in enumerate(calls) if "--num-nodes 2" in c)
+        self.assertLess(uninstall, resize)
+        self.assertEqual(self.pool.read_text().strip(), "2")
+        self.assertNotEqual(self.op("cleanup", G1_CLEANUP_NODES="3").returncode, 0)
 
     def session_env(self, **env):
         approvals = "scale-up,istio,namespace,secret,deploy,netpol-verify,failover"

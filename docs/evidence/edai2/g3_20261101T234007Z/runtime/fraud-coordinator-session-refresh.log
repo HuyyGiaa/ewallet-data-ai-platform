@@ -1,0 +1,24 @@
+{"level":"info","timestamp":"2026-11-02T00:30:25.747Z","caller":"cmd/main.go:54","msg":"Logger initialized","level":"info"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.748Z","caller":"cmd/main.go:95","msg":"Loaded agent config","configDir":"/config"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.748Z","caller":"cmd/main.go:96","msg":"Agent configuration","model":"openai","stream":false,"httpTools":0,"sseTools":0,"remoteAgents":2}
+{"level":"info","timestamp":"2026-11-02T00:30:25.748Z","caller":"cmd/main.go:247","msg":"Built app_name from environment variables","KAGENT_NAMESPACE":"ewallet-agents","KAGENT_NAME":"fraud-coordinator","app_name":"ewallet_agents__NS__fraud_coordinator"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.748Z","caller":"cmd/main.go:131","msg":"ADK telemetry initialized"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.748Z","caller":"cmd/main.go:146","msg":"Token service started"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.748Z","caller":"cmd/main.go:165","msg":"Using KAgent session service","url":"http://kagent-controller.kagent:8083"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.748Z","caller":"mcp/registry.go:102","msg":"Processing HTTP MCP tools","httpToolsCount":0}
+{"level":"info","timestamp":"2026-11-02T00:30:25.749Z","caller":"mcp/registry.go:124","msg":"Processing SSE MCP tools","sseToolsCount":0}
+{"level":"info","timestamp":"2026-11-02T00:30:25.749Z","caller":"agent/agent.go:64","msg":"Wired remote A2A agent tool","name":"ewallet_agents__NS__feature_rag_specialist","url":"http://a2a-gateway.ewallet-agents.svc.cluster.local:8083"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.750Z","caller":"agent/agent.go:64","msg":"Wired remote A2A agent tool","name":"ewallet_agents__NS__drift_specialist","url":"http://a2a-gateway.ewallet-agents.svc.cluster.local:8083"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.750Z","caller":"models/openai.go:110","msg":"Initialized OpenAI model","model":"ewallet-fraud-llm","baseUrl":"http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.750Z","caller":"agent/agent.go:135","msg":"Creating Google ADK LLM agent","name":"fraud_coordinator","hasDescription":true,"hasInstruction":true,"toolsCount":3,"toolsetsCount":0}
+{"level":"info","timestamp":"2026-11-02T00:30:25.750Z","caller":"agent/agent.go:147","msg":"Successfully created Google ADK LLM agent","toolsCount":3,"toolsetsCount":0}
+{"level":"info","timestamp":"2026-11-02T00:30:25.750Z","caller":"app/app.go:114","msg":"Using KAgent session service","url":"http://kagent-controller.kagent:8083"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.750Z","caller":"app/app.go:118","msg":"Using KAgent task store","url":"http://kagent-controller.kagent:8083"}
+{"level":"info","timestamp":"2026-11-02T00:30:25.751Z","caller":"server/server.go:103","msg":"Starting Go ADK server!","addr":"0.0.0.0:8080"}
+{"level":"info","timestamp":"2026-11-02T00:31:09.930Z","logger":"kagent-executor","caller":"a2a/executor.go:145","msg":"Execute","taskID":"01a199aa-cc6a-76d1-8526-cd42df8e7d22","contextID":"01a199aa-cc6a-7797-8806-f3fa02053887","appName":"ewallet_agents__NS__fraud_coordinator","userID":"A2A_USER_01a199aa-cc6a-7797-8806-f3fa02053887"}
+{"level":"info","timestamp":"2026-11-02T00:31:23.865Z","caller":"agent/agent.go:414","msg":"Tool execution started","tool":"ewallet_agents__NS__feature_rag_specialist","functionCallID":"chatcmpl-tool-928419b5b384924a","sessionID":"01a199aa-cc6a-7797-8806-f3fa02053887","invocationID":"e-2cbea980-0025-47a5-a454-6e270a4a6a23","args":"{\"request\":\"feature lookup for transaction: {transaction_id}, fraud_scoring, and drift detection\"}"}
+2026/11/02 00:31:40 traces export: exporter export timeout: rpc error: code = Unavailable desc = name resolver error: produced zero addresses
+2026/11/02 00:33:15 traces export: exporter export timeout: rpc error: code = Unavailable desc = name resolver error: produced zero addresses
+2026/11/02 00:33:35 traces export: exporter export timeout: rpc error: code = Unavailable desc = name resolver error: produced zero addresses
+2026/11/02 00:34:15 traces export: exporter export timeout: rpc error: code = Unavailable desc = name resolver error: produced zero addresses
+2026/11/02 00:34:35 traces export: exporter export timeout: rpc error: code = Unavailable desc = name resolver error: produced zero addresses

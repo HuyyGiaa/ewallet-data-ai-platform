@@ -1,0 +1,6 @@
+{
+  "components": [
+    "feature-rag-mcp",
+    "drift-mcp"
+  ]
+}

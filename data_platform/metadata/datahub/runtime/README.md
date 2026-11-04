@@ -23,11 +23,13 @@ values from port `9092` to `9093`. Internal DataHub traffic remains on
 `broker:29092`. Generated Compose files are stored in this directory's ignored
 `.cache/` folder.
 
-From the repository root, select a Python environment containing
-`acryl-datahub==1.7.0.5` and run:
+From the repository root, install the committed DataHub dependency lock and
+use that interpreter:
 
 ```bash
-export DATAHUB_PYTHON="$(command -v python3)"
+uv lock --check --project data_platform/metadata/datahub
+uv sync --locked --project data_platform/metadata/datahub
+export DATAHUB_PYTHON="$PWD/data_platform/metadata/datahub/.venv/bin/python"
 ./data_platform/metadata/datahub/runtime/start_datahub.sh start
 ./data_platform/metadata/datahub/runtime/start_datahub.sh check
 ```
@@ -35,11 +37,8 @@ export DATAHUB_PYTHON="$(command -v python3)"
 The start command pulls the pinned images by default. When the exact images are
 already present, set `DATAHUB_PULL_IMAGES=false` to skip that pull.
 
-If DataHub is installed in a named Conda environment, use its interpreter:
-
-```bash
-export DATAHUB_PYTHON="$(conda run -n datahub which python)"
-```
+Do not install the SDK manually into a running DataHub container or substitute
+an unlocked Conda environment when collecting reproducibility evidence.
 
 Stop the containers without deleting the persisted Quickstart volumes:
 

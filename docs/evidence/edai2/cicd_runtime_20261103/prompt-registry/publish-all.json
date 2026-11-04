@@ -1,0 +1,265 @@
+{
+ "apply": [
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "drift-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "drift-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v2"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "feature-rag-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "feature-rag-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v2"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "feature-rag-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v3"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "feature-rag-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v4"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "feature-rag-specialist-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v5"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "fraud-coordinator-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "fraud-coordinator-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v2"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "fraud-coordinator-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v3"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "fraud-coordinator-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v4"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "fraud-coordinator-system",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v5"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "MCPServer",
+   "name": "drift-mcp",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "MCPServer",
+   "name": "feature-rag-mcp",
+   "namespace": "default",
+   "status": "created",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "drift-specialist",
+   "namespace": "default",
+   "status": "created",
+   "tag": "1.0.0"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "feature-rag-specialist",
+   "namespace": "default",
+   "status": "created",
+   "tag": "1.0.0"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "fraud-coordinator",
+   "namespace": "default",
+   "status": "created",
+   "tag": "1.0.0"
+  }
+ ],
+ "apply_status": 200,
+ "dry_run": false,
+ "git_sha": "00c07bcf018a73f60cbb0cb9f168152a2ec50d4f",
+ "readback": [
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "drift-specialist-system",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "drift-specialist-system",
+   "status": 200,
+   "tag": "v2"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "feature-rag-specialist-system",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "feature-rag-specialist-system",
+   "status": 200,
+   "tag": "v2"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "feature-rag-specialist-system",
+   "status": 200,
+   "tag": "v3"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "feature-rag-specialist-system",
+   "status": 200,
+   "tag": "v4"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "feature-rag-specialist-system",
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "fraud-coordinator-system",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "fraud-coordinator-system",
+   "status": 200,
+   "tag": "v2"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "fraud-coordinator-system",
+   "status": 200,
+   "tag": "v3"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "fraud-coordinator-system",
+   "status": 200,
+   "tag": "v4"
+  },
+  {
+   "kind": "Prompt",
+   "match": true,
+   "name": "fraud-coordinator-system",
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "kind": "MCPServer",
+   "match": true,
+   "name": "drift-mcp",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "MCPServer",
+   "match": true,
+   "name": "feature-rag-mcp",
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "kind": "Agent",
+   "match": true,
+   "name": "drift-specialist",
+   "status": 200,
+   "tag": "1.0.0"
+  },
+  {
+   "kind": "Agent",
+   "match": true,
+   "name": "feature-rag-specialist",
+   "status": 200,
+   "tag": "1.0.0"
+  },
+  {
+   "kind": "Agent",
+   "match": true,
+   "name": "fraud-coordinator",
+   "status": 200,
+   "tag": "1.0.0"
+  }
+ ],
+ "verdict": "PASS"
+}

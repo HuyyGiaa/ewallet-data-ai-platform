@@ -1,0 +1,2 @@
+NAME      READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+redis-0   1/1     Running   0          30h   10.216.4.25   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>

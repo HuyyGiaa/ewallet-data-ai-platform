@@ -1,0 +1,1 @@
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:c1dc81c93e5cf7fff962627367d5a57741195d6a59459f75b876c5aae948a45f

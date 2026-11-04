@@ -1,0 +1,7 @@
+{
+ "url": "http://127.0.0.1:18300/agents",
+ "final_url": "http://127.0.0.1:18300/agents",
+ "title": "kagent.dev",
+ "text_excerpt": "Home\nCreate\nView\nContribute\nCommunity\nToggle theme\nSkip to content\nAgents\nShowing agents across all namespaces.\nAll namespaces\nCards\nList\newallet-agents/drift-specialist\n\nFeature / Risk specialist\n\nOpenAI (ewallet-fraud-llm)\newallet-agents/feature-rag-specialist\n\nFraud Investigation / Evidence specialist\n\nImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:5f848a1ce7942f4fd5027264bc54c3164d09065d3c8932fcd4a93bce8db57606\newallet-agents/fraud-coordinator\n\nFraud Investigation Coordinator\n\nImage: asia-southeast1-docker.pkg.dev/e",
+ "captured_utc": "2026-11-04T09:33:39Z"
+}

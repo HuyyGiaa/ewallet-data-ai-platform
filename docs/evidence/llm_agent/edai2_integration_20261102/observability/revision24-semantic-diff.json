@@ -1,0 +1,58 @@
+{
+  "verdict": "EXACT_AGENT_OTLP_POLICIES_ONLY",
+  "added": [
+    [
+      "AuthorizationPolicy",
+      "ewallet-agents",
+      "allow-drift-specialist-to-otel-collector"
+    ],
+    [
+      "AuthorizationPolicy",
+      "ewallet-agents",
+      "allow-feature-rag-specialist-to-otel-collector"
+    ],
+    [
+      "AuthorizationPolicy",
+      "ewallet-agents",
+      "allow-fraud-coordinator-to-otel-collector"
+    ],
+    [
+      "NetworkPolicy",
+      "ewallet-agents",
+      "allow-drift-specialist-to-otel-collector-egress"
+    ],
+    [
+      "NetworkPolicy",
+      "ewallet-agents",
+      "allow-drift-specialist-to-otel-collector-ingress"
+    ],
+    [
+      "NetworkPolicy",
+      "ewallet-agents",
+      "allow-feature-rag-specialist-to-otel-collector-egress"
+    ],
+    [
+      "NetworkPolicy",
+      "ewallet-agents",
+      "allow-feature-rag-specialist-to-otel-collector-ingress"
+    ],
+    [
+      "NetworkPolicy",
+      "ewallet-agents",
+      "allow-fraud-coordinator-to-otel-collector-egress"
+    ],
+    [
+      "NetworkPolicy",
+      "ewallet-agents",
+      "allow-fraud-coordinator-to-otel-collector-ingress"
+    ]
+  ],
+  "changed": [
+    [
+      "ConfigMap",
+      "ewallet-agents",
+      "llm-agent-network-flows"
+    ]
+  ],
+  "removed": []
+}

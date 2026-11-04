@@ -1,0 +1,17 @@
+[project]
+name = "ewallet-fraud-serving"
+version = "0.1.0"
+requires-python = ">=3.10,<3.11"
+# Model-inside-image KServe predictor. ML pins match ai_platform/ml/uv.lock so
+# the registered pickle loads with the exact numpy/sklearn it was trained on.
+dependencies = [
+  "cloudpickle==3.1.2",
+  "kserve==0.16.0",
+  "mlflow==3.17.1",
+  "numpy==2.2.6",
+  "pandas==2.3.3",
+  "scikit-learn==1.7.2",
+]
+
+[tool.uv]
+package = false

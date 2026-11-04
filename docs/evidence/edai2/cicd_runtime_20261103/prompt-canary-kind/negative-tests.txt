@@ -1,0 +1,14 @@
+baseline: cm 0c0798e185cd5f86 hash 12191494160716088411
+## 1 tampered registry content for drift-specialist-system/v2
+tamper apply HTTP 200
+resolver refused: prompt_registry: drift-specialist/v2 sha256 f69ed022f22a1aeb9fa739c7c0e30f2fef9c1ed52a5dabf36d6dac8ca0020bd4 differs from the Git manifest 0c0798e185cd5f8673406
+after tamper attempt: cm 0c0798e185cd5f86 hash 12191494160716088411
+## restore registry v2 from Git
+{"agent": "drift-specialist", "bytes": 1012, "sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef", "source": "regist
+## 2 unknown version
+prompt_registry: drift-specialist/v9 is not in the Git prompt manifest
+## 3 registry unavailable
+no-fallback refused: prompt_registry: registry unavailable: Remote end closed connection without response
+fallback annotations {'ewallet.io/prompt-version': 'drift-specialist/v2', 'ewallet.io/prompt-sha256': '0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef', 'ewallet.io/prompt-source': 'pinned-git-fallback'}
+after fallback apply: cm 0c0798e185cd5f86 hash 12191494160716088411  (content must equal baseline)
+deployment "prompt-registry-agentregistry" successfully rolled out

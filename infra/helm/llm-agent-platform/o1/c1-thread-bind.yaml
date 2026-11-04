@@ -1,0 +1,5 @@
+# C1 (concurrency): pin the 2 OpenMP threads (ompThreads: 2, = CPU request) to
+# logical CPUs 0-1 instead of 'auto', which bound inference to one core in G1.
+# Resources, replicas, model and every other setting unchanged.
+vllm:
+  cpuThreadsBind: "0-1"

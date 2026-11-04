@@ -1,0 +1,18 @@
+## ewallet-cicd
+secrets: 0
+serviceaccounts: default 
+rolebindings: jenkins-bounded-workloads->ewallet-ci/jenkins 
+default SA can-i (non-discovery):
+## ewallet-prompts
+secrets: 0
+serviceaccounts: default 
+rolebindings: jenkins-prompt-registry->ewallet-ci/jenkins 
+default SA can-i (non-discovery):
+## PSS: privileged pod (server dry-run)
+Error from server (Forbidden): pods "pss-probe" is forbidden: violates PodSecurity "restricted:latest": privileged (container "p" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (container "p" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "p" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "p" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "p" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+## PSS: hostPath + root (server dry-run)
+Error from server (Forbidden): pods "pss-probe2" is forbidden: violates PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "p" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "p" must set securityContext.capabilities.drop=["ALL"]), restricted volume types (volume "h" uses restricted volume type "hostPath"), runAsNonRoot != true (pod or container "p" must set securityContext.runAsNonRoot=true), runAsUser=0 (container "p" must not set runAsUser=0), seccompProfile (pod or container "p" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+## Quota: pod requesting 3 CPU in ewallet-cicd (server dry-run)
+Error from server (Forbidden): pods "quota-probe" is forbidden: exceeded quota: bounded-cd-workloads, requested: requests.cpu=3, used: requests.cpu=0, limited: requests.cpu=2
+## Quota: PVC in ewallet-cicd (server dry-run)
+Error from server (Forbidden): error when creating "STDIN": persistentvolumeclaims "q" is forbidden: exceeded quota: bounded-cd-workloads, requested: persistentvolumeclaims=1, used: persistentvolumeclaims=0, limited: persistentvolumeclaims=0

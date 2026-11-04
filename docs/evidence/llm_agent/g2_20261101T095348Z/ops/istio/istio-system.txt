@@ -1,0 +1,23 @@
+NAME                            DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE   CONTAINERS    IMAGES                                                    SELECTOR
+daemonset.apps/istio-cni-node   5         5         5       5            5           kubernetes.io/os=linux   13h   install-cni   registry.istio.io/release/install-cni:1.30.7-distroless   k8s-app=istio-cni-node
+daemonset.apps/ztunnel          5         5         5       5            5           kubernetes.io/os=linux   13h   istio-proxy   registry.istio.io/release/ztunnel:1.30.7-distroless       app=ztunnel
+
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                              SELECTOR
+deployment.apps/istiod   1/1     1            1           13h   discovery    registry.istio.io/release/pilot:1.30.7-distroless   istio=pilot
+
+NAME                          READY   STATUS    RESTARTS   AGE   IP           NODE                                     NOMINATED NODE   READINESS GATES
+pod/istio-cni-node-fg2v5      1/1     Running   0          47s   10.216.1.2   gke-ewallet-dev-cpu-pool-58daed59-l511   <none>           <none>
+pod/istio-cni-node-kqglm      1/1     Running   0          51s   10.216.2.4   gke-ewallet-dev-cpu-pool-58daed59-vm30   <none>           <none>
+pod/istio-cni-node-pcxgz      1/1     Running   0          50s   10.216.0.3   gke-ewallet-dev-cpu-pool-58daed59-fmzk   <none>           <none>
+pod/istio-cni-node-sfl9m      1/1     Running   0          10h   10.216.4.4   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+pod/istio-cni-node-tlhxh      1/1     Running   0          11h   10.216.5.2   gke-ewallet-dev-cpu-pool-58daed59-mb8v   <none>           <none>
+pod/istiod-5699dbf6d9-6pz4z   1/1     Running   0          10h   10.216.5.8   gke-ewallet-dev-cpu-pool-58daed59-mb8v   <none>           <none>
+pod/ztunnel-79s9l             1/1     Running   0          10h   10.216.4.3   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+pod/ztunnel-f7zdp             1/1     Running   0          51s   10.216.2.3   gke-ewallet-dev-cpu-pool-58daed59-vm30   <none>           <none>
+pod/ztunnel-sr828             1/1     Running   0          11h   10.216.5.4   gke-ewallet-dev-cpu-pool-58daed59-mb8v   <none>           <none>
+pod/ztunnel-xb5vl             1/1     Running   0          49s   10.216.1.4   gke-ewallet-dev-cpu-pool-58daed59-l511   <none>           <none>
+pod/ztunnel-xcmvp             1/1     Running   0          49s   10.216.0.2   gke-ewallet-dev-cpu-pool-58daed59-fmzk   <none>           <none>
+
+NAME                                     REQUEST       LIMIT   AGE
+resourcequota/istio-cni-resource-quota   pods: 10/5k           13h
+resourcequota/ztunnel                    pods: 10/5k           13h

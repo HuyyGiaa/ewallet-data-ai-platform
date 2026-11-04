@@ -1,0 +1,28 @@
+{
+  "models" : { },
+  "patchCapable" : true,
+  "managedIngestion" : {
+    "defaultCliVersion" : "1.7.0.5",
+    "enabled" : true
+  },
+  "versions" : {
+    "acryldata/datahub" : {
+      "version" : "v1.7.0.1",
+      "commit" : "e99431ec510d7a2001f815c6bf70913c493af76e"
+    }
+  },
+  "statefulIngestionCapable" : true,
+  "supportsImpactAnalysis" : true,
+  "timeZone" : "GMT",
+  "telemetry" : {
+    "enabledCli" : true,
+    "enabledIngestion" : false
+  },
+  "datasetUrnNameCasing" : false,
+  "datahub" : {
+    "serverEnv" : "core",
+    "serverType" : "quickstart"
+  },
+  "retention" : "true",
+  "noCode" : "true"
+}

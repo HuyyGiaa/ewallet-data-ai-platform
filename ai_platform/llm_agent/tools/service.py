@@ -1,7 +1,7 @@
 """FastAPI boundary for the Phase D MCP tool services.
 
 Two services follow the release inventory: ``feature-rag-mcp`` serves
-feature_lookup, fraud_scoring and knowledge_search; ``drift-mcp`` serves
+feature_lookup, fraud_scoring, knowledge_search and chunk_lookup; ``drift-mcp`` serves
 drift_detection. Each exposes typed REST routes, a stateless MCP Streamable
 HTTP endpoint (JSON responses, ``POST /mcp``) and live/ready probes.
 
@@ -17,8 +17,10 @@ the authentication mechanism itself is DECISION_REQUIRED (see ``security``).
 import json
 import logging
 import os
+from pathlib import Path
 import secrets
 import sys
+import time
 from typing import Any, Mapping
 from uuid import uuid4
 
@@ -27,24 +29,31 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
 from ai_platform.inference.errors import ConfigurationError
+from ai_platform.inference.schemas import FraudPredictionRequest
 from ai_platform.llm_agent.contracts import (
     TOOL_NAMES,
     TRACEPARENT_RE,
     RequestContext,
     VersionContext,
 )
+from ai_platform.llm_agent.observability import (
+    ToolTelemetry,
+    default_tool_telemetry,
+    mcp_semantic_outcome,
+    safe_tool_telemetry,
+)
 from ai_platform.llm_agent.tools.runtime import HTTP_STATUS, ToolExecutor, ToolHandler
 from ai_platform.llm_agent.tools.security import (
     REQUEST_ID_RE,
     AuthenticationError,
     Authenticator,
-    DenyAllAuthenticator,
     HttpSecuritySettings,
     Principal,
     RequestSecurityMiddleware,
     ToolGrants,
     accepts_json,
     authenticator_readiness,
+    configured_authenticator,
     error_response,
     is_json_content_type,
     verified_principal,
@@ -54,6 +63,11 @@ MCP_PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26")
 SERVER_VERSION = "1.0.0"
 DEFAULT_TIMEOUT_MS = 10_000
 _JSONRPC_ID_TYPES = (str, int)
+_TRANSACTION_FIELDS = frozenset(FraudPredictionRequest.model_fields)
+_MCP_TRANSACTION_EXTRAS = {
+    "feature_lookup": frozenset({"feature_names"}),
+    "fraud_scoring": frozenset(),
+}
 _VERSION_ENV = {
     "git_sha": "EWALLET_GIT_SHA",
     "image_digest": "EWALLET_IMAGE_DIGEST",
@@ -119,7 +133,27 @@ def _rpc_error(message_id: Any, code: int, message: str, status_code: int = 200)
     )
 
 
-def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHandler, grants: ToolGrants) -> None:
+def _normalize_mcp_tool_arguments(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Restore the typed transaction envelope flattened by kagent 0.10.3.
+
+    This compatibility rule is deliberately limited to the two transaction
+    tools and the exact fields in their published schemas. Nested arguments,
+    mixed shapes and unknown fields remain untouched so Pydantic continues to
+    reject them. REST requests retain their original strict contract.
+    """
+
+    extras = _MCP_TRANSACTION_EXTRAS.get(name)
+    if extras is None or "transaction" in arguments:
+        return arguments
+    if not arguments or not set(arguments).issubset(_TRANSACTION_FIELDS | extras):
+        return arguments
+    transaction = {key: value for key, value in arguments.items() if key in _TRANSACTION_FIELDS}
+    outer = {key: value for key, value in arguments.items() if key in extras}
+    return {"transaction": transaction, **outer}
+
+
+def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHandler,
+                         grants: ToolGrants, telemetry: ToolTelemetry) -> None:
     model = handler.input_model
 
     async def call_tool(payload: model, request: Request) -> JSONResponse:  # type: ignore[valid-type]
@@ -127,7 +161,14 @@ def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHand
         if not grants.allows(principal, handler.name):
             raise BoundaryError(403, "tool_forbidden", "The principal may not call this tool")
         context = request_context(request.headers, principal)
+        started = time.perf_counter()
         response = await executor.call(handler.name, payload, context)
+        telemetry.record_tool_call(
+            tool=handler.name,
+            outcome="success" if response.status == "ok" else "error",
+            duration_seconds=time.perf_counter() - started,
+            traceparent=context.traceparent,
+        )
         return JSONResponse(status_code=HTTP_STATUS[response.status], content=response.to_dict())
 
     app.add_api_route(
@@ -138,11 +179,15 @@ def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHand
 
 def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator: Authenticator,
                     grants: ToolGrants, http_settings: HttpSecuritySettings | None = None,
-                    logger: logging.Logger | None = None) -> FastAPI:
+                    logger: logging.Logger | None = None,
+                    telemetry: ToolTelemetry | None = None) -> FastAPI:
     # No unauthenticated schema endpoints: /docs, /redoc and /openapi.json are off.
     app = FastAPI(title=f"E-Wallet {service_name}", version=SERVER_VERSION,
                   docs_url=None, redoc_url=None, openapi_url=None)
     app.state.executor = executor
+    telemetry = safe_tool_telemetry(
+        telemetry or default_tool_telemetry(service_name, logger), logger
+    )
     app.add_middleware(RequestSecurityMiddleware, settings=http_settings or HttpSecuritySettings(),
                        authenticator=authenticator, logger=logger)
 
@@ -166,7 +211,7 @@ def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator:
         return _error(500, request, "internal_error", "Internal tool error")
 
     for handler in executor.handlers.values():
-        _register_tool_route(app, executor, handler, grants)
+        _register_tool_route(app, executor, handler, grants, telemetry)
 
     @app.get("/health/live")
     async def live() -> dict[str, str]:
@@ -190,7 +235,7 @@ def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator:
         report = await executor.readiness()
         return JSONResponse({"service": service_name, "tools": {
             name: {"status": item["status"], "code": item.get("code")}
-            for name, item in report.items() if grants.allows(principal, name)
+            for name, item in report.items() if grants.lists(principal, name)
         }})
 
     @app.post("/mcp")
@@ -238,7 +283,7 @@ def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator:
             return _rpc_result(message_id, {"tools": [
                 {"name": handler.name, "description": handler.description,
                  "inputSchema": handler.input_model.model_json_schema()}
-                for handler in executor.handlers.values() if grants.allows(principal, handler.name)
+                for handler in executor.handlers.values() if grants.lists(principal, handler.name)
             ]})
         if method == "tools/call":
             name, arguments = params.get("name"), params.get("arguments", {})
@@ -249,13 +294,21 @@ def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator:
             if not isinstance(arguments, dict):
                 return _rpc_error(message_id, -32602, "Invalid params")
             context = request_context(request.headers, principal)
-            response = await executor.call(name, arguments, context)
+            started = time.perf_counter()
+            response = await executor.call(name, _normalize_mcp_tool_arguments(name, arguments), context)
             payload = response.to_dict()
-            return _rpc_result(message_id, {
+            result = {
                 "content": [{"type": "text", "text": json.dumps(payload, sort_keys=True, default=str)}],
                 "structuredContent": payload,
                 "isError": response.status != "ok",
-            })
+            }
+            telemetry.record_tool_call(
+                tool=name,
+                outcome=mcp_semantic_outcome(result),
+                duration_seconds=time.perf_counter() - started,
+                traceparent=context.traceparent,
+            )
+            return _rpc_result(message_id, result)
         return _rpc_error(message_id, -32601, "Method not found")
 
     return app
@@ -286,22 +339,22 @@ def _executor(handlers: tuple[ToolHandler, ...], environment: Mapping[str, str])
 
 
 def _production_app(service_name: str, handlers: tuple[ToolHandler, ...], environment: Mapping[str, str]) -> FastAPI:
-    # DECISION_REQUIRED: no authentication mechanism is approved yet, so the
-    # production servers deny every tool request (fail closed) until one is wired.
+    grants = ToolGrants.from_env(environment)
+    logger = audit_logger()
     return create_tool_app(
         service_name=service_name,
         executor=_executor(handlers, environment),
-        authenticator=DenyAllAuthenticator(),
-        grants=ToolGrants.from_env(environment),
+        authenticator=configured_authenticator(
+            environment, known_subjects=grants.subjects, logger=logger
+        ),
+        grants=grants,
         http_settings=HttpSecuritySettings.from_env(environment),
-        logger=audit_logger(),
+        logger=logger,
     )
 
 
 def create_feature_rag_app(environment: Mapping[str, str] | None = None) -> FastAPI:
     """Production wiring: Feast Online + KServe + fail-closed knowledge retrieval."""
-
-    from pathlib import Path
 
     from feast import FeatureStore
 
@@ -311,7 +364,10 @@ def create_feature_rag_app(environment: Mapping[str, str] | None = None) -> Fast
     from ai_platform.inference.kserve import KServeV2Client
     from ai_platform.inference.observability import default_telemetry
     from ai_platform.inference.service import InferenceService
+    from ai_platform.inference.wire import FraudV2WireContract
+    from ai_platform.llm_agent.rag.online_retriever import FeastChunkRowSource
     from ai_platform.llm_agent.rag.pipeline import TrustedChunkIndex
+    from ai_platform.llm_agent.tools.chunk_lookup import ChunkLookupTool
     from ai_platform.llm_agent.tools.feature_lookup import FeatureLookupTool
     from ai_platform.llm_agent.tools.fraud_scoring import FraudScoringTool
     from ai_platform.llm_agent.tools.knowledge_search import KnowledgeSearchTool, UnavailableKnowledgeRetriever
@@ -327,24 +383,51 @@ def create_feature_rag_app(environment: Mapping[str, str] | None = None) -> Fast
         predictor=KServeV2Client(
             base_url=settings.kserve_base_url, model_name=settings.model_name,
             model_version=settings.model_version, timeout_seconds=settings.kserve_timeout_seconds,
+            wire_contract=FraudV2WireContract(),
         ),
         telemetry=default_telemetry(),
     )
     index = TrustedChunkIndex.from_manifest(Path(values["EWALLET_RAG_MANIFEST"]))
+    rag_store = _rag_feature_store(store, values, timeout_seconds=settings.feast_timeout_seconds)
     handlers = (
         FeatureLookupTool(features),
         FraudScoringTool(scoring, model_name=settings.model_name, model_version=settings.model_version),
-        KnowledgeSearchTool(_knowledge_retriever(index, store, settings.feast_timeout_seconds, values)),
+        KnowledgeSearchTool(_knowledge_retriever(index, rag_store, settings.feast_timeout_seconds, values)),
+        ChunkLookupTool(index, FeastChunkRowSource(rag_store, timeout_seconds=settings.feast_timeout_seconds)),
     )
     return _production_app("feature-rag-mcp", handlers, values)
+
+
+def _rag_feature_store(store, values: Mapping[str, str], *, timeout_seconds: float):
+    """Return the separate RAG Feast project when its registry is configured."""
+
+    if not values.get("EWALLET_RAG_FEAST_REGISTRY", "").strip():
+        return store
+    from feast import FeatureStore
+
+    from ai_platform.inference.config import configure_feast_redis_timeouts
+    from ai_platform.llm_agent.rag.feast_publication import FeastTarget, repo_config
+
+    redis = getattr(store.config.online_store, "connection_string", None)
+    if getattr(store.config.online_store, "type", None) != "redis" or not redis:
+        raise ConfigurationError()
+    target = FeastTarget(
+        "redis",
+        values.get("EWALLET_RAG_FEAST_PROJECT", "").strip() or "ewallet_rag",
+        values["EWALLET_RAG_FEAST_REGISTRY"],
+        "unused-by-readers",
+        redis,
+    )
+    rag_store = FeatureStore(config=repo_config(target))
+    configure_feast_redis_timeouts(rag_store, timeout_seconds=timeout_seconds)
+    return rag_store
 
 
 def _knowledge_retriever(index, store, timeout_seconds: float, values: Mapping[str, str]):
     """Exact retrieval over Feast Online rows only when explicitly configured.
 
-    EWALLET_RAG_RETRIEVER=feast-online-exact needs EWALLET_RAG_EMBEDDING_ENDPOINT
-    (OpenAI-compatible, serving the manifest's embedding model revision);
-    anything else keeps the fail-closed placeholder.
+    The query embedder must match the versioned corpus: either the pinned local
+    ONNX model or an explicitly configured OpenAI-compatible endpoint.
     """
 
     from ai_platform.llm_agent.rag.online_retriever import (
@@ -357,13 +440,26 @@ def _knowledge_retriever(index, store, timeout_seconds: float, values: Mapping[s
     mode = values.get("EWALLET_RAG_RETRIEVER", "unavailable")
     if mode == "unavailable":
         return UnavailableKnowledgeRetriever(index, online_store=values.get("EWALLET_RAG_ONLINE_STORE", "redis"))
-    if mode != "feast-online-exact" or not values.get("EWALLET_RAG_EMBEDDING_ENDPOINT"):
+    embedder_mode = values.get("EWALLET_RAG_EMBEDDER", "endpoint")
+    if mode != "feast-online-exact" or embedder_mode not in ("endpoint", "local-onnx") or (
+            embedder_mode == "endpoint" and not values.get("EWALLET_RAG_EMBEDDING_ENDPOINT")):
         raise ConfigurationError()
     manifest = index.manifest
-    embedder = OpenAICompatibleQueryEmbedder(
-        endpoint=values["EWALLET_RAG_EMBEDDING_ENDPOINT"], model=manifest.embedding_model_id,
-        model_revision=manifest.embedding_model_revision, dimensions=manifest.embedding_dimensions,
-    )
+    if embedder_mode == "local-onnx":
+        from ai_platform.llm_agent.rag.embedding import LocalQueryEmbedder, OnnxSentenceEmbedder
+
+        cache = values.get("EWALLET_RAG_MODEL_CACHE")
+        embedder = LocalQueryEmbedder(OnnxSentenceEmbedder(
+            manifest.embedding_model_id,
+            manifest.embedding_model_revision,
+            manifest.embedding_dimensions,
+            cache_dir=Path(cache) if cache else None,
+        ))
+    else:
+        embedder = OpenAICompatibleQueryEmbedder(
+            endpoint=values["EWALLET_RAG_EMBEDDING_ENDPOINT"], model=manifest.embedding_model_id,
+            model_revision=manifest.embedding_model_revision, dimensions=manifest.embedding_dimensions,
+        )
     return FeastOnlineExactRetriever(index, FeastChunkRowSource(store, timeout_seconds=timeout_seconds), embedder)
 
 

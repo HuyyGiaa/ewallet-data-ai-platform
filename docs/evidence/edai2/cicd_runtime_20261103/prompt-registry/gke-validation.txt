@@ -1,0 +1,11 @@
+health {"status":"ok","platform_mode":"kubernetes"} version {"version":"v0.4.0","git_commit":"aef6563","build_time":"2026-08-03"}
+publish-all PASS apply 17 readback 17 git_sha 00c07bcf018a73f60cbb0cb9f168152a2ec50d4f
+{"agent": "drift-specialist", "bytes": 794, "sha256": "9330dda3061ba50246e15d4d91065ccbfd5b40afc634a380b5e7f72632cd6945", "source": "registry", "version": "v1"}
+{"agent": "drift-specialist", "bytes": 1012, "sha256": "0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef", "source": "registry", "version": "v2"}
+{"agent": "feature-rag-specialist", "bytes": 967, "sha256": "a3ccfe5ce07f05ea155bfb3ff658df4dff8ac928f0ea23fb35481dc7519b2112", "source": "registry", "version": "v5"}
+{"agent": "fraud-coordinator", "bytes": 853, "sha256": "416963bcfe2c1e1774d4dac20605cf5e56fb36450bbb7053ad5c53cdee41afb6", "source": "registry", "version": "v5"}
+## production consumption (read-only)
+systemMessageFrom={"key":"system.md","name":"drift-specialist-prompt-v2","type":"ConfigMap"}
+annotation-sha=0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef
+configmap drift-specialist-prompt-v2 sha256=0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef
+registry   drift-specialist-system/v2 sha256=0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef

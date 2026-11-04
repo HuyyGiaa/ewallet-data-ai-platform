@@ -1,0 +1,5 @@
+$ curl -s -o /dev/null -w 'GET /v2/models/fraud-detector/ready -> HTTP %{http_code}\n' http://127.0.0.1:18181/v2/models/fraud-detector/ready; curl -s http://127.0.0.1:18181/v2/models/fraud-detector | python3 -c 'import json,sys;d=json.load(sys.stdin);print("name:",d["name"],"| versions:",d.get("versions"),"| platform:",d.get("platform"));print("inputs:",len(d["inputs"]),"features e.g.",[i["name"] for i in d["inputs"][:4]]);print("outputs:",[o["name"] for o in d["outputs"]])'
+GET /v2/models/fraud-detector/ready -> HTTP 200
+name: fraud-detector | versions: None | platform: 
+inputs: 41 features e.g. ['amount', 'type', 'channel', 'merchant_present']
+outputs: ['fraud_probability', 'fraud_prediction']

@@ -1,0 +1,23 @@
+{
+  "completed_at": "2026-11-02T04:48:04.747624+00:00",
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "feast": {
+    "offline_source": "gs://ewallet-data-ai-platform-hg26-data/features/rag/runs/g3-functional-rag-20261102t045700z/fraud-policy-feast-v1/chunks.parquet",
+    "online_store": "redis",
+    "profile": "canonical",
+    "project": "ewallet_rag_campaign",
+    "registry": "gs://ewallet-data-ai-platform-hg26-data/features/registries/rag/runs/g3-functional-rag-20261102t045700z/registry.db"
+  },
+  "feast_vector_search": "NOT_USED (online store is read by chunk_id; similarity is computed in process)",
+  "feature_index_revision": "fraud-policy-feast-v1",
+  "materialization": {
+    "feature_view": "fraud_policy_chunks",
+    "materialize_end": "2026-11-02T04:48:01.370831+00:00",
+    "materialize_start": "2026-10-29T23:59:59+00:00"
+  },
+  "offline_status": "WRITTEN",
+  "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+  "row_count": 4,
+  "run_id": "g3-functional-rag-20261102t045700z",
+  "stage": "publish"
+}

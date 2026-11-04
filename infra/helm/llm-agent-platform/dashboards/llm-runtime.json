@@ -1,0 +1,241 @@
+{
+  "title": "E-Wallet LLM Runtime",
+  "uid": "ewallet-llm-runtime",
+  "schemaVersion": 39,
+  "tags": [
+    "ewallet",
+    "llm",
+    "vllm"
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Input and output tokens",
+      "telemetryStatus": "runtime-pending",
+      "description": "Native vLLM metrics; verify labels against the deployed 0.32.0 runtime.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(vllm:prompt_tokens_total[5m]))"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(vllm:generation_tokens_total[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Time to first token p95",
+      "telemetryStatus": "runtime-pending",
+      "description": "Native vLLM histogram; no client-side substitute is claimed.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "End-to-end latency p95",
+      "telemetryStatus": "runtime-pending",
+      "description": "Native vLLM histogram.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Running and waiting requests",
+      "telemetryStatus": "runtime-pending",
+      "description": "Native vLLM gauges.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(vllm:num_requests_running)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(vllm:num_requests_waiting)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "LLM errors and retries",
+      "telemetryStatus": "source-verified",
+      "description": "Metric names were read from the pinned agentgateway binary.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (error_type) (rate(agentgateway_gen_ai_server_request_duration_count{error_type!=\"\"}[5m]))"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(agentgateway_retries_total[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "CPU and memory",
+      "telemetryStatus": "source-verified",
+      "description": "Standard cAdvisor series scoped to vLLM.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"vllm-.*\",container=\"vllm\"}[5m]))"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(container_memory_working_set_bytes{pod=~\"vllm-.*\",container=\"vllm\"})"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Tokens per request (input / output / total)",
+      "telemetryStatus": "source-verified",
+      "description": "Row 50: average prompt, generation and total tokens per vLLM request.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(vllm:request_prompt_tokens_sum[5m])) / sum(rate(vllm:request_prompt_tokens_count[5m]))",
+          "legendFormat": "input"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(vllm:request_generation_tokens_sum[5m])) / sum(rate(vllm:request_generation_tokens_count[5m]))",
+          "legendFormat": "output"
+        },
+        {
+          "refId": "C",
+          "expr": "(sum(rate(vllm:request_prompt_tokens_sum[5m])) + sum(rate(vllm:request_generation_tokens_sum[5m]))) / sum(rate(vllm:request_prompt_tokens_count[5m]))",
+          "legendFormat": "total"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Tokens (time range): input / output / total",
+      "telemetryStatus": "source-verified",
+      "description": "Row 50: token counts summed over the selected range.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(vllm:prompt_tokens_total[$__range]))",
+          "legendFormat": "input"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(vllm:generation_tokens_total[$__range]))",
+          "legendFormat": "output"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(increase(vllm:prompt_tokens_total[$__range])) + sum(increase(vllm:generation_tokens_total[$__range]))",
+          "legendFormat": "total"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Generation round-trip time p50 / p95",
+      "telemetryStatus": "source-verified",
+      "description": "Row 50: vLLM end-to-end request latency.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Time to first token p50 / p95",
+      "telemetryStatus": "source-verified",
+      "description": "Row 50: vLLM TTFT.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Prompts caught by the PII screen (time range)",
+      "telemetryStatus": "runtime-pending",
+      "description": "Row 50: prompts masked by prompt_safety.py before the LLM call, and prompts screened. Exact count from zero-initialized per-pod series: max_over_time - min_over_time per series, summed; no extrapolation. Limits: a process restart inside the same pod resets a series under the same identity and is under-counted; events after the last scrape in the range, or between the range start and the first sample of a series that predates the range, are not visible (one 30 s scrape interval); series that first appeared already incremented (images before F2) are not counted.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent) (max_over_time(ewallet_llm_prompts_screened_total{result=\"pii_masked\"}[$__range]) - min_over_time(ewallet_llm_prompts_screened_total{result=\"pii_masked\"}[$__range]))",
+          "legendFormat": "{{agent}} caught"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (agent) (max_over_time(ewallet_llm_prompts_screened_total[$__range]) - min_over_time(ewallet_llm_prompts_screened_total[$__range]))",
+          "legendFormat": "{{agent}} screened"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "PII detections by type (time range)",
+      "telemetryStatus": "runtime-pending",
+      "description": "Row 50: masked PII items per type (values are never exported). Exact count from zero-initialized per-pod series: max_over_time - min_over_time per series, summed; no extrapolation. Limits: a process restart inside the same pod resets a series under the same identity and is under-counted; events after the last scrape in the range, or between the range start and the first sample of a series that predates the range, are not visible (one 30 s scrape interval); series that first appeared already incremented (images before F2) are not counted.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent, pii_type) (max_over_time(ewallet_llm_prompt_pii_detections_total[$__range]) - min_over_time(ewallet_llm_prompt_pii_detections_total[$__range]))",
+          "legendFormat": "{{agent}} {{pii_type}}"
+        }
+      ]
+    }
+  ]
+}

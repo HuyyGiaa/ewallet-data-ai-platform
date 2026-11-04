@@ -1,6 +1,7 @@
 # kagent bounded pilot runbook
 
-Status: prepared only; not deployed. This is a compatibility pilot, not a production design.
+Status: runtime-validated on 2026-11-02. This remains a bounded compatibility
+pilot, not a production design.
 
 ## Purpose and boundary
 
@@ -9,7 +10,7 @@ The pilot proves one path only:
 ```text
 SandboxAgent (kagent.dev/v1alpha2)
   -> ModelConfig
-  -> mock-openai.kagent.svc.cluster.local:8080/v1/chat/completions
+  -> mock-openai.kagent-pilot.svc.cluster.local:8080/v1/chat/completions
 ```
 
 It contains no MCP, A2A tools, Istio, Gateway API, Feast, KServe, RAG, vLLM,
@@ -29,7 +30,8 @@ The executable pins and OCI manifest digests are in
 | Agent Substrate | `ghcr.io/kagent-dev/substrate/helm/substrate` | `0.0.9` |
 
 `scripts/render.sh` fails if Helm reports a chart digest different from the
-recorded digest. The WorkerPool image is pinned to the approved `v0.0.9` tag.
+recorded digest. The WorkerPool image is pinned to the approved `v0.0.9`
+remote digest.
 The mock base image is pinned by multi-architecture manifest digest.
 
 ## Helm reductions and resource envelope
@@ -64,48 +66,55 @@ These fit as a bounded request envelope on one `e2-standard-4`; actual startup
 must still be observed because privileged atelet/gVisor and six Valkey pods are
 preview software with non-trivial overhead.
 
+Substrate is configured with `atelet.storageBackend=s3` and the in-cluster
+RustFS service/bucket `ate-snapshots`. The `gs://ate-snapshots/...` value exposed
+by the preview Actor API is a logical snapshot URI prefix in this deployment;
+the runtime has no GCS credential or GCP IAM binding and the snapshot PVC is
+`ate-system/rustfs-data`.
+
 ## Security properties
 
-- `kagent` and `ate-system` are the only pilot namespaces.
-- kagent watches only `kagent`; its chart renders namespaced Role/RoleBinding
-  resources through `rbac.namespaces=[kagent]`.
+- `kagent-pilot` and `ate-system` are the pilot namespaces. The existing
+  production-owned `kagent` namespace is preserved.
+- kagent watches `ewallet-agents,kagent-pilot`; the privileged WorkerPool is
+  isolated in `kagent-pilot`, whose Pod Security admission mode does not alter
+  the production `kagent` namespace.
 - Substrate's own chart still needs its upstream cluster-scoped CRDs and least
   privilege controller/node RBAC. No `cluster-admin` binding is added here.
-- Mock, SandboxAgent and WorkerPool use dedicated ServiceAccounts. Mock and
-  SandboxAgent tokens are not mounted; the WorkerPool token is retained because
-  Substrate requires it.
-- Mock is ClusterIP only, has a same-namespace ingress NetworkPolicy, no egress,
-  and runs non-root with a read-only filesystem and all Linux capabilities dropped.
+- Mock and SandboxAgent use dedicated ServiceAccounts without mounted tokens.
+  The WorkerPool uses the namespace default ServiceAccount with token automount
+  disabled and no RBAC grants.
+- Mock is ClusterIP only. Its ingress NetworkPolicy admits only pods labeled
+  `ate.dev/worker-pool=kagent-pilot`; its egress is empty. Runtime tests prove
+  the WorkerPool path succeeds while an unlabeled same-namespace pod and a pod
+  in another namespace time out. The mock runs non-root with a read-only
+  filesystem and all Linux capabilities dropped.
 - Sandbox networking allows only the mock Service DNS name.
 - The API key Secret contains a fixed non-sensitive compatibility placeholder.
   The OpenAI client interface expects an API-key field; the mock does not verify it.
 - No GCP service-account key or IAM binding is required.
 
-## Future USER_RUN deployment
+## Controlled deployment procedure
 
-Run from repository root only after explicitly approving the pilot and accepting
-the cost of one GKE node. None of these commands have been executed while
-preparing this runbook.
+Run from repository root only after explicit approval and fresh readback of
+Helm ownership. This procedure was exercised in the 2026-11-02 campaign.
 
-### 1. Select cluster and scale 0 -> 1
+### 1. Select cluster and verify existing capacity
 
 ```bash
 export PROJECT_ID=ewallet-data-ai-platform-hg26
 export CLUSTER=ewallet-dev
 export ZONE=asia-southeast1-b
-export NODE_POOL=cpu-pool
 export PILOT_DIR="$PWD/infra/kubernetes/kagent-pilot"
 export RENDER_DIR="$(mktemp -d /tmp/kagent-pilot-render.XXXXXX)"
 
 gcloud config set project "$PROJECT_ID"
 gcloud container clusters get-credentials "$CLUSTER" \
   --zone "$ZONE" --project "$PROJECT_ID"
-gcloud container clusters resize "$CLUSTER" \
-  --node-pool "$NODE_POOL" --num-nodes 1 \
-  --zone "$ZONE" --project "$PROJECT_ID" --quiet
 
 kubectl wait --for=condition=Ready nodes --all --timeout=15m
 kubectl get nodes -o wide
+kubectl top nodes
 ```
 
 ### 2. Verify local render and create isolated namespaces
@@ -114,9 +123,8 @@ kubectl get nodes -o wide
 "$PILOT_DIR/scripts/render.sh" "$RENDER_DIR"
 source "$PILOT_DIR/versions.env"
 
-kubectl create namespace ate-system
-kubectl create namespace kagent
 kubectl apply -f "$PILOT_DIR/manifests/security.yaml"
+kubectl apply -f "$PILOT_DIR/manifests/namespace.yaml"
 ```
 
 ### 3. Install pinned Substrate CRDs and control plane
@@ -144,34 +152,46 @@ kubectl wait --for=condition=complete job/valkey-cluster-init -n ate-system --ti
 
 ### 4. Install pinned kagent CRDs and core controller
 
+The `kagent` release is already production-owned. Read back its namespace,
+revision and values first. The runtime overlay intentionally preserves
+`ewallet-agents` and adds only `kagent-pilot`; the fail-closed post-renderer
+removes ate-api Secret access from production namespaces and relocates only the
+WorkerPool.
+
 ```bash
 helm upgrade --install kagent-crds "$RENDER_DIR/charts/kagent-crds" \
   --namespace kagent --wait --timeout 10m
 
+kubectl get configmap ateapi-ca -n ate-system -o json | \
+  jq '.metadata = {name:"substrate-ateapi-ca",namespace:"kagent"}' | \
+  kubectl apply -f -
+
 helm upgrade --install kagent "$RENDER_DIR/charts/kagent" \
   --namespace kagent \
-  --values "$PILOT_DIR/values/kagent.yaml" \
+  --reuse-values \
+  --values "$PILOT_DIR/values/kagent-runtime-overlay.yaml" \
+  --post-renderer "$PILOT_DIR/scripts/kagent_runtime_post_renderer.py" \
   --wait --timeout 20m
 
 kubectl rollout status deployment/kagent-controller -n kagent --timeout=10m
 kubectl rollout status deployment/kagent-postgresql -n kagent --timeout=10m
 kubectl wait --for=jsonpath='{.status.replicas}'=1 workerpool/kagent-pilot \
-  -n kagent --timeout=15m
-kubectl get workerpool kagent-pilot -n kagent -o yaml
+  -n kagent-pilot --timeout=15m
+kubectl get workerpool kagent-pilot -n kagent-pilot -o yaml
 ```
 
 ### 5. Deploy the internal mock, ModelConfig and SandboxAgent
 
 ```bash
 kubectl apply -f "$PILOT_DIR/manifests/mock-openai.yaml"
-kubectl rollout status deployment/mock-openai -n kagent --timeout=5m
+kubectl rollout status deployment/mock-openai -n kagent-pilot --timeout=5m
 
 kubectl apply -f "$PILOT_DIR/manifests/model-config.yaml"
 kubectl apply -f "$PILOT_DIR/manifests/sandbox-agent.yaml"
 
 kubectl wait --for=condition=Ready sandboxagent/pilot-sandbox-agent \
-  -n kagent --timeout=20m
-kubectl get modelconfig,workerpool,sandboxagent,actortemplate -n kagent -o wide
+  -n kagent-pilot --timeout=20m
+kubectl get modelconfig,workerpool,sandboxagent,actortemplate -n kagent-pilot -o wide
 ```
 
 If the `SandboxAgent` does not become Ready, stop. Do not add replicas during
@@ -208,10 +228,10 @@ JSON
 curl --fail-with-body --silent --show-error \
   -H 'Content-Type: application/json' \
   --data-binary @/tmp/kagent-pilot-request.json \
-  http://127.0.0.1:8083/api/a2a/kagent/pilot-sandbox-agent | tee /tmp/kagent-pilot-response.json
+  http://127.0.0.1:8083/api/a2a-sandboxes/kagent-pilot/pilot-sandbox-agent | tee /tmp/kagent-pilot-response.json
 
 grep -F 'KAGENT_PILOT_OK' /tmp/kagent-pilot-response.json
-kubectl logs -n kagent deployment/mock-openai --since=10m | \
+kubectl logs -n kagent-pilot deployment/mock-openai --since=10m | \
   grep -F '"event": "mock_completion"'
 ```
 
@@ -227,7 +247,7 @@ sleep 60
 curl --fail-with-body --silent --show-error \
   -H 'Content-Type: application/json' \
   --data-binary @/tmp/kagent-pilot-request-2.json \
-  http://127.0.0.1:8083/api/a2a/kagent/pilot-sandbox-agent | \
+  http://127.0.0.1:8083/api/a2a-sandboxes/kagent-pilot/pilot-sandbox-agent | \
   tee /tmp/kagent-pilot-response-2.json
 grep -F 'KAGENT_PILOT_OK' /tmp/kagent-pilot-response-2.json
 ```
@@ -243,13 +263,13 @@ mkdir -p /tmp/kagent-pilot-evidence
 kubectl version -o yaml > /tmp/kagent-pilot-evidence/kubernetes-version.yaml
 kubectl get pods -A -o wide > /tmp/kagent-pilot-evidence/pods.txt
 kubectl get events -A --sort-by=.lastTimestamp > /tmp/kagent-pilot-evidence/events.txt
-kubectl get modelconfig,workerpool,sandboxagent,actortemplate -n kagent -o yaml \
+kubectl get modelconfig,workerpool,sandboxagent,actortemplate -n kagent-pilot -o yaml \
   > /tmp/kagent-pilot-evidence/custom-resources.yaml
-kubectl describe sandboxagent pilot-sandbox-agent -n kagent \
+kubectl describe sandboxagent pilot-sandbox-agent -n kagent-pilot \
   > /tmp/kagent-pilot-evidence/sandboxagent-describe.txt
 kubectl logs -n kagent deployment/kagent-controller --since=30m \
   > /tmp/kagent-pilot-evidence/kagent-controller.log
-kubectl logs -n kagent deployment/mock-openai --since=30m \
+kubectl logs -n kagent-pilot deployment/mock-openai --since=30m \
   > /tmp/kagent-pilot-evidence/mock-openai.log
 kubectl logs -n ate-system deployment/ate-controller --since=30m \
   > /tmp/kagent-pilot-evidence/ate-controller.log
@@ -271,7 +291,11 @@ kubectl delete -f "$PILOT_DIR/manifests/sandbox-agent.yaml" --ignore-not-found -
 kubectl delete -f "$PILOT_DIR/manifests/model-config.yaml" --ignore-not-found --wait
 kubectl delete -f "$PILOT_DIR/manifests/mock-openai.yaml" --ignore-not-found --wait
 
-helm uninstall kagent --namespace kagent --wait
+# The kagent release is shared by production G3. Never uninstall it here.
+# Restore the baseline revision recorded before the pilot (revision 2 for the
+# 2026-11-02 campaign), then verify all three production Agents and both
+# RemoteMCPServers before proceeding.
+helm rollback kagent 2 --namespace kagent --wait --timeout 20m
 helm uninstall substrate --namespace ate-system --wait
 kubectl delete -f "$PILOT_DIR/manifests/security.yaml" --ignore-not-found --wait
 ```
@@ -283,30 +307,22 @@ resources use them:
 kubectl get modelconfig,sandboxagent,agent,agentharness --all-namespaces
 kubectl get workerpool,actortemplate --all-namespaces
 
-helm uninstall kagent-crds --namespace kagent --wait
+# kagent CRDs predate and are shared with G3; do not remove them here.
 helm uninstall substrate-crds --namespace ate-system --wait
 ```
 
 Inspect namespace contents before deleting the pilot namespaces:
 
 ```bash
-kubectl get all,pvc,secret,configmap -n kagent
+kubectl get all,pvc,secret,configmap -n kagent-pilot
 kubectl get all,pvc,secret,configmap -n ate-system
-kubectl delete namespace kagent ate-system --wait
+kubectl delete namespace kagent-pilot ate-system --wait
 ```
 
-Finally return the CPU pool to zero:
+Do not resize the shared GKE node pool from this pilot runbook. Capacity changes
+require a separate owner-approved operation.
 
-```bash
-gcloud container clusters resize ewallet-dev \
-  --node-pool cpu-pool --num-nodes 0 \
-  --zone asia-southeast1-b \
-  --project ewallet-data-ai-platform-hg26 --quiet
-gcloud container node-pools describe cpu-pool \
-  --cluster ewallet-dev --zone asia-southeast1-b \
-  --project ewallet-data-ai-platform-hg26 \
-  --format='yaml(autoscaling.enabled,initialNodeCount,status)'
-```
+Finally verify the shared node pool and G3/MLOps workloads are unchanged.
 
 ## Known assumptions and stop conditions
 

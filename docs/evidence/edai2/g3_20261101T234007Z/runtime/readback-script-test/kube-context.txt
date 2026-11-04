@@ -1,0 +1,1 @@
+gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev

@@ -1,0 +1,65 @@
+{
+ "_links": {
+  "self": {
+   "href": "/job/edai2-cd-rag-pipeline/7/wfapi/describe"
+  },
+  "changesets": {
+   "href": "/job/edai2-cd-rag-pipeline/7/wfapi/changesets"
+  },
+  "artifacts": {
+   "href": "/job/edai2-cd-rag-pipeline/7/wfapi/artifacts"
+  }
+ },
+ "id": "7",
+ "name": "#7",
+ "status": "SUCCESS",
+ "startTimeMillis": 1793696771973,
+ "endTimeMillis": 1793696861919,
+ "durationMillis": 89946,
+ "queueDurationMillis": 12,
+ "pauseDurationMillis": 0,
+ "stages": [
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/7/execution/node/13/wfapi/describe"
+    }
+   },
+   "id": "13",
+   "name": "Checkout and provenance",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793696792571,
+   "durationMillis": 406,
+   "pauseDurationMillis": 0
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/7/execution/node/18/wfapi/describe"
+    }
+   },
+   "id": "18",
+   "name": "Validate catalog and detect scope",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793696793015,
+   "durationMillis": 438,
+   "pauseDurationMillis": 0
+  },
+  {
+   "_links": {
+    "self": {
+     "href": "/job/edai2-cd-rag-pipeline/7/execution/node/27/wfapi/describe"
+    }
+   },
+   "id": "27",
+   "name": "Component CI",
+   "execNode": "",
+   "status": "SUCCESS",
+   "startTimeMillis": 1793696793489,
+   "durationMillis": 67639,
+   "pauseDurationMillis": 0
+  }
+ ]
+}

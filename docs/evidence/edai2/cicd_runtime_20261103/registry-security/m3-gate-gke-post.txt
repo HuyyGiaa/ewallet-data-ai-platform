@@ -1,0 +1,21 @@
+2026-11-03T14:19:13Z
+## GKE: M3 gate, GET-only
+{
+ "phase": "post",
+ "report": {
+  "drift-specialist/v1": "MATCH",
+  "drift-specialist/v2": "MATCH",
+  "feature-rag-specialist/v1": "MATCH",
+  "feature-rag-specialist/v2": "MATCH",
+  "feature-rag-specialist/v3": "MATCH",
+  "feature-rag-specialist/v4": "MATCH",
+  "feature-rag-specialist/v5": "MATCH",
+  "fraud-coordinator/v1": "MATCH",
+  "fraud-coordinator/v2": "MATCH",
+  "fraud-coordinator/v3": "MATCH",
+  "fraud-coordinator/v4": "MATCH",
+  "fraud-coordinator/v5": "MATCH"
+ },
+ "verdict": "PASS"
+}
+rc=0

@@ -1,0 +1,103 @@
+2026-11-01T12:44:44Z g2 start git=0c89af3b08561e4f9e58b7cc80273457ab6e4d0f levels=1,2,4,8
+{
+ "ok": true,
+ "problems": [],
+ "token_budget": {
+  "rate": {
+   "maxTokens": 150000,
+   "tokensPerFill": 150000,
+   "fillInterval": "1h",
+   "type": "tokens",
+   "key": "llm.requestModel"
+  },
+  "per_pass": {
+   "per_level": 9736,
+   "levels": 4,
+   "pass_total": 42290
+  },
+  "required_with_margin": 138870
+ }
+}
+{"healthy": true, "pods": 24, "inferenceservices": {"fraud-serving/fraud-detector": true}}
+{
+ "verdict": "FITS_SAFE_BUDGET",
+ "g2_nodes": [
+  "gke-ewallet-dev-cpu-pool-58daed59-336c",
+  "gke-ewallet-dev-cpu-pool-58daed59-qp3l",
+  "gke-ewallet-dev-cpu-pool-58daed59-z2n5"
+ ],
+ "placement": [
+  {
+   "name": "vllm-fallback",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-336c"
+  },
+  {
+   "name": "vllm-primary",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-qp3l"
+  },
+  {
+   "name": "vllm-primary",
+   "cpu": 2.0,
+   "memory_gib": 6.0,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-z2n5"
+  },
+  {
+   "name": "llmd-router-epp",
+   "cpu": 0.2,
+   "memory_gib": 0.375,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-336c"
+  },
+  {
+   "name": "agentgateway",
+   "cpu": 0.1,
+   "memory_gib": 0.125,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-qp3l"
+  },
+  {
+   "name": "agentgateway",
+   "cpu": 0.1,
+   "memory_gib": 0.125,
+   "node": "gke-ewallet-dev-cpu-pool-58daed59-z2n5"
+  }
+ ],
+ "unplaced": []
+}
+2026-11-01T12:46:41Z gate A: deploy B2 (two C1 replicas)
+2026-11-01T13:03:07Z gate B: netpol-verify
+2026-11-01T13:03:57Z gate B: smoke-direct
+2026-11-01T13:04:40Z gate B: smoke-gateway
+2026-11-01T13:05:27Z gate B: failover
+2026-11-01T13:21:04Z b2: primaries fresh since 2026-11-01T13:05:27Z (restarted: no)
+2026-11-01T13:21:22Z benchmark b2 pods=vllm-primary-66c5f9687c-d7ggp,vllm-primary-66c5f9687c-wr29m,
+2026-11-01T13:33:40Z gate D: O2 policies and gateway route, then install llmd-router
+epp ready_endpoints [2.0]
+2026-11-01T13:34:27Z gate D: netpol-verify
+2026-11-01T13:35:43Z gate D: smoke-gateway
+2026-11-01T13:36:31Z gate D: failover
+2026-11-01T13:52:01Z o2: primaries fresh since 2026-11-01T13:36:31Z (restarted: no)
+2026-11-01T13:52:10Z benchmark o2 pods=vllm-primary-66c5f9687c-4zjmb,vllm-primary-66c5f9687c-xxjwz,
+{
+ "verdict": "MIXED",
+ "fairness_issues": [],
+ "gain_levels": [
+  "4",
+  "8"
+ ],
+ "regression_levels": [
+  "1",
+  "2"
+ ]
+}
+2026-11-01T14:04:40Z g2 complete
+2026-11-01T14:04:40Z cleanup (status 0)
+pool_size=2
+nodes_after=gke-ewallet-dev-cpu-pool-58daed59-08s1 gke-ewallet-dev-cpu-pool-58daed59-mb8v 
+mlops_nodes_before=gke-ewallet-dev-cpu-pool-58daed59-08s1 gke-ewallet-dev-cpu-pool-58daed59-mb8v 
+llm_releases_after=
+ewallet_agents_objects_after=
+2026-11-01T14:07:38Z cleanup done
+exit=0

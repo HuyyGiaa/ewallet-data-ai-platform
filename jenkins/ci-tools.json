@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "tools": {
+    "helm": {
+      "version": "v3.22.0",
+      "url": "https://get.helm.sh/helm-v3.22.0-linux-amd64.tar.gz",
+      "archive_sha256": "1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb",
+      "member": "linux-amd64/helm",
+      "binary_sha256": "7a319dee5ea7a1f7d7a0d92d5c223586f3b65abc33163c9de2a85f083aa3df2b"
+    }
+  }
+}

@@ -44,6 +44,15 @@ class CollectorTests(unittest.TestCase):
     def test_disabled_by_default(self):
         self.assertFalse([i for i in render() if i["kind"] == "Deployment" and i["metadata"]["name"] == "otel-collector"])
 
+    def test_existing_mcp_services_are_not_rolled_by_default(self):
+        values = yaml.safe_load((CHART / "values.yaml").read_text())
+        self.assertFalse(values["otelCollector"]["injectMcpServices"])
+        self.assertEqual(values["mcpServices"]["observability"]["otlpEndpoint"], "")
+        template = (CHART / "templates/mcp-services.yaml").read_text()
+        self.assertIn("and $.Values.otelCollector.enabled $.Values.otelCollector.injectMcpServices", template)
+        self.assertIn("else if $sharedOtlpEndpoint", template)
+        self.assertIn("mcpServices.observability.otlpEndpoint must be a DNS host:port", template)
+
     def test_every_pipeline_redacts_before_export(self):
         config = collector_config(render(self.ON))
         pipelines = config["service"]["pipelines"]
@@ -73,10 +82,51 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(flow_violations(items, namespace="ewallet-agents"), [])
         self.assertEqual(baseline_violations(items), [])
         policies = {i["metadata"]["name"] for i in items if i["kind"] == "AuthorizationPolicy"}
-        for source in ("agentgateway", "mcp-gateway", "a2a-gateway", "feature-rag-mcp", "drift-mcp", "llmd-epp"):
+        for source in (
+            "agentgateway", "mcp-gateway", "a2a-gateway", "feature-rag-mcp", "drift-mcp", "llmd-epp",
+            "fraud-coordinator", "feature-rag-specialist", "drift-specialist",
+        ):
             self.assertIn(f"allow-{source}-to-otel-collector", policies)
         pod = next(i for i in items if i["kind"] == "Deployment" and i["metadata"]["name"] == "otel-collector")
         self.assertRegex(pod["spec"]["template"]["spec"]["containers"][0]["image"], r"@sha256:[0-9a-f]{64}$")
+
+    def test_cross_namespace_otel_target_can_require_exact_spiffe_principal(self):
+        items = render({
+            "crossNamespace": {"flows": [{
+                "name": "feature-rag-mcp-to-shared-otel",
+                "direction": "egress",
+                "local": "feature-rag-mcp",
+                "port": 4317,
+                "peerIngress": True,
+                "peerAuthorization": True,
+                "peer": {
+                    "namespace": "observability",
+                    "podLabels": {"app.kubernetes.io/name": "otel-collector"},
+                    "ambient": True,
+                },
+            }]},
+        })
+        policy = next(
+            item for item in items
+            if item["kind"] == "AuthorizationPolicy"
+            and item["metadata"]["name"] == "allow-ewallet-agents-feature-rag-mcp-to-shared-otel"
+        )
+        self.assertEqual(policy["metadata"]["namespace"], "observability")
+        self.assertEqual(
+            policy["spec"]["rules"][0]["from"][0]["source"]["principals"],
+            ["cluster.local/ns/ewallet-agents/sa/feature-rag-mcp"],
+        )
+        self.assertEqual(policy["spec"]["rules"][0]["to"][0]["operation"]["ports"], ["4317"])
+        ingress = next(
+            item for item in items
+            if item["kind"] == "NetworkPolicy"
+            and item["metadata"]["namespace"] == "observability"
+            and item["metadata"]["name"] == "allow-ewallet-agents-feature-rag-mcp-to-shared-otel"
+        )
+        self.assertEqual(
+            {port["port"] for port in ingress["spec"]["ingress"][0]["ports"]},
+            {4317, 15008},
+        )
 
 
 class DashboardTests(unittest.TestCase):

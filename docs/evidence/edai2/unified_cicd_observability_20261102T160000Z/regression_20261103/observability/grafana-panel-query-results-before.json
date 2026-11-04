@@ -1,0 +1,303 @@
+{
+ "E-Wallet Agent & MCP": [
+  {
+   "panel": "Agent executions",
+   "status": "empty",
+   "expr": "sum by (gen_ai_agent_name) (rate(ewallet_traces_span_metrics_calls_total{gen_ai_agent_name!=\"\"}[5m]))"
+  },
+  {
+   "panel": "MCP calls by tool",
+   "status": "empty",
+   "expr": "sum by (resource) (rate(agentgateway_mcp_requests_total{method=\"tools/call\"}[5m]))"
+  },
+  {
+   "panel": "MCP calls by tool",
+   "status": "empty",
+   "expr": "sum by (tool, outcome) (rate(ewallet_mcp_tool_calls_total[5m]))"
+  },
+  {
+   "panel": "MCP tool latency p95",
+   "status": "empty",
+   "expr": "histogram_quantile(0.95, sum by (le, tool) (rate(ewallet_mcp_tool_duration_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "MCP semantic failures",
+   "status": "empty",
+   "expr": "sum by (tool) (rate(ewallet_mcp_tool_calls_total{outcome=\"error\"}[5m]))"
+  },
+  {
+   "panel": "Agent and tool failures from traces",
+   "status": "data",
+   "expr": "sum by (gen_ai_agent_name, gen_ai_tool_name) (rate(ewallet_traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\"}[5m]))"
+  }
+ ],
+ "E-Wallet Distributed Tracing": [
+  {
+   "panel": "Cross-platform spans by service",
+   "status": "data",
+   "expr": "sum by (service_name, span_name) (rate(ewallet_traces_span_metrics_calls_total[5m]))"
+  },
+  {
+   "panel": "Span error rate",
+   "status": "data",
+   "expr": "sum by (service_name, span_name) (rate(ewallet_traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\"}[5m]))"
+  },
+  {
+   "panel": "Span duration p95",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le, service_name, span_name) (rate(ewallet_traces_span_metrics_duration_milliseconds_bucket[5m])))"
+  }
+ ],
+ "E-Wallet LLM + Agent Platform": [
+  {
+   "panel": "API request rate by gateway route and status",
+   "status": "data",
+   "expr": "sum by (gateway, route, status) (rate(agentgateway_requests_total[5m]))"
+  },
+  {
+   "panel": "API failures (status >= 400) by route",
+   "status": "data",
+   "expr": "sum by (gateway, route) (rate(agentgateway_requests_total{status=~\"4..|5..\"}[5m]))"
+  },
+  {
+   "panel": "Request latency p95 by route",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "MCP tool calls by tool",
+   "status": "empty",
+   "expr": "sum by (resource) (rate(agentgateway_mcp_requests_total{method=\"tools/call\"}[5m]))"
+  },
+  {
+   "panel": "MCP requests by method and server",
+   "status": "empty",
+   "expr": "sum by (server, method) (rate(agentgateway_mcp_requests_total[5m]))"
+  },
+  {
+   "panel": "LLM end-to-end latency p95 by model",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model) (rate(agentgateway_gen_ai_server_request_duration_bucket[5m])))"
+  },
+  {
+   "panel": "LLM errors by type",
+   "status": "data",
+   "expr": "sum by (error_type) (rate(agentgateway_gen_ai_server_request_duration_count{error_type!=\"\"}[5m]))"
+  },
+  {
+   "panel": "LLM retries",
+   "status": "empty",
+   "expr": "sum by (route) (rate(agentgateway_retries_total[5m]))"
+  },
+  {
+   "panel": "LLM tokens per request (input/output)",
+   "status": "data",
+   "expr": "sum by (gen_ai_token_type) (rate(agentgateway_gen_ai_client_token_usage_sum[5m])) / sum by (gen_ai_token_type) (rate(agentgateway_gen_ai_client_token_usage_count[5m]))"
+  },
+  {
+   "panel": "LLM time to first token p95",
+   "status": "empty",
+   "expr": "histogram_quantile(0.95, sum by (le) (rate(agentgateway_gen_ai_server_time_to_first_token_bucket[5m])))"
+  },
+  {
+   "panel": "Agent calls by agent (spanmetrics)",
+   "status": "empty",
+   "expr": "sum by (gen_ai_agent_name) (rate(ewallet_traces_span_metrics_calls_total{gen_ai_agent_name!=\"\"}[5m]))"
+  },
+  {
+   "panel": "Agent/tool failures (spanmetrics)",
+   "status": "data",
+   "expr": "sum by (gen_ai_agent_name, gen_ai_tool_name) (rate(ewallet_traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\"}[5m]))"
+  },
+  {
+   "panel": "CPU by pod",
+   "status": "empty",
+   "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"ewallet-agents\", container!=\"\"}[5m]))"
+  },
+  {
+   "panel": "Memory working set by pod",
+   "status": "empty",
+   "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"ewallet-agents\", container!=\"\"})"
+  }
+ ],
+ "E-Wallet LLM Runtime": [
+  {
+   "panel": "Input and output tokens",
+   "status": "data",
+   "expr": "sum(rate(vllm:prompt_tokens_total[5m]))"
+  },
+  {
+   "panel": "Input and output tokens",
+   "status": "data",
+   "expr": "sum(rate(vllm:generation_tokens_total[5m]))"
+  },
+  {
+   "panel": "Time to first token p95",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "End-to-end latency p95",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:e2e_request_latency_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "Running and waiting requests",
+   "status": "data",
+   "expr": "sum(vllm:num_requests_running)"
+  },
+  {
+   "panel": "Running and waiting requests",
+   "status": "data",
+   "expr": "sum(vllm:num_requests_waiting)"
+  },
+  {
+   "panel": "LLM errors and retries",
+   "status": "data",
+   "expr": "sum by (error_type) (rate(agentgateway_gen_ai_server_request_duration_count{error_type!=\"\"}[5m]))"
+  },
+  {
+   "panel": "LLM errors and retries",
+   "status": "empty",
+   "expr": "sum(rate(agentgateway_retries_total[5m]))"
+  },
+  {
+   "panel": "CPU and memory",
+   "status": "empty",
+   "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"vllm-.*\",container=\"vllm\"}[5m]))"
+  },
+  {
+   "panel": "CPU and memory",
+   "status": "empty",
+   "expr": "sum(container_memory_working_set_bytes{pod=~\"vllm-.*\",container=\"vllm\"})"
+  }
+ ],
+ "E-Wallet Logs & Operations": [
+  {
+   "panel": "Pod restarts",
+   "status": "empty",
+   "expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[1h]))"
+  },
+  {
+   "panel": "OTel export failures",
+   "status": "empty",
+   "expr": "sum by (exporter) (rate(otelcol_exporter_send_failed_spans[5m]))"
+  }
+ ],
+ "E-Wallet ML Drift & Pipeline": [
+  {
+   "panel": "Drift tool outcomes",
+   "status": "empty",
+   "expr": "sum by (outcome) (rate(ewallet_mcp_tool_calls_total{tool=\"drift_detection\"}[15m]))"
+  },
+  {
+   "panel": "Feature retrieval failures",
+   "status": "empty",
+   "expr": "sum(rate(ewallet_backend_client_requests_total{backend=\"feast-online\",outcome=\"error\"}[15m]))"
+  },
+  {
+   "panel": "KFP API health",
+   "status": "data",
+   "expr": "max(ewallet_httpcheck_status{http_url=~\".*ml-pipeline.*\",http_status_class=\"2xx\"})"
+  },
+  {
+   "panel": "MLflow API health",
+   "status": "data",
+   "expr": "max(ewallet_httpcheck_status{http_url=~\".*mlflow.*\",http_status_class=\"2xx\"})"
+  }
+ ],
+ "E-Wallet ML Platform": [
+  {
+   "panel": "Fraud API request outcomes",
+   "status": "empty",
+   "expr": "sum by (outcome) (rate(fraud_inference_requests_total[5m]))"
+  },
+  {
+   "panel": "Feast and KServe client latency p95",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le, backend, operation) (rate(ewallet_backend_client_latency_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "Backend errors",
+   "status": "empty",
+   "expr": "sum by (backend, operation) (rate(ewallet_backend_client_requests_total{outcome=\"error\"}[5m]))"
+  },
+  {
+   "panel": "Feast feature freshness",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le) (rate(ewallet_feast_feature_freshness_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "MLflow and KFP health",
+   "status": "data",
+   "expr": "max by (http_url, http_status_code) (ewallet_httpcheck_status{http_status_class=\"2xx\"})"
+  }
+ ],
+ "E-Wallet Platform Overview": [
+  {
+   "panel": "API request rate",
+   "status": "data",
+   "expr": "sum by (route, status) (rate(agentgateway_requests_total[5m]))"
+  },
+  {
+   "panel": "API error rate",
+   "status": "data",
+   "expr": "sum(rate(agentgateway_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(agentgateway_requests_total[5m]))"
+  },
+  {
+   "panel": "API latency p50 p95 p99",
+   "status": "data",
+   "expr": "histogram_quantile(0.50, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "API latency p50 p95 p99",
+   "status": "data",
+   "expr": "histogram_quantile(0.95, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "API latency p50 p95 p99",
+   "status": "data",
+   "expr": "histogram_quantile(0.99, sum by (le, route) (rate(agentgateway_request_duration_seconds_bucket[5m])))"
+  },
+  {
+   "panel": "Container CPU",
+   "status": "empty",
+   "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!=\"\"}[5m]))"
+  },
+  {
+   "panel": "Container memory",
+   "status": "empty",
+   "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\"})"
+  },
+  {
+   "panel": "Container network",
+   "status": "empty",
+   "expr": "sum by (namespace, pod) (rate(container_network_receive_bytes_total[5m]) + rate(container_network_transmit_bytes_total[5m]))"
+  },
+  {
+   "panel": "Container filesystem",
+   "status": "empty",
+   "expr": "sum by (namespace, pod) (container_fs_usage_bytes{container!=\"\"})"
+  },
+  {
+   "panel": "Pod restarts",
+   "status": "empty",
+   "expr": "sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[1h]))"
+  },
+  {
+   "panel": "OOMKilled containers",
+   "status": "empty",
+   "expr": "sum(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"})"
+  },
+  {
+   "panel": "Resource requests and limits",
+   "status": "empty",
+   "expr": "sum by (namespace, resource) (kube_pod_container_resource_requests)"
+  },
+  {
+   "panel": "Resource requests and limits",
+   "status": "empty",
+   "expr": "sum by (namespace, resource) (kube_pod_container_resource_limits)"
+  }
+ ]
+}

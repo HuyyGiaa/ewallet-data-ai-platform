@@ -26,7 +26,15 @@ HELM = shutil.which("helm")
 MCP = {"mcpGateway": {"enabled": True}}
 CALLERS = {"mcpGateway": {"enabled": True, "callerServiceAccounts": {
     "drift-specialist": "worker-drift", "feature-rag-specialist": "worker-feature-rag"}}}
+AMBIENT_BACKEND_TOKEN = {"namespace": {"ambient": True}, "mcpGateway": {
+    "enabled": True,
+    "authorizationMode": "ambient-backend-token",
+    "callerServiceAccounts": {
+        "drift-specialist": "worker-drift", "feature-rag-specialist": "worker-feature-rag",
+    },
+}}
 STRIPPED = ["authorization", "x-ewallet-actor", "x-ewallet-caller"]
+A2A_STRIPPED = [*STRIPPED, "x-kagent-host"]
 
 
 def render(*overrides, check=True):
@@ -78,6 +86,22 @@ class McpGatewayTests(unittest.TestCase):
         self.assertIn('"worker-drift"', drift[0])
         self.assertIn('["drift_detection"]', drift[0])
 
+    def test_ambient_mode_delegates_tool_filtering_to_authenticated_backend(self):
+        rendered = routes(render(AMBIENT_BACKEND_TOKEN), "mcp-gateway-config")
+        for route in rendered.values():
+            policies = route["policies"]
+            self.assertEqual(policies["mcpAuthorization"]["rules"], ["true"])
+            self.assertNotIn("transformations", policies)
+            self.assertEqual(policies["requestHeaderModifier"]["remove"], STRIPPED)
+
+    def test_ambient_backend_token_mode_requires_ambient_namespace(self):
+        bad = {"namespace": {"ambient": False}, "mcpGateway": {
+            "enabled": True, "authorizationMode": "ambient-backend-token",
+        }}
+        out = render(bad, check=False)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("requires namespace.ambient=true", out.stderr)
+
     def test_identity_headers_and_credentials_are_never_forwarded(self):
         for route in routes(render(CALLERS), "mcp-gateway-config").values():
             policies = route["policies"]
@@ -87,7 +111,7 @@ class McpGatewayTests(unittest.TestCase):
             self.assertEqual(policies["localRateLimit"][0]["type"], "requests")
             self.assertIn("requestTimeout", policies["timeout"])
         for route in routes(render({"a2aGateway": {"enabled": True}}), "a2a-gateway-config").values():
-            self.assertEqual(route["policies"]["requestHeaderModifier"]["remove"], STRIPPED)
+            self.assertEqual(route["policies"]["requestHeaderModifier"]["remove"], A2A_STRIPPED)
 
     def test_each_route_has_one_target_on_the_matching_server(self):
         for name, route in routes(render(MCP), "mcp-gateway-config").items():
@@ -126,17 +150,40 @@ class McpGatewayTests(unittest.TestCase):
 
 @unittest.skipUnless(HELM, "helm binary unavailable")
 class A2aGatewayTests(unittest.TestCase):
-    def test_a2a_route_is_native_kagent_a2a_for_this_namespace_only(self):
+    def test_agent_tool_routes_are_exact_fail_closed_specialist_allowlists(self):
         items = render({"a2aGateway": {"enabled": True, "callerServiceAccounts": {"fraud-coordinator": "worker-coordinator"}}})
-        route = routes(items, "a2a-gateway-config")["kagent-a2a"]
+        rendered = routes(items, "a2a-gateway-config")
+        for agent in ("drift-specialist", "feature-rag-specialist"):
+            route = rendered[agent]
+            self.assertEqual(route["matches"], [{"headers": [{
+                "name": "x-kagent-host", "value": {"exact": f"{agent}.ewallet-agents"},
+            }]}])
+            self.assertEqual(route["policies"]["a2a"], {})
+            # The exact caller principal is enforced by Istio Ambient at
+            # ztunnel; agentgateway does not receive it as source.identity.
+            self.assertEqual(route["policies"]["authorization"]["rules"], ["true"])
+            self.assertEqual(route["backends"], [{
+                "host": f"{agent}.ewallet-agents.svc.cluster.local:8080",
+            }])
+        self.assertEqual(set(rendered), {"drift-specialist", "feature-rag-specialist", "kagent-a2a"})
+
+    def test_default_denies_all_a2a_routes_and_gateway_is_only_specialist_caller(self):
+        items = render({"a2aGateway": {"enabled": True}})
+        for route in routes(items, "a2a-gateway-config").values():
+            self.assertEqual(route["policies"]["authorization"]["rules"], ["false"])
+        self.assertEqual(flow_violations(items, namespace="ewallet-agents"), [])
+        for agent in ("drift-specialist", "feature-rag-specialist"):
+            name = f"allow-a2a-gateway-to-{agent}"
+            policy = next(i for i in items if i["kind"] == "AuthorizationPolicy"
+                          and i["metadata"]["name"] == name)
+            principals = [p for rule in policy["spec"]["rules"]
+                          for source in rule["from"] for p in source["source"]["principals"]]
+            self.assertEqual(principals, ["cluster.local/ns/ewallet-agents/sa/a2a-gateway"])
+
+    def test_legacy_controller_entrypoint_is_preserved_for_rollback(self):
+        route = routes(render({"a2aGateway": {"enabled": True}}), "a2a-gateway-config")["kagent-a2a"]
         self.assertEqual(route["matches"], [{"path": {"pathPrefix": "/api/a2a/ewallet-agents/"}}])
-        self.assertEqual(route["policies"]["a2a"], {})
         self.assertEqual(route["backends"], [{"host": "kagent-controller.kagent.svc.cluster.local:8083"}])
-        self.assertEqual(route["policies"]["authorization"]["rules"], [
-            'has(source.identity) && source.identity.namespace == "ewallet-agents" && '
-            'source.identity.serviceAccount == "worker-coordinator"'])
-        default = routes(render({"a2aGateway": {"enabled": True}}), "a2a-gateway-config")["kagent-a2a"]
-        self.assertEqual(default["policies"]["authorization"]["rules"], ["false"])
 
 
 class SmokeEvidenceTests(unittest.TestCase):

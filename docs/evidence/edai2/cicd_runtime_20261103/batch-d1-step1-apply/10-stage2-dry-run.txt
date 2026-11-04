@@ -1,0 +1,13 @@
+## stage 2 server dry-run of the 4 namespaced objects
+resourcequota/helm-records-only serverside-applied (server dry run)
+networkpolicy.networking.k8s.io/default-deny serverside-applied (server dry run)
+role.rbac.authorization.k8s.io/jenkins-helm-records serverside-applied (server dry run)
+rolebinding.rbac.authorization.k8s.io/jenkins-helm-records serverside-applied (server dry run)
+## pre-existing objects in namespace (expected only kube-root-ca.crt / default SA)
+NAME                           DATA   AGE
+configmap/istio-ca-crl         1      1s
+configmap/istio-ca-root-cert   1      1s
+configmap/kube-root-ca.crt     1      1s
+
+NAME                     AGE
+serviceaccount/default   1s

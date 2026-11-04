@@ -1,0 +1,192 @@
+{{- /*
+Least-privilege flows between a workload of this release and a workload in
+another namespace (kagent controller, MLOps Feast Online Redis and KServe).
+Each flow opens one port between two label selectors, never a namespace:
+
+- egress: a NetworkPolicy in this namespace for the local workload; when the
+  peer namespace is in the ambient mesh, ztunnel's HBONE port is allowed too.
+  With peerIngress, an additive ingress NetworkPolicy is created in the peer
+  namespace for exactly this source, owned by this release (uninstall removes
+  it); existing policies there are never edited.
+- ingress: a NetworkPolicy plus an Istio ALLOW for the peer's SPIFFE principal
+  (the peer namespace must be in the ambient mesh to carry an identity).
+*/ -}}
+{{- $ns := .Values.namespace.name }}
+{{- $hbone := int .Values.networkPolicy.ambient.hbonePort }}
+{{- $mcpBackendNs := default $ns .Values.mcpGateway.backendNamespace }}
+{{- if and .Values.mcpGateway.enabled (ne $mcpBackendNs $ns) }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" $mcpBackendNs) }}
+{{- fail "mcpGateway.backendNamespace must be a Kubernetes DNS label" }}
+{{- end }}
+{{- range $server := keys .Values.agents.mcpServers | sortAlpha }}
+---
+# The existing gateway remains in {{ $ns }}; only its backend moves.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mcp-gateway-to-{{ $server }}-cross-namespace-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml (index $.Values.networkFlows.workloads "mcp-gateway").podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $mcpBackendNs }}}
+          podSelector:
+            matchLabels:
+              {{- toYaml (index $.Values.networkFlows.workloads $server).podLabels | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: {{ int $.Values.mcpServices.port }}}
+        {{- if $.Values.mcpGateway.backendAmbient }}
+        - {protocol: TCP, port: {{ $hbone }}}
+        {{- end }}
+{{- end }}
+{{- end }}
+{{- range $flow := .Values.crossNamespace.flows }}
+{{- $local := index $.Values.networkFlows.workloads $flow.local }}
+{{- if not $local }}
+{{- fail (printf "crossNamespace flow %s references an undeclared workload %s" $flow.name $flow.local) }}
+{{- end }}
+{{- if not (has $flow.direction (list "egress" "ingress")) }}
+{{- fail (printf "crossNamespace flow %s: direction must be egress or ingress" $flow.name) }}
+{{- end }}
+{{- if not (and $flow.peer.namespace $flow.peer.podLabels (or (kindIs "float64" $flow.port) (kindIs "int64" $flow.port))) }}
+{{- fail (printf "crossNamespace flow %s needs peer.namespace, peer.podLabels and one numeric port" $flow.name) }}
+{{- end }}
+{{- if eq $flow.direction "egress" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $flow.name }}-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $local.podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $flow.peer.namespace }}}
+          podSelector:
+            matchLabels:
+              {{- toYaml $flow.peer.podLabels | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: {{ int $flow.port }}}
+        {{- if $flow.peer.ambient }}
+        - {protocol: TCP, port: {{ $hbone }}}
+        {{- end }}
+{{- if $flow.peerIngress }}
+---
+# Additive ingress in {{ $flow.peer.namespace }}: only {{ $ns }}/{{ $flow.local }} on {{ int $flow.port }}.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $ns }}-{{ $flow.name }}
+  namespace: {{ $flow.peer.namespace }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $flow.peer.podLabels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $ns }}}
+          podSelector:
+            matchLabels:
+              {{- toYaml $local.podLabels | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: {{ int $flow.port }}}
+        {{- if $flow.peer.ambient }}
+        - {protocol: TCP, port: {{ $hbone }}}
+        {{- end }}
+{{- if $flow.peerAuthorization }}
+{{- if not (and $flow.peer.ambient $local.serviceAccount) }}
+{{- fail (printf "crossNamespace flow %s: peerAuthorization needs an ambient peer and local serviceAccount" $flow.name) }}
+{{- end }}
+---
+# Ambient L4 authorization at the remote target: only the exact local
+# ServiceAccount principal can reach the selected peer on this port.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-{{ $ns }}-{{ $flow.name }}
+  namespace: {{ $flow.peer.namespace }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml $flow.peer.podLabels | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - {{ printf "%s/ns/%s/sa/%s" $.Values.networkFlows.trustDomain $ns $local.serviceAccount }}
+      to:
+        - operation:
+            ports: [{{ int $flow.port | quote }}]
+{{- end }}
+{{- end }}
+{{- else }}
+{{- if not (and $flow.peer.ambient $flow.peer.serviceAccount) }}
+{{- fail (printf "crossNamespace ingress flow %s needs an ambient peer with a serviceAccount (SPIFFE principal)" $flow.name) }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ $flow.name }}-ingress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $local.podLabels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $flow.peer.namespace }}}
+          podSelector:
+            matchLabels:
+              {{- toYaml $flow.peer.podLabels | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: {{ int $flow.port }}}
+        - {protocol: TCP, port: {{ $hbone }}}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-{{ $flow.name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml $local.podLabels | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - {{ printf "%s/ns/%s/sa/%s" $.Values.networkFlows.trustDomain $flow.peer.namespace $flow.peer.serviceAccount }}
+      to:
+        - operation:
+            ports: [{{ int $flow.port | quote }}]
+{{- end }}
+{{- end }}

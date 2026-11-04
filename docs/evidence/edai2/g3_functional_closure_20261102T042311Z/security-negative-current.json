@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-11-02T04:52:02Z",
+  "test": "invalid bearer credential fails closed",
+  "endpoint": "mcp-gateway/feature-rag/mcp",
+  "http_status": 401,
+  "response": {
+    "request_id": "unknown",
+    "code": "authentication_required",
+    "message": "Authentication is required",
+    "retryable": false,
+    "retry_after_ms": null
+  },
+  "verdict": "PASS"
+}

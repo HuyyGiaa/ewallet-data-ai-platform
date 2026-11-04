@@ -1,0 +1,11 @@
+2026-11-02T00:30:23Z
+NAME                               UID                                    READY   RESTARTS   START
+fraud-coordinator-f7b7c698-4njkw   889deb33-e61f-4bdb-8687-5b68440ed24d   true    0          2026-11-01T22:13:55Z
+pod "fraud-coordinator-f7b7c698-4njkw" deleted from ewallet-agents namespace
+Waiting for deployment "fraud-coordinator" rollout to finish: 0 of 1 updated replicas are available...
+deployment "fraud-coordinator" successfully rolled out
+NAME                               UID                                    READY   RESTARTS   START
+fraud-coordinator-f7b7c698-9thnc   f41f5e6b-8ee2-47dc-ac33-052e212ad4eb   true    0          2026-11-02T00:30:24Z
+kagent       	kagent      	2       	2026-11-02 04:35:49.614239438 +0700 +07	deployed	kagent-0.10.3
+llm-agent    	default     	12      	2026-11-02 07:00:36.881273306 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+llm-agent-mcp	ewallet-mcp 	3       	2026-11-02 07:12:43.095008335 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1

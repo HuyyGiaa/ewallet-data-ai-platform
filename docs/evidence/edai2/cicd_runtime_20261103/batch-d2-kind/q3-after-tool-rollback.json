@@ -1,0 +1,208 @@
+{
+ "AuthorizationPolicy/ewallet-agents/allow-ewallet-mcp-drift-mcp-to-shared-otel": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "6b58cc38509733fb",
+  "uid": "bd869253-6cab-48a0-9cde-a6154cfcc5a0"
+ },
+ "AuthorizationPolicy/ewallet-agents/allow-ewallet-mcp-feature-rag-mcp-to-shared-otel": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "7bce16bb8c014a33",
+  "uid": "acadb70f-3582-4b4c-bfae-7bf48c8bb692"
+ },
+ "AuthorizationPolicy/ewallet-mcp/allow-mcp-gateway-to-drift-mcp": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "5180b60d7991d531",
+  "uid": "6ef08144-4110-414d-b7d5-1639bbbc5821"
+ },
+ "AuthorizationPolicy/ewallet-mcp/allow-mcp-gateway-to-feature-rag-mcp": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "0adf1fc547f8d8db",
+  "uid": "64c09860-16d8-4f9b-b36f-45a24aa01d2c"
+ },
+ "AuthorizationPolicy/ewallet-mcp/default-deny": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "44136fa355b3678a",
+  "uid": "77c81ac7-9078-41c5-868d-8df63bec7516"
+ },
+ "ConfigMap/ewallet-mcp/llm-agent-architecture-contract": {
+  "generation": null,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "74234e98afe7498f",
+  "uid": "0c1280b5-422f-4c44-b74e-64927d5e5a8b"
+ },
+ "ConfigMap/ewallet-mcp/llm-agent-network-flows": {
+  "generation": null,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "74234e98afe7498f",
+  "uid": "5d3ac043-232f-41f7-92fb-2403906abf95"
+ },
+ "Deployment/ewallet-mcp/drift-mcp": {
+  "generation": 3,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "5244cd8129db66e8",
+  "uid": "2ff400fb-cc4b-4d8c-8628-62c62eb71a42"
+ },
+ "Deployment/ewallet-mcp/feature-rag-mcp": {
+  "generation": 3,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "02d6adfc51c46d14",
+  "uid": "8e2bf061-cd8e-40b2-9a03-76dc084b9ae6"
+ },
+ "NetworkPolicy/ewallet-agents/allow-ewallet-mcp-drift-mcp-to-shared-otel": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "0ca5aefa55c7f20f",
+  "uid": "aef6ed8c-3b9e-4d58-bb33-3c9dd6044fee"
+ },
+ "NetworkPolicy/ewallet-agents/allow-ewallet-mcp-feature-rag-mcp-to-shared-otel": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "67b0ef7993555262",
+  "uid": "423dbcd8-ee53-486f-918f-05b82032e491"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-ambient-probes-drift-mcp": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "da98dff195e4ace0",
+  "uid": "837ceb56-e59a-4307-bbe2-40aa4d3f7929"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-ambient-probes-feature-rag-mcp": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "cd44c0ffb1e080a7",
+  "uid": "b23e574c-4a1f-4cf4-90e5-627a532f6730"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-cluster-dns": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "f14dccd7534d7a10",
+  "uid": "4a1e8af2-36a7-4462-aaec-907cf3c3db04"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-drift-mcp-to-shared-otel-egress": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "0621e8cf335f22d4",
+  "uid": "c130c411-e546-46bb-b068-2218514b4a81"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-feature-rag-mcp-to-feast-redis-egress": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "5f7cdc5af950348b",
+  "uid": "b3186530-fcfa-43dc-b3f9-dcd390f0fd2d"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-feature-rag-mcp-to-kserve-fraud-detector-egress": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "f5e68c041e092eac",
+  "uid": "317160a5-771c-4016-a411-580a9ab0f8d4"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-feature-rag-mcp-to-shared-otel-egress": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "a9401dc9f3e98d3a",
+  "uid": "ee7491ab-fec0-4818-9a6f-110460216ec7"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-mcp-gateway-to-drift-mcp-ingress": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "b3ffeae062605898",
+  "uid": "8efaa0b9-6e4f-4a2a-af5f-1546960e69fb"
+ },
+ "NetworkPolicy/ewallet-mcp/allow-mcp-gateway-to-feature-rag-mcp-ingress": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "5d64e75bda98ee09",
+  "uid": "a5574410-5269-4bc1-9e49-b30adf396e98"
+ },
+ "NetworkPolicy/ewallet-mcp/default-deny": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "ccd2dd80bcbfa07c",
+  "uid": "a062a992-6814-4a2f-8754-8771dec86b48"
+ },
+ "NetworkPolicy/feature-store/allow-ewallet-mcp-feature-rag-mcp-to-feast-redis": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "0a24dd7c2568621e",
+  "uid": "d6d7eae2-ee97-491d-87fa-af2885c9706a"
+ },
+ "NetworkPolicy/fraud-serving/allow-ewallet-mcp-feature-rag-mcp-to-kserve-fraud-detector": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "bbefec4da211f4ec",
+  "uid": "b599ef6e-165c-48f6-93bb-13a84424d6e4"
+ },
+ "PodDisruptionBudget/ewallet-mcp/drift-mcp": {
+  "generation": 1,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "a33aeffc33dfc2d2",
+  "uid": "3596c0ec-4575-4ae7-85d1-cd60159d2b6d"
+ },
+ "Service/ewallet-mcp/drift-mcp": {
+  "generation": null,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "b5f3f7b554dda808",
+  "uid": "c670ae1e-c316-4761-9f88-07dbfb702ea4"
+ },
+ "Service/ewallet-mcp/feature-rag-mcp": {
+  "generation": null,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "c9e165f62c7c2877",
+  "uid": "f1359bd3-9121-42fe-b13d-c597b0a073f5"
+ },
+ "ServiceAccount/ewallet-mcp/drift-mcp": {
+  "generation": null,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "74234e98afe7498f",
+  "uid": "1167bad0-2a62-4a02-907a-c2497df2c57f"
+ },
+ "ServiceAccount/ewallet-mcp/feature-rag-mcp": {
+  "generation": null,
+  "release": "llm-agent-mcp",
+  "release_ns": "ewallet-mcp",
+  "spec_sha": "74234e98afe7498f",
+  "uid": "cd0f2861-3635-4b85-aa66-e3ef9aac28ef"
+ },
+ "pods": [
+  [
+   "drift-mcp-9546f8545-zsnx9",
+   "d58d18c5-0c09-4977-be5e-7c2cd8844e5e"
+  ],
+  [
+   "feature-rag-mcp-69999ff656-m2vbf",
+   "fb40f40e-49f8-4ef6-b97b-0375cd56c29d"
+  ]
+ ]
+}

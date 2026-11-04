@@ -69,3 +69,16 @@ if manifest_root:
                 jsonschema.Draft202012Validator(schema).validate(document)
 print(root)
 PY
+
+# Exit 2 is the expected safety result for the pinned Substrate render: it
+# contains cluster-scoped and privileged resources that require separate owner
+# approval. Persist the report while allowing this source-only render to finish.
+set +e
+python3 "${PILOT_DIR}/scripts/audit_render.py" \
+  "${RENDER_DIR}/rendered" \
+  --output "${RENDER_DIR}/approval-gate.json"
+AUDIT_STATUS=$?
+set -e
+if [[ "${AUDIT_STATUS}" -ne 0 && "${AUDIT_STATUS}" -ne 2 ]]; then
+  exit "${AUDIT_STATUS}"
+fi

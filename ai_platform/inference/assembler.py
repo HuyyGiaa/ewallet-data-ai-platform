@@ -20,6 +20,7 @@ from ai_platform.inference.errors import (
 from ai_platform.inference.schemas import FraudPredictionRequest
 from ai_platform.ml.training.contract import (
     HISTORICAL_FEATURE_COLUMNS,
+    NULLABLE_HISTORICAL_FEATURE_COLUMNS,
     MODEL_FEATURE_COLUMNS,
 )
 from ai_platform.ml.training.derived import add_derived_features
@@ -123,12 +124,16 @@ class CanonicalFeatureAssembler:
                     raise FeatureContractError()
                 normalized[column] = None
                 continue
-            if value is None or timestamp is None:
+            if timestamp is None or (
+                value is None and column not in NULLABLE_HISTORICAL_FEATURE_COLUMNS
+            ):
                 missing.append(column)
                 continue
             if timestamp.tzinfo is None or timestamp.utcoffset() is None:
                 raise FeatureContractError()
-            normalized[column] = _validate_historical_type(column, value)
+            normalized[column] = (
+                None if value is None else _validate_historical_type(column, value)
+            )
             contributing_timestamps.append(timestamp)
 
         if missing:

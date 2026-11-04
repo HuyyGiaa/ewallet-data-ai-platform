@@ -1,0 +1,6 @@
+# Apply only to the existing llm-agent release after the isolated release has
+# passed readiness, authentication and dependency checks. This changes gateway
+# backends and egress policy only; g3.yaml keeps legacy MCP workloads rendered.
+mcpGateway:
+  backendNamespace: ewallet-mcp
+  backendAmbient: true

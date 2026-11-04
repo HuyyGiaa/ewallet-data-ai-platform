@@ -1,0 +1,8 @@
+## migration rollback: restore 6 old records, take ownership back, delete new records
+6
+  record ewallet-mcp-release rev 3
+  record ewallet-mcp rev 6
+REVISION: 7
+3
+  record ewallet-mcp rev 7
+vs original baseline: uid changed [] spec changed [] owner ['ewallet-mcp']

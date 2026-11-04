@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "shared_paths": [
+    "Jenkinsfile",
+    "Jenkinsfile.llm-agent",
+    "Jenkinsfile.ml",
+    "jenkins/",
+    "scripts/ci/",
+    "tests/ci/",
+    "tests/unit/test_uv_dependency_contract.py"
+  ],
+  "non_runtime_paths": [
+    "README.md",
+    "docs/"
+  ],
+  "python_projects": [
+    "ai_platform/features/feast",
+    "ai_platform/inference",
+    "ai_platform/ml",
+    "ai_platform/ml/dvc-operator",
+    "ai_platform/ml/pipelines",
+    "ai_platform/serving",
+    "data_platform/generation",
+    "data_platform/metadata/datahub",
+    "infra/docker/flink-benchmark",
+    "infra/docker/g3-byo-coordinator",
+    "infra/docker/llm-agent-tooling",
+    "infra/docker/rag-ingestion",
+    "infra/docker/vllm-cpu-model",
+    "infra/kubernetes/mlflow/image"
+  ],
+  "legacy_path_components": {
+    "ai_platform/llm_agent/rag/": ["rag-pipeline"],
+    "ai_platform/features/feast/feature_repo/rag_": ["rag-pipeline"],
+    "data/llm_agent/rag/": ["rag-pipeline"],
+    "ops/llm_agent/rag_": ["rag-pipeline"],
+    "ops/llm_agent/run_rag_": ["rag-pipeline"],
+    "ops/llm_agent/verify_rag_": ["rag-pipeline"],
+    "infra/docker/rag-ingestion/": ["rag-pipeline"],
+    "Jenkinsfile.rag": ["rag-pipeline"],
+    "ai_platform/llm_agent/": ["feature-rag-mcp", "drift-mcp", "mcp-gateway"],
+    "infra/docker/llm-agent-tooling/": ["feature-rag-mcp", "drift-mcp", "platform-tooling"],
+    "ops/llm_agent/registry_catalog": ["agent-registry"],
+    "ops/llm_agent/": ["platform-tooling"],
+    "infra/helm/llm-agent-platform/": ["platform-routing"],
+    "infra/helm/llm-agent-platform/prompts/": ["fraud-coordinator", "feature-rag-specialist", "drift-specialist", "agent-registry"],
+    "infra/helm/llm-agent-platform/templates/agents.yaml": ["fraud-coordinator", "feature-rag-specialist", "drift-specialist"],
+    "infra/helm/llm-agent-platform/templates/policy-gateways.yaml": ["mcp-gateway", "a2a-gateway"],
+    "infra/helm/llm-d/": ["llm-d-router"],
+    "infra/helm/agentregistry/": ["agent-registry"],
+    "infra/helm/keda/": ["agent-autoscaling"],
+    "infra/kubernetes/kagent-platform/": ["fraud-coordinator", "feature-rag-specialist", "drift-specialist"],
+    "infra/kubernetes/kagent-pilot/": ["fraud-coordinator", "feature-rag-specialist", "drift-specialist"],
+    "data_platform/orchestration/airflow/": ["rag-pipeline"],
+    "data_platform/processing/flink/": ["streaming-to-offline", "streaming-to-online"]
+  },
+  "profiles": {
+    "platform": ["ci-platform", "data-platform", "data-governance", "streaming", "feast", "ml-training", "mlflow", "fraud-serving", "fraud-api", "llm-serving", "observability", "rag-pipeline", "mcp-agents", "llm-d-routing", "agents", "prompt-management"],
+    "ml": ["feast", "ml-training", "mlflow", "fraud-serving", "fraud-api"],
+    "llm-agent": ["llm-serving", "observability", "rag-pipeline", "mcp-agents", "llm-d-routing", "agents", "prompt-management"]
+  },
+  "runtime_units": {
+    "ml_training": "ml-training",
+    "kfp_pipeline": "ml-training",
+    "mlflow": "mlflow",
+    "feast": "feast",
+    "kserve": "fraud-serving",
+    "fraud_api": "fraud-api",
+    "rag_ingestion": "rag-pipeline",
+    "llm_serving": "llm-serving",
+    "agentgateway": "llm-serving",
+    "kagent_platform": "mcp-agents",
+    "coordinator": "agents",
+    "feature_rag_specialist": "agents",
+    "drift_specialist": "mcp-agents",
+    "mcp_services": "mcp-agents",
+    "idempotency_redis": "agents",
+    "agent_substrate": "mcp-agents",
+    "observability": "observability",
+    "ci_config": "ci-platform",
+    "integration_contracts": "ci-platform",
+    "prompt_registry": "prompt-management"
+  },
+  "components": {
+    "ci-platform": {
+      "maturity": "active",
+      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci", "infra/kubernetes/cicd-runtime/namespaces.yaml", "infra/kubernetes/jenkins"],
+      "dependencies": [],
+      "python_projects": ["infra/docker/llm-agent-tooling"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest discover -s tests/ci -t ."],
+      "build_artifact": null,
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "data-platform": {
+      "maturity": "active",
+      "source_paths": ["data_platform", "configs/environments", "tests/contract"],
+      "dependencies": [],
+      "python_projects": ["data_platform/generation"],
+      "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py"],
+      "build_artifact": null,
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "data-governance": {
+      "maturity": "active",
+      "source_paths": ["data_platform/metadata/datahub", "tests/unit/test_datahub_result_assertions.py", "tests/unit/test_edai1_evidence_and_lineage.py"],
+      "dependencies": ["data-platform"],
+      "python_projects": ["data_platform/metadata/datahub"],
+      "commands": ["uv run --locked --project data_platform/metadata/datahub python -m pytest -q tests/unit/test_datahub_result_assertions.py tests/unit/test_edai1_evidence_and_lineage.py tests/unit/test_feast_metadata_runtime_config.py"],
+      "build_artifact": "images/datahub-publisher/Dockerfile",
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "streaming": {
+      "maturity": "active",
+      "source_paths": ["data_platform/processing/flink", "configs/streaming", "infra/docker/flink-benchmark", "tests/streaming"],
+      "dependencies": ["data-platform"],
+      "python_projects": ["infra/docker/flink-benchmark"],
+      "commands": ["uv run --locked --project infra/docker/flink-benchmark --extra flink python -m unittest discover -s tests/streaming -t ."],
+      "build_artifact": "infra/docker/flink-benchmark/Dockerfile",
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "feast": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/features/feast", "tests/test_feast_offline.py", "tests/unit/test_feast_pit_validation.py"],
+      "dependencies": ["data-platform"],
+      "python_projects": ["ai_platform/features/feast"],
+      "commands": ["uv run --locked --project ai_platform/features/feast python -m unittest tests.test_feast_offline tests.unit.test_feast_pit_validation"],
+      "build_artifact": "ops/gcp/ml2_materialize/Dockerfile",
+      "deployment_target": "infra/kubernetes/feast-online",
+      "deploy_handler": null
+    },
+    "ml-training": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/ml", "tests/test_fraud_experiment.py", "tests/unit/test_kfp_canonical_contract.py"],
+      "dependencies": ["feast"],
+      "python_projects": ["ai_platform/ml", "ai_platform/ml/dvc-operator", "ai_platform/ml/pipelines"],
+      "commands": ["uv run --locked --project ai_platform/ml python -m unittest tests.test_fraud_experiment tests.unit.test_f9_canonical_contract", "uv run --locked --project ai_platform/ml/pipelines python -m unittest tests.unit.test_kfp_canonical_contract"],
+      "build_artifact": "infra/kubernetes/kfp/image/Dockerfile",
+      "deployment_target": "infra/kubernetes/kfp",
+      "deploy_handler": "scripts/mlops/deploy_kfp.sh",
+      "release_artifact_selector": "artifacts/ml-training"
+    },
+    "mlflow": {
+      "maturity": "active",
+      "source_paths": ["infra/kubernetes/mlflow", "scripts/mlops/deploy_mlflow.sh", "tests/unit/test_deploy_mlflow_script.py"],
+      "dependencies": ["ml-training"],
+      "python_projects": ["infra/kubernetes/mlflow/image"],
+      "commands": ["uv run --locked --project infra/kubernetes/mlflow/image python -c \"import mlflow; print(mlflow.__version__)\"", "uv run --locked --project infra/kubernetes/mlflow/image python -m unittest tests.unit.test_deploy_mlflow_script"],
+      "build_artifact": "infra/kubernetes/mlflow/image/Dockerfile",
+      "deployment_target": "infra/kubernetes/mlflow",
+      "deploy_handler": "scripts/mlops/deploy_mlflow.sh",
+      "release_artifact_selector": "artifacts/mlflow"
+    },
+    "fraud-serving": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/serving", "infra/kubernetes/fraud-serving", "tests/integration/test_kserve_fraud_wire.py"],
+      "dependencies": ["ml-training", "mlflow"],
+      "python_projects": ["ai_platform/serving"],
+      "commands": ["uv run --locked --project ai_platform/serving python -m unittest tests.integration.test_kserve_fraud_wire"],
+      "build_artifact": "ai_platform/serving/Dockerfile",
+      "deployment_target": "KServe InferenceService contract",
+      "deploy_handler": null
+    },
+    "fraud-api": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/inference", "tests/inference", "tests/integration/test_fraud_api_e2e.py"],
+      "dependencies": ["feast", "fraud-serving"],
+      "python_projects": ["ai_platform/inference"],
+      "commands": ["uv run --locked --project ai_platform/inference python -m unittest discover -s tests/inference -t ."],
+      "build_artifact": "ai_platform/inference/Dockerfile",
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "llm-serving": {
+      "maturity": "active",
+      "source_paths": ["infra/docker/vllm-cpu-model", "infra/helm/llm-agent-platform", "scripts/llm_agent", "tests/llm_agent", "ai_platform/llm_agent/benchmark.py"],
+      "dependencies": [],
+      "python_projects": ["infra/docker/llm-agent-tooling", "infra/docker/vllm-cpu-model"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_ci_scripts tests.llm_agent.test_gke_cpu_profile tests.llm_agent.test_vllm_runtime_chart"],
+      "build_artifact": "infra/docker/vllm-cpu-model/Dockerfile",
+      "deployment_target": "infra/helm/llm-agent-platform",
+      "deploy_handler": "scripts/llm_agent/deploy_atomic.sh",
+      "release_artifact_selector": "images/*"
+    },
+    "observability": {
+      "maturity": "active",
+      "source_paths": [
+        "ai_platform/llm_agent/observability.py",
+        "ai_platform/llm_agent/tools/service.py",
+        "scripts/observability",
+        "tests/observability",
+        "infra/helm/llm-agent-platform/dashboards",
+        "infra/helm/llm-agent-platform/templates/observability-stack.yaml",
+        "infra/helm/llm-agent-platform/templates/otel-collector.yaml"
+      ],
+      "dependencies": ["llm-serving"],
+      "python_projects": ["infra/docker/llm-agent-tooling"],
+      "commands": [
+        "uv run --locked --project infra/docker/llm-agent-tooling --extra feast python -m unittest tests.observability.test_ai_telemetry tests.observability.test_evidence tests.observability.test_foundation tests.llm_agent.test_phase_d_tools tests.llm_agent.test_observability_chart"
+      ],
+      "build_artifact": null,
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "rag-pipeline": {
+      "maturity": "active",
+      "source_paths": ["Jenkinsfile.rag", "infra/kubernetes/cicd-runtime/rag", "jenkins/cd/rag-pipeline.contract.json", "ai_platform/features/feast/feature_repo/rag_feature_definitions.py", "ai_platform/llm_agent/rag", "data/llm_agent/rag", "data_platform/orchestration/airflow/dags/rag_fraud_policy.py", "data_platform/orchestration/airflow/rag_params.py", "infra/docker/rag-ingestion", "ops/llm_agent/rag_ingest.py", "ops/llm_agent/rag_query.py", "scripts/validation/validate_rag_pipeline.sh", "tests/llm_agent/test_phase_c.py", "tests/llm_agent/test_rag_airflow_ingestion.py", "tests/llm_agent/test_rag_chunk_lookup.py", "tests/llm_agent/test_rag_online_retriever.py"],
+      "dependencies": ["feast", "llm-serving"],
+      "python_projects": ["infra/docker/llm-agent-tooling", "infra/docker/rag-ingestion"],
+      "commands": ["bash scripts/validation/validate_rag_pipeline.sh", "python3 -m unittest tests.llm_agent.test_phase_c", "uv run --locked --project infra/docker/rag-ingestion python -m unittest tests.llm_agent.test_rag_airflow_ingestion tests.llm_agent.test_rag_online_retriever tests.llm_agent.test_rag_chunk_lookup"],
+      "build_artifact": "infra/docker/rag-ingestion/Dockerfile",
+      "deployment_target": "infra/kubernetes/cicd-runtime/rag",
+      "deploy_handler": "scripts/ci/deploy/rag_pipeline.sh",
+      "release_artifact_selector": "images/rag-ingestion"
+    },
+    "mcp-agents": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/llm_agent/tools", "ai_platform/llm_agent/tools/service.py", "infra/kubernetes/kagent-platform", "ops/llm_agent/helm_release_rehome.py", "tests/llm_agent/test_helm_release_rehome.py"],
+      "dependencies": ["rag-pipeline", "llm-serving", "fraud-api"],
+      "python_projects": ["infra/docker/llm-agent-tooling"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --extra feast python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security tests.llm_agent.test_mcp_production_authenticator tests.llm_agent.test_agents_chart tests.llm_agent.test_phase_d_chart tests.llm_agent.test_registry_catalog tests.llm_agent.test_helm_release_rehome"],
+      "build_artifact": "infra/docker/llm-agent-tooling/Dockerfile",
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "llm-d-routing": {
+      "maturity": "extension-only",
+      "source_paths": ["infra/helm/llm-d", "tests/llm_agent/test_llmd_routing.py"],
+      "dependencies": ["llm-serving"],
+      "python_projects": ["infra/docker/llm-agent-tooling"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_llmd_routing"],
+      "build_artifact": null,
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "prompt-management": {
+      "maturity": "active",
+      "source_paths": ["infra/helm/llm-agent-platform/prompts", "infra/helm/agentregistry", "ops/llm_agent/registry_catalog.py", "ops/llm_agent/prompt_registry.py", "infra/kubernetes/prompt-registry", "scripts/llm_agent/registry_security_probe.py", "scripts/llm_agent/registry_local_smoke.sh", "tests/llm_agent/test_registry_catalog.py", "tests/llm_agent/test_prompt_registry.py", "tests/llm_agent/test_registry_security_probe.py"],
+      "dependencies": [],
+      "python_projects": ["infra/docker/llm-agent-tooling"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_registry_catalog tests.llm_agent.test_prompt_registry tests.llm_agent.test_registry_security_probe tests.llm_agent.test_agents_chart"],
+      "build_artifact": null,
+      "deployment_target": null,
+      "deploy_handler": null
+    },
+    "agents": {
+      "maturity": "active",
+      "source_paths": ["ai_platform/llm_agent/__init__.py", "ai_platform/llm_agent/business_request.py", "ai_platform/llm_agent/byo_coordinator.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py", "ai_platform/llm_agent/byo_runtime.py", "ai_platform/llm_agent/config.py", "ai_platform/llm_agent/contracts.py", "ai_platform/llm_agent/agent_metrics.py", "ai_platform/llm_agent/idempotency.py", "ai_platform/llm_agent/nl_intake.py", "ai_platform/llm_agent/prompt_safety.py", "ai_platform/llm_agent/orchestration.py", "ai_platform/llm_agent/programmatic_coordinator.py", "ai_platform/llm_agent/redis_idempotency.py", "infra/docker/g3-byo-coordinator"],
+      "dependencies": ["mcp-agents", "prompt-management"],
+      "python_projects": ["infra/docker/g3-byo-coordinator", "infra/docker/llm-agent-tooling"],
+      "commands": ["uv run --locked --project infra/docker/g3-byo-coordinator python -m unittest tests.llm_agent.test_g3_byo_coordinator tests.llm_agent.test_g3_byo_feature_rag_specialist tests.llm_agent.test_g3_durable_idempotency tests.llm_agent.test_n11_nl_intake tests.llm_agent.test_n11_a2a_streaming tests.llm_agent.test_n11_audit_logs tests.llm_agent.test_n12_agent_telemetry", "uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_g3_business_request tests.llm_agent.test_g3_orchestration tests.llm_agent.test_g3_programmatic_coordinator tests.llm_agent.test_g3_runtime_config tests.llm_agent.test_n11_chart tests.llm_agent.test_n12_chart"],
+      "build_artifact": "infra/docker/g3-byo-coordinator/Dockerfile",
+      "deployment_target": null,
+      "deploy_handler": null
+    }
+  }
+}

@@ -1,0 +1,17 @@
+M1 (owner DECISION 3), GKE ewallet-dev, 2026-11-03: APPLIED and VERIFIED.
+Change: Role ewallet-prompts/jenkins-prompt-registry loses rule pods/portforward [create];
+keeps pods,services [get,list,watch]. Applied 14:12:29Z with kubectl client-side apply (the
+Role's existing field manager), object source = Role from hardening-m1-m2-proposal.yaml
+(sha256 b121790d...77345); the M2 NetworkPolicies in that file were NOT applied.
+Preflight: 0 hits for portforward / ewallet-prompts / 12121 in jenkins/, scripts/ci/,
+jenkins.yaml; server dry-run OK; kubectl diff = exactly that rule removed (01-preflight.txt).
+Verification:
+- can-i --list for ewallet-ci/jenkins in 7 namespaces: the only difference is the removed
+  pods/portforward line in ewallet-prompts (05-rbac-diff.txt).
+- live port-forward as ewallet-ci/jenkins: Forbidden (07-portforward-negative.txt).
+- registry read path (operator): verify-all 12/12 MATCH (08-verify-all.txt).
+- Helm revisions unchanged; agents Ready (09-g3-workloads.txt).
+- G3 regression after M1: 9/9 business checks PASS, 3 MCP tool calls, MCP auth
+  401/401/401, positive OK, wrong-specialist refused (g3-regression-post-m1/).
+Rollback: kubectl apply -f infra/kubernetes/jenkins/rbac/batch-b-isolated.yaml at commit ba85e92
+(Role only).

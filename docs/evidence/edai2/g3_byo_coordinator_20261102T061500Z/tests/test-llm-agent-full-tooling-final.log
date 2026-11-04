@@ -1,0 +1,584 @@
+...........................................usage: python -m unittest [-h] [--config {b2,o2}] [--gateway GATEWAY]
+                          [--context CONTEXT] [--namespace NAMESPACE]
+                          [--pods PODS] [--epp-metrics EPP_METRICS]
+                          [--levels LEVELS] [--timeout TIMEOUT]
+                          [--allocated-cpu ALLOCATED_CPU]
+                          [--resources RESOURCES] [--stop-file STOP_FILE]
+                          [--output OUTPUT] [--budget]
+python -m unittest: error: concurrency levels must be 1-8
+...................sss.sssss....E.................................................................usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: destination namespace must be a Kubernetes DNS label
+...usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: replicate-secret requires --approve-sensitive-copy before reading Secret material
+................................................................{
+ "1": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 41619.122615944085,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ },
+ "2": {
+  "status": "MEASURED",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 69278.36551681408,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ }
+}
+{"status": "BLOCKED_METRICS_MISSING", "missing": {"a": ["vllm:request_success", "vllm:prompt_tokens", "vllm:generation_tokens"], "b": ["vllm:request_success", "vllm:prompt_tokens", "vllm:generation_tokens"]}}
+{
+ "1": {
+  "status": "BLOCKED_GATEWAY_RATE_LIMIT",
+  "error_rate": null,
+  "ttft_ms": null,
+  "e2e_ms": null,
+  "output_tokens_per_second": null,
+  "requests_share": null
+ }
+}
+{
+ "1": {
+  "status": "ATTRIBUTION_MISMATCH",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 72665.7283923246,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ },
+ "2": {
+  "status": "ATTRIBUTION_MISMATCH",
+  "error_rate": 0.0,
+  "ttft_ms": {
+   "p50": 10.0,
+   "p95": 10.0
+  },
+  "e2e_ms": {
+   "p50": 50.0,
+   "p95": 50.0,
+   "p99": 50.0
+  },
+  "output_tokens_per_second": 56241.91497267219,
+  "requests_share": {
+   "a": 0.6666666666666666,
+   "b": 0.3333333333333333
+  }
+ }
+}
+{"actor_id": "drift-specialist", "duration_ms": 0.039, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "6f1f8226-68e0-40b2-94bf-d1cccd825a70", "status": "unavailable", "tool_name": "drift_detection"}
+{"duration_seconds":0.000111,"event":"mcp.tool.completed","outcome":"error","service":"drift-mcp","severity":"ERROR","span_id":"2b93ad2beb9de6af","timestamp":"2026-11-02T06:29:52.726596+00:00","tool":"drift_detection","trace_id":"957a4ee777166c55f2e4a997dc57ce89"}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/v1/tools/drift_detection", "status": 401}
+....{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+..{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+.{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.151, "error_code": null, "event": "tool_call_completed", "request_id": "addbcba6-5707-4460-8a79-4b098e97dd08", "status": "ok", "tool_name": "knowledge_search"}
+..{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.045, "error_code": "vector_search_unavailable", "event": "tool_call_completed", "request_id": "fbdab84d-5ccc-4b90-b539-1fe275a20b88", "status": "unavailable", "tool_name": "knowledge_search"}
+..............................................................................| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 6000/6000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 6000/6000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c2-batched-tokens | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 4.00 | 2.00 | 0 | 0.50 | 0% | -/- | - |
+| c2-batched-tokens | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 4.00 | 2.00 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "c1-thread-bind",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": true,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": -0.4
+  },
+  "reasons": []
+ },
+ "c2-batched-tokens": {
+  "qualifies": true,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 0.14285714285714285,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": []
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 10% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 10% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "level 1: errors 10%, timeouts 0%",
+   "level 4: errors 10%, timeouts 0%"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "MLOps regressions: ['x']"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "different workload"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 20000/20000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 20000/20000 | 0.100 | 7.00 | 3.50 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 1.0,
+   "ttft_p50": 0.0,
+   "e2e_p95": 1.0
+  },
+  "reasons": [
+   "level 1: E2E p95 +100%",
+   "level 4: E2E p95 +100%"
+  ]
+ }
+}
+| Config | Level | TTFT p50/p95 (ms) | ITL p50/p95 (ms) | TPOT p50 (ms) | E2E p50/p95 (ms) | req/s | out tok/s | tok/s per CPU | queue mean (ms) | prefix hit | errors | vLLM CPU mean/peak (m) | vLLM RAM peak (MiB) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| b0-prime | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| b0-prime | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.50 | 1.75 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 1 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.70 | 1.85 | 0 | 0.50 | 0% | -/- | - |
+| c1-thread-bind | 4 | 1000/1000 | 1/1 | 1 | 10000/10000 | 0.100 | 3.70 | 1.85 | 0 | 0.50 | 0% | -/- | - |
+{
+ "selected": "NO_GAIN",
+ "baseline_valid": true,
+ "c1-thread-bind": {
+  "qualifies": false,
+  "gains": {
+   "level": 4,
+   "output_tokens_per_second": 0.0571428571428572,
+   "ttft_p50": 0.0,
+   "e2e_p95": 0.0
+  },
+  "reasons": [
+   "no defensible gain at level 4 (tokens/s +6%, TTFT p50 +0%)"
+  ]
+ }
+}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.283, "error_code": null, "event": "tool_call_completed", "request_id": "4222014e-cb37-4311-a89e-698ea8c51c31", "status": "ok", "tool_name": "knowledge_search"}
+..{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+..{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.168, "error_code": null, "event": "tool_call_completed", "request_id": "4c2d5411-ce72-44a8-9789-2bc6c09238eb", "status": "ok", "tool_name": "knowledge_search"}
+.{"code": "authentication_unavailable", "event": "request_rejected", "path": "/mcp", "status": 503}
+.{"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+.{"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+{"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+.{"code": "authentication_failed", "event": "request_rejected", "path": "/mcp", "status": 401}
+.{"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.108, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "ba55af93-b61d-4084-977f-65351ba1219e", "status": "unavailable", "tool_name": "drift_detection"}
+..{"code": "client_disconnected", "event": "request_aborted", "path": "/mcp"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.059, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "18139d79-6768-4792-955f-7bc6db159b7e", "status": "unavailable", "tool_name": "drift_detection"}
+....{"code": "authentication_required", "event": "request_rejected", "path": "/v1/capabilities", "status": 401}
+..{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.06, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "dedf19f5-1179-44e2-8ee0-f0a0509a7a4b", "status": "unavailable", "tool_name": "drift_detection"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.027, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "4f3783de-239d-447f-af96-583c31c9f5df", "status": "unavailable", "tool_name": "drift_detection"}
+.{"code": "authentication_required", "event": "request_rejected", "path": "/docs", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/redoc", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/openapi.json", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/unknown", "status": 401}
+....{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+{"code": "invalid_content_length", "event": "request_rejected", "path": "/mcp", "status": 400}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+.{"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+{"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+{"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 201.188, "error_code": null, "event": "tool_call_completed", "request_id": "e562da6c-d509-4f81-8d79-96a3fcdfbf72", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 201.802, "error_code": null, "event": "tool_call_completed", "request_id": "741dba1f-becf-4430-b33d-1a69ddf5995d", "status": "ok", "tool_name": "feature_lookup"}
+...{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.073, "error_code": "internal_error", "event": "tool_call_completed", "request_id": "dce38cb2-9925-42aa-8242-e4df5ae2286c", "status": "error", "tool_name": "feature_lookup"}
+.{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+.{"actor_id": "actor-test", "duration_ms": 0.051, "error_code": "unknown_baseline", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.036, "error_code": "window_overlaps_reference", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.042, "error_code": "window_identity_mismatch", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.044, "error_code": "non_finite_feature_value", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.112, "error_code": "non_finite_feature_value", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.036, "error_code": "window_identity_mismatch", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "drift_detection"}
+...{"actor_id": "actor-test", "duration_ms": 0.035, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.025, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.023, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.022, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.024, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.026, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.019, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.023, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.067, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+.{"actor_id": "actor-test", "duration_ms": 0.065, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+.{"actor_id": "actor-test", "duration_ms": 0.054, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.055, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+.{"actor_id": "actor-test", "duration_ms": 0.033, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "req-1", "status": "unavailable", "tool_name": "drift_detection"}
+.{"actor_id": "actor-test", "duration_ms": 0.06, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.073, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+..{"actor_id": "actor-test", "duration_ms": 0.078, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.065, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.064, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+{"actor_id": "actor-test", "duration_ms": 0.065, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+.{"actor_id": "actor-test", "duration_ms": 0.066, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "drift_detection"}
+.{"actor_id": "actor-test", "duration_ms": 0.067, "error_code": "feature_backend_error", "event": "tool_call_completed", "request_id": "req-1", "status": "unavailable", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.058, "error_code": "missing_feature", "event": "tool_call_completed", "request_id": "req-1", "status": "unavailable", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.044, "error_code": "stale_feature", "event": "tool_call_completed", "request_id": "req-1", "status": "unavailable", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.043, "error_code": "feature_timeout", "event": "tool_call_completed", "request_id": "req-1", "status": "timeout", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.048, "error_code": "feature_contract_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.048, "error_code": "dependency_not_ready", "event": "tool_call_completed", "request_id": "req-1", "status": "unavailable", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.044, "error_code": "internal_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.044, "error_code": "model_timeout", "event": "tool_call_completed", "request_id": "req-1", "status": "timeout", "tool_name": "fraud_scoring"}
+{"actor_id": "actor-test", "duration_ms": 0.033, "error_code": "model_signature_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "fraud_scoring"}
+.{"actor_id": "actor-test", "duration_ms": 20.417, "error_code": null, "event": "tool_call_completed", "request_id": "r0", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 20.574, "error_code": null, "event": "tool_call_completed", "request_id": "r1", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 40.923, "error_code": null, "event": "tool_call_completed", "request_id": "r2", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 41.094, "error_code": null, "event": "tool_call_completed", "request_id": "r3", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 61.566, "error_code": null, "event": "tool_call_completed", "request_id": "r4", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 61.829, "error_code": null, "event": "tool_call_completed", "request_id": "r5", "status": "ok", "tool_name": "feature_lookup"}
+..{"actor_id": "actor-test", "duration_ms": 100.345, "error_code": "tool_timeout", "event": "tool_call_completed", "request_id": "req-1", "status": "timeout", "tool_name": "feature_lookup"}
+.{"actor_id": "actor-test", "duration_ms": 0.121, "error_code": "model_signature_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "fraud_scoring"}
+{"actor_id": "actor-test", "duration_ms": 0.312, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.217, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+.{"actor_id": "actor-test", "duration_ms": 0.051, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.016, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+.{"actor_id": "actor-test", "duration_ms": 0.043, "error_code": "provenance_contract_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "feature_lookup"}
+...{"actor_id": "actor-test", "duration_ms": 0.313, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.176, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.094, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "fraud_scoring"}
+{"actor_id": "actor-test", "duration_ms": 0.08, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "fraud_scoring"}
+{"actor_id": "actor-test", "duration_ms": 0.148, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.106, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+.{"actor_id": "actor-test", "duration_ms": 0.007, "error_code": "tool_not_served", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "drift_detection"}
+.{"actor_id": "actor-test", "duration_ms": 0.182, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+.{"actor_id": "actor-test", "duration_ms": 0.102, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.14, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.037, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.03, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.029, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.029, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.021, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+.{"actor_id": "actor-test", "duration_ms": 0.069, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "fraud_scoring"}
+.{"actor_id": "actor-test", "duration_ms": 0.057, "error_code": "unexpected_model", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "fraud_scoring"}
+{"actor_id": "actor-test", "duration_ms": 0.049, "error_code": "unexpected_model", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "fraud_scoring"}
+{"actor_id": "actor-test", "duration_ms": 0.046, "error_code": "prediction_identity_mismatch", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "fraud_scoring"}
+.{"actor_id": "actor-test", "duration_ms": 0.132, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+.{"actor_id": "actor-test", "duration_ms": 0.078, "error_code": "feature_contract_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.08, "error_code": "feature_contract_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.071, "error_code": "feature_contract_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "feature_lookup"}
+..{"actor_id": "actor-test", "duration_ms": 0.032, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.021, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.022, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.027, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.018, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.026, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.019, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "actor-test", "duration_ms": 0.146, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "feature_lookup"}
+.{"actor_id": "actor-test", "duration_ms": 0.115, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.146, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.071, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.105, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.095, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.082, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.019, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.018, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.017, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.02, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.018, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.017, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.015, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.018, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.016, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.016, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.013, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.014, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "req-1", "status": "rejected", "tool_name": "knowledge_search"}
+.{"actor_id": "actor-test", "duration_ms": 0.033, "error_code": "vector_search_unavailable", "event": "tool_call_completed", "request_id": "req-1", "status": "unavailable", "tool_name": "knowledge_search"}
+.{"actor_id": "actor-test", "duration_ms": 0.098, "error_code": null, "event": "tool_call_completed", "request_id": "req-1", "status": "ok", "tool_name": "knowledge_search"}
+.{"actor_id": "actor-test", "duration_ms": 0.078, "error_code": "citation_integrity_error", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.063, "error_code": "retrieval_bound_exceeded", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.061, "error_code": "duplicate_citation", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.067, "error_code": "retrieval_order_violation", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "knowledge_search"}
+{"actor_id": "actor-test", "duration_ms": 0.066, "error_code": "retrieval_threshold_violation", "event": "tool_call_completed", "request_id": "req-1", "status": "error", "tool_name": "knowledge_search"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.998, "error_code": null, "event": "tool_call_completed", "request_id": "c-0", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 1.375, "error_code": null, "event": "tool_call_completed", "request_id": "c-1", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 1.588, "error_code": null, "event": "tool_call_completed", "request_id": "c-2", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 1.792, "error_code": null, "event": "tool_call_completed", "request_id": "c-3", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 1.993, "error_code": null, "event": "tool_call_completed", "request_id": "c-4", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 2.141, "error_code": null, "event": "tool_call_completed", "request_id": "c-5", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 2.32, "error_code": null, "event": "tool_call_completed", "request_id": "c-6", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 2.508, "error_code": null, "event": "tool_call_completed", "request_id": "c-7", "status": "ok", "tool_name": "feature_lookup"}
+..{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+.{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.137, "error_code": null, "event": "tool_call_completed", "request_id": "749942a8-b9e7-479f-a5d4-45d6a17062cf", "status": "ok", "tool_name": "knowledge_search"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.13, "error_code": null, "event": "tool_call_completed", "request_id": "0a0f63f6-7f14-4ba9-a5dd-42f32d96b135", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.081, "error_code": null, "event": "tool_call_completed", "request_id": "302a2354-d1e5-4e48-b044-1cfe2d0f1be8", "status": "ok", "tool_name": "fraud_scoring"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.164, "error_code": null, "event": "tool_call_completed", "request_id": "df8a1d79-be6d-4514-b2af-4abdae701a02", "status": "ok", "tool_name": "feature_lookup"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.037, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "36f4ed0b-e583-4e56-871a-c6c4f00a270e", "status": "rejected", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.035, "error_code": "invalid_arguments", "event": "tool_call_completed", "request_id": "c8e86474-3a14-4d4b-8167-f1a818bb8b51", "status": "rejected", "tool_name": "feature_lookup"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.038, "error_code": "vector_search_unavailable", "event": "tool_call_completed", "request_id": "65196e9f-bee5-466e-bce1-eb502a2d87fc", "status": "unavailable", "tool_name": "knowledge_search"}
+...{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.042, "error_code": "feature_backend_error", "event": "tool_call_completed", "request_id": "ddeb6747-b4ea-453e-b334-aeb54bd0bde6", "status": "unavailable", "tool_name": "feature_lookup"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.058, "error_code": null, "event": "tool_call_completed", "request_id": "rest-1", "status": "ok", "tool_name": "fraud_scoring"}
+.................................usage: python -m unittest [-h] [--endpoint ENDPOINT] [--model MODEL]
+                          [--tool-choice {required,auto}] [--stream]
+                          [--timeout TIMEOUT] [--evidence EVIDENCE]
+python -m unittest: error: local-only smoke: endpoint must be http://127.0.0.1:<port>
+...............s.............Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 06:30:01+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+.[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.0
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:publish] offline source status="WRITTEN" path="/tmp/rag-ingest-test.50ss2j3r/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 06:30:01+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test.50ss2j3r/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test.50ss2j3r/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T06:30:01.991232+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919278
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778342
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+.[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:publish] offline source status="WRITTEN" path="/tmp/rag-ingest-test.7estwiew/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 06:30:02+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test.7estwiew/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test.7estwiew/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T06:30:02.046198+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919278
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778342
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:datahub] PLAN_ONLY: nothing published to DataHub records=25
+[rag:datahub] done artifact="datahub.json"
+.[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-010" env_file_keys=[]
+[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-011" env_file_keys=[]
+.[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+.[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.0
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:publish] offline source status="WRITTEN" path="/tmp/rag-ingest-test.bzqy3syn/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 06:30:02+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test.bzqy3syn/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test.bzqy3syn/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T06:30:02.125039+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919278
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778342
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:datahub] PLAN_ONLY: nothing published to DataHub records=25
+[rag:datahub] done artifact="datahub.json"
+[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:publish] offline source status="REUSED" path="/tmp/rag-ingest-test.bzqy3syn/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 06:30:02+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test.bzqy3syn/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test.bzqy3syn/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T06:30:02.185780+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919278
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778342
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:datahub] PLAN_ONLY: nothing published to DataHub records=25
+[rag:datahub] done artifact="datahub.json"
+.[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-009" env_file_keys=[]
+.[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-012" env_file_keys=[]
+.....{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.18, "error_code": null, "event": "tool_call_completed", "request_id": "e4c7247d-62c7-41fe-9af1-0e2bc8310c62", "status": "ok", "tool_name": "chunk_lookup"}
+.{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/chunk_lookup", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/chunk_lookup", "status": 401}
+...{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.038, "error_code": "rag_index_provenance_mismatch", "event": "tool_call_completed", "request_id": "011d72f2-2a6f-4fd7-825d-a0cb0065da11", "status": "error", "tool_name": "chunk_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.027, "error_code": "rag_index_provenance_mismatch", "event": "tool_call_completed", "request_id": "d386790f-7e54-4822-b1f3-271c4ea11b5c", "status": "error", "tool_name": "chunk_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.023, "error_code": "rag_index_not_materialized", "event": "tool_call_completed", "request_id": "c10bcad6-591a-41eb-ac19-648556fdd622", "status": "unavailable", "tool_name": "chunk_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.025, "error_code": "rag_index_contract_error", "event": "tool_call_completed", "request_id": "64de68c5-f8a0-4fee-94d4-7adcb37f66b1", "status": "error", "tool_name": "chunk_lookup"}
+.{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.022, "error_code": "unknown_chunk", "event": "tool_call_completed", "request_id": "1e18a973-74db-4e9e-95fa-bc9ba71de6fe", "status": "rejected", "tool_name": "chunk_lookup"}
+...........................ssss..........
+======================================================================
+ERROR: test_g3_byo_coordinator (unittest.loader._FailedTest.test_g3_byo_coordinator)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_g3_byo_coordinator
+Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/tests/llm_agent/test_g3_byo_coordinator.py", line 9, in <module>
+    import httpx
+ModuleNotFoundError: No module named 'httpx'
+
+
+----------------------------------------------------------------------
+Ran 492 tests in 17.829s
+
+FAILED (errors=1, skipped=13)

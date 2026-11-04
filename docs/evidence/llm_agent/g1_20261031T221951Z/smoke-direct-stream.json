@@ -1,0 +1,20 @@
+{
+  "model": "ewallet-fraud-llm-v1",
+  "stream": true,
+  "tool_choice": "required",
+  "fixture_only": true,
+  "verdict": "FAIL",
+  "first_turn": {
+    "status": 200,
+    "finish_reason": null,
+    "usage": null,
+    "backend": null,
+    "latency_s": 199.02,
+    "first_byte_s": null,
+    "tool_calls": null
+  },
+  "tool_call_errors": [
+    "tool_calls missing or empty"
+  ],
+  "endpoint": "http://127.0.0.1:18000"
+}

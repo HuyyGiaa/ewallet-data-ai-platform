@@ -1,0 +1,27 @@
+== ewallet-mcp
+clustertrustbundles.certificates.k8s.io         []                                     []               [get list watch]
+== ewallet-agents
+clustertrustbundles.certificates.k8s.io         []                                     []               [get list watch]
+== feature-store
+clustertrustbundles.certificates.k8s.io         []                                     []               [get list watch]
+== default
+clustertrustbundles.certificates.k8s.io         []                                     []               [get list watch]
+== ewallet-ci
+clustertrustbundles.certificates.k8s.io         []                                     []               [get list watch]
+== ewallet-cicd
+configmaps                                      []                                     []               [get list watch create update patch delete]
+services                                        []                                     []               [get list watch create update patch delete]
+deployments.apps                                []                                     []               [get list watch create update patch delete]
+replicasets.apps                                []                                     []               [get list watch create update patch delete]
+statefulsets.apps                               []                                     []               [get list watch create update patch delete]
+cronjobs.batch                                  []                                     []               [get list watch create update patch delete]
+jobs.batch                                      []                                     []               [get list watch create update patch delete]
+events                                          []                                     []               [get list watch delete]
+pods/log                                        []                                     []               [get list watch delete]
+pods                                            []                                     []               [get list watch delete]
+clustertrustbundles.certificates.k8s.io         []                                     []               [get list watch]
+== ewallet-prompts
+pods/portforward                                []                                     []               [create]
+pods                                            []                                     []               [get list watch]
+services                                        []                                     []               [get list watch]
+clustertrustbundles.certificates.k8s.io         []                                     []               [get list watch]

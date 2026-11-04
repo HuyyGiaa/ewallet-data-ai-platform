@@ -1,0 +1,10 @@
+# O1 benchmark session only, applied identically to every configuration (B0-prime
+# included). The G1 token budget (24 000 tokens/h per model) is a production
+# abuse/cost guard; one O1 workload pass uses ~25 000 tokens, so B0-prime alone
+# exhausted it and every later config got 429 (O1 run 3). Rate limiting stays on;
+# only the hourly token budget is sized for 4 configs + the final G1 gates.
+agentgateway:
+  tokenRate:
+    capacity: 400000
+    refill: 400000
+    interval: 1h

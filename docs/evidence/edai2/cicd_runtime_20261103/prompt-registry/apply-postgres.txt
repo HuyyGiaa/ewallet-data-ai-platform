@@ -1,0 +1,3 @@
+persistentvolumeclaim/prompt-registry-db created
+deployment.apps/prompt-registry-db created
+service/prompt-registry-db created

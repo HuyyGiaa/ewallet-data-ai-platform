@@ -1,0 +1,48 @@
+captured_ict=2026-11-02T17:25:32+0700
+classification=LOCAL_SOURCE_AND_RENDER_VALIDATION
+
+[source/chart/pilot/security]
+interpreter=/usr/bin/python3
+command=python3 -m unittest tests.llm_agent.test_agent_platform_probe tests.llm_agent.test_agents_chart tests.unit.test_kagent_bounded_pilot tests.llm_agent.test_g3_orchestration tests.llm_agent.test_g3_runtime_config tests.llm_agent.test_policy_gateways
+result=PASS
+tests=100
+elapsed=0:09.02
+max_rss_kb=48876
+
+[BYO coordinator/specialist]
+interpreter=infra/docker/g3-byo-coordinator/.venv/bin/python3
+command=python3 -m unittest tests.llm_agent.test_g3_business_request tests.llm_agent.test_g3_byo_coordinator tests.llm_agent.test_g3_byo_feature_rag_specialist
+result=PASS
+tests=25
+elapsed=0:01.64
+max_rss_kb=106648
+
+[MCP authentication/SDK]
+interpreter=infra/docker/llm-agent-tooling/.venv/bin/python3
+command=python3 -m unittest tests.llm_agent.test_mcp_production_authenticator tests.llm_agent.test_mcp_sdk_conformance
+result=PASS
+tests=17
+elapsed=0:02.02
+max_rss_kb=120392
+
+combined_total=142_PASS
+hidden_failures=0
+runtime_cloud_tests=NOT_RUN
+
+[render]
+helm_g3_template=PASS
+helm_g3_lint=PASS
+agents=3
+hpa=3
+agent_pdb=3
+scaledobject=0
+pilot_chart_digest_checks=PASS
+pilot_crd_schema_validation=PASS
+pilot_documents=80
+pilot_approval_gate=BLOCKED_PENDING_OWNER_APPROVAL
+
+[resource_safety]
+heavy_parallel_builds=0
+observed_available_memory_before_pilot_render=21GiB
+observed_swap_used=0B
+pilot_render_elapsed_seconds=13.3

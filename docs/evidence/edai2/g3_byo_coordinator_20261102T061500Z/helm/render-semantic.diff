@@ -1,0 +1,11 @@
+--- /tmp/g3-byo-ce05f0f/render-r18.yaml	2026-11-02 13:22:04.692758392 +0700
++++ /tmp/g3-byo-ce05f0f/render-r19-candidate.yaml	2026-11-02 13:22:04.740758850 +0700
+@@ -2490,7 +2490,7 @@
+   type: BYO
+   byo:
+     deployment:
+-      image: "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:999a00ce14abbf919cdf6c171fd558c68a0ccd96e08e8aa322fbd6b8a13c48f9"
++      image: "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446"
+       imagePullPolicy: IfNotPresent
+       replicas: 1
+       serviceAccountName: fraud-coordinator

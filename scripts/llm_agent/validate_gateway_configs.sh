@@ -28,6 +28,9 @@ render mcp-deny-all mcp-gateway-config --set mcpGateway.enabled=true
 render mcp-callers mcp-gateway-config --set mcpGateway.enabled=true \
   --set mcpGateway.callerServiceAccounts.drift-specialist=worker-drift \
   --set mcpGateway.callerServiceAccounts.feature-rag-specialist=worker-feature-rag
+render mcp-ambient-backend-token mcp-gateway-config --set namespace.ambient=true \
+  --set mcpGateway.enabled=true \
+  --set mcpGateway.authorizationMode=ambient-backend-token
 render a2a-deny-all a2a-gateway-config --set a2aGateway.enabled=true
 render a2a-callers a2a-gateway-config --set a2aGateway.enabled=true \
   --set a2aGateway.callerServiceAccounts.fraud-coordinator=worker-coordinator
@@ -49,7 +52,8 @@ chmod 755 "$work" "$work/otel" && chmod 644 "$work"/*.yaml "$work"/otel/*.yaml
   status=0
   for file in "$work"/*.yaml; do
     name=$(basename "$file" .yaml)
-    result=$(docker run --rm --network none --memory 256m --cpus 0.5 -e VLLM_API_KEY=validate-only \
+    result=$(docker run --rm --network none --memory 256m --cpus 0.5 \
+      -e VLLM_API_KEY=validate-only -e GATEWAY_CLIENT_KEY=validate-only \
       -v "$work:/cfg:ro" "$image" --validate-only -f "/cfg/$name.yaml" 2>&1 | tail -1 || true)
     echo "$name: $result"
     if [ "$name" = negative-control ]; then

@@ -1,0 +1,13 @@
+GET /v0/prompts/drift-specialist-system/v2 (no credentials): 200
+POST /v0/apply?dryRun=true with altered v2 content (no credentials): 200 b'{"results":[{"apiVersion":"ar.dev/v1alpha1","kind":"Prompt","namespace":"default","name":"drift-specialist-system","tag":"v2","status":"dry-run"}]}\n'
+v2 content unchanged after dry-run: True 0c0798e185cd5f86
+GET /v0/agents 200
+GET /v0/mcpservers 200
+GET /v0/skills 200
+GET /v0/version 200
+GET /v0/health 200
+GET /openapi.json 200
+GET /docs 200
+GET /v0/servers 404
+MCP initialize /mcp 200 event: message data: {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"logging":{},"prompts":{"listChanged":true},"tools":{"listChanged":true}},"protocolVersion":"2025-06-18","serverInfo":{"name":"ag
+MCP initialize / 200 event: message data: {"jsonrpc":"2.0","id":1,"result":{"capabilities":{"logging":{},"prompts":{"listChanged":true},"tools":{"listChanged":true}},"protocolVersion":"2025-06-18","serverInfo":{"name":"ag

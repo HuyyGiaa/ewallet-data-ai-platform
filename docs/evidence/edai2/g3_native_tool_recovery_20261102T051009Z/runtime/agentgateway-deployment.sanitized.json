@@ -1,0 +1,97 @@
+{
+  "metadata": {
+    "name": "agentgateway",
+    "namespace": "ewallet-agents",
+    "annotations": {
+      "deployment.kubernetes.io/revision": "1",
+      "meta.helm.sh/release-name": "llm-agent",
+      "meta.helm.sh/release-namespace": "default"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "template": {
+      "metadata": {
+        "annotations": null
+      },
+      "spec": {
+        "serviceAccountName": "agentgateway",
+        "containers": [
+          {
+            "name": "agentgateway",
+            "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+            "args": [
+              "-f",
+              "/config/config.yaml"
+            ],
+            "ports": [
+              {
+                "containerPort": 4000,
+                "name": "entry",
+                "protocol": "TCP"
+              },
+              {
+                "containerPort": 3000,
+                "name": "llm-internal",
+                "protocol": "TCP"
+              },
+              {
+                "containerPort": 15020,
+                "name": "metrics",
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "VLLM_API_KEY",
+                "value": null,
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "api-key",
+                    "name": "vllm-api-key"
+                  }
+                }
+              },
+              {
+                "name": "GATEWAY_CLIENT_KEY",
+                "value": null,
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "api-key",
+                    "name": "agentgateway-client-key"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "status": {
+    "availableReplicas": 1,
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-01T17:35:15Z",
+        "lastUpdateTime": "2026-11-01T17:35:15Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+      },
+      {
+        "lastTransitionTime": "2026-11-01T17:35:04Z",
+        "lastUpdateTime": "2026-11-01T17:35:15Z",
+        "message": "ReplicaSet \"agentgateway-5d7b994c75\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+      }
+    ],
+    "observedGeneration": 1,
+    "readyReplicas": 1,
+    "replicas": 1,
+    "terminatingReplicas": 0,
+    "updatedReplicas": 1
+  }
+}

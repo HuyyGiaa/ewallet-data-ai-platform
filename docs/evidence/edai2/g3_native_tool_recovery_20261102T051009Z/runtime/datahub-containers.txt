@@ -1,0 +1,8 @@
+datahub-datahub-gms-quickstart-1	Exited (143) 9 hours ago
+datahub-datahub-actions-quickstart-1	Exited (137) 31 hours ago
+datahub-frontend-quickstart-1	Exited (143) 9 hours ago
+datahub-system-update-quickstart-1	Exited (0) 31 hours ago
+datahub-kafka-broker-1	Exited (143) 9 hours ago
+datahub-mysql-1	Exited (0) 9 hours ago
+datahub-opensearch-1	Exited (143) 9 hours ago
+kafka-connect	Exited (137) 9 hours ago

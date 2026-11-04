@@ -1,0 +1,8 @@
+NAME                        READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                                                                                                                                                            SELECTOR
+deployment.apps/fraud-api   1/1     1            1           37h     fraud-api    asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165   app.kubernetes.io/name=fraud-api
+deployment.apps/mlflow      1/1     1            1           5d15h   mlflow       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mlflow:v3.17.1-gcs-postgres-1                                                       app.kubernetes.io/name=mlflow
+
+NAME                             READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/fraud-api-6dbb7d4456-9f6xq   1/1     Running   0          30h   10.216.4.19   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>
+pod/mlflow-df68bccb-zcxsw        1/1     Running   0          31h   10.216.5.26   gke-ewallet-dev-cpu-pool-58daed59-mb8v   <none>           <none>
+pod/mlflow-postgresql-0          1/1     Running   0          30h   10.216.4.24   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>

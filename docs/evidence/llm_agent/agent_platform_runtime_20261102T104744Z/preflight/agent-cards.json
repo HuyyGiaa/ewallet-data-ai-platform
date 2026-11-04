@@ -1,0 +1,21 @@
+{
+  "fraud-coordinator": {
+    "name": "fraud_coordinator",
+    "version": "1.0.0",
+    "skills": ["investigate-transaction"],
+    "source": "live service port-forward"
+  },
+  "feature-rag-specialist": {
+    "name": "feature_rag_specialist",
+    "version": "1.0.0",
+    "skills": ["feature-rag-evidence"],
+    "source": "live service port-forward"
+  },
+  "drift-specialist": {
+    "name": "drift_specialist",
+    "version": "1.0.0",
+    "skills": ["drift_specialist", "drift_specialist-ask_user"],
+    "source": "live service port-forward",
+    "note": "The live Agent CR has no declarative.a2aConfig. The HPA-only candidate preserves that absence and therefore does not publish feature-risk-analysis."
+  }
+}

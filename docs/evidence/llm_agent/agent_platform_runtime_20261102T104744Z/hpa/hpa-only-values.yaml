@@ -1,0 +1,7 @@
+agents:
+  autoscaling:
+    enabled: true
+  specialists:
+    drift-specialist:
+      a2aSkill:
+        enabled: false

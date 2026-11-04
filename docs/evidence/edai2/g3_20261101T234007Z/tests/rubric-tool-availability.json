@@ -1,0 +1,6 @@
+{
+  "coverage": false,
+  "hypothesis": false,
+  "mutmut": false,
+  "locust": false
+}

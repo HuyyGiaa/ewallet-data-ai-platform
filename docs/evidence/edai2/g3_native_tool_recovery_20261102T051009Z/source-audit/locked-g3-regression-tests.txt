@@ -1,0 +1,250 @@
+test_baseline_and_window_identity (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_baseline_and_window_identity) ... ok
+test_baseline_validation (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_baseline_validation) ... ok
+test_bin_edges_are_right_closed (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_bin_edges_are_right_closed) ... ok
+test_input_partitions (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_input_partitions) ... ok
+test_matching_distribution_is_no_drift (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_matching_distribution_is_no_drift) ... ok
+test_minimum_sample_boundary (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_minimum_sample_boundary) ... ok
+test_production_drift_backends_are_unavailable (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_production_drift_backends_are_unavailable) ... ok
+test_psi_matches_hand_computation_and_classifies (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_psi_matches_hand_computation_and_classifies) ... ok
+test_psi_properties_on_seeded_random_inputs (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_psi_properties_on_seeded_random_inputs) ... ok
+test_threshold_boundaries_are_inclusive (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_threshold_boundaries_are_inclusive) ... ok
+test_without_approved_thresholds_result_is_unclassified (tests.llm_agent.test_phase_d_tools.DriftToolTests.test_without_approved_thresholds_result_is_unclassified) ... ok
+test_backend_failures_map_to_shared_statuses (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_backend_failures_map_to_shared_statuses) ... ok
+test_concurrency_is_bounded (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_concurrency_is_bounded) ... ok
+test_construction_bounds (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_construction_bounds) ... ok
+test_deadline_is_enforced (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_deadline_is_enforced) ... ok
+test_failure_isolation_between_calls (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_failure_isolation_between_calls) ... ok
+test_invalid_arguments_are_rejected_without_echoing_values (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_invalid_arguments_are_rejected_without_echoing_values) ... ok
+test_invalid_provenance_override_is_an_error (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_invalid_provenance_override_is_an_error) ... ok
+test_logs_contain_metadata_but_not_arguments (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_logs_contain_metadata_but_not_arguments) ... ok
+test_production_factory_injects_reviewed_kserve_wire_contract (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_production_factory_injects_reviewed_kserve_wire_contract) ... ok
+test_read_only_tools_are_idempotent (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_read_only_tools_are_idempotent) ... ok
+test_unknown_and_unserved_tools (tests.llm_agent.test_phase_d_tools.ExecutorTests.test_unknown_and_unserved_tools) ... ok
+test_feature_lookup_returns_authorized_features_with_timestamps (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_feature_lookup_returns_authorized_features_with_timestamps) ... ok
+test_feature_name_partitions_and_boundaries (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_feature_name_partitions_and_boundaries) ... ok
+test_fraud_scoring_propagates_model_provenance (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_fraud_scoring_propagates_model_provenance) ... ok
+test_fraud_scoring_rejects_other_models_and_transactions (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_fraud_scoring_rejects_other_models_and_transactions) ... ok
+test_merchant_features_are_null_without_a_merchant (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_merchant_features_are_null_without_a_merchant) ... ok
+test_non_numeric_backend_values_are_contract_errors (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_non_numeric_backend_values_are_contract_errors) ... ok
+test_readiness_reports_each_backend (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_readiness_reports_each_backend) ... ok
+test_transaction_schema_partitions (tests.llm_agent.test_phase_d_tools.FeatureAndScoringToolTests.test_transaction_schema_partitions) ... ok
+test_input_partitions_and_boundaries (tests.llm_agent.test_phase_d_tools.KnowledgeSearchToolTests.test_input_partitions_and_boundaries) ... ok
+test_production_retriever_is_explicitly_unavailable (tests.llm_agent.test_phase_d_tools.KnowledgeSearchToolTests.test_production_retriever_is_explicitly_unavailable) ... ok
+test_results_carry_manifest_bound_citations (tests.llm_agent.test_phase_d_tools.KnowledgeSearchToolTests.test_results_carry_manifest_bound_citations) ... ok
+test_untrusted_retriever_output_is_rejected (tests.llm_agent.test_phase_d_tools.KnowledgeSearchToolTests.test_untrusted_retriever_output_is_rejected) ... ok
+test_concurrent_requests_through_the_app (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_concurrent_requests_through_the_app) ... ok
+test_health_probes (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_health_probes) ... ok
+test_mcp_authentication_precedes_transaction_compatibility (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_mcp_authentication_precedes_transaction_compatibility) ... ok
+test_mcp_errors (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_mcp_errors) ... ok
+test_mcp_lifecycle_and_tools (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_mcp_lifecycle_and_tools) ... ok
+test_mcp_normalizes_only_exact_flat_transaction_envelopes (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_mcp_normalizes_only_exact_flat_transaction_envelopes) ... ok
+test_mcp_rejects_ambiguous_or_extended_flat_transaction_envelopes (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_mcp_rejects_ambiguous_or_extended_flat_transaction_envelopes) ... ok
+test_mcp_tool_failure_is_reported_in_band (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_mcp_tool_failure_is_reported_in_band) ... ok
+test_production_drift_transport_reports_missing_authentication (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_production_drift_transport_reports_missing_authentication) ... ok
+test_production_wiring_fails_closed_and_logs_rejections (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_production_wiring_fails_closed_and_logs_rejections) ... ok
+test_rest_boundary_failures (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_rest_boundary_failures) ... {"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+ok
+test_rest_status_codes_follow_tool_status (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_rest_status_codes_follow_tool_status) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.046, "error_code": "feature_backend_error", "event": "tool_call_completed", "request_id": "6aae771d-4f5f-4e0f-8b0b-b3a586e621d7", "status": "unavailable", "tool_name": "feature_lookup"}
+ok
+test_typed_rest_route (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_typed_rest_route) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.069, "error_code": null, "event": "tool_call_completed", "request_id": "rest-1", "status": "ok", "tool_name": "fraud_scoring"}
+ok
+test_versions_come_from_deployment_identity (tests.llm_agent.test_phase_d_tools.ServiceBoundaryTests.test_versions_come_from_deployment_identity) ... ok
+test_forged_actor_with_valid_credentials_is_rejected (tests.llm_agent.test_phase_d_security.AuthenticationBoundaryTests.test_forged_actor_with_valid_credentials_is_rejected) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.137, "error_code": null, "event": "tool_call_completed", "request_id": "86cc4a53-14fb-404a-8825-083f1689a2d6", "status": "ok", "tool_name": "knowledge_search"}
+ok
+test_health_probes_need_no_credentials (tests.llm_agent.test_phase_d_security.AuthenticationBoundaryTests.test_health_probes_need_no_credentials) ... ok
+test_missing_and_invalid_credentials_fail_closed_before_parsing (tests.llm_agent.test_phase_d_security.AuthenticationBoundaryTests.test_missing_and_invalid_credentials_fail_closed_before_parsing) ... {"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 401}
+ok
+test_no_grants_means_no_tools (tests.llm_agent.test_phase_d_security.AuthenticationBoundaryTests.test_no_grants_means_no_tools) ... ok
+test_tool_authorization_uses_the_verified_principal (tests.llm_agent.test_phase_d_security.AuthenticationBoundaryTests.test_tool_authorization_uses_the_verified_principal) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.133, "error_code": null, "event": "tool_call_completed", "request_id": "d57b0b48-b324-40d7-b740-767c30d20b79", "status": "ok", "tool_name": "knowledge_search"}
+ok
+test_verifier_faults_deny_without_leaking (tests.llm_agent.test_phase_d_security.AuthenticationBoundaryTests.test_verifier_faults_deny_without_leaking) ... {"code": "authentication_unavailable", "event": "request_rejected", "path": "/mcp", "status": 503}
+ok
+test_deadline_covers_the_whole_body_not_each_chunk (tests.llm_agent.test_phase_d_security.BodyDeadlineTests.test_deadline_covers_the_whole_body_not_each_chunk) ... {"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+ok
+test_stalled_body_times_out_without_running_the_tool (tests.llm_agent.test_phase_d_security.BodyDeadlineTests.test_stalled_body_times_out_without_running_the_tool) ... {"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+{"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+ok
+test_timeout_is_checked_after_authentication (tests.llm_agent.test_phase_d_security.BodyDeadlineTests.test_timeout_is_checked_after_authentication) ... {"code": "authentication_failed", "event": "request_rejected", "path": "/mcp", "status": 401}
+ok
+test_timeout_releases_the_inflight_slot (tests.llm_agent.test_phase_d_security.BodyDeadlineTests.test_timeout_releases_the_inflight_slot) ... {"code": "request_timeout", "event": "request_rejected", "path": "/mcp", "status": 408}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.122, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "3b7d6606-f63b-44ea-a372-f76e5f94b9bc", "status": "unavailable", "tool_name": "drift_detection"}
+ok
+test_accept_quality_values (tests.llm_agent.test_phase_d_security.MediaTypeAndDisconnectTests.test_accept_quality_values) ... ok
+test_client_disconnect_mid_body_never_runs_the_tool (tests.llm_agent.test_phase_d_security.MediaTypeAndDisconnectTests.test_client_disconnect_mid_body_never_runs_the_tool) ... {"code": "client_disconnected", "event": "request_aborted", "path": "/mcp"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.064, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "434e02a3-4b87-42ef-8ea8-2695be3a3dba", "status": "unavailable", "tool_name": "drift_detection"}
+ok
+test_content_type_is_parsed_not_prefix_matched (tests.llm_agent.test_phase_d_security.MediaTypeAndDisconnectTests.test_content_type_is_parsed_not_prefix_matched) ... ok
+test_authentication_failures_are_not_concealed (tests.llm_agent.test_phase_d_security.ReadinessContractTests.test_authentication_failures_are_not_concealed) ... ok
+test_backend_outage_is_a_capability_not_a_readiness_failure (tests.llm_agent.test_phase_d_security.ReadinessContractTests.test_backend_outage_is_a_capability_not_a_readiness_failure) ... ok
+test_capabilities_require_authentication_and_grants (tests.llm_agent.test_phase_d_security.ReadinessContractTests.test_capabilities_require_authentication_and_grants) ... {"code": "authentication_required", "event": "request_rejected", "path": "/v1/capabilities", "status": 401}
+ok
+test_health_endpoints_expose_no_tool_details (tests.llm_agent.test_phase_d_security.ReadinessContractTests.test_health_endpoints_expose_no_tool_details) ... ok
+test_missing_baseline_keeps_transport_ready_and_tool_fail_closed (tests.llm_agent.test_phase_d_security.ReadinessContractTests.test_missing_baseline_keeps_transport_ready_and_tool_fail_closed) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.054, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "b480b111-2fec-4a5e-9d60-96dc41766848", "status": "unavailable", "tool_name": "drift_detection"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.022, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "9c45369d-9344-478f-a639-d18f6a3d5542", "status": "unavailable", "tool_name": "drift_detection"}
+ok
+test_schema_endpoints_are_not_exposed (tests.llm_agent.test_phase_d_security.ReadinessContractTests.test_schema_endpoints_are_not_exposed) ... {"code": "authentication_required", "event": "request_rejected", "path": "/docs", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/redoc", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/openapi.json", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/unknown", "status": 401}
+ok
+test_http_settings_from_env (tests.llm_agent.test_phase_d_security.SecurityConfigurationTests.test_http_settings_from_env) ... ok
+test_principal_and_errors_are_bounded (tests.llm_agent.test_phase_d_security.SecurityConfigurationTests.test_principal_and_errors_are_bounded) ... ok
+test_tool_grants_deny_by_default_and_validate (tests.llm_agent.test_phase_d_security.SecurityConfigurationTests.test_tool_grants_deny_by_default_and_validate) ... ok
+test_body_size_limit (tests.llm_agent.test_phase_d_security.TransportHardeningTests.test_body_size_limit) ... {"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+{"code": "invalid_content_length", "event": "request_rejected", "path": "/mcp", "status": 400}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+ok
+test_in_flight_limit (tests.llm_agent.test_phase_d_security.TransportHardeningTests.test_in_flight_limit) ... {"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+{"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+{"code": "server_busy", "event": "request_rejected", "path": "/v1/tools/feature_lookup", "status": 503}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 200.953, "error_code": null, "event": "tool_call_completed", "request_id": "149071e5-5ef7-4736-8abc-b9794a473cf7", "status": "ok", "tool_name": "feature_lookup"}
+{"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 201.361, "error_code": null, "event": "tool_call_completed", "request_id": "bd4381f8-2652-42df-be07-b08330f6d51a", "status": "ok", "tool_name": "feature_lookup"}
+ok
+test_json_rpc_message_shapes (tests.llm_agent.test_phase_d_security.TransportHardeningTests.test_json_rpc_message_shapes) ... ok
+test_media_types (tests.llm_agent.test_phase_d_security.TransportHardeningTests.test_media_types) ... ok
+test_origin_validation (tests.llm_agent.test_phase_d_security.TransportHardeningTests.test_origin_validation) ... {"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+ok
+test_tool_failures_stay_in_band_and_redacted (tests.llm_agent.test_phase_d_security.TransportHardeningTests.test_tool_failures_stay_in_band_and_redacted) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.085, "error_code": "internal_error", "event": "tool_call_completed", "request_id": "c071789e-5675-43a2-845f-17fde16d4c72", "status": "error", "tool_name": "feature_lookup"}
+ok
+test_unsupported_http_methods (tests.llm_agent.test_phase_d_security.TransportHardeningTests.test_unsupported_http_methods) ... {"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+ok
+test_initialize_discover_and_call (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_initialize_discover_and_call) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.133, "error_code": null, "event": "tool_call_completed", "request_id": "b8f9116a-03ff-47d9-98d0-2c90a32024c7", "status": "ok", "tool_name": "knowledge_search"}
+ok
+test_malformed_messages_return_sdk_valid_errors (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_malformed_messages_return_sdk_valid_errors) ... ok
+test_rejections_surface_as_sdk_errors (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_rejections_surface_as_sdk_errors) ... {"code": "authentication_required", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/mcp", "status": 401}
+{"code": "origin_not_allowed", "event": "request_rejected", "path": "/mcp", "status": 403}
+{"code": "request_too_large", "event": "request_rejected", "path": "/mcp", "status": 413}
+ok
+test_tool_execution_failure_is_in_band (tests.llm_agent.test_mcp_sdk_conformance.OfficialSdkInteropTests.test_tool_execution_failure_is_in_band) ... {"actor_id": "spiffe-test/feature-rag-specialist", "duration_ms": 0.042, "error_code": "vector_search_unavailable", "event": "tool_call_completed", "request_id": "9a9a01c6-e18f-43bc-a136-9bb14f7b29c2", "status": "unavailable", "tool_name": "knowledge_search"}
+ok
+test_authentication_failure_is_redacted_and_tool_never_runs (tests.llm_agent.test_mcp_production_authenticator.ProductionAuthorizationBoundaryTests.test_authentication_failure_is_redacted_and_tool_never_runs) ... ok
+test_discovery_and_granted_subjects_must_be_disjoint (tests.llm_agent.test_mcp_production_authenticator.ProductionAuthorizationBoundaryTests.test_discovery_and_granted_subjects_must_be_disjoint) ... ok
+test_discovery_subject_lists_every_tool_but_cannot_call_one (tests.llm_agent.test_mcp_production_authenticator.ProductionAuthorizationBoundaryTests.test_discovery_subject_lists_every_tool_but_cannot_call_one) ... ok
+test_existing_specialist_roles_are_preserved_for_rest (tests.llm_agent.test_mcp_production_authenticator.ProductionAuthorizationBoundaryTests.test_existing_specialist_roles_are_preserved_for_rest) ... {"actor_id": "feature-rag-specialist", "duration_ms": 0.063, "error_code": null, "event": "tool_call_completed", "request_id": "99eed450-0250-4c8f-bfe2-3dfdb0daf8f4", "status": "ok", "tool_name": "fraud_scoring"}
+ok
+test_mcp_tools_list_and_direct_call_are_filtered_by_toolgrants (tests.llm_agent.test_mcp_production_authenticator.ProductionAuthorizationBoundaryTests.test_mcp_tools_list_and_direct_call_are_filtered_by_toolgrants) ... ok
+test_production_factory_uses_service_scoped_configuration (tests.llm_agent.test_mcp_production_authenticator.ProductionAuthorizationBoundaryTests.test_production_factory_uses_service_scoped_configuration) ... {"actor_id": "drift-specialist", "duration_ms": 0.029, "error_code": "drift_baseline_unavailable", "event": "tool_call_completed", "request_id": "b752a6c7-41f6-4cda-abcc-52dbd1773eff", "status": "unavailable", "tool_name": "drift_detection"}
+{"duration_seconds":8.1e-05,"event":"mcp.tool.completed","outcome":"error","service":"drift-mcp","severity":"ERROR","span_id":"1d339426a62cebe2","timestamp":"2026-11-02T05:20:46.106797+00:00","tool":"drift_detection","trace_id":"b2605318c7cab8fb9b040a388585cf0c"}
+{"code": "authentication_failed", "event": "request_rejected", "path": "/v1/tools/drift_detection", "status": 401}
+ok
+test_missing_invalid_unknown_and_revoked_tokens_are_denied (tests.llm_agent.test_mcp_production_authenticator.ServiceTokenAuthenticationTests.test_missing_invalid_unknown_and_revoked_tokens_are_denied) ... ok
+test_rotation_overlap_accepts_new_and_old_active_then_rejects_revoked (tests.llm_agent.test_mcp_production_authenticator.ServiceTokenAuthenticationTests.test_rotation_overlap_accepts_new_and_old_active_then_rejects_revoked) ... ok
+test_server_mapping_is_the_only_source_of_principal_identity (tests.llm_agent.test_mcp_production_authenticator.ServiceTokenAuthenticationTests.test_server_mapping_is_the_only_source_of_principal_identity) ... ok
+test_missing_empty_and_malformed_configuration_fail_closed (tests.llm_agent.test_mcp_production_authenticator.ServiceTokenConfigurationTests.test_missing_empty_and_malformed_configuration_fail_closed) ... {"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+ok
+test_rejection_log_never_contains_configuration_or_tokens (tests.llm_agent.test_mcp_production_authenticator.ServiceTokenConfigurationTests.test_rejection_log_never_contains_configuration_or_tokens) ... ok
+test_service_scoping_rejects_a_subject_without_grants_for_that_service (tests.llm_agent.test_mcp_production_authenticator.ServiceTokenConfigurationTests.test_service_scoping_rejects_a_subject_without_grants_for_that_service) ... {"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+ok
+test_unknown_subject_duplicate_weak_and_all_revoked_fail_closed (tests.llm_agent.test_mcp_production_authenticator.ServiceTokenConfigurationTests.test_unknown_subject_duplicate_weak_and_all_revoked_fail_closed) ... {"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+{"code": "authentication_not_configured", "event": "authentication_configuration_rejected"}
+ok
+test_disabled_by_default (tests.llm_agent.test_phase_d_chart.McpChartTests.test_disabled_by_default) ... ok
+test_each_mcp_service_loads_only_its_own_secret_table (tests.llm_agent.test_phase_d_chart.McpChartTests.test_each_mcp_service_loads_only_its_own_secret_table) ... ok
+test_enabled_render_is_least_privilege_and_rolling (tests.llm_agent.test_phase_d_chart.McpChartTests.test_enabled_render_is_least_privilege_and_rolling) ... ok
+test_enabled_render_requires_real_identity (tests.llm_agent.test_phase_d_chart.McpChartTests.test_enabled_render_requires_real_identity) ... ok
+test_mcp_auth_secret_name_requires_a_key (tests.llm_agent.test_phase_d_chart.McpChartTests.test_mcp_auth_secret_name_requires_a_key) ... ok
+test_mcp_servers_stay_behind_default_deny (tests.llm_agent.test_phase_d_chart.McpChartTests.test_mcp_servers_stay_behind_default_deny) ... ok
+test_security_settings_default_to_deny (tests.llm_agent.test_phase_d_chart.McpChartTests.test_security_settings_default_to_deny) ... ok
+test_invalid_bounds_are_rejected (tests.llm_agent.test_agents_chart.AgentAutoscalingTests.test_invalid_bounds_are_rejected) ... ok
+test_one_scaledobject_per_worker_pool_with_a_warm_floor (tests.llm_agent.test_agents_chart.AgentAutoscalingTests.test_one_scaledobject_per_worker_pool_with_a_warm_floor) ... ok
+test_prometheus_trigger_needs_a_read_back_query (tests.llm_agent.test_agents_chart.AgentAutoscalingTests.test_prometheus_trigger_needs_a_read_back_query) ... ok
+test_target_supports_scale_and_no_selector_based_trigger_is_used (tests.llm_agent.test_agents_chart.AgentAutoscalingTests.test_target_supports_scale_and_no_selector_based_trigger_is_used) ... ok
+test_changed_prompt_without_version_bump_fails_render (tests.llm_agent.test_agents_chart.AgentManifestTests.test_changed_prompt_without_version_bump_fails_render) ... ok
+test_coordinator_delegates_by_native_a2a_only (tests.llm_agent.test_agents_chart.AgentManifestTests.test_coordinator_delegates_by_native_a2a_only) ... ok
+test_disabled_by_default (tests.llm_agent.test_agents_chart.AgentManifestTests.test_disabled_by_default) ... ok
+test_every_agent_resource_matches_the_served_crd_schema (tests.llm_agent.test_agents_chart.AgentManifestTests.test_every_agent_resource_matches_the_served_crd_schema) ... ok
+test_feature_rag_prompt_pins_nested_transaction_arguments (tests.llm_agent.test_agents_chart.AgentManifestTests.test_feature_rag_prompt_pins_nested_transaction_arguments) ... ok
+test_invalid_agent_auth_secret_references_fail_render (tests.llm_agent.test_agents_chart.AgentManifestTests.test_invalid_agent_auth_secret_references_fail_render) ... ok
+test_invalid_configurations_are_rejected (tests.llm_agent.test_agents_chart.AgentManifestTests.test_invalid_configurations_are_rejected) ... ok
+test_one_coordinator_two_specialists_with_business_roles (tests.llm_agent.test_agents_chart.AgentManifestTests.test_one_coordinator_two_specialists_with_business_roles) ... ok
+test_prompts_are_versioned_and_checksum_bound (tests.llm_agent.test_agents_chart.AgentManifestTests.test_prompts_are_versioned_and_checksum_bound) ... ok
+test_service_scoped_secret_headers_preserve_existing_specialist_roles (tests.llm_agent.test_agents_chart.AgentManifestTests.test_service_scoped_secret_headers_preserve_existing_specialist_roles) ... ok
+test_specialist_tool_allowlists_are_least_privilege (tests.llm_agent.test_agents_chart.AgentManifestTests.test_specialist_tool_allowlists_are_least_privilege) ... ok
+test_tools_are_reached_only_through_the_mcp_gateway (tests.llm_agent.test_agents_chart.AgentManifestTests.test_tools_are_reached_only_through_the_mcp_gateway) ... ok
+test_validator_catches_the_pruned_worker_service_account (tests.llm_agent.test_agents_chart.AgentManifestTests.test_validator_catches_the_pruned_worker_service_account) ... ok
+test_worker_pools_are_per_agent_and_snapshots_isolated (tests.llm_agent.test_agents_chart.AgentManifestTests.test_worker_pools_are_per_agent_and_snapshots_isolated) ... ok
+test_a2a_goes_through_agentgateway_and_traces_are_exported (tests.llm_agent.test_agents_chart.KagentControllerValuesTests.test_a2a_goes_through_agentgateway_and_traces_are_exported) ... ok
+test_aggregates_business_evidence_without_inventing_values (tests.llm_agent.test_g3_orchestration.CoordinatorOrchestrationTests.test_aggregates_business_evidence_without_inventing_values) ... ok
+test_partial_specialist_failure_is_explicit_and_bounded (tests.llm_agent.test_g3_orchestration.CoordinatorOrchestrationTests.test_partial_specialist_failure_is_explicit_and_bounded) ... ok
+test_rejects_unknown_capability_unauthorized_result_and_duplicate_result (tests.llm_agent.test_g3_orchestration.CoordinatorOrchestrationTests.test_rejects_unknown_capability_unauthorized_result_and_duplicate_result) ... ok
+test_selects_only_requested_specialists_and_preserves_tool_grants (tests.llm_agent.test_g3_orchestration.CoordinatorOrchestrationTests.test_selects_only_requested_specialists_and_preserves_tool_grants) ... ok
+test_final_set_reuses_release_tokens_and_keeps_transition_set (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_final_set_reuses_release_tokens_and_keeps_transition_set) ... ok
+test_initial_and_repeated_preparation_are_create_then_noop (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_initial_and_repeated_preparation_are_create_then_noop) ... ok
+test_new_release_coexists_and_never_mutates_old_release (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_new_release_coexists_and_never_mutates_old_release) ... ok
+test_partial_or_conflicting_release_fails_without_creation (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests.test_partial_or_conflicting_release_fails_without_creation) ... ok
+test_final_set_contains_only_current_release (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_final_set_contains_only_current_release) ... ok
+test_invalid_previous_table_fails_closed_without_rendering_a_token (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_invalid_previous_table_fails_closed_without_rendering_a_token) ... ok
+test_one_distinct_token_per_granted_pair_plus_one_revoked_per_server (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_one_distinct_token_per_granted_pair_plus_one_revoked_per_server) ... ok
+test_release_identity_is_bounded_and_not_token_material (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_release_identity_is_bounded_and_not_token_material) ... ok
+test_revoked_pair_gets_no_header_secret (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_revoked_pair_gets_no_header_secret) ... ok
+test_secret_placement_separates_client_and_server_material (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_secret_placement_separates_client_and_server_material) ... ok
+test_secrets_never_put_one_agent_token_in_another_agent_secret (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_secrets_never_put_one_agent_token_in_another_agent_secret) ... ok
+test_transition_tables_accept_old_and_new_without_broadening_subjects (tests.llm_agent.test_g3_runtime_config.CredentialTests.test_transition_tables_accept_old_and_new_without_broadening_subjects) ... ok
+test_a2a_config_checksum_rolls_only_the_coordinator (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_a2a_config_checksum_rolls_only_the_coordinator) ... ok
+test_agent_mode_renders_kagent_agents_without_substrate (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_agent_mode_renders_kagent_agents_without_substrate) ... ok
+test_coordinator_delegates_only_and_specialists_hold_least_privilege (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_coordinator_delegates_only_and_specialists_hold_least_privilege) ... ok
+test_cross_namespace_ingress_requires_a_mesh_principal (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_cross_namespace_ingress_requires_a_mesh_principal) ... ok
+test_cutover_changes_backends_but_preserves_legacy_workloads (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_cutover_changes_backends_but_preserves_legacy_workloads) ... ok
+test_explicitly_disabled_service_is_not_rendered (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_explicitly_disabled_service_is_not_rendered) ... ok
+test_feature_rag_mcp_gets_secrets_by_reference_and_registry_snapshots (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_feature_rag_mcp_gets_secrets_by_reference_and_registry_snapshots) ... ok
+test_gateways_authorize_per_identity (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_gateways_authorize_per_identity) ... ok
+test_invalid_backend_namespace_fails_closed (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_invalid_backend_namespace_fails_closed) ... ok
+test_invalid_credential_identifiers_fail_render (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_invalid_credential_identifiers_fail_render) ... ok
+test_isolated_namespace_has_an_external_lifecycle (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_isolated_namespace_has_an_external_lifecycle) ... ok
+test_isolated_profile_has_disjoint_mcp_only_ownership (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_isolated_profile_has_disjoint_mcp_only_ownership) ... ok
+test_kagent_controller_discovers_tools_with_its_own_list_only_credential (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_kagent_controller_discovers_tools_with_its_own_list_only_credential) ... ok
+test_malformed_service_configuration_fails_closed (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_malformed_service_configuration_fails_closed) ... ok
+test_mcp_config_checksum_rolls_only_specialists (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_mcp_config_checksum_rolls_only_specialists) ... ok
+test_missing_service_entry_is_ignored (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_missing_service_entry_is_ignored) ... ok
+test_mlops_access_is_two_scoped_additive_policies (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_mlops_access_is_two_scoped_additive_policies) ... ok
+test_release_scoped_references_support_server_first_promotion_and_rollback (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_release_scoped_references_support_server_first_promotion_and_rollback) ... ok
+test_revision3_null_service_cutover_skips_disabled_legacy_workload (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_revision3_null_service_cutover_skips_disabled_legacy_workload) ... ok
+test_sandbox_mode_still_requires_snapshots (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_sandbox_mode_still_requires_snapshots) ... ok
+test_single_replica_pdb_is_service_scoped (tests.llm_agent.test_g3_runtime_config.G3ChartTests.test_single_replica_pdb_is_service_scoped) ... ok
+test_destination_namespace_is_validated (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_destination_namespace_is_validated) ... ok
+test_invalid_destination_fails_before_reading_source (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_invalid_destination_fails_before_reading_source) ... usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: destination namespace must be a Kubernetes DNS label
+ok
+test_registry_configmap_is_immutable_and_digest_annotated (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_registry_configmap_is_immutable_and_digest_annotated) ... ok
+test_replicated_secret_keeps_data_only (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_replicated_secret_keeps_data_only) ... ok
+test_secret_copy_requires_approval_before_reading_source (tests.llm_agent.test_g3_runtime_config.PlatformInputTests.test_secret_copy_requires_approval_before_reading_source) ... usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: replicate-secret requires --approve-sensitive-copy before reading Secret material
+ok
+test_adds_g3_selector_only_where_missing (tests.llm_agent.test_g3_runtime_config.PostRendererTests.test_adds_g3_selector_only_where_missing) ... ok
+test_a2a_rejects_noncanonical_or_mismatched_payload (tests.llm_agent.test_g3_business_request.G3BusinessRequestTests.test_a2a_rejects_noncanonical_or_mismatched_payload) ... ok
+test_feature_projection_and_knowledge_query_are_consistent (tests.llm_agent.test_g3_business_request.G3BusinessRequestTests.test_feature_projection_and_knowledge_query_are_consistent) ... ok
+test_round_trip_is_canonical_bounded_and_identity_bound (tests.llm_agent.test_g3_business_request.G3BusinessRequestTests.test_round_trip_is_canonical_bounded_and_identity_bound) ... ok
+test_unrequested_drift_and_unknown_transaction_fields_fail_closed (tests.llm_agent.test_g3_business_request.G3BusinessRequestTests.test_unrequested_drift_and_unknown_transaction_fields_fail_closed) ... ok
+test_identity_mutation_and_non_terminal_finish_fail_closed (tests.llm_agent.test_g3_native_tool_probe.G3NativeToolProbeTests.test_identity_mutation_and_non_terminal_finish_fail_closed) ... ok
+test_invalid_arguments_and_unsolicited_drift_fail_closed (tests.llm_agent.test_g3_native_tool_probe.G3NativeToolProbeTests.test_invalid_arguments_and_unsolicited_drift_fail_closed) ... ok
+test_model_request_offers_exact_agent_tool_and_explicit_choice (tests.llm_agent.test_g3_native_tool_probe.G3NativeToolProbeTests.test_model_request_offers_exact_agent_tool_and_explicit_choice) ... ok
+test_registration_schema_matches_kagent_0103_agent_tool (tests.llm_agent.test_g3_native_tool_probe.G3NativeToolProbeTests.test_registration_schema_matches_kagent_0103_agent_tool) ... ok
+test_structured_call_preserves_transaction_identity_byte_for_byte (tests.llm_agent.test_g3_native_tool_probe.G3NativeToolProbeTests.test_structured_call_preserves_transaction_identity_byte_for_byte) ... ok
+test_text_only_pseudo_tool_response_is_rejected (tests.llm_agent.test_g3_native_tool_probe.G3NativeToolProbeTests.test_text_only_pseudo_tool_response_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 173 tests in 6.964s
+
+OK

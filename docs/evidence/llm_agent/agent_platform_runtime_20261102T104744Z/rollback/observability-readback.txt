@@ -1,0 +1,17 @@
+Read-only port-forward verification after rollback:
+
+Prometheus:
+  GET /-/ready -> "Prometheus Server is Ready."
+  GET /api/v1/query?query=up -> status=success, series=4, up=3
+
+Tempo:
+  GET /ready -> "ready"
+  GET /status/endpoints -> endpoint registry returned successfully
+
+Services present in ewallet-agents:
+  loki:3100
+  otel-collector:4317,4318,8889
+  prometheus:9090
+  tempo:3200,4317,4318
+
+Port-forward sessions were stopped immediately after readback.

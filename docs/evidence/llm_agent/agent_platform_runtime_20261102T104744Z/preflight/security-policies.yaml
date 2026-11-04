@@ -1,0 +1,4199 @@
+apiVersion: v1
+items:
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:35:23Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-drift-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793568923928111021"
+    uid: 957992d1-32f5-48be-b0cf-f4eb10d3b292
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/a2a-gateway
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T21:35:23.917018561Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:35:23Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-feature-rag-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793568924020287023"
+    uid: fbc29805-c9a3-4012-80f6-8fe5c4b8d781
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/a2a-gateway
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T21:35:24.008517877Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:10Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607370794607021"
+    uid: 77fb99d3-2064-48ae-8df1-f136a58e81f2
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/a2a-gateway
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:10.778698151Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:10Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607370512575014"
+    uid: 0d8944b8-d47d-42cc-835d-f91456d002cb
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/agentgateway
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:10.499333942Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-vllm
+    namespace: ewallet-agents
+    resourceVersion: "1793554505424639020"
+    uid: 8481c2c7-8bea-43e3-8719-9f38089fea97
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/agentgateway
+      to:
+      - operation:
+          ports:
+          - "8000"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: vllm
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.412506236Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-mcp-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607371055135013"
+    uid: 773084df-746e-4065-a523-94464185584d
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/drift-mcp
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:11.042836546Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-agentgateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554505303535003"
+    uid: 35ceb270-7005-4678-ac63-518cd7ec4ca9
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/drift-specialist
+      to:
+      - operation:
+          ports:
+          - "4000"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.288648433Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-mcp-gateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554505389967016"
+    uid: a28604f3-6ee0-4039-884d-a4a3fc046fb0
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/drift-specialist
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.371126962Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:22:08Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607728397151010"
+    uid: c85fe147-da8f-4a27-83c7-67ccc3220ae5
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/drift-specialist
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:22:08.384008378Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:10Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-mcp-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607370922767011"
+    uid: 8d1e958f-31d8-49d2-a7db-bdaf266ce865
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/feature-rag-mcp
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:10.909017253Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-agentgateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554505261183014"
+    uid: 51228adf-e392-4baf-a7e6-6df004ffa269
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/feature-rag-specialist
+      to:
+      - operation:
+          ports:
+          - "4000"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.248891258Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-mcp-gateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554505281583019"
+    uid: b47e3497-5362-4208-ab0d-2ab4ca640b65
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/feature-rag-specialist
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.267500654Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:22:08Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607728305199013"
+    uid: 17062323-ec2a-47d0-b6a6-e138fec0116a
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/feature-rag-specialist
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:22:08.290179133Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-a2a-gateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554505337759006"
+    uid: b79592d1-8e92-4011-bea4-877841ade5f2
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/fraud-coordinator
+      to:
+      - operation:
+          ports:
+          - "8083"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: a2a-gateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.323075890Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-agentgateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554505406895016"
+    uid: 0c1475ee-1075-4f1e-ad30-2a16f50b0592
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/fraud-coordinator
+      to:
+      - operation:
+          ports:
+          - "4000"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.396296731Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:22:08Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607728208431017"
+    uid: 0a0a44bc-a9b2-40a1-9f95-8df738dfaf38
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/fraud-coordinator
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:22:08.197381657Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:12Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-loki
+    namespace: ewallet-agents
+    resourceVersion: "1793607372194063021"
+    uid: 3ee8da26-2402-48b2-9a0a-1a41898b04c1
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/observability-grafana
+      to:
+      - operation:
+          ports:
+          - "3100"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: loki
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:12.184761980Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-prometheus
+    namespace: ewallet-agents
+    resourceVersion: "1793607372029551020"
+    uid: c15dad93-c651-45e2-a2db-74de2c4fc35b
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/observability-grafana
+      to:
+      - operation:
+          ports:
+          - "9090"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:12.016752578Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:12Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-tempo
+    namespace: ewallet-agents
+    resourceVersion: "1793607372330271019"
+    uid: 3c94ca06-e712-4b3e-91b7-375b0c6ec40b
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/observability-grafana
+      to:
+      - operation:
+          ports:
+          - "3200"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: tempo
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:12.319498243Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-drift-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793554505221535007"
+    uid: 7fbdfac1-3d87-41d3-9dfa-016a2e381222
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/kagent/sa/kagent-controller
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.187496997Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-feature-rag-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793554505093935023"
+    uid: 2fe06ab7-6cae-4fe3-a341-1c2ab224b0ae
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/kagent/sa/kagent-controller
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.043674166Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-fraud-coordinator
+    namespace: ewallet-agents
+    resourceVersion: "1793554505165327001"
+    uid: e6e563b2-ee51-428d-a8e1-8b8578773409
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/kagent/sa/kagent-controller
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        ewallet.io/agent: fraud-coordinator
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05.129901866Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:02:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-mcp-gateway
+    namespace: ewallet-agents
+    resourceVersion: "1793566977920031017"
+    uid: 074e5520-19f4-41d1-9a91-bd1e849852b6
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/kagent/sa/kagent-controller
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T21:02:57.905760764Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-llmd-epp-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607371196271015"
+    uid: f4eb8e7e-063c-43da-b1cc-36c04b0e8880
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/ewallet-fraud-llm-epp
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:11.187298020Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:10Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607370649983023"
+    uid: 606185a8-fffc-4fe8-b323-2ee8769454ea
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/mcp-gateway
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:10.638144073Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-otel-collector-to-loki
+    namespace: ewallet-agents
+    resourceVersion: "1793607371740975007"
+    uid: 01e8ee6a-82a8-4146-a1fd-bd5895f52ad1
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/otel-collector
+      to:
+      - operation:
+          ports:
+          - "3100"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: loki
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:11.729102016Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-otel-collector-to-tempo
+    namespace: ewallet-agents
+    resourceVersion: "1793607371883263009"
+    uid: aa2b9880-298d-4af2-8481-da28d41cfc8a
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/otel-collector
+      to:
+      - operation:
+          ports:
+          - "4317"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: tempo
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:11.866510525Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-agentgateway
+    namespace: ewallet-agents
+    resourceVersion: "1793607371329919010"
+    uid: fc471cce-50eb-41d4-a201-4d8583b14196
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/observability-prometheus
+      to:
+      - operation:
+          ports:
+          - "15020"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:11.320251980Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607371601567023"
+    uid: 35a6d204-984a-4569-a69f-2fac76c40875
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/observability-prometheus
+      to:
+      - operation:
+          ports:
+          - "8889"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:11.589915053Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:16:11Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-vllm
+    namespace: ewallet-agents
+    resourceVersion: "1793607371462959009"
+    uid: f3099d36-3de8-4580-a57e-c3ed3b74b683
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/observability-prometheus
+      to:
+      - operation:
+          ports:
+          - "8000"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: vllm
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-02T08:16:11.449861848Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: default-deny
+    namespace: ewallet-agents
+    resourceVersion: "1793554504992623004"
+    uid: ec76c581-fbb0-46bd-8f4d-529fa76419d7
+  spec: {}
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:04.962143415Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:50Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-drift-mcp
+    namespace: ewallet-mcp
+    resourceVersion: "1793565230207311005"
+    uid: f1db8c0b-1dcc-4050-9649-363d62ce873e
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/mcp-gateway
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: drift-mcp
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T20:33:50.196976669Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:50Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-feature-rag-mcp
+    namespace: ewallet-mcp
+    resourceVersion: "1793565230167839012"
+    uid: 66c51811-b1fe-4026-ab9c-a6bef3b700b9
+  spec:
+    action: ALLOW
+    rules:
+    - from:
+      - source:
+          principals:
+          - cluster.local/ns/ewallet-agents/sa/mcp-gateway
+      to:
+      - operation:
+          ports:
+          - "8080"
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T20:33:50.147765478Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: security.istio.io/v1
+  kind: AuthorizationPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:50Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: default-deny
+    namespace: ewallet-mcp
+    resourceVersion: "1793565230190959004"
+    uid: 44de94e6-af27-4d2b-a5f6-d8cb1d6a88f2
+  spec: {}
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T20:33:50.176662222Z"
+      message: attached to ztunnel
+      observedGeneration: "1"
+      reason: Accepted
+      status: "True"
+      type: ZtunnelAccepted
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:35:16Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-drift-specialist-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793568916077663009"
+    uid: 7c399fb4-2e88-4775-9cc0-616f7fe44495
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: drift-specialist
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: a2a-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:35:15Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-drift-specialist-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793568915984415023"
+    uid: 332b6650-af5c-4650-aed4-127448cdbcbd
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: a2a-gateway
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:35:16Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-feature-rag-specialist-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793568916261279017"
+    uid: ac42d647-f5f6-49bd-9263-e84b19f1e2c9
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: feature-rag-specialist
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: a2a-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:35:16Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-feature-rag-specialist-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793568916166047010"
+    uid: d888af68-008b-4480-bfbc-ca209a34c7c4
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: a2a-gateway
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-kagent-controller-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504145887003"
+    uid: 624a5663-76ab-463c-8434-f7ac8c07df67
+  spec:
+    egress:
+    - ports:
+      - port: 8083
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: a2a-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355210767022"
+    uid: 55ef7cf4-36fe-42ae-85ba-f70586154ac7
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: a2a-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-a2a-gateway-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355078991007"
+    uid: d2eebc6b-eb4e-4e33-8f4a-0708f375e214
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: a2a-gateway
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607354662639018"
+    uid: 39c9dcee-a0cf-46fc-9793-acab69bcfcae
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607354531391005"
+    uid: 40f159fc-445c-4e32-9ac5-6f45728e12a9
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: agentgateway
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-vllm-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504200015022"
+    uid: 278af440-40d4-44a9-9f6d-7da8f5a75f7e
+  spec:
+    egress:
+    - ports:
+      - port: 8000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: vllm
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-agentgateway-to-vllm-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504131119022"
+    uid: cc0c13fa-630d-4fbc-81d8-7bbc9cafa589
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: agentgateway
+      ports:
+      - port: 8000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: vllm
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-a2a-gateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554504145871014"
+    uid: 4149db4a-7700-4105-84e9-5ea8be5a241c
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8083
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: a2a-gateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-agentgateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554504116863018"
+    uid: 65733d0a-0255-493b-b003-10f76835fc35
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 4000
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-drift-mcp
+    namespace: ewallet-agents
+    resourceVersion: "1793554504170047022"
+    uid: afb71670-f365-463f-9c05-a4d682c4c17e
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: drift-mcp
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-drift-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793554504210015015"
+    uid: 794be567-18a9-406d-83d7-638aab745541
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-feature-rag-mcp
+    namespace: ewallet-agents
+    resourceVersion: "1793554504160015006"
+    uid: 5ba0094c-26b5-4749-ba44-7d88ad64b3a5
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-feature-rag-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793554504215007010"
+    uid: 9453c54c-003e-4e0d-8c81-2ba6a66e6f3c
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-fraud-coordinator
+    namespace: ewallet-agents
+    resourceVersion: "1793554504230079001"
+    uid: b8d4a08f-e919-411c-b6ec-91f7bd045750
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: fraud-coordinator
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-mcp-gateway
+    namespace: ewallet-agents
+    resourceVersion: "1793554504197615022"
+    uid: b4a914a0-d204-427d-be7d-d2d1caea4a9b
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:50Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-otel-collector
+    namespace: ewallet-agents
+    resourceVersion: "1793607350826031008"
+    uid: 5c2002b2-ced6-431c-9f9d-ad50aa745601
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 13133
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-vllm
+    namespace: ewallet-agents
+    resourceVersion: "1793554504238799013"
+    uid: 9b124eb4-da7e-401c-992b-a45a72d30531
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8000
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: vllm
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-cluster-dns
+    namespace: ewallet-agents
+    resourceVersion: "1793554504132799003"
+    uid: 9bac0991-a06d-46b2-a4e0-803a3aa091f4
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      - ipBlock:
+          cidr: 169.254.20.10/32
+      - ipBlock:
+          cidr: 34.118.224.10/32
+    podSelector: {}
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-mcp-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355728479022"
+    uid: 95b02e3e-b937-4006-9ec5-115fbb0d6548
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: drift-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-mcp-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355601295021"
+    uid: 940156e3-9103-4051-91f8-b81b66f1204b
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: drift-mcp
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-agentgateway-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504120351023"
+    uid: adb6f303-9d98-4556-913d-bf2d61f97182
+  spec:
+    egress:
+    - ports:
+      - port: 4000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: agentgateway
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-agentgateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504138719001"
+    uid: 11bdcf16-a22e-4217-9628-aa2887476654
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: drift-specialist
+      ports:
+      - port: 4000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-kagent-controller-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504180719009"
+    uid: 92dd0ff4-55da-4e97-abe8-b2710155cb2d
+  spec:
+    egress:
+    - ports:
+      - port: 8083
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-mcp-gateway-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504225007013"
+    uid: 75626f75-7bb7-44a2-81f6-d0f7f580ccf1
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: mcp-gateway
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-mcp-gateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504226879019"
+    uid: 887bf860-70d7-4206-83c4-845d1d3c4edc
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: drift-specialist
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:21:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607714289599001"
+    uid: 1abf14dc-6c6b-43f8-ae18-51eda703b2a9
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:21:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-drift-specialist-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607714204607023"
+    uid: 49d9fda2-1e4a-4fe7-aa75-96c903875a27
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: drift-specialist
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-mcp-to-feast-redis-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504104575024"
+    uid: 4eba0154-cf37-41aa-ac6b-d66038852ec2
+  spec:
+    egress:
+    - ports:
+      - port: 6379
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: feature-store
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: redis
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-mcp-to-kserve-fraud-detector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504238591012"
+    uid: 76491d02-632b-4f2e-a63e-11d426cfce72
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: fraud-serving
+        podSelector:
+          matchLabels:
+            serving.kserve.io/inferenceservice: fraud-detector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-mcp-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355472143007"
+    uid: 25e1111b-c860-4f24-bfa2-c4d3b1fae51e
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-mcp-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355342991003"
+    uid: 51c60255-f352-4bf0-bba9-20d6ef296cc2
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: feature-rag-mcp
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-agentgateway-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504150639023"
+    uid: 6885bf79-e213-4f8a-a25a-7192ee02a79a
+  spec:
+    egress:
+    - ports:
+      - port: 4000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: agentgateway
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-agentgateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504220015002"
+    uid: eb47a330-80f7-41e7-bebb-2cac321c1ca8
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: feature-rag-specialist
+      ports:
+      - port: 4000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-kagent-controller-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504232911005"
+    uid: 69a4f9ee-dd7a-472c-b6ea-fffcbfa87aa8
+  spec:
+    egress:
+    - ports:
+      - port: 8083
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-mcp-gateway-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504205007016"
+    uid: 2670aa11-d1ea-4a78-9e1e-f6329a7c576a
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: mcp-gateway
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-mcp-gateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504170015019"
+    uid: ecd14454-1110-4729-a176-69ed9369ba9f
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: feature-rag-specialist
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:21:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607714111791022"
+    uid: a395c6ce-3de1-4a1c-9b9a-c368844b2e4d
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:21:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-specialist-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607714021823005"
+    uid: 984af58b-d17c-42f0-85c0-2f4aaf8ba2f5
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: feature-rag-specialist
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-a2a-gateway-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504107807000"
+    uid: ada62d05-a093-4293-8b4c-d03e5e00bd7b
+  spec:
+    egress:
+    - ports:
+      - port: 8083
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: a2a-gateway
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: fraud-coordinator
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-a2a-gateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504241295009"
+    uid: 0136bfcb-9495-45a0-bea1-df4a014eb759
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: fraud-coordinator
+      ports:
+      - port: 8083
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: a2a-gateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-agentgateway-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504156527003"
+    uid: 34f5fa12-f422-461e-a05e-160a4b7ecab3
+  spec:
+    egress:
+    - ports:
+      - port: 4000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: agentgateway
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: fraud-coordinator
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-agentgateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504167007010"
+    uid: a757c3cd-290a-4728-8a89-5e352516c6ef
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: fraud-coordinator
+      ports:
+      - port: 4000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-kagent-controller-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504180559010"
+    uid: 5ac5a9cc-ecad-4f6e-8894-53fd01c1b951
+  spec:
+    egress:
+    - ports:
+      - port: 8083
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: fraud-coordinator
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:21:53Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607713932143011"
+    uid: 21e4b9b8-bce5-4443-b818-bc7ae2a16bbb
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: fraud-coordinator
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:21:53Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-fraud-coordinator-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607713842975006"
+    uid: 3387f3b1-635f-45a4-8db0-2c027ebbe462
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            ewallet.io/agent: fraud-coordinator
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-loki-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607357875791002"
+    uid: aa78ff2c-78f1-45d0-8414-d2eb7996bbf8
+  spec:
+    egress:
+    - ports:
+      - port: 3100
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: loki
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: grafana
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-loki-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607357748655023"
+    uid: 18e937d6-0ab3-43a7-97ec-16ba2ac3b462
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: grafana
+      ports:
+      - port: 3100
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: loki
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-prometheus-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607357617263000"
+    uid: 4bd9ea8b-281a-4277-9c61-31042da6e1b1
+  spec:
+    egress:
+    - ports:
+      - port: 9090
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: grafana
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-prometheus-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607357480623015"
+    uid: 80436adb-8923-4af0-92db-04f97a05ccc1
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: grafana
+      ports:
+      - port: 9090
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:58Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-tempo-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607358143983015"
+    uid: 8a0d0e38-d300-4b3e-b144-3d1354d12910
+  spec:
+    egress:
+    - ports:
+      - port: 3200
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: tempo
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: grafana
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:58Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-grafana-to-tempo-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607358015359014"
+    uid: a4b7099b-45ae-49c2-84f7-a9853721a468
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: grafana
+      ports:
+      - port: 3200
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: tempo
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-drift-specialist-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504111743010"
+    uid: 6e23fa0d-53c4-41ae-ac47-321331cdfe0d
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: drift-specialist
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-feature-rag-specialist-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504195471010"
+    uid: 205a083b-eacd-438c-abdc-21c221f4b686
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: feature-rag-specialist
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-fraud-coordinator-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793554504216863023"
+    uid: 165c509c-9b41-4561-8a78-ef280126f723
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        ewallet.io/agent: fraud-coordinator
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:02:46Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-kagent-controller-to-mcp-gateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793566966134047008"
+    uid: 7f649ccf-2c8b-4c78-8508-5635c0c1767c
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kagent
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/name: kagent
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-llmd-epp-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355977999013"
+    uid: 30f8927a-c59b-434a-81a0-6d8d29526a5f
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        llm-d-router-gateway: ewallet-fraud-llm-epp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:55Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-llmd-epp-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607355858847000"
+    uid: 8a5a8457-52b0-491e-990a-db190e2002c9
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            llm-d-router-gateway: ewallet-fraud-llm-epp
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:00:39Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-drift-mcp-cross-namespace-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793566839491887021"
+    uid: 2cc6506a-4bb3-448f-a480-0677abee3762
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-mcp
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: drift-mcp
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T21:00:39Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-feature-rag-mcp-cross-namespace-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793566839593999004"
+    uid: 62669d68-bf4e-46b9-9cd1-c7f140b94932
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-mcp
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: feature-rag-mcp
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607354945679011"
+    uid: 8ab1ed84-1f1b-42f0-a246-56113833d40c
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-gateway
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:54Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607354810623001"
+    uid: a2e774f1-cca7-4e26-946f-95fa019307f9
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: mcp-gateway
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-otel-collector-to-loki-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607357058079015"
+    uid: 4230f4bd-c672-4aa8-9db5-ccf3a94a18b0
+  spec:
+    egress:
+    - ports:
+      - port: 3100
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: loki
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-otel-collector-to-loki-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607356915087014"
+    uid: 88e6a008-886d-40cc-8dc7-70d8ea573cad
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+      ports:
+      - port: 3100
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: loki
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-otel-collector-to-tempo-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607357316911018"
+    uid: 300f80fe-fbde-4eeb-85a2-36bf8d5f3e84
+  spec:
+    egress:
+    - ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: tempo
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:57Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-otel-collector-to-tempo-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607357187359017"
+    uid: 9695c96b-8286-47a6-a915-a5740b556451
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: tempo
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-agentgateway-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607356231567017"
+    uid: 308cd10f-56a1-43a1-9b57-3fb9f0dc5ab3
+  spec:
+    egress:
+    - ports:
+      - port: 15020
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: agentgateway
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-agentgateway-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607356103263019"
+    uid: 1f8548c9-89ec-43c7-81a0-72701811961b
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+      ports:
+      - port: 15020
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: agentgateway
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-otel-collector-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607356782815005"
+    uid: e5874af8-a86b-494e-a25d-e6826b6b8ef8
+  spec:
+    egress:
+    - ports:
+      - port: 8889
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: otel-collector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-otel-collector-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607356648015008"
+    uid: b4a412f9-2ebe-429d-bb8d-997cf7d843fe
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+      ports:
+      - port: 8889
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: otel-collector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-vllm-egress
+    namespace: ewallet-agents
+    resourceVersion: "1793607356496207020"
+    uid: 0a0b38d0-0a74-4547-9d07-c1d56c2d84cc
+  spec:
+    egress:
+    - ports:
+      - port: 8000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+      to:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: vllm
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-02T08:15:56Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-prometheus-to-vllm-ingress
+    namespace: ewallet-agents
+    resourceVersion: "1793607356364527006"
+    uid: 5c2c5ec6-f207-4043-b143-01d07eec9d04
+  spec:
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+      ports:
+      - port: 8000
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: vllm
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: default-deny
+    namespace: ewallet-agents
+    resourceVersion: "1793554504120127003"
+    uid: 93be2963-9cae-4230-be77-35e09f025171
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-drift-mcp
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229479887003"
+    uid: 7df79188-63c8-485b-8a2e-888b99132b13
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: drift-mcp
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ambient-probes-feature-rag-mcp
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229480719016"
+    uid: 46b4659c-4530-40a7-b75a-2cf97021147f
+  spec:
+    ingress:
+    - from:
+      - ipBlock:
+          cidr: 169.254.7.127/32
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-cluster-dns
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229477487016"
+    uid: a57ec2fa-184d-406b-802f-6a309f61f6ad
+  spec:
+    egress:
+    - ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      - ipBlock:
+          cidr: 169.254.20.10/32
+      - ipBlock:
+          cidr: 34.118.224.10/32
+    podSelector: {}
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-mcp-to-feast-redis-egress
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229480543014"
+    uid: 5da5aa0a-fa00-48e2-bb52-f4414eca2123
+  spec:
+    egress:
+    - ports:
+      - port: 6379
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: feature-store
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: redis
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-feature-rag-mcp-to-kserve-fraud-detector-egress
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229490095008"
+    uid: a9e3a7f7-e743-4847-a636-e5768160cc64
+  spec:
+    egress:
+    - ports:
+      - port: 8080
+        protocol: TCP
+      to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: fraud-serving
+        podSelector:
+          matchLabels:
+            serving.kserve.io/inferenceservice: fraud-detector
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-drift-mcp-ingress
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229495919009"
+    uid: e616f615-fa6d-423a-8929-a32a0512e796
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-agents
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: mcp-gateway
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: drift-mcp
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-mcp-gateway-to-feature-rag-mcp-ingress
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229495359003"
+    uid: dd77e3c8-fd09-44da-9254-ca39c9d5769e
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-agents
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: mcp-gateway
+      ports:
+      - port: 8080
+        protocol: TCP
+      - port: 15008
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: feature-rag-mcp
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: default-deny
+    namespace: ewallet-mcp
+    resourceVersion: "1793565229492703019"
+    uid: eb5a278d-cb04-429e-be01-c36634ce9bbe
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    - Egress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ewallet-agents-feature-rag-mcp-to-feast-redis
+    namespace: feature-store
+    resourceVersion: "1793554504186735013"
+    uid: 361bf7aa-1416-477a-8c1d-79f04d2a69c3
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-agents
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: feature-rag-mcp
+      ports:
+      - port: 6379
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: redis
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ewallet-mcp-feature-rag-mcp-to-feast-redis
+    namespace: feature-store
+    resourceVersion: "1793565229520095002"
+    uid: fbe0ded7-bdec-4c99-8afc-950ce9795243
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-mcp
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: feature-rag-mcp
+      ports:
+      - port: 6379
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: redis
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"redis-clients","namespace":"feature-store"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ml-platform"}},"podSelector":{"matchExpressions":[{"key":"app.kubernetes.io/name","operator":"In","values":["feast-online-operator","fraud-api"]}]}}],"ports":[{"port":6379,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"app.kubernetes.io/name":"redis"}},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2026-10-31T16:33:59Z"
+    generation: 1
+    name: redis-clients
+    namespace: feature-store
+    resourceVersion: "1793464439246911017"
+    uid: 7e1eb5ac-659b-4a04-8b93-a828a65708c9
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ml-platform
+        podSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - feast-online-operator
+            - fraud-api
+      ports:
+      - port: 6379
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: redis
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ewallet-agents-feature-rag-mcp-to-kserve-fraud-detector
+    namespace: fraud-serving
+    resourceVersion: "1793554504157359023"
+    uid: 7832e7f8-8351-4e43-8c14-e059089d01aa
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-agents
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: feature-rag-mcp
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        serving.kserve.io/inferenceservice: fraud-detector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent-mcp
+      meta.helm.sh/release-namespace: ewallet-mcp
+    creationTimestamp: "2026-11-01T20:33:49Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: allow-ewallet-mcp-feature-rag-mcp-to-kserve-fraud-detector
+    namespace: fraud-serving
+    resourceVersion: "1793565229480559013"
+    uid: 0e113e4f-5bda-4115-bf1d-23c51925c93c
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ewallet-mcp
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: feature-rag-mcp
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        serving.kserve.io/inferenceservice: fraud-detector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"fraud-detector-clients","namespace":"fraud-serving"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ml-platform"}},"podSelector":{"matchLabels":{"app.kubernetes.io/name":"fraud-api"}}}],"ports":[{"port":8080,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"serving.kserve.io/inferenceservice":"fraud-detector"}},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2026-10-31T17:37:37Z"
+    generation: 1
+    name: fraud-detector-clients
+    namespace: fraud-serving
+    resourceVersion: "1793468257259071011"
+    uid: 548721bb-bdb6-48eb-8001-459edfaea934
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ml-platform
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: fraud-api
+      ports:
+      - port: 8080
+        protocol: TCP
+    podSelector:
+      matchLabels:
+        serving.kserve.io/inferenceservice: fraud-detector
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"labels":{"application-crd-id":"kubeflow-pipelines"},"name":"seaweedfs","namespace":"kubeflow"},"spec":{"ingress":[{"from":[{"namespaceSelector":{"matchExpressions":[{"key":"app.kubernetes.io/part-of","operator":"In","values":["kubeflow-profile"]}]}}],"ports":[{"port":8333}]},{"from":[{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"In","values":["istio-system"]}]}}]},{"from":[{"podSelector":{}}],"ports":[{"port":8333}]}],"podSelector":{"matchExpressions":[{"key":"app","operator":"In","values":["seaweedfs"]}]},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2026-10-27T17:01:39Z"
+    generation: 1
+    labels:
+      application-crd-id: kubeflow-pipelines
+    name: seaweedfs
+    namespace: kubeflow
+    resourceVersion: "1793120499703487017"
+    uid: 64aeaff5-2835-4c19-93ff-598ae91719da
+  spec:
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/part-of
+            operator: In
+            values:
+            - kubeflow-profile
+      ports:
+      - port: 8333
+        protocol: TCP
+    - from:
+      - namespaceSelector:
+          matchExpressions:
+          - key: kubernetes.io/metadata.name
+            operator: In
+            values:
+            - istio-system
+    - from:
+      - podSelector: {}
+      ports:
+      - port: 8333
+        protocol: TCP
+    podSelector:
+      matchExpressions:
+      - key: app
+        operator: In
+        values:
+        - seaweedfs
+    policyTypes:
+    - Ingress
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,41 @@
+# Batch D step 2 guard (PROPOSAL, kind-validated only; cluster-scoped, needs
+# separate owner approval). After llm-agent-mcp is re-homed to
+# ewallet-mcp-release, no identity (admins included) may create an active Helm
+# record of that release in ewallet-mcp again, nor relabel the archived ones
+# back to owner=helm. Helm writes its record before touching resources, so a
+# stray "helm upgrade --install --take-ownership -n ewallet-mcp" aborts with
+# no object changed. Lifting the guard is an explicit, audited delete of this
+# binding (migration rollback step 1).
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: ewallet-helm-record-home-llm-agent-mcp
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [secrets]
+  matchConditions:
+    - name: helm-record-of-llm-agent-mcp
+      expression: >-
+        object.type == 'helm.sh/release.v1' &&
+        has(object.metadata.labels) &&
+        object.metadata.labels.?name.orValue('') == 'llm-agent-mcp'
+  validations:
+    - expression: "object.metadata.labels.?owner.orValue('') != 'helm'"
+      message: "llm-agent-mcp Helm records live in ewallet-mcp-release; an active record in ewallet-mcp is forbidden"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: ewallet-helm-record-home-llm-agent-mcp
+spec:
+  policyName: ewallet-helm-record-home-llm-agent-mcp
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels: {kubernetes.io/metadata.name: ewallet-mcp}

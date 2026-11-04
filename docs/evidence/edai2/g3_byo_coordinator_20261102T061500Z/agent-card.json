@@ -1,0 +1,35 @@
+{
+    "capabilities": {
+        "stateTransitionHistory": true,
+        "streaming": false
+    },
+    "defaultInputModes": [
+        "text"
+    ],
+    "defaultOutputModes": [
+        "text"
+    ],
+    "description": "Fraud Investigation Coordinator",
+    "name": "fraud_coordinator",
+    "preferredTransport": "JSONRPC",
+    "protocolVersion": "0.3",
+    "skills": [
+        {
+            "description": "Grounded fraud investigation with model score, features and policy citations.",
+            "id": "investigate-transaction",
+            "inputModes": [
+                "text"
+            ],
+            "name": "Investigate a transaction",
+            "outputModes": [
+                "text"
+            ],
+            "tags": [
+                "fraud",
+                "investigation"
+            ]
+        }
+    ],
+    "url": "http://fraud-coordinator.ewallet-agents:8080",
+    "version": "1.0.0"
+}

@@ -1,0 +1,3 @@
+objects: 28 uid changed: [] generation changed: ['Deployment/ewallet-mcp/drift-mcp', 'Deployment/ewallet-mcp/feature-rag-mcp'] spec changed: []
+release_ns before: ['ewallet-mcp'] after: ['ewallet-mcp-release']
+pods identical: True

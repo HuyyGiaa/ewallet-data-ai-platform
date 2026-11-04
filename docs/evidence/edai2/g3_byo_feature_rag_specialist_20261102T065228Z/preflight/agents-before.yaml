@@ -1,0 +1,281 @@
+apiVersion: v1
+items:
+- apiVersion: kagent.dev/v1alpha2
+  kind: Agent
+  metadata:
+    annotations:
+      ewallet.io/display-name: Fraud Investigation / Evidence specialist
+      ewallet.io/prompt-sha256: a3ccfe5ce07f05ea155bfb3ff658df4dff8ac928f0ea23fb35481dc7519b2112
+      ewallet.io/rubric-rows: "22"
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 6
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+      ewallet.io/agent: feature-rag-specialist
+      ewallet.io/prompt-version: v5
+    name: feature-rag-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793594111913999003"
+    uid: da3f7e26-412f-4f06-b5c8-4bc8fabf48cd
+  spec:
+    declarative:
+      deployment:
+        annotations:
+          ewallet.io/mcp-gateway-config-sha256: ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4
+        labels:
+          ewallet.io/agent: feature-rag-specialist
+        nodeSelector:
+          ewallet.io/g3-llm: "true"
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        replicas: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        serviceAccountName: feature-rag-specialist
+      executeCodeBlocks: false
+      modelConfig: ewallet-global-llm
+      runtime: go
+      stream: false
+      systemMessageFrom:
+        key: system.md
+        name: feature-rag-specialist-prompt-v5
+        type: ConfigMap
+      tools:
+      - headersFrom:
+        - name: X-Ewallet-MCP-Service-Token
+          valueFrom:
+            key: token
+            name: mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1
+            type: Secret
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: feature-rag-mcp
+          requireApproval: []
+          toolNames:
+          - feature_lookup
+          - fraud_scoring
+          - knowledge_search
+        type: McpServer
+    description: Fraud Investigation / Evidence specialist
+    type: Declarative
+    version: 1.0.0
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T21:05:03Z"
+      message: Agent configuration accepted
+      observedGeneration: 6
+      reason: Reconciled
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-11-01T17:35:26Z"
+      message: Deployment is ready
+      observedGeneration: 6
+      reason: DeploymentReady
+      status: "True"
+      type: Ready
+    observedGeneration: 6
+- apiVersion: kagent.dev/v1alpha2
+  kind: Agent
+  metadata:
+    annotations:
+      ewallet.io/display-name: Fraud Investigation Coordinator
+      ewallet.io/prompt-sha256: 416963bcfe2c1e1774d4dac20605cf5e56fb36450bbb7053ad5c53cdee41afb6
+      ewallet.io/rubric-rows: 25,26
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 9
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+      ewallet.io/agent: fraud-coordinator
+      ewallet.io/prompt-version: v5
+    name: fraud-coordinator
+    namespace: ewallet-agents
+    resourceVersion: "1793600555234111010"
+    uid: 0f493645-0c86-4a57-acbc-68aab17b4545
+  spec:
+    byo:
+      deployment:
+        annotations:
+          ewallet.io/a2a-gateway-config-sha256: 86e9f7330d869cef6475141b4f6d9710aa538f840f100ff300f881875636bee6
+          ewallet.io/coordinator-runtime: byo-v1
+        env:
+        - name: OTEL_TRACING_ENABLED
+          value: "true"
+        - name: OTEL_LOGGING_ENABLED
+          value: "false"
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: otel-collector.ewallet-agents.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+          value: grpc
+        - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+          value: "15000"
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:397ae0cd1e2ef1671ce9163a3922db97442b8c38c81e899ff96e9d65af274446
+        imagePullPolicy: IfNotPresent
+        labels:
+          ewallet.io/agent: fraud-coordinator
+        nodeSelector:
+          ewallet.io/g3-llm: "true"
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        replicas: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        serviceAccountName: fraud-coordinator
+    description: Fraud Investigation Coordinator
+    type: BYO
+    version: 1.0.0
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T17:35:05Z"
+      message: Agent configuration accepted
+      observedGeneration: 9
+      reason: Reconciled
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-11-02T00:30:26Z"
+      message: Deployment is ready
+      observedGeneration: 9
+      reason: DeploymentReady
+      status: "True"
+      type: Ready
+    observedGeneration: 9
+- apiVersion: kagent.dev/v1alpha2
+  kind: Agent
+  metadata:
+    annotations:
+      ewallet.io/display-name: Feature / Risk specialist
+      ewallet.io/prompt-sha256: 0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef
+      ewallet.io/rubric-rows: 19,20,21
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:04Z"
+    generation: 3
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+      ewallet.io/agent: drift-specialist
+      ewallet.io/prompt-version: v2
+    name: drift-specialist
+    namespace: ewallet-agents
+    resourceVersion: "1793572829610383013"
+    uid: 853175e0-c62b-4f14-854e-7b23011f0211
+  spec:
+    declarative:
+      deployment:
+        annotations:
+          ewallet.io/mcp-gateway-config-sha256: ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4
+        labels:
+          ewallet.io/agent: drift-specialist
+        nodeSelector:
+          ewallet.io/g3-llm: "true"
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        replicas: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        serviceAccountName: drift-specialist
+      executeCodeBlocks: false
+      modelConfig: ewallet-global-llm
+      runtime: go
+      stream: false
+      systemMessageFrom:
+        key: system.md
+        name: drift-specialist-prompt-v2
+        type: ConfigMap
+      tools:
+      - headersFrom:
+        - name: X-Ewallet-MCP-Service-Token
+          valueFrom:
+            key: token
+            name: mcp-token-drift-specialist-drift-mcp-r1-release1
+            type: Secret
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: drift-mcp
+          requireApproval: []
+          toolNames:
+          - drift_detection
+        type: McpServer
+      - headersFrom:
+        - name: X-Ewallet-MCP-Service-Token
+          valueFrom:
+            key: token
+            name: mcp-token-drift-specialist-feature-rag-mcp-r1-release1
+            type: Secret
+        mcpServer:
+          apiGroup: kagent.dev
+          kind: RemoteMCPServer
+          name: feature-rag-mcp
+          requireApproval: []
+          toolNames:
+          - feature_lookup
+        type: McpServer
+    description: Feature / Risk specialist
+    type: Declarative
+    version: 1.0.0
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T21:05:03Z"
+      message: Agent configuration accepted
+      observedGeneration: 3
+      reason: Reconciled
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-11-01T17:35:25Z"
+      message: Deployment is ready
+      observedGeneration: 3
+      reason: DeploymentReady
+      status: "True"
+      type: Ready
+    observedGeneration: 3
+kind: List
+metadata:
+  resourceVersion: ""

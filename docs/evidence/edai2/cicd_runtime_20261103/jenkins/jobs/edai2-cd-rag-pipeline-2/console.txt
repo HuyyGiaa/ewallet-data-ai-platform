@@ -1,0 +1,115 @@
+Started by user admin
+Checking out git /opt/ewallet-source/repository.bundle into /var/jenkins_home/workspace/edai2-cd-rag-pipeline@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb to read Jenkinsfile.llm-agent
+The recommended git tool is: NONE
+No credentials specified
+ > git rev-parse --resolve-git-dir /var/jenkins_home/workspace/edai2-cd-rag-pipeline@script/f49906140ea394bfdf9dde4ef6341e3a876abff594739240caa3cdecf3726ccb/.git # timeout=10
+Fetching changes from the remote Git repository
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+Cleaning workspace
+ > git rev-parse --verify HEAD # timeout=10
+Resetting working tree
+ > git reset --hard # timeout=10
+ > git clean -fdx # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse refs/remotes/origin/release/rag-pipeline^{commit} # timeout=10
+Checking out Revision 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 (refs/remotes/origin/release/rag-pipeline)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 # timeout=10
+Commit message: "feat(rag): record the producing release SHA in publication.json"
+ > git rev-list --no-walk 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 # timeout=10
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins in /var/jenkins_home/workspace/edai2-cd-rag-pipeline
+[Pipeline] {
+[Pipeline] checkout
+The recommended git tool is: NONE
+No credentials specified
+ > git rev-parse --resolve-git-dir /var/jenkins_home/workspace/edai2-cd-rag-pipeline/.git # timeout=10
+Fetching changes from the remote Git repository
+ > git config remote.origin.url /opt/ewallet-source/repository.bundle # timeout=10
+Cleaning workspace
+ > git rev-parse --verify HEAD # timeout=10
+Resetting working tree
+ > git reset --hard # timeout=10
+ > git clean -fdx # timeout=10
+Fetching upstream changes from /opt/ewallet-source/repository.bundle
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- /opt/ewallet-source/repository.bundle +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse refs/remotes/origin/release/rag-pipeline^{commit} # timeout=10
+Checking out Revision 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 (refs/remotes/origin/release/rag-pipeline)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 # timeout=10
+Commit message: "feat(rag): record the producing release SHA in publication.json"
+[Pipeline] load
+[Pipeline] { (jenkins/pipeline/componentPipeline.groovy)
+[Pipeline] }
+[Pipeline] // load
+[Pipeline] timeout
+Timeout set to expire in 1 hr 0 min
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Checkout and provenance)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Validate catalog and detect scope)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Component CI)
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Controlled release gate)
+[Pipeline] input
+Approve immutable release of 5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8 to gke-cpu?
+Approve release or Abort
+Approved by admin
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Verify release branch)
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Build and publish images (Cloud Build))
+[Pipeline] sh
+cloud_build: POST https://storage.googleapis.com/upload/storage/v1/b/ewallet-data-ai-platform-hg26-cicd-builds/o?uploadType=media&name=source%2F5eb326f8be3e49ea0fcc9cbf520aa7416e7fd1e8%2Frag-ingestion.tar.gz -> HTTP 403: {
+  "error": {
+    "code": 403,
+    "message": "ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com does not have storage.objects.delete access to the Google Cloud Storage object.",
+    "errors": [
+      {
+        "message": "ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com does not have storage.objects.delete access to the Google Cloud Storage object.",
+    
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] junit
+Recording test results
+[Checks API] No suitable checks publisher found.
+[Pipeline] archiveArtifacts
+Archiving artifacts
+Recording fingerprints
+[Pipeline] }
+[Pipeline] // timeout
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 1
+Finished: FAILURE

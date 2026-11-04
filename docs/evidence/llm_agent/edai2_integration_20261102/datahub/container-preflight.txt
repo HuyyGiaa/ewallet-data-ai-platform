@@ -1,0 +1,5 @@
+"/datahub-mysql-1" "mysql:8.2" {"3306/tcp":[{"HostIp":"","HostPort":"3306"}]} "exited" "unhealthy"
+"/datahub-opensearch-1" "opensearchproject/opensearch:2.19.3" {"9200/tcp":[{"HostIp":"","HostPort":"9200"}]} "exited" "unhealthy"
+"/datahub-kafka-broker-1" "confluentinc/cp-kafka:8.2.2" {"9092/tcp":[{"HostIp":"","HostPort":"9093"}]} "exited" "unhealthy"
+"/datahub-datahub-gms-quickstart-1" "acryldata/datahub-gms:v1.7.0.1" {"4319/tcp":[{"HostIp":"","HostPort":"4319"}],"8080/tcp":[{"HostIp":"","HostPort":"18080"}]} "exited" "unhealthy"
+"/datahub-frontend-quickstart-1" "acryldata/datahub-frontend-react:v1.7.0.1" {"9002/tcp":[{"HostIp":"","HostPort":"9002"}]} "exited" "unhealthy"

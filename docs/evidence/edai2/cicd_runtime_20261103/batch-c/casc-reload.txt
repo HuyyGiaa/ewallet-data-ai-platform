@@ -1,0 +1,3 @@
+busy executors: 0
+casc reload: 200
+jobs: ['edai2-agent-ci', 'edai2-agent-negative', 'edai2-cd-mcp-agents', 'edai2-cd-prompt-management', 'edai2-cd-rag-pipeline', 'edai2-cd-streaming', 'edai2-docs-change-detection', 'edai2-ml-ci']

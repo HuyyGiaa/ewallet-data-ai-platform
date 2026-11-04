@@ -1,0 +1,23 @@
+{
+  "completed_at": "2026-10-31T21:55:18.525162+00:00",
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "feast": {
+    "offline_source": "/tmp/rag-dag-test.xVsF27/feast/fraud-policy-feast-v1/chunks.parquet",
+    "online_store": "sqlite",
+    "profile": "local-dev",
+    "project": "ewallet_rag_local",
+    "registry": "/tmp/rag-dag-test.xVsF27/feast/fraud-policy-feast-v1/registry.db"
+  },
+  "feast_vector_search": "NOT_USED (online store is read by chunk_id; similarity is computed in process)",
+  "feature_index_revision": "fraud-policy-feast-v1",
+  "materialization": {
+    "feature_view": "fraud_policy_chunks",
+    "materialize_end": "2026-10-31T21:55:18.495040+00:00",
+    "materialize_start": "2026-10-29T23:59:59+00:00"
+  },
+  "offline_status": "WRITTEN",
+  "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+  "row_count": 4,
+  "run_id": "local-airflow-datahub-20261101",
+  "stage": "publish"
+}

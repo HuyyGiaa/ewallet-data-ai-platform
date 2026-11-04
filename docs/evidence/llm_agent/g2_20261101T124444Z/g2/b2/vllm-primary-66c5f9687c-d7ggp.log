@@ -1,0 +1,139 @@
+INFO:     127.0.0.1:46320 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46328 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     169.254.7.127:38002 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:38014 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:35862 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:54732 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60856 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60872 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:51162 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:48566 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:39658 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37074 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     169.254.7.127:39672 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:39954 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45330 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     169.254.7.127:58458 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:34806 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:34810 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:49730 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:54760 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:50788 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:50792 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:55668 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:55262 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:49116 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:49124 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:50632 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:56932 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:53526 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:53542 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:38754 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:58820 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:55732 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:55746 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:57972 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:46270 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:46040 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:46044 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:49550 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:45226 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60640 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60646 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:53174 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:39330 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33744 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33754 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:52510 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:43606 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:40568 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:40584 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:35622 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:43270 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:41952 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:41968 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:38254 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:47524 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60750 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60762 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34900 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34904 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36058 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.216.0.7:58851 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     10.216.0.7:58851 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:28:16 [loggers.py:335] Engine 000: Avg prompt throughput: 2.2 tokens/s, Avg generation throughput: 2.3 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 30.6%
+INFO:     169.254.7.127:34450 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:28:26 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 30.6%
+INFO:     169.254.7.127:37810 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:37814 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:59342 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:42994 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:56464 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:56468 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:40222 - "GET /health HTTP/1.1" 200 OK
+(EngineCore pid=51) INFO 11-01 13:29:14 [shm_broadcast.py:871] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+INFO:     169.254.7.127:53470 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:48814 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:48822 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:48338 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:29:46 [loggers.py:335] Engine 000: Avg prompt throughput: 161.7 tokens/s, Avg generation throughput: 0.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 9.0%, Prefix cache hit rate: 6.3%
+INFO:     169.254.7.127:44992 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:29:56 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 6.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 9.7%, Prefix cache hit rate: 6.3%
+INFO:     169.254.7.127:49340 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:49350 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:30:06 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 5.8 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 6.3%
+INFO:     169.254.7.127:34416 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33210 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33222 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     10.216.0.7:36769 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:30:16 [loggers.py:335] Engine 000: Avg prompt throughput: 1.9 tokens/s, Avg generation throughput: 2.9 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.7%, Prefix cache hit rate: 6.2%
+INFO:     169.254.7.127:45170 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.216.0.7:36769 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:30:26 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 2.3 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 6.2%
+INFO:     169.254.7.127:34288 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:34294 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:30:36 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 6.2%
+INFO:     169.254.7.127:53812 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:38394 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:30:56 [loggers.py:335] Engine 000: Avg prompt throughput: 58.4 tokens/s, Avg generation throughput: 3.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 3.4%, Prefix cache hit rate: 4.9%
+INFO:     169.254.7.127:48860 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.216.0.7:36769 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:48868 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:31:06 [loggers.py:335] Engine 000: Avg prompt throughput: 6.9 tokens/s, Avg generation throughput: 4.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 3.4%, Prefix cache hit rate: 19.9%
+INFO:     10.216.0.7:36769 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60062 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:31:16 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 1.3 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 19.9%
+INFO:     169.254.7.127:53936 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:31:26 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 19.9%
+INFO:     169.254.7.127:42412 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:42420 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:52326 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:31:46 [loggers.py:335] Engine 000: Avg prompt throughput: 59.6 tokens/s, Avg generation throughput: 4.2 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 3.4%, Prefix cache hit rate: 16.8%
+INFO:     169.254.7.127:60612 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57354 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57358 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     10.216.0.7:36769 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:31:56 [loggers.py:335] Engine 000: Avg prompt throughput: 1.9 tokens/s, Avg generation throughput: 4.6 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.7%, Prefix cache hit rate: 16.7%
+INFO:     169.254.7.127:38010 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.216.0.7:36769 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     169.254.7.127:38016 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:32:06 [loggers.py:335] Engine 000: Avg prompt throughput: 8.4 tokens/s, Avg generation throughput: 3.8 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 3.4%, Prefix cache hit rate: 26.0%
+INFO:     169.254.7.127:59974 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.216.0.7:36769 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:32:16 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 5.4 tokens/s, Running: 0 reqs, Waiting: 1 reqs, Deferred: 1 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 26.0%
+INFO:     169.254.7.127:58918 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:32:26 [loggers.py:335] Engine 000: Avg prompt throughput: 17.7 tokens/s, Avg generation throughput: 2.0 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 1.4%, Prefix cache hit rate: 25.0%
+INFO:     169.254.7.127:54282 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:54290 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:32:36 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.7 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 25.0%
+INFO:     169.254.7.127:52410 - "GET /health HTTP/1.1" 200 OK
+(APIServer pid=1) INFO 11-01 13:32:46 [loggers.py:335] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 0 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.0%, Prefix cache hit rate: 25.0%
+INFO:     169.254.7.127:34144 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:47056 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:47062 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:42254 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:37052 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:56064 - "GET /health HTTP/1.1" 200 OK
+INFO:     169.254.7.127:56070 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35482 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     169.254.7.127:50240 - "GET /health HTTP/1.1" 200 OK

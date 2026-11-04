@@ -1,0 +1,3 @@
+prometheus {"details":{"application":"Prometheus","features":{"rulerApiEnabled":false}},"message":"Successfully queried the Prometheus API.","status":"OK"}
+loki {"message":"Data source successfully connected.","status":"OK"}
+tempo

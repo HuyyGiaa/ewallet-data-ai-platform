@@ -1,0 +1,35 @@
+/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2/infra/docker/g3-byo-coordinator/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+2026-11-02 13:29:01,624 - root - INFO - Logging configured with level: INFO
+test_git_is_available_only_in_dependency_build_stage (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorImageTests.test_git_is_available_only_in_dependency_build_stage) ... ok
+test_runtime_image_includes_transitive_feature_contract (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorImageTests.test_runtime_image_includes_transitive_feature_contract) ... ok
+test_cancel_marks_live_execution_and_emits_terminal_cancel (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorLifecycleTests.test_cancel_marks_live_execution_and_emits_terminal_cancel) ... ok
+test_cpu_specialist_deadline_is_bounded_but_allows_observed_runtime (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorLifecycleTests.test_cpu_specialist_deadline_is_bounded_but_allows_observed_runtime) ... ok
+test_actual_a2a_jsonrpc_request_returns_completed_task_and_artifact (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorProtocolTests.test_actual_a2a_jsonrpc_request_returns_completed_task_and_artifact) ... 2026-11-02 13:29:01,698 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 742a37ca-8543-405a-90d5-6e00ff46bd6f, context_id: session-byo-1).
+2026-11-02 13:29:01,699 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_agent_card_and_health_endpoints_match_kagent_contract (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorProtocolTests.test_agent_card_and_health_endpoints_match_kagent_contract) ... 2026-11-02 13:29:01,704 - httpx - INFO - HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-11-02 13:29:01,706 - httpx - INFO - HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+2026-11-02 13:29:01,708 - httpx - INFO - HTTP Request: GET http://testserver/.well-known/agent-card.json "HTTP/1.1 200 OK"
+ok
+test_invalid_request_reaches_terminal_rejected_state_without_gateway_call (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorProtocolTests.test_invalid_request_reaches_terminal_rejected_state_without_gateway_call) ... 2026-11-02 13:29:01,712 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 0c2fc1f5-c37a-4228-b1a2-f138954a3b5c, context_id: session-invalid).
+2026-11-02 13:29:01,712 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_oversized_jsonrpc_body_is_rejected_before_execution (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorProtocolTests.test_oversized_jsonrpc_body_is_rejected_before_execution) ... 2026-11-02 13:29:01,716 - a2a.server.apps.jsonrpc.jsonrpc_app - WARNING - Request Error (ID: g3-byo-001): Code=-32600, Message='Payload too large'
+2026-11-02 13:29:01,716 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_repeated_request_is_idempotent_within_worker (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorProtocolTests.test_repeated_request_is_idempotent_within_worker) ... 2026-11-02 13:29:01,720 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: d1c3766d-89ba-446b-8e88-a07f62d98a1a, context_id: session-duplicate).
+2026-11-02 13:29:01,721 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+2026-11-02 13:29:01,722 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 62b38ee6-2959-4f4b-a621-fd881821f1f7, context_id: session-duplicate).
+2026-11-02 13:29:01,723 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_shared_task_store_recovers_completed_task_after_app_restart (tests.llm_agent.test_g3_byo_coordinator.BYOCoordinatorProtocolTests.test_shared_task_store_recovers_completed_task_after_app_restart) ... 2026-11-02 13:29:01,728 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: dbf91d23-458d-4325-8c72-733a83be932a, context_id: session-restart).
+2026-11-02 13:29:01,729 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+2026-11-02 13:29:01,764 - httpx - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_projected_token_is_injected_but_never_part_of_url_or_body (tests.llm_agent.test_g3_byo_coordinator.ControllerTokenTests.test_projected_token_is_injected_but_never_part_of_url_or_body) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.093s
+
+OK

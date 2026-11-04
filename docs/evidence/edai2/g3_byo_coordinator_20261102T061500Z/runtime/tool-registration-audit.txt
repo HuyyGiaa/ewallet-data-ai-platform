@@ -1,0 +1,288 @@
+--- AGENT SPEC TOOL REFS ---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  annotations:
+    ewallet.io/display-name: Fraud Investigation / Evidence specialist
+    ewallet.io/prompt-sha256: a3ccfe5ce07f05ea155bfb3ff658df4dff8ac928f0ea23fb35481dc7519b2112
+    ewallet.io/rubric-rows: "22"
+    meta.helm.sh/release-name: llm-agent
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2026-11-01T17:35:04Z"
+  generation: 6
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+    ewallet.io/agent: feature-rag-specialist
+    ewallet.io/prompt-version: v5
+  name: feature-rag-specialist
+  namespace: ewallet-agents
+  resourceVersion: "1793594111913999003"
+  uid: da3f7e26-412f-4f06-b5c8-4bc8fabf48cd
+spec:
+  declarative:
+    deployment:
+      annotations:
+        ewallet.io/mcp-gateway-config-sha256: ed781be40a1825f06aad4d0158158c00cec97f2ebf5746706268ccfb2f303cd4
+      labels:
+        ewallet.io/agent: feature-rag-specialist
+      nodeSelector:
+        ewallet.io/g3-llm: "true"
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      replicas: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      serviceAccountName: feature-rag-specialist
+    executeCodeBlocks: false
+    modelConfig: ewallet-global-llm
+    runtime: go
+    stream: false
+    systemMessageFrom:
+      key: system.md
+      name: feature-rag-specialist-prompt-v5
+      type: ConfigMap
+    tools:
+    - headersFrom:
+      - name: X-Ewallet-MCP-Service-Token
+        valueFrom:
+          key: token
+          name: mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1
+          type: Secret
+      mcpServer:
+        apiGroup: kagent.dev
+        kind: RemoteMCPServer
+        name: feature-rag-mcp
+        requireApproval: []
+        toolNames:
+        - feature_lookup
+        - fraud_scoring
+        - knowledge_search
+      type: McpServer
+  description: Fraud Investigation / Evidence specialist
+  type: Declarative
+  version: 1.0.0
+status:
+  conditions:
+  - lastTransitionTime: "2026-11-01T21:05:03Z"
+    message: Agent configuration accepted
+    observedGeneration: 6
+    reason: Reconciled
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: "2026-11-01T17:35:26Z"
+    message: Deployment is ready
+    observedGeneration: 6
+    reason: DeploymentReady
+    status: "True"
+    type: Ready
+  observedGeneration: 6
+--- REMOTE MCP STATUS ---
+NAMESPACE        NAME              PROTOCOL          URL                                                          ACCEPTED
+ewallet-agents   drift-mcp         STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp         True
+ewallet-agents   feature-rag-mcp   STREAMABLE_HTTP   http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp   True
+apiVersion: v1
+items:
+- apiVersion: kagent.dev/v1alpha2
+  kind: RemoteMCPServer
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 4
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: drift-mcp
+    namespace: ewallet-agents
+    resourceVersion: "1793571237005247003"
+    uid: b91666aa-7d50-4620-9bb7-7a06d01f1cee
+  spec:
+    description: drift-mcp via the MCP Gateway
+    headersFrom:
+    - name: X-Ewallet-MCP-Service-Token
+      valueFrom:
+        key: token
+        name: mcp-token-kagent-controller-drift-mcp-r1-release1
+        type: Secret
+    protocol: STREAMABLE_HTTP
+    terminateOnClose: true
+    timeout: 30s
+    url: http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T21:05:02Z"
+      message: Remote MCP server configuration accepted
+      observedGeneration: 4
+      reason: Reconciled
+      status: "True"
+      type: Accepted
+    discoveredTools:
+    - description: Compare one monitored feature's current window with a versioned
+        baseline and return an explainable PSI breakdown. Classification uses only
+        the baseline's own thresholds.
+      name: drift_detection
+    observedGeneration: 4
+- apiVersion: kagent.dev/v1alpha2
+  kind: RemoteMCPServer
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: llm-agent
+      meta.helm.sh/release-namespace: default
+    creationTimestamp: "2026-11-01T17:35:05Z"
+    generation: 4
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: ewallet-llm-agent
+      app.kubernetes.io/version: llm-agent-v1
+    name: feature-rag-mcp
+    namespace: ewallet-agents
+    resourceVersion: "1793571237195727007"
+    uid: 4a067797-828a-4abb-b0fb-69fc4b905cb4
+  spec:
+    description: feature-rag-mcp via the MCP Gateway
+    headersFrom:
+    - name: X-Ewallet-MCP-Service-Token
+      valueFrom:
+        key: token
+        name: mcp-token-kagent-controller-feature-rag-mcp-r1-release1
+        type: Secret
+    protocol: STREAMABLE_HTTP
+    terminateOnClose: true
+    timeout: 30s
+    url: http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp
+  status:
+    conditions:
+    - lastTransitionTime: "2026-11-01T21:05:03Z"
+      message: Remote MCP server configuration accepted
+      observedGeneration: 4
+      reason: Reconciled
+      status: "True"
+      type: Accepted
+    discoveredTools:
+    - description: Return the authorized historical online features (Feast Online,
+        freshness-checked) for one canonical transaction. Fails closed when features
+        are missing or stale.
+      name: feature_lookup
+    - description: Score one canonical transaction with the registered KServe fraud
+        model. Returns the model's probability and provenance; never a synthetic score.
+      name: fraud_scoring
+    - description: Search the versioned fraud-policy corpus and return citations bound
+        to the published manifest (document checksum, chunk, corpus/embedding/index
+        revisions).
+      name: knowledge_search
+    - description: Return one published fraud-policy chunk by chunk_id from Feast
+        Online, with its document, source checksum and corpus/embedding/index revisions.
+      name: chunk_lookup
+    observedGeneration: 4
+kind: List
+metadata:
+  resourceVersion: ""
+--- CONTROLLER SPECIALIST RECONCILE LOGS ---
+{"level":"info","ts":"2026-11-02T06:07:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:07:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009875643}
+{"level":"info","ts":"2026-11-02T06:07:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:07:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.016171679}
+{"level":"info","ts":"2026-11-02T06:08:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:08:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009700334}
+{"level":"info","ts":"2026-11-02T06:08:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:08:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.016225809}
+2026/11/02 06:08:59 traces export: exporter export timeout: rpc error: code = Unavailable desc = delegating_resolver: invalid target address "": missing address
+{"level":"info","ts":"2026-11-02T06:09:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:09:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010097864}
+{"level":"info","ts":"2026-11-02T06:09:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:09:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.016120621}
+{"level":"info","ts":"2026-11-02T06:10:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:10:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010140073}
+{"level":"info","ts":"2026-11-02T06:10:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:10:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.015993614}
+{"level":"error","ts":"2026-11-02T06:10:44Z","msg":"Reconciler error","controller":"agent","controllerGroup":"kagent.dev","controllerKind":"Agent","Agent":{"name":"fraud-coordinator","namespace":"ewallet-agents"},"namespace":"ewallet-agents","name":"fraud-coordinator","reconcileID":"aa5627b0-14bc-487e-a438-9875c6940c4d","error":"failed to update agent status: Operation cannot be fulfilled on agents.kagent.dev \"fraud-coordinator\": the object has been modified; please apply your changes to the latest version and try again","stacktrace":"sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:494\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:437\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:312"}
+{"level":"error","ts":"2026-11-02T06:10:44Z","msg":"Reconciler error","controller":"agent","controllerGroup":"kagent.dev","controllerKind":"Agent","Agent":{"name":"fraud-coordinator","namespace":"ewallet-agents"},"namespace":"ewallet-agents","name":"fraud-coordinator","reconcileID":"e12f95bc-ad1e-41ca-a7b2-ad14eb58eff7","error":"failed to update agent status: Operation cannot be fulfilled on agents.kagent.dev \"fraud-coordinator\": the object has been modified; please apply your changes to the latest version and try again","stacktrace":"sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:494\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:437\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:312"}
+{"level":"info","ts":"2026-11-02T06:11:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:11:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010158026}
+{"level":"info","ts":"2026-11-02T06:11:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:11:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.016118512}
+{"level":"info","ts":"2026-11-02T06:12:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:12:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.00985084}
+{"level":"info","ts":"2026-11-02T06:12:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:12:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.015343703}
+{"level":"info","ts":"2026-11-02T06:13:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:13:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010062278}
+{"level":"info","ts":"2026-11-02T06:13:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:13:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.015658312}
+{"level":"error","ts":"2026-11-02T06:13:12Z","msg":"Reconciler error","controller":"agent","controllerGroup":"kagent.dev","controllerKind":"Agent","Agent":{"name":"fraud-coordinator","namespace":"ewallet-agents"},"namespace":"ewallet-agents","name":"fraud-coordinator","reconcileID":"5dd3fa84-a0bf-4ee3-8947-c7ebb79c4da8","error":"failed to update agent status: Operation cannot be fulfilled on agents.kagent.dev \"fraud-coordinator\": the object has been modified; please apply your changes to the latest version and try again","stacktrace":"sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:494\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:437\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:312"}
+{"level":"error","ts":"2026-11-02T06:13:12Z","msg":"Reconciler error","controller":"agent","controllerGroup":"kagent.dev","controllerKind":"Agent","Agent":{"name":"fraud-coordinator","namespace":"ewallet-agents"},"namespace":"ewallet-agents","name":"fraud-coordinator","reconcileID":"1dc7b648-452a-4e00-bebb-168ad0a03b6a","error":"failed to update agent status: Operation cannot be fulfilled on agents.kagent.dev \"fraud-coordinator\": the object has been modified; please apply your changes to the latest version and try again","stacktrace":"sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:494\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:437\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:312"}
+{"level":"info","ts":"2026-11-02T06:14:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:14:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009835426}
+{"level":"info","ts":"2026-11-02T06:14:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:14:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.016386029}
+{"level":"error","ts":"2026-11-02T06:14:41Z","msg":"Reconciler error","controller":"agent","controllerGroup":"kagent.dev","controllerKind":"Agent","Agent":{"name":"fraud-coordinator","namespace":"ewallet-agents"},"namespace":"ewallet-agents","name":"fraud-coordinator","reconcileID":"38f4a75d-6535-49df-9ad2-b1b0796c122f","error":"failed to update agent status: Operation cannot be fulfilled on agents.kagent.dev \"fraud-coordinator\": the object has been modified; please apply your changes to the latest version and try again","stacktrace":"sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:494\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:437\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:312"}
+{"level":"info","ts":"2026-11-02T06:15:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:15:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009936505}
+{"level":"info","ts":"2026-11-02T06:15:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:15:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.018071807}
+{"level":"info","ts":"2026-11-02T06:16:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:16:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009800251}
+{"level":"info","ts":"2026-11-02T06:16:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:16:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.014630824}
+2026/11/02 06:16:09 traces export: exporter export timeout: rpc error: code = Unavailable desc = delegating_resolver: invalid target address "": missing address
+{"level":"info","ts":"2026-11-02T06:17:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:17:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009772672}
+{"level":"info","ts":"2026-11-02T06:17:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:17:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.0158776}
+{"level":"info","ts":"2026-11-02T06:18:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:18:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009785248}
+{"level":"info","ts":"2026-11-02T06:18:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:18:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.01603069}
+2026/11/02 06:18:09 traces export: exporter export timeout: rpc error: code = Unavailable desc = delegating_resolver: invalid target address "": missing address
+{"level":"info","ts":"2026-11-02T06:19:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:19:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010907594}
+{"level":"info","ts":"2026-11-02T06:19:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:19:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.015731419}
+{"level":"info","ts":"2026-11-02T06:20:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:20:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010709617}
+{"level":"info","ts":"2026-11-02T06:20:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:20:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.01786078}
+2026/11/02 06:20:49 traces export: exporter export timeout: rpc error: code = Unavailable desc = delegating_resolver: invalid target address "": missing address
+{"level":"info","ts":"2026-11-02T06:21:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:21:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.01049276}
+{"level":"info","ts":"2026-11-02T06:21:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:21:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.019330263}
+{"level":"info","ts":"2026-11-02T06:22:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:22:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010266437}
+{"level":"info","ts":"2026-11-02T06:22:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:22:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.017705643}
+{"level":"error","ts":"2026-11-02T06:22:35Z","msg":"Reconciler error","controller":"agent","controllerGroup":"kagent.dev","controllerKind":"Agent","Agent":{"name":"fraud-coordinator","namespace":"ewallet-agents"},"namespace":"ewallet-agents","name":"fraud-coordinator","reconcileID":"34890b8c-649c-4392-be56-b50fe21f9116","error":"failed to update agent status: Operation cannot be fulfilled on agents.kagent.dev \"fraud-coordinator\": the object has been modified; please apply your changes to the latest version and try again","stacktrace":"sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:494\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:437\nsigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1\n\t/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/internal/controller/controller.go:312"}
+{"level":"info","ts":"2026-11-02T06:23:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:23:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010314111}
+{"level":"info","ts":"2026-11-02T06:23:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:23:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.015327709}
+{"level":"info","ts":"2026-11-02T06:24:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:24:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010137658}
+{"level":"info","ts":"2026-11-02T06:24:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:24:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.015748017}
+2026/11/02 06:24:29 traces export: exporter export timeout: rpc error: code = Unavailable desc = delegating_resolver: invalid target address "": missing address
+{"level":"info","ts":"2026-11-02T06:25:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:25:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.010325493}
+{"level":"info","ts":"2026-11-02T06:25:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:25:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.015784872}
+2026/11/02 06:25:59 traces export: exporter export timeout: rpc error: code = Unavailable desc = delegating_resolver: invalid target address "": missing address
+{"level":"info","ts":"2026-11-02T06:26:02Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:26:02Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/drift-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp","toolCount":1,"duration":0.009741995}
+{"level":"info","ts":"2026-11-02T06:26:05Z","logger":"reconciler","msg":"registering remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","protocol":"STREAMABLE_HTTP"}
+{"level":"info","ts":"2026-11-02T06:26:05Z","logger":"reconciler","msg":"successfully registered remote MCP server","remoteMCPServer":"ewallet-agents/feature-rag-mcp","url":"http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp","toolCount":4,"duration":0.020499365}

@@ -1,0 +1,36 @@
+{
+  "added": [],
+  "changed": [
+    [
+      "Agent",
+      "ewallet-agents",
+      "feature-rag-specialist"
+    ]
+  ],
+  "removed": [],
+  "specialist": {
+    "args": [
+      "ai_platform.llm_agent.byo_feature_rag_specialist"
+    ],
+    "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:92c5730b8695b5c2e7dd687077a640044837d080210f6c20730ab5c9e4c7d7c9",
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "resources": {
+      "limits": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "256Mi"
+      }
+    },
+    "serviceAccountName": "feature-rag-specialist",
+    "tokenSecretRef": {
+      "key": "token",
+      "name": "mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1"
+    },
+    "type": "BYO"
+  }
+}

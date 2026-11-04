@@ -1,0 +1,78 @@
+ancestry: c9afc5b is ancestor of 5a1c56c: yes
+commits c9afc5b..5a1c56c: 8
+  5a1c56c test(rag): keep the CD smoke contract consistent with the corpus manifest
+  a7fc52e fix(ci): report test_phase_c through JUnit as well
+  0a5c897 docs(edai2): rows 33-36 evidence index, G3 regression and observability matrix
+  b23c10e fix(ci): run the RAG ingestion test suite in rag-pipeline CI
+  87b563d feat(prompts): in-cluster agentregistry with versioned, fail-closed prompt resolution
+  00c07bc docs(edai2): G3 regression and observability readback on the current baseline
+  afdf595 docs(edai2): first Jenkins-controlled CD PASS (row 33 RAG ingestion)
+  b6bb7b3 docs(edai2): C.4 snapshot for RAG release c9afc5b
+## changed files
+ .../ci/jenkins-edai2-cd-rag-pipeline-3/SHA256SUMS  |   20 -
+ .../build/cloud-build-rag-ingestion.json           |  131 ---
+ .../catalog-validation.json                        |    1 -
+ .../component-matrix.md                            |   18 -
+ .../jenkins-edai2-cd-rag-pipeline-3/git-status.txt |    2 -
+ .../jenkins-runtime-status.txt                     |    1 -
+ .../junit/junit-0007-component-agents-1.xml        |    2 -
+ .../junit/junit-0008-component-agents-2.xml        |    2 -
+ .../junit/junit-0009-component-mcp-agents-1.xml    |    2 -
+ .../lock-hashes.json                               |    5 -
+ .../jenkins-edai2-cd-rag-pipeline-3/manifest.json  |  193 ----
+ .../release-branch.txt                             |    1 -
+ .../ci/jenkins-edai2-cd-rag-pipeline-3/scope.json  |   25 -
+ .../jenkins/jobs/edai2-cd-rag-pipeline-6/api.json  | 1129 ++++++++++++++++++++
+ .../jobs/edai2-cd-rag-pipeline-6/artifacts.zip     |  Bin 0 -> 44882 bytes
+ .../jobs/edai2-cd-rag-pipeline-6/console.txt       |  124 +++
+ .../jobs/edai2-cd-rag-pipeline-6/stages.json       |  121 +++
+ .../jobs/edai2-cd-rag-pipeline-6/tests.json        |    6 +
+ .../prompt-registry/apply-postgres.txt             |    3 +
+ .../prompt-registry/drift-identity-request.json    |    1 +
+ .../prompt-registry/drift-identity-response.json   |    1 +
+ .../prompt-registry/gke-validation.txt             |   11 +
+ .../prompt-registry/helm-install.txt               |    2 +
+ .../prompt-registry/kind/fallback.txt              |    4 +
+ .../prompt-registry/kind/publish-all.json          |  265 +++++
+ .../prompt-registry/kind/publish.json              |  130 +++
+ .../prompt-registry/kind/resolve.txt               |    3 +
+ .../prompt-registry/publish-all.json               |  265 +++++
+ .../prompt-registry/resources.txt                  |    6 +
+ .../rag-cd-run6/postdeploy-state.txt               |   13 +
+ .../jenkins-cd-rag-pipeline-6-tests.png            |  Bin 0 -> 106971 bytes
+ .../jenkins-cd-rag-pipeline-stageview.png          |  Bin 0 -> 182237 bytes
+ .../helm/agentregistry/values-ewallet-prompts.yaml |   12 +
+ infra/kubernetes/prompt-registry/postgres.yaml     |   69 ++
+ jenkins/catalog/components.json                    |    6 +-
+ ops/llm_agent/prompt_registry.py                   |  120 +++
+ ops/llm_agent/registry_catalog.py                  |   37 +-
+ tests/llm_agent/test_prompt_registry.py            |   99 ++
+ tests/llm_agent/test_rag_airflow_ingestion.py      |   21 +
+ 72 files changed, 3869 insertions(+), 418 deletions(-)
+## files inside the rag-ingestion image build context (COPY sources of infra/docker/rag-ingestion/Dockerfile at c9afc5b145b2c0ac1f412f29249f12b5ba86024a)
+ai_platform/features/feast ai_platform/features/__init__.py ai_platform/inference ai_platform/__init__.py ai_platform/llm_agent data/llm_agent/rag data_platform/__init__.py data_platform/metadata infra/docker/rag-ingestion/pyproject.toml infra/docker/rag-ingestion/uv.lock ops/__init__.py ops/llm_agent scripts/ci/rag_smoke.sh 
+## changed files that fall inside the image context:
+  ops/llm_agent/prompt_registry.py (via ops/llm_agent)
+  ops/llm_agent/registry_catalog.py (via ops/llm_agent)
+## image-context tree hash comparison
+  ai_platform/features/feast same
+  ai_platform/features/__init__.py same
+  ai_platform/inference same
+  ai_platform/__init__.py same
+  ai_platform/llm_agent same
+  data/llm_agent/rag same
+  data_platform/__init__.py same
+  data_platform/metadata same
+  infra/docker/rag-ingestion/pyproject.toml same
+  infra/docker/rag-ingestion/uv.lock same
+  ops/__init__.py same
+  ops/llm_agent DIFFERENT
+  scripts/ci/rag_smoke.sh same
+Dockerfile identical: yes
+ops/llm_agent files differing:
+  ops/llm_agent/prompt_registry.py
+  ops/llm_agent/registry_catalog.py
+references to registry_catalog/prompt_registry from the RAG runtime path (ops/llm_agent/rag_*.py, ai_platform/llm_agent/rag, scripts/ci/rag_smoke.sh):
+  (none listed above = not referenced)
+dynamic check: modules loaded by every rag_ingest stage entrypoint import:
+  loaded ops.llm_agent modules: ['ops.llm_agent', 'ops.llm_agent.rag_ingest']

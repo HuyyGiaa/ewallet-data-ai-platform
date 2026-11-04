@@ -1,0 +1,3 @@
+--- otel services ---
+--- otel workloads ---
+result=NO_OTEL_COLLECTOR_DISCOVERED

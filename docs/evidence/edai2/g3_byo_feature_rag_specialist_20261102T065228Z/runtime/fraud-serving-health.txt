@@ -1,0 +1,8 @@
+NAME                                                URL                                               READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION   AGE
+inferenceservice.serving.kserve.io/fraud-detector   http://fraud-detector-fraud-serving.example.com   True                                                                  37h
+
+NAME                                       READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS         IMAGES                                                                                                                                                                           SELECTOR
+deployment.apps/fraud-detector-predictor   1/1     1            1           37h   kserve-container   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896   app=isvc.fraud-detector-predictor
+
+NAME                                            READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/fraud-detector-predictor-6b649bc8b6-48csb   1/1     Running   0          30h   10.216.4.10   gke-ewallet-dev-cpu-pool-58daed59-08s1   <none>           <none>

@@ -1,0 +1,4 @@
+mysql_available_bytes=8506195968
+opensearch_available_bytes=7631855616
+kafka_available_bytes=6575300608
+gms_available_bytes=5298651136

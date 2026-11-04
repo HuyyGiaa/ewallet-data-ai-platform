@@ -1,0 +1,12 @@
+Helm release: llm-agent
+Namespace: default
+Candidate revision: 25 (superseded)
+Candidate description: EDAI-2 bounded Agent HPA/PDB rollout; preserve live Agent Card contract
+Current deployed revision: 26
+Current description: Rollback to 24
+Current values SHA-256: 509cf081722aeeaf459f01426d113189cf9e9efe2973a0327b0c3e8a6087d06d
+Current manifest SHA-256: 272d468007b43523fb9b5fbd60989f56cae414b425412af8da9444d7c0d00fa1
+
+Rollback command:
+  helm rollback llm-agent 24 --namespace default --wait --timeout 10m
+Result: PASS.

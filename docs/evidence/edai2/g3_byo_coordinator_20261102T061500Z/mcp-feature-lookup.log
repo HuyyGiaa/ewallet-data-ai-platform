@@ -1,0 +1,14 @@
+Session termination failed: 202
+{
+  "transport": "official-mcp-sdk-streamable-http",
+  "protocol_version": "2025-06-18",
+  "server": "feature-rag-mcp",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "tool": "feature_lookup",
+  "latency_ms": 201.551,
+  "is_error": false
+}

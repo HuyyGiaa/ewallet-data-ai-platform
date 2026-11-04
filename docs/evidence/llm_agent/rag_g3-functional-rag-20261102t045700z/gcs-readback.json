@@ -1,0 +1,28 @@
+[
+  {
+    "bucket": "ewallet-data-ai-platform-hg26-data",
+    "name": "features/rag/runs/g3-functional-rag-20261102t045700z/fraud-policy-feast-v1/chunks.parquet",
+    "size": 19943,
+    "generation": "1793594877326103",
+    "metageneration": 1,
+    "md5_hash": "rN2Gt7WZ76qd1R5NuLH+rw==",
+    "crc32c_hash": "TOMaHg==",
+    "creation_time": "2026-11-02T04:47:57+0000",
+    "update_time": "2026-11-02T04:47:57+0000",
+    "storage_class": "STANDARD",
+    "storage_url": "gs://ewallet-data-ai-platform-hg26-data/features/rag/runs/g3-functional-rag-20261102t045700z/fraud-policy-feast-v1/chunks.parquet#1793594877326103"
+  },
+  {
+    "bucket": "ewallet-data-ai-platform-hg26-data",
+    "name": "features/registries/rag/runs/g3-functional-rag-20261102t045700z/registry.db",
+    "size": 2185,
+    "generation": "1793594884384122",
+    "metageneration": 1,
+    "md5_hash": "LYVUsBlLjC3tJB92arN75w==",
+    "crc32c_hash": "FgmfUA==",
+    "creation_time": "2026-11-02T04:48:04+0000",
+    "update_time": "2026-11-02T04:48:04+0000",
+    "storage_class": "STANDARD",
+    "storage_url": "gs://ewallet-data-ai-platform-hg26-data/features/registries/rag/runs/g3-functional-rag-20261102t045700z/registry.db#1793594884384122"
+  }
+]

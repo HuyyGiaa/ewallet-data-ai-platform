@@ -1,0 +1,17 @@
+NAME                             READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                                                                                                                                                            SELECTOR
+deployment.apps/rag-db1-canary   1/1     1            1           3m34s   mcp-server   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058   app.kubernetes.io/name=rag-db1-canary
+
+NAME                                 READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/rag-db1-canary-67f54cccc-54wrl   1/1     Running   0          32s   10.216.1.61   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+
+NAME                                  DATA   AGE
+configmap/rag-db1-registry-77aaae13   1      3m36s
+
+NAME                              TYPE     DATA   AGE
+secret/rag-db1-redis-g3-045700z   Opaque   1      3m36s
+
+NAME                                                                  POD-SELECTOR                            AGE
+networkpolicy.networking.k8s.io/allow-ambient-probes-rag-db1-canary   app.kubernetes.io/name=rag-db1-canary   3m35s
+networkpolicy.networking.k8s.io/allow-rag-db1-canary-to-feast-redis   app.kubernetes.io/name=rag-db1-canary   3m35s
+NAME                                              POD-SELECTOR                   AGE
+allow-ewallet-mcp-rag-db1-canary-to-feast-redis   app.kubernetes.io/name=redis   3m35s

@@ -1,0 +1,16 @@
+2026-11-01T05:29:41Z stage=scale-up git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+2026-11-01T05:31:17Z stage=scale-up ok
+2026-11-01T05:31:18Z stage=istio git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+2026-11-01T05:31:43Z stage=istio ok
+2026-11-01T05:31:44Z stage=namespace git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+2026-11-01T05:31:45Z stage=namespace ok
+2026-11-01T05:31:45Z stage=secret git=a194189d142bb0dfe98ea8882ce19f0b6f037f97
+2026-11-01T05:31:46Z stage=secret ok
+2026-11-01T08:22:41Z stage=netpol-verify git=84c34487f9efdfbe67262db028c96b77fea799e1
+2026-11-01T08:23:31Z stage=netpol-verify ok
+2026-11-01T08:23:32Z stage=smoke-direct git=84c34487f9efdfbe67262db028c96b77fea799e1
+2026-11-01T08:24:35Z stage=smoke-direct ok
+2026-11-01T08:24:37Z stage=smoke-gateway git=84c34487f9efdfbe67262db028c96b77fea799e1
+2026-11-01T08:25:31Z stage=smoke-gateway ok
+2026-11-01T08:25:33Z stage=failover git=84c34487f9efdfbe67262db028c96b77fea799e1
+2026-11-01T08:27:27Z stage=failover ok

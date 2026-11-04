@@ -1,0 +1,380 @@
+{
+ "version": "o1-workload-v1",
+ "measured": [
+  {
+   "id": "short-1",
+   "category": "short_chat",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "In one sentence, what is a chargeback?"
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "short-2",
+   "category": "short_chat",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Name one sign of account takeover."
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "long-1",
+   "category": "long_chat",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Transaction 1: amount 27 USD, merchant M1, device D1, minutes since previous 1. Transaction 2: amount 44 USD, merchant M2, device D2, minutes since previous 2. Transaction 3: amount 61 USD, merchant M3, device D3, minutes since previous 3. Transaction 4: amount 78 USD, merchant M4, device D4, minutes since previous 4. Transaction 5: amount 95 USD, merchant M5, device D5, minutes since previous 5. Transaction 6: amount 112 USD, merchant M6, device D6, minutes since previous 6. Transaction 7: amount 129 USD, merchant M7, device D7, minutes since previous 7. Transaction 8: amount 146 USD, merchant M8, device D8, minutes since previous 8. Transaction 9: amount 163 USD, merchant M9, device D9, minutes since previous 9. Transaction 10: amount 180 USD, merchant M10, device D10, minutes since previous 10. Transaction 11: amount 197 USD, merchant M11, device D0, minutes since previous 11. Transaction 12: amount 214 USD, merchant M12, device D1, minutes since previous 12. Transaction 13: amount 231 USD, merchant M13, device D2, minutes since previous 0. Transaction 14: amount 248 USD, merchant M14, device D3, minutes since previous 1. Transaction 15: amount 265 USD, merchant M15, device D4, minutes since previous 2. Transaction 16: amount 282 USD, merchant M16, device D5, minutes since previous 3. Transaction 17: amount 299 USD, merchant M17, device D6, minutes since previous 4. Transaction 18: amount 316 USD, merchant M18, device D7, minutes since previous 5. Transaction 19: amount 333 USD, merchant M19, device D8, minutes since previous 6. Transaction 20: amount 350 USD, merchant M20, device D9, minutes since previous 7. Transaction 21: amount 367 USD, merchant M21, device D10, minutes since previous 8. Transaction 22: amount 384 USD, merchant M22, device D0, minutes since previous 9. Transaction 23: amount 401 USD, merchant M23, device D1, minutes since previous 10. Transaction 24: amount 418 USD, merchant M24, device D2, minutes since previous 11. Transaction 25: amount 435 USD, merchant M25, device D3, minutes since previous 12. Transaction 26: amount 452 USD, merchant M26, device D4, minutes since previous 0. Transaction 27: amount 469 USD, merchant M27, device D5, minutes since previous 1. Transaction 28: amount 486 USD, merchant M28, device D6, minutes since previous 2. Transaction 29: amount 503 USD, merchant M29, device D7, minutes since previous 3. Transaction 30: amount 520 USD, merchant M30, device D8, minutes since previous 4. Transaction 31: amount 537 USD, merchant M31, device D9, minutes since previous 5. Transaction 32: amount 554 USD, merchant M32, device D10, minutes since previous 6. Transaction 33: amount 571 USD, merchant M33, device D0, minutes since previous 7. Transaction 34: amount 588 USD, merchant M34, device D1, minutes since previous 8. Transaction 35: amount 605 USD, merchant M35, device D2, minutes since previous 9. Transaction 36: amount 622 USD, merchant M36, device D3, minutes since previous 10. Transaction 37: amount 639 USD, merchant M0, device D4, minutes since previous 11. Transaction 38: amount 656 USD, merchant M1, device D5, minutes since previous 12. Transaction 39: amount 673 USD, merchant M2, device D6, minutes since previous 0. Transaction 40: amount 690 USD, merchant M3, device D7, minutes since previous 1. Transaction 41: amount 707 USD, merchant M4, device D8, minutes since previous 2. Transaction 42: amount 724 USD, merchant M5, device D9, minutes since previous 3. Transaction 43: amount 741 USD, merchant M6, device D10, minutes since previous 4. Transaction 44: amount 758 USD, merchant M7, device D0, minutes since previous 5. Transaction 45: amount 775 USD, merchant M8, device D1, minutes since previous 6. Transaction 46: amount 792 USD, merchant M9, device D2, minutes since previous 7. Transaction 47: amount 809 USD, merchant M10, device D3, minutes since previous 8. Transaction 48: amount 826 USD, merchant M11, device D4, minutes since previous 9. Transaction 49: amount 843 USD, merchant M12, device D5, minutes since previous 10. Transaction 50: amount 860 USD, merchant M13, device D6, minutes since previous 11. Transaction 51: amount 877 USD, merchant M14, device D7, minutes since previous 12. Transaction 52: amount 894 USD, merchant M15, device D8, minutes since previous 0. Transaction 53: amount 11 USD, merchant M16, device D9, minutes since previous 1. Transaction 54: amount 28 USD, merchant M17, device D10, minutes since previous 2. Transaction 55: amount 45 USD, merchant M18, device D0, minutes since previous 3. Transaction 56: amount 62 USD, merchant M19, device D1, minutes since previous 4. Transaction 57: amount 79 USD, merchant M20, device D2, minutes since previous 5. Transaction 58: amount 96 USD, merchant M21, device D3, minutes since previous 6. Transaction 59: amount 113 USD, merchant M22, device D4, minutes since previous 7. Transaction 60: amount 130 USD, merchant M23, device D5, minutes since previous 8. Which transactions look unusual and why?"
+     }
+    ],
+    "max_tokens": 128,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "long-2",
+   "category": "long_chat",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Transaction 1: amount 27 USD, merchant M1, device D1, minutes since previous 1. Transaction 2: amount 44 USD, merchant M2, device D2, minutes since previous 2. Transaction 3: amount 61 USD, merchant M3, device D3, minutes since previous 3. Transaction 4: amount 78 USD, merchant M4, device D4, minutes since previous 4. Transaction 5: amount 95 USD, merchant M5, device D5, minutes since previous 5. Transaction 6: amount 112 USD, merchant M6, device D6, minutes since previous 6. Transaction 7: amount 129 USD, merchant M7, device D7, minutes since previous 7. Transaction 8: amount 146 USD, merchant M8, device D8, minutes since previous 8. Transaction 9: amount 163 USD, merchant M9, device D9, minutes since previous 9. Transaction 10: amount 180 USD, merchant M10, device D10, minutes since previous 10. Transaction 11: amount 197 USD, merchant M11, device D0, minutes since previous 11. Transaction 12: amount 214 USD, merchant M12, device D1, minutes since previous 12. Transaction 13: amount 231 USD, merchant M13, device D2, minutes since previous 0. Transaction 14: amount 248 USD, merchant M14, device D3, minutes since previous 1. Transaction 15: amount 265 USD, merchant M15, device D4, minutes since previous 2. Transaction 16: amount 282 USD, merchant M16, device D5, minutes since previous 3. Transaction 17: amount 299 USD, merchant M17, device D6, minutes since previous 4. Transaction 18: amount 316 USD, merchant M18, device D7, minutes since previous 5. Transaction 19: amount 333 USD, merchant M19, device D8, minutes since previous 6. Transaction 20: amount 350 USD, merchant M20, device D9, minutes since previous 7. Transaction 21: amount 367 USD, merchant M21, device D10, minutes since previous 8. Transaction 22: amount 384 USD, merchant M22, device D0, minutes since previous 9. Transaction 23: amount 401 USD, merchant M23, device D1, minutes since previous 10. Transaction 24: amount 418 USD, merchant M24, device D2, minutes since previous 11. Transaction 25: amount 435 USD, merchant M25, device D3, minutes since previous 12. Transaction 26: amount 452 USD, merchant M26, device D4, minutes since previous 0. Transaction 27: amount 469 USD, merchant M27, device D5, minutes since previous 1. Transaction 28: amount 486 USD, merchant M28, device D6, minutes since previous 2. Transaction 29: amount 503 USD, merchant M29, device D7, minutes since previous 3. Transaction 30: amount 520 USD, merchant M30, device D8, minutes since previous 4. Transaction 31: amount 537 USD, merchant M31, device D9, minutes since previous 5. Transaction 32: amount 554 USD, merchant M32, device D10, minutes since previous 6. Transaction 33: amount 571 USD, merchant M33, device D0, minutes since previous 7. Transaction 34: amount 588 USD, merchant M34, device D1, minutes since previous 8. Transaction 35: amount 605 USD, merchant M35, device D2, minutes since previous 9. Transaction 36: amount 622 USD, merchant M36, device D3, minutes since previous 10. Transaction 37: amount 639 USD, merchant M0, device D4, minutes since previous 11. Transaction 38: amount 656 USD, merchant M1, device D5, minutes since previous 12. Transaction 39: amount 673 USD, merchant M2, device D6, minutes since previous 0. Transaction 40: amount 690 USD, merchant M3, device D7, minutes since previous 1. Transaction 41: amount 707 USD, merchant M4, device D8, minutes since previous 2. Transaction 42: amount 724 USD, merchant M5, device D9, minutes since previous 3. Transaction 43: amount 741 USD, merchant M6, device D10, minutes since previous 4. Transaction 44: amount 758 USD, merchant M7, device D0, minutes since previous 5. Transaction 45: amount 775 USD, merchant M8, device D1, minutes since previous 6. Transaction 46: amount 792 USD, merchant M9, device D2, minutes since previous 7. Transaction 47: amount 809 USD, merchant M10, device D3, minutes since previous 8. Transaction 48: amount 826 USD, merchant M11, device D4, minutes since previous 9. Transaction 49: amount 843 USD, merchant M12, device D5, minutes since previous 10. Transaction 50: amount 860 USD, merchant M13, device D6, minutes since previous 11. Transaction 51: amount 877 USD, merchant M14, device D7, minutes since previous 12. Transaction 52: amount 894 USD, merchant M15, device D8, minutes since previous 0. Transaction 53: amount 11 USD, merchant M16, device D9, minutes since previous 1. Transaction 54: amount 28 USD, merchant M17, device D10, minutes since previous 2. Transaction 55: amount 45 USD, merchant M18, device D0, minutes since previous 3. Transaction 56: amount 62 USD, merchant M19, device D1, minutes since previous 4. Transaction 57: amount 79 USD, merchant M20, device D2, minutes since previous 5. Transaction 58: amount 96 USD, merchant M21, device D3, minutes since previous 6. Transaction 59: amount 113 USD, merchant M22, device D4, minutes since previous 7. Transaction 60: amount 130 USD, merchant M23, device D5, minutes since previous 8. Group these by merchant risk."
+     }
+    ],
+    "max_tokens": 128,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "prefix-repeat-0",
+   "category": "prefix_repeat",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-wallet fraud review policy. Section 1: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 2: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 3: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 4: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 5: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 6: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 7: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 8: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. "
+     },
+     {
+      "role": "user",
+      "content": "Which two signals matter most for a new account sending many small transfers?"
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "prefix-repeat-1",
+   "category": "prefix_repeat",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-wallet fraud review policy. Section 1: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 2: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 3: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 4: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 5: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 6: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 7: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 8: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. "
+     },
+     {
+      "role": "user",
+      "content": "What should a reviewer do when only the device fingerprint is unusual?"
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "prefix-repeat-2",
+   "category": "prefix_repeat",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-wallet fraud review policy. Section 1: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 2: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 3: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 4: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 5: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 6: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 7: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 8: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. "
+     },
+     {
+      "role": "user",
+      "content": "Summarize when to escalate, in one sentence."
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "prefix-unique-1",
+   "category": "prefix_unique",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-wallet fraud review policy. Section 101: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 102: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 103: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 104: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 105: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 106: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 107: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 108: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. "
+     },
+     {
+      "role": "user",
+      "content": "Is a recently added beneficiary alone enough to escalate?"
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "prefix-unique-2",
+   "category": "prefix_unique",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-wallet fraud review policy. Section 201: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 202: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 203: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 204: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 205: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 206: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 207: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. E-wallet fraud review policy. Section 208: a reviewer checks the account age, the device fingerprint history, the velocity of top-ups and transfers in the last hour, merchant category risk, and whether the beneficiary was added recently. Escalate when two or more signals are elevated; never invent customer data; cite the signals you used. "
+     },
+     {
+      "role": "user",
+      "content": "Is a recently added beneficiary alone enough to escalate?"
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "tool-1",
+   "category": "tool_call",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Use feature_lookup for transaction tx-o1-001, then summarize the returned fixture."
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0,
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "feature_lookup",
+       "description": "Retrieve a test transaction feature fixture.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "transaction_id": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "transaction_id"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    ],
+    "tool_choice": "required"
+   }
+  },
+  {
+   "id": "tool-2",
+   "category": "tool_call",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Use feature_lookup for transaction tx-o1-002, then summarize the returned fixture."
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0,
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "feature_lookup",
+       "description": "Retrieve a test transaction feature fixture.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "transaction_id": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "transaction_id"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    ],
+    "tool_choice": "required"
+   }
+  },
+  {
+   "id": "nonstream-1",
+   "category": "nonstream_chat",
+   "stream": false,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Explain velocity checks in two sentences."
+     }
+    ],
+    "max_tokens": 64,
+    "temperature": 0
+   }
+  }
+ ],
+ "cold_prefix": [
+  {
+   "id": "cold-prefix-0",
+   "category": "cold_prefix",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-WALLET FRAUD REVIEW POLICY. SECTION 20: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 21: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 22: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 23: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 24: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 25: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 26: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 27: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. "
+     },
+     {
+      "role": "user",
+      "content": "Which two signals matter most for a new account sending many small transfers?"
+     }
+    ],
+    "max_tokens": 32,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "cold-prefix-1",
+   "category": "cold_prefix",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-WALLET FRAUD REVIEW POLICY. SECTION 20: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 21: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 22: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 23: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 24: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 25: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 26: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 27: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. "
+     },
+     {
+      "role": "user",
+      "content": "What should a reviewer do when only the device fingerprint is unusual?"
+     }
+    ],
+    "max_tokens": 32,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "cold-prefix-2",
+   "category": "cold_prefix",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "system",
+      "content": "E-WALLET FRAUD REVIEW POLICY. SECTION 20: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 21: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 22: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 23: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 24: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 25: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 26: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. E-WALLET FRAUD REVIEW POLICY. SECTION 27: A REVIEWER CHECKS THE ACCOUNT AGE, THE DEVICE FINGERPRINT HISTORY, THE VELOCITY OF TOP-UPS AND TRANSFERS IN THE LAST HOUR, MERCHANT CATEGORY RISK, AND WHETHER THE BENEFICIARY WAS ADDED RECENTLY. ESCALATE WHEN TWO OR MORE SIGNALS ARE ELEVATED; NEVER INVENT CUSTOMER DATA; CITE THE SIGNALS YOU USED. "
+     },
+     {
+      "role": "user",
+      "content": "Summarize when to escalate, in one sentence."
+     }
+    ],
+    "max_tokens": 32,
+    "temperature": 0
+   }
+  }
+ ],
+ "warmup": [
+  {
+   "id": "warmup-1",
+   "category": "warmup",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Say hello."
+     }
+    ],
+    "max_tokens": 16,
+    "temperature": 0
+   }
+  },
+  {
+   "id": "warmup-2",
+   "category": "warmup",
+   "stream": true,
+   "body": {
+    "model": "ewallet-fraud-llm",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Use feature_lookup for transaction tx-warm, then summarize the returned fixture."
+     }
+    ],
+    "max_tokens": 32,
+    "temperature": 0,
+    "tools": [
+     {
+      "type": "function",
+      "function": {
+       "name": "feature_lookup",
+       "description": "Retrieve a test transaction feature fixture.",
+       "parameters": {
+        "type": "object",
+        "properties": {
+         "transaction_id": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "transaction_id"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    ],
+    "tool_choice": "required"
+   }
+  }
+ ],
+ "sha256": "c4816ca1f1dc8622d198740d6c22161e7f825129b791da9034ca07e437d7695f"
+}

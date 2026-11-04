@@ -1,0 +1,40 @@
+{
+  "controlPlaneEndpointsConfig": {
+    "ipEndpointsConfig": {
+      "authorizedNetworksConfig": {
+        "cidrBlocks": [
+          {
+            "cidrBlock": "113.188.119.38/32"
+          },
+          {
+            "cidrBlock": "171.239.81.235/32"
+          }
+        ],
+        "enabled": true,
+        "gcpPublicCidrsAccessEnabled": true
+      }
+    }
+  },
+  "currentMasterVersion": "1.36.4-gke.2046003",
+  "currentNodeCount": 4,
+  "endpoint": "34.143.148.210",
+  "location": "asia-southeast1-b",
+  "masterAuthorizedNetworksConfig": {
+    "cidrBlocks": [
+      {
+        "cidrBlock": "113.188.119.38/32"
+      },
+      {
+        "cidrBlock": "171.239.81.235/32"
+      }
+    ],
+    "enabled": true,
+    "gcpPublicCidrsAccessEnabled": true
+  },
+  "name": "ewallet-dev",
+  "privateClusterConfig": {
+    "privateEndpoint": "10.20.0.8",
+    "publicEndpoint": "34.143.148.210"
+  },
+  "status": "RUNNING"
+}

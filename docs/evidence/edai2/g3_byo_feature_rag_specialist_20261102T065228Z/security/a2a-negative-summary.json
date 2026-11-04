@@ -1,0 +1,10 @@
+{
+  "invalid": {
+    "http_status": 200,
+    "state": "rejected"
+  },
+  "missing-evidence": {
+    "http_status": 200,
+    "state": "failed"
+  }
+}

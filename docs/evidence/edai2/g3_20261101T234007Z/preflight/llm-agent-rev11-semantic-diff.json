@@ -1,0 +1,25 @@
+{
+  "candidate_manifest_sha256": "4294eb9400673a2418ab7dfcd644dab258112cdb356bdf36f13b3440e207e040",
+  "changed_resources": [
+    {
+      "action": "MODIFY",
+      "kind": "Agent",
+      "name": "feature-rag-specialist",
+      "namespace": "ewallet-agents"
+    },
+    {
+      "action": "DELETE",
+      "kind": "ConfigMap",
+      "name": "feature-rag-specialist-prompt-v2",
+      "namespace": "ewallet-agents"
+    },
+    {
+      "action": "ADD",
+      "kind": "ConfigMap",
+      "name": "feature-rag-specialist-prompt-v3",
+      "namespace": "ewallet-agents"
+    }
+  ],
+  "count": 3,
+  "old_manifest_sha256": "e3a2b842009d3045ca44d1e80a46a108d133111c7ce8da6b8830e68bb4ddd46b"
+}

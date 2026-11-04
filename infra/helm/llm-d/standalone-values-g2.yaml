@@ -1,0 +1,75 @@
+# llm-d-router-standalone v1.0.0 values for G2 (O2 routing), release
+# llmd-router in ewallet-agents. Standalone mode: EPP + Envoy sidecar, pods
+# discovered with --endpoint-selector, no InferencePool/Gateway API CRDs and no
+# cluster-scoped objects (docs/edai2/llm/llmd_g2_routing_benchmark.md §6).
+# Render: helm template llmd-router $LLMD_STANDALONE_CHART --version v1.0.0 \
+#   -n ewallet-agents -f infra/helm/llm-d/standalone-values-g2.yaml
+router:
+  modelServers:
+    # The two C1 primary replicas (the same Service selector B2 load-balances
+    # over); the fallback Deployment stays a direct agentgateway backend.
+    matchLabels:
+      app.kubernetes.io/name: vllm
+      app.kubernetes.io/instance: primary
+    type: vllm
+    protocol: http
+    targetPorts:
+      - number: 8000
+  inferencePool:
+    # No InferencePool object: the CRD is not installed on the shared cluster.
+    create: false
+  epp:
+    image:
+      registry: ghcr.io/llm-d
+      repository: llm-d-router-endpoint-picker
+      tag: v1.0.0@sha256:024188e998f516879f68532016ca24fabca00afbdcc2af9a61b17634e197df2c
+      pullPolicy: IfNotPresent
+    # Chart default requests 8 CPU / 8 GiB; the EPP only scores two endpoints.
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: "1", memory: 1Gi}
+    # v=3 (VERBOSE) logs "Request handled ... endpoint" per scheduling decision.
+    flags:
+      v: 3
+    # Pod level, so it also covers the Envoy sidecar (the chart has no
+    # container securityContext for the proxy). Both images run as 65532.
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile: {type: RuntimeDefault}
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      capabilities: {drop: [ALL]}
+      seccompProfile: {type: RuntimeDefault}
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - {key: ewallet.io/g2-llm, operator: In, values: ["true"]}
+  proxy:
+    enabled: true
+    proxyType: envoy
+    mode: sidecar
+    # EPP unreachable -> the request fails here and agentgateway fails over to
+    # the direct primary, marked x-ewallet-backend: primary, so an EPP outage
+    # never passes as llm-d routing (fail-open would load-balance unscored).
+    failOpen: false
+    image: docker.io/envoyproxy/envoy:distroless-v1.33.2@sha256:85500e28ed088ec39ff0adc1be3d358a8ad062926aaa62c36b28bde00919e4e8
+    # Pod Security "restricted" (the namespace warns and audits at restricted).
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities: {drop: [ALL]}
+      seccompProfile: {type: RuntimeDefault}
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+  monitoring:
+    prometheus:
+      enabled: false
+      auth:
+        # true creates a ClusterRole/ClusterRoleBinding for TokenReview; the
+        # EPP /metrics are read through a local port-forward only.
+        enabled: false

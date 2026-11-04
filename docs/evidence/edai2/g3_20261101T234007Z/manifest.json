@@ -1,0 +1,55 @@
+{
+  "campaign": "EDAI-2 G3 runtime continuation",
+  "captured_at": "2026-11-02T07:34:22+07:00",
+  "project": "ewallet-data-ai-platform-hg26",
+  "source": {
+    "branch": "codex/llm-g2-llmd-routing",
+    "campaign_base_sha": "b4111a57fc0285ce118ea036038f6abb7b046867",
+    "deployed_git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+    "image_digest": "sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+    "worktree": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-llm-g2"
+  },
+  "helm_revisions": {
+    "kagent": 2,
+    "llm-agent": 12,
+    "llm-agent-mcp": 3
+  },
+  "claims": {
+    "source_ready": "PASS",
+    "tests": "PASS",
+    "mcp_runtime": "PASS",
+    "feast_online_runtime": "PASS",
+    "kserve_runtime": "PASS",
+    "rag_retrieval_runtime": "PASS",
+    "mcp_security_negatives": "PASS",
+    "a2a_gateway_route": "PASS",
+    "coordinator_business_e2e": "PARTIAL_BLOCKED_MODEL_ORCHESTRATION",
+    "airflow_rag_runtime": "BLOCKED_NOT_RUN",
+    "datahub_lineage": "BLOCKED_UNAVAILABLE",
+    "jenkins_runtime": "NOT_VERIFIED",
+    "observability_backend": "BLOCKED_UNAVAILABLE",
+    "ui_screenshot_files": "SCREENSHOT_PENDING",
+    "full_business_e2e": "NO",
+    "rubric_verified": "NO"
+  },
+  "runtime_values": {
+    "feature_lookup_latency_ms": 279.669,
+    "historical_features_returned": 31,
+    "fraud_scoring_latency_ms": 323.023,
+    "fraud_probability": 0.0639895560144887,
+    "fraud_prediction": 0,
+    "rag_latency_ms": 2825.852,
+    "rag_citation_count": 2,
+    "coordinator_refreshed_context_id": "01a199aa-cc6a-7797-8806-f3fa02053887"
+  },
+  "mutations_explicitly_not_performed": [
+    "G1_or_G2_benchmark",
+    "new_GKE_node",
+    "IAM_change",
+    "cluster_wide_RBAC_change",
+    "credential_rotation_or_revocation",
+    "GCS_write",
+    "model_promotion",
+    "Git_push_or_merge"
+  ]
+}

@@ -1,0 +1,5 @@
+# O1: vLLM and agentgateway only on the nodes added for the session, which
+# g1_operator labels ewallet.io/o1-llm=true; the MLOps nodes stay untouched.
+llmPlacement:
+  nodeSelector:
+    ewallet.io/o1-llm: "true"

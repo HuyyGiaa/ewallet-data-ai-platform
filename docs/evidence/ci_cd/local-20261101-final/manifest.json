@@ -1,0 +1,47 @@
+{
+  "build_number": "LOCAL",
+  "changed_files": [],
+  "commit_message": "feat(ci): gate immutable releases",
+  "components": [
+    "ci-platform",
+    "data-platform",
+    "feast",
+    "fraud-api",
+    "fraud-serving",
+    "llm-serving",
+    "ml-training",
+    "mlflow",
+    "streaming"
+  ],
+  "full_validation_reason": "invalid_head_sha",
+  "git_branch": "codex/pc-cicd-20261101",
+  "git_sha": "df4118105f6d68d748a03923ea1a08ad1d76bd93",
+  "merge_base": null,
+  "results": [
+    {
+      "argv": [
+        "uv",
+        "lock",
+        "--check"
+      ],
+      "classification": "MISSING_RUNTIME_DEPENDENCY",
+      "cwd": "ai_platform/features/feast",
+      "exit_code": 127,
+      "log": "logs/0001-uv-lock-ai_platform-features-feast.log",
+      "stage": "uv-lock:ai_platform/features/feast"
+    }
+  ],
+  "schema_version": 1,
+  "status": "FAILED",
+  "timestamp_utc": "2026-11-01T05:01:51.407367+00:00",
+  "trigger": "local-manual",
+  "verification": {
+    "cd_runtime_verified": false,
+    "jenkins_runtime_verified": false,
+    "local_ci_verified": false,
+    "source_ready": true,
+    "static_validation_pass": false
+  },
+  "working_tree_dirty": false,
+  "working_tree_status_sha256": null
+}

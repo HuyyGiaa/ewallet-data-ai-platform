@@ -23,6 +23,7 @@ import json
 import os
 import time
 from typing import Any, Iterable
+from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -152,8 +153,9 @@ def call(endpoint: str, key: str, payload: dict[str, Any], *, timeout: float, st
     except HTTPError as exc:
         return {"status": exc.code, "error": exc.read().decode(errors="replace")[:300],
                 "latency_s": round(time.monotonic() - started, 3)}
-    except (URLError, TimeoutError) as exc:
-        return {"status": None, "error": f"unreachable or client timeout: {exc}",
+    except (URLError, TimeoutError, OSError, HTTPException) as exc:
+        # e.g. RemoteDisconnected when a port-forward drops a long, silent request.
+        return {"status": None, "error": f"{type(exc).__name__}: {exc}",
                 "latency_s": round(time.monotonic() - started, 3)}
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -303,7 +304,50 @@ class KubernetesMlflowContractTest(unittest.TestCase):
         self.assertIn("mlflow-backend-store", rendered)
         self.assertIn("mlflow-runtime", rendered)
         self.assertNotIn("minio", rendered)
-        self.assertNotIn("localhost", rendered)
+
+        command = shlex.split(container["args"][0])
+        options = {
+            name: value
+            for name, value in (
+                token[2:].split("=", 1)
+                for token in command
+                if token.startswith("--") and "=" in token
+            )
+        }
+        allowed_hosts = options["allowed-hosts"].split(",")
+        self.assertEqual(
+            {
+                "mlflow.ml-platform.svc.cluster.local:5000",
+                "mlflow.ml-platform.svc.cluster.local",
+                "mlflow.ml-platform:5000",
+                "mlflow:5000",
+                "localhost:5000",
+                "127.0.0.1:5000",
+            },
+            set(allowed_hosts),
+        )
+        self.assertEqual(len(allowed_hosts), len(set(allowed_hosts)))
+        self.assertFalse(any("*" in host for host in allowed_hosts))
+        self.assertNotIn("0.0.0.0", allowed_hosts)
+        self.assertNotIn("::", allowed_hosts)
+
+        self.assertEqual(
+            "$MLFLOW_BACKEND_STORE_URI", options["backend-store-uri"]
+        )
+        self.assertEqual(
+            "$MLFLOW_ARTIFACTS_DESTINATION", options["artifacts-destination"]
+        )
+        environment = {item["name"]: item for item in container["env"]}
+        self.assertEqual(
+            {"name": "mlflow-backend-store", "key": "uri"},
+            environment["MLFLOW_BACKEND_STORE_URI"]["valueFrom"]["secretKeyRef"],
+        )
+        self.assertEqual(
+            {"name": "mlflow-runtime", "key": "artifactsDestination"},
+            environment["MLFLOW_ARTIFACTS_DESTINATION"]["valueFrom"][
+                "configMapKeyRef"
+            ],
+        )
 
 
 if __name__ == "__main__":

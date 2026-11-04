@@ -1,0 +1,167 @@
+{{- if .Values.idempotencyRedis.enabled }}
+{{- $r := .Values.idempotencyRedis }}
+{{- $name := $r.name }}
+{{- if not (and .Values.agents.enabled (eq .Values.agents.mode "agent") .Values.agents.coordinator.byo.enabled) }}
+{{- fail "idempotencyRedis.enabled requires the BYO Coordinator in agent mode" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $name) }}
+{{- fail "idempotencyRedis.name must be a DNS label" }}
+{{- end }}
+{{- if not (regexMatch "^docker\\.io/library/redis:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$" $r.image) }}
+{{- fail "idempotencyRedis.image must be the approved Redis image pinned by sha256 digest" }}
+{{- end }}
+{{- if ne $r.config.maxmemoryPolicy "noeviction" }}
+{{- fail "idempotencyRedis.config.maxmemoryPolicy must be noeviction" }}
+{{- end }}
+{{- if ne $r.config.appendfsync "everysec" }}
+{{- fail "idempotencyRedis.config.appendfsync must be everysec for the approved durability/latency contract" }}
+{{- end }}
+{{- range $field := list $r.secret.name $r.secret.connectionUrlKey $r.secret.passwordKey $r.secret.aclKey }}
+{{- if not (regexMatch "^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$" $field) }}
+{{- fail "idempotencyRedis Secret identifiers must be bounded Kubernetes names/keys" }}
+{{- end }}
+{{- end }}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,254}$" $r.coordinator.tenant) }}
+{{- fail "idempotencyRedis.coordinator.tenant must be a bounded trusted identity" }}
+{{- end }}
+{{- if not (regexMatch "^cluster\\.local/ns/[a-z0-9-]+/sa/[a-z0-9-]+$" $r.coordinator.principal) }}
+{{- fail "idempotencyRedis.coordinator.principal must be an exact cluster.local SPIFFE principal" }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+data:
+  redis.conf: |
+    bind 0.0.0.0
+    protected-mode yes
+    port {{ int $r.port }}
+    dir /data
+    save ""
+    appendonly yes
+    appenddirname appendonlydir
+    appendfsync {{ $r.config.appendfsync }}
+    maxmemory {{ $r.config.maxmemory }}
+    maxmemory-policy {{ $r.config.maxmemoryPolicy }}
+    aclfile /run/redis-auth/users.acl
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: {{ $name }}}
+  ports:
+    - {name: redis, port: {{ int $r.port }}, targetPort: redis}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+  annotations:
+    ewallet.io/durability-contract: aof-everysec-not-exactly-once
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels: {app.kubernetes.io/name: {{ $name }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: {{ $name }}}
+      annotations:
+        checksum/config: {{ toJson (dict "config" $r.config "port" $r.port) | sha256sum }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: redis
+          image: {{ $r.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [redis-server]
+          args: [/config/redis.conf]
+          env:
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $r.secret.name }}
+                  key: {{ $r.secret.passwordKey }}
+          ports:
+            - {name: redis, containerPort: {{ int $r.port }}}
+          startupProbe:
+            exec: {command: [redis-cli, ping]}
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            exec: {command: [redis-cli, ping]}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec: {command: [redis-cli, ping]}
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            {{- toYaml $r.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: auth, mountPath: /run/redis-auth, readOnly: true}
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: config
+          configMap: {name: {{ $name }}-config}
+        - name: auth
+          secret:
+            secretName: {{ $r.secret.name }}
+            items:
+              - {key: {{ $r.secret.aclKey }}, path: users.acl}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "llm-agent-platform.labels" . | nindent 10 }}
+          app.kubernetes.io/name: {{ $name }}
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with $r.storage.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests: {storage: {{ $r.storage.size }}}
+{{- end }}

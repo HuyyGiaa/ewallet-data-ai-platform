@@ -1,0 +1,17 @@
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:19:Publication used new immutable GCS objects and Redis DB1, leaving canonical ML
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:20:Feast keys and production RAG DB0 untouched. DataHub remained plan-only because
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:56:- `bash -n scripts/validation/run_rag_dag_isolated.sh`: PASS.
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/FINAL_VALIDATION.md:68:  vLLM, and both isolated MCP pods: Running/Ready with zero restarts in the
+docs/evidence/edai2/g3_functional_closure_20261102T042311Z/P0_RUNTIME_ATTEMPT_3.md:31:typed request, fail-closed client validation, bounded polling, isolated
+docs/evidence/llm_agent/rag_g3-gke-feast-redis/validation.json:18:          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+docs/evidence/llm_agent/rag_g3-gke-feast-redis/validation.json:30:          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+docs/evidence/llm_agent/rag_g3-gke-feast-redis/validation.json:54:          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+docs/evidence/llm_agent/rag_g3-gke-feast-redis/validation.json:66:          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+docs/evidence/llm_agent/rag_g3-gke-feast-redis/embeddings.json:9:  "model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+docs/evidence/llm_agent/rag_g3-gke-feast-redis/source/manifest.json:5:  "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+ops/llm_agent/policy_lint.py:181:    destination's ingress must both allow it; an address side is not isolated.
+infra/helm/llm-agent-platform/g3/mcp-cutover.yaml:1:# Apply only to the existing llm-agent release after the isolated release has
+infra/helm/llm-agent-platform/values-local.yaml:19:        832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e  ./LICENSE
+infra/helm/llm-agent-platform/g3/mcp-isolated.yaml:2:#   helm template llm-agent-mcp ... -f g3/g3.yaml -f g3/mcp-isolated.yaml
+infra/helm/llm-agent-platform/prompts/manifest.json:21:   "sha256": "391413680be342fe4b8ad9543a36b25c3ef3506ad6f4f75db1834f6ae44a2cb6",
+infra/helm/llm-agent-platform/prompts/fraud-coordinator/v3.md:16:are isolated. Preserve terminal errors and never retry a non-retryable error.

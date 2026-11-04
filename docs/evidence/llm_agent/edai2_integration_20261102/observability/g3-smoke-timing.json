@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 0.833,
+  "polls": 0,
+  "terminal_state": "completed",
+  "response": "docs/evidence/llm_agent/edai2_integration_20261102/observability/g3-smoke-response.json"
+}

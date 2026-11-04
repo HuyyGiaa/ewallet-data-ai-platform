@@ -1,7 +1,14 @@
-"""Manual Phase C DAG for immutable fraud-policy RAG artifacts.
+"""Airflow-orchestrated fraud-policy RAG ingestion (edai-2 RAG Data Pipeline).
 
-The DAG builds source artifacts only. Feast apply/materialization and DataHub
-publication/readback are deliberately separate approved runtime gates.
+discover → parse/chunk → embed → Feast publish (offline parquet, apply,
+materialize to online) → online readback + top-k retrieval check → DataHub
+lineage and quality assertions with readback.
+
+Every task runs ``ops.llm_agent.rag_ingest`` in the uv-locked runtime
+``infra/docker/rag-ingestion`` and writes one create-only artifact under
+``docs/evidence/llm_agent/rag_<run_id>/``. Airflow runs this offline refresh
+only; query-time retrieval is served by the knowledge_search MCP tool from the
+published Feast rows.
 """
 
 from datetime import timedelta
@@ -11,80 +18,50 @@ import pendulum
 from airflow.sdk import DAG, Param
 from airflow.providers.standard.operators.bash import BashOperator
 
-from data_platform.orchestration.airflow.python_runtime import (
-    python_module_command,
-    python_task_environment,
-)
 from data_platform.orchestration.airflow.rag_params import (
-    EVIDENCE_DIR_GUARD,
     RAG_PARAM_SCHEMAS,
+    rag_stage_command,
     rag_task_environment,
 )
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
-PYTHON_TASK_ENV = python_task_environment(REPOSITORY_ROOT)
-MANIFEST = "data/llm_agent/rag/fraud-policy-v1/manifest.json"
-EVALUATION = "data/llm_agent/rag/fraud-policy-v1/evaluation.json"
-
 
 # Params are templated only into environment VALUES (see rag_params); Bash
 # expands each "${VAR}" once without re-parsing shell metacharacters.
 RAG_PARAMS = {name: Param(**schema) for name, schema in RAG_PARAM_SCHEMAS.items()}
-RAG_ENV = rag_task_environment(PYTHON_TASK_ENV)
+RAG_ENV = rag_task_environment(REPOSITORY_ROOT)
+
+# task_id, stage, timeout
+TASKS = (
+    ("discover_documents", "discover", timedelta(minutes=5)),
+    ("parse_and_chunk", "chunk", timedelta(minutes=5)),
+    ("generate_embeddings", "embed", timedelta(minutes=20)),
+    ("publish_feast_features", "publish", timedelta(minutes=15)),
+    ("validate_online_readback", "validate", timedelta(minutes=15)),
+    ("publish_datahub_lineage", "datahub", timedelta(minutes=10)),
+)
 
 
 with DAG(
     dag_id="rag_fraud_policy",
-    description="Build and evaluate immutable Feast-backed fraud-policy RAG artifacts",
+    description="Ingest fraud-policy documents into Feast-backed RAG chunks with DataHub lineage",
     start_date=pendulum.datetime(2026, 10, 30, tz="UTC"),
     schedule=None,
     catchup=False,
     max_active_runs=1,
-    default_args={"retries": 0},
+    default_args={"retries": 2, "retry_delay": timedelta(minutes=1)},
     params=RAG_PARAMS,
-    tags=["ewallet", "llm-agent", "rag", "manual"],
+    tags=["ewallet", "llm-agent", "rag", "feast", "datahub", "manual"],
 ) as dag:
-    validate_corpus = BashOperator(
-        task_id="validate_versioned_corpus",
-        bash_command=(
-            EVIDENCE_DIR_GUARD
-            + python_module_command("ops.llm_agent.rag_pipeline") + f" --manifest {MANIFEST} --validate-only"
-        ),
-        cwd=str(REPOSITORY_ROOT), env=RAG_ENV, append_env=True,
-    )
-    build_publication = BashOperator(
-        task_id="build_feast_publication_artifact",
-        bash_command=(
-            python_module_command("ops.llm_agent.rag_pipeline")
-            + f" --manifest {MANIFEST}"
-            + ' --embedding-endpoint "${RAG_EMBEDDING_ENDPOINT}"'
-            + ' --api-key-file "${RAG_API_KEY_FILE}"'
-            + ' --online-store "${RAG_ONLINE_STORE}"'
-            + ' --output "${RAG_EVIDENCE_DIR}/publication.json"'
-        ),
-        execution_timeout=timedelta(minutes=30),
-        cwd=str(REPOSITORY_ROOT), env=RAG_ENV, append_env=True,
-    )
-    evaluate_retrieval = BashOperator(
-        task_id="evaluate_retrieval_with_citations",
-        bash_command=(
-            python_module_command("ops.llm_agent.run_rag_evaluation")
-            + f" --manifest {MANIFEST} --evaluation {EVALUATION}"
-            + ' --embedding-endpoint "${RAG_EMBEDDING_ENDPOINT}"'
-            + ' --api-key-file "${RAG_API_KEY_FILE}"'
-            + ' --output "${RAG_EVIDENCE_DIR}/evaluation.json"'
-        ),
-        execution_timeout=timedelta(minutes=30),
-        cwd=str(REPOSITORY_ROOT), env=RAG_ENV, append_env=True,
-    )
-    verify_artifacts = BashOperator(
-        task_id="verify_source_artifacts_and_runtime_gate",
-        bash_command=(
-            python_module_command("ops.llm_agent.verify_rag_artifacts")
-            + ' --build-artifact "${RAG_EVIDENCE_DIR}/publication.json"'
-            + ' --evaluation-artifact "${RAG_EVIDENCE_DIR}/evaluation.json"'
-        ),
-        cwd=str(REPOSITORY_ROOT), env=RAG_ENV, append_env=True,
-    )
-    validate_corpus >> [build_publication, evaluate_retrieval] >> verify_artifacts
+    previous = None
+    for task_id, stage, timeout in TASKS:
+        task = BashOperator(
+            task_id=task_id,
+            bash_command=rag_stage_command(stage),
+            execution_timeout=timeout,
+            cwd=str(REPOSITORY_ROOT), env=RAG_ENV, append_env=True,
+        )
+        if previous is not None:
+            previous >> task
+        previous = task

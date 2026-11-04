@@ -1,0 +1,69 @@
+# PostgreSQL for the in-cluster agentregistry (row 35 prompt management).
+# The chart's bundled Postgres hardcodes a non-restricted securityContext and
+# the password "agentregistry", so the registry uses this external instance:
+# Pod Security restricted, digest-pinned, password only in Secret
+# prompt-registry-db (created out of band, never in Git).
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: prompt-registry-db, namespace: ewallet-prompts}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard-rwo
+  resources: {requests: {storage: 1Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prompt-registry-db
+  namespace: ewallet-prompts
+  labels: {app.kubernetes.io/name: prompt-registry-db, app.kubernetes.io/part-of: ewallet-prompts}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: prompt-registry-db}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: prompt-registry-db, app.kubernetes.io/part-of: ewallet-prompts}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: postgres
+          # postgres:18 (18.6) resolved 2026-11-03
+          image: docker.io/library/postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81
+          env:
+            - {name: POSTGRES_DB, value: agentregistry}
+            - {name: POSTGRES_USER, value: agentregistry}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: prompt-registry-db, key: password}}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          ports: [{name: postgres, containerPort: 5432}]
+          readinessProbe:
+            exec: {command: [pg_isready, -U, agentregistry, -d, agentregistry]}
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: run, mountPath: /var/run/postgresql}
+      volumes:
+        - {name: data, persistentVolumeClaim: {claimName: prompt-registry-db}}
+        - {name: run, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: prompt-registry-db, namespace: ewallet-prompts}
+spec:
+  selector: {app.kubernetes.io/name: prompt-registry-db}
+  ports: [{name: postgres, port: 5432, targetPort: postgres}]

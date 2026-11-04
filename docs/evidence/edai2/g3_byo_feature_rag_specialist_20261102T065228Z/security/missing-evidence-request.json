@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": "g3-negative-missing-evidence-20261102-001",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "messageId": "g3-negative-missing-evidence-20261102-001",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "CALL_AGENT=feature-rag-specialist\nREQUEST_JSON={\"capabilities\":[\"fraud-evidence\"],\"contract_version\":\"g3-business-request/v1\",\"feature_names\":[\"account_behavior__account_tx_count_1h\",\"account_behavior__account_tx_count_24h\",\"user_behavior__user_avg_amount_30d\",\"merchant_behavior__merchant_tx_count_24h\"],\"knowledge_query\":\"payment anomaly policy and step-up authentication requirements\",\"request_id\":\"g3-negative-missing-evidence-20261102-001\",\"requested_tools\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"],\"target_agent\":\"feature-rag-specialist\",\"transaction\":{\"account_id\":\"bccf956f-b4c9-40d9-9d22-72496ff98afa\",\"amount\":275465.53,\"channel\":\"app\",\"counterparty_account_id\":null,\"currency\":\"VND\",\"device_id\":\"f8ce0533-9676-4f92-8ff2-19c386de1e69\",\"event_timestamp\":\"2026-06-01T00:00:00Z\",\"merchant_id\":\"fa24ea34-ccde-47bb-b0ad-67cda1dd9a7b\",\"transaction_id\":\"4fcf4b2d-a176-436b-8e34-d513ee93c167\",\"type\":\"payment\",\"user_id\":\"d55d5be1-7584-4302-b9a1-b00a665c2cd4\"}}"
+        }
+      ]
+    }
+  }
+}

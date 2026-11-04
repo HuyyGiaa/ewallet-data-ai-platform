@@ -25,6 +25,10 @@ metadata:
 data:
   config.yaml: |
     # yaml-language-server: $schema=https://agentgateway.dev/schema/config
+    {{- if and .Values.otelCollector.enabled (dig "enabled" false (.Values.gatewayTracing | default dict)) }}
+    config:
+    {{- include "llm-agent-platform.gatewayTracing" . | trimPrefix "\n" | nindent 4 }}
+    {{- end }}
     gateways:
       default:
         port: 4000
@@ -36,6 +40,10 @@ data:
       # at the entry budget). Retry stays for 502/503 only, which the LLM
       # listener returns when vLLM is unreachable or refusing.
       - policies:
+          apiKey:
+            mode: strict
+            keys:
+              - key: "$GATEWAY_CLIENT_KEY"
           timeout:
             requestTimeout: {{ .Values.agentgateway.requestTimeout }}
           retry:
@@ -65,8 +73,9 @@ data:
             key: llm.requestModel
       models:
         {{- if .Values.llmd.enabled }}
-        # llm-d inference-aware route: agentgateway (Gateway API mode) ->
-        # InferencePool -> llm-d EPP picks a primary vLLM pod.
+        # llm-d inference-aware route: agentgateway -> (gateway mode) inference
+        # Gateway + InferencePool, or (standalone mode) the llm-d router's Envoy
+        # -> llm-d EPP picks a primary vLLM pod.
         - name: ewallet-fraud-llm-routed
           visibility: internal
           provider:
@@ -75,7 +84,11 @@ data:
                 - type: completions
           params:
             model: {{ .Values.vllm.servedModelName }}
+            {{- if eq .Values.llmd.mode "standalone" }}
+            baseUrl: http://{{ .Values.llmd.standalone.service }}.{{ .Values.namespace.name }}.svc.cluster.local:{{ .Values.llmd.standalone.port }}/v1
+            {{- else }}
             baseUrl: http://{{ .Values.llmd.gatewayName }}.{{ .Values.namespace.name }}.svc.cluster.local:{{ .Values.llmd.gatewayPort }}/v1
+            {{- end }}
             apiKey: "$VLLM_API_KEY"
           health:
             eviction:
@@ -154,6 +167,12 @@ spec:
     spec:
       serviceAccountName: agentgateway
       automountServiceAccountToken: false
+      {{- with $.Values.llmPlacement.nodeSelector }}
+      # Keeps LLM serving off nodes it was not budgeted for (O1: the nodes added
+      # for the session, never the MLOps nodes). No tolerations, no PriorityClass.
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: agentgateway
           image: {{ .Values.agentgateway.image }}
@@ -165,9 +184,15 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.vllm.apiKeySecret.name }}
                   key: {{ .Values.vllm.apiKeySecret.key }}
+            - name: GATEWAY_CLIENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.agentgateway.clientKeySecret.name }}
+                  key: {{ .Values.agentgateway.clientKeySecret.key }}
           ports:
             - {name: entry, containerPort: 4000}
             - {name: llm-internal, containerPort: 3000}
+            - {name: metrics, containerPort: 15020}
           startupProbe:
             tcpSocket: {port: entry}
             failureThreshold: 30
@@ -208,4 +233,5 @@ spec:
   selector: {app.kubernetes.io/name: agentgateway}
   ports:
     - {name: llm, port: 3000, targetPort: entry}
+    - {name: metrics, port: 15020, targetPort: metrics}
 {{- end }}

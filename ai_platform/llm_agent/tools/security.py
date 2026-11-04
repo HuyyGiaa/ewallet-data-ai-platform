@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import asyncio
+import hmac
 import json
 import logging
 import os
@@ -40,6 +41,8 @@ SUBJECT_RE = re.compile(r"^[A-Za-z0-9._:@/-]{1,128}$")
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _ORIGIN_RE = re.compile(r"^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$")
 UNPROTECTED_PREFIX = "/health/"
+SERVICE_TOKEN_HEADER = "x-ewallet-mcp-service-token"
+SERVICE_TOKEN_ENV = "EWALLET_MCP_SERVICE_TOKENS"
 _TOKEN = r"[!#$%&'*+.^_`|~0-9A-Za-z-]+"
 _MEDIA_TYPE_RE = re.compile(rf"^\s*({_TOKEN})/({_TOKEN})\s*$")
 _PARAM_RE = re.compile(rf'^\s*({_TOKEN})\s*=\s*({_TOKEN}|"(?:[^"\\]|\\.)*")\s*$')
@@ -159,6 +162,119 @@ class DenyAllAuthenticator:
         return "authentication_not_configured"
 
 
+@dataclass(frozen=True)
+class _ServiceCredential:
+    credential_id: str
+    subject: str
+    token: str
+    status: str
+
+
+class ServiceTokenAuthenticator:
+    """Verify an internal caller against a server-controlled credential table.
+
+    The table is loaded from a service-specific Kubernetes Secret through
+    ``EWALLET_MCP_SERVICE_TOKENS``. It maps opaque credentials to subjects; a
+    caller-provided actor or service name is never trusted as identity.
+    """
+
+    _TOKEN_RE = re.compile(r"^[!-~]{32,512}$")
+    _CREDENTIAL_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+    _STATUSES = frozenset({"active", "revoked"})
+
+    def __init__(self, credentials: tuple[_ServiceCredential, ...]) -> None:
+        self._credentials = credentials
+
+    @classmethod
+    def from_env(
+        cls,
+        environment: Mapping[str, str],
+        *,
+        known_subjects: frozenset[str],
+    ) -> "ServiceTokenAuthenticator":
+        supplied = environment.get(SERVICE_TOKEN_ENV, "")
+        try:
+            if not isinstance(supplied, str):
+                raise ValueError("authentication configuration must be text")
+            parsed = json.loads(supplied.strip())
+            if not isinstance(parsed, dict) or set(parsed) != {"version", "credentials"}:
+                raise ValueError("invalid authentication configuration shape")
+            if parsed["version"] != 1 or not isinstance(parsed["credentials"], list):
+                raise ValueError("unsupported authentication configuration version")
+            if not parsed["credentials"] or not known_subjects:
+                raise ValueError("authentication configuration is empty")
+
+            credentials: list[_ServiceCredential] = []
+            credential_ids: set[str] = set()
+            tokens: set[str] = set()
+            for item in parsed["credentials"]:
+                if not isinstance(item, dict) or set(item) != {"id", "subject", "token", "status"}:
+                    raise ValueError("invalid credential shape")
+                credential_id, subject, token, status = (
+                    item["id"], item["subject"], item["token"], item["status"]
+                )
+                if not all(isinstance(value, str) for value in (credential_id, subject, token, status)):
+                    raise ValueError("credential fields must be strings")
+                if not cls._CREDENTIAL_ID_RE.fullmatch(credential_id) or credential_id in credential_ids:
+                    raise ValueError("credential ids must be unique bounded identifiers")
+                if subject not in known_subjects or not SUBJECT_RE.fullmatch(subject):
+                    raise ValueError("credential subject has no configured tool grants")
+                if not cls._TOKEN_RE.fullmatch(token) or token in tokens or any(ch.isspace() for ch in token):
+                    raise ValueError("tokens must be unique bounded strings")
+                if status not in cls._STATUSES:
+                    raise ValueError("credential status must be active or revoked")
+                credential_ids.add(credential_id)
+                tokens.add(token)
+                credentials.append(_ServiceCredential(credential_id, subject, token, status))
+            if not any(item.status == "active" for item in credentials):
+                raise ValueError("at least one active credential is required")
+            return cls(tuple(credentials))
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ConfigurationError() from exc
+
+    async def authenticate(self, headers: Mapping[str, str]) -> Principal:
+        token = headers.get(SERVICE_TOKEN_HEADER, "")
+        if not token:
+            raise AuthenticationError("authentication_required")
+        if not self._TOKEN_RE.fullmatch(token) or any(ch.isspace() for ch in token):
+            raise AuthenticationError("authentication_failed")
+
+        matched: _ServiceCredential | None = None
+        # Inspect every credential so a match position does not create a useful
+        # timing distinction. The number of configured credentials is not secret.
+        for credential in self._credentials:
+            if hmac.compare_digest(token, credential.token):
+                matched = credential
+        if matched is None or matched.status != "active":
+            raise AuthenticationError("authentication_failed")
+        return Principal(subject=matched.subject, mechanism="service-token")
+
+    async def readiness(self) -> str | None:
+        return None
+
+
+def configured_authenticator(
+    environment: Mapping[str, str],
+    *,
+    known_subjects: frozenset[str],
+    logger: logging.Logger | None = None,
+) -> Authenticator:
+    """Select the configured verifier, retaining deny-all on every error."""
+
+    supplied = environment.get(SERVICE_TOKEN_ENV, "")
+    if isinstance(supplied, str) and not supplied.strip():
+        return DenyAllAuthenticator()
+    try:
+        return ServiceTokenAuthenticator.from_env(environment, known_subjects=known_subjects)
+    except ConfigurationError:
+        # Never log the rejected value or exception; either can contain a token.
+        (logger or logging.getLogger("ewallet.llm_agent.tools")).error(json.dumps({
+            "code": "authentication_not_configured",
+            "event": "authentication_configuration_rejected",
+        }, sort_keys=True))
+        return DenyAllAuthenticator()
+
+
 async def authenticator_readiness(authenticator: Authenticator) -> str | None:
     """None when protected requests can be authenticated, else a public code."""
 
@@ -176,9 +292,14 @@ async def authenticator_readiness(authenticator: Authenticator) -> str | None:
 
 @dataclass(frozen=True)
 class ToolGrants:
-    """Tools each verified subject may list and call; anything else is denied."""
+    """Tools each verified subject may list and call; anything else is denied.
+
+    ``discovery`` subjects (e.g. the kagent controller reconciling a
+    RemoteMCPServer) may *list* every tool of the server but never call one.
+    """
 
     grants: Mapping[str, frozenset[str]] = field(default_factory=dict)
+    discovery: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         checked: dict[str, frozenset[str]] = {}
@@ -189,26 +310,45 @@ class ToolGrants:
             if not tools or not tools <= TOOL_NAMES:
                 raise ValueError(f"grants must name tools from {sorted(TOOL_NAMES)}")
             checked[subject] = tools
+        discovery = frozenset(self.discovery)
+        if not all(SUBJECT_RE.fullmatch(subject) for subject in discovery):
+            raise ValueError("discovery subject must be a bounded identifier")
+        if discovery & set(checked):
+            raise ValueError("a subject is either granted tools or discovery-only, not both")
         object.__setattr__(self, "grants", MappingProxyType(checked))
+        object.__setattr__(self, "discovery", discovery)
+
+    @property
+    def subjects(self) -> frozenset[str]:
+        """Every subject a credential may name (granted or discovery-only)."""
+        return frozenset(self.grants) | self.discovery
 
     def allows(self, principal: Principal, tool_name: str) -> bool:
+        """May call the tool."""
         return tool_name in self.grants.get(principal.subject, frozenset())
+
+    def lists(self, principal: Principal, tool_name: str) -> bool:
+        """May see the tool in tools/list and /v1/capabilities."""
+        return principal.subject in self.discovery or self.allows(principal, tool_name)
 
     @classmethod
     def from_env(cls, environment: Mapping[str, str] | None = None) -> "ToolGrants":
-        """``EWALLET_MCP_TOOL_GRANTS``: JSON object of subject -> tool names."""
+        """``EWALLET_MCP_TOOL_GRANTS``: JSON object of subject -> tool names;
+        ``EWALLET_MCP_DISCOVERY_SUBJECTS``: JSON list of list-only subjects."""
 
         values = os.environ if environment is None else environment
         raw = values.get("EWALLET_MCP_TOOL_GRANTS", "").strip()
-        if not raw:
-            return cls()
+        raw_discovery = values.get("EWALLET_MCP_DISCOVERY_SUBJECTS", "").strip()
         try:
-            parsed = json.loads(raw)
+            parsed = json.loads(raw) if raw else {}
             if not isinstance(parsed, dict) or not all(
                 isinstance(tools, list) and all(isinstance(t, str) for t in tools) for tools in parsed.values()
             ):
                 raise ValueError("grants must map subjects to lists of tool names")
-            return cls({subject: frozenset(tools) for subject, tools in parsed.items()})
+            discovery = json.loads(raw_discovery) if raw_discovery else []
+            if not isinstance(discovery, list) or not all(isinstance(s, str) for s in discovery):
+                raise ValueError("discovery subjects must be a list of names")
+            return cls({subject: frozenset(tools) for subject, tools in parsed.items()}, frozenset(discovery))
         except ValueError as exc:
             raise ConfigurationError() from exc
 

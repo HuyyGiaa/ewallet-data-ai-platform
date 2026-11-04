@@ -1,0 +1,4 @@
+2026-11-02T00:17:57.359037Z [warning  ] Could not import graphviz. Rendering graph to the graphical format will not be possible.
+You might need to install the graphviz package and necessary system packages.
+Run `pip install graphviz` to attempt to install it. [py.warnings] category=UserWarning filename=/home/huyy-giaa/miniconda3/envs/airflow/lib/python3.10/site-packages/airflow/cli/commands/dag_command.py lineno=57
+[]

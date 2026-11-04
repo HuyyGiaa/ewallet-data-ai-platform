@@ -1,0 +1,201 @@
+{
+  "feature_lookup": {
+    "is_error": false,
+    "latency_ms": 279.669,
+    "structured_content": {
+      "citations": [],
+      "fallback_used": false,
+      "request_id": "5171e8ab-a25a-400b-bc26-92cd65d7e7b2",
+      "result": {
+        "feature_contract": {
+          "derived_in_scoring_only": 6,
+          "historical": 31,
+          "historical_returned": 31,
+          "request_time": 4
+        },
+        "historical_features": {
+          "account_behavior__account_amount_observation_count_30d": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 1
+          },
+          "account_behavior__account_amount_sum_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0.0
+          },
+          "account_behavior__account_amount_sum_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0.0
+          },
+          "account_behavior__account_avg_amount_30d": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 474960.33
+          },
+          "account_behavior__account_failed_rate_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": null
+          },
+          "account_behavior__account_seconds_since_last_tx": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 1834854.995621
+          },
+          "account_behavior__account_std_amount_30d": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": null
+          },
+          "account_behavior__account_tx_count_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "account_behavior__account_tx_count_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "account_behavior__account_tx_count_5m": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "device_behavior__device_age_seconds": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 16331967.194852114
+          },
+          "device_behavior__device_amount_sum_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0.0
+          },
+          "device_behavior__device_failed_rate_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": null
+          },
+          "device_behavior__device_tx_count_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "device_behavior__device_tx_count_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "merchant_behavior__merchant_amount_sum_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0.0
+          },
+          "merchant_behavior__merchant_avg_amount_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 789607.9816666666
+          },
+          "merchant_behavior__merchant_tx_count_10m": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "merchant_behavior__merchant_tx_count_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "merchant_behavior__merchant_tx_count_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 6
+          },
+          "merchant_behavior__merchant_unique_users_10m": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "merchant_behavior__merchant_unique_users_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "user_behavior__user_amount_observation_count_30d": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 1
+          },
+          "user_behavior__user_amount_sum_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0.0
+          },
+          "user_behavior__user_avg_amount_30d": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 474960.33
+          },
+          "user_behavior__user_distinct_merchants_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "user_behavior__user_failed_rate_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": null
+          },
+          "user_behavior__user_std_amount_30d": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": null
+          },
+          "user_behavior__user_tx_count_1h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "user_behavior__user_tx_count_24h": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          },
+          "user_behavior__user_tx_count_5m": {
+            "event_timestamp": "2026-05-31T23:59:56+00:00",
+            "value": 0
+          }
+        },
+        "materialization_verified": false,
+        "request_time_features": {
+          "amount": 275465.53,
+          "channel": "app",
+          "merchant_present": true,
+          "type": "payment"
+        },
+        "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9"
+      },
+      "status": "ok",
+      "tool_name": "feature_lookup",
+      "versions": {
+        "config_revision": "g3-gke-v1",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "feature_revision": "canonical-100gb-v1/online-20261031-163506",
+        "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+        "image_digest": "sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+        "model_revision": "fraud-detector/1",
+        "prompt_revision": "v2"
+      }
+    }
+  },
+  "fraud_scoring": {
+    "is_error": false,
+    "latency_ms": 323.023,
+    "structured_content": {
+      "citations": [],
+      "fallback_used": false,
+      "request_id": "1ddcacd6-301f-4a00-b7cb-fc18b3b026c2",
+      "result": {
+        "feature_timestamp": "2026-05-31T23:59:56+00:00",
+        "fraud_prediction": 0,
+        "fraud_probability": 0.0639895560144887,
+        "model_input_schema_sha256": "03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176",
+        "model_name": "fraud-detector",
+        "model_version": "1",
+        "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9"
+      },
+      "status": "ok",
+      "tool_name": "fraud_scoring",
+      "versions": {
+        "config_revision": "g3-gke-v1",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "feature_revision": "canonical-100gb-v1/online-20261031-163506",
+        "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+        "image_digest": "sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+        "model_revision": "fraud-detector/1",
+        "prompt_revision": "v2"
+      }
+    }
+  },
+  "protocol_version": "2025-06-18",
+  "server": "feature-rag-mcp",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "transport": "official-mcp-sdk-streamable-http"
+}

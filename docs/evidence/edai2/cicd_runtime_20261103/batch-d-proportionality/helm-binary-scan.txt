@@ -1,0 +1,10 @@
+# helm binary HIGH/CRITICAL scan, trivy 0.75.0 (aquasec/trivy@sha256:af6acf9a...) rootfs, 2026-11-03
+## helm v3.22.0 (installed, sha256 7a319dee5ea7a1f7d7a0d92d5c223586f3b65abc33163c9de2a85f083aa3df2b)
+HIGH CVE-2026-78669 golang.org/x/net v0.57.0 fixed 0.60.0
+HIGH CVE-2026-111943 stdlib v1.26.8 fixed 1.26.10, 1.27.3
+HIGH CVE-2026-78667 stdlib v1.26.8 fixed 1.26.9, 1.27.2
+HIGH CVE-2026-78669 stdlib v1.26.8 fixed 1.26.9, 1.27.2
+HIGH CVE-2026-97031 stdlib v1.26.8 fixed 1.26.9, 1.27.2
+## helm v3.22.1 (latest v3, get.helm.sh tarball sha256 896cf63684a42a723d61c980369d6e588330927deb13676ca0d85006dd6da0ea, checksum verified)
+HIGH CVE-2026-111943 stdlib v1.26.9 fixed 1.26.10, 1.27.3
+## releases (GitHub API): v4.3.1 2026-10-15, v3.22.1 2026-10-15, v4.3.0, v3.22.0

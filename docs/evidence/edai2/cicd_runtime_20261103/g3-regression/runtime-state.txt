@@ -1,0 +1,32 @@
+## HPA
+drift-specialist         Deployment/drift-specialist         cpu: 1%/60%   2     3     2     20h
+feature-rag-specialist   Deployment/feature-rag-specialist   cpu: 4%/60%   2     3     2     20h
+fraud-coordinator        Deployment/fraud-coordinator        cpu: 4%/60%   2     3     2     20h
+## PDB
+drift-mcp                1     N/A   0     38h
+drift-specialist         1     N/A   1     20h
+feature-rag-specialist   1     N/A   1     20h
+fraud-coordinator        1     N/A   1     20h
+drift-mcp   1     N/A   0     35h
+## sandbox
+pod/kagent-pilot-deployment-9b94d6787-7l2ws   1/1   Running   0     19h
+pod/mock-openai-5fd687968d-n9vsw              1/1   Running   0     19h
+networkpolicy.networking.k8s.io/kagent-pilot-worker-egress   ate.dev/worker-pool=kagent-pilot     19h
+networkpolicy.networking.k8s.io/mock-openai                  app.kubernetes.io/name=mock-openai   19h
+## policy counts
+authz ewallet-agents=34 ewallet-mcp=3
+netpol ewallet-agents=85 ewallet-mcp=10
+## helm
+cert-manager cert-manager 1
+istio-base istio-system 13
+istio-cni istio-system 13
+istiod istio-system 13
+kagent kagent 5
+kagent-crds kagent 1
+kserve kserve 1
+kserve-crd kserve 1
+llm-agent default 32
+llm-agent-mcp ewallet-mcp 6
+substrate ate-system 1
+substrate-crds ate-system 1
+ztunnel istio-system 13

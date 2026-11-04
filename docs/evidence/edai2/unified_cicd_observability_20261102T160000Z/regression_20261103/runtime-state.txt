@@ -1,0 +1,199 @@
+## HPA
+NAME                     REFERENCE                           TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+drift-specialist         Deployment/drift-specialist         cpu: 1%/60%   2         3         2          16h
+feature-rag-specialist   Deployment/feature-rag-specialist   cpu: 4%/60%   2         3         2          16h
+fraud-coordinator        Deployment/fraud-coordinator        cpu: 4%/60%   2         3         2          16h
+## deployments
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+fraud-coordinator        2/2     2            2           34h
+feature-rag-specialist   2/2     2            2           34h
+drift-specialist         2/2     2            2           34h
+## sandbox kagent-pilot
+NAME                                          READY   STATUS    RESTARTS   AGE
+pod/kagent-pilot-deployment-9b94d6787-7l2ws   1/1     Running   0          15h
+pod/mock-openai-5fd687968d-n9vsw              1/1     Running   0          15h
+
+NAME                                                         POD-SELECTOR                         AGE
+networkpolicy.networking.k8s.io/kagent-pilot-worker-egress   ate.dev/worker-pool=kagent-pilot     15h
+networkpolicy.networking.k8s.io/mock-openai                  app.kubernetes.io/name=mock-openai   15h
+ate-api-server-deployment-6558549c7c-h2846 1/1 Running
+ate-controller-6bcb5b4bf7-w84zb 1/1 Running
+atelet-dnvft 1/1 Running
+atelet-h7m8c 1/1 Running
+atelet-hk8jn 1/1 Running
+atelet-x6v6w 1/1 Running
+atenet-router-85b65959f5-jtwvd 2/2 Running
+dns-669f5bf88b-hj4k7 2/2 Running
+rustfs-5587886f5c-264s7 1/1 Running
+rustfs-bucket-init-qnpzx 0/1 Completed
+valkey-cluster-0 1/1 Running
+valkey-cluster-1 1/1 Running
+valkey-cluster-2 1/1 Running
+valkey-cluster-3 1/1 Running
+valkey-cluster-4 1/1 Running
+valkey-cluster-5 1/1 Running
+valkey-cluster-init-zgxrf 0/1 Completed
+## security policy inventory
+ewallet-agents allow-a2a-gateway-to-drift-specialist
+ewallet-agents allow-a2a-gateway-to-feature-rag-specialist
+ewallet-agents allow-a2a-gateway-to-otel-collector
+ewallet-agents allow-agentgateway-to-otel-collector
+ewallet-agents allow-agentgateway-to-vllm
+ewallet-agents allow-drift-mcp-to-otel-collector
+ewallet-agents allow-drift-specialist-to-agentgateway
+ewallet-agents allow-drift-specialist-to-mcp-gateway
+ewallet-agents allow-drift-specialist-to-otel-collector
+ewallet-agents allow-ewallet-mcp-drift-mcp-to-shared-otel
+ewallet-agents allow-ewallet-mcp-feature-rag-mcp-to-shared-otel
+ewallet-agents allow-feature-rag-mcp-to-otel-collector
+ewallet-agents allow-feature-rag-specialist-to-agentgateway
+ewallet-agents allow-feature-rag-specialist-to-mcp-gateway
+ewallet-agents allow-feature-rag-specialist-to-otel-collector
+ewallet-agents allow-fraud-coordinator-to-a2a-gateway
+ewallet-agents allow-fraud-coordinator-to-agentgateway
+ewallet-agents allow-fraud-coordinator-to-coordinator-idempotency-redis
+ewallet-agents allow-fraud-coordinator-to-otel-collector
+ewallet-agents allow-grafana-to-loki
+ewallet-agents allow-grafana-to-prometheus
+ewallet-agents allow-grafana-to-tempo
+ewallet-agents allow-kagent-controller-to-drift-specialist
+ewallet-agents allow-kagent-controller-to-feature-rag-specialist
+ewallet-agents allow-kagent-controller-to-fraud-coordinator
+ewallet-agents allow-kagent-controller-to-mcp-gateway
+ewallet-agents allow-llmd-epp-to-otel-collector
+ewallet-agents allow-mcp-gateway-to-otel-collector
+ewallet-agents allow-otel-collector-to-loki
+ewallet-agents allow-otel-collector-to-tempo
+ewallet-agents allow-prometheus-to-agentgateway
+ewallet-agents allow-prometheus-to-otel-collector
+ewallet-agents allow-prometheus-to-vllm
+ewallet-agents default-deny
+ewallet-mcp allow-mcp-gateway-to-drift-mcp
+ewallet-mcp allow-mcp-gateway-to-feature-rag-mcp
+ewallet-mcp default-deny
+ewallet-agents allow-a2a-gateway-to-drift-specialist-egress
+ewallet-agents allow-a2a-gateway-to-drift-specialist-ingress
+ewallet-agents allow-a2a-gateway-to-feature-rag-specialist-egress
+ewallet-agents allow-a2a-gateway-to-feature-rag-specialist-ingress
+ewallet-agents allow-a2a-gateway-to-kagent-controller-egress
+ewallet-agents allow-a2a-gateway-to-otel-collector-egress
+ewallet-agents allow-a2a-gateway-to-otel-collector-ingress
+ewallet-agents allow-agentgateway-to-otel-collector-egress
+ewallet-agents allow-agentgateway-to-otel-collector-ingress
+ewallet-agents allow-agentgateway-to-vllm-egress
+ewallet-agents allow-agentgateway-to-vllm-ingress
+ewallet-agents allow-ambient-probes-a2a-gateway
+ewallet-agents allow-ambient-probes-agentgateway
+ewallet-agents allow-ambient-probes-coordinator-idempotency-redis
+ewallet-agents allow-ambient-probes-drift-mcp
+ewallet-agents allow-ambient-probes-drift-specialist
+ewallet-agents allow-ambient-probes-feature-rag-mcp
+ewallet-agents allow-ambient-probes-feature-rag-specialist
+ewallet-agents allow-ambient-probes-fraud-coordinator
+ewallet-agents allow-ambient-probes-mcp-gateway
+ewallet-agents allow-ambient-probes-otel-collector
+ewallet-agents allow-ambient-probes-vllm
+ewallet-agents allow-cluster-dns
+ewallet-agents allow-drift-mcp-to-otel-collector-egress
+ewallet-agents allow-drift-mcp-to-otel-collector-ingress
+ewallet-agents allow-drift-specialist-to-agentgateway-egress
+ewallet-agents allow-drift-specialist-to-agentgateway-ingress
+ewallet-agents allow-drift-specialist-to-kagent-controller-egress
+ewallet-agents allow-drift-specialist-to-mcp-gateway-egress
+ewallet-agents allow-drift-specialist-to-mcp-gateway-ingress
+ewallet-agents allow-drift-specialist-to-otel-collector-egress
+ewallet-agents allow-drift-specialist-to-otel-collector-ingress
+ewallet-agents allow-ewallet-mcp-drift-mcp-to-shared-otel
+ewallet-agents allow-ewallet-mcp-feature-rag-mcp-to-shared-otel
+ewallet-agents allow-feature-rag-mcp-to-feast-redis-egress
+ewallet-agents allow-feature-rag-mcp-to-kserve-fraud-detector-egress
+ewallet-agents allow-feature-rag-mcp-to-otel-collector-egress
+ewallet-agents allow-feature-rag-mcp-to-otel-collector-ingress
+ewallet-agents allow-feature-rag-specialist-to-agentgateway-egress
+ewallet-agents allow-feature-rag-specialist-to-agentgateway-ingress
+ewallet-agents allow-feature-rag-specialist-to-kagent-controller-egress
+ewallet-agents allow-feature-rag-specialist-to-mcp-gateway-egress
+ewallet-agents allow-feature-rag-specialist-to-mcp-gateway-ingress
+ewallet-agents allow-feature-rag-specialist-to-otel-collector-egress
+ewallet-agents allow-feature-rag-specialist-to-otel-collector-ingress
+ewallet-agents allow-fraud-coordinator-to-a2a-gateway-egress
+ewallet-agents allow-fraud-coordinator-to-a2a-gateway-ingress
+ewallet-agents allow-fraud-coordinator-to-agentgateway-egress
+ewallet-agents allow-fraud-coordinator-to-agentgateway-ingress
+ewallet-agents allow-fraud-coordinator-to-coordinator-idempotency-redis-egress
+ewallet-agents allow-fraud-coordinator-to-coordinator-idempotency-redis-ingress
+ewallet-agents allow-fraud-coordinator-to-kagent-controller-egress
+ewallet-agents allow-fraud-coordinator-to-otel-collector-egress
+ewallet-agents allow-fraud-coordinator-to-otel-collector-ingress
+ewallet-agents allow-grafana-to-loki-egress
+ewallet-agents allow-grafana-to-loki-ingress
+ewallet-agents allow-grafana-to-prometheus-egress
+ewallet-agents allow-grafana-to-prometheus-ingress
+ewallet-agents allow-grafana-to-tempo-egress
+ewallet-agents allow-grafana-to-tempo-ingress
+ewallet-agents allow-kagent-controller-to-drift-specialist-ingress
+ewallet-agents allow-kagent-controller-to-feature-rag-specialist-ingress
+ewallet-agents allow-kagent-controller-to-fraud-coordinator-ingress
+ewallet-agents allow-kagent-controller-to-mcp-gateway-ingress
+ewallet-agents allow-llmd-epp-to-otel-collector-egress
+ewallet-agents allow-llmd-epp-to-otel-collector-ingress
+ewallet-agents allow-mcp-gateway-to-drift-mcp-cross-namespace-egress
+ewallet-agents allow-mcp-gateway-to-feature-rag-mcp-cross-namespace-egress
+ewallet-agents allow-mcp-gateway-to-otel-collector-egress
+ewallet-agents allow-mcp-gateway-to-otel-collector-ingress
+ewallet-agents allow-otel-collector-to-loki-egress
+ewallet-agents allow-otel-collector-to-loki-ingress
+ewallet-agents allow-otel-collector-to-tempo-egress
+ewallet-agents allow-otel-collector-to-tempo-ingress
+ewallet-agents allow-otel-to-kfp-egress
+ewallet-agents allow-otel-to-mlflow-egress
+ewallet-agents allow-prometheus-to-agentgateway-egress
+ewallet-agents allow-prometheus-to-agentgateway-ingress
+ewallet-agents allow-prometheus-to-fraud-api-egress
+ewallet-agents allow-prometheus-to-kserve-egress
+ewallet-agents allow-prometheus-to-otel-collector-egress
+ewallet-agents allow-prometheus-to-otel-collector-ingress
+ewallet-agents allow-prometheus-to-vllm-egress
+ewallet-agents allow-prometheus-to-vllm-ingress
+ewallet-agents default-deny
+ewallet-ci jenkins-default-deny
+ewallet-ci jenkins-runtime-allow
+ewallet-mcp allow-ambient-probes-drift-mcp
+ewallet-mcp allow-ambient-probes-feature-rag-mcp
+ewallet-mcp allow-cluster-dns
+ewallet-mcp allow-drift-mcp-to-shared-otel-egress
+ewallet-mcp allow-feature-rag-mcp-to-feast-redis-egress
+ewallet-mcp allow-feature-rag-mcp-to-kserve-fraud-detector-egress
+ewallet-mcp allow-feature-rag-mcp-to-shared-otel-egress
+ewallet-mcp allow-mcp-gateway-to-drift-mcp-ingress
+ewallet-mcp allow-mcp-gateway-to-feature-rag-mcp-ingress
+ewallet-mcp default-deny
+feature-store allow-ewallet-agents-feature-rag-mcp-to-feast-redis
+feature-store allow-ewallet-mcp-feature-rag-mcp-to-feast-redis
+feature-store redis-clients
+fraud-serving allow-ewallet-agents-feature-rag-mcp-to-kserve-fraud-detector
+fraud-serving allow-ewallet-agents-prometheus-to-kserve
+fraud-serving allow-ewallet-mcp-feature-rag-mcp-to-kserve-fraud-detector
+fraud-serving fraud-detector-clients
+kagent-pilot kagent-pilot-worker-egress
+kagent-pilot mock-openai
+kubeflow allow-ewallet-agents-otel-to-kfp
+kubeflow seaweedfs
+ml-platform allow-ewallet-agents-otel-to-mlflow
+ml-platform allow-ewallet-agents-prometheus-to-fraud-api
+## peerauth
+## helm
+NAME          	NAMESPACE   	REVISION	UPDATED                                	STATUS  	CHART                   	APP VERSION 
+cert-manager  	cert-manager	1       	2026-10-31 23:45:47.759382847 +0700 +07	deployed	cert-manager-v1.16.2    	v1.16.2     
+istio-base    	istio-system	13      	2026-11-01 19:46:07.372035097 +0700 +07	deployed	base-1.30.7             	1.30.7      
+istio-cni     	istio-system	13      	2026-11-01 19:46:20.665479437 +0700 +07	deployed	cni-1.30.7              	1.30.7      
+istiod        	istio-system	13      	2026-11-01 19:46:15.789551942 +0700 +07	deployed	istiod-1.30.7           	1.30.7      
+kagent        	kagent      	5       	2026-11-02 19:37:39.542960891 +0700 +07	deployed	kagent-0.10.3           	            
+kagent-crds   	kagent      	1       	2026-11-02 00:21:10.308093322 +0700 +07	deployed	kagent-crds-0.10.3      	            
+kserve        	kserve      	1       	2026-10-31 23:46:51.279849443 +0700 +07	deployed	kserve-v0.16.0          	            
+kserve-crd    	kserve      	1       	2026-10-31 23:46:41.35893481 +0700 +07 	deployed	kserve-crd-v0.16.0      	            
+llm-agent     	default     	31      	2026-11-02 20:56:17.529264869 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+llm-agent-mcp 	ewallet-mcp 	6       	2026-11-02 21:53:21.797838693 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1
+substrate     	ate-system  	1       	2026-11-02 19:28:51.782404012 +0700 +07	deployed	substrate-0.0.9         	v0.0.9      
+substrate-crds	ate-system  	1       	2026-11-02 19:28:28.166609859 +0700 +07	deployed	substrate-crds-0.0.9    	v0.0.9      
+ztunnel       	istio-system	13      	2026-11-01 19:46:25.93387463 +0700 +07 	deployed	ztunnel-1.30.7          	1.30.7      

@@ -1,0 +1,61 @@
+{
+  "namespace": "ewallet-agents",
+  "items": [
+    {
+      "name": "a2a-gateway-6dfcf8bf7b-scbh5",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+    },
+    {
+      "name": "agentgateway-5d7b994c75-pffhj",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+    },
+    {
+      "name": "drift-mcp-c845bfc5f-4ttkw",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+    },
+    {
+      "name": "drift-specialist-7fb847df9-qqxfn",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+    },
+    {
+      "name": "feature-rag-specialist-5bb5fd8856-rvcml",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+    },
+    {
+      "name": "fraud-coordinator-cf5df85dc-xnq4r",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+    },
+    {
+      "name": "mcp-gateway-db9ddd7b-wdxc9",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c"
+    },
+    {
+      "name": "vllm-primary-588445cd8-wbbxf",
+      "phase": "Running",
+      "ready": true,
+      "restarts": 0,
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+r33-reg-1 completed {'contract_version': 'g3-orchestration/v1', 'prompt_revision': 'drift-specialist/v2'} contract_ok True
+r33-reg-2 completed {'contract_version': 'g3-orchestration/v1', 'prompt_revision': 'drift-specialist/v2'} contract_ok True
+r33-reg-3 completed {'contract_version': 'g3-orchestration/v1', 'prompt_revision': 'drift-specialist/v2'} contract_ok True
+received prefix == registry v2: True drift-specialist/v2
+received prefix == registry v2: True drift-specialist/v2
+received prefix == registry v2: True drift-specialist/v2

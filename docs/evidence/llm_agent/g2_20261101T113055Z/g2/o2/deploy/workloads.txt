@@ -1,0 +1,11 @@
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS     IMAGES                                                                                                                                                                 SELECTOR
+deployment.apps/agentgateway    2/2     2            2           49m   agentgateway   ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b                                                       app.kubernetes.io/name=agentgateway
+deployment.apps/vllm-fallback   1/1     1            1           49m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=fallback,app.kubernetes.io/name=vllm
+deployment.apps/vllm-primary    2/2     2            2           49m   vllm           asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c   app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm
+
+NAME                                 READY   STATUS    RESTARTS   AGE   IP           NODE                                     NOMINATED NODE   READINESS GATES
+pod/agentgateway-6dd9f4f67b-hpsj5    1/1     Running   0          13m   10.216.2.9   gke-ewallet-dev-cpu-pool-58daed59-1dx2   <none>           <none>
+pod/agentgateway-6dd9f4f67b-zdssw    1/1     Running   0          13m   10.216.0.7   gke-ewallet-dev-cpu-pool-58daed59-70nj   <none>           <none>
+pod/vllm-fallback-6fc945cb57-zsfpn   1/1     Running   0          49m   10.216.0.6   gke-ewallet-dev-cpu-pool-58daed59-70nj   <none>           <none>
+pod/vllm-primary-66c5f9687c-n7rvq    1/1     Running   0          28m   10.216.1.8   gke-ewallet-dev-cpu-pool-58daed59-t8dq   <none>           <none>
+pod/vllm-primary-66c5f9687c-x2z9k    1/1     Running   0          28m   10.216.2.8   gke-ewallet-dev-cpu-pool-58daed59-1dx2   <none>           <none>

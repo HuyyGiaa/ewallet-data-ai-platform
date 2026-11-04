@@ -1,0 +1,63 @@
+{
+  "transport": "official-mcp-sdk-streamable-http",
+  "protocol_version": "2025-06-18",
+  "server": "feature-rag-mcp",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "tool": "feature_lookup",
+  "latency_ms": 201.551,
+  "is_error": false,
+  "structured_content": {
+    "request_id": "36dcacd2-f3c1-4243-ab03-b1abc38486e1",
+    "tool_name": "feature_lookup",
+    "status": "ok",
+    "result": {
+      "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9",
+      "historical_features": {
+        "account_behavior__account_tx_count_1h": {
+          "value": 0,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        },
+        "account_behavior__account_tx_count_24h": {
+          "value": 0,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        },
+        "user_behavior__user_avg_amount_30d": {
+          "value": 474960.33,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        },
+        "merchant_behavior__merchant_tx_count_24h": {
+          "value": 6,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        }
+      },
+      "request_time_features": {
+        "amount": 275465.53,
+        "type": "payment",
+        "channel": "app",
+        "merchant_present": true
+      },
+      "feature_contract": {
+        "historical_returned": 4,
+        "historical": 31,
+        "request_time": 4,
+        "derived_in_scoring_only": 6
+      },
+      "materialization_verified": false
+    },
+    "versions": {
+      "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+      "image_digest": "sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+      "config_revision": "g3-gke-v1",
+      "prompt_revision": "v2",
+      "model_revision": "fraud-detector/1",
+      "feature_revision": "canonical-100gb-v1/online-20261031-163506",
+      "corpus_revision": "fraud-policy-v1-20261030"
+    },
+    "citations": [],
+    "fallback_used": false
+  }
+}

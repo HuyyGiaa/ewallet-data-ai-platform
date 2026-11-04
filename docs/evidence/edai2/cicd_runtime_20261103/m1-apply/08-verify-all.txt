@@ -1,0 +1,18 @@
+2026-11-03T14:12:50Z
+## operator verify-all (read-only)
+/bin/bash: line 11: uv: command not found
+{
+ "drift-specialist/v1": "MATCH",
+ "drift-specialist/v2": "MATCH",
+ "feature-rag-specialist/v1": "MATCH",
+ "feature-rag-specialist/v2": "MATCH",
+ "feature-rag-specialist/v3": "MATCH",
+ "feature-rag-specialist/v4": "MATCH",
+ "feature-rag-specialist/v5": "MATCH",
+ "fraud-coordinator/v1": "MATCH",
+ "fraud-coordinator/v2": "MATCH",
+ "fraud-coordinator/v3": "MATCH",
+ "fraud-coordinator/v4": "MATCH",
+ "fraud-coordinator/v5": "MATCH"
+}
+exit 0

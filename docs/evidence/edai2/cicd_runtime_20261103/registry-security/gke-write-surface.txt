@@ -1,0 +1,15 @@
+REST write operations: 12
+   DELETE /v0/agents/{name}/{tag}
+   DELETE /v0/apply
+   POST /v0/apply
+   DELETE /v0/deployments/{name}
+   PUT /v0/deployments/{name}
+   DELETE /v0/mcpservers/{name}/{tag}
+   DELETE /v0/models/{name}/{tag}
+   DELETE /v0/plugins/{name}/{tag}
+   DELETE /v0/prompts/{name}/{tag}
+   DELETE /v0/runtimes/{name}
+   PUT /v0/runtimes/{name}
+   DELETE /v0/skills/{name}/{tag}
+securitySchemes: [] global security: None
+MCP tools: 18 ['get_agent', 'get_deployment', 'get_model', 'get_plugin', 'get_prompt', 'get_runtime', 'get_server', 'get_skill', 'list_agents', 'list_deployments', 'list_models', 'list_plugins', 'list_prompts', 'list_runtimes', 'list_servers', 'list_skills', 'registry_health', 'registry_version']

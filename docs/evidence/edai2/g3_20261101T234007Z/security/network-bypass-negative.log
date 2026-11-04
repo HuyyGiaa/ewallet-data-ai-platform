@@ -1,0 +1,6 @@
+Script started on 2026-11-02 06:52:13+07:00 [COMMAND="kubectl exec -n ewallet-mcp deploy/drift-mcp -- python -c 'import socket,time; tests=[("mcp-gateway.ewallet-agents.svc",8080),("feature-rag-mcp.ewallet-mcp.svc",8080)]; print("source=ewallet-mcp/drift-mcp"); [(lambda t: (print("attempt",t), print("UNEXPECTED_CONNECTED", socket.create_connection(t,timeout=4))))(x) for x in []]; for host,port in tests:  started=time.monotonic()  try:   s=socket.create_connection((host,port),timeout=4); s.close(); print(host,"UNEXPECTED_CONNECTED")  except Exception as exc:   print(host,"DENIED",type(exc).__name__,round(time.monotonic()-started,3))'" <not executed on terminal>]
+source=ewallet-mcp/drift-mcp
+mcp-gateway.ewallet-agents.svc UNEXPECTED_CONNECTED
+feature-rag-mcp.ewallet-mcp.svc UNEXPECTED_CONNECTED
+
+Script done on 2026-11-02 06:52:14+07:00 [COMMAND_EXIT_CODE="0"]

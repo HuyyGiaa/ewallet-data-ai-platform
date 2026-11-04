@@ -1,0 +1,263 @@
+{
+  "agentgateway_gen_ai_client_token_usage_count": [
+    {
+      "labels": {
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "gen_ai_operation_name": "chat",
+        "gen_ai_request_model": "ewallet-fraud-llm-v1",
+        "gen_ai_response_model": "ewallet-fraud-llm-v1",
+        "gen_ai_system": "custom",
+        "gen_ai_token_type": "input",
+        "listener": "llm",
+        "route": "internal/llm:request",
+        "route_rule": "unknown"
+      },
+      "value": "41"
+    },
+    {
+      "labels": {
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "gen_ai_operation_name": "chat",
+        "gen_ai_request_model": "ewallet-fraud-llm-v1",
+        "gen_ai_response_model": "ewallet-fraud-llm-v1",
+        "gen_ai_system": "custom",
+        "gen_ai_token_type": "output",
+        "listener": "llm",
+        "route": "internal/llm:request",
+        "route_rule": "unknown"
+      },
+      "value": "41"
+    }
+  ],
+  "agentgateway_gen_ai_client_token_usage_sum": [
+    {
+      "labels": {
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "gen_ai_operation_name": "chat",
+        "gen_ai_request_model": "ewallet-fraud-llm-v1",
+        "gen_ai_response_model": "ewallet-fraud-llm-v1",
+        "gen_ai_system": "custom",
+        "gen_ai_token_type": "input",
+        "listener": "llm",
+        "route": "internal/llm:request",
+        "route_rule": "unknown"
+      },
+      "value": "58131"
+    },
+    {
+      "labels": {
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "gen_ai_operation_name": "chat",
+        "gen_ai_request_model": "ewallet-fraud-llm-v1",
+        "gen_ai_response_model": "ewallet-fraud-llm-v1",
+        "gen_ai_system": "custom",
+        "gen_ai_token_type": "output",
+        "listener": "llm",
+        "route": "internal/llm:request",
+        "route_rule": "unknown"
+      },
+      "value": "6912"
+    }
+  ],
+  "agentgateway_requests_total": [
+    {
+      "labels": {
+        "backend": "/gateway/default/default/route0/backend0",
+        "bind": "bind/4000",
+        "gateway": "default/default",
+        "listener": "default",
+        "method": "POST",
+        "protocol": "http",
+        "reason": "Upstream",
+        "route": "default/route0",
+        "route_rule": "unknown",
+        "status": "429"
+      },
+      "value": "4"
+    },
+    {
+      "labels": {
+        "backend": "unknown",
+        "bind": "bind/4000",
+        "gateway": "default/default",
+        "listener": "default",
+        "method": "GET",
+        "protocol": "http",
+        "reason": "APIKeyAuth",
+        "route": "default/route0",
+        "route_rule": "unknown",
+        "status": "401"
+      },
+      "value": "29"
+    },
+    {
+      "labels": {
+        "backend": "/llm:virtual-model:ewallet-fraud-llm:0",
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "listener": "llm",
+        "method": "POST",
+        "protocol": "llm",
+        "reason": "RateLimit",
+        "route": "internal/llm:request",
+        "route_rule": "unknown",
+        "status": "429"
+      },
+      "value": "4"
+    },
+    {
+      "labels": {
+        "backend": "/gateway/default/default/route0/backend0",
+        "bind": "bind/4000",
+        "gateway": "default/default",
+        "listener": "default",
+        "method": "POST",
+        "protocol": "http",
+        "reason": "Upstream",
+        "route": "default/route0",
+        "route_rule": "unknown",
+        "status": "200"
+      },
+      "value": "41"
+    },
+    {
+      "labels": {
+        "backend": "/gateway/default/default/route0/backend0",
+        "bind": "bind/4000",
+        "gateway": "default/default",
+        "listener": "default",
+        "method": "POST",
+        "protocol": "http",
+        "reason": "Upstream",
+        "route": "default/route0",
+        "route_rule": "unknown",
+        "status": "400"
+      },
+      "value": "3"
+    },
+    {
+      "labels": {
+        "backend": "/llm:virtual-model:ewallet-fraud-llm:0",
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "listener": "llm",
+        "method": "POST",
+        "protocol": "llm",
+        "reason": "Upstream",
+        "route": "internal/llm:request",
+        "route_rule": "unknown",
+        "status": "400"
+      },
+      "value": "3"
+    },
+    {
+      "labels": {
+        "backend": "/gateway/default/default/route0/backend0",
+        "bind": "bind/4000",
+        "gateway": "default/default",
+        "listener": "default",
+        "method": "POST",
+        "protocol": "http",
+        "reason": "Upstream",
+        "route": "default/route0",
+        "route_rule": "unknown",
+        "status": "504"
+      },
+      "value": "2"
+    },
+    {
+      "labels": {
+        "backend": "/llm:virtual-model:ewallet-fraud-llm:0",
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "listener": "llm",
+        "method": "POST",
+        "protocol": "llm",
+        "reason": "Timeout",
+        "route": "internal/llm:request",
+        "route_rule": "unknown",
+        "status": "504"
+      },
+      "value": "2"
+    },
+    {
+      "labels": {
+        "backend": "/llm:virtual-model:ewallet-fraud-llm:0",
+        "bind": "bind/3000",
+        "gateway": "default/default",
+        "listener": "llm",
+        "method": "POST",
+        "protocol": "llm",
+        "reason": "Upstream",
+        "route": "internal/llm:request",
+        "route_rule": "unknown",
+        "status": "200"
+      },
+      "value": "41"
+    }
+  ],
+  "vllm:generation_tokens_total": [
+    {
+      "labels": {
+        "engine": "0",
+        "model_name": "ewallet-fraud-llm-v1"
+      },
+      "value": "6962"
+    }
+  ],
+  "vllm:prompt_tokens_total": [
+    {
+      "labels": {
+        "engine": "0",
+        "model_name": "ewallet-fraud-llm-v1"
+      },
+      "value": "60675"
+    }
+  ],
+  "vllm:request_success_total": [
+    {
+      "labels": {
+        "engine": "0",
+        "finished_reason": "stop",
+        "model_name": "ewallet-fraud-llm-v1"
+      },
+      "value": "42"
+    },
+    {
+      "labels": {
+        "engine": "0",
+        "finished_reason": "length",
+        "model_name": "ewallet-fraud-llm-v1"
+      },
+      "value": "0"
+    },
+    {
+      "labels": {
+        "engine": "0",
+        "finished_reason": "abort",
+        "model_name": "ewallet-fraud-llm-v1"
+      },
+      "value": "0"
+    },
+    {
+      "labels": {
+        "engine": "0",
+        "finished_reason": "error",
+        "model_name": "ewallet-fraud-llm-v1"
+      },
+      "value": "0"
+    },
+    {
+      "labels": {
+        "engine": "0",
+        "finished_reason": "repetition",
+        "model_name": "ewallet-fraud-llm-v1"
+      },
+      "value": "0"
+    }
+  ]
+}

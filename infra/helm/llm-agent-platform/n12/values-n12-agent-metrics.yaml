@@ -1,0 +1,13 @@
+# N12 packet F (edai-2 rows 50/51): BYO agents with the PII prompt screen and
+# bounded OTLP counters. Images built from 05eb10a9ca975b2eb2ba4d345af9b73dce5f06f2.
+agents:
+  coordinator:
+    byo:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:a6a12fb1e9e053218f6a71075cc69d4eb78355c0d6e969f86bfab564f56838a1
+  specialists:
+    feature-rag-specialist:
+      byo:
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:b8afc28522ffedd2c1f3e6d533bd260bba2dc138c69f3a53152c355d54d9206d
+  byoTelemetry:
+    metrics:
+      enabled: true

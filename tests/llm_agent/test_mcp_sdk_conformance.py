@@ -16,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import json
-import sys
 import unittest
 
 from tests.llm_agent.test_phase_d_tools import (
@@ -31,7 +30,9 @@ from tests.llm_agent.test_phase_d_tools import (
 MCP_SDK = FASTAPI and importlib.util.find_spec("mcp") is not None and importlib.util.find_spec("httpx2") is not None
 
 if MCP_SDK:
-    if sys.version_info < (3, 11):  # builtin from 3.11; the lock installs the backport only below it
+    try:
+        from builtins import BaseExceptionGroup
+    except ImportError:  # Python 3.10 locked test environment.
         from exceptiongroup import BaseExceptionGroup
     import httpx2
     from mcp.client.session import ClientSession

@@ -1,0 +1,48 @@
+test_final_set_reuses_release_tokens_and_keeps_transition_set (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests) ... ok
+test_initial_and_repeated_preparation_are_create_then_noop (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests) ... ok
+test_new_release_coexists_and_never_mutates_old_release (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests) ... ok
+test_partial_or_conflicting_release_fails_without_creation (tests.llm_agent.test_g3_runtime_config.CredentialPreparationTests) ... ok
+test_final_set_contains_only_current_release (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_invalid_previous_table_fails_closed_without_rendering_a_token (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_one_distinct_token_per_granted_pair_plus_one_revoked_per_server (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_release_identity_is_bounded_and_not_token_material (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_revoked_pair_gets_no_header_secret (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_secret_placement_separates_client_and_server_material (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_secrets_never_put_one_agent_token_in_another_agent_secret (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_transition_tables_accept_old_and_new_without_broadening_subjects (tests.llm_agent.test_g3_runtime_config.CredentialTests) ... ok
+test_a2a_config_checksum_rolls_only_the_coordinator (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_agent_mode_renders_kagent_agents_without_substrate (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_coordinator_delegates_only_and_specialists_hold_least_privilege (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_cross_namespace_ingress_requires_a_mesh_principal (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_cutover_changes_backends_but_preserves_legacy_workloads (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_explicitly_disabled_service_is_not_rendered (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_feature_rag_mcp_gets_secrets_by_reference_and_registry_snapshots (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_gateways_authorize_per_identity (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_invalid_backend_namespace_fails_closed (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_invalid_credential_identifiers_fail_render (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_isolated_namespace_has_an_external_lifecycle (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_isolated_profile_has_disjoint_mcp_only_ownership (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_kagent_controller_discovers_tools_with_its_own_list_only_credential (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_malformed_service_configuration_fails_closed (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_mcp_config_checksum_rolls_only_specialists (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_missing_service_entry_is_ignored (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_mlops_access_is_two_scoped_additive_policies (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_release_scoped_references_support_server_first_promotion_and_rollback (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_revision3_null_service_cutover_skips_disabled_legacy_workload (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_sandbox_mode_still_requires_snapshots (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_single_replica_pdb_is_service_scoped (tests.llm_agent.test_g3_runtime_config.G3ChartTests) ... ok
+test_destination_namespace_is_validated (tests.llm_agent.test_g3_runtime_config.PlatformInputTests) ... ok
+test_invalid_destination_fails_before_reading_source (tests.llm_agent.test_g3_runtime_config.PlatformInputTests) ... usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: destination namespace must be a Kubernetes DNS label
+ok
+test_registry_configmap_is_immutable_and_digest_annotated (tests.llm_agent.test_g3_runtime_config.PlatformInputTests) ... ok
+test_replicated_secret_keeps_data_only (tests.llm_agent.test_g3_runtime_config.PlatformInputTests) ... ok
+test_secret_copy_requires_approval_before_reading_source (tests.llm_agent.test_g3_runtime_config.PlatformInputTests) ... usage: python -m unittest [-h] {replicate-secret,registry-configmap} ...
+python -m unittest: error: replicate-secret requires --approve-sensitive-copy before reading Secret material
+ok
+test_adds_g3_selector_only_where_missing (tests.llm_agent.test_g3_runtime_config.PostRendererTests) ... ok
+
+----------------------------------------------------------------------
+Ran 39 tests in 2.826s
+
+OK

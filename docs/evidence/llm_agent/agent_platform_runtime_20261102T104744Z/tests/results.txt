@@ -1,0 +1,31 @@
+Focused regression run at 2026-11-02 17:59 Asia/Ho_Chi_Minh
+
+Command:
+  python3 -m unittest -v \
+    tests.unit.test_kagent_bounded_pilot \
+    tests.llm_agent.test_agents_chart \
+    tests.llm_agent.test_agent_platform_probe \
+    tests.llm_agent.test_g3_runtime_config
+Result: Ran 82 tests in 7.297s; OK; exit 0.
+
+Locked BYO Coordinator environment command:
+  PYTHONPATH=. infra/docker/g3-byo-coordinator/.venv/bin/python -m unittest -v \
+    tests.llm_agent.test_g3_byo_coordinator \
+    tests.llm_agent.test_g3_programmatic_coordinator
+Result: Ran 33 tests in 0.184s; OK; exit 0.
+
+Static/render checks:
+  git diff --check
+Result: PASS; exit 0.
+
+  helm lint infra/helm/llm-agent-platform \
+    -f preflight/helm-values.yaml \
+    -f hpa/hpa-only-values.yaml
+Result: 1 chart linted, 0 failed; exit 0.
+Rendered candidate SHA-256:
+  6d0663ae910f6f7e830d2beb038154af1e7b0cbf18f87455f4c15ed9652abd9a
+
+Known coverage gap:
+  The green idempotency tests do not cover a repeated business request ID
+  arriving with a new SDK context ID on another replica. The real runtime
+  experiment did cover it and failed; see hpa/idempotency-failure.md.

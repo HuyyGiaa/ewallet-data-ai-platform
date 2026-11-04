@@ -1,0 +1,14 @@
+{
+ "drift-specialist/v1": "MATCH",
+ "drift-specialist/v2": "MISMATCH: drift-specialist/v2 sha256 d0174b5ef3d3034e9763bfd2e421a1d56a3d3e997a04ae64cf1b392f281d499e differs from the Git manifest 0c0798e185cd5f86734069b7688badd0ab0aea2a416cab29f62767d8e4375fef",
+ "feature-rag-specialist/v1": "MATCH",
+ "feature-rag-specialist/v2": "MATCH",
+ "feature-rag-specialist/v3": "MATCH",
+ "feature-rag-specialist/v4": "MATCH",
+ "feature-rag-specialist/v5": "MATCH",
+ "fraud-coordinator/v1": "MATCH",
+ "fraud-coordinator/v2": "MATCH",
+ "fraud-coordinator/v3": "MATCH",
+ "fraud-coordinator/v4": "MATCH",
+ "fraud-coordinator/v5": "MATCH"
+}

@@ -1,0 +1,8 @@
+# N12 packet E (edai-2 row 48): Kubernetes-API pod-log forwarder to the existing
+# Loki for agentgateway/mcp-gateway/a2a-gateway, the Fraud API and the KServe
+# predictor (Grafana Alloy v1.11.3, released 2025-10-27, digest-pinned).
+podLogs:
+  enabled: true
+  image: docker.io/grafana/alloy:v1.11.3@sha256:8c7256f412feb9f5f48f9f6f9394dc97ca887f63dea9304f347970ecc1787669
+  apiServer:
+    cidrs: [34.118.224.1/32, 10.20.0.8/32]

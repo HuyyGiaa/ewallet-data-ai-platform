@@ -1,0 +1,6 @@
+NAME                             READY   STATUS    RESTARTS   AGE   IP           NODE                                     NOMINATED NODE   READINESS GATES
+agentgateway-547858bf4c-5f78f    1/1     Running   0          16m   10.216.2.7   gke-ewallet-dev-cpu-pool-58daed59-336c   <none>           <none>
+agentgateway-547858bf4c-hzrgz    1/1     Running   0          16m   10.216.1.6   gke-ewallet-dev-cpu-pool-58daed59-z2n5   <none>           <none>
+vllm-fallback-6fc945cb57-vqnlh   1/1     Running   0          16m   10.216.0.6   gke-ewallet-dev-cpu-pool-58daed59-qp3l   <none>           <none>
+vllm-primary-66c5f9687c-c4wl7    1/1     Running   0          16m   10.216.1.7   gke-ewallet-dev-cpu-pool-58daed59-z2n5   <none>           <none>
+vllm-primary-66c5f9687c-p7ts8    1/1     Running   0          16m   10.216.2.6   gke-ewallet-dev-cpu-pool-58daed59-336c   <none>           <none>

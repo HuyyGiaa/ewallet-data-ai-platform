@@ -1,0 +1,89 @@
+=== workloads ===
+deployment.apps/feature-rag-specialist
+deployment.apps/feature-rag-mcp
+service/feature-rag-specialist
+service/feature-rag-mcp
+configmap/feast-registry-rag
+configmap/feature-rag-specialist-prompt-v5
+configmap/feast-registry-rag
+=== ewallet-mcp registry ConfigMaps ===
+[
+  {
+    "metadata": {
+      "name": "feast-registry-fraud-online",
+      "namespace": "ewallet-mcp",
+      "uid": "8afe9fd5-0993-4efd-a9f7-0383edf25589",
+      "resourceVersion": "1793565202098511003",
+      "immutable": true,
+      "origin": "gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db",
+      "sha256": "0f578d53a62f0f447fd693153aa860735ddaf9e8cad5bda388be7acabb685960"
+    },
+    "data_keys": [],
+    "binary_data_keys": [
+      "registry.db"
+    ]
+  },
+  {
+    "metadata": {
+      "name": "feast-registry-rag",
+      "namespace": "ewallet-mcp",
+      "uid": "448971d1-cf1b-4ed7-9c81-d4ad54d1b4d1",
+      "resourceVersion": "1793565202712895020",
+      "immutable": true,
+      "origin": "/home/huyy-giaa/ewallet-evidence/g3-r1a-s2-20261101T203052Z/runtime/feast-rag-registry.db",
+      "sha256": "52cd294cfebf6d3bc47a613eab0835531d3b481f65811bfdb6258d6fbdbd4a1f"
+    },
+    "data_keys": [],
+    "binary_data_keys": [
+      "registry.db"
+    ]
+  }
+]
+=== ewallet-agents registry ConfigMaps ===
+[
+  {
+    "metadata": {
+      "name": "feast-registry-fraud-online",
+      "namespace": "ewallet-agents",
+      "uid": "36190547-ca95-4b37-a678-5356e42ba360",
+      "resourceVersion": "1793553781698639020",
+      "immutable": true,
+      "origin": "gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db",
+      "sha256": "0f578d53a62f0f447fd693153aa860735ddaf9e8cad5bda388be7acabb685960"
+    },
+    "data_keys": [],
+    "binary_data_keys": [
+      "registry.db"
+    ]
+  },
+  {
+    "metadata": {
+      "name": "feast-registry-rag",
+      "namespace": "ewallet-agents",
+      "uid": "26226cb6-e4c5-4569-b5eb-7070b786524d",
+      "resourceVersion": "1793554540503151017",
+      "immutable": true,
+      "origin": "/tmp/claude-1000/-home-huyy-giaa-Develop-ewallet-data-ai-platform/6dee8f09-b771-452e-8dd3-6e6b40993116/scratchpad/rag-g3/registry/registry.db",
+      "sha256": "52cd294cfebf6d3bc47a613eab0835531d3b481f65811bfdb6258d6fbdbd4a1f"
+    },
+    "data_keys": [],
+    "binary_data_keys": [
+      "registry.db"
+    ]
+  },
+  {
+    "metadata": {
+      "name": "feature-rag-specialist-prompt-v5",
+      "namespace": "ewallet-agents",
+      "uid": "c36b6bee-a5cb-40b6-a7fc-ae3b924ccba0",
+      "resourceVersion": "1793594108308495014",
+      "immutable": null,
+      "origin": null,
+      "sha256": null
+    },
+    "data_keys": [
+      "system.md"
+    ],
+    "binary_data_keys": []
+  }
+]

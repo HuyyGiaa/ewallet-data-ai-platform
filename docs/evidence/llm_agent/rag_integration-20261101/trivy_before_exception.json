@@ -1,0 +1,2460 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.75.0"
+  },
+  "ReportID": "01a193ee-6cf5-751b-acc0-ecca1a66ec75",
+  "CreatedAt": "2026-10-31T21:47:18.645336526Z",
+  "ArtifactName": "/src",
+  "ArtifactType": "filesystem",
+  "Results": [
+    {
+      "Target": "uv.lock",
+      "Class": "lang-pkgs",
+      "Type": "uv",
+      "Packages": [
+        {
+          "ID": "ewallet-rag-ingestion@0.1.0",
+          "Name": "ewallet-rag-ingestion",
+          "Identifier": {
+            "PURL": "pkg:pypi/ewallet-rag-ingestion@0.1.0",
+            "UID": "46daae7bf95c4f57"
+          },
+          "Version": "0.1.0",
+          "Relationship": "root",
+          "DependsOn": [
+            "acryl-datahub@1.7.0.5",
+            "feast@0.66.0",
+            "huggingface-hub@2.4.0",
+            "numpy@2.2.6",
+            "onnxruntime@1.23.2",
+            "pandas@2.3.3",
+            "pyarrow@25.0.1",
+            "tokenizers@0.23.3"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "acryl-datahub@1.7.0.5",
+          "Name": "acryl-datahub",
+          "Identifier": {
+            "PURL": "pkg:pypi/acryl-datahub@1.7.0.5",
+            "UID": "993f7f753efc94cf"
+          },
+          "Version": "1.7.0.5",
+          "Relationship": "direct",
+          "DependsOn": [
+            "aiohttp@3.14.5",
+            "anyio@4.15.1",
+            "avro-gen3@0.7.16",
+            "avro@1.12.2",
+            "cached-property@2.0.1",
+            "click-default-group@1.2.4",
+            "click-spinner@0.1.11",
+            "click@8.5.0",
+            "cramjam@2.11.0",
+            "deprecated@1.3.1",
+            "docker@7.2.0",
+            "expandvars@1.1.2",
+            "graphql-core@3.3.1",
+            "humanfriendly@10.0",
+            "ijson@3.6.0",
+            "jsonref@1.1.0",
+            "jsonschema@4.26.0",
+            "loguru@0.7.3",
+            "mixpanel@5.4.1",
+            "packaging@26.3",
+            "pip@26.2.2",
+            "progressbar2@4.6.0",
+            "psutil@7.2.2",
+            "pydantic@2.14.2",
+            "python-dateutil@2.9.0.post0",
+            "python-json-logger@4.2.0",
+            "pyyaml@6.0.3",
+            "requests-file@3.0.1",
+            "requests@2.34.2",
+            "ruamel-yaml@0.19.1",
+            "sentry-sdk@2.73.0",
+            "setuptools@81.0.0",
+            "tabulate@0.10.0",
+            "toml@0.10.2",
+            "typing-extensions@4.16.0",
+            "typing-inspect@0.9.0",
+            "urllib3@2.8.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "feast@0.66.0",
+          "Name": "feast",
+          "Identifier": {
+            "PURL": "pkg:pypi/feast@0.66.0",
+            "UID": "67256f8d61b2d1af"
+          },
+          "Version": "0.66.0",
+          "Relationship": "direct",
+          "DependsOn": [
+            "attrs@26.1.0",
+            "bigtree@1.5.3",
+            "click@8.5.0",
+            "colorama@0.4.6",
+            "dask@2026.8.0",
+            "dill@0.3.9",
+            "fastapi@0.162.0",
+            "fsspec@2026.9.0",
+            "google-api-core@2.43.2",
+            "google-cloud-bigquery-storage@2.43.0",
+            "google-cloud-bigquery@3.47.0",
+            "google-cloud-bigtable@2.50.2",
+            "google-cloud-datastore@2.27.0",
+            "google-cloud-storage@2.19.0",
+            "googleapis-common-protos@1.76.0",
+            "gunicorn@26.2.0",
+            "hiredis@3.5.0",
+            "jinja2@3.1.6",
+            "mmh3@5.3.1",
+            "numpy@2.2.6",
+            "pandas@2.3.3",
+            "prometheus-client@0.24.1",
+            "protobuf@7.36.2",
+            "psutil@7.2.2",
+            "pyarrow@25.0.1",
+            "pydantic@2.14.2",
+            "pygments@2.21.0",
+            "pyjwt@2.15.1",
+            "pyyaml@6.0.3",
+            "redis@7.4.1",
+            "requests@2.34.2",
+            "sqlalchemy@2.0.55",
+            "starlette@1.7.0",
+            "tabulate@0.10.0",
+            "tenacity@8.5.0",
+            "toml@0.10.2",
+            "tqdm@4.70.1",
+            "typeguard@4.6.0",
+            "uvicorn-worker@0.4.0",
+            "uvicorn@0.54.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "huggingface-hub@2.4.0",
+          "Name": "huggingface-hub",
+          "Identifier": {
+            "PURL": "pkg:pypi/huggingface-hub@2.4.0",
+            "UID": "56e5e040a0df9cee"
+          },
+          "Version": "2.4.0",
+          "Relationship": "direct",
+          "DependsOn": [
+            "click@8.5.0",
+            "filelock@4.1.0",
+            "fsspec@2026.9.0",
+            "hf-xet@1.8.0",
+            "httpx2@2.14.0",
+            "packaging@26.3",
+            "pyyaml@6.0.3",
+            "tomli@2.5.0",
+            "tqdm@4.70.1",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "numpy@2.2.6",
+          "Name": "numpy",
+          "Identifier": {
+            "PURL": "pkg:pypi/numpy@2.2.6",
+            "UID": "f50005f61524bc69"
+          },
+          "Version": "2.2.6",
+          "Relationship": "direct",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "onnxruntime@1.23.2",
+          "Name": "onnxruntime",
+          "Identifier": {
+            "PURL": "pkg:pypi/onnxruntime@1.23.2",
+            "UID": "9d8e22f95eadaf5b"
+          },
+          "Version": "1.23.2",
+          "Relationship": "direct",
+          "DependsOn": [
+            "coloredlogs@15.0.1",
+            "flatbuffers@25.12.19",
+            "numpy@2.2.6",
+            "packaging@26.3",
+            "protobuf@7.36.2",
+            "sympy@1.14.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pandas@2.3.3",
+          "Name": "pandas",
+          "Identifier": {
+            "PURL": "pkg:pypi/pandas@2.3.3",
+            "UID": "516d7391c3905b3d"
+          },
+          "Version": "2.3.3",
+          "Relationship": "direct",
+          "DependsOn": [
+            "numpy@2.2.6",
+            "python-dateutil@2.9.0.post0",
+            "pytz@2026.6",
+            "tzdata@2026.6"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pyarrow@25.0.1",
+          "Name": "pyarrow",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyarrow@25.0.1",
+            "UID": "ed0c704565ceb0da"
+          },
+          "Version": "25.0.1",
+          "Relationship": "direct",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "tokenizers@0.23.3",
+          "Name": "tokenizers",
+          "Identifier": {
+            "PURL": "pkg:pypi/tokenizers@0.23.3",
+            "UID": "e14ae1526a80ac93"
+          },
+          "Version": "0.23.3",
+          "Relationship": "direct",
+          "DependsOn": [
+            "huggingface-hub@2.4.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "aiohappyeyeballs@2.7.1",
+          "Name": "aiohappyeyeballs",
+          "Identifier": {
+            "PURL": "pkg:pypi/aiohappyeyeballs@2.7.1",
+            "UID": "2d367eaed6a7ccbf"
+          },
+          "Version": "2.7.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "aiohttp@3.14.5",
+          "Name": "aiohttp",
+          "Identifier": {
+            "PURL": "pkg:pypi/aiohttp@3.14.5",
+            "UID": "4413696d69422e34"
+          },
+          "Version": "3.14.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "aiohappyeyeballs@2.7.1",
+            "aiosignal@1.4.0",
+            "async-timeout@5.0.1",
+            "attrs@26.1.0",
+            "frozenlist@1.8.0",
+            "multidict@7.1.0",
+            "propcache@0.5.4",
+            "typing-extensions@4.16.0",
+            "yarl@1.25.1"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "aiosignal@1.4.0",
+          "Name": "aiosignal",
+          "Identifier": {
+            "PURL": "pkg:pypi/aiosignal@1.4.0",
+            "UID": "a9f9459bea49c256"
+          },
+          "Version": "1.4.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "frozenlist@1.8.0",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "annotated-doc@0.0.5",
+          "Name": "annotated-doc",
+          "Identifier": {
+            "PURL": "pkg:pypi/annotated-doc@0.0.5",
+            "UID": "789160a1e6bce043"
+          },
+          "Version": "0.0.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "annotated-types@0.8.0",
+          "Name": "annotated-types",
+          "Identifier": {
+            "PURL": "pkg:pypi/annotated-types@0.8.0",
+            "UID": "628450cec6fe2976"
+          },
+          "Version": "0.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "anyio@4.15.1",
+          "Name": "anyio",
+          "Identifier": {
+            "PURL": "pkg:pypi/anyio@4.15.1",
+            "UID": "4539532bd188db2a"
+          },
+          "Version": "4.15.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "exceptiongroup@1.3.1",
+            "idna@3.20",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "asgiref@3.12.1",
+          "Name": "asgiref",
+          "Identifier": {
+            "PURL": "pkg:pypi/asgiref@3.12.1",
+            "UID": "5b4456b1f2cc7e8"
+          },
+          "Version": "3.12.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "ast-serialize@0.13.1",
+          "Name": "ast-serialize",
+          "Identifier": {
+            "PURL": "pkg:pypi/ast-serialize@0.13.1",
+            "UID": "a03f2ccceb87b01a"
+          },
+          "Version": "0.13.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "async-timeout@5.0.1",
+          "Name": "async-timeout",
+          "Identifier": {
+            "PURL": "pkg:pypi/async-timeout@5.0.1",
+            "UID": "65fa7b1e9f9bee91"
+          },
+          "Version": "5.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "attrs@26.1.0",
+          "Name": "attrs",
+          "Identifier": {
+            "PURL": "pkg:pypi/attrs@26.1.0",
+            "UID": "2910de77ff6d92f1"
+          },
+          "Version": "26.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "avro@1.12.2",
+          "Name": "avro",
+          "Identifier": {
+            "PURL": "pkg:pypi/avro@1.12.2",
+            "UID": "dab06f1a0b5d18b3"
+          },
+          "Version": "1.12.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "avro-gen3@0.7.16",
+          "Name": "avro-gen3",
+          "Identifier": {
+            "PURL": "pkg:pypi/avro-gen3@0.7.16",
+            "UID": "ac7a93496f88d053"
+          },
+          "Version": "0.7.16",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "avro@1.12.2",
+            "six@1.17.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "bigtree@1.5.3",
+          "Name": "bigtree",
+          "Identifier": {
+            "PURL": "pkg:pypi/bigtree@1.5.3",
+            "UID": "d478965703563505"
+          },
+          "Version": "1.5.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "cached-property@2.0.1",
+          "Name": "cached-property",
+          "Identifier": {
+            "PURL": "pkg:pypi/cached-property@2.0.1",
+            "UID": "57d3c235ba2b1930"
+          },
+          "Version": "2.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "certifi@2026.10.23",
+          "Name": "certifi",
+          "Identifier": {
+            "PURL": "pkg:pypi/certifi@2026.10.23",
+            "UID": "10e96f8e9c1b6146"
+          },
+          "Version": "2026.10.23",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "cffi@2.1.1",
+          "Name": "cffi",
+          "Identifier": {
+            "PURL": "pkg:pypi/cffi@2.1.1",
+            "UID": "82a136bfa19e7eca"
+          },
+          "Version": "2.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "pycparser@3.11"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "charset-normalizer@3.5.2",
+          "Name": "charset-normalizer",
+          "Identifier": {
+            "PURL": "pkg:pypi/charset-normalizer@3.5.2",
+            "UID": "42d8e0d83759e700"
+          },
+          "Version": "3.5.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "click@8.5.0",
+          "Name": "click",
+          "Identifier": {
+            "PURL": "pkg:pypi/click@8.5.0",
+            "UID": "1507ba743c24d894"
+          },
+          "Version": "8.5.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "click-default-group@1.2.4",
+          "Name": "click-default-group",
+          "Identifier": {
+            "PURL": "pkg:pypi/click-default-group@1.2.4",
+            "UID": "c4ef18849c5a9e49"
+          },
+          "Version": "1.2.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "click@8.5.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "click-spinner@0.1.11",
+          "Name": "click-spinner",
+          "Identifier": {
+            "PURL": "pkg:pypi/click-spinner@0.1.11",
+            "UID": "7b17a29bf4643ff2"
+          },
+          "Version": "0.1.11",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "cloudpickle@3.1.2",
+          "Name": "cloudpickle",
+          "Identifier": {
+            "PURL": "pkg:pypi/cloudpickle@3.1.2",
+            "UID": "90162ea6d009d229"
+          },
+          "Version": "3.1.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "colorama@0.4.6",
+          "Name": "colorama",
+          "Identifier": {
+            "PURL": "pkg:pypi/colorama@0.4.6",
+            "UID": "a9b0f41cf3bb79cc"
+          },
+          "Version": "0.4.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "coloredlogs@15.0.1",
+          "Name": "coloredlogs",
+          "Identifier": {
+            "PURL": "pkg:pypi/coloredlogs@15.0.1",
+            "UID": "e562e97ea01f4271"
+          },
+          "Version": "15.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "humanfriendly@10.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "cramjam@2.11.0",
+          "Name": "cramjam",
+          "Identifier": {
+            "PURL": "pkg:pypi/cramjam@2.11.0",
+            "UID": "66dda0c6963e3e31"
+          },
+          "Version": "2.11.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "cryptography@50.0.2",
+          "Name": "cryptography",
+          "Identifier": {
+            "PURL": "pkg:pypi/cryptography@50.0.2",
+            "UID": "e98ea3708d9bf7ca"
+          },
+          "Version": "50.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "cffi@2.1.1",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "dask@2026.8.0",
+          "Name": "dask",
+          "Identifier": {
+            "PURL": "pkg:pypi/dask@2026.8.0",
+            "UID": "20bcf8d235335725"
+          },
+          "Version": "2026.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "click@8.5.0",
+            "cloudpickle@3.1.2",
+            "fsspec@2026.9.0",
+            "importlib-metadata@9.0.1",
+            "numpy@2.2.6",
+            "packaging@26.3",
+            "pandas@2.3.3",
+            "partd@1.4.2",
+            "pyarrow@25.0.1",
+            "pyyaml@6.0.3",
+            "toolz@1.2.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "db-dtypes@1.9.0",
+          "Name": "db-dtypes",
+          "Identifier": {
+            "PURL": "pkg:pypi/db-dtypes@1.9.0",
+            "UID": "160e0ab9c596c706"
+          },
+          "Version": "1.9.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "numpy@2.2.6",
+            "packaging@26.3",
+            "pandas@2.3.3",
+            "pyarrow@25.0.1"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "deprecated@1.3.1",
+          "Name": "deprecated",
+          "Identifier": {
+            "PURL": "pkg:pypi/deprecated@1.3.1",
+            "UID": "80c17f463607cb79"
+          },
+          "Version": "1.3.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "wrapt@2.5.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "dill@0.3.9",
+          "Name": "dill",
+          "Identifier": {
+            "PURL": "pkg:pypi/dill@0.3.9",
+            "UID": "4908d82a46622c1b"
+          },
+          "Version": "0.3.9",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "docker@7.2.0",
+          "Name": "docker",
+          "Identifier": {
+            "PURL": "pkg:pypi/docker@7.2.0",
+            "UID": "51735cbce38035e9"
+          },
+          "Version": "7.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "pywin32@312",
+            "requests@2.34.2",
+            "urllib3@2.8.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "exceptiongroup@1.3.1",
+          "Name": "exceptiongroup",
+          "Identifier": {
+            "PURL": "pkg:pypi/exceptiongroup@1.3.1",
+            "UID": "ca1f868969d97f3a"
+          },
+          "Version": "1.3.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "expandvars@1.1.2",
+          "Name": "expandvars",
+          "Identifier": {
+            "PURL": "pkg:pypi/expandvars@1.1.2",
+            "UID": "d771cb11d15896c5"
+          },
+          "Version": "1.1.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "fastapi@0.162.0",
+          "Name": "fastapi",
+          "Identifier": {
+            "PURL": "pkg:pypi/fastapi@0.162.0",
+            "UID": "d6b2fd0b0b936bcb"
+          },
+          "Version": "0.162.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "annotated-doc@0.0.5",
+            "opentelemetry-api@1.45.2",
+            "pydantic@2.14.2",
+            "starlette@1.7.0",
+            "typing-extensions@4.16.0",
+            "typing-inspection@0.4.4"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "filelock@4.1.0",
+          "Name": "filelock",
+          "Identifier": {
+            "PURL": "pkg:pypi/filelock@4.1.0",
+            "UID": "8e7305511a4b0d10"
+          },
+          "Version": "4.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "flatbuffers@25.12.19",
+          "Name": "flatbuffers",
+          "Identifier": {
+            "PURL": "pkg:pypi/flatbuffers@25.12.19",
+            "UID": "d81e352c767f10c1"
+          },
+          "Version": "25.12.19",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "frozenlist@1.8.0",
+          "Name": "frozenlist",
+          "Identifier": {
+            "PURL": "pkg:pypi/frozenlist@1.8.0",
+            "UID": "6e474ed64970b17e"
+          },
+          "Version": "1.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "fsspec@2026.9.0",
+          "Name": "fsspec",
+          "Identifier": {
+            "PURL": "pkg:pypi/fsspec@2026.9.0",
+            "UID": "64d455b48a31a179"
+          },
+          "Version": "2026.9.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-api-core@2.43.2",
+          "Name": "google-api-core",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-api-core@2.43.2",
+            "UID": "812b13dbaef88634"
+          },
+          "Version": "2.43.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-auth@2.62.0",
+            "googleapis-common-protos@1.76.0",
+            "grpcio-status@1.85.1",
+            "grpcio@1.85.1",
+            "opentelemetry-api@1.45.2",
+            "proto-plus@1.29.0",
+            "protobuf@7.36.2",
+            "requests@2.34.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-auth@2.62.0",
+          "Name": "google-auth",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-auth@2.62.0",
+            "UID": "85a0369808edb053"
+          },
+          "Version": "2.62.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "cryptography@50.0.2",
+            "pyasn1-modules@0.4.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-auth-oauthlib@1.5.0",
+          "Name": "google-auth-oauthlib",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-auth-oauthlib@1.5.0",
+            "UID": "9839bcc4726667d7"
+          },
+          "Version": "1.5.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-auth@2.62.0",
+            "requests-oauthlib@2.0.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-cloud-bigquery@3.47.0",
+          "Name": "google-cloud-bigquery",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-cloud-bigquery@3.47.0",
+            "UID": "e24332c0cd59b924"
+          },
+          "Version": "3.47.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "db-dtypes@1.9.0",
+            "google-api-core@2.43.2",
+            "google-auth@2.62.0",
+            "google-cloud-core@2.8.0",
+            "google-resumable-media@2.11.0",
+            "grpcio@1.85.1",
+            "packaging@26.3",
+            "pandas-gbq@0.35.3",
+            "pandas@2.3.3",
+            "pyarrow@25.0.1",
+            "python-dateutil@2.9.0.post0",
+            "requests@2.34.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-cloud-bigquery-storage@2.43.0",
+          "Name": "google-cloud-bigquery-storage",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-cloud-bigquery-storage@2.43.0",
+            "UID": "837456b6c115a4a8"
+          },
+          "Version": "2.43.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-api-core@2.43.2",
+            "google-auth@2.62.0",
+            "grpcio@1.85.1",
+            "proto-plus@1.29.0",
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-cloud-bigtable@2.50.2",
+          "Name": "google-cloud-bigtable",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-cloud-bigtable@2.50.2",
+            "UID": "1807e6c3b26a8d12"
+          },
+          "Version": "2.50.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-api-core@2.43.2",
+            "google-auth@2.62.0",
+            "google-cloud-core@2.8.0",
+            "google-cloud-monitoring@2.32.0",
+            "google-crc32c@1.9.0",
+            "grpc-google-iam-v1@0.14.6",
+            "grpcio@1.85.1",
+            "opentelemetry-api@1.45.2",
+            "opentelemetry-sdk@1.45.2",
+            "proto-plus@1.29.0",
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-cloud-core@2.8.0",
+          "Name": "google-cloud-core",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-cloud-core@2.8.0",
+            "UID": "2a4d7bf696c5af0f"
+          },
+          "Version": "2.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-api-core@2.43.2",
+            "google-auth@2.62.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-cloud-datastore@2.27.0",
+          "Name": "google-cloud-datastore",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-cloud-datastore@2.27.0",
+            "UID": "a1d65e5c6845aab1"
+          },
+          "Version": "2.27.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-api-core@2.43.2",
+            "google-auth@2.62.0",
+            "google-cloud-core@2.8.0",
+            "grpcio@1.85.1",
+            "proto-plus@1.29.0",
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-cloud-monitoring@2.32.0",
+          "Name": "google-cloud-monitoring",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-cloud-monitoring@2.32.0",
+            "UID": "ea5f634374bcaf62"
+          },
+          "Version": "2.32.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-api-core@2.43.2",
+            "google-auth@2.62.0",
+            "grpcio@1.85.1",
+            "proto-plus@1.29.0",
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-cloud-storage@2.19.0",
+          "Name": "google-cloud-storage",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-cloud-storage@2.19.0",
+            "UID": "c0e2a7ae30f36fca"
+          },
+          "Version": "2.19.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-api-core@2.43.2",
+            "google-auth@2.62.0",
+            "google-cloud-core@2.8.0",
+            "google-crc32c@1.9.0",
+            "google-resumable-media@2.11.0",
+            "requests@2.34.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-crc32c@1.9.0",
+          "Name": "google-crc32c",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-crc32c@1.9.0",
+            "UID": "127ae038499a5099"
+          },
+          "Version": "1.9.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "google-resumable-media@2.11.0",
+          "Name": "google-resumable-media",
+          "Identifier": {
+            "PURL": "pkg:pypi/google-resumable-media@2.11.0",
+            "UID": "716316dd893d237d"
+          },
+          "Version": "2.11.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-crc32c@1.9.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "googleapis-common-protos@1.76.0",
+          "Name": "googleapis-common-protos",
+          "Identifier": {
+            "PURL": "pkg:pypi/googleapis-common-protos@1.76.0",
+            "UID": "7282ea10ecd5d9a2"
+          },
+          "Version": "1.76.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "grpcio@1.85.1",
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "graphql-core@3.3.1",
+          "Name": "graphql-core",
+          "Identifier": {
+            "PURL": "pkg:pypi/graphql-core@3.3.1",
+            "UID": "82707d883bd0c34f"
+          },
+          "Version": "3.3.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "greenlet@3.5.6",
+          "Name": "greenlet",
+          "Identifier": {
+            "PURL": "pkg:pypi/greenlet@3.5.6",
+            "UID": "29e974093cc1194d"
+          },
+          "Version": "3.5.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "grpc-google-iam-v1@0.14.6",
+          "Name": "grpc-google-iam-v1",
+          "Identifier": {
+            "PURL": "pkg:pypi/grpc-google-iam-v1@0.14.6",
+            "UID": "f8e9d2181ba67c3b"
+          },
+          "Version": "0.14.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "googleapis-common-protos@1.76.0",
+            "grpcio@1.85.1",
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "grpcio@1.85.1",
+          "Name": "grpcio",
+          "Identifier": {
+            "PURL": "pkg:pypi/grpcio@1.85.1",
+            "UID": "2114e2fb942a6d5b"
+          },
+          "Version": "1.85.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "grpcio-status@1.85.1",
+          "Name": "grpcio-status",
+          "Identifier": {
+            "PURL": "pkg:pypi/grpcio-status@1.85.1",
+            "UID": "c9710d929ed1263b"
+          },
+          "Version": "1.85.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "googleapis-common-protos@1.76.0",
+            "grpcio@1.85.1",
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "gunicorn@26.2.0",
+          "Name": "gunicorn",
+          "Identifier": {
+            "PURL": "pkg:pypi/gunicorn@26.2.0",
+            "UID": "4ed4b12d98e9b783"
+          },
+          "Version": "26.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "h11@0.16.0",
+          "Name": "h11",
+          "Identifier": {
+            "PURL": "pkg:pypi/h11@0.16.0",
+            "UID": "d50a8db9ed31c7b5"
+          },
+          "Version": "0.16.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "hf-xet@1.8.0",
+          "Name": "hf-xet",
+          "Identifier": {
+            "PURL": "pkg:pypi/hf-xet@1.8.0",
+            "UID": "6ee4e0ecc53bd6be"
+          },
+          "Version": "1.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "hiredis@3.5.0",
+          "Name": "hiredis",
+          "Identifier": {
+            "PURL": "pkg:pypi/hiredis@3.5.0",
+            "UID": "e09c8e80a899b8c7"
+          },
+          "Version": "3.5.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "httpcore@1.0.9",
+          "Name": "httpcore",
+          "Identifier": {
+            "PURL": "pkg:pypi/httpcore@1.0.9",
+            "UID": "3f30896f9f1da6c5"
+          },
+          "Version": "1.0.9",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "certifi@2026.10.23",
+            "h11@0.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "httpcore2@2.14.0",
+          "Name": "httpcore2",
+          "Identifier": {
+            "PURL": "pkg:pypi/httpcore2@2.14.0",
+            "UID": "64ab6f8c3ad05a59"
+          },
+          "Version": "2.14.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "h11@0.16.0",
+            "truststore@0.10.5"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "httptools@0.9.0",
+          "Name": "httptools",
+          "Identifier": {
+            "PURL": "pkg:pypi/httptools@0.9.0",
+            "UID": "cdfbafd18a74a15f"
+          },
+          "Version": "0.9.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "httpx@0.28.1",
+          "Name": "httpx",
+          "Identifier": {
+            "PURL": "pkg:pypi/httpx@0.28.1",
+            "UID": "4a1126518b3f6307"
+          },
+          "Version": "0.28.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "anyio@4.15.1",
+            "certifi@2026.10.23",
+            "httpcore@1.0.9",
+            "idna@3.20"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "httpx2@2.14.0",
+          "Name": "httpx2",
+          "Identifier": {
+            "PURL": "pkg:pypi/httpx2@2.14.0",
+            "UID": "eb43418f4e1ecb51"
+          },
+          "Version": "2.14.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "anyio@4.15.1",
+            "httpcore2@2.14.0",
+            "idna@3.20",
+            "truststore@0.10.5",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "humanfriendly@10.0",
+          "Name": "humanfriendly",
+          "Identifier": {
+            "PURL": "pkg:pypi/humanfriendly@10.0",
+            "UID": "cb2e271be9ad8df8"
+          },
+          "Version": "10.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "pyreadline3@3.5.6"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "idna@3.20",
+          "Name": "idna",
+          "Identifier": {
+            "PURL": "pkg:pypi/idna@3.20",
+            "UID": "c64541044456d7da"
+          },
+          "Version": "3.20",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "ijson@3.6.0",
+          "Name": "ijson",
+          "Identifier": {
+            "PURL": "pkg:pypi/ijson@3.6.0",
+            "UID": "bd9fa8accef66ad7"
+          },
+          "Version": "3.6.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "importlib-metadata@9.0.1",
+          "Name": "importlib-metadata",
+          "Identifier": {
+            "PURL": "pkg:pypi/importlib-metadata@9.0.1",
+            "UID": "edb8647523576aed"
+          },
+          "Version": "9.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "zipp@4.1.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "jinja2@3.1.6",
+          "Name": "jinja2",
+          "Identifier": {
+            "PURL": "pkg:pypi/jinja2@3.1.6",
+            "UID": "8349dff7c8059611"
+          },
+          "Version": "3.1.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "markupsafe@3.0.4"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "json-logic@0.7.0a0",
+          "Name": "json-logic",
+          "Identifier": {
+            "PURL": "pkg:pypi/json-logic@0.7.0a0",
+            "UID": "6cf25e94ca19572b"
+          },
+          "Version": "0.7.0a0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "six@1.17.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "jsonref@1.1.0",
+          "Name": "jsonref",
+          "Identifier": {
+            "PURL": "pkg:pypi/jsonref@1.1.0",
+            "UID": "2359e80f498d98f5"
+          },
+          "Version": "1.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "jsonschema@4.26.0",
+          "Name": "jsonschema",
+          "Identifier": {
+            "PURL": "pkg:pypi/jsonschema@4.26.0",
+            "UID": "f01e1a1e364e6f4f"
+          },
+          "Version": "4.26.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "attrs@26.1.0",
+            "jsonschema-specifications@2025.9.1",
+            "referencing@0.37.0",
+            "rpds-py@0.30.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "jsonschema-specifications@2025.9.1",
+          "Name": "jsonschema-specifications",
+          "Identifier": {
+            "PURL": "pkg:pypi/jsonschema-specifications@2025.9.1",
+            "UID": "e7b469c5a674ceb2"
+          },
+          "Version": "2025.9.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "referencing@0.37.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "librt@0.16.0",
+          "Name": "librt",
+          "Identifier": {
+            "PURL": "pkg:pypi/librt@0.16.0",
+            "UID": "e26816a42df82d52"
+          },
+          "Version": "0.16.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "locket@1.0.0",
+          "Name": "locket",
+          "Identifier": {
+            "PURL": "pkg:pypi/locket@1.0.0",
+            "UID": "ca84af91190050db"
+          },
+          "Version": "1.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "loguru@0.7.3",
+          "Name": "loguru",
+          "Identifier": {
+            "PURL": "pkg:pypi/loguru@0.7.3",
+            "UID": "3d872d86096a8051"
+          },
+          "Version": "0.7.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "colorama@0.4.6",
+            "win32-setctime@1.2.1"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "markupsafe@3.0.4",
+          "Name": "markupsafe",
+          "Identifier": {
+            "PURL": "pkg:pypi/markupsafe@3.0.4",
+            "UID": "3ca7cd92bfa4d167"
+          },
+          "Version": "3.0.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "mixpanel@5.4.1",
+          "Name": "mixpanel",
+          "Identifier": {
+            "PURL": "pkg:pypi/mixpanel@5.4.1",
+            "UID": "505e51872ff4ba98"
+          },
+          "Version": "5.4.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "asgiref@3.12.1",
+            "httpx@0.28.1",
+            "json-logic@0.7.0a0",
+            "requests@2.34.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "mmh3@5.3.1",
+          "Name": "mmh3",
+          "Identifier": {
+            "PURL": "pkg:pypi/mmh3@5.3.1",
+            "UID": "f5d536b37a51cd4f"
+          },
+          "Version": "5.3.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "mpmath@1.3.0",
+          "Name": "mpmath",
+          "Identifier": {
+            "PURL": "pkg:pypi/mpmath@1.3.0",
+            "UID": "ae58f55affb7eaa7"
+          },
+          "Version": "1.3.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "multidict@7.1.0",
+          "Name": "multidict",
+          "Identifier": {
+            "PURL": "pkg:pypi/multidict@7.1.0",
+            "UID": "7dc4a5e43e4cc4a8"
+          },
+          "Version": "7.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "mypy@2.4.1",
+          "Name": "mypy",
+          "Identifier": {
+            "PURL": "pkg:pypi/mypy@2.4.1",
+            "UID": "f61c1618bb683e17"
+          },
+          "Version": "2.4.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "ast-serialize@0.13.1",
+            "librt@0.16.0",
+            "mypy-extensions@1.1.0",
+            "pathspec@1.1.1",
+            "tomli@2.5.0",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "mypy-extensions@1.1.0",
+          "Name": "mypy-extensions",
+          "Identifier": {
+            "PURL": "pkg:pypi/mypy-extensions@1.1.0",
+            "UID": "5d0c5240f9f8304e"
+          },
+          "Version": "1.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "oauthlib@4.0.1",
+          "Name": "oauthlib",
+          "Identifier": {
+            "PURL": "pkg:pypi/oauthlib@4.0.1",
+            "UID": "f08f517cd3dce9a6"
+          },
+          "Version": "4.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "opentelemetry-api@1.45.2",
+          "Name": "opentelemetry-api",
+          "Identifier": {
+            "PURL": "pkg:pypi/opentelemetry-api@1.45.2",
+            "UID": "6f28f0f2ffd88b9e"
+          },
+          "Version": "1.45.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "opentelemetry-sdk@1.45.2",
+          "Name": "opentelemetry-sdk",
+          "Identifier": {
+            "PURL": "pkg:pypi/opentelemetry-sdk@1.45.2",
+            "UID": "4824723237a55625"
+          },
+          "Version": "1.45.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "opentelemetry-api@1.45.2",
+            "opentelemetry-semantic-conventions@0.66b2",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "opentelemetry-semantic-conventions@0.66b2",
+          "Name": "opentelemetry-semantic-conventions",
+          "Identifier": {
+            "PURL": "pkg:pypi/opentelemetry-semantic-conventions@0.66b2",
+            "UID": "a4e8f96b1db2cf64"
+          },
+          "Version": "0.66b2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "opentelemetry-api@1.45.2",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "packaging@26.3",
+          "Name": "packaging",
+          "Identifier": {
+            "PURL": "pkg:pypi/packaging@26.3",
+            "UID": "281e14bb06db5be"
+          },
+          "Version": "26.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pandas-gbq@0.35.3",
+          "Name": "pandas-gbq",
+          "Identifier": {
+            "PURL": "pkg:pypi/pandas-gbq@0.35.3",
+            "UID": "df6f0e806923a445"
+          },
+          "Version": "0.35.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "db-dtypes@1.9.0",
+            "google-api-core@2.43.2",
+            "google-auth-oauthlib@1.5.0",
+            "google-auth@2.62.0",
+            "google-cloud-bigquery@3.47.0",
+            "numpy@2.2.6",
+            "packaging@26.3",
+            "pandas@2.3.3",
+            "psutil@7.2.2",
+            "pyarrow@25.0.1",
+            "pydata-google-auth@1.9.1",
+            "setuptools@81.0.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "partd@1.4.2",
+          "Name": "partd",
+          "Identifier": {
+            "PURL": "pkg:pypi/partd@1.4.2",
+            "UID": "e8e30fc4a94204be"
+          },
+          "Version": "1.4.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "locket@1.0.0",
+            "toolz@1.2.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pathspec@1.1.1",
+          "Name": "pathspec",
+          "Identifier": {
+            "PURL": "pkg:pypi/pathspec@1.1.1",
+            "UID": "5461a91c92013aeb"
+          },
+          "Version": "1.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pip@26.2.2",
+          "Name": "pip",
+          "Identifier": {
+            "PURL": "pkg:pypi/pip@26.2.2",
+            "UID": "f0efea7d9e07dc11"
+          },
+          "Version": "26.2.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "progressbar2@4.6.0",
+          "Name": "progressbar2",
+          "Identifier": {
+            "PURL": "pkg:pypi/progressbar2@4.6.0",
+            "UID": "8cad53a25ff0c003"
+          },
+          "Version": "4.6.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "python-utils@4.1.4"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "prometheus-client@0.24.1",
+          "Name": "prometheus-client",
+          "Identifier": {
+            "PURL": "pkg:pypi/prometheus-client@0.24.1",
+            "UID": "4b1723a37208d932"
+          },
+          "Version": "0.24.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "propcache@0.5.4",
+          "Name": "propcache",
+          "Identifier": {
+            "PURL": "pkg:pypi/propcache@0.5.4",
+            "UID": "d59c6bd4a6f5b35e"
+          },
+          "Version": "0.5.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "proto-plus@1.29.0",
+          "Name": "proto-plus",
+          "Identifier": {
+            "PURL": "pkg:pypi/proto-plus@1.29.0",
+            "UID": "9e4f60e50ceef58c"
+          },
+          "Version": "1.29.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "protobuf@7.36.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "protobuf@7.36.2",
+          "Name": "protobuf",
+          "Identifier": {
+            "PURL": "pkg:pypi/protobuf@7.36.2",
+            "UID": "f41bda458b3b1a47"
+          },
+          "Version": "7.36.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "psutil@7.2.2",
+          "Name": "psutil",
+          "Identifier": {
+            "PURL": "pkg:pypi/psutil@7.2.2",
+            "UID": "b49c700e973259fe"
+          },
+          "Version": "7.2.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pyasn1@0.6.5",
+          "Name": "pyasn1",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyasn1@0.6.5",
+            "UID": "9600fc02c7ea4d1f"
+          },
+          "Version": "0.6.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pyasn1-modules@0.4.2",
+          "Name": "pyasn1-modules",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyasn1-modules@0.4.2",
+            "UID": "71b34a4afbcaae18"
+          },
+          "Version": "0.4.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "pyasn1@0.6.5"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pycparser@3.11",
+          "Name": "pycparser",
+          "Identifier": {
+            "PURL": "pkg:pypi/pycparser@3.11",
+            "UID": "545887626e7e16be"
+          },
+          "Version": "3.11",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pydantic@2.14.2",
+          "Name": "pydantic",
+          "Identifier": {
+            "PURL": "pkg:pypi/pydantic@2.14.2",
+            "UID": "5b8842d09323fcef"
+          },
+          "Version": "2.14.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "annotated-types@0.8.0",
+            "pydantic-core@2.50.2",
+            "typing-extensions@4.16.0",
+            "typing-inspection@0.4.4"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pydantic-core@2.50.2",
+          "Name": "pydantic-core",
+          "Identifier": {
+            "PURL": "pkg:pypi/pydantic-core@2.50.2",
+            "UID": "d70fd6e422c57da8"
+          },
+          "Version": "2.50.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pydata-google-auth@1.9.1",
+          "Name": "pydata-google-auth",
+          "Identifier": {
+            "PURL": "pkg:pypi/pydata-google-auth@1.9.1",
+            "UID": "576d182f73fb38b6"
+          },
+          "Version": "1.9.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "google-auth-oauthlib@1.5.0",
+            "google-auth@2.62.0",
+            "setuptools@81.0.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pygments@2.21.0",
+          "Name": "pygments",
+          "Identifier": {
+            "PURL": "pkg:pypi/pygments@2.21.0",
+            "UID": "2c187de8ce1ac8e"
+          },
+          "Version": "2.21.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pyjwt@2.15.1",
+          "Name": "pyjwt",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyjwt@2.15.1",
+            "UID": "5d056d2116f31ab2"
+          },
+          "Version": "2.15.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pyreadline3@3.5.6",
+          "Name": "pyreadline3",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyreadline3@3.5.6",
+            "UID": "6fcd8090d9263d7f"
+          },
+          "Version": "3.5.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "python-dateutil@2.9.0.post0",
+          "Name": "python-dateutil",
+          "Identifier": {
+            "PURL": "pkg:pypi/python-dateutil@2.9.0.post0",
+            "UID": "7ff8c30198898771"
+          },
+          "Version": "2.9.0.post0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "six@1.17.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "python-dotenv@1.2.4",
+          "Name": "python-dotenv",
+          "Identifier": {
+            "PURL": "pkg:pypi/python-dotenv@1.2.4",
+            "UID": "6de80cc64e8b9be2"
+          },
+          "Version": "1.2.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "python-json-logger@4.2.0",
+          "Name": "python-json-logger",
+          "Identifier": {
+            "PURL": "pkg:pypi/python-json-logger@4.2.0",
+            "UID": "648b6f26eb7dc4fb"
+          },
+          "Version": "4.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "python-utils@4.1.4",
+          "Name": "python-utils",
+          "Identifier": {
+            "PURL": "pkg:pypi/python-utils@4.1.4",
+            "UID": "6ecaaf13a7cf654b"
+          },
+          "Version": "4.1.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pytz@2026.6",
+          "Name": "pytz",
+          "Identifier": {
+            "PURL": "pkg:pypi/pytz@2026.6",
+            "UID": "19f37c4dc26d83da"
+          },
+          "Version": "2026.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pywin32@312",
+          "Name": "pywin32",
+          "Identifier": {
+            "PURL": "pkg:pypi/pywin32@312",
+            "UID": "d54b0bb6840327bc"
+          },
+          "Version": "312",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "pyyaml@6.0.3",
+          "Name": "pyyaml",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyyaml@6.0.3",
+            "UID": "691cc315a4054d72"
+          },
+          "Version": "6.0.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "redis@7.4.1",
+          "Name": "redis",
+          "Identifier": {
+            "PURL": "pkg:pypi/redis@7.4.1",
+            "UID": "bc78fe215faa2564"
+          },
+          "Version": "7.4.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "async-timeout@5.0.1"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "referencing@0.37.0",
+          "Name": "referencing",
+          "Identifier": {
+            "PURL": "pkg:pypi/referencing@0.37.0",
+            "UID": "4212c6144f6044e2"
+          },
+          "Version": "0.37.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "attrs@26.1.0",
+            "rpds-py@0.30.0",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "requests@2.34.2",
+          "Name": "requests",
+          "Identifier": {
+            "PURL": "pkg:pypi/requests@2.34.2",
+            "UID": "ce9e0886383d5d10"
+          },
+          "Version": "2.34.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "certifi@2026.10.23",
+            "charset-normalizer@3.5.2",
+            "idna@3.20",
+            "urllib3@2.8.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "requests-file@3.0.1",
+          "Name": "requests-file",
+          "Identifier": {
+            "PURL": "pkg:pypi/requests-file@3.0.1",
+            "UID": "44f976f7c0cb96cc"
+          },
+          "Version": "3.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "requests@2.34.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "requests-oauthlib@2.0.0",
+          "Name": "requests-oauthlib",
+          "Identifier": {
+            "PURL": "pkg:pypi/requests-oauthlib@2.0.0",
+            "UID": "8b3a7604774372f6"
+          },
+          "Version": "2.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "oauthlib@4.0.1",
+            "requests@2.34.2"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "rpds-py@0.30.0",
+          "Name": "rpds-py",
+          "Identifier": {
+            "PURL": "pkg:pypi/rpds-py@0.30.0",
+            "UID": "e858ddf621f143f2"
+          },
+          "Version": "0.30.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "ruamel-yaml@0.19.1",
+          "Name": "ruamel-yaml",
+          "Identifier": {
+            "PURL": "pkg:pypi/ruamel-yaml@0.19.1",
+            "UID": "2692333cf63c05cb"
+          },
+          "Version": "0.19.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "sentry-sdk@2.73.0",
+          "Name": "sentry-sdk",
+          "Identifier": {
+            "PURL": "pkg:pypi/sentry-sdk@2.73.0",
+            "UID": "a7aefc455e8b1743"
+          },
+          "Version": "2.73.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "certifi@2026.10.23",
+            "urllib3@2.8.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "setuptools@81.0.0",
+          "Name": "setuptools",
+          "Identifier": {
+            "PURL": "pkg:pypi/setuptools@81.0.0",
+            "UID": "62efd152cc0bcb22"
+          },
+          "Version": "81.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "six@1.17.0",
+          "Name": "six",
+          "Identifier": {
+            "PURL": "pkg:pypi/six@1.17.0",
+            "UID": "ac79dc21f2d40ee4"
+          },
+          "Version": "1.17.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "sqlalchemy@2.0.55",
+          "Name": "sqlalchemy",
+          "Identifier": {
+            "PURL": "pkg:pypi/sqlalchemy@2.0.55",
+            "UID": "f7e61e0728733e26"
+          },
+          "Version": "2.0.55",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "greenlet@3.5.6",
+            "mypy@2.4.1",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "starlette@1.7.0",
+          "Name": "starlette",
+          "Identifier": {
+            "PURL": "pkg:pypi/starlette@1.7.0",
+            "UID": "78bbc96718f72e0d"
+          },
+          "Version": "1.7.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "anyio@4.15.1",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "sympy@1.14.0",
+          "Name": "sympy",
+          "Identifier": {
+            "PURL": "pkg:pypi/sympy@1.14.0",
+            "UID": "9ff03251ae05c292"
+          },
+          "Version": "1.14.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "mpmath@1.3.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "tabulate@0.10.0",
+          "Name": "tabulate",
+          "Identifier": {
+            "PURL": "pkg:pypi/tabulate@0.10.0",
+            "UID": "c95cd1797c5936f6"
+          },
+          "Version": "0.10.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "tenacity@8.5.0",
+          "Name": "tenacity",
+          "Identifier": {
+            "PURL": "pkg:pypi/tenacity@8.5.0",
+            "UID": "85a3bedf7442c354"
+          },
+          "Version": "8.5.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "toml@0.10.2",
+          "Name": "toml",
+          "Identifier": {
+            "PURL": "pkg:pypi/toml@0.10.2",
+            "UID": "98325713ffa33b75"
+          },
+          "Version": "0.10.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "tomli@2.5.0",
+          "Name": "tomli",
+          "Identifier": {
+            "PURL": "pkg:pypi/tomli@2.5.0",
+            "UID": "f313d56876043266"
+          },
+          "Version": "2.5.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "toolz@1.2.0",
+          "Name": "toolz",
+          "Identifier": {
+            "PURL": "pkg:pypi/toolz@1.2.0",
+            "UID": "84cdfb84fdd08a94"
+          },
+          "Version": "1.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "tqdm@4.70.1",
+          "Name": "tqdm",
+          "Identifier": {
+            "PURL": "pkg:pypi/tqdm@4.70.1",
+            "UID": "af64e757251a4a72"
+          },
+          "Version": "4.70.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "colorama@0.4.6"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "truststore@0.10.5",
+          "Name": "truststore",
+          "Identifier": {
+            "PURL": "pkg:pypi/truststore@0.10.5",
+            "UID": "8565aff304b50026"
+          },
+          "Version": "0.10.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "typeguard@4.6.0",
+          "Name": "typeguard",
+          "Identifier": {
+            "PURL": "pkg:pypi/typeguard@4.6.0",
+            "UID": "54d4a6c3c65a9d6"
+          },
+          "Version": "4.6.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "typing-extensions@4.16.0",
+          "Name": "typing-extensions",
+          "Identifier": {
+            "PURL": "pkg:pypi/typing-extensions@4.16.0",
+            "UID": "23fd9c45aea880bf"
+          },
+          "Version": "4.16.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "typing-inspect@0.9.0",
+          "Name": "typing-inspect",
+          "Identifier": {
+            "PURL": "pkg:pypi/typing-inspect@0.9.0",
+            "UID": "2c4aae94dcbba869"
+          },
+          "Version": "0.9.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "mypy-extensions@1.1.0",
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "typing-inspection@0.4.4",
+          "Name": "typing-inspection",
+          "Identifier": {
+            "PURL": "pkg:pypi/typing-inspection@0.4.4",
+            "UID": "cd0e447ca908db0d"
+          },
+          "Version": "0.4.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "typing-extensions@4.16.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "tzdata@2026.6",
+          "Name": "tzdata",
+          "Identifier": {
+            "PURL": "pkg:pypi/tzdata@2026.6",
+            "UID": "bd91da82ee7a1163"
+          },
+          "Version": "2026.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "urllib3@2.8.0",
+          "Name": "urllib3",
+          "Identifier": {
+            "PURL": "pkg:pypi/urllib3@2.8.0",
+            "UID": "6353a420d9741a83"
+          },
+          "Version": "2.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "uvicorn@0.54.0",
+          "Name": "uvicorn",
+          "Identifier": {
+            "PURL": "pkg:pypi/uvicorn@0.54.0",
+            "UID": "6d5e69a48fc7e449"
+          },
+          "Version": "0.54.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "click@8.5.0",
+            "h11@0.16.0",
+            "httptools@0.9.0",
+            "python-dotenv@1.2.4",
+            "pyyaml@6.0.3",
+            "typing-extensions@4.16.0",
+            "uvloop@0.23.0",
+            "watchfiles@1.3.0",
+            "websockets@16.1.1"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "uvicorn-worker@0.4.0",
+          "Name": "uvicorn-worker",
+          "Identifier": {
+            "PURL": "pkg:pypi/uvicorn-worker@0.4.0",
+            "UID": "59b087167eebbf72"
+          },
+          "Version": "0.4.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "gunicorn@26.2.0",
+            "uvicorn@0.54.0"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "uvloop@0.23.0",
+          "Name": "uvloop",
+          "Identifier": {
+            "PURL": "pkg:pypi/uvloop@0.23.0",
+            "UID": "ac67715322ce2a2b"
+          },
+          "Version": "0.23.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "watchfiles@1.3.0",
+          "Name": "watchfiles",
+          "Identifier": {
+            "PURL": "pkg:pypi/watchfiles@1.3.0",
+            "UID": "bf42d296e6b22b23"
+          },
+          "Version": "1.3.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "anyio@4.15.1"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "websockets@16.1.1",
+          "Name": "websockets",
+          "Identifier": {
+            "PURL": "pkg:pypi/websockets@16.1.1",
+            "UID": "78c8a5a53687701f"
+          },
+          "Version": "16.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "win32-setctime@1.2.1",
+          "Name": "win32-setctime",
+          "Identifier": {
+            "PURL": "pkg:pypi/win32-setctime@1.2.1",
+            "UID": "86cdbdb7a876a27f"
+          },
+          "Version": "1.2.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "wrapt@2.5.2",
+          "Name": "wrapt",
+          "Identifier": {
+            "PURL": "pkg:pypi/wrapt@2.5.2",
+            "UID": "d7e139ab08ba72f"
+          },
+          "Version": "2.5.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "yarl@1.25.1",
+          "Name": "yarl",
+          "Identifier": {
+            "PURL": "pkg:pypi/yarl@1.25.1",
+            "UID": "dcfe563852c2d50d"
+          },
+          "Version": "1.25.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "idna@3.20",
+            "multidict@7.1.0",
+            "propcache@0.5.4"
+          ],
+          "AnalyzedBy": "uv"
+        },
+        {
+          "ID": "zipp@4.1.2",
+          "Name": "zipp",
+          "Identifier": {
+            "PURL": "pkg:pypi/zipp@4.1.2",
+            "UID": "4ec2c17242e6574d"
+          },
+          "Version": "4.1.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "uv"
+        }
+      ],
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2026-112940",
+          "VendorIDs": [
+            "GHSA-v4x8-3wr5-3wq8"
+          ],
+          "PkgID": "filelock@4.1.0",
+          "PkgName": "filelock",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/filelock@4.1.0",
+            "UID": "8e7305511a4b0d10"
+          },
+          "InstalledVersion": "4.1.0",
+          "FixedVersion": "4.2.1",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-112940",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:5dfad1420402d1b8ef3fa995b422ec3259b9ca0c16343b107657eedb43dc024c",
+          "Title": "filelock: filelock: Arbitrary file overwrite via insecure database file reopening",
+          "Description": "filelock is a platform-independent file lock for Python. From 3.20.4 until 4.2.1, ReadWriteLock let SQLite reopen the database and side files by name; on POSIX systems an attacker with rename access in a non-sticky parent can swap those names to cause overwrite or unlink operations, while a writable adjacent hot journal is additionally required for attacker-chosen content overwrites. This issue is fixed in version 4.2.1.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-363",
+            "CWE-59"
+          ],
+          "VendorSeverity": {
+            "ghsa": 3,
+            "redhat": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+              "V3Score": 7.1
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:H/A:H",
+              "V3Score": 6.3
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-112940",
+            "https://advisory.echohq.com/cve/CVE-2026-112940",
+            "https://github.com/tox-dev/filelock",
+            "https://github.com/tox-dev/filelock/commit/5e3f2ec0c5fb17cb2635b60b2b68bc63ab81ca2d",
+            "https://github.com/tox-dev/filelock/pull/834",
+            "https://github.com/tox-dev/filelock/releases/tag/4.2.1",
+            "https://github.com/tox-dev/filelock/security/advisories/GHSA-v4x8-3wr5-3wq8",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-112940",
+            "https://www.cve.org/CVERecord?id=CVE-2026-112940"
+          ],
+          "PublishedDate": "2026-10-20T15:17:16.827Z",
+          "LastModifiedDate": "2026-10-22T22:18:02.827Z"
+        }
+      ]
+    }
+  ]
+}

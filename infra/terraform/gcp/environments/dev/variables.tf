@@ -105,3 +105,9 @@ variable "jenkins_machine_type" {
   type        = string
   default     = "e2-standard-2"
 }
+
+variable "enable_in_cluster_cd" {
+  description = "Create the least-privilege Cloud Build identities for the in-cluster Jenkins controller."
+  type        = bool
+  default     = false
+}

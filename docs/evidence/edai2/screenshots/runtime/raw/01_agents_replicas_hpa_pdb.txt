@@ -1,0 +1,24 @@
+$ kubectl -n ewallet-agents get deploy fraud-coordinator feature-rag-specialist drift-specialist -o wide | cut -c1-150; echo; kubectl -n ewallet-agents get hpa; echo; kubectl -n ewallet-agents get pdb; echo; kubectl -n ewallet-agents get pods -l 'kagent in (fraud-coordinator,feature-rag-specialist,drift-specialist)' -o wide | cut -c1-140
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                                                                 
+fraud-coordinator        2/2     2            2           2d15h   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-pl
+feature-rag-specialist   2/2     2            2           2d15h   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-pl
+drift-specialist         2/2     2            2           2d15h   kagent       ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f
+
+NAME                     REFERENCE                           TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+drift-specialist         Deployment/drift-specialist         cpu: 1%/60%   2         3         2          45h
+feature-rag-specialist   Deployment/feature-rag-specialist   cpu: 5%/60%   2         3         2          45h
+fraud-coordinator        Deployment/fraud-coordinator        cpu: 5%/60%   2         3         2          45h
+
+NAME                     MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+drift-mcp                1               N/A               0                     2d15h
+drift-specialist         1               N/A               1                     45h
+feature-rag-specialist   1               N/A               1                     45h
+fraud-coordinator        1               N/A               1                     45h
+
+NAME                                      READY   STATUS    RESTARTS   AGE   IP             NODE                                     NOMINAT
+drift-specialist-778b47fd6f-fxjrn         1/1     Running   0          91m   10.216.0.21    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none> 
+drift-specialist-778b47fd6f-stffm         1/1     Running   0          91m   10.216.1.142   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none> 
+feature-rag-specialist-855c67457d-c66mn   1/1     Running   0          91m   10.216.1.143   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none> 
+feature-rag-specialist-855c67457d-dvttw   1/1     Running   0          91m   10.216.0.22    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none> 
+fraud-coordinator-7dccdc448c-vpnht        1/1     Running   0          91m   10.216.1.144   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none> 
+fraud-coordinator-7dccdc448c-xlw8s        1/1     Running   0          91m   10.216.0.23    gke-ewallet-dev-cpu-pool-58daed59-gz40   <none> 

@@ -103,6 +103,41 @@ class OpenAICompatibleQueryEmbedder:
             raise ToolUnavailableError("embedding_unavailable", "Query embedding service is unavailable") from exc
 
 
+def verify_chunk_row(index: TrustedChunkIndex, row: Mapping[str, Any]) -> EmbeddedChunk:
+    """One online row must equal its canonical chunk, revisions and embedding shape."""
+    manifest = index.manifest
+    chunk = index.chunks.get(str(row.get("chunk_id")))
+    if chunk is None:
+        raise ToolContractError("rag_index_contract_error", "Online store returned an unknown chunk")
+    if any(row.get(name) is None for name in ROW_FIELDS):
+        # Not materialized (or expired): never answer from a partial index.
+        raise ToolUnavailableError("rag_index_not_materialized",
+                                   "The published RAG index is not materialized in the online store")
+    expected = {
+        "document_id": chunk.document_id, "chunk_text": chunk.text, "source_uri": chunk.source_uri,
+        "source_checksum": chunk.source_checksum, "corpus_revision": manifest.corpus_revision,
+        "embedding_model_revision": manifest.embedding_model_revision,
+        "feature_index_revision": manifest.feature_index_revision,
+    }
+    if any(row[name] != value for name, value in expected.items()):
+        raise ToolContractError("rag_index_provenance_mismatch",
+                                "Online chunk differs from the verified corpus or revisions")
+    embedding = tuple(float(value) for value in row["embedding"])
+    if len(embedding) != manifest.embedding_dimensions:
+        raise ToolContractError("rag_index_contract_error", "Online chunk embedding has the wrong dimensions")
+    try:
+        return EmbeddedChunk(
+            chunk=chunk, embedding=embedding,
+            embedding_model_revision=manifest.embedding_model_revision,
+            feature_index_revision=manifest.feature_index_revision,
+            # The online store serves no creation time; the source
+            # chunk's event time is the provenance timestamp.
+            publication_timestamp=chunk.event_timestamp,
+        )
+    except ValueError as exc:
+        raise ToolContractError("rag_index_contract_error", "Online chunk embedding is invalid") from exc
+
+
 class FeastOnlineExactRetriever:
     backend_id = "feast-online-redis+exact-cosine"
 
@@ -123,39 +158,7 @@ class FeastOnlineExactRetriever:
         self._lock = asyncio.Lock()
 
     def _verify(self, rows: Sequence[Mapping[str, Any]]) -> tuple[EmbeddedChunk, ...]:
-        manifest = self.index.manifest
-        verified = []
-        for row in rows:
-            chunk = self.index.chunks.get(str(row.get("chunk_id")))
-            if chunk is None:
-                raise ToolContractError("rag_index_contract_error", "Online store returned an unknown chunk")
-            if any(row.get(name) is None for name in ROW_FIELDS):
-                # Not materialized (or expired): never answer from a partial index.
-                raise ToolUnavailableError("rag_index_not_materialized",
-                                           "The published RAG index is not materialized in the online store")
-            expected = {
-                "document_id": chunk.document_id, "chunk_text": chunk.text, "source_uri": chunk.source_uri,
-                "source_checksum": chunk.source_checksum, "corpus_revision": manifest.corpus_revision,
-                "embedding_model_revision": manifest.embedding_model_revision,
-                "feature_index_revision": manifest.feature_index_revision,
-            }
-            if any(row[name] != value for name, value in expected.items()):
-                raise ToolContractError("rag_index_provenance_mismatch",
-                                        "Online chunk differs from the verified corpus or revisions")
-            embedding = tuple(float(value) for value in row["embedding"])
-            if len(embedding) != manifest.embedding_dimensions:
-                raise ToolContractError("rag_index_contract_error", "Online chunk embedding has the wrong dimensions")
-            try:
-                verified.append(EmbeddedChunk(
-                    chunk=chunk, embedding=embedding,
-                    embedding_model_revision=manifest.embedding_model_revision,
-                    feature_index_revision=manifest.feature_index_revision,
-                    # The online store serves no creation time; the source
-                    # chunk's event time is the provenance timestamp.
-                    publication_timestamp=chunk.event_timestamp,
-                ))
-            except ValueError as exc:
-                raise ToolContractError("rag_index_contract_error", "Online chunk embedding is invalid") from exc
+        verified = [verify_chunk_row(self.index, row) for row in rows]
         if {item.chunk.chunk_id for item in verified} != set(self.index.chunks) or len(verified) != len(self.index.chunks):
             raise ToolContractError("rag_index_contract_error", "Online store did not return the canonical chunk set")
         return tuple(verified)

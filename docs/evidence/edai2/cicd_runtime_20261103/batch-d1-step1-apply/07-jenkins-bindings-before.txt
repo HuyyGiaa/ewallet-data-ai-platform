@@ -1,0 +1,2 @@
+RoleBinding ewallet-cicd jenkins-bounded-workloads -> jenkins-bounded-workloads
+RoleBinding ewallet-prompts jenkins-prompt-registry -> jenkins-prompt-registry

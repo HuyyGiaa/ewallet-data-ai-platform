@@ -1,0 +1,41 @@
+# PROPOSAL M1+M2 (docs/edai2/prompt_registry_security_assessment_20261103.md), NOT APPLIED.
+# M1: Jenkins keeps read access to ewallet-prompts but loses pods/portforward.
+# M2: replace same-namespace-and-dns with pod-specific rules; the registry gets
+#     no in-cluster ingress (operator access is an RBAC-checked port-forward).
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: jenkins-prompt-registry, namespace: ewallet-prompts}
+rules:
+  - apiGroups: [""]
+    resources: [pods, services]
+    verbs: [get, list, watch]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: prompt-registry-db, namespace: ewallet-prompts}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: prompt-registry-db}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {app.kubernetes.io/name: agentregistry}}}]
+      ports: [{port: 5432, protocol: TCP}]
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: prompt-registry-server, namespace: ewallet-prompts}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: agentregistry}}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: prompt-registry-db}}}]
+      ports: [{port: 5432, protocol: TCP}]
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}}]
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to: [{ipBlock: {cidr: 34.118.224.10/32}}]
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+# Applying M2 also deletes NetworkPolicy ewallet-prompts/same-namespace-and-dns
+# (kubectl delete networkpolicy same-namespace-and-dns -n ewallet-prompts);
+# default-deny stays.

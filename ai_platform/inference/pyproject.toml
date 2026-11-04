@@ -1,0 +1,21 @@
+[project]
+name = "ewallet-fraud-api"
+version = "0.1.0"
+requires-python = ">=3.10,<3.11"
+# Fraud API (Block B). Feast/web pins mirror ai_platform/features/feast/uv.lock.
+dependencies = [
+  "dask[dataframe]==2026.8.0",
+  "fastapi==0.162.0",
+  "feast[redis]==0.66.0",
+  "gcsfs==2026.10.1",
+  "opentelemetry-api==1.45.1",
+  "opentelemetry-exporter-prometheus==0.66b1",
+  "opentelemetry-sdk==1.45.1",
+  "pandas==2.3.3",
+  "prometheus-client==0.24.1",
+  "pyarrow==25.0.1",
+  "uvicorn==0.54.0",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,5 @@
+# Raw operational evidence kept private (contains principal emails or full policies).
+batch-a/project-iam-*.json
+batch-a/ar-iam-*.json
+batch-a/bucket-iam.json
+jenkins/scans/

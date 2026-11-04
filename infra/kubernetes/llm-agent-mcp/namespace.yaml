@@ -1,0 +1,14 @@
+# Platform-owned lifecycle boundary for the isolated MCP application release.
+# Apply and verify this manifest before installing llm-agent-mcp. The Helm
+# application release deliberately renders no Namespace object.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-mcp
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    ewallet.io/lifecycle-owner: platform-operator
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

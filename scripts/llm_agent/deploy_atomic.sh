@@ -3,7 +3,7 @@
 # usage: deploy_atomic.sh <dev|gcp|gke-cpu> <image-digests.json> <evidence-dir>
 # Env: KUBE_CONTEXT (required, never the kubeconfig default), RELEASE (default
 # llm-agent), NAMESPACE (default ewallet-agents), EXTRA_VALUES (space-separated
-# chart values files layered after values-<environment>.yaml).
+# chart values files layered after values-<environment>.yaml), HELM_TIMEOUT (default 15m).
 set -euo pipefail
 environment=$1 digests=$2 evidence=$3
 [[ "$environment" =~ ^(dev|gcp|gke-cpu)$ ]] || { echo "environment must be dev, gcp or gke-cpu" >&2; exit 2; }
@@ -15,7 +15,7 @@ chart="$root/infra/helm/llm-agent-platform"
 mkdir -p "$evidence"
 
 args=(upgrade --install "$release" "$chart" -f "$chart/values-$environment.yaml"
-      --kube-context "$KUBE_CONTEXT" --namespace default --atomic --wait --timeout 15m)
+      --kube-context "$KUBE_CONTEXT" --namespace default --atomic --wait --timeout "${HELM_TIMEOUT:-15m}")
 for extra in ${EXTRA_VALUES:-}; do
   [ -f "$extra" ] || { echo "EXTRA_VALUES file $extra missing" >&2; exit 2; }
   args+=(-f "$extra")
@@ -48,6 +48,6 @@ if image:
 helm "${args[@]}" | tee "$evidence/helm-upgrade.txt"
 helm history "$release" --kube-context "$KUBE_CONTEXT" --namespace default -o json > "$evidence/helm-history.json"
 for deployment in $(kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy -o name); do
-  kubectl --context "$KUBE_CONTEXT" -n "$namespace" rollout status "$deployment" --timeout=10m | tee -a "$evidence/rollout.txt"
+  kubectl --context "$KUBE_CONTEXT" -n "$namespace" rollout status "$deployment" --timeout="${HELM_TIMEOUT:-15m}" | tee -a "$evidence/rollout.txt"
 done
 kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy,pods -o wide > "$evidence/workloads.txt"

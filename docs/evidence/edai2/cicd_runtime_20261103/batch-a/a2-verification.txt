@@ -1,0 +1,4 @@
+Batch A.2 bucket ewallet-data-ai-platform-hg26-cicd-build-logs
+added: [('roles/storage.legacyBucketReader', 'ewallet-cloudbuild'), ('roles/storage.objectAdmin', 'ewallet-cloudbuild'), ('roles/storage.objectViewer', 'ewallet-jenkins')]
+removed: none
+location ASIA-SOUTHEAST1 uniform True pap enforced lifecycle {'rule': [{'action': {'type': 'Delete'}, 'condition': {'age': 30}}]}

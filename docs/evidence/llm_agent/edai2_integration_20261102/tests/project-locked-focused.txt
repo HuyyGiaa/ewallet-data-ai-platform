@@ -1,0 +1,208 @@
+=== G3 BYO locked environment ===
+2026-11-02 15:29:03,886 - root - INFO - Logging configured with level: INFO
+test_error_or_malformed_structured_result_is_rejected (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagMCPClientTests.test_error_or_malformed_structured_result_is_rejected) ... ok
+test_missing_credential_and_unapproved_endpoint_fail_closed (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagMCPClientTests.test_missing_credential_and_unapproved_endpoint_fail_closed) ... ok
+test_missing_discovered_tool_fails_before_any_tool_call (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagMCPClientTests.test_missing_discovered_tool_fails_before_any_tool_call) ... ok
+test_transaction_prediction_and_citation_mismatches_are_rejected (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagMCPClientTests.test_transaction_prediction_and_citation_mismatches_are_rejected) ... ok
+test_valid_request_initializes_lists_and_calls_in_exact_order (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagMCPClientTests.test_valid_request_initializes_lists_and_calls_in_exact_order) ... ok
+test_actual_a2a_jsonrpc_returns_one_valid_terminal_artifact (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagSpecialistA2ATests.test_actual_a2a_jsonrpc_returns_one_valid_terminal_artifact) ... 2026-11-02 15:29:04,276 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: b0784509-db30-424c-ba5c-06a2742f96fd, context_id: specialist-session-1).
+2026-11-02 15:29:04,277 - httpx2 - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_invalid_request_is_rejected_without_mcp_call (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagSpecialistA2ATests.test_invalid_request_is_rejected_without_mcp_call) ... 2026-11-02 15:29:04,282 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 04e98309-bfe2-4e5e-9be4-79323b646aba, context_id: 255bb403-67ce-4e95-8d23-66c6952977be).
+2026-11-02 15:29:04,283 - httpx2 - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_task_store_is_idempotent_per_context_but_sessions_are_isolated (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagSpecialistA2ATests.test_task_store_is_idempotent_per_context_but_sessions_are_isolated) ... 2026-11-02 15:29:04,288 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 5cfd3432-0bdd-40bb-9ff1-fb8e7fc0f37d, context_id: session-a).
+2026-11-02 15:29:04,289 - httpx2 - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+2026-11-02 15:29:04,290 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 4f051e05-54b7-4017-8884-1ade26fdbfcb, context_id: session-a).
+2026-11-02 15:29:04,291 - httpx2 - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+2026-11-02 15:29:04,292 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: c4b23566-1c9f-4f5d-b1a8-32659d9db201, context_id: session-b).
+2026-11-02 15:29:04,292 - httpx2 - INFO - HTTP Request: POST http://testserver/ "HTTP/1.1 200 OK"
+ok
+test_timeout_and_cancel_are_terminal_and_bounded (tests.llm_agent.test_g3_byo_feature_rag_specialist.FeatureRagSpecialistLifecycleTests.test_timeout_and_cancel_are_terminal_and_bounded) ... ok
+test_a2a_message_contract_and_gateway_header_are_exact (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_a2a_message_contract_and_gateway_header_are_exact) ... ok
+test_authz_rejects_non_gateway_endpoints_and_credentials_in_url (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_authz_rejects_non_gateway_endpoints_and_credentials_in_url) ... ok
+test_backend_output_and_rag_citation_are_preserved (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_backend_output_and_rag_citation_are_preserved) ... ok
+test_bounded_input_and_output_sizes (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_bounded_input_and_output_sizes) ... ok
+test_duplicate_request_is_idempotent_and_conflict_is_rejected (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_duplicate_request_is_idempotent_and_conflict_is_rejected) ... ok
+test_explicit_drift_request_routes_to_drift_specialist (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_explicit_drift_request_routes_to_drift_specialist) ... ok
+test_explicit_fraud_investigation_routes_to_feature_specialist (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_explicit_fraud_investigation_routes_to_feature_specialist) ... ok
+test_http_adapter_emits_actual_bounded_json_rpc_post (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_http_adapter_emits_actual_bounded_json_rpc_post) ... ok
+test_invalid_nested_arguments_fail_closed (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_invalid_nested_arguments_fail_closed) ... ok
+test_literal_placeholder_is_rejected (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_literal_placeholder_is_rejected) ... ok
+test_mismatched_response_identity_and_unrequested_feature_fail (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_mismatched_response_identity_and_unrequested_feature_fail) ... ok
+test_missing_transaction_id_fails_before_transport (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_missing_transaction_id_fails_before_transport) ... ok
+test_no_direct_gateway_bypass_or_arbitrary_host_header (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_no_direct_gateway_bypass_or_arbitrary_host_header) ... ok
+test_no_unsolicited_drift (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_no_unsolicited_drift) ... ok
+test_only_completed_terminal_task_is_accepted (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_only_completed_terminal_task_is_accepted) ... ok
+test_pseudo_tool_text_is_not_executable (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_pseudo_tool_text_is_not_executable) ... ok
+test_sessions_are_isolated (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_sessions_are_isolated) ... ok
+test_synthesizer_cannot_fabricate_business_fields (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_synthesizer_cannot_fabricate_business_fields) ... ok
+test_timeout_and_cancellation_fail_closed (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_timeout_and_cancellation_fail_closed) ... ok
+test_unsupported_capability_is_rejected_by_typed_contract (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_unsupported_capability_is_rejected_by_typed_contract) ... ok
+test_valid_transaction_identity_is_preserved_byte_for_byte (tests.llm_agent.test_g3_programmatic_coordinator.ProgrammaticCoordinatorTests.test_valid_transaction_identity_is_preserved_byte_for_byte) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 0.057s
+
+OK
+=== RAG ingestion locked environment ===
+test_empty_text_is_rejected_before_loading_a_model (tests.llm_agent.test_rag_airflow_ingestion.EmbeddingContractTests) ... ok
+test_mean_pooling_ignores_padding_and_normalizes (tests.llm_agent.test_rag_airflow_ingestion.EmbeddingContractTests) ... ok
+test_model_revision_must_be_immutable (tests.llm_agent.test_rag_airflow_ingestion.EmbeddingContractTests) ... ok
+test_only_mean_pooled_normalized_pipeline_is_accepted (tests.llm_agent.test_rag_airflow_ingestion.EmbeddingContractTests) ... ok
+test_pinned_model_produces_deterministic_unit_vectors (tests.llm_agent.test_rag_airflow_ingestion.EmbeddingContractTests) ... skipped 'set EWALLET_RAG_MODEL_TESTS=1'
+test_feast_readback_feeds_top_k_retrieval_and_mcp_contract (tests.llm_agent.test_rag_airflow_ingestion.FeastPublicationContractTests) ... ok
+test_frame_schema_matches_the_feature_view (tests.llm_agent.test_rag_airflow_ingestion.FeastPublicationContractTests) ... ok
+test_identity_ignores_order_and_detects_text_changes (tests.llm_agent.test_rag_airflow_ingestion.FeastPublicationContractTests) ... ok
+test_immutable_revision_rejects_a_different_payload (tests.llm_agent.test_rag_airflow_ingestion.FeastPublicationContractTests) ... ok
+test_invalid_embeddings_and_duplicates_are_rejected (tests.llm_agent.test_rag_airflow_ingestion.FeastPublicationContractTests) ... ok
+test_target_profiles_and_secret_free_description (tests.llm_agent.test_rag_airflow_ingestion.FeastPublicationContractTests) ... ok
+test_assertion_urns_are_stable_per_revision (tests.llm_agent.test_rag_airflow_ingestion.GovernanceTests) ... ok
+test_failed_measurements_become_failed_assertions (tests.llm_agent.test_rag_airflow_ingestion.GovernanceTests) ... ok
+test_lineage_connects_corpus_to_feast_through_dag_tasks (tests.llm_agent.test_rag_airflow_ingestion.GovernanceTests) ... ok
+test_publication_requires_matching_readback (tests.llm_agent.test_rag_airflow_ingestion.GovernanceTests) ... ok
+test_timeseries_readback_waits_for_async_indexing_but_stays_strict (tests.llm_agent.test_rag_airflow_ingestion.GovernanceTests) ... ok
+test_local_onnx_embedder_wires_exact_retrieval_without_loading_the_model (tests.llm_agent.test_rag_airflow_ingestion.McpWiringTests) ... ok
+test_rag_registry_gets_its_own_store_on_the_same_redis (tests.llm_agent.test_rag_airflow_ingestion.McpWiringTests) ... ok
+test_completed_stage_is_never_overwritten (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 08:29:08+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+ok
+test_datahub_publish_mode_fails_without_gms_url (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... [rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:publish] offline source status="WRITTEN" path="/tmp/rag-ingest-test._08px2jy/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 08:29:08+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test._08px2jy/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test._08px2jy/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T08:29:08.729042+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919286
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778343
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+ok
+test_full_pipeline_publishes_reads_back_and_cites_sources (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... [rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:publish] offline source status="WRITTEN" path="/tmp/rag-ingest-test.w5w7zuhh/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 08:29:08+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test.w5w7zuhh/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test.w5w7zuhh/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T08:29:08.789120+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919286
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778343
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:datahub] PLAN_ONLY: nothing published to DataHub records=25
+[rag:datahub] done artifact="datahub.json"
+ok
+test_missing_and_tampered_documents_fail_discovery (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... [rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-010" env_file_keys=[]
+[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-011" env_file_keys=[]
+ok
+test_redis_profile_requires_explicit_configuration (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... [rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+ok
+test_republishing_the_same_revision_reuses_rows_without_duplicates (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... [rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:publish] offline source status="WRITTEN" path="/tmp/rag-ingest-test.03no_vk0/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 08:29:08+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test.03no_vk0/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test.03no_vk0/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T08:29:08.874231+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919286
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778343
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-001" env_file_keys=[]
+[rag:datahub] PLAN_ONLY: nothing published to DataHub records=25
+[rag:datahub] done artifact="datahub.json"
+[rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:discover] verified corpus corpus_revision="fraud-policy-v1-20261030" documents=2
+[rag:discover] done artifact="documents.json"
+[rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:chunk] document chunked document_id="policy-account-takeover" chunks=2
+[rag:chunk] document chunked document_id="policy-payment-anomaly" chunks=2
+[rag:chunk] done artifact="chunks.json"
+[rag:embed] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:embed] embedded chunks model="sentence-transformers/all-MiniLM-L6-v2" revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41" dimensions=384 vectors=4 seconds=0.001
+[rag:embed] done artifact="embeddings.json"
+[rag:publish] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:publish] offline source status="REUSED" path="/tmp/rag-ingest-test.03no_vk0/feast/fraud-policy-feast-v1/chunks.parquet" rows=4
+Materializing [1m[32m1[0m feature views from [1m[32m2026-10-29 23:59:59+00:00[0m to [1m[32m2026-11-02 08:29:08+00:00[0m into the [1m[32msqlite[0m online store.
+
+[1m[32mfraud_policy_chunks[0m:
+[rag:publish] applied and materialized online_store="sqlite" project="ewallet_rag_local" registry="/tmp/rag-ingest-test.03no_vk0/feast/fraud-policy-feast-v1/registry.db" offline_source="/tmp/rag-ingest-test.03no_vk0/feast/fraud-policy-feast-v1/chunks.parquet" profile="local-dev" feature_view="fraud_policy_chunks" materialize_start="2026-10-29T23:59:59+00:00" materialize_end="2026-11-02T08:29:08.941838+00:00"
+[rag:publish] done artifact="publication.json"
+[rag:validate] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:validate] online readback and retrieval rows=4 recall=1.0 mrr=1.0 citation_errors=0
+[rag:validate] top hit query_id="account-takeover-step-up" chunk_id="policy-account-takeover:0000" document_id="policy-account-takeover" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md" score=0.7822341384919286
+[rag:validate] top hit query_id="payment-citation-fields" chunk_id="policy-payment-anomaly:0000" document_id="policy-payment-anomaly" source_uri="repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md" score=0.8025944006778343
+[rag:validate] done artifact="validation.json"
+[rag:datahub] start run_dir="docs/evidence/llm_agent/rag_run-002" env_file_keys=[]
+[rag:datahub] PLAN_ONLY: nothing published to DataHub records=25
+[rag:datahub] done artifact="datahub.json"
+ok
+test_stage_without_upstream_artifact_fails (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... [rag:chunk] start run_dir="docs/evidence/llm_agent/rag_run-009" env_file_keys=[]
+ok
+test_unsafe_manifest_path_is_rejected (tests.llm_agent.test_rag_airflow_ingestion.RagIngestStageTests) ... [rag:discover] start run_dir="docs/evidence/llm_agent/rag_run-012" env_file_keys=[]
+ok
+test_private_env_file_fills_only_unset_allowlisted_keys (tests.llm_agent.test_rag_airflow_ingestion.RunIdentityTests) ... ok
+test_run_dir_rejects_unsafe_ids (tests.llm_agent.test_rag_airflow_ingestion.RunIdentityTests) ... ok
+test_run_id_is_label_or_sanitized_airflow_run_id (tests.llm_agent.test_rag_airflow_ingestion.RunIdentityTests) ... ok
+test_write_once_is_atomic_and_create_only (tests.llm_agent.test_rag_airflow_ingestion.RunIdentityTests) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 4.081s
+
+OK (skipped=1)
+=== DataHub locked environment ===
+
+----------------------------------------------------------------------
+Ran 0 tests in 0.000s
+
+OK

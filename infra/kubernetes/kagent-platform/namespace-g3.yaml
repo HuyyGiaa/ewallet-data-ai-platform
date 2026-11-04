@@ -1,0 +1,11 @@
+# kagent controller namespace for G3: enrolled in the Istio ambient mesh so the
+# controller carries a SPIFFE identity (allowed by name at the agents' ingress).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kagent
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted

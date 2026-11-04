@@ -1,0 +1,202 @@
+# Batch D (PROPOSAL, NOT APPROVED, NOT APPLIED): production MCP/Agent release
+# rights. Owner condition 2026-11-03: Jenkins must not read production MCP auth,
+# Redis or unrelated Secrets. Helm keeps release llm-agent-mcp in Secrets of
+# ewallet-mcp, and RBAC cannot scope list by label, so a Jenkins-run
+# `helm upgrade llm-agent-mcp` stays blocked until its storage design changes.
+# Only these read/verify and named-object rights are proposed meanwhile.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-release-llm-agent-mcp-owned
+  namespace: ewallet-agents
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  resourceNames:
+  - allow-ewallet-mcp-feature-rag-mcp-to-shared-otel
+  - allow-ewallet-mcp-drift-mcp-to-shared-otel
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - security.istio.io
+  resources:
+  - authorizationpolicies
+  resourceNames:
+  - allow-ewallet-mcp-feature-rag-mcp-to-shared-otel
+  - allow-ewallet-mcp-drift-mcp-to-shared-otel
+  verbs:
+  - get
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-verify-agents
+  namespace: ewallet-agents
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  - services
+  - endpoints
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - pods/portforward
+  verbs:
+  - create
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kagent.dev
+  resources:
+  - agents
+  - remotemcpservers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  resourceNames:
+  - drift-specialist-prompt-managed
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  resourceNames:
+  - drift-specialist
+  verbs:
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-release-llm-agent-mcp-owned
+  namespace: feature-store
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  resourceNames:
+  - allow-ewallet-mcp-feature-rag-mcp-to-feast-redis
+  verbs:
+  - get
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-release-llm-agent-mcp-owned
+  namespace: fraud-serving
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  resourceNames:
+  - allow-ewallet-mcp-feature-rag-mcp-to-kserve-fraud-detector
+  verbs:
+  - get
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-release-llm-agent-mcp-owned
+  namespace: ewallet-agents
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-release-llm-agent-mcp-owned
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: ewallet-ci
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-verify-agents
+  namespace: ewallet-agents
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-verify-agents
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: ewallet-ci
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-release-llm-agent-mcp-owned
+  namespace: feature-store
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-release-llm-agent-mcp-owned
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: ewallet-ci
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-release-llm-agent-mcp-owned
+  namespace: fraud-serving
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-release-llm-agent-mcp-owned
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: ewallet-ci

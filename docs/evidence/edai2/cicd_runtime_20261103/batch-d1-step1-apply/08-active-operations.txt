@@ -1,0 +1,9 @@
+## ewallet-ci pods
+NAME                       READY   STATUS    RESTARTS   AGE     IP            NODE                                     NOMINATED NODE   READINESS GATES
+jenkins-74767cd55f-t52w5   1/1     Running   0          4h14m   10.216.5.95   gke-ewallet-dev-cpu-pool-58daed59-mb8v   <none>           <none>
+## ewallet-cicd jobs/pods
+NAME                          SCHEDULE    TIMEZONE   SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/rag-ingestion   0 3 * * *   <none>     True      0        <none>          5h17m
+## helm non-deployed
+NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
+{"_class":"hudson.model.ComputerSet","busyExecutors":0,"totalExecutors":1}  (Jenkins API, before apply)

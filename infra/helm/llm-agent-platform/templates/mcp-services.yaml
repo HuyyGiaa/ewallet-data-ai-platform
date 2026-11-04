@@ -6,6 +6,14 @@ Feast/KServe egress targets are read back (see networkFlows.unresolved).
 */ -}}
 {{- if .Values.mcpServices.enabled }}
 {{- $mcp := .Values.mcpServices }}
+{{- $sharedOtlpEndpoint := $mcp.observability.otlpEndpoint | default "" }}
+{{- if and $sharedOtlpEndpoint (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?:[0-9]{2,5}$" $sharedOtlpEndpoint)) }}
+{{- fail "mcpServices.observability.otlpEndpoint must be a DNS host:port" }}
+{{- end }}
+{{- $credentialSet := .Values.mcpCredentialLifecycle.serverSet }}
+{{- if not (or (eq $credentialSet "legacy") (regexMatch "^[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?$" $credentialSet)) }}
+{{- fail "mcpCredentialLifecycle.serverSet must be legacy or a 1..24 character lowercase DNS label" }}
+{{- end }}
 {{- if not (regexMatch "^[^@\\s]+@sha256:[0-9a-f]{64}$" ($mcp.image | default "")) }}
 {{- fail "mcpServices.image must be pinned by an immutable sha256 digest" }}
 {{- end }}
@@ -21,6 +29,26 @@ Feast/KServe egress targets are read back (see networkFlows.unresolved).
 {{- end }}
 {{- end }}
 {{- range $name, $service := $mcp.services }}
+{{- if ne $service nil }}
+{{- if not (kindIs "map" $service) }}
+{{- fail (printf "mcpServices.services.%s must be a map, null, or omitted" $name) }}
+{{- end }}
+{{- $enabled := true }}
+{{- if hasKey $service "enabled" }}
+{{- if not (kindIs "bool" $service.enabled) }}
+{{- fail (printf "mcpServices.services.%s.enabled must be a boolean" $name) }}
+{{- end }}
+{{- $enabled = $service.enabled }}
+{{- end }}
+{{- if $enabled }}
+{{- $auth := $service.authSecret | default dict }}
+{{- $pdbEnabled := true }}
+{{- if hasKey $service "pdb" }}
+{{- $pdbEnabled = dig "enabled" true $service.pdb }}
+{{- end }}
+{{- if and $auth.name (not $auth.key) }}
+{{- fail (printf "mcpServices.services.%s.authSecret.key is required when name is set" $name) }}
+{{- end }}
 {{- range $envName, $value := $service.env }}
 {{- if not $value }}
 {{- fail (printf "mcpServices.services.%s.env.%s is required" $name $envName) }}
@@ -51,6 +79,10 @@ spec:
     spec:
       serviceAccountName: {{ $service.serviceAccount }}
       automountServiceAccountToken: false
+      {{- with $.Values.llmPlacement.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -78,6 +110,34 @@ spec:
             - {name: EWALLET_MCP_MAX_INFLIGHT, value: {{ $mcp.http.maxInflightRequests | quote }}}
             - {name: EWALLET_MCP_BODY_TIMEOUT_SECONDS, value: {{ $mcp.http.bodyReadTimeoutSeconds | quote }}}
             - {name: EWALLET_MCP_TOOL_GRANTS, value: {{ $service.toolGrants | default dict | toJson | quote }}}
+            {{- with $service.discoverySubjects }}
+            - {name: EWALLET_MCP_DISCOVERY_SUBJECTS, value: {{ toJson . | quote }}}
+            {{- end }}
+            {{- with $service.redisSecret }}
+            # Feast Online Redis connection string (Secret replicated from the
+            # MLOps namespace by ops/llm_agent/g3_mlops_access.sh; never rendered).
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: {{ .name }}, key: {{ .key }}}
+            {{- end }}
+            {{- if $auth.name }}
+            # Service-scoped trusted token table. Credential values are supplied
+            # only by Kubernetes Secret and never rendered into a ConfigMap.
+            - name: EWALLET_MCP_SERVICE_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ ternary $auth.name (printf "mcp-auth-%s-%s" $name $credentialSet) (eq $credentialSet "legacy") }}
+                  key: {{ $auth.key }}
+            {{- end }}
+            {{- if and $.Values.otelCollector.enabled $.Values.otelCollector.injectMcpServices }}
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "otel-collector:4317"}
+            - {name: OTEL_EXPORTER_OTLP_INSECURE, value: "true"}
+            - {name: OTEL_PROPAGATORS, value: "tracecontext,baggage"}
+            {{- else if $sharedOtlpEndpoint }}
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ $sharedOtlpEndpoint | quote }} }
+            - {name: OTEL_EXPORTER_OTLP_INSECURE, value: {{ $mcp.observability.insecure | quote }} }
+            - {name: OTEL_PROPAGATORS, value: "tracecontext,baggage"}
+            {{- end }}
             {{- range $envName, $value := $service.env }}
             - {name: {{ $envName }}, value: {{ $value | quote }}}
             {{- end }}
@@ -106,9 +166,18 @@ spec:
             seccompProfile: {type: RuntimeDefault}
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
+            {{- range $service.registrySnapshots }}
+            - {name: {{ .name }}, mountPath: {{ .mountPath }}, readOnly: true}
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {sizeLimit: 64Mi}
+        {{- range $service.registrySnapshots }}
+        # Immutable Feast registry snapshot (ConfigMap created from a pinned
+        # object with a sha256 check), so the pod needs no GCS IAM.
+        - name: {{ .name }}
+          configMap: {name: {{ .configMap }}}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -122,6 +191,7 @@ spec:
   selector: {app.kubernetes.io/name: {{ $name }}}
   ports:
     - {name: http, port: {{ $mcp.port }}, targetPort: http}
+{{- if $pdbEnabled }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -134,5 +204,8 @@ spec:
   minAvailable: 1
   selector:
     matchLabels: {app.kubernetes.io/name: {{ $name }}}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

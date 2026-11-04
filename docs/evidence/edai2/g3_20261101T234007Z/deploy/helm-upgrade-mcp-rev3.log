@@ -1,0 +1,26 @@
+2026-11-02T07:12:42+07:00
+REVISION	UPDATED                 	STATUS    	CHART                   	APP VERSION 	DESCRIPTION
+1       	Mon Nov  2 03:33:46 2026	superseded	llm-agent-platform-0.1.0	llm-agent-v1	Install complete
+2       	Mon Nov  2 06:45:14 2026	deployed  	llm-agent-platform-0.1.0	llm-agent-v1	Upgrade complete
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                                                                                                                                                            SELECTOR
+drift-mcp         1/1     1            1           3h38m   mcp-server   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac   app.kubernetes.io/name=drift-mcp
+feature-rag-mcp   1/1     1            1           3h38m   mcp-server   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:fc08d763e0387b2e069b1708eac4d7f883a0604bf4e9882d8c02723de7b9c3ac   app.kubernetes.io/name=feature-rag-mcp
+Release "llm-agent-mcp" has been upgraded. Happy Helming!
+NAME: llm-agent-mcp
+LAST DEPLOYED: Mon Nov  2 07:12:43 2026
+NAMESPACE: ewallet-mcp
+STATUS: deployed
+REVISION: 3
+TEST SUITE: None
+REVISION	UPDATED                 	STATUS    	CHART                   	APP VERSION 	DESCRIPTION
+1       	Mon Nov  2 03:33:46 2026	superseded	llm-agent-platform-0.1.0	llm-agent-v1	Install complete
+2       	Mon Nov  2 06:45:14 2026	superseded	llm-agent-platform-0.1.0	llm-agent-v1	Upgrade complete
+3       	Mon Nov  2 07:12:43 2026	deployed  	llm-agent-platform-0.1.0	llm-agent-v1	Upgrade complete
+deployment "drift-mcp" successfully rolled out
+deployment "feature-rag-mcp" successfully rolled out
+NAME                               READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+drift-mcp-768467cb87-8572r         1/1     Running   0          36s   10.216.1.46   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+feature-rag-mcp-655bf579c6-p6494   1/1     Running   0          36s   10.216.1.47   gke-ewallet-dev-cpu-pool-58daed59-9v0c   <none>           <none>
+drift-mcp	asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058	1/1
+feature-rag-mcp	asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058	1/1
+2026-11-02T07:13:23+07:00

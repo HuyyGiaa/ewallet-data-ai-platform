@@ -1,0 +1,2 @@
+config-hash 12191494160716088411 -> 4157129631435116173 after 0s
+pod drift-specialist-canary-65df68f455-l7k9f -> drift-specialist-canary-678944f67-9799m

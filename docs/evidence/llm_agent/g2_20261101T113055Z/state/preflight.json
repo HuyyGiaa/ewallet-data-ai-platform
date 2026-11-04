@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "problems": [],
+  "token_budget": {
+    "rate": {
+      "maxTokens": 150000,
+      "tokensPerFill": 150000,
+      "fillInterval": "1h",
+      "type": "tokens",
+      "key": "llm.requestModel"
+    },
+    "per_pass": {
+      "per_level": 9736,
+      "levels": 4,
+      "pass_total": 42290
+    },
+    "required_with_margin": 138870
+  },
+  "endpoint_selector": "app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm",
+  "routed_base_url": "http://llmd-router-epp.ewallet-agents.svc.cluster.local:8081/v1",
+  "o2_policies_added": [
+    "allow-agentgateway-to-llmd-router",
+    "allow-agentgateway-to-llmd-router-egress",
+    "allow-agentgateway-to-llmd-router-ingress",
+    "allow-ambient-probes-llmd-router",
+    "allow-llmd-router-to-kube-apiserver",
+    "allow-llmd-router-to-vllm",
+    "allow-llmd-router-to-vllm-egress",
+    "allow-llmd-router-to-vllm-ingress"
+  ]
+}

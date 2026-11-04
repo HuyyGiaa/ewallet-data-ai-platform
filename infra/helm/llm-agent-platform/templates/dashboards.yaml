@@ -10,4 +10,11 @@ metadata:
     grafana_dashboard: "1"
 data:
   llm-agent.json: {{ .Files.Get "dashboards/llm-agent.json" | quote }}
+  platform-overview.json: {{ .Files.Get "dashboards/platform-overview.json" | quote }}
+  llm-runtime.json: {{ .Files.Get "dashboards/llm-runtime.json" | quote }}
+  agent-mcp.json: {{ .Files.Get "dashboards/agent-mcp.json" | quote }}
+  ml-platform.json: {{ .Files.Get "dashboards/ml-platform.json" | quote }}
+  distributed-tracing.json: {{ .Files.Get "dashboards/distributed-tracing.json" | quote }}
+  logs-operations.json: {{ .Files.Get "dashboards/logs-operations.json" | quote }}
+  ml-drift-pipeline.json: {{ .Files.Get "dashboards/ml-drift-pipeline.json" | quote }}
 {{- end }}

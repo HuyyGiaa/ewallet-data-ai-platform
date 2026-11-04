@@ -1,0 +1,118 @@
+{{- if and .Values.agents.enabled .Values.agents.autoscaling.enabled }}
+{{- $a := .Values.agents }}
+{{- $s := $a.autoscaling }}
+{{- $names := keys $a.specialists | sortAlpha }}
+{{- $names = append $names $a.coordinator.name }}
+{{- if eq $a.mode "sandbox" }}
+{{- if not (and (ge (int $s.minReplicas) 1) (le (int $s.minReplicas) (int $s.businessHours.replicas)) (le (int $s.businessHours.replicas) (int $s.maxReplicas))) }}
+{{- fail "sandbox autoscaling needs 1 <= minReplicas <= businessHours.replicas <= maxReplicas" }}
+{{- end }}
+{{- if and $s.prometheus.enabled (not (and $s.prometheus.serverAddress $s.prometheus.queryTemplate)) }}
+{{- fail "agents.autoscaling.prometheus needs serverAddress and a read-back queryTemplate" }}
+{{- end }}
+{{- range $name := $names }}
+---
+# SandboxAgent has no scale subresource. Scale the supported Substrate
+# WorkerPool target and keep a warm worker available for actor restoration.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    ewallet.io/agent: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: ate.dev/v1alpha1
+    kind: WorkerPool
+    name: {{ $name }}
+  minReplicaCount: {{ $s.minReplicas }}
+  maxReplicaCount: {{ $s.maxReplicas }}
+  cooldownPeriod: {{ $s.cooldownSeconds }}
+  fallback:
+    failureThreshold: 3
+    replicas: {{ $s.minReplicas }}
+  triggers:
+    - type: cron
+      name: business-hours-warm
+      metadata:
+        timezone: {{ $s.timezone }}
+        start: {{ $s.businessHours.start | quote }}
+        end: {{ $s.businessHours.end | quote }}
+        desiredReplicas: {{ $s.businessHours.replicas | quote }}
+    {{- if $s.prometheus.enabled }}
+    - type: prometheus
+      name: a2a-request-rate
+      metadata:
+        serverAddress: {{ $s.prometheus.serverAddress }}
+        query: {{ printf $s.prometheus.queryTemplate $name | quote }}
+        threshold: {{ $s.prometheus.threshold | quote }}
+    {{- end }}
+{{- end }}
+{{- else }}
+{{- $h := $s.agent }}
+{{- if not (and (ge (int $h.minReplicas) 2) (le (int $h.minReplicas) (int $h.maxReplicas)) (le (int $h.maxReplicas) 3)) }}
+{{- fail "agent autoscaling needs 2 <= minReplicas <= maxReplicas <= 3" }}
+{{- end }}
+{{- if not (and (ge (int $h.targetCPUUtilizationPercentage) 1) (le (int $h.targetCPUUtilizationPercentage) 100)) }}
+{{- fail "agent autoscaling targetCPUUtilizationPercentage must be 1..100" }}
+{{- end }}
+{{- range $name := $names }}
+---
+# kagent owns this Deployment's pod template while HPA owns replicas. The
+# Agent replicas field is omitted so controller reconciliation preserves HPA.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    ewallet.io/agent: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicas: {{ $h.minReplicas }}
+  maxReplicas: {{ $h.maxReplicas }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: {{ $h.scaleUp.stabilizationWindowSeconds }}
+      selectPolicy: Max
+      policies:
+        - type: Pods
+          value: {{ $h.scaleUp.pods }}
+          periodSeconds: {{ $h.scaleUp.periodSeconds }}
+    scaleDown:
+      stabilizationWindowSeconds: {{ $h.scaleDown.stabilizationWindowSeconds }}
+      selectPolicy: Max
+      policies:
+        - type: Pods
+          value: {{ $h.scaleDown.pods }}
+          periodSeconds: {{ $h.scaleDown.periodSeconds }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $h.targetCPUUtilizationPercentage }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    ewallet.io/agent: {{ $name }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      ewallet.io/agent: {{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,7 +29,12 @@ REQUIRED_PROVENANCE = {
     "feature_schema_sha256",
     "git_commit_sha",
     "random_seed",
+    "dvc_revision",
+    "runtime_image",
 }
+# Registered automatically for downstream staging deploys. Production is a
+# separate, human-approved alias and is never set by the pipeline.
+CANDIDATE_ALIAS = "candidate"
 
 
 @dataclass(frozen=True)
@@ -37,6 +44,24 @@ class TrackingResult:
     candidate_run_ids: Mapping[str, str]
     winner_model_uri: str
     registered_model_version: str | None
+
+
+def python_package_snapshot(target: Path, package: Path = Path("ai_platform")) -> Path:
+    """Copy only the package's Python modules for MLflow ``code_paths``.
+
+    Copying the directory itself would also bundle nested virtualenvs, data
+    and caches into every logged model.
+    """
+
+    destination = target / package.name
+    for source in sorted(package.rglob("*.py")):
+        relative = source.relative_to(package)
+        if any(part.startswith(".") or part == "__pycache__" for part in relative.parts):
+            continue
+        output = destination / relative
+        output.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, output)
+    return destination
 
 
 class MlflowTracker:
@@ -157,25 +182,30 @@ class MlflowTracker:
                 result.winner.pipeline, result.winner.threshold
             ).predict(None, input_example)
             signature = infer_signature(input_example, output_example)
-            model_info = mlflow.pyfunc.log_model(
-                name="winner_model",
-                python_model=FraudPyFuncModel(
-                    result.winner.pipeline, result.winner.threshold
-                ),
-                input_example=input_example,
-                signature=signature,
-                code_paths=[str(Path("ai_platform"))],
-                pip_requirements=[
-                    "mlflow==3.17.1",
-                    "pandas==2.3.3",
-                    "scikit-learn==1.7.2",
-                    "cloudpickle==3.1.2",
-                ],
-                metadata={
-                    "threshold": result.winner.threshold,
-                    "winner": result.winner.name,
-                },
-            )
+            code_root = Path(tempfile.mkdtemp(prefix="f9-code-"))
+            try:
+                model_info = mlflow.pyfunc.log_model(
+                    name="winner_model",
+                    python_model=FraudPyFuncModel(
+                        result.winner.pipeline, result.winner.threshold
+                    ),
+                    input_example=input_example,
+                    signature=signature,
+                    code_paths=[str(python_package_snapshot(code_root))],
+                    pip_requirements=[
+                        "mlflow==3.17.1",
+                        "numpy==2.2.6",
+                        "pandas==2.3.3",
+                        "scikit-learn==1.7.2",
+                        "cloudpickle==3.1.2",
+                    ],
+                    metadata={
+                        "threshold": result.winner.threshold,
+                        "winner": result.winner.name,
+                    },
+                )
+            finally:
+                shutil.rmtree(code_root, ignore_errors=True)
             version: str | None = None
             if self.registry_mode == "winner_only":
                 registered = mlflow.register_model(
@@ -189,6 +219,8 @@ class MlflowTracker:
                     "snapshot_id",
                     "snapshot_manifest_sha256",
                     "git_commit_sha",
+                    "dvc_revision",
+                    "runtime_image",
                 ):
                     client.set_model_version_tag(
                         self.registered_model_name,
@@ -196,6 +228,9 @@ class MlflowTracker:
                         key,
                         str(provenance[key]),
                     )
+                client.set_registered_model_alias(
+                    self.registered_model_name, CANDIDATE_ALIAS, version
+                )
             return TrackingResult(
                 experiment_id=experiment.experiment_id,
                 parent_run_id=parent.info.run_id,

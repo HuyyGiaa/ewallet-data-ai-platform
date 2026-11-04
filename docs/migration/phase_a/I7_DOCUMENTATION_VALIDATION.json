@@ -1,0 +1,24 @@
+{
+  "absolute_local_references": 0,
+  "duplicate_registry_paths": [],
+  "external_links": 9,
+  "invalid_statuses": [],
+  "markdown_links_checked": 305,
+  "missing_link_count": 0,
+  "missing_links": [],
+  "missing_registry_paths": [],
+  "navigation_missing_links": [],
+  "registry_rows": 137,
+  "schema_version": "1.0",
+  "status": "PASS",
+  "status_counts": {
+    "CURRENT": 5,
+    "HISTORICAL": 30,
+    "PARTIAL": 35,
+    "PROPOSED": 1,
+    "UNKNOWN": 66
+  },
+  "unique_paths": 137,
+  "unsafe_repository_escapes": [],
+  "valid_relative_links": 296
+}

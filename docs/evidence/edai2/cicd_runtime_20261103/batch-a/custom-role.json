@@ -1,0 +1,12 @@
+{
+  "description": "Create, read and cancel Cloud Build builds; nothing else",
+  "etag": "BwZfWWUetLk=",
+  "includedPermissions": [
+    "cloudbuild.builds.create",
+    "cloudbuild.builds.get",
+    "cloudbuild.builds.update"
+  ],
+  "name": "projects/ewallet-data-ai-platform-hg26/roles/ewalletCicdBuildSubmitter",
+  "stage": "GA",
+  "title": "E-Wallet CI/CD build submitter"
+}

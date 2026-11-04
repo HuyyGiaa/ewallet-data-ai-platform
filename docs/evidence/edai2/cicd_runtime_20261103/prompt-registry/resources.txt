@@ -1,0 +1,6 @@
+pod/prompt-registry-agentregistry-8687d9b776-9fq7r   1/1   Running   0     22s
+pod/prompt-registry-db-558448445c-98n5p              1/1   Running   0     49s
+persistentvolumeclaim/prompt-registry-db   Bound   pvc-831247e8-eef1-4749-a2fa-2c942b86c936   1Gi   RWO   standard-rwo   <unset>   49s
+service/prompt-registry-agentregistry   ClusterIP   34.118.229.99    <none>   12121/TCP,31313/TCP   22s
+service/prompt-registry-db              ClusterIP   34.118.227.124   <none>   5432/TCP              48s
+prompt-registry   persistentvolumeclaims: 1/1, requests.cpu: 200m/500m, requests.memory: 320Mi/1Gi, requests.storage: 1Gi/2Gi, services.loadbalancers: 0/0, services.nodeports: 0/0   limits.cpu: 1/2, limits.memory: 1Gi/2Gi   95m

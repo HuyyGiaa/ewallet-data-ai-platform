@@ -50,10 +50,22 @@ data:
 {{- define "llm-agent-platform.mcpGatewayConfig" -}}
 {{- $ns := .Values.namespace.name }}
 {{- $g := .Values.mcpGateway }}
+{{- $authMode := $g.authorizationMode | default "mesh-identity" }}
+{{- if not (has $authMode (list "mesh-identity" "ambient-backend-token")) }}
+{{- fail "mcpGateway.authorizationMode must be mesh-identity or ambient-backend-token" }}
+{{- end }}
+{{- if and (eq $authMode "ambient-backend-token") (not .Values.namespace.ambient) }}
+{{- fail "mcpGateway.authorizationMode ambient-backend-token requires namespace.ambient=true" }}
+{{- end }}
+{{- $backendNs := default $ns $g.backendNamespace }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" $backendNs) }}
+{{- fail "mcpGateway.backendNamespace must be a Kubernetes DNS label" }}
+{{- end }}
 # yaml-language-server: $schema=https://agentgateway.dev/schema/config
 config:
   logging:
     format: json
+{{- include "llm-agent-platform.gatewayTracing" $ }}
 gateways:
   default:
     port: {{ $g.port }}
@@ -61,6 +73,13 @@ routes:
 {{- range $server := keys .Values.agents.mcpServers | sortAlpha }}
 {{- $route := index $.Values.agents.mcpServers $server }}
 {{- $rules := list }}
+{{- if eq $authMode "ambient-backend-token" }}
+{{- /* ztunnel AuthorizationPolicies admit only the exact Specialist and
+kagent-controller SPIFFE identities. agentgateway cannot see source.identity
+under Ambient L4, so the MCP backend's credential subject filters tools and
+denies discovery-only subjects from tools/call. */}}
+{{- $rules = append $rules "true" }}
+{{- else }}
 {{- range $agent := keys $.Values.agents.specialists | sortAlpha }}
 {{- $tools := index (index $.Values.agents.specialists $agent).tools $server | default list }}
 {{- $sa := index $g.callerServiceAccounts $agent | default "" }}
@@ -69,6 +88,12 @@ routes:
 {{- fail (printf "mcpGateway.callerServiceAccounts.%s is not a ServiceAccount name" $agent) }}
 {{- end }}
 {{- $rules = append $rules (printf "has(source.identity) && source.identity.namespace == %q && source.identity.serviceAccount == %q && mcp.tool.name in %s" $ns $sa (toJson $tools)) }}
+{{- end }}
+{{- end }}
+{{- range $caller := $g.discoveryCallers | default list }}
+{{- /* List-only callers (kagent controller): the gateway cannot tell tools/list
+from tools/call, so the MCP server's discovery grant refuses every call. */}}
+{{- $rules = append $rules (printf "has(source.identity) && source.identity.namespace == %q && source.identity.serviceAccount == %q" $caller.namespace $caller.serviceAccount) }}
 {{- end }}
 {{- end }}
 - name: {{ $server }}
@@ -85,16 +110,19 @@ routes:
       type: requests
     # Client-supplied identity headers and credentials never reach a server
     # (the 2026-10-31 local smoke showed a client Authorization header passing
-    # through); the caller header is set only from the verified mesh identity.
+    # through). Only mesh-identity mode reconstructs a caller header; Ambient
+    # mode leaves it absent and authenticates the backend service token.
     requestHeaderModifier:
       remove:
       - authorization
       - x-ewallet-actor
       - x-ewallet-caller
+    {{- if eq $authMode "mesh-identity" }}
     transformations:
       request:
         set:
           x-ewallet-caller: 'source.identity.serviceAccount'
+    {{- end }}
     mcpAuthorization:
       rules:
       {{- range $rule := $rules }}
@@ -108,30 +136,71 @@ routes:
       targets:
       - name: {{ trimSuffix "-mcp" $server }}
         mcp:
-          host: {{ printf "http://%s.%s.svc.cluster.local:%d/mcp" $server $ns (int $.Values.mcpServices.port) }}
+          host: {{ printf "http://%s.%s.svc.cluster.local:%d/mcp" $server $backendNs (int $.Values.mcpServices.port) }}
 {{- end }}
 {{- end }}
 
 {{- define "llm-agent-platform.a2aGatewayConfig" -}}
 {{- $ns := .Values.namespace.name }}
 {{- $g := .Values.a2aGateway }}
-{{- $rules := list }}
+{{- $meshCallerConfigured := false }}
 {{- range $agent := keys $g.callerServiceAccounts | sortAlpha }}
 {{- $sa := index $g.callerServiceAccounts $agent }}
 {{- if $sa }}
-{{- $rules = append $rules (printf "has(source.identity) && source.identity.namespace == %q && source.identity.serviceAccount == %q" $ns $sa) }}
+{{- $meshCallerConfigured = true }}
 {{- end }}
 {{- end }}
 # yaml-language-server: $schema=https://agentgateway.dev/schema/config
 config:
   logging:
     format: json
+{{- include "llm-agent-platform.gatewayTracing" $ }}
 gateways:
   default:
     port: {{ $g.port }}
 routes:
-# Native kagent A2A (A2A_BASE_URL/api/a2a/<namespace>/<agent>) for this
-# namespace only; agent cards are rewritten to point at this gateway.
+# kagent 0.10.3 proxy.url rewrites Agent-tool destinations to this gateway and
+# supplies x-kagent-host. Each declared Specialist has an exact route; there is
+# no dynamic-forward-proxy fallback. The A2A policy rewrites Agent Cards back to
+# the gateway URL, while the kagent client retains x-kagent-host for invocation.
+# Under Istio Ambient the caller SPIFFE identity terminates at ztunnel and is
+# enforced by the chart's exact AuthorizationPolicy before this process; it is
+# not exposed as agentgateway source.identity. The application route therefore
+# opens only when a mesh caller is configured, and otherwise remains fail-closed.
+{{- range $agent := keys .Values.agents.specialists | sortAlpha }}
+- name: {{ $agent }}
+  matches:
+  - headers:
+    - name: x-kagent-host
+      value:
+        exact: {{ printf "%s.%s" $agent $ns | quote }}
+  policies:
+    a2a: {}
+    timeout:
+      requestTimeout: {{ $g.requestTimeout }}
+    localRateLimit:
+    - maxTokens: {{ $g.rateLimit.capacity }}
+      tokensPerFill: {{ $g.rateLimit.refill }}
+      fillInterval: {{ $g.rateLimit.interval }}
+      type: requests
+    requestHeaderModifier:
+      remove:
+      - authorization
+      - x-ewallet-actor
+      - x-ewallet-caller
+      - x-kagent-host
+    authorization:
+      rules:
+      {{- if $meshCallerConfigured }}
+      - 'true'
+      {{- else }}
+      - 'false'
+      {{- end }}
+  backends:
+  - host: {{ printf "%s.%s.svc.cluster.local:8080" $agent $ns }}
+{{- end }}
+# Preserve the controller A2A entrypoint for external/controller-originated
+# requests; Agent-tool delegation uses only the exact Specialist routes above.
 - name: kagent-a2a
   matches:
   - path:
@@ -150,10 +219,11 @@ routes:
       - authorization
       - x-ewallet-actor
       - x-ewallet-caller
+      - x-kagent-host
     authorization:
       rules:
-      {{- range $rule := $rules }}
-      - {{ $rule | squote }}
+      {{- if $meshCallerConfigured }}
+      - 'true'
       {{- else }}
       - 'false'
       {{- end }}

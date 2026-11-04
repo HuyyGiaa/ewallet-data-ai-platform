@@ -1,0 +1,90 @@
+{
+  "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)#upstreamLineage": {
+    "version": 0,
+    "aspect": {
+      "com.linkedin.dataset.UpstreamLineage": {
+        "upstreams": [
+          {
+            "type": "TRANSFORMED",
+            "auditStamp": {
+              "actor": "urn:li:corpuser:unknown",
+              "time": 0
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)#datasetProperties": {
+    "version": 0,
+    "aspect": {
+      "com.linkedin.dataset.DatasetProperties": {
+        "name": "fraud_policy_chunks fraud-policy-feast-v1",
+        "description": "Fraud-policy chunks and embeddings published through Feast (offline parquet + online)",
+        "customProperties": {
+          "corpus_revision": "fraud-policy-v1-20261030",
+          "embedding_model_id": "sentence-transformers/all-MiniLM-L6-v2",
+          "online_store": "sqlite",
+          "embedding_dimensions": "384",
+          "airflow_run_id": "local-airflow-datahub-20261101-r2",
+          "source_git_sha": "0d64117be3629ffc87fb93a658050930eda1299e",
+          "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+          "feature_index_revision": "fraud-policy-feast-v1",
+          "row_count": "4"
+        },
+        "qualifiedName": "/tmp/rag-dag-test.ebtADj/feast/fraud-policy-feast-v1/chunks.parquet",
+        "tags": []
+      }
+    }
+  },
+  "urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp)#dataFlowInfo": {
+    "version": 0,
+    "aspect": {
+      "com.linkedin.datajob.DataFlowInfo": {
+        "name": "rag_fraud_policy",
+        "env": "PROD",
+        "customProperties": {
+          "airflow_run_id": "local-airflow-datahub-20261101-r2",
+          "orchestrator": "airflow",
+          "source_git_sha": "0d64117be3629ffc87fb93a658050930eda1299e"
+        }
+      }
+    }
+  },
+  "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),publish_feast_features)#dataJobInputOutput": {
+    "version": 0,
+    "aspect": {
+      "com.linkedin.datajob.DataJobInputOutput": {
+        "inputDatasets": [],
+        "outputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+        ]
+      }
+    }
+  },
+  "graphql_upstream_lineage": {
+    "data": {
+      "dataset": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_local.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+        "lineage": {
+          "total": 2,
+          "relationships": [
+            {
+              "entity": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+              }
+            },
+            {
+              "entity": {
+                "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),publish_feast_features)"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "extensions": {}
+  }
+}

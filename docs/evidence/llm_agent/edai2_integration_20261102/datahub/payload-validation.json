@@ -1,0 +1,15 @@
+{
+  "verdict": "PAYLOAD_VERIFIED",
+  "records": 25,
+  "quality_checks": 5,
+  "aspects": [
+    "assertionInfo",
+    "assertionRunEvent",
+    "dataFlowInfo",
+    "dataJobInfo",
+    "dataJobInputOutput",
+    "datasetProperties",
+    "schemaMetadata",
+    "upstreamLineage"
+  ]
+}

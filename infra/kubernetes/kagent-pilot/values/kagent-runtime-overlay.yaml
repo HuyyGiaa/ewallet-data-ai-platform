@@ -1,0 +1,50 @@
+# Overlay for adding the bounded pilot to the existing production-owned kagent
+# release. Apply only with --reuse-values after a live ownership/readback gate.
+rbac:
+  namespaces:
+    - kagent
+    - ewallet-agents
+    - kagent-pilot
+
+controller:
+  watchNamespaces:
+    - ewallet-agents
+    - kagent-pilot
+  substrate:
+    enabled: true
+    ateApiEndpoint: dns:///api.ate-system.svc:443
+    atenetRouterURL: http://atenet-router.ate-system.svc:80
+    ateApiInsecure: false
+    ateApiTokenAudience: api.ate-system.svc
+    ateApiServer:
+      namespace: ate-system
+      serviceAccount: ate-api-server
+    defaultWorkerPool:
+      namespace: kagent-pilot
+      name: kagent-pilot
+  env:
+    - name: SSL_CERT_FILE
+      value: /etc/substrate-ca/ca.crt
+  volumes:
+    - name: substrate-ateapi-ca
+      configMap:
+        name: substrate-ateapi-ca
+  volumeMounts:
+    - name: substrate-ateapi-ca
+      mountPath: /etc/substrate-ca
+      readOnly: true
+
+substrateWorkerPool:
+  create: true
+  name: kagent-pilot
+  replicas: 1
+  ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc
+  sandboxClass: gvisor
+  template:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1500m
+        memory: 2Gi

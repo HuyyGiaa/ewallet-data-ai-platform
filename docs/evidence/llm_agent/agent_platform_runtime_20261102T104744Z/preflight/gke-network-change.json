@@ -1,0 +1,13 @@
+{
+  "captured_at": "2026-11-02T10:47:44Z",
+  "cluster": "ewallet-dev",
+  "location": "asia-southeast1-b",
+  "public_ipv4": "171.239.81.235",
+  "authorized_networks_enabled": true,
+  "gcp_public_cidrs_access_enabled": true,
+  "private_endpoint": "10.20.0.8",
+  "public_endpoint": "34.143.148.210",
+  "original_cidrs": ["113.188.119.38/32"],
+  "temporary_cidrs": ["113.188.119.38/32", "171.239.81.235/32"],
+  "mutation": "Added only the verified current laptop IPv4 as a temporary /32; existing CIDRs and endpoint settings were preserved."
+}

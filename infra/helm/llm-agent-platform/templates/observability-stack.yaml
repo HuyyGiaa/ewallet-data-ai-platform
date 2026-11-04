@@ -1,0 +1,279 @@
+{{- if .Values.observabilityStack.enabled }}
+{{- $s := .Values.observabilityStack }}
+{{- range $name := list "prometheus" "loki" "tempo" "grafana" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: observability-{{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels: {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+automountServiceAccountToken: {{ and (eq $name "prometheus") $s.clusterMetrics.enabled }}
+---
+{{- end }}
+{{- if $s.clusterMetrics.enabled }}
+{{- $apiCidrs := dig "apiServer" "cidrs" list $s.clusterMetrics }}
+{{- if not $apiCidrs }}
+{{- fail "observabilityStack.clusterMetrics.apiServer.cidrs must list the kubernetes Service ClusterIP and endpoint /32s" }}
+{{- end }}
+{{- $kubeletCidrs := dig "kubelet" "cidrs" list $s.clusterMetrics }}
+{{- if not $kubeletCidrs }}
+{{- fail "observabilityStack.clusterMetrics.kubelet.cidrs must list the node subnet (kubelet :10250)" }}
+{{- end }}
+---
+# Prometheus: node discovery at the API server, metrics from the kubelets.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability-prometheus-to-kube-apiserver
+  namespace: {{ .Values.namespace.name }}
+  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: prometheus}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- range $apiCidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: 443}]
+    - to:
+        {{- range $kubeletCidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports: [{protocol: TCP, port: 10250}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-observability-prometheus
+rules:
+  # Node discovery plus the kubelet `metrics` subresource only: the kubelet
+  # (Webhook authorization) maps /metrics and /metrics/cadvisor to nodes/metrics.
+  # No nodes/proxy (which would also authorize other kubelet endpoints), no
+  # pods, services, endpoints, Secrets or any namespaced object.
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [nodes/metrics]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-observability-prometheus
+subjects:
+  - {kind: ServiceAccount, name: observability-prometheus, namespace: {{ .Values.namespace.name }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Release.Name }}-observability-prometheus}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-config
+  namespace: {{ .Values.namespace.name }}
+  labels: {{- include "llm-agent-platform.labels" . | nindent 4 }}
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+    scrape_configs:
+      - job_name: otel-collector
+        metrics_path: /metrics
+        static_configs: [{targets: ['otel-collector:{{ .Values.otelCollector.prometheusPort }}']}]
+      - job_name: agentgateway
+        metrics_path: /metrics
+        static_configs: [{targets: ['agentgateway:15020']}]
+      - job_name: vllm
+        metrics_path: /metrics
+        static_configs: [{targets: ['vllm-primary:8000', 'vllm-fallback:8000']}]
+      {{- if $s.mlPlatform.enabled }}
+      - job_name: fraud-api
+        metrics_path: /metrics
+        static_configs: [{targets: [{{ $s.mlPlatform.fraudApiMetricsTarget | quote }}]}]
+      - job_name: kserve-fraud-detector
+        metrics_path: /metrics
+        static_configs: [{targets: [{{ $s.mlPlatform.kserveMetricsTarget | quote }}]}]
+      {{- end }}
+      {{- if and .Values.llmd.enabled (eq .Values.llmd.mode "standalone") }}
+      - job_name: llmd-epp
+        metrics_path: /metrics
+        static_configs: [{targets: ['{{ .Values.llmd.standalone.service }}:9090']}]
+      {{- end }}
+      {{- if $s.clusterMetrics.enabled }}
+      # Direct kubelet scrape (<InternalIP>:10250), TLS verified with the cluster
+      # CA, as GKE's own managed collector does on this cluster.
+      - job_name: kubernetes-cadvisor
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        authorization: {credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token}
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: false
+        kubernetes_sd_configs: [{role: node}]
+        relabel_configs:
+          - {source_labels: [__meta_kubernetes_node_name], target_label: node}
+        # Bounded: CPU, RAM, network and disk series only.
+        metric_relabel_configs:
+          - {source_labels: [__name__], action: keep, regex: 'container_(cpu_usage_seconds_total|memory_working_set_bytes|spec_memory_limit_bytes|network_(receive|transmit)_bytes_total|fs_(reads|writes)_bytes_total|fs_(usage|limit)_bytes)'}
+      # Kubelet /metrics: PVC disk usage only.
+      - job_name: kubernetes-kubelet-volumes
+        scheme: https
+        metrics_path: /metrics
+        authorization: {credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token}
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: false
+        kubernetes_sd_configs: [{role: node}]
+        relabel_configs:
+          - {source_labels: [__meta_kubernetes_node_name], target_label: node}
+        metric_relabel_configs:
+          - {source_labels: [__name__], action: keep, regex: 'kubelet_volume_stats_(used|capacity|available)_bytes'}
+      {{- with (dig "kubeStateMetricsTarget" "" $s.clusterMetrics) }}
+      - job_name: kube-state-metrics
+        metrics_path: /metrics
+        static_configs: [{targets: ['{{ . }}']}]
+      {{- end }}
+      {{- end }}
+  loki.yaml: |
+    auth_enabled: false
+    server: {http_listen_port: 3100}
+    common:
+      path_prefix: /tmp/loki
+      storage: {filesystem: {chunks_directory: /tmp/loki/chunks, rules_directory: /tmp/loki/rules}}
+      replication_factor: 1
+      ring: {kvstore: {store: inmemory}}
+    schema_config:
+      configs:
+        - {from: '2024-01-01', store: tsdb, object_store: filesystem, schema: v13, index: {prefix: index_, period: 24h}}
+    limits_config: {retention_period: {{ $s.retention }}}
+    compactor: {working_directory: /tmp/loki/compactor, retention_enabled: true, delete_request_store: filesystem}
+  tempo.yaml: |
+    server: {http_listen_port: 3200}
+    distributor: {receivers: {otlp: {protocols: {grpc: {endpoint: 0.0.0.0:4317}, http: {endpoint: 0.0.0.0:4318}}}}}
+    ingester: {max_block_duration: 5m}
+    compactor: {compaction: {block_retention: {{ $s.retention }}}}
+    storage: {trace: {backend: local, local: {path: /tmp/tempo/blocks}, wal: {path: /tmp/tempo/wal}}}
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - {name: Prometheus, uid: prometheus, type: prometheus, access: proxy, url: 'http://prometheus:9090', isDefault: true}
+      - {name: Loki, uid: loki, type: loki, access: proxy, url: 'http://loki:3100'}
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        access: proxy
+        url: http://tempo:3200
+        jsonData:
+          httpMethod: GET
+          tracesToLogsV2: {datasourceUid: loki, spanStartTimeShift: -1m, spanEndTimeShift: 1m, filterByTraceID: true}
+          tracesToMetrics: {datasourceUid: prometheus, spanStartTimeShift: -1m, spanEndTimeShift: 1m}
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - {name: ewallet, folder: E-Wallet, type: file, options: {path: /var/lib/grafana/dashboards}}
+---
+{{- range $name, $port := dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000 }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels: {app.kubernetes.io/name: {{ $name }}}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: {{ $name }}}
+  ports:
+    - {name: http, port: {{ $port }}, targetPort: http}
+    {{- if eq $name "tempo" }}
+    - {name: otlp-grpc, port: 4317, targetPort: otlp-grpc}
+    - {name: otlp-http, port: 4318, targetPort: otlp-http}
+    {{- end }}
+---
+{{- end }}
+{{- range $name := list "prometheus" "loki" "tempo" "grafana" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels: {app.kubernetes.io/name: {{ $name }}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app.kubernetes.io/name: {{ $name }}}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: {{ $name }}}
+      {{- if or (eq $name "prometheus") (eq $name "grafana") }}
+      annotations:
+        checksum/observability-config: {{ toJson (dict "observabilityStack" $s "otelCollector" $.Values.otelCollector "llmd" $.Values.llmd) | sha256sum }}
+        {{- if eq $name "grafana" }}
+        checksum/dashboards: {{ include (print $.Template.BasePath "/dashboards.yaml") $ | sha256sum }}
+        {{- end }}
+      {{- end }}
+    spec:
+      serviceAccountName: observability-{{ $name }}
+      automountServiceAccountToken: {{ and (eq $name "prometheus") $s.clusterMetrics.enabled }}
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: {{ $name }}
+          image: {{ index $s $name "image" }}
+          imagePullPolicy: IfNotPresent
+          {{- if eq $name "prometheus" }}
+          args: [--config.file=/etc/prometheus/prometheus.yaml, --storage.tsdb.path=/tmp/prometheus, --storage.tsdb.retention.time={{ $s.retention }}]
+          {{- else if eq $name "loki" }}
+          args: [-config.file=/etc/observability/loki.yaml]
+          {{- else if eq $name "tempo" }}
+          args: [-config.file=/etc/observability/tempo.yaml]
+          {{- end }}
+          {{- if eq $name "grafana" }}
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom: {secretKeyRef: {name: {{ $s.adminSecretName }}, key: username}}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $s.adminSecretName }}, key: password}}
+            - {name: GF_PATHS_DATA, value: /tmp/grafana-data}
+            - {name: GF_PATHS_LOGS, value: /tmp/grafana-logs}
+            - {name: GF_PATHS_PLUGINS, value: /tmp/grafana-plugins}
+          {{- end }}
+          ports:
+            - {name: http, containerPort: {{ index (dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000) $name }}}
+            {{- if eq $name "tempo" }}
+            - {name: otlp-grpc, containerPort: 4317}
+            - {name: otlp-http, containerPort: 4318}
+            {{- end }}
+          resources: {{- toYaml (index $s $name "resources") | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            {{- if eq $name "prometheus" }}
+            # The pinned image declares USER nobody; a numeric identity is
+            # required for kubelet to enforce runAsNonRoot.
+            runAsUser: 65534
+            runAsGroup: 65534
+            {{- end }}
+            capabilities: {drop: [ALL]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: config, mountPath: /etc/observability, readOnly: true}
+            {{- if eq $name "prometheus" }}
+            - {name: config, mountPath: /etc/prometheus/prometheus.yaml, subPath: prometheus.yaml, readOnly: true}
+            {{- end }}
+            {{- if eq $name "grafana" }}
+            - {name: config, mountPath: /etc/grafana/provisioning/datasources/datasources.yaml, subPath: datasources.yaml, readOnly: true}
+            - {name: config, mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml, subPath: dashboards.yaml, readOnly: true}
+            - {name: dashboards, mountPath: /var/lib/grafana/dashboards, readOnly: true}
+            {{- end }}
+            - {name: scratch, mountPath: /tmp}
+      volumes:
+        - {name: config, configMap: {name: observability-config}}
+        - {name: scratch, emptyDir: {sizeLimit: 1Gi}}
+        {{- if eq $name "grafana" }}
+        - {name: dashboards, configMap: {name: llm-agent-dashboards}}
+        {{- end }}
+---
+{{- end }}
+{{- end }}

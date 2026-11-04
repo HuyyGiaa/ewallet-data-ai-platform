@@ -1,0 +1,123 @@
+{
+  "title": "E-Wallet ML Platform",
+  "uid": "ewallet-ml-platform",
+  "schemaVersion": 41,
+  "tags": [
+    "ewallet",
+    "ml",
+    "runtime"
+  ],
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Fraud API requests per second",
+      "telemetryStatus": "source-verified",
+      "description": "Row 46: req/s of the Fraud API web endpoint (job fraud-api), by outcome.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(fraud_inference_requests_total{job=\"fraud-api\"}[1m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Fraud API total requests (time range)",
+      "telemetryStatus": "source-verified",
+      "description": "Row 46: number of Fraud API requests in the selected range.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(fraud_inference_requests_total{job=\"fraud-api\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Fraud API failed requests (time range)",
+      "telemetryStatus": "source-verified",
+      "description": "Row 46: Fraud API requests that ended in an error (e.g. 424 missing_feature, 5xx).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(fraud_inference_requests_total{job=\"fraud-api\",outcome=\"error\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Fraud API request outcomes",
+      "telemetryStatus": "runtime-pending",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(fraud_inference_requests_total[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Feast and KServe client latency p95",
+      "telemetryStatus": "source-verified",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, backend, operation) (rate(ewallet_backend_client_latency_seconds_bucket[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Backend errors",
+      "telemetryStatus": "source-verified",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (backend, operation) (rate(ewallet_backend_client_requests_total{outcome=\"error\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Feast feature freshness",
+      "telemetryStatus": "source-verified",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ewallet_feast_feature_freshness_seconds_bucket[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "MLflow and KFP health",
+      "telemetryStatus": "runtime-pending",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (http_url, http_status_code) (ewallet_httpcheck_status{http_status_class=\"2xx\"})"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+project: ewallet_fraud_online
+project_description: Latest current fraud features served by Feast Online and Redis.
+registry:
+  path: ${EWALLET_FEAST_REGISTRY}
+  cache_ttl_seconds: 60
+provider: gcp
+offline_store:
+  type: dask
+online_store:
+  type: redis
+  connection_string: ${EWALLET_REDIS_CONNECTION_STRING}
+  # Feast 0.66 only calls Redis EXPIRE when this value is a positive integer.
+  # Keep keys persistent; retrieval freshness is enforced from feature timestamps.
+  key_ttl_seconds: null
+entity_key_serialization_version: 3
+auth:
+  type: no_auth

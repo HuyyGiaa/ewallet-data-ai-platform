@@ -1,0 +1,5 @@
+priority,rubric_rows,requirement,source_status,current_runtime_status,evidence_or_gate
+P1,"8;16;21;26;40;41","Agent registry; lifecycle; cards; MCP publication; UI/API health",PASS,"HISTORICAL_VERIFIED;CURRENT_READBACK_BLOCKED","Fail-closed probe and contract; prior G3 runtime bindings; GKE authorized-network blocker"
+P2,"19;25","Specialist and Coordinator multi-replica autoscaling",PASS,BLOCKED,"Three native HPA/PDB resources render at 2-3 replicas; needs approved rollout and measured scale/state/security/G3 regression"
+P3,20,"Isolated agent sandbox",PASS_SOURCE,BLOCKED_PENDING_OWNER_APPROVAL,"Deterministic no-tool SandboxAgent pilot; installation adds cluster-scoped/privileged Substrate resources"
+P4,27,"Warm-up; Agent Fleet/Substrate",PASS_FEASIBILITY,BLOCKED_PENDING_OWNER_APPROVAL,"kagent 0.10.3/Substrate 0.0.9 pinned render; 80 documents; 25 cluster-scoped; privileged hostPath atelet"

@@ -20,6 +20,7 @@ import math
 from pathlib import Path
 import random
 import unittest
+from unittest.mock import MagicMock, patch
 
 FASTAPI = importlib.util.find_spec("fastapi") is not None and importlib.util.find_spec("pydantic") is not None
 
@@ -64,7 +65,12 @@ if FASTAPI:
     )
     from ai_platform.llm_agent.tools.runtime import ToolExecutor, ToolOutcome
     from ai_platform.llm_agent.tools.security import AuthenticationError, Principal, ToolGrants
-    from ai_platform.llm_agent.tools.service import create_drift_app, create_tool_app, versions_from_env
+    from ai_platform.llm_agent.tools.service import (
+        create_drift_app,
+        create_feature_rag_app,
+        create_tool_app,
+        versions_from_env,
+    )
     from ai_platform.ml.training.contract import HISTORICAL_FEATURE_COLUMNS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -245,6 +251,40 @@ def feature_rag(provider=None, predictor=None, retriever=None, **kwargs):
 
 @unittest.skipUnless(FASTAPI, "FastAPI/Pydantic unavailable: run with the ewallet-ml interpreter")
 class ExecutorTests(unittest.TestCase):
+    def test_production_factory_injects_reviewed_kserve_wire_contract(self):
+        from ai_platform.inference.wire import FraudV2WireContract
+
+        environment = {
+            **ENV,
+            "EWALLET_FEAST_REPO_PATH": str(ROOT / "ai_platform/features/feast/online_repo"),
+            "EWALLET_KSERVE_BASE_URL": "http://fraud-detector-predictor.ml-platform.svc",
+            "EWALLET_MODEL_NAME": "fraud-detector",
+            "EWALLET_MODEL_VERSION": "1",
+            "EWALLET_RAG_MANIFEST": str(MANIFEST),
+        }
+        store = MagicMock()
+        features = MagicMock()
+        predictor = MagicMock()
+        retriever = MagicMock()
+        with (
+            patch("feast.FeatureStore", return_value=store),
+            patch("ai_platform.inference.config.configure_feast_redis_timeouts"),
+            patch("ai_platform.inference.feast_online.FeastOnlineAdapter", return_value=features),
+            patch("ai_platform.inference.kserve.KServeV2Client", return_value=predictor) as client,
+            patch("ai_platform.llm_agent.tools.service._rag_feature_store", return_value=store),
+            patch("ai_platform.llm_agent.tools.service._knowledge_retriever", return_value=retriever),
+            patch("ai_platform.llm_agent.tools.service._production_app", side_effect=lambda _, handlers, __: handlers),
+        ):
+            handlers = create_feature_rag_app(environment)
+
+        self.assertEqual(tuple(handler.name for handler in handlers), (
+            "feature_lookup", "fraud_scoring", "knowledge_search", "chunk_lookup",
+        ))
+        wire_contract = client.call_args.kwargs["wire_contract"]
+        self.assertIsInstance(wire_contract, FraudV2WireContract)
+        self.assertEqual(len(wire_contract.input_columns), 41)
+        self.assertIs(handlers[1]._predictor._predictor, predictor)
+
     def test_construction_bounds(self):
         tool = FeatureLookupTool(FixtureFeatureProvider())
         for kwargs in ({"max_concurrency": 0}, {"max_concurrency": 65}, {"max_timeout_ms": 99}, {"max_timeout_ms": 120_001}):
@@ -713,6 +753,30 @@ class ServiceBoundaryTests(unittest.TestCase):
         self.assertEqual((status, body["status"], body["request_id"]), (200, "ok", "rest-1"))
         self.assertEqual(body["versions"]["image_digest"], ENV["EWALLET_IMAGE_DIGEST"])
 
+    def test_telemetry_export_failure_does_not_change_tool_response(self):
+        class FailingTelemetry:
+            def record_tool_call(self, **_):
+                raise RuntimeError("exporter unavailable with Bearer secret")
+
+        stream = io.StringIO()
+        logger = logging.getLogger("test.telemetry.failure")
+        logger.handlers = [logging.StreamHandler(stream)]
+        logger.propagate = False
+        app = tool_app(feature_rag(), telemetry=FailingTelemetry(), logger=logger)
+        status, body = run(asgi(
+            app,
+            "POST",
+            "/v1/tools/fraud_scoring",
+            {"transaction": transaction()},
+            headers={**ACTOR, "x-request-id": "rest-telemetry-failure"},
+        ))
+        self.assertEqual(
+            (status, body["status"], body["request_id"]),
+            (200, "ok", "rest-telemetry-failure"),
+        )
+        self.assertIn("telemetry_export_failed", stream.getvalue())
+        self.assertNotIn("Bearer secret", stream.getvalue())
+
     def test_rest_boundary_failures(self):
         status, body = self.call("POST", "/v1/tools/feature_lookup", {"transaction": transaction()})
         self.assertEqual((status, body["code"]), (401, "authentication_required"))
@@ -750,6 +814,42 @@ class ServiceBoundaryTests(unittest.TestCase):
         self.assertFalse(result["isError"])
         self.assertEqual(json.loads(result["content"][0]["text"]), result["structuredContent"])
         self.assertTrue(result["structuredContent"]["citations"])
+
+    def test_mcp_normalizes_only_exact_flat_transaction_envelopes(self):
+        for name, arguments in (
+            ("feature_lookup", {**transaction(), "feature_names": [HISTORICAL_FEATURE_COLUMNS[0]]}),
+            ("fraud_scoring", transaction()),
+            ("feature_lookup", {"transaction": transaction()}),
+        ):
+            with self.subTest(name=name, shape="flat" if "transaction" not in arguments else "nested"):
+                status, body = self.call(
+                    "POST", "/mcp", rpc("tools/call", {"name": name, "arguments": arguments}), headers=ACTOR
+                )
+                self.assertEqual(status, 200)
+                self.assertFalse(body["result"]["isError"])
+
+    def test_mcp_rejects_ambiguous_or_extended_flat_transaction_envelopes(self):
+        cases = (
+            {"transaction": transaction(), "amount": 1.0},
+            {**transaction(), "unexpected": "must-not-be-wrapped"},
+        )
+        for arguments in cases:
+            with self.subTest(arguments=set(arguments)):
+                status, body = self.call(
+                    "POST", "/mcp",
+                    rpc("tools/call", {"name": "feature_lookup", "arguments": arguments}), headers=ACTOR,
+                )
+                self.assertEqual(status, 200)
+                self.assertTrue(body["result"]["isError"])
+                self.assertEqual(body["result"]["structuredContent"]["result"]["error"]["code"],
+                                 "invalid_arguments")
+
+    def test_mcp_authentication_precedes_transaction_compatibility(self):
+        status, body = self.call(
+            "POST", "/mcp",
+            rpc("tools/call", {"name": "feature_lookup", "arguments": transaction()}),
+        )
+        self.assertEqual((status, body["code"]), (401, "authentication_required"))
 
     def test_mcp_errors(self):
         cases = (

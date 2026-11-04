@@ -1,0 +1,7 @@
+{
+ "url": "http://127.0.0.1:13000/explore?schemaVersion=1&orgId=1&panes=%7B%22a%22%3A%20%7B%22datasource%22%3A%20%22prometheus%22%2C%20%22queries%22%3A%20%5B%7B%22refId%22%3A%20%22A%22%2C%20%22datasource%22%3A%20%7B%22type%22%3A%20%22prometheus%22%2C%20%22uid%22%3A%20%22prometheus%22%7D%2C%20%22expr%22%3A%20%22count%20by%20%28pod%29%20%28container_memory_working_set_bytes%7Bnamespace%3D%5C%22ewallet-agents%5C%22%2C%20container%3D%5C%22kagent%5C%22%7D%29%22%2C%20%22instant%22%3A%20true%2C%20%22range%22%3A%20false%2C%20%22format%22%3A%20%22table%22%7D%5D%2C%20%22range%22%3A%20%7B%22from%22%3A%20%22now-5m%22%2C%20%22to%22%3A%20%22now%22%7D%7D%7D",
+ "final_url": "http://127.0.0.1:13000/explore",
+ "title": "Explore - Prometheus - Grafana",
+ "text_excerpt": "Skip to main content\nGrafana\n\nHome\n\nBookmarks\n\nStarred\n\nDashboards\n\nExplore\n\nDrilldown\n\nAlerting\n\nConnections\n\nAdministration\n\nHome\nExplore\nPrometheus\nSearch...\nctrl+k\nQuery history\nShare\nExplore\nOutline\nSplit\nAdd\nQueries\nRaw Prometheus\nA\n(Prometheus)\nKick start your query\nExplain\nBuilder\nCode\nMetrics browser\ncount\u00a0by\u00a0(pod)\u00a0(container_memory_working_set_bytes{namespace=\"ewallet-agents\",\u00a0container=\"kagent\"})\nOptions\nLegend: Verbose\nFormat: Table\nStep: auto\nType: Instant\nAdd query\nQuery inspector\nRaw\nTable\nRaw\nExpand results\nResult series: 6\n{pod=\"drift-specialist-778b47fd6f-fxjrn\"}\n1\n{pod=\"feat",
+ "captured_utc": "2026-11-04T10:38:18Z"
+}

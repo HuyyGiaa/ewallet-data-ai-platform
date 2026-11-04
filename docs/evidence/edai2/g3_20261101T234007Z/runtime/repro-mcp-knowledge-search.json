@@ -1,0 +1,71 @@
+{
+  "transport": "official-mcp-sdk-streamable-http",
+  "protocol_version": "2025-06-18",
+  "server": "feature-rag-mcp",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "tool": "knowledge_search",
+  "latency_ms": 128.061,
+  "is_error": false,
+  "structured_content": {
+    "request_id": "207ccc03-653a-4c3c-a58a-fd1a91c46e7d",
+    "tool_name": "knowledge_search",
+    "status": "ok",
+    "result": {
+      "query_sha256": "4543f56f77ab79e78f19c9fa869554b95969622b01db83cd8ead39e12d56c1e7",
+      "results": [
+        {
+          "rank": 1,
+          "chunk_id": "policy-account-takeover:0000",
+          "document_id": "policy-account-takeover",
+          "score": 0.6384501397275507,
+          "quote": "# Account takeover review policy This demonstration policy requires step-up review when a transaction follows a new-device login, a rapid credential reset, or an impossible-travel signal. Analysts must review the account history, device binding, recent failed login count, and the"
+        },
+        {
+          "rank": 2,
+          "chunk_id": "policy-account-takeover:0001",
+          "document_id": "policy-account-takeover",
+          "score": 0.2255845524035935,
+          "quote": "the source policy identifier and the exact policy revision. If required features are missing, stale, or inconsistent, the decision must fail closed to manual review. Services must not log raw credentials, payment account numbers, secrets, or hidden model reasoning. Any"
+        }
+      ],
+      "retrieval_backend": "feast-online-redis+exact-cosine",
+      "trust_anchor": "source_corpus"
+    },
+    "versions": {
+      "git_sha": "642553f40cf395fed06eba52d04f6fa0db3fec94",
+      "image_digest": "sha256:b80c07c76e4d240328804218c46ff66ecc7e4ba45694072f94774c57548fa058",
+      "config_revision": "g3-gke-v1",
+      "prompt_revision": "v2",
+      "model_revision": "fraud-detector/1",
+      "feature_revision": "fraud-policy-feast-v1",
+      "corpus_revision": "fraud-policy-v1-20261030"
+    },
+    "citations": [
+      {
+        "document_id": "policy-account-takeover",
+        "chunk_id": "policy-account-takeover:0000",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+        "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.6384501397275507
+      },
+      {
+        "document_id": "policy-account-takeover",
+        "chunk_id": "policy-account-takeover:0001",
+        "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+        "source_checksum": "sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+        "corpus_revision": "fraud-policy-v1-20261030",
+        "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "feature_revision": "fraud-policy-feast-v1",
+        "score": 0.2255845524035935
+      }
+    ],
+    "fallback_used": false
+  }
+}
