@@ -1,4 +1,4 @@
-# EDAI-2 screenshot audit (N13 quality gate, 2026-11-04)
+# EDAI-2 screenshot audit (N13 quality gate + N15 genuine captures)
 
 Companion to [RUBRIC_EVIDENCE_INDEX.md](RUBRIC_EVIDENCE_INDEX.md).
 
@@ -21,18 +21,32 @@ Companion to [RUBRIC_EVIDENCE_INDEX.md](RUBRIC_EVIDENCE_INDEX.md).
 
 ## Totals
 
-- **65 embedded image paths, 63 distinct contents.** All files exist and decode; 0 broken links.
+- **74 embedded image paths, 72 distinct contents.** N15 adds nine genuine Ubuntu terminal captures. All files exist and decode; 0 broken links.
 
 | Class | Paths |
 |---|---:|
 | NATIVE_UI | 57 (55 curated captures, SHA-256 verified, plus 2 read-only captures of the running cluster: kagent agents page and Grafana Explore pods). The Jenkins `edai2-agent-ci` #2 build page was removed from the curated set because its change list shows commit trailers that must not be redistributed |
 | HISTORICAL_UI | 8 (MLOps campaign 2026-10-31) |
 | DERIVED_RENDER | 0 |
-| REAL_TERMINAL | 0 |
+| REAL_TERMINAL | 9 (N15 genuine live runtime) |
 
 The former N13 `runtime/01–08` renders are no longer embedded. Their original
 raw command transcripts remain supporting evidence and are explicitly labelled
 as historical output, not screenshots.
+
+### N15 additions
+
+| Image | Class | Rows | Proof boundary |
+|---|---|---|---|
+| runtime/11_agents_hpa_pdb_live_runtime.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 16,19,22,25 | Live configuration; no HPA event/KEDA |
+| runtime/04_mcp_rollingupdate_live_runtime.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 18 | Ready + strategy; no executed rollout/fallback |
+| runtime/03_sandbox_substrate_live_runtime.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 20,27 | Pilot only |
+| runtime/05_kserve_inferenceservice_live.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 15 | Ready InferenceService/predictor |
+| runtime/06_kserve_v2_metadata_live.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 15 | V2 ready + model metadata |
+| runtime/07_fraud_api_prediction_kserve_correlated_live.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 15 | Prediction + matching KServe ID; no parity proof |
+| runtime/08a_fraud_api_health_live.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 16 | Health 200; parity flags remain false |
+| runtime/08b_fraud_api_validation_422_part1.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 16,17 | HTTP 422, part 1 |
+| runtime/08c_fraud_api_validation_422_part2.png | REAL_TERMINAL / GENUINE_LIVE_RUNTIME | 16,17 | HTTP 422 details, part 2 |
 
 ## Coverage of rows whose deliverable requires screenshots
 
@@ -45,11 +59,11 @@ as historical output, not screenshots.
 | 12 | Streaming push jobs succeeded + data | — | **MISSING** |
 | 13 | KFP successful run | mlops/01–03 (NATIVE_UI); 02/03 KFP (HISTORICAL_UI) | **QUALIFIES** |
 | 14 | Model + data versioned in MLflow | mlops/04–08 (NATIVE_UI) | **QUALIFIES** (the alias gap is functional, not a screenshot gap) |
-| 15 | KServe pod + successful call | 07_kserve_ready, 11_fraud_api_prediction (HISTORICAL_UI); N13 raw transcripts support current-state claims | **QUALIFIES** (historical UI) |
-| 16, 17 | Registry + multi-replica + Sandbox + UI chat | registry agents/01; multi-replica runtime/10 (NATIVE_UI Grafana); UI chat agents/07–12; health/422 raw transcript | **PARTIAL**: no Sandbox image for business agents |
-| 18 | MCP on Helm + RollingUpdate + fallback | MCP servers in registry agents/03 (NATIVE_UI); RollingUpdate only in raw transcript | **PARTIAL**: RollingUpdate has no native image; fallback missing |
-| 19 | Multi-replica + autoscale | runtime/10 (NATIVE_UI) for replicas; HPA only in raw transcript | **PARTIAL**: no KEDA, no scale-event image |
-| 20 | Sandbox | raw transcript for pilot agent only | **MISSING** for business agents |
+| 15 | KServe pod + successful call | N15 live terminal: Ready predictor, V2 metadata, prediction 200 + correlated log; historical UI retained | **QUALIFIES**; parity not inferred |
+| 16, 17 | Registry + multi-replica + Sandbox + UI chat | N15 live Agent/HPA/PDB, health and 422 captures; existing registry/chat UI | **PARTIAL**: no Sandbox image for business agents |
+| 18 | MCP on Helm + RollingUpdate + fallback | N15 live `drift-mcp` Ready + RollingUpdate configuration; registry UI | **PARTIAL**: no executed rollout or fallback |
+| 19 | Multi-replica + autoscale | N15 live 2/2 Deployments and HPA 2–3 | **PARTIAL**: no KEDA or scale event |
+| 20 | Sandbox | N15 live pilot SandboxAgent/WorkerPool/gVisor | **MISSING** for business agents; pilot proof only |
 | 21 | Agent on registry | agents/01 (NATIVE_UI) | **QUALIFIES** |
 | 22 | Same as 16–21 for the second agent | agents/01, 09, 08; runtime/10 (NATIVE_UI) | **PARTIAL**: no Sandbox; no KEDA/scale image |
 | 23, 24 | Gateway setup (YAML) + security/policy | agents/13–14, observability/49 (NATIVE_UI Tempo spans) | **QUALIFIES** (supporting; the deliverable is mainly YAML + explanation) |

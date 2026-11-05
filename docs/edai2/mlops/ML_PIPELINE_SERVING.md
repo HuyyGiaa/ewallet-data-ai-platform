@@ -222,6 +222,20 @@ correlation_id: n13-doc-20261104T093242Z
 The genuine historical GKE and Fraud API captures above remain the qualifying
 UI evidence for row 15. The N13 transcript is supporting evidence only.
 
+### N15 genuine live runtime captures
+
+![KServe InferenceService live runtime](../../evidence/edai2/screenshots/runtime/05_kserve_inferenceservice_live.png)
+
+*Live Ubuntu terminal capture: `fraud-detector` is Ready=True and its predictor Pod is 1/1 Running with zero restarts.*
+
+![KServe V2 readiness and metadata](../../evidence/edai2/screenshots/runtime/06_kserve_v2_metadata_live.png)
+
+*Live Ubuntu terminal capture: V2 readiness returns HTTP 200; model metadata reports 41 inputs and the `fraud_probability` and `fraud_prediction` outputs.*
+
+![Fraud API prediction and correlated KServe log](../../evidence/edai2/screenshots/runtime/07_fraud_api_prediction_kserve_correlated_live.png)
+
+*Live Ubuntu terminal capture: the Fraud API returns HTTP 200 with probability `0.0639895560144887`, and the predictor log contains the same correlation ID `n15-live-20261105T180757Z`. This proves the request reached KServe; it does not establish offline/online feature parity.*
+
 ## 7. Limitations
 
 - **Orchestration.** Offline-to-online materialization runs as Kubernetes Jobs started by an operator. It is not yet scheduled by an Airflow DAG.

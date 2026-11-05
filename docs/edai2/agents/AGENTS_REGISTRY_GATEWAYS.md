@@ -160,9 +160,25 @@ MCP strategy: RollingUpdate maxUnavailable=0 maxSurge=1
 Fraud API: live=200 ready=200 invalid-payload=422
 ```
 
-**Screenshot status:** `SCREENSHOT_MISSING` for the literal HPA/rollout/health
-terminal captures. The genuine Grafana and kagent UI screenshots above and
-below support only the state visible in those applications.
+### N15 genuine live runtime captures
+
+![Agent Deployments, HPA and PDB live runtime](../../evidence/edai2/screenshots/runtime/11_agents_hpa_pdb_live_runtime.png)
+
+*Live Ubuntu terminal capture: the three business-agent Deployments are 2/2, their HPAs are configured for min 2/max 3 at 60% CPU, and PDBs require one available replica. This proves current configuration, not an actual scale event or KEDA.*
+
+![MCP Deployment and RollingUpdate live runtime](../../evidence/edai2/screenshots/runtime/04_mcp_rollingupdate_live_runtime.png)
+
+*Live Ubuntu terminal capture: `drift-mcp` is Ready 1/1 in `ewallet-agents`, with RollingUpdate and Available/Progressing conditions. It does not prove an executed rollout or automatic fallback.*
+
+![Fraud API health live runtime](../../evidence/edai2/screenshots/runtime/08a_fraud_api_health_live.png)
+
+*Live Ubuntu terminal capture: liveness and dependency-connectivity readiness return HTTP 200. The payload explicitly leaves feature materialization and offline/online parity unverified.*
+
+![Fraud API validation response, part 1](../../evidence/edai2/screenshots/runtime/08b_fraud_api_validation_422_part1.png)
+
+![Fraud API validation response, part 2](../../evidence/edai2/screenshots/runtime/08c_fraud_api_validation_422_part2.png)
+
+*Live Ubuntu terminal captures: an invalid request is rejected with HTTP 422 and field-level Pydantic errors. The images are consecutive parts of one result.*
 
 ![kagent UI agent list](../../evidence/edai2/screenshots/runtime/09_kagent_ui_agents_r41.png)
 
@@ -292,8 +308,9 @@ records the four CRDs, a Ready/Accepted pilot `SandboxAgent`, the 1/1
 `kagent-pilot` WorkerPool and the default `gvisor` SandboxConfig. This is
 historical raw evidence, not a screenshot or a current cluster query.
 
-**Screenshot status:** `SCREENSHOT_MISSING` for the literal Sandbox runtime
-capture and for business-agent Sandbox execution.
+![Sandbox pilot live runtime](../../evidence/edai2/screenshots/runtime/03_sandbox_substrate_live_runtime.png)
+
+*Live Ubuntu terminal capture: `pilot-sandbox-agent` is Ready/Accepted, WorkerPool `kagent-pilot` is 1/1, `gvisor-default` is present, and pilot workloads are running. This proves only the isolated pilot; it does not prove business-agent Sandbox execution.*
 
 ## 9. Limitations
 

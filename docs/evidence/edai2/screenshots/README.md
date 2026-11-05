@@ -9,6 +9,7 @@ Classification of every embedded image is in [SCREENSHOT_AUDIT.md](../../../edai
 | `runtime/01–08.png` | Historical programmatic renders, retained for integrity but no longer embedded in submission-facing reports | Deprecated renderer retained as provenance only; do not use as screenshot evidence |
 | `runtime/09_kagent_ui_agents_r41.png` | Native kagent UI agents page, captured read-only in N13 (r41) | Page metadata `09_kagent_ui_agents_r41.png.json` |
 | `runtime/10_grafana_agent_pods_per_replica.png` | Native Grafana Explore (Prometheus/cAdvisor), read-only query showing 2 pods per agent, captured in N13 (r41) | Page metadata `10_grafana_agent_pods_per_replica.png.json` (credential-free URL and text excerpt) |
+| `runtime/*_live_runtime.png`, `runtime/05–08*.png`, `runtime/11_*.png` | Nine genuine Ubuntu terminal captures from N15: live Agent/HPA/PDB, MCP, Sandbox, KServe and Fraud API state | [N15 provenance and SHA-256 manifest](../../n15-genuine-screenshots/README.md) |
 
 **Integrity rules:**
 - No image was edited or cropped.

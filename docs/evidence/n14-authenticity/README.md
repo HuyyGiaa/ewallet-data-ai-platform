@@ -14,6 +14,10 @@ preserved JSON, log or command transcript. A literal screenshot requirement is
 marked `SCREENSHOT_MISSING` unless an independently retained genuine UI
 capture already exists.
 
+## N15 follow-up
+
+This N14 decision record remains unchanged. Genuine Ubuntu terminal captures collected later are inventoried in [N15 genuine screenshots](../n15-genuine-screenshots/README.md). They complement the authoritative raw records below; the 11 historical synthetic PNGs remain preserved and unembedded.
+
 ## Replacement matrix
 
 | Original image | Original source | Replacement | Capture method | Referenced Markdown | Rubric row | Status |

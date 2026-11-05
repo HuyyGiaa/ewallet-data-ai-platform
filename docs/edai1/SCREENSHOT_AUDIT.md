@@ -1,4 +1,4 @@
-# EDAI-1 screenshot audit (N13 quality gate, 2026-11-04)
+# EDAI-1 screenshot audit (N13 quality gate + N15 genuine captures)
 
 Companion to [RUBRIC_EVIDENCE_INDEX.md](RUBRIC_EVIDENCE_INDEX.md).
 
@@ -21,17 +21,17 @@ Companion to [RUBRIC_EVIDENCE_INDEX.md](RUBRIC_EVIDENCE_INDEX.md).
 
 ## Totals
 
-- **56 embedded image paths, 46 distinct image contents.** The DataHub images exist both under `docs/evidence/images/` and `docs/evidence/edai1/`.
+- **59 embedded image paths, 49 distinct image contents.** N15 adds three genuine Ubuntu terminal views of historical evidence.
 - **All files exist and decode.** 0 broken links.
 
 | Class | Paths |
 |---|---:|
 | HISTORICAL_UI | 41 |
-| REAL_TERMINAL | 15 |
+| REAL_TERMINAL | 18 |
 | DERIVED_RENDER | 0 |
 | NATIVE_UI (current campaign) | 0 |
 
-No EDAI-1 UI (Airflow, Spark history, Flink, DataHub, DBeaver/Trino) was running during N13. By directive, nothing was started, so **no new EDAI-1 UI capture was possible**. Every EDAI-1 image is historical and is labelled as such.
+No EDAI-1 benchmark was rerun during N15. The three new images display preserved historical JSON/log evidence in a real Ubuntu terminal and are labelled `GENUINE_HISTORICAL_EVIDENCE_VIEW`.
 
 ## Coverage of rows whose deliverable requires screenshots
 
@@ -64,9 +64,17 @@ No EDAI-1 UI (Airflow, Spark history, Flink, DataHub, DBeaver/Trino) was running
 | 38 | Naming convention | DataHub images show zone-qualified names and Gold prefixes (HISTORICAL_UI) | **QUALIFIES** (screenshot); the naming itself is a semantic gap |
 
 Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a specific UI. Their images are supporting evidence:
-- Docker: raw historical JSON/log/Compose transcripts; no screenshot.
+- Docker: raw historical JSON/log/Compose transcripts plus two N15 genuine terminal views.
 - Storage: DBeaver HISTORICAL_UI ×4 and benchmark REAL_TERMINAL ×2.
-- Warehouse: raw historical JSON/log. There is **no database UI or terminal screenshot**.
+- Warehouse: raw historical JSON/log plus an N15 genuine terminal view; there is still no database UI capture.
+
+## N15 additions
+
+| Image | Class | Rows | Proof boundary |
+|---|---|---|---|
+| [03_docker_image_ab_historical_terminal.png](../evidence/edai1/docker/03_docker_image_ab_historical_terminal.png) | REAL_TERMINAL / GENUINE_HISTORICAL_EVIDENCE_VIEW | 3,4 | Historical JSON view; no rebuild |
+| [04_docker_compose_historical_terminal.png](../evidence/edai1/docker/04_docker_compose_historical_terminal.png) | REAL_TERMINAL / GENUINE_HISTORICAL_EVIDENCE_VIEW | 3,4 | Historical records; no Compose rerun |
+| [08_postgres_warehouse_index_ab_historical_terminal.png](../evidence/edai1/storage/08_postgres_warehouse_index_ab_historical_terminal.png) | REAL_TERMINAL / GENUINE_HISTORICAL_EVIDENCE_VIEW | 21 | Historical JSON view; no benchmark rerun |
 - PIT: Cloud Run and Cloud Logging, HISTORICAL_UI.
 
 **Summary.** Of the 25 rows whose deliverable needs screenshots:

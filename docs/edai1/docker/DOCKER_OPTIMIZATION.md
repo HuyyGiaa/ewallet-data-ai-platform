@@ -105,9 +105,17 @@ compose run exit code: 0
 post-run container list: no containers
 ```
 
-**Screenshot status:** `SCREENSHOT_MISSING`. No authentic Docker Desktop or
-terminal-window capture from this historical run was retained; raw evidence is
-used instead of the former programmatic terminal-like renders.
+### N15 genuine terminal captures
+
+![Docker image A/B historical evidence in a real Ubuntu terminal](../../evidence/edai1/docker/03_docker_image_ab_historical_terminal.png)
+
+*Genuine Ubuntu terminal capture displaying the preserved Docker A/B JSON: functional equivalence passed and the recorded image-size reduction is 88.44%. This is `GENUINE_HISTORICAL_EVIDENCE_VIEW`; N15 did not rebuild either image.*
+
+![Docker Compose configuration and historical run evidence in a real Ubuntu terminal](../../evidence/edai1/docker/04_docker_compose_historical_terminal.png)
+
+*Genuine Ubuntu terminal capture displaying the preserved Compose configuration, run output and exit code 0. This is `GENUINE_HISTORICAL_EVIDENCE_VIEW`; it does not claim that Compose was rerun during N15.*
+
+The raw JSON and logs above remain authoritative. The captures are complementary evidence and have distinct names from the synthetic historical PNGs preserved by N14.
 
 ## 6. Discussion and limitations
 

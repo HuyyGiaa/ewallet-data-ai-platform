@@ -317,8 +317,11 @@ semantic equivalence: passed
 write trade-off: 112.277 ms -> 200.012 ms (78.14% overhead)
 ```
 
-**Screenshot status:** `SCREENSHOT_MISSING`. No authentic pgAdmin, DBeaver or
-terminal-window capture of this exact 2M-row historical run was retained.
+![PostgreSQL 2M-row benchmark historical evidence in a real Ubuntu terminal](../../evidence/edai1/storage/08_postgres_warehouse_index_ab_historical_terminal.png)
+
+*Genuine Ubuntu terminal capture displaying the preserved 2M-row benchmark JSON, including semantic equivalence, seven repeats and the recorded 69.73% median read improvement. This is `GENUINE_HISTORICAL_EVIDENCE_VIEW`; the benchmark was not rerun during N15.*
+
+The raw JSON and log remain authoritative; this capture is complementary and does not replace them.
 
 ### Evidence and limitations
 
