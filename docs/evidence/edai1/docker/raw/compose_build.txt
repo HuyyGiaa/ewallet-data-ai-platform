@@ -1,0 +1,78 @@
+ Image edai1/datahub-lineage-publisher:compose-v5 Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 762B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.21kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#3 ...
+
+#4 [auth] docker/dockerfile:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#3 DONE 1.6s
+
+#5 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#5 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#5 CACHED
+
+#6 [internal] load metadata for docker.io/library/python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894
+#6 ...
+
+#7 [auth] library/python:pull token for registry-1.docker.io
+#7 DONE 0.0s
+
+#6 [internal] load metadata for docker.io/library/python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894
+#6 DONE 1.4s
+
+#8 [internal] load .dockerignore
+#8 transferring context: 709B done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 DONE 0.0s
+
+#10 [build 1/4] FROM docker.io/library/python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894
+#10 resolve docker.io/library/python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894 0.0s done
+#10 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 260B done
+#9 DONE 0.0s
+
+#11 [optimized 2/4] RUN groupadd --system --gid 65532 publisher     && useradd --system --uid 65532 --gid 65532 --no-create-home publisher
+#11 CACHED
+
+#12 [optimized 3/4] WORKDIR /app
+#12 CACHED
+
+#13 [build 2/4] WORKDIR /build
+#13 CACHED
+
+#14 [build 3/4] COPY data_platform/metadata/datahub/lineage/cloud_lineage.py /build/cloud_lineage.py
+#14 CACHED
+
+#15 [build 4/4] RUN python -m compileall -q /build/cloud_lineage.py     && python /build/cloud_lineage.py --output /tmp/lineage-plan.json     && python -c "import json; p=json.load(open('/tmp/lineage-plan.json')); assert (p['flow_count'],p['job_count'],p['dataset_count']) == (3,4,32)"
+#15 CACHED
+
+#16 [optimized 4/4] COPY --from=build --chown=65532:65532 /build/cloud_lineage.py /app/cloud_lineage.py
+#16 CACHED
+
+#17 exporting to image
+#17 exporting layers done
+#17 exporting manifest sha256:62514d73c7280ad15ab7fb9b6827aff85d32703f85c49411de8a63e4917bc306 0.0s done
+#17 exporting config sha256:5b0c9f9a7df806678336dc396a5a4f74ee084e304112269e30e8e76362f52847 0.0s done
+#17 exporting attestation manifest sha256:5fde2f087ef265c6c363388e7bfd79b0121356b0102970bd0f1034510156238c
+#17 exporting attestation manifest sha256:5fde2f087ef265c6c363388e7bfd79b0121356b0102970bd0f1034510156238c 0.1s done
+#17 exporting manifest list sha256:d0c69e1be4d8a1181746b58439bd7640662682b0a75a154eddd11a360e019dab 0.0s done
+#17 naming to docker.io/edai1/datahub-lineage-publisher:compose-v5 done
+#17 unpacking to docker.io/edai1/datahub-lineage-publisher:compose-v5 done
+#17 DONE 0.2s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ Image edai1/datahub-lineage-publisher:compose-v5 Built

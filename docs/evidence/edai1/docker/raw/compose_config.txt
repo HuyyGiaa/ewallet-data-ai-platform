@@ -1,0 +1,26 @@
+name: docker
+services:
+  datahub-lineage-publisher:
+    profiles:
+      - edai1
+    build:
+      context: /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/codex-edai1-implementation
+      dockerfile: images/datahub-publisher/Dockerfile
+      target: optimized
+    cap_drop:
+      - ALL
+    cpus: 0.5
+    command:
+      - --output
+      - /tmp/lineage-plan.json
+    image: edai1/datahub-lineage-publisher:compose-v5
+    mem_limit: "134217728"
+    network_mode: none
+    pids_limit: 64
+    read_only: true
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777,nosuid,nodev,noexec
+    user: 65532:65532

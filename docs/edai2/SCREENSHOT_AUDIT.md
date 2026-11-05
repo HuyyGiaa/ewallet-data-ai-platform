@@ -21,16 +21,18 @@ Companion to [RUBRIC_EVIDENCE_INDEX.md](RUBRIC_EVIDENCE_INDEX.md).
 
 ## Totals
 
-- **73 embedded image paths, 71 distinct contents.** All files exist and decode; 0 broken links.
+- **65 embedded image paths, 63 distinct contents.** All files exist and decode; 0 broken links.
 
 | Class | Paths |
 |---|---:|
 | NATIVE_UI | 57 (55 curated captures, SHA-256 verified, plus 2 read-only captures of the running cluster: kagent agents page and Grafana Explore pods). The Jenkins `edai2-agent-ci` #2 build page was removed from the curated set because its change list shows commit trailers that must not be redistributed |
 | HISTORICAL_UI | 8 (MLOps campaign 2026-10-31) |
-| DERIVED_RENDER | 8 (N13 `runtime/01–08`, rendered from real read-only `kubectl`/`curl` output at r41) |
+| DERIVED_RENDER | 0 |
 | REAL_TERMINAL | 0 |
 
-The 8 DERIVED_RENDER images are **supporting** evidence. A row is never counted as having native UI proof because of them alone.
+The former N13 `runtime/01–08` renders are no longer embedded. Their original
+raw command transcripts remain supporting evidence and are explicitly labelled
+as historical output, not screenshots.
 
 ## Coverage of rows whose deliverable requires screenshots
 
@@ -43,17 +45,17 @@ The 8 DERIVED_RENDER images are **supporting** evidence. A row is never counted 
 | 12 | Streaming push jobs succeeded + data | — | **MISSING** |
 | 13 | KFP successful run | mlops/01–03 (NATIVE_UI); 02/03 KFP (HISTORICAL_UI) | **QUALIFIES** |
 | 14 | Model + data versioned in MLflow | mlops/04–08 (NATIVE_UI) | **QUALIFIES** (the alias gap is functional, not a screenshot gap) |
-| 15 | KServe pod + successful call | 07_kserve_ready, 11_fraud_api_prediction (HISTORICAL_UI); runtime/05–07 (DERIVED_RENDER, supporting) | **QUALIFIES** (historical UI) |
-| 16, 17 | Registry + multi-replica + Sandbox + UI chat | registry agents/01; multi-replica runtime/10 (NATIVE_UI Grafana); UI chat agents/07–12; health/422 runtime/08 (DERIVED) | **PARTIAL**: no Sandbox image for business agents |
-| 18 | MCP on Helm + RollingUpdate + fallback | MCP servers in registry agents/03 (NATIVE_UI); RollingUpdate only in runtime/04 (DERIVED) | **PARTIAL**: RollingUpdate has no native image; fallback missing |
-| 19 | Multi-replica + autoscale | runtime/10 (NATIVE_UI) for replicas; HPA only in runtime/01 (DERIVED) | **PARTIAL**: no KEDA, no scale-event image |
-| 20 | Sandbox | runtime/03 (DERIVED, pilot agent only) | **MISSING** for business agents |
+| 15 | KServe pod + successful call | 07_kserve_ready, 11_fraud_api_prediction (HISTORICAL_UI); N13 raw transcripts support current-state claims | **QUALIFIES** (historical UI) |
+| 16, 17 | Registry + multi-replica + Sandbox + UI chat | registry agents/01; multi-replica runtime/10 (NATIVE_UI Grafana); UI chat agents/07–12; health/422 raw transcript | **PARTIAL**: no Sandbox image for business agents |
+| 18 | MCP on Helm + RollingUpdate + fallback | MCP servers in registry agents/03 (NATIVE_UI); RollingUpdate only in raw transcript | **PARTIAL**: RollingUpdate has no native image; fallback missing |
+| 19 | Multi-replica + autoscale | runtime/10 (NATIVE_UI) for replicas; HPA only in raw transcript | **PARTIAL**: no KEDA, no scale-event image |
+| 20 | Sandbox | raw transcript for pilot agent only | **MISSING** for business agents |
 | 21 | Agent on registry | agents/01 (NATIVE_UI) | **QUALIFIES** |
 | 22 | Same as 16–21 for the second agent | agents/01, 09, 08; runtime/10 (NATIVE_UI) | **PARTIAL**: no Sandbox; no KEDA/scale image |
 | 23, 24 | Gateway setup (YAML) + security/policy | agents/13–14, observability/49 (NATIVE_UI Tempo spans) | **QUALIFIES** (supporting; the deliverable is mainly YAML + explanation) |
 | 25 | Registry + replicas + **scale-test image** + kagent chat | agents/02, 07–08; runtime/10 (NATIVE_UI) | **PARTIAL**: no scale-test image |
 | 26 | Coordinator on registry | agents/02 (NATIVE_UI) | **QUALIFIES** |
-| 27 | Many agents on few workers | runtime/03 (DERIVED) | **MISSING** |
+| 27 | Many agents on few workers | raw transcript only | **MISSING** |
 | 28 | Coverage > 90 % screenshot | — | **MISSING** |
 | 29–32 | Test results | Jenkins stage views and build pages (cicd/04–06, NATIVE_UI) show suites passing, not the specific technique | **MISSING** (technique-specific) |
 | 33 | CI/CD pipelines ran | cicd/07–09 (NATIVE_UI) | **QUALIFIES** |
@@ -141,13 +143,5 @@ Rows 3–7, 37–43, 54 and 55–57 require documents, configuration links or pr
 | [51_agent_calls_replacement_window.png](../evidence/edai2/screenshots/observability/51_agent_calls_replacement_window.png) | yes | NATIVE_UI | N12 G3 · F2 window, Helm r40 | 51 | novel_ideas/NOVEL_IDEAS.md, observability/OBSERVABILITY.md |
 | [51_mcp_calls_per_tool.png](../evidence/edai2/screenshots/observability/51_mcp_calls_per_tool.png) | yes | NATIVE_UI | N12 G3 · Helm r40 | 51 | observability/OBSERVABILITY.md |
 | [51_mcp_failures_per_tool.png](../evidence/edai2/screenshots/observability/51_mcp_failures_per_tool.png) | yes | NATIVE_UI | N12 G3 · authorized negative test n12-tool-failure | 51 | observability/OBSERVABILITY.md |
-| [01_agents_replicas_hpa_pdb.png](../evidence/edai2/screenshots/runtime/01_agents_replicas_hpa_pdb.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 16,19,22,25 | agents/AGENTS_REGISTRY_GATEWAYS.md |
-| [02_kagent_agent_crs.png](../evidence/edai2/screenshots/runtime/02_kagent_agent_crs.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 16,22,25 | agents/AGENTS_REGISTRY_GATEWAYS.md |
-| [03_sandbox_substrate.png](../evidence/edai2/screenshots/runtime/03_sandbox_substrate.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 20,27 | agents/AGENTS_REGISTRY_GATEWAYS.md |
-| [04_mcp_rollingupdate.png](../evidence/edai2/screenshots/runtime/04_mcp_rollingupdate.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 18 | agents/AGENTS_REGISTRY_GATEWAYS.md |
-| [05_kserve_isvc.png](../evidence/edai2/screenshots/runtime/05_kserve_isvc.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 15 | mlops/ML_PIPELINE_SERVING.md |
-| [06_kserve_v2_ready_metadata.png](../evidence/edai2/screenshots/runtime/06_kserve_v2_ready_metadata.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 15 | mlops/ML_PIPELINE_SERVING.md |
-| [07_fraud_api_predict_via_kserve.png](../evidence/edai2/screenshots/runtime/07_fraud_api_predict_via_kserve.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 15 | mlops/ML_PIPELINE_SERVING.md |
-| [08_fraud_api_pydantic_and_health.png](../evidence/edai2/screenshots/runtime/08_fraud_api_pydantic_and_health.png) | yes | DERIVED_RENDER | N13 2026-11-04, r41 (rendered from real kubectl/curl output) | 16,17 | agents/AGENTS_REGISTRY_GATEWAYS.md |
 | [09_kagent_ui_agents_r41.png](../evidence/edai2/screenshots/runtime/09_kagent_ui_agents_r41.png) | yes | NATIVE_UI | N13 2026-11-04, r41 | 16,22,25 | agents/AGENTS_REGISTRY_GATEWAYS.md |
 | [10_grafana_agent_pods_per_replica.png](../evidence/edai2/screenshots/runtime/10_grafana_agent_pods_per_replica.png) | yes | NATIVE_UI | N13 2026-11-04, r41 | 16,19,22,25 | agents/AGENTS_REGISTRY_GATEWAYS.md |

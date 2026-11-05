@@ -55,8 +55,8 @@ The Dataproc Serverless read-back of the same A/B is in the owner evidence root,
 
 | Row | Pts | Requirement | Status | Document | Key evidence | Gap |
 |---:|---:|---|---|---|---|---|
-| 3 | 2 | Docker & Docker Compose | COMPLETE (historical) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) | digest-pinned Dockerfile, hardened Compose | — |
-| 4 | 3 | Optimize Dockerfile (multi-stage) | COMPLETE (historical) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) | 88.44 % size reduction, matched smoke hash | — |
+| 3 | 2 | Docker & Docker Compose | COMPLETE (historical) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) | digest-pinned Dockerfile, hardened Compose, preserved raw config/build/run records | Original UI/terminal screenshot not retained |
+| 4 | 3 | Optimize Dockerfile (multi-stage) | COMPLETE (historical) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) | 88.44 % size reduction and matched smoke hash in preserved raw JSON | Original UI/terminal screenshot not retained |
 | 5 | 2 | Simulate skew (≥ 100 GB) | PARTIAL | [DATA_GENERATION](data_generator/DATA_GENERATION_AND_SIMULATION.md) | volume, schema and duplicate proof | RUNTIME_EVIDENCE_MISSING (full-column skew/cardinality scan of 100 GB) |
 | 6 | 2 | Schema evolution | COMPLETE (historical) | same | V1/V2 fingerprints | — |
 | 7 | 2 | Another offline problem (duplicates) | COMPLETE (historical) | same | 369.6 M logical / 376.99 M physical rows | — |
@@ -73,7 +73,7 @@ The Dataproc Serverless read-back of the same A/B is in the owner evidence root,
 | 18 | 3 | Other streaming problem | COMPLETE (historical) | [FLINK_STREAMING](streaming/FLINK_STREAMING.md) | dedup 12,180 → 12,000 at `22c0c7f`; backpressure UI baseline vs optimized | Latest source not run; failed 500 EPS run stays visible (note 3) |
 | 19 | 2 | Window processing | COMPLETE | [FLINK_STREAMING §Row 19](streaming/FLINK_STREAMING.md#31-window-processing-in-code) | verbatim watermark + tumbling-window + allowed-lateness code with explanation (added in N13) | — (the deliverable is code + explanation) |
 | 20 | 3 | Lakehouse optimization | COMPLETE (historical) | [STORAGE_OPTIMIZATION](storage/STORAGE_OPTIMIZATION.md) | partition pruning, compaction, 7 images | — |
-| 21 | 3 | Warehouse optimization (indexing) | COMPLETE (historical) | same, [WAREHOUSE_INDEX_BENCHMARK](../../archive/legacy-docs/docs/edai1/WAREHOUSE_INDEX_BENCHMARK.md) | matched PostgreSQL 16 A/B | — |
+| 21 | 3 | Warehouse optimization (indexing) | COMPLETE (historical) | same, [WAREHOUSE_INDEX_BENCHMARK](../../archive/legacy-docs/docs/edai1/WAREHOUSE_INDEX_BENCHMARK.md) | matched PostgreSQL 16 A/B in preserved JSON/log | Original DB UI/terminal screenshot not retained |
 | 22 | 2 | DP1 ingest | COMPLETE (historical) | [AIRFLOW](airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) | DP1 optimized + baseline runs Success | — |
 | 23 | 2 | DP1 validate | COMPLETE (historical) | same | `verify_source_manifest`, `verify_bronze_delta` Success | — |
 | 24 | 2 | DP2 ingest | COMPLETE (historical) | same | all Silver/Gold transformation tasks succeeded | DagRun overall FAILED (row 25) |

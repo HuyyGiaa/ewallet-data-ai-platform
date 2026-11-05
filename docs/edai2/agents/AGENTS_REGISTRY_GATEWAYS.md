@@ -138,23 +138,31 @@ Agent and tool images are built by Cloud Build and pinned by digest:
 - *`feature-rag-specialist-855c67457d-{c66mn,dvttw}`;*
 - *`drift-specialist-778b47fd6f-{fxjrn,stffm}`.*
 
-The read-only `kubectl` output below shows the same state, together with the HPAs and PDBs. These images are **terminal renders**: the real command output, rendered as an image, not an application UI. The raw text is in [`runtime/raw/`](../../evidence/edai2/screenshots/runtime/raw), and the capture script is [`capture_runtime_state.sh`](../../evidence/edai2/screenshots/runtime/capture_runtime_state.sh).
+The preserved read-only command transcripts show the same recorded N13 state.
+They are historical raw evidence, not screenshots and not a current cluster
+query:
 
-![Agents: replicas, HPA, PDB (terminal render)](../../evidence/edai2/screenshots/runtime/01_agents_replicas_hpa_pdb.png)
+- [Deployments, HPAs, PDBs and pods](../../evidence/edai2/screenshots/runtime/raw/01_agents_replicas_hpa_pdb.txt):
+  all three agent Deployments were 2/2; HPA min 2/max 3 at 60% CPU; PDB
+  `minAvailable 1`.
+- [kagent Agent resources](../../evidence/edai2/screenshots/runtime/raw/02_kagent_agent_crs.txt):
+  coordinator and Feature-RAG were BYO, Drift was Declarative, all Ready.
+- [MCP rollout and Helm releases](../../evidence/edai2/screenshots/runtime/raw/04_mcp_rollingupdate.txt):
+  both MCP Deployments used `RollingUpdate`, `maxUnavailable 0`,
+  `maxSurge 1`; `llm-agent` r41 and `llm-agent-mcp` r6 were deployed.
+- [Fraud API health and validation](../../evidence/edai2/screenshots/runtime/raw/08_fraud_api_pydantic_and_health.txt):
+  live/ready returned HTTP 200 and an invalid request returned HTTP 422.
 
-*Agent Deployments 2/2; HPAs at CPU 60 %, min 2 / max 3; PDBs `minAvailable 1`.*
+```text
+N13 recorded state (2026-11-04T09:32:31Z)
+agents: 2/2 replicas; HPA min=2 max=3 target=60%
+MCP strategy: RollingUpdate maxUnavailable=0 maxSurge=1
+Fraud API: live=200 ready=200 invalid-payload=422
+```
 
-![kagent Agent resources (terminal render)](../../evidence/edai2/screenshots/runtime/02_kagent_agent_crs.png)
-
-*kagent Agent resources: `fraud-coordinator` and `feature-rag-specialist` are BYO, `drift-specialist` is Declarative. All are Ready.*
-
-![MCP Deployments and Helm releases (terminal render)](../../evidence/edai2/screenshots/runtime/04_mcp_rollingupdate.png)
-
-*MCP servers use `RollingUpdate` with `maxUnavailable 0` and `maxSurge 1`, so a new version is started before the old one is removed. They use digest-pinned images. Helm releases: `llm-agent` revision 41, `llm-agent-mcp` revision 6.*
-
-![Fraud API validation and health (terminal render)](../../evidence/edai2/screenshots/runtime/08_fraud_api_pydantic_and_health.png)
-
-*`/health/live` and `/health/ready` return 200, and an invalid payload is rejected with 422 `invalid_request`.*
+**Screenshot status:** `SCREENSHOT_MISSING` for the literal HPA/rollout/health
+terminal captures. The genuine Grafana and kagent UI screenshots above and
+below support only the state visible in those applications.
 
 ![kagent UI agent list](../../evidence/edai2/screenshots/runtime/09_kagent_ui_agents_r41.png)
 
@@ -279,9 +287,13 @@ The platform installs the Substrate components for running agents in isolated sa
 
 A pilot `SandboxAgent` in the namespace `kagent-pilot` runs under gVisor on that pool, backed by a mock model. Manifests are in [`infra/kubernetes/kagent-pilot/`](../../../infra/kubernetes/kagent-pilot) (see [`sandbox-agent.yaml`](../../../infra/kubernetes/kagent-pilot/manifests/sandbox-agent.yaml)).
 
-![Substrate state (terminal render)](../../evidence/edai2/screenshots/runtime/03_sandbox_substrate.png)
+The preserved [Substrate command transcript](../../evidence/edai2/screenshots/runtime/raw/03_sandbox_substrate.txt)
+records the four CRDs, a Ready/Accepted pilot `SandboxAgent`, the 1/1
+`kagent-pilot` WorkerPool and the default `gvisor` SandboxConfig. This is
+historical raw evidence, not a screenshot or a current cluster query.
 
-*The Substrate CRDs, the Ready and Accepted pilot SandboxAgent, the `kagent-pilot` WorkerPool (1/1) and the gVisor SandboxConfig.*
+**Screenshot status:** `SCREENSHOT_MISSING` for the literal Sandbox runtime
+capture and for business-agent Sandbox execution.
 
 ## 9. Limitations
 

@@ -33,11 +33,15 @@ The overall architecture, with numbered data and investigation flows, is in the 
 
 ## Evidence
 
-Screenshots used by the reports are in [`docs/evidence/edai2/screenshots/`](../evidence/edai2/screenshots). There are three kinds:
+Screenshots used by the reports are in [`docs/evidence/edai2/screenshots/`](../evidence/edai2/screenshots). There are two submission-facing kinds:
 
 - **Application screenshots.** kagent, Agent Registry, Grafana, Tempo, Loki, Kubeflow, MLflow and Jenkins; their provenance is in `PROVENANCE.json`.
 - **Native read-only captures of the running cluster.** For example, the kagent agents page and a Grafana query.
-- **Terminal renders.** Images of real read-only `kubectl`/`curl` output; their raw text is in `runtime/raw/`. They are labelled as renders in every caption.
+
+The former `runtime/01–08` programmatic renders are retained only as
+historical artifacts and are no longer embedded. Submission-facing reports
+link their original `runtime/raw/*.txt` transcripts and mark literal
+screenshot gaps.
 
 Operating instructions for reaching the UIs are in the [UI access runbook](../runbooks/edai2/UI_REPLAY.md).
 

@@ -21,14 +21,14 @@ Companion to [RUBRIC_EVIDENCE_INDEX.md](RUBRIC_EVIDENCE_INDEX.md).
 
 ## Totals
 
-- **59 embedded image paths, 49 distinct image contents.** The DataHub images exist both under `docs/evidence/images/` and `docs/evidence/edai1/`.
+- **56 embedded image paths, 46 distinct image contents.** The DataHub images exist both under `docs/evidence/images/` and `docs/evidence/edai1/`.
 - **All files exist and decode.** 0 broken links.
 
 | Class | Paths |
 |---|---:|
 | HISTORICAL_UI | 41 |
 | REAL_TERMINAL | 15 |
-| DERIVED_RENDER | 3 |
+| DERIVED_RENDER | 0 |
 | NATIVE_UI (current campaign) | 0 |
 
 No EDAI-1 UI (Airflow, Spark history, Flink, DataHub, DBeaver/Trino) was running during N13. By directive, nothing was started, so **no new EDAI-1 UI capture was possible**. Every EDAI-1 image is historical and is labelled as such.
@@ -64,9 +64,9 @@ No EDAI-1 UI (Airflow, Spark history, Flink, DataHub, DBeaver/Trino) was running
 | 38 | Naming convention | DataHub images show zone-qualified names and Gold prefixes (HISTORICAL_UI) | **QUALIFIES** (screenshot); the naming itself is a semantic gap |
 
 Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a specific UI. Their images are supporting evidence:
-- Docker: 2 DERIVED_RENDER.
+- Docker: raw historical JSON/log/Compose transcripts; no screenshot.
 - Storage: DBeaver HISTORICAL_UI ×4 and benchmark REAL_TERMINAL ×2.
-- Warehouse: 1 DERIVED_RENDER. There is **no database UI screenshot**.
+- Warehouse: raw historical JSON/log. There is **no database UI or terminal screenshot**.
 - PIT: Cloud Run and Cloud Logging, HISTORICAL_UI.
 
 **Summary.** Of the 25 rows whose deliverable needs screenshots:
@@ -93,8 +93,6 @@ Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a
 | [feature_metadata_contract_detail_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_detail_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | datahub/DATAHUB_GOVERNANCE.md |
 | [feature_metadata_contract_list_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_list_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | datahub/DATAHUB_GOVERNANCE.md |
 | [feature_metadata_contract_logic_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_logic_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | datahub/DATAHUB_GOVERNANCE.md |
-| [01_docker_image_ab.png](../evidence/edai1/docker/01_docker_image_ab.png) | yes | DERIVED_RENDER | rendered from historical benchmark JSON/logs | 3,4 | docker/DOCKER_OPTIMIZATION.md |
-| [02_docker_compose_runtime.png](../evidence/edai1/docker/02_docker_compose_runtime.png) | yes | DERIVED_RENDER | rendered from historical benchmark JSON/logs | 3,4 | docker/DOCKER_OPTIMIZATION.md |
 | [01_scd2_input_snapshots.png](../evidence/edai1/dp2/01_scd2_input_snapshots.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | SCHEMA_DESIGN.md |
 | [02_scd2_version_history.png](../evidence/edai1/dp2/02_scd2_version_history.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | SCHEMA_DESIGN.md |
 | [03_scd2_historical_lookup.png](../evidence/edai1/dp2/03_scd2_historical_lookup.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | SCHEMA_DESIGN.md |
@@ -115,7 +113,6 @@ Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a
 | [04_layout_after_500k.png](../evidence/edai1/storage/04_layout_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
 | [05_partition_pruning_after_500k.png](../evidence/edai1/storage/05_partition_pruning_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
 | [06_benchmark_after_500k.png](../evidence/edai1/storage/06_benchmark_after_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [07_postgres_warehouse_index_ab_v2.png](../evidence/edai1/storage/07_postgres_warehouse_index_ab_v2.png) | yes | DERIVED_RENDER | rendered from historical benchmark JSON/logs | 21 | storage/STORAGE_OPTIMIZATION.md |
 | [03_flink_100eps_baseline_job.png](../evidence/edai1/streaming/03_flink_100eps_baseline_job.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |
 | [04_flink_100eps_baseline_resources.png](../evidence/edai1/streaming/04_flink_100eps_baseline_resources.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |
 | [05_flink_100eps_baseline_backpressure.png](../evidence/edai1/streaming/05_flink_100eps_baseline_backpressure.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |

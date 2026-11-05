@@ -70,13 +70,44 @@ Both variants were built from the same source (commit `561910ee…`) and run wit
 | Smoke output SHA-256 | `037cf219…f356` | identical | same behaviour |
 | Flows / jobs / datasets | 3 / 4 / 32 | 3 / 4 / 32 | identical |
 
-![Docker image A/B](../../evidence/edai1/docker/01_docker_image_ab.png)
+The authoritative result is the preserved [Docker A/B JSON](../../evidence/edai1/docker/raw/docker_datahub_publisher_ab.json)
+(SHA-256 `44590137932dc159fcd984ce947e6bc69bc5fa7e28ed37e8de0ace5a073dda89`).
+The excerpt below is raw historical evidence, not a screenshot and not a new execution:
 
-*A rendering of the recorded A/B result: image sizes, layers, runtime users and the identical output hash. It is generated from the experiment's JSON record (SHA-256 `44590137…`), not from Docker Desktop.*
+```json
+{
+  "started_at": "2026-10-29T08:56:58.252922+00:00",
+  "finished_at": "2026-10-29T08:57:16.710838+00:00",
+  "scope": "local Docker build; existing containers were not modified",
+  "functional_equivalence": true,
+  "variants": {
+    "baseline": {"size_bytes": 381961667, "layer_count": 9},
+    "optimized": {"size_bytes": 44171603, "layer_count": 7}
+  }
+}
+```
 
-![Docker Compose build and run](../../evidence/edai1/docker/02_docker_compose_runtime.png)
+Compose evidence is retained as original text: [resolved configuration](../../evidence/edai1/docker/raw/compose_config.txt),
+[build log](../../evidence/edai1/docker/raw/compose_build.txt),
+[run log](../../evidence/edai1/docker/raw/compose_run.txt),
+[exit code](../../evidence/edai1/docker/raw/compose_run.exit_code),
+[image inspection](../../evidence/edai1/docker/raw/image_inspect.json), and
+[post-run container list](../../evidence/edai1/docker/raw/residual_containers.txt).
+This is historical output from the recorded Compose run, not evidence that Compose is currently running.
 
-*A rendering of the Compose evidence: the resolved hardened service definition, the build output, exit code 0, the non-root image history, and the empty container list after the run.*
+```text
+service: datahub-lineage-publisher
+target: optimized
+user: 65532:65532
+read_only: true
+network_mode: none
+compose run exit code: 0
+post-run container list: no containers
+```
+
+**Screenshot status:** `SCREENSHOT_MISSING`. No authentic Docker Desktop or
+terminal-window capture from this historical run was retained; raw evidence is
+used instead of the former programmatic terminal-like renders.
 
 ## 6. Discussion and limitations
 

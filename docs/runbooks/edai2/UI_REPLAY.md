@@ -39,15 +39,17 @@ Open only the ones you need. **The MLflow local port must be 5000**, because of 
 | KServe predictor | `kubectl -n fraud-serving port-forward svc/fraud-detector-predictor 18181:80` | `/v2/models/fraud-detector/ready` |
 | Fraud API | `kubectl -n ml-platform port-forward svc/fraud-api 18100:80` | `/health/ready`, `POST /v1/fraud/predict` |
 
-## 2. Runtime state renders
+## 2. Historical runtime state evidence
 
-```bash
-bash docs/evidence/edai2/screenshots/runtime/capture_runtime_state.sh     # writes runtime/raw/*.txt
-uv run --no-project --python 3.12 --with playwright==1.55.0 \
-  python docs/evidence/edai2/screenshots/runtime/render_terminal.py       # renders runtime/*.png
-```
+The N13 command transcripts are retained under
+[`runtime/raw/`](../../evidence/edai2/screenshots/runtime/raw). They describe
+the r41 state recorded on 2026-11-04 and are not current cluster queries or
+screenshots. The former programmatic PNG renderer is deprecated for submission
+evidence.
 
-The capture script opens its own port-forwards and closes them afterwards. It sends exactly one known-good Fraud API request, with a fresh correlation ID, and checks the KServe log for that request ID.
+Any future evidence collection must capture the actual terminal or application
+window and requires a separately approved runtime campaign. Do not rerun the
+historical capture script merely to recreate the old evidence.
 
 ## 3. kagent chat (optional, one LLM request)
 

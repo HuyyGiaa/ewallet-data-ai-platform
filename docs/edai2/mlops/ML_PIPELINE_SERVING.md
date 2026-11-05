@@ -193,22 +193,34 @@ The Fraud API ([`ai_platform/inference/`](../../../ai_platform/inference)) serve
 
 *A prediction through the Fraud API: HTTP 200, model version 1, with the feature timestamp.*
 
-**Current deployment.** The commands below were run read-only against the cluster, and their output was rendered as images (terminal renders, not application UI). The raw output is in [`runtime/raw/`](../../evidence/edai2/screenshots/runtime/raw).
+**Recorded N13 deployment state.** The preserved read-only command transcripts
+are historical raw evidence, not screenshots and not a current cluster query:
 
-![KServe resources (terminal render)](../../evidence/edai2/screenshots/runtime/05_kserve_isvc.png)
+- [KServe resources](../../evidence/edai2/screenshots/runtime/raw/05_kserve_isvc.txt):
+  `fraud-detector` was `READY True`; predictor 1/1 Running, zero restarts,
+  digest `cba90c22…`.
+- [V2 readiness and metadata](../../evidence/edai2/screenshots/runtime/raw/06_kserve_v2_ready_metadata.txt):
+  readiness HTTP 200, 41 inputs, outputs `fraud_probability` and
+  `fraud_prediction`.
+- [Prediction and correlated KServe log](../../evidence/edai2/screenshots/runtime/raw/07_fraud_api_predict_via_kserve.txt):
+  request ID `n13-doc-20261104T093242Z`.
 
-*InferenceService `fraud-detector` is `READY True`. The predictor pod is 1/1 Running with 0 restarts, on image `cba90c22…`.*
+```text
+InferenceService: fraud-detector READY=True
+predictor: 1/1 Running, restarts=0
+GET /v2/models/fraud-detector/ready -> HTTP 200
+POST /v1/fraud/predict -> HTTP 200
+fraud_probability: 0.0639895560144887
+correlation_id: n13-doc-20261104T093242Z
+```
 
-![KServe V2 metadata (terminal render)](../../evidence/edai2/screenshots/runtime/06_kserve_v2_ready_metadata.png)
-
-*`/v2/models/fraud-detector/ready` returns 200. The metadata declares 41 inputs and the outputs `fraud_probability` and `fraud_prediction`.*
-
-![Prediction correlated with the KServe log (terminal render)](../../evidence/edai2/screenshots/runtime/07_fraud_api_predict_via_kserve.png)
-
-*A known transaction through the Fraud API:*
+*The recorded known transaction through the Fraud API showed:*
 
 - *HTTP 200, `fraud_probability` 0.0639895560144887, equal to the value recorded when the model was first deployed;*
 - *the KServe predictor log contains the same request ID (`n13-doc-20261104T093242Z`), which confirms that the request reached the model server.*
+
+The genuine historical GKE and Fraud API captures above remain the qualifying
+UI evidence for row 15. The N13 transcript is supporting evidence only.
 
 ## 7. Limitations
 

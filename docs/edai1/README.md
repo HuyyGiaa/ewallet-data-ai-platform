@@ -70,7 +70,7 @@ flowchart LR
 
 ## Evidence
 
-Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../evidence/edai1). Each report embeds the images it relies on, and states what each one shows and which run produced it.
+Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../evidence/edai1). Each report embeds genuine images where available and links raw records where an authentic capture was not retained.
 
 | Folder | Content |
 |---|---|
@@ -82,7 +82,9 @@ Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../ev
 | `novel_ideas/` | Google Cloud Run and Cloud Logging captures of the point-in-time validation |
 | `dp2/`, `dp3/` | Clearly labelled local-fixture tests of SCD2 and feature timestamps |
 
-Images labelled as renderings are generated from raw benchmark artifacts and are not application screenshots.
+Programmatic terminal-like renders are not embedded in the final reports.
+Docker and PostgreSQL sections use preserved raw JSON/log excerpts and mark the
+missing original UI/terminal captures explicitly.
 
 ## Limitations
 

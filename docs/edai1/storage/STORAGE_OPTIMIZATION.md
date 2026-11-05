@@ -300,12 +300,25 @@ signature remained equal, so the faster plan did not change the observed
 business result. The 78.14% write overhead shows why this index is appropriate
 only when the measured read path justifies additional index maintenance.
 
-![Historical PostgreSQL warehouse index benchmark](../../evidence/edai1/storage/07_postgres_warehouse_index_ab_v2.png)
+The authoritative record is the preserved [raw benchmark JSON](../../evidence/edai1/storage/artifacts/postgres_warehouse_index_ab_v2.json).
+The excerpt below is raw historical evidence, not a screenshot and not a new
+benchmark execution:
 
-*Readable rendering of the genuine historical benchmark artifact. This is not
-a database-management UI screenshot. The raw JSON remains the authoritative
-record for all seven timings, full plans, buffer counts, semantic signatures,
-index definition and write measurement.*
+```text
+scope: isolated local PostgreSQL container; no cloud or MLflow database access
+started_at: 2026-10-29T14:20:01.705901+00:00
+finished_at: 2026-10-29T14:20:13.592243+00:00
+dataset rows: 2,000,000
+baseline execution_ms: 68.830, 65.762, 61.043, 65.776, 63.556, 68.597, 66.436
+indexed execution_ms: 24.401, 21.860, 22.608, 19.913, 17.936, 18.027, 18.042
+median: 65.776 ms -> 19.913 ms
+read improvement: 69.73%
+semantic equivalence: passed
+write trade-off: 112.277 ms -> 200.012 ms (78.14% overhead)
+```
+
+**Screenshot status:** `SCREENSHOT_MISSING`. No authentic pgAdmin, DBeaver or
+terminal-window capture of this exact 2M-row historical run was retained.
 
 ### Evidence and limitations
 
@@ -315,8 +328,8 @@ index definition and write measurement.*
   `30858a9dda70f39989960e0baada108b926a5e4c849c9c487bd93ed29148a9bc`.
 - [Benchmark summary log](../../evidence/edai1/storage/artifacts/postgres_warehouse_benchmark_v2.log), SHA-256
   `67b0c98c6defb319cc878d2be988a38d009c00f6e9d67f232c2ccf48afed63d7`.
-- Evidence rendering SHA-256:
-  `0db7f0a1cfbb2f5f7ad270a7bb39a0ed9b56bc707e8fc64b3c8d746e26b6b6ca`.
+- The former programmatic render is retained only as historical source evidence
+  and is no longer embedded in submission-facing documentation.
 - Original immutable evidence root:
   `/home/huyy-giaa/ewallet-evidence/edai1-final-evidence/warehouse/`.
 - The earlier retained run (`37.940 → 10.414 ms`, 72.55%, 122.25% write
