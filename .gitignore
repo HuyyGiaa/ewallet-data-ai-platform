@@ -101,3 +101,8 @@ crash.*.log
 
 # Local Flink benchmark runtime evidence (kept on the benchmark PC, not in Git)
 evidence/flink-benchmark/
+
+# B1 testing artifacts
+.hypothesis/
+mutants/
+.mutmut-cache

@@ -1,0 +1,55 @@
+# Reviewed equivalent mutants for B1.3. One mutant per line, then the reason.
+# An entry means no input can tell the mutant from the original. Only a surviving
+# mutant listed here leaves the actionable denominator; a changed error message
+# is observable, so message-only survivors stay actionable and are not listed.
+
+# derived.py: the Series is float64 NaN either way
+ai_platform.ml.training.derived.x_safe_divide__mutmut_16  # same float64 NaN series
+ai_platform.ml.training.derived.x_safe_divide__mutmut_18  # same float64 NaN series
+ai_platform.ml.training.derived.x_safe_divide__mutmut_19  # same float64 NaN series
+ai_platform.ml.training.derived.x_safe_divide__mutmut_21  # same float64 NaN series
+ai_platform.ml.training.derived.x_safe_divide__mutmut_24  # same float64 NaN series
+# derived.py: guard cannot fire, all six columns are assigned just above
+ai_platform.ml.training.derived.x_add_derived_features__mutmut_71  # unreachable guard
+ai_platform.ml.training.derived.x_add_derived_features__mutmut_74  # unreachable guard
+ai_platform.ml.training.derived.x_add_derived_features__mutmut_75  # unreachable guard
+# prompt_safety.py
+ai_platform.llm_agent.prompt_safety.x__luhn__mutmut_10  # a doubled digit is even, so it never equals 9
+ai_platform.llm_agent.prompt_safety.x__luhn__mutmut_16  # -s is divisible by 10 exactly when s is
+ai_platform.llm_agent.prompt_safety.x__distinct_cards__mutmut_4  # any start offset is >= 0, so -1 and -2 behave alike
+ai_platform.llm_agent.prompt_safety.x__distinct_cards__mutmut_11  # a separator keeps two cards from touching, so start != end
+ai_platform.llm_agent.prompt_safety.x__mask_spans__mutmut_10  # a digit right before a UUID or timestamp is part of that token
+ai_platform.llm_agent.prompt_safety.x__mask_spans__mutmut_15  # an email ends in letters, so a digit span cannot end with it
+ai_platform.llm_agent.prompt_safety.x__mask_spans__mutmut_20  # candidate spans end on a digit and never touch without overlapping
+# idempotency.py: Python treats the codec names alike
+ai_platform.llm_agent.idempotency.xǁIdempotencyScopeǁkey__mutmut_19  # UTF-8 and utf-8 are one codec
+ai_platform.llm_agent.idempotency.xǁIdempotencyScopeǁkey__mutmut_23  # UTF-8 and utf-8 are one codec
+ai_platform.llm_agent.idempotency.xǁIdempotencyScopeǁkey__mutmut_27  # UTF-8 and utf-8 are one codec
+# idempotency.py: fields are never read again once the state is terminal
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁclaim__mutmut_58  # ambiguous returns before owner or lease is read
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁclaim__mutmut_59  # ambiguous returns before owner or lease is read
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁclaim__mutmut_60  # ambiguous returns before owner or lease is read
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁclaim__mutmut_61  # ambiguous returns before owner or lease is read
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁcomplete__mutmut_37  # completed returns before owner or lease is read
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁcomplete__mutmut_38  # completed returns before owner or lease is read
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁcomplete__mutmut_39  # completed returns before owner or lease is read
+ai_platform.llm_agent.idempotency.xǁInMemoryIdempotencyStoreǁcomplete__mutmut_40  # completed returns before owner or lease is read
+# wire.py: metadata and the vector both pin 41 columns
+ai_platform.inference.wire.xǁFraudV2WireContractǁencode_request__mutmut_25  # lengths always match
+ai_platform.inference.wire.xǁFraudV2WireContractǁencode_request__mutmut_29  # lengths always match
+ai_platform.inference.wire.xǁFraudV2WireContractǁencode_request__mutmut_30  # lengths always match
+# feast_online.py
+ai_platform.inference.feast_online.x__one__mutmut_9  # the caller discards these names and reports its own
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁget_features__mutmut_17  # aware subtraction is the same in any zone
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_65  # aware subtraction is the same in any zone
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_23  # merchant timestamps are skipped when merchant is absent
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_25  # merchant_behavior is the last view of FEATURE_SPECS
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_48  # a feature reference has exactly one colon
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_51  # a feature reference has exactly one colon
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_104  # only the emptiness of the future list is used
+# assembler.py
+ai_platform.inference.assembler.xǁModelInputVectorǁas_dict__mutmut_4  # __post_init__ already fixes both lengths at 41
+ai_platform.inference.assembler.xǁModelInputVectorǁas_dict__mutmut_7  # __post_init__ already fixes both lengths at 41
+ai_platform.inference.assembler.xǁModelInputVectorǁas_dict__mutmut_8  # __post_init__ already fixes both lengths at 41
+ai_platform.inference.assembler.xǁCanonicalFeatureAssemblerǁassemble__mutmut_42  # unreachable: non-merchant columns contribute or are missing first
+ai_platform.inference.assembler.xǁCanonicalFeatureAssemblerǁassemble__mutmut_43  # unreachable: non-merchant columns contribute or are missing first
