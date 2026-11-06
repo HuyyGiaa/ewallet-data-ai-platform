@@ -27,6 +27,7 @@ def http_sender(gateway: str, key: str, timeout: float = 120.0) -> Callable[[str
     """Return a sender for one model name on one gateway."""
 
     def send(model: str) -> dict[str, Any]:
+        """Send one request and return its record; failures are records too."""
         body = {"model": model, "max_tokens": 32, "temperature": 0,
                 "messages": [{"role": "user", "content": "Summarise the fraud review process in one sentence."}]}
         request = Request(f"{gateway}/v1/chat/completions", data=json.dumps(body).encode(), headers={

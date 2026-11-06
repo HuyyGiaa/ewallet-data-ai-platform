@@ -26,6 +26,7 @@ def http_sender(url: str, timeout: float = 15.0) -> Send:
     """Return a sender bound to the Fraud API predict URL."""
 
     def send(payload: Mapping[str, Any]) -> tuple[int, Mapping[str, Any]]:
+        """Post one request; a transport failure is status 0."""
         request = Request(url, data=json.dumps(payload).encode(), headers={"content-type": "application/json"})
         try:
             with urlopen(request, timeout=timeout) as response:

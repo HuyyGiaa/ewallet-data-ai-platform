@@ -43,10 +43,13 @@ class StubBackend:
         self.calls = 0
 
         class Handler(BaseHTTPRequestHandler):
+            """Answer every POST with a minimal chat completion."""
+
             def log_message(self, *args: object) -> None:
-                return None
+                """Keep the stub quiet."""
 
             def do_POST(self) -> None:
+                """Echo the requested model, as vLLM does."""
                 body = json.loads(self.rfile.read(int(self.headers["content-length"])))
                 outer.calls += 1
                 raw = json.dumps({
@@ -70,7 +73,7 @@ class StubBackend:
         self.server.server_close()
 
 
-def render_config(overlays: list[Path]) -> dict:
+def render_config(overlays: list[Path], values: list[Path]) -> dict:
     """Render the chart and return the agentgateway configuration document."""
     args = ["helm", "template", "llm-agent", str(CHART), "-f", str(CHART / "values-gcp.yaml"),
             "--set", "agents.enabled=false", "--set", f"vllmCandidate.image={IMAGE_VALUE}",
@@ -79,7 +82,7 @@ def render_config(overlays: list[Path]) -> dict:
             "--set", "agentgateway.requestRate.refill=100000",
             "--set", "agentgateway.tokenRate.capacity=100000000",
             "--set", "agentgateway.tokenRate.refill=100000000"]
-    for overlay in overlays:
+    for overlay in (*values, *overlays):
         args += ["-f", str(overlay)]
     documents = yaml.safe_load_all(subprocess.run(args, check=True, capture_output=True, text=True).stdout)
     config_map = next(d for d in documents if d and d["kind"] == "ConfigMap" and d["metadata"]["name"] == "agentgateway-llm-config")
@@ -134,14 +137,18 @@ def main() -> int:
     parser.add_argument("--expect", action="append", required=True, help="backendLabel=weight")
     parser.add_argument("--requests", type=int, default=300)
     parser.add_argument("--real-backend", action="append", default=[], help="service=url")
+    parser.add_argument("--values", type=Path, action="append", default=[], help="base values, e.g. the CPU timeouts")
     parser.add_argument("--then", help="shell command to run while the gateway is up")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     expected = {item.split("=")[0]: int(item.split("=")[1]) for item in args.expect}
     real = dict(item.split("=", 1) for item in args.real_backend)
+    if "vllm-primary" in real:
+        # A stub behind failover would answer for a slow model and fake a result.
+        real.setdefault("vllm-fallback", real["vllm-primary"])
     stubs = {service: StubBackend() for service in ("vllm-primary", "vllm-fallback", "vllm-candidate") if service not in real}
     urls = {**real, **{service: f"http://127.0.0.1:{stub.port}" for service, stub in stubs.items()}}
-    config = localise(render_config(args.overlay), urls)
+    config = localise(render_config(args.overlay, args.values), urls)
     config.get("config", {}).pop("tracing", None)
     routes = config["routes"]
     port = config["gateways"]["default"]["port"]

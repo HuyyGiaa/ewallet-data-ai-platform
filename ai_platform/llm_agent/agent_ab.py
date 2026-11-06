@@ -87,7 +87,9 @@ class AgentExperiment:
 class AssignablePlanner(Protocol):
     """The planner surface the Coordinator needs."""
 
-    def available(self) -> bool: ...
+    def available(self) -> bool:
+        """Report whether the planner holds a usable credential."""
+        ...
 
 
 class ExperimentPlanner:

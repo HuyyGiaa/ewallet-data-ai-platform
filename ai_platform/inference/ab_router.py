@@ -34,9 +34,13 @@ class ArmPredictor(Protocol):
 
     async def predict(
         self, vector: ModelInputVector, *, correlation_id: str
-    ) -> ModelPrediction: ...
+    ) -> ModelPrediction:
+        """Return one prediction from this arm's model."""
+        ...
 
-    async def ready(self) -> bool: ...
+    async def ready(self) -> bool:
+        """Raise unless this arm can serve."""
+        ...
 
 
 class ABTelemetry(Protocol):
@@ -48,11 +52,17 @@ class ABTelemetry(Protocol):
         *,
         latency_seconds: float,
         prediction: ModelPrediction | None,
-    ) -> None: ...
+    ) -> None:
+        """Record one finished request; ``prediction`` is None when it failed."""
+        ...
 
-    def record_candidate_failure(self, arm: str, code: str) -> None: ...
+    def record_candidate_failure(self, arm: str, code: str) -> None:
+        """Record a candidate failure that the control then covered."""
+        ...
 
-    def record_availability(self, arm: str, available: bool) -> None: ...
+    def record_availability(self, arm: str, available: bool) -> None:
+        """Record one readiness result for an arm."""
+        ...
 
 
 class NoopABTelemetry:

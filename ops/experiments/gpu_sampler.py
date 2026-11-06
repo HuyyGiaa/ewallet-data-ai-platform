@@ -23,6 +23,7 @@ def kubectl_reader(context: str, namespace: str, deployment: str) -> Reader:
     """Return a reader that runs nvidia-smi in the pod."""
 
     def read() -> str:
+        """Return raw nvidia-smi output for one sample."""
         return subprocess.run(
             ["kubectl", "--context", context, "-n", namespace, "exec", f"deployment/{deployment}", "--",
              "nvidia-smi", f"--query-gpu={QUERY}", "--format=csv,noheader,nounits"],

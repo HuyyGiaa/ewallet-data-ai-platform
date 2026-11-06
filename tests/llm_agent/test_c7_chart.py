@@ -107,6 +107,10 @@ class LlmAbTests(unittest.TestCase):
         labels = by_kind(self.items, "Deployment")["vllm-candidate"]["spec"]["template"]["metadata"]["labels"]
         self.assertEqual("vllm", labels["app.kubernetes.io/name"])
 
+    def test_stacked_agent_overlay_keeps_the_llm_route(self):
+        items = render(ON, BYO, NL, overlay("llm-ab-cpu-gpu.yaml"), CANDIDATE_IMAGE, overlay("agent-ab-qwen-1-7b.yaml"))
+        self.assertLessEqual({"ewallet-llm-ab", "ewallet-agent-candidate"}, set(virtual(items)))
+
     def test_unpinned_image_is_refused(self):
         with self.assertRaises(Exception):
             render(ON, BYO, NL, overlay("llm-ab-cpu-gpu.yaml"), {"vllmCandidate": {"image": "vllm/vllm-openai:latest"}})
