@@ -1,167 +1,218 @@
-# Agent platform completion runbook (Batch C-B)
+# Agent platform approval packages (Batch C-B)
 
-This runbook takes the Batch C-B work from local code to cloud evidence. **Nothing in it has run on the cluster yet.** Every package below needs the owner's approval before it starts.
+This runbook takes the Batch C-B work from local code to cloud evidence. **No cloud mutation is authorized by this document, and nothing in it has run on the cluster.** The owner approves and runs each package.
 
-Run the packages in this order. Each one lists what it changes, what it costs, how to check it and how to undo it. Run one heavy package at a time.
+Every step carries one label:
 
-| Package | Purpose | New cost | Touches production |
+| Label | Meaning |
+|---|---|
+| `READ-ONLY` | Reads the cluster, changes nothing |
+| `LOCAL TEST` | Runs on this machine only |
+| `CLOUD MUTATION` | Requires owner approval first |
+
+Run one heavy package at a time.
+
+| Package | Purpose | Cost | Production impact |
 |---|---|---|---|
-| [P1](#p1-jenkins-cd) | Jenkins CD for rows 34–36 | Cloud Build minutes | No (`ewallet-cicd` only) |
-| [P2](#p2-exp-v1-vllm-thread-binding) | EXP-V1 | about $0.43, cap $0.71 | No |
-| [P3](#p3-exp-v2-kubernetes-service-versus-llm-d) | EXP-V2 | about $0.80, cap $1.42 | No |
-| [P4](#p4-keda) | KEDA and EXP-C5-KEDA | no new nodes | Yes |
-| [P5](#p5-mcp-failover) | MCP failover and EXP-C5-MCP | no new nodes | Yes, deletes one MCP pod |
-| [P6](#p6-sandbox) | Business agent in Sandbox | no new nodes | Adds network rules |
-| [P7](#p7-gpu) | EXP-V3 on L4 | about $1.63 for 3 h Spot | No, blocked by quota |
+| [P1](#p1-jenkins-cd) | Jenkins CD, rows 34–36 | Cloud Build minutes | None (`ewallet-cicd` only) |
+| [P2](#p2-exp-v1-thread-binding) | EXP-V1 | about $0.43, cap $0.71 | None |
+| [P3](#p3-exp-v2-routing) | EXP-V2 | about $0.80, cap $1.42 | None |
+| [P4](#p4-keda) | KEDA and EXP-C5-KEDA | no new nodes | **Changes production agents** |
+| [P5](#p5-isolated-mcp-failover) | EXP-C5-MCP | no new nodes | None |
+| [P6](#p6-sandbox) | EXP-C5-SANDBOX | no new nodes | None until S1 |
 
-Costs use the Singapore list prices checked on 2026-11-05: e2-standard-4 at $0.1653/h, plus 50 GB pd-balanced and one IP, for about $0.18 per node-hour. Durations are estimates from the historical runs' wall time plus an assumed 8–9 minutes of vLLM startup per run.
+GPU work (EXP-V3) stays blocked until the owner's quota request succeeds. See the [LLM A/B design](../../../edai2/llm/LLM_AB_DESIGN.md).
+
+Costs use Singapore list prices read on 2026-11-05: about $0.18 per e2-standard-4 node-hour with disk and IP. Durations are estimates from historical run times plus an assumed 8–9 minutes of vLLM startup per run.
 
 ## Common setup
 
-```bash
-export KUBE_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
-export VLLM_IMAGE=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
-```
-
-Before any package, confirm that nothing is pending and the DP2 and LLM workloads are healthy:
+`READ-ONLY`
 
 ```bash
+export PROJECT=ewallet-data-ai-platform-hg26
+export KUBECONFIG=$(mktemp)
+gcloud container clusters get-credentials ewallet-dev --zone asia-southeast1-b --project "$PROJECT" --dns-endpoint
+export KUBE_CONTEXT=gke_${PROJECT}_asia-southeast1-b_ewallet-dev
 kubectl --context "$KUBE_CONTEXT" get pods -A --field-selector=status.phase=Pending
 kubectl --context "$KUBE_CONTEXT" top nodes
 ```
 
-Evidence goes under `docs/evidence/edai2/`, one new directory per experiment. The scripts refuse an existing directory, so a run cannot replace older evidence.
+Stop if anything is pending. Evidence goes in a new directory under `docs/evidence/edai2/` for each experiment; the scripts never overwrite one.
 
-Do not use `o1_experiment.sh`, `g2_experiment.sh` or `g1_operator.sh` on this cluster. They uninstall `llm-agent` and resize `cpu-pool`, and they now refuse to run while that release exists.
+Do not use `o1_experiment.sh`, `g2_experiment.sh` or `g1_operator.sh` on this cluster. They uninstall `llm-agent` and resize `cpu-pool`, and they now refuse to run.
 
 ## P1: Jenkins CD
 
-**Changes:** Jenkins configuration gains the job `edai2-cd-agents`. Three CD runs build images and create temporary objects in `ewallet-cicd`, which are parked at zero replicas on success. Jenkins RBAC does not change.
+**Source.** Build from the merged commit, not from C-B alone: a streaming image from C-B lacks C-A's watermark fix, and the smoke can't detect that. See [the integration order](../../../edai2/platform/C_INTEGRATION_ORDER.md). MCP and Agents have no such dependency.
 
-**Prerequisites:**
+| Component | Job | Branch | Image | Objects in `ewallet-cicd` | Requests | PASS |
+|---|---|---|---|---|---|---|
+| MCP (row 34) | `edai2-cd-mcp-agents` | `release/mcp-agents` | `mcp-tools` | Deployment, Service, Job, ConfigMaps | 150m, 384Mi | Digest matches, ready 200, anonymous 401, `tools/list` 200 |
+| Agents (row 35) | `edai2-cd-agents` | `release/agents` | `g3-byo-coordinator` | Redis, 2 agents, Job, ConfigMaps | 300m, 704Mi | Digest matches, cards served, malformed task rejected |
+| Streaming (row 36) | `edai2-cd-streaming` | `release/streaming` | `flink-block-a` | Job, ConfigMap | 100m, 256Mi | 7 operators, 1 duplicate removed, history and online writes |
 
-- The branch is merged or pushed to `release/mcp-agents`, `release/agents` and `release/streaming`, each at one reviewed commit.
-- Live Jenkins picks up `infra/kubernetes/jenkins/jenkins.yaml`.
-- The agents run needs `PROMPT_REGISTRY_URL`.
+The namespace quota is 2 CPU and 6 GiB, and jobs run one at a time.
 
-**Resources:** the largest run, agents, requests 300m CPU and 704Mi across Redis, two agents and the smoke Job, inside the 2 CPU / 6Gi namespace quota.
+| Step | Label |
+|---|---|
+| `python scripts/ci/rbac_matrix.py --context "$KUBE_CONTEXT" --state before` must report 34/34 | `READ-ONLY` |
+| `uv run ... pytest tests/ci` on the release commit | `LOCAL TEST` |
+| Reload Jenkins with the job added in `infra/kubernetes/jenkins/jenkins.yaml` | `CLOUD MUTATION` |
+| Create the three release branches at the reviewed commit | `CLOUD MUTATION` |
+| Run each job with `DEPLOY_APPROVED=true`, `EXPECTED_GIT_SHA` set, and approve the input step | `CLOUD MUTATION` |
+| `kubectl -n ewallet-cicd get deploy` shows zero replicas | `READ-ONLY` |
 
-**Steps:** in Jenkins, run each job with `DEPLOY_APPROVED=true`, `EXPECTED_GIT_SHA` set to the release commit, and approve at the input step. Run the jobs one at a time.
+**Evidence:** `verdict.json` per job, console output, and the zero-replica readback.
 
-| Job | Row | PASS means |
-|---|---|---|
-| `edai2-cd-mcp-agents` | 34 | digest readback matches, `/ready` 200, anonymous 401, `tools/list` 200 |
-| `edai2-cd-agents` | 35 | digest readback matches, agent cards served, malformed task rejected |
-| `edai2-cd-streaming` | 36 | smoke summary shows operators, duplicate removal, history and online updates |
+**Rollback:** a failed run restores the previous objects itself. A passed run leaves workloads at zero. To remove the new job, revert its line in `jenkins.yaml`.
 
-**Evidence:** `verdict.json` per run, Jenkins console output, and `kubectl get deploy -n ewallet-cicd` showing zero replicas afterwards.
+**Limit:** this verifies a release candidate. It doesn't update production, because Jenkins has no rights there. The [RBAC design](../../../edai2/cicd/PRODUCTION_ROLLOUT_RBAC.md) is a separate decision, and its rollout step isn't built.
 
-**Rollback:** a failed run restores the previous objects by itself. To remove the new job, revert the `jenkins.yaml` line.
+## P2: EXP-V1 thread binding
 
-**Scope limit:** these runs verify the release in `ewallet-cicd`. They do not update production agents, because Jenkins has no rights in those namespaces. That needs a separate RBAC decision.
+Read the [safety audit](../../../edai2/llm/EXP_V1_V2_SAFETY_AUDIT.md) first.
 
-## P2: EXP-V1 vLLM thread binding
+**Creates** `bench-pool` (1 e2-standard-4, tainted) and namespace `ewallet-bench`, and removes both. About 2.4 hours, stopping at 240 minutes.
 
-**Changes:** creates `bench-pool` (1 e2-standard-4, tainted) and namespace `ewallet-bench`, runs both arms, and removes both. About 2.4 hours; the script stops at 240 minutes.
+| Step | Label |
+|---|---|
+| `VLLM_IMAGE=... scripts/experiments/vllm_bench.sh exp-v1 plan /tmp/exp-v1-plan`, then read `plan/arm-difference.diff` | `LOCAL TEST` |
+| `gcloud container node-pools list ...` shows no `bench-pool` | `READ-ONLY` |
+| `EXP_APPROVED=yes scripts/experiments/vllm_bench.sh exp-v1 session docs/evidence/edai2/exp-v1-<UTC>` | `CLOUD MUTATION` |
+| Compare `production-before.txt` and `production-after.txt` | `READ-ONLY` |
 
-**Preview, no cluster access:**
+`VLLM_IMAGE` is `asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c`.
 
-```bash
-scripts/experiments/vllm_bench.sh exp-v1 plan /tmp/exp-v1-plan
-cat /tmp/exp-v1-plan/plan/arm-difference.diff
-```
+The diff must show only `VLLM_CPU_OMP_THREADS_BIND` (`auto` versus `0-1`).
 
-The diff must show only `VLLM_CPU_OMP_THREADS_BIND`.
+**PASS:** exit 0, `verdict.md` written, production files identical, no `bench-pool` left. Any verdict counts, including `REGRESSED`.
 
-**Run:**
+**Keep the machine awake.** If the host dies, nothing cleans up, so run the rollback.
 
-```bash
-EXP_APPROVED=yes scripts/experiments/vllm_bench.sh exp-v1 session docs/evidence/edai2/exp-v1-$(date -u +%Y%m%dT%H%M%SZ)
-```
+**Rollback:** `scripts/experiments/vllm_bench.sh exp-v1 down /tmp/exp-v1-down` (`CLOUD MUTATION`), which deletes only objects carrying the ownership mark.
 
-**PASS means:** exit code 0, `verdict.md` written, `production-before.txt` identical to `production-after.txt`, and no `bench-pool` left.
+**Screenshots:** `python -m ops.experiments.cli checklist --spec configs/experiments/exp-v1-vllm-cpu.json`. Take them during the run, because the namespace is removed. Prometheus doesn't scrape `ewallet-bench`, so use Cloud Monitoring.
 
-**If it was interrupted:**
+## P3: EXP-V2 routing
 
-```bash
-scripts/experiments/vllm_bench.sh exp-v1 down /tmp/exp-v1-down
-gcloud container node-pools list --cluster ewallet-dev --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26
-```
+As P2, with `exp-v2` and 2 nodes, about 2.25 hours. The llm-d router is installed in `ewallet-bench` for optimized runs only, and its Role stays in that namespace.
 
-**Screenshots:** print the list with `python -m ops.experiments.cli checklist --spec configs/experiments/exp-v1-vllm-cpu.json`. Take them during the run, because the namespace is removed at the end. Prometheus does not scrape `ewallet-bench`, so resource panels come from Cloud Monitoring, which already collects cAdvisor and kubelet metrics for the cluster.
+The plan diff must show only the backend URL and the `x-ewallet-backend` label. A request served by the wrong backend marks its level `ATTRIBUTION_MISMATCH`, and the comparison refuses a verdict.
 
-## P3: EXP-V2 Kubernetes Service versus llm-d
-
-**Changes:** same as P2 with 2 nodes, plus the llm-d standalone router installed in `ewallet-bench` during optimized runs only. The router's Role stays inside that namespace. About 2.25 hours.
-
-```bash
-scripts/experiments/vllm_bench.sh exp-v2 plan /tmp/exp-v2-plan
-EXP_APPROVED=yes scripts/experiments/vllm_bench.sh exp-v2 session docs/evidence/edai2/exp-v2-$(date -u +%Y%m%dT%H%M%SZ)
-```
-
-The plan diff must show only the backend URL and the `x-ewallet-backend` label. A request served by any other backend marks the level `ATTRIBUTION_MISMATCH`, and the comparison then refuses a verdict.
+Use historical G2 results for context only. Never mix them with these runs.
 
 ## P4: KEDA
 
-**Changes:** installs KEDA 2.21 (cluster-scoped CRDs, namespace `keda`, 125m CPU / 264Mi requested). Upgrades production agents to images that export the in-flight gauge. Replaces each agent HPA with a ScaledObject.
+**Changes production.** Installs KEDA 2.21 (cluster-scoped CRDs, namespace `keda`, 125m CPU and 264Mi requested), rolls agents to rebuilt images, and replaces each agent's HPA with a ScaledObject.
 
-**Capacity:** the third coordinator replica needs 100m / 256Mi. The LLM-labelled nodes had 0.59 and 0.56 CPU free on 2026-11-06.
+**The order below is required.** KEDA's webhook refuses a ScaledObject while an HPA targets the same Deployment, and Helm creates new objects before deleting old ones. A plain `helm upgrade` would therefore fail.
 
-**Order matters.** The baseline must run on the same rebuilt image as the candidate, so build first.
+### Local evidence
 
-1. Build the agent images through P1 and record their digests.
-2. Upgrade `llm-agent` with those digests, keeping the HPA. Check that `ewallet_agent_inflight_tasks` appears in Prometheus.
-3. Measure the baseline, twice:
-   ```bash
-   EXP_APPROVED=yes scripts/experiments/agent_experiment.sh exp-c5-keda baseline run "$EVIDENCE"
-   ```
-4. Install KEDA and the access rules:
-   ```bash
-   scripts/llm_agent/keda_install.sh            # dry run
-   scripts/llm_agent/keda_install.sh --execute
-   kubectl --context "$KUBE_CONTEXT" apply -f infra/kubernetes/experiments/keda-prometheus-access.yaml
-   ```
-5. Upgrade `llm-agent` with `-f infra/helm/llm-agent-platform/g3/keda.yaml`. Check that `kubectl get scaledobject -n ewallet-agents` shows Ready and that no plain-named HPA remains.
-6. Measure the candidate twice, with `optimized` in place of `baseline`.
-7. Compare: `python -m ops.experiments.cli compare --spec configs/experiments/exp-c5-keda.json --dir "$EVIDENCE"`
+The pinned chart and the ScaledObject our chart renders ran on a local cluster on 2026-11-06, against a stub Prometheus and a stub workload.
 
-Each run sends at most 40 tasks at concurrency 4 through production vLLM, so check the gateway's remaining token budget first. The task path has never been load-tested from a Job: try one run with `EXP_MAX_REQUESTS=1` before the first measured run. That run proves the load image has `python3` and that the new AuthorizationPolicy admits the Job.
+| Check | Result |
+|---|---|
+| ScaledObject while the HPA exists | Refused by `vscaledobject.kb.io` |
+| HPA deleted first | Accepted; `keda-hpa-fraud-coordinator` created with range 2–3 |
+| Value 0 | Stays at 2 |
+| Value 5, threshold 2 | 2 → 3 in about 70 s, including the stub's value update |
+| Value 100 | Stays at the cap of 3 |
+| Prometheus down while at 3 | `Fallback=True`; settles at 2 after about 300 s (scale-down window) |
+| Prometheus back with load | 2 → 3 in about 20 s |
+| Load gone | 3 → 2 in about 360 s |
+| Rollback: HPA created, then ScaledObject deleted | Allowed; HPA takes over at 2 replicas |
 
-**Unproven until run:** operator-only ambient enrolment, and whether the Prometheus query matches the gauge's labels. If the scaler cannot query, KEDA's `fallback` holds 2 replicas.
+This doesn't prove the production path: the stub skips the real gauge, ambient mTLS and both access rules, and the local cluster ran Kubernetes 1.37 where GKE runs 1.36. Steps 3 and 8 below cover that.
 
-**Rollback:** remove `g3/keda.yaml` from the release, which renders the HPAs again. Then delete the access rules and `helm uninstall keda -n keda`.
+### Safety review
 
-## P5: MCP failover
+| Item | Verdict |
+|---|---|
+| Supported version | READY: the chart declares `>=1.23`; GKE is 1.36.4 |
+| Prometheus connectivity | Needs the two access rules and the operator pod in the mesh; not yet proven |
+| NetworkPolicy, AuthorizationPolicy | One added flow each, both only for `keda-operator` |
+| HPA replacement | Safe in the order below; tested locally |
+| Node capacity | READY: 3 extra replicas need 300m and 768Mi, and LLM nodes had 0.59 and 0.56 CPU free |
+| Maximum replicas | 3 per agent, enforced locally |
+| Failure recovery | Holds 2 replicas in an outage and recovers by itself; tested locally |
 
-**Changes:** `feature-rag-mcp` and `drift-mcp` go to 2 spread replicas in release `llm-agent-mcp`. `mcp-gateway` goes to 2 replicas in release `llm-agent`. This adds 250m CPU and 576Mi in total. The measured run **deletes one production MCP pod**, so failed tool calls are expected during the baseline.
+**Known limit:** a pod that dies mid-task leaves its gauge series in the OpenTelemetry collector for up to 5 minutes (the exporter's default). That can overstate load briefly, and the cap of 3 bounds the effect. This wasn't tested. Metrics also lag by up to about 30 s of export and polling.
 
-`agentgateway` does not retry MCP backends; a local test on v1.7.0 got one backend call and a 503. Failover is therefore a client retry, limited to read-only tools.
+### Steps
 
-**Order:** both arms run the same rebuilt Specialist image.
+`IMAGE` digests come from P1.
 
-1. Baseline: keep 1 replica and add `-f g3/mcp-retry-off.yaml` to the `llm-agent` upgrade. Run twice:
-   ```bash
-   EXP_APPROVED=yes EXP_DISRUPT_APPROVED=yes scripts/experiments/agent_experiment.sh exp-c5-mcp-failover baseline run "$EVIDENCE"
-   ```
-2. Candidate: remove `mcp-retry-off.yaml`, then apply `g3/mcp-failover.yaml` to `llm-agent-mcp` and `g3/mcp-gateway-failover.yaml` to `llm-agent`. Run twice with `optimized`.
-3. Compare with `configs/experiments/exp-c5-mcp-failover.json`.
+| # | Step | Label |
+|---|---|---|
+| 1 | `python scripts/experiments/keda_preflight.py --context "$KUBE_CONTEXT"`. On 2026-11-06: six READY, two WAITING, as expected | `READ-ONLY` |
+| 2 | Upgrade `llm-agent` to the rebuilt images, keeping HPAs. Rerun step 1: the gauge check must be READY | `CLOUD MUTATION` |
+| 3 | One-task smoke: `EXP_APPROVED=yes scripts/experiments/agent_experiment.sh exp-c5-keda baseline smoke "$EVIDENCE"`. Stop if it fails | `CLOUD MUTATION` |
+| 4 | Baseline, twice: the same with `run` | `CLOUD MUTATION` |
+| 5 | `scripts/llm_agent/keda_install.sh` (dry run), then `--execute`, then `kubectl rollout status` for all three `keda` Deployments | `CLOUD MUTATION` |
+| 6 | `kubectl apply -f infra/kubernetes/experiments/keda-prometheus-access.yaml` | `CLOUD MUTATION` |
+| 7 | Preflight with `--stage before-scaledobject`. Delete the three named HPAs, then at once upgrade `llm-agent` with `-f infra/helm/llm-agent-platform/g3/keda.yaml` | `CLOUD MUTATION` |
+| 8 | `kubectl -n ewallet-agents get scaledobject` shows Ready with no fallback active: this is the first proof of the real Prometheus path | `READ-ONLY` |
+| 9 | Smoke, then two runs, with `optimized` | `CLOUD MUTATION` |
+| 10 | `python -m ops.experiments.cli compare --spec configs/experiments/exp-c5-keda.json --dir "$EVIDENCE"` | `LOCAL TEST` |
 
-The script stops if replica count or `EWALLET_MCP_MAX_ATTEMPTS` does not match the arm.
+Each run sends at most 40 tasks at concurrency 4 through production vLLM, so check the gateway's token budget first. The smoke sends one, and its result stays out of the comparison. Replicas keep their count between steps 7's delete and upgrade, but nothing autoscales in that gap.
 
-**Rollback:** remove the overlays and upgrade both releases.
+**Rollback** (`CLOUD MUTATION`): upgrade without `g3/keda.yaml`, which restores the HPAs (order tested). Then `kubectl delete -f` the access rules and `helm uninstall keda -n keda`.
+
+## P5: Isolated MCP failover
+
+**No production pod is touched.** The experiment runs the released MCP server in its own namespace, `ewallet-mcp-exp`, with a per-run token and no backends, and deletes one pod there. Both arms use the same two images; only replicas and retry attempts differ.
+
+| | Baseline | Candidate |
+|---|---|---|
+| Replicas | 1 | 2 (spread across nodes) |
+| `EWALLET_MCP_MAX_ATTEMPTS` | 1 | 3 |
+
+**Footprint:** at most 250m CPU and 640Mi on non-LLM nodes for a few minutes. `MCP_IMAGE` and `PROBE_IMAGE` come from P1, and the probe needs the Specialist image, because it runs the production retry code.
+
+| Step | Label |
+|---|---|
+| `scripts/experiments/mcp_experiment.sh baseline plan /tmp/mcp-plan` | `LOCAL TEST` |
+| `EXP_APPROVED=yes scripts/experiments/mcp_experiment.sh baseline run "$EVIDENCE"`, twice | `CLOUD MUTATION` |
+| The same with `optimized`, twice | `CLOUD MUTATION` |
+| `python -m ops.experiments.cli compare --spec configs/experiments/exp-c5-mcp-failover.json --dir "$EVIDENCE"` | `LOCAL TEST` |
+
+**PASS:** runs exit 0 with `production-before.txt` and `production-after.txt` identical.
+
+**Rollback:** `scripts/experiments/mcp_experiment.sh baseline down /tmp/mcp-down` (`CLOUD MUTATION`).
+
+**What this proves:** the retry logic and replica behaviour under a lost pod. It says nothing about production until the overlays are rolled out, and that rollout is a later, separate approval:
+
+- `g3/mcp-failover.yaml` on release `llm-agent-mcp` adds 200m and 512Mi.
+- `g3/mcp-gateway-failover.yaml` on `llm-agent` adds 50m and 64Mi.
 
 ## P6: Sandbox
 
-Follow the stages in [`infra/kubernetes/agent-sandbox/README.md`](../../../../infra/kubernetes/agent-sandbox/README.md). Stop at the first failed stage, and record the failure as the result: BYO on `SandboxAgent` is unproven.
+The staged plan, identity and token design are in the [Sandbox README](../../../../infra/kubernetes/agent-sandbox/README.md). Stop at the first failed stage and record it: BYO on `SandboxAgent` is unproven.
 
-Run S0 first, with only its two Secrets. Apply `worker-egress.yaml` only after S0 passes, because that step changes `ewallet-agents` network rules.
+Both arms run in `ewallet-sandbox`, so production agents aren't involved, and the baseline is an identical copy of the production Specialist. `AGENT_IMAGE` must be a rebuilt image from P1, because older images can't serve on port 80.
 
-EXP-C5-SANDBOX compares runtime cost. Its hypothesis has no expected winner: gVisor is an isolation choice, and slower can be an acceptable result.
+**Footprint:** worker 500m and 1 GiB requested, limit 1.5 CPU and 2 GiB. Node `08s1` had 1.44 CPU free on 2026-11-06.
 
-## P7: GPU
+| Step | Label |
+|---|---|
+| `scripts/experiments/sandbox_experiment.sh optimized plan /tmp/sb` | `LOCAL TEST` |
+| Apply `namespace.yaml`, and create Secrets with placeholder values | `CLOUD MUTATION` |
+| `scripts/experiments/sandbox_experiment.sh optimized check /tmp/sb` | `READ-ONLY` |
+| **S0:** `EXP_APPROVED=yes ... optimized run "$EVIDENCE"`. Pass means Ready with a golden snapshot; tasks are expected to fail until S1 | `CLOUD MUTATION` |
+| Add the dedicated token to `feature-rag-mcp`'s Secret; this restarts MCP pods | `CLOUD MUTATION` (production) |
+| **S1:** label the namespace for ambient and apply `s1-access.yaml` | `CLOUD MUTATION` (production network rules) |
+| **S2:** two runs per arm, with `EXP_RECOVERY=yes` for the recovery time | `CLOUD MUTATION` |
+| `python -m ops.experiments.cli compare --spec configs/experiments/exp-c5-sandbox.json --dir "$EVIDENCE"` | `LOCAL TEST` |
 
-**Blocked.** `GPUS_ALL_REGIONS` is 0, although the regional L4 quotas are 1. Raising it is the owner's decision; see [LLM A/B design](../../../edai2/llm/LLM_AB_DESIGN.md).
+The driver measures initialization, first successful A2A task, latency for new and resumed sessions, CPU and memory, worker load against its limit, MCP calls and recovery. Its pod deletion is opt-in and only inside `ewallet-sandbox`.
+
+`successful_mcp_calls` is derived: the Specialist completes a task only when every requested tool returned valid evidence.
+
+**Rollback:** the steps in the Sandbox README, including deleting snapshots and revoking the token.
 
 ## After the evidence
 
-Update the rubric only from a package that finished with its evidence in place. A row changes to `COMPLETE` when its cloud run passed, and an optimization needs both arms with a real verdict. `NO_SIGNIFICANT_CHANGE` and `REGRESSED` are valid results and should be reported as they are.
+Update the rubric only from a package that finished with its evidence in place. A row becomes `COMPLETE` when its cloud run passed, and an optimization needs both arms with a real verdict. `NO_SIGNIFICANT_CHANGE` and `REGRESSED` are valid results.

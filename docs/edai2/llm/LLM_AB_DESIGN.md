@@ -14,6 +14,8 @@ This page plans two LLM comparisons that need a GPU. Neither has run, and neithe
 
 The global GPU limit of 0 overrides the regional limits. Read on 2026-11-06. The billing account's Free Trial status is unverified, and a trial account cannot usually raise GPU quota.
 
+**Owner decision:** requesting `GPUS_ALL_REGIONS = 1` is approved in principle, with L4 Spot preferred, a 3-hour budget target and a 6-hour session maximum. The owner handles the quota request. Until it's granted, no GPU resource exists or may be created.
+
 ## Two experiments
 
 | | EXP-V3A | EXP-V3B |
@@ -46,7 +48,7 @@ Estimated memory is about 5.2 GiB for 0.6B and about 8 GiB for 1.7B, which fits 
 
 ## Before a run
 
-1. The owner decides on the quota request and the budget.
+1. The quota request is granted.
 2. Build a GPU vLLM image with both models baked in, which is a separate approved scope. Pin its digest.
 3. Add a pool with a `nvidia.com/gpu` taint, zero nodes at rest, and the same session rules as `vllm_bench.sh`: time limit, cleanup, and a production comparison before and after.
 4. Add a GPU sampler. `gpu_memory_mib_peak` and `gpu_utilization_mean` in `configs/experiments/exp-v3a-model-l4.json` have no producer yet, and they will show as `n/a` until one exists.

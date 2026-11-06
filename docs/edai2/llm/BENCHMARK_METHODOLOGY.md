@@ -10,6 +10,7 @@ Every comparison follows the same rules, enforced in [`ops/experiments/compare.p
 |---|---|
 | Both arms need evidence | Otherwise `NOT_EXECUTED` |
 | Every control must match, read from live pods | Otherwise `INVALID_COMPARISON`, and no percentages are reported |
+| Raw rows must match the summary | Otherwise the level is blocked |
 | Failed requests stay in the counts | An arm that fails more is `REGRESSED`, however fast it was |
 | A blocked level blocks the verdict | `INCONCLUSIVE` |
 | One run is not a result | Below `min_runs`, `INCONCLUSIVE` |
@@ -28,6 +29,9 @@ In the reports, a positive improvement always means better, whichever way the me
 - **Same workload.** Both arms use the pinned `o1-workload-v1`, and its SHA-256 is a control. Cold and warm-up requests are reported separately from measured ones.
 - **No fallback.** The stack has one backend, so a failed request stays failed.
 - **Isolation.** Each session runs in `ewallet-bench` on its own tainted pool, away from production load.
+- **Same machines.** `node_names` is a control, so a node replaced mid-session invalidates the comparison.
+- **Provenance.** The running image digest and model revision must match the pins before any request is sent.
+- **Complete records.** The raw request count must match the summary, or the level is refused.
 
 ## Differences from O1 and G2
 
@@ -69,13 +73,13 @@ See the [LLM A/B design](LLM_AB_DESIGN.md). Both need GPU quota.
 
 ### Agent experiments
 
-| Experiment | Baseline | Optimized | Primary metric |
-|---|---|---|---|
-| EXP-C5-KEDA | CPU HPA | KEDA on tasks in flight | e2e p95 |
-| EXP-C5-MCP | 1 replica, no retry | 2 replicas, read-only retry | availability |
-| EXP-C5-SANDBOX | BYO Deployment | SandboxAgent on gVisor | e2e p95, no expected winner |
+| Experiment | Baseline | Optimized | Primary metric | Runs in |
+|---|---|---|---|---|
+| EXP-C5-KEDA | CPU HPA | KEDA on tasks in flight | e2e p95 | Live platform |
+| EXP-C5-MCP | 1 replica, no retry | 2 replicas, read-only retry | Availability | `ewallet-mcp-exp` |
+| EXP-C5-SANDBOX | BYO Deployment | SandboxAgent on gVisor | e2e p95, no expected winner | `ewallet-sandbox` |
 
-These run on the live platform, so they have two runs per arm and smaller bounds. Load runs inside a Job and goes through a Service, because a port-forward would pin all traffic to one pod.
+They have two runs per arm and smaller bounds. KEDA load runs inside a Job and goes through a Service, because a port-forward would pin all traffic to one pod. EXP-C5-MCP and EXP-C5-SANDBOX are isolated, so their failure injection can't reach production.
 
 ## Evidence layout
 
