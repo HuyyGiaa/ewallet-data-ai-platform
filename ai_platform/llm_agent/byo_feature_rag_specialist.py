@@ -44,8 +44,8 @@ from ai_platform.llm_agent.agent_metrics import (
     record_mcp_retry,
     record_prompt_screen,
 )
-from ai_platform.llm_agent.mcp_failover import FailoverPolicy, policy_from_env, with_failover
-from ai_platform.llm_agent.byo_runtime import AppResources, audit, configure_telemetry, controller_task_store, flush_agent_metrics
+from ai_platform.llm_agent.mcp_failover import FailoverPolicy, is_recoverable, policy_from_env, with_failover
+from ai_platform.llm_agent.byo_runtime import AppResources, audit, configure_telemetry, controller_task_store, flush_agent_metrics, listen_port
 from ai_platform.llm_agent.nl_intake import (
     IntakeFailure,
     OpenAIToolPlanner,
@@ -273,7 +273,8 @@ class FeatureRagMCPClient:
                     lambda: self._run_once(request),
                     tools=request.requested_tools,
                     is_transient=lambda error: isinstance(error, FeatureRagFailure)
-                    and error.code == "mcp_transport_error",
+                    and error.code == "mcp_transport_error"
+                    and is_recoverable(error),
                     policy=self._failover,
                     on_retry=lambda attempt: record_mcp_retry(APP_NAME),
                 )
@@ -644,7 +645,7 @@ app = build_app()
 def main() -> None:
     import uvicorn
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-    uvicorn.run(app, host="0.0.0.0", port=8080, access_log=True)
+    uvicorn.run(app, host="0.0.0.0", port=listen_port(os.environ), access_log=True)
 
 
 if __name__ == "__main__":

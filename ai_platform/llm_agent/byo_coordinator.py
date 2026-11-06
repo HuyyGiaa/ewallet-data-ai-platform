@@ -42,6 +42,7 @@ from ai_platform.llm_agent.byo_runtime import (
     audit,
     configure_telemetry,
     controller_task_store,
+    listen_port,
 )
 from ai_platform.llm_agent.nl_intake import (
     IntakeFailure,
@@ -490,7 +491,7 @@ def main() -> None:
     import uvicorn
 
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-    uvicorn.run(app, host="0.0.0.0", port=8080, access_log=True)
+    uvicorn.run(app, host="0.0.0.0", port=listen_port(os.environ), access_log=True)
 
 
 if __name__ == "__main__":

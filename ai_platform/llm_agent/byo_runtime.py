@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import logging
 import os
 from pathlib import Path
+from typing import Mapping
 
 import httpx
 from a2a.server.tasks import InMemoryTaskStore, TaskStore
@@ -75,6 +76,22 @@ class ControllerTokenHook:
 class AppResources:
     controller_client: httpx.AsyncClient | None
     token_hook: ControllerTokenHook | None
+
+
+def listen_port(environment: Mapping[str, str]) -> int:
+    """Return the agent's listen port from ``EWALLET_AGENT_PORT``, 8080 by default.
+
+    A kagent BYO Deployment serves on 8080. A Substrate sandbox probes port 80 instead, and
+    the same image has to serve both.
+
+    Raises:
+        ValueError: The value is not a port number.
+    """
+
+    port = int(environment.get("EWALLET_AGENT_PORT", "8080"))
+    if not 1 <= port <= 65535:
+        raise ValueError("EWALLET_AGENT_PORT must be between 1 and 65535")
+    return port
 
 
 def controller_task_store(app_name: str) -> tuple[TaskStore, AppResources]:

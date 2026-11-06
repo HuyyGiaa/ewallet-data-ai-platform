@@ -7,21 +7,38 @@ lives in the client, which also knows what is safe to repeat.
 A call may be repeated only when every tool in it is declared read-only here. Repeating
 such a call can reach the server twice, which is harmless because it changes nothing. A
 future tool with side effects stays outside the set and is never retried, whatever the
-failure. Only transport failures are retried: a tool error, an invalid result and a spent
-deadline are real answers, and the caller's single overall deadline still bounds the run.
+failure.
+
+Only failures another replica could heal are retried: a lost connection, or a 502, 503 or
+504 from the gateway. Anything else is an answer, including a rejected credential, a tool
+error, an invalid result and a spent deadline. An unrecognized exception is not retried, so
+the default is the safe side. The caller's single overall deadline still bounds the run.
 """
 
 from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Collection, Mapping, TypeVar
+from typing import Awaitable, Callable, Collection, Iterator, Mapping, TypeVar
+
+import anyio
+import httpx
 
 
 Result = TypeVar("Result")
 
 READ_ONLY_TOOLS = frozenset(
     {"feature_lookup", "fraud_scoring", "knowledge_search", "chunk_lookup", "drift_detection"}
+)
+
+
+RECOVERABLE_STATUS = frozenset({502, 503, 504})
+_LOST_CONNECTION = (
+    httpx.TransportError,
+    ConnectionError,
+    anyio.BrokenResourceError,
+    anyio.ClosedResourceError,
+    anyio.EndOfStream,
 )
 
 
@@ -63,6 +80,37 @@ def policy_from_env(env: Mapping[str, str]) -> FailoverPolicy:
 
     value = env.get("EWALLET_MCP_MAX_ATTEMPTS")
     return FailoverPolicy() if value is None else FailoverPolicy(max_attempts=int(value))
+
+
+def _causes(error: BaseException) -> Iterator[BaseException]:
+    """Walk an exception, its causes and the members of exception groups."""
+
+    pending, seen = [error], set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        yield current
+        if isinstance(current, BaseExceptionGroup):
+            pending.extend(current.exceptions)
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+
+
+def is_recoverable(error: BaseException) -> bool:
+    """Return whether a failure could heal on another replica.
+
+    The MCP client wraps transport errors in task groups and in the caller's own error, so
+    the whole chain is searched. A definite rejection anywhere in it wins: a 401 is not
+    healed by asking again, even if a connection also closed while it was reported.
+    """
+
+    chain = list(_causes(error))
+    statuses = [item.response.status_code for item in chain if isinstance(item, httpx.HTTPStatusError)]
+    if any(status not in RECOVERABLE_STATUS for status in statuses):
+        return False
+    return bool(statuses) or any(isinstance(item, _LOST_CONNECTION) for item in chain)
 
 
 def may_repeat(tools: Collection[str]) -> bool:

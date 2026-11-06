@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
+from pathlib import Path
+import re
 import unittest
 
+import anyio
+import httpx
+import pytest
+
+from ai_platform.llm_agent.contracts import TOOL_NAMES
 from ai_platform.llm_agent.mcp_failover import (
     READ_ONLY_TOOLS,
     FailoverPolicy,
+    is_recoverable,
     may_repeat,
     with_failover,
 )
@@ -167,3 +176,102 @@ def test_bad_attempt_value_is_refused() -> None:
         except ValueError:
             continue
         raise AssertionError(f"{value} was accepted")
+
+
+def _status_error(status: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "http://mcp.test/mcp")
+    return httpx.HTTPStatusError("bad", request=request, response=httpx.Response(status, request=request))
+
+
+def _wrapped(cause: BaseException) -> Exception:
+    """Wrap a failure as the specialist does: a task group inside its own error."""
+
+    error = ValueError("MCP Gateway session failed")
+    error.__cause__ = ExceptionGroup("task group", [cause])  # type: ignore[arg-type]
+    return error
+
+
+@pytest.mark.parametrize("cause", [
+    httpx.ConnectError("refused"), httpx.ReadError("reset"), httpx.RemoteProtocolError("closed"),
+    ConnectionError("gone"), anyio.ClosedResourceError(), _status_error(502), _status_error(503), _status_error(504),
+], ids=lambda item: type(item).__name__)
+def test_lost_replica_is_recoverable(cause) -> None:
+    assert is_recoverable(_wrapped(cause))
+
+
+@pytest.mark.parametrize("cause", [
+    _status_error(400), _status_error(401), _status_error(403), _status_error(404), _status_error(429),
+    _status_error(500), KeyError("field"), ValueError("bad result"), RuntimeError("unknown"),
+], ids=lambda item: getattr(getattr(item, "response", None), "status_code", type(item).__name__))
+def test_a_real_answer_is_not_recoverable(cause) -> None:
+    assert not is_recoverable(_wrapped(cause))
+
+
+def test_a_rejection_wins_over_a_closed_connection() -> None:
+    assert not is_recoverable(ExceptionGroup("both", [anyio.ClosedResourceError(), _status_error(401)]))
+
+
+def test_exception_cycle_ends() -> None:
+    first, second = ValueError("a"), ValueError("b")
+    first.__cause__, second.__cause__ = second, first
+    assert not is_recoverable(first)
+
+
+def test_every_tool_in_the_contract_is_classified() -> None:
+    """A new tool fails here until someone audits it and adds it to READ_ONLY_TOOLS."""
+
+    assert TOOL_NAMES == READ_ONLY_TOOLS
+
+
+def test_read_only_tools_write_nothing() -> None:
+    root = Path(__file__).resolve().parents[2] / "ai_platform/llm_agent/tools"
+    pattern = re.compile(r"\.(write|put|insert|commit|delete|publish)\(|open\([^)]*['\"][wa]")
+    for name in ("feature_lookup", "fraud_scoring", "knowledge_search", "chunk_lookup", "drift"):
+        assert not pattern.search((root / f"{name}.py").read_text(encoding="utf-8")), name
+
+
+def test_an_unaudited_tool_is_called_once_even_after_a_lost_connection() -> None:
+    calls = []
+
+    async def call() -> None:
+        calls.append(1)
+        raise httpx.ConnectError("gone")
+
+    with pytest.raises(httpx.ConnectError):
+        asyncio.run(with_failover(call, tools=["feature_lookup", "refund_payment"], is_transient=is_recoverable,
+                                  policy=FailoverPolicy(base_delay_seconds=0.0, max_delay_seconds=0.0)))
+    assert len(calls) == 1
+
+
+def test_rejected_credential_is_not_retried_by_the_client() -> None:
+    attempts = []
+
+    @asynccontextmanager
+    async def factory(endpoint, headers, timeout):
+        attempts.append(1)
+        raise _status_error(401)
+        yield  # pragma: no cover
+
+    from ai_platform.llm_agent.byo_feature_rag_specialist import FeatureRagFailure, FeatureRagMCPClient
+    from tests.llm_agent.test_g3_byo_feature_rag_specialist import request
+
+    client = FeatureRagMCPClient(token_reader=lambda: "token", session_factory=factory,
+                                 failover=FailoverPolicy(base_delay_seconds=0.0, max_delay_seconds=0.0))
+    with pytest.raises(FeatureRagFailure):
+        asyncio.run(client.run(request()))
+    assert len(attempts) == 1
+
+
+def test_listen_port_defaults_to_the_deployment_port() -> None:
+    from ai_platform.llm_agent.byo_runtime import listen_port
+
+    assert listen_port({}) == 8080
+    assert listen_port({"EWALLET_AGENT_PORT": "80"}) == 80
+
+
+@pytest.mark.parametrize("value", ["0", "70000", "http"])
+def test_bad_listen_port_is_refused(value) -> None:
+    from ai_platform.llm_agent.byo_runtime import listen_port
+
+    with pytest.raises(ValueError):
+        listen_port({"EWALLET_AGENT_PORT": value})
