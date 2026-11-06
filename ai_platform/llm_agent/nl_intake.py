@@ -27,6 +27,7 @@ from opentelemetry import propagate, trace
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ai_platform.inference.schemas import FraudPredictionRequest
+from ai_platform.llm_agent.agent_ab import AgentExperiment, ExperimentPlanner
 from ai_platform.llm_agent.business_request import G3BusinessRequest
 from ai_platform.llm_agent.prompt_safety import ScreenResult, screen_prompt
 
@@ -148,6 +149,9 @@ class ToolSelection:
     finish_reason: str
     prompt_tokens: int
     completion_tokens: int
+    variant: str = ""
+    served_model: str = ""
+    backend: str = ""
 
 
 @dataclass(frozen=True)
@@ -192,6 +196,9 @@ class OpenAIToolPlanner:
         timeout_seconds: float = 190.0,
         key_reader: Callable[[], str] = _environment_key,
         transport: httpx.AsyncBaseTransport | None = None,
+        temperature: float = 0,
+        max_tokens: int = 384,
+        variant: str = "",
     ) -> None:
         _validate_base_url(base_url)
         if not 1.0 <= timeout_seconds <= MAX_LLM_TIMEOUT_SECONDS:
@@ -203,15 +210,22 @@ class OpenAIToolPlanner:
         self._timeout = timeout_seconds
         self._key_reader = key_reader
         self._transport = transport
+        self._temperature = temperature
+        self._max_tokens = max_tokens
+        self.variant = variant
 
     def available(self) -> bool:
         return bool(self._key_reader().strip())
 
+    def for_context(self, context_id: str) -> "OpenAIToolPlanner":
+        """Without an experiment every conversation uses this planner."""
+        return self
+
     def _body(self, text: str) -> dict[str, object]:
         return {
             "model": self._model,
-            "temperature": 0,
-            "max_tokens": 384,
+            "temperature": self._temperature,
+            "max_tokens": self._max_tokens,
             "stream": False,
             "tool_choice": "auto",
             "tools": [TOOL_SCHEMA],
@@ -276,18 +290,44 @@ class OpenAIToolPlanner:
             finish_reason=str(choice.get("finish_reason", ""))[:32],
             prompt_tokens=int(usage.get("prompt_tokens") or 0),
             completion_tokens=int(usage.get("completion_tokens") or 0),
+            variant=self.variant,
+            served_model=str(payload.get("model", ""))[:128],
+            backend=response.headers.get("x-ewallet-backend", "")[:64],
         )
 
 
-def planner_from_env() -> OpenAIToolPlanner | None:
-    """Natural-language intake is opt-in and bound to the approved LLM route."""
+def planner_from_env() -> OpenAIToolPlanner | ExperimentPlanner | None:
+    """Natural-language intake is opt-in and bound to the approved LLM route.
+
+    ``EWALLET_AGENT_AB_CONFIG`` replaces the single model with two configured
+    variants on the same route; a malformed document stops the Coordinator.
+    """
 
     if os.getenv("EWALLET_NL_INTAKE_ENABLED", "false").lower() != "true":
         return None
+    base_url = os.getenv("EWALLET_LLM_BASE_URL", APPROVED_LLM_BASE_URL).strip()
+    timeout_seconds = float(os.getenv("EWALLET_LLM_TIMEOUT_SECONDS", "190"))
+    raw_experiment = os.getenv("EWALLET_AGENT_AB_CONFIG", "").strip()
+    if raw_experiment:
+        experiment = AgentExperiment.from_json(raw_experiment)
+        return ExperimentPlanner(
+            experiment,
+            {
+                variant.name: OpenAIToolPlanner(
+                    base_url=base_url,
+                    model=variant.model,
+                    timeout_seconds=timeout_seconds,
+                    temperature=variant.temperature,
+                    max_tokens=variant.max_tokens,
+                    variant=variant.name,
+                )
+                for variant in experiment.variants
+            },
+        )
     return OpenAIToolPlanner(
-        base_url=os.getenv("EWALLET_LLM_BASE_URL", APPROVED_LLM_BASE_URL).strip(),
+        base_url=base_url,
         model=os.getenv("EWALLET_LLM_MODEL", DEFAULT_LLM_MODEL).strip(),
-        timeout_seconds=float(os.getenv("EWALLET_LLM_TIMEOUT_SECONDS", "190")),
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -466,6 +506,10 @@ async def plan(
         span.set_attribute("gen_ai.response.finish_reasons", [selection.finish_reason])
         span.set_attribute("gen_ai.usage.input_tokens", selection.prompt_tokens)
         span.set_attribute("gen_ai.usage.output_tokens", selection.completion_tokens)
+        if selection.variant:
+            span.set_attribute("ewallet.ab.variant", selection.variant)
+            span.set_attribute("gen_ai.response.model", selection.served_model)
+            span.set_attribute("ewallet.llm.backend", selection.backend)
     arguments = ground_arguments(text, selection.arguments)
     request = business_request(text, arguments, request_id_for(context_id, message_id))
     return IntakeResult(request=request, selection=selection)

@@ -534,6 +534,10 @@ agents:
         enabled: false
         # Must exceed agentgateway.requestTimeout (nested budgets, chart guard).
         timeoutSeconds: 190
+      # C7.2: two model configurations for the tool-selection call, assigned per
+      # conversation. Needs the routes in modelExperiments. Overlays: c7/.
+      abExperiment:
+        enabled: false
   # Bounded OTLP audit records (ids, status, codes; no prompts or business
   # data) from the BYO agents to the shared collector -> Loki. Off by default.
   byoTelemetry:
@@ -853,3 +857,29 @@ modelConfig:
 # apiServer.cidrs, sources (optional override), stabilityLevel.
 podLogs:
   enabled: false
+
+# C7: extra model routes on agentgateway, all off by default so the production
+# render does not change. `models` are internal backends, `virtualModels` are the
+# names clients request, weighted by agentgateway per request. Overlays: c7/.
+modelExperiments:
+  enabled: false
+  models: []
+  virtualModels: []
+
+# C7.3: a second vLLM beside primary and fallback, on CPU or one GPU. The image must
+# carry the model and be pinned by digest. Only a gateway route sends it traffic.
+vllmCandidate:
+  enabled: false
+  accelerator: cpu
+  image: ""
+  modelPath: ""
+  servedModelName: ewallet-fraud-llm-1-7b
+  maxModelLen: 4096
+  maxNumSeqs: 4
+  maxNumQueuedRequests: 8
+  gpuMemoryUtilization: 0.85
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    requests: {cpu: "2", memory: 6Gi}
+    limits: {cpu: "3", memory: 10Gi}

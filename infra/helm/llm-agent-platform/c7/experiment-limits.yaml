@@ -1,0 +1,8 @@
+# Session-only budget for the fixed suites. Production allows 24,000 tokens an hour per
+# model name, and one Coordinator intake costs about 850, so 48 suite calls would hit
+# 429. Layer this only for an approved session and remove it afterwards.
+agentgateway:
+  tokenRate:
+    capacity: 400000
+    refill: 400000
+    interval: 1h

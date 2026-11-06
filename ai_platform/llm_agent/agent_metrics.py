@@ -14,6 +14,12 @@ Exported through the shared otel-collector Prometheus exporter (namespace
     moves under load; this gauge is the signal KEDA scales on.
 ``ewallet_mcp_client_retries_total{agent}``
     Read-only MCP calls repeated after a transport failure.
+``ewallet_agent_ab_requests_total{variant, outcome}``
+    Coordinator LLM intakes per experiment variant; only an active experiment writes it.
+``ewallet_agent_ab_llm_tokens_total{variant, kind}``
+    Prompt and completion tokens per variant.
+``ewallet_agent_ab_llm_latency_seconds{variant}``
+    Time from the assigned planner call to a grounded request or a failure.
 
 Every label value comes from a closed set, so cardinality is fixed (at most 2
 agents x 2 modes x 4 outcomes, etc.). Without a configured MeterProvider the
@@ -27,6 +33,7 @@ from typing import Iterator, Literal
 
 from opentelemetry import metrics
 
+from ai_platform.llm_agent.agent_ab import VARIANTS
 from ai_platform.llm_agent.prompt_safety import PII_TYPES, ScreenResult
 
 Agent = Literal["fraud-coordinator", "feature-rag-specialist"]
@@ -53,6 +60,53 @@ _inflight = _meter.create_up_down_counter(
 _mcp_retries = _meter.create_counter(
     "mcp_client_retries_total", unit="1", description="Read-only MCP calls repeated after a transport failure",
 )
+
+
+_ab_requests = _meter.create_counter(
+    "agent_ab_requests_total", unit="1", description="Coordinator LLM intakes per experiment variant",
+)
+_ab_tokens = _meter.create_counter(
+    "agent_ab_llm_tokens_total", unit="1", description="LLM tokens per experiment variant",
+)
+_ab_latency = _meter.create_histogram(
+    "agent_ab_llm_latency_seconds", unit="s", description="LLM intake latency per experiment variant",
+)
+
+AB_OUTCOMES = frozenset({"selected", "no_tool", "invalid_tool", "invalid_arguments", "llm_error"})
+_AB_FAILURES = {
+    "unsupported_request": "no_tool",
+    "unauthorized_tool": "invalid_tool",
+    "multiple_tool_calls": "invalid_tool",
+    "llm_invalid_response": "invalid_tool",
+    "invalid_tool_arguments": "invalid_arguments",
+    "ungrounded_argument": "invalid_arguments",
+    "ambiguous_identifier": "invalid_arguments",
+    "missing_or_ambiguous_field": "invalid_arguments",
+}
+
+
+def ab_outcome(failure_code: str | None) -> str:
+    """Map an intake failure code onto the bounded outcome set."""
+    if failure_code is None:
+        return "selected"
+    return _AB_FAILURES.get(failure_code, "llm_error")
+
+
+def record_agent_ab(
+    variant: str,
+    outcome: str,
+    *,
+    latency_seconds: float,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+) -> None:
+    """Count one intake of an experiment variant."""
+    _check(variant, frozenset(VARIANTS), "variant")
+    _check(outcome, AB_OUTCOMES, "outcome")
+    _ab_requests.add(1, {"variant": variant, "outcome": outcome})
+    _ab_latency.record(latency_seconds, {"variant": variant})
+    _ab_tokens.add(prompt_tokens, {"variant": variant, "kind": "prompt"})
+    _ab_tokens.add(completion_tokens, {"variant": variant, "kind": "completion"})
 
 
 def _check(value: str, allowed: frozenset[str], name: str) -> None:

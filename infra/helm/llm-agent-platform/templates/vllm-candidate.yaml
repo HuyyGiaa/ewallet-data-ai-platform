@@ -1,0 +1,147 @@
+{{- if .Values.vllmCandidate.enabled }}
+{{- $c := .Values.vllmCandidate }}
+{{- if not (has $c.accelerator (list "cpu" "gpu")) }}
+{{- fail "vllmCandidate.accelerator must be cpu or gpu" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$" $c.image) }}
+{{- fail "vllmCandidate.image must be pinned by digest" }}
+{{- end }}
+{{- if not $c.modelPath }}
+{{- fail "vllmCandidate.modelPath is required; the model is baked into the image" }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-candidate
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: candidate
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-candidate
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/instance: candidate
+spec:
+  replicas: 1
+  progressDeadlineSeconds: {{ .Values.vllm.progressDeadlineSeconds }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+      app.kubernetes.io/instance: candidate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+        app.kubernetes.io/instance: candidate
+        llm.ewallet.io/backend-version: candidate
+    spec:
+      serviceAccountName: vllm
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with $c.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $c.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: vllm
+          image: {{ $c.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --model
+            - {{ $c.modelPath | quote }}
+            - --served-model-name
+            - {{ $c.servedModelName | quote }}
+            - --dtype
+            - bfloat16
+            - --max-model-len
+            - {{ $c.maxModelLen | quote }}
+            - --max-num-seqs
+            - {{ $c.maxNumSeqs | quote }}
+            - --max-num-queued-reqs
+            - {{ $c.maxNumQueuedRequests | quote }}
+            - --enable-auto-tool-choice
+            - --tool-call-parser
+            - {{ .Values.vllm.toolCalling.parser | quote }}
+            {{- with .Values.vllm.reasoningParser }}
+            - --reasoning-parser
+            - {{ . | quote }}
+            {{- end }}
+            {{- with .Values.vllm.defaultChatTemplateKwargs }}
+            - --default-chat-template-kwargs
+            - {{ toJson . | quote }}
+            {{- end }}
+            {{- if eq $c.accelerator "gpu" }}
+            - --gpu-memory-utilization
+            - {{ $c.gpuMemoryUtilization | quote }}
+            {{- end }}
+          env:
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.vllm.apiKeySecret.name }}
+                  key: {{ .Values.vllm.apiKeySecret.key }}
+            - {name: HF_HUB_OFFLINE, value: "1"}
+            - {name: TRANSFORMERS_OFFLINE, value: "1"}
+            {{- if eq $c.accelerator "cpu" }}
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: {{ .Values.vllm.kvCacheSpaceGiB | quote }}
+            - name: OMP_NUM_THREADS
+              value: {{ .Values.vllm.ompThreads | quote }}
+            {{- end }}
+          ports:
+            - {name: http, containerPort: 8000}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - {name: cache, mountPath: /root/.cache}
+            - {name: tmp, mountPath: /tmp}
+            - {name: dshm, mountPath: /dev/shm}
+      volumes:
+        - name: cache
+          emptyDir: {sizeLimit: 8Gi}
+        - name: tmp
+          emptyDir: {sizeLimit: 1Gi}
+        - name: dshm
+          emptyDir: {medium: Memory, sizeLimit: {{ .Values.vllm.shmSize }}}
+{{- end }}
