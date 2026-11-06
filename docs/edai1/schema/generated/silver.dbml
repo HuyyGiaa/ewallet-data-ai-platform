@@ -1,0 +1,90 @@
+// Generated. Keys and references are logical; Delta enforces neither.
+
+Table silver.accounts {
+  account_id string [pk]
+  user_id string
+  account_type string
+  currency string
+  created_at timestamp
+}
+
+Table silver.balance_snapshots {
+  account_id string
+  snapshot_date date
+  closing_balance double
+  indexes {
+    (account_id, snapshot_date) [pk]
+  }
+}
+
+Table silver.devices {
+  device_id string [pk]
+  user_id string
+  device_type string
+  os string
+  first_seen_at timestamp
+}
+
+Table silver.fraud_labels {
+  transaction_id string
+  label integer
+  fraud_type string
+  indexes {
+    (transaction_id, label) [pk]
+  }
+}
+
+Table silver.login_events {
+  login_id string [pk]
+  user_id string
+  device_id string
+  login_ts timestamp
+  is_success boolean
+  login_date date
+}
+
+Table silver.merchants {
+  merchant_id string [pk]
+  merchant_name string
+  category string
+}
+
+Table silver.transactions {
+  transaction_id string [pk]
+  account_id string
+  user_id string
+  device_id string
+  type string
+  amount double
+  currency string
+  status string
+  old_balance double
+  new_balance double
+  merchant_id string
+  counterparty_account_id string
+  timestamp timestamp
+  ingested_at timestamp
+  channel string
+  event_date date
+}
+
+Table silver.users {
+  user_id string [pk]
+  full_name string
+  email string
+  phone string
+  kyc_verified boolean
+  created_at timestamp
+}
+
+Ref: silver.accounts.user_id > silver.users.user_id
+Ref: silver.devices.user_id > silver.users.user_id
+Ref: silver.transactions.user_id > silver.users.user_id
+Ref: silver.transactions.account_id > silver.accounts.account_id
+Ref: silver.transactions.device_id > silver.devices.device_id
+Ref: silver.transactions.merchant_id > silver.merchants.merchant_id
+Ref: silver.transactions.counterparty_account_id > silver.accounts.account_id
+Ref: silver.login_events.user_id > silver.users.user_id
+Ref: silver.login_events.device_id > silver.devices.device_id
+Ref: silver.balance_snapshots.account_id > silver.accounts.account_id
+Ref: silver.fraud_labels.transaction_id > silver.transactions.transaction_id

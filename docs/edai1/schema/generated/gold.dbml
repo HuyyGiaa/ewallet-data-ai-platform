@@ -1,0 +1,224 @@
+// Generated. Keys and references are logical; Delta enforces neither.
+
+Table gold.dim_account {
+  account_id string [pk]
+  user_id string
+  account_type string
+  currency string
+  created_at timestamp
+}
+
+Table gold.dim_date {
+  date_key integer [pk]
+  calendar_date date
+  day integer
+  month integer
+  quarter integer
+  year integer
+  day_of_week string
+  is_weekend boolean
+}
+
+Table gold.dim_device {
+  device_id string [pk]
+  user_id string
+  device_type string
+  os string
+  first_seen_at timestamp
+}
+
+Table gold.dim_merchant {
+  merchant_id string [pk]
+  merchant_name string
+  category string
+}
+
+Table gold.dim_user {
+  user_id string [pk]
+  full_name string
+  email string
+  phone string
+  kyc_verified boolean
+  created_at timestamp
+}
+
+Table gold.fact_balance_snapshot {
+  account_id string
+  date_key integer
+  snapshot_date date
+  closing_balance double
+  indexes {
+    (account_id, snapshot_date) [pk]
+  }
+}
+
+Table gold.fact_login_events {
+  login_id string [pk]
+  user_id string
+  device_id string
+  date_key integer
+  is_success boolean
+  login_ts timestamp
+  event_date date
+}
+
+Table gold.fact_transactions {
+  transaction_id string [pk]
+  user_id string
+  account_id string
+  merchant_id string
+  device_id string
+  counterparty_account_id string
+  date_key integer
+  type string
+  status string
+  channel string
+  currency string
+  amount double
+  old_balance double
+  new_balance double
+  timestamp timestamp
+  ingested_at timestamp
+  event_date date
+}
+
+Table gold.feat_user_90d {
+  user_id string [pk]
+  f_user_total_transactions_90d long
+  f_user_avg_transaction_amount_90d double
+  f_user_failed_transaction_rate_90d double
+  f_user_distinct_merchants_90d long
+  event_timestamp timestamp
+  created_timestamp timestamp
+}
+
+Table gold.obt_transaction_enriched {
+  transaction_id string [pk]
+  user_id string
+  kyc_verified boolean
+  user_created_at timestamp
+  account_id string
+  account_type string
+  account_currency string
+  account_created_at timestamp
+  device_id string
+  device_type string
+  os string
+  first_seen_at timestamp
+  merchant_id string
+  merchant_name string
+  merchant_category string
+  date_key integer
+  day_of_week string
+  month integer
+  quarter integer
+  year integer
+  is_weekend boolean
+  type string
+  status string
+  channel string
+  currency string
+  amount double
+  old_balance double
+  new_balance double
+  counterparty_account_id string
+  timestamp timestamp
+  ingested_at timestamp
+  event_date date
+}
+
+Table gold.opt_merchant_performance {
+  merchant_id string [pk]
+  merchant_name string
+  category string
+  transaction_count long
+  total_amount double
+  avg_amount double
+  success_count long
+  failed_count long
+  distinct_users long
+}
+
+Table features.feat_account_behavior {
+  account_id string
+  event_timestamp timestamp
+  account_tx_count_5m long
+  account_tx_count_1h long
+  account_tx_count_24h long
+  account_amount_sum_1h double
+  account_amount_sum_24h double
+  account_amount_observation_count_30d long
+  account_avg_amount_30d double
+  account_std_amount_30d double
+  account_failed_rate_24h double
+  account_seconds_since_last_tx double
+  indexes {
+    (account_id, event_timestamp) [pk]
+  }
+}
+
+Table features.feat_device_behavior {
+  device_id string
+  event_timestamp timestamp
+  device_age_seconds double
+  device_tx_count_1h long
+  device_tx_count_24h long
+  device_amount_sum_24h double
+  device_failed_rate_24h double
+  indexes {
+    (device_id, event_timestamp) [pk]
+  }
+}
+
+Table features.feat_merchant_behavior {
+  merchant_id string
+  event_timestamp timestamp
+  merchant_tx_count_10m long
+  merchant_tx_count_1h long
+  merchant_tx_count_24h long
+  merchant_unique_users_10m long
+  merchant_unique_users_1h long
+  merchant_amount_sum_1h double
+  merchant_avg_amount_24h double
+  indexes {
+    (merchant_id, event_timestamp) [pk]
+  }
+}
+
+Table features.feat_user_behavior {
+  user_id string
+  event_timestamp timestamp
+  user_tx_count_5m long
+  user_tx_count_1h long
+  user_tx_count_24h long
+  user_amount_sum_1h double
+  user_amount_observation_count_30d long
+  user_avg_amount_30d double
+  user_std_amount_30d double
+  user_failed_rate_24h double
+  user_distinct_merchants_24h long
+  indexes {
+    (user_id, event_timestamp) [pk]
+  }
+}
+
+Ref: gold.dim_account.user_id > gold.dim_user.user_id
+Ref: gold.dim_device.user_id > gold.dim_user.user_id
+Ref: gold.fact_transactions.user_id > gold.dim_user.user_id
+Ref: gold.fact_transactions.account_id > gold.dim_account.account_id
+Ref: gold.fact_transactions.device_id > gold.dim_device.device_id
+Ref: gold.fact_transactions.merchant_id > gold.dim_merchant.merchant_id
+Ref: gold.fact_transactions.counterparty_account_id > gold.dim_account.account_id
+Ref: gold.fact_transactions.date_key > gold.dim_date.date_key
+Ref: gold.fact_login_events.user_id > gold.dim_user.user_id
+Ref: gold.fact_login_events.device_id > gold.dim_device.device_id
+Ref: gold.fact_login_events.date_key > gold.dim_date.date_key
+Ref: gold.fact_balance_snapshot.account_id > gold.dim_account.account_id
+Ref: gold.fact_balance_snapshot.date_key > gold.dim_date.date_key
+Ref: gold.obt_transaction_enriched.transaction_id > gold.fact_transactions.transaction_id
+Ref: gold.feat_user_90d.user_id > gold.dim_user.user_id
+Ref: gold.opt_merchant_performance.merchant_id > gold.dim_merchant.merchant_id
+Ref: features.feat_user_behavior.user_id > gold.dim_user.user_id
+Ref: features.feat_account_behavior.account_id > gold.dim_account.account_id
+Ref: features.feat_device_behavior.device_id > gold.dim_device.device_id
+Ref: features.feat_merchant_behavior.merchant_id > gold.dim_merchant.merchant_id

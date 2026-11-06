@@ -1,0 +1,1369 @@
+{
+  "exported_at": "2026-11-06T06:50:44.330826+00:00",
+  "schema_version": "ewallet-observed-schemas-v1",
+  "zones": {
+    "bronze": {
+      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261029174838-baseline-bronze-r261029174838/bronze",
+      "run_id": "ab-20261029174838-baseline-bronze-r261029174838",
+      "tables": {
+        "accounts": {
+          "columns": [
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "created_at",
+              "nullable": true,
+              "type": "timestamp_ntz"
+            }
+          ],
+          "partition_columns": []
+        },
+        "balance_snapshots": {
+          "columns": [
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "snapshot_date",
+              "nullable": true,
+              "type": "date"
+            },
+            {
+              "name": "closing_balance",
+              "nullable": true,
+              "type": "double"
+            }
+          ],
+          "partition_columns": []
+        },
+        "devices": {
+          "columns": [
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "os",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "first_seen_at",
+              "nullable": true,
+              "type": "timestamp_ntz"
+            }
+          ],
+          "partition_columns": []
+        },
+        "fraud_labels": {
+          "columns": [
+            {
+              "name": "transaction_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "label",
+              "nullable": true,
+              "type": "byte"
+            },
+            {
+              "name": "fraud_type",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "partition_columns": []
+        },
+        "login_events": {
+          "columns": [
+            {
+              "name": "login_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "login_ts",
+              "nullable": true,
+              "type": "timestamp_ntz"
+            },
+            {
+              "name": "is_success",
+              "nullable": true,
+              "type": "boolean"
+            }
+          ],
+          "partition_columns": []
+        },
+        "merchants": {
+          "columns": [
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "partition_columns": []
+        },
+        "transactions": {
+          "columns": [
+            {
+              "name": "transaction_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "amount",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "old_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "new_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "counterparty_account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "nullable": true,
+              "type": "timestamp_ntz"
+            },
+            {
+              "name": "ingested_at",
+              "nullable": true,
+              "type": "timestamp_ntz"
+            },
+            {
+              "name": "channel",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "partition_columns": []
+        },
+        "users": {
+          "columns": [
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "full_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "kyc_verified",
+              "nullable": true,
+              "type": "boolean"
+            },
+            {
+              "name": "created_at",
+              "nullable": true,
+              "type": "timestamp_ntz"
+            }
+          ],
+          "partition_columns": []
+        }
+      }
+    },
+    "features": {
+      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261025134342-optimized-feat-r261026025955/gold",
+      "run_id": "ab-20261025134342-optimized-feat-r261026025955",
+      "tables": {
+        "feat_account_behavior": {
+          "columns": [
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "event_timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "account_tx_count_5m",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "account_tx_count_1h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "account_tx_count_24h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "account_amount_sum_1h",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "account_amount_sum_24h",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "account_amount_observation_count_30d",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "account_avg_amount_30d",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "account_std_amount_30d",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "account_failed_rate_24h",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "account_seconds_since_last_tx",
+              "nullable": true,
+              "type": "double"
+            }
+          ],
+          "partition_columns": []
+        },
+        "feat_device_behavior": {
+          "columns": [
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "event_timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "device_age_seconds",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "device_tx_count_1h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "device_tx_count_24h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "device_amount_sum_24h",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "device_failed_rate_24h",
+              "nullable": true,
+              "type": "double"
+            }
+          ],
+          "partition_columns": []
+        },
+        "feat_merchant_behavior": {
+          "columns": [
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "event_timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "merchant_tx_count_10m",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "merchant_tx_count_1h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "merchant_tx_count_24h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "merchant_unique_users_10m",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "merchant_unique_users_1h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "merchant_amount_sum_1h",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "merchant_avg_amount_24h",
+              "nullable": true,
+              "type": "double"
+            }
+          ],
+          "partition_columns": []
+        },
+        "feat_user_behavior": {
+          "columns": [
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "event_timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "user_tx_count_5m",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "user_tx_count_1h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "user_tx_count_24h",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "user_amount_sum_1h",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "user_amount_observation_count_30d",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "user_avg_amount_30d",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "user_std_amount_30d",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "user_failed_rate_24h",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "user_distinct_merchants_24h",
+              "nullable": true,
+              "type": "long"
+            }
+          ],
+          "partition_columns": []
+        }
+      }
+    },
+    "gold": {
+      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261031035745-baseline-gold-r261031035746/gold",
+      "run_id": "ab-20261031035745-baseline-gold-r261031035746",
+      "tables": {
+        "dim_account": {
+          "columns": [
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "created_at",
+              "nullable": true,
+              "type": "timestamp"
+            }
+          ],
+          "partition_columns": []
+        },
+        "dim_date": {
+          "columns": [
+            {
+              "name": "date_key",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "calendar_date",
+              "nullable": true,
+              "type": "date"
+            },
+            {
+              "name": "day",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "month",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "quarter",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "year",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "day_of_week",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "is_weekend",
+              "nullable": true,
+              "type": "boolean"
+            }
+          ],
+          "partition_columns": []
+        },
+        "dim_device": {
+          "columns": [
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "os",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "first_seen_at",
+              "nullable": true,
+              "type": "timestamp"
+            }
+          ],
+          "partition_columns": []
+        },
+        "dim_merchant": {
+          "columns": [
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "partition_columns": []
+        },
+        "dim_user": {
+          "columns": [
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "full_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "kyc_verified",
+              "nullable": true,
+              "type": "boolean"
+            },
+            {
+              "name": "created_at",
+              "nullable": true,
+              "type": "timestamp"
+            }
+          ],
+          "partition_columns": []
+        },
+        "fact_balance_snapshot": {
+          "columns": [
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "date_key",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "snapshot_date",
+              "nullable": true,
+              "type": "date"
+            },
+            {
+              "name": "closing_balance",
+              "nullable": true,
+              "type": "double"
+            }
+          ],
+          "partition_columns": [
+            "snapshot_date"
+          ]
+        },
+        "fact_login_events": {
+          "columns": [
+            {
+              "name": "login_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "date_key",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "is_success",
+              "nullable": true,
+              "type": "boolean"
+            },
+            {
+              "name": "login_ts",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "event_date",
+              "nullable": true,
+              "type": "date"
+            }
+          ],
+          "partition_columns": [
+            "event_date"
+          ]
+        },
+        "fact_transactions": {
+          "columns": [
+            {
+              "name": "transaction_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "counterparty_account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "date_key",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "channel",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "amount",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "old_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "new_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "ingested_at",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "event_date",
+              "nullable": true,
+              "type": "date"
+            }
+          ],
+          "partition_columns": [
+            "event_date"
+          ]
+        },
+        "feat_user_90d": {
+          "columns": [
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "f_user_total_transactions_90d",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "f_user_avg_transaction_amount_90d",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "f_user_failed_transaction_rate_90d",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "f_user_distinct_merchants_90d",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "event_timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "created_timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            }
+          ],
+          "partition_columns": []
+        },
+        "obt_transaction_enriched": {
+          "columns": [
+            {
+              "name": "transaction_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "kyc_verified",
+              "nullable": true,
+              "type": "boolean"
+            },
+            {
+              "name": "user_created_at",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_created_at",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "os",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "first_seen_at",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_category",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "date_key",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "day_of_week",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "month",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "quarter",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "year",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "is_weekend",
+              "nullable": true,
+              "type": "boolean"
+            },
+            {
+              "name": "type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "channel",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "amount",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "old_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "new_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "counterparty_account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "ingested_at",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "event_date",
+              "nullable": true,
+              "type": "date"
+            }
+          ],
+          "partition_columns": [
+            "event_date"
+          ]
+        },
+        "opt_merchant_performance": {
+          "columns": [
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "transaction_count",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "total_amount",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "avg_amount",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "success_count",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "failed_count",
+              "nullable": true,
+              "type": "long"
+            },
+            {
+              "name": "distinct_users",
+              "nullable": true,
+              "type": "long"
+            }
+          ],
+          "partition_columns": []
+        }
+      }
+    },
+    "silver": {
+      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261031035745-baseline-silver-r261031035745/silver",
+      "run_id": "ab-20261031035745-baseline-silver-r261031035745",
+      "tables": {
+        "accounts": {
+          "columns": [
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "created_at",
+              "nullable": true,
+              "type": "timestamp"
+            }
+          ],
+          "partition_columns": []
+        },
+        "balance_snapshots": {
+          "columns": [
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "snapshot_date",
+              "nullable": true,
+              "type": "date"
+            },
+            {
+              "name": "closing_balance",
+              "nullable": true,
+              "type": "double"
+            }
+          ],
+          "partition_columns": [
+            "snapshot_date"
+          ]
+        },
+        "devices": {
+          "columns": [
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "os",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "first_seen_at",
+              "nullable": true,
+              "type": "timestamp"
+            }
+          ],
+          "partition_columns": []
+        },
+        "fraud_labels": {
+          "columns": [
+            {
+              "name": "transaction_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "label",
+              "nullable": true,
+              "type": "integer"
+            },
+            {
+              "name": "fraud_type",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "partition_columns": []
+        },
+        "login_events": {
+          "columns": [
+            {
+              "name": "login_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "login_ts",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "is_success",
+              "nullable": true,
+              "type": "boolean"
+            },
+            {
+              "name": "login_date",
+              "nullable": true,
+              "type": "date"
+            }
+          ],
+          "partition_columns": [
+            "login_date"
+          ]
+        },
+        "merchants": {
+          "columns": [
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "partition_columns": []
+        },
+        "transactions": {
+          "columns": [
+            {
+              "name": "transaction_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "device_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "type",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "amount",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "currency",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "old_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "new_balance",
+              "nullable": true,
+              "type": "double"
+            },
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "counterparty_account_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "ingested_at",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "channel",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "event_date",
+              "nullable": true,
+              "type": "date"
+            }
+          ],
+          "partition_columns": [
+            "event_date"
+          ]
+        },
+        "users": {
+          "columns": [
+            {
+              "name": "user_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "full_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "kyc_verified",
+              "nullable": true,
+              "type": "boolean"
+            },
+            {
+              "name": "created_at",
+              "nullable": true,
+              "type": "timestamp"
+            }
+          ],
+          "partition_columns": []
+        }
+      }
+    }
+  }
+}
