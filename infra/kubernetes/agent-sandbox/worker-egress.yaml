@@ -1,0 +1,73 @@
+# Stage S1 network path. kagent-pilot's worker may today reach only DNS and mock-openai.
+# All objects add one flow each. The worker pods run as SA default, and the WorkerPool API
+# offers no way to change that, so these rules admit that exact identity and nothing else.
+# Every pod of that identity in kagent-pilot gets this access, which is why it stays a pilot.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sandbox-worker-to-agent-gateways-egress
+  namespace: kagent-pilot
+spec:
+  podSelector:
+    matchLabels: {ate.dev/worker-pool: kagent-pilot}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-agents}
+          podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/name, operator: In, values: [agentgateway, mcp-gateway]}
+      ports:
+        - {protocol: TCP, port: 3000}
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 15008}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-sandbox-worker-ingress
+  namespace: ewallet-agents
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/name, operator: In, values: [agentgateway, mcp-gateway]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kagent-pilot}
+          podSelector:
+            matchLabels: {ate.dev/worker-pool: kagent-pilot}
+      ports:
+        - {protocol: TCP, port: 3000}
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 15008}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-sandbox-worker-to-gateways
+  namespace: ewallet-agents
+spec:
+  action: ALLOW
+  selector:
+    matchLabels: {app.kubernetes.io/name: mcp-gateway}
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/kagent-pilot/sa/default"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-sandbox-worker-to-agentgateway
+  namespace: ewallet-agents
+spec:
+  action: ALLOW
+  selector:
+    matchLabels: {app.kubernetes.io/name: agentgateway}
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/kagent-pilot/sa/default"]

@@ -1,0 +1,85 @@
+# fraud-coordinator as a SandboxAgent, for EXP-C5-SANDBOX stage S2. Not applied by anything in this repo.
+# Env and image were read from the live BYO Agent on 2026-11-06. The Secrets are not in Git;
+# the owner creates them in kagent-pilot (see infra/kubernetes/agent-sandbox/README.md).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-coordinator
+  namespace: kagent-pilot
+automountServiceAccountToken: false
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: sandbox-fraud-coordinator
+  namespace: kagent-pilot
+spec:
+  description: Fraud Investigation Coordinator
+  version: 0.1.0
+  type: BYO
+  byo:
+    deployment:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+      imagePullPolicy: IfNotPresent
+      env:
+      - name: EWALLET_NL_INTAKE_ENABLED
+        value: 'true'
+      - name: EWALLET_LLM_BASE_URL
+        value: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+      - name: EWALLET_LLM_MODEL
+        value: ewallet-fraud-llm
+      - name: EWALLET_LLM_TIMEOUT_SECONDS
+        value: '190'
+      - name: EWALLET_LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: sandbox-llm-key
+            key: value
+      - name: EWALLET_IDEMPOTENCY_REDIS_URL
+        valueFrom:
+          secretKeyRef:
+            name: sandbox-redis-url
+            key: value
+      - name: EWALLET_IDEMPOTENCY_TENANT
+        value: ewallet-agents
+      - name: EWALLET_IDEMPOTENCY_PRINCIPAL
+        value: cluster.local/ns/kagent/sa/kagent-controller
+      - name: EWALLET_IDEMPOTENCY_REDIS_TIMEOUT_SECONDS
+        value: '1.0'
+      - name: EWALLET_IDEMPOTENCY_LEASE_MS
+        value: '600000'
+      - name: EWALLET_IDEMPOTENCY_COMPLETED_TTL_MS
+        value: '86400000'
+      - name: EWALLET_IDEMPOTENCY_WAIT_SECONDS
+        value: '15'
+      - name: EWALLET_IDEMPOTENCY_POLL_SECONDS
+        value: '0.1'
+      serviceAccountName: sandbox-coordinator
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+  substrate:
+    workerPoolRef:
+      apiGroup: ate.dev
+      kind: WorkerPool
+      name: kagent-pilot
+    snapshotsConfig:
+      location: gs://ate-snapshots/kagent/sandbox-fraud-coordinator/
+  sandbox:
+    network:
+      allowedDomains:
+      - agentgateway.ewallet-agents.svc.cluster.local
+      - a2a-gateway.ewallet-agents.svc.cluster.local

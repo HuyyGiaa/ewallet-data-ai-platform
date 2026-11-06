@@ -1,0 +1,75 @@
+# feature-rag-specialist as a SandboxAgent, for EXP-C5-SANDBOX stage S0-S1. Not applied by anything in this repo.
+# Env and image were read from the live BYO Agent on 2026-11-06. The Secrets are not in Git;
+# the owner creates them in kagent-pilot (see infra/kubernetes/agent-sandbox/README.md).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-feature-rag
+  namespace: kagent-pilot
+automountServiceAccountToken: false
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: sandbox-feature-rag-specialist
+  namespace: kagent-pilot
+spec:
+  description: Fraud Investigation / Evidence specialist
+  version: 0.1.0
+  type: BYO
+  byo:
+    deployment:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:5f848a1ce7942f4fd5027264bc54c3164d09065d3c8932fcd4a93bce8db57606
+      imagePullPolicy: IfNotPresent
+      env:
+      - name: EWALLET_NL_INTAKE_ENABLED
+        value: 'true'
+      - name: EWALLET_LLM_BASE_URL
+        value: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+      - name: EWALLET_LLM_MODEL
+        value: ewallet-fraud-llm
+      - name: EWALLET_LLM_TIMEOUT_SECONDS
+        value: '190'
+      - name: EWALLET_LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: sandbox-llm-key
+            key: value
+      - name: EWALLET_MCP_SERVICE_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: sandbox-mcp-token
+            key: value
+      - name: EWALLET_MCP_MAX_ATTEMPTS
+        value: '3'
+      serviceAccountName: sandbox-feature-rag
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      args:
+      - ai_platform.llm_agent.byo_feature_rag_specialist
+  substrate:
+    workerPoolRef:
+      apiGroup: ate.dev
+      kind: WorkerPool
+      name: kagent-pilot
+    snapshotsConfig:
+      location: gs://ate-snapshots/kagent/sandbox-feature-rag-specialist/
+  sandbox:
+    network:
+      allowedDomains:
+      - agentgateway.ewallet-agents.svc.cluster.local
+      - mcp-gateway.ewallet-agents.svc.cluster.local
