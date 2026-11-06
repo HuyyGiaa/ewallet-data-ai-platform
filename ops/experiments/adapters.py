@@ -45,8 +45,11 @@ def derived_metrics(level: Mapping[str, Any]) -> dict[str, float | None]:
 
 def _level_summary(level: Mapping[str, Any]) -> dict[str, Any]:
     requests = int(level.get("requests", 0))
+    gpu = level.get("gpu") or {}
     return {**level, "requests": requests, "failed": requests - int(level.get("succeeded", 0)),
-            "derived": derived_metrics(level)}
+            "derived": derived_metrics(level),
+            "gpu_memory_mib_peak": gpu.get("memory_mib_peak"),
+            "gpu_utilization_mean": gpu.get("utilization_percent_mean")}
 
 
 def run_from_summary(summary: Mapping[str, Any], controls: Mapping[str, Any]) -> Run:
