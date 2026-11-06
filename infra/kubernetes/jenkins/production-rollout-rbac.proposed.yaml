@@ -1,5 +1,8 @@
-# PROPOSAL, NOT APPLIED. Least-privilege rights for Jenkins to roll a reviewed image digest
-# into production. Nothing applies this file: no script, kustomization or Jenkins job names it.
+# PROPOSAL, NOT APPROVED, NOT APPLIED. Kept for integration review. The recommended path gives
+# Jenkins no production rights: see docs/edai2/cicd/PRODUCTION_ROLLOUT_RBAC.md.
+#
+# Least-privilege rights for Jenkins to roll a reviewed image digest into production. Nothing
+# applies this file: no script, kustomization or Jenkins job names it.
 #
 # Why this is a digest patch and not `helm upgrade`: Helm stores release state in Secrets in
 # the release namespace. Kubernetes cannot limit `create` by resource name, so a Helm-based
