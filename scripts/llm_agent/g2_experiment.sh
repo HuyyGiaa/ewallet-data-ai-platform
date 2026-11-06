@@ -71,6 +71,11 @@ if [ "${G2_DRY_RUN:-}" = yes ]; then log "dry run: local preflight passed, nothi
 [ "${G2_APPROVED:-}" = yes ] || die "set G2_APPROVED=yes after owner approval"
 [ -z "${G2_ALLOW_DIRTY:-}" ] || [ -n "${G2_OPERATOR:-}" ] || die "G2_ALLOW_DIRTY is for the offline simulation only"
 [ "${KUBE_CONTEXT:-}" = "gke_${PROJECT}_${ZONE}_${CLUSTER}" ] || die "KUBE_CONTEXT must be the ewallet-dev context"
+# Before any trap: cleanup below uninstalls llm-agent and must never run against production.
+# shellcheck source=production_guard.sh
+. "$root/scripts/llm_agent/production_guard.sh"
+refuse_production_release "$KUBE_CONTEXT" || die "production release present"
+export G1_EXPERIMENT_OWNS_RELEASE=yes
 : "${DIGESTS:?DIGESTS required}"
 cp "$DIGESTS" "$evidence/image-digests.json"
 digest_ref=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["images"]["vllm-cpu-model"]["digest_ref"])' "$DIGESTS")
