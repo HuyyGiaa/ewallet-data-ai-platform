@@ -111,6 +111,24 @@ def _from_source_with_watermarks(env, source, watermark_strategy, parallelism: i
     )
 
 
+def _from_source_with_event_time(env, source, no_watermarks, watermark_strategy, parallelism: int):
+    """Apply the payload event time after the source.
+
+    ``from_source`` hands only the Java strategy to the connector and drops a Python
+    timestamp assigner, so watermarks would follow the broker's record timestamps.
+    PyFlink honours the assigner only in ``assign_timestamps_and_watermarks``. The
+    cost is that watermarks are generated per source subtask, not per Kafka
+    partition, so skew between partitions read by one subtask must fit within the
+    configured out-of-orderness.
+    """
+    return (
+        env.from_source(source, no_watermarks, "redpanda-raw-and-retry")
+        .uid("block-a-redpanda-source-v1")
+        .set_parallelism(parallelism)
+        .assign_timestamps_and_watermarks(watermark_strategy)
+    )
+
+
 @dataclass
 class BuiltBlockAJob:
     environment: object
@@ -175,7 +193,7 @@ def _state_backend(profile):
 
 
 def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
-    from pyflink.common import Configuration, Types
+    from pyflink.common import Configuration, Types, WatermarkStrategy
     from pyflink.common.restart_strategy import RestartStrategies
     from pyflink.common.serialization import SimpleStringSchema
     from pyflink.datastream import CheckpointingMode, ExternalizedCheckpointCleanup, StreamExecutionEnvironment
@@ -201,18 +219,19 @@ def build_executable_job(settings: RuntimeSettings) -> BuiltBlockAJob:
     checkpoint.enable_externalized_checkpoints(ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION)
     env.set_restart_strategy(RestartStrategies.fixed_delay_restart(settings.profile.restart_attempts, int(settings.profile.restart_delay.total_seconds() * 1000)))
 
-    # A benchmark namespace is always fresh, so it replays its bounded topic from the start.
-    offsets = KafkaOffsetsInitializer.earliest() if settings.mode in {OperatingMode.FIRST_DEPLOY_BOOTSTRAP, OperatingMode.BENCHMARK_REPLAY} else KafkaOffsetsInitializer.committed_offsets(KafkaOffsetResetStrategy.LATEST)
+    # An isolated namespace is always fresh, so it reads its bounded topic from the start.
+    offsets = KafkaOffsetsInitializer.earliest() if settings.mode in {OperatingMode.FIRST_DEPLOY_BOOTSTRAP, OperatingMode.BENCHMARK_REPLAY, OperatingMode.ISOLATED_VERIFICATION} else KafkaOffsetsInitializer.committed_offsets(KafkaOffsetResetStrategy.LATEST)
     source_topics = source_topic_names(settings.mode, namespace)
     source = (KafkaSource.builder().set_bootstrap_servers(settings.bootstrap_servers).set_topics(*source_topics).set_group_id(consumer_group("flink", namespace)).set_starting_offsets(offsets).set_value_only_deserializer(SimpleStringSchema()).build())
-    # The benchmark envelope supplies deterministic logical watermark progress,
-    # so correctness can exercise the real profile parallelism (1 versus 4).
-    raw = _from_source_with_watermarks(
-        env,
-        source,
-        build_source_watermark_strategy(settings.profile, settings.mode),
-        input_parallelism,
-    )
+    watermark_strategy = build_source_watermark_strategy(settings.profile, settings.mode)
+    if settings.mode is OperatingMode.BENCHMARK_REPLAY:
+        # The benchmark envelope supplies deterministic logical watermark progress,
+        # so correctness can exercise the real profile parallelism (1 versus 4).
+        raw = _from_source_with_watermarks(env, source, watermark_strategy, input_parallelism)
+    else:
+        raw = _from_source_with_event_time(
+            env, source, WatermarkStrategy.no_watermarks(), watermark_strategy, input_parallelism
+        )
     parsed = raw.map(
         _parse_operator(settings), output_type=Types.STRING()
     ).name("canonical-parse-and-validate").set_parallelism(input_parallelism)
@@ -250,7 +269,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--mode", required=True, choices=[mode.value for mode in OperatingMode])
     result.add_argument("--profile", choices=("baseline", "optimized"), default="optimized")
     result.add_argument("--profile-config", help="explicit profile YAML; overrides --profile lookup")
-    result.add_argument("--namespace", help="isolated topic/group suffix, required by BENCHMARK_REPLAY")
+    result.add_argument("--namespace", help="isolated topic/group suffix, required by BENCHMARK_REPLAY and ISOLATED_VERIFICATION")
     result.add_argument("--bootstrap-servers", required=True)
     result.add_argument("--checkpoint-storage", required=True)
     result.add_argument("--savepoint-path")

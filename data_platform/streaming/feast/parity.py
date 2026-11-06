@@ -44,7 +44,9 @@ def compare_feature(
 ) -> ParityResult:
     if ownership == Ownership.MATERIALIZED_BATCH:
         status = ParityStatus.NOT_REALTIME_OWNED
-    elif online_timestamp is None or online_value is None:
+    elif online_timestamp is None or (online_value is None and offline_value is not None):
+        # A row with a timestamp may hold a legitimate null, such as the standard
+        # deviation of a single observation; only an absent row or value is missing.
         status = ParityStatus.MISSING
     elif offline_timestamp and offline_timestamp - online_timestamp > max_staleness:
         status = ParityStatus.STALE

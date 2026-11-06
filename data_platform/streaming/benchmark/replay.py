@@ -71,8 +71,12 @@ def payload_digest(records) -> str:
     return digest.hexdigest()
 
 
-def create_topics(bootstrap_servers: str, namespace: str) -> list[str]:
-    """Create fresh namespaced topics; refuse to reuse any existing one."""
+def create_topics(bootstrap_servers: str, namespace: str, partitions: int | None = None) -> list[str]:
+    """Create fresh namespaced topics; refuse to reuse any existing one.
+
+    ``partitions`` overrides the production count, for runs that need a single
+    ordered split.
+    """
     from confluent_kafka.admin import AdminClient, NewTopic
 
     admin = AdminClient({"bootstrap.servers": bootstrap_servers})
@@ -87,7 +91,7 @@ def create_topics(bootstrap_servers: str, namespace: str) -> list[str]:
         [
             NewTopic(
                 topic_name(key, namespace),
-                num_partitions=TOPICS[key].partitions,
+                num_partitions=partitions or TOPICS[key].partitions,
                 replication_factor=1,
                 config={"message.timestamp.type": "LogAppendTime"},
             )

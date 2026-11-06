@@ -1,0 +1,36 @@
+# Smaller limits for the bounded dual-store verification on a shared laptop. It
+# processes a few records, so the benchmark's memory budget is not needed. Use it
+# after compose.yml: docker compose -f compose.yml -f compose.verify.yml ...
+x-flink-env: &flink-env
+  FLINK_PROPERTIES: |
+    jobmanager.rpc.address: jobmanager
+    jobmanager.memory.process.size: 1024m
+    taskmanager.memory.process.size: 2560m
+    taskmanager.numberOfTaskSlots: 4
+    parallelism.default: 1
+    state.checkpoints.dir: file:///flink-data/checkpoints
+    python.executable: /opt/venv/bin/python
+    python.client.executable: /opt/venv/bin/python
+    rest.flamegraph.enabled: true
+
+services:
+  redpanda:
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:19092
+      - --advertise-kafka-addr=INTERNAL://redpanda:29092,EXTERNAL://localhost:19092
+    mem_limit: 1536m
+  jobmanager:
+    environment: *flink-env
+    mem_limit: 1280m
+  taskmanager:
+    environment: *flink-env
+    cpus: 2
+    mem_limit: 3g
