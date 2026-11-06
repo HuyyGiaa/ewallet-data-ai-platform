@@ -35,6 +35,7 @@ class Component:
     deployment_target: str | None
     deploy_handler: str | None
     release_artifact_selector: str | None = None
+    build_target: str | None = None
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,19 @@ class Catalog:
             name for name, owner in self.runtime_units.items() if owner in selected
         ))
 
+    def release_components(self, components: tuple[str, ...] | list[str], branch: str) -> tuple[str, ...]:
+        """Narrow a change-detection scope to what one release branch may ship.
+
+        Scope follows dependencies, so a RAG change also selects the agents that use
+        RAG. Those agents must not ship with it: ``release/<component>`` releases that
+        component alone. A branch not named after a component keeps the whole scope.
+        """
+
+        name = branch.removeprefix("release/")
+        if name in self.components:
+            return tuple(item for item in components if item == name)
+        return tuple(components)
+
     def _validate_acyclic(self) -> None:
         state: dict[str, int] = {}
 
@@ -195,6 +209,7 @@ def load_catalog(path: Path) -> Catalog:
             deployment_target=item.get("deployment_target"),
             deploy_handler=item.get("deploy_handler"),
             release_artifact_selector=item.get("release_artifact_selector"),
+            build_target=item.get("build_target"),
         )
     return Catalog(
         schema_version=raw.get("schema_version"),

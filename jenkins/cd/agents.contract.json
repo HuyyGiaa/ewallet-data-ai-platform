@@ -1,0 +1,35 @@
+{
+  "component": "agents",
+  "namespace": "ewallet-cicd",
+  "manifest": "infra/kubernetes/cicd-runtime/agents/agents-cd.yaml",
+  "deployments": [
+    "agent-cd-coordinator",
+    "agent-cd-specialist"
+  ],
+  "smoke_job": "agent-cd-smoke",
+  "requires_prompt_registry": true,
+  "expected": {
+    "mode": "agent",
+    "fraud_coordinator": {
+      "card_status": 200,
+      "card_name_matches": true,
+      "malformed_task_rejected": true
+    },
+    "feature_rag_specialist": {
+      "card_status": 200,
+      "card_name_matches": true,
+      "malformed_task_rejected": true
+    }
+  },
+  "uses_token": true,
+  "ephemeral": [
+    [
+      "Deployment",
+      "agent-cd-redis"
+    ],
+    [
+      "Service",
+      "agent-cd-redis"
+    ]
+  ]
+}

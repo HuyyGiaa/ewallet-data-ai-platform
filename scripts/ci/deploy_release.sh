@@ -64,7 +64,7 @@ while IFS=$'\t' read -r component handler digest_ref; do
       KUBE_CONTEXT="$kube_context" "$root/$handler" \
         "$environment" "$image_manifest" "$evidence_dir"
       ;;
-    scripts/ci/deploy/rag_pipeline.sh)
+    scripts/ci/deploy/rag_pipeline.sh|scripts/ci/deploy/mcp_agents.sh|scripts/ci/deploy/agents.sh|scripts/ci/deploy/streaming.sh)
       "$root/$handler" "${handler_args[@]}"
       ;;
     *)

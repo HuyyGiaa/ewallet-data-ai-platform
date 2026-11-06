@@ -1,0 +1,15 @@
+{
+  "component": "mcp-agents",
+  "namespace": "ewallet-cicd",
+  "manifest": "infra/kubernetes/cicd-runtime/mcp/mcp-cd.yaml",
+  "deployments": ["mcp-cd-drift"],
+  "smoke_job": "mcp-cd-smoke",
+  "uses_token": true,
+  "expected": {
+    "mode": "mcp",
+    "ready_status": 200,
+    "anonymous_status": 401,
+    "tools_list_status": 200,
+    "tool_found": true
+  }
+}

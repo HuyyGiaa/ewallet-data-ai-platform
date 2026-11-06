@@ -116,6 +116,7 @@ data:
           // Release jobs: no default SHA and DEPLOY_APPROVED=false, so a deployment
           // needs an explicit SHA, an explicit approval flag and the input step.
           createPipeline('edai2-cd-mcp-agents', '*/release/mcp-agents', 'Jenkinsfile.llm-agent', '', false)
+          createPipeline('edai2-cd-agents', '*/release/agents', 'Jenkinsfile.llm-agent', '', false)
           createPipeline('edai2-cd-rag-pipeline', '*/release/rag-pipeline', 'Jenkinsfile.llm-agent', '', false)
           createPipeline('edai2-cd-prompt-management', '*/release/prompt-management', 'Jenkinsfile.llm-agent', '', false)
           createPipeline('edai2-cd-streaming', '*/release/streaming', 'Jenkinsfile', '', false)

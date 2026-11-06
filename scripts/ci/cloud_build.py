@@ -182,12 +182,16 @@ def build_image(http: Http, settings: Settings, spec: ImageSpec, sha: str, archi
     }
 
 
-def release_image_specs(catalog: Any, components: list[str], profile: str) -> list[ImageSpec]:
-    """Images to build: selected, profile-allowed, active components whose release reads ``images/<name>``."""
+def release_image_specs(catalog: Any, components: list[str], profile: str, branch: str = "") -> list[ImageSpec]:
+    """Images to build: selected, profile-allowed, active components whose release reads ``images/<name>``.
+
+    ``branch`` narrows the scope exactly as the release plan does, so a release never
+    builds an image it will not deploy.
+    """
 
     allowed = set(catalog.profiles[profile]) if profile != "platform" else set(catalog.components)
     specs = []
-    for name in sorted(set(components) & allowed):
+    for name in sorted(set(catalog.release_components(components, branch)) & allowed):
         component = catalog.components[name]
         selector = component.release_artifact_selector or ""
         if component.maturity != "active" or not component.deploy_handler or not selector.startswith("images/"):
@@ -198,7 +202,7 @@ def release_image_specs(catalog: Any, components: list[str], profile: str) -> li
             continue
         if not component.build_artifact:
             raise BuildError(f"component {name} needs a Dockerfile to build image {image}")
-        specs.append(ImageSpec(image, component.build_artifact))
+        specs.append(ImageSpec(image, component.build_artifact, component.build_target))
     return specs
 
 
@@ -210,6 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     selection.add_argument("--image", action="append", help="name=dockerfile[:target]")
     selection.add_argument("--scope", type=Path, help="scope.json; build every released catalog image in it")
     parser.add_argument("--profile", default="platform")
+    parser.add_argument("--release-branch", default="", help="release/<name> ref that narrows the scope")
     parser.add_argument("--catalog", type=Path, default=Path("jenkins/catalog/components.json"))
     parser.add_argument("--project", default="ewallet-data-ai-platform-hg26")
     parser.add_argument("--region", default="asia-southeast1")
@@ -225,7 +230,9 @@ def main(argv: list[str] | None = None) -> int:
         from scripts.ci.catalog import load_catalog
 
         scope = json.loads(args.scope.read_text(encoding="utf-8"))
-        specs = release_image_specs(load_catalog(args.catalog), list(scope.get("components", [])), args.profile)
+        specs = release_image_specs(
+            load_catalog(args.catalog), list(scope.get("components", [])), args.profile, args.release_branch
+        )
         if not specs:
             parser.error("the release scope selects no buildable deployable component")
     else:

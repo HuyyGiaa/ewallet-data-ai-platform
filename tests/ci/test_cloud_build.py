@@ -111,8 +111,13 @@ class CloudBuildTests(unittest.TestCase):
                                 b"archive", Path(tmp), sleep=lambda _: None)
 
     def test_release_specs_come_only_from_selected_deployable_catalog_components(self) -> None:
-        specs = release_image_specs(CATALOG, ["rag-pipeline", "mcp-agents", "agents", "fraud-api"], "llm-agent")
+        scope = ["rag-pipeline", "mcp-agents", "agents", "fraud-api"]
+        specs = release_image_specs(CATALOG, scope, "llm-agent", "release/rag-pipeline")
         self.assertEqual(specs, [ImageSpec("rag-ingestion", "infra/docker/rag-ingestion/Dockerfile")])
+        self.assertEqual(release_image_specs(CATALOG, scope, "llm-agent", "release/mcp-agents"),
+                         [ImageSpec("mcp-tools", "infra/docker/llm-agent-tooling/Dockerfile", "mcp-server")])
+        self.assertEqual(release_image_specs(CATALOG, scope, "llm-agent", "release/agents"),
+                         [ImageSpec("g3-byo-coordinator", "infra/docker/g3-byo-coordinator/Dockerfile")])
         self.assertEqual(release_image_specs(CATALOG, ["fraud-api"], "llm-agent"), [])
         self.assertEqual(release_image_specs(CATALOG, ["llm-serving"], "llm-agent"), [])
 

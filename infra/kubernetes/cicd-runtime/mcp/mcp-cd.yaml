@@ -1,0 +1,131 @@
+# Row 34 bounded CD target: the drift MCP server from the released image, with its
+# real authentication and transport stack. Its tool backends stay unavailable here,
+# because this namespace reaches neither Feast nor production data. Placeholders are
+# filled by scripts/ci/bounded_cd.py.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-cd-auth
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+data:
+  # Per-run throwaway token for this isolated workload; removed during cleanup.
+  CD_SMOKE_TOKEN: "__SMOKE_TOKEN__"
+  EWALLET_MCP_SERVICE_TOKENS: '{"version":1,"credentials":[{"id":"cd-smoke","subject":"cd-smoke","token":"__SMOKE_TOKEN__","status":"active"}]}'
+  EWALLET_MCP_TOOL_GRANTS: '{"cd-smoke":["drift_detection"]}'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-cd-smoke-script
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+data:
+  cd_smoke.py: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-cd-drift
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/name: mcp-cd-drift, app.kubernetes.io/part-of: ewallet-cicd}
+  annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: mcp-cd-drift}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: mcp-cd-drift, app.kubernetes.io/part-of: ewallet-cicd}
+      annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mcp-server
+          image: __IMAGE__
+          command: ["python", "-m", "uvicorn", "--factory", "ai_platform.llm_agent.tools.service:create_drift_app",
+                    "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+          env:
+            - {name: EWALLET_GIT_SHA, value: "__RELEASE_SHA__"}
+            - {name: EWALLET_IMAGE_DIGEST, value: "__IMAGE_DIGEST__"}
+            - {name: EWALLET_CONFIG_REVISION, value: cd-smoke}
+            - {name: EWALLET_PROMPT_REVISION, value: cd-smoke}
+            - {name: EWALLET_MODEL_REVISION, value: cd-smoke}
+            - {name: EWALLET_FEATURE_REVISION, value: cd-smoke}
+            - {name: EWALLET_CORPUS_REVISION, value: cd-smoke}
+          envFrom:
+            - configMapRef: {name: mcp-cd-auth}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-cd-drift
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+spec:
+  selector: {app.kubernetes.io/name: mcp-cd-drift}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mcp-cd-smoke
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: ewallet-cicd}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: smoke
+          image: __IMAGE__
+          command: ["python", "/cd-smoke/cd_smoke.py", "--mode", "mcp", "--target", "http://mcp-cd-drift:8080",
+                    "--tool", "drift_detection", "--release-sha", "__RELEASE_SHA__"]
+          envFrom:
+            - configMapRef: {name: mcp-cd-auth}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: script, mountPath: /cd-smoke, readOnly: true}
+      volumes:
+        - name: script
+          configMap: {name: mcp-cd-smoke-script}
