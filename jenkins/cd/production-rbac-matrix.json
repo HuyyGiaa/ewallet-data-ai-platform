@@ -1,0 +1,277 @@
+{
+ "subject": "system:serviceaccount:ewallet-ci:jenkins",
+ "rows": [
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "patch",
+   "resource": "deployments.apps",
+   "name": "feature-rag-mcp",
+   "after": true,
+   "why": "roll the digest"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "get",
+   "resource": "deployments.apps",
+   "name": "feature-rag-mcp",
+   "after": true,
+   "why": "read the digest back"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "patch",
+   "resource": "deployments.apps",
+   "name": "drift-mcp",
+   "after": true,
+   "why": "roll the digest"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "get",
+   "resource": "deployments.apps",
+   "name": "drift-mcp",
+   "after": true,
+   "why": "read the digest back"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "watch",
+   "resource": "deployments.apps",
+   "name": "feature-rag-mcp",
+   "after": true,
+   "why": "rollout status"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "list",
+   "resource": "replicasets.apps",
+   "name": "",
+   "after": true,
+   "why": "rollout status"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "list",
+   "resource": "pods",
+   "name": "",
+   "after": true,
+   "why": "readiness"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "patch",
+   "resource": "agents.kagent.dev",
+   "name": "fraud-coordinator",
+   "after": true,
+   "why": "roll the digest"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "get",
+   "resource": "deployments.apps",
+   "name": "fraud-coordinator",
+   "after": true,
+   "why": "read the digest back"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "patch",
+   "resource": "agents.kagent.dev",
+   "name": "feature-rag-specialist",
+   "after": true,
+   "why": "roll the digest"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "get",
+   "resource": "deployments.apps",
+   "name": "feature-rag-specialist",
+   "after": true,
+   "why": "read the digest back"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "list",
+   "resource": "pods",
+   "name": "",
+   "after": true,
+   "why": "readiness"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "patch",
+   "resource": "deployments.apps",
+   "name": "some-other-service",
+   "after": false,
+   "why": "other workloads"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "delete",
+   "resource": "deployments.apps",
+   "name": "feature-rag-mcp",
+   "after": false,
+   "why": "no deletion"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "create",
+   "resource": "deployments.apps",
+   "name": "",
+   "after": false,
+   "why": "no new workloads"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "get",
+   "resource": "secrets",
+   "name": "",
+   "after": false,
+   "why": "no credentials"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "delete",
+   "resource": "pods",
+   "name": "",
+   "after": false,
+   "why": "no pod deletion"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "create",
+   "resource": "pods/exec",
+   "name": "",
+   "after": false,
+   "why": "no shell"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "create",
+   "resource": "pods/portforward",
+   "name": "",
+   "after": false,
+   "why": "no tunnels"
+  },
+  {
+   "namespace": "ewallet-mcp",
+   "verb": "create",
+   "resource": "rolebindings.rbac.authorization.k8s.io",
+   "name": "",
+   "after": false,
+   "why": "no privilege growth"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "patch",
+   "resource": "agents.kagent.dev",
+   "name": "drift-specialist",
+   "after": false,
+   "why": "Declarative agent"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "patch",
+   "resource": "deployments.apps",
+   "name": "fraud-coordinator",
+   "after": false,
+   "why": "controller owns it"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "patch",
+   "resource": "deployments.apps",
+   "name": "agentgateway",
+   "after": false,
+   "why": "gateways are not in scope"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "delete",
+   "resource": "agents.kagent.dev",
+   "name": "fraud-coordinator",
+   "after": false,
+   "why": "no deletion"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "get",
+   "resource": "secrets",
+   "name": "",
+   "after": false,
+   "why": "no credentials"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "create",
+   "resource": "pods/exec",
+   "name": "",
+   "after": false,
+   "why": "no shell"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "patch",
+   "resource": "configmaps",
+   "name": "",
+   "after": false,
+   "why": "no config changes"
+  },
+  {
+   "namespace": "ewallet-agents",
+   "verb": "patch",
+   "resource": "authorizationpolicies.security.istio.io",
+   "name": "",
+   "after": false,
+   "why": "no policy changes"
+  },
+  {
+   "namespace": "default",
+   "verb": "get",
+   "resource": "secrets",
+   "name": "",
+   "after": false,
+   "why": "no Helm release state"
+  },
+  {
+   "namespace": "default",
+   "verb": "create",
+   "resource": "secrets",
+   "name": "",
+   "after": false,
+   "why": "no Helm release state"
+  },
+  {
+   "namespace": "kube-system",
+   "verb": "list",
+   "resource": "pods",
+   "name": "",
+   "after": false,
+   "why": "other namespaces"
+  },
+  {
+   "namespace": "ewallet-sandbox",
+   "verb": "create",
+   "resource": "sandboxagents.kagent.dev",
+   "name": "",
+   "after": false,
+   "why": "sandbox is out of scope"
+  },
+  {
+   "namespace": "",
+   "verb": "patch",
+   "resource": "nodes",
+   "name": "",
+   "after": false,
+   "why": "no cluster scope"
+  },
+  {
+   "namespace": "",
+   "verb": "create",
+   "resource": "clusterrolebindings.rbac.authorization.k8s.io",
+   "name": "",
+   "after": false,
+   "why": "no cluster scope"
+  }
+ ]
+}

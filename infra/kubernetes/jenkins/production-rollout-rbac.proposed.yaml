@@ -1,0 +1,78 @@
+# PROPOSAL, NOT APPLIED. Least-privilege rights for Jenkins to roll a reviewed image digest
+# into production. Nothing applies this file: no script, kustomization or Jenkins job names it.
+#
+# Why this is a digest patch and not `helm upgrade`: Helm stores release state in Secrets in
+# the release namespace. Kubernetes cannot limit `create` by resource name, so a Helm-based
+# deploy would need to create, read and update every Secret in `default` and `ewallet-mcp`.
+# Patching two named objects needs no Secret access at all.
+#
+# Deliberately absent: secrets, pods/exec, pods/portforward, create, delete, any RBAC object,
+# any cluster-scoped rule. There is no streaming role, because no streaming workload runs on
+# GKE. The authoritative check is jenkins/cd/production-rbac-matrix.json.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-rollout-mcp
+  namespace: ewallet-mcp
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [feature-rag-mcp, drift-mcp]
+    verbs: [get, list, watch, patch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-rollout-mcp
+  namespace: ewallet-mcp
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-rollout-mcp
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: ewallet-ci
+---
+# The kagent controller owns the agents' Deployments, so Jenkins patches the Agent object and
+# only reads the Deployment back. drift-specialist is Declarative and has no image to roll.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-rollout-agents
+  namespace: ewallet-agents
+rules:
+  - apiGroups: [kagent.dev]
+    resources: [agents]
+    resourceNames: [fraud-coordinator, feature-rag-specialist]
+    verbs: [get, list, watch, patch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [fraud-coordinator, feature-rag-specialist]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-rollout-agents
+  namespace: ewallet-agents
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-rollout-agents
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: ewallet-ci
