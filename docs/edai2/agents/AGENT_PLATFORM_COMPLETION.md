@@ -8,19 +8,19 @@ To run it, use the [runbook](../../runbooks/edai2/llm_agent/C_AGENT_PLATFORM_RUN
 
 `scripts/ci/bounded_cd.py` adds one release flow for MCP servers, agents and streaming. It applies the release to `ewallet-cicd`, reads the digest back, runs a smoke Job and parks the workload at zero replicas. A failed run restores the previous state.
 
-The CD stops at `ewallet-cicd` by design, because Jenkins has no rights in production namespaces. The [least-privilege design](../cicd/PRODUCTION_ROLLOUT_RBAC.md) is proposed, not applied. Rows 34–36 ask for CI/CD of these components, and this verifies a release candidate; it doesn't roll one out to production.
+The CD stops at `ewallet-cicd` by design, because Jenkins has no rights in production namespaces. Production goes through a [Helm promotion path](../cicd/PRODUCTION_ROLLOUT_RBAC.md) that proves a release changes only images. Rows 34–36 ask for CI/CD of these components, and this verifies a release candidate; it doesn't roll one out to production.
 
-The streaming release has no source dependency on C-A, but it should still ship from the merged commit, so it carries C-A's watermark fix. See [the integration order](../platform/C_INTEGRATION_ORDER.md).
+The streaming release gate checks that event time is applied after the source, so an image without C-A's watermark fix fails CD. See [the integration order](../platform/C_INTEGRATION_ORDER.md).
 
 Each `release/<component>` branch now ships only that component. Without this, the new deployable components would have been included in a RAG release.
 
 ## KEDA (rows 19, 22, 25)
 
-The chart has `agents.autoscaling.engine`, with `hpa` as the default. With `keda`, a ScaledObject replaces the HPA, so one Deployment never has two autoscalers. Scaling follows `ewallet_agent_inflight_tasks`, because agent work waits on the LLM and uses little CPU.
+The chart has `agents.autoscaling.engine`, with `hpa` as the default. With `keda`, a ScaledObject adopts the existing HPA, so one Deployment never has two autoscalers and autoscaling has no gap. Scaling follows `ewallet_agent_inflight_tasks`, because agent work waits on the LLM and uses little CPU.
 
 KEDA needs one new network flow to Prometheus. Only the operator pod joins the mesh, which gives it the identity the rule admits.
 
-The pinned chart and our rendered ScaledObject were tested locally against a stub Prometheus: scale-out, the cap, outage fallback, recovery and rollback all worked. KEDA's webhook refuses a ScaledObject while the HPA exists, so the runbook deletes the HPA first. The real gauge and mesh path remain unproven.
+The pinned chart and our rendered ScaledObject were tested locally against a stub Prometheus: scale-out, the cap, outage fallback, recovery and rollback all worked. A plain Helm rollback reports success but leaves no HPA, so the runbook has an explicit rollback and a preflight check for it. The real gauge and mesh path remain unproven.
 
 ## MCP failover (row 18)
 

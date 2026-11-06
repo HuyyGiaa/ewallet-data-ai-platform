@@ -44,13 +44,13 @@ Do not use `o1_experiment.sh`, `g2_experiment.sh` or `g1_operator.sh` on this cl
 
 ## P1: Jenkins CD
 
-**Source.** Build from the merged commit, not from C-B alone: a streaming image from C-B lacks C-A's watermark fix, and the smoke can't detect that. See [the integration order](../../../edai2/platform/C_INTEGRATION_ORDER.md). MCP and Agents have no such dependency.
+**Source.** Build from the merged commit. A streaming image from C-B alone lacks C-A's watermark fix, and the release gate fails it on purpose. See [the integration order](../../../edai2/platform/C_INTEGRATION_ORDER.md). MCP and Agents have no such dependency.
 
 | Component | Job | Branch | Image | Objects in `ewallet-cicd` | Requests | PASS |
 |---|---|---|---|---|---|---|
 | MCP (row 34) | `edai2-cd-mcp-agents` | `release/mcp-agents` | `mcp-tools` | Deployment, Service, Job, ConfigMaps | 150m, 384Mi | Digest matches, ready 200, anonymous 401, `tools/list` 200 |
 | Agents (row 35) | `edai2-cd-agents` | `release/agents` | `g3-byo-coordinator` | Redis, 2 agents, Job, ConfigMaps | 300m, 704Mi | Digest matches, cards served, malformed task rejected |
-| Streaming (row 36) | `edai2-cd-streaming` | `release/streaming` | `flink-block-a` | Job, ConfigMap | 100m, 256Mi | 7 operators, 1 duplicate removed, history and online writes |
+| Streaming (row 36) | `edai2-cd-streaming` | `release/streaming` | `flink-block-a` | Job, ConfigMap | 100m, 256Mi | 7 operators, 1 duplicate removed, history and online writes, event time applied after the source |
 
 The namespace quota is 2 CPU and 6 GiB, and jobs run one at a time.
 
@@ -67,7 +67,7 @@ The namespace quota is 2 CPU and 6 GiB, and jobs run one at a time.
 
 **Rollback:** a failed run restores the previous objects itself. A passed run leaves workloads at zero. To remove the new job, revert its line in `jenkins.yaml`.
 
-**Limit:** this verifies a release candidate. It doesn't update production, because Jenkins has no rights there. The [RBAC design](../../../edai2/cicd/PRODUCTION_ROLLOUT_RBAC.md) is a separate decision, and its rollout step isn't built.
+**Limit:** this verifies a release candidate. It doesn't update production, because Jenkins has no rights there and isn't meant to. Production goes through the [Helm promotion path](../../../edai2/cicd/PRODUCTION_ROLLOUT_RBAC.md), which is a separate approval.
 
 ## P2: EXP-V1 thread binding
 
@@ -106,23 +106,26 @@ Use historical G2 results for context only. Never mix them with these runs.
 
 **Changes production.** Installs KEDA 2.21 (cluster-scoped CRDs, namespace `keda`, 125m CPU and 264Mi requested), rolls agents to rebuilt images, and replaces each agent's HPA with a ScaledObject.
 
-**The order below is required.** KEDA's webhook refuses a ScaledObject while an HPA targets the same Deployment, and Helm creates new objects before deleting old ones. A plain `helm upgrade` would therefore fail.
+**The HPA isn't deleted.** KEDA's webhook refuses a ScaledObject beside an HPA, so `g3/keda.yaml` sets `transferHpa: true`, and KEDA adopts each existing HPA by name. **Rollback is not a plain upgrade**: see below.
 
 ### Local evidence
 
-The pinned chart and the ScaledObject our chart renders ran on a local cluster on 2026-11-06, against a stub Prometheus and a stub workload.
+The pinned chart and the ScaledObject our chart renders ran on a local cluster on 2026-11-06, against a stub Prometheus and a stub workload. The Helm rows used a minimal chart with the same objects.
 
 | Check | Result |
 |---|---|
-| ScaledObject while the HPA exists | Refused by `vscaledobject.kb.io` |
-| HPA deleted first | Accepted; `keda-hpa-fraud-coordinator` created with range 2–3 |
+| ScaledObject beside an HPA, no transfer | Refused by `vscaledobject.kb.io` |
+| Transfer annotation without the HPA's name | Refused: the name is required |
+| Transfer with the name | Accepted; same HPA adopted, same UID, range 2–3, no gap |
+| Real `helm upgrade` from HPA to transfer | Succeeds. Helm prunes the old HPA and KEDA recreates it at once; replicas unchanged |
 | Value 0 | Stays at 2 |
 | Value 5, threshold 2 | 2 → 3 in about 70 s, including the stub's value update |
 | Value 100 | Stays at the cap of 3 |
 | Prometheus down while at 3 | `Fallback=True`; settles at 2 after about 300 s (scale-down window) |
 | Prometheus back with load | 2 → 3 in about 20 s |
 | Load gone | 3 → 2 in about 360 s |
-| Rollback: HPA created, then ScaledObject deleted | Allowed; HPA takes over at 2 replicas |
+| **Plain `helm upgrade` back to HPA** | **Reports `deployed` but leaves no HPA**: deleting the ScaledObject cascades to the HPA Helm took over |
+| Delete ScaledObject first, then upgrade | HPA restored, not KEDA-owned, replicas held |
 
 This doesn't prove the production path: the stub skips the real gauge, ambient mTLS and both access rules, and the local cluster ran Kubernetes 1.37 where GKE runs 1.36. Steps 3 and 8 below cover that.
 
@@ -133,7 +136,7 @@ This doesn't prove the production path: the stub skips the real gauge, ambient m
 | Supported version | READY: the chart declares `>=1.23`; GKE is 1.36.4 |
 | Prometheus connectivity | Needs the two access rules and the operator pod in the mesh; not yet proven |
 | NetworkPolicy, AuthorizationPolicy | One added flow each, both only for `keda-operator` |
-| HPA replacement | Safe in the order below; tested locally |
+| HPA replacement | Transfer tested locally, with no gap going forward; rollback needs the steps below |
 | Node capacity | READY: 3 extra replicas need 300m and 768Mi, and LLM nodes had 0.59 and 0.56 CPU free |
 | Maximum replicas | 3 per agent, enforced locally |
 | Failure recovery | Holds 2 replicas in an outage and recovers by itself; tested locally |
@@ -152,14 +155,19 @@ This doesn't prove the production path: the stub skips the real gauge, ambient m
 | 4 | Baseline, twice: the same with `run` | `CLOUD MUTATION` |
 | 5 | `scripts/llm_agent/keda_install.sh` (dry run), then `--execute`, then `kubectl rollout status` for all three `keda` Deployments | `CLOUD MUTATION` |
 | 6 | `kubectl apply -f infra/kubernetes/experiments/keda-prometheus-access.yaml` | `CLOUD MUTATION` |
-| 7 | Preflight with `--stage before-scaledobject`. Delete the three named HPAs, then at once upgrade `llm-agent` with `-f infra/helm/llm-agent-platform/g3/keda.yaml` | `CLOUD MUTATION` |
+| 7 | Preflight with `--stage before-scaledobject`, then upgrade `llm-agent` with `-f infra/helm/llm-agent-platform/g3/keda.yaml` | `CLOUD MUTATION` |
 | 8 | `kubectl -n ewallet-agents get scaledobject` shows Ready with no fallback active: this is the first proof of the real Prometheus path | `READ-ONLY` |
 | 9 | Smoke, then two runs, with `optimized` | `CLOUD MUTATION` |
 | 10 | `python -m ops.experiments.cli compare --spec configs/experiments/exp-c5-keda.json --dir "$EVIDENCE"` | `LOCAL TEST` |
 
-Each run sends at most 40 tasks at concurrency 4 through production vLLM, so check the gateway's token budget first. The smoke sends one, and its result stays out of the comparison. Replicas keep their count between steps 7's delete and upgrade, but nothing autoscales in that gap.
+Each run sends at most 40 tasks at concurrency 4 through production vLLM, so check the gateway's token budget first. The smoke sends one, and its result stays out of the comparison.
 
-**Rollback** (`CLOUD MUTATION`): upgrade without `g3/keda.yaml`, which restores the HPAs (order tested). Then `kubectl delete -f` the access rules and `helm uninstall keda -n keda`.
+**Rollback** (`CLOUD MUTATION`). Follow this order. A plain upgrade reports success and leaves agents with no autoscaler.
+
+1. `kubectl -n ewallet-agents delete scaledobject drift-specialist feature-rag-specialist fraud-coordinator`. This removes the HPAs too. Replicas hold, but nothing autoscales until step 2.
+2. Upgrade `llm-agent` without `g3/keda.yaml`.
+3. `python scripts/experiments/keda_preflight.py --context "$KUBE_CONTEXT" --stage after-rollback` must report no BLOCKED (`READ-ONLY`).
+4. `kubectl delete -f` the access rules, then `helm uninstall keda -n keda`.
 
 ## P5: Isolated MCP failover
 

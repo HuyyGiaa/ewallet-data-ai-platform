@@ -12,7 +12,7 @@ This page records how the three local branches depend on each other and the safe
 
 **No build or import dependency exists between C-A and C-B.** The only file all three change is `docs/runbooks/README.md`, and `git merge-tree` reports no conflict for any pair.
 
-A simulated merge of C-A and C-B, exported without touching a branch, passed `tests/ci` and `tests/experiments`. An image built from it passed the streaming smoke and has the watermark fix. `test_every_project_is_locked` fails there exactly as it does on `origin/main`, because its project list is stale; `uv lock --check` passes.
+A simulated merge of C-A and C-B, exported without touching a branch, passed `tests/ci` and `tests/experiments`. An image built from it contains the watermark fix. `test_every_project_is_locked` fails there exactly as it does on `origin/main`, because its project list is stale; `uv lock --check` passes.
 
 The report for Batch C-B said the streaming smoke depended on C-A. That's now tested and it does not:
 
@@ -21,9 +21,18 @@ The report for Batch C-B said the streaming smoke depended on C-A. That's now te
 | C-B source only | No | PASS: 7 operators, 1 duplicate removed, 1 history record |
 | C-A source | Yes | PASS: same result |
 
-**That test also shows the risk: the smoke can't see the difference.** It reads the job plan and runs event logic in-process, so it never exercises a live source. C-A commit `c1f2d0e` changes `flink/job.py` so watermarks follow the payload's event time rather than the broker's record time. A release from C-B alone would pass CD and still ship without that fix.
+**The old smoke couldn't see the difference**, because the job plan is identical. C-A commit `c1f2d0e` changes `flink/job.py` so watermarks follow the payload's event time rather than the broker's record time.
 
-The smoke imports four modules from `data_platform/streaming`:
+**The release gate now can.** `cd_smoke.py` builds the image's real job and observes what reaches Flink: the source must receive no timestamp assigner, and one must be applied after it. Results at 512 MiB and 0.5 CPU, in about 18 seconds:
+
+| Image | `event_time_after_source` | CD verdict |
+|---|---|---|
+| C-B source only | false | **FAIL** |
+| C-A source | true | PASS |
+
+So a streaming release from C-B alone now fails CD on purpose, until C-A is integrated.
+
+The smoke also imports these modules from `data_platform/streaming`:
 
 | Module | Changed by C-A |
 |---|---|
@@ -51,4 +60,4 @@ Items 1–3 belong in the integration commit. They need both branches, and C-A m
 4. **Add the catalog entries** in one commit, then run the full test scope.
 5. **Build release images from that merged commit.** Run P1 from there, never from C-B alone, so row 36 ships the watermark fix.
 
-Each merge is the owner's decision. MCP and agent CD (P1) could run from C-B alone if needed, because they don't depend on C-A; only the streaming release should wait.
+The owner has approved this order in principle; that isn't authorization to merge. Each merge remains the owner's decision. MCP and agent CD (P1) could run from C-B alone if needed, because they don't depend on C-A; only the streaming release should wait.

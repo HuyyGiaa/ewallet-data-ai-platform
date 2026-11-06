@@ -1,16 +1,45 @@
-# Jenkins production rollout: least-privilege design
+# Jenkins production rollout
 
-This is a design only. **Nothing here is applied**, and Jenkins can't reach production today. A live check on 2026-11-06 confirmed that 34 of 34 matrix rows match that state.
+**Jenkins gets no production rights.** Production RBAC and rollout are not approved, and this design makes them unnecessary. Jenkins can't reach production today: a live check on 2026-11-06 confirmed that 34 of 34 matrix rows match that state.
+
+## Recommended path: promotion through Helm
+
+The earlier proposal let Jenkins patch digests directly. Owner review rejected that until two problems were solved. RBAC can't limit a `patch` to the image field, and a direct patch leaves Helm's release record out of date, so the next `helm upgrade` silently rolls the image back.
+
+Both go away if Helm stays the only writer:
+
+1. Jenkins runs CD in `ewallet-cicd`, then publishes a promotion file holding only digests.
+2. The approved deployer runs `scripts/ci/release_state.py promote` with their own credentials.
+3. The tool refuses unless every check below passes, and upgrades with `--atomic`.
+
+| Problem | Check | Tested on production data, read-only |
+|---|---|---|
+| Running image differs from Helm's record | `drift` compares both | 0 differences on `llm-agent` and `llm-agent-mcp` |
+| Local chart isn't what's deployed | Render must equal `helm get manifest` | Both releases match exactly |
+| A release changes more than images | Before and after renders may differ only in image identity | A real digest change passes; a smuggled replica change is refused |
+
+Image-only is enforced by comparing renders, which is stronger than any RBAC rule. Helm's record stays true because Helm does the write, and `--atomic` restores the previous revision on failure.
+
+A release that changes the chart fails the check on purpose. It's a normal reviewed upgrade, not a promotion.
+
+```bash
+python scripts/ci/release_state.py drift --release llm-agent --context "$KUBE_CONTEXT"
+python scripts/ci/release_state.py values --release llm-agent --image coordinator=<digest-ref> --git-sha <sha> --output promotion.yaml
+python scripts/ci/release_state.py check --release llm-agent --context "$KUBE_CONTEXT" --promotion promotion.yaml
+PROMOTION_APPROVED=yes python scripts/ci/release_state.py promote --release llm-agent --context "$KUBE_CONTEXT" --promotion promotion.yaml --execute
+```
+
+`drift`, `values` and `check` are read-only. `promote` is a cloud mutation and needs owner approval, and it has never run.
+
+**Limit:** this keeps a person in the loop. If Jenkins must deploy unattended later, something has to hold Helm's rights, which means a new decision. A `ValidatingAdmissionPolicy` isn't needed for this path, so it stays deferred.
+
+## Superseded proposal
+
+The rest of this page describes the direct-patch proposal, kept for integration review. **It is not recommended and not approved.**
 
 Files: [the proposed Roles](../../../infra/kubernetes/jenkins/production-rollout-rbac.proposed.yaml), [the matrix](../../../jenkins/cd/production-rbac-matrix.json) and [the checker](../../../scripts/ci/rbac_matrix.py). Tests prove the Roles grant exactly what the matrix says.
 
-## Approach
-
-Jenkins would patch one image digest on named objects, and it would not run `helm upgrade`.
-
-Helm stores release state in Secrets, and Kubernetes can't limit `create` by object name. A Helm-based deploy would need to read and write every Secret in `default` and `ewallet-mcp`, which is broad namespace ownership. A digest patch needs no Secret access.
-
-The cost is drift: Helm no longer knows the live digest. The owner has to carry each released digest into the release values, or the next `helm upgrade` silently rolls it back.
+Helm stores release state in Secrets, and Kubernetes can't limit `create` by object name, so giving Jenkins Helm itself would need read and write on every Secret in `default` and `ewallet-mcp`.
 
 ## Permissions
 
@@ -57,4 +86,4 @@ kubectl --context "$KUBE_CONTEXT" delete -f infra/kubernetes/jenkins/production-
 
 Rolling back removes the rights at once and leaves running workloads as they are. To restore an image, patch the previous digest back or run `helm rollback`.
 
-The rollout step itself isn't implemented, because no RBAC exists for it to use.
+No rollout step exists for these Roles, and none is planned while the promotion path stands.
