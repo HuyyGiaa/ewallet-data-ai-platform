@@ -1,0 +1,21 @@
+{
+  "kv_mount": "ewallet",
+  "audit_file": "/vault/audit/audit.log",
+  "kubernetes_auth_mount": "kubernetes",
+  "token_audience": "vault",
+  "policies": {
+    "fraud-api": "infra/kubernetes/vault/policies/fraud-api.hcl",
+    "secret-operator": "infra/kubernetes/vault/policies/secret-operator.hcl"
+  },
+  "roles": {
+    "fraud-api": {
+      "bound_service_account_names": ["training"],
+      "bound_service_account_namespaces": ["ml-platform"],
+      "audience": "vault",
+      "token_policies": ["fraud-api"],
+      "token_ttl": "5m",
+      "token_max_ttl": "15m",
+      "token_no_default_policy": true
+    }
+  }
+}

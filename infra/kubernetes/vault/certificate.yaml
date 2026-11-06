@@ -1,0 +1,52 @@
+# Namespace-scoped private CA from the cert-manager already on the cluster. Clients
+# trust only ca.crt, published through the vault-ca ConfigMap by ops/vault.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: vault-selfsigned
+  namespace: ewallet-vault
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-ca
+  namespace: ewallet-vault
+spec:
+  isCA: true
+  commonName: ewallet-vault-ca
+  secretName: vault-ca
+  duration: 8760h
+  privateKey: {algorithm: ECDSA, size: 256}
+  issuerRef: {name: vault-selfsigned, kind: Issuer}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: vault-ca
+  namespace: ewallet-vault
+spec:
+  ca:
+    secretName: vault-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-server-tls
+  namespace: ewallet-vault
+spec:
+  secretName: vault-server-tls
+  duration: 2160h
+  renewBefore: 360h
+  privateKey: {algorithm: ECDSA, size: 256}
+  dnsNames:
+    - vault
+    - vault.ewallet-vault
+    - vault.ewallet-vault.svc
+    - vault.ewallet-vault.svc.cluster.local
+    - vault-0.vault-internal
+    - vault-0.vault-internal.ewallet-vault.svc.cluster.local
+    - localhost
+  ipAddresses: ["127.0.0.1"]
+  issuerRef: {name: vault-ca, kind: Issuer}

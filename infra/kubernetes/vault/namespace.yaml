@@ -1,0 +1,10 @@
+# Vault runs apart from every workload it serves. Restricted Pod Security and no
+# ambient enrolment: Vault terminates its own TLS and clients authenticate to it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-vault
+  labels:
+    app.kubernetes.io/part-of: ewallet-platform
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
