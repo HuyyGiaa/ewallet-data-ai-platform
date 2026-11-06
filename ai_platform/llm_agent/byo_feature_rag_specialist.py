@@ -95,6 +95,8 @@ class MCPEnvelope(BaseModel):
 
 
 class MCPSession(Protocol):
+    """The part of an MCP client session that the Specialist uses."""
+
     async def initialize(self): ...
     async def list_tools(self): ...
     async def call_tool(self, name: str, arguments: dict[str, object]): ...
@@ -574,6 +576,8 @@ class FeatureRagSpecialistExecutor(AgentExecutor):
 
 
 def agent_card() -> AgentCard:
+    """Return the Agent Card published at the well-known path."""
+
     return AgentCard(
         name="feature_rag_specialist",
         description="Fraud Investigation / Evidence specialist",
@@ -601,6 +605,8 @@ def build_app(
     task_store: TaskStore | None = None,
     executor: AgentExecutor | None = None,
 ) -> FastAPI:
+    """Build the A2A application with its executor, task store and lifecycle."""
+
     configure_telemetry(APP_NAME, APP_VERSION)
     initialize_agent_metrics(APP_NAME)
     flush_agent_metrics()
@@ -643,6 +649,8 @@ app = build_app()
 
 
 def main() -> None:
+    """Serve the Specialist on the configured port."""
+
     import uvicorn
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
     uvicorn.run(app, host="0.0.0.0", port=listen_port(os.environ), access_log=True)

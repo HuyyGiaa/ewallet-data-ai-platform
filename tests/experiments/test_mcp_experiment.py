@@ -199,3 +199,50 @@ def test_real_probe_never_repeats_a_rejected_call() -> None:
 def test_real_probe_stops_at_the_attempt_budget() -> None:
     row, count = probe_once(9, 503, 3)
     assert row["ok"] is False and count == 3
+
+
+def test_real_drift_server_accepts_the_drivers_token_and_probe() -> None:
+    """The fake cluster can't validate the token JSON, so the real server does."""
+
+    pytest.importorskip("fastapi")
+    pytest.importorskip("uvicorn")
+    import socket
+    import time
+
+    template = yaml.safe_load_all((ROOT / "infra/kubernetes/experiments/mcp-exp.yaml.tmpl").read_text(encoding="utf-8")
+                                  .replace("__REPLICAS__", "1").replace("__JOB_DEADLINE__", "1"))
+    deployment = next(item for item in template if item["kind"] == "Deployment")
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    token = "t" * 64
+    tokens = '{"version":1,"credentials":[{"id":"mcp-exp","subject":"mcp-exp","token":"%s","status":"active"}]}' % token
+    env = {item["name"]: item.get("value", "") for item in container["env"]}
+    env.update({"EWALLET_MCP_SERVICE_TOKENS": tokens, "EWALLET_GIT_SHA": "a" * 40, "EWALLET_IMAGE_DIGEST": "sha256:" + "a" * 64,
+                "PYTHONPATH": str(ROOT), "PATH": os.environ["PATH"], "HOME": "/tmp"})
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    process = subprocess.Popen([sys.executable, *container["command"][1:-5], "--host", "127.0.0.1", "--port", str(port),
+                                "--no-access-log"], env=env, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    url = f"http://127.0.0.1:{port}/mcp"
+
+    async def go() -> tuple[dict, dict]:
+        async with httpx.AsyncClient(timeout=5) as client:
+            policy = FailoverPolicy(max_attempts=2, base_delay_seconds=0.0, max_delay_seconds=0.0)
+            good = await mcp_probe.one_call(mcp_probe.http_sender(client, url, token), policy, 1)
+            bad = await mcp_probe.one_call(mcp_probe.http_sender(client, url, "w" * 64), policy, 2)
+            return good, bad
+
+    try:
+        for _ in range(100):
+            try:
+                if httpx.get(f"http://127.0.0.1:{port}/health/ready", timeout=1).status_code == 200:
+                    break
+            except httpx.HTTPError:
+                assert process.poll() is None, process.stdout.read()
+                time.sleep(0.2)
+        good, bad = asyncio.run(go())
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+    assert good["ok"] is True, good
+    assert bad["ok"] is False and bad["retries"] == 0

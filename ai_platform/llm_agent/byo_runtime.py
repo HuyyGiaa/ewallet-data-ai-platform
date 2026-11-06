@@ -74,6 +74,8 @@ class ControllerTokenHook:
 
 @dataclass
 class AppResources:
+    """Controller client and token hook that an app must close at shutdown."""
+
     controller_client: httpx.AsyncClient | None
     token_hook: ControllerTokenHook | None
 

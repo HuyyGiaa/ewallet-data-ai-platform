@@ -488,6 +488,8 @@ app = build_app()
 
 
 def main() -> None:
+    """Serve the Coordinator on the configured port."""
+
     import uvicorn
 
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
