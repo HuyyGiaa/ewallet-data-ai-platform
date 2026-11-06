@@ -1,0 +1,48 @@
+{
+  "experiment_id": "EXP-C5-SANDBOX",
+  "hypothesis": "A sandboxed business agent answers with the same tool results as the Deployment; its startup, latency and resource use are measured, with no expected direction.",
+  "variable": "Runtime: kagent BYO Deployment versus SandboxAgent on a gVisor WorkerPool",
+  "baseline": "byo-deployment",
+  "optimized": "sandbox-agent",
+  "controls": [
+    "load_profile_sha256",
+    "image_digest",
+    "tool_set"
+  ],
+  "metrics": [
+    {
+      "name": "first_success_seconds",
+      "direction": "lower",
+      "path": "first_success_seconds"
+    },
+    {
+      "name": "e2e_p50_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p50"
+    },
+    {
+      "name": "e2e_p95_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p95"
+    },
+    {
+      "name": "cpu_cores_mean",
+      "direction": "lower",
+      "path": "derived.cpu_cores_mean"
+    },
+    {
+      "name": "memory_mib_peak",
+      "direction": "lower",
+      "path": "derived.memory_mib_peak"
+    }
+  ],
+  "primary_metric": "e2e_p95_ms",
+  "min_runs": 2,
+  "significant_percent": 10,
+  "screenshots": [
+    "SandboxAgent Ready condition and WorkerPool readback",
+    "Agent answer from each arm",
+    "Resource readback for each arm",
+    "comparison.md with the verdict"
+  ]
+}

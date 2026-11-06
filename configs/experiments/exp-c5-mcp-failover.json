@@ -1,0 +1,39 @@
+{
+  "experiment_id": "EXP-C5-MCP",
+  "hypothesis": "Two spread MCP replicas with bounded read-only client retry keep tool calls succeeding while one replica is deleted, where a single replica fails.",
+  "variable": "MCP availability: one replica without retry versus two replicas with client failover",
+  "baseline": "single-replica",
+  "optimized": "two-replicas-retry",
+  "controls": [
+    "load_profile_sha256",
+    "image_digest",
+    "failure_action",
+    "tool_set"
+  ],
+  "metrics": [
+    {
+      "name": "availability_percent",
+      "direction": "higher",
+      "path": "availability_percent"
+    },
+    {
+      "name": "e2e_p95_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p95"
+    },
+    {
+      "name": "recovery_seconds",
+      "direction": "lower",
+      "path": "recovery_seconds"
+    }
+  ],
+  "primary_metric": "availability_percent",
+  "min_runs": 2,
+  "significant_percent": 5,
+  "screenshots": [
+    "Pod state before, during and after the deletion for each arm",
+    "Gateway log excerpt for each arm",
+    "Failure-window request summary for each arm",
+    "comparison.md with the verdict"
+  ]
+}

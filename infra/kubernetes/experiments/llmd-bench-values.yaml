@@ -1,0 +1,12 @@
+# Applied after infra/helm/llm-d/standalone-values-g2.yaml for EXP-V2: same router settings
+# as G2, placed on the benchmark pool. The router's Role stays inside ewallet-bench.
+router:
+  epp:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - {key: ewallet.io/bench, operator: In, values: ["true"]}
+    tolerations:
+      - {key: ewallet.io/bench, operator: Equal, value: "true", effect: NoSchedule}

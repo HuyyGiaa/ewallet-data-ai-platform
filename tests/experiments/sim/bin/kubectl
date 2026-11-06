@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Fake kubectl for the offline benchmark session: records calls and keeps namespace state."""
+import json, os, sys, time
+from pathlib import Path
+
+state = Path(os.environ["SIM_STATE"])
+argv = sys.argv[1:]
+with (state / "calls.log").open("a") as log:
+    log.write("kubectl " + " ".join(argv) + "\n")
+args = [a for i, a in enumerate(argv) if not a.startswith("--context") and not a.startswith("--request-timeout")
+        and (i == 0 or argv[i - 1] != "--context")]
+if "-n" in args:
+    i = args.index("-n"); del args[i:i + 2]
+text = " ".join(args)
+ns = state / "namespace"
+if args[0] == "port-forward":
+    time.sleep(600)
+elif args[0] == "apply":
+    data = sys.stdin.read() if args[-1] == "-" else Path(args[-1]).read_text()
+    if "kind: Namespace" in data:
+        ns.write_text("true")
+    if args[-1] != "-":
+        (state / "applied.log").open("a").write(args[-1] + "\n")
+        (state / "current.yaml").write_text(data)
+    print("applied")
+elif text.startswith("get namespace"):
+    if not ns.exists():
+        sys.stderr.write("NotFound\n"); sys.exit(1)
+    print("true")
+elif text.startswith("delete namespace"):
+    ns.unlink(missing_ok=True)
+elif text.startswith("get endpoints"):
+    print("10.0.0.2" if "addresses" in text else "443", end="")
+elif text.startswith("get configmap"):
+    current = (state / "current.yaml").read_text()
+    print("\n".join(l for l in current.splitlines() if "maxTokens" in l))
+elif text.startswith("get nodes -l ewallet.io/bench"):
+    print(json.dumps({"items": [{"metadata": {"labels": {"node.kubernetes.io/instance-type": "e2-standard-4"}}}]}))
+elif text.startswith("get nodes"):
+    print("node/prod-a\nnode/prod-b")
+elif text.startswith("get pods") and "jsonpath" in text:
+    print("vllm-primary-a vllm-primary-b", end="")
+elif text.startswith("get pods"):
+    current = (state / "current.yaml").read_text()
+    bind = "0-1" if 'VLLM_CPU_OMP_THREADS_BIND, value: "0-1"' in current else "auto"
+    digest = os.environ.get("SIM_RUNNING_DIGEST", "sha256:" + "a" * 64)
+    pod = {"spec": {"containers": [{"args": ["--model", "/models/Qwen3-0.6B/rev", "--max-num-seqs", "4", "--enable-prefix-caching"],
+                                    "env": [{"name": "VLLM_CPU_OMP_THREADS_BIND", "value": bind}],
+                                    "resources": {"requests": {"cpu": "2", "memory": "6Gi"}}}]},
+           "status": {"containerStatuses": [{"imageID": f"repo/vllm@{digest}"}]}}
+    print(json.dumps({"items": [pod]}))
+elif args[0] == "top":
+    print("vllm-primary-a vllm 1500m 6200Mi\nagentgateway-x agentgateway 5m 20Mi")
+elif args[0] in {"create", "rollout", "logs"}:
+    if args[0] == "create":
+        sys.stdin.read()
+    print("ok")
+else:
+    sys.stderr.write(f"fake kubectl: unsupported: {text}\n"); sys.exit(1)

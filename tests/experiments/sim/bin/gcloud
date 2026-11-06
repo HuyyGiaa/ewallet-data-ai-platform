@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+"""Fake gcloud for the offline benchmark session: only node-pool list, create and delete."""
+import os, sys
+from pathlib import Path
+
+state = Path(os.environ["SIM_STATE"])
+pool = state / "pool"
+text = " ".join(sys.argv[1:])
+(state / "calls.log").open("a").write("gcloud " + text + "\n")
+if "node-pools list" in text:
+    print("cpu-pool")
+    if pool.exists():
+        print("bench-pool")
+elif "node-pools create bench-pool" in text:
+    pool.write_text("up")
+elif "node-pools delete bench-pool" in text:
+    if os.environ.get("SIM_DELETE_FAILS") != "yes":
+        pool.unlink(missing_ok=True)
+else:
+    sys.stderr.write(f"fake gcloud: unsupported: {text}\n"); sys.exit(1)

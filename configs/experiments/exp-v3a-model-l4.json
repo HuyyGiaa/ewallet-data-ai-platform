@@ -1,0 +1,94 @@
+{
+  "experiment_id": "EXP-V3A",
+  "hypothesis": "On one L4, Qwen3-1.7B costs more latency than Qwen3-0.6B; the experiment measures how much, and whether tool-call validity improves.",
+  "variable": "Model: Qwen3-0.6B versus Qwen3-1.7B, sequentially on the same L4",
+  "baseline": "qwen3-0.6b",
+  "optimized": "qwen3-1.7b",
+  "controls": [
+    "workload_sha256",
+    "image_digest",
+    "gpu_type",
+    "node_type",
+    "dtype",
+    "max_model_len",
+    "max_num_seqs",
+    "gpu_memory_utilization"
+  ],
+  "metrics": [
+    {
+      "name": "ttft_p50_ms",
+      "direction": "lower",
+      "path": "ttft_ms.p50"
+    },
+    {
+      "name": "ttft_p95_ms",
+      "direction": "lower",
+      "path": "ttft_ms.p95"
+    },
+    {
+      "name": "e2e_p50_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p50"
+    },
+    {
+      "name": "e2e_p95_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p95"
+    },
+    {
+      "name": "output_tokens_per_second",
+      "direction": "higher",
+      "path": "output_tokens_per_second"
+    },
+    {
+      "name": "request_throughput",
+      "direction": "higher",
+      "path": "requests_per_second"
+    },
+    {
+      "name": "tpot_ms",
+      "direction": "lower",
+      "path": "tpot_ms.p50"
+    },
+    {
+      "name": "cpu_cores_mean",
+      "direction": "lower",
+      "path": "derived.cpu_cores_mean"
+    },
+    {
+      "name": "memory_mib_peak",
+      "direction": "lower",
+      "path": "derived.memory_mib_peak"
+    },
+    {
+      "name": "tool_calls_valid",
+      "direction": "higher",
+      "path": "tool_calls_valid"
+    },
+    {
+      "name": "gpu_memory_mib_peak",
+      "direction": "lower",
+      "path": "gpu_memory_mib_peak"
+    },
+    {
+      "name": "gpu_utilization_mean",
+      "direction": "lower",
+      "path": "gpu_utilization_mean"
+    }
+  ],
+  "primary_metric": "e2e_p95_ms",
+  "min_runs": 3,
+  "significant_percent": 10,
+  "screenshots": [
+    "Baseline configuration (Deployment env and args)",
+    "Baseline benchmark terminal output",
+    "Baseline Cloud Monitoring panels for namespace ewallet-bench for the same window",
+    "Optimized configuration",
+    "Optimized benchmark terminal output",
+    "Optimized Cloud Monitoring panels for namespace ewallet-bench for the same window",
+    "comparison.md with the verdict",
+    "kubectl get nodes,pods -o wide during each arm",
+    "manifest.json with source SHA and image digest",
+    "nvidia-smi output for each model"
+  ]
+}
