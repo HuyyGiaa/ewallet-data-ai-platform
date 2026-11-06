@@ -28,7 +28,7 @@ Branch: `feature/c-vault-ab-testing`, based on `46f86b3`. Local commits only; no
 ## Dependencies on other branches
 
 - **C-A is not needed.** C7 uses only C-B and earlier code. The 41-feature contract is unchanged.
-- **Integration conflict to expect:** B1 and C-C both touch tests near `tests/inference`. Merge order stays B1, C-A, C-B, then C-C.
+- **Merge order** stays B1, C-A, C-B, then C-C.
 - **Row 32** needs a small `tests/load/payloads.py` change on B1.
 
 ## Open blockers
