@@ -9,6 +9,7 @@
     "job_plan_operators": 7,
     "duplicates_removed": 1,
     "history_written": 1,
-    "online_updates_positive": true
+    "online_updates_positive": true,
+    "event_time_after_source": true
   }
 }

@@ -12,7 +12,8 @@ Each mode proves real behaviour rather than a process start:
 * ``agent``: both Agent Cards are served and a malformed A2A task is rejected rather
   than executed.
 * ``streaming``: the released image runs Block A's event semantics on a deterministic
-  scenario. It proves the image and its semantics; it does not start a Flink cluster.
+  scenario, and its real job is built far enough to prove that watermarks follow the
+  payload's event time. It does not start a Flink cluster.
 """
 
 from __future__ import annotations
@@ -83,6 +84,68 @@ def check_agent(base: str, expected_name: str) -> dict[str, object]:
     }
 
 
+class _WiringCaptured(Exception):
+    """Stops job construction once the source wiring has been observed."""
+
+
+def event_time_verdict(source_strategy: object, assigned_strategy: object | None) -> bool:
+    """Decide whether watermarks can follow the payload's event time.
+
+    ``from_source`` hands only the Java strategy to the connector and drops a Python timestamp
+    assigner, so an assigner given there is silently lost and watermarks follow the broker's
+    record timestamps. The job plan looks identical either way. The source must therefore
+    receive no assigner, and one must be applied to the stream after it.
+    """
+
+    return (getattr(source_strategy, "_timestamp_assigner", None) is None
+            and getattr(assigned_strategy, "_timestamp_assigner", None) is not None)
+
+
+def check_event_time_wiring() -> dict[str, object]:
+    """Build the production job from the image and observe what reaches Flink.
+
+    This runs the shipped ``build_executable_job`` in NORMAL_STREAMING mode rather than
+    looking for a function name, so it follows the behaviour through any refactoring. It
+    stops at the first operator after the source and contacts no broker.
+    """
+
+    from pathlib import Path
+
+    from pyflink.datastream import DataStream, StreamExecutionEnvironment
+
+    from data_platform.streaming.config.settings import BASELINE, OperatingMode, RuntimeSettings
+    from data_platform.streaming.flink.job import build_executable_job
+
+    seen: dict[str, object] = {}
+    real_from_source = StreamExecutionEnvironment.from_source
+
+    def from_source(env, source, strategy, name, *args, **kwargs):
+        seen["source"] = strategy
+        return real_from_source(env, source, strategy, name, *args, **kwargs)
+
+    def assign(_stream, strategy):
+        seen["assigned"] = strategy
+        raise _WiringCaptured
+
+    def first_operator(*_args, **_kwargs):
+        raise _WiringCaptured
+
+    original = DataStream.assign_timestamps_and_watermarks, DataStream.map
+    StreamExecutionEnvironment.from_source = from_source
+    DataStream.assign_timestamps_and_watermarks, DataStream.map = assign, first_operator
+    try:
+        build_executable_job(RuntimeSettings(
+            mode=OperatingMode.NORMAL_STREAMING, profile=BASELINE, bootstrap_servers="cd-smoke.invalid:9092",
+            kafka_connector_jar=next(Path("/opt/flink/lib").glob("flink-sql-connector-kafka-*.jar")),
+            checkpoint_storage="file:///tmp/cd-smoke-checkpoints", savepoint_path="file:///tmp/cd-smoke-unused"))
+    except _WiringCaptured:
+        pass
+    finally:
+        StreamExecutionEnvironment.from_source = real_from_source
+        DataStream.assign_timestamps_and_watermarks, DataStream.map = original
+    return {"event_time_after_source": event_time_verdict(seen.get("source"), seen.get("assigned"))}
+
+
 def check_streaming() -> dict[str, object]:
     """Run the deterministic Block A processor shipped in the image."""
 
@@ -105,6 +168,7 @@ def check_streaming() -> dict[str, object]:
         "duplicates_removed": len(repeated.duplicate_transaction_ids),
         "history_written": len(second.historical_records),
         "online_updates_positive": bool(second.online_updates),
+        **check_event_time_wiring(),
     }
 
 

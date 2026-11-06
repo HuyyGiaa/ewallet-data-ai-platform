@@ -345,3 +345,45 @@ class SmokeManifestTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _Strategy:
+    """Stands in for a PyFlink WatermarkStrategy."""
+
+    def __init__(self, assigner: object | None) -> None:
+        self._timestamp_assigner = assigner
+
+
+def test_event_time_gate_passes_only_for_the_fixed_wiring() -> None:
+    from scripts.ci.cd_smoke import event_time_verdict
+
+    assert event_time_verdict(_Strategy(None), _Strategy(object())) is True
+
+
+def test_event_time_gate_fails_the_old_wiring() -> None:
+    from scripts.ci.cd_smoke import event_time_verdict
+
+    # The assigner goes to from_source, which drops it, and nothing is applied afterwards.
+    assert event_time_verdict(_Strategy(object()), None) is False
+
+
+def test_event_time_gate_fails_when_nothing_assigns_event_time() -> None:
+    from scripts.ci.cd_smoke import event_time_verdict
+
+    assert event_time_verdict(_Strategy(None), None) is False
+    assert event_time_verdict(_Strategy(None), _Strategy(None)) is False
+
+
+def test_streaming_release_is_refused_without_the_event_time_gate() -> None:
+    import json
+    from pathlib import Path
+
+    from scripts.ci.bounded_cd import verify_summary
+
+    root = Path(__file__).resolve().parents[2]
+    expected = json.loads((root / "jenkins/cd/streaming.contract.json").read_text(encoding="utf-8"))["expected"]
+    assert expected["event_time_after_source"] is True
+    good = {**expected, "release_sha": "s"}
+    assert verify_summary(good, expected, "s") == []
+    for summary in ({**good, "event_time_after_source": False}, {k: v for k, v in good.items() if k != "event_time_after_source"}):
+        assert any("event_time_after_source" in item for item in verify_summary(summary, expected, "s"))
