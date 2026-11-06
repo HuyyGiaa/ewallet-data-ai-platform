@@ -1,6 +1,14 @@
-# LLM A/B design and GPU plan
+# LLM A/B test and GPU plan
 
-This page plans two LLM comparisons that need a GPU. Neither has run, and neither can start until the GPU quota changes.
+This page covers the comparison of Qwen3-0.6B and Qwen3-1.7B (EDAI-2 row 53). Routing and serving are tested locally with both real models. **Nothing has run on GKE or on a GPU.** The GPU quota blocks every GPU stage.
+
+| Status | State |
+|---|---|
+| `IMPLEMENTED` | Routes, candidate vLLM, GPU image recipe, staged driver, GPU sampler |
+| `LOCAL_VALIDATED` | Yes: pinned gateway, real vLLM on CPU, both models live at once |
+| `CLOUD_DEPLOYED` | No |
+| `CLOUD_RUNTIME_VERIFIED` | No |
+| `RUBRIC_EVIDENCE_COMPLETE` | No |
 
 ## Blocker
 
@@ -12,7 +20,7 @@ This page plans two LLM comparisons that need a GPU. Neither has run, and neithe
 | `NVIDIA_T4_GPUS` (asia-southeast1) | 0 / 1 |
 | `CPUS_ALL_REGIONS` | 16 / 32 |
 
-The global GPU limit of 0 overrides the regional limits. Read on 2026-11-06. The billing account's Free Trial status is unverified, and a trial account cannot usually raise GPU quota.
+The global GPU limit of 0 overrides the regional limits. Read again on 2026-11-07, unchanged. The billing account's Free Trial status is unverified, and a trial account cannot usually raise GPU quota.
 
 **Owner decision:** requesting `GPUS_ALL_REGIONS = 1` is approved in principle, with L4 Spot preferred, a 3-hour budget target and a 6-hour session maximum. The owner handles the quota request. Until it's granted, no GPU resource exists or may be created.
 
@@ -27,11 +35,40 @@ The global GPU limit of 0 overrides the regional limits. Read on 2026-11-06. The
 
 **EXP-V3B has a built-in confounder.** It shows that routing and attribution work, and it may show which deployed arm serves users better. It cannot say why one arm is better, and it is not a serving optimization or an llm-d routing experiment.
 
+## Models
+
+| | Model A | Model B |
+|---|---|---|
+| Model | Qwen3-0.6B | Qwen3-1.7B |
+| Revision | `c1899de289a04d12100db370d81485cdf75e47ca` | `70d244cc86ccca08cf5af4e1e306ecf908b1ad5e` |
+| Architecture | `Qwen3ForCausalLM` | `Qwen3ForCausalLM` |
+| Served name | `ewallet-fraud-llm-v1` | `ewallet-fraud-llm-1-7b` |
+
 ## Routing
 
-agentgateway v1.7.0 supports weighted routing through `virtualModels.routing.weighted`. A local test with the pinned image and a 90/10 split gave 269 and 31 of 300 requests, attributed by the `x-ewallet-backend` header.
+agentgateway v1.7.0 supports weighted routing. The chart adds a client-facing name, `ewallet-llm-ab`, beside the unchanged `ewallet-fraud-llm` route. Each response carries `x-ewallet-backend`, and the body carries the model vLLM really served. Without `modelExperiments.enabled`, the chart renders byte for byte as before.
 
-Production BYO agents read `EWALLET_LLM_MODEL` and `EWALLET_LLM_BASE_URL` and do not use `ModelConfig`. A change to `ModelConfig` alone would not move their traffic, so the split must live in the gateway.
+Production BYO agents read `EWALLET_LLM_MODEL` and do not use `ModelConfig`, so a change to `ModelConfig` would not move their traffic.
+
+The split is per request, so a conversation can reach both models. Sticky per-conversation assignment is what the [Agent A/B](../agents/AGENT_AB.md) adds.
+
+## Local results
+
+| Check | Result | Evidence |
+|---|---|---|
+| Chart-rendered config on the pinned gateway, stub backends, 1,000 requests | Exactly 900 / 100, 0 failed | [routing](../../evidence/edai2/llm_ab/local_routing_20261106T185634Z.json) |
+| Candidate lost, 60 requests | 1 × 503, then 59 served by primary | Same |
+| Both real models live, 40 requests | 37 / 3, 0 failed, each response from its own model | [routing](../../evidence/edai2/llm_ab/local_real_models_20261106T192621Z/routing.json) |
+| Qwen3-1.7B on vLLM 0.32.0 with hermes tool calling | Serves; 20 of 20 business cases called the tool correctly | [suite](../../evidence/edai2/llm_ab/local_real_models_20261106T192621Z/agent_suite/summary.json) |
+| Qwen3-1.7B memory on CPU | 7.75 GiB with a 1 GiB KV cache | [memory](../../evidence/edai2/llm_ab/local_real_models_20261106T192621Z/container_memory.txt) |
+
+The exact 900/100 shows the gateway's split is deterministic in practice, not a random draw. Small samples still vary: 37/3 and 34/6 in two runs of 40, both inside tolerance.
+
+These runs prove compatibility on the **CPU** build of vLLM. The CUDA build, the L4 driver and GPU memory are unproven until the GPU stages run. Local rate limits were raised for these tests. Latency here is laptop latency and is not a result.
+
+## Experiments
+
+EXP-V3A is sequential on one L4; the rendered arms differ on one line, the model path. EXP-V3B is the concurrent CPU and GPU run. The driver is [`llm_ab.sh`](../../../scripts/experiments/llm_ab.sh).
 
 ## GPU node
 
@@ -46,12 +83,19 @@ Totals include disk and IP. Spot is cheaper but can be reclaimed mid-run; a recl
 
 Estimated memory is about 5.2 GiB for 0.6B and about 8 GiB for 1.7B, which fits the L4's 24 GB. These are calculations, not measurements.
 
-## Before a run
+## GPU requirements
 
-1. The quota request is granted.
-2. Build a GPU vLLM image with both models baked in, which is a separate approved scope. Pin its digest.
-3. Add a pool with a `nvidia.com/gpu` taint, zero nodes at rest, and the same session rules as `vllm_bench.sh`: time limit, cleanup, and a production comparison before and after.
-4. Add a GPU sampler. `gpu_memory_mib_peak` and `gpu_utilization_mean` in `configs/experiments/exp-v3a-model-l4.json` have no producer yet, and they will show as `n/a` until one exists.
-5. Add quality checks for the workload. `tool_calls_valid` counts valid tool calls only, which is thin evidence that one model is better.
+| Item | State |
+|---|---|
+| L4 in `asia-southeast1-b` | Confirmed |
+| `g2-standard-4` | 4 vCPU, 16 GiB; about 3 CPU and 11.6 GiB after DaemonSets |
+| `GPUS_ALL_REGIONS` | **0, a hard blocker** |
+| Image | `vllm/vllm-openai:v0.32.0` by digest, both models baked in; not yet built or scanned |
+| CUDA | Image needs CUDA 13. The GKE driver is checked on the node before any run |
+| Isolation | GPU taint and an L4 node selector; V3A uses its own namespace |
+| Spot | A reclaimed run counts as failed and is not retried |
+| Metrics | `ops/experiments/gpu_sampler.py` feeds GPU memory and utilization to the comparator |
+
+Stages and approvals are in package P10 of the [approval packages](../../runbooks/edai2/C_C_APPROVAL_PACKAGES.md).
 
 **Cleanup:** delete the pool and read back zero GPU nodes. A leftover L4 node costs about $12.50 a day on Spot.

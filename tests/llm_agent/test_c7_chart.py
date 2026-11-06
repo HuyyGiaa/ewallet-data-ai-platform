@@ -50,6 +50,17 @@ class ExperimentDefaultsTests(unittest.TestCase):
         )
 
 
+class DashboardTests(unittest.TestCase):
+    def test_dashboard_ships_only_with_an_experiment(self):
+        off = by_kind(render(ON, {"dashboards": {"enabled": True}}), "ConfigMap")["llm-agent-dashboards"]
+        on = by_kind(render(ON, BYO, NL, {"dashboards": {"enabled": True}}, overlay("agent-ab-cpu.yaml")), "ConfigMap")
+        self.assertNotIn("ab-experiments.json", off["data"])
+        dashboard = json.loads(on["llm-agent-dashboards"]["data"]["ab-experiments.json"])
+        queries = " ".join(panel["targets"][0]["expr"] for panel in dashboard["panels"])
+        for metric in ("fraud_ab_requests_total", "ewallet_agent_ab_requests_total", "vllm:e2e_request_latency_seconds_bucket"):
+            self.assertIn(metric, queries)
+
+
 class AgentVariantTests(unittest.TestCase):
     def setUp(self):
         self.items = render(ON, BYO, NL, overlay("agent-ab-cpu.yaml"))
@@ -106,6 +117,14 @@ class LlmAbTests(unittest.TestCase):
     def test_candidate_carries_the_label_the_gateway_network_policy_selects(self):
         labels = by_kind(self.items, "Deployment")["vllm-candidate"]["spec"]["template"]["metadata"]["labels"]
         self.assertEqual("vllm", labels["app.kubernetes.io/name"])
+
+    def test_prometheus_scrapes_the_candidate_only_when_it_exists(self):
+        spec = {"observabilityStack": {"enabled": True}}
+        off = str(render(ON, BYO, NL, spec))
+        on = str(render(ON, BYO, NL, spec, overlay("llm-ab-cpu-gpu.yaml"), CANDIDATE_IMAGE))
+        self.assertIn("vllm-primary:8000", off)
+        self.assertNotIn("vllm-candidate:8000", off)
+        self.assertIn("vllm-candidate:8000", on)
 
     def test_stacked_agent_overlay_keeps_the_llm_route(self):
         items = render(ON, BYO, NL, overlay("llm-ab-cpu-gpu.yaml"), CANDIDATE_IMAGE, overlay("agent-ab-qwen-1-7b.yaml"))

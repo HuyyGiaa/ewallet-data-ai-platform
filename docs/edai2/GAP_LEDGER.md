@@ -43,9 +43,9 @@
 | 32 | 2 | IMPLEMENTATION_MISSING | — | Locust HTML report | `locustfile.py` for `/v1/fraud/predict`; bounded local run via port-forward | P3 |
 | 37–43 | 13 | IMPLEMENTATION_MISSING | Internal agentgateway auth/rate limits; UIs reached by port-forward | NGINX routes, basic auth, rate limit, domain + HTTPS | NGINX ingress with one route per UI, `auth_basic` + `limit_req`, cert-manager (approval: public exposure, cluster-scoped objects) | P3 |
 | 45 | 1 | IMPLEMENTATION_MISSING | — | Ansible roles | Ansible role(s) for a VM (e.g. the `jenkins_vm` module target) | P3 |
-| 52 | 1 | IMPLEMENTATION_MISSING | G2 routing A/B (same model) | Agent A/B with two model configs + dashboard | Two ModelConfigs / weighted virtual-model targets; split dashboard by `x-ewallet-backend` | P3 |
-| 53 | 1 | IMPLEMENTATION_MISSING | — | LLM version A/B | Two model versions behind agentgateway with weighted routing | P3 |
-| 54 | 1 | IMPLEMENTATION_MISSING | K8s Secrets + Workload Identity + rotation runbook | Vault (or equivalent) in use | Vault dev-grade or GCP Secret Manager + CSI with one consumer | P3 |
+| 52 | 1 | RUNTIME_EVIDENCE_MISSING | Coordinator variants implemented and tested locally | GKE run with real investigations + dashboard | Package P9 | P3 |
+| 53 | 1 | RUNTIME_EVIDENCE_MISSING | Weighted routing and GPU stages implemented, tested locally | Both models live on GKE with per-model metrics | Package P10; needs GPU quota | P3 |
+| 54 | 1 | RUNTIME_EVIDENCE_MISSING | Vault integration validated on kind | Vault on GKE with a real consumer | Package P7 | P3 |
 
 ## Notes that are not gaps but must stay visible
 

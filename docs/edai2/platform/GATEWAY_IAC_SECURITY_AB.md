@@ -89,7 +89,7 @@ See [Testing §3.4](../testing/TESTING.md#34-chart-and-security-contracts).
 ## 5. Limitations and future work
 
 - **External gateway.** No NGINX (or other) ingress publishes the UIs or the Fraud API. There is therefore no domain, HTTPS certificate, basic authentication or edge rate limiting. All UI access goes through authorized port-forwards. An ingress with per-route authentication, rate limits and cert-manager certificates is future work.
-- **Centralised secrets.** Secrets are managed per namespace. An organisation-wide store such as HashiCorp Vault, or GCP Secret Manager with the CSI driver, is not deployed.
+- **Centralised secrets.** Vault is implemented and validated locally but not deployed. See [Vault](VAULT.md).
 - **Configuration management.** No Ansible playbooks exist. The only VM-oriented module (`jenkins_vm`) is unused, because Jenkins runs on GKE.
-- **A/B experimentation.** No traffic-split A/B test between model versions, or between agent model configurations, has been run. The LLM experiments in [LLM Platform §5](../llm/LLM_PLATFORM.md#5-performance-and-optimisation) are controlled benchmarks of one model under different serving and routing configurations, not live A/B tests. The gateway's virtual-model routing and the `x-ewallet-backend` header would be the basis for one.
+- **A/B experimentation.** Model, agent and LLM A/B are implemented and tested locally. None has run on GKE. See [ML](../mlops/ML_AB_DESIGN.md), [Agent](../agents/AGENT_AB.md) and [LLM](../llm/LLM_AB_DESIGN.md).
 - **Evidence.** The Terraform run is documented by its recorded plan and apply results. No terminal or console screenshot of it was kept.
