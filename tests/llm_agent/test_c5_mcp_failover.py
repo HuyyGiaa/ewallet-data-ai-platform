@@ -149,3 +149,21 @@ class SpecialistFailoverTest(unittest.TestCase):
             asyncio.run(client.run(self.request()))
         self.assertEqual("mcp_transport_error", caught.exception.code)
         self.assertEqual(3, self.opened)
+
+
+def test_attempts_come_from_the_environment() -> None:
+    from ai_platform.llm_agent.mcp_failover import policy_from_env
+
+    assert policy_from_env({}).max_attempts == 3
+    assert policy_from_env({"EWALLET_MCP_MAX_ATTEMPTS": "1"}).max_attempts == 1
+
+
+def test_bad_attempt_value_is_refused() -> None:
+    from ai_platform.llm_agent.mcp_failover import policy_from_env
+
+    for value in ("0", "9", "many"):
+        try:
+            policy_from_env({"EWALLET_MCP_MAX_ATTEMPTS": value})
+        except ValueError:
+            continue
+        raise AssertionError(f"{value} was accepted")

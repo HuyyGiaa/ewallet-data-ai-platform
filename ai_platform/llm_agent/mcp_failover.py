@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Collection, TypeVar
+from typing import Awaitable, Callable, Collection, Mapping, TypeVar
 
 
 Result = TypeVar("Result")
@@ -49,6 +49,20 @@ class FailoverPolicy:
         """Return the wait after failed attempt number ``attempt`` (one-based)."""
 
         return min(self.base_delay_seconds * 2 ** (attempt - 1), self.max_delay_seconds)
+
+
+def policy_from_env(env: Mapping[str, str]) -> FailoverPolicy:
+    """Read the attempt budget from ``EWALLET_MCP_MAX_ATTEMPTS``.
+
+    Setting it to 1 turns retry off without changing the image, so the failover experiment
+    can compare both arms on one image.
+
+    Raises:
+        ValueError: The value is not an integer from 1 to 5.
+    """
+
+    value = env.get("EWALLET_MCP_MAX_ATTEMPTS")
+    return FailoverPolicy() if value is None else FailoverPolicy(max_attempts=int(value))
 
 
 def may_repeat(tools: Collection[str]) -> bool:

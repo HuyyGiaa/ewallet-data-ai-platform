@@ -44,7 +44,7 @@ from ai_platform.llm_agent.agent_metrics import (
     record_mcp_retry,
     record_prompt_screen,
 )
-from ai_platform.llm_agent.mcp_failover import FailoverPolicy, with_failover
+from ai_platform.llm_agent.mcp_failover import FailoverPolicy, policy_from_env, with_failover
 from ai_platform.llm_agent.byo_runtime import AppResources, audit, configure_telemetry, controller_task_store, flush_agent_metrics
 from ai_platform.llm_agent.nl_intake import (
     IntakeFailure,
@@ -378,7 +378,9 @@ class FeatureRagSpecialistExecutor(AgentExecutor):
     ) -> None:
         if not 0.01 <= timeout_seconds <= MAX_MCP_TIMEOUT_SECONDS:
             raise ValueError("timeout_seconds must be between 0.01 and 120")
-        self._client = mcp_client or FeatureRagMCPClient(timeout_seconds=min(timeout_seconds, 30.0))
+        self._client = mcp_client or FeatureRagMCPClient(
+            timeout_seconds=min(timeout_seconds, 30.0), failover=policy_from_env(os.environ)
+        )
         # kagent Chat sends a random messageId, so a typed request can never
         # satisfy id == messageId == request_id from the UI. The bounded intake
         # builds the typed request server-side instead; the typed contract is

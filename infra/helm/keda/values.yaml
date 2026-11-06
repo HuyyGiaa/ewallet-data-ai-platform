@@ -11,3 +11,8 @@ resources:
   webhooks:
     requests: {cpu: 25m, memory: 64Mi}
     limits: {cpu: 250m, memory: 256Mi}
+# Only the operator queries Prometheus. Enrolling this one pod in ambient gives it the mTLS
+# identity that infra/kubernetes/experiments/keda-prometheus-access.yaml admits.
+podLabels:
+  keda:
+    istio.io/dataplane-mode: ambient

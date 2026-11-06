@@ -195,6 +195,11 @@ spec:
               name: {{ $.Values.agentgateway.clientKeySecret.name }}
               key: {{ $.Values.agentgateway.clientKeySecret.key }}
         {{- end }}
+        {{- with dig "byo" "mcpMaxAttempts" "" $spec }}
+        # Unset keeps the client default; 1 turns retry off on the same image.
+        - name: EWALLET_MCP_MAX_ATTEMPTS
+          value: {{ . | quote }}
+        {{- end }}
         {{- if and $isCoordinator $.Values.idempotencyRedis.enabled }}
         - name: EWALLET_IDEMPOTENCY_REDIS_URL
           valueFrom:

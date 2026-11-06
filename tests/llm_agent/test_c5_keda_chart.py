@@ -23,6 +23,21 @@ def kinds(items, kind):
 
 
 @unittest.skipUnless(HELM, "helm binary unavailable")
+class RetrySwitchTest(unittest.TestCase):
+    @staticmethod
+    def attempts(items):
+        agent = next(item for item in items if item["kind"] == "Agent" and item["metadata"]["name"] == "feature-rag-specialist")
+        return [entry for entry in agent["spec"]["byo"]["deployment"]["env"] if entry["name"] == "EWALLET_MCP_MAX_ATTEMPTS"]
+
+    def test_default_render_leaves_the_client_default(self):
+        self.assertEqual(self.attempts(render(ON, BYO)), [])
+
+    def test_baseline_overlay_turns_retry_off(self):
+        overlay = yaml.safe_load((ROOT / "infra/helm/llm-agent-platform/g3/mcp-retry-off.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(self.attempts(render(ON, BYO, overlay))[0]["value"], "1")
+
+
+@unittest.skipUnless(HELM, "helm binary unavailable")
 class EngineOwnershipTest(unittest.TestCase):
     def test_the_default_stays_the_hpa(self):
         items = render(ON, BYO, AUTOSCALING)
