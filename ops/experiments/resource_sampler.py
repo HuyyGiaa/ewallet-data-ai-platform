@@ -33,6 +33,7 @@ def parse_top(text: str) -> dict[str, Any]:
     """Convert ``kubectl top pods --containers --no-headers`` output into one sample."""
 
     pods: dict[str, dict[str, float]] = {}
+    every_pod: dict[str, dict[str, float]] = {}
     router: dict[str, dict[str, float]] = {}
     gateway_cpu = 0.0
     for line in text.splitlines():
@@ -41,6 +42,8 @@ def parse_top(text: str) -> dict[str, Any]:
             continue
         pod, container, cpu, memory = parts
         usage = {"cpu_m": _cpu_m(cpu), "mem_mib": _mem_mib(memory)}
+        previous = every_pod.get(pod, {"cpu_m": 0.0, "mem_mib": 0.0})
+        every_pod[pod] = {key: previous[key] + usage[key] for key in usage}
         if pod.startswith("vllm-primary"):
             pods[pod] = usage
         elif pod.startswith("agentgateway"):
@@ -48,6 +51,7 @@ def parse_top(text: str) -> dict[str, Any]:
         elif pod.startswith("llmd-router"):
             router[container] = usage
     sample: dict[str, Any] = {
+        "pods": every_pod,
         "vllm_pods": pods,
         "vllm_cpu_m": sum(item["cpu_m"] for item in pods.values()),
         "vllm_mem_mib": sum(item["mem_mib"] for item in pods.values()),

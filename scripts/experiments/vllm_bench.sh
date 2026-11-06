@@ -11,11 +11,14 @@
 #   EXP_RUNS (per arm, default 3), EXP_MAX_MINUTES (hard stop, default 240, max 300).
 #
 # Rules this script keeps:
-#  - It only creates, changes and deletes bench-pool and ewallet-bench. The production
-#    release revision and the cpu-pool node list are read before and after and compared.
+#  - It only creates, changes and deletes bench-pool and ewallet-bench, and it deletes them
+#    only when they carry its ownership mark. Every Helm release and the cpu-pool nodes and
+#    size are read before and after and compared.
+#  - A read that fails is an error, never "absent", so cleanup cannot report a false success.
 #  - Arms alternate (A B, B A, A B) so slow drift does not favour one arm.
 #  - vLLM and the gateway restart before every run: no shared cache, fresh token budget.
 #  - A failed run stops the session. It is not retried and its evidence is kept.
+#  - The time limit bounds every wait. Host loss is the one case with no cleanup: run down.
 set -euo pipefail
 experiment=${1:-} action=${2:-} evidence=${3:-}
 die() { echo "vllm_bench: $*" >&2; exit 1; }
@@ -23,7 +26,10 @@ case "$experiment" in exp-v1|exp-v2) ;; *) die "usage: vllm_bench.sh <exp-v1|exp
 case "$action" in plan|session|down) ;; *) die "unknown action $action";; esac
 [ -n "$evidence" ] || die "evidence directory required"
 PROJECT=ewallet-data-ai-platform-hg26 ZONE=asia-southeast1-b CLUSTER=ewallet-dev
-POOL=bench-pool NS=ewallet-bench PROD_POOL=cpu-pool
+POOL=bench-pool NS=ewallet-bench PROD_POOL=cpu-pool OWNER_LABEL=ewallet.io/bench=true
+NODE_SA=ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+IMAGE_REPO=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model
+MODEL_REVISION=c1899de289a04d12100db370d81485cdf75e47ca
 EXPECTED_CONTEXT="gke_${PROJECT}_${ZONE}_${CLUSTER}"
 GATEWAY_IMAGE=ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b
 GW_PORT=13300 METRICS_PORT=13301 EPP_PORT=13302
@@ -63,22 +69,54 @@ k() { kubectl --context "$KUBE_CONTEXT" --request-timeout=60s "$@"; }
 # --request-timeout would end a long wait early, so waits go without it.
 kw() { kubectl --context "$KUBE_CONTEXT" "$@"; }
 pools() { gcloud container node-pools list --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --format='value(name)'; }
+pool_exists() {  # 0 present, 1 absent, 2 unknown
+  local names
+  names=$(pools) || return 2
+  grep -qx "$POOL" <<<"$names"
+}
+pool_is_ours() {
+  gcloud container node-pools describe "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
+    --format='value(config.labels)' | tr ';' '\n' | grep -qx "$OWNER_LABEL"
+}
+namespace_mark() {  # prints the ownership mark; empty when the namespace is absent
+  k get namespace "$NS" --ignore-not-found -o 'jsonpath={.metadata.name}{"="}{.metadata.labels.ewallet\.io/experiment}'
+}
 production_state() {
-  helm list --kube-context "$KUBE_CONTEXT" --namespace default --filter '^llm-agent$' --output json
+  helm list --kube-context "$KUBE_CONTEXT" --all-namespaces --output json
   k get nodes -l "cloud.google.com/gke-nodepool=$PROD_POOL" -o name | sort
+  gcloud container node-pools describe "$PROD_POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
+    --format='value(initialNodeCount,autoscaling.enabled)'
+  gcloud compute instance-groups managed list --project "$PROJECT" --filter="name~^gke-${CLUSTER}-${PROD_POOL}-" \
+    --format='value(targetSize)'
 }
 
 remove_stack() {
-  local status=0
-  if k get namespace "$NS" -o 'jsonpath={.metadata.labels.ewallet\.io/experiment}' 2>/dev/null | grep -qx true; then
+  local status=0 mark pool_status=0
+  if ! mark=$(namespace_mark); then
+    echo "vllm_bench: cannot read $NS" >&2
+    status=1
+  elif [ "$mark" = "$NS=true" ]; then
     helm uninstall llmd-router --kube-context "$KUBE_CONTEXT" --namespace "$NS" --wait --timeout 5m >/dev/null 2>&1 || true
     kw delete namespace "$NS" --wait=true --timeout=5m || status=1
+  elif [ -n "$mark" ]; then
+    echo "vllm_bench: $NS has no experiment mark; leaving it" >&2
+    status=1
   fi
-  if pools | grep -qx "$POOL"; then
-    gcloud container node-pools delete "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --quiet || status=1
+  pool_exists || pool_status=$?
+  if [ "$pool_status" = 0 ]; then
+    if pool_is_ours; then
+      gcloud container node-pools delete "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --quiet || status=1
+    else
+      echo "vllm_bench: $POOL has no $OWNER_LABEL mark; leaving it" >&2
+      status=1
+    fi
   fi
-  pools | grep -qx "$POOL" && { echo "vllm_bench: $POOL still exists" >&2; status=1; }
-  if k get namespace "$NS" >/dev/null 2>&1; then echo "vllm_bench: $NS still exists" >&2; status=1; fi
+  pool_status=0
+  pool_exists || pool_status=$?
+  [ "$pool_status" = 1 ] || { echo "vllm_bench: $POOL is not confirmed gone" >&2; status=1; }
+  mark=""
+  mark=$(namespace_mark) || status=1
+  [ -z "$mark" ] || { echo "vllm_bench: $NS is not confirmed gone" >&2; status=1; }
   return "$status"
 }
 
@@ -87,8 +125,18 @@ if [ "$action" = down ]; then remove_stack; echo "pool and namespace removed"; e
 [ "${EXP_APPROVED:-}" = yes ] || die "set EXP_APPROVED=yes after owner approval"
 : "${VLLM_IMAGE:?VLLM_IMAGE required}"
 [ ! -e "$evidence" ] || die "$evidence exists; evidence is never overwritten"
-if pools | grep -qx "$POOL"; then die "$POOL already exists"; fi
-if k get namespace "$NS" >/dev/null 2>&1; then die "$NS already exists"; fi
+[[ "$VLLM_IMAGE" == "$IMAGE_REPO"@sha256:* ]] || die "VLLM_IMAGE must be a digest in $IMAGE_REPO"
+gcloud artifacts docker images describe "$VLLM_IMAGE" --project "$PROJECT" --format='value(image_summary.digest)' >/dev/null \
+  || die "cannot confirm $VLLM_IMAGE in Artifact Registry"
+for port in "$GW_PORT" "$METRICS_PORT" "$EPP_PORT"; do
+  # A leftover forward on one of these would send the benchmark to the wrong target.
+  ! ss -ltnH "( sport = :$port )" 2>/dev/null | grep -q . || die "local port $port is in use"
+done
+pool_status=0
+pool_exists || pool_status=$?
+[ "$pool_status" = 1 ] || die "$POOL must be absent (status $pool_status)"
+mark=$(namespace_mark) || die "cannot read namespaces"
+[ -z "$mark" ] || die "$NS already exists"
 mkdir -p "$evidence"
 evidence=$(cd "$evidence" && pwd)
 for arm in baseline optimized; do mkdir -p "$evidence/$arm"/{config,raw,metrics,logs,screenshots}; done
@@ -129,6 +177,7 @@ finish() {
 trap finish EXIT
 trap 'log "interrupted"; exit 130' INT TERM HUP
 
+deadline=$(($(date +%s) + max_minutes * 60))
 # The trap ends the sleep too; killing only the subshell would leave it running.
 (
   trap 'kill "$nap" 2>/dev/null; exit 0' TERM
@@ -145,10 +194,16 @@ if [ "$experiment" = exp-v2 ]; then
   echo "$LLMD_STANDALONE_CHART_SHA256  $router_chart" | sha256sum --check --quiet || die "router chart digest mismatch"
 fi
 log "creating $POOL with $nodes node(s)"
+# Same node identity and hardening as cpu-pool, which is what lets nodes pull from the
+# registry. The cluster is on a release channel, so auto-upgrade cannot be turned off; a
+# node replaced mid-session changes node_names and makes the comparison invalid.
 gcloud container node-pools create "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" \
   --machine-type e2-standard-4 --num-nodes "$nodes" --disk-type pd-balanced --disk-size 50 \
-  --node-labels ewallet.io/bench=true --node-taints ewallet.io/bench=true:NoSchedule \
-  --no-enable-autoupgrade --quiet >> "$evidence/session.log" 2>&1
+  --image-type COS_CONTAINERD --service-account "$NODE_SA" \
+  --scopes https://www.googleapis.com/auth/cloud-platform --workload-metadata GKE_METADATA \
+  --shielded-secure-boot --shielded-integrity-monitoring \
+  --node-labels "$OWNER_LABEL" --node-taints ewallet.io/bench=true:NoSchedule \
+  --quiet >> "$evidence/session.log" 2>&1
 api_ip=$(k get endpoints kubernetes -n default -o 'jsonpath={.subsets[0].addresses[0].ip}')
 api_port=$(k get endpoints kubernetes -n default -o 'jsonpath={.subsets[0].ports[0].port}')
 [ -n "$api_ip" ] && [ -n "$api_port" ] || die "cannot read the API server endpoint"
@@ -185,12 +240,19 @@ run_arm() {  # <arm> <run-number>
   fi
   k apply -f "$config" >> "$logs/apply.log"
   kw -n "$NS" rollout status deployment/agentgateway --timeout=5m >> "$logs/apply.log"
-  kw -n "$NS" rollout status deployment/vllm-primary --timeout=30m >> "$logs/apply.log"
+  # The startup probe can take up to 30 minutes, but never past the session's time limit.
+  local left=$((deadline - $(date +%s)))
+  [ "$left" -gt 0 ] || die "time limit reached before vLLM started"
+  [ "$left" -lt 1800 ] || left=1800
+  kw -n "$NS" rollout status deployment/vllm-primary --timeout="${left}s" >> "$logs/apply.log"
   k -n "$NS" get pods -l app.kubernetes.io/name=vllm --field-selector=status.phase=Running -o json > "$logs/pods.json"
   k get nodes -l ewallet.io/bench=true -o json > "$logs/nodes.json"
   k -n "$NS" get configmap agentgateway-llm-config -o 'jsonpath={.data.config\.yaml}' > "$logs/gateway-config.yaml"
   "$python" -m ops.experiments.readback --pods "$logs/pods.json" --nodes "$logs/nodes.json" \
     --gateway-config "$logs/gateway-config.yaml" --output "$dir/controls.json"
+  # Provenance is checked on what is running, before any request is sent.
+  "$python" -m ops.experiments.readback --check "$dir/controls.json" --expect-digest "${VLLM_IMAGE##*@}" \
+    --expect-revision "$MODEL_REVISION" || die "run $run $arm is not running the pinned image and model"
   kubectl --context "$KUBE_CONTEXT" -n "$NS" port-forward svc/agentgateway "$GW_PORT:4000" >> "$logs/pf-gateway.log" 2>&1 &
   pids+=("$!")
   kubectl --context "$KUBE_CONTEXT" -n "$NS" port-forward deployment/vllm-primary "$METRICS_PORT:8000" >> "$logs/pf-metrics.log" 2>&1 &

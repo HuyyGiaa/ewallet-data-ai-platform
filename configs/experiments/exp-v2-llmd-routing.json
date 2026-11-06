@@ -13,7 +13,8 @@
     "node_type",
     "replicas",
     "thread_bind",
-    "gateway_token_budget"
+    "gateway_token_budget",
+    "node_names"
   ],
   "metrics": [
     {

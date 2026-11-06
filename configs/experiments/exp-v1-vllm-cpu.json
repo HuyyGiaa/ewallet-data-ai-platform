@@ -13,7 +13,8 @@
     "node_type",
     "max_num_seqs",
     "prefix_cache",
-    "gateway_token_budget"
+    "gateway_token_budget",
+    "node_names"
   ],
   "metrics": [
     {

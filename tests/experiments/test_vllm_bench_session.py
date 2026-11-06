@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 DRIVER = ROOT / "scripts/experiments/vllm_bench.sh"
 SIM = ROOT / "tests/experiments/sim"
 CONTEXT = "gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev"
-IMAGE = "repo/vllm-cpu-model@sha256:" + "a" * 64
+IMAGE = ("asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:"
+         + "a" * 64)
 CHART = os.environ.get("G2_ROUTER_CHART")
 
 
@@ -74,11 +75,12 @@ def test_every_run_restarts_vllm_with_its_own_run_id(tmp_path) -> None:
 def test_only_bench_objects_are_changed(tmp_path) -> None:
     _, _, state = session(tmp_path)
     for line in calls(state).splitlines():
-        if line.startswith("gcloud") and " list " not in line:
+        reads = (" list ", " describe ")
+        if line.startswith("gcloud") and not any(word in line for word in reads):
             assert "node-pools create bench-pool" in line or "node-pools delete bench-pool" in line, line
         if " delete " in line or " uninstall " in line:
             assert "ewallet-bench" in line or "bench-pool" in line, line
-    assert "llm-agent" not in "".join(line for line in calls(state).splitlines() if not line.startswith("helm list"))
+    assert not any("llm-agent" in line for line in calls(state).splitlines() if not line.startswith("helm list"))
 
 
 def test_secrets_never_reach_evidence_or_arguments(tmp_path) -> None:
@@ -107,10 +109,10 @@ def test_time_limit_stops_the_campaign(tmp_path) -> None:
     assert "time limit" in (evidence / "manifest.json").read_text(encoding="utf-8")
 
 
-def test_image_drift_makes_comparison_invalid(tmp_path) -> None:
+def test_image_drift_stops_the_session_before_the_next_run(tmp_path) -> None:
     state = tmp_path / "state"
     state.mkdir()
-    # A pod whose running digest differs from the rest must invalidate the comparison.
+    # A later run on another digest must stop before it sends a request.
     wrapper = tmp_path / "bin"
     wrapper.mkdir()
     (wrapper / "kubectl").write_text(
@@ -118,10 +120,10 @@ def test_image_drift_makes_comparison_invalid(tmp_path) -> None:
         f'[ "$count" -ge 2 ] && export SIM_RUNNING_DIGEST=sha256:{"b" * 64}\nexec "{SIM}/bin/kubectl" "$@"\n', encoding="utf-8")
     (wrapper / "kubectl").chmod(0o755)
     (state / "calls.log").write_text("", encoding="utf-8")
-    result, evidence, _ = session(tmp_path, PATH=f"{wrapper}:{SIM / 'bin'}:{os.environ['PATH']}")
-    assert result.returncode == 0, result.stderr
-    report = json.loads((evidence / "comparison/metrics.json").read_text(encoding="utf-8"))
-    assert report["verdict"] == "INVALID_COMPARISON"
+    result, evidence, state = session(tmp_path, PATH=f"{wrapper}:{SIM / 'bin'}:{os.environ['PATH']}")
+    assert result.returncode != 0 and "not running the pinned image" in result.stderr
+    assert len((state / "clients.log").read_text(encoding="utf-8").splitlines()) == 2
+    assert json.loads((evidence / "comparison/metrics.json").read_text(encoding="utf-8"))["verdict"] == "INCONCLUSIVE"
 
 
 def test_production_change_fails_the_session(tmp_path) -> None:
@@ -136,6 +138,130 @@ def test_production_change_fails_the_session(tmp_path) -> None:
     result, _, _ = session(tmp_path, EXP_CLIENT_DIR=str(client))
     assert result.returncode != 0
     assert "PRODUCTION STATE CHANGED" in result.stdout
+
+
+def test_pool_matches_the_live_node_identity(tmp_path) -> None:
+    _, _, state = session(tmp_path)
+    line = next(item for item in calls(state).splitlines() if "node-pools create" in item)
+    for flag in ("--service-account ewallet-gke-nodes@", "--workload-metadata GKE_METADATA", "--shielded-secure-boot",
+                 "--node-labels ewallet.io/bench=true", "--node-taints ewallet.io/bench=true:NoSchedule"):
+        assert flag in line
+    assert "--no-enable-autoupgrade" not in line
+
+
+def test_gcloud_failure_during_cleanup_is_not_a_false_success(tmp_path) -> None:
+    result, _, _ = session(tmp_path, SIM_GCLOUD_DOWN="yes")
+    assert result.returncode != 0
+    assert "CLEANUP FAILED" in result.stdout
+
+
+def test_pool_without_our_mark_is_never_deleted(tmp_path) -> None:
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state/pool").write_text("up", encoding="utf-8")
+    result, _, state = session(tmp_path, action="down", SIM_POOL_LABELS="workload=someone-else")
+    assert result.returncode != 0 and "leaving it" in result.stderr
+    assert (state / "pool").exists()
+    assert "node-pools delete" not in calls(state)
+
+
+def test_namespace_without_our_mark_is_never_deleted(tmp_path) -> None:
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state/namespace").write_text("true", encoding="utf-8")
+    result, _, state = session(tmp_path, action="down", SIM_NAMESPACE_MARK="")
+    assert result.returncode != 0 and "leaving it" in result.stderr
+    assert "delete namespace" not in calls(state)
+
+
+def test_down_removes_only_marked_objects(tmp_path) -> None:
+    (tmp_path / "state").mkdir()
+    (tmp_path / "state/pool").write_text("up", encoding="utf-8")
+    (tmp_path / "state/namespace").write_text("true", encoding="utf-8")
+    result, _, state = session(tmp_path, action="down")
+    assert result.returncode == 0, result.stderr
+    assert not (state / "pool").exists() and not (state / "namespace").exists()
+
+
+@pytest.mark.parametrize("env", [{"VLLM_IMAGE": "docker.io/other/vllm@sha256:" + "a" * 64}, {"SIM_IMAGE_MISSING": "yes"}],
+                         ids=["foreign-repository", "not-in-registry"])
+def test_unproven_image_stops_before_any_resource(tmp_path, env) -> None:
+    result, _, state = session(tmp_path, **env)
+    assert result.returncode != 0
+    assert not (state / "pool").exists()
+
+
+@pytest.mark.parametrize("env", [{"SIM_RUNNING_DIGEST": "sha256:" + "b" * 64}, {"SIM_MODEL_REVISION": "other"}],
+                         ids=["other-image", "other-model"])
+def test_wrong_running_image_or_model_stops_before_any_request(tmp_path, env) -> None:
+    result, _, state = session(tmp_path, **env)
+    assert result.returncode != 0
+    assert not (state / "clients.log").exists()
+    assert not (state / "pool").exists()
+
+
+def test_replaced_node_makes_the_comparison_invalid(tmp_path) -> None:
+    result, evidence, _ = session(tmp_path, SIM_NODE_REPLACED="yes", EXP_RUNS="3")
+    assert result.returncode == 0, result.stderr
+    report = json.loads((evidence / "comparison/metrics.json").read_text(encoding="utf-8"))
+    assert report["verdict"] == "INVALID_COMPARISON"
+    assert any("node_names" in item for item in report["reasons"])
+
+
+def test_summary_that_drops_raw_rows_blocks_the_verdict(tmp_path) -> None:
+    result, evidence, _ = session(tmp_path, SIM_DROP_RAW="1", EXP_RUNS="3")
+    assert result.returncode == 0, result.stderr
+    report = json.loads((evidence / "comparison/metrics.json").read_text(encoding="utf-8"))
+    assert report["verdict"] == "INCONCLUSIVE"
+    assert any("RAW_ROW_MISMATCH" in item for item in report["reasons"])
+
+
+def test_port_in_use_stops_the_session(tmp_path) -> None:
+    import socket
+
+    with socket.socket() as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", 13300))
+        listener.listen()
+        result, _, state = session(tmp_path)
+    assert result.returncode != 0 and "13300" in result.stderr
+    assert not (state / "pool").exists()
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "scripts/experiments").glob("*.sh")), ids=lambda p: p.name)
+def test_no_driver_can_touch_production_objects(path) -> None:
+    """Static check on every mutating line, so a new command cannot slip past the simulation."""
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if text.startswith("#"):
+            continue
+        assert "resize" not in text, text
+        assert "llm-agent" not in text or "--filter" in text or "feature" in text, text
+        if "helm uninstall" in text or "helm upgrade" in text:
+            assert "llmd-router" in text, text
+        if "node-pools delete" in text or "node-pools create" in text or "node-pools update" in text:
+            assert '"$POOL"' in text, text
+
+
+def test_real_client_keeps_failed_requests_in_raw_and_summary(tmp_path, monkeypatch) -> None:
+    sys.path.insert(0, str(ROOT / "scripts/llm_agent"))
+    import o1_benchmark as o1
+    from ops.experiments.adapters import check_raw_rows, run_from_summary
+
+    def fake(endpoint, key, item, *, timeout, level):
+        failed = item["id"].endswith("0")
+        return {"id": item["id"], "category": item["category"], "level": level, "backend": "primary", "failed": failed,
+                "timeout": False, "error": "boom" if failed else None, "status": 500 if failed else 200, "e2e_ms": 10.0,
+                "ttft_ms": 1.0, "itl_ms": [1.0], "tpot_ms": 1.0, "input_tokens": 3, "output_tokens": 2}
+
+    monkeypatch.setattr(o1, "one_request", fake)
+    items = [{"id": f"item-{index}", "category": "tool_call"} for index in range(12)]
+    raw = tmp_path / "raw_requests.jsonl"
+    rows = o1.run_pass("http://x", "k", items, 2, 5, tmp_path / "stop", raw)
+    level = {**o1.summarize_level(rows, [], 1.0, {}, 2.0), "status": "MEASURED"}
+    summary = {"config": "c", "workload_sha256": "w", "levels": {"2": level}}
+    run = check_raw_rows(run_from_summary(summary, {}), summary, raw)
+    assert run.levels["2"]["status"] == "MEASURED"
+    assert run.levels["2"]["requests"] == 12 and run.levels["2"]["failed"] == 2
 
 
 def test_failed_pool_deletion_is_reported(tmp_path) -> None:

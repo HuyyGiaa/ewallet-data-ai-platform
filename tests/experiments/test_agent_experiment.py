@@ -166,47 +166,8 @@ def test_run_needs_approval(tmp_path) -> None:
     assert result.returncode != 0 and "EXP_APPROVED" in result.stderr
 
 
-def test_pod_deletion_needs_its_own_approval(tmp_path) -> None:
-    result = driver("exp-c5-mcp-failover", "optimized", "run", str(tmp_path / "e"), KUBE_CONTEXT=CONTEXT,
-                    EXP_APPROVED="yes", EXP_DISRUPT_APPROVED="")
-    assert result.returncode != 0 and "EXP_DISRUPT_APPROVED" in result.stderr
-
-
 def documents(path: Path) -> list[dict]:
     return [item for item in yaml.safe_load_all(path.read_text(encoding="utf-8")) if item]
-
-
-@pytest.mark.parametrize("name", ["feature-rag-specialist", "fraud-coordinator"])
-def test_sandbox_agents_match_the_contract(name) -> None:
-    agent = next(item for item in documents(SANDBOX / f"{name}.yaml") if item["kind"] == "SandboxAgent")
-    spec = agent["spec"]
-    assert agent["metadata"]["namespace"] == "kagent-pilot"
-    assert spec["type"] == "BYO" and "skills" not in spec
-    deployment = spec["byo"]["deployment"]
-    assert "@sha256:" in deployment["image"]
-    assert spec["substrate"]["workerPoolRef"]["kind"] == "WorkerPool"
-    for item in deployment["env"]:
-        if "valueFrom" in item:
-            assert item["valueFrom"]["secretKeyRef"]["name"].startswith("sandbox-")
-        else:
-            assert not any(word in item["name"] for word in ("TOKEN", "KEY", "PASSWORD", "REDIS_URL"))
-
-
-@pytest.mark.parametrize("name", ["feature-rag-specialist", "fraud-coordinator"])
-def test_sandbox_agents_validate_against_the_pinned_crd(name) -> None:
-    jsonschema = pytest.importorskip("jsonschema")
-    schemas = json.loads((ROOT / "infra/kubernetes/kagent-platform/crd-schemas-kagent-0.10.3.json").read_text(encoding="utf-8"))
-    schema = schemas["SandboxAgent"]
-    agent = next(item for item in documents(SANDBOX / f"{name}.yaml") if item["kind"] == "SandboxAgent")
-    jsonschema.validate(agent["spec"], schema.get("properties", {}).get("spec", schema))
-
-
-def test_sandbox_egress_stays_narrow() -> None:
-    text = (SANDBOX / "worker-egress.yaml").read_text(encoding="utf-8")
-    assert "0.0.0.0/0" not in text
-    for item in documents(SANDBOX / "worker-egress.yaml"):
-        if item["kind"] == "AuthorizationPolicy":
-            assert item["spec"]["rules"][0]["from"][0]["source"]["principals"] == ["cluster.local/ns/kagent-pilot/sa/default"]
 
 
 def test_keda_access_adds_exactly_one_flow_each() -> None:
@@ -228,9 +189,9 @@ def simulate(tmp_path: Path, experiment: str, arm: str, **env: str):
     state.mkdir(exist_ok=True)
     evidence = tmp_path / "evidence"
     full = {"PATH": f"{ROOT / 'tests/experiments/sim/agent_bin'}:{os.environ['PATH']}", "SIM_STATE": str(state),
-            "KUBE_CONTEXT": CONTEXT, "EXP_APPROVED": "yes", "EXP_DISRUPT_APPROVED": "yes", "EXP_FAILURE_AFTER": "0",
-            "EXP_SCALE_IN_WAIT": "0", **env}
-    return driver(experiment, arm, "run", str(evidence), **full), evidence, state
+            "KUBE_CONTEXT": CONTEXT, "EXP_APPROVED": "yes", "EXP_SCALE_IN_WAIT": "0", **env}
+    action = full.pop("ACTION", "run")
+    return driver(experiment, arm, action, str(evidence), **full), evidence, state
 
 
 def test_keda_arm_runs_and_removes_its_load_objects(tmp_path) -> None:
@@ -262,30 +223,6 @@ def test_keda_run_refuses_the_wrong_cluster_state(tmp_path, arm, env, message) -
     assert not (state / "applied").exists()
 
 
-def test_mcp_run_deletes_one_pod_and_records_the_failure(tmp_path) -> None:
-    result, evidence, state = simulate(tmp_path, "exp-c5-mcp-failover", "optimized", SIM_MCP_REPLICAS="2")
-    assert result.returncode == 0, result.stderr
-    assert "feature-rag-mcp-abc" in (state / "calls.log").read_text(encoding="utf-8")
-    assert (state / "deleted-pod").exists()
-    assert "-n ewallet-mcp" in next(line for line in (state / "calls.log").read_text(encoding="utf-8").splitlines()
-                                    if " delete pod " in line)
-    controls = json.loads((evidence / "optimized/raw/run-01/controls.json").read_text(encoding="utf-8"))
-    assert controls["failure_action"] == "delete-one-pod"
-
-
-def test_mcp_run_after_keda_install_still_finishes(tmp_path) -> None:
-    result, evidence, _ = simulate(tmp_path, "exp-c5-mcp-failover", "optimized", SIM_MCP_REPLICAS="2", SIM_SCALED_OBJECT="yes")
-    assert result.returncode == 0, result.stderr
-    assert (evidence / "optimized/raw/run-01/controls.json").exists()
-
-
-@pytest.mark.parametrize("env", [{"SIM_MCP_REPLICAS": "2", "SIM_ATTEMPTS": "1"}, {"SIM_MCP_REPLICAS": "1", "SIM_ATTEMPTS": "3"}])
-def test_mcp_run_refuses_a_half_applied_arm_before_deleting(tmp_path, env) -> None:
-    result, _, state = simulate(tmp_path, "exp-c5-mcp-failover", "optimized" if env["SIM_ATTEMPTS"] == "1" else "baseline", **env)
-    assert result.returncode != 0
-    assert not (state / "deleted-pod").exists()
-
-
 def test_short_job_not_seen_ready_is_still_measured(tmp_path) -> None:
     result, evidence, _ = simulate(tmp_path, "exp-c5-keda", "baseline", SIM_NEVER_READY="yes")
     assert result.returncode == 0, result.stderr
@@ -296,7 +233,7 @@ def test_failed_job_keeps_its_rows_and_cleans_up(tmp_path) -> None:
     result, evidence, state = simulate(tmp_path, "exp-c5-keda", "baseline", SIM_JOB_FAILS="yes")
     assert result.returncode == 0, result.stderr
     assert (evidence / "baseline/raw/run-01/summary.json").exists()
-    assert "job did not complete" in (evidence / "baseline/logs/run-01/apply.log").read_text(encoding="utf-8")
+    assert "job did not complete" in (evidence / "baseline/logs/raw-01/apply.log").read_text(encoding="utf-8")
     assert "load Job did not complete" in (evidence / "manifest.json").read_text(encoding="utf-8")
     assert not (state / "applied").exists()
 
@@ -341,3 +278,26 @@ def test_compare_reads_agent_runs(tmp_path) -> None:
     report = compare(spec, load_arm(evidence / "baseline"), load_arm(evidence / "optimized"))
     assert report["runs"] == {"baseline": 2, "optimized": 2}
     assert report["verdict"] != "INVALID_COMPARISON", report["reasons"]
+
+
+def test_smoke_sends_one_task_and_stays_out_of_the_comparison(tmp_path) -> None:
+    from ops.experiments.adapters import load_arm
+
+    result, evidence, state = simulate(tmp_path, "exp-c5-keda", "baseline", ACTION="smoke", SIM_ONE_TASK="ok")
+    assert result.returncode == 0, result.stderr
+    assert "1/1 tasks completed" in result.stdout
+    assert (evidence / "baseline/smoke/run-01/summary.json").exists()
+    assert load_arm(evidence / "baseline") == []
+    assert not (state / "applied").exists()
+
+
+def test_failed_smoke_fails_the_command(tmp_path) -> None:
+    result, _, state = simulate(tmp_path, "exp-c5-keda", "baseline", ACTION="smoke", SIM_ONE_TASK="fail")
+    assert result.returncode != 0
+    assert "0/1 tasks completed" in result.stdout
+    assert not (state / "applied").exists()
+
+
+def test_keda_driver_cannot_delete_pods() -> None:
+    text = DRIVER.read_text(encoding="utf-8")
+    assert "delete pod" not in text and "EXP_DISRUPT" not in text

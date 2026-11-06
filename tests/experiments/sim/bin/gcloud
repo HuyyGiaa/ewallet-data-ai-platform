@@ -8,10 +8,24 @@ pool = state / "pool"
 text = " ".join(sys.argv[1:])
 (state / "calls.log").open("a").write("gcloud " + text + "\n")
 if "node-pools list" in text:
+    if os.environ.get("SIM_GCLOUD_DOWN") and (state / "clients.log").exists():
+        sys.exit(1)
     print("cpu-pool")
     if pool.exists():
         print("bench-pool")
+elif "node-pools describe bench-pool" in text:
+    print(os.environ.get("SIM_POOL_LABELS", "ewallet.io/bench=true"))
+elif "node-pools describe cpu-pool" in text:
+    print("4\tFalse")
+elif "instance-groups managed list" in text:
+    print("4")
+elif "artifacts docker images describe" in text:
+    sys.exit(1 if os.environ.get("SIM_IMAGE_MISSING") else 0)
 elif "node-pools create bench-pool" in text:
+    if "--no-enable-autoupgrade" in text:
+        sys.stderr.write("auto-upgrade cannot be disabled on a release channel\n"); sys.exit(1)
+    if "--service-account ewallet-gke-nodes@" not in text:
+        sys.stderr.write("simulated: nodes could not pull the image\n"); sys.exit(1)
     pool.write_text("up")
 elif "node-pools delete bench-pool" in text:
     if os.environ.get("SIM_DELETE_FAILS") != "yes":

@@ -23,4 +23,8 @@ level = {"status": "MEASURED", "requests": 12, "succeeded": 12, "e2e_ms": {"p50"
          "requests_per_second": 1, "resources": None}
 summary = {"config": args.config, "workload_sha256": "w", "levels": {item: level for item in args.levels.split(",")}}
 args.output.mkdir(parents=True, exist_ok=True)
+with (args.output / "raw_requests.jsonl").open("w") as raw:
+    for item in args.levels.split(","):
+        for index in range(12 - int(os.environ.get("SIM_DROP_RAW", "0"))):
+            raw.write(json.dumps({"level": int(item), "id": index}) + "\n")
 (args.output / "summary.json").write_text(json.dumps(summary))

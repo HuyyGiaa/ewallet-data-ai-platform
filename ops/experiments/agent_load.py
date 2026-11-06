@@ -22,22 +22,29 @@ TERMINAL_STATES = frozenset({"completed", "failed", "canceled", "rejected", "unk
 Post = Callable[[Mapping[str, Any], float], Mapping[str, Any]]
 
 
-def http_post(url: str) -> Post:
-    """Return a JSON-RPC sender bound to one URL."""
+def http_post(url: str, headers: Mapping[str, str] | None = None) -> Post:
+    """Return a JSON-RPC sender bound to one URL, with optional extra headers."""
 
     def post(message: Mapping[str, Any], timeout: float) -> Mapping[str, Any]:
         request = Request(url, data=json.dumps(message).encode(), method="POST",
-                          headers={"Content-Type": "application/json"})
+                          headers={"Content-Type": "application/json", **(headers or {})})
         with urlopen(request, timeout=timeout) as response:
             return json.loads(response.read())
 
     return post
 
 
-def task_payload(template: str, task_id: str) -> dict[str, Any]:
-    """Fill the fixture; a new ID per task keeps idempotency from replaying a result."""
+def task_payload(template: str, task_id: str, context_id: str | None = None) -> dict[str, Any]:
+    """Fill the fixture; a new ID per task keeps idempotency from replaying a result.
 
-    return json.loads(template.replace("__TASK_ID__", task_id))
+    A sandbox agent routes by ``contextId``: each context gets its own actor, which is
+    suspended after a response and resumed by the next message in that context.
+    """
+
+    payload = json.loads(template.replace("__TASK_ID__", task_id))
+    if context_id:
+        payload["params"]["message"]["contextId"] = context_id
+    return payload
 
 
 def task_state(reply: Mapping[str, Any]) -> tuple[str, str | None]:
@@ -52,7 +59,8 @@ def task_state(reply: Mapping[str, Any]) -> tuple[str, str | None]:
 
 
 def run_task(post: Post, template: str, task_id: str, *, timeout: float, poll_timeout: float, poll_interval: float,
-             clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+             clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,
+             context_id: str | None = None) -> dict[str, Any]:
     """Run one task to a terminal state and describe it.
 
     Never raises for a request failure: the failure is the measurement.
@@ -61,7 +69,7 @@ def run_task(post: Post, template: str, task_id: str, *, timeout: float, poll_ti
     started = clock()
     row: dict[str, Any] = {"id": task_id, "started": started, "state": "transport_error", "error": None}
     try:
-        state, remote_id = task_state(post(task_payload(template, task_id), timeout))
+        state, remote_id = task_state(post(task_payload(template, task_id, context_id), timeout))
         deadline = clock() + poll_timeout
         while state not in TERMINAL_STATES and state != "rpc_error" and remote_id and clock() < deadline:
             sleep(poll_interval)

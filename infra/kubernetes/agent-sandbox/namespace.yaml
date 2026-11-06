@@ -1,0 +1,37 @@
+# Dedicated namespace and worker pool for business agents.
+#
+# WorkerPool has no serviceAccountName field, so worker pods always run as the namespace's
+# default account. Giving the pool its own namespace makes that identity unique:
+# cluster.local/ns/ewallet-sandbox/sa/default belongs to this pool and nothing else, and it
+# holds no RBAC. The pilot in kagent-pilot stays untouched.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-sandbox
+  labels:
+    ewallet.io/experiment: "true"
+    # Worker pods need privileged Pod Security, as in kagent-pilot.
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# The default account keeps no API token, so a sandbox escape finds no Kubernetes credential.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: default, namespace: ewallet-sandbox}
+automountServiceAccountToken: false
+---
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata:
+  name: business-agents
+  namespace: ewallet-sandbox
+  labels: {kagent.dev/worker-pool: business-agents}
+spec:
+  ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc
+  replicas: 1
+  sandboxClass: gvisor
+  template:
+    resources:
+      requests: {cpu: 500m, memory: 1Gi}
+      limits: {cpu: 1500m, memory: 2Gi}

@@ -22,7 +22,8 @@ elif " delete job," in text:
     (state / "applied").unlink(missing_ok=True)
 elif " logs " in text:
     now = time.time()
-    for index, ok in enumerate([True, True, False, True]):
+    one = os.environ.get("SIM_ONE_TASK")
+    for index, ok in enumerate([one == "ok"] if one else [True, True, False, True]):
         row = {"id": f"t{index}", "ok": ok, "state": "completed" if ok else "failed", "started": now - 40 + index,
                "finished": now - 30 + index * 5, "e2e_ms": 1000 * (10 + index * 4)}
         print("LOAD_ROW " + json.dumps(row))

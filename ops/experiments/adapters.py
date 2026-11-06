@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from ops.experiments.compare import Run
 
@@ -61,6 +61,40 @@ def run_from_summary(summary: Mapping[str, Any], controls: Mapping[str, Any]) ->
     return Run(controls=merged, levels=levels)
 
 
+def raw_row_counts(lines: Iterable[str]) -> dict[str, int]:
+    """Count measured rows per level; level 0 is the unmeasured cold pass."""
+
+    counts: dict[str, int] = {}
+    for line in lines:
+        if line.strip():
+            level = str(json.loads(line).get("level", 0))
+            if level != "0":
+                counts[level] = counts.get(level, 0) + 1
+    return counts
+
+
+def check_raw_rows(run: Run, summary: Mapping[str, Any], path: Path) -> Run:
+    """Refuse a measured level whose summary does not account for every raw request.
+
+    Failed requests are written to the raw file as they happen. If a summary counts fewer
+    rows than the raw file holds, something was dropped between them, so the level stops
+    being comparable. Only benchmark client output has a raw file, marked by ``config``.
+    """
+
+    if "config" not in summary:
+        return run
+    counts = raw_row_counts(path.read_text(encoding="utf-8").splitlines()) if path.is_file() else None
+    levels = dict(run.levels)
+    for name, level in run.levels.items():
+        if level.get("status") != "MEASURED":
+            continue
+        if counts is None:
+            levels[name] = {**level, "status": "RAW_FILE_MISSING"}
+        elif counts.get(name, 0) != level["requests"]:
+            levels[name] = {**level, "status": "RAW_ROW_MISMATCH"}
+    return Run(controls=run.controls, levels=levels)
+
+
 def load_arm(directory: Path) -> list[Run]:
     """Load every ``raw/run-*`` of one arm; each holds ``summary.json`` and ``controls.json``."""
 
@@ -71,5 +105,6 @@ def load_arm(directory: Path) -> list[Run]:
             continue
         controls_path = path / "controls.json"
         controls = json.loads(controls_path.read_text(encoding="utf-8")) if controls_path.is_file() else {}
-        runs.append(run_from_summary(json.loads(summary.read_text(encoding="utf-8")), controls))
+        parsed = json.loads(summary.read_text(encoding="utf-8"))
+        runs.append(check_raw_rows(run_from_summary(parsed, controls), parsed, path / "raw_requests.jsonl"))
     return runs

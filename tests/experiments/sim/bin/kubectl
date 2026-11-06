@@ -24,9 +24,11 @@ elif args[0] == "apply":
         (state / "current.yaml").write_text(data)
     print("applied")
 elif text.startswith("get namespace"):
-    if not ns.exists():
-        sys.stderr.write("NotFound\n"); sys.exit(1)
-    print("true")
+    if os.environ.get("SIM_API_DOWN") and (state / "cleanup-started").exists():
+        sys.exit(1)
+    if ns.exists():
+        mark = os.environ.get("SIM_NAMESPACE_MARK", "true")
+        print(f"ewallet-bench={mark}", end="")
 elif text.startswith("delete namespace"):
     ns.unlink(missing_ok=True)
 elif text.startswith("get endpoints"):
@@ -35,7 +37,8 @@ elif text.startswith("get configmap"):
     current = (state / "current.yaml").read_text()
     print("\n".join(l for l in current.splitlines() if "maxTokens" in l))
 elif text.startswith("get nodes -l ewallet.io/bench"):
-    print(json.dumps({"items": [{"metadata": {"labels": {"node.kubernetes.io/instance-type": "e2-standard-4"}}}]}))
+    node = "bench-b" if os.environ.get("SIM_NODE_REPLACED") and (state / "clients.log").exists() else "bench-a"
+    print(json.dumps({"items": [{"metadata": {"name": node, "labels": {"node.kubernetes.io/instance-type": "e2-standard-4"}}}]}))
 elif text.startswith("get nodes"):
     print("node/prod-a\nnode/prod-b")
 elif text.startswith("get pods") and "jsonpath" in text:
@@ -44,7 +47,7 @@ elif text.startswith("get pods"):
     current = (state / "current.yaml").read_text()
     bind = "0-1" if 'VLLM_CPU_OMP_THREADS_BIND, value: "0-1"' in current else "auto"
     digest = os.environ.get("SIM_RUNNING_DIGEST", "sha256:" + "a" * 64)
-    pod = {"spec": {"containers": [{"args": ["--model", "/models/Qwen3-0.6B/rev", "--max-num-seqs", "4", "--enable-prefix-caching"],
+    pod = {"spec": {"containers": [{"args": ["--model", "/models/Qwen3-0.6B/" + os.environ.get("SIM_MODEL_REVISION", "c1899de289a04d12100db370d81485cdf75e47ca"), "--max-num-seqs", "4", "--enable-prefix-caching"],
                                     "env": [{"name": "VLLM_CPU_OMP_THREADS_BIND", "value": bind}],
                                     "resources": {"requests": {"cpu": "2", "memory": "6Gi"}}}]},
            "status": {"containerStatuses": [{"imageID": f"repo/vllm@{digest}"}]}}
