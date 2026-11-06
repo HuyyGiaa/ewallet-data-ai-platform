@@ -1,0 +1,7 @@
+NS               N                                       EXP   CUR   ALLOWED
+ewallet-agents   drift-mcp                               0     0     0
+ewallet-agents   drift-specialist                        0     0     0
+ewallet-agents   feature-rag-specialist                  0     0     0
+ewallet-agents   fraud-coordinator                       0     0     0
+ewallet-mcp      drift-mcp                               0     0     0
+kube-system      filestore-lock-release-controller-pdb   1     1     1

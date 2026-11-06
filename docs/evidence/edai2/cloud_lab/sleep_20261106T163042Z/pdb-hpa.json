@@ -1,0 +1,306 @@
+[
+  {
+    "kind": "PodDisruptionBudget",
+    "namespace": "ewallet-agents",
+    "name": "drift-mcp",
+    "spec": {
+      "minAvailable": 1,
+      "selector": {
+        "matchLabels": {
+          "app.kubernetes.io/name": "drift-mcp"
+        }
+      }
+    }
+  },
+  {
+    "kind": "PodDisruptionBudget",
+    "namespace": "ewallet-agents",
+    "name": "drift-specialist",
+    "spec": {
+      "minAvailable": 1,
+      "selector": {
+        "matchLabels": {
+          "ewallet.io/agent": "drift-specialist"
+        }
+      }
+    }
+  },
+  {
+    "kind": "PodDisruptionBudget",
+    "namespace": "ewallet-agents",
+    "name": "feature-rag-specialist",
+    "spec": {
+      "minAvailable": 1,
+      "selector": {
+        "matchLabels": {
+          "ewallet.io/agent": "feature-rag-specialist"
+        }
+      }
+    }
+  },
+  {
+    "kind": "PodDisruptionBudget",
+    "namespace": "ewallet-agents",
+    "name": "fraud-coordinator",
+    "spec": {
+      "minAvailable": 1,
+      "selector": {
+        "matchLabels": {
+          "ewallet.io/agent": "fraud-coordinator"
+        }
+      }
+    }
+  },
+  {
+    "kind": "PodDisruptionBudget",
+    "namespace": "ewallet-mcp",
+    "name": "drift-mcp",
+    "spec": {
+      "minAvailable": 1,
+      "selector": {
+        "matchLabels": {
+          "app.kubernetes.io/name": "drift-mcp"
+        }
+      }
+    }
+  },
+  {
+    "kind": "PodDisruptionBudget",
+    "namespace": "kube-system",
+    "name": "filestore-lock-release-controller-pdb",
+    "spec": {
+      "maxUnavailable": 1,
+      "selector": {
+        "matchLabels": {
+          "k8s-app": "filestore-lock-release-controller"
+        }
+      }
+    }
+  },
+  {
+    "kind": "HorizontalPodAutoscaler",
+    "namespace": "ewallet-agents",
+    "name": "drift-specialist",
+    "spec": {
+      "behavior": {
+        "scaleDown": {
+          "policies": [
+            {
+              "periodSeconds": 60,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 300
+        },
+        "scaleUp": {
+          "policies": [
+            {
+              "periodSeconds": 60,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 0
+        }
+      },
+      "maxReplicas": 3,
+      "metrics": [
+        {
+          "resource": {
+            "name": "cpu",
+            "target": {
+              "averageUtilization": 60,
+              "type": "Utilization"
+            }
+          },
+          "type": "Resource"
+        }
+      ],
+      "minReplicas": 2,
+      "scaleTargetRef": {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "name": "drift-specialist"
+      }
+    }
+  },
+  {
+    "kind": "HorizontalPodAutoscaler",
+    "namespace": "ewallet-agents",
+    "name": "feature-rag-specialist",
+    "spec": {
+      "behavior": {
+        "scaleDown": {
+          "policies": [
+            {
+              "periodSeconds": 60,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 300
+        },
+        "scaleUp": {
+          "policies": [
+            {
+              "periodSeconds": 60,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 0
+        }
+      },
+      "maxReplicas": 3,
+      "metrics": [
+        {
+          "resource": {
+            "name": "cpu",
+            "target": {
+              "averageUtilization": 60,
+              "type": "Utilization"
+            }
+          },
+          "type": "Resource"
+        }
+      ],
+      "minReplicas": 2,
+      "scaleTargetRef": {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "name": "feature-rag-specialist"
+      }
+    }
+  },
+  {
+    "kind": "HorizontalPodAutoscaler",
+    "namespace": "ewallet-agents",
+    "name": "fraud-coordinator",
+    "spec": {
+      "behavior": {
+        "scaleDown": {
+          "policies": [
+            {
+              "periodSeconds": 60,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 300
+        },
+        "scaleUp": {
+          "policies": [
+            {
+              "periodSeconds": 60,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 0
+        }
+      },
+      "maxReplicas": 3,
+      "metrics": [
+        {
+          "resource": {
+            "name": "cpu",
+            "target": {
+              "averageUtilization": 60,
+              "type": "Utilization"
+            }
+          },
+          "type": "Resource"
+        }
+      ],
+      "minReplicas": 2,
+      "scaleTargetRef": {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "name": "fraud-coordinator"
+      }
+    }
+  },
+  {
+    "kind": "HorizontalPodAutoscaler",
+    "namespace": "gke-managed-cim",
+    "name": "kube-state-metrics",
+    "spec": {
+      "behavior": {
+        "scaleDown": {
+          "policies": [
+            {
+              "periodSeconds": 1800,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 3600
+        },
+        "scaleUp": {
+          "policies": [
+            {
+              "periodSeconds": 300,
+              "type": "Pods",
+              "value": 1
+            }
+          ],
+          "selectPolicy": "Max",
+          "stabilizationWindowSeconds": 900
+        }
+      },
+      "maxReplicas": 10,
+      "metrics": [
+        {
+          "resource": {
+            "name": "memory",
+            "target": {
+              "averageValue": "400Mi",
+              "type": "AverageValue"
+            }
+          },
+          "type": "Resource"
+        }
+      ],
+      "minReplicas": 1,
+      "scaleTargetRef": {
+        "apiVersion": "apps/v1",
+        "kind": "StatefulSet",
+        "name": "kube-state-metrics"
+      }
+    }
+  },
+  {
+    "kind": "HorizontalPodAutoscaler",
+    "namespace": "istio-system",
+    "name": "istiod",
+    "spec": {
+      "maxReplicas": 5,
+      "metrics": [
+        {
+          "resource": {
+            "name": "cpu",
+            "target": {
+              "averageUtilization": 80,
+              "type": "Utilization"
+            }
+          },
+          "type": "Resource"
+        }
+      ],
+      "minReplicas": 1,
+      "scaleTargetRef": {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "name": "istiod"
+      }
+    }
+  }
+]

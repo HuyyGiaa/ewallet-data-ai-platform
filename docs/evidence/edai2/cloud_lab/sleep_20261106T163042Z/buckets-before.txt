@@ -1,0 +1,6 @@
+ewallet-data-ai-platform-hg26-cicd-build-logs
+ewallet-data-ai-platform-hg26-cicd-builds
+ewallet-data-ai-platform-hg26-data
+ewallet-data-ai-platform-hg26-temp
+ewallet-data-ai-platform-hg26-tfstate
+ewallet-data-ai-platform-hg26_cloudbuild

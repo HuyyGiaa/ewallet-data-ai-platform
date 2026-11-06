@@ -1,0 +1,258 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "annotations": {
+      "deployment.kubernetes.io/revision": "1",
+      "meta.helm.sh/release-name": "llm-agent",
+      "meta.helm.sh/release-namespace": "default"
+    },
+    "creationTimestamp": "2026-11-01T17:35:04Z",
+    "generation": 1,
+    "labels": {
+      "app.kubernetes.io/component": "mcp-server",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "drift-mcp",
+      "app.kubernetes.io/part-of": "ewallet-llm-agent",
+      "app.kubernetes.io/version": "llm-agent-v1"
+    },
+    "name": "drift-mcp",
+    "namespace": "ewallet-agents",
+    "resourceVersion": "1793554529523007007",
+    "uid": "4846e12c-0690-4f42-bf4e-1d86d803e1df"
+  },
+  "spec": {
+    "progressDeadlineSeconds": 600,
+    "replicas": 1,
+    "revisionHistoryLimit": 10,
+    "selector": {
+      "matchLabels": {
+        "app.kubernetes.io/name": "drift-mcp"
+      }
+    },
+    "strategy": {
+      "rollingUpdate": {
+        "maxSurge": 1,
+        "maxUnavailable": 0
+      },
+      "type": "RollingUpdate"
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/component": "mcp-server",
+          "app.kubernetes.io/name": "drift-mcp"
+        }
+      },
+      "spec": {
+        "automountServiceAccountToken": false,
+        "containers": [
+          {
+            "command": [
+              "python",
+              "-m",
+              "uvicorn",
+              "--factory",
+              "ai_platform.llm_agent.tools.service:create_drift_app",
+              "--host",
+              "0.0.0.0",
+              "--port",
+              "8080",
+              "--no-access-log"
+            ],
+            "env": [
+              {
+                "name": "EWALLET_GIT_SHA",
+                "value": "695279967f30451d7157228f67faa36842fa0aa4"
+              },
+              {
+                "name": "EWALLET_IMAGE_DIGEST",
+                "value": "sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0"
+              },
+              {
+                "name": "EWALLET_CONFIG_REVISION",
+                "value": "g3-gke-v1"
+              },
+              {
+                "name": "EWALLET_PROMPT_REVISION",
+                "value": "v2"
+              },
+              {
+                "name": "EWALLET_MODEL_REVISION",
+                "value": "fraud-detector/1"
+              },
+              {
+                "name": "EWALLET_FEATURE_REVISION",
+                "value": "canonical-100gb-v1/online-20261031-163506"
+              },
+              {
+                "name": "EWALLET_CORPUS_REVISION",
+                "value": "fraud-policy-v1-20261030"
+              },
+              {
+                "name": "EWALLET_TOOL_MAX_CONCURRENCY",
+                "value": "8"
+              },
+              {
+                "name": "EWALLET_TOOL_MAX_TIMEOUT_MS",
+                "value": "20000"
+              },
+              {
+                "name": "EWALLET_MCP_ALLOWED_ORIGINS"
+              },
+              {
+                "name": "EWALLET_MCP_MAX_BODY_BYTES",
+                "value": "65536"
+              },
+              {
+                "name": "EWALLET_MCP_MAX_INFLIGHT",
+                "value": "32"
+              },
+              {
+                "name": "EWALLET_MCP_BODY_TIMEOUT_SECONDS",
+                "value": "10"
+              },
+              {
+                "name": "EWALLET_MCP_TOOL_GRANTS",
+                "value": "{\"drift-specialist\":[\"drift_detection\"]}"
+              },
+              {
+                "name": "EWALLET_MCP_SERVICE_TOKENS",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "auth-config.json",
+                    "name": "mcp-auth-drift-mcp"
+                  }
+                }
+              }
+            ],
+            "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0",
+            "imagePullPolicy": "IfNotPresent",
+            "livenessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/health/live",
+                "port": "http",
+                "scheme": "HTTP"
+              },
+              "periodSeconds": 15,
+              "successThreshold": 1,
+              "timeoutSeconds": 1
+            },
+            "name": "mcp-server",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/health/ready",
+                "port": "http",
+                "scheme": "HTTP"
+              },
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 5
+            },
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "memory": "512Mi"
+              },
+              "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "startupProbe": {
+              "failureThreshold": 30,
+              "httpGet": {
+                "path": "/health/live",
+                "port": "http",
+                "scheme": "HTTP"
+              },
+              "periodSeconds": 2,
+              "successThreshold": 1,
+              "timeoutSeconds": 1
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/tmp",
+                "name": "tmp"
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "nodeSelector": {
+          "ewallet.io/g3-llm": "true"
+        },
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "runAsGroup": 10001,
+          "runAsNonRoot": true,
+          "runAsUser": 10001,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccount": "drift-mcp",
+        "serviceAccountName": "drift-mcp",
+        "terminationGracePeriodSeconds": 30,
+        "volumes": [
+          {
+            "emptyDir": {
+              "sizeLimit": "64Mi"
+            },
+            "name": "tmp"
+          }
+        ]
+      }
+    }
+  },
+  "status": {
+    "availableReplicas": 1,
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-01T17:35:29Z",
+        "lastUpdateTime": "2026-11-01T17:35:29Z",
+        "message": "Deployment has minimum availability.",
+        "reason": "MinimumReplicasAvailable",
+        "status": "True",
+        "type": "Available"
+      },
+      {
+        "lastTransitionTime": "2026-11-01T17:35:04Z",
+        "lastUpdateTime": "2026-11-01T17:35:29Z",
+        "message": "ReplicaSet \"drift-mcp-c845bfc5f\" has successfully progressed.",
+        "reason": "NewReplicaSetAvailable",
+        "status": "True",
+        "type": "Progressing"
+      }
+    ],
+    "observedGeneration": 1,
+    "readyReplicas": 1,
+    "replicas": 1,
+    "terminatingReplicas": 0,
+    "updatedReplicas": 1
+  }
+}

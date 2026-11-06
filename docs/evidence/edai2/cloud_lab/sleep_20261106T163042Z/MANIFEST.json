@@ -1,0 +1,73 @@
+{
+  "purpose": "Recovery manifest for the 2026-11-06 sleep of ewallet-dev. Holds no Secret values; env values with sensitive names are redacted.",
+  "project": "ewallet-data-ai-platform-hg26",
+  "cluster": "ewallet-dev",
+  "location": "asia-southeast1-b",
+  "node_pool": "cpu-pool",
+  "source_commit": "ce08a3809f8a3aaf39fb9bf19435135d05bbeda6",
+  "nodes_before": 4,
+  "nodes_after": 0,
+  "scale_started": "2026-11-06T16:31:43Z",
+  "resize_started": "2026-11-06T16:35:07Z",
+  "resize_finished": "2026-11-06T16:38:12Z",
+  "restore_replicas": [
+    {
+      "namespace": "ewallet-agents",
+      "name": "drift-mcp",
+      "replicas": 1,
+      "generation": 1
+    },
+    {
+      "namespace": "ewallet-mcp",
+      "name": "drift-mcp",
+      "replicas": 1,
+      "generation": 5
+    },
+    {
+      "namespace": "ewallet-agents",
+      "name": "fraud-coordinator",
+      "replicas": 2,
+      "generation": 367
+    },
+    {
+      "namespace": "ewallet-agents",
+      "name": "drift-specialist",
+      "replicas": 2,
+      "generation": 12
+    },
+    {
+      "namespace": "ewallet-agents",
+      "name": "feature-rag-specialist",
+      "replicas": 2,
+      "generation": 19
+    }
+  ],
+  "g3_labelled_node_count": 3,
+  "files_sha256": {
+    "buckets-before.txt": "e8e52ae7330137d50547b3a4f24474d31c2dd1f82218fa5c73af7520b76d127e",
+    "disks-after.json": "a64da8f3fe2fa1b8182bf583cffded428abb483c659c74f46930b1f47096314f",
+    "disks-before.json": "584f0a63c3958d7b7402b690aee8a8d10e8d2c30c7cc836b0f802f6c93911b0b",
+    "helm-releases.json": "4f2182ac147a7f6db3ee2417752dba07eb8d76b83edc5dec809d799b9dbb1d61",
+    "node-pool.json": "c37c475cbeabf462e40963e405ef372b52e1284b574351024a1f2c5cb9f11a10",
+    "nodes.json": "5d5d69d409c49a48b76d83a07240850c225a804e264fe5a09bf47cbd3bc2f9fa",
+    "pdb-after-scale.txt": "18fd744f55c42b11ff0f0d42b935ba8e17e4c9c22568d51109d5bc65353dae8b",
+    "pdb-hpa.json": "93432eb400ca9c0a005c904d303bfcda2a5d62d42115ae0b0fbbfe86e2c72ec9",
+    "pods-image-digests.json": "55bbce392a9b807d0e4256cf5844a8184498fa6a053976d6d3960fcfff5e3d8f",
+    "pvcs.json": "6e3a2f02b83286be166d582d2c9cf83fe5ebfb3e0bf4699351e145aab5fa401d",
+    "pvs.json": "7a43deb9d16c597f756748853065b350daba1b65f34e44ce862089f36155dd92",
+    "resize-finished-at.txt": "707652947ac48430958553f06684cfd2d35979eb3b25c93c42ba78f8001b84a0",
+    "resize-started-at.txt": "8e0209779db8b768d1c3de0e67829b51bb8bb3c15f3e8292e96e1f2d0274423a",
+    "scale-started-at.txt": "f38969ae9a34647c178cd77fed75c50a4d30058bd5061a69ca5d83a4816b09f2",
+    "source-commit.txt": "48236e63cffddfcaccbd10a19e19df9efe091fdad7b1867c126472ea3083b130",
+    "targets/ewallet-agents-drift-mcp.json": "44bb462e58a911a2e7dd9b727a91e3c43bab397e35519ae1fcbdacd853516786",
+    "targets/ewallet-agents-drift-specialist.json": "d71b9d088e9747168e38424db0f3a2ea77a49d3340830319ea8407e85b9fbc64",
+    "targets/ewallet-agents-feature-rag-specialist.json": "e8f0a55063520f807ca0c588cb2d6544488871f05300e9eeb20aa637ef7e83f7",
+    "targets/ewallet-agents-fraud-coordinator.json": "a76b9b3360af273e0c837b93baea0509d3ad3bb1773194a744ba99e7c83b16e2",
+    "targets/ewallet-mcp-drift-mcp.json": "4c79e14cc412e79644479e06c7c4177a58248cc47890e39598740eb9c43e3a01",
+    "targets/restore-replicas.json": "fa094fd37ffd7b7f06126d8802baf98b19769ab787b20eef6b9ce80ab7d37e26",
+    "wake-full-dry-run.txt": "4eb68dd208af785901fa9ec5e5b4b2cacdba50764b16e471cb3a14bda1c864ad",
+    "wake-minimal-mcp-fallback-dry-run.txt": "be4abcba3d99725051d80b62d8d97b5ce125c8fbcf9d5726421ea19c176d132e",
+    "workload-requests.json": "171d5e94b6c68ff303e8ef685b40fe7226e7e58ce523f04257411c72e4e0df83",
+    "workloads.json": "509d07ae1fe00269f3f5b7445c0f91ff0a0961d1fbded5d8e41cac69177feecf"
+  }
+}

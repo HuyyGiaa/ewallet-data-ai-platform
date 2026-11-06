@@ -1,0 +1,562 @@
+[
+ {
+  "namespace": "ate-system",
+  "name": "ate-api-server-deployment",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ate-system",
+  "name": "ate-controller",
+  "pods": 1,
+  "cpu_m": 25.0,
+  "mem_mi": 64.0,
+  "max_pod_cpu_m": 25.0
+ },
+ {
+  "namespace": "ate-system",
+  "name": "atenet-router",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ate-system",
+  "name": "dns",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ate-system",
+  "name": "rustfs",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ate-system",
+  "name": "valkey-cluster",
+  "pods": 6,
+  "cpu_m": 150.0,
+  "mem_mi": 384.0,
+  "max_pod_cpu_m": 25.0
+ },
+ {
+  "namespace": "cert-manager",
+  "name": "cert-manager",
+  "pods": 1,
+  "cpu_m": 20.0,
+  "mem_mi": 64.0,
+  "max_pod_cpu_m": 20.0
+ },
+ {
+  "namespace": "cert-manager",
+  "name": "cert-manager-cainjector",
+  "pods": 1,
+  "cpu_m": 20.0,
+  "mem_mi": 64.0,
+  "max_pod_cpu_m": 20.0
+ },
+ {
+  "namespace": "cert-manager",
+  "name": "cert-manager-webhook",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 32.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "a2a-gateway",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 64.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "agentgateway",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "coordinator-idempotency-redis",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "drift-mcp",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "drift-specialist",
+  "pods": 2,
+  "cpu_m": 200.0,
+  "mem_mi": 512.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "feature-rag-specialist",
+  "pods": 2,
+  "cpu_m": 200.0,
+  "mem_mi": 512.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "fraud-coordinator",
+  "pods": 2,
+  "cpu_m": 200.0,
+  "mem_mi": 512.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "grafana",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "loki",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "mcp-gateway",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 64.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "observability-alloy",
+  "pods": 1,
+  "cpu_m": 20.0,
+  "mem_mi": 64.0,
+  "max_pod_cpu_m": 20.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "otel-collector",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "prometheus",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "tempo",
+  "pods": 1,
+  "cpu_m": 50.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 50.0
+ },
+ {
+  "namespace": "ewallet-agents",
+  "name": "vllm-primary",
+  "pods": 1,
+  "cpu_m": 2000.0,
+  "mem_mi": 6144.0,
+  "max_pod_cpu_m": 2000.0
+ },
+ {
+  "namespace": "ewallet-ci",
+  "name": "jenkins",
+  "pods": 1,
+  "cpu_m": 1000.0,
+  "mem_mi": 2048.0,
+  "max_pod_cpu_m": 1000.0
+ },
+ {
+  "namespace": "ewallet-mcp",
+  "name": "drift-mcp",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-mcp",
+  "name": "feature-rag-mcp",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-prompts",
+  "name": "prompt-registry-agentregistry",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ewallet-prompts",
+  "name": "prompt-registry-db",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 192.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "feature-store",
+  "name": "redis",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 512.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "fraud-serving",
+  "name": "fraud-detector-predictor",
+  "pods": 1,
+  "cpu_m": 250.0,
+  "mem_mi": 768.0,
+  "max_pod_cpu_m": 250.0
+ },
+ {
+  "namespace": "gke-managed-cim",
+  "name": "kube-state-metrics",
+  "pods": 1,
+  "cpu_m": 105.0,
+  "mem_mi": 130.0,
+  "max_pod_cpu_m": 105.0
+ },
+ {
+  "namespace": "gmp-system",
+  "name": "gmp-operator",
+  "pods": 1,
+  "cpu_m": 1.0,
+  "mem_mi": 15.2587890625,
+  "max_pod_cpu_m": 1.0
+ },
+ {
+  "namespace": "istio-system",
+  "name": "istiod",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "kagent",
+  "name": "kagent-controller",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "kagent",
+  "name": "kagent-postgresql",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 128.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "kagent",
+  "name": "kagent-ui",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "kagent-pilot",
+  "name": "kagent-pilot-deployment",
+  "pods": 1,
+  "cpu_m": 500.0,
+  "mem_mi": 1024.0,
+  "max_pod_cpu_m": 500.0
+ },
+ {
+  "namespace": "kagent-pilot",
+  "name": "mock-openai",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 32.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kserve",
+  "name": "kserve-controller-manager",
+  "pods": 1,
+  "cpu_m": 200.0,
+  "mem_mi": 600.0,
+  "max_pod_cpu_m": 200.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "calico-node-vertical-autoscaler",
+  "pods": 1,
+  "cpu_m": 0.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 0.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "calico-typha",
+  "pods": 2,
+  "cpu_m": 400.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 200.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "calico-typha-horizontal-autoscaler",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "calico-typha-vertical-autoscaler",
+  "pods": 1,
+  "cpu_m": 0.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 0.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "event-exporter-gke",
+  "pods": 1,
+  "cpu_m": 3.0,
+  "mem_mi": 100.0,
+  "max_pod_cpu_m": 3.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "filestore-lock-release-controller",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 40.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "konnectivity-agent",
+  "pods": 4,
+  "cpu_m": 60.0,
+  "mem_mi": 240.0,
+  "max_pod_cpu_m": 15.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "konnectivity-agent-autoscaler",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 9.5367431640625,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-dns",
+  "pods": 2,
+  "cpu_m": 220.0,
+  "mem_mi": 230.0,
+  "max_pod_cpu_m": 110.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "kube-dns-autoscaler",
+  "pods": 1,
+  "cpu_m": 20.0,
+  "mem_mi": 10.0,
+  "max_pod_cpu_m": 20.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "l7-default-backend",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 20.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kube-system",
+  "name": "metrics-server-v1.36.0",
+  "pods": 1,
+  "cpu_m": 43.0,
+  "mem_mi": 55.0,
+  "max_pod_cpu_m": 43.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "cache-deployer-deployment",
+  "pods": 1,
+  "cpu_m": 0.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 0.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "cache-server",
+  "pods": 1,
+  "cpu_m": 0.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 0.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "controller-manager",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 20.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "metadata-envoy-deployment",
+  "pods": 1,
+  "cpu_m": 0.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 0.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "metadata-grpc-deployment",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 16.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "metadata-writer",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 16.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "ml-pipeline",
+  "pods": 1,
+  "cpu_m": 250.0,
+  "mem_mi": 500.0,
+  "max_pod_cpu_m": 250.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "ml-pipeline-persistenceagent",
+  "pods": 1,
+  "cpu_m": 120.0,
+  "mem_mi": 500.0,
+  "max_pod_cpu_m": 120.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "ml-pipeline-scheduledworkflow",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 16.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "ml-pipeline-ui",
+  "pods": 1,
+  "cpu_m": 10.0,
+  "mem_mi": 70.0,
+  "max_pod_cpu_m": 10.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "ml-pipeline-viewer-crd",
+  "pods": 1,
+  "cpu_m": 0.0,
+  "mem_mi": 0.0,
+  "max_pod_cpu_m": 0.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "ml-pipeline-visualizationserver",
+  "pods": 1,
+  "cpu_m": 30.0,
+  "mem_mi": 500.0,
+  "max_pod_cpu_m": 30.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "mysql",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 800.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "seaweedfs",
+  "pods": 1,
+  "cpu_m": 64.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 64.0
+ },
+ {
+  "namespace": "kubeflow",
+  "name": "workflow-controller",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 500.0,
+  "max_pod_cpu_m": 100.0
+ },
+ {
+  "namespace": "ml-platform",
+  "name": "fraud-api",
+  "pods": 1,
+  "cpu_m": 250.0,
+  "mem_mi": 512.0,
+  "max_pod_cpu_m": 250.0
+ },
+ {
+  "namespace": "ml-platform",
+  "name": "mlflow",
+  "pods": 1,
+  "cpu_m": 250.0,
+  "mem_mi": 1024.0,
+  "max_pod_cpu_m": 250.0
+ },
+ {
+  "namespace": "ml-platform",
+  "name": "mlflow-postgresql",
+  "pods": 1,
+  "cpu_m": 100.0,
+  "mem_mi": 256.0,
+  "max_pod_cpu_m": 100.0
+ }
+]

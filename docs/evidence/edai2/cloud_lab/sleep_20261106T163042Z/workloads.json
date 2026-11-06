@@ -1,0 +1,2366 @@
+[
+  {
+    "kind": "Deployment",
+    "namespace": "ate-system",
+    "name": "ate-api-server-deployment",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ate-api-server",
+        "image": "ghcr.io/kagent-dev/substrate/ateapi:v0.0.9@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85"
+      },
+      {
+        "name": "assemble-cred-bundle",
+        "image": "busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ate-system",
+    "name": "ate-controller",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ate-controller",
+        "image": "ghcr.io/kagent-dev/substrate/atecontroller:v0.0.9@sha256:dc29e79987fe4177b92c8b30a4fa4f36f3cf1a80937b03a7a8cd3411f98693e5"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ate-system",
+    "name": "atenet-router",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "atenet-router",
+        "image": "ghcr.io/kagent-dev/substrate/atenet:v0.0.9@sha256:15892218c70e736bca06bd9f1134425897f8b9c265428f932de5d6d779e9452a"
+      },
+      {
+        "name": "agentgateway",
+        "image": "cr.agentgateway.dev/agentgateway:v1.3.0-alpha.1@sha256:95e8d849c44ba31399daf504367ecfcfe2d3d3e59ffd96b1098234353afc3ef7"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ate-system",
+    "name": "dns",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "coredns",
+        "image": "coredns/coredns:1.11.1@sha256:1eeb4c7316bacb1d4c8ead65571cd92dd21e27359f0d4917f1a5822a73b75db1"
+      },
+      {
+        "name": "dns-controller",
+        "image": "ghcr.io/kagent-dev/substrate/atenet:v0.0.9@sha256:15892218c70e736bca06bd9f1134425897f8b9c265428f932de5d6d779e9452a"
+      },
+      {
+        "name": "init-dns",
+        "image": "busybox:1.36@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ate-system",
+    "name": "rustfs",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "rustfs",
+        "image": "rustfs/rustfs:1.0.0-beta.3@sha256:378642b05b7dcb4849fb77ebe6aca4ced1c3f66e7e504247df95a5c9018d3358"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "cert-manager",
+    "name": "cert-manager",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "cert-manager-controller",
+        "image": "quay.io/jetstack/cert-manager-controller:v1.16.2"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "cert-manager",
+    "name": "cert-manager-cainjector",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "cert-manager-cainjector",
+        "image": "quay.io/jetstack/cert-manager-cainjector:v1.16.2"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "cert-manager",
+    "name": "cert-manager-webhook",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "cert-manager-webhook",
+        "image": "quay.io/jetstack/cert-manager-webhook:v1.16.2"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "a2a-gateway",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "agentgateway",
+        "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "agentgateway",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "agentgateway",
+        "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "drift-mcp",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "mcp-server",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "drift-specialist",
+    "replicas": 2,
+    "ready": 2,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "kagent",
+        "image": "ghcr.io/kagent-dev/kagent/golang-adk:0.10.3@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "feature-rag-specialist",
+    "replicas": 2,
+    "ready": 2,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "kagent",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:5f848a1ce7942f4fd5027264bc54c3164d09065d3c8932fcd4a93bce8db57606"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "fraud-coordinator",
+    "replicas": 2,
+    "ready": 2,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "kagent",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "grafana",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "grafana",
+        "image": "docker.io/grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "loki",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "loki",
+        "image": "docker.io/grafana/loki:3.5.7@sha256:bf26399a58b4719387b06abfd024ebca942d702b2e77cc600fa3439356584c73"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "mcp-gateway",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "agentgateway",
+        "image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "observability-alloy",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "alloy",
+        "image": "docker.io/grafana/alloy:v1.11.3@sha256:8c7256f412feb9f5f48f9f6f9394dc97ca887f63dea9304f347970ecc1787669"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "otel-collector",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "otel-collector",
+        "image": "docker.io/otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "prometheus",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "prometheus",
+        "image": "docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "tempo",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "tempo",
+        "image": "docker.io/grafana/tempo:2.8.2@sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "vllm-fallback",
+    "replicas": 0,
+    "ready": null,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "vllm",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-agents",
+    "name": "vllm-primary",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "vllm",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-ci",
+    "name": "jenkins",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "jenkins",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-controller@sha256:9c301d1a7fa4e8a6a2de8eafbc85c664eda292c6170f1168f71982c1fee5565d"
+      },
+      {
+        "name": "immutable-source",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-source-snapshot@sha256:76d9aaa8681aea993a160ca971971ffc5eaf6c76783ec8e28e61d43a3cecae71"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-mcp",
+    "name": "drift-mcp",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "mcp-server",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-mcp",
+    "name": "feature-rag-mcp",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "mcp-server",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-prompts",
+    "name": "prompt-registry-agentregistry",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "agentregistry",
+        "image": "ghcr.io/agentregistry-dev/agentregistry/server@sha256:a2f69bd36fcdb8000d9a72fd6eef88f0c4aebc17ff3c55ea3ed174ae0bb12e3c"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ewallet-prompts",
+    "name": "prompt-registry-db",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "postgres",
+        "image": "docker.io/library/postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "fraud-serving",
+    "name": "fraud-detector-predictor",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "kserve-container",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "gmp-system",
+    "name": "gmp-operator",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "operator",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/operator:v0.18.2-gke.1@sha256:4fb99ed113ea8b9bd7a869e198def79b01c038e490270ca4e6709c0ac5b61091"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "gmp-system",
+    "name": "rule-evaluator",
+    "replicas": 0,
+    "ready": null,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "evaluator",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/rule-evaluator:v0.18.2-gke.1@sha256:5a10dfbd9ea594765e1348effb64f2f09f7695ddf5b414d33b365d35f1e63279"
+      },
+      {
+        "name": "config-reloader",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/config-reloader:v0.18.2-gke.1@sha256:639d8d8b5ed224515ee0c1a52f579db56fd5a66ad62a4a165acce19006845324"
+      },
+      {
+        "name": "config-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-distroless/bash:gke_distroless_20260801.00_p0@sha256:6932cae5fba1e02cd6b8e8ed699f32633f9ddff3641d1b6da6b5e952d0fa04ec"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260806.00_p0@sha256:cad0ef7ed512d508cb5c77d8603c5b4182a9389375907472746165433bb42d70"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "istio-system",
+    "name": "istiod",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "discovery",
+        "image": "registry.istio.io/release/pilot:1.30.7-distroless"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kagent-pilot",
+    "name": "kagent-pilot-deployment",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ateom",
+        "image": "ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kagent-pilot",
+    "name": "mock-openai",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "mock-openai",
+        "image": "python:3.12.12-alpine3.22@sha256:848ba4413eb897e225159b8fc1b02094576cbae4aa73fc13142608ae2c8c0e32"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kagent",
+    "name": "kagent-controller",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "controller",
+        "image": "ghcr.io/kagent-dev/kagent/controller:0.10.3@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kagent",
+    "name": "kagent-postgresql",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "postgresql",
+        "image": "docker.io/library/postgres:18.6-alpine3.23@sha256:1a0c23d53c1ad77468c8653fa6eed4f4105cfbef9e6f027bc1dfeb16949a8c29"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kagent",
+    "name": "kagent-ui",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "ewallet.io/g3-llm": "true"
+    },
+    "images": [
+      {
+        "name": "ui",
+        "image": "ghcr.io/kagent-dev/kagent/ui:0.10.3@sha256:13f62914b66e19d394eea5fe04db85f689457ad582ef6b2ebd3bb44ec01a1127"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kserve",
+    "name": "kserve-controller-manager",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "kube-rbac-proxy",
+        "image": "quay.io/brancz/kube-rbac-proxy:v0.18.0"
+      },
+      {
+        "name": "manager",
+        "image": "kserve/kserve-controller:v0.16.0"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "autoscaling-metrics-adapter",
+    "replicas": 0,
+    "ready": null,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "autoscaling-metrics-adapter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-adapter:vpa-0.27.0-gke.19@sha256:cf8f2ce5430e6b596e2242181c1f0b6bd9cc21ec563648855cc88f21ed241597"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260312.00_p0@sha256:d31f982e00598633fd2e94787f76894e29e80a3d87f5e15eacfc42b40e866de8"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "calico-node-vertical-autoscaler",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cpvpa:v0.8.9-gke.47@sha256:82fa4901131b100222404fb357027ab46fbd59825a9116399bf0b63e7342e896"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "calico-typha",
+    "replicas": 2,
+    "ready": 2,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "calico-typha",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/typha:v3.30.4-gke.4@sha256:cb83a36ea55ea8d0046076bab45aab0cce64e7d9609754f0816628cc17adb44e"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "calico-typha-horizontal-autoscaler",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cluster-proportional-autoscaler:v1.10.2-gke.42@sha256:d1b254f8c2dd0c7bdb450a62d6d249d7d767a2ae691e3aa6335cc05e6e12d38a"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "calico-typha-vertical-autoscaler",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cpvpa:v0.8.9-gke.47@sha256:82fa4901131b100222404fb357027ab46fbd59825a9116399bf0b63e7342e896"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "event-exporter-gke",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "event-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/event-exporter:event-exporter-v0.5.12-gke.16@sha256:28cb2c4309acbb1ad4ca27b9515ff084e0a10d1f8c0eb3bb2f5e33f86d0f1876"
+      },
+      {
+        "name": "prometheus-to-sd-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-to-sd:v0.12.4-gke.27@sha256:23c60c0b979b91c95db2ac95586eccdea00e3602535757ac080dc1a0d75f2fec"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260921.00_p0@sha256:ca29e9a45d59cbae0aa7e3a74626445f9b1e0eb03b5affb3bb6c505380fcc8c2"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "filestore-lock-release-controller",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "filestore-lock-release-controller",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver-lockrelease:v1.13.1-gke.8@sha256:e772e101adbfac98d9cdbfc387ec6a4381b8edbbc75fd1f5dba2412533c89459"
+      },
+      {
+        "name": "filestorecsi-lockrelease-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260624_2300_RC0@sha256:27f154d202c98b023ed5ee712d24cba94673d3582957d5b747773bf66ca393e1"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260412.00_p0@sha256:10a31e4c4338b37a10dbf4dfeaabd58a95b711e59abb740de628c32748184831"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "konnectivity-agent",
+    "replicas": 4,
+    "ready": 4,
+    "desired": null,
+    "nodeSelector": {
+      "beta.kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "konnectivity-agent",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/proxy-agent:v0.36.0-gke.0@sha256:acd3bd37494c1ea2debc2ae0bfbeb4557830c674fa67bf8801b6e8703e3d595a"
+      },
+      {
+        "name": "konnectivity-agent-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260812_2300_RC0@sha256:ce9d6a1f370bac57b039d55e17ed566bca054ba8a526b38a56629d8c143429de"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "konnectivity-agent-autoscaler",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "beta.kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cluster-proportional-autoscaler:v1.10.3-gke.17@sha256:5ea0bfb4e7a45e7387b4d9998d3242c57dec27031cf3def6220d4df866505ad4"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "kube-dns",
+    "replicas": 2,
+    "ready": 2,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "kubedns",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kubedns:v0.0.7-gke.1@sha256:b2e9370c81891c5a932adf441d050b88e9aa3491b5d9eb178db08656c1a431c6"
+      },
+      {
+        "name": "kubedns-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260806_2300_RC0@sha256:b136d6d8eb587ac10f657cbcca539dd82bb6dd8b76bc91cd1a2c3f08fafe07b8"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260806.00_p0@sha256:cad0ef7ed512d508cb5c77d8603c5b4182a9389375907472746165433bb42d70"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "kube-dns-autoscaler",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cluster-proportional-autoscaler:v1.10.3-gke.12@sha256:c48bbe90159f151ec436111ad301bc61ad18191381c04b109634afe0f6800503"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "l7-default-backend",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "default-http-backend",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/ingress-gce-404-server-with-metrics:v1.41.4@sha256:c29881165f4c6c9d0c66b9fa5df8e9a5f4d92b154f1e38c0cd1c71092606a3a4"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kube-system",
+    "name": "metrics-server-v1.36.0",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "metrics-server",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metrics-server:v0.8.0-gke.30@sha256:daa3d2c30ffd887c36d8239e5411771240a4af42186e9ce6beac48e38be844ec"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "cache-deployer-deployment",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "main",
+        "image": "ghcr.io/kubeflow/kfp-cache-deployer@sha256:97784329a5af2274097d13095ddc71f8e0c72ccad76fc4e67d40a06eb14417e7"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "cache-server",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "server",
+        "image": "ghcr.io/kubeflow/kfp-cache-server@sha256:09f16342f896b05714933661fb65bf49b4faa5f07f2414002f1e015bc8a608e0"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "controller-manager",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "manager",
+        "image": "gcr.io/ml-pipeline/application-crd-controller:20231101"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "metadata-envoy-deployment",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "container",
+        "image": "ghcr.io/kubeflow/kfp-metadata-envoy@sha256:5cc007cfa3ec2f3f9442430a66d4e65239760cae2ff66dfe576e1b2f685e0cfb"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "metadata-grpc-deployment",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "container",
+        "image": "gcr.io/tfx-oss-public/ml_metadata_store_server:1.14.0"
+      },
+      {
+        "name": "wait-for-database",
+        "image": "docker.io/alpine:3.23"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "metadata-writer",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "main",
+        "image": "ghcr.io/kubeflow/kfp-metadata-writer@sha256:fbcf3704239ee92135a7f7c82ba177c65977ab1da7044b4cc02b6de5ace698bb"
+      },
+      {
+        "name": "wait-for-metadata-grpc",
+        "image": "docker.io/alpine:3.23"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "ml-pipeline",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ml-pipeline-api-server",
+        "image": "ghcr.io/kubeflow/kfp-api-server@sha256:1e03770233cadc146df0b83a82603b93f32fc3b57bd6dcb29375e2e8d28eb605"
+      },
+      {
+        "name": "wait-for-database",
+        "image": "docker.io/alpine:3.23"
+      },
+      {
+        "name": "wait-for-metadata-grpc",
+        "image": "docker.io/alpine:3.23"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "ml-pipeline-persistenceagent",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ml-pipeline-persistenceagent",
+        "image": "ghcr.io/kubeflow/kfp-persistence-agent@sha256:c0b417e60009d058c2d342ab33424e10cf57121d9b771cca9c09dda32475c03e"
+      },
+      {
+        "name": "wait-for-ml-pipeline",
+        "image": "docker.io/alpine:3.23"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "ml-pipeline-scheduledworkflow",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ml-pipeline-scheduledworkflow",
+        "image": "ghcr.io/kubeflow/kfp-scheduled-workflow-controller@sha256:e2e5b80707955f3295e8a24c340c838f81398b988a9d73318918bea5ffdde7d8"
+      },
+      {
+        "name": "wait-for-ml-pipeline",
+        "image": "docker.io/alpine:3.23"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "ml-pipeline-ui",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ml-pipeline-ui",
+        "image": "ghcr.io/kubeflow/kfp-frontend@sha256:06d5481f404f89647ac5ee958f6665446014fdd78e6c1b195a1687ff1badf1d8"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "ml-pipeline-viewer-crd",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ml-pipeline-viewer-crd",
+        "image": "ghcr.io/kubeflow/kfp-viewer-crd-controller@sha256:2b6e0e92b99f709c11a484fbf4163fc519003d22c4f9d040f3fba862f5b69780"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "ml-pipeline-visualizationserver",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ml-pipeline-visualizationserver",
+        "image": "ghcr.io/kubeflow/kfp-visualization-server@sha256:d143f368b428c92cccf2b33c4c1b0274f8b1a14cf04f25659fe0f091e96cef6f"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "mysql",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "mysql",
+        "image": "mysql:8.4"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "seaweedfs",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "seaweedfs",
+        "image": "ghcr.io/chrislusf/seaweedfs:4.34"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "kubeflow",
+    "name": "workflow-controller",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "workflow-controller",
+        "image": "quay.io/argoproj/workflow-controller:v4.0.6"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ml-platform",
+    "name": "fraud-api",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": {
+      "iam.gke.io/gke-metadata-server-enabled": "true"
+    },
+    "images": [
+      {
+        "name": "fraud-api",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165"
+      }
+    ]
+  },
+  {
+    "kind": "Deployment",
+    "namespace": "ml-platform",
+    "name": "mlflow",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "mlflow",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mlflow:v3.17.1-gcs-postgres-1"
+      }
+    ]
+  },
+  {
+    "kind": "StatefulSet",
+    "namespace": "ate-system",
+    "name": "valkey-cluster",
+    "replicas": 6,
+    "ready": 6,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "valkey",
+        "image": "valkey/valkey:8.0@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "kind": "StatefulSet",
+    "namespace": "ewallet-agents",
+    "name": "coordinator-idempotency-redis",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "redis",
+        "image": "docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"
+      }
+    ]
+  },
+  {
+    "kind": "StatefulSet",
+    "namespace": "feature-store",
+    "name": "redis",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "redis",
+        "image": "redis@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"
+      }
+    ]
+  },
+  {
+    "kind": "StatefulSet",
+    "namespace": "gke-managed-cim",
+    "name": "kube-state-metrics",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "kube-state-metrics",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kube-state-metrics:v2.14.0-gke.67@sha256:b96a02c2a2a4d2039c8255a98db785a3aa5b55f0345bed25d635e11c95727973"
+      },
+      {
+        "name": "ksm-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260113_2300_RC0@sha256:5eb81dc265af031294a413a32fde1b59d5b8480e3f131a09b5a1059294aefd99"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "StatefulSet",
+    "namespace": "gmp-system",
+    "name": "alertmanager",
+    "replicas": 0,
+    "ready": null,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "alertmanager",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/alertmanager:v0.27.0-gmp.8-gke.1@sha256:e30d86ce6f6d8a3e510edbc14a66bac14c0d0b9a5d193f07ab60048820a7646b"
+      },
+      {
+        "name": "config-reloader",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/config-reloader:v0.18.2-gke.1@sha256:639d8d8b5ed224515ee0c1a52f579db56fd5a66ad62a4a165acce19006845324"
+      },
+      {
+        "name": "config-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-distroless/bash:gke_distroless_20260801.00_p0@sha256:6932cae5fba1e02cd6b8e8ed699f32633f9ddff3641d1b6da6b5e952d0fa04ec"
+      }
+    ]
+  },
+  {
+    "kind": "StatefulSet",
+    "namespace": "ml-platform",
+    "name": "mlflow-postgresql",
+    "replicas": 1,
+    "ready": 1,
+    "desired": null,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "postgresql",
+        "image": "postgres@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "ate-system",
+    "name": "atelet",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "atelet",
+        "image": "ghcr.io/kagent-dev/substrate/atelet:v0.0.9@sha256:ec3e842a1a0a060192710c34be83354d0b45e8d0e40342384d3b836413c3c8e1"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "gke-managed-networking-dra-driver",
+    "name": "networking-dra-driver",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "dranet",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/dranet:v1.4.0-gke.9@sha256:fc88f4cdd09e7640cc515eaa46f9d901b4d44b1f9fd0b35b6873bdb46d220aeb"
+      },
+      {
+        "name": "dranet-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260715_2300_RC0@sha256:895525165d76fc5fb877f162ea85da94d510e45058a1d8d906ecd0e07331f2eb"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260715.00_p0@sha256:b44d36fb4dc448f383b9daf99abb0dcef8ba1b9680a171d5a9a94f578a3d6a7a"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "gke-managed-system",
+    "name": "dcgm-exporter",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "dcgm-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia/gke-dcgm-exporter:4.4.1-4.6.0-gke.30@sha256:20c7227d71789a07c51c95e54505ccbe418eaa2d3ed1678308745cb73b11b126"
+      },
+      {
+        "name": "nvml-wait",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-distroless/bash:gke_distroless_20260915.00_p0@sha256:c0106fc52b72e2d4df67915b492d5daa85934b1a71d66de3656712ce95aa09a9"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "gmp-system",
+    "name": "collector",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "prometheus",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/prometheus:v2.53.5-gmp.7-gke.0@sha256:e9d39fbb1b191aa85afa902d5dc368d5ae33105ae501a4211c7e178121ae5c68"
+      },
+      {
+        "name": "config-reloader",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/config-reloader:v0.18.2-gke.1@sha256:639d8d8b5ed224515ee0c1a52f579db56fd5a66ad62a4a165acce19006845324"
+      },
+      {
+        "name": "config-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-distroless/bash:gke_distroless_20260801.00_p0@sha256:6932cae5fba1e02cd6b8e8ed699f32633f9ddff3641d1b6da6b5e952d0fa04ec"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260806.00_p0@sha256:cad0ef7ed512d508cb5c77d8603c5b4182a9389375907472746165433bb42d70"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "istio-system",
+    "name": "istio-cni-node",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "install-cni",
+        "image": "registry.istio.io/release/install-cni:1.30.7-distroless"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "istio-system",
+    "name": "ztunnel",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "istio-proxy",
+        "image": "registry.istio.io/release/ztunnel:1.30.7-distroless"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "ai-telemetry-collector",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "ai-telemetry-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/ai-telemetry-collector@sha256:dbcc8afb2d7c98f520f32ccb319cdbcf94fe7f5faab4bbfc7dae7d1fff2dd817"
+      },
+      {
+        "name": "acs-agent",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/acs_agent@sha256:2c2cad2eff5811c906334bced6a00b6f938d4308a26921bab9f5fc7d7ef445fb"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260422.00_p0@sha256:4ceac22ea251c0996e6f58165c9b79b44bd98de251a4b38ffaf072a89974671c"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "calico-node",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux",
+      "projectcalico.org/ds-ready": "true"
+    },
+    "images": [
+      {
+        "name": "calico-node",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/node:v3.30.4-gke.4@sha256:8afe4a3f08887342787d052c5483e8ffda6c99e783ac068d53ac1f251cbce520"
+      },
+      {
+        "name": "install-cni-template",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/netd-init:v0.10.11-gke.13@sha256:b94c20fa3e8ea7f6f9af0aa05849600ff266ad8de0138779ecd2928d88f24aba"
+      },
+      {
+        "name": "install-cni",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/cni:v3.30.4-gke.4@sha256:fc5a67eb2a18cdf16b25dd0c2ea3638a9166e5ca2d9da1360b55c2a45fff38e9"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "efficiency-daemon",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "efficiency-daemon",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/efficiency-daemon:v36.3.0-gke.13@sha256:b60c03ac3c5f35e85e99a93b1a0bb611efe7f189c67902b0608fe43ffd04605f"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "filestore-node",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "gcp-filestore-driver",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver:v1.13.1-gke.8@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      },
+      {
+        "name": "csi-driver-registrar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar:v2.15.0-gke.49@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "nfs-services",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver:v1.13.1-gke.8@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      },
+      {
+        "name": "filestorecsi-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260624_2300_RC0@sha256:27f154d202c98b023ed5ee712d24cba94673d3582957d5b747773bf66ca393e1"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260412.00_p0@sha256:10a31e4c4338b37a10dbf4dfeaabd58a95b711e59abb740de628c32748184831"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "fluentbit-gke",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "metadata-server-sidecar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar:v1.0.8-gke.8@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      },
+      {
+        "name": "fluentbit",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit:v4.2.8-gke.0@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260729_2300_RC0@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      },
+      {
+        "name": "load-lua-filters",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluentbit-lua-filters:20251026_2300_RC0@sha256:f04269dd6288185b5163533dcaf324e4388a7607bd99c85f1d13446d5e839c17"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "fluentbit-gke-256pd",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "metadata-server-sidecar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar:v1.0.8-gke.8@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      },
+      {
+        "name": "fluentbit",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit:v4.2.8-gke.0@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260729_2300_RC0@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      },
+      {
+        "name": "load-lua-filters",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluentbit-lua-filters:20251026_2300_RC0@sha256:f04269dd6288185b5163533dcaf324e4388a7607bd99c85f1d13446d5e839c17"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "fluentbit-gke-managed-node-big",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "metadata-server-sidecar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar:v1.0.8-gke.8@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      },
+      {
+        "name": "fluentbit",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit:v4.2.8-gke.0@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260729_2300_RC0@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      },
+      {
+        "name": "load-lua-filters",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluentbit-lua-filters:20251026_2300_RC0@sha256:f04269dd6288185b5163533dcaf324e4388a7607bd99c85f1d13446d5e839c17"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "fluentbit-gke-managed-node-small",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "metadata-server-sidecar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar:v1.0.8-gke.8@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      },
+      {
+        "name": "fluentbit",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit:v4.2.8-gke.0@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260729_2300_RC0@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      },
+      {
+        "name": "load-lua-filters",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluentbit-lua-filters:20251026_2300_RC0@sha256:f04269dd6288185b5163533dcaf324e4388a7607bd99c85f1d13446d5e839c17"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "fluentbit-gke-max",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "metadata-server-sidecar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar:v1.0.8-gke.8@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      },
+      {
+        "name": "fluentbit",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit:v4.2.8-gke.0@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260729_2300_RC0@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      },
+      {
+        "name": "load-lua-filters",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluentbit-lua-filters:20251026_2300_RC0@sha256:f04269dd6288185b5163533dcaf324e4388a7607bd99c85f1d13446d5e839c17"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metadata-server",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "iam.gke.io/gke-metadata-server-enabled": "true",
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "gke-metadata-server",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metadata-server:gke_metadata_server_20260105.01_p0@sha256:771b053eff4767719771339d4e2cec6301ecd2ae56649d8945651e6687ca56dd"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20251006.01_p0@sha256:9042573fdb0db543b09002011fd5231eb1b0799bc345f40bd39454deaef0f7ab"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter:autoscaling-0.3.1-gke.0@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent:1.16.3-gke.0@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260513_2300_RC0@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent-scaling-10",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter:autoscaling-0.3.1-gke.0@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent:1.16.3-gke.0@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260513_2300_RC0@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent-scaling-100",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter:autoscaling-0.3.1-gke.0@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent:1.16.3-gke.0@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260513_2300_RC0@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent-scaling-20",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter:autoscaling-0.3.1-gke.0@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent:1.16.3-gke.0@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260513_2300_RC0@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent-scaling-200",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter:autoscaling-0.3.1-gke.0@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent:1.16.3-gke.0@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260513_2300_RC0@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent-scaling-50",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter:autoscaling-0.3.1-gke.0@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent:1.16.3-gke.0@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260513_2300_RC0@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent-scaling-500",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter:autoscaling-0.3.1-gke.0@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent:1.16.3-gke.0@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260513_2300_RC0@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "gke-metrics-agent-windows",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "windows"
+    },
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/autoscaling-metrics-exporter-windows:autoscaling-0.3.1-gke.0@sha256:0f7c49ff500c7de30dd7533bcc870d6e5be79a72c773bbbecc1337fbfb1ee40d"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-agent-windows:1.16.3-gke.0@sha256:8a1fa341b8c43fe1f5ad942d112d1f650db1b2e765b0210a7d470c51f6df3d4c"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector-win:20260513_2300_RC0@sha256:779b1dccf0212869fd04d2bd3c0019db8db0f9f54835c00b4418f039e3e3d126"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "ip-masq-agent",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux",
+      "node.kubernetes.io/masq-agent-ds-ready": "true"
+    },
+    "images": [
+      {
+        "name": "ip-masq-agent",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/ip-masq-agent:v2.12.6-gke.37@sha256:11cf68731522f1a5cc6e48ac88094dc02374b5d6598dfae24eef2201aa67d1db"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "kube-proxy",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux",
+      "node.kubernetes.io/kube-proxy-ds-ready": "true"
+    },
+    "images": [
+      {
+        "name": "kube-proxy",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kube-proxy:v1.36.4-gke.2046003"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "maintenance-handler",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "maintenance-handler",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gpu-maintenance-handler:v1.36.4-gke.2@sha256:337e5168938cd884128ec35270a030e27eec00f4f78e51f808a2a6a9c694ff9b"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260429.00_p0@sha256:d77d81844167eef1002b6a95bcf6f7ad1968025fbf8f50eddf146cd36acf1701"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "metadata-proxy-v0.1",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "cloud.google.com/metadata-proxy-ready": "true",
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "metadata-proxy",
+        "image": "k8s.gcr.io/metadata-proxy:v0.1.12"
+      },
+      {
+        "name": "prometheus-to-sd-exporter",
+        "image": "gke.gcr.io/prometheus-to-sd:v0.11.1-gke.1"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "nccl-fastsocket-installer",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "pause",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/pause:3.10@sha256:bcbd57ba5653580ec647b16d8163cdd1112df3609129b01f912a8032e48265da"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20251109.00_p0@sha256:24ad8fb10c47cd3622ea2978823cad8ee55b4295dfbcf5a4d0448cbbfc7c3e10"
+      },
+      {
+        "name": "nccl-fastsocket-installer",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fastsocket-installer:1.33.8-gke.3@sha256:2d0605756bf5bd4de984897c9d324060226028d1f8ffb99854d4b16acec0568a"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "netd",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "cloud.google.com/gke-netd-ready": "true",
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "netd",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/netd:v0.10.13-gke.8@sha256:317aa377a6a032c431482e195ed9af5caa9ad210ad1a5e4f1add745b6ca8b46e"
+      },
+      {
+        "name": "netd-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260407_2300_RC0@sha256:f3ae56b3050cec25b87f55c85966cb6728430ee590130425008dd50b6e0cc9ab"
+      },
+      {
+        "name": "install-cni",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/netd-init:v0.10.13-gke.8@sha256:3e7115501e35f566926bed9d66bd6bfe113a653fb9119af2539efb50efe99a52"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260410.00_p0@sha256:48b18ce5260a479f47611fdff76075e816422c28dce0cab772ba627c508159b4"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "node-local-dns",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "addon.gke.io/node-local-dns-ds-ready": "true"
+    },
+    "images": [
+      {
+        "name": "node-cache",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/k8s-dns-node-cache:1.26.8-gke.25@sha256:3fab05ccac52d8d9d12704fe2f327bdcb596db95a89d21fef8a09f9c9451fe42"
+      },
+      {
+        "name": "nodelocaldns-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260615_2300_RC0@sha256:8bf062528b5f35bccc1cf839a00f9b73b74978aac0bc4ee5aaa2d674ca742a58"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260615.00_p0@sha256:a8f60049c80dd59f3de2aa42ec69747eacc21fcfeff310435951b6d2695c3231"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "nvidia-gpu-device-plugin-large-cos",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "nvidia-gpu-device-plugin",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-gpu-device-plugin:v1.36.4-gke.0@sha256:3b867e551de7a873971bb5aeabcc058dac9f6b58059011d3c1a5e2fde387cce2"
+      },
+      {
+        "name": "nvidia-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260921_2301_RC0@sha256:d0bedd3fa871342afac4b9a183c9cb96fdbc2e538bda078cdb04d985589a8297"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260514.00_p0@sha256:fa469114bebd83ef87fb90f8da5a4a6577a57e743be104a156cfb297750270e5"
+      },
+      {
+        "name": "nvidia-driver-installer",
+        "image": "cos-nvidia-installer:fixed"
+      },
+      {
+        "name": "partition-gpus",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-partition-gpu:v1.36.4-gke.0@sha256:1f97e3a067fd3907356503cdff44ba64ccc73e8b036db7dd2f60549b057ec102"
+      },
+      {
+        "name": "nvidia-persistenced-installer",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-persistenced-installer:v1.36.4-gke.0@sha256:e07c5e50994c71cbfa1342f651ac135ec309d64af5d58d4c38c98e94fab4c104"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "nvidia-gpu-device-plugin-large-ubuntu",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "nvidia-gpu-device-plugin",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-gpu-device-plugin:v1.36.4-gke.0@sha256:3b867e551de7a873971bb5aeabcc058dac9f6b58059011d3c1a5e2fde387cce2"
+      },
+      {
+        "name": "nvidia-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260921_2301_RC0@sha256:d0bedd3fa871342afac4b9a183c9cb96fdbc2e538bda078cdb04d985589a8297"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260514.00_p0@sha256:fa469114bebd83ef87fb90f8da5a4a6577a57e743be104a156cfb297750270e5"
+      },
+      {
+        "name": "nvidia-driver-installer",
+        "image": "gke-nvidia-installer:fixed"
+      },
+      {
+        "name": "partition-gpus",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-partition-gpu:v1.36.4-gke.0@sha256:1f97e3a067fd3907356503cdff44ba64ccc73e8b036db7dd2f60549b057ec102"
+      },
+      {
+        "name": "nvidia-persistenced-installer",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-persistenced-installer:v1.36.4-gke.0@sha256:e07c5e50994c71cbfa1342f651ac135ec309d64af5d58d4c38c98e94fab4c104"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "nvidia-gpu-device-plugin-medium-cos",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "nvidia-gpu-device-plugin",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-gpu-device-plugin:v1.36.4-gke.0@sha256:3b867e551de7a873971bb5aeabcc058dac9f6b58059011d3c1a5e2fde387cce2"
+      },
+      {
+        "name": "nvidia-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260921_2301_RC0@sha256:d0bedd3fa871342afac4b9a183c9cb96fdbc2e538bda078cdb04d985589a8297"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260514.00_p0@sha256:fa469114bebd83ef87fb90f8da5a4a6577a57e743be104a156cfb297750270e5"
+      },
+      {
+        "name": "nvidia-driver-installer",
+        "image": "cos-nvidia-installer:fixed"
+      },
+      {
+        "name": "partition-gpus",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-partition-gpu:v1.36.4-gke.0@sha256:1f97e3a067fd3907356503cdff44ba64ccc73e8b036db7dd2f60549b057ec102"
+      },
+      {
+        "name": "nvidia-persistenced-installer",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-persistenced-installer:v1.36.4-gke.0@sha256:e07c5e50994c71cbfa1342f651ac135ec309d64af5d58d4c38c98e94fab4c104"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "nvidia-gpu-device-plugin-medium-ubuntu",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "nvidia-gpu-device-plugin",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-gpu-device-plugin:v1.36.4-gke.0@sha256:3b867e551de7a873971bb5aeabcc058dac9f6b58059011d3c1a5e2fde387cce2"
+      },
+      {
+        "name": "nvidia-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260921_2301_RC0@sha256:d0bedd3fa871342afac4b9a183c9cb96fdbc2e538bda078cdb04d985589a8297"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260514.00_p0@sha256:fa469114bebd83ef87fb90f8da5a4a6577a57e743be104a156cfb297750270e5"
+      },
+      {
+        "name": "nvidia-driver-installer",
+        "image": "gke-nvidia-installer:fixed"
+      },
+      {
+        "name": "partition-gpus",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-partition-gpu:v1.36.4-gke.0@sha256:1f97e3a067fd3907356503cdff44ba64ccc73e8b036db7dd2f60549b057ec102"
+      },
+      {
+        "name": "nvidia-persistenced-installer",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-persistenced-installer:v1.36.4-gke.0@sha256:e07c5e50994c71cbfa1342f651ac135ec309d64af5d58d4c38c98e94fab4c104"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "nvidia-gpu-device-plugin-small-cos",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "nvidia-gpu-device-plugin",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-gpu-device-plugin:v1.36.4-gke.0@sha256:3b867e551de7a873971bb5aeabcc058dac9f6b58059011d3c1a5e2fde387cce2"
+      },
+      {
+        "name": "nvidia-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260921_2301_RC0@sha256:d0bedd3fa871342afac4b9a183c9cb96fdbc2e538bda078cdb04d985589a8297"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260514.00_p0@sha256:fa469114bebd83ef87fb90f8da5a4a6577a57e743be104a156cfb297750270e5"
+      },
+      {
+        "name": "nvidia-driver-installer",
+        "image": "cos-nvidia-installer:fixed"
+      },
+      {
+        "name": "partition-gpus",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-partition-gpu:v1.36.4-gke.0@sha256:1f97e3a067fd3907356503cdff44ba64ccc73e8b036db7dd2f60549b057ec102"
+      },
+      {
+        "name": "nvidia-persistenced-installer",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-persistenced-installer:v1.36.4-gke.0@sha256:e07c5e50994c71cbfa1342f651ac135ec309d64af5d58d4c38c98e94fab4c104"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "nvidia-gpu-device-plugin-small-ubuntu",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "nvidia-gpu-device-plugin",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-gpu-device-plugin:v1.36.4-gke.0@sha256:3b867e551de7a873971bb5aeabcc058dac9f6b58059011d3c1a5e2fde387cce2"
+      },
+      {
+        "name": "nvidia-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20260921_2301_RC0@sha256:d0bedd3fa871342afac4b9a183c9cb96fdbc2e538bda078cdb04d985589a8297"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260514.00_p0@sha256:fa469114bebd83ef87fb90f8da5a4a6577a57e743be104a156cfb297750270e5"
+      },
+      {
+        "name": "nvidia-driver-installer",
+        "image": "gke-nvidia-installer:fixed"
+      },
+      {
+        "name": "partition-gpus",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-partition-gpu:v1.36.4-gke.0@sha256:1f97e3a067fd3907356503cdff44ba64ccc73e8b036db7dd2f60549b057ec102"
+      },
+      {
+        "name": "nvidia-persistenced-installer",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/nvidia-persistenced-installer:v1.36.4-gke.0@sha256:e07c5e50994c71cbfa1342f651ac135ec309d64af5d58d4c38c98e94fab4c104"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "pdcsi-node",
+    "replicas": null,
+    "ready": null,
+    "desired": 4,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux"
+    },
+    "images": [
+      {
+        "name": "gce-pd-driver",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-compute-persistent-disk-csi-driver:v1.26.4-gke.8@sha256:34549212dc60740f9052f5c3c7b8af9c094a79834b5b61217cf41493c8d201f5"
+      },
+      {
+        "name": "pdcsi-metrics-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector:20250311_2300_RC0@sha256:e6713a8266629d9e103f7b2c7715bf510170fe28ebe2dc341327fa5e6a0facde"
+      },
+      {
+        "name": "csi-driver-registrar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar:v2.15.0-gke.49@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "pdcsi-node-windows",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "windows"
+    },
+    "images": [
+      {
+        "name": "gce-pd-driver",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-compute-persistent-disk-csi-driver:v1.26.4-gke.8@sha256:34549212dc60740f9052f5c3c7b8af9c094a79834b5b61217cf41493c8d201f5"
+      },
+      {
+        "name": "csi-driver-registrar",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar:v2.15.0-gke.49@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "runsc-metric-server",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": {
+      "kubernetes.io/os": "linux",
+      "sandbox.gke.io/runtime": "gvisor"
+    },
+    "images": [
+      {
+        "name": "runsc-metric-server",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-distroless/static:gke_distroless_20260915.00_p0@sha256:b89d24bbe74aa8bd0f2dcbcfe5e3348dd2c792bd4a03a4e57cb74c6639614540"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260827.00_p0@sha256:f61caea9fffc605b0be104ffd25607052021c1518b1bf84f2c91a09c3e93ed96"
+      }
+    ]
+  },
+  {
+    "kind": "DaemonSet",
+    "namespace": "kube-system",
+    "name": "tpu-device-plugin",
+    "replicas": null,
+    "ready": null,
+    "desired": 0,
+    "nodeSelector": null,
+    "images": [
+      {
+        "name": "tpu-device-plugin",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/tpu-device-plugin:1.36.14-gke.1@sha256:72f7129b6eb528de44e6e5ef7af9f9174a2ddae37e24103d87ebc004242bf4c1"
+      },
+      {
+        "name": "sidecar-log-collector",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-distroless/bash:gke_distroless_20260918.00_p0@sha256:8e759defab1dc06502b73bf13043c49ea24be93d86d8d599859e0d112120b21a"
+      },
+      {
+        "name": "vbar-control-agent",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/vbar_control_agent@sha256:c10ff013b916dc0cbefdd2c00f2ec4618c0a08a2ead66d379ed6b193066ec8b6"
+      },
+      {
+        "name": "token-broker-adc-init",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/node_token_broker/init:gke_node_token_broker_init_20260422.00_p0@sha256:4ceac22ea251c0996e6f58165c9b79b44bd98de251a4b38ffaf072a89974671c"
+      },
+      {
+        "name": "tpu-network-optimization",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/tpu_network_optimizer:tpu_network_optimizer_20260730.00_p0@sha256:aace058e0b7ab8aed3e02866a1a05a778b70bd2ad28550fd2e84fa0fe47dccf1"
+      }
+    ]
+  }
+]
