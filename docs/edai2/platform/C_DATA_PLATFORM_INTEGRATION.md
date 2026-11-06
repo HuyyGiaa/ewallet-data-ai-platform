@@ -17,9 +17,11 @@ without changing it. Nothing here is cloud runtime evidence, and no rubric row i
 | Redpanda, Flink | **Local Docker Compose only**; no cloud manifest existed before this work | `infra/docker/flink-benchmark/compose.yml` |
 | Dataproc | Serverless batches; no cluster, no persistent History Server | `gcloud dataproc`; `sparkHistoryServerConfig` is empty |
 
-The GKE control plane accepts two `/32` ranges, and neither was this machine's address during
-the audit, so nothing inside the cluster could be inspected. Everything in the cluster column
-comes from source, not observation. GCS and Dataproc metadata were read directly.
+This audit used the IP-allowlisted control-plane address, which did not include this machine, so
+it inspected nothing inside the cluster. The cluster was in fact reachable through its
+IAM-authenticated DNS endpoint. Everything in the cluster column therefore comes from source, not
+observation, and should be read back before it is relied on. GCS and Dataproc metadata were read
+directly.
 
 ## 2. Who writes what
 

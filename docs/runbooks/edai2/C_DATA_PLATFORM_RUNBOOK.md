@@ -19,12 +19,13 @@ export BUCKET=${PROJECT}-data
 export KUBE_CONTEXT=gke_${PROJECT}_asia-southeast1-b_ewallet-dev
 export SOURCE_SHA=$(git rev-parse HEAD)
 gcloud config get-value project          # expect ewallet-data-ai-platform-hg26
-curl -s https://api.ipify.org; echo      # this machine's address
-gcloud container clusters describe ewallet-dev --zone asia-southeast1-b --project "$PROJECT" \
-  --format='value(masterAuthorizedNetworksConfig.cidrBlocks[].cidrBlock)'
+export KUBECONFIG=$(mktemp)               # keep this credential out of your default kubeconfig
+gcloud container clusters get-credentials ewallet-dev --zone asia-southeast1-b --project "$PROJECT" \
+  --dns-endpoint
 ```
 
-If your address is not listed, `kubectl` times out. Adding it is experiment E0.
+Access goes through the cluster's DNS endpoint with IAM authentication, so this machine's address
+does not need to be on the control plane's authorized list.
 
 Once the cluster is reachable, confirm its state. **READ-ONLY.**
 
@@ -416,23 +417,11 @@ Source: the HEAD of `feature/c-data-platform-completion`.
 
 Costs are estimates from prior runs. No billing data was read.
 
-### E0: control-plane access
+### E0: not needed
 
-| Item | Detail |
-|---|---|
-| Mutation | Add this machine's `/32` to `masterAuthorizedNetworks` |
-| Blast radius | Control-plane network allowlist |
-| Cost | None |
-| Dry run | Section 1 shows current ranges |
-| Rollback | Restore the previous ranges |
-
-Keep the two existing ranges, because `--master-authorized-networks` replaces the whole list:
-
-```bash
-gcloud container clusters update ewallet-dev --zone asia-southeast1-b --project "$PROJECT" \
-  --enable-master-authorized-networks \
-  --master-authorized-networks 113.188.119.38/32,113.188.185.247/32,<this machine>/32
-```
+An earlier version of this runbook asked to add this machine's `/32` to `masterAuthorizedNetworks`,
+because the audit reported the cluster as unreachable. That was wrong: the IAM-authenticated DNS
+endpoint in Section 1 reaches the cluster with no network change. Do not run this step.
 
 ### E1: C1 materialization
 
