@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""Fake kubectl for agent experiment runs: the arm's cluster state comes from the environment."""
+import json, os, sys, time
+from pathlib import Path
+
+state = Path(os.environ["SIM_STATE"])
+argv = sys.argv[1:]
+(state / "calls.log").open("a").write("kubectl " + " ".join(argv) + "\n")
+text = " ".join(argv)
+scaled = os.environ.get("SIM_SCALED_OBJECT") == "yes"
+digest = "sha256:" + "d" * 64
+if " apply " in text:
+    (state / "applied").write_text("yes")
+elif " wait " in text:
+    if "condition=complete" in text and os.environ.get("SIM_JOB_FAILS") == "yes":
+        sys.exit(1)
+    if "condition=Ready" in text and os.environ.get("SIM_NEVER_READY") == "yes":
+        sys.exit(1)
+elif " delete pod " in text:
+    (state / "deleted-pod").write_text(argv[-2] if argv[-1].startswith("--") else argv[-1])
+elif " delete job," in text:
+    (state / "applied").unlink(missing_ok=True)
+elif " logs " in text:
+    now = time.time()
+    for index, ok in enumerate([True, True, False, True]):
+        row = {"id": f"t{index}", "ok": ok, "state": "completed" if ok else "failed", "started": now - 40 + index,
+               "finished": now - 30 + index * 5, "e2e_ms": 1000 * (10 + index * 4)}
+        print("LOAD_ROW " + json.dumps(row))
+elif "get scaledobjects.keda.sh" in text:
+    sys.exit(0 if scaled else 1)
+elif "get hpa keda-hpa-fraud-coordinator" in text:
+    if not scaled:
+        sys.exit(1)
+    print("2" if "minReplicas" in text else "3" if "maxReplicas" in text else "ok", end="")
+elif "get hpa fraud-coordinator" in text:
+    if scaled:
+        sys.exit(1)
+    print("2" if "minReplicas" in text else "3" if "maxReplicas" in text else "ok", end="")
+elif "EWALLET_MCP_MAX_ATTEMPTS" in text:
+    print(os.environ.get("SIM_ATTEMPTS", ""), end="")
+elif "get deployment feature-rag-mcp" in text:
+    print(os.environ.get("SIM_MCP_REPLICAS", "1"), end="")
+elif "get deployment" in text and "readyReplicas" in text:
+    print("2", end="")
+elif "get deployment" in text:
+    print(f"repo/agent@{digest}", end="")
+elif "-o wide" in text:
+    print("row")
+elif "get pods" in text and "nodeName" in text:
+    print("node-a node-b", end="")
+elif "get pods" in text:
+    print("feature-rag-mcp-abc", end="")
+elif "get nodes" in text:
+    print("e2-standard-4 e2-standard-4", end="")
+else:
+    sys.stderr.write(f"fake kubectl: unsupported: {text}\n"); sys.exit(1)

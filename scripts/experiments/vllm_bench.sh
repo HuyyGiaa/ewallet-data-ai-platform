@@ -60,6 +60,8 @@ fi
 
 [ "${KUBE_CONTEXT:-}" = "$EXPECTED_CONTEXT" ] || die "KUBE_CONTEXT must be $EXPECTED_CONTEXT"
 k() { kubectl --context "$KUBE_CONTEXT" --request-timeout=60s "$@"; }
+# --request-timeout would end a long wait early, so waits go without it.
+kw() { kubectl --context "$KUBE_CONTEXT" "$@"; }
 pools() { gcloud container node-pools list --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --format='value(name)'; }
 production_state() {
   helm list --kube-context "$KUBE_CONTEXT" --namespace default --filter '^llm-agent$' --output json
@@ -70,7 +72,7 @@ remove_stack() {
   local status=0
   if k get namespace "$NS" -o 'jsonpath={.metadata.labels.ewallet\.io/experiment}' 2>/dev/null | grep -qx true; then
     helm uninstall llmd-router --kube-context "$KUBE_CONTEXT" --namespace "$NS" --wait --timeout 5m >/dev/null 2>&1 || true
-    k delete namespace "$NS" --wait=true --timeout=5m || status=1
+    kw delete namespace "$NS" --wait=true --timeout=5m || status=1
   fi
   if pools | grep -qx "$POOL"; then
     gcloud container node-pools delete "$POOL" --cluster "$CLUSTER" --zone "$ZONE" --project "$PROJECT" --quiet || status=1
@@ -182,8 +184,8 @@ run_arm() {  # <arm> <run-number>
     fi
   fi
   k apply -f "$config" >> "$logs/apply.log"
-  k -n "$NS" rollout status deployment/agentgateway --timeout=5m >> "$logs/apply.log"
-  kubectl --context "$KUBE_CONTEXT" -n "$NS" rollout status deployment/vllm-primary --timeout=30m >> "$logs/apply.log"
+  kw -n "$NS" rollout status deployment/agentgateway --timeout=5m >> "$logs/apply.log"
+  kw -n "$NS" rollout status deployment/vllm-primary --timeout=30m >> "$logs/apply.log"
   k -n "$NS" get pods -l app.kubernetes.io/name=vllm --field-selector=status.phase=Running -o json > "$logs/pods.json"
   k get nodes -l ewallet.io/bench=true -o json > "$logs/nodes.json"
   k -n "$NS" get configmap agentgateway-llm-config -o 'jsonpath={.data.config\.yaml}' > "$logs/gateway-config.yaml"
