@@ -46,14 +46,18 @@ kw() { kubectl --context "$KUBE_CONTEXT" -n "$NS" "$@"; }
 exists() { k get "$1" "$2" >/dev/null 2>&1; }
 
 # The cluster must already be in this arm's state, or the measurement belongs to another arm.
-scaled_object=no hpa=no
+scaled_object=no hpa=no hpa_owner=""
 if k get scaledobjects.keda.sh "$TARGET" >/dev/null 2>&1; then scaled_object=yes; fi
-if exists hpa "$TARGET"; then hpa=yes; fi
-# KEDA's own HPA is named keda-hpa-<target>, so an HPA under the plain name is independent.
+if exists hpa "$TARGET"; then
+  hpa=yes
+  hpa_owner=$(k get hpa "$TARGET" -o 'jsonpath={.metadata.ownerReferences[0].kind}')
+fi
+# With ownership transfer KEDA keeps the HPA's name, so ownership decides, not the name.
 if [ "$arm" = baseline ]; then
-  [ "$hpa" = yes ] && [ "$scaled_object" = no ] || die "baseline needs the HPA and no ScaledObject"
+  [ "$hpa" = yes ] && [ -z "$hpa_owner" ] && [ "$scaled_object" = no ] || die "baseline needs the HPA and no ScaledObject"
 else
-  [ "$hpa" = no ] && [ "$scaled_object" = yes ] || die "optimized needs a ScaledObject and no independent HPA"
+  [ "$scaled_object" = yes ] || die "optimized needs a ScaledObject"
+  [ "$hpa" = no ] || [ "$hpa_owner" = ScaledObject ] || die "optimized needs no independent HPA"
 fi
 
 mkdir -p "$evidence/$arm"/{config,raw,metrics,logs,screenshots}
@@ -105,9 +109,8 @@ sampler=""
 "$python" -m ops.experiments.agent_summary --log "$logs/load.log" --replicas "$replicas" --workload-sha256 "$load_hash" \
   --output "$dir/summary.json"
 # Controls are read back from the cluster.
-# KEDA owns keda-hpa-<target> once installed, whichever experiment is running.
 hpa_name=$TARGET
-if exists hpa "keda-hpa-$TARGET"; then hpa_name=keda-hpa-$TARGET; fi
+if [ "$hpa" = no ]; then hpa_name=keda-hpa-$TARGET; fi
 min_replicas=$(k get hpa "$hpa_name" -o 'jsonpath={.spec.minReplicas}')
 max_replicas=$(k get hpa "$hpa_name" -o 'jsonpath={.spec.maxReplicas}')
 node_names=$(k get pods -l "ewallet.io/agent=$TARGET" -o 'jsonpath={.items[*].spec.nodeName}')

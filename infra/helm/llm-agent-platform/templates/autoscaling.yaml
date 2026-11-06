@@ -72,6 +72,11 @@ kind: ScaledObject
 metadata:
   name: {{ $name }}
   namespace: {{ $.Values.namespace.name }}
+  {{- if $s.keda.transferHpa }}
+  # Adopts the existing HPA in place, so autoscaling has no gap during the move.
+  annotations:
+    scaledobject.keda.sh/transfer-hpa-ownership: "true"
+  {{- end }}
   labels:
     {{- include "llm-agent-platform.labels" $ | nindent 4 }}
     ewallet.io/agent: {{ $name }}
@@ -89,6 +94,9 @@ spec:
     replicas: {{ $s.keda.fallback.replicas }}
   advanced:
     horizontalPodAutoscalerConfig:
+      {{- if $s.keda.transferHpa }}
+      name: {{ $name }}
+      {{- end }}
       behavior:
         scaleUp:
           stabilizationWindowSeconds: {{ $h.scaleUp.stabilizationWindowSeconds }}

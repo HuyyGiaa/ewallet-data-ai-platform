@@ -38,6 +38,30 @@ class RetrySwitchTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HELM, "helm binary unavailable")
+class HpaTransferTest(unittest.TestCase):
+    ANNOTATION = "scaledobject.keda.sh/transfer-hpa-ownership"
+
+    def test_default_does_not_transfer(self):
+        for item in kinds(render(ON, BYO, KEDA), "ScaledObject").values():
+            self.assertNotIn(self.ANNOTATION, item["metadata"].get("annotations", {}))
+            self.assertNotIn("name", item["spec"]["advanced"]["horizontalPodAutoscalerConfig"])
+
+    def test_transfer_names_the_hpa_the_webhook_requires(self):
+        overlay = {"agents": {"autoscaling": {"enabled": True, "engine": "keda", "keda": {"transferHpa": True}}}}
+        scaled = kinds(render(ON, BYO, overlay), "ScaledObject")
+        self.assertTrue(scaled)
+        for name, item in scaled.items():
+            self.assertEqual("true", item["metadata"]["annotations"][self.ANNOTATION])
+            self.assertEqual(name, item["spec"]["advanced"]["horizontalPodAutoscalerConfig"]["name"])
+
+    def test_hpa_mode_ignores_the_setting(self):
+        overlay = {"agents": {"autoscaling": {"enabled": True, "keda": {"transferHpa": True}}}}
+        self.assertEqual(kinds(render(ON, BYO, AUTOSCALING), "HorizontalPodAutoscaler").keys(),
+                         kinds(render(ON, BYO, overlay), "HorizontalPodAutoscaler").keys())
+        self.assertFalse(kinds(render(ON, BYO, overlay), "ScaledObject"))
+
+
+@unittest.skipUnless(HELM, "helm binary unavailable")
 class EngineOwnershipTest(unittest.TestCase):
     def test_the_default_stays_the_hpa(self):
         items = render(ON, BYO, AUTOSCALING)

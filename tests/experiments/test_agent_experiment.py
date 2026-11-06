@@ -301,3 +301,21 @@ def test_failed_smoke_fails_the_command(tmp_path) -> None:
 def test_keda_driver_cannot_delete_pods() -> None:
     text = DRIVER.read_text(encoding="utf-8")
     assert "delete pod" not in text and "EXP_DISRUPT" not in text
+
+
+def test_transferred_hpa_counts_as_keda_owned(tmp_path) -> None:
+    result, evidence, _ = simulate(tmp_path, "exp-c5-keda", "optimized", SIM_SCALED_OBJECT="yes", SIM_TRANSFER="ScaledObject")
+    assert result.returncode == 0, result.stderr
+    assert json.loads((evidence / "optimized/raw/run-01/controls.json").read_text(encoding="utf-8"))["max_replicas"] == "3"
+
+
+def test_foreign_hpa_beside_a_scaledobject_is_refused(tmp_path) -> None:
+    result, _, state = simulate(tmp_path, "exp-c5-keda", "optimized", SIM_SCALED_OBJECT="yes", SIM_TRANSFER="Deployment")
+    assert result.returncode != 0 and "no independent HPA" in result.stderr
+    assert not (state / "applied").exists()
+
+
+def test_baseline_refuses_a_keda_owned_hpa(tmp_path) -> None:
+    result, _, _ = simulate(tmp_path, "exp-c5-keda", "baseline", SIM_TRANSFER="ScaledObject")
+    assert result.returncode != 0 and "baseline needs the HPA" in result.stderr
+

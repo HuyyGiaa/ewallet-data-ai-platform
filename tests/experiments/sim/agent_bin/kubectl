@@ -34,8 +34,12 @@ elif "get hpa keda-hpa-fraud-coordinator" in text:
         sys.exit(1)
     print("2" if "minReplicas" in text else "3" if "maxReplicas" in text else "ok", end="")
 elif "get hpa fraud-coordinator" in text:
-    if scaled:
+    transfer = os.environ.get("SIM_TRANSFER")
+    if scaled and not transfer:
         sys.exit(1)
+    if "ownerReferences" in text:
+        print(transfer or "", end="")
+        sys.exit(0)
     print("2" if "minReplicas" in text else "3" if "maxReplicas" in text else "ok", end="")
 elif "EWALLET_MCP_MAX_ATTEMPTS" in text:
     print(os.environ.get("SIM_ATTEMPTS", ""), end="")

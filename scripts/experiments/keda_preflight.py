@@ -103,16 +103,26 @@ def capacity_check(nodes: Mapping[str, Any], pods: Mapping[str, Any], deployment
 
 
 def hpa_check(hpas: Mapping[str, Any], stage: str) -> Check:
-    """Check autoscaler ownership: one per agent, and none plain once KEDA owns it."""
+    """Check autoscaler ownership: exactly one autoscaler per agent, with the expected range.
 
-    plain = sorted(item["metadata"]["name"] for item in hpas["items"] if item["metadata"]["name"] in AGENTS)
-    ranges = {item["metadata"]["name"]: (item["spec"].get("minReplicas"), item["spec"]["maxReplicas"]) for item in hpas["items"]}
-    bad = [name for name, bounds in ranges.items() if name in AGENTS and bounds != (2, 3)]
+    ``after-rollback`` matters most. A plain ``helm upgrade`` back to HPAs reports success
+    while the ScaledObject's deletion cascades to the HPA Helm has just taken over, leaving
+    no autoscaler at all. Tested locally on 2026-11-06.
+    """
+
+    items = {item["metadata"]["name"]: item for item in hpas["items"]}
+    ranges = {name: (item["spec"].get("minReplicas"), item["spec"]["maxReplicas"]) for name, item in items.items()}
+    bad = [name for name, bounds in ranges.items() if name.replace("keda-hpa-", "") in AGENTS and bounds != (2, 3)]
     if bad:
         return Check("autoscaler ownership", BLOCKED, f"unexpected range on {bad}")
-    if stage == "before-scaledobject" and plain:
-        return Check("autoscaler ownership", WAITING, f"delete {plain} immediately before the upgrade; the webhook refuses both")
-    return Check("autoscaler ownership", READY, f"plain HPAs: {plain}")
+    missing = [name for name in AGENTS if name not in items and f"keda-hpa-{name}" not in items]
+    if missing:
+        return Check("autoscaler ownership", BLOCKED, f"no autoscaler for {missing}")
+    owned = sorted(name for name, item in items.items()
+                   if any(ref.get("kind") == "ScaledObject" for ref in item["metadata"].get("ownerReferences", [])))
+    if stage == "after-rollback" and owned:
+        return Check("autoscaler ownership", BLOCKED, f"still owned by KEDA: {owned}")
+    return Check("autoscaler ownership", READY, f"{len(items)} HPAs, {len(owned)} owned by KEDA")
 
 
 def kubectl_json(context: str, *arguments: str) -> dict[str, Any]:
@@ -167,8 +177,8 @@ def run_checks(context: str, stage: str, maximum: int) -> list[Check]:
         Check("pending pods", BLOCKED if pending else READY, f"{len(pending)} pending"),
         capacity_check(nodes, pods, deployments, maximum),
         hpa_check(hpas, stage),
-        Check("KEDA installed", READY if crd or stage == "before-install" else BLOCKED,
-              "present" if crd else "absent, as expected before the install" if stage == "before-install" else "absent"),
+        Check("KEDA installed", READY if crd or stage != "before-scaledobject" else BLOCKED,
+              "present" if crd else "absent" if stage == "before-scaledobject" else "absent, as expected at this stage"),
         Check("Prometheus reachable with agent metrics", READY if series["ewallet_agent_invocations_total"] else BLOCKED,
               f"{series['ewallet_agent_invocations_total']} invocation series"),
         Check("in-flight gauge exported", READY if series["ewallet_agent_inflight_tasks"] else WAITING,
@@ -182,7 +192,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--context", required=True)
-    parser.add_argument("--stage", choices=("before-install", "before-scaledobject"), default="before-install")
+    parser.add_argument("--stage", choices=("before-install", "before-scaledobject", "after-rollback"), default="before-install")
     parser.add_argument("--max-replicas", type=int, default=3)
     args = parser.parse_args(argv)
     checks = run_checks(args.context, args.stage, args.max_replicas)

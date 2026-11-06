@@ -61,18 +61,38 @@ def test_capacity_counts_every_agent_at_the_maximum() -> None:
     assert k.capacity_check({"items": [node("a", "250m")]}, {"items": []}, deployments, 3).status == k.BLOCKED
 
 
-def hpa(name: str, low: int = 2, high: int = 3) -> dict:
-    return {"metadata": {"name": name}, "spec": {"minReplicas": low, "maxReplicas": high}}
+def hpa(name: str, low: int = 2, high: int = 3, owner: str | None = None) -> dict:
+    metadata = {"name": name}
+    if owner:
+        metadata["ownerReferences"] = [{"kind": owner}]
+    return {"metadata": metadata, "spec": {"minReplicas": low, "maxReplicas": high}}
 
 
-def test_plain_hpa_must_go_before_the_scaledobject() -> None:
-    assert k.hpa_check({"items": [hpa("fraud-coordinator")]}, "before-scaledobject").status == k.WAITING
-    assert k.hpa_check({"items": [hpa("fraud-coordinator")]}, "before-install").status == k.READY
+ALL = [hpa(name) for name in k.AGENTS]
+
+
+def test_plain_hpas_are_ready_for_transfer() -> None:
+    assert k.hpa_check({"items": ALL}, "before-scaledobject").status == k.READY
 
 
 def test_unexpected_replica_range_blocks() -> None:
-    assert k.hpa_check({"items": [hpa("fraud-coordinator", high=9)]}, "before-install").status == k.BLOCKED
+    assert k.hpa_check({"items": [*ALL[:2], hpa(k.AGENTS[2], high=9)]}, "before-install").status == k.BLOCKED
 
 
-def test_kedas_own_hpa_is_not_a_plain_hpa() -> None:
-    assert k.hpa_check({"items": [hpa("keda-hpa-fraud-coordinator")]}, "before-scaledobject").status == k.READY
+def test_kedas_own_hpa_counts_as_an_autoscaler() -> None:
+    items = [hpa(f"keda-hpa-{name}", owner="ScaledObject") for name in k.AGENTS]
+    assert k.hpa_check({"items": items}, "before-install").status == k.READY
+
+
+def test_silent_rollback_with_no_hpa_is_blocked() -> None:
+    check = k.hpa_check({"items": ALL[:2]}, "after-rollback")
+    assert check.status == k.BLOCKED and k.AGENTS[2] in check.detail
+
+
+def test_rollback_that_left_keda_in_charge_is_blocked() -> None:
+    items = [*ALL[:2], hpa(k.AGENTS[2], owner="ScaledObject")]
+    assert k.hpa_check({"items": items}, "after-rollback").status == k.BLOCKED
+
+
+def test_complete_rollback_is_ready() -> None:
+    assert k.hpa_check({"items": ALL}, "after-rollback").status == k.READY

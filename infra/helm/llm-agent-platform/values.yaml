@@ -431,6 +431,9 @@ agents:
       cooldownSeconds: 120
       # Used when Prometheus cannot be queried: hold the safe floor.
       fallback: {failureThreshold: 3, replicas: 2}
+      # Adopt the HPA of the same name instead of requiring its deletion first. KEDA's
+      # webhook refuses a ScaledObject beside a foreign HPA. See the C-B runbook for rollback.
+      transferHpa: false
     # Native HPA for kagent Agent/BYO mode. kagent 0.10.3 intentionally leaves
     # a generated Deployment's replicas untouched when the Agent deployment
     # replicas field is absent, so HPA and the reconciler have one owner each.
