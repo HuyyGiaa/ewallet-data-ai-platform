@@ -318,4 +318,3 @@ def test_foreign_hpa_beside_a_scaledobject_is_refused(tmp_path) -> None:
 def test_baseline_refuses_a_keda_owned_hpa(tmp_path) -> None:
     result, _, _ = simulate(tmp_path, "exp-c5-keda", "baseline", SIM_TRANSFER="ScaledObject")
     assert result.returncode != 0 and "baseline needs the HPA" in result.stderr
-
