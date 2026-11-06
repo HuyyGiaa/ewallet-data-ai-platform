@@ -32,6 +32,7 @@ has completed.
 | LLM/Agent platform | [Runtime runbook](../llm_agent/runtime_runbook.md) | LLM, gateway, MCP/Agent bounded operations | Pinned images, security preflight, exclusive GKE window | Bounded, approval-gated procedure |
 | LLM P0 smoke | [Manual fixes and CPU smoke](../../archive/legacy-docs/docs/llm_agent/manual_p0_fixes_and_cpu_smoke.md) | Local/CPU smoke sequence | Local runtime and exact source state | Earlier procedure |
 | kagent | [Bounded pilot](../edai2/agents/kagent_bounded_pilot.md) | kagent source/runtime pilot | Agent platform prerequisites | Earlier pilot |
+| Data platform | [C1 to C3 runbook](edai2/C_DATA_PLATFORM_RUNBOOK.md) | Airflow Feast materialization, Flink dual-store verification, Gold equivalence, schema diagrams, Spark UI | Mixed; every step is marked read-only or mutating | Cloud steps need owner approval |
 | EDAI-2 UI evidence | [UI replay](edai2/UI_REPLAY.md) | Read-only port-forwards, runtime renders, Grafana panels | GKE access from an authorized network | Read-only access to the cloud UIs |
 
 RAG ingestion: [RAG runbook](edai2/llm_agent/rag_runbook.md). DataHub assertions: [reproduction runbook](DATAHUB_ASSERTIONS_REPRODUCIBILITY.md).
