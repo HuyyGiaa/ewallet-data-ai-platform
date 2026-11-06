@@ -77,6 +77,18 @@ class FraudPredictionRequest(BaseModel):
         }
 
 
+class ExperimentAttribution(BaseModel):
+    """Which experiment arm was planned and which model actually answered."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    experiment_id: CanonicalId
+    assigned_arm: CanonicalId
+    served_arm: CanonicalId
+    model_version: CanonicalId
+    fallback: bool
+
+
 class FraudPredictionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -89,6 +101,7 @@ class FraudPredictionResponse(BaseModel):
     model_version: CanonicalId
     feature_timestamp: AwareDatetime
     correlation_id: CanonicalId
+    experiment: ExperimentAttribution | None = None
 
 
 class ErrorBody(BaseModel):

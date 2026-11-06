@@ -1,0 +1,21 @@
+# Strategic merge patch: turn on the experiment router. Without this patch the Fraud
+# API keeps its single-model path. The split lives in the fraud-api-ab ConfigMap;
+# after changing it, `kubectl rollout restart` applies it to every replica at once.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-api
+  namespace: ml-platform
+spec:
+  template:
+    spec:
+      containers:
+        - name: fraud-api
+          env:
+            - name: EWALLET_AB_CONFIG_PATH
+              value: /etc/ewallet/ab/experiment.json
+          volumeMounts:
+            - {name: ab-config, mountPath: /etc/ewallet/ab, readOnly: true}
+      volumes:
+        - name: ab-config
+          configMap: {name: fraud-api-ab}

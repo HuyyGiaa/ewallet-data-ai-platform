@@ -1,0 +1,22 @@
+{
+  "experiment_id": "ml-ab-fraud-detector-v1-v2",
+  "salt": "c7-1-2026-11",
+  "unit": "user_id",
+  "model_name": "fraud-detector",
+  "arms": [
+    {
+      "name": "model-a",
+      "weight": 90,
+      "base_url": "http://fraud-detector-predictor.fraud-serving.svc.cluster.local",
+      "model_version": "1",
+      "timeout_seconds": 2.0
+    },
+    {
+      "name": "model-b",
+      "weight": 10,
+      "base_url": "http://fraud-detector-v2-predictor.fraud-serving.svc.cluster.local",
+      "model_version": "2",
+      "timeout_seconds": 1.0
+    }
+  ]
+}

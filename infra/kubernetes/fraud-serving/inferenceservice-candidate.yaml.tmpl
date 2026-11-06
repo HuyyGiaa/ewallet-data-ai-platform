@@ -1,0 +1,59 @@
+# Candidate arm of the ML A/B test, beside the unchanged fraud-detector. Same model
+# name and wire contract; the Fraud API tells the versions apart by endpoint and by
+# the model_version every response must carry. CANDIDATE_IMAGE must be a digest.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: fraud-detector-v2
+  namespace: fraud-serving
+  annotations:
+    serving.kserve.io/deploymentMode: Standard
+    serving.kserve.io/autoscalerClass: none
+  labels:
+    app.kubernetes.io/part-of: ewallet-mlops
+    ewallet.io/model-version: "${CANDIDATE_MODEL_VERSION}"
+spec:
+  predictor:
+    serviceAccountName: fraud-detector
+    minReplicas: 1
+    maxReplicas: 1
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    containers:
+      - name: kserve-container
+        image: ${CANDIDATE_IMAGE}
+        args: ["--model_name", "fraud-detector", "--http_port", "8080", "--enable_grpc", "false"]
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /v2/models/fraud-detector/ready
+            port: 8080
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /v2/health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        startupProbe:
+          httpGet:
+            path: /v2/health/live
+            port: 8080
+          periodSeconds: 3
+          failureThreshold: 60
+        resources:
+          requests:
+            cpu: 250m
+            memory: 768Mi
+          limits:
+            cpu: "1"
+            memory: 1536Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
