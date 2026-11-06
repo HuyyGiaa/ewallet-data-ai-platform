@@ -29,7 +29,12 @@ from opentelemetry import propagate, trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from ai_platform.llm_agent.business_request import a2a_message_send
-from ai_platform.llm_agent.agent_metrics import initialize as initialize_agent_metrics, record_invocation, record_prompt_screen
+from ai_platform.llm_agent.agent_metrics import (
+    InflightTrackingExecutor,
+    initialize as initialize_agent_metrics,
+    record_invocation,
+    record_prompt_screen,
+)
 from ai_platform.llm_agent.byo_runtime import (
     AppResources,
     flush_agent_metrics,
@@ -440,7 +445,7 @@ def build_app(
         task_store, resources = controller_task_store(APP_NAME)
     effective_executor = executor or CoordinatorExecutor()
     request_handler = DefaultRequestHandler(
-        agent_executor=effective_executor,
+        agent_executor=InflightTrackingExecutor(APP_NAME, effective_executor),
         task_store=task_store,
         request_context_builder=KAgentRequestContextBuilder(task_store=task_store),
     )

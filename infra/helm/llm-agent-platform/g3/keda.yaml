@@ -1,0 +1,7 @@
+# Opt-in overlay for the KEDA experiment (EDAI-2 rows 19, 22, 25). Layer it after g3.yaml
+# only once KEDA is installed and a rebuilt agent image exports the in-flight gauge.
+# Rollback: remove this file from the release; the chart renders the HPA again.
+agents:
+  autoscaling:
+    enabled: true
+    engine: keda

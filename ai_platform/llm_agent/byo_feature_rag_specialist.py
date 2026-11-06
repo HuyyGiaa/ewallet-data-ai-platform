@@ -37,7 +37,14 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ai_platform.llm_agent.business_request import G3BusinessRequest, business_request_from_a2a
-from ai_platform.llm_agent.agent_metrics import initialize as initialize_agent_metrics, record_invocation, record_prompt_screen
+from ai_platform.llm_agent.agent_metrics import (
+    InflightTrackingExecutor,
+    initialize as initialize_agent_metrics,
+    record_invocation,
+    record_mcp_retry,
+    record_prompt_screen,
+)
+from ai_platform.llm_agent.mcp_failover import FailoverPolicy, with_failover
 from ai_platform.llm_agent.byo_runtime import AppResources, audit, configure_telemetry, controller_task_store, flush_agent_metrics
 from ai_platform.llm_agent.nl_intake import (
     IntakeFailure,
@@ -241,6 +248,7 @@ class FeatureRagMCPClient:
         timeout_seconds: float = 30.0,
         token_reader: TokenReader = _environment_token,
         session_factory: SessionFactory = _official_session,
+        failover: FailoverPolicy = FailoverPolicy(),
     ) -> None:
         _validate_endpoint(endpoint)
         if not 0.1 <= timeout_seconds <= MAX_MCP_TIMEOUT_SECONDS:
@@ -249,8 +257,30 @@ class FeatureRagMCPClient:
         self._timeout = timeout_seconds
         self._token_reader = token_reader
         self._session_factory = session_factory
+        self._failover = failover
 
     async def run(self, request: G3BusinessRequest) -> SpecialistEvidence:
+        """Call the approved tools, failing over between replicas when that is safe.
+
+        The session is reopened for each attempt. MCP servers are stateless and every
+        approved tool is read-only, so a new attempt can land on a healthy replica.
+        One overall deadline covers all attempts.
+        """
+
+        try:
+            async with asyncio.timeout(self._timeout):
+                return await with_failover(
+                    lambda: self._run_once(request),
+                    tools=request.requested_tools,
+                    is_transient=lambda error: isinstance(error, FeatureRagFailure)
+                    and error.code == "mcp_transport_error",
+                    policy=self._failover,
+                    on_retry=lambda attempt: record_mcp_retry(APP_NAME),
+                )
+        except TimeoutError as exc:
+            raise FeatureRagFailure("mcp_timeout", "MCP execution exceeded its deadline") from exc
+
+    async def _run_once(self, request: G3BusinessRequest) -> SpecialistEvidence:
         if request.target_agent != APP_NAME or request.capabilities != ("fraud-evidence",):
             raise FeatureRagFailure("invalid_business_request", "Request is not for Feature-RAG")
         token = self._token_reader().strip()
@@ -575,7 +605,7 @@ def build_app(
     if task_store is None:
         task_store, resources = controller_task_store(APP_NAME)
     handler = DefaultRequestHandler(
-        agent_executor=executor or FeatureRagSpecialistExecutor(),
+        agent_executor=InflightTrackingExecutor(APP_NAME, executor or FeatureRagSpecialistExecutor()),
         task_store=task_store,
         request_context_builder=KAgentRequestContextBuilder(task_store=task_store),
     )

@@ -1,0 +1,8 @@
+# Opt-in overlay for the MCP failover candidate (EDAI-2 row 18). Layer it after
+# mcp-isolated.yaml. Together with the Specialist's bounded read-only retry, it removes
+# the single MCP replica as a point of failure. The existing PodDisruptionBudget also
+# becomes useful: with one replica it allows no voluntary disruption at all.
+mcpServices:
+  enabled: true
+  replicas: 2
+  topologySpread: true

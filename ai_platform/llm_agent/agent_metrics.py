@@ -9,6 +9,11 @@ Exported through the shared otel-collector Prometheus exporter (namespace
     Each prompt checked by the PII screen before an LLM call.
 ``ewallet_llm_prompt_pii_detections_total{agent, pii_type}``
     Detected PII items, by type; the values themselves are never exported.
+``ewallet_agent_inflight_tasks{agent}``
+    A2A tasks being executed. Agents mostly wait on the LLM and tools, so CPU hardly
+    moves under load; this gauge is the signal KEDA scales on.
+``ewallet_mcp_client_retries_total{agent}``
+    Read-only MCP calls repeated after a transport failure.
 
 Every label value comes from a closed set, so cardinality is fixed (at most 2
 agents x 2 modes x 4 outcomes, etc.). Without a configured MeterProvider the
@@ -17,7 +22,8 @@ OpenTelemetry API is a no-op.
 
 from __future__ import annotations
 
-from typing import Literal
+from contextlib import contextmanager
+from typing import Iterator, Literal
 
 from opentelemetry import metrics
 
@@ -40,6 +46,12 @@ _screened = _meter.create_counter(
 )
 _pii = _meter.create_counter(
     "llm_prompt_pii_detections_total", unit="1", description="PII items masked before an LLM call",
+)
+_inflight = _meter.create_up_down_counter(
+    "agent_inflight_tasks", unit="1", description="A2A tasks being executed per BYO agent",
+)
+_mcp_retries = _meter.create_counter(
+    "mcp_client_retries_total", unit="1", description="Read-only MCP calls repeated after a transport failure",
 )
 
 
@@ -72,6 +84,47 @@ def initialize(agent: str) -> None:
         _screened.add(0, {"agent": agent, "result": result})
     for pii_type in PII_TYPES:
         _pii.add(0, {"agent": agent, "pii_type": pii_type})
+    _inflight.add(0, {"agent": agent})
+    _mcp_retries.add(0, {"agent": agent})
+
+
+@contextmanager
+def track_inflight(agent: str) -> Iterator[None]:
+    """Count one A2A task as in flight for the duration of the block."""
+
+    _check(agent, AGENTS, "agent")
+    _inflight.add(1, {"agent": agent})
+    try:
+        yield
+    finally:
+        _inflight.add(-1, {"agent": agent})
+
+
+def record_mcp_retry(agent: str) -> None:
+    """Count one repeated MCP call."""
+
+    _check(agent, AGENTS, "agent")
+    _mcp_retries.add(1, {"agent": agent})
+
+
+class InflightTrackingExecutor:
+    """Wrap an A2A executor so every task shows up in the in-flight gauge."""
+
+    def __init__(self, agent: str, delegate) -> None:
+        _check(agent, AGENTS, "agent")
+        self._agent = agent
+        self._delegate = delegate
+
+    async def execute(self, context, event_queue) -> None:
+        """Run the wrapped task while counting it."""
+
+        with track_inflight(self._agent):
+            await self._delegate.execute(context, event_queue)
+
+    async def cancel(self, context, event_queue) -> None:
+        """Forward cancellation unchanged."""
+
+        await self._delegate.cancel(context, event_queue)
 
 
 def record_prompt_screen(agent: str, result: ScreenResult) -> None:

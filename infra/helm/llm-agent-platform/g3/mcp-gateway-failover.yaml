@@ -1,0 +1,4 @@
+# Opt-in overlay for the release that owns mcp-gateway. The gateway runs one replica
+# today, so it is itself a single point of failure on the MCP path.
+mcpGateway:
+  replicas: 2

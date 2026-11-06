@@ -58,7 +58,61 @@ spec:
 {{- if not (and (ge (int $h.targetCPUUtilizationPercentage) 1) (le (int $h.targetCPUUtilizationPercentage) 100)) }}
 {{- fail "agent autoscaling targetCPUUtilizationPercentage must be 1..100" }}
 {{- end }}
+{{- $engine := $s.engine | default "hpa" }}
+{{- if not (has $engine (list "hpa" "keda")) }}
+{{- fail "agents.autoscaling.engine must be hpa or keda" }}
+{{- end }}
 {{- range $name := $names }}
+{{- if eq $engine "keda" }}
+---
+# kagent owns this Deployment's pod template while KEDA owns replicas. KEDA creates
+# and owns the HPA behind this object, so no chart HPA is rendered in this mode.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" $ | nindent 4 }}
+    ewallet.io/agent: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicaCount: {{ $h.minReplicas }}
+  maxReplicaCount: {{ $h.maxReplicas }}
+  pollingInterval: {{ $s.keda.pollingIntervalSeconds }}
+  cooldownPeriod: {{ $s.keda.cooldownSeconds }}
+  fallback:
+    failureThreshold: {{ $s.keda.fallback.failureThreshold }}
+    replicas: {{ $s.keda.fallback.replicas }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: {{ $h.scaleUp.stabilizationWindowSeconds }}
+          selectPolicy: Max
+          policies:
+            - type: Pods
+              value: {{ $h.scaleUp.pods }}
+              periodSeconds: {{ $h.scaleUp.periodSeconds }}
+        scaleDown:
+          stabilizationWindowSeconds: {{ $h.scaleDown.stabilizationWindowSeconds }}
+          selectPolicy: Max
+          policies:
+            - type: Pods
+              value: {{ $h.scaleDown.pods }}
+              periodSeconds: {{ $h.scaleDown.periodSeconds }}
+  triggers:
+    - type: prometheus
+      name: inflight-tasks
+      metricType: AverageValue
+      metadata:
+        serverAddress: {{ $s.keda.serverAddress }}
+        query: {{ printf $s.keda.queryTemplate $name | quote }}
+        threshold: {{ $s.keda.inflightPerReplica | quote }}
+{{- else }}
 ---
 # kagent owns this Deployment's pod template while HPA owns replicas. The
 # Agent replicas field is omitted so controller reconciliation preserves HPA.
@@ -99,6 +153,7 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ $h.targetCPUUtilizationPercentage }}
+{{- end }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
