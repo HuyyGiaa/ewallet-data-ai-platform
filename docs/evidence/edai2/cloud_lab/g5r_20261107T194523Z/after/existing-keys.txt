@@ -1,0 +1,3 @@
+valkey-2 keys: actor:ate-golden:<id> actor:kagent-pilot:asr<id> atespace:ate-golden atespace:kagent-pilot 
+valkey-4 keys: actor:kagent-pilot:asr<id> actor:kagent-pilot:asr-kagent-pilot-pilot-sandbox-agent-pilot-session-1 worker:kagent-pilot:kagent-pilot:kagent-pilot-deployment-9b94d6787-6bpkm worker:kagent-pilot:kagent-pilot:kagent-pilot-deployment-9b94d6787-7l2ws 
+valkey-5 keys: actor:kagent-pilot:asr<id> worker:kagent-pilot:kagent-pilot:kagent-pilot-deployment-9b94d6787-wh7hm 

@@ -1,0 +1,16 @@
+cluster_state:ok
+cluster_slots_assigned:16384
+cluster_slots_ok:16384
+cluster_slots_pfail:0
+cluster_slots_fail:0
+cluster_known_nodes:6
+cluster_size:3
+cluster_current_epoch:8
+cluster_my_epoch:2
+cluster_stats_messages_ping_sent:290
+cluster_stats_messages_pong_sent:290
+cluster_stats_messages_sent:580
+cluster_stats_messages_ping_received:290
+cluster_stats_messages_pong_received:289
+cluster_stats_messages_received:579
+total_cluster_links_buffer_limit_exceeded:0

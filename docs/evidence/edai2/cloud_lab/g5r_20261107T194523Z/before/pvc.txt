@@ -1,0 +1,6 @@
+data-valkey-cluster-0   pvc-67e5b27b-eab9-4432-8893-e27be9e97b5e   Bound
+data-valkey-cluster-1   pvc-438af628-dd28-492c-ad6f-d8928315a9ba   Bound
+data-valkey-cluster-2   pvc-93854a67-cf39-42c6-9caa-81105121c892   Bound
+data-valkey-cluster-3   pvc-16d4ee07-d52c-4ac2-b5fa-e35878aba498   Bound
+data-valkey-cluster-4   pvc-a1f4de45-263c-4bc6-bf07-28896749e7b8   Bound
+data-valkey-cluster-5   pvc-c21e432e-6460-4e9c-af3d-c41c2e219223   Bound

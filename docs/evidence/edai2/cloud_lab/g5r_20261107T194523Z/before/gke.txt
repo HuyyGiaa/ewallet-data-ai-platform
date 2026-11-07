@@ -1,0 +1,6 @@
+ops-not-done: end
+gke-ewallet-dev-cpu-pool-58daed59-cbl0 Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-h874 Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-jt0h Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-wcka Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-zm4y Ready v1.36.4-gke.2377000

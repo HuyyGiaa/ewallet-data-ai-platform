@@ -568,6 +568,12 @@ Record replicas, trigger values and HPA events every 10 s. Evidence and screensh
 
 **Rollback:** `autoscaling.enabled=false`, then the R1 `rollback` action; delete ScaledObjects before uninstalling KEDA.
 
-### G5-R: Valkey durability (required, planned)
+### G5-R: Valkey durability (deployed 2026-11-07)
 
-[G5_R_VALKEY_DURABILITY.md](G5_R_VALKEY_DURABILITY.md): announce-ip from `POD_IP` plus a peer-rediscovery sidecar, in the substrate post-renderer. Exact diffs, rollout, acceptance and rollback are on that page. **G5-C (agent KEDA) is blocked until G5-R is applied and validated.**
+[G5_R_VALKEY_DURABILITY.md](G5_R_VALKEY_DURABILITY.md):
+- announce-ip from `POD_IP` plus a bounded peer-rediscovery sidecar, in the substrate post-renderer;
+- substrate revision 2, rolled out one pod at a time behind `partition`;
+- 2 single-pod recreations healed on their own;
+- the same node IDs and slots; A2A passed.
+
+The all-pods-at-once case (a GKE wake) is not yet tested live. G5-C no longer waits on Valkey; it still needs the agent chart refresh, image promotion and its own approval.

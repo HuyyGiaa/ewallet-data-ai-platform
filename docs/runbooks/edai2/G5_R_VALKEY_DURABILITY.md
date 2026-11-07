@@ -1,101 +1,95 @@
-# G5-R: Valkey survives pod moves (plan, not applied)
+# G5-R: Valkey survives pod moves
 
-**Status: required, planned, awaiting owner approval.** Nothing in this page has been applied. G5-C (agent KEDA) waits for G5-R to be implemented and validated.
+**Status: deployed 2026-11-07.** Helm release `substrate` revision 2, source commit `3952288`. Evidence: `docs/evidence/edai2/cloud_lab/g5r_20261107T194523Z`.
 
-Until G5-R is applied, every GKE wake, node upgrade or node repair needs the manual 6-MEET recovery in [CLOUD_LAB_RUNBOOK.md](CLOUD_LAB_RUNBOOK.md#known-limitations). That recovery is not a fix.
-
-## Root cause (confirmed in G4.5)
+## Root cause
 
 | Fact | Evidence |
 |---|---|
-| Valkey 8.0.12, cluster mode, `nodes.conf` on a PVC | `docs/evidence/edai2/cloud_lab/stabilize_20261107T173813Z/valkey/before/` |
-| `valkey.conf` has no `cluster-announce-ip`; the container runs `valkey-server /etc/valkey/valkey.conf` | `valkey-config` ConfigMap, StatefulSet readback |
-| After pods move, every node announces its **old** IP for itself and holds old IPs for its peers | `summary.txt`: all six `myself` addresses stale |
-| `ate-api-server` (go-redis cluster client) dials a stale address and crash-loops; `kagent-controller` crash-loops because it cannot reach `ate-api` | `before/ate-api-server.log`, `before/kagent-controller.log` |
+| Valkey 8.0.12 in cluster mode keeps `nodes.conf` on its PVC | G4.5 readback |
+| `valkey.conf` had no `cluster-announce-ip`; the container ran `valkey-server /etc/valkey/valkey.conf` | `valkey-config`, StatefulSet |
+| After pods move, every node announced its old IP for itself and held old IPs for its peers | G4.5 `summary.txt` |
+| `ate-api-server` (go-redis cluster client) dialled stale addresses and crash-looped; `kagent-controller` followed | G4.5 logs |
 
-Two separate gaps cause this:
-1. **Self-address.** A node learns its own IP only from an incoming `CLUSTER MEET`.
-2. **Peer addresses.** When several pods move at once, which happens on every wake and node upgrade, every peer address in every `nodes.conf` is stale. No node can reach another, so gossip cannot repair it.
+The two gaps:
+1. **Own address.** A node learns its own IP only from an incoming `CLUSTER MEET`.
+2. **Peer addresses.** After pods move, peers are known only by their old IPs.
 
-Announcing the pod IP fixes only gap 1. The fix must also rediscover peers.
+## Change (source of truth)
 
-## Source of truth
+`valkey-cluster` belongs to the Helm release `substrate` (chart 0.0.9, digest-pinned). The chart has no knob for this, so the repository's post-renderer makes the change. A server-side dry run first confirmed that the live release equals the repository render.
 
-`valkey-cluster` belongs to the Helm release `substrate` (chart `substrate-0.0.9`, digest-pinned in [versions.env](../../../infra/kubernetes/kagent-pilot/versions.env)). It is rendered by [render.sh](../../../infra/kubernetes/kagent-pilot/scripts/render.sh) with [values/substrate.yaml](../../../infra/kubernetes/kagent-pilot/values/substrate.yaml).
+[substrate_resource_post_renderer.py](../../../infra/kubernetes/kagent-pilot/scripts/substrate_resource_post_renderer.py):
 
-The chart has no knob for Valkey arguments, environment or sidecars. The repository already owns a post-renderer for chart gaps, [substrate_resource_post_renderer.py](../../../infra/kubernetes/kagent-pilot/scripts/substrate_resource_post_renderer.py), which pins images and resources. G5-R extends that file. Nothing is patched by hand on live pods.
-
-## Proposed change
-
-The exact diffs are [g5r/post_renderer.diff](g5r/post_renderer.diff) (source) and [g5r/valkey-statefulset.diff](g5r/valkey-statefulset.diff) (the rendered StatefulSet). The second was rendered offline from the pinned chart. In that render no other object changes, apart from certificates the chart regenerates in every offline render (see the dry-run step).
-
-| Part | Change | Why |
-|---|---|---|
-| `valkey` container | `POD_IP` from the Downward API; command becomes `valkey-server /etc/valkey/valkey.conf --cluster-announce-ip $(POD_IP)` | The node announces its real address from the first second, even before any peer contacts it |
-| `valkey` container | Readiness probe `valkey-cli -h 127.0.0.1 ping` | The pod's DNS record appears only when the process answers. It is deliberately **not** `cluster_state:ok`: that would hide every pod from DNS after a full restart and deadlock rediscovery |
-| New sidecar `cluster-address-reconciler` | Same pinned Valkey image, 5m/16Mi. Every 15 s it resolves `valkey-cluster-{0..5}.valkey-cluster-service` and sends `CLUSTER MEET` to a pod only when that pod's address is not already known **and** its `CLUSTER MYID` is already a member of this node's table | Repairs stale peer addresses after any number of pods move. A pod with an unknown node ID is never introduced, so membership changes stay a human decision |
-| Fail-closed guard | The post-renderer raises an error if upstream changes the Valkey command or adds args | An upgraded chart cannot silently drop or double the patch |
-
-How the existing state is handled:
-
-| Concern | Outcome |
+| Part | Change |
 |---|---|
-| Persistent `nodes.conf` | Kept. Node ID, slots, roles and epochs load from it as today. `--cluster-announce-ip` overrides only the node's own announced address, and MEETs update only peer addresses. |
-| Node IDs | Unchanged: the same PVCs. |
-| Slots | No reshard, no slot command. Each shard keeps its range. |
-| Primary/replica | A restarted primary can fail over to its replica (node timeout 5 s), as seen in G4.5. The pair and range stay the same. |
-| Gossip | Correct addresses propagate by gossip once one MEET lands. |
-| Data | Stays on the PVC (AOF). No flush, no reset. |
-| Helm ownership | One `helm upgrade` of `substrate` with the same chart digest and values. The chart does not set `updateStrategy`, so a temporary `partition` patch survives the upgrade. |
+| `valkey` container | `POD_IP` from the Downward API; `--cluster-announce-ip $(POD_IP)` |
+| `valkey` container | Readiness `valkey-cli -h 127.0.0.1 ping`. This is process liveness for Service endpoints and DNS. **It is not cluster health**, and a `cluster_state` check here would hide every pod from DNS after a full restart. |
+| Sidecar `cluster-address-reconciler` | Every 15 s, for each peer: resolve its current IP through the headless Service and ask for its node ID. Skip any ID not already in the table. Do nothing if the table already holds exactly `<id> <ip>:6379@`. Otherwise `CLUSTER MEET`, at most 5 times per IP, then log `give up` |
+| Sidecar security and resources | uid 999, non-root, read-only root filesystem, no privilege escalation, all capabilities dropped; 5m/16Mi requested, 50m/32Mi limit |
+| Fail-closed guards | Rendering fails if upstream changes the Valkey command, args or env, or if a reconciler is already present |
+| `ateapi-ca` | Undoes a chart bug that added one leading newline to `ca.crt` on every upgrade, so the upgrade changes only the StatefulSet |
 
-**Not in G5-R:** pod anti-affinity or topology spread. All six pods once sat on one node, which is a single failure domain. The scheduler spreads them today only by chance. This is a separate HA item; G5-R fixes the addressing failure only.
+The script contains no reset, flush, slot, forget or `nodes.conf` command; a unit test enforces this. Another test simulates the loop with fake `valkey-cli` and `getent`. It confirms:
+- only a moved, known peer gets MEET;
+- a current peer and an unknown ID are left alone;
+- retries stop at the limit.
 
-## Rollout (needs approval; about 30 minutes)
+Tests: [test_kagent_bounded_pilot.py](../../../tests/unit/test_kagent_bounded_pilot.py).
 
-1. **Baseline.** Run the G4.5 readback (`cluster info`, `nodes`, `shards`, `myid` on all six pods; `--cluster check`; key counts). Continue only if `cluster_state:ok` and the six known node IDs are present.
-2. **Repository.** Apply the post-renderer diff and add a unit test: render, then assert the command, the env, the sidecar and the fail-closed guard. Commit.
-3. **Server-side dry run.** Run `helm upgrade substrate oci://ghcr.io/kagent-dev/substrate/helm/substrate --version 0.0.9 -n ate-system -f infra/kubernetes/kagent-pilot/values/substrate.yaml --post-renderer infra/kubernetes/kagent-pilot/scripts/substrate_resource_post_renderer.py --dry-run=server`. Diff its manifest against `helm get manifest substrate`.
-   - **The only allowed difference is the `valkey-cluster` StatefulSet.** The chart's `lookup` keeps the existing TLS and JWT Secrets and the CA ConfigMap.
-   - Stop if any other object differs.
-4. **Hold the rollout.** `kubectl -n ate-system patch sts valkey-cluster --type merge -p '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":6}}}}'`.
-5. **Upgrade.** Run the same `helm upgrade` without `--dry-run`. No pod restarts yet.
-6. **One pod at a time,** from ordinal 5 down to 0: set `partition` to N. Wait for `valkey-cluster-N` to be Ready with 2/2 containers, then check:
-   - its `myself` address equals its pod IP;
-   - all six nodes report `cluster_state:ok` and 16,384 slots;
-   - the same six node IDs;
-   - `--cluster check` reports OK.
+## Rollout performed
 
-   Stop and roll back on any failure.
-7. **Controlled recreation test.**
-   - **Single pod:** delete one replica pod. It returns with a new IP and the cluster heals by itself within 30 s.
-   - **Every pod at once:** this is the case behind the original failure. Delete all six pods, the way a wake does. The cluster must reach `ok` with no manual MEET, with the same IDs and data.
+1. **Preflight.**
+   - GKE: no operation running, 5 nodes Ready.
+   - Cluster: `ok`, the six known IDs, 16,384 slots, three pairs, six PVCs Bound.
+   - Helm: one revision, 1.
+2. **Server-side dry run** (`helm upgrade --dry-run=server`, with `lookup` active): 45 objects, 0 added or removed. **Only `StatefulSet/valkey-cluster` changes.** The first dry run also changed `ConfigMap/ateapi-ca`; the post-renderer fix above removed that before deploying.
+3. **Hold:** `partition=6`, then `helm upgrade` to revision 2. No pod restarted.
+4. **One pod at a time:** partition 5 → 0. After each pod the gate required:
+   - Ready 2/2 on the new revision;
+   - its own address equals its pod IP;
+   - the same six IDs;
+   - all nodes `ok` with 16,384 slots;
+   - no fail flags;
+   - each pair keeps its slot range;
+   - replication links up;
+   - a `-c` write, read and delete in all three shards.
 
-   This step needs the owner's go-ahead in the approval.
-8. **Clients.** `ate-api-server` and `kagent-controller` become Ready with no restart; one synthetic A2A request completes.
-9. Set `partition` back to 0 if it is not already.
+   Every step passed within 50–52 s.
 
-## Acceptance (all required)
+| Pod | Old IP → new IP | Result |
+|---|---|---|
+| 5 | 10.216.0.20 → 10.216.4.18 (moved jt0h → cbl0) | PASS |
+| 4 | 10.216.2.11 → 10.216.2.15 | PASS |
+| 3 | 10.216.0.19 → 10.216.0.26 | PASS |
+| 2 (primary) | 10.216.1.24 → 10.216.1.25 | PASS; failed over to its replica, epoch 9 |
+| 1 (primary) | 10.216.2.9 → 10.216.2.16 | PASS; failover, epoch 10 |
+| 0 (primary) | 10.216.5.31 → 10.216.5.32 | PASS; failover, epoch 11 |
 
-1. Every `myself` address equals its pod IP right after pod creation.
-2. The six node IDs are unchanged.
-3. No slot conflicts; `--cluster check` reports OK.
-4. All 16,384 slots OK.
-5. Key counts per shard as before; existing keys readable.
-6. A cluster-mode client (`valkey-cli -c`) writes and reads in all three shards, then deletes its keys.
-7. The cluster heals by itself after the single-pod and all-pods recreation tests.
-8. `kagent-controller` is Ready and a synthetic A2A request completes.
+## Recovery tests
+
+| Test | Result |
+|---|---|
+| Recreate `valkey-cluster-2` (replica) | New IP 10.216.1.26, announced correctly, rejoined on its own; healthy in 50 s |
+| Recreate `valkey-cluster-3` (then primary) | New IP 10.216.0.27; failed over and rejoined on its own; healthy in 52 s |
+| Final state | Six IDs unchanged; 16,384 slots; `--cluster check` OK; each pair keeps its range; key counts and existing keys (`atespace:*`, `actor:*`, `worker:*`) as before |
+| Clients | `ate-api-server` and `kagent-controller`: no restart and no Valkey error during the rollout |
+| A2A | HTTP 200, `completed`, 1.46 s; `feature_lookup` and `fraud_scoring` both `ok`; model v1, probability 0.0639895560144887 |
+
+No manual `CLUSTER MEET` was needed at any point. Primaries are now `1724…`, `34207…` and `81d1…`: automatic in-pair failovers, with the same slot ranges.
 
 ## Rollback
 
-1. `helm rollback substrate 1 -n ate-system`: the StatefulSet returns to today's spec. Use `partition` to pace the pods the same way.
-2. Pods restarted by the rollback get new IPs and no longer announce them. Run the manual 6-MEET recovery once.
-3. Data and node IDs are untouched in both directions, because `nodes.conf` and the AOF stay on the PVCs.
+`helm rollback substrate 1 -n ate-system`, revision 1 being the one read from the cluster. Pace the pods with `partition` as above. Pods restarted by the rollback no longer announce their IP, so run the manual 6-MEET recovery from [CLOUD_LAB_RUNBOOK.md](CLOUD_LAB_RUNBOOK.md#known-limitations) once. Data and node IDs stay on the PVCs either way.
 
-## Remaining risks
+If a step fails, stop changing the partition and leave the cluster as it is for diagnosis.
 
-| Risk | Mitigation |
+## Remaining limitations
+
+| Limitation | Note |
 |---|---|
-| An IP reused by another member after a move makes the reconciler skip that address | Rare, because pod IPs come from per-node ranges. The next pass corrects it once the stale entry is gone. If not, use the manual MEET. |
-| A lost PVC gives a pod a new node ID | The reconciler refuses to introduce it, by design. Recovery stays a manual, approved procedure. |
-| A primary restart fails over to its replica | Expected; the slot range does not change. Optionally run `CLUSTER FAILOVER` on the replica before restarting a primary. |
-| A future chart version changes the container | The post-renderer fails closed. |
+| All six pods moving at once, as on a GKE wake, was **not tested live**, on the owner's instruction | That case relies on the reconciler's MEET path. It is covered by the unit simulation only; it never ran live because no stale peer appeared in single-pod moves. Watch the first wake; if `give up` appears, use the manual recovery |
+| PING readiness is not cluster health | Use `cluster info` and `--cluster check` for health |
+| The sidecar has no `seccompProfile` | Shows as a `restricted` PodSecurity warning (`ate-system` enforces `privileged`). Add `RuntimeDefault` in the next substrate revision |
+| No pod anti-affinity | Pairs happen to sit on different nodes today. HA placement is a separate item |
+| A lost PVC gives a new node ID | Deliberately not re-joined automatically |

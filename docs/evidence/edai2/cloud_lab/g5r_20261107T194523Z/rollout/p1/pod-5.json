@@ -1,0 +1,457 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "annotations": {
+            "cni.projectcalico.org/containerID": "51359e56726f785cc70ae88c3fdaa14a53ac44fe03049c0dce7675b3c8733954",
+            "cni.projectcalico.org/podIP": "10.216.4.18/32",
+            "cni.projectcalico.org/podIPs": "10.216.4.18/32"
+        },
+        "creationTimestamp": "2026-11-07T19:51:02Z",
+        "generateName": "valkey-cluster-",
+        "generation": 1,
+        "labels": {
+            "app": "valkey-cluster",
+            "apps.kubernetes.io/pod-index": "5",
+            "controller-revision-hash": "valkey-cluster-5b64cf6558",
+            "statefulset.kubernetes.io/pod-name": "valkey-cluster-5",
+            "topology.kubernetes.io/region": "asia-southeast1",
+            "topology.kubernetes.io/zone": "asia-southeast1-b"
+        },
+        "name": "valkey-cluster-5",
+        "namespace": "ate-system",
+        "ownerReferences": [
+            {
+                "apiVersion": "apps/v1",
+                "blockOwnerDeletion": true,
+                "controller": true,
+                "kind": "StatefulSet",
+                "name": "valkey-cluster",
+                "uid": "71a62b0a-5e85-4098-ac1b-9af8a0c74805"
+            }
+        ],
+        "resourceVersion": "1794081149640031009",
+        "uid": "b509c074-ed54-419a-a9a6-6315ecb948b8"
+    },
+    "spec": {
+        "containers": [
+            {
+                "command": [
+                    "valkey-server",
+                    "/etc/valkey/valkey.conf",
+                    "--cluster-announce-ip",
+                    "$(POD_IP)"
+                ],
+                "env": [
+                    {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "status.podIP"
+                            }
+                        }
+                    }
+                ],
+                "image": "valkey/valkey:8.0@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "valkey",
+                "ports": [
+                    {
+                        "containerPort": 6379,
+                        "name": "valkey",
+                        "protocol": "TCP"
+                    },
+                    {
+                        "containerPort": 16379,
+                        "name": "bus",
+                        "protocol": "TCP"
+                    }
+                ],
+                "readinessProbe": {
+                    "exec": {
+                        "command": [
+                            "valkey-cli",
+                            "-h",
+                            "127.0.0.1",
+                            "ping"
+                        ]
+                    },
+                    "failureThreshold": 3,
+                    "periodSeconds": 5,
+                    "successThreshold": 1,
+                    "timeoutSeconds": 2
+                },
+                "resources": {
+                    "limits": {
+                        "cpu": "250m",
+                        "memory": "256Mi"
+                    },
+                    "requests": {
+                        "cpu": "25m",
+                        "memory": "64Mi"
+                    }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                    {
+                        "mountPath": "/etc/valkey",
+                        "name": "config"
+                    },
+                    {
+                        "mountPath": "/data",
+                        "name": "data"
+                    },
+                    {
+                        "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                        "name": "kube-api-access-xdqmf",
+                        "readOnly": true
+                    }
+                ]
+            },
+            {
+                "command": [
+                    "/bin/sh",
+                    "-c",
+                    "\nset -u\nattempts=/tmp/meet-attempts\nmkdir -p \"$attempts\"\nuntil valkey-cli -h 127.0.0.1 ping \u003e/dev/null 2\u003e\u00261; do sleep 2; done\nwhile true; do\n  if nodes=$(valkey-cli -h 127.0.0.1 cluster nodes 2\u003e/dev/null); then\n    i=0\n    while [ \"$i\" -lt \"$VALKEY_REPLICAS\" ]; do\n      host=\"valkey-cluster-$i.$VALKEY_SERVICE.$POD_NAMESPACE.svc.cluster.local\"\n      i=$((i + 1))\n      ip=$(getent hosts \"$host\" | awk '{print $1; exit}')\n      [ -n \"$ip\" ] \u0026\u0026 [ \"$ip\" != \"$POD_IP\" ] || continue\n      id=$(timeout 3 valkey-cli -h \"$ip\" cluster myid 2\u003e/dev/null || true)\n      if [ -z \"$id\" ] || ! printf '%s\\n' \"$nodes\" | awk '{print $1}' | grep -qx \"$id\"; then\n        echo \"skip $host $ip: node id '$id' is not a known member\"\n        continue\n      fi\n      if printf '%s\\n' \"$nodes\" | grep -q \"^$id $ip:6379@\"; then\n        rm -f \"$attempts/$ip\"\n        continue\n      fi\n      n=$(cat \"$attempts/$ip\" 2\u003e/dev/null || echo 0)\n      if [ \"$n\" -ge \"$MAX_MEET_ATTEMPTS\" ]; then\n        [ \"$n\" -eq \"$MAX_MEET_ATTEMPTS\" ] \u0026\u0026 echo \"give up $host $ip after $n MEETs; needs an operator\"\n        echo $((n + 1)) \u003e \"$attempts/$ip\"\n        continue\n      fi\n      echo $((n + 1)) \u003e \"$attempts/$ip\"\n      echo \"meet $host $ip (node $id), attempt $((n + 1))\"\n      valkey-cli -h 127.0.0.1 cluster meet \"$ip\" 6379\n    done\n  fi\n  sleep 15\ndone\n"
+                ],
+                "env": [
+                    {
+                        "name": "POD_IP",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "status.podIP"
+                            }
+                        }
+                    },
+                    {
+                        "name": "POD_NAMESPACE",
+                        "valueFrom": {
+                            "fieldRef": {
+                                "apiVersion": "v1",
+                                "fieldPath": "metadata.namespace"
+                            }
+                        }
+                    },
+                    {
+                        "name": "VALKEY_SERVICE",
+                        "value": "valkey-cluster-service"
+                    },
+                    {
+                        "name": "VALKEY_REPLICAS",
+                        "value": "6"
+                    },
+                    {
+                        "name": "MAX_MEET_ATTEMPTS",
+                        "value": "5"
+                    },
+                    {
+                        "name": "HOME",
+                        "value": "/tmp"
+                    }
+                ],
+                "image": "valkey/valkey:8.0@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "cluster-address-reconciler",
+                "resources": {
+                    "limits": {
+                        "cpu": "50m",
+                        "memory": "32Mi"
+                    },
+                    "requests": {
+                        "cpu": "5m",
+                        "memory": "16Mi"
+                    }
+                },
+                "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                        "drop": [
+                            "ALL"
+                        ]
+                    },
+                    "readOnlyRootFilesystem": true,
+                    "runAsGroup": 999,
+                    "runAsNonRoot": true,
+                    "runAsUser": 999
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                    {
+                        "mountPath": "/tmp",
+                        "name": "reconciler-tmp"
+                    },
+                    {
+                        "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                        "name": "kube-api-access-xdqmf",
+                        "readOnly": true
+                    }
+                ]
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "hostname": "valkey-cluster-5",
+        "nodeName": "gke-ewallet-dev-cpu-pool-58daed59-cbl0",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "subdomain": "valkey-cluster-service",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            },
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/unreachable",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            }
+        ],
+        "volumes": [
+            {
+                "name": "data",
+                "persistentVolumeClaim": {
+                    "claimName": "data-valkey-cluster-5"
+                }
+            },
+            {
+                "configMap": {
+                    "defaultMode": 420,
+                    "name": "valkey-config"
+                },
+                "name": "config"
+            },
+            {
+                "emptyDir": {
+                    "sizeLimit": "1Mi"
+                },
+                "name": "reconciler-tmp"
+            },
+            {
+                "name": "kube-api-access-xdqmf",
+                "projected": {
+                    "defaultMode": 420,
+                    "sources": [
+                        {
+                            "serviceAccountToken": {
+                                "expirationSeconds": 3607,
+                                "path": "token"
+                            }
+                        },
+                        {
+                            "configMap": {
+                                "items": [
+                                    {
+                                        "key": "ca.crt",
+                                        "path": "ca.crt"
+                                    }
+                                ],
+                                "name": "kube-root-ca.crt"
+                            }
+                        },
+                        {
+                            "downwardAPI": {
+                                "items": [
+                                    {
+                                        "fieldRef": {
+                                            "apiVersion": "v1",
+                                            "fieldPath": "metadata.namespace"
+                                        },
+                                        "path": "namespace"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "status": {
+        "allocatedResources": {
+            "cpu": "30m",
+            "memory": "80Mi"
+        },
+        "conditions": [
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T19:51:16Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "PodReadyToStartContainers"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T19:51:02Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "Initialized"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T19:51:20Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "Ready"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T19:51:20Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "ContainersReady"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T19:51:02Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "PodScheduled"
+            }
+        ],
+        "containerStatuses": [
+            {
+                "allocatedResources": {
+                    "cpu": "5m",
+                    "memory": "16Mi"
+                },
+                "containerID": "containerd://2068d129dcae78a0b6b7d7fd96efaff9f0f86ad80120a4a3cfd345c88f81a4d5",
+                "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+                "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f",
+                "lastState": {},
+                "name": "cluster-address-reconciler",
+                "ready": true,
+                "resources": {
+                    "limits": {
+                        "cpu": "50m",
+                        "memory": "32Mi"
+                    },
+                    "requests": {
+                        "cpu": "5m",
+                        "memory": "16Mi"
+                    }
+                },
+                "restartCount": 0,
+                "started": true,
+                "state": {
+                    "running": {
+                        "startedAt": "2026-11-07T19:51:20Z"
+                    }
+                },
+                "user": {
+                    "linux": {
+                        "gid": 999,
+                        "supplementalGroups": [
+                            999
+                        ],
+                        "uid": 999
+                    }
+                },
+                "volumeMounts": [
+                    {
+                        "mountPath": "/tmp",
+                        "name": "reconciler-tmp"
+                    },
+                    {
+                        "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                        "name": "kube-api-access-xdqmf",
+                        "readOnly": true,
+                        "recursiveReadOnly": "Disabled"
+                    }
+                ]
+            },
+            {
+                "allocatedResources": {
+                    "cpu": "25m",
+                    "memory": "64Mi"
+                },
+                "containerID": "containerd://f509885ebb1ca6ba79c0d12d5998e375c2c805ec02a10da03b29c8ee24c727bd",
+                "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+                "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f",
+                "lastState": {},
+                "name": "valkey",
+                "ready": true,
+                "resources": {
+                    "limits": {
+                        "cpu": "250m",
+                        "memory": "256Mi"
+                    },
+                    "requests": {
+                        "cpu": "25m",
+                        "memory": "64Mi"
+                    }
+                },
+                "restartCount": 0,
+                "started": true,
+                "state": {
+                    "running": {
+                        "startedAt": "2026-11-07T19:51:19Z"
+                    }
+                },
+                "user": {
+                    "linux": {
+                        "gid": 0,
+                        "supplementalGroups": [
+                            0
+                        ],
+                        "uid": 0
+                    }
+                },
+                "volumeMounts": [
+                    {
+                        "mountPath": "/etc/valkey",
+                        "name": "config"
+                    },
+                    {
+                        "mountPath": "/data",
+                        "name": "data"
+                    },
+                    {
+                        "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                        "name": "kube-api-access-xdqmf",
+                        "readOnly": true,
+                        "recursiveReadOnly": "Disabled"
+                    }
+                ]
+            }
+        ],
+        "hostIP": "10.20.15.198",
+        "hostIPs": [
+            {
+                "ip": "10.20.15.198"
+            }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.216.4.18",
+        "podIPs": [
+            {
+                "ip": "10.216.4.18"
+            }
+        ],
+        "qosClass": "Burstable",
+        "resources": {
+            "limits": {
+                "cpu": "300m",
+                "memory": "288Mi"
+            },
+            "requests": {
+                "cpu": "28m",
+                "memory": "80Mi"
+            }
+        },
+        "startTime": "2026-11-07T19:51:02Z"
+    }
+}

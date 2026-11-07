@@ -1,0 +1,1 @@
+20 ('INFO', 'failed to upload metrics: exporter export timeout: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp [::1]:4317: connect: cannot assign requested address"', 'None') 2026-11-07T19:45:34 2026-11-07T20:04:34

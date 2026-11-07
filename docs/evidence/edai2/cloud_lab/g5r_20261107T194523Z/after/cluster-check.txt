@@ -1,0 +1,3 @@
+[OK] 10 keys in 3 primaries.
+[OK] All nodes agree about slots configuration.
+[OK] All 16384 slots covered.

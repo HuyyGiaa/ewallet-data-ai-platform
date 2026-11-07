@@ -114,7 +114,9 @@ pods. System namespaces are left alone. `wake-full` later restores everything.
 
   This took 6 MEETs, with no `CONFIG SET`, and reached `cluster_state:ok` within 20 seconds. Again one shard failed over inside its own pair. Evidence: `docs/evidence/edai2/cloud_lab/stabilize_20261107T173813Z/valkey`.
 
-  **Durable fix (needs its own approval, not applied):** set `cluster-announce-ip` from the pod IP at start-up. Use a `POD_IP` downward-API env and `--cluster-announce-ip $(POD_IP)` in the `valkey-cluster` StatefulSet, or announce hostnames through a headless Service. Changing the StatefulSet restarts the pods one by one. Until then, every wake, node upgrade or repair needs the sequence above.
+  **Durable fix deployed (G5-R, substrate revision 2, 2026-11-07).** See [G5_R_VALKEY_DURABILITY.md](G5_R_VALKEY_DURABILITY.md). Single-pod moves now heal on their own. The manual sequence above is the fallback, for example if a reconciler logs `give up` after all pods move at once, which has not been tested live yet.
+
+  **Original plan, kept for history:** set `cluster-announce-ip` from the pod IP at start-up. Use a `POD_IP` downward-API env and `--cluster-announce-ip $(POD_IP)` in the `valkey-cluster` StatefulSet, or announce hostnames through a headless Service. Changing the StatefulSet restarts the pods one by one. Until then, every wake, node upgrade or repair needs the sequence above.
 
   **Placement.** There is no pod anti-affinity. After G4.5 each shard happens to span two nodes, but the scheduler gives no guarantee: before the upgrade all six pods sat on one node.
 

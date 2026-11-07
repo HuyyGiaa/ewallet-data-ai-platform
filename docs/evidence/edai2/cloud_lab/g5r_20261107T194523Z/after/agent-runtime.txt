@@ -1,0 +1,3 @@
+ate-api-server-deployment-6558549c7c-hcgvk   1/1   Running   21 (145m ago)   3h50m
+ate-controller-6bcb5b4bf7-r8hpf              1/1   Running   0               3h50m
+kagent-controller-58fc5667dc-r5jxd   1/1   Running   19 (145m ago)   3h44m

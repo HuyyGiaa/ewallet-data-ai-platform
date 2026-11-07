@@ -1,0 +1,95 @@
+--- live valkey-cluster (revision 1)
++++ server dry-run valkey-cluster (revision 2)
+@@ -23,2 +23,4 @@
+         - /etc/valkey/valkey.conf
++        - --cluster-announce-ip
++        - $(POD_IP)
+         ports:
+@@ -33,2 +35,17 @@
+           mountPath: /data
++        env:
++        - name: POD_IP
++          valueFrom:
++            fieldRef:
++              fieldPath: status.podIP
++        readinessProbe:
++          exec:
++            command:
++            - valkey-cli
++            - -h
++            - 127.0.0.1
++            - ping
++          periodSeconds: 5
++          timeoutSeconds: 2
++          failureThreshold: 3
+         resources:
+@@ -40,2 +57,63 @@
+             memory: 256Mi
++      - name: cluster-address-reconciler
++        image: valkey/valkey:8.0@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f
++        command:
++        - /bin/sh
++        - -c
++        - "\nset -u\nattempts=/tmp/meet-attempts\nmkdir -p \"$attempts\"\nuntil valkey-cli\
++          \ -h 127.0.0.1 ping >/dev/null 2>&1; do sleep 2; done\nwhile true; do\n\
++          \  if nodes=$(valkey-cli -h 127.0.0.1 cluster nodes 2>/dev/null); then\n\
++          \    i=0\n    while [ \"$i\" -lt \"$VALKEY_REPLICAS\" ]; do\n      host=\"\
++          valkey-cluster-$i.$VALKEY_SERVICE.$POD_NAMESPACE.svc.cluster.local\"\n \
++          \     i=$((i + 1))\n      ip=$(getent hosts \"$host\" | awk '{print $1;\
++          \ exit}')\n      [ -n \"$ip\" ] && [ \"$ip\" != \"$POD_IP\" ] || continue\n\
++          \      id=$(timeout 3 valkey-cli -h \"$ip\" cluster myid 2>/dev/null ||\
++          \ true)\n      if [ -z \"$id\" ] || ! printf '%s\\n' \"$nodes\" | awk '{print\
++          \ $1}' | grep -qx \"$id\"; then\n        echo \"skip $host $ip: node id\
++          \ '$id' is not a known member\"\n        continue\n      fi\n      if printf\
++          \ '%s\\n' \"$nodes\" | grep -q \"^$id $ip:6379@\"; then\n        rm -f \"\
++          $attempts/$ip\"\n        continue\n      fi\n      n=$(cat \"$attempts/$ip\"\
++          \ 2>/dev/null || echo 0)\n      if [ \"$n\" -ge \"$MAX_MEET_ATTEMPTS\" ];\
++          \ then\n        [ \"$n\" -eq \"$MAX_MEET_ATTEMPTS\" ] && echo \"give up\
++          \ $host $ip after $n MEETs; needs an operator\"\n        echo $((n + 1))\
++          \ > \"$attempts/$ip\"\n        continue\n      fi\n      echo $((n + 1))\
++          \ > \"$attempts/$ip\"\n      echo \"meet $host $ip (node $id), attempt $((n\
++          \ + 1))\"\n      valkey-cli -h 127.0.0.1 cluster meet \"$ip\" 6379\n   \
++          \ done\n  fi\n  sleep 15\ndone\n"
++        env:
++        - name: POD_IP
++          valueFrom:
++            fieldRef:
++              fieldPath: status.podIP
++        - name: POD_NAMESPACE
++          valueFrom:
++            fieldRef:
++              fieldPath: metadata.namespace
++        - name: VALKEY_SERVICE
++          value: valkey-cluster-service
++        - name: VALKEY_REPLICAS
++          value: '6'
++        - name: MAX_MEET_ATTEMPTS
++          value: '5'
++        - name: HOME
++          value: /tmp
++        resources:
++          requests:
++            cpu: 5m
++            memory: 16Mi
++          limits:
++            cpu: 50m
++            memory: 32Mi
++        securityContext:
++          runAsNonRoot: true
++          runAsUser: 999
++          runAsGroup: 999
++          allowPrivilegeEscalation: false
++          readOnlyRootFilesystem: true
++          capabilities:
++            drop:
++            - ALL
++        volumeMounts:
++        - name: reconciler-tmp
++          mountPath: /tmp
+       volumes:
+@@ -44,2 +122,5 @@
+           name: valkey-config
++      - name: reconciler-tmp
++        emptyDir:
++          sizeLimit: 1Mi
+   volumeClaimTemplates:

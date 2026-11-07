@@ -1,0 +1,2 @@
+{"actor_id": "feature-rag-specialist", "duration_ms": 29.894, "error_code": null, "event": "tool_call_completed", "request_id": "g5r-synthetic-eaf1758bdbf3", "status": "ok", "tool_name": "feature_look
+{"actor_id": "feature-rag-specialist", "duration_ms": 150.851, "error_code": null, "event": "tool_call_completed", "request_id": "g5r-synthetic-eaf1758bdbf3", "status": "ok", "tool_name": "fraud_scori
