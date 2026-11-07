@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ewallet-serving
+description: Feature Retrieval API and KEDA autoscaling for the stateless Data/ML serving tier.
+type: application
+version: 0.1.0
+appVersion: "1"

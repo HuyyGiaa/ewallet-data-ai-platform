@@ -1,0 +1,67 @@
+{{- if .Values.metricsDiscovery.enabled }}
+{{- $selectors := dict "fraud-api" .Values.metricsDiscovery.fraudApiSelector }}
+{{- if .Values.featureApi.enabled }}
+{{- $_ := set $selectors "feature-api" (dict "app.kubernetes.io/name" "feature-api") }}
+{{- end }}
+{{- range $name, $selector := $selectors }}
+---
+# Headless, so DNS returns one address per pod and Prometheus scrapes each replica.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-metrics
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "ewallet-serving.labels" $ | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- toYaml $selector | nindent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: 8080}
+{{- end }}
+{{- if .Values.featureApi.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-to-feature-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-serving.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: feature-api}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Values.prometheus.namespace }}}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.prometheus.podLabels | nindent 14 }}
+      ports:
+        - {port: 8080, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-to-feature-api-egress
+  namespace: {{ .Values.prometheus.namespace }}
+  labels:
+    {{- include "ewallet-serving.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml .Values.prometheus.podLabels | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespace }}}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: feature-api}
+      ports:
+        - {port: 8080, protocol: TCP}
+{{- end }}
+{{- end }}

@@ -1,0 +1,102 @@
+{{- if .Values.featureApi.enabled }}
+{{- $f := .Values.featureApi }}
+{{- if not (regexMatch "^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$" $f.image) }}
+{{- fail "featureApi.image must be pinned by digest" }}
+{{- end }}
+{{- if not $f.registryUri }}
+{{- fail "featureApi.registryUri must name the online Feast registry" }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: feature-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-serving.labels" . | nindent 4 }}
+    app.kubernetes.io/name: feature-api
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: feature-api}
+  ports:
+    - {name: http, port: 80, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feature-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-serving.labels" . | nindent 4 }}
+    app.kubernetes.io/name: feature-api
+spec:
+  {{- if not (and .Values.autoscaling.enabled (dig "feature-api" "enabled" false .Values.autoscaling.targets)) }}
+  replicas: {{ $f.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: feature-api}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: feature-api}
+    spec:
+      serviceAccountName: {{ $f.serviceAccountName }}
+      {{- with $f.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: feature-api
+          image: {{ $f.image }}
+          command: ["python", "-m", "ai_platform.inference.feature_server"]
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: EWALLET_FEAST_REGISTRY
+              value: {{ $f.registryUri | quote }}
+            - name: EWALLET_FEAST_TIMEOUT_SECONDS
+              value: {{ $f.timeoutSeconds | quote }}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $f.redisSecret.name }}
+                  key: {{ $f.redisSecret.key }}
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            {{- toYaml $f.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+# Additive: the Redis policy in infra/kubernetes/feast-online stays as it is.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-clients-feature-api
+  namespace: feature-store
+  labels:
+    {{- include "ewallet-serving.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: redis}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ .Values.namespace }}}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: feature-api}
+      ports:
+        - {port: 6379, protocol: TCP}
+{{- end }}

@@ -431,6 +431,9 @@ agents:
       cooldownSeconds: 120
       # Used when Prometheus cannot be queried: hold the safe floor.
       fallback: {failureThreshold: 3, replicas: 2}
+      # Per-agent trigger. inflight needs the gauge, which only the BYO agents export;
+      # a kagent-managed agent has no such series, so it scales on CPU instead.
+      triggers: {}
       # Adopt the HPA of the same name instead of requiring its deletion first. KEDA's
       # webhook refuses a ScaledObject beside a foreign HPA. See the C-B runbook for rollback.
       transferHpa: false
@@ -724,6 +727,12 @@ observabilityStack:
     enabled: false
     fraudApiMetricsTarget: fraud-api.ml-platform.svc.cluster.local:80
     kserveMetricsTarget: fraud-detector-predictor.fraud-serving.svc.cluster.local:80
+    # Per-pod scrape jobs that infra/helm/ewallet-serving's KEDA triggers read.
+    podDiscovery:
+      enabled: false
+      jobs:
+        fraud-api-pods: fraud-api-metrics.ml-platform.svc.cluster.local
+        feature-api-pods: feature-api-metrics.ml-platform.svc.cluster.local
   networkFlows:
     - {name: prometheus-to-agentgateway, from: observability-prometheus, to: agentgateway, port: 15020}
     - {name: prometheus-to-vllm, from: observability-prometheus, to: vllm, port: 8000}

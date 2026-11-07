@@ -10,3 +10,9 @@ agents:
       # Adopt each existing HPA, so autoscaling has no gap. Rollback isn't a plain upgrade:
       # see P4 in the C-B runbook.
       transferHpa: true
+      # The Coordinator waits on the LLM, so it takes fewer tasks per replica than the
+      # deterministic Specialist. The Drift Specialist exports no gauge.
+      triggers:
+        fraud-coordinator: {type: inflight, inflightPerReplica: "2"}
+        feature-rag-specialist: {type: inflight, inflightPerReplica: "4"}
+        drift-specialist: {type: cpu, targetUtilization: 60}
