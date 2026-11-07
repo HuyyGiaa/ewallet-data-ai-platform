@@ -1,0 +1,4 @@
+git_commit=cceb2740db802fae937f405742e85d7cc7427215
+git_branch=integration/g0-20261107
+generated_at_utc=2026-11-07T10:23:29Z
+uv_lock_sha256=ea54b73d3ae2af16b9428cbebec026a645207c6ef89d87c9051749dcb667e1c3

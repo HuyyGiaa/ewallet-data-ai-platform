@@ -21,6 +21,9 @@ ai_platform.llm_agent.prompt_safety.x__distinct_cards__mutmut_11  # a separator 
 ai_platform.llm_agent.prompt_safety.x__mask_spans__mutmut_10  # a digit right before a UUID or timestamp is part of that token
 ai_platform.llm_agent.prompt_safety.x__mask_spans__mutmut_15  # an email ends in letters, so a digit span cannot end with it
 ai_platform.llm_agent.prompt_safety.x__mask_spans__mutmut_20  # candidate spans end on a digit and never touch without overlapping
+# R8 additions (G2), reviewed on the integrated source:
+ai_platform.llm_agent.prompt_safety.x_canonical_text__mutmut_3  # _canonical_char returns every ASCII character unchanged; the shortcut only saves calls
+ai_platform.llm_agent.prompt_safety.x__mask_phones__mutmut_9  # no intake value can start where a phone ends: a phone ends in a digit, a UUID needs a non-hex character before it, a timestamp starts with a digit that (?!\d) forbids
 # idempotency.py: Python treats the codec names alike
 ai_platform.llm_agent.idempotency.xǁIdempotencyScopeǁkey__mutmut_19  # UTF-8 and utf-8 are one codec
 ai_platform.llm_agent.idempotency.xǁIdempotencyScopeǁkey__mutmut_23  # UTF-8 and utf-8 are one codec
@@ -41,12 +44,15 @@ ai_platform.inference.wire.xǁFraudV2WireContractǁencode_request__mutmut_30  # 
 # feast_online.py
 ai_platform.inference.feast_online.x__one__mutmut_9  # the caller discards these names and reports its own
 ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁget_features__mutmut_17  # aware subtraction is the same in any zone
-ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_65  # aware subtraction is the same in any zone
-ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_23  # merchant timestamps are skipped when merchant is absent
-ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_25  # merchant_behavior is the last view of FEATURE_SPECS
-ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_48  # a feature reference has exactly one colon
-ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_51  # a feature reference has exactly one colon
-ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_104  # only the emptiness of the future list is used
+# Re-reviewed in G2 after Session A moved the view reads into _read_views. The old
+# _get_features IDs 65, 23, 25, 48, 51 and 104 now name behaviour-changing mutants
+# (dropping values, _one(None, ...), age = None, ...) and are no longer listed.
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_17  # aware subtraction is the same in any zone
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_read_views__mutmut_14  # merchant timestamps are skipped when merchant is absent; _view_timestamps treats None and [None] alike
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_read_views__mutmut_16  # merchant_behavior is the last view of FEATURE_SPECS
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_read_views__mutmut_39  # a feature reference has exactly one colon
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_read_views__mutmut_42  # a feature reference has exactly one colon
+ai_platform.inference.feast_online.xǁFeastOnlineAdapterǁ_get_features__mutmut_56  # only the emptiness of the future list is used
 # assembler.py
 ai_platform.inference.assembler.xǁModelInputVectorǁas_dict__mutmut_4  # __post_init__ already fixes both lengths at 41
 ai_platform.inference.assembler.xǁModelInputVectorǁas_dict__mutmut_7  # __post_init__ already fixes both lengths at 41

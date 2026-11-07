@@ -1,0 +1,47 @@
+{
+  "total": 1107,
+  "killed": 964,
+  "survived_actionable": 58,
+  "equivalent_reviewed": 42,
+  "timeout": 4,
+  "no_tests": 39,
+  "skipped": 0,
+  "errors": 0,
+  "raw_score": 0.8708220415537489,
+  "actionable_score": 0.9051643192488263,
+  "stale_equivalents": [],
+  "by_module": {
+    "ai_platform.inference.assembler": {
+      "killed": 103,
+      "equivalent": 5
+    },
+    "ai_platform.inference.feast_online": {
+      "killed": 219,
+      "equivalent": 8,
+      "timeout": 4,
+      "survived": 6,
+      "no tests": 39
+    },
+    "ai_platform.inference.schemas": {
+      "killed": 9
+    },
+    "ai_platform.inference.wire": {
+      "killed": 140,
+      "equivalent": 3
+    },
+    "ai_platform.llm_agent.idempotency": {
+      "survived": 43,
+      "killed": 240,
+      "equivalent": 11
+    },
+    "ai_platform.llm_agent.prompt_safety": {
+      "killed": 153,
+      "survived": 9,
+      "equivalent": 7
+    },
+    "ai_platform.ml.training.derived": {
+      "killed": 100,
+      "equivalent": 8
+    }
+  }
+}

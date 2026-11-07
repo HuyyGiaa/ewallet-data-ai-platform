@@ -6,7 +6,7 @@ import string
 
 from hypothesis import given, strategies as st
 
-from ai_platform.llm_agent.prompt_safety import PII_TYPES, screen_prompt
+from ai_platform.llm_agent.prompt_safety import PII_TYPES, canonical_text, screen_prompt
 
 
 plain_words = st.text(string.ascii_letters + " ", max_size=60)
@@ -201,3 +201,28 @@ def test_prompt_injection_wrappers_do_not_bypass_the_screen(template, secret):
     result = screen_prompt(template.format(secret))
     assert result.detected
     assert secret not in result.text
+
+
+def test_canonical_form_covers_the_whole_full_width_block():
+    assert canonical_text("！～") == "!~"
+    assert canonical_text("ａ＠ｂ．ｃｏｍ") == "a@b.com"
+
+
+@given(phones, st.sampled_from(["٠", "۰", "०", "๐"]))
+def test_digits_of_any_script_do_not_hide_a_phone(phone, zero):
+    script_digits = "".join(chr(ord(zero) + int(c)) if c.isdigit() else c for c in phone)
+    result = screen_prompt(f"so {script_digits} nhe")
+    assert result.counts["phone"] == 1
+    assert script_digits not in result.text
+
+
+@given(st.uuids().map(str), phones)
+def test_an_identifier_elsewhere_in_the_prompt_does_not_shield_a_phone(identifier, phone):
+    result = screen_prompt(f"giao dich {identifier} goi {phone} nhe")
+    assert result.text == f"giao dich {identifier} goi [REDACTED_PHONE] nhe"
+
+
+@given(st.datetimes().map(lambda value: value.isoformat() + "Z"), phones)
+def test_a_phone_right_after_a_timestamp_is_masked(timestamp, phone):
+    result = screen_prompt(f"luc {timestamp}{phone}")
+    assert result.text == f"luc {timestamp}[REDACTED_PHONE]"

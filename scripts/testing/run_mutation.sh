@@ -23,7 +23,7 @@ echo "mutation workspace: $workspace"
 mkdir -p "$workspace"
 git -C "$REPO_ROOT" ls-files -z --cached --others --exclude-standard -- \
     ai_platform data_platform/__init__.py data_platform/config \
-    data/llm_agent/rag tests \
+    data/llm_agent/rag configs/experiments/ml-ab tests \
   | (cd "$REPO_ROOT" && tar --null --ignore-failed-read -T - -cf -) \
   | tar -xf - -C "$workspace"
 cp "$REPO_ROOT/tests/quality/mutmut.cfg" "$workspace/setup.cfg"
