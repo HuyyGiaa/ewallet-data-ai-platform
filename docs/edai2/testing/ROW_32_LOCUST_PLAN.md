@@ -1,79 +1,60 @@
-# Row 32: Locust against real GKE backends
+# Row 32: Locust against real backends
 
-The owner decided that final row 32 evidence must use deployed backends. This page lists what exists, what is missing and how to run it. Nothing here has run, and the B1 branch is unchanged.
+Final row 32 evidence must come from deployed backends. The tooling is implemented and works against real local services. **No GKE run has happened**, so the row is not complete.
+
+Row 32 asks for a load test of the data-retrieval Web API, so the Feature API is the primary target. Fraud inference is measured as a second target.
+
+| Target | Path |
+|---|---|
+| `feature` | Locust → Feature API → Feast SDK → Redis → response |
+| `inference` | Locust → Fraud API → Feast → Redis → assembly → KServe → prediction |
+
+## Harness
+
+| Part | File |
+|---|---|
+| Targets and response contracts | [`tests/load/real_targets.py`](../../../tests/load/real_targets.py) |
+| Locust user | [`tests/load/locustfile_real.py`](../../../tests/load/locustfile_real.py) |
+| One run, with manifest and reports | [`scripts/testing/run_real_load.sh`](../../../scripts/testing/run_real_load.sh) |
+| Metrics summary | [`scripts/testing/real_load_report.py`](../../../scripts/testing/real_load_report.py) |
+| Pinned Locust environment | [`infra/load-test`](../../../infra/load-test/pyproject.toml) |
+| Real entity fixtures | [`ops/experiments/fraud_entities.py`](../../../ops/experiments/fraud_entities.py) |
+
+The B1 mock-backed harness stays as it is, for isolated tests. These files sit beside it and change nothing on B1, so the earlier plan to edit `tests/load/payloads.py` is no longer needed.
+
+A request counts as a success only when it honours its response contract. Only valid requests are sent. Invalid-request and fault scenarios stay in the B1 harness.
+
+## Fixtures and freshness
+
+The API rejects features more than 10 minutes older than `event_timestamp`, and online rows keep their own times, so one fixed timestamp fits almost no entity.
 
 ```text
-Locust → Fraud API on GKE → Feast SDK → Redis → feature assembly → KServe → prediction
+build    real entity ids from the training snapshot
+prepare  read each entity's view times, value-free; set event_timestamp just after the newest
+verify   send each entity once to the deployed API; keep only 200s, and keep the counts
 ```
 
-## Current capability
+An entity whose views lie more than 10 minutes apart is dropped. Freshness is never relaxed. **Risk:** on real data few entities may qualify. If too few remain, a fresh materialization is a separate owner decision.
 
-On `feature/b1-testing-quality` at `281db72`:
+## Workload
 
-| Part | State |
-|---|---|
-| `tests/load/locustfile.py` | Real scenarios; `integration` profile exists |
-| Remote guard | Needs `EWALLET_LOAD_PROFILE=integration` and `EWALLET_LOAD_ACKNOWLEDGE_REMOTE=I_OWN_THIS_TARGET` |
-| Reports | HTML and CSV through `scripts/testing/run_locust.sh`, limits 200 users and 900 s |
-| Mock results | Kept as an isolated application benchmark, never as production throughput |
+| Profile | Users | Spawn rate | Duration |
+|---|---:|---:|---:|
+| low | 5 | 2/s | 5 min |
+| medium | 10 | 5/s | 5 min |
+| high | 20 | 5/s | 5 min |
 
-## Missing
+Each run writes the HTML report, statistics, history, failures, terminal log and a manifest with source SHA, image digest, model version, fixture hash and timestamps. The network path (`internal`, `external`, `local`) is part of the output directory, so different paths never merge.
 
-**One real gap:** `tests/load/payloads.py` generates `synthetic-user-*` identifiers. No such entity exists in Redis, so a real backend answers `424 missing_feature`, and the run would measure rejections.
+## Local harness check
 
-| Item | Where | State |
-|---|---|---|
-| Real entity fixture | `ops/experiments/fraud_entities.py` | Done on the C-C branch |
-| Load `EWALLET_LOAD_ENTITIES` in `valid_payload` | `tests/load/payloads.py`, about 15 lines | **Needs owner approval**: it changes B1 and belongs in final integration |
-| Separate fault scenarios | Existing `INVALID` and `DEPENDENCY_FAILURE` | Keep out of the valid-request run |
+Real Feature API, Fraud API, KServe predictor, Feast and Redis on a laptop, with fixture features, 5 users for 30 seconds. **This proves the tooling only.** See [the summaries](../../../docs/evidence/edai2/load/local_harness_20261107T065613Z).
 
-The change draws each request from the file, keeps a new `transaction_id` per request, and falls back to the synthetic generator when the variable is unset. The B1 local run stays the same.
+| Target | Requests | Failed | Req/s | p95 |
+|---|---:|---:|---:|---:|
+| feature | 9,651 | 0 | 332.6 | 20 ms |
+| inference | 1,473 | 0 | 50.8 | 130 ms |
 
-## Required resources
+`prepare` and `verify` both kept 300 of 300 fixture entities. Real data will not be this clean.
 
-| Resource | Need |
-|---|---|
-| Nodes | 1 node: `plan-wake --mode minimal --profile kserve-small` computes 1.8 CPU and 3.6 GiB |
-| Workloads | `fraud-api`, `fraud-detector-predictor`, `redis`, `kserve-controller-manager` |
-| Access | `kubectl port-forward` to `svc/fraud-api`; no new public endpoint |
-| Cost | About $0.285/hour, so about $0.86 for 3 hours, including sleep costs |
-
-A port-forward passes through one tunnel, so very high rates would measure the tunnel. An in-cluster Job is the fallback if the tunnel saturates.
-
-## Minimum experiment
-
-| Setting | Value |
-|---|---|
-| Traffic | Valid requests only: `EWALLET_LOAD_MIX=valid=100` |
-| Levels | 5, 10, then 20 users |
-| Duration | 5 minutes per level after 1 minute of warm-up |
-| Entities | At least 300 verified entities |
-| Failures | Every failed request stays in the report |
-
-## Owner steps
-
-```bash
-# 1. Wake one node, as approved (Cloud Lab runbook).
-# 2. Build and verify real entities.
-python -m ops.experiments.fraud_entities build --snapshot "$SNAPSHOT" --limit 500 --out entities.jsonl
-kubectl -n ml-platform port-forward svc/fraud-api 18080:80 &
-python -m ops.experiments.fraud_entities verify --entities entities.jsonl \
-  --url http://127.0.0.1:18080/v1/fraud/predict --out entities-verified.jsonl
-# 3. Run each level.
-EWALLET_LOAD_PROFILE=integration EWALLET_LOAD_ACKNOWLEDGE_REMOTE=I_OWN_THIS_TARGET \
-EWALLET_LOAD_MIX=valid=100 EWALLET_LOAD_ENTITIES=entities-verified.jsonl \
-LOCUST_HOST=http://127.0.0.1:18080 LOCUST_USERS=5 LOCUST_RUN_TIME=5m \
-scripts/testing/run_locust.sh docs/evidence/edai2/testing/locust-gke-5
-# 4. Return to sleep.
-```
-
-`verify` keeps the rejection counts. Report them: the snapshot and the online store cover different windows, so some entities may not be served.
-
-## Evidence
-
-- `verify` output with its status counts.
-- Locust HTML and CSV for each level.
-- Grafana or `/metrics` for the same window.
-- Pod CPU and memory, image digests, source SHA and node type.
-- Screenshots of the Locust report and the Fraud API metrics.
-- A failure analysis, including 424 and 504 responses.
+The GKE procedure is in [the Session A packages](../../runbooks/edai2/SESSION_A_APPROVAL_PACKAGES.md).

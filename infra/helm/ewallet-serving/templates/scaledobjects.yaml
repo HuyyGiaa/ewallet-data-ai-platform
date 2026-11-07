@@ -1,0 +1,67 @@
+{{- if .Values.autoscaling.enabled }}
+{{- if not .Values.metricsDiscovery.enabled }}
+{{- fail "autoscaling needs metricsDiscovery.enabled: rates are wrong when Prometheus samples one pod through a Service" }}
+{{- end }}
+{{- $d := .Values.autoscaling.defaults }}
+{{- range $name, $t := .Values.autoscaling.targets }}
+{{- if $t.enabled }}
+{{- if and (eq $name "feature-api") (not $.Values.featureApi.enabled) }}
+{{- fail "autoscaling.targets.feature-api needs featureApi.enabled" }}
+{{- end }}
+---
+# Only KEDA owns this Deployment's replicas; do not add another HPA. KEDA creates one.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "ewallet-serving.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicaCount: {{ $d.minReplicas }}
+  maxReplicaCount: {{ $d.maxReplicas }}
+  pollingInterval: {{ $d.pollingIntervalSeconds }}
+  cooldownPeriod: {{ $d.cooldownSeconds }}
+  fallback:
+    failureThreshold: {{ $d.fallback.failureThreshold }}
+    replicas: {{ $d.fallback.replicas }}
+    behavior: {{ $d.fallback.behavior }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: {{ $d.scaleUp.stabilizationWindowSeconds }}
+          selectPolicy: Max
+          policies:
+            - {type: Pods, value: {{ $d.scaleUp.pods }}, periodSeconds: {{ $d.scaleUp.periodSeconds }}}
+        scaleDown:
+          stabilizationWindowSeconds: {{ $d.scaleDown.stabilizationWindowSeconds }}
+          selectPolicy: Max
+          policies:
+            - {type: Pods, value: {{ $d.scaleDown.pods }}, periodSeconds: {{ $d.scaleDown.periodSeconds }}}
+  triggers:
+    - type: prometheus
+      name: request-rate
+      metricType: AverageValue
+      metadata:
+        serverAddress: {{ $.Values.prometheus.serverAddress }}
+        query: {{ $t.query | quote }}
+        threshold: {{ $t.requestsPerSecondPerReplica | quote }}
+    {{- with $t.latencyQuery }}
+    # Average, not p95: a percentile from few samples is too noisy to scale on.
+    - type: prometheus
+      name: average-latency
+      metricType: Value
+      metadata:
+        serverAddress: {{ $.Values.prometheus.serverAddress }}
+        query: {{ . | quote }}
+        threshold: {{ $t.latencySeconds | quote }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

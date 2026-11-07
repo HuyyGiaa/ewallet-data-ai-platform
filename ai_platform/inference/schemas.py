@@ -17,6 +17,9 @@ from pydantic import (
 )
 
 
+from ai_platform.ml.training.contract import HISTORICAL_FEATURE_COLUMNS
+
+
 CanonicalId = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=128),
@@ -137,6 +140,71 @@ class DependencyReadinessResponse(BaseModel):
     scope: Literal["dependency_connectivity"] = "dependency_connectivity"
     feature_materialization_verified: Literal[False] = False
     offline_online_parity_verified: Literal[False] = False
+
+
+class FeatureLookupRequest(BaseModel):
+    """Entities and the instant a client wants features for.
+
+    ``feature_names`` is required: a client names what it needs, so one response never
+    carries the whole profile of an entity by default.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    user_id: CanonicalId
+    account_id: CanonicalId
+    device_id: CanonicalId
+    merchant_id: CanonicalId | None = None
+    event_timestamp: AwareDatetime
+    feature_names: Annotated[tuple[CanonicalId, ...], Field(min_length=1, max_length=31)]
+
+    @model_validator(mode="after")
+    def validate_feature_names(self) -> "FeatureLookupRequest":
+        unknown = sorted(set(self.feature_names).difference(HISTORICAL_FEATURE_COLUMNS))
+        if unknown:
+            raise ValueError(f"unknown feature names: {unknown}")
+        if len(set(self.feature_names)) != len(self.feature_names):
+            raise ValueError("feature_names must be unique")
+        return self
+
+
+class FeatureLookupResponse(BaseModel):
+    """Requested online values, all inside the freshness policy."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    features: dict[str, float | int | str | bool | None]
+    oldest_feature_timestamp: AwareDatetime
+    correlation_id: CanonicalId
+
+
+class EntityTimestampRequest(BaseModel):
+    """Entities for the internal fixture preflight."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    user_id: CanonicalId
+    account_id: CanonicalId
+    device_id: CanonicalId
+    merchant_id: CanonicalId | None = None
+    event_timestamp: AwareDatetime | None = None
+
+
+class EntityTimestampResponse(BaseModel):
+    """Stored time of each feature view; it never carries a feature value."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    views: dict[str, AwareDatetime | None]
+
+
+class FeatureHealthResponse(BaseModel):
+    """Liveness of the Feature API."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    status: Literal["ok", "ready"]
+    service: Literal["feature-api"] = "feature-api"
 
 
 class ModelPrediction(BaseModel):

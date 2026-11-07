@@ -89,9 +89,13 @@ spec:
   maxReplicaCount: {{ $h.maxReplicas }}
   pollingInterval: {{ $s.keda.pollingIntervalSeconds }}
   cooldownPeriod: {{ $s.keda.cooldownSeconds }}
+  {{- $trigger := index ($s.keda.triggers | default dict) $name | default dict }}
+  {{- /* KEDA refuses fallback on CPU-only objects; metrics-server needs no Prometheus. */}}
+  {{- if ne (index $trigger "type" | default "inflight") "cpu" }}
   fallback:
     failureThreshold: {{ $s.keda.fallback.failureThreshold }}
     replicas: {{ $s.keda.fallback.replicas }}
+  {{- end }}
   advanced:
     horizontalPodAutoscalerConfig:
       {{- if $s.keda.transferHpa }}
@@ -113,13 +117,22 @@ spec:
               value: {{ $h.scaleDown.pods }}
               periodSeconds: {{ $h.scaleDown.periodSeconds }}
   triggers:
+    {{- if eq (index $trigger "type" | default "inflight") "cpu" }}
+    # This agent exports no in-flight gauge, so its own pods' CPU is the honest signal.
+    - type: cpu
+      name: cpu-utilization
+      metricType: Utilization
+      metadata:
+        value: {{ index $trigger "targetUtilization" | default $h.targetCPUUtilizationPercentage | quote }}
+    {{- else }}
     - type: prometheus
       name: inflight-tasks
       metricType: AverageValue
       metadata:
         serverAddress: {{ $s.keda.serverAddress }}
         query: {{ printf $s.keda.queryTemplate $name | quote }}
-        threshold: {{ $s.keda.inflightPerReplica | quote }}
+        threshold: {{ index $trigger "inflightPerReplica" | default $s.keda.inflightPerReplica | quote }}
+    {{- end }}
 {{- else }}
 ---
 # kagent owns this Deployment's pod template while HPA owns replicas. The

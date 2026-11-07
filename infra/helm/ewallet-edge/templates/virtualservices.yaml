@@ -1,0 +1,48 @@
+{{- if .Values.enabled }}
+{{- range $name, $route := .Values.routes }}
+{{- if $route.enabled }}
+---
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" $ | nindent 4 }}
+spec:
+  hosts: [{{ printf "%s.%s" $route.hostPrefix $.Values.domain | quote }}]
+  gateways: [ewallet-edge]
+  http:
+    - name: {{ $name }}
+      match:
+        {{- range $route.match }}
+        - uri:
+            {{- if .exact }}
+            exact: {{ .exact }}
+            {{- else }}
+            prefix: {{ .prefix }}
+            {{- end }}
+          {{- with .method }}
+          method: {exact: {{ . }}}
+          {{- end }}
+        {{- end }}
+      {{- with $route.timeout }}
+      timeout: {{ . }}
+      {{- end }}
+      # A gateway must not repeat a request: agent and prediction calls are not all idempotent.
+      retries: {attempts: 0}
+      headers:
+        request:
+          remove: {{ toJson $.Values.strippedHeaders }}
+          {{- with $route.setHeaders }}
+          set:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      route:
+        - destination:
+            host: {{ $route.destination.host }}
+            port: {number: {{ $route.destination.port }}}
+{{- end }}
+{{- end }}
+{{- end }}

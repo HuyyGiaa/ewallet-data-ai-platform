@@ -1,0 +1,34 @@
+{"name": "missing credentials are rejected", "passed": true, "observed": "401"}
+{"name": "401 tells a browser to ask for a password", "passed": true, "observed": "http/2 401 "}
+{"name": "wrong password is rejected", "passed": true, "observed": "401"}
+{"name": "identity headers cannot replace credentials", "passed": true, "observed": "401"}
+{"name": "valid credentials pass authentication", "passed": true, "observed": "200"}
+{"name": "plain HTTP redirects to HTTPS", "passed": true, "observed": "301"}
+{"name": "undeclared path /metrics is not routed", "passed": true, "observed": "404"}
+{"name": "undeclared path /internal/v1/entity-timestamps is not routed", "passed": true, "observed": "404"}
+{"name": "undeclared path /docs is not routed", "passed": true, "observed": "404"}
+{"name": "undeclared path /health/ready is not routed", "passed": true, "observed": "404"}
+{"name": "undeclared path /openapi.json is not routed", "passed": true, "observed": "404"}
+{"name": "wrong method on a declared path is not routed", "passed": true, "observed": "404"}
+{"name": "controller path /api/agents is not routed", "passed": true, "observed": "404"}
+{"name": "controller path /api/modelconfigs is not routed", "passed": true, "observed": "404"}
+{"name": "controller path /api/sessions is not routed", "passed": true, "observed": "404"}
+{"name": "controller path /api/a2a/ewallet-agents/fraud-coordinator-other is not routed", "passed": true, "observed": "404"}
+{"name": "controller path /api/a2a/ewallet-agents/drift-specialist is not routed", "passed": true, "observed": "404"}
+{"name": "host vllm is not served", "passed": true, "observed": "0"}
+{"name": "host mlflow is not served", "passed": true, "observed": "0"}
+{"name": "host jenkins is not served", "passed": true, "observed": "0"}
+{"name": "host vault is not served", "passed": true, "observed": "0"}
+{"name": "host redis is not served", "passed": true, "observed": "0"}
+{"name": "host mcp is not served", "passed": true, "observed": "0"}
+{"name": "host kserve is not served", "passed": true, "observed": "0"}
+{"name": "host prometheus is not served", "passed": true, "observed": "0"}
+{"name": "host unknown is not served", "passed": true, "observed": "0"}
+{"name": "the upstream never sees the password", "passed": true, "observed": "['accept', 'content-length', 'content-type', 'host', 'user-agent', 'x-envoy-attempt-count', 'x-envoy-decorator-operation', 'x-envoy-external-address']"}
+{"name": "a client cannot choose the agent user id", "passed": true, "observed": "edge-a2a-client"}
+{"name": "a forged edge user is removed", "passed": true, "observed": "None"}
+{"name": "SSE arrives event by event, not buffered", "passed": true, "observed": "[0.05, 0.71, 1.41, 2.11]"}
+{"name": "the gateway does not retry a failed call", "passed": true, "observed": "{\"503\": 1}"}
+{"name": "a burst receives HTTP 429", "passed": true, "observed": "429=55 of 60"}
+{"name": "the limit is per route", "passed": true, "observed": "200"}
+{"name": "the route recovers after the burst", "passed": true, "observed": "200"}

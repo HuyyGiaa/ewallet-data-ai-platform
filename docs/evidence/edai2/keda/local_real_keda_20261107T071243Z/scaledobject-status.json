@@ -1,0 +1,38 @@
+{
+  "conditions": [
+    {
+      "message": "ScaledObject is defined correctly and is ready for scaling",
+      "reason": "ScaledObjectReady",
+      "status": "True",
+      "type": "Ready"
+    },
+    {
+      "status": "Unknown",
+      "type": "Active"
+    },
+    {
+      "message": "No fallbacks are active on this scaled object",
+      "reason": "NoFallbackFound",
+      "status": "False",
+      "type": "Fallback"
+    },
+    {
+      "status": "False",
+      "type": "Paused"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "request-rate",
+      "metricType": "AverageValue"
+    },
+    {
+      "name": "average-latency",
+      "metricType": "Value"
+    }
+  ],
+  "external": [
+    "s0-prometheus",
+    "s1-prometheus"
+  ]
+}

@@ -1,0 +1,6 @@
+# P-A3: scrape the serving APIs per pod so KEDA reads true rates. Layer on the production
+# values. The headless Services come from infra/helm/ewallet-serving.
+observabilityStack:
+  mlPlatform:
+    podDiscovery:
+      enabled: true

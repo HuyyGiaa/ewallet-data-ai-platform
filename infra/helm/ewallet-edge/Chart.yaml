@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ewallet-edge
+description: Istio ingress routes, TLS, Basic Auth and rate limits for the external edge.
+type: application
+version: 0.1.0
+appVersion: "1"

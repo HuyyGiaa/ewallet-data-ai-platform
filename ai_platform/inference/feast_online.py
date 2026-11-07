@@ -17,7 +17,6 @@ from ai_platform.inference.errors import (
     MissingFeatureError,
     StaleFeatureError,
 )
-from ai_platform.inference.schemas import FraudPredictionRequest
 from ai_platform.inference.observability import (
     BackendTelemetry,
     default_backend_telemetry,
@@ -37,9 +36,19 @@ _READINESS_ENTITY_VALUE = "__block_b_readiness__"
 DEFAULT_TIMEOUT_SECONDS = 2.0
 
 
+class EntityRequest(Protocol):
+    """The fields a feature read needs; a prediction request and a lookup both qualify."""
+
+    user_id: str
+    account_id: str
+    device_id: str
+    merchant_id: str | None
+    event_timestamp: datetime
+
+
 class OnlineFeatureProvider(Protocol):
     async def get_features(
-        self, request: FraudPredictionRequest
+        self, request: EntityRequest
     ) -> HistoricalFeatureSet: ...
 
     async def ready(self) -> bool: ...
@@ -122,7 +131,7 @@ class FeastOnlineAdapter:
             raise FeatureTimeoutError() from exc
 
     async def get_features(
-        self, request: FraudPredictionRequest
+        self, request: EntityRequest
     ) -> HistoricalFeatureSet:
         with self._telemetry.operation("feast-online", "get_features"):
             result = await self._run_bounded(self._get_features, request)
@@ -134,15 +143,8 @@ class FeastOnlineAdapter:
             )
         return result
 
-    def _get_features(
-        self, request: FraudPredictionRequest
-    ) -> HistoricalFeatureSet:
-        entity_values = {
-            "user_id": request.user_id,
-            "account_id": request.account_id,
-            "device_id": request.device_id,
-            "merchant_id": request.merchant_id,
-        }
+    def _read_views(self, entity_values: dict[str, str | None]) -> dict[str, object]:
+        """Read every view for the entities; no freshness decision is made here."""
         data: dict[str, object] = {}
         for view_name, spec in FEATURE_SPECS.items():
             entity_key = spec["entity_key"]
@@ -192,6 +194,19 @@ class FeastOnlineAdapter:
                 raise FeatureContractError()
             data.update(view_data)
 
+        return data
+
+    def _get_features(
+        self, request: EntityRequest
+    ) -> HistoricalFeatureSet:
+        data = self._read_views(
+            {
+                "user_id": request.user_id,
+                "account_id": request.account_id,
+                "device_id": request.device_id,
+                "merchant_id": request.merchant_id,
+            }
+        )
         values: dict[str, object] = {}
         timestamps: dict[str, datetime | None] = {}
         missing: list[str] = []
@@ -239,6 +254,33 @@ class FeastOnlineAdapter:
         if stale:
             raise StaleFeatureError(stale)
         return HistoricalFeatureSet(values=values, timestamps=timestamps)
+
+    async def view_timestamps(self, request: EntityRequest) -> dict[str, datetime | None]:
+        """Return each view's stored timestamp, without any feature value.
+
+        This is the read-only preflight for building load fixtures. It reports what the
+        store holds and decides nothing: ``get_features`` still enforces freshness.
+        """
+        with self._telemetry.operation("feast-online", "get_features"):
+            return await self._run_bounded(self._view_timestamps, request)
+
+    def _view_timestamps(self, request: EntityRequest) -> dict[str, datetime | None]:
+        data = self._read_views(
+            {
+                "user_id": request.user_id,
+                "account_id": request.account_id,
+                "device_id": request.device_id,
+                "merchant_id": request.merchant_id,
+            }
+        )
+        stamps: dict[str, datetime | None] = {}
+        for view_name, spec in FEATURE_SPECS.items():
+            first = f"{view_name}__{spec['features'][0]}{_TIMESTAMP_SUFFIX}"
+            raw = data[first][0] if data.get(first) else None
+            raw = raw.timestamp() if isinstance(raw, datetime) else raw
+            # Feast reports epoch 0, not null, for an entity with no stored row.
+            stamps[view_name] = _timestamp(raw) if raw else None
+        return stamps
 
     async def ready(self) -> bool:
         """Check schema and backend connectivity only.

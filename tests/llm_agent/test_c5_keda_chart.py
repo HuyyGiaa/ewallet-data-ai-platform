@@ -163,3 +163,32 @@ class KedaInstallScriptTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(HELM, "helm binary unavailable")
+class AgentTriggerTest(unittest.TestCase):
+    """Each agent scales on a signal it really produces."""
+
+    def setUp(self):
+        overlay = yaml.safe_load((ROOT / "infra/helm/llm-agent-platform/g3/keda.yaml").read_text())
+        self.objects = kinds(render(ON, BYO, overlay), "ScaledObject")
+
+    def test_drift_specialist_exports_no_gauge_so_it_scales_on_cpu(self):
+        trigger = self.objects["drift-specialist"]["spec"]["triggers"][0]
+        self.assertEqual(("cpu", "Utilization", "60"), (trigger["type"], trigger["metricType"], trigger["metadata"]["value"]))
+
+    def test_cpu_only_agent_has_no_fallback_because_keda_refuses_it(self):
+        self.assertNotIn("fallback", self.objects["drift-specialist"]["spec"])
+        self.assertIn("fallback", self.objects["fraud-coordinator"]["spec"])
+
+    def test_byo_agents_scale_on_their_own_gauge_with_their_own_threshold(self):
+        coordinator = self.objects["fraud-coordinator"]["spec"]["triggers"][0]["metadata"]
+        specialist = self.objects["feature-rag-specialist"]["spec"]["triggers"][0]["metadata"]
+        self.assertIn('agent="fraud-coordinator"', coordinator["query"])
+        self.assertEqual(("2", "4"), (coordinator["threshold"], specialist["threshold"]))
+
+    def test_gauge_labels_cover_exactly_the_agents_that_use_them(self):
+        from ai_platform.llm_agent.agent_metrics import AGENTS
+
+        users = {name for name, item in self.objects.items() if item["spec"]["triggers"][0]["type"] == "prometheus"}
+        self.assertEqual(set(AGENTS), users)

@@ -1,0 +1,55 @@
+# Nothing renders until a section is enabled. The Fraud API Deployment itself stays
+# owned by infra/kubernetes/fraud-serving; this chart only adds what scales around it.
+namespace: ml-platform
+
+prometheus:
+  serverAddress: http://prometheus.ewallet-agents.svc.cluster.local:9090
+  namespace: ewallet-agents
+  podLabels: {app.kubernetes.io/name: prometheus}
+
+featureApi:
+  enabled: false
+  # The Fraud API image holds the Feature API too; pin it by digest.
+  image: ""
+  replicas: 1
+  # ServiceAccount with the Workload Identity binding that reads the Feast registry.
+  serviceAccountName: training
+  registryUri: ""
+  redisSecret: {name: feast-online-redis, key: connection_string}
+  timeoutSeconds: "2.0"
+  nodeSelector:
+    iam.gke.io/gke-metadata-server-enabled: "true"
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+# Per-pod scrape targets. Prometheus must see every replica: a scrape through a normal
+# Service samples one pod at a time, which breaks rate() as soon as replicas change.
+metricsDiscovery:
+  enabled: false
+  fraudApiSelector: {app.kubernetes.io/name: fraud-api}
+
+autoscaling:
+  enabled: false
+  # Starting points only. Calibrate them from the fixed-replica runs A-01 and A-02.
+  defaults:
+    minReplicas: 1
+    maxReplicas: 3
+    pollingIntervalSeconds: 15
+    cooldownSeconds: 120
+    fallback: {failureThreshold: 3, replicas: 1, behavior: currentReplicasIfHigher}
+    scaleUp: {stabilizationWindowSeconds: 0, pods: 1, periodSeconds: 30}
+    scaleDown: {stabilizationWindowSeconds: 120, pods: 1, periodSeconds: 60}
+  targets:
+    feature-api:
+      enabled: true
+      requestsPerSecondPerReplica: "150"
+      query: sum(rate(feature_api_requests_total{job="feature-api-pods"}[1m])) or vector(0)
+      latencySeconds: "0.25"
+      latencyQuery: (sum(rate(feature_api_request_latency_seconds_sum{job="feature-api-pods"}[1m])) / sum(rate(feature_api_request_latency_seconds_count{job="feature-api-pods"}[1m]))) or vector(0)
+    fraud-api:
+      enabled: true
+      requestsPerSecondPerReplica: "25"
+      query: sum(rate(fraud_inference_requests_total{job="fraud-api-pods"}[1m])) or vector(0)
+      latencySeconds: "0.5"
+      latencyQuery: (sum(rate(fraud_inference_stage_latency_seconds_sum{job="fraud-api-pods",stage="request"}[1m])) / sum(rate(fraud_inference_stage_latency_seconds_count{job="fraud-api-pods",stage="request"}[1m]))) or vector(0)

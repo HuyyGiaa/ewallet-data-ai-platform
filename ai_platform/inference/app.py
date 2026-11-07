@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import re
-from uuid import uuid4
-
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -18,6 +15,8 @@ from ai_platform.inference.config import (
 )
 from ai_platform.inference.errors import ConfigurationError, InferenceError
 from ai_platform.inference.feast_online import FeastOnlineAdapter
+from ai_platform.inference.http_common import error_response as _error_response
+from ai_platform.inference.http_common import normalize_correlation_id
 from ai_platform.inference.kserve import KServeV2Client
 from ai_platform.inference.observability import (
     TelemetryHooks,
@@ -25,7 +24,6 @@ from ai_platform.inference.observability import (
 )
 from ai_platform.inference.schemas import (
     DependencyReadinessResponse,
-    ErrorBody,
     ErrorResponse,
     FraudPredictionRequest,
     FraudPredictionResponse,
@@ -33,36 +31,6 @@ from ai_platform.inference.schemas import (
 )
 from ai_platform.inference.service import InferenceService
 from ai_platform.inference.wire import FraudV2WireContract
-
-
-_CORRELATION_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
-
-
-def normalize_correlation_id(value: str | None) -> str:
-    if value is not None and _CORRELATION_ID.fullmatch(value):
-        return value
-    return str(uuid4())
-
-
-def _error_response(
-    *,
-    status_code: int,
-    code: str,
-    message: str,
-    correlation_id: str,
-    retryable: bool = False,
-    details: tuple[dict[str, object], ...] = (),
-) -> JSONResponse:
-    body = ErrorResponse(
-        error=ErrorBody(
-            code=code,
-            message=message,
-            correlation_id=correlation_id,
-            retryable=retryable,
-            details=details,
-        )
-    )
-    return JSONResponse(status_code=status_code, content=body.model_dump(mode="json"))
 
 
 def _build_service(

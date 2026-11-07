@@ -1,0 +1,139 @@
+---
+# Source: ewallet-serving/templates/metrics-discovery.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-to-feature-api
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-mlops
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-serving-0.1.0
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: feature-api}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ml-platform}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - {port: 8080, protocol: TCP}
+---
+# Source: ewallet-serving/templates/metrics-discovery.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-to-feature-api-egress
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-mlops
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-serving-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ml-platform}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: feature-api}
+      ports:
+        - {port: 8080, protocol: TCP}
+---
+# Source: ewallet-serving/templates/metrics-discovery.yaml
+# Headless, so DNS returns one address per pod and Prometheus scrapes each replica.
+apiVersion: v1
+kind: Service
+metadata:
+  name: feature-api-metrics
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-mlops
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-serving-0.1.0
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: feature-api
+  ports:
+    - {name: http, port: 8080, targetPort: 8080}
+---
+# Source: ewallet-serving/templates/metrics-discovery.yaml
+# Headless, so DNS returns one address per pod and Prometheus scrapes each replica.
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-api-metrics
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-mlops
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-serving-0.1.0
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: fraud-api
+  ports:
+    - {name: http, port: 8080, targetPort: 8080}
+---
+# Source: ewallet-serving/templates/scaledobjects.yaml
+# Only KEDA owns this Deployment's replicas; do not add another HPA. KEDA creates one.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: feature-api
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-mlops
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-serving-0.1.0
+    app.kubernetes.io/name: feature-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: feature-api
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  pollingInterval: 5
+  cooldownPeriod: 120
+  fallback:
+    failureThreshold: 3
+    replicas: 1
+    behavior: currentReplicasIfHigher
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+            - {type: Pods, value: 1, periodSeconds: 15}
+        scaleDown:
+          stabilizationWindowSeconds: 20
+          selectPolicy: Max
+          policies:
+            - {type: Pods, value: 1, periodSeconds: 15}
+  triggers:
+    - type: prometheus
+      name: request-rate
+      metricType: AverageValue
+      metadata:
+        serverAddress: http://prometheus.ml-platform.svc.cluster.local:9090
+        query: "sum(rate(feature_api_requests_total{job=\"feature-api-pods\"}[1m])) or vector(0)"
+        threshold: "20"
+    # Average, not p95: a percentile from few samples is too noisy to scale on.
+    - type: prometheus
+      name: average-latency
+      metricType: Value
+      metadata:
+        serverAddress: http://prometheus.ml-platform.svc.cluster.local:9090
+        query: "(sum(rate(feature_api_request_latency_seconds_sum{job=\"feature-api-pods\"}[1m])) / sum(rate(feature_api_request_latency_seconds_count{job=\"feature-api-pods\"}[1m]))) or vector(0)"
+        threshold: "5"

@@ -1,0 +1,18 @@
+{
+  "target": "feature",
+  "network_path": "local",
+  "profile": "low",
+  "host": "http://127.0.0.1:18081",
+  "users": 5,
+  "spawn_rate": 2,
+  "run_time": "30s",
+  "fixture": "verified.jsonl",
+  "fixture_sha256": "3ae6dee07289b035f6b3349acb318326c0b28d3c08fd85b56c61166e264da394",
+  "fixture_rows": 300,
+  "source_sha": "14bf3e9aa4e3289b0d4a2bf27c8413e823beae90",
+  "image_digest": "unrecorded",
+  "model_version": "unrecorded",
+  "request_profile": "valid requests only",
+  "started_at": "2026-11-07T06:56:13Z",
+  "ended_at": "2026-11-07T06:56:51Z"
+}

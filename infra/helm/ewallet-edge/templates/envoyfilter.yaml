@@ -1,0 +1,99 @@
+{{- if .Values.enabled }}
+{{- $d := .Values.defaultRateLimit }}
+# Order matters: the limiter runs first, so password guessing also spends tokens, then
+# Basic Auth, then routing. Both are Envoy filters in the pinned proxy, so no extra
+# service sits in the request path and a failed check cannot fail open.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: edge-security
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.gatewaySelector | nindent 6 }}
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: {{ .Values.httpsListenerPort }}
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter: {name: envoy.filters.http.router}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.local_ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            stat_prefix: edge_rate_limit
+            token_bucket:
+              max_tokens: {{ $d.maxTokens }}
+              tokens_per_fill: {{ $d.tokensPerFill }}
+              fill_interval: {{ $d.fillIntervalSeconds }}s
+            filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+            filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+            response_headers_to_add:
+              - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: {{ .Values.httpsListenerPort }}
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter: {name: envoy.filters.http.router}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.basic_auth
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.basic_auth.v3.BasicAuth
+            users: {filename: {{ .Values.basicAuth.usersFile }}}
+    # Browsers show a login box only when a 401 carries WWW-Authenticate.
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: {{ .Values.httpsListenerPort }}
+          filterChain:
+            filter: {name: envoy.filters.network.http_connection_manager}
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            local_reply_config:
+              mappers:
+                - filter: {status_code_filter: {comparison: {op: EQ, value: {default_value: 401, runtime_key: edge_unused_401}}}}
+                  headers_to_add:
+                    - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: www-authenticate, value: {{ printf "Basic realm=\"%s\"" .Values.basicAuth.realm | quote }}}}
+    {{- range $name, $route := .Values.routes }}
+    {{- if and $route.enabled $route.rateLimit }}
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration: {vhost: {route: {name: {{ $name }}}}}
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: edge_rate_limit_{{ $name | replace "-" "_" }}
+              token_bucket:
+                max_tokens: {{ $route.rateLimit.maxTokens }}
+                tokens_per_fill: {{ $route.rateLimit.tokensPerFill }}
+                fill_interval: {{ $route.rateLimit.fillIntervalSeconds }}s
+              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+              response_headers_to_add:
+                - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    {{- end }}
+    {{- end }}
+{{- end }}
