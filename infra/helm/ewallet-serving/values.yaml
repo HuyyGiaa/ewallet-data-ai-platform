@@ -44,7 +44,13 @@ metricsDiscovery:
 
 autoscaling:
   enabled: false
-  # Starting points only. Calibrate them from the fixed-replica runs A-01 and A-02.
+  # Calibrated from the G5-A GKE baseline (docs/edai2/testing/ROW_32_LOCUST_GKE.md), one replica,
+  # 1 CPU limit: Feature API saturates at about 86 req/s, Fraud API at about 24.5 req/s.
+  # The request-rate trigger is AverageValue, so the HPA computes
+  #   desired = ceil(sum of per-pod request rates / requestsPerSecondPerReplica)
+  # and a threshold near 70% of the measured ceiling scales out before a replica saturates.
+  # cooldownSeconds applies only to scale-to-zero, which minReplicas 1 rules out; scale-down
+  # pace comes from scaleDown below (120 s window, then one pod per 60 s).
   defaults:
     minReplicas: 1
     maxReplicas: 3
@@ -53,16 +59,20 @@ autoscaling:
     fallback: {failureThreshold: 3, replicas: 1, behavior: currentReplicasIfHigher}
     scaleUp: {stabilizationWindowSeconds: 0, pods: 1, periodSeconds: 30}
     scaleDown: {stabilizationWindowSeconds: 120, pods: 1, periodSeconds: 60}
+  # A latency trigger (latencyQuery, latencySeconds) stays available but is off. Under a closed
+  # load loop latency rises with users even at matched capacity. For the Fraud API it is driven
+  # by the single KServe predictor, which more Fraud API replicas cannot relieve, so it would
+  # pin the API at maxReplicas.
   targets:
     feature-api:
       enabled: true
-      requestsPerSecondPerReplica: "150"
+      requestsPerSecondPerReplica: "60"
       query: sum(rate(feature_api_requests_total{job="feature-api-pods"}[1m])) or vector(0)
-      latencySeconds: "0.25"
-      latencyQuery: (sum(rate(feature_api_request_latency_seconds_sum{job="feature-api-pods"}[1m])) / sum(rate(feature_api_request_latency_seconds_count{job="feature-api-pods"}[1m]))) or vector(0)
+      latencySeconds: ""
+      latencyQuery: ""
     fraud-api:
       enabled: true
-      requestsPerSecondPerReplica: "25"
+      requestsPerSecondPerReplica: "17"
       query: sum(rate(fraud_inference_requests_total{job="fraud-api-pods"}[1m])) or vector(0)
-      latencySeconds: "0.5"
-      latencyQuery: (sum(rate(fraud_inference_stage_latency_seconds_sum{job="fraud-api-pods",stage="request"}[1m])) / sum(rate(fraud_inference_stage_latency_seconds_count{job="fraud-api-pods",stage="request"}[1m]))) or vector(0)
+      latencySeconds: ""
+      latencyQuery: ""

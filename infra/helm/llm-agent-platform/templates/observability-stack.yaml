@@ -96,8 +96,11 @@ data:
       {{- with $s.mlPlatform.podDiscovery }}
       {{- if .enabled }}
       # One target per pod; KEDA reads these jobs, so a rate survives replica changes.
+      # 15 s, not the global 30 s: rate(...[1m]) then has four samples per pod, so KEDA reacts
+      # within about one scrape plus one polling interval.
       {{- range $job, $host := .jobs }}
       - job_name: {{ $job }}
+        scrape_interval: 15s
         metrics_path: /metrics
         dns_sd_configs: [{names: [{{ $host | quote }}], type: A, port: 8080, refresh_interval: 15s}]
       {{- end }}

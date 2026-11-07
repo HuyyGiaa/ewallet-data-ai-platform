@@ -71,6 +71,17 @@ def test_policy_is_one_to_three_with_a_safe_fallback():
     assert spec["fallback"]["behavior"] == "currentReplicasIfHigher"
 
 
+def test_rate_triggers_are_calibrated_from_the_g5a_baseline():
+    objects = kinds(render(SERVING, *ON), "ScaledObject")
+    expected = {"feature-api": ("60", "feature_api_requests_total"), "fraud-api": ("17", "fraud_inference_requests_total")}
+    for name, (threshold, metric) in expected.items():
+        [trigger] = objects[name]["spec"]["triggers"]  # rate only: no latency trigger by default
+        assert (trigger["name"], trigger["metricType"]) == ("request-rate", "AverageValue")
+        assert trigger["metadata"]["threshold"] == threshold
+        query = trigger["metadata"]["query"]
+        assert query.startswith(f"sum(rate({metric}{{job=\"{name}-pods\"}}[1m]))")
+
+
 def test_queries_use_only_metrics_the_real_services_expose():
     for item in kinds(render(SERVING, *ON), "ScaledObject").values():
         for trigger in item["spec"]["triggers"]:
