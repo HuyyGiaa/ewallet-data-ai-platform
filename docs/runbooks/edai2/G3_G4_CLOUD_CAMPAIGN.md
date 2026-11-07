@@ -445,3 +445,44 @@ SHA=5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec
 - **Agents:** `release_state.py values --image coordinator=$COORDINATOR_IMAGE --image feature-rag-specialist=$SPECIALIST_IMAGE --git-sha $SHA`, after the chart refresh.
 
 No KEDA ownership transfer before the separate R1 approval. Agent tests use synthetic prompts only.
+
+### Package 2: executed (2026-11-07)
+
+Evidence: `docs/evidence/edai2/iam/r2_apply_20261107T143853Z`. Details are in [terraform_gcp_foundation.md](../../cloud/terraform_gcp_foundation.md#r2-định-danh-riêng-cho-serving-2026-11-07).
+
+| Step | Tool | Result |
+|---|---|---|
+| Plan, lock on, serial 10 | Terraform | 4 to add, 0 change, 0 destroy; guard accepted |
+| Apply | Terraform | The saved plan, checksum re-verified: 4 added |
+| Workload Identity bindings | `gcloud add-iam-policy-binding` | 2 bindings added |
+| Import | `terraform import`, lock on | 2 imports successful |
+| Readback | Terraform, gcloud | Serial 13, exactly 6 new addresses; a later plan shows no changes |
+
+Unchanged: `training`, `serving` and `generator` bindings, other bucket bindings, the node pool and the cluster.
+
+### Package 3: final preflight (read-only)
+
+Evidence: `docs/evidence/edai2/cloud_lab/wake_preflight_20261107T144329Z`.
+
+| Check | Result |
+|---|---|
+| Identity gates | Only `cpu-pool`; autoscaling off; node auto-provisioning off |
+| Nodes | 0 |
+| E2 CPUs | 0 / 24 |
+| In-use addresses | 0 / 8; 5 nodes need 5 |
+| PVCs | 15 Bound |
+| `release_state drift` | 0 problems for `llm-agent` and `llm-agent-mcp` |
+| New image digests | All 3 present in Artifact Registry |
+
+The `wake-full --nodes 5` dry run printed only PLAN lines: resize to 5, label 3 nodes, and restore exactly 5 Deployments (`drift-mcp` ×2, `drift-specialist`, `feature-rag-specialist`, `fraud-coordinator`). `vllm-fallback` and the system workloads recorded at 0 stay at 0.
+
+**Capacity adjustment without a sixth node.** During KEDA scale-out arms, hold these at 0 to free 2,314m CPU and 6.1 GiB:
+- `ewallet-ci`, Jenkins: 1,000m;
+- `kubeflow`: 804m;
+- `kagent-pilot`: 510m.
+
+Use `kubectl scale --replicas=0` under the experiment package's approval, and restore the recorded counts afterwards.
+
+**Billing.** Credit cannot be read from the API. The wake waits for the owner's console check.
+
+**Budget for 8 hours:** about $8.0 gross, or $8.8 if the cluster fee is not offset by the free tier, all against Free Trial credit.

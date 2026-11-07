@@ -1,0 +1,43 @@
+project=ewallet-data-ai-platform-hg26 account=giahuy39919030@gmail.com
+--- identity gate 1: node pools
+cpu-pool
+--- identity gate 2: pool autoscaling.enabled (expect empty)
+
+--- identity gate 3: NAP (expect empty)
+
+--- pool
+e2-standard-4	1.36.4-gke.2046003		RUNNING
+gke-ewallet-dev-cpu-pool-58daed59-grp	0	0
+--- nodes
+No resources found
+--- quota
+CPUS 0.0 / 100.0
+DISKS_TOTAL_GB 0.0 / 4096.0
+IN_USE_ADDRESSES 0.0 / 8.0
+SSD_TOTAL_GB 73.0 / 500.0
+E2_CPUS 0.0 / 24.0
+--- billing
+True	billingAccounts/0194C5-97FAAA-4CD848
+--- PVCs
+     15 Bound
+--- scaled-to-zero (live)
+ewallet-agents    drift-mcp                            0
+ewallet-agents    drift-specialist                     0
+ewallet-agents    feature-rag-specialist               0
+ewallet-agents    fraud-coordinator                    0
+ewallet-agents    vllm-fallback                        0
+ewallet-mcp       drift-mcp                            0
+gmp-system        rule-evaluator                       0
+kube-system       autoscaling-metrics-adapter          0
+gmp-system        alertmanager                         0
+--- release drift
+0 problem(s)
+0 problem(s)
+--- manifest
+manifest keys ['purpose', 'project', 'cluster', 'location', 'node_pool', 'source_commit', 'nodes_before', 'nodes_after']
+21
+--- capacity adjustment candidates (hold at 0 during scale-out arms; no sixth node)
+ewallet-ci 1000 m 2048 Mi
+kubeflow 804 m 3194 Mi
+kagent-pilot 510 m 1056 Mi
+total freed 2314 m
