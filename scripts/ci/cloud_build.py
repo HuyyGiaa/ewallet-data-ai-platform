@@ -17,6 +17,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -61,13 +62,29 @@ class ImageSpec:
 
 
 class Http:
-    def __init__(self, opener: Callable[..., Any] = urlopen) -> None:
+    """Google API client. Jenkins uses the metadata server; an operator passes a token command.
+
+    ``token_command`` (for example ``gcloud auth print-access-token``) is run again every
+    ten minutes, so a multi-image build outlives a single one-hour token. Its output is
+    never logged.
+    """
+
+    COMMAND_TOKEN_SECONDS = 600
+
+    def __init__(self, opener: Callable[..., Any] = urlopen, token_command: list[str] | None = None) -> None:
         self.opener = opener
+        self.token_command = token_command
         self._token: tuple[str, float] | None = None
 
     def token(self) -> str:
         if self._token and self._token[1] > time.time() + 60:
             return self._token[0]
+        if self.token_command:
+            value = subprocess.run(self.token_command, capture_output=True, text=True, check=True).stdout.strip()
+            if not value:
+                raise BuildError("the token command printed no token")
+            self._token = (value, time.time() + self.COMMAND_TOKEN_SECONDS)
+            return value
         request = Request(METADATA_TOKEN, headers={"Metadata-Flavor": "Google"})
         with self.opener(request, timeout=10) as response:
             payload = json.loads(response.read())
@@ -222,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bucket", default="ewallet-data-ai-platform-hg26-cicd-builds")
     parser.add_argument("--logs-bucket", default="ewallet-data-ai-platform-hg26-cicd-build-logs")
     parser.add_argument("--runner", default="ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com")
+    parser.add_argument("--token-command", default="",
+                        help="operator run outside Jenkins, e.g. 'gcloud auth print-access-token'")
     parser.add_argument("--evidence-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -246,7 +265,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"Dockerfile does not exist: {spec.dockerfile}")
     try:
         archive = source_archive(args.root, args.git_sha)
-        http = Http()
+        http = Http(token_command=shlex.split(args.token_command) or None)
         images = {spec.name: build_image(http, settings, spec, args.git_sha, archive, args.evidence_dir)
                   for spec in specs}
     except (BuildError, subprocess.CalledProcessError, URLError, OSError) as error:

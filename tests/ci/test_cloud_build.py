@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import json
+import sys
 from pathlib import Path
 import subprocess
 import tempfile
@@ -120,6 +121,19 @@ class CloudBuildTests(unittest.TestCase):
                          [ImageSpec("g3-byo-coordinator", "infra/docker/g3-byo-coordinator/Dockerfile")])
         self.assertEqual(release_image_specs(CATALOG, ["fraud-api"], "llm-agent"), [])
         self.assertEqual(release_image_specs(CATALOG, ["llm-serving"], "llm-agent"), [])
+
+    def test_operator_token_command_replaces_the_metadata_server(self) -> None:
+        opened = []
+        http = Http(opener=lambda *a, **k: opened.append(a) or (_ for _ in ()).throw(AssertionError("metadata")),
+                    token_command=[sys.executable, "-c", "print('operator-token')"])
+        self.assertEqual(http.token(), "operator-token")
+        self.assertEqual(http.token(), "operator-token")
+        self.assertEqual(opened, [])
+
+    def test_empty_operator_token_fails_closed(self) -> None:
+        http = Http(token_command=[sys.executable, "-c", "print('')"])
+        with self.assertRaises(BuildError):
+            http.token()
 
     def test_archive_refuses_a_checkout_that_is_not_the_release_sha(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
