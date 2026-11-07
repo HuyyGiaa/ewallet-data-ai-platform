@@ -24,10 +24,10 @@ from ai_platform.inference.app import create_app
 from ai_platform.inference.vault import load_from_environment
 
 
-def configure_telemetry() -> None:
+def configure_telemetry(service_name: str = "fraud-api") -> None:
     resource = Resource.create(
         {
-            "service.name": "fraud-api",
+            "service.name": service_name,
             "service.version": os.environ.get("EWALLET_GIT_SHA", "unknown"),
             "ewallet.model.name": os.environ.get("EWALLET_MODEL_NAME", ""),
             "ewallet.model.version": os.environ.get("EWALLET_MODEL_VERSION", ""),
