@@ -1,0 +1,43 @@
+{
+  "source_sha": "5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+  "state_serial": 10,
+  "state_lineage": "2cbe29e2-2a7e-9013-7cb1-bc4178a51059",
+  "terraform_version": "1.16.6",
+  "locked": true,
+  "targets": 4,
+  "changes": [
+    {
+      "address": "module.iam.google_service_account.workload[\"feature_api\"]",
+      "actions": [
+        "create"
+      ],
+      "account_id": "ewallet-feature-api"
+    },
+    {
+      "address": "module.iam.google_service_account.workload[\"fraud_api\"]",
+      "actions": [
+        "create"
+      ],
+      "account_id": "ewallet-fraud-api"
+    },
+    {
+      "address": "module.iam.google_storage_bucket_iam_member.registry_reader[\"feature_api\"]",
+      "actions": [
+        "create"
+      ],
+      "role": "roles/storage.objectViewer",
+      "condition_title": "online-feast-registry-only",
+      "condition": "resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/\")"
+    },
+    {
+      "address": "module.iam.google_storage_bucket_iam_member.registry_reader[\"fraud_api\"]",
+      "actions": [
+        "create"
+      ],
+      "role": "roles/storage.objectViewer",
+      "condition_title": "online-feast-registry-only",
+      "condition": "resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/\")"
+    }
+  ],
+  "no_op_count": 16
+}

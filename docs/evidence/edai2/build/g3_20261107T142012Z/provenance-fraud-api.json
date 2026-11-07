@@ -1,0 +1,228 @@
+{
+  "image_summary": {
+    "digest": "sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803",
+    "fully_qualified_digest": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803",
+    "registry": "asia-southeast1-docker.pkg.dev",
+    "repository": "ewallet-platform",
+    "slsa_build_level": 3
+  },
+  "provenance_summary": {
+    "provenance": [
+      {
+        "build": {
+          "inTotoSlsaProvenanceV1": {
+            "_type": "https://in-toto.io/Statement/v1",
+            "predicate": {
+              "buildDefinition": {
+                "buildType": "https://cloud.google.com/build/gcb-buildtypes/google-worker/v1",
+                "externalParameters": {
+                  "buildConfig": "eyJzdGVwcyI6W3sibmFtZSI6Imdjci5pby9jbG91ZC1idWlsZGVycy9kb2NrZXJAc2hhMjU2OmZiYzA1NzA1ZTZmMjQ0NjdlNDBhZThhNDA5N2FiOWI4ZmFlMTExNjU1MWY4MzhmYTJjNTVmNDM2NzQyN2ZjMzYiLCJlbnYiOlsiRE9DS0VSX0JVSUxES0lUPTEiXSwiYXJncyI6WyJidWlsZCIsIi1mIiwiYWlfcGxhdGZvcm0vaW5mZXJlbmNlL0RvY2tlcmZpbGUiLCItLWJ1aWxkLWFyZyIsIkVXQUxMRVRfUkVMRUFTRV9TSEE9NTgwMWJjZjc3ZWI4YTgzYzllNGU1Y2JkNmUyMmQ1MjBmZDA1MTJlYyIsIi0tbGFiZWwiLCJvcmcub3BlbmNvbnRhaW5lcnMuaW1hZ2UucmV2aXNpb249NTgwMWJjZjc3ZWI4YTgzYzllNGU1Y2JkNmUyMmQ1MjBmZDA1MTJlYyIsIi10IiwiYXNpYS1zb3V0aGVhc3QxLWRvY2tlci5wa2cuZGV2L2V3YWxsZXQtZGF0YS1haS1wbGF0Zm9ybS1oZzI2L2V3YWxsZXQtcGxhdGZvcm0vZnJhdWQtYXBpOjU4MDFiY2Y3N2ViOGE4M2M5ZTRlNWNiZDZlMjJkNTIwZmQwNTEyZWMiLCIuIl0sInRpbWluZyI6eyJzdGFydFRpbWUiOiIyMDI2LTExLTA3VDE0OjIwOjI4LjcwOTA1MjE5OVoiLCJlbmRUaW1lIjoiMjAyNi0xMS0wN1QxNDoyMToyOC4wNzgyNjU2NjNaIn0sInB1bGxUaW1pbmciOnsic3RhcnRUaW1lIjoiMjAyNi0xMS0wN1QxNDoyMDoyOC43MDkwNTIxOTlaIiwiZW5kVGltZSI6IjIwMjYtMTEtMDdUMTQ6MjA6MjguNzE0MzExOTE0WiJ9LCJzdGF0dXMiOiJTVUNDRVNTIn1dLCJzb3VyY2VQcm92ZW5hbmNlIjp7InJlc29sdmVkU3RvcmFnZVNvdXJjZSI6eyJidWNrZXQiOiJld2FsbGV0LWRhdGEtYWktcGxhdGZvcm0taGcyNi1jaWNkLWJ1aWxkcyIsIm9iamVjdCI6InNvdXJjZS81ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjL2ZyYXVkLWFwaS50YXIuZ3oiLCJnZW5lcmF0aW9uIjoiMTc5NDA2MTIyMDcyMDE3NSJ9LCJmaWxlSGFzaGVzIjp7ImdzOi8vZXdhbGxldC1kYXRhLWFpLXBsYXRmb3JtLWhnMjYtY2ljZC1idWlsZHMvc291cmNlLzU4MDFiY2Y3N2ViOGE4M2M5ZTRlNWNiZDZlMjJkNTIwZmQwNTEyZWMvZnJhdWQtYXBpLnRhci5neiMxNzk0MDYxMjIwNzIwMTc1Ijp7ImZpbGVIYXNoIjpbeyJ0eXBlIjoiTUQ1IiwidmFsdWUiOiJ6QXdEcFptUGRCNkNGWUJLMlZiOVlRPT0ifSx7InR5cGUiOiJTSEEyNTYiLCJ2YWx1ZSI6IjlUTkFsQUdxSk5DN3YzZnZ3bndyVFhjdnlVbHdsZkg2R0tLaXA5ZHNneUE9In1dfX19LCJvcHRpb25zIjp7InJlcXVlc3RlZFZlcmlmeU9wdGlvbiI6IlZFUklGSUVEIiwicG9vbCI6e30sImxvZ2dpbmciOiJHQ1NfT05MWSIsIndvcmtlclJlbGVhc2UiOiJsZWdhY3kifSwidGFncyI6WyJld2FsbGV0LWplbmtpbnMiLCJmcmF1ZC1hcGkiLCJzaGEtNTgwMWJjZjc3ZWI4Il19",
+                  "gcsPath": {
+                    "bucket": "ewallet-data-ai-platform-hg26-cicd-builds",
+                    "generation": 1794061220720175,
+                    "object": "source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/fraud-api.tar.gz"
+                  },
+                  "substitutions": {}
+                },
+                "internalParameters": {
+                  "systemSubstitutions": {
+                    "BUILD_ID": "0b965d93-ebb9-4688-8ef9-261d22e89dba",
+                    "LOCATION": "asia-southeast1",
+                    "PROJECT_NUMBER": "198818809719",
+                    "SERVICE_ACCOUNT": "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+                    "SERVICE_ACCOUNT_EMAIL": "ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+                  }
+                },
+                "resolvedDependencies": [
+                  {
+                    "digest": {
+                      "sha256": "fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36"
+                    },
+                    "uri": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36"
+                  },
+                  {
+                    "digest": {
+                      "sha256": "f533409401aa24d0bbbf77efc27c2b4d772fc9497095f1fa18a2a2a7d76c8320"
+                    },
+                    "uri": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/fraud-api.tar.gz#1794061220720175"
+                  }
+                ]
+              },
+              "runDetails": {
+                "builder": {
+                  "id": "https://cloudbuild.googleapis.com/GoogleHostedWorker"
+                },
+                "byproducts": [
+                  {}
+                ],
+                "metadata": {
+                  "finishedOn": "2026-11-07T14:22:28.158840Z",
+                  "invocationId": "https://cloudbuild.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/builds/0b965d93-ebb9-4688-8ef9-261d22e89dba",
+                  "startedOn": "2026-11-07T14:20:22.558631108Z"
+                }
+              }
+            },
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "subject": [
+              {
+                "digest": {
+                  "sha256": "dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803"
+                },
+                "name": "https://asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api:5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec"
+              }
+            ]
+          }
+        },
+        "createTime": "2026-11-07T14:22:42.826754Z",
+        "envelope": {
+          "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJzdWJqZWN0IjpbeyJuYW1lIjoiaHR0cHM6Ly9hc2lhLXNvdXRoZWFzdDEtZG9ja2VyLnBrZy5kZXYvZXdhbGxldC1kYXRhLWFpLXBsYXRmb3JtLWhnMjYvZXdhbGxldC1wbGF0Zm9ybS9mcmF1ZC1hcGk6NTgwMWJjZjc3ZWI4YTgzYzllNGU1Y2JkNmUyMmQ1MjBmZDA1MTJlYyIsImRpZ2VzdCI6eyJzaGEyNTYiOiJkYmFmOGI3MDYwZTZiZWJmNDc3ZjJiZmYwMmRmZWRlMzgyMTAyNDEwYjRhYjY4YjUxZTgzNmRlOWY3YzFjODAzIn19XSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vc2xzYS5kZXYvcHJvdmVuYW5jZS92MSIsInByZWRpY2F0ZSI6eyJidWlsZERlZmluaXRpb24iOnsiYnVpbGRUeXBlIjoiaHR0cHM6Ly9jbG91ZC5nb29nbGUuY29tL2J1aWxkL2djYi1idWlsZHR5cGVzL2dvb2dsZS13b3JrZXIvdjEiLCJleHRlcm5hbFBhcmFtZXRlcnMiOnsiYnVpbGRDb25maWciOiJleUp6ZEdWd2N5STZXM3NpYm1GdFpTSTZJbWRqY2k1cGJ5OWpiRzkxWkMxaWRXbHNaR1Z5Y3k5a2IyTnJaWEpBYzJoaE1qVTJPbVppWXpBMU56QTFaVFptTWpRME5qZGxOREJoWlRoaE5EQTVOMkZpT1dJNFptRmxNVEV4TmpVMU1XWTRNemhtWVRKak5UVm1ORE0yTnpReU4yWmpNellpTENKbGJuWWlPbHNpUkU5RFMwVlNYMEpWU1V4RVMwbFVQVEVpWFN3aVlYSm5jeUk2V3lKaWRXbHNaQ0lzSWkxbUlpd2lZV2xmY0d4aGRHWnZjbTB2YVc1bVpYSmxibU5sTDBSdlkydGxjbVpwYkdVaUxDSXRMV0oxYVd4a0xXRnlaeUlzSWtWWFFVeE1SVlJmVWtWTVJVRlRSVjlUU0VFOU5UZ3dNV0pqWmpjM1pXSTRZVGd6WXpsbE5HVTFZMkprTm1VeU1tUTFNakJtWkRBMU1USmxZeUlzSWkwdGJHRmlaV3dpTENKdmNtY3ViM0JsYm1OdmJuUmhhVzVsY25NdWFXMWhaMlV1Y21WMmFYTnBiMjQ5TlRnd01XSmpaamMzWldJNFlUZ3pZemxsTkdVMVkySmtObVV5TW1RMU1qQm1aREExTVRKbFl5SXNJaTEwSWl3aVlYTnBZUzF6YjNWMGFHVmhjM1F4TFdSdlkydGxjaTV3YTJjdVpHVjJMMlYzWVd4c1pYUXRaR0YwWVMxaGFTMXdiR0YwWm05eWJTMW9aekkyTDJWM1lXeHNaWFF0Y0d4aGRHWnZjbTB2Wm5KaGRXUXRZWEJwT2pVNE1ERmlZMlkzTjJWaU9HRTRNMk01WlRSbE5XTmlaRFpsTWpKa05USXdabVF3TlRFeVpXTWlMQ0l1SWwwc0luUnBiV2x1WnlJNmV5SnpkR0Z5ZEZScGJXVWlPaUl5TURJMkxURXhMVEEzVkRFME9qSXdPakk0TGpjd09UQTFNakU1T1ZvaUxDSmxibVJVYVcxbElqb2lNakF5TmkweE1TMHdOMVF4TkRveU1Ub3lPQzR3TnpneU5qVTJOak5hSW4wc0luQjFiR3hVYVcxcGJtY2lPbnNpYzNSaGNuUlVhVzFsSWpvaU1qQXlOaTB4TVMwd04xUXhORG95TURveU9DNDNNRGt3TlRJeE9UbGFJaXdpWlc1a1ZHbHRaU0k2SWpJd01qWXRNVEV0TURkVU1UUTZNakE2TWpndU56RTBNekV4T1RFMFdpSjlMQ0p6ZEdGMGRYTWlPaUpUVlVORFJWTlRJbjFkTENKemIzVnlZMlZRY205MlpXNWhibU5sSWpwN0luSmxjMjlzZG1Wa1UzUnZjbUZuWlZOdmRYSmpaU0k2ZXlKaWRXTnJaWFFpT2lKbGQyRnNiR1YwTFdSaGRHRXRZV2t0Y0d4aGRHWnZjbTB0YUdjeU5pMWphV05rTFdKMWFXeGtjeUlzSW05aWFtVmpkQ0k2SW5OdmRYSmpaUzgxT0RBeFltTm1OemRsWWpoaE9ETmpPV1UwWlRWalltUTJaVEl5WkRVeU1HWmtNRFV4TW1WakwyWnlZWFZrTFdGd2FTNTBZWEl1WjNvaUxDSm5aVzVsY21GMGFXOXVJam9pTVRjNU5EQTJNVEl5TURjeU1ERTNOU0o5TENKbWFXeGxTR0Z6YUdWeklqcDdJbWR6T2k4dlpYZGhiR3hsZEMxa1lYUmhMV0ZwTFhCc1lYUm1iM0p0TFdobk1qWXRZMmxqWkMxaWRXbHNaSE12YzI5MWNtTmxMelU0TURGaVkyWTNOMlZpT0dFNE0yTTVaVFJsTldOaVpEWmxNakprTlRJd1ptUXdOVEV5WldNdlpuSmhkV1F0WVhCcExuUmhjaTVuZWlNeE56azBNRFl4TWpJd056SXdNVGMxSWpwN0ltWnBiR1ZJWVhOb0lqcGJleUowZVhCbElqb2lUVVExSWl3aWRtRnNkV1VpT2lKNlFYZEVjRnB0VUdSQ05rTkdXVUpMTWxaaU9WbFJQVDBpZlN4N0luUjVjR1VpT2lKVFNFRXlOVFlpTENKMllXeDFaU0k2SWpsVVRrRnNRVWR4U2s1RE4zWXpablozYm5keVZGaGpkbmxWYkhkc1prZzJSMHRMYVhBNVpITm5lVUU5SW4xZGZYMTlMQ0p2Y0hScGIyNXpJanA3SW5KbGNYVmxjM1JsWkZabGNtbG1lVTl3ZEdsdmJpSTZJbFpGVWtsR1NVVkVJaXdpY0c5dmJDSTZlMzBzSW14dloyZHBibWNpT2lKSFExTmZUMDVNV1NJc0luZHZjbXRsY2xKbGJHVmhjMlVpT2lKc1pXZGhZM2tpZlN3aWRHRm5jeUk2V3lKbGQyRnNiR1YwTFdwbGJtdHBibk1pTENKbWNtRjFaQzFoY0draUxDSnphR0V0TlRnd01XSmpaamMzWldJNElsMTkiLCJnY3NQYXRoIjp7ImJ1Y2tldCI6ImV3YWxsZXQtZGF0YS1haS1wbGF0Zm9ybS1oZzI2LWNpY2QtYnVpbGRzIiwiZ2VuZXJhdGlvbiI6MTc5NDA2MTIyMDcyMDE3NSwib2JqZWN0Ijoic291cmNlLzU4MDFiY2Y3N2ViOGE4M2M5ZTRlNWNiZDZlMjJkNTIwZmQwNTEyZWMvZnJhdWQtYXBpLnRhci5neiJ9LCJzdWJzdGl0dXRpb25zIjp7fX0sImludGVybmFsUGFyYW1ldGVycyI6eyJzeXN0ZW1TdWJzdGl0dXRpb25zIjp7IkJVSUxEX0lEIjoiMGI5NjVkOTMtZWJiOS00Njg4LThlZjktMjYxZDIyZTg5ZGJhIiwiTE9DQVRJT04iOiJhc2lhLXNvdXRoZWFzdDEiLCJQUk9KRUNUX05VTUJFUiI6IjE5ODgxODgwOTcxOSIsIlNFUlZJQ0VfQUNDT1VOVCI6InByb2plY3RzL2V3YWxsZXQtZGF0YS1haS1wbGF0Zm9ybS1oZzI2L3NlcnZpY2VBY2NvdW50cy9ld2FsbGV0LWNsb3VkYnVpbGRAZXdhbGxldC1kYXRhLWFpLXBsYXRmb3JtLWhnMjYuaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJTRVJWSUNFX0FDQ09VTlRfRU1BSUwiOiJld2FsbGV0LWNsb3VkYnVpbGRAZXdhbGxldC1kYXRhLWFpLXBsYXRmb3JtLWhnMjYuaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20ifX0sInJlc29sdmVkRGVwZW5kZW5jaWVzIjpbeyJ1cmkiOiJnY3IuaW8vY2xvdWQtYnVpbGRlcnMvZG9ja2VyQHNoYTI1NjpmYmMwNTcwNWU2ZjI0NDY3ZTQwYWU4YTQwOTdhYjliOGZhZTExMTY1NTFmODM4ZmEyYzU1ZjQzNjc0MjdmYzM2QHNoYTI1NjpmYmMwNTcwNWU2ZjI0NDY3ZTQwYWU4YTQwOTdhYjliOGZhZTExMTY1NTFmODM4ZmEyYzU1ZjQzNjc0MjdmYzM2IiwiZGlnZXN0Ijp7InNoYTI1NiI6ImZiYzA1NzA1ZTZmMjQ0NjdlNDBhZThhNDA5N2FiOWI4ZmFlMTExNjU1MWY4MzhmYTJjNTVmNDM2NzQyN2ZjMzYifX0seyJ1cmkiOiJnczovL2V3YWxsZXQtZGF0YS1haS1wbGF0Zm9ybS1oZzI2LWNpY2QtYnVpbGRzL3NvdXJjZS81ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjL2ZyYXVkLWFwaS50YXIuZ3ojMTc5NDA2MTIyMDcyMDE3NSIsImRpZ2VzdCI6eyJzaGEyNTYiOiJmNTMzNDA5NDAxYWEyNGQwYmJiZjc3ZWZjMjdjMmI0ZDc3MmZjOTQ5NzA5NWYxZmExOGEyYTJhN2Q3NmM4MzIwIn19XX0sInJ1bkRldGFpbHMiOnsiYnVpbGRlciI6eyJpZCI6Imh0dHBzOi8vY2xvdWRidWlsZC5nb29nbGVhcGlzLmNvbS9Hb29nbGVIb3N0ZWRXb3JrZXIifSwibWV0YWRhdGEiOnsiaW52b2NhdGlvbklkIjoiaHR0cHM6Ly9jbG91ZGJ1aWxkLmdvb2dsZWFwaXMuY29tL3YxL3Byb2plY3RzL2V3YWxsZXQtZGF0YS1haS1wbGF0Zm9ybS1oZzI2L2xvY2F0aW9ucy9hc2lhLXNvdXRoZWFzdDEvYnVpbGRzLzBiOTY1ZDkzLWViYjktNDY4OC04ZWY5LTI2MWQyMmU4OWRiYSIsInN0YXJ0ZWRPbiI6IjIwMjYtMTEtMDdUMTQ6MjA6MjIuNTU4NjMxMTA4WiIsImZpbmlzaGVkT24iOiIyMDI2LTExLTA3VDE0OjIyOjI4LjE1ODg0MFoifSwiYnlwcm9kdWN0cyI6W3t9XX19fQ==",
+          "payloadType": "application/vnd.in-toto+json",
+          "signatures": [
+            {
+              "keyid": "projects/verified-builder/locations/global/keyRings/attestor/cryptoKeys/google-hosted-worker/cryptoKeyVersions/1",
+              "sig": "MEUCIAcgE67amYeSkGmjDEumz6R7hFClX7It7ISnc_pLP9t4AiEAjLVXUsPxlUN1gMuhVjRkeUruL9C4mWOb828Vj476DIo="
+            },
+            {
+              "keyid": "projects/verified-builder/locations/global/keyRings/attestor/cryptoKeys/pqcProvenanceSigner/cryptoKeyVersions/1",
+              "sig": "ZLfFDlvDEck5Gzdhsr0p1hdGt-QsCtdk0l92TuRQzlNfYQ3c3_7aKw7o9fADAurraPkB3vKQI5bzQw7v7gspywx0s1bg4uhsP2d_0Ueb83fHDkgYtnndkvM0UEDSOPC1vmH3WpM6MSAm-s6-HsvdjKFwzkpugg5LvZErqhINo7eyzWaOnSn0bSldNJkrRWNq9hAQ0vKsV8qhwEvLIpJkJ_UCEp8QSalc_8axjVROq1s-dAq9hd-Do8X7FQ_Xk8ULzTUnL7aLksGPNRbuVjACnRL_t9_aQwjgmvWk_6vyfQPO24Bn_ajfwWr9rxzK-uIuPPZEyr34Fu93NbpTwE9U00kgo_Hy7N5wTnb6JcovUdl5CLZNZcKD8oRTdS6mGZF40-L05KzZ4spHAgEkyUINv-gZkJgzXAsiXn_pZUX0FMDWJPOpuw7ihh2VI0E1XWZ5PTX-9RVK57YYor7MfPZoOmyTy7C7kf017WfhpFA8JdaGT8lDRSyxTWsZj9HdeoWqFEvpTLm6wUWb9mHbzqTbeV2giQ63bfMgD-gNjZup3ezkp4zvvqmbQI9OPkcM6TMRD6PpwFavRDeuYbNDLj43c1vh4zGF0j_u5FYp_GtJqh2g8YK1uuGx9Kd_QOTWgYtVSg3iB4XoyrYiPmwHkmFH9_LghcclSsVK5ONlKWCtO33URDkgCgLsaBHJKDd_sjYnCM8dFgpLWIzsJjYIk1_GtBszo4nS0d8va0UlJK7DeoiXjPjhqK15HCzOOjl6kunYFb-8A_Luc0Zp93-AUzhTwRW-tf4FMIJbH_VyJ_Gr-ZHzUDi2yq_QR6CYkHKpHlfChivCnE3-SWPB-SP3weE3aS81SEiD390WN4GeCDjwpApAH5YHFHlHOGuc6d66LuiWJQTxGMJHTDwNwRj-c-1F4j4p3TjhzqepVim8hyBvBYvVw780X0xI_pWxw59J4TJRmYrpGgVLryGWyb34yIz5E_P2NeA54ZAbKENwvxJp4vk3iE5TEUA0krbLFkgiBB39ck3-tDrk6--2J-_EXX7B_P77H2fCggJ8iLabyJYosd3S3F1bpAllmyrtJYgzvRxhQp8kDyVj4gL1VzYsfxq68perpoHnCULSCydlb3KTYjl1RXodDWmBj_fb6_C3KQXrX-zlciW-m6gxJQYWIWbjyBZy_7md2jhCwyflNkdC8rlre_wZ6BBL4KXGDk68E-McnFYEEQI-4VSNqyTdpdlnxR6tewxpaLQEubZSCiDCDr460J-KcN0m9S_VSKUno-YdDXxD8LZLowQ4W4myomr_jIcXlv1Ey8PnPEZTy0OKHFOKwodrLGKTehPCbqrISoEFgDHEtRQq1O0D6H-iSmVWIm_DZFGUVE3M3qVDPPlFk60VhlMlKwWf469oetsp5ZPfJzxrx2cPYufV4eJhoITEnA44djAyHnDn95EkOxtwh_0TB7iT3j4oQDuxWQfQ6kofOLYlpClM5t88UNae1kiEsvt2WCixsdmOM2Xv4XMzYvTeTgsiDfNDZIlxrmqZqzRIWDKqCdwiszAIM6MUiRHrAQNOIaX-2QdR0flXEM_IdrRyffNuNHEY1LKcUfO6GuESjLR9VsJwCOxtzhs9D_lpGC4xjp5VnngZFX7ndbLHjqKBn8i2rCQnDE5NzBrMicZGkmKNe0rrrSjWY51QYcFQP2tV-t9n_ogTF9rDOIpAjTm2ZbTp4cJL-TndGL56mAYtlenAMpF0K3YoanW6DITzoWpIxurCP3IWMfvfpotNEmEpyPbB2Ai-G6dcaeNJZtuLbkHWEISek02-iWzUuhqkA22vDarKWVd4dOmzELiGejWzjIWyEMt-jfc8r5B7h_xO_BlBuR7zuaf6tC1OhYqdZIvwrpiWTjeZ9ojMNbsWIac8rqQiykXaYIwapB8oGDQefScU3iAkQjWPeYm7Ec1YZy_J7pTrSbzvGHKnDtnYgvxtEsjh0f9zOqEjbPrIuYQH-8_Bd0g2kxkJpUb52X0sXEk7ryJPZfBv8W_xMW5Tyu8PVNB2akI3j7x0UDvinrocDgtNAjKJsewAWiIlSB_ejJvJb0l40gagEKgi7poF4cCaFv9fJ5UjmS_AIFOMtGarFFt8cepqZ2i4p0Zmf2SYAfnT1zXIIdusB-2D9F3JOzhETPGPTE3rJ_rXm-UYNQVrF001Pi8WgEGh8jlMjn1S_PulIWoCaY5NtKyoECvfMT5dzdO8pd9fA4k3Zl1ZFVjDeK6PqcemfSB6F5G7PgwQwfh2zAM-8Gy1K5RSFhWGBc0K3nniXRMI3CuDBnsmd0XzLzIKR3O_ARkmRUBJGzaFNnc4EbtB6eJH408fafRBW4kGtLZ7QoUReAXnEiqpOd_PoGZhWB51TYB_6FR-4uCjy_GvX8UpMXCnu8-ayZSJPTb3-M0RD2XZwuJuQqt0f1RW9knRlAWfHvZj6rqZxIIOslzvQMU_Mss3-hfFXmzJzoyQ2l_CPcWrTVaWjvmO2waLt_QK22LIpkyB7UB5YtPB6sRHSaBpKE6wWIxG1Vwa7dZQCAeiE6zJeNWlQNr1aty_Q-wtBOyt2UnWZM9N8SG4WzbDtVAf-KXTHIz40Eq5w8SI738KrEF1ukkKmy_oILcBAIc4qcBnKAw1yVFWaVUv9BJRePIUJKGvCPdMK4zm54yxHf5aY0fC2HAxAb20AA-cp2D0Oqd6smFmo8JxQLCzBd6O3yA6AyDiFVCdDh283rJBzsAuJsJDaTGQ70PAB7q2NhAdSLSMVTvIxjjUDRyCGcfMaCuxvAbcacIhxf-EsJJA43VFmkz5jcOEkKMIZqVUWvW-WLWzuplAgDIViboQjHZt2QbNlXi6JSgsw8uYe0cH6nLb5Dh6ockQ3nKlAjLaVmiVnfCOjbfh1pmJD_fw5MLvOZn6FkZ8l52pbMB7uIapsVXj3zkzBQAEhu7DaVfXYcttTKG2hI_3kwe8xxFgBjEFWqod_zFYFj1A5gkv0m9hHW9TVqFg0gG-8k_TzG7agdVNHEiL3Yjsv2arHshr9G_26G83tN8QjQgmMna45sCHRAalALkk34f4m0g0gRoqYpRMcF7S2aF2jWnpolksg1OQjSdsucjBQ_EnIuJaT4WVDRF32Sg_cpTjvPgrxcAxNSIi9jzwhM7vVmzVeik2675DQW5vCEnIBCIUlMJBlnyiRinbmHalM4KYCe8nWmwwBmOd9lj7Z-Hm-caByJRPSku_oMFzIbuVsMdtc9Tg1Rx6cyGrUVRB0Vv26GuB8orQKCXdNwy-3DLng2vRm7Fiypj082TaDOy7EgU110XBxwJWwnwD94KzsnmoSJHv-i3LzuDs6z5ihzRemBQmKDL6q7TJVTxcFJXnS05d1u3BXMwj4gh-urQCn2ei4qxm40qPd1fENM72kA1rVJUL8Ib2hkc6cDk1FwO9pqs2Us8soy49uaObXrcCoy68xN9GzPwaJ5dc1O2ckmwfUnUtQ59NUTzkiIDKJ_c_p0A5p-heiR25ONF7VhX14l_j5beAhnBUERJtK3-oU93NxVGw6xR-GkW92EMSzid7A02TyLQVZAhkIghO2KohZ3g9wgDFMjbcAaZvrTE5JHoWi0FFsAsKrSK4VX1e3KTkDproZdQzuiNli6iEUjP3NHnHbprMXuxWwtqkpP4PeFjhpWI2DqvW4emJsTT-d7acwLkzyCasw6OjKBFpKqq7j0dPbabvn-ORKM_D4IaRmN-gUc0BtfgshQfm6Hrwrk7VeJ_FaxHo_LtzK4a-jD9GzyvvY1F7YdvMKB5jx-woUPDxTAn9TIErJYp4sjRGSgCOuctaTDTp0W0GPJFX93b-8n-3BCiSRA_KEPlu7ErcTtoMqcZlEzVTJc2eyNhVI78ilvPiZ2S5vz2RPPFX905yPxDnXktDPUIgLNp9rxYwDf3ADJQw6CEWBlCygA3KXr0xv8lHY8u-puY-3dqRGckMGvPrT8TZtWevUNVBMxwGb7hkVerUhcpy82h2l226-dqEBlE5BbnYNb_j1VlSGImtVUTxuLk5wOGQ5QnhUBpTP5kfNLSRHbz2Kf7MDtdWJqWtmcKXnpd0rFoM1hZ5faumkKGz80pB0wJdCgRKE3x3ZUNXtqap3-1M364C0uhBBMcAcrZGKzDxV1JJKqwh4ss06B8kU7xkyVb_mI1xw3Fd78rn84UB5m_siVS-oR2HQrKmuwDzEIEEpKgi5ez3rye3l9rzHxCU_ADhNgjpGRzBiZXimqEmMwPxoaP-RAL0DeAjfq2rFFGmDmatQ0Pk4Z9VwLsDUHuz7CrHyxkBJv8JTlL68inKKxorgOniiyZ3gbRRZ3wxVKhB4Eo6QUtMvcHe6DxBYWuK3-sFIlePtd_uDBc1cXjd8RxzvL3D4fD7c4GF5PUAAAAAAAAAAAAAAAAACA8WHSUq"
+            }
+          ]
+        },
+        "kind": "BUILD",
+        "name": "projects/ewallet-data-ai-platform-hg26/occurrences/73570474-0c10-43ea-8da6-4da8e13c1fe2",
+        "noteName": "projects/verified-builder/notes/intoto_slsa_v1_0b965d93-ebb9-4688-8ef9-261d22e89dba",
+        "resourceUri": "https://asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803",
+        "updateTime": "2026-11-07T14:22:42.826754Z"
+      },
+      {
+        "build": {
+          "intotoStatement": {
+            "_type": "https://in-toto.io/Statement/v0.1",
+            "predicateType": "https://slsa.dev/provenance/v0.1",
+            "slsaProvenance": {
+              "builder": {
+                "id": "https://cloudbuild.googleapis.com/GoogleHostedWorker@v0.3"
+              },
+              "materials": [
+                {
+                  "digest": {
+                    "md5": "cc0c03a5998f741e8215804ad956fd61",
+                    "sha256": "f533409401aa24d0bbbf77efc27c2b4d772fc9497095f1fa18a2a2a7d76c8320"
+                  },
+                  "uri": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/fraud-api.tar.gz#1794061220720175"
+                }
+              ],
+              "metadata": {
+                "buildFinishedOn": "2026-11-07T14:22:28.158840Z",
+                "buildInvocationId": "0b965d93-ebb9-4688-8ef9-261d22e89dba",
+                "buildStartedOn": "2026-11-07T14:20:22.558631108Z"
+              },
+              "recipe": {
+                "arguments": {
+                  "@type": "type.googleapis.com/google.devtools.cloudbuild.v1.Build",
+                  "id": "0b965d93-ebb9-4688-8ef9-261d22e89dba",
+                  "name": "projects/198818809719/locations/asia-southeast1/builds/0b965d93-ebb9-4688-8ef9-261d22e89dba",
+                  "options": {
+                    "logging": "GCS_ONLY",
+                    "pool": {},
+                    "requestedVerifyOption": "VERIFIED",
+                    "workerRelease": "legacy"
+                  },
+                  "sourceProvenance": {
+                    "fileHashes": {
+                      "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/fraud-api.tar.gz#1794061220720175": {
+                        "fileHash": [
+                          {
+                            "type": "MD5",
+                            "value": "zAwDpZmPdB6CFYBK2Vb9YQ=="
+                          },
+                          {
+                            "type": "SHA256",
+                            "value": "9TNAlAGqJNC7v3fvwnwrTXcvyUlwlfH6GKKip9dsgyA="
+                          }
+                        ]
+                      }
+                    },
+                    "resolvedStorageSource": {
+                      "bucket": "ewallet-data-ai-platform-hg26-cicd-builds",
+                      "generation": "1794061220720175",
+                      "object": "source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/fraud-api.tar.gz"
+                    }
+                  },
+                  "steps": [
+                    {
+                      "args": [
+                        "build",
+                        "-f",
+                        "ai_platform/inference/Dockerfile",
+                        "--build-arg",
+                        "EWALLET_RELEASE_SHA=5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+                        "--label",
+                        "org.opencontainers.image.revision=5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+                        "-t",
+                        "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api:5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+                        "."
+                      ],
+                      "env": [
+                        "DOCKER_BUILDKIT=1"
+                      ],
+                      "name": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36",
+                      "pullTiming": {
+                        "endTime": "2026-11-07T14:20:28.714311914Z",
+                        "startTime": "2026-11-07T14:20:28.709052199Z"
+                      },
+                      "status": "SUCCESS",
+                      "timing": {
+                        "endTime": "2026-11-07T14:21:28.078265663Z",
+                        "startTime": "2026-11-07T14:20:28.709052199Z"
+                      }
+                    }
+                  ],
+                  "tags": [
+                    "ewallet-jenkins",
+                    "fraud-api",
+                    "sha-5801bcf77eb8"
+                  ]
+                },
+                "definedInMaterial": "-1",
+                "type": "https://cloudbuild.googleapis.com/CloudBuildSteps@v0.1"
+              }
+            },
+            "subject": [
+              {
+                "digest": {
+                  "sha256": "dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803"
+                },
+                "name": "https://asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api:5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec"
+              }
+            ]
+          }
+        },
+        "createTime": "2026-11-07T14:22:38.320009Z",
+        "envelope": {
+          "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjAuMSIsInByZWRpY2F0ZSI6eyJidWlsZGVyIjp7ImlkIjoiaHR0cHM6Ly9jbG91ZGJ1aWxkLmdvb2dsZWFwaXMuY29tL0dvb2dsZUhvc3RlZFdvcmtlckB2MC4zIn0sIm1hdGVyaWFscyI6W3siZGlnZXN0Ijp7Im1kNSI6ImNjMGMwM2E1OTk4Zjc0MWU4MjE1ODA0YWQ5NTZmZDYxIiwic2hhMjU2IjoiZjUzMzQwOTQwMWFhMjRkMGJiYmY3N2VmYzI3YzJiNGQ3NzJmYzk0OTcwOTVmMWZhMThhMmEyYTdkNzZjODMyMCJ9LCJ1cmkiOiJnczovL2V3YWxsZXQtZGF0YS1haS1wbGF0Zm9ybS1oZzI2LWNpY2QtYnVpbGRzL3NvdXJjZS81ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjL2ZyYXVkLWFwaS50YXIuZ3ojMTc5NDA2MTIyMDcyMDE3NSJ9XSwibWV0YWRhdGEiOnsiYnVpbGRGaW5pc2hlZE9uIjoiMjAyNi0xMS0wN1QxNDoyMjoyOC4xNTg4NDBaIiwiYnVpbGRJbnZvY2F0aW9uSWQiOiIwYjk2NWQ5My1lYmI5LTQ2ODgtOGVmOS0yNjFkMjJlODlkYmEiLCJidWlsZFN0YXJ0ZWRPbiI6IjIwMjYtMTEtMDdUMTQ6MjA6MjIuNTU4NjMxMTA4WiJ9LCJyZWNpcGUiOnsiYXJndW1lbnRzIjp7IkB0eXBlIjoidHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuZGV2dG9vbHMuY2xvdWRidWlsZC52MS5CdWlsZCIsImlkIjoiMGI5NjVkOTMtZWJiOS00Njg4LThlZjktMjYxZDIyZTg5ZGJhIiwibmFtZSI6InByb2plY3RzLzE5ODgxODgwOTcxOS9sb2NhdGlvbnMvYXNpYS1zb3V0aGVhc3QxL2J1aWxkcy8wYjk2NWQ5My1lYmI5LTQ2ODgtOGVmOS0yNjFkMjJlODlkYmEiLCJvcHRpb25zIjp7ImxvZ2dpbmciOiJHQ1NfT05MWSIsInBvb2wiOnt9LCJyZXF1ZXN0ZWRWZXJpZnlPcHRpb24iOiJWRVJJRklFRCIsIndvcmtlclJlbGVhc2UiOiJsZWdhY3kifSwic291cmNlUHJvdmVuYW5jZSI6eyJmaWxlSGFzaGVzIjp7ImdzOi8vZXdhbGxldC1kYXRhLWFpLXBsYXRmb3JtLWhnMjYtY2ljZC1idWlsZHMvc291cmNlLzU4MDFiY2Y3N2ViOGE4M2M5ZTRlNWNiZDZlMjJkNTIwZmQwNTEyZWMvZnJhdWQtYXBpLnRhci5neiMxNzk0MDYxMjIwNzIwMTc1Ijp7ImZpbGVIYXNoIjpbeyJ0eXBlIjoiTUQ1IiwidmFsdWUiOiJ6QXdEcFptUGRCNkNGWUJLMlZiOVlRPT0ifSx7InR5cGUiOiJTSEEyNTYiLCJ2YWx1ZSI6IjlUTkFsQUdxSk5DN3YzZnZ3bndyVFhjdnlVbHdsZkg2R0tLaXA5ZHNneUE9In1dfX0sInJlc29sdmVkU3RvcmFnZVNvdXJjZSI6eyJidWNrZXQiOiJld2FsbGV0LWRhdGEtYWktcGxhdGZvcm0taGcyNi1jaWNkLWJ1aWxkcyIsImdlbmVyYXRpb24iOiIxNzk0MDYxMjIwNzIwMTc1Iiwib2JqZWN0Ijoic291cmNlLzU4MDFiY2Y3N2ViOGE4M2M5ZTRlNWNiZDZlMjJkNTIwZmQwNTEyZWMvZnJhdWQtYXBpLnRhci5neiJ9fSwic3RlcHMiOlt7ImFyZ3MiOlsiYnVpbGQiLCItZiIsImFpX3BsYXRmb3JtL2luZmVyZW5jZS9Eb2NrZXJmaWxlIiwiLS1idWlsZC1hcmciLCJFV0FMTEVUX1JFTEVBU0VfU0hBPTU4MDFiY2Y3N2ViOGE4M2M5ZTRlNWNiZDZlMjJkNTIwZmQwNTEyZWMiLCItLWxhYmVsIiwib3JnLm9wZW5jb250YWluZXJzLmltYWdlLnJldmlzaW9uPTU4MDFiY2Y3N2ViOGE4M2M5ZTRlNWNiZDZlMjJkNTIwZmQwNTEyZWMiLCItdCIsImFzaWEtc291dGhlYXN0MS1kb2NrZXIucGtnLmRldi9ld2FsbGV0LWRhdGEtYWktcGxhdGZvcm0taGcyNi9ld2FsbGV0LXBsYXRmb3JtL2ZyYXVkLWFwaTo1ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjIiwiLiJdLCJlbnYiOlsiRE9DS0VSX0JVSUxES0lUPTEiXSwibmFtZSI6Imdjci5pby9jbG91ZC1idWlsZGVycy9kb2NrZXJAc2hhMjU2OmZiYzA1NzA1ZTZmMjQ0NjdlNDBhZThhNDA5N2FiOWI4ZmFlMTExNjU1MWY4MzhmYTJjNTVmNDM2NzQyN2ZjMzYiLCJwdWxsVGltaW5nIjp7ImVuZFRpbWUiOiIyMDI2LTExLTA3VDE0OjIwOjI4LjcxNDMxMTkxNFoiLCJzdGFydFRpbWUiOiIyMDI2LTExLTA3VDE0OjIwOjI4LjcwOTA1MjE5OVoifSwic3RhdHVzIjoiU1VDQ0VTUyIsInRpbWluZyI6eyJlbmRUaW1lIjoiMjAyNi0xMS0wN1QxNDoyMToyOC4wNzgyNjU2NjNaIiwic3RhcnRUaW1lIjoiMjAyNi0xMS0wN1QxNDoyMDoyOC43MDkwNTIxOTlaIn19XSwidGFncyI6WyJld2FsbGV0LWplbmtpbnMiLCJmcmF1ZC1hcGkiLCJzaGEtNTgwMWJjZjc3ZWI4Il19LCJkZWZpbmVkSW5NYXRlcmlhbCI6Ii0xIiwidHlwZSI6Imh0dHBzOi8vY2xvdWRidWlsZC5nb29nbGVhcGlzLmNvbS9DbG91ZEJ1aWxkU3RlcHNAdjAuMSJ9fSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vc2xzYS5kZXYvcHJvdmVuYW5jZS92MC4xIiwic2xzYVByb3ZlbmFuY2UiOnsiYnVpbGRlciI6eyJpZCI6Imh0dHBzOi8vY2xvdWRidWlsZC5nb29nbGVhcGlzLmNvbS9Hb29nbGVIb3N0ZWRXb3JrZXJAdjAuMyJ9LCJtYXRlcmlhbHMiOlt7ImRpZ2VzdCI6eyJtZDUiOiJjYzBjMDNhNTk5OGY3NDFlODIxNTgwNGFkOTU2ZmQ2MSIsInNoYTI1NiI6ImY1MzM0MDk0MDFhYTI0ZDBiYmJmNzdlZmMyN2MyYjRkNzcyZmM5NDk3MDk1ZjFmYTE4YTJhMmE3ZDc2YzgzMjAifSwidXJpIjoiZ3M6Ly9ld2FsbGV0LWRhdGEtYWktcGxhdGZvcm0taGcyNi1jaWNkLWJ1aWxkcy9zb3VyY2UvNTgwMWJjZjc3ZWI4YTgzYzllNGU1Y2JkNmUyMmQ1MjBmZDA1MTJlYy9mcmF1ZC1hcGkudGFyLmd6IzE3OTQwNjEyMjA3MjAxNzUifV0sIm1ldGFkYXRhIjp7ImJ1aWxkRmluaXNoZWRPbiI6IjIwMjYtMTEtMDdUMTQ6MjI6MjguMTU4ODQwWiIsImJ1aWxkSW52b2NhdGlvbklkIjoiMGI5NjVkOTMtZWJiOS00Njg4LThlZjktMjYxZDIyZTg5ZGJhIiwiYnVpbGRTdGFydGVkT24iOiIyMDI2LTExLTA3VDE0OjIwOjIyLjU1ODYzMTEwOFoifSwicmVjaXBlIjp7ImFyZ3VtZW50cyI6eyJAdHlwZSI6InR5cGUuZ29vZ2xlYXBpcy5jb20vZ29vZ2xlLmRldnRvb2xzLmNsb3VkYnVpbGQudjEuQnVpbGQiLCJpZCI6IjBiOTY1ZDkzLWViYjktNDY4OC04ZWY5LTI2MWQyMmU4OWRiYSIsIm5hbWUiOiJwcm9qZWN0cy8xOTg4MTg4MDk3MTkvbG9jYXRpb25zL2FzaWEtc291dGhlYXN0MS9idWlsZHMvMGI5NjVkOTMtZWJiOS00Njg4LThlZjktMjYxZDIyZTg5ZGJhIiwib3B0aW9ucyI6eyJsb2dnaW5nIjoiR0NTX09OTFkiLCJwb29sIjp7fSwicmVxdWVzdGVkVmVyaWZ5T3B0aW9uIjoiVkVSSUZJRUQiLCJ3b3JrZXJSZWxlYXNlIjoibGVnYWN5In0sInNvdXJjZVByb3ZlbmFuY2UiOnsiZmlsZUhhc2hlcyI6eyJnczovL2V3YWxsZXQtZGF0YS1haS1wbGF0Zm9ybS1oZzI2LWNpY2QtYnVpbGRzL3NvdXJjZS81ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjL2ZyYXVkLWFwaS50YXIuZ3ojMTc5NDA2MTIyMDcyMDE3NSI6eyJmaWxlSGFzaCI6W3sidHlwZSI6Ik1ENSIsInZhbHVlIjoiekF3RHBabVBkQjZDRllCSzJWYjlZUT09In0seyJ0eXBlIjoiU0hBMjU2IiwidmFsdWUiOiI5VE5BbEFHcUpOQzd2M2Z2d253clRYY3Z5VWx3bGZINkdLS2lwOWRzZ3lBPSJ9XX19LCJyZXNvbHZlZFN0b3JhZ2VTb3VyY2UiOnsiYnVja2V0IjoiZXdhbGxldC1kYXRhLWFpLXBsYXRmb3JtLWhnMjYtY2ljZC1idWlsZHMiLCJnZW5lcmF0aW9uIjoiMTc5NDA2MTIyMDcyMDE3NSIsIm9iamVjdCI6InNvdXJjZS81ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjL2ZyYXVkLWFwaS50YXIuZ3oifX0sInN0ZXBzIjpbeyJhcmdzIjpbImJ1aWxkIiwiLWYiLCJhaV9wbGF0Zm9ybS9pbmZlcmVuY2UvRG9ja2VyZmlsZSIsIi0tYnVpbGQtYXJnIiwiRVdBTExFVF9SRUxFQVNFX1NIQT01ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjIiwiLS1sYWJlbCIsIm9yZy5vcGVuY29udGFpbmVycy5pbWFnZS5yZXZpc2lvbj01ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjIiwiLXQiLCJhc2lhLXNvdXRoZWFzdDEtZG9ja2VyLnBrZy5kZXYvZXdhbGxldC1kYXRhLWFpLXBsYXRmb3JtLWhnMjYvZXdhbGxldC1wbGF0Zm9ybS9mcmF1ZC1hcGk6NTgwMWJjZjc3ZWI4YTgzYzllNGU1Y2JkNmUyMmQ1MjBmZDA1MTJlYyIsIi4iXSwiZW52IjpbIkRPQ0tFUl9CVUlMREtJVD0xIl0sIm5hbWUiOiJnY3IuaW8vY2xvdWQtYnVpbGRlcnMvZG9ja2VyQHNoYTI1NjpmYmMwNTcwNWU2ZjI0NDY3ZTQwYWU4YTQwOTdhYjliOGZhZTExMTY1NTFmODM4ZmEyYzU1ZjQzNjc0MjdmYzM2IiwicHVsbFRpbWluZyI6eyJlbmRUaW1lIjoiMjAyNi0xMS0wN1QxNDoyMDoyOC43MTQzMTE5MTRaIiwic3RhcnRUaW1lIjoiMjAyNi0xMS0wN1QxNDoyMDoyOC43MDkwNTIxOTlaIn0sInN0YXR1cyI6IlNVQ0NFU1MiLCJ0aW1pbmciOnsiZW5kVGltZSI6IjIwMjYtMTEtMDdUMTQ6MjE6MjguMDc4MjY1NjYzWiIsInN0YXJ0VGltZSI6IjIwMjYtMTEtMDdUMTQ6MjA6MjguNzA5MDUyMTk5WiJ9fV0sInRhZ3MiOlsiZXdhbGxldC1qZW5raW5zIiwiZnJhdWQtYXBpIiwic2hhLTU4MDFiY2Y3N2ViOCJdfSwiZGVmaW5lZEluTWF0ZXJpYWwiOiItMSIsInR5cGUiOiJodHRwczovL2Nsb3VkYnVpbGQuZ29vZ2xlYXBpcy5jb20vQ2xvdWRCdWlsZFN0ZXBzQHYwLjEifX0sInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiJkYmFmOGI3MDYwZTZiZWJmNDc3ZjJiZmYwMmRmZWRlMzgyMTAyNDEwYjRhYjY4YjUxZTgzNmRlOWY3YzFjODAzIn0sIm5hbWUiOiJodHRwczovL2FzaWEtc291dGhlYXN0MS1kb2NrZXIucGtnLmRldi9ld2FsbGV0LWRhdGEtYWktcGxhdGZvcm0taGcyNi9ld2FsbGV0LXBsYXRmb3JtL2ZyYXVkLWFwaTo1ODAxYmNmNzdlYjhhODNjOWU0ZTVjYmQ2ZTIyZDUyMGZkMDUxMmVjIn1dfQ==",
+          "payloadType": "application/vnd.in-toto+json",
+          "signatures": [
+            {
+              "keyid": "projects/verified-builder/locations/global/keyRings/attestor/cryptoKeys/provenanceSigner/cryptoKeyVersions/1",
+              "sig": "MEQCIHMWkwiroyBrj5GxGbmpAw6Ue8pwKmPbhds0_H0SDLtXAiA1mZtK0OrUpH8K6KEcm7h266ww68WpAahPDt3Mu_EApA=="
+            },
+            {
+              "keyid": "projects/verified-builder/locations/global/keyRings/attestor/cryptoKeys/pqcProvenanceSigner/cryptoKeyVersions/1",
+              "sig": "5BS8HyVoTsdpUqR9_i1sJYqqM23zpLpTd3VS7g2XEwh_3h1GaNFtigvwd1K8urkduG3eum4f0vv_XtjiCoLHRja5yC2013PsgFtHyCe_QDPJUrlzq1xFjlsgfDGArCc6BVnlN_QUB0rOeuOZCPstMH0EbHU2aezxUAfxY_O8xwTR1_BdhIKOwD3Lt-lBVza3qHxbhr8SBN-i1cFv3lJ5McQ3jt4HmUxSJPNn-d04184zrqnFuDKlgvPh92gCm0-OtZAhbnU4t0WkatPSs1u7a886FxPaLLAmYhbpSv673sWz4s9ocdXxt5jJwEWgTCv7dYfvU9B9cgv7tnhVmUUePADXoicjJlVAaMOcaAKQZqqA-GUw1kJQ5Gx5KeuoLm3Uie3QT6-a-c60zoytH5eBTsN9WbdVTKqP8o4rJ4T4ReVD8T2Bl087bUUhtCs-HtQNt0lbxLR9-NKzUifmlHijiGGr4YJ_XFqhdVIN6JvEyeIawjXttxGwHa6BcEBwpgIQmvxZviqolJG3N41Svmw34sc-iEToWXc9LHIS6Z2i-OowaY5jeheK_oo0-YylKaoiF03JTeFHZV4BUTTuxoON5VVwLm39mqkKFzSQP8R6OQFMP-u1H3u81sJgMsNVa1PCWdjtoTVDMwZDdnAS1y1h1xCXI8T4Xa_q2ru_sqU-HgYj_OiEgeK4-3W3euof9MaIVx-HDOR2GcGIxATggtTTIJ6pzDBGsFmLTTEKbDwjXNBxos4LzeHifZu9CKfnJUKM_8AA4Q9zrjfjnaPGgaPA9qT9sL2n8BpyGcklo6jo522v-peowF-L_ydRd6w_L1nRczzk_xFrj3E4gNOHyQbiWKI0oXZPrcI9k2e9VY3Y40qrJbs_b8CJ7R4PIJQkd7qaq-pK9vG11SWuHm7ULPfyK7_YdXolFxKRdrnE3VxMMB7QRqatogr3mVYgYfidILSQKXmB0Jm3oj3pTBJaDac4jmwnRRSzYwHp3P_0BWZlEVqVRVxwgJ2LjYKQJnz8zJb55jNXNHWYu3uBi624hdUho6ZZ93wy9mwKWRXFafcsRvKfLRhfa_QXCenTMISExbpbuCbiOFjin5cXPriQ5ZGr03LVlRFdoT6vrS0Uy1-0Ds8cpNnJWHgDtNdfqqfN_mWE2aIMZU6g4hZOkCCcAjupEQBELj-l6U14UGKjIRIHzvyWTQ-na3OB1VWnbLqMLrPcKk3ROLsNgaQz8EueE6QNTcY1Z4NVhnA7YamP58_J9ghxUpNo5mEqb3jrxLzNLzaq4lP6S81_qGmA3HWCDI24NiB4OFppxzY5kwq4kgkqjbDHrEAeqWG0IB_xKZijBqoU2Z4HUcgdixpd-qD5_TKllQaKY3VSKiCfL1LVwTINT_8jHYac9KmlUcyNqZRVmZo-9nK8VyskK1JgPJ7QjCg0Uoy1HOuKds9MJGfUWZMNt-4Mc-GYEMGKFR_AiQAZJOsfBzpKbIx3lGmXrAQVqYmi7VPwUtR_acLmejPuUgYhMw8hxLku9aY0uTv1HAumCJ6OmRtoqLmb8uz7-QDoCQyqEu1DuXAqrNezFiOK0cbb7RszLgrsR0xbUBDW8Eym88xJpwSUg32NHTemWKEEjuHI0pddyvgk_kWAD7sJ54ieXiEvfkymryMcIyRy5VKNkiB4z6yVSgCvglfPEbGfIq9Jvl7_yP7gjVcuLkuTQcRfm0vc7K0sqUR0SXRM9vmjXRxPh-rK_Ww5vh2imyk2oYdKcTUs4ADAajV7RvuaSGROzVF5MJf4LuHyOsMNqvkR6Afm6rLSwhustTf2JG7VQUh1n8-tul0Q71NRBETIPLvStKhPIElEjIVEEqQyoQVXgYmo9NOd1IwHV6bcn504YFhsX_GaVF2zuYP6MK-EdF1yrTuz_ULSEejAOMRofVpepuYsiupxDSqrn2sbVlo5o9qTBhpB1EMxIGUd7eNs7gn-5xgZbC8GWTSmE0CTZpfO4rZnlsIBywtY1Fx7e3bNAzDzNmL52qcCpHbYs8CZo1GyaWsqn03LKR9hiI6_5dP69wTWSi-A4Vz5lO_8hHpofQMJpsyEOWyAbxyJh4t76YoKkAKMWtTCcifYosuAj87MH8qjv8_boQzlDM6wT-g0cWA1L0XmdQMViS3F6HLjUiKoGphp5zjbc9JSj7JPi1XfdnE1nsWvxY3gjtgnsELIk0Msw8C6LqKKFrwJBwqxaacZUh5Un3vSGLkh1tWr5mDD8ez8Bz36LoKLTQV1Qj9kBt9RX_byGqrmqaG0NGYsBFtZQeTxLJjfl4zpaZVPe84V-mDdP46KMPNFUDy5duLjBGfJ-Qi-eFvg-DaZF3w72N4gio835FjrIiBrCIme2UfpiMzCHX1drr_6xLNS25464rmlSy7-Y75OOEddeAjhKV9GRM_PwPJ32-ZMiO7iBWWE-_f44jBJUmL6qBQXShj2--XTB8QEcTQkr28Ja8TzFDdhWmYPf-UOLU6rjiqYUk57GVt9O0yvjaN6Yd6DCxLHH89Fd3mqPV6IXQpNn0JzQXFIr6NOySKatXpH5whH_eGcQduzJDawl6-Fbalt3xUCF2Kb0BvqYap1F-Xnj8J7Gv-DrqDnHG6zd3YNOzHWfdtlSpkwRj_uTqpEOwEP78y38NKn6lmiNknxob53nsM-zVTtYbUm2KhEYjscg1B_xhbVETHusCcWVF6xkxqeSifIc24jSgNRJuDZpUwyDJLFgdtoQiCLSD_SBNqBcTJehM-WOIIMG1OEY7FyoCqL79aGba_f9HWS47cTBJapC8y3u8gFm1yTHe50wqofgMrLZDXPF29sI2yQI0RYjckb7y5O3p3aIBlfcIGgmJneYdpE2fWikWm-isEDd_7T05VfILIvOrGTul9bX6gMMT0ITEm0hoh3DdKb7mKE4Do4aue_OqgJoVcCy4Z2DeUcoiJ8z95st57SQHTYZVFpKDsA_oVn57FVcSUd2BDFvs7Y3ILIVTjX_8H754GrMSwok8vfCJVlGYZWjlu10PQIAxYIzI6kNyf_QFShRO6a0Q5qP8QjBdbCUMEZxi4782G1A8-hBBqLpFPe5mMfIbNQWn3fpvtk7Spykn0z-bBz5tr9KNqwcGL0rmudzOv_yX3p-mbxa9o239ExJrFnssX8VRoMAnF93s4j3ls0GrcszHDTY9BPdQ7k5pQzSFd1Q56-0EIqy9i8XSO0dfuxCckXjDbJKvn5IwXuOLG2AKoryIOd9wf7VB4SMK07L77nL6_S1CB7uqsVG4XkyaJJziN6CTZpcon7WYxq6qzI_pomdwFkDZmP8aslRhosXtAZ3TBwQlZHtuSo1VOhQoegJWzXNdVC_cNFLOSv9LnDv1xGeSH6pw97FLsZKJqEz4PgdKrhWvRYZmu2F_v-KFdD9vZPMzp62Lz8SJu328aYYSB6Wq__a-M6s_DS33k_4gWonOyQy19sbQAXAdmFrhSKT58vQQqudGZW5ODimBZKEZmQSCNWPJVG-Inl_w0VFQhU9uqJFd22-zckUJkr9e7nFJZCt2yNMtl98XrOV078iAv8bveLMLyeA2t0MQnODrHFugs5gH6pHl3VYfjTLkEG0qSPgo2l4nJ5eb6F1igr-qNEf0zy45V4NVsrCG2F7plgw0BdJ_0piPMqeAa7ni5CCd_04EbITI3Q8u_HFJzYIbdqCjO3uYBuqt_33dD8xFE9h1aodfyFKmjxUX6cqauu02PqmwHlMrJxXET3cvoZrQW5IIIPBAv2vZ8oEf62pdyL5snEGCeq5PpAdma396kmWeeFOSxDOmx-87yv7m7pgvJPi4YUUgGIp7l6KIbHm4-IvqHrS8l8H8YQiGoxaGUHPAR_0MQMHwXtwX5bLGgNg_vAbWNE_u8Ku0U_3P3q0j3h0nwp4gGWidq6Qs2z8iRc0oL2Hw-GxpDJaqy-ED8w0Xlz-Quf2UhU_nqxqKDP2Oh_VEE38awt1jXL1RCOvP4wBmgn0bPqWr-fF8itYJCCJKIcDUMElOGnZ8R4rp7l3ipF8H0ollPJYGH8AYxDJm6j4AXxIC9Ddt9NXAgURzj-xV_j64ODyASKOt3GOVQRRS_tRW7YlLXnpWrI_mnx4jY-hyf5Gdsa6ndDFFxObozLPNrjyMfFCTLx48L2o2uMUbXfIKck-jeQ4Y4A1hxSmmzAyP4V_oO__rqOg3k5OcmoY4U9FhhfgIcnH6COhVPv4B-GEdfuxEfRS4uyKVolJO7xvcwvqprd7leNdT5XJwrcerTlDQ_Wd9FtG4dMSz1Kcsbb8k1qrR9x_jPqanXZU-BIpZwWkBw1UUL2UB41e8SsJmHjm1SxunS6KCi1nHMrYooeIShfbomqtc4kLlNeZXN3lDlAXmarzN77Ax88RU9ecpOiAAAAAAAAAAAAAAAAAAAAAAAAAwQMFBwl"
+            },
+            {
+              "keyid": "projects/verified-builder/locations/asia-southeast1/keyRings/attestor/cryptoKeys/builtByGCB/cryptoKeyVersions/1",
+              "sig": "MEYCIQCkTbF1ycHbzj_Y_28qPee1nsbw0caHqNNkT3jBxefjzwIhAOUvNXzZN0h4MmUB8mCNrKVY024C1LdJUY-oRuSYZt91"
+            }
+          ]
+        },
+        "kind": "BUILD",
+        "name": "projects/ewallet-data-ai-platform-hg26/occurrences/747c7857-c89f-4e3e-b709-9cf27e1cc14c",
+        "noteName": "projects/verified-builder/notes/intoto_0b965d93-ebb9-4688-8ef9-261d22e89dba",
+        "resourceUri": "https://asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803",
+        "updateTime": "2026-11-07T14:22:38.320009Z"
+      }
+    ]
+  }
+}

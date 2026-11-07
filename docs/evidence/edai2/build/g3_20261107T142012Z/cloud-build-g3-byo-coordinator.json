@@ -1,0 +1,134 @@
+{
+  "artifacts": {
+    "images": [
+      "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec"
+    ]
+  },
+  "createTime": "2026-11-07T14:23:04.567732437Z",
+  "finishTime": "2026-11-07T14:24:08.112938Z",
+  "id": "e5a3f911-79b8-4077-be42-71a225e919d7",
+  "images": [
+    "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec"
+  ],
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=asia-southeast1/e5a3f911-79b8-4077-be42-71a225e919d7?project=198818809719",
+  "logsBucket": "gs://ewallet-data-ai-platform-hg26-cicd-build-logs",
+  "name": "projects/198818809719/locations/asia-southeast1/builds/e5a3f911-79b8-4077-be42-71a225e919d7",
+  "options": {
+    "logging": "GCS_ONLY",
+    "pool": {},
+    "requestedVerifyOption": "VERIFIED",
+    "workerRelease": "legacy"
+  },
+  "projectId": "ewallet-data-ai-platform-hg26",
+  "queueTtl": "3600s",
+  "results": {
+    "buildStepImages": [
+      "sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36"
+    ],
+    "buildStepOutputs": [
+      ""
+    ],
+    "images": [
+      {
+        "artifactRegistryPackage": "projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/repositories/ewallet-platform/packages/g3-byo-coordinator/versions/sha256:b84d8c7e3ddd83c792e853c61e9f5cfe5e4b6d6c917b8b06e5ad6a3bf4730bd4",
+        "digest": "sha256:b84d8c7e3ddd83c792e853c61e9f5cfe5e4b6d6c917b8b06e5ad6a3bf4730bd4",
+        "name": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+        "pushTiming": {
+          "endTime": "2026-11-07T14:24:07.643093399Z",
+          "startTime": "2026-11-07T14:24:00.212562541Z"
+        }
+      }
+    ],
+    "resourceUsage": {
+      "averageCpuUtilization": 0.7746965,
+      "averageMemoryUtilization": 0.10363534,
+      "peakCpuUtilization": 1,
+      "peakMemoryUtilization": 0.12189912,
+      "totalCpuDuration": "92.850s"
+    }
+  },
+  "serviceAccount": "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "source": {
+    "storageSource": {
+      "bucket": "ewallet-data-ai-platform-hg26-cicd-builds",
+      "generation": "1794061384054703",
+      "object": "source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/g3-byo-coordinator.tar.gz"
+    }
+  },
+  "sourceProvenance": {
+    "fileHashes": {
+      "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/g3-byo-coordinator.tar.gz#1794061384054703": {
+        "fileHash": [
+          {
+            "type": "MD5",
+            "value": "zAwDpZmPdB6CFYBK2Vb9YQ=="
+          },
+          {
+            "type": "SHA256",
+            "value": "9TNAlAGqJNC7v3fvwnwrTXcvyUlwlfH6GKKip9dsgyA="
+          }
+        ]
+      }
+    },
+    "resolvedStorageSource": {
+      "bucket": "ewallet-data-ai-platform-hg26-cicd-builds",
+      "generation": "1794061384054703",
+      "object": "source/5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec/g3-byo-coordinator.tar.gz"
+    }
+  },
+  "startTime": "2026-11-07T14:23:05.908913980Z",
+  "status": "SUCCESS",
+  "steps": [
+    {
+      "args": [
+        "build",
+        "-f",
+        "infra/docker/g3-byo-coordinator/Dockerfile",
+        "--build-arg",
+        "EWALLET_RELEASE_SHA=5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+        "--label",
+        "org.opencontainers.image.revision=5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+        "-t",
+        "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec",
+        "."
+      ],
+      "env": [
+        "DOCKER_BUILDKIT=1"
+      ],
+      "name": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36",
+      "pullTiming": {
+        "endTime": "2026-11-07T14:23:13.396815659Z",
+        "startTime": "2026-11-07T14:23:13.388932393Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-07T14:24:00.181754989Z",
+        "startTime": "2026-11-07T14:23:13.388932393Z"
+      }
+    }
+  ],
+  "tags": [
+    "ewallet-jenkins",
+    "g3-byo-coordinator",
+    "sha-5801bcf77eb8"
+  ],
+  "timeout": "2400s",
+  "timing": {
+    "BUILD": {
+      "endTime": "2026-11-07T14:24:00.212362026Z",
+      "startTime": "2026-11-07T14:23:12.752909390Z"
+    },
+    "FETCHSOURCE": {
+      "endTime": "2026-11-07T14:23:12.752325400Z",
+      "startTime": "2026-11-07T14:23:06.823369521Z"
+    },
+    "PUSH": {
+      "endTime": "2026-11-07T14:24:07.645166420Z",
+      "startTime": "2026-11-07T14:24:00.212530482Z"
+    },
+    "STORAGE_SOURCE": {
+      "endTime": "2026-11-07T14:23:12.752325400Z",
+      "startTime": "2026-11-07T14:23:06.823369521Z"
+    }
+  }
+}

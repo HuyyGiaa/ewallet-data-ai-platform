@@ -329,3 +329,119 @@ Each run records:
 - the verdict.
 
 UI screenshots are native captures only. A row moves to CLOUD_VERIFIED only from these runs, and to COMPLETE only when every column-D deliverable exists.
+
+## Results and final gates (2026-11-07)
+
+### Package 1: executed
+
+All three builds ran from `git archive` of `5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec` as `ewallet-cloudbuild`, with the pinned builder. Evidence: `docs/evidence/edai2/build/g3_20261107T142012Z`.
+
+| Image | Build ID | Digest (deploy by this, never by tag) | Rollback digest |
+|---|---|---|---|
+| `fraud-api` | `0b965d93-ebb9-4688-8ef9-261d22e89dba` | `sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803` | `sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165` |
+| `g3-byo-coordinator` | `e5a3f911-79b8-4077-be42-71a225e919d7` | `sha256:b84d8c7e3ddd83c792e853c61e9f5cfe5e4b6d6c917b8b06e5ad6a3bf4730bd4` | `sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff` |
+| `g3-byo-feature-rag-specialist` | `9623ea08-9e76-4ef9-9d12-7a054c3f956e` | `sha256:a88404fa8e54d28694cfe4e923f83b75e3904e5d2212ba484ee5d6ac6765f96e` | `sha256:5f848a1ce7942f4fd5027264bc54c3164d09065d3c8932fcd4a93bce8db57606` |
+
+Each digest was re-hashed over the manifest bytes the registry serves. Each config carries `org.opencontainers.image.revision=5801bcf…`, and each tag is the full SHA. The SLSA provenance names the build ID and the source archive's sha256, `f533409401aa24d0…`.
+
+**Trivy 0.75.0, HIGH and CRITICAL, remote:** no finding introduced compared with the deployed digests, and no secrets.
+- The agent images fix 4 HIGH findings: 47 HIGH now, 51 before.
+- `fraud-api` keeps its 3 existing CRITICAL findings:
+  - `libsqlite3-0` CVE-2025-7458 and `zlib1g` CVE-2023-45853, both without a Debian fix;
+  - `feast` 0.66.0 CVE-2026-18948, fixed in 0.67.0. Feast is pinned by the uv contract, so upgrading it is a separate decision.
+
+**Known provenance gap:** `ai_platform/inference/Dockerfile` copies `uv` from `ghcr.io/astral-sh/uv:0.13.5` by tag, not by digest. The BYO Dockerfile pins it. Fix it in a later source change, then rebuild.
+
+**Cost:** about 4.3 build-minutes, inside the free tier (gross about $0.03). About 0.5 GiB more registry storage and 183 MiB of source archives: under $0.06 a month.
+
+### Package 2: final read-only validation
+
+The plan was taken with the state lock on serial 10, and the lock was released afterwards. Its summary is in `docs/evidence/edai2/iam/r2_plan_20261107T142221Z`.
+
+| Result | Value |
+|---|---|
+| Creates | 4, exactly the approved addresses |
+| No-ops | 16 |
+| Updates, deletions, replacements | 0 |
+| GKE or network addresses | 0 |
+| Guard | "plan is exactly the approved R2 change" |
+
+**GCS access, measured.** `registry_mirror.pull()` was run against the real registry while every HTTP request was recorded. It made:
+- `GET` on the object's metadata;
+- `GET` on the object's media;
+- one `GET` on bucket metadata.
+
+The bucket call comes from `google-cloud-storage` 3.17.1's background `_bucket_metadata_cache`. When that call was forced to return 403, the mirror still succeeded. So the APIs need only `storage.objects.get` on the registry object. A conditional `objectViewer` on `features/registries/` grants exactly that. No `objects.list` and no `buckets.get` is required, and none is proposed.
+
+**Workload Identity and Vault:**
+- **KSA annotations.** `fraud-api` points to `ewallet-fraud-api@…` in `service-account.yaml.tmpl`; `feature-api` points to `featureApi.serviceAccount.gcpServiceAccount`.
+- **Bindings.** Each `workloadIdentityUser` binding names `…svc.id.goog[ml-platform/<sa>]`.
+- **Training identity.** `ewallet-training` keeps `ml-platform/training` and `kubeflow/pipeline-runner`. The second is outside the Terraform state, and neither is touched.
+- **Vault is separate from GCP identity.** Vault uses the projected token with audience `vault` (Kubernetes auth through TokenReview); Workload Identity uses the GKE metadata server.
+
+The Package 2 commands above are unchanged, and **still await approval**.
+
+### Package 3: final preflight
+
+| Check | Result |
+|---|---|
+| Node pool | Only `cpu-pool`, `e2-standard-4`, 0 nodes, autoscaling off; node auto-provisioning off |
+| Quota | E2 CPUs 0 / 24 |
+| PVCs | 15 Bound |
+| Capacity on 5 nodes | 12,760m CPU and 48.5 GiB free after DaemonSets and 85% packing |
+| Platform | 8,901m and 22.2 GiB |
+| Experiments | Feature API ×3, Fraud API ×3, KEDA, gateway, agents ×3, in-cluster Locust: about 2,300m and 4.5 GiB |
+| Total | About 88% of CPU and 55% of memory |
+| `g3-llm` nodes | 3, holding 3,770m of 7,656m |
+
+Gross list price per hour:
+
+| Item | Asleep | 5 nodes |
+|---|---|---|
+| Nodes | — | $0.827 |
+| Node IPs and boot disks | — | $0.063 |
+| PVCs | $0.011 | $0.011 |
+| Bucket and registry | $0.097 | $0.097 |
+| **Total** | **$0.108** | **about $1.00** |
+| Cluster fee | $0.10, normally offset by the GKE free tier for one zonal cluster | same |
+
+Cloud Logging and Managed Prometheus are expected inside their free allotments. No load balancer is created before Package 6 phase 2.
+
+**8 hours gross: about $8.0**, or $8.8 if the cluster fee is not offset. Free Trial credit applies to all of it.
+
+**Budget.** `gcloud billing budgets list` did not answer, so the owner checks the remaining credit in the console before waking. A budget alert can be set there, which is an owner action.
+
+**What `wake-full --nodes 5` changes:**
+1. `gcloud container clusters resize ewallet-dev --node-pool cpu-pool --num-nodes=5`.
+2. It waits for 5 Ready nodes.
+3. It labels the first 3 nodes `ewallet.io/g3-llm=true`.
+4. It scales every Deployment or StatefulSet whose live replicas differ from the sleep manifest: agents 2, `drift-mcp` 1 in both namespaces, `vllm-fallback` stays 0.
+
+It runs no Helm, deletes nothing and starts no GPU. Its node-pool identity gate (one pool, autoscaling off, no auto-provisioning) runs only on `sleep`, so run it by hand first:
+
+```bash
+gcloud container node-pools list --cluster ewallet-dev --location asia-southeast1-b --format='value(name)'      # exactly: cpu-pool
+gcloud container node-pools describe cpu-pool --cluster ewallet-dev --location asia-southeast1-b --format='value(autoscaling.enabled)'   # empty
+gcloud container clusters describe ewallet-dev --location asia-southeast1-b --format='value(autoscaling.enableNodeAutoprovisioning)'      # empty
+```
+
+**Stop and sleep if** any of these fail, if Pods stay Pending, or if credit is low:
+
+```bash
+CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --execute --confirm-cluster ewallet-dev
+```
+
+### Package 4 and later, with the verified digests
+
+```bash
+FRAUD_IMAGE=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803
+COORDINATOR_IMAGE=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:b84d8c7e3ddd83c792e853c61e9f5cfe5e4b6d6c917b8b06e5ad6a3bf4730bd4
+SPECIALIST_IMAGE=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:a88404fa8e54d28694cfe4e923f83b75e3904e5d2212ba484ee5d6ac6765f96e
+SHA=5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec
+```
+
+- **Fraud API:** `fixed` mode, 1 replica, as Package 4.
+- **Feature API:** `--set featureApi.image=$FRAUD_IMAGE`.
+- **Agents:** `release_state.py values --image coordinator=$COORDINATOR_IMAGE --image feature-rag-specialist=$SPECIALIST_IMAGE --git-sha $SHA`, after the chart refresh.
+
+No KEDA ownership transfer before the separate R1 approval. Agent tests use synthetic prompts only.
