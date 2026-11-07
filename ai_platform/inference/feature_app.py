@@ -124,6 +124,7 @@ def create_feature_app(
 
     @app.middleware("http")
     async def correlation(request: Request, call_next):
+        """Attach a correlation id to the request and its response."""
         correlation_id = normalize_correlation_id(request.headers.get("x-correlation-id"))
         request.state.correlation_id = correlation_id
         response = await call_next(request)
@@ -132,6 +133,7 @@ def create_feature_app(
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError):
+        """Answer 422 with sanitized details."""
         hooks.record(outcome="invalid_request", seconds=0.0)
         details = tuple(
             {"location": [str(part) for part in item["loc"]], "message": item["msg"], "type": item["type"]}
@@ -144,6 +146,7 @@ def create_feature_app(
 
     @app.exception_handler(InferenceError)
     async def inference_error(request: Request, exc: InferenceError):
+        """Answer a known failure with its public code."""
         return error_response(
             status_code=exc.status_code, code=exc.code, message=exc.public_message,
             correlation_id=request.state.correlation_id, retryable=exc.retryable,
@@ -151,6 +154,7 @@ def create_feature_app(
 
     @app.exception_handler(Exception)
     async def internal_error(request: Request, exc: Exception):
+        """Answer an unexpected failure without details."""
         hooks.record(outcome="internal_error", seconds=0.0)
         return error_response(
             status_code=500, code="internal_error", message="Internal feature error",
@@ -163,6 +167,7 @@ def create_feature_app(
         responses={code: {"model": ErrorResponse} for code in (422, 424, 502, 503, 504)},
     )
     async def lookup(payload: FeatureLookupRequest, request: Request) -> FeatureLookupResponse:
+        """Return the requested features, all inside the freshness policy."""
         started = time.perf_counter()
         try:
             found = await reader.get_features(payload)
@@ -182,10 +187,12 @@ def create_feature_app(
 
     @app.post("/internal/v1/entity-timestamps", response_model=EntityTimestampResponse)
     async def entity_timestamps(payload: EntityTimestampRequest) -> EntityTimestampResponse:
+        """Return stored view times for fixture preflight; the gateway never routes this."""
         return EntityTimestampResponse(views=await reader.view_timestamps(payload))
 
     @app.get("/health/live", response_model=FeatureHealthResponse)
     async def live() -> FeatureHealthResponse:
+        """Report that the process is up."""
         return FeatureHealthResponse(status="ok")
 
     @app.get(
@@ -194,6 +201,7 @@ def create_feature_app(
         responses={503: {"model": ErrorResponse}},
     )
     async def ready() -> FeatureHealthResponse:
+        """Report that the online store can serve."""
         await reader.ready()
         return FeatureHealthResponse(status="ready")
 
