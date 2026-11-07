@@ -40,7 +40,7 @@ forward_vault() {
   echo "Vault did not answer through the port-forward" >&2; return 1
 }
 
-probe() {  # <pod-name> <service-account> <audience> <secrets-json>
+probe() {  # <pod-name> <service-account> <audience> <secrets-json> [vault-role]
   k -n "$APP" apply -f - >/dev/null <<YAML
 apiVersion: v1
 kind: Pod
@@ -56,7 +56,7 @@ spec:
       command: [python3, /probe/workload_probe.py]
       env:
         - {name: EWALLET_VAULT_ADDR, value: "https://vault.$NS.svc.cluster.local:8200"}
-        - {name: EWALLET_VAULT_ROLE, value: fraud-api}
+        - {name: EWALLET_VAULT_ROLE, value: ${5:-fraud-api}}
         - {name: EWALLET_VAULT_CA_PATH, value: /ca/ca.crt}
         - {name: EWALLET_VAULT_SECRETS, value: '$4'}
       volumeMounts:
@@ -74,6 +74,7 @@ YAML
 }
 SECRETS='{"EWALLET_REDIS_CONNECTION_STRING": "fraud-api/feast-redis#connection_string"}'
 OTHER='{"EWALLET_REDIS_CONNECTION_STRING": "fraud-api/other#connection_string"}'
+FEATURE='{"EWALLET_REDIS_CONNECTION_STRING": "feature-api/feast-redis#connection_string"}'
 
 for ns in "$NS" "$APP"; do k create ns "$ns" >/dev/null; k label ns "$ns" ewallet.io/vault-local=true >/dev/null; done
 k label ns "$NS" pod-security.kubernetes.io/enforce=restricted >/dev/null
@@ -87,8 +88,10 @@ k -n "$NS" create secret tls vault-server-tls --cert="$work/tls.crt" --key="$wor
 k -n "$APP" create configmap vault-ca --from-file=ca.crt="$work/ca.crt" >/dev/null
 k -n "$APP" create configmap vault-probe --from-file="$root/ai_platform/inference/vault.py" \
   --from-file="$root/scripts/vault/workload_probe.py" >/dev/null
-k -n "$APP" create serviceaccount training >/dev/null
-k -n "$APP" create serviceaccount unrelated >/dev/null
+# R2: each serving API has its own account; training (MLflow) must no longer log in.
+for account in fraud-api feature-api training unrelated; do
+  k -n "$APP" create serviceaccount "$account" >/dev/null
+done
 
 helm --kube-context "$CONTEXT" install vault "$chart" -n "$NS" \
   -f "$root/infra/kubernetes/vault/values-gke.yaml" -f "$root/infra/kubernetes/vault/values-local.yaml" >/dev/null
@@ -102,34 +105,46 @@ record configure "$(cat "$work/configure.json")"
 secret_v1=$(openssl rand -hex 24); secret_v2=$(openssl rand -hex 24)
 record seed "$(printf '%s' "$secret_v1" | vault put --keys-file "$keys" --path fraud-api/feast-redis --key connection_string --stdin)"
 printf '%s' other | vault put --keys-file "$keys" --path fraud-api/other --key connection_string --stdin >/dev/null
+feature_secret=$(openssl rand -hex 24)
+printf '%s' "$feature_secret" | vault put --keys-file "$keys" --path feature-api/feast-redis --key connection_string --stdin >/dev/null
 hash1=$(printf '%s' "$secret_v1" | sha256sum | cut -d' ' -f1); hash2=$(printf '%s' "$secret_v2" | sha256sum | cut -d' ' -f1)
 
-result=$(probe authorized training vault "$SECRETS"); record authorized-read "$result"
+result=$(probe authorized fraud-api vault "$SECRETS"); record authorized-read "$result"
 [ "$(jq -r .value_sha256 <<<"$result")" = "$hash1" ] || { echo "authorized read returned the wrong value" >&2; exit 1; }
 result=$(probe wrong-sa unrelated vault "$SECRETS"); record wrong-service-account "$result"
 [ "$(jq -r .code <<<"$result")" = vault_login_denied ]
-result=$(probe wrong-aud training kubernetes "$SECRETS"); record wrong-audience "$result"
+result=$(probe feature-read feature-api vault "$FEATURE" feature-api); record feature-api-authorized-read "$result"
+[ "$(jq -r .value_sha256 <<<"$result")" = "$(printf '%s' "$feature_secret" | sha256sum | cut -d' ' -f1)" ]
+result=$(probe training-sa training vault "$SECRETS"); record training-account-denied "$result"
 [ "$(jq -r .code <<<"$result")" = vault_login_denied ]
-result=$(probe wrong-path training vault "$OTHER"); record policy-denied-path "$result"
+result=$(probe feature-as-fraud feature-api vault "$SECRETS" fraud-api); record feature-api-cannot-use-fraud-role "$result"
+[ "$(jq -r .code <<<"$result")" = vault_login_denied ]
+result=$(probe fraud-as-feature fraud-api vault "$FEATURE" feature-api); record fraud-api-cannot-use-feature-role "$result"
+[ "$(jq -r .code <<<"$result")" = vault_login_denied ]
+result=$(probe feature-reads-fraud feature-api vault "$SECRETS" feature-api); record feature-role-denied-fraud-path "$result"
+[ "$(jq -r .code <<<"$result")" = vault_read_denied ]
+result=$(probe wrong-aud fraud-api kubernetes "$SECRETS"); record wrong-audience "$result"
+[ "$(jq -r .code <<<"$result")" = vault_login_denied ]
+result=$(probe wrong-path fraud-api vault "$OTHER"); record policy-denied-path "$result"
 [ "$(jq -r .code <<<"$result")" = vault_read_denied ]
 
 record rotate "$(printf '%s' "$secret_v2" | vault put --keys-file "$keys" --path fraud-api/feast-redis --key connection_string --stdin)"
-result=$(probe rotated training vault "$SECRETS"); record read-after-rotation "$result"
+result=$(probe rotated fraud-api vault "$SECRETS"); record read-after-rotation "$result"
 [ "$(jq -r .value_sha256 <<<"$result")" = "$hash2" ] && [ "$(jq -r .version <<<"$result")" = 2 ]
 
 k -n "$NS" delete pod vault-0 --wait=true >/dev/null
 k -n "$NS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=240s >/dev/null
 forward_vault
 record restart-is-sealed "$(vault status)"
-result=$(probe sealed training vault "$SECRETS"); record read-while-sealed "$result"
+result=$(probe sealed fraud-api vault "$SECRETS"); record read-while-sealed "$result"
 [ "$(jq -r .result <<<"$result")" = denied ]
 record unseal-after-restart "$(vault unseal --keys-file "$keys")"
 sleep 5
-result=$(probe persisted training vault "$SECRETS"); record read-after-restart "$result"
+result=$(probe persisted fraud-api vault "$SECRETS"); record read-after-restart "$result"
 [ "$(jq -r .value_sha256 <<<"$result")" = "$hash2" ]
 
 record revoke-role "$(vault revoke-role --keys-file "$keys" --role fraud-api)"
-result=$(probe revoked training vault "$SECRETS"); record read-after-revocation "$result"
+result=$(probe revoked fraud-api vault "$SECRETS"); record read-after-revocation "$result"
 [ "$(jq -r .code <<<"$result")" = vault_login_denied ]
 
 audit=$(k -n "$NS" exec vault-0 -- sh -c 'wc -l < /vault/audit/audit.log')

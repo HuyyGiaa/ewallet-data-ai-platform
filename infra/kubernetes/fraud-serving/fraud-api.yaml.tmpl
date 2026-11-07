@@ -1,6 +1,7 @@
-# Runs in ml-platform with the existing Workload Identity KSA `training`
-# (GCS read of the online Feast registry). A dedicated fraud-serving KSA
-# needs an additional roles/iam.workloadIdentityUser grant.
+# Runs in ml-platform as its own KSA `fraud-api` (service-account.yaml.tmpl),
+# mapped by Workload Identity to a GSA that reads only the online Feast registry.
+# Apply the ServiceAccount and its IAM binding first: see
+# docs/runbooks/edai2/R2_SERVING_IDENTITY_MIGRATION.md.
 apiVersion: v1
 kind: Service
 metadata:
@@ -39,7 +40,8 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: /metrics
     spec:
-      serviceAccountName: training
+      serviceAccountName: fraud-api
+      automountServiceAccountToken: false
       nodeSelector:
         iam.gke.io/gke-metadata-server-enabled: "true"
       securityContext:

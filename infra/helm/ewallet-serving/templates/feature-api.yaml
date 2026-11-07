@@ -6,6 +6,30 @@
 {{- if not $f.registryUri }}
 {{- fail "featureApi.registryUri must name the online Feast registry" }}
 {{- end }}
+{{- $sa := $f.serviceAccount }}
+{{- if has $sa.name (list "training" "fraud-api" "default") }}
+{{- fail "featureApi.serviceAccount.name must be the Feature API's own account" }}
+{{- end }}
+{{- if and $f.vault.enabled (ne $f.vault.role "feature-api") }}
+{{- fail "featureApi.vault.role must be feature-api; never borrow another workload's role" }}
+{{- end }}
+{{- if and $sa.create (not (regexMatch "^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z0-9-]+\\.iam\\.gserviceaccount\\.com$" $sa.gcpServiceAccount)) }}
+{{- fail "featureApi.serviceAccount.gcpServiceAccount must name the Workload Identity GSA" }}
+{{- end }}
+{{- if $sa.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $sa.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-serving.labels" . | nindent 4 }}
+    app.kubernetes.io/name: feature-api
+  annotations:
+    iam.gke.io/gcp-service-account: {{ $sa.gcpServiceAccount }}
+automountServiceAccountToken: false
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -41,7 +65,8 @@ spec:
     metadata:
       labels: {app.kubernetes.io/name: feature-api}
     spec:
-      serviceAccountName: {{ $f.serviceAccountName }}
+      serviceAccountName: {{ $sa.name }}
+      automountServiceAccountToken: false
       {{- with $f.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -60,11 +85,22 @@ spec:
               value: {{ $f.registryUri | quote }}
             - name: EWALLET_FEAST_TIMEOUT_SECONDS
               value: {{ $f.timeoutSeconds | quote }}
+            {{- if $f.vault.enabled }}
+            - name: EWALLET_VAULT_ADDR
+              value: {{ $f.vault.address | quote }}
+            - name: EWALLET_VAULT_ROLE
+              value: {{ $f.vault.role | quote }}
+            - name: EWALLET_VAULT_CA_PATH
+              value: /var/run/secrets/vault-ca/ca.crt
+            - name: EWALLET_VAULT_SECRETS
+              value: {{ dict "EWALLET_REDIS_CONNECTION_STRING" $f.vault.secret | toJson | quote }}
+            {{- else }}
             - name: EWALLET_REDIS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
                   name: {{ $f.redisSecret.name }}
                   key: {{ $f.redisSecret.key }}
+            {{- end }}
           readinessProbe:
             httpGet: {path: /health/ready, port: http}
             periodSeconds: 10
@@ -78,6 +114,18 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: [ALL]}
+          {{- if $f.vault.enabled }}
+          volumeMounts:
+            - {name: vault-token, mountPath: /var/run/secrets/vault, readOnly: true}
+            - {name: vault-ca, mountPath: /var/run/secrets/vault-ca, readOnly: true}
+      volumes:
+        - name: vault-token
+          projected:
+            sources:
+              - serviceAccountToken: {path: token, audience: vault, expirationSeconds: 600}
+        - name: vault-ca
+          configMap: {name: {{ $f.vault.caConfigMap }}}
+          {{- end }}
 ---
 # Additive: the Redis policy in infra/kubernetes/feast-online stays as it is.
 apiVersion: networking.k8s.io/v1

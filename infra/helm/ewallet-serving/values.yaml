@@ -12,8 +12,21 @@ featureApi:
   # The Fraud API image holds the Feature API too; pin it by digest.
   image: ""
   replicas: 1
-  # ServiceAccount with the Workload Identity binding that reads the Feast registry.
-  serviceAccountName: training
+  # R2: the Feature API's own identity, never training's or the Fraud API's.
+  serviceAccount:
+    create: true
+    name: feature-api
+    # Workload Identity GSA ewallet-feature-api@<project>.iam.gserviceaccount.com,
+    # which may read only the online Feast registry prefix. Required when create is true.
+    gcpServiceAccount: ""
+  # Optional: read the Redis connection string from Vault with the feature-api role.
+  # Off, the Deployment reads featureApi.redisSecret as before.
+  vault:
+    enabled: false
+    address: https://vault.ewallet-vault.svc.cluster.local:8200
+    role: feature-api
+    secret: feature-api/feast-redis#connection_string
+    caConfigMap: vault-ca
   registryUri: ""
   redisSecret: {name: feast-online-redis, key: connection_string}
   timeoutSeconds: "2.0"

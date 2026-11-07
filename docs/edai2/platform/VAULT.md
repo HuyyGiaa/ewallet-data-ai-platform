@@ -13,7 +13,7 @@ This page describes the Vault integration for EDAI-2 row 54. It is implemented a
 ## How a workload gets a secret
 
 ```text
-Fraud API pod (ServiceAccount training)
+Fraud API pod (ServiceAccount fraud-api)
   ↓ projected token, audience "vault", 10 minutes
 Vault Kubernetes auth (TokenReview against the API server)
   ↓ role fraud-api: one ServiceAccount, one namespace, one audience
@@ -45,9 +45,21 @@ The loader is [`ai_platform/inference/vault.py`](../../../ai_platform/inference/
 - **Rotation needs a restart.** Vault holds a new version immediately; the Fraud API reads it at startup. Changing the actual Redis password is a separate step.
 - **Key material stays out of Git.** `init` refuses a path inside the repository and writes a mode-0600 file. The root token is retired after bootstrap.
 
-## Limitation of the first integration
+## Identities (R2)
 
-The Fraud API runs as ServiceAccount `training`, which MLflow also uses. The role is bound to that account, so an MLflow pod could also log in, though only to read this one path. A dedicated account needs a new Workload Identity grant, which is an IAM change. It is listed as an option in P7.
+In the first integration the Fraud API ran as `training`, which MLflow also uses, so an MLflow pod could have logged in. R2 separates the identities in source; nothing has changed on GKE yet.
+
+| Workload | ServiceAccount | Vault role | Readable path | GCP access |
+|---|---|---|---|---|
+| Fraud API | `fraud-api` | `fraud-api` | `ewallet/data/fraud-api/feast-redis` | GSA `ewallet-fraud-api`: registry prefix only |
+| Feature API | `feature-api` | `feature-api` (optional) | `ewallet/data/feature-api/feast-redis` | GSA `ewallet-feature-api`: registry prefix only |
+| MLflow, training | `training` | none | none | unchanged |
+
+- Each role binds exactly one account. The Feature API chart refuses another workload's account or the `fraud-api` role.
+- Neither serving account mounts a Kubernetes API token or has RBAC. Vault login uses a projected token with audience `vault`.
+- Only `fraud-api` and `feature-api` pods in `ml-platform` may reach Vault.
+
+The migration order, with readback and rollback, is in [R2_SERVING_IDENTITY_MIGRATION.md](../../runbooks/edai2/R2_SERVING_IDENTITY_MIGRATION.md).
 
 ## Existing secrets
 

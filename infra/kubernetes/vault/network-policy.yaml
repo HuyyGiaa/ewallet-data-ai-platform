@@ -1,4 +1,4 @@
-# Default deny, then only the first integrated workload may reach Vault. Egress
+# Default deny, then only the integrated serving workloads may reach Vault. Egress
 # stays open to the API server for TokenReview; its address differs per cluster.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -18,5 +18,11 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: fraud-api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ml-platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: feature-api
       ports:
         - {port: 8200, protocol: TCP}

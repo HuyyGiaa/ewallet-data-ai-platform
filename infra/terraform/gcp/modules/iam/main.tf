@@ -4,8 +4,11 @@ locals {
     spark     = "Runs Serverless for Apache Spark data jobs"
     training  = "Reads features and writes training and ML artifacts"
     serving   = "Reads approved model artifacts for inference"
-    gke_nodes = "Runs GKE node system and workload pods"
-    ci        = "Builds immutable images and deploys reviewed releases"
+    # R2: one identity per serving API, so neither borrows training's bucket-wide access.
+    fraud_api   = "Fraud API: reads the online Feast registry only"
+    feature_api = "Feature Retrieval API: reads the online Feast registry only"
+    gke_nodes   = "Runs GKE node system and workload pods"
+    ci          = "Builds immutable images and deploys reviewed releases"
   }
 }
 
@@ -53,6 +56,27 @@ resource "google_storage_bucket_iam_member" "canonical" {
   bucket = var.data_bucket_name
   role   = each.value
   member = "serviceAccount:${google_service_account.workload[each.key].email}"
+}
+
+locals {
+  # The serving APIs read one object, the online Feast registry, with objects.get.
+  # The condition keeps them out of the rest of the 3.4 TiB data bucket.
+  registry_readers = toset(["fraud_api", "feature_api"])
+  registry_prefix  = "features/registries/"
+}
+
+resource "google_storage_bucket_iam_member" "registry_reader" {
+  for_each = local.registry_readers
+
+  bucket = var.data_bucket_name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.workload[each.key].email}"
+
+  condition {
+    title       = "online-feast-registry-only"
+    description = "Read objects under ${local.registry_prefix} and nothing else"
+    expression  = "resource.name.startsWith(\"projects/_/buckets/${var.data_bucket_name}/objects/${local.registry_prefix}\")"
+  }
 }
 
 resource "google_storage_bucket_iam_member" "temporary" {

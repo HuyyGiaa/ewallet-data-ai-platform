@@ -3,6 +3,9 @@ locals {
     generator = "data-platform/generator"
     training  = "ml-platform/training"
     serving   = "serving/fraud-inference"
+    # R2: dedicated KSAs for the serving APIs; MLflow keeps ml-platform/training.
+    fraud_api   = "ml-platform/fraud-api"
+    feature_api = "ml-platform/feature-api"
   }
 }
 

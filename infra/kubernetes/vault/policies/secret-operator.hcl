@@ -5,3 +5,9 @@ path "ewallet/data/fraud-api/*" {
 path "ewallet/metadata/fraud-api/*" {
   capabilities = ["read", "list"]
 }
+path "ewallet/data/feature-api/*" {
+  capabilities = ["create", "update"]
+}
+path "ewallet/metadata/feature-api/*" {
+  capabilities = ["read", "list"]
+}
