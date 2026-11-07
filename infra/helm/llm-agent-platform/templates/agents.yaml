@@ -189,6 +189,18 @@ spec:
           value: {{ $.Values.modelConfig.model | quote }}
         - name: EWALLET_LLM_TIMEOUT_SECONDS
           value: {{ index $nl "timeoutSeconds" | default 190 | quote }}
+        {{- $ab := index $byo "abExperiment" | default dict }}
+        {{- if (index $ab "enabled") }}
+        {{- if not $isCoordinator }}
+        {{- fail "abExperiment is supported only on the Coordinator, the one BYO agent that calls an LLM" }}
+        {{- end }}
+        {{- if not $.Values.modelExperiments.enabled }}
+        {{- fail "abExperiment requires modelExperiments.enabled, which declares the variant routes" }}
+        {{- end }}
+        # Two model configurations on the same route; see ai_platform/llm_agent/agent_ab.py.
+        - name: EWALLET_AGENT_AB_CONFIG
+          value: {{ dict "experiment_id" $ab.experimentId "salt" $ab.salt "variants" $ab.variants | toJson | quote }}
+        {{- end }}
         - name: EWALLET_LLM_API_KEY
           valueFrom:
             secretKeyRef:

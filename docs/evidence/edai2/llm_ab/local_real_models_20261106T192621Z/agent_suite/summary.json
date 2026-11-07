@@ -1,0 +1,64 @@
+{
+  "experiment": "agent-ab-model-v1",
+  "suite_sha256": "e5f8aea971ec927e0e8006a536af826a4104ef01545673ff566af7fe54d3209a",
+  "cases": 24,
+  "variants": {
+    "baseline": {
+      "cases": 24,
+      "task_success_rate": 0.9583,
+      "correct_tool_rate": 0.9583,
+      "invalid_tool_calls": 0,
+      "invalid_arguments": 1,
+      "llm_errors": 0,
+      "tool_calls": 20,
+      "latency_p50_seconds": 37.2557,
+      "latency_p95_seconds": 39.223,
+      "prompt_tokens": 13317,
+      "completion_tokens": 5330,
+      "served_models": {
+        "ewallet-fraud-llm-v1": 20,
+        "none": 4
+      },
+      "backends": {
+        "primary": 20,
+        "none": 4
+      },
+      "failure_codes": {
+        "none": 20,
+        "unsupported_request": 3,
+        "ambiguous_identifier": 1
+      }
+    },
+    "candidate": {
+      "cases": 24,
+      "task_success_rate": 1.0,
+      "correct_tool_rate": 1.0,
+      "invalid_tool_calls": 0,
+      "invalid_arguments": 0,
+      "llm_errors": 0,
+      "tool_calls": 20,
+      "latency_p50_seconds": 34.0378,
+      "latency_p95_seconds": 52.7291,
+      "prompt_tokens": 13317,
+      "completion_tokens": 5346,
+      "served_models": {
+        "ewallet-fraud-llm-1-7b": 20,
+        "none": 4
+      },
+      "backends": {
+        "qwen3-1-7b": 20,
+        "none": 4
+      },
+      "failure_codes": {
+        "none": 20,
+        "unsupported_request": 4
+      }
+    }
+  },
+  "paired": {
+    "both_solved": 23,
+    "neither_solved": 0,
+    "only_baseline": 0,
+    "only_candidate": 1
+  }
+}

@@ -1,0 +1,33 @@
+# Strategic merge patch: move one Fraud API secret to Vault. `kubectl rollout undo`
+# restores the secretKeyRef, which stays in the base manifest untouched.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-api
+  namespace: ml-platform
+spec:
+  template:
+    spec:
+      containers:
+        - name: fraud-api
+          env:
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              $patch: delete
+            - name: EWALLET_VAULT_ADDR
+              value: https://vault.ewallet-vault.svc.cluster.local:8200
+            - name: EWALLET_VAULT_ROLE
+              value: fraud-api
+            - name: EWALLET_VAULT_CA_PATH
+              value: /var/run/secrets/vault-ca/ca.crt
+            - name: EWALLET_VAULT_SECRETS
+              value: '{"EWALLET_REDIS_CONNECTION_STRING": "fraud-api/feast-redis#connection_string"}'
+          volumeMounts:
+            - {name: vault-token, mountPath: /var/run/secrets/vault, readOnly: true}
+            - {name: vault-ca, mountPath: /var/run/secrets/vault-ca, readOnly: true}
+      volumes:
+        - name: vault-token
+          projected:
+            sources:
+              - serviceAccountToken: {path: token, audience: vault, expirationSeconds: 600}
+        - name: vault-ca
+          configMap: {name: vault-ca}

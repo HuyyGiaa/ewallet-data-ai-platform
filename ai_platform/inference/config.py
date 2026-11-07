@@ -81,6 +81,11 @@ def _timeout_setting(
     return timeout
 
 
+def _optional_path(values: Mapping[str, str], name: str) -> Path | None:
+    raw = values.get(name, "").strip()
+    return Path(raw) if raw else None
+
+
 @dataclass(frozen=True)
 class InferenceSettings:
     feast_repo_path: Path
@@ -89,6 +94,7 @@ class InferenceSettings:
     model_name: str
     model_version: str
     kserve_timeout_seconds: float
+    ab_config_path: Path | None = None
 
     @classmethod
     def from_env(
@@ -139,4 +145,5 @@ class InferenceSettings:
             model_name=model_name,
             model_version=model_version,
             kserve_timeout_seconds=kserve_timeout,
+            ab_config_path=_optional_path(values, "EWALLET_AB_CONFIG_PATH"),
         )

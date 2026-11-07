@@ -1,0 +1,4 @@
+# Disposable kind validation: same chart and configuration, kind storage class.
+server:
+  dataStorage: {storageClass: standard}
+  auditStorage: {storageClass: standard}

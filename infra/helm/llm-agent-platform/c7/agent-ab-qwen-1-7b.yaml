@@ -1,0 +1,26 @@
+# EXP-AGENT-AB with a different model: the candidate variant calls Qwen3-1.7B. Layer
+# after c7/llm-ab-cpu-gpu.yaml, which provides the backend. Sampling stays equal, so
+# the model is the only difference in the Coordinator's call.
+modelExperiments:
+  enabled: true
+  models:
+    - {name: ewallet-llm-qwen3-1-7b, servedModel: ewallet-fraud-llm-1-7b, service: vllm-candidate, backendLabel: qwen3-1-7b}
+  # Helm replaces lists when overlays stack, so the LLM A/B route is repeated here.
+  virtualModels:
+    - name: ewallet-llm-ab
+      targets:
+        - {model: ewallet-fraud-llm-primary, weight: 90}
+        - {model: ewallet-llm-qwen3-1-7b, weight: 10}
+    - name: ewallet-agent-candidate
+      targets:
+        - {model: ewallet-llm-qwen3-1-7b, weight: 100}
+agents:
+  coordinator:
+    byo:
+      abExperiment:
+        enabled: true
+        experimentId: agent-ab-model-v1
+        salt: c7-2-2026-11
+        variants:
+          - {name: baseline, weight: 50, model: ewallet-fraud-llm, temperature: 0, max_tokens: 384}
+          - {name: candidate, weight: 50, model: ewallet-agent-candidate, temperature: 0, max_tokens: 384}

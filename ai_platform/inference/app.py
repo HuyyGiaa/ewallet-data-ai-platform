@@ -9,12 +9,14 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from ai_platform.inference.ab_router import ABExperimentConfig, ABRouter
+from ai_platform.inference.ab_telemetry import default_ab_telemetry
 from ai_platform.inference.assembler import CanonicalFeatureAssembler
 from ai_platform.inference.config import (
     InferenceSettings,
     configure_feast_redis_timeouts,
 )
-from ai_platform.inference.errors import InferenceError
+from ai_platform.inference.errors import ConfigurationError, InferenceError
 from ai_platform.inference.feast_online import FeastOnlineAdapter
 from ai_platform.inference.kserve import KServeV2Client
 from ai_platform.inference.observability import (
@@ -73,6 +75,7 @@ def _build_service(
         store, timeout_seconds=settings.feast_timeout_seconds
     )
     return InferenceService(
+        router=_build_router(settings),
         feature_provider=FeastOnlineAdapter(
             store, timeout_seconds=settings.feast_timeout_seconds
         ),
@@ -86,6 +89,26 @@ def _build_service(
         ),
         telemetry=telemetry,
     )
+
+
+def _build_router(settings: InferenceSettings) -> ABRouter | None:
+    """Build the experiment router; no config means the single-model path."""
+    if settings.ab_config_path is None:
+        return None
+    config = ABExperimentConfig.from_file(settings.ab_config_path)
+    if config.model_name != settings.model_name:
+        raise ConfigurationError("experiment model_name differs from the service model")
+    predictors = {
+        arm.name: KServeV2Client(
+            base_url=arm.base_url,
+            model_name=config.model_name,
+            model_version=arm.model_version,
+            timeout_seconds=arm.timeout_seconds,
+            wire_contract=FraudV2WireContract(),
+        )
+        for arm in config.arms
+    }
+    return ABRouter(config.split(), predictors, telemetry=default_ab_telemetry())
 
 
 def _get_service(request: Request) -> InferenceService:
@@ -170,6 +193,7 @@ def create_app(
     @app.post(
         "/v1/fraud/predict",
         response_model=FraudPredictionResponse,
+        response_model_exclude_none=True,
         responses={
             422: {"model": ErrorResponse},
             424: {"model": ErrorResponse},

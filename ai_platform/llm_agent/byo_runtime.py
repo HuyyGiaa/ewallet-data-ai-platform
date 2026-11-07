@@ -32,6 +32,7 @@ AUDIT_LOGGER_NAME = "ewallet.agent.audit"
 AUDIT_FIELDS = frozenset({
     "request_id", "task_id", "context_id", "status", "code", "mode",
     "tool", "target_agent", "duration_ms", "prompt_tokens", "completion_tokens", "pii_types",
+    "ab_variant", "served_model", "llm_backend",
 })
 _AUDIT_PROVIDER: object | None = None
 _METER_PROVIDER: object | None = None

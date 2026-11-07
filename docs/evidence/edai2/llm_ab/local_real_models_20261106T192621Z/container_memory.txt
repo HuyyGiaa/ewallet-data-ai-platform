@@ -1,0 +1,2 @@
+vllm-ab-b 7.755GiB / 11GiB
+vllm-ab-a 5.1GiB / 7GiB

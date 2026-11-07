@@ -13,6 +13,7 @@ import json
 import logging
 import os
 from threading import Event, Lock
+import time
 from typing import AsyncIterator, Callable
 
 import httpx
@@ -30,6 +31,8 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from ai_platform.llm_agent.business_request import a2a_message_send
 from ai_platform.llm_agent.agent_metrics import (
+    ab_outcome,
+    record_agent_ab,
     InflightTrackingExecutor,
     initialize as initialize_agent_metrics,
     record_invocation,
@@ -231,9 +234,11 @@ class CoordinatorExecutor(AgentExecutor):
             TaskState.working,
             message=_agent_message("Đang dùng LLM (agentgateway → vLLM) để chọn công cụ và trích xuất tham số giao dịch…"),
         )
+        planner = self._planner.for_context(context.context_id or "")
+        started = time.perf_counter()
         task = asyncio.create_task(plan_intake(
             text,
-            planner=self._planner,
+            planner=planner,
             context_id=context.context_id or "",
             message_id=context.message.message_id if context.message else "",
             on_screen=lambda result: _on_screen(result, context.task_id),
@@ -242,14 +247,28 @@ class CoordinatorExecutor(AgentExecutor):
             self._intake_tasks[context.task_id or ""] = task
         try:
             intake = await task
+        except IntakeFailure as failure:
+            if planner.variant:
+                record_agent_ab(
+                    planner.variant, ab_outcome(failure.code), latency_seconds=time.perf_counter() - started
+                )
+            raise
         finally:
             with self._lock:
                 self._intake_tasks.pop(context.task_id or "", None)
+        selection = intake.selection
+        if selection.variant:
+            record_agent_ab(
+                selection.variant, ab_outcome(None), latency_seconds=time.perf_counter() - started,
+                prompt_tokens=selection.prompt_tokens, completion_tokens=selection.completion_tokens,
+            )
         audit(
             "coordinator.llm_tool_selected",
             request_id=intake.request.request_id, task_id=context.task_id, mode="natural-language",
             tool=intake.selection.name, target_agent=intake.request.target_agent,
             prompt_tokens=intake.selection.prompt_tokens, completion_tokens=intake.selection.completion_tokens,
+            **({"ab_variant": selection.variant, "served_model": selection.served_model,
+                "llm_backend": selection.backend} if selection.variant else {}),
         )
         await updater.update_status(
             TaskState.working,
@@ -307,6 +326,12 @@ class CoordinatorExecutor(AgentExecutor):
                     terminal = "cancelled"
                     return
                 result["coordinator_revision"] = "programmatic-coordinator/byo-v1"
+                if intake is not None and intake.selection.variant:
+                    result["agent_experiment"] = {
+                        "variant": intake.selection.variant,
+                        "served_model": intake.selection.served_model,
+                        "llm_backend": intake.selection.backend,
+                    }
                 if intake is not None:
                     await updater.add_artifact(
                         [Part(root=TextPart(text=render_summary(result, intake.request, intake.selection)))],

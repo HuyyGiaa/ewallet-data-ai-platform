@@ -1,0 +1,37 @@
+{
+  "scope": "LOCAL routing check on the pinned gateway image; rate limits raised for this test",
+  "gateway_image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+  "route_count": 1,
+  "model": "ewallet-llm-ab",
+  "requests": 1000,
+  "failed": 0,
+  "by_backend": {
+    "primary": 900,
+    "qwen3-1-7b": 100
+  },
+  "served_models": {
+    "ewallet-fraud-llm-v1": 900,
+    "ewallet-fraud-llm-1-7b": 100
+  },
+  "split_check": {
+    "total": 1000,
+    "observed_percent": {
+      "primary": 90.0,
+      "qwen3-1-7b": 10.0
+    },
+    "chi_square": 0.0,
+    "critical_value": 10.828,
+    "within_tolerance": true
+  },
+  "candidate_outage": {
+    "requests": 60,
+    "by_status": {
+      "200": 59,
+      "503": 1
+    },
+    "by_backend": {
+      "primary": 59,
+      "none": 1
+    }
+  }
+}

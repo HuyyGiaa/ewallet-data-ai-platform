@@ -17,4 +17,7 @@ data:
   distributed-tracing.json: {{ .Files.Get "dashboards/distributed-tracing.json" | quote }}
   logs-operations.json: {{ .Files.Get "dashboards/logs-operations.json" | quote }}
   ml-drift-pipeline.json: {{ .Files.Get "dashboards/ml-drift-pipeline.json" | quote }}
+  {{- if .Values.modelExperiments.enabled }}
+  ab-experiments.json: {{ .Files.Get "dashboards/ab-experiments.json" | quote }}
+  {{- end }}
 {{- end }}

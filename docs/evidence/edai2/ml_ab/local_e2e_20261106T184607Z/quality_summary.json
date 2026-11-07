@@ -1,0 +1,35 @@
+{
+  "dataset": "held-out test split of training-20261031-151638-ml2 (5565 rows)",
+  "rows": 5565,
+  "arms": {
+    "model-a": {
+      "status": "COMPLETE",
+      "model_versions": [
+        "1"
+      ],
+      "rows": 5565,
+      "positives": 143,
+      "pr_auc": 0.863983,
+      "precision": 0.97479,
+      "recall": 0.811189,
+      "f1": 0.885496,
+      "false_positives": 3,
+      "brier": 0.013881
+    },
+    "model-b": {
+      "status": "COMPLETE",
+      "model_versions": [
+        "2"
+      ],
+      "rows": 5565,
+      "positives": 143,
+      "pr_auc": 0.869796,
+      "precision": 0.975,
+      "recall": 0.818182,
+      "f1": 0.889734,
+      "false_positives": 3,
+      "brier": 0.007338
+    }
+  },
+  "scope": "LOCAL: real KServe predictors on localhost, not GKE"
+}

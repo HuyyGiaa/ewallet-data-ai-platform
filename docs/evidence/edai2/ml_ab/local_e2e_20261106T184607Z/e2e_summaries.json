@@ -1,0 +1,109 @@
+{
+  "split_90_10": {
+    "total_requests": 600,
+    "failed_requests": 0,
+    "fallbacks": 0,
+    "non_sticky_users": 0,
+    "version_leaks": 0,
+    "assignment_check": {
+      "total": 300,
+      "observed_percent": {
+        "model-a": 91.67,
+        "model-b": 8.33
+      },
+      "chi_square": 0.926,
+      "critical_value": 10.828,
+      "within_tolerance": true
+    },
+    "arms": {
+      "model-a": {
+        "requests": 550,
+        "model_versions": [
+          "1"
+        ],
+        "p50_seconds": 0.025038,
+        "p95_seconds": 0.029262,
+        "mean_score": 0.373228
+      },
+      "model-b": {
+        "requests": 50,
+        "model_versions": [
+          "2"
+        ],
+        "p50_seconds": 0.029902,
+        "p95_seconds": 0.033852,
+        "mean_score": 0.336173
+      }
+    }
+  },
+  "rollback_100_0": {
+    "total_requests": 600,
+    "failed_requests": 0,
+    "fallbacks": 0,
+    "non_sticky_users": 0,
+    "version_leaks": 0,
+    "assignment_check": {
+      "total": 300,
+      "observed_percent": {
+        "model-a": 100.0,
+        "model-b": 0.0
+      },
+      "chi_square": 0.0,
+      "critical_value": 10.828,
+      "within_tolerance": true
+    },
+    "arms": {
+      "model-a": {
+        "requests": 600,
+        "model_versions": [
+          "1"
+        ],
+        "p50_seconds": 0.025595,
+        "p95_seconds": 0.02904,
+        "mean_score": 0.373408
+      },
+      "model-b": {
+        "requests": 0,
+        "model_versions": [],
+        "p50_seconds": null,
+        "p95_seconds": null,
+        "mean_score": null
+      }
+    }
+  },
+  "candidate_down_50_50": {
+    "total_requests": 600,
+    "failed_requests": 0,
+    "fallbacks": 302,
+    "non_sticky_users": 0,
+    "version_leaks": 0,
+    "assignment_check": {
+      "total": 300,
+      "observed_percent": {
+        "model-a": 49.67,
+        "model-b": 50.33
+      },
+      "chi_square": 0.013,
+      "critical_value": 10.828,
+      "within_tolerance": true
+    },
+    "arms": {
+      "model-a": {
+        "requests": 600,
+        "model_versions": [
+          "1"
+        ],
+        "p50_seconds": 0.026569,
+        "p95_seconds": 0.029174,
+        "mean_score": 0.373408
+      },
+      "model-b": {
+        "requests": 0,
+        "model_versions": [],
+        "p50_seconds": null,
+        "p95_seconds": null,
+        "mean_score": null
+      }
+    }
+  }
+}

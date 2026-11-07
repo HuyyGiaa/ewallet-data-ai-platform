@@ -21,6 +21,7 @@ from prometheus_client import make_asgi_app
 
 from ai_platform.features.feast.registry_mirror import mirror_from_environment
 from ai_platform.inference.app import create_app
+from ai_platform.inference.vault import load_from_environment
 
 
 def configure_telemetry() -> None:
@@ -39,6 +40,14 @@ def configure_telemetry() -> None:
 
 
 def build():
+    # Before Feast reads EWALLET_REDIS_CONNECTION_STRING; a no-op unless enabled.
+    for secret in load_from_environment(os.environ):
+        logging.getLogger("ewallet.fraud_inference").info(
+            '{"event":"vault_secret_loaded","env":"%s","path":"%s","version":%d}',
+            secret.env_name,
+            secret.path,
+            secret.version,
+        )
     # Read-only object-level mirror; Feast's GCS store would need buckets.get.
     mirror = mirror_from_environment()
     if mirror is not None:

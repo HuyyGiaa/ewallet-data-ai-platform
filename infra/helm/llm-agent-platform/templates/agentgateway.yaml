@@ -132,6 +132,27 @@ data:
           responseHeaders:
             set:
               x-ewallet-backend: fallback
+        {{- if .Values.modelExperiments.enabled }}
+        {{- range .Values.modelExperiments.models }}
+        - name: {{ .name }}
+          visibility: internal
+          provider:
+            custom:
+              formats:
+                - type: completions
+          params:
+            model: {{ .servedModel }}
+            baseUrl: http://{{ .service }}.{{ $.Values.namespace.name }}.svc.cluster.local:8000/v1
+            apiKey: "$VLLM_API_KEY"
+          health:
+            eviction:
+              consecutiveFailures: 2
+              duration: {{ $.Values.agentgateway.circuitBreakDuration }}
+          responseHeaders:
+            set:
+              x-ewallet-backend: {{ .backendLabel }}
+        {{- end }}
+        {{- end }}
       virtualModels:
         - name: ewallet-fraud-llm
           routing:
@@ -145,6 +166,22 @@ data:
                 - {model: ewallet-fraud-llm-primary, priority: 0}
                 - {model: ewallet-fraud-llm-fallback, priority: 1}
                 {{- end }}
+        {{- if .Values.modelExperiments.enabled }}
+        {{- range .Values.modelExperiments.virtualModels }}
+        {{- $total := 0 }}
+        {{- range .targets }}{{ $total = add $total .weight }}{{ end }}
+        {{- if ne (int $total) 100 }}
+        {{- fail (printf "modelExperiments virtual model %s: weights must total 100" .name) }}
+        {{- end }}
+        - name: {{ .name }}
+          routing:
+            weighted:
+              targets:
+                {{- range .targets }}
+                - {model: {{ .model }}, weight: {{ .weight }}}
+                {{- end }}
+        {{- end }}
+        {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
