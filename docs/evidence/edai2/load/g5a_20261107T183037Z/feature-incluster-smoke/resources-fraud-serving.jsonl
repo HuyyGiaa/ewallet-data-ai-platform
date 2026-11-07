@@ -1,0 +1,6 @@
+{"ts": "2026-11-07T18:32:39.349558+00:00", "pods": {"fraud-detector-predictor-6b649bc8b6-8hc2x": {"cpu_m": 4.0, "mem_mib": 179.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:32:50.232019+00:00", "pods": {"fraud-detector-predictor-6b649bc8b6-8hc2x": {"cpu_m": 4.0, "mem_mib": 179.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:01.221926+00:00", "pods": {"fraud-detector-predictor-6b649bc8b6-8hc2x": {"cpu_m": 4.0, "mem_mib": 179.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:12.066772+00:00", "pods": {"fraud-detector-predictor-6b649bc8b6-8hc2x": {"cpu_m": 4.0, "mem_mib": 179.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:23.027539+00:00", "pods": {"fraud-detector-predictor-6b649bc8b6-8hc2x": {"cpu_m": 4.0, "mem_mib": 179.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:33.936318+00:00", "pods": {"fraud-detector-predictor-6b649bc8b6-8hc2x": {"cpu_m": 4.0, "mem_mib": 179.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}

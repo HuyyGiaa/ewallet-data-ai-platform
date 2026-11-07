@@ -1,0 +1,21 @@
+{
+  "target": "inference",
+  "network_path": "in-cluster",
+  "client": "pod real-load-runner on gke-ewallet-dev-cpu-pool-58daed59-zm4y, Service DNS, no port-forward",
+  "profile": "medium",
+  "host": "http://fraud-api.ml-platform.svc:80",
+  "users": 10,
+  "spawn_rate": 5,
+  "run_time": "5m",
+  "think_time_seconds": 0,
+  "entity_order_seed": 20261107,
+  "fixture": "verified.jsonl",
+  "fixture_sha256": "0d17e4b390aa60f4eacc6b43d3bfabccdb450d08cadfe1748e52458f1b406351",
+  "fixture_rows": 500,
+  "source_sha": "49ea5b294dde6c9c919797c11da59435565791ca",
+  "image_digest": "sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803",
+  "model_version": "1",
+  "request_profile": "valid requests only",
+  "started_at": "2026-11-07T19:06:11Z",
+  "ended_at": "2026-11-07T19:11:29Z"
+}

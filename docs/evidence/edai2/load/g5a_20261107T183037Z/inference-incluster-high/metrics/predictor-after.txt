@@ -1,0 +1,104 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 1.846413e+06
+python_gc_objects_collected_total{generation="1"} 215678.0
+python_gc_objects_collected_total{generation="2"} 98974.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 71474.0
+python_gc_collections_total{generation="1"} 6497.0
+python_gc_collections_total{generation="2"} 154.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="10",patchlevel="22",version="3.10.22"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 8.8078336e+08
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 2.87072256e+08
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.7940681941e+09
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 946.38
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 10.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP request_preprocess_seconds pre-process request latency
+# TYPE request_preprocess_seconds histogram
+request_preprocess_seconds_bucket{le="0.005",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.01",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.025",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.05",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.075",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.1",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.25",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.5",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="0.75",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="1.0",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="2.5",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="5.0",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="7.5",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="10.0",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_bucket{le="+Inf",model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_count{model_name="fraud-detector"} 23762.0
+request_preprocess_seconds_sum{model_name="fraud-detector"} 0.6238653419289051
+# HELP request_preprocess_seconds_created pre-process request latency
+# TYPE request_preprocess_seconds_created gauge
+request_preprocess_seconds_created{model_name="fraud-detector"} 1.794068212731628e+09
+# HELP request_postprocess_seconds post-process request latency
+# TYPE request_postprocess_seconds histogram
+request_postprocess_seconds_bucket{le="0.005",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.01",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.025",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.05",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.075",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.1",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.25",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.5",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="0.75",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="1.0",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="2.5",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="5.0",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="7.5",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="10.0",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_bucket{le="+Inf",model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_count{model_name="fraud-detector"} 23762.0
+request_postprocess_seconds_sum{model_name="fraud-detector"} 0.49207299806184324
+# HELP request_postprocess_seconds_created post-process request latency
+# TYPE request_postprocess_seconds_created gauge
+request_postprocess_seconds_created{model_name="fraud-detector"} 1.7940682127764332e+09
+# HELP request_predict_seconds predict request latency
+# TYPE request_predict_seconds histogram
+request_predict_seconds_bucket{le="0.005",model_name="fraud-detector"} 0.0
+request_predict_seconds_bucket{le="0.01",model_name="fraud-detector"} 0.0
+request_predict_seconds_bucket{le="0.025",model_name="fraud-detector"} 0.0
+request_predict_seconds_bucket{le="0.05",model_name="fraud-detector"} 23320.0
+request_predict_seconds_bucket{le="0.075",model_name="fraud-detector"} 23601.0
+request_predict_seconds_bucket{le="0.1",model_name="fraud-detector"} 23607.0
+request_predict_seconds_bucket{le="0.25",model_name="fraud-detector"} 23760.0
+request_predict_seconds_bucket{le="0.5",model_name="fraud-detector"} 23762.0
+request_predict_seconds_bucket{le="0.75",model_name="fraud-detector"} 23762.0
+request_predict_seconds_bucket{le="1.0",model_name="fraud-detector"} 23762.0
+request_predict_seconds_bucket{le="2.5",model_name="fraud-detector"} 23762.0
+request_predict_seconds_bucket{le="5.0",model_name="fraud-detector"} 23762.0
+request_predict_seconds_bucket{le="7.5",model_name="fraud-detector"} 23762.0
+request_predict_seconds_bucket{le="10.0",model_name="fraud-detector"} 23762.0
+request_predict_seconds_bucket{le="+Inf",model_name="fraud-detector"} 23762.0
+request_predict_seconds_count{model_name="fraud-detector"} 23762.0
+request_predict_seconds_sum{model_name="fraud-detector"} 814.7864901570775
+# HELP request_predict_seconds_created predict request latency
+# TYPE request_predict_seconds_created gauge
+request_predict_seconds_created{model_name="fraud-detector"} 1.7940682127318218e+09
+# HELP request_explain_seconds explain request latency
+# TYPE request_explain_seconds histogram

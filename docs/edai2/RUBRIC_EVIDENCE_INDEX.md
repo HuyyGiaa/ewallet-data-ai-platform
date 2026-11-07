@@ -76,7 +76,7 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | 29 | 2 | Equivalence partitioning / boundary values | same | PARTIAL | [TESTING §2](testing/TESTING.md#3-test-design) | partition tests run in N9 CI; B1 boundary suites LOCAL_VALIDATED | SCREENSHOT_MISSING |
 | 30 | 2 | Mutation testing (mutmut) | same | SOURCE_IMPLEMENTED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | B1 mutmut scope and report tooling; tooling tests pass; no mutation run yet | RUNTIME_EVIDENCE_MISSING (owner B1 run; equivalent mutants to re-review after integration) |
 | 31 | 2 | Property-based idempotency | same | LOCAL_VALIDATED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | B1 Hypothesis suites for idempotency, schemas and masking pass locally | RUNTIME_EVIDENCE_MISSING (owner B1 run with the `b1-thorough` profile) |
-| 32 | 2 | Locust load test HTML | same | LOCAL_VALIDATED | [Row 32 plan](testing/ROW_32_LOCUST_PLAN.md) | Real local stack; no GKE run | RUNTIME_EVIDENCE_MISSING (P-A2) |
+| 32 | 2 | Locust load test HTML | same | CLOUD_VERIFIED | [Row 32 on GKE](testing/ROW_32_LOCUST_GKE.md) | G5-A: 8 in-cluster runs, 103,977 requests, 0 failures; Locust HTML reports and 2 rendered report screenshots | None |
 | 33 | 2 | CI/CD for RAG pipeline | Pipelines ran + steps + Jenkinsfile | COMPLETE | [CICD §3](cicd/CICD.md#4-continuous-delivery-of-the-rag-ingestion-pipeline) | CD #8 7 stages SUCCESS; cicd/07–09; rollback verified | — |
 | 34 | 2 | CI/CD MCP servers + data Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 agent-ci #2, negative #2; bounded CD SOURCE_IMPLEMENTED (C-B) | RUNTIME_EVIDENCE_MISSING (CD not executed; P1) |
 | 35 | 2 | CI/CD Coordinator Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9; bounded CD SOURCE_IMPLEMENTED (C-B) | RUNTIME_EVIDENCE_MISSING (CD not executed; P1) |
@@ -132,7 +132,7 @@ Branch `integration/g0-20261107` merges B1, C-A, C-B, C-C and Session A on `orig
 | 29 | B1 | LOCAL_VALIDATED | Boundary and partition suites | Screenshot |
 | 30 | B1 | SOURCE_IMPLEMENTED | mutmut scope and report tooling; no mutation run | Owner B1 run |
 | 31 | B1 | LOCAL_VALIDATED | Hypothesis property suites | Owner B1 run |
-| 32 | B1, Session A | LOCAL_VALIDATED | Real local Feature and Fraud API stack | CLOUD_PENDING: P-A2 |
+| 32 | B1, Session A, G5-A | CLOUD_VERIFIED | Real Feature and Fraud APIs on GKE, in-cluster Locust | None |
 | 34, 35 | C-B | SOURCE_IMPLEMENTED | Bounded Jenkins CD | CLOUD_PENDING: P1 |
 | 36 | C-A, C-B | LOCAL_VALIDATED | Streaming CD gate in Docker with the watermark fix | CLOUD_PENDING: P1 |
 | 37–43 | Session A | LOCAL_VALIDATED | Real Envoy with TLS, Basic Auth and rate limits, stub backends | CLOUD_PENDING: P-A5; row 43 also needs a domain |

@@ -159,3 +159,12 @@ Rows 3–7, 37–43, 54 and 55–57 require documents, configuration links or pr
 | [51_mcp_failures_per_tool.png](../evidence/edai2/screenshots/observability/51_mcp_failures_per_tool.png) | yes | NATIVE_UI | N12 G3 · authorized negative test n12-tool-failure | 51 | observability/OBSERVABILITY.md |
 | [09_kagent_ui_agents_r41.png](../evidence/edai2/screenshots/runtime/09_kagent_ui_agents_r41.png) | yes | NATIVE_UI | N13 2026-11-04, r41 | 16,22,25 | agents/AGENTS_REGISTRY_GATEWAYS.md |
 | [10_grafana_agent_pods_per_replica.png](../evidence/edai2/screenshots/runtime/10_grafana_agent_pods_per_replica.png) | yes | NATIVE_UI | N13 2026-11-04, r41 | 16,19,22,25 | agents/AGENTS_REGISTRY_GATEWAYS.md |
+
+## G5-A additions (2026-11-07)
+
+| Image | Class | Rows | Provenance |
+|---|---|---|---|
+| `load/g5a_locust_feature_api_20_users.png` | NATIVE_UI (Locust HTML report) | 32 | `feature-incluster-high/report.html` from the GKE run, rendered by headless Google Chrome, unedited; SHA-256 `83ab6bfe…` |
+| `load/g5a_locust_inference_api_20_users.png` | NATIVE_UI (Locust HTML report) | 32 | `inference-incluster-high/report.html`, same method; SHA-256 `0f176859…` |
+
+These are renders of the report file Locust wrote in the run, not of recorded text. They are not additions to the N9–N13 curated totals above.

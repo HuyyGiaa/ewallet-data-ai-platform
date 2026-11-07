@@ -1,0 +1,9 @@
+gke-ewallet-dev-cpu-pool-58daed59-cbl0   Ready   <none>   166m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-h874   Ready   <none>   101m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-jt0h   Ready   <none>   168m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-wcka   Ready   <none>   171m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-zm4y   Ready   <none>   103m   v1.36.4-gke.2377000
+fraud-api-777c8454-tkzr5   gke-ewallet-dev-cpu-pool-58daed59-h874   0     true
+feature-api-6cbcbd7b59-llcdv   gke-ewallet-dev-cpu-pool-58daed59-h874   0     true
+fraud-detector-predictor-6b649bc8b6-8hc2x   gke-ewallet-dev-cpu-pool-58daed59-wcka   0     true
+redis-0   gke-ewallet-dev-cpu-pool-58daed59-jt0h   0     true

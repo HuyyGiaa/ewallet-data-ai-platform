@@ -531,3 +531,43 @@ gcloud container clusters update ewallet-dev --zone asia-southeast1-b --project 
 | 5-A Locust (P-A2) | Ready | Use the Package 4 `fixture/verified.jsonl`: 500/500 verified against the online window. The raw `split=test` snapshot falls outside the Feast window. One 1-minute smoke run per target first. |
 | 5-B serving KEDA (P-A3) | Ready after 5-A | KEDA is not installed: 0 CRDs, no `keda` namespace. The thresholds come from the 5-A fixed arms. The `helm upgrade llm-agent` scrape-job step also restarts Grafana and Prometheus (checksum drift). The R1 handover is required. |
 | 5-C agent KEDA (P-A4) | Needs approvals | The agents still run r41 images (`483dd943…`, `5f848a1c…`), not `b84d8c7e…` / `a88404fa…`. First the chart refresh, then image promotion, then the `transferHpa` overlay; 3 HPAs (2/3 replicas) exist today. Synthetic prompts only (R8-P1). |
+
+### G5-A: real Locust baseline (executed 2026-11-07)
+
+Submission page: [ROW_32_LOCUST_GKE.md](../../edai2/testing/ROW_32_LOCUST_GKE.md). Evidence: `docs/evidence/edai2/load/g5a_20261107T183037Z`.
+- Eight in-cluster runs, 103,977 requests, 0 failures.
+- Feature API ceiling about 86 req/s per replica (its 1-CPU limit).
+- Fraud API ceiling about 24.5 req/s (single KServe predictor plus the API's CPU).
+- The temporary runner pod, NetworkPolicy and ConfigMaps were deleted afterwards.
+
+### G5-B: serving KEDA, calibrated from G5-A (prepared, not started)
+
+| Item | Feature API | Fraud API |
+|---|---|---|
+| Measured ceiling, 1 replica | 86 req/s; Feature API CPU 999m of 1,000m | 24.5 req/s; Fraud API CPU 990m and predictor CPU 950m, each against a 1,000m limit |
+| `requestsPerSecondPerReplica` (AverageValue), about 70% of the ceiling | **60** (chart default 150 would never fire) | **17** (chart default 25 is above the ceiling) |
+| `latencySeconds` (mean `request` latency, Value) | **0.04**: 7.5 ms idle, 43 ms already saturated at 5 users | **0.15**: 69 ms idle, 185 ms at 5 users |
+| Replicas | 1–3 | 1–3 |
+| Expected gain | Near linear, up to about 3 × 86 req/s; Redis has headroom | **Bounded by the predictor (R3: one replica, no scaler):** at most about 29 req/s whatever the Fraud API replica count. The arm shows scale-out and lower API-side queueing, not 3× throughput |
+
+Prerequisites, in order, each under the G5-B approval:
+1. Install KEDA 2.21 (`scripts/llm_agent/keda_install.sh`) and `infra/kubernetes/experiments/keda-prometheus-access.yaml`.
+2. Prometheus scrape jobs `feature-api-pods` and `fraud-api-pods`: `helm upgrade llm-agent … -f session-a/serving-metrics.yaml`. Grafana and Prometheus restart because of the known checksum drift.
+3. `ewallet-serving`: `metricsDiscovery.enabled=true` (headless `*-metrics` Services). Check that both series appear in Prometheus before going further.
+4. **R1 handover** of the Fraud API replica count from kubectl to KEDA: `scripts/serving/fraud_api_keda_handover.sh plan` then `handover --execute`. The Feature API template already drops `replicas` when autoscaling is enabled.
+5. `autoscaling.enabled=true` with the thresholds above.
+
+Capacity: 4 extra replicas at 250m each request 1.0 CPU; 5.9 CPU is free. The in-cluster runner is reused with the same anti-affinity.
+
+**Experiment shape (shows scale-up and scale-down).** Per API: one fixed-mode reference run already exists (G5-A). Then one KEDA run with a step load:
+- 2 minutes at 5 users;
+- 6 minutes at 20 users;
+- 6 minutes at 0 users, longer than the 120 s cooldown plus the 120 s scale-down stabilization.
+
+Record replicas, trigger values and HPA events every 10 s. Evidence and screenshots: Locust report, KEDA and HPA events, Grafana replica panel.
+
+**Rollback:** `autoscaling.enabled=false`, then the R1 `rollback` action; delete ScaledObjects before uninstalling KEDA.
+
+### G5-R: Valkey durability (required, planned)
+
+[G5_R_VALKEY_DURABILITY.md](G5_R_VALKEY_DURABILITY.md): announce-ip from `POD_IP` plus a peer-rediscovery sidecar, in the substrate post-renderer. Exact diffs, rollout, acceptance and rollback are on that page. **G5-C (agent KEDA) is blocked until G5-R is applied and validated.**

@@ -1,0 +1,11 @@
+configmap/real-load-code created
+configmap/real-load-fixture created
+configmap/real-load-requirements created
+configmap/real-load-code labeled
+configmap/real-load-fixture labeled
+configmap/real-load-requirements labeled
+pod/real-load-runner created
+networkpolicy.networking.k8s.io/allow-real-load-runner-to-fraud-api created
+pod/real-load-runner condition met
+NAME               READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+real-load-runner   1/1     Running   0          33s   10.216.2.14   gke-ewallet-dev-cpu-pool-58daed59-zm4y   <none>           <none>

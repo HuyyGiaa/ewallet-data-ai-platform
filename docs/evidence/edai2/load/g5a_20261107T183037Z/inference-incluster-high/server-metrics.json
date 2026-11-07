@@ -1,0 +1,82 @@
+{
+  "fraud_inference_stage_latency_seconds": [
+    {
+      "labels": {
+        "outcome": "success",
+        "stage": "feature_retrieval"
+      },
+      "count": 6743,
+      "mean_ms": 282.641,
+      "quantiles_resolved": false
+    },
+    {
+      "labels": {
+        "outcome": "success",
+        "stage": "feature_assembly"
+      },
+      "count": 6743,
+      "mean_ms": 27.576,
+      "quantiles_resolved": false
+    },
+    {
+      "labels": {
+        "outcome": "success",
+        "stage": "model_inference"
+      },
+      "count": 6743,
+      "mean_ms": 360.943,
+      "quantiles_resolved": false
+    },
+    {
+      "labels": {
+        "outcome": "success",
+        "stage": "request"
+      },
+      "count": 6743,
+      "mean_ms": 672.646,
+      "quantiles_resolved": false
+    }
+  ],
+  "backend_client_latency_seconds": [
+    {
+      "labels": {
+        "backend": "feast-online",
+        "operation": "ready",
+        "outcome": "success"
+      },
+      "count": 30,
+      "mean_ms": 389.083,
+      "quantiles_resolved": false
+    },
+    {
+      "labels": {
+        "backend": "kserve",
+        "operation": "ready",
+        "outcome": "success"
+      },
+      "count": 30,
+      "mean_ms": 815.624,
+      "quantiles_resolved": false
+    },
+    {
+      "labels": {
+        "backend": "feast-online",
+        "operation": "get_features",
+        "outcome": "success"
+      },
+      "count": 6743,
+      "mean_ms": 282.191,
+      "quantiles_resolved": false
+    },
+    {
+      "labels": {
+        "backend": "kserve",
+        "operation": "infer",
+        "outcome": "success"
+      },
+      "count": 6743,
+      "mean_ms": 360.158,
+      "quantiles_resolved": false
+    }
+  ]
+}

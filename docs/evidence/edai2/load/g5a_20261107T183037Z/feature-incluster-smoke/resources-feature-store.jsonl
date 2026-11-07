@@ -1,0 +1,6 @@
+{"ts": "2026-11-07T18:32:39.341208+00:00", "pods": {"redis-0": {"cpu_m": 33.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:32:50.167307+00:00", "pods": {"redis-0": {"cpu_m": 33.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:01.053776+00:00", "pods": {"redis-0": {"cpu_m": 33.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:11.910360+00:00", "pods": {"redis-0": {"cpu_m": 48.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:22.738619+00:00", "pods": {"redis-0": {"cpu_m": 48.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T18:33:33.625006+00:00", "pods": {"redis-0": {"cpu_m": 75.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}

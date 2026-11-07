@@ -1,0 +1,11 @@
+pod "real-load-runner" deleted from ml-platform namespace
+networkpolicy.networking.k8s.io "allow-real-load-runner-to-fraud-api" deleted from ml-platform namespace
+configmap "real-load-code" deleted from ml-platform namespace
+configmap "real-load-fixture" deleted from ml-platform namespace
+configmap "real-load-requirements" deleted from ml-platform namespace
+No resources found in ml-platform namespace.
+allow-ewallet-agents-otel-to-mlflow            app.kubernetes.io/name=mlflow      5d5h
+allow-ewallet-agents-prometheus-to-fraud-api   app.kubernetes.io/name=fraud-api   5d5h
+fraud-api     1/1   1     1     7d1h
+feature-api   1/1   1     1     3h23m
+fraud-detector-predictor-6b649bc8b6-8hc2x   1/1   Running   0     3h5m

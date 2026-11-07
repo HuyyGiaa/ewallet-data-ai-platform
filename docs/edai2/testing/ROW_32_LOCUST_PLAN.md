@@ -1,6 +1,8 @@
 # Row 32: Locust against real backends
 
-Final row 32 evidence must come from deployed backends. The tooling is implemented and works against real local services. **No GKE run has happened**, so the row is not complete.
+> **Superseded for submission by [ROW_32_LOCUST_GKE.md](ROW_32_LOCUST_GKE.md)** (G5-A GKE runs, 2026-11-07). This page keeps the harness design and the local check. The profile table below is historical: the GKE runs used a 5/s spawn rate for every multi-user profile and added a 1-user smoke run.
+
+Final row 32 evidence must come from deployed backends.
 
 Row 32 asks for a load test of the data-retrieval Web API, so the Feature API is the primary target. Fraud inference is measured as a second target.
 

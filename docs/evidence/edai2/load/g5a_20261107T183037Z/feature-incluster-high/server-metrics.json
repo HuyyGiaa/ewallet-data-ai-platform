@@ -1,0 +1,34 @@
+{
+  "feature_api_request_latency_seconds": [
+    {
+      "labels": {
+        "outcome": "success"
+      },
+      "count": 25369,
+      "mean_ms": 157.407,
+      "quantiles_resolved": false
+    }
+  ],
+  "backend_client_latency_seconds": [
+    {
+      "labels": {
+        "backend": "feast-online",
+        "operation": "ready",
+        "outcome": "success"
+      },
+      "count": 31,
+      "mean_ms": 259.786,
+      "quantiles_resolved": false
+    },
+    {
+      "labels": {
+        "backend": "feast-online",
+        "operation": "get_features",
+        "outcome": "success"
+      },
+      "count": 25369,
+      "mean_ms": 157.115,
+      "quantiles_resolved": false
+    }
+  ]
+}
