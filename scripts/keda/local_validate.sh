@@ -92,6 +92,7 @@ YAML
 helm template serving "$chart" -s templates/metrics-discovery.yaml -s templates/scaledobjects.yaml \
   --set namespace=$NS --set prometheus.namespace=$NS --set "prometheus.serverAddress=http://prometheus.$NS.svc.cluster.local:9090" \
   --set featureApi.enabled=true --set "featureApi.image=r.example/p/i@$digest" --set featureApi.registryUri=gs://b/r \
+  --set featureApi.serviceAccount.gcpServiceAccount=ewallet-feature-api@local-kind.iam.gserviceaccount.com \
   --set metricsDiscovery.enabled=true --set autoscaling.enabled=true --set autoscaling.targets.fraud-api.enabled=false \
   --set autoscaling.targets.feature-api.requestsPerSecondPerReplica=20 --set autoscaling.targets.feature-api.latencySeconds=5 \
   --set autoscaling.defaults.pollingIntervalSeconds=5 --set autoscaling.defaults.scaleUp.periodSeconds=15 \

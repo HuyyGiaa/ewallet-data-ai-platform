@@ -18,7 +18,9 @@ EDGE = ROOT / "infra/helm/ewallet-edge"
 SCHEMA = json.loads((ROOT / "infra/helm/keda/scaledobject-schema-2.21.0.json").read_text())
 METRICS = set((ROOT / "tests/fixtures/serving_metric_names.txt").read_text().split())
 IMAGE = "r.example/p/fraud-api@sha256:" + "a" * 64
-ON = ["--set", "featureApi.enabled=true", "--set", f"featureApi.image={IMAGE}", "--set", "featureApi.registryUri=gs://b/r",
+# R2: the Feature API needs its own Workload Identity GSA.
+GSA = ["--set", "featureApi.serviceAccount.gcpServiceAccount=ewallet-feature-api@p.iam.gserviceaccount.com"]
+ON = GSA + ["--set", "featureApi.enabled=true", "--set", f"featureApi.image={IMAGE}", "--set", "featureApi.registryUri=gs://b/r",
       "--set", "metricsDiscovery.enabled=true", "--set", "autoscaling.enabled=true"]
 ALL_ROUTES = ["feature-api", "fraud-api", "a2a", "kagent-ui", "agent-registry"]
 EDGE_ON = ["--set", "enabled=true", "--set", "domain=edge.example.test"] + [
@@ -57,7 +59,8 @@ def test_each_target_has_one_scaler_and_no_chart_hpa():
 
 
 def test_fixed_arm_sets_replicas_and_adds_no_scaler():
-    items = render(SERVING, "--set", "featureApi.enabled=true", "--set", f"featureApi.image={IMAGE}", "--set", "featureApi.registryUri=gs://b/r")
+    items = render(SERVING, *GSA, "--set", "featureApi.enabled=true", "--set", f"featureApi.image={IMAGE}",
+                   "--set", "featureApi.registryUri=gs://b/r")
     assert kinds(items, "Deployment")["feature-api"]["spec"]["replicas"] == 1
     assert not kinds(items, "ScaledObject")
 

@@ -52,8 +52,10 @@ gcloud builds submit --project ewallet-data-ai-platform-hg26 --config ai_platfor
 export IMAGE=$REG/fraud-api@sha256:<digest from the build>
 CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-minimal --profile serving-load --manifest "$M" \
   --execute --confirm-cluster ewallet-dev
+# R2 first: the Feature API runs as its own account (docs/runbooks/edai2/R2_SERVING_IDENTITY_MIGRATION.md, steps 1-3)
 helm upgrade --install ewallet-serving infra/helm/ewallet-serving --kube-context "$KUBE_CONTEXT" -n ml-platform \
   --set featureApi.enabled=true --set featureApi.image="$IMAGE" \
+  --set featureApi.serviceAccount.gcpServiceAccount=ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com \
   --set featureApi.registryUri=gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db
 kubectl --context "$KUBE_CONTEXT" -n ml-platform set image deployment/fraud-api fraud-api="$IMAGE"
 kubectl --context "$KUBE_CONTEXT" -n ml-platform rollout status deployment/feature-api --timeout=300s
