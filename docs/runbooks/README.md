@@ -33,6 +33,7 @@ has completed.
 | LLM P0 smoke | [Manual fixes and CPU smoke](../../archive/legacy-docs/docs/llm_agent/manual_p0_fixes_and_cpu_smoke.md) | Local/CPU smoke sequence | Local runtime and exact source state | Earlier procedure |
 | kagent | [Bounded pilot](../edai2/agents/kagent_bounded_pilot.md) | kagent source/runtime pilot | Agent platform prerequisites | Earlier pilot |
 | EDAI-2 UI evidence | [UI replay](edai2/UI_REPLAY.md) | Read-only port-forwards, runtime renders, Grafana panels | GKE access from an authorized network | Read-only access to the cloud UIs |
+| B1 testing quality | [B1 testing runbook](edai2/B1_TESTING_RUNBOOK.md) | Coverage, Hypothesis, mutmut and Locust runs and evidence capture | uv; local only, no cloud access | Final results come from the owner's runs |
 
 RAG ingestion: [RAG runbook](edai2/llm_agent/rag_runbook.md). DataHub assertions: [reproduction runbook](DATAHUB_ASSERTIONS_REPRODUCIBILITY.md).
 
