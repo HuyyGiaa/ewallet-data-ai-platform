@@ -26,8 +26,10 @@
     "infra/docker/g3-byo-coordinator",
     "infra/docker/llm-agent-tooling",
     "infra/docker/rag-ingestion",
+    "infra/docker/streaming-sinks",
     "infra/docker/vllm-cpu-model",
-    "infra/kubernetes/mlflow/image"
+    "infra/kubernetes/mlflow/image",
+    "infra/load-test"
   ],
   "legacy_path_components": {
     "ai_platform/llm_agent/rag/": ["rag-pipeline"],
@@ -94,7 +96,7 @@
     },
     "data-platform": {
       "maturity": "active",
-      "source_paths": ["data_platform", "configs/environments", "tests/contract"],
+      "source_paths": ["data_platform", "configs/environments", "tests/contract", "ops/schema", "ops/gcp/spark_stage_report.py", "ops/gcp/validate_gold_row_equivalence.py"],
       "dependencies": [],
       "python_projects": ["data_platform/generation"],
       "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py"],
@@ -117,10 +119,13 @@
       "source_paths": ["data_platform/processing/flink", "configs/streaming", "infra/docker/flink-benchmark", "tests/streaming",
         "data_platform/streaming",
         "infra/kubernetes/cicd-runtime/streaming",
-        "jenkins/cd/streaming.contract.json"
+        "jenkins/cd/streaming.contract.json",
+        "infra/docker/streaming-sinks",
+        "infra/kubernetes/streaming-block-a",
+        "scripts/streaming"
       ],
       "dependencies": ["data-platform"],
-      "python_projects": ["infra/docker/flink-benchmark"],
+      "python_projects": ["infra/docker/flink-benchmark", "infra/docker/streaming-sinks"],
       "commands": ["uv run --locked --project infra/docker/flink-benchmark --extra flink python -m unittest discover -s tests/streaming -t ."],
       "build_artifact": "infra/docker/flink-benchmark/Dockerfile",
       "deployment_target": "infra/kubernetes/cicd-runtime/streaming",
@@ -129,7 +134,7 @@
     },
     "feast": {
       "maturity": "active",
-      "source_paths": ["ai_platform/features/feast", "tests/test_feast_offline.py", "tests/unit/test_feast_pit_validation.py"],
+      "source_paths": ["ai_platform/features/feast", "tests/test_feast_offline.py", "tests/unit/test_feast_pit_validation.py", "ops/mlops/feast_incremental.py", "scripts/mlops/feast_online_job.sh", "tests/unit/test_feast_incremental_plan.py", "tests/unit/test_feast_incremental_orchestration.py", "tests/integration/test_feast_online_local.py"],
       "dependencies": ["data-platform"],
       "python_projects": ["ai_platform/features/feast"],
       "commands": ["uv run --locked --project ai_platform/features/feast python -m unittest tests.test_feast_offline tests.unit.test_feast_pit_validation"],
@@ -171,9 +176,9 @@
     },
     "fraud-api": {
       "maturity": "active",
-      "source_paths": ["ai_platform/inference", "tests/inference", "tests/integration/test_fraud_api_e2e.py"],
+      "source_paths": ["ai_platform/inference", "tests/inference", "tests/integration/test_fraud_api_e2e.py", "tests/integration/test_fraud_api_ab_e2e.py", "tests/integration/test_feature_api_real.py", "tests/property", "tests/load", "tests/quality", "scripts/testing", "infra/load-test", "infra/helm/ewallet-serving", "infra/kubernetes/vault", "ops/vault", "scripts/vault"],
       "dependencies": ["feast", "fraud-serving"],
-      "python_projects": ["ai_platform/inference"],
+      "python_projects": ["ai_platform/inference", "infra/load-test"],
       "commands": ["uv run --locked --project ai_platform/inference python -m unittest discover -s tests/inference -t ."],
       "build_artifact": "ai_platform/inference/Dockerfile",
       "deployment_target": null,
@@ -181,7 +186,7 @@
     },
     "llm-serving": {
       "maturity": "active",
-      "source_paths": ["infra/docker/vllm-cpu-model", "infra/helm/llm-agent-platform", "scripts/llm_agent", "tests/llm_agent", "ai_platform/llm_agent/benchmark.py"],
+      "source_paths": ["infra/docker/vllm-cpu-model", "infra/helm/llm-agent-platform", "scripts/llm_agent", "tests/llm_agent", "ai_platform/llm_agent/benchmark.py", "infra/helm/ewallet-edge", "scripts/edge"],
       "dependencies": [],
       "python_projects": ["infra/docker/llm-agent-tooling", "infra/docker/vllm-cpu-model"],
       "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_ci_scripts tests.llm_agent.test_gke_cpu_profile tests.llm_agent.test_vllm_runtime_chart"],
@@ -258,7 +263,7 @@
     },
     "agents": {
       "maturity": "active",
-      "source_paths": ["ai_platform/llm_agent/__init__.py", "ai_platform/llm_agent/business_request.py", "ai_platform/llm_agent/byo_coordinator.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py", "ai_platform/llm_agent/byo_runtime.py", "ai_platform/llm_agent/config.py", "ai_platform/llm_agent/contracts.py", "ai_platform/llm_agent/agent_metrics.py", "ai_platform/llm_agent/idempotency.py", "ai_platform/llm_agent/nl_intake.py", "ai_platform/llm_agent/prompt_safety.py", "ai_platform/llm_agent/orchestration.py", "ai_platform/llm_agent/programmatic_coordinator.py", "ai_platform/llm_agent/redis_idempotency.py", "infra/docker/g3-byo-coordinator",
+      "source_paths": ["ai_platform/llm_agent/__init__.py", "ai_platform/llm_agent/business_request.py", "ai_platform/llm_agent/byo_coordinator.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py", "ai_platform/llm_agent/byo_runtime.py", "ai_platform/llm_agent/config.py", "ai_platform/llm_agent/contracts.py", "ai_platform/llm_agent/agent_metrics.py", "ai_platform/llm_agent/idempotency.py", "ai_platform/llm_agent/nl_intake.py", "ai_platform/llm_agent/prompt_safety.py", "ai_platform/llm_agent/orchestration.py", "ai_platform/llm_agent/programmatic_coordinator.py", "ai_platform/llm_agent/redis_idempotency.py", "ai_platform/llm_agent/agent_ab.py", "infra/helm/keda", "infra/kubernetes/agent-sandbox", "scripts/keda", "infra/docker/g3-byo-coordinator",
         "infra/kubernetes/cicd-runtime/agents",
         "jenkins/cd/agents.contract.json"
       ],

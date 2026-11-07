@@ -25,8 +25,10 @@ EXPECTED_PROJECTS = {
     "infra/docker/g3-byo-coordinator",
     "infra/docker/llm-agent-tooling",
     "infra/docker/rag-ingestion",
+    "infra/docker/streaming-sinks",
     "infra/docker/vllm-cpu-model",
     "infra/kubernetes/mlflow/image",
+    "infra/load-test",
 }
 
 
@@ -80,7 +82,7 @@ class RepositoryCatalogTests(unittest.TestCase):
         self.assertIn("ai_platform/serving", matrix)
         self.assertEqual(
             catalog.components["streaming"].python_projects,
-            ("infra/docker/flink-benchmark",),
+            ("infra/docker/flink-benchmark", "infra/docker/streaming-sinks"),
         )
         self.assertEqual(
             catalog.components["data-governance"].python_projects,

@@ -29,12 +29,15 @@ PROJECTS = (
     "ai_platform/ml/pipelines",
     "ai_platform/ml/dvc-operator",
     "ai_platform/serving",
+    "data_platform/generation",
     "infra/docker/flink-benchmark",
+    "infra/docker/g3-byo-coordinator",
     "infra/docker/llm-agent-tooling",
     "infra/docker/rag-ingestion",
     "infra/docker/streaming-sinks",
     "infra/docker/vllm-cpu-model",
     "infra/kubernetes/mlflow/image",
+    "infra/load-test",
     "data_platform/metadata/datahub",
 )
 MIRRORS = {

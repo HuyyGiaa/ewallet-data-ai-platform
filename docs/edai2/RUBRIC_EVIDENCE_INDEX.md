@@ -15,6 +15,16 @@ sheet and row in the
 | **PARTIAL** | Some deliverables are missing; the gap class is given |
 | **NOT IMPLEMENTED** | No implementation exists for the requirement |
 
+Rows that local branches changed use these stages, from weakest to strongest. None of them counts as COMPLETE: only owner-run evidence on the cluster can make a row COMPLETE.
+
+| Stage | Meaning |
+|---|---|
+| **SOURCE_IMPLEMENTED** | The code exists and its unit tests pass, but the feature has not run end to end |
+| **LOCAL_VALIDATED** | The feature ran end to end on a laptop or kind, against real components where stated |
+| **CLOUD_PENDING** | Waiting for an owner-approved run on GKE |
+| **CLOUD_VERIFIED** | Observed working on GKE by the owner |
+| **EVIDENCE_COMPLETE** | Cloud run captured with every column-D deliverable; the row can become COMPLETE |
+
 **Gap classes:**
 
 | Class | Meaning |
@@ -45,32 +55,32 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | 8 | 2 | Agent registry deployed | Registry UI with agents + code link | COMPLETE | [AGENTS §3](agents/AGENTS_REGISTRY_GATEWAYS.md#5-agent-registry) | agents/01–05 (agentregistry v0.4.0) | Metadata wording (note) |
 | 9 | 2 | RAG pipeline text → chunk → embed → Feast | Airflow success image + DataHub lineage + code | PARTIAL | [RAG_PIPELINE](rag/RAG_PIPELINE.md) | DagRun `manual__2026-11-02T04:47:47` 6/6 success; publication `b85ae796…`; cicd/09; agents/08 | SCREENSHOT_MISSING |
 | 10 | 2 | RAG governance | same | PARTIAL | [RAG_PIPELINE §4](rag/RAG_PIPELINE.md#5-governance) | DataHub GMS 25 records read back, 5 assertion runs | SCREENSHOT_MISSING |
-| 11 | 2 | Incremental Offline → Online materialization pipeline | Airflow success image + code | PARTIAL | [ML_PIPELINE_SERVING §3](mlops/ML_PIPELINE_SERVING.md#32-online-store-and-materialization), [MLOPS](../../archive/legacy-docs/docs/edai2/mlops/MLOPS_FEATURE_STORE.md) | K8s operator jobs, parity 155/155 | IMPLEMENTATION_MISSING (no Airflow DAG) |
-| 12 | 2 | Streaming push jobs to Offline + Online | Jobs success + data + code | PARTIAL | [MLOPS row 12](../../archive/legacy-docs/docs/edai2/mlops/MLOPS_FEATURE_STORE.md#row-12--flink-to-offline-and-online-stores) | source only | RUNTIME_EVIDENCE_MISSING |
+| 11 | 2 | Incremental Offline → Online materialization pipeline | Airflow success image + code | PARTIAL | [ML_PIPELINE_SERVING §3](mlops/ML_PIPELINE_SERVING.md#32-online-store-and-materialization), [MLOPS](../../archive/legacy-docs/docs/edai2/mlops/MLOPS_FEATURE_STORE.md) | K8s operator jobs, parity 155/155; Airflow DAG and incremental planner SOURCE_IMPLEMENTED (C-A, DAG contract 11/11) | RUNTIME_EVIDENCE_MISSING (Airflow run not executed; C-A E1) |
+| 12 | 2 | Streaming push jobs to Offline + Online | Jobs success + data + code | PARTIAL | [MLOPS row 12](../../archive/legacy-docs/docs/edai2/mlops/MLOPS_FEATURE_STORE.md#row-12--flink-to-offline-and-online-stores) | source; C-A dual-store verification LOCAL_VALIDATED in Docker | RUNTIME_EVIDENCE_MISSING (C-A E2) |
 | 13 | 2 | KFP training pipeline ≥ 4 steps | KFP success image + code | COMPLETE | [ML_PIPELINE_SERVING §4](mlops/ML_PIPELINE_SERVING.md#4-training-pipeline-kubeflow-pipelines) | run `dc29f5cc…`; mlops/01–03 | — |
 | 14 | 2 | MLflow versioning + automatic `latest`/`production` tag | Model + data versioned images | PARTIAL | [ML_PIPELINE_SERVING §5](mlops/ML_PIPELINE_SERVING.md#5-experiment-tracking-and-model-registry-mlflow) | mlops/04–08; alias `candidate` | IMPLEMENTATION_MISSING (alias policy) |
 | 15 | 2 | KServe, model-inside-image | Pod + YAML + successful call | COMPLETE | [ML_PIPELINE_SERVING §6](mlops/ML_PIPELINE_SERVING.md#6-model-serving-kserve-model-inside-image) | N15 genuine live terminal: Ready predictor, V2 metadata, HTTP 200 prediction + correlated KServe log; historical UI retained | — (feature parity is not claimed by these captures) |
 | 16 | 1 | FastAPI + Pydantic + health checks | Registry + multi-replica + Sandbox + UI chat + YAML | PARTIAL | [AGENTS §4–6](agents/AGENTS_REGISTRY_GATEWAYS.md#33-mcp-tool-servers-web-api) | N15 genuine live health 200, Pydantic 422 and Agent/HPA/PDB captures; genuine UI runtime/09–10 and agents/07–12 | IMPLEMENTATION_MISSING (business-agent Sandbox) |
 | 17 | 1 | async concurrent processing | same | COMPLETE | [AGENTS §4](agents/AGENTS_REGISTRY_GATEWAYS.md#33-mcp-tool-servers-web-api) | async handlers; concurrent MCP calls live (N11) | — |
-| 18 | 2 | MCP tool on K8s, Helm, RollingUpdate, auto fallback | same | PARTIAL | [AGENTS §8](agents/AGENTS_REGISTRY_GATEWAYS.md#4-deployment-and-configuration) | N15 genuine live `drift-mcp` Ready 1/1 + RollingUpdate configuration; agents/03 UI | IMPLEMENTATION_MISSING (fallback); no executed rollout proof |
-| 19 | 2 | Agent using MCP, multi-replica, KEDA auto-scale | same | PARTIAL | [AGENTS §5](agents/AGENTS_REGISTRY_GATEWAYS.md#4-deployment-and-configuration) | N15 genuine live 2/2 Deployments, HPA 2–3, PDB; runtime/10 Grafana UI | IMPLEMENTATION_MISSING (KEDA); no scale-event proof |
-| 20 | 1 | Agent in Sandbox | same | PARTIAL | [AGENTS §9](agents/AGENTS_REGISTRY_GATEWAYS.md#8-sandbox-and-warm-worker-pool-pilot) | N15 genuine live pilot SandboxAgent/WorkerPool/gVisor capture | IMPLEMENTATION_MISSING for business agents |
+| 18 | 2 | MCP tool on K8s, Helm, RollingUpdate, auto fallback | same | PARTIAL | [AGENTS §8](agents/AGENTS_REGISTRY_GATEWAYS.md#4-deployment-and-configuration) | N15 genuine live `drift-mcp` Ready 1/1 + RollingUpdate configuration; agents/03 UI | IMPLEMENTATION_MISSING (service-level fallback; C-B client-side failover is SOURCE_IMPLEMENTED, not run); no executed rollout proof |
+| 19 | 2 | Agent using MCP, multi-replica, KEDA auto-scale | same | PARTIAL | [AGENTS §5](agents/AGENTS_REGISTRY_GATEWAYS.md#4-deployment-and-configuration) | N15 genuine live 2/2 Deployments, HPA 2–3, PDB; runtime/10 Grafana UI | RUNTIME_EVIDENCE_MISSING (KEDA LOCAL_VALIDATED on a stand-in pod, C-B and Session A; not installed on GKE; P4/P-A4) |
+| 20 | 1 | Agent in Sandbox | same | PARTIAL | [AGENTS §9](agents/AGENTS_REGISTRY_GATEWAYS.md#8-sandbox-and-warm-worker-pool-pilot) | N15 genuine live pilot SandboxAgent/WorkerPool/gVisor capture | IMPLEMENTATION_MISSING for business agents (C-B staged SandboxAgent manifests only; never booted in gVisor) |
 | 21 | 1 | Publish agent to registry | same | COMPLETE | [AGENTS §3](agents/AGENTS_REGISTRY_GATEWAYS.md#5-agent-registry) | agents/01 | Metadata wording (note) |
-| 22 | 8 | Second agent: Online Feature Store data + 2 tools (KServe inference, RAG), same deliverables as 16–21 | same as 16–21 | PARTIAL | [AGENTS §10](#appendix-row-22-reconciliation-8-points) | **Business workflow VERIFIED** (Feast → specialist → KServe + RAG, trace `f341b410…`, agents/08–09); registry, multi-replica (runtime/10 native), UI chat, YAML proven | IMPLEMENTATION_MISSING (Sandbox, KEDA, MCP fallback) |
+| 22 | 8 | Second agent: Online Feature Store data + 2 tools (KServe inference, RAG), same deliverables as 16–21 | same as 16–21 | PARTIAL | [AGENTS §10](#appendix-row-22-reconciliation-8-points) | **Business workflow VERIFIED** (Feast → specialist → KServe + RAG, trace `f341b410…`, agents/08–09); registry, multi-replica (runtime/10 native), UI chat, YAML proven | IMPLEMENTATION_MISSING (Sandbox, MCP service-level fallback); KEDA LOCAL_VALIDATED only |
 | 23 | 2 | MCP Gateway (agentgateway) + security/policy | Setup + policies + why + YAML | COMPLETE | [AGENTS §7](agents/AGENTS_REGISTRY_GATEWAYS.md#7-mcp-gateway-and-a2a-gateway-security) | per-tool `mcpAuthorization`; 401 negatives; agents/13 | — |
 | 24 | 2 | A2A Gateway (agentgateway) + security/policy | same | COMPLETE | [AGENTS §7](agents/AGENTS_REGISTRY_GATEWAYS.md#7-mcp-gateway-and-a2a-gateway-security) | a2a-gateway spans in trace `f341b410…`; agents/13–14 | — |
-| 25 | 2 | Coordinator multi-replica + auto-scale | Registry + replicas + scale test image + kagent chat | PARTIAL | [AGENTS §5–6](agents/AGENTS_REGISTRY_GATEWAYS.md#4-deployment-and-configuration) | raw transcript 01; genuine UI runtime/09–10 and agents/07–08 | IMPLEMENTATION_MISSING (KEDA) + RUNTIME_EVIDENCE_MISSING (scale test) |
+| 25 | 2 | Coordinator multi-replica + auto-scale | Registry + replicas + scale test image + kagent chat | PARTIAL | [AGENTS §5–6](agents/AGENTS_REGISTRY_GATEWAYS.md#4-deployment-and-configuration) | raw transcript 01; genuine UI runtime/09–10 and agents/07–08 | RUNTIME_EVIDENCE_MISSING (KEDA LOCAL_VALIDATED on a stand-in pod; scale test not run; P-A4) |
 | 26 | 2 | Publish Coordinator to registry | same | COMPLETE | [AGENTS §3](agents/AGENTS_REGISTRY_GATEWAYS.md#5-agent-registry) | agents/02 | Metadata wording (note) |
 | 27 | 2 | Warm pool / Substrate | Substrate code + image of many agents on few workers | PARTIAL | [AGENTS §9](agents/AGENTS_REGISTRY_GATEWAYS.md#8-sandbox-and-warm-worker-pool-pilot) | raw transcript 03 only | RUNTIME_EVIDENCE_MISSING (literal image) |
-| 28 | 1 | Coverage > 90 % with Web API, fixture, mock | Test results + link | PARTIAL | [TESTING](testing/TESTING.md) | Jenkins JUnit (N9); no coverage % | RUNTIME_EVIDENCE_MISSING |
-| 29 | 2 | Equivalence partitioning / boundary values | same | PARTIAL | [TESTING §2](testing/TESTING.md#3-test-design) | partition tests run in N9 CI | SCREENSHOT_MISSING |
-| 30 | 2 | Mutation testing (mutmut) | same | NOT IMPLEMENTED | [TESTING](testing/TESTING.md) | targeted smoke only (not mutmut) | IMPLEMENTATION_MISSING |
-| 31 | 2 | Property-based idempotency | same | PARTIAL | [TESTING](testing/TESTING.md) | deterministic idempotency tests only | IMPLEMENTATION_MISSING |
+| 28 | 1 | Coverage > 90 % with Web API, fixture, mock | Test results + link | LOCAL_VALIDATED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | Jenkins JUnit (N9); B1 coverage 91.90 % local, scope: the Fraud API request path only (`tests/quality/coverage.ini`) | RUNTIME_EVIDENCE_MISSING (owner B1 run, `scripts/testing/run_coverage.sh`) |
+| 29 | 2 | Equivalence partitioning / boundary values | same | PARTIAL | [TESTING §2](testing/TESTING.md#3-test-design) | partition tests run in N9 CI; B1 boundary suites LOCAL_VALIDATED | SCREENSHOT_MISSING |
+| 30 | 2 | Mutation testing (mutmut) | same | SOURCE_IMPLEMENTED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | B1 mutmut scope and report tooling; tooling tests pass; no mutation run yet | RUNTIME_EVIDENCE_MISSING (owner B1 run; equivalent mutants to re-review after integration) |
+| 31 | 2 | Property-based idempotency | same | LOCAL_VALIDATED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | B1 Hypothesis suites for idempotency, schemas and masking pass locally | RUNTIME_EVIDENCE_MISSING (owner B1 run with the `b1-thorough` profile) |
 | 32 | 2 | Locust load test HTML | same | LOCAL_VALIDATED | [Row 32 plan](testing/ROW_32_LOCUST_PLAN.md) | Real local stack; no GKE run | RUNTIME_EVIDENCE_MISSING (P-A2) |
 | 33 | 2 | CI/CD for RAG pipeline | Pipelines ran + steps + Jenkinsfile | COMPLETE | [CICD §3](cicd/CICD.md#4-continuous-delivery-of-the-rag-ingestion-pipeline) | CD #8 7 stages SUCCESS; cicd/07–09; rollback verified | — |
-| 34 | 2 | CI/CD MCP servers + data Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 agent-ci #2, negative #2 | RUNTIME_EVIDENCE_MISSING (CD not executed) |
-| 35 | 2 | CI/CD Coordinator Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 | RUNTIME_EVIDENCE_MISSING (CD not executed) |
-| 36 | 2 | CI/CD stream feature jobs | same | PARTIAL | [CICD §4](cicd/CICD.md#6-limitations) | CI catalog only | RUNTIME_EVIDENCE_MISSING |
+| 34 | 2 | CI/CD MCP servers + data Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 agent-ci #2, negative #2; bounded CD SOURCE_IMPLEMENTED (C-B) | RUNTIME_EVIDENCE_MISSING (CD not executed; P1) |
+| 35 | 2 | CI/CD Coordinator Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9; bounded CD SOURCE_IMPLEMENTED (C-B) | RUNTIME_EVIDENCE_MISSING (CD not executed; P1) |
+| 36 | 2 | CI/CD stream feature jobs | same | PARTIAL | [CICD §4](cicd/CICD.md#6-limitations) | CI catalog; streaming CD gate LOCAL_VALIDATED in Docker (C-B with the C-A watermark fix) | RUNTIME_EVIDENCE_MISSING (P1 from the integrated commit) |
 | 37 | 2 | Grafana behind NGINX | NGINX settings | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
 | 38 | 2 | Log UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
 | 39 | 2 | Trace UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
@@ -100,11 +110,35 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | Complete deliverables (including historical row 6) | 3, 4, 6, 7, 8, 13, 15, 17, 21, 23, 24, 26, 33, 46–51 (19 rows) | 32 |
 | Complete, pending owner selection (novel ideas) | 56, 57 | 4 |
 | Missing only a screenshot or documentation | 5, 9, 10, 29, 44, 55 (6 rows) | 10 |
-| Missing runtime evidence | 12, 27, 28, 34, 35, 36 (6 rows) | 11 |
-| Missing implementation (including partial rows whose remaining gap is implementation) | 11, 14, 16, 18, 19, 20, 22, 25, 30, 31, 32, 37–43, 45, 52, 53, 54 (22 rows) | 43 |
+| Implemented at source or validated locally; owner-run or cloud evidence pending | 28, 30, 31, 32, 37–43, 52, 53, 54 (14 rows) | 23 |
+| Missing runtime evidence | 11, 12, 19, 25, 27, 34, 35, 36 (8 rows) | 16 |
+| Missing implementation (including partial rows whose remaining gap is implementation) | 14, 16, 18, 20, 22, 45 (6 rows) | 15 |
 | **Total** | 55 rows | **100** |
 
-These buckets are evidence-coverage buckets, not a predicted grade. Row 25 has both an implementation gap (KEDA) and a runtime gap (scale test); it is counted under implementation.
+These buckets are evidence-coverage buckets, not a predicted grade. Rows 11, 19 and 25 moved from implementation to runtime when the integration brought their source in (Airflow DAG, KEDA); none of them has run on GKE.
+
+## Integration status (G0)
+
+Branch `integration/g0-20261107` merges B1, C-A, C-B, C-C and Session A on `origin/main` `e00eab9`. Nothing from it is deployed, so no row below is CLOUD_VERIFIED or EVIDENCE_COMPLETE.
+
+| Row | Batch | Stage | Evidence so far | Next step |
+|---|---|---|---|---|
+| 11 | C-A | SOURCE_IMPLEMENTED | Airflow DAG and incremental planner; DAG contract tests | CLOUD_PENDING: C-A E1 |
+| 12 | C-A | LOCAL_VALIDATED | Flink dual-store verification in Docker | CLOUD_PENDING: C-A E2 |
+| 18 | C-B | SOURCE_IMPLEMENTED | Client-side MCP failover only; service-level fallback not implemented | CLOUD_PENDING: P5 for the client side |
+| 19, 22, 25 | C-B, Session A | LOCAL_VALIDATED | Real KEDA 2.21 and Prometheus on kind, stand-in pod | CLOUD_PENDING: P4/P-A4 |
+| 20 | C-B | SOURCE_IMPLEMENTED | Staged SandboxAgent manifests, never booted | CLOUD_PENDING: P6 |
+| 28 | B1 | LOCAL_VALIDATED | 91.90 % on the Fraud API request path scope only | Owner B1 run |
+| 29 | B1 | LOCAL_VALIDATED | Boundary and partition suites | Screenshot |
+| 30 | B1 | SOURCE_IMPLEMENTED | mutmut scope and report tooling; no mutation run | Owner B1 run |
+| 31 | B1 | LOCAL_VALIDATED | Hypothesis property suites | Owner B1 run |
+| 32 | B1, Session A | LOCAL_VALIDATED | Real local Feature and Fraud API stack | CLOUD_PENDING: P-A2 |
+| 34, 35 | C-B | SOURCE_IMPLEMENTED | Bounded Jenkins CD | CLOUD_PENDING: P1 |
+| 36 | C-A, C-B | LOCAL_VALIDATED | Streaming CD gate in Docker with the watermark fix | CLOUD_PENDING: P1 |
+| 37–43 | Session A | LOCAL_VALIDATED | Real Envoy with TLS, Basic Auth and rate limits, stub backends | CLOUD_PENDING: P-A5; row 43 also needs a domain |
+| 52 | C-C | LOCAL_VALIDATED | Coordinator variants with real models | CLOUD_PENDING: P9, after the prompt-masking release review (B1-F6 fixed in source, B1-F7 open) |
+| 53 | C-C | LOCAL_VALIDATED | Qwen3 routing on CPU | CLOUD_PENDING: P10, blocked by GPU quota 0 |
+| 54 | C-C | LOCAL_VALIDATED | Real Vault on kind | CLOUD_PENDING: P7 |
 
 ## Reconciliation with the external N13 inventory (quality gate, 2026-11-04)
 
