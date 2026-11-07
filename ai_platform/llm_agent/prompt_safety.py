@@ -25,6 +25,16 @@ Digits are never searched inside a solid run: any window of a long number passes
 Luhn one time in ten. UUIDs and ISO timestamps used by the fraud intake are left
 intact, thousands-grouped and decimal amounts cannot form a card, and digits
 inside an email address are left for the email detector.
+
+Phones and emails are likewise judged on their own characters: only a digit
+directly attached to a phone, or a letter directly attached to an email's
+top-level domain, stops a match. ``0912345678-5``, ``sdt0912345678`` and
+``a@b.com-5`` are all masked.
+
+Before detection the text is put in a canonical form, so look-alike characters
+cannot hide a value: invisible format characters (zero-width spaces, joiners,
+soft hyphens) are removed, and full-width ASCII and decimal digits of any script
+become their ASCII equivalents. The canonical text is what the LLM receives.
 """
 
 from __future__ import annotations
@@ -33,12 +43,20 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 import re
 from typing import Literal
+import unicodedata
 
 PiiType = Literal["email", "phone", "payment_card"]
 PII_TYPES: tuple[PiiType, ...] = ("email", "phone", "payment_card")
 
-_EMAIL = re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?![\w-])")
-_PHONE = re.compile(r"(?<![\w+.-])(?:\+84|84|0)[ .-]?(?:3|5|7|8|9)\d(?:[ .-]?\d){7}(?![\w.-]*\d)")
+_EMAIL = re.compile(
+    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?![A-Za-z])"
+)
+# Horizontal whitespace, dots and dash variants may separate any two phone digits.
+_PHONE_GAP = r"[ \t  -  　.\-‐-―−]"
+_PHONE = re.compile(
+    rf"(?<![\d+])(?:\(?(?:\+{_PHONE_GAP}?)?8{_PHONE_GAP}?4\)?|0){_PHONE_GAP}?[35789](?:{_PHONE_GAP}?\d){{8}}(?!\d)"
+)
+_INVISIBLE = frozenset("­᠎​‌‍⁠⁡⁢⁣⁤﻿")
 
 _CARD_MASK = "[REDACTED_PAYMENT_CARD]"
 _MIN_CARD_DIGITS, _MAX_CARD_DIGITS = 13, 19
@@ -53,6 +71,25 @@ _INTAKE_VALUE = re.compile(
     r"(?<![0-9a-fA-F-])[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?![0-9a-fA-F-])"
     r"|\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?"
 )
+
+
+def _canonical_char(char: str) -> str:
+    """Return the ASCII form of a look-alike character, or nothing for an invisible one."""
+
+    if char in _INVISIBLE:
+        return ""
+    if "！" <= char <= "～":
+        return chr(ord(char) - 0xFEE0)
+    digit = unicodedata.decimal(char, None)
+    return str(digit) if digit is not None else char
+
+
+def canonical_text(text: str) -> str:
+    """Remove invisible characters and map full-width ASCII and decimal digits to ASCII."""
+
+    if text.isascii():
+        return text
+    return "".join(char if char.isascii() else _canonical_char(char) for char in text)
 
 
 def _luhn(digits: str) -> bool:
@@ -161,11 +198,21 @@ def screen_prompt(text: str) -> ScreenResult:
         counts["email"] += 1
         return "[REDACTED_EMAIL]"
 
-    def phone(_match: re.Match[str]) -> str:
-        counts["phone"] += 1
-        return "[REDACTED_PHONE]"
-
-    masked, counts["payment_card"] = _mask_cards(text)
+    masked, counts["payment_card"] = _mask_cards(canonical_text(text))
     masked = _EMAIL.sub(email, masked)
-    masked = _PHONE.sub(phone, masked)
+    masked, counts["phone"] = _mask_phones(masked)
     return ScreenResult(text=masked, counts=counts)
+
+
+def _mask_phones(text: str) -> tuple[str, int]:
+    """Mask phone numbers, never inside a UUID or timestamp the intake must ground."""
+
+    intake_values = [match.span() for match in _INTAKE_VALUE.finditer(text)]
+    phones = [
+        match.span()
+        for match in _PHONE.finditer(text)
+        if not any(match.start() < end and start < match.end() for start, end in intake_values)
+    ]
+    for start, end in reversed(phones):
+        text = f"{text[:start]}[REDACTED_PHONE]{text[end:]}"
+    return text, len(phones)

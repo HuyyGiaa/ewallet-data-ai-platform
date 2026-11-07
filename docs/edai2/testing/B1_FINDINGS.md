@@ -11,7 +11,7 @@ run red once the defect is fixed, which is the signal to delete the marker.
 | ID | Severity | Summary | Location |
 |---|---|---|---|
 | B1-F6 | **High** (PII exposure), **fixed in the working tree, not deployed** | A valid card number next to another number or in a common format was not masked and reached the LLM | `ai_platform/llm_agent/prompt_safety.py` |
-| B1-F7 | Medium (PII exposure), open | A phone or email address followed by `-` or `.` and a digit, or glued to a word, is not masked | `ai_platform/llm_agent/prompt_safety.py` |
+| B1-F7 | Medium (PII exposure), **fixed in G2, not deployed** | A phone or email address followed by `-` or `.` and a digit, or glued to a word, is not masked | `ai_platform/llm_agent/prompt_safety.py` |
 | B1-F1 | Medium | A schema-valid edge timestamp answers 500 instead of a client error | `ai_platform/inference/feast_online.py` |
 | B1-F2 | Low | `internal_error` is counted twice per request | `ai_platform/inference/service.py`, `app.py` |
 | B1-F3 | Low | The 500 response has no `x-correlation-id` header | `ai_platform/inference/app.py` |
@@ -107,7 +107,9 @@ Declarative kagent agents in `infra/helm/llm-agent-platform/templates/agents.yam
 call the model through kagent and do not run `screen_prompt`. Any such agent that
 is exposed to chat is outside this screen.
 
-## B1-F7: phone or email next to a digit is not masked (Medium, open)
+## B1-F7: phone or email next to a digit is not masked (Medium, fixed in G2)
+
+**Status.** Fixed on `integration/g0-20261107` in G2, together with the evasion forms found while fixing it (look-alike digits, invisible characters, a separator between every digit). The four cases below are now a regular regression test. See [R8_PII_EXPOSURE.md](../platform/R8_PII_EXPOSURE.md); the running release still has the defect until a new agent image is deployed.
 
 Found while reviewing B1-F6. It has the same family of cause but is outside the
 authorized card fix, so it is reported only and pinned by a strict xfail.

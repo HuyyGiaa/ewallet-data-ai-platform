@@ -129,10 +129,7 @@ def test_amount_must_be_a_json_number(amount):
         FraudPredictionRequest.model_validate(payload(amount=amount))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B1-F7: the phone and email right boundaries reject a following digit",
-)
+# B1-F7, fixed in G2: kept as a regular regression test.
 @pytest.mark.parametrize(
     ("text", "secret"),
     [
