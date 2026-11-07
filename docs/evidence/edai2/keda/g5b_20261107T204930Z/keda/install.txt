@@ -1,0 +1,6 @@
+- Support: https://keda.sh/support/
+- File an issue: https://github.com/kedacore/keda/issues/new/choose
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+keda-admission-webhooks           1/1     1            1           65s
+keda-operator                     1/1     1            1           65s
+keda-operator-metrics-apiserver   1/1     1            1           65s

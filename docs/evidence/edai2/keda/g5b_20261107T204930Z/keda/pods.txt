@@ -1,0 +1,3 @@
+keda-admission-webhooks-5c64856cf-7mvjz            1/1   Running   0             66s   10.216.0.30   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>   <none>
+keda-operator-7d85b747fc-xp778                     1/1   Running   1 (47s ago)   66s   10.216.0.28   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>   <none>
+keda-operator-metrics-apiserver-7f66dcb594-lp6tl   1/1   Running   0             66s   10.216.0.29   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>   <none>

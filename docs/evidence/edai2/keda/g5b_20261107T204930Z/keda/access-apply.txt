@@ -1,0 +1,2 @@
+authorizationpolicy.security.istio.io/allow-keda-operator-to-prometheus created
+networkpolicy.networking.k8s.io/allow-keda-operator-to-prometheus-ingress created

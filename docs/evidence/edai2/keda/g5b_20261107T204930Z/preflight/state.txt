@@ -1,0 +1,14 @@
+context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev  head 73da518e
+gke-ewallet-dev-cpu-pool-58daed59-cbl0 Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-h874 Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-jt0h Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-wcka Ready v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-zm4y Ready v1.36.4-gke.2377000
+fraud-api     1/1   1     1     7d3h    fraud-api     asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e8
+feature-api   1/1   1     1     4h51m   feature-api   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e8
+fraud-detector   http://fraud-detector-fraud-serving.example.com   True                           7d3h
+PONG
+no HPA in ml-platform
+ewallet-serving ml-platform rev 1
+llm-agent default rev 41
+substrate ate-system rev 2

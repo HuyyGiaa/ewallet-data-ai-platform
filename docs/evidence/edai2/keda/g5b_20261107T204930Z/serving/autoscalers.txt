@@ -1,0 +1,11 @@
+NAME          SCALETARGETKIND      SCALETARGETNAME   MIN   MAX   READY   ACTIVE   FALLBACK   PAUSED   TRIGGERS     AUTHENTICATIONS   AGE
+feature-api   apps/v1.Deployment   feature-api       1     3     True    False    Unknown    False    prometheus                     47s
+fraud-api     apps/v1.Deployment   fraud-api         1     3     True    False    False      False    prometheus                     46s
+NAME                   REFERENCE                TARGETS      MINPODS   MAXPODS   REPLICAS   AGE
+keda-hpa-feature-api   Deployment/feature-api   0/60 (avg)   1         3         1          47s
+keda-hpa-fraud-api     Deployment/fraud-api     0/17 (avg)   1         3         1          47s
+NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+feature-api   1/1     1            1           5h4m
+fraud-api     1/1     1            1           7d3h
+ml-platform       keda-hpa-feature-api     Deployment/feature-api              0/60 (avg)               1     3     1     49s
+ml-platform       keda-hpa-fraud-api       Deployment/fraud-api                0/17 (avg)               1     3     1     49s

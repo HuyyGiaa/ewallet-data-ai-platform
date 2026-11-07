@@ -1,0 +1,7 @@
+{
+  "spec_replicas": 1,
+  "ready_replicas": 1,
+  "last_applied_present": true,
+  "last_applied_replicas": null,
+  "replicas_managers": []
+}

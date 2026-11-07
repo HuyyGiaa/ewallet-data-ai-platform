@@ -1,0 +1,2 @@
+scaledobject.keda.sh/feature-api
+scaledobject.keda.sh/fraud-api

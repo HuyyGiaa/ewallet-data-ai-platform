@@ -1,0 +1,288 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 1771.0
+python_gc_objects_collected_total{generation="1"} 301.0
+python_gc_objects_collected_total{generation="2"} 299.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 19221.0
+python_gc_collections_total{generation="1"} 1747.0
+python_gc_collections_total{generation="2"} 124.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="10",patchlevel="22",version="3.10.22"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 2.374356992e+09
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 2.26963456e+08
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.79407239509e+09
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 1037.67
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 23.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP target_info Target metadata
+# TYPE target_info gauge
+target_info{ewallet_model_name="",ewallet_model_version="",service_instance_id="89ddd8b2-d5d2-4135-85b5-ac1362f9755e",service_name="feature-api",service_version="unknown",telemetry_sdk_language="python",telemetry_sdk_name="opentelemetry",telemetry_sdk_version="1.45.1"} 1.0
+# HELP http_server_active_requests Number of active HTTP server requests.
+# TYPE http_server_active_requests gauge
+http_server_active_requests{http_request_method="GET",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1.0
+http_server_active_requests{http_request_method="POST",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.0
+# HELP http_server_request_duration_seconds Duration of HTTP server requests.
+# TYPE http_server_request_duration_seconds histogram
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.005",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1229.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.01",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1251.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.025",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1288.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.05",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1306.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.075",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.1",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.25",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="0.75",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="1.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="2.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="5.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="7.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="10.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/live",le="+Inf",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_count{http_request_method="GET",http_response_status_code="200",http_route="/health/live",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_sum{http_request_method="GET",http_response_status_code="200",http_route="/health/live",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 4.425124164979962
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.005",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.01",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.025",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.05",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 885.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.075",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1210.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.1",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1217.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.25",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1278.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="0.75",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="1.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="2.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="5.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="7.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="10.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",le="+Inf",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_count{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1308.0
+http_server_request_duration_seconds_sum{http_request_method="GET",http_response_status_code="200",http_route="/health/ready",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 76.982308336996
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.005",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.01",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 1800.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.025",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 4526.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.05",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 17729.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.075",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 33346.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.1",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 44279.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.25",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 76180.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81891.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="0.75",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="1.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="2.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="5.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="7.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="10.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_bucket{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",le="+Inf",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_count{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 81893.0
+http_server_request_duration_seconds_sum{http_request_method="POST",http_response_status_code="200",http_route="/v1/features/lookup",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 9487.758673874087
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.005",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.01",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 7.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.025",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.05",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.075",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.1",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.25",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="0.75",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="1.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="2.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="5.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="7.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="10.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",le="+Inf",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_count{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 40.0
+http_server_request_duration_seconds_sum{http_request_method="GET",http_response_status_code="200",http_route="/metrics/{path}",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.44235839599832616
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.005",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.01",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.025",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.05",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.075",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.1",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.25",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="0.75",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="1.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="2.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="5.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="7.5",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="10.0",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_bucket{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",le="+Inf",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_count{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 27.0
+http_server_request_duration_seconds_sum{http_request_method="GET",http_response_status_code="307",http_route="/metrics/{path}",network_protocol_version="1.1",otel_scope_name="fastapi",otel_scope_schema_url="https://opentelemetry.io/schemas/1.44.0",otel_scope_version="0.162.0",url_scheme="http"} 0.04625596700316237
+# HELP backend_client_requests_total 
+# TYPE backend_client_requests_total counter
+backend_client_requests_total{backend="feast-online",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_requests_total{backend="feast-online",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+# HELP backend_client_latency_seconds 
+# TYPE backend_client_latency_seconds histogram
+backend_client_latency_seconds_bucket{backend="feast-online",le="0.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 0.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="5.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="10.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="25.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="50.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="75.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="100.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="250.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="500.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="750.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="1000.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="2500.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="5000.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="7500.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="10000.0",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="+Inf",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_count{backend="feast-online",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1308.0
+backend_client_latency_seconds_sum{backend="feast-online",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 72.00378889699704
+backend_client_latency_seconds_bucket{backend="feast-online",le="0.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 0.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="5.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="10.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="25.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="50.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="75.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="100.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="250.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="500.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="750.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="1000.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="2500.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="5000.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="7500.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="10000.0",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_bucket{backend="feast-online",le="+Inf",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_count{backend="feast-online",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+backend_client_latency_seconds_sum{backend="feast-online",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 7316.649131049959
+# HELP feast_feature_freshness_seconds 
+# TYPE feast_feature_freshness_seconds histogram
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="0.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 0.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="5.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="10.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="25.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="50.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="75.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="100.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="250.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="500.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="750.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="1000.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="2500.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="5000.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="7500.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="10000.0",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_bucket{backend="feast-online",le="+Inf",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_count{backend="feast-online",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81893.0
+feast_feature_freshness_seconds_sum{backend="feast-online",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version=""} 81899.0
+# HELP feature_api_requests_total 
+# TYPE feature_api_requests_total counter
+feature_api_requests_total{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+# HELP feature_api_request_latency_seconds 
+# TYPE feature_api_request_latency_seconds histogram
+feature_api_request_latency_seconds_bucket{le="0.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 0.0
+feature_api_request_latency_seconds_bucket{le="5.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="10.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="25.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="50.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="75.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="100.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="250.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="500.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="750.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="1000.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="2500.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="5000.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="7500.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="10000.0",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_bucket{le="+Inf",otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_count{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 81893.0
+feature_api_request_latency_seconds_sum{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 7336.80754150388
+# HELP feast_feature_server_cpu_usage CPU usage percentage of the Feast feature server process
+# TYPE feast_feature_server_cpu_usage gauge
+feast_feature_server_cpu_usage 0.0
+# HELP feast_feature_server_memory_usage Memory usage percentage of the Feast feature server process
+# TYPE feast_feature_server_memory_usage gauge
+feast_feature_server_memory_usage 0.0
+# HELP feast_feature_server_request_total Total number of requests to the Feast feature server
+# TYPE feast_feature_server_request_total counter
+# HELP feast_feature_server_request_latency_seconds Latency of requests to the Feast feature server in seconds
+# TYPE feast_feature_server_request_latency_seconds histogram
+# HELP feast_online_features_request_total Total online feature retrieval requests
+# TYPE feast_online_features_request_total counter
+feast_online_features_request_total 0.0
+# HELP feast_online_features_request_created Total online feature retrieval requests
+# TYPE feast_online_features_request_created gauge
+feast_online_features_request_created 1.7940724086919427e+09
+# HELP feast_online_features_entity_count Number of entity rows per online feature request
+# TYPE feast_online_features_entity_count histogram
+feast_online_features_entity_count_bucket{le="1.0"} 0.0
+feast_online_features_entity_count_bucket{le="5.0"} 0.0
+feast_online_features_entity_count_bucket{le="10.0"} 0.0
+feast_online_features_entity_count_bucket{le="25.0"} 0.0
+feast_online_features_entity_count_bucket{le="50.0"} 0.0
+feast_online_features_entity_count_bucket{le="100.0"} 0.0
+feast_online_features_entity_count_bucket{le="250.0"} 0.0
+feast_online_features_entity_count_bucket{le="500.0"} 0.0
+feast_online_features_entity_count_bucket{le="1000.0"} 0.0
+feast_online_features_entity_count_bucket{le="+Inf"} 0.0
+feast_online_features_entity_count_count 0.0
+feast_online_features_entity_count_sum 0.0
+# HELP feast_online_features_entity_count_created Number of entity rows per online feature request
+# TYPE feast_online_features_entity_count_created gauge
+feast_online_features_entity_count_created 1.7940724086919746e+09
+# HELP feast_online_features_status_total Count of individual feature values by retrieval status per feature view
+# TYPE feast_online_features_status_total counter
+# HELP feast_push_request_total Total push requests to the feature store
+# TYPE feast_push_request_total counter
+# HELP feast_materialization_result_total Total materialization runs per feature view
+# TYPE feast_materialization_result_total counter
+# HELP feast_materialization_duration_seconds Duration of materialization per feature view in seconds
+# TYPE feast_materialization_duration_seconds histogram
+# HELP feast_feature_server_online_store_read_duration_seconds Duration of the online store read phase in seconds (covers all table reads including parallel async)
+# TYPE feast_feature_server_online_store_read_duration_seconds histogram
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.001"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.005"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.01"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.025"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.05"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.1"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.25"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="0.5"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="1.0"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="2.5"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="5.0"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="10.0"} 0.0
+feast_feature_server_online_store_read_duration_seconds_bucket{le="+Inf"} 0.0
+feast_feature_server_online_store_read_duration_seconds_count 0.0
+feast_feature_server_online_store_read_duration_seconds_sum 0.0
+# HELP feast_feature_server_online_store_read_duration_seconds_created Duration of the online store read phase in seconds (covers all table reads including parallel async)
+# TYPE feast_feature_server_online_store_read_duration_seconds_created gauge
+feast_feature_server_online_store_read_duration_seconds_created 1.7940724086921756e+09
+# HELP feast_feature_server_transformation_duration_seconds Duration of on-demand feature view transformations on read in seconds
+# TYPE feast_feature_server_transformation_duration_seconds histogram
+# HELP feast_feature_server_write_transformation_duration_seconds Duration of on-demand feature view transformations on write in seconds
+# TYPE feast_feature_server_write_transformation_duration_seconds histogram
+# HELP feast_feature_freshness_seconds Seconds since the most recent materialization end time per feature view
+# TYPE feast_feature_freshness_seconds gauge
+# HELP feast_offline_store_request_total Total offline store retrieval requests
+# TYPE feast_offline_store_request_total counter
+# HELP feast_offline_store_request_latency_seconds Latency of offline store retrieval operations in seconds
+# TYPE feast_offline_store_request_latency_seconds histogram
+# HELP feast_offline_store_row_count Number of rows returned by offline store retrieval
+# TYPE feast_offline_store_row_count histogram

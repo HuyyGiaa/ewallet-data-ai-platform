@@ -1,0 +1,7 @@
+feature-api-pods http://10.216.1.18:8080/metrics up  15s
+fraud-api http://fraud-api.ml-platform.svc.cluster.local:80/metrics up  30s
+fraud-api-pods http://10.216.1.19:8080/metrics up  15s
+== count by job for feature_api_requests_total: [('feature-api-pods', '1')]
+== count by job for fraud_inference_requests_total: [('fraud-api-pods', '1'), ('fraud-api', '1')]
+sum(rate(feature_api_requests_total{job="feature-api-pods"}[1m])) or vector(0) => [{'metric': {}, 'value': [1794085166.134, '0']}]
+sum(rate(fraud_inference_requests_total{job="fraud-api-pods"}[1m])) or vector(0) => [{'metric': {}, 'value': [1794085166.396, '0']}]

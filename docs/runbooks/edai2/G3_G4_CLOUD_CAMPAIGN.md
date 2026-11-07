@@ -540,7 +540,15 @@ Submission page: [ROW_32_LOCUST_GKE.md](../../edai2/testing/ROW_32_LOCUST_GKE.md
 - Fraud API ceiling about 24.5 req/s (single KServe predictor plus the API's CPU).
 - The temporary runner pod, NetworkPolicy and ConfigMaps were deleted afterwards.
 
-### G5-B: serving KEDA, calibrated from G5-A (prepared, not started)
+### G5-B: serving KEDA (deployed 2026-11-07; owner experiment pending)
+
+- Deployed: KEDA 2.21.0, `ewallet-serving` r3 (ScaledObjects at 60 and 17 req/s, rate-only), `llm-agent` r42 (per-pod scrape every 15 s), R1 handover done.
+- Page: [SERVING_AUTOSCALING_KEDA.md](../../edai2/mlops/SERVING_AUTOSCALING_KEDA.md).
+- Owner guide: [G5_B_OWNER_EVIDENCE_GUIDE.md](G5_B_OWNER_EVIDENCE_GUIDE.md).
+
+The preparation notes below are kept for history.
+
+#### Preparation notes
 
 | Item | Feature API | Fraud API |
 |---|---|---|

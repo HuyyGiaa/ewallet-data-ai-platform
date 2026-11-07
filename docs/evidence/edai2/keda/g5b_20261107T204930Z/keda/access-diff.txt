@@ -1,0 +1,57 @@
+diff -u -N /tmp/LIVE-215605036/networking.k8s.io.v1.NetworkPolicy.ewallet-agents.allow-keda-operator-to-prometheus-ingress /tmp/MERGED-3335679291/networking.k8s.io.v1.NetworkPolicy.ewallet-agents.allow-keda-operator-to-prometheus-ingress
+--- /tmp/LIVE-215605036/networking.k8s.io.v1.NetworkPolicy.ewallet-agents.allow-keda-operator-to-prometheus-ingress	2026-11-08 03:52:14.276391011 +0700
++++ /tmp/MERGED-3335679291/networking.k8s.io.v1.NetworkPolicy.ewallet-agents.allow-keda-operator-to-prometheus-ingress	2026-11-08 03:52:14.276391011 +0700
+@@ -0,0 +1,27 @@
++apiVersion: networking.k8s.io/v1
++kind: NetworkPolicy
++metadata:
++  creationTimestamp: "2026-11-07T20:52:14Z"
++  generation: 1
++  name: allow-keda-operator-to-prometheus-ingress
++  namespace: ewallet-agents
++  uid: 42294016-97f6-4d34-adb2-052378dd88d5
++spec:
++  ingress:
++  - from:
++    - namespaceSelector:
++        matchLabels:
++          kubernetes.io/metadata.name: keda
++      podSelector:
++        matchLabels:
++          app: keda-operator
++    ports:
++    - port: 9090
++      protocol: TCP
++    - port: 15008
++      protocol: TCP
++  podSelector:
++    matchLabels:
++      app.kubernetes.io/name: prometheus
++  policyTypes:
++  - Ingress
+diff -u -N /tmp/LIVE-215605036/security.istio.io.v1.AuthorizationPolicy.ewallet-agents.allow-keda-operator-to-prometheus /tmp/MERGED-3335679291/security.istio.io.v1.AuthorizationPolicy.ewallet-agents.allow-keda-operator-to-prometheus
+--- /tmp/LIVE-215605036/security.istio.io.v1.AuthorizationPolicy.ewallet-agents.allow-keda-operator-to-prometheus	2026-11-08 03:52:13.600384908 +0700
++++ /tmp/MERGED-3335679291/security.istio.io.v1.AuthorizationPolicy.ewallet-agents.allow-keda-operator-to-prometheus	2026-11-08 03:52:13.600384908 +0700
+@@ -0,0 +1,22 @@
++apiVersion: security.istio.io/v1
++kind: AuthorizationPolicy
++metadata:
++  creationTimestamp: "2026-11-07T20:52:13Z"
++  generation: 1
++  name: allow-keda-operator-to-prometheus
++  namespace: ewallet-agents
++  uid: 372d5c2b-eafd-4ccb-a907-58b6f19cad00
++spec:
++  action: ALLOW
++  rules:
++  - from:
++    - source:
++        principals:
++        - cluster.local/ns/keda/sa/keda-operator
++    to:
++    - operation:
++        ports:
++        - "9090"
++  selector:
++    matchLabels:
++      app.kubernetes.io/name: prometheus

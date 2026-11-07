@@ -1,0 +1,12 @@
+{"ts": "2026-11-07T21:04:50.002046+00:00", "pods": {"redis-0": {"cpu_m": 32.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:05:01.012553+00:00", "pods": {"redis-0": {"cpu_m": 32.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:05:11.868809+00:00", "pods": {"redis-0": {"cpu_m": 29.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:05:22.812886+00:00", "pods": {"redis-0": {"cpu_m": 29.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:05:33.705022+00:00", "pods": {"redis-0": {"cpu_m": 64.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:05:44.557124+00:00", "pods": {"redis-0": {"cpu_m": 64.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:05:55.487321+00:00", "pods": {"redis-0": {"cpu_m": 64.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:06:06.330678+00:00", "pods": {"redis-0": {"cpu_m": 72.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:06:17.203495+00:00", "pods": {"redis-0": {"cpu_m": 72.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:06:28.053054+00:00", "pods": {"redis-0": {"cpu_m": 72.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:06:38.867391+00:00", "pods": {"redis-0": {"cpu_m": 71.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}
+{"ts": "2026-11-07T21:06:49.677259+00:00", "pods": {"redis-0": {"cpu_m": 71.0, "mem_mib": 54.0}}, "vllm_pods": {}, "vllm_cpu_m": 0, "vllm_mem_mib": 0, "gateway_cpu_m": 0.0}

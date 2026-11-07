@@ -1,0 +1,181 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "annotations": {
+            "deployment.kubernetes.io/revision": "4",
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/name\":\"fraud-api\",\"app.kubernetes.io/part-of\":\"ewallet-mlops\"},\"name\":\"fraud-api\",\"namespace\":\"ml-platform\"},\"spec\":{\"selector\":{\"matchLabels\":{\"app.kubernetes.io/name\":\"fraud-api\"}},\"template\":{\"metadata\":{\"annotations\":{\"prometheus.io/path\":\"/metrics\",\"prometheus.io/port\":\"8080\",\"prometheus.io/scrape\":\"true\"},\"labels\":{\"app.kubernetes.io/name\":\"fraud-api\"}},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"env\":[{\"name\":\"EWALLET_FEAST_REGISTRY\",\"value\":\"gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db\"},{\"name\":\"EWALLET_KSERVE_BASE_URL\",\"value\":\"http://fraud-detector-predictor.fraud-serving.svc.cluster.local\"},{\"name\":\"EWALLET_MODEL_NAME\",\"value\":\"fraud-detector\"},{\"name\":\"EWALLET_MODEL_VERSION\",\"value\":\"1\"},{\"name\":\"EWALLET_GIT_SHA\",\"value\":\"5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec\"},{\"name\":\"EWALLET_REDIS_CONNECTION_STRING\",\"valueFrom\":{\"secretKeyRef\":{\"key\":\"connection_string\",\"name\":\"feast-online-redis\"}}}],\"image\":\"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/health/live\",\"port\":\"http\"},\"initialDelaySeconds\":20,\"periodSeconds\":10},\"name\":\"fraud-api\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/health/ready\",\"port\":\"http\"},\"periodSeconds\":10,\"timeoutSeconds\":5},\"resources\":{\"limits\":{\"cpu\":\"1\",\"memory\":\"1Gi\"},\"requests\":{\"cpu\":\"250m\",\"memory\":\"512Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]}}}],\"nodeSelector\":{\"iam.gke.io/gke-metadata-server-enabled\":\"true\"},\"securityContext\":{\"runAsNonRoot\":true,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"serviceAccountName\":\"fraud-api\"}}}}\n"
+        },
+        "creationTimestamp": "2026-10-31T17:38:39Z",
+        "generation": 6,
+        "labels": {
+            "app.kubernetes.io/name": "fraud-api",
+            "app.kubernetes.io/part-of": "ewallet-mlops"
+        },
+        "name": "fraud-api",
+        "namespace": "ml-platform",
+        "resourceVersion": "1794085218632847006",
+        "uid": "b3042434-13c5-467a-8dc6-6af297a8bd24"
+    },
+    "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "app.kubernetes.io/name": "fraud-api"
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": "25%",
+                "maxUnavailable": "25%"
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "annotations": {
+                    "prometheus.io/path": "/metrics",
+                    "prometheus.io/port": "8080",
+                    "prometheus.io/scrape": "true"
+                },
+                "labels": {
+                    "app.kubernetes.io/name": "fraud-api"
+                }
+            },
+            "spec": {
+                "automountServiceAccountToken": false,
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "EWALLET_FEAST_REGISTRY",
+                                "value": "gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db"
+                            },
+                            {
+                                "name": "EWALLET_KSERVE_BASE_URL",
+                                "value": "http://fraud-detector-predictor.fraud-serving.svc.cluster.local"
+                            },
+                            {
+                                "name": "EWALLET_MODEL_NAME",
+                                "value": "fraud-detector"
+                            },
+                            {
+                                "name": "EWALLET_MODEL_VERSION",
+                                "value": "1"
+                            },
+                            {
+                                "name": "EWALLET_GIT_SHA",
+                                "value": "5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec"
+                            },
+                            {
+                                "name": "EWALLET_REDIS_CONNECTION_STRING",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "connection_string",
+                                        "name": "feast-online-redis"
+                                    }
+                                }
+                            }
+                        ],
+                        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803",
+                        "imagePullPolicy": "IfNotPresent",
+                        "livenessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "path": "/health/live",
+                                "port": "http",
+                                "scheme": "HTTP"
+                            },
+                            "initialDelaySeconds": 20,
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 1
+                        },
+                        "name": "fraud-api",
+                        "ports": [
+                            {
+                                "containerPort": 8080,
+                                "name": "http",
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "readinessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "path": "/health/ready",
+                                "port": "http",
+                                "scheme": "HTTP"
+                            },
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 5
+                        },
+                        "resources": {
+                            "limits": {
+                                "cpu": "1",
+                                "memory": "1Gi"
+                            },
+                            "requests": {
+                                "cpu": "250m",
+                                "memory": "512Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            }
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "nodeSelector": {
+                    "iam.gke.io/gke-metadata-server-enabled": "true"
+                },
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "runAsNonRoot": true,
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "serviceAccount": "fraud-api",
+                "serviceAccountName": "fraud-api",
+                "terminationGracePeriodSeconds": 30
+            }
+        }
+    },
+    "status": {
+        "availableReplicas": 1,
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-10-31T17:38:39Z",
+                "lastUpdateTime": "2026-11-07T15:57:06Z",
+                "message": "ReplicaSet \"fraud-api-777c8454\" has successfully progressed.",
+                "reason": "NewReplicaSetAvailable",
+                "status": "True",
+                "type": "Progressing"
+            },
+            {
+                "lastTransitionTime": "2026-11-07T17:26:56Z",
+                "lastUpdateTime": "2026-11-07T17:26:56Z",
+                "message": "Deployment has minimum availability.",
+                "reason": "MinimumReplicasAvailable",
+                "status": "True",
+                "type": "Available"
+            }
+        ],
+        "observedGeneration": 6,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 1
+    }
+}

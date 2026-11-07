@@ -142,16 +142,25 @@ The first 10 s sample of the Feature 5-user run still shows the end of the Fraud
 
 ## 6. Genuine Locust reports
 
-Both images are the actual `report.html` files written by Locust 2.46.0 in these runs, rendered by headless Google Chrome with no editing. Times are in local time (UTC+7). The other six reports are in the evidence folder.
+Both images are the actual `report.html` files written by Locust 2.46.0 in these runs, rendered by headless Google Chrome with no editing. Times are in local time (UTC+7).
 
-> **Proof note — Feature API, 20 users:** 25,369 requests, 0 failures, 84.7 req/s. The flat throughput line against the 5- and 10-user runs shows the per-replica ceiling.
+All eight original reports (open the HTML file in a browser; GitHub shows the source):
+
+| API | 1 user | 5 users | 10 users | 20 users |
+|---|---|---|---|---|
+| Feature | [report](../../evidence/edai2/load/g5a_20261107T183037Z/feature-incluster-smoke/report.html) | [report](../../evidence/edai2/load/g5a_20261107T183037Z/feature-incluster-low/report.html) | [report](../../evidence/edai2/load/g5a_20261107T183037Z/feature-incluster-medium/report.html) | [report](../../evidence/edai2/load/g5a_20261107T183037Z/feature-incluster-high/report.html) |
+| Fraud | [report](../../evidence/edai2/load/g5a_20261107T183037Z/inference-incluster-smoke/report.html) | [report](../../evidence/edai2/load/g5a_20261107T183037Z/inference-incluster-low/report.html) | [report](../../evidence/edai2/load/g5a_20261107T183037Z/inference-incluster-medium/report.html) | [report](../../evidence/edai2/load/g5a_20261107T183037Z/inference-incluster-high/report.html) |
+
+Each run folder also holds `locust_stats.csv`, `locust_stats_history.csv`, `locust_failures.csv` and `summary.json`.
+
+> **Proof note — Feature API, 20 users:** 25,369 requests, 0 failures, 84.7 req/s. The flat throughput line against the 5- and 10-user runs shows the per-replica ceiling. Original report: [`feature-incluster-high/report.html`](../../evidence/edai2/load/g5a_20261107T183037Z/feature-incluster-high/report.html).
 
 ![Locust report, Feature API, 20 users](../../evidence/edai2/screenshots/load/g5a_locust_feature_api_20_users.png)
 
-> **Proof note — Fraud API, 20 users:** 6,743 requests, 0 failures, 22.5 req/s, p95 1,300 ms. Throughput stays near 22–25 req/s while latency climbs: the queueing in front of the predictor.
+> **Proof note — Fraud API, 20 users:** 6,743 requests, 0 failures, 22.5 req/s, p95 1,300 ms. Throughput stays near 22–25 req/s while latency climbs: the queueing in front of the predictor. Original report: [`inference-incluster-high/report.html`](../../evidence/edai2/load/g5a_20261107T183037Z/inference-incluster-high/report.html).
 
 ![Locust report, Fraud API, 20 users](../../evidence/edai2/screenshots/load/g5a_locust_inference_api_20_users.png)
 
 ## 7. Next: autoscaling (G5-B)
 
-These baselines calibrate the serving KEDA experiment. See [G3_G4_CLOUD_CAMPAIGN.md](../../runbooks/edai2/G3_G4_CLOUD_CAMPAIGN.md#g5-b-serving-keda-calibrated-from-g5-a).
+These baselines calibrate the serving KEDA scalers, which are now deployed. See [SERVING_AUTOSCALING_KEDA.md](../mlops/SERVING_AUTOSCALING_KEDA.md).

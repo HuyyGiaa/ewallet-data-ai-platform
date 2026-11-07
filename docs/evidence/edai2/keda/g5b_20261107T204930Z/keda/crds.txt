@@ -1,0 +1,7 @@
+cloudeventsources.eventing.keda.sh                      2026-11-07T20:50:45Z
+clustercloudeventsources.eventing.keda.sh               2026-11-07T20:50:45Z
+clustertriggerauthentications.keda.sh                   2026-11-07T20:50:45Z
+scaledjobs.keda.sh                                      2026-11-07T20:50:45Z
+scaledobjects.keda.sh                                   2026-11-07T20:50:45Z
+triggerauthentications.keda.sh                          2026-11-07T20:50:45Z
+True keda/keda-operator-metrics-apiserver

@@ -140,6 +140,7 @@ Branch `integration/g0-20261107` merges B1, C-A, C-B, C-C and Session A on `orig
 | 53 | C-C | LOCAL_VALIDATED | Qwen3 routing on CPU | CLOUD_PENDING: P10, blocked by GPU quota 0 |
 | 54 | C-C | LOCAL_VALIDATED | Real Vault on kind | CLOUD_PENDING: P7 |
 | Serving (Feature API, Fraud API) | Session A, G2 | CLOUD_VERIFIED | GKE 2026-11-07: dedicated Workload Identity proven on pods; Feature and Fraud E2E on Feast Online and KServe v1; 500/500 real-entity fixture (`docs/evidence/edai2/serving/pkg4_20261107T155413Z`) | Package 5: Locust, then KEDA |
+| Serving autoscaling (KEDA) | G5-B | DEPLOYED; owner experiment PENDING | KEDA 2.21 on GKE; ScaledObjects for the Feature API (60 req/s) and Fraud API (17 req/s), 1–3 replicas; R1 handover done; [page](mlops/SERVING_AUTOSCALING_KEDA.md) | Owner-run scale-out and scale-down experiment and screenshots |
 
 ## Reconciliation with the external N13 inventory (quality gate, 2026-11-04)
 

@@ -1,0 +1,7 @@
+cbl0 cpu 3.89/3.92  mem 9.1/13.0 GiB  free cpu 0.03
+h874 cpu 2.33/3.92  mem 4.9/13.0 GiB  free cpu 1.59
+jt0h cpu 2.26/3.92  mem 5.9/13.0 GiB  free cpu 1.66
+wcka cpu 2.47/3.92  mem 5.4/13.0 GiB  free cpu 1.45
+zm4y cpu 2.81/3.92  mem 5.1/13.0 GiB  free cpu 1.11
+total free cpu 5.84, free mem 34.3 GiB
+G5-B adds at most: 4 API replicas x (250m, 512Mi) = 1.00 CPU, 2.0 GiB; KEDA operator+metrics+webhooks = 0.125 CPU, 0.26 GiB; runner 0.5 CPU, 0.5 GiB

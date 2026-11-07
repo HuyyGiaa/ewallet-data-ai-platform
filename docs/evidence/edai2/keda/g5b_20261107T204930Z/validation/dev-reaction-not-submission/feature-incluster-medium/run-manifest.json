@@ -1,0 +1,21 @@
+{
+  "target": "feature",
+  "network_path": "in-cluster",
+  "client": "pod real-load-runner on gke-ewallet-dev-cpu-pool-58daed59-zm4y, Service DNS, no port-forward",
+  "profile": "medium",
+  "host": "http://feature-api.ml-platform.svc:80",
+  "users": 10,
+  "spawn_rate": 5,
+  "run_time": "120s",
+  "think_time_seconds": 0,
+  "entity_order_seed": 20261107,
+  "fixture": "verified.jsonl",
+  "fixture_sha256": "0d17e4b390aa60f4eacc6b43d3bfabccdb450d08cadfe1748e52458f1b406351",
+  "fixture_rows": 500,
+  "source_sha": "73da518e6f772454b93eaa6b6687207b9e010d1a",
+  "image_digest": "sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803",
+  "model_version": "1",
+  "request_profile": "valid requests only",
+  "started_at": "2026-11-07T21:04:42Z",
+  "ended_at": "2026-11-07T21:07:06Z"
+}

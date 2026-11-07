@@ -1,0 +1,82 @@
+added [('ScaledObject', 'feature-api'), ('ScaledObject', 'fraud-api')] removed []
+CHANGED ('Deployment', 'feature-api')
+-  replicas: 1
+NEW ('ScaledObject', 'feature-api')
+scaleTargetRef:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: feature-api
+minReplicaCount: 1
+maxReplicaCount: 3
+pollingInterval: 15
+cooldownPeriod: 120
+fallback:
+  failureThreshold: 3
+  replicas: 1
+  behavior: currentReplicasIfHigher
+advanced:
+  horizontalPodAutoscalerConfig:
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        selectPolicy: Max
+        policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30
+      scaleDown:
+        stabilizationWindowSeconds: 120
+        selectPolicy: Max
+        policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+triggers:
+- type: prometheus
+  name: request-rate
+  metricType: AverageValue
+  metadata:
+    serverAddress: http://prometheus.ewallet-agents.svc.cluster.local:9090
+    query: sum(rate(feature_api_requests_total{job="feature-api-pods"}[1m])) or vector(0)
+    threshold: '60'
+
+NEW ('ScaledObject', 'fraud-api')
+scaleTargetRef:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: fraud-api
+minReplicaCount: 1
+maxReplicaCount: 3
+pollingInterval: 15
+cooldownPeriod: 120
+fallback:
+  failureThreshold: 3
+  replicas: 1
+  behavior: currentReplicasIfHigher
+advanced:
+  horizontalPodAutoscalerConfig:
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        selectPolicy: Max
+        policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30
+      scaleDown:
+        stabilizationWindowSeconds: 120
+        selectPolicy: Max
+        policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+triggers:
+- type: prometheus
+  name: request-rate
+  metricType: AverageValue
+  metadata:
+    serverAddress: http://prometheus.ewallet-agents.svc.cluster.local:9090
+    query: sum(rate(fraud_inference_requests_total{job="fraud-api-pods"}[1m])) or
+      vector(0)
+    threshold: '17'
+
