@@ -113,11 +113,15 @@ helm upgrade ewallet-serving infra/helm/ewallet-serving --kube-context "$KUBE_CO
 # Fixed arms A-01, A-02
 EXP_APPROVED=yes scripts/experiments/serving_keda.sh run fixed feature-api "$EVIDENCE"
 EXP_APPROVED=yes scripts/experiments/serving_keda.sh run fixed fraud-api "$EVIDENCE"
+# R1: hand the Fraud API's replica count to KEDA first (docs/runbooks/edai2/R1_FRAUD_API_KEDA_HANDOVER.md)
+scripts/serving/fraud_api_keda_handover.sh plan "$EVIDENCE/r1"
+scripts/serving/fraud_api_keda_handover.sh handover "$EVIDENCE/r1" --execute
 # Set thresholds from the fixed-arm throughput, then the KEDA arms A-03, A-04
 helm upgrade ewallet-serving infra/helm/ewallet-serving --kube-context "$KUBE_CONTEXT" -n ml-platform --reuse-values \
   --set autoscaling.enabled=true \
   --set autoscaling.targets.feature-api.requestsPerSecondPerReplica="$FEATURE_RPS" \
   --set autoscaling.targets.fraud-api.requestsPerSecondPerReplica="$FRAUD_RPS"
+scripts/serving/fraud_api_keda_handover.sh verify "$EVIDENCE/r1"
 EXP_APPROVED=yes scripts/experiments/serving_keda.sh run keda feature-api "$EVIDENCE"
 EXP_APPROVED=yes scripts/experiments/serving_keda.sh run keda fraud-api "$EVIDENCE"
 python -m ops.experiments.serving_compare --fixed "$EVIDENCE/fixed/feature-api/arm-summary.json" \
@@ -126,7 +130,7 @@ python -m ops.experiments.serving_compare --fixed "$EVIDENCE/fixed/feature-api/a
 
 **Thresholds are starting values** (150 and 25 requests per second per replica). Set them to about 70% of the fixed arm's stable throughput, or the scaler will never react or never rest.
 
-**Rollback:** `--set autoscaling.enabled=false`, then scale the Deployment. Delete ScaledObjects before removing KEDA, or their finalizer holds the namespace.
+**Rollback:** `--set autoscaling.enabled=false`, then `scripts/serving/fraud_api_keda_handover.sh rollback "$EVIDENCE/r1" --execute`, which re-applies the fixed manifest at the current count. Delete ScaledObjects before removing KEDA, or their finalizer holds the namespace.
 
 ## P-A4: Agent KEDA (A-05, A-06)
 

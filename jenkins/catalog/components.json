@@ -166,10 +166,10 @@
     },
     "fraud-serving": {
       "maturity": "active",
-      "source_paths": ["ai_platform/serving", "infra/kubernetes/fraud-serving", "tests/integration/test_kserve_fraud_wire.py"],
+      "source_paths": ["ai_platform/serving", "infra/kubernetes/fraud-serving", "tests/integration/test_kserve_fraud_wire.py", "ops/serving", "scripts/serving", "tests/unit/test_fraud_api_replica_modes.py"],
       "dependencies": ["ml-training", "mlflow"],
       "python_projects": ["ai_platform/serving"],
-      "commands": ["uv run --locked --project ai_platform/serving python -m unittest tests.integration.test_kserve_fraud_wire"],
+      "commands": ["uv run --locked --project ai_platform/serving python -m unittest tests.integration.test_kserve_fraud_wire tests.unit.test_fraud_api_replica_modes"],
       "build_artifact": "ai_platform/serving/Dockerfile",
       "deployment_target": "KServe InferenceService contract",
       "deploy_handler": null
