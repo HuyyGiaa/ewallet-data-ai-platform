@@ -6,6 +6,7 @@ it the module is skipped and must be reported NOT_EXECUTED, not PASS.
 
 from __future__ import annotations
 
+import inspect
 import json
 import unittest
 from dataclasses import replace
@@ -28,6 +29,8 @@ from data_platform.streaming.flink.operators import (
 from data_platform.streaming.flink.job import (
     SOURCE_NO_TIMESTAMP,
     SourceEventTimestampAssigner,
+    _from_source_with_event_time,
+    build_executable_job,
     _from_source_with_watermarks,
     _parse_operator,
     source_topic_names,
@@ -104,6 +107,7 @@ class _RecordingSourceStream:
         self.uid_value = None
         self.parallelism = None
         self.downstream_watermark_assignments = 0
+        self.assigned_strategies = []
 
     def uid(self, value):
         self.uid_value = value
@@ -115,6 +119,7 @@ class _RecordingSourceStream:
 
     def assign_timestamps_and_watermarks(self, strategy):
         self.downstream_watermark_assignments += 1
+        self.assigned_strategies.append(strategy)
         return self
 
 
@@ -234,6 +239,24 @@ class SourceWiringContractTest(unittest.TestCase):
         self.assertEqual("block-a-redpanda-source-v1", stream.uid_value)
         self.assertEqual(4, stream.parallelism)
         self.assertEqual(0, stream.downstream_watermark_assignments)
+
+    def test_production_event_time_is_applied_after_the_source(self) -> None:
+        # from_source drops a Python timestamp assigner, which made watermarks
+        # follow broker time; only a downstream assignment honours the payload.
+        environment = _RecordingEnvironment()
+        source, no_watermarks, strategy = object(), object(), object()
+
+        stream = _from_source_with_event_time(environment, source, no_watermarks, strategy, parallelism=4)
+
+        self.assertEqual([(source, no_watermarks, "redpanda-raw-and-retry")], environment.calls)
+        self.assertEqual("block-a-redpanda-source-v1", stream.uid_value)
+        self.assertEqual(4, stream.parallelism)
+        self.assertEqual([strategy], stream.assigned_strategies)
+
+    def test_only_benchmark_replay_keeps_watermarks_on_the_source(self) -> None:
+        body = inspect.getsource(build_executable_job)
+        self.assertIn("if settings.mode is OperatingMode.BENCHMARK_REPLAY:", body)
+        self.assertIn("_from_source_with_event_time(", body)
 
     def test_benchmark_source_excludes_undrained_retry_partitions(self) -> None:
         self.assertEqual(

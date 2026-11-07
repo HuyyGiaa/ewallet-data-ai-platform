@@ -32,6 +32,7 @@ PROJECTS = (
     "infra/docker/flink-benchmark",
     "infra/docker/llm-agent-tooling",
     "infra/docker/rag-ingestion",
+    "infra/docker/streaming-sinks",
     "infra/docker/vllm-cpu-model",
     "infra/kubernetes/mlflow/image",
     "data_platform/metadata/datahub",

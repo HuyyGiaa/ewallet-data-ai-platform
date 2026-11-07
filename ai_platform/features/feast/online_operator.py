@@ -9,7 +9,11 @@ Subcommands:
 * ``materialize-incremental`` continues every view from the end time Feast
   recorded in the registry; it refuses views that were never materialized.
 * ``parity`` compares Feast Online values with Feast Offline PIT retrieval at
-  the cutover for a deterministic entity sample per FeatureView.
+  the cutover for a deterministic entity sample per FeatureView. An entity whose
+  online row is at or past the cutover belongs to the streaming path and is
+  reported instead of compared.
+* ``state`` is read-only and reports, per view, where the registry stopped and
+  the event-time range of the immutable snapshot.
 
 Every subcommand prints one JSON evidence document.
 """
@@ -22,12 +26,15 @@ import json
 import math
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
 
 import pandas as pd
+import pyarrow.parquet as parquet
 from feast import FeatureStore
+from fsspec.core import url_to_fs
 
 from ai_platform.features.feast.registry_mirror import mirror_from_environment
 from ai_platform.features.feast.retrieval.bounded_dask import (
@@ -40,6 +47,7 @@ from ai_platform.features.feast.schema import FEATURE_SPECS
 
 ONLINE_REPO = Path(__file__).resolve().parent / "online_repo"
 MISSING_ENTITY_PROBE = "__parity_missing_entity__"
+FOOTER_READ_WORKERS = 16
 
 
 def _timestamp(value: str) -> datetime:
@@ -114,7 +122,79 @@ def materialize(store: FeatureStore, start: datetime, end: datetime) -> dict[str
     }
 
 
+def _file_event_time_range(filesystem, path: str) -> tuple[datetime, datetime]:
+    """Read one file's event-time bounds from its Parquet footer statistics."""
+
+    with filesystem.open(path, "rb") as stream:
+        metadata = parquet.read_metadata(stream)
+    column = metadata.schema.to_arrow_schema().get_field_index("event_timestamp")
+    if column < 0:
+        raise RuntimeError(f"{path} has no event_timestamp column")
+    bounds = []
+    for index in range(metadata.num_row_groups):
+        statistics = metadata.row_group(index).column(column).statistics
+        if statistics is None or not statistics.has_min_max:
+            raise RuntimeError(f"{path} has no event_timestamp statistics")
+        bounds.append((statistics.min, statistics.max))
+    if not bounds:
+        raise RuntimeError(f"{path} has no row groups")
+    return min(low for low, _ in bounds), max(high for _, high in bounds)
+
+
+def source_event_time_range(path: str) -> dict[str, object]:
+    """Return the event-time range of a snapshot table without reading its rows.
+
+    Args:
+        path: Local or ``gs://`` directory that holds the table's Parquet files.
+
+    Returns:
+        File count and the minimum and maximum event timestamps in UTC.
+    """
+
+    filesystem, root = url_to_fs(path)
+    files = sorted(filesystem.glob(f"{root.rstrip('/')}/*.parquet"))
+    if not files:
+        raise RuntimeError(f"no Parquet files under {path}")
+    with ThreadPoolExecutor(FOOTER_READ_WORKERS) as pool:
+        ranges = list(pool.map(lambda name: _file_event_time_range(filesystem, name), files))
+    return {
+        "source_files": len(files),
+        "source_min_event_timestamp": pd.Timestamp(min(low for low, _ in ranges)).isoformat(),
+        "source_max_event_timestamp": pd.Timestamp(max(high for _, high in ranges)).isoformat(),
+    }
+
+
+def require_snapshot_binding(store: FeatureStore) -> None:
+    """Refuse to run when a registered source is outside the configured snapshot."""
+
+    root = os.environ["EWALLET_FEAST_OFFLINE_DATA_ROOT"].rstrip("/")
+    for name in FEATURE_SPECS:
+        source = store.get_feature_view(name, allow_registry_cache=False).batch_source
+        if not str(source.path).startswith(f"{root}/"):
+            raise RuntimeError(f"{name} reads {source.path}, outside snapshot {root}")
+
+
+def state(store: FeatureStore) -> dict[str, object]:
+    """Report registry progress and snapshot range per view; writes nothing."""
+
+    views = []
+    for name in FEATURE_SPECS:
+        view = store.get_feature_view(name, allow_registry_cache=False)
+        end = view.most_recent_end_time
+        path = str(view.batch_source.path)
+        views.append(
+            {
+                "view": name,
+                "materialized_end": end.astimezone(timezone.utc).isoformat() if end else None,
+                "source_path": path,
+                **source_event_time_range(path),
+            }
+        )
+    return {"views": views}
+
+
 def materialize_incremental(store: FeatureStore, end: datetime) -> dict[str, object]:
+    require_snapshot_binding(store)
     results = []
     for name in FEATURE_SPECS:
         view = store.get_feature_view(name, allow_registry_cache=False)
@@ -156,6 +236,32 @@ def _same(left: object, right: object) -> bool:
     return left == right
 
 
+def _online_timestamp(value: object) -> pd.Timestamp | None:
+    """Convert a Feast ``__ts`` value to UTC.
+
+    ``to_dict(include_event_timestamps=True)`` returns epoch seconds as an integer.
+    ``pd.Timestamp`` alone would read that integer as nanoseconds after 1970.
+    """
+
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return pd.Timestamp(value, unit="s", tz="UTC")
+    stamp = pd.Timestamp(value)
+    return stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp.tz_convert("UTC")
+
+
+def _owned_by_streaming(value: object, cutover: datetime) -> bool:
+    """Whether an online row is at or past the cutover, so batch does not own it.
+
+    Feast reports whole seconds here, so a row a fraction after the cutover floors
+    to the cutover itself; ``>=`` keeps that row out of the batch comparison.
+    """
+
+    stamp = _online_timestamp(value)
+    return stamp is not None and stamp >= pd.Timestamp(cutover)
+
+
 def parity(
     store: FeatureStore, cutover: datetime, sample_window_start: datetime, sample_size: int
 ) -> dict[str, object]:
@@ -182,7 +288,12 @@ def parity(
             ).to_df()
         offline = offline.set_index(entity_key)
         rows = []
+        raw_timestamps = online[f"{view_name}__{spec['features'][0]}__ts"]
+        superseded = []
         for index, entity in enumerate(entities):
+            if _owned_by_streaming(raw_timestamps[index], cutover):
+                superseded.append(entity)
+                continue
             for feature in spec["features"]:
                 column = f"{view_name}__{feature}"
                 online_value = online[column][index]
@@ -197,8 +308,8 @@ def parity(
                          "offline": offline_value, "online": online_value}
                     )
         online_ts = [
-            pd.Timestamp(value).isoformat() if value is not None else None
-            for value in online[f"{view_name}__{spec['features'][0]}__ts"]
+            stamp.isoformat() if (stamp := _online_timestamp(value)) is not None else None
+            for value in raw_timestamps
         ]
         probe = store.get_online_features(
             features=refs,
@@ -212,6 +323,7 @@ def parity(
                 "entities": entities,
                 "features_per_entity": len(spec["features"]),
                 "online_event_timestamps": online_ts,
+                "superseded_by_streaming": superseded,
                 "missing_entity_all_null": all(
                     probe[f"{view_name}__{feature}"] == [None] for feature in spec["features"]
                 ),
@@ -241,6 +353,7 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--cutover", type=_timestamp, required=True)
     check.add_argument("--sample-window-start", type=_timestamp, required=True)
     check.add_argument("--sample-size", type=int, default=5)
+    commands.add_parser("state")
     args = parser.parse_args(argv)
 
     registry_uri = os.environ.get("EWALLET_FEAST_REGISTRY", "")
@@ -256,10 +369,12 @@ def main(argv: list[str] | None = None) -> int:
         result = materialize(store, args.start, args.end)
     elif args.command == "materialize-incremental":
         result = materialize_incremental(store, args.end)
+    elif args.command == "state":
+        result = state(store)
     else:
         result = parity(store, args.cutover, args.sample_window_start, args.sample_size)
     generation_after = generation_before
-    if mirror is not None and args.command != "parity":
+    if mirror is not None and args.command not in {"parity", "state"}:
         generation_after = mirror.push()
     evidence = {
         "schema_version": "feast-online-operation-evidence-v1",

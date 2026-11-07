@@ -41,6 +41,7 @@ _UNSUPPORTED_KEYS = {
     ),
 }
 _NAMESPACE = re.compile(r"^bench-[a-z0-9][a-z0-9-]{0,47}$")
+_VERIFY_NAMESPACE = re.compile(r"^verify-[a-z0-9][a-z0-9-]{0,46}$")
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,9 @@ class OperatingMode(str, Enum):
     RESTART_RECOVERY = "RESTART_RECOVERY"
     # Fresh, isolated, bounded replay used only by the local benchmark harness.
     BENCHMARK_REPLAY = "BENCHMARK_REPLAY"
+    # Fresh, isolated topics with real watermarks, used to prove the dual-store
+    # path. Unlike benchmark replay it follows the production event-time path.
+    ISOLATED_VERIFICATION = "ISOLATED_VERIFICATION"
 
 
 @dataclass(frozen=True)
@@ -120,8 +124,17 @@ class RuntimeSettings:
             if self.savepoint_path or self.silver_root or self.cutover_iso:
                 raise ValueError("BENCHMARK_REPLAY starts fresh; savepoint/bootstrap inputs are not allowed")
             return
+        if self.mode is OperatingMode.ISOLATED_VERIFICATION:
+            if not self.namespace or not _VERIFY_NAMESPACE.match(self.namespace):
+                raise ValueError(
+                    "ISOLATED_VERIFICATION requires an isolated namespace matching "
+                    f"{_VERIFY_NAMESPACE.pattern}"
+                )
+            if self.silver_root or self.cutover_iso:
+                raise ValueError("ISOLATED_VERIFICATION does not use bootstrap inputs")
+            return
         if self.namespace is not None:
-            raise ValueError("namespace is only valid for BENCHMARK_REPLAY")
+            raise ValueError("namespace is only valid for isolated modes")
         if self.mode is OperatingMode.FIRST_DEPLOY_BOOTSTRAP:
             required = {
                 "silver_root": self.silver_root,

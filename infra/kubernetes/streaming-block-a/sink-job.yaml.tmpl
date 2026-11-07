@@ -1,0 +1,47 @@
+# One Block A sink or validator step as a Job. The feast-online-operator name label
+# is what the Redis NetworkPolicy admits; the component label tells the steps apart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${STEP_NAME}
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-block-a
+    ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-online-operator
+        app.kubernetes.io/component: ${STEP_NAME}
+        app.kubernetes.io/part-of: ewallet-block-a
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: step
+          image: ${SINKS_IMAGE}
+          args: [${STEP_ARGS}]
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: "${ONLINE_REGISTRY_URI}"}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "${FEAST_OFFLINE_DATA_ROOT}"}
+            - {name: EWALLET_GIT_SHA, value: "${GIT_SHA}"}
+            - {name: HOME, value: /tmp}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: ${FEAST_REDIS_SECRET}, key: connection_string}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}

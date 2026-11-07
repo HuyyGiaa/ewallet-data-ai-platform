@@ -6,6 +6,8 @@
 #
 # Dry-run prints the rendered Job. --execute applies it with the explicit
 # cluster context, waits for completion and prints the evidence JSON line.
+# Optional: FEAST_WINDOW_ID labels the Job so a retry can find it, and
+# FEAST_REDIS_SECRET selects a Secret other than feast-online-redis.
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 RUN_ID="${1:?run id, e.g. feast-mat-261031}"
@@ -27,6 +29,13 @@ require_env FEAST_OFFLINE_DATA_ROOT
 [[ "${FEAST_ONLINE_IMAGE}" == *@sha256:* ]] || die "FEAST_ONLINE_IMAGE must be pinned by digest"
 KUBE_CONTEXT="${KUBE_CONTEXT:-gke_${EXPECTED_PROJECT_ID}_asia-southeast1-b_ewallet-dev}"
 GIT_SHA="${FEAST_ONLINE_GIT_SHA:-$(git -C "${REPO_ROOT}" rev-parse HEAD)}"
+REDIS_SECRET="${FEAST_REDIS_SECRET:-feast-online-redis}"
+[[ "${REDIS_SECRET}" =~ ^[a-z0-9-]{1,63}$ ]] || die "invalid Redis secret name: ${REDIS_SECRET}"
+WINDOW_LABEL=""
+if [[ -n "${FEAST_WINDOW_ID:-}" ]]; then
+  [[ "${FEAST_WINDOW_ID}" =~ ^[0-9a-f]{12}$ ]] || die "invalid window id: ${FEAST_WINDOW_ID}"
+  WINDOW_LABEL=$'\n'"    ewallet.feast/window-id: \"${FEAST_WINDOW_ID}\""
+fi
 
 args_yaml=""
 for argument in "$@"; do
@@ -41,7 +50,7 @@ metadata:
   namespace: ml-platform
   labels:
     app.kubernetes.io/name: feast-online-operator
-    app.kubernetes.io/part-of: ewallet-mlops
+    app.kubernetes.io/part-of: ewallet-mlops${WINDOW_LABEL}
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 3600
@@ -77,7 +86,7 @@ ${args_yaml}          env:
             - name: EWALLET_REDIS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
-                  name: feast-online-redis
+                  name: ${REDIS_SECRET}
                   key: connection_string
           resources:
             requests:

@@ -1,0 +1,62 @@
+erDiagram
+    ACCOUNTS {
+        string account_id
+        string user_id
+        string account_type
+        string currency
+        timestamp_ntz created_at
+    }
+    BALANCE_SNAPSHOTS {
+        string account_id
+        date snapshot_date
+        double closing_balance
+    }
+    DEVICES {
+        string device_id
+        string user_id
+        string device_type
+        string os
+        timestamp_ntz first_seen_at
+    }
+    FRAUD_LABELS {
+        string transaction_id
+        byte label
+        string fraud_type
+    }
+    LOGIN_EVENTS {
+        string login_id
+        string user_id
+        string device_id
+        timestamp_ntz login_ts
+        boolean is_success
+    }
+    MERCHANTS {
+        string merchant_id
+        string merchant_name
+        string category
+    }
+    TRANSACTIONS {
+        string transaction_id
+        string account_id
+        string user_id
+        string device_id
+        string type
+        double amount
+        string currency
+        string status
+        double old_balance
+        double new_balance
+        string merchant_id
+        string counterparty_account_id
+        timestamp_ntz timestamp
+        timestamp_ntz ingested_at
+        string channel
+    }
+    USERS {
+        string user_id
+        string full_name
+        string email
+        string phone
+        boolean kyc_verified
+        timestamp_ntz created_at
+    }

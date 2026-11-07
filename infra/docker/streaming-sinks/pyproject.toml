@@ -1,0 +1,16 @@
+[project]
+name = "ewallet-streaming-sinks"
+version = "0.1.0"
+description = "Block A history writer, Feast online writer and consistency validator"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+  "confluent-kafka==2.6.1",
+  "feast[redis]==0.66.0",
+  "gcsfs==2026.10.1",
+  "pandas==2.3.3",
+  "pyarrow==25.0.1",
+  "pyyaml==6.0.2",
+]
+
+[tool.uv]
+package = false

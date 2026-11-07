@@ -1,0 +1,71 @@
+# Logical relationships between Silver and Gold tables.
+#
+# These describe how the builders and validators join data. Delta files declare
+# none of them: there is no physical primary key or foreign key in this lakehouse.
+# A relationship is "validated" when a validator rule checks it on real rows, and
+# "builder_only" when it follows from the transformation alone.
+#
+# Each entry: table, columns, references (table.column), nullable, enforcement.
+version: 1
+keys:
+  silver:
+    users: [user_id]
+    accounts: [account_id]
+    merchants: [merchant_id]
+    devices: [device_id]
+    transactions: [transaction_id]
+    login_events: [login_id]
+    balance_snapshots: [account_id, snapshot_date]
+    fraud_labels: [transaction_id, label]
+  gold:
+    dim_user: [user_id]
+    dim_account: [account_id]
+    dim_merchant: [merchant_id]
+    dim_device: [device_id]
+    dim_date: [date_key]
+    fact_transactions: [transaction_id]
+    fact_login_events: [login_id]
+    fact_balance_snapshot: [account_id, snapshot_date]
+    obt_transaction_enriched: [transaction_id]
+    feat_user_90d: [user_id]
+    opt_merchant_performance: [merchant_id]
+  features:
+    feat_user_behavior: [user_id, event_timestamp]
+    feat_account_behavior: [account_id, event_timestamp]
+    feat_device_behavior: [device_id, event_timestamp]
+    feat_merchant_behavior: [merchant_id, event_timestamp]
+relationships:
+  silver:
+    - {table: accounts, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
+    - {table: devices, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
+    - {table: transactions, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
+    - {table: transactions, column: account_id, references: accounts.account_id, nullable: false, enforcement: validated}
+    - {table: transactions, column: device_id, references: devices.device_id, nullable: false, enforcement: validated}
+    - {table: transactions, column: merchant_id, references: merchants.merchant_id, nullable: true, enforcement: validated}
+    - {table: transactions, column: counterparty_account_id, references: accounts.account_id, nullable: true, enforcement: validated}
+    - {table: login_events, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
+    - {table: login_events, column: device_id, references: devices.device_id, nullable: false, enforcement: validated}
+    - {table: balance_snapshots, column: account_id, references: accounts.account_id, nullable: false, enforcement: validated}
+    - {table: fraud_labels, column: transaction_id, references: transactions.transaction_id, nullable: false, enforcement: builder_only}
+  gold:
+    - {table: dim_account, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
+    - {table: dim_device, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
+    - {table: fact_transactions, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
+    - {table: fact_transactions, column: account_id, references: dim_account.account_id, nullable: false, enforcement: validated}
+    - {table: fact_transactions, column: device_id, references: dim_device.device_id, nullable: false, enforcement: validated}
+    - {table: fact_transactions, column: merchant_id, references: dim_merchant.merchant_id, nullable: true, enforcement: validated}
+    - {table: fact_transactions, column: counterparty_account_id, references: dim_account.account_id, nullable: true, enforcement: validated}
+    - {table: fact_transactions, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
+    - {table: fact_login_events, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
+    - {table: fact_login_events, column: device_id, references: dim_device.device_id, nullable: false, enforcement: validated}
+    - {table: fact_login_events, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
+    - {table: fact_balance_snapshot, column: account_id, references: dim_account.account_id, nullable: false, enforcement: validated}
+    - {table: fact_balance_snapshot, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
+    - {table: obt_transaction_enriched, column: transaction_id, references: fact_transactions.transaction_id, nullable: false, enforcement: builder_only}
+    - {table: feat_user_90d, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
+    - {table: opt_merchant_performance, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated}
+  features:
+    - {table: feat_user_behavior, column: user_id, references: gold.dim_user.user_id, nullable: false, enforcement: validated}
+    - {table: feat_account_behavior, column: account_id, references: gold.dim_account.account_id, nullable: false, enforcement: validated}
+    - {table: feat_device_behavior, column: device_id, references: gold.dim_device.device_id, nullable: false, enforcement: validated}
+    - {table: feat_merchant_behavior, column: merchant_id, references: gold.dim_merchant.merchant_id, nullable: false, enforcement: validated}
