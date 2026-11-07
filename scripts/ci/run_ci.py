@@ -51,7 +51,11 @@ def _log_path(index: int, stage: str) -> str:
 
 
 def _with_junit_report(argv: list[str], report: Path, stage: str) -> list[str]:
-    """Route ``-m unittest`` through the JUnit runner; leave other commands unchanged."""
+    """Give each test stage one JUnit report; leave other commands unchanged.
+
+    ``-m unittest`` goes through the stdlib JUnit runner. ``-m pytest`` gets its own
+    ``--junitxml`` with the stage as the suite name.
+    """
 
     for position in range(len(argv) - 1):
         if argv[position:position + 2] == ["-m", "unittest"]:
@@ -59,6 +63,11 @@ def _with_junit_report(argv: list[str], report: Path, stage: str) -> list[str]:
                 *argv[:position], "-m", "scripts.ci.junit_unittest",
                 "--junit-xml", str(report), "--suite-name", stage,
                 *argv[position + 2:],
+            ]
+        if argv[position:position + 2] == ["-m", "pytest"]:
+            return [
+                *argv[:position + 2], f"--junitxml={report}",
+                "-o", f"junit_suite_name={stage}", *argv[position + 2:],
             ]
     return argv
 

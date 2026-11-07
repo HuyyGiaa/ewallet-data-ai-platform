@@ -105,6 +105,18 @@ def _locked_packages(project: str) -> set[str]:
     return set(re.findall(r'^name = "([^"]+)"$', lock, re.MULTILINE))
 
 
+def _unittest_modules(command: str) -> list[Path]:
+    """Return the test files a ``-m unittest`` command loads (named modules or discovery)."""
+    argv = shlex.split(command)
+    if "-m" not in argv or argv[argv.index("-m") + 1] != "unittest":
+        return []
+    rest = argv[argv.index("-m") + 2:]
+    if rest[:1] == ["discover"]:
+        start = rest[rest.index("-s") + 1]
+        return sorted((ROOT / start).rglob("test*.py"))
+    return [ROOT / (module.replace(".", "/") + ".py") for module in rest if not module.startswith("-")]
+
+
 def _project_of(command: str) -> str | None:
     argv = shlex.split(command)
     return argv[argv.index("--project") + 1] if "--project" in argv else None
@@ -144,6 +156,29 @@ class CommandEnvironmentTests(unittest.TestCase):
                     self.assertIn("--locked", shlex.split(command))
                     self.assertIn(project, component.python_projects)
                     self.assertTrue((ROOT / project / "uv.lock").is_file())
+
+    def test_pytest_style_modules_never_run_under_unittest(self) -> None:
+        # R10: unittest cannot import a module that imports pytest from a base
+        # environment, and collects zero tests from top-level test functions, so
+        # such modules silently dropped out of CI. They must run under pytest.
+        for name, component in self.catalog.components.items():
+            for command in component.commands:
+                for module in _unittest_modules(command):
+                    with self.subTest(component=name, module=module):
+                        source = module.read_text(encoding="utf-8")
+                        self.assertNotRegex(source, r"(?m)^import pytest|^from pytest ")
+                        self.assertNotRegex(source, r"(?m)^def test_")
+
+    def test_pytest_commands_run_in_a_group_that_locks_pytest(self) -> None:
+        for name, component in self.catalog.components.items():
+            for command in component.commands:
+                argv = shlex.split(command)
+                if "pytest" not in argv:
+                    continue
+                with self.subTest(component=name, command=command):
+                    project = _project_of(command)
+                    self.assertIsNotNone(project)
+                    self.assertIn("pytest", _locked_packages(project))
 
     def test_yaml_dependent_tests_run_where_pyyaml_is_locked(self) -> None:
         modules = {

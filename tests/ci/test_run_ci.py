@@ -153,6 +153,25 @@ class RunnerTests(unittest.TestCase):
         )
         self.assertEqual(executor.calls[1][0], ["/tools/python3", "-c", "print(1)"])
 
+    def test_pytest_commands_write_one_junit_report_per_stage(self) -> None:
+        executor = RecordingExecutor()
+        component = Component(
+            **{**self.catalog.components["one"].__dict__, "python_projects": (),
+               "commands": ("uv run --locked --project project-a --group test python -m pytest -q tests/a",)}
+        )
+        catalog = Catalog(**{**self.catalog.__dict__, "components": {"one": component}})
+        evidence = self.root / "junit-evidence"
+        execute_components(
+            catalog, ("one",), self.root, evidence, executor=executor,
+            tool_lookup=lambda name: f"/tools/{name}", metadata={},
+        )
+        self.assertEqual(
+            executor.calls[0][0],
+            ["/tools/uv", "run", "--locked", "--project", "project-a", "--group", "test", "python", "-m",
+             "pytest", f"--junitxml={evidence / 'junit/junit-0001-component-one-1.xml'}",
+             "-o", "junit_suite_name=component:one:1", "-q", "tests/a"],
+        )
+
     def test_commands_are_argument_lists_not_shell_programs(self) -> None:
         executor = RecordingExecutor()
         component = Component(

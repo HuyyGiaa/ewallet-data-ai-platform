@@ -86,20 +86,20 @@
   "components": {
     "ci-platform": {
       "maturity": "active",
-      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci", "infra/kubernetes/cicd-runtime/namespaces.yaml", "infra/kubernetes/jenkins"],
+      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci", "infra/kubernetes/cicd-runtime/namespaces.yaml", "infra/kubernetes/jenkins", "ops/experiments", "scripts/experiments", "configs/experiments", "tests/experiments", "tests/ops/test_cloud_lab.py", "ops/gcp/cloud_lab.py", "ops/gcp/cloud_lab_profiles.json"],
       "dependencies": [],
       "python_projects": ["infra/docker/llm-agent-tooling"],
-      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest discover -s tests/ci -t ."],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --group test python -m pytest -q tests/ci tests/experiments tests/ops/test_cloud_lab.py tests/unit/test_uv_dependency_contract.py"],
       "build_artifact": null,
       "deployment_target": null,
       "deploy_handler": null
     },
     "data-platform": {
       "maturity": "active",
-      "source_paths": ["data_platform", "configs/environments", "tests/contract", "ops/schema", "ops/gcp/spark_stage_report.py", "ops/gcp/validate_gold_row_equivalence.py"],
+      "source_paths": ["data_platform", "configs/environments", "tests/contract", "ops/schema", "ops/gcp/spark_stage_report.py", "ops/gcp/validate_gold_row_equivalence.py", "tests/unit/test_gold_row_equivalence.py", "tests/unit/test_schema_diagrams.py", "tests/unit/test_spark_stage_report.py"],
       "dependencies": [],
       "python_projects": ["data_platform/generation"],
-      "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py"],
+      "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract tests.unit.test_gold_row_equivalence tests.unit.test_schema_diagrams tests.unit.test_spark_stage_report", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py"],
       "build_artifact": null,
       "deployment_target": null,
       "deploy_handler": null
@@ -137,7 +137,7 @@
       "source_paths": ["ai_platform/features/feast", "tests/test_feast_offline.py", "tests/unit/test_feast_pit_validation.py", "ops/mlops/feast_incremental.py", "scripts/mlops/feast_online_job.sh", "tests/unit/test_feast_incremental_plan.py", "tests/unit/test_feast_incremental_orchestration.py", "tests/integration/test_feast_online_local.py"],
       "dependencies": ["data-platform"],
       "python_projects": ["ai_platform/features/feast"],
-      "commands": ["uv run --locked --project ai_platform/features/feast python -m unittest tests.test_feast_offline tests.unit.test_feast_pit_validation"],
+      "commands": ["uv run --locked --project ai_platform/features/feast python -m unittest tests.test_feast_offline tests.unit.test_feast_pit_validation tests.unit.test_feast_incremental_plan tests.unit.test_feast_incremental_orchestration tests.integration.test_feast_online_local"],
       "build_artifact": "ops/gcp/ml2_materialize/Dockerfile",
       "deployment_target": "infra/kubernetes/feast-online",
       "deploy_handler": null
@@ -176,20 +176,20 @@
     },
     "fraud-api": {
       "maturity": "active",
-      "source_paths": ["ai_platform/inference", "tests/inference", "tests/integration/test_fraud_api_e2e.py", "tests/integration/test_fraud_api_ab_e2e.py", "tests/integration/test_feature_api_real.py", "tests/property", "tests/load", "tests/quality", "scripts/testing", "infra/load-test", "infra/helm/ewallet-serving", "infra/kubernetes/vault", "ops/vault", "scripts/vault"],
+      "source_paths": ["ai_platform/inference", "tests/inference", "tests/integration/test_fraud_api_e2e.py", "tests/integration/test_fraud_api_ab_e2e.py", "tests/integration/test_feature_api_real.py", "tests/property", "tests/load", "tests/quality", "scripts/testing", "infra/load-test", "infra/helm/ewallet-serving", "infra/kubernetes/vault", "ops/vault", "scripts/vault", "tests/ops/test_vault_tools.py"],
       "dependencies": ["feast", "fraud-serving"],
       "python_projects": ["ai_platform/inference", "infra/load-test"],
-      "commands": ["uv run --locked --project ai_platform/inference python -m unittest discover -s tests/inference -t ."],
+      "commands": ["uv run --locked --project ai_platform/inference --group test --group load python -m pytest -q tests/inference tests/property/test_derived_feature_properties.py tests/property/test_failure_properties.py tests/property/test_feature_vector_properties.py tests/property/test_prediction_properties.py tests/property/test_request_schema_properties.py tests/property/test_known_defects.py tests/property/test_coordinator_idempotency_properties.py tests/property/test_idempotency_store_properties.py tests/property/test_tool_idempotency_properties.py tests/load tests/quality tests/ops/test_vault_tools.py tests/integration/test_fraud_api_e2e.py tests/integration/test_fraud_api_ab_e2e.py tests/integration/test_feature_api_real.py"],
       "build_artifact": "ai_platform/inference/Dockerfile",
       "deployment_target": null,
       "deploy_handler": null
     },
     "llm-serving": {
       "maturity": "active",
-      "source_paths": ["infra/docker/vllm-cpu-model", "infra/helm/llm-agent-platform", "scripts/llm_agent", "tests/llm_agent", "ai_platform/llm_agent/benchmark.py", "infra/helm/ewallet-edge", "scripts/edge"],
+      "source_paths": ["infra/docker/vllm-cpu-model", "infra/helm/llm-agent-platform", "scripts/llm_agent", "tests/llm_agent", "ai_platform/llm_agent/benchmark.py", "infra/helm/ewallet-edge", "scripts/edge", "tests/ops/test_session_a_charts.py"],
       "dependencies": [],
       "python_projects": ["infra/docker/llm-agent-tooling", "infra/docker/vllm-cpu-model"],
-      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_ci_scripts tests.llm_agent.test_gke_cpu_profile tests.llm_agent.test_vllm_runtime_chart"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_ci_scripts tests.llm_agent.test_gke_cpu_profile tests.llm_agent.test_vllm_runtime_chart", "uv run --locked --project infra/docker/llm-agent-tooling --group test python -m pytest -q tests/llm_agent/test_c5_keda_chart.py tests/llm_agent/test_c7_chart.py tests/llm_agent/test_production_guard.py tests/ops/test_session_a_charts.py"],
       "build_artifact": "infra/docker/vllm-cpu-model/Dockerfile",
       "deployment_target": "infra/helm/llm-agent-platform",
       "deploy_handler": "scripts/llm_agent/deploy_atomic.sh",
@@ -263,13 +263,13 @@
     },
     "agents": {
       "maturity": "active",
-      "source_paths": ["ai_platform/llm_agent/__init__.py", "ai_platform/llm_agent/business_request.py", "ai_platform/llm_agent/byo_coordinator.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py", "ai_platform/llm_agent/byo_runtime.py", "ai_platform/llm_agent/config.py", "ai_platform/llm_agent/contracts.py", "ai_platform/llm_agent/agent_metrics.py", "ai_platform/llm_agent/idempotency.py", "ai_platform/llm_agent/nl_intake.py", "ai_platform/llm_agent/prompt_safety.py", "ai_platform/llm_agent/orchestration.py", "ai_platform/llm_agent/programmatic_coordinator.py", "ai_platform/llm_agent/redis_idempotency.py", "ai_platform/llm_agent/agent_ab.py", "infra/helm/keda", "infra/kubernetes/agent-sandbox", "scripts/keda", "infra/docker/g3-byo-coordinator",
+      "source_paths": ["ai_platform/llm_agent/__init__.py", "ai_platform/llm_agent/business_request.py", "ai_platform/llm_agent/byo_coordinator.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py", "ai_platform/llm_agent/byo_runtime.py", "ai_platform/llm_agent/config.py", "ai_platform/llm_agent/contracts.py", "ai_platform/llm_agent/agent_metrics.py", "ai_platform/llm_agent/idempotency.py", "ai_platform/llm_agent/nl_intake.py", "ai_platform/llm_agent/prompt_safety.py", "ai_platform/llm_agent/orchestration.py", "ai_platform/llm_agent/programmatic_coordinator.py", "ai_platform/llm_agent/redis_idempotency.py", "ai_platform/llm_agent/agent_ab.py", "tests/llm_agent/test_agent_ab.py", "tests/llm_agent/test_b1_f6_card_masking.py", "tests/llm_agent/test_r8_pii_screen.py", "tests/llm_agent/test_c5_mcp_failover.py", "tests/property/test_prompt_safety_properties.py", "tests/property/test_card_masking_regression.py", "infra/helm/keda", "infra/kubernetes/agent-sandbox", "scripts/keda", "infra/docker/g3-byo-coordinator",
         "infra/kubernetes/cicd-runtime/agents",
         "jenkins/cd/agents.contract.json"
       ],
       "dependencies": ["mcp-agents", "prompt-management"],
       "python_projects": ["infra/docker/g3-byo-coordinator", "infra/docker/llm-agent-tooling"],
-      "commands": ["uv run --locked --project infra/docker/g3-byo-coordinator python -m unittest tests.llm_agent.test_g3_byo_coordinator tests.llm_agent.test_g3_byo_feature_rag_specialist tests.llm_agent.test_g3_durable_idempotency tests.llm_agent.test_n11_nl_intake tests.llm_agent.test_n11_a2a_streaming tests.llm_agent.test_n11_audit_logs tests.llm_agent.test_n12_agent_telemetry", "uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_g3_business_request tests.llm_agent.test_g3_orchestration tests.llm_agent.test_g3_programmatic_coordinator tests.llm_agent.test_g3_runtime_config tests.llm_agent.test_n11_chart tests.llm_agent.test_n12_chart"],
+      "commands": ["uv run --locked --project infra/docker/g3-byo-coordinator python -m unittest tests.llm_agent.test_g3_byo_coordinator tests.llm_agent.test_g3_byo_feature_rag_specialist tests.llm_agent.test_g3_durable_idempotency tests.llm_agent.test_n11_nl_intake tests.llm_agent.test_n11_a2a_streaming tests.llm_agent.test_n11_audit_logs tests.llm_agent.test_n12_agent_telemetry tests.llm_agent.test_agent_ab tests.llm_agent.test_b1_f6_card_masking tests.llm_agent.test_r8_pii_screen", "uv run --locked --project infra/docker/g3-byo-coordinator --group test python -m pytest -q tests/llm_agent/test_c5_mcp_failover.py tests/property/test_prompt_safety_properties.py tests/property/test_card_masking_regression.py", "uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_g3_business_request tests.llm_agent.test_g3_orchestration tests.llm_agent.test_g3_programmatic_coordinator tests.llm_agent.test_g3_runtime_config tests.llm_agent.test_n11_chart tests.llm_agent.test_n12_chart"],
       "build_artifact": "infra/docker/g3-byo-coordinator/Dockerfile",
       "deployment_target": "infra/kubernetes/cicd-runtime/agents",
       "deploy_handler": "scripts/ci/deploy/agents.sh",
