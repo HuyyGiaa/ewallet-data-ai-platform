@@ -1,0 +1,12 @@
+direction
+to
+node
+81d1c97b5c72ed04cbfa7b4802e29bcd67160fee
+create-time
+1794073134219
+events
+
+send-buffer-allocated
+48
+send-buffer-used
+48

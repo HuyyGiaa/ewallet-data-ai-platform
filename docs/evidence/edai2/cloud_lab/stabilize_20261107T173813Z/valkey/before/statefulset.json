@@ -1,0 +1,142 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "StatefulSet",
+    "metadata": {
+        "annotations": {
+            "meta.helm.sh/release-name": "substrate",
+            "meta.helm.sh/release-namespace": "ate-system"
+        },
+        "creationTimestamp": "2026-11-02T12:28:56Z",
+        "generation": 1,
+        "labels": {
+            "app.kubernetes.io/managed-by": "Helm"
+        },
+        "name": "valkey-cluster",
+        "namespace": "ate-system",
+        "resourceVersion": "1794072414766975024",
+        "uid": "71a62b0a-5e85-4098-ac1b-9af8a0c74805"
+    },
+    "spec": {
+        "persistentVolumeClaimRetentionPolicy": {
+            "whenDeleted": "Retain",
+            "whenScaled": "Retain"
+        },
+        "podManagementPolicy": "Parallel",
+        "replicas": 6,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "app": "valkey-cluster"
+            }
+        },
+        "serviceName": "valkey-cluster-service",
+        "template": {
+            "metadata": {
+                "labels": {
+                    "app": "valkey-cluster"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "command": [
+                            "valkey-server",
+                            "/etc/valkey/valkey.conf"
+                        ],
+                        "image": "valkey/valkey:8.0@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "valkey",
+                        "ports": [
+                            {
+                                "containerPort": 6379,
+                                "name": "valkey",
+                                "protocol": "TCP"
+                            },
+                            {
+                                "containerPort": 16379,
+                                "name": "bus",
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "resources": {
+                            "limits": {
+                                "cpu": "250m",
+                                "memory": "256Mi"
+                            },
+                            "requests": {
+                                "cpu": "25m",
+                                "memory": "64Mi"
+                            }
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/etc/valkey",
+                                "name": "config"
+                            },
+                            {
+                                "mountPath": "/data",
+                                "name": "data"
+                            }
+                        ]
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30,
+                "volumes": [
+                    {
+                        "configMap": {
+                            "defaultMode": 420,
+                            "name": "valkey-config"
+                        },
+                        "name": "config"
+                    }
+                ]
+            }
+        },
+        "updateStrategy": {
+            "rollingUpdate": {
+                "partition": 0
+            },
+            "type": "RollingUpdate"
+        },
+        "volumeClaimTemplates": [
+            {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": {
+                    "name": "data"
+                },
+                "spec": {
+                    "accessModes": [
+                        "ReadWriteOnce"
+                    ],
+                    "resources": {
+                        "requests": {
+                            "storage": "256Mi"
+                        }
+                    },
+                    "volumeMode": "Filesystem"
+                },
+                "status": {
+                    "phase": "Pending"
+                }
+            }
+        ]
+    },
+    "status": {
+        "availableReplicas": 6,
+        "collisionCount": 0,
+        "currentReplicas": 6,
+        "currentRevision": "valkey-cluster-566c79b87b",
+        "observedGeneration": 1,
+        "readyReplicas": 6,
+        "replicas": 6,
+        "updateRevision": "valkey-cluster-566c79b87b",
+        "updatedReplicas": 6
+    }
+}

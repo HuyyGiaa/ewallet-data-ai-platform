@@ -1,0 +1,28 @@
+# Server
+redis_version:7.2.4
+server_name:valkey
+valkey_version:8.0.12
+redis_git_sha1:00000000
+redis_git_dirty:0
+redis_build_id:8248de7ecbf175da
+server_mode:cluster
+os:Linux 6.12.110+ x86_64
+arch_bits:64
+monotonic_clock:POSIX clock_gettime
+multiplexing_api:epoll
+gcc_version:14.2.0
+process_id:1
+process_supervised:no
+run_id:f9d8d03652944a5dd74c90abacb1c0c73dc89a7d
+tcp_port:6379
+server_time_usec:1794073142442309
+uptime_in_seconds:956
+uptime_in_days:0
+hz:10
+configured_hz:10
+lru_clock:15688246
+executable:/data/valkey-server
+config_file:/etc/valkey/valkey.conf
+io_threads_active:0
+availability_zone:
+listener0:name=tcp,bind=*,bind=-::*,port=6379

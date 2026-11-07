@@ -1,0 +1,34 @@
+== cluster check
+   slots:[0-5460] (5461 slots) master
+   1 additional replica(s)
+M: 1724449773eeea818b88ec2a39d0e7b1da14b7d5 10.216.1.24:6379
+   slots:[10923-16383] (5461 slots) master
+   1 additional replica(s)
+S: 34207b4beee1c1605c233ceafbb5eb375e83ec8e 10.216.2.11:6379
+   slots: (0 slots) slave
+   replicates 2a8bb94915f4a019ebd1484dced9ecc56c1f832c
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+== synthetic write/read via cluster-mode client (follows MOVED), keys spread over all three shards
+OK OK OK OK OK OK 
+key a slot=2096 read_via_valkey5=ok-a
+key b slot=14419 read_via_valkey5=ok-b
+key c slot=10354 read_via_valkey5=ok-c
+key d slot=6293 read_via_valkey5=ok-d
+key e slot=2228 read_via_valkey5=ok-e
+key f slot=14551 read_via_valkey5=ok-f
+== cleanup
+1 1 1 1 1 1 
+0 0 0 0 0 0  (exists after cleanup)
+== existing data readable (key names only, values not printed)
+valkey-0: actor:kagent-pilot:asr<id> actor:kagent-pilot:asr-kagent-pilot-pilot-sandbox-agent-pilot-session-1 worker:kagent-pilot:kagent-pilot:kagent-pilot-deployment-9b94d6787-6bpkm worker:kagent-pilot:kagent-pilot:kagent-pilot-deployment-9b94d6787-7l2ws 
+valkey-1: actor:kagent-pilot:asr<id> worker:kagent-pilot:kagent-pilot:kagent-pilot-deployment-9b94d6787-wh7hm 
+valkey-2: actor:ate-golden:<id> actor:kagent-pilot:asr<id> atespace:ate-golden atespace:kagent-pilot 
+valkey-0 role:master connected_slaves:1 master_repl_offset:1158 
+valkey-1 role:master connected_slaves:1 master_repl_offset:497 
+valkey-2 role:master connected_slaves:1 master_repl_offset:497 
+valkey-3 role:slave master_link_status:up connected_slaves:0 master_repl_offset:497 
+valkey-4 role:slave master_link_status:up connected_slaves:0 master_repl_offset:1158 
+valkey-5 role:slave master_link_status:up connected_slaves:0 master_repl_offset:497 

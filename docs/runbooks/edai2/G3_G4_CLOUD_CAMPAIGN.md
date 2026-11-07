@@ -486,3 +486,48 @@ Use `kubectl scale --replicas=0` under the experiment package's approval, and re
 **Billing.** Credit cannot be read from the API. The wake waits for the owner's console check.
 
 **Budget for 8 hours:** about $8.0 gross, or $8.8 if the cluster fee is not offset by the free tier, all against Free Trial credit.
+
+### G4.5: runtime stabilization after the GKE auto-upgrade (2026-11-07)
+
+Evidence: `docs/evidence/edai2/cloud_lab/stabilize_20261107T173813Z`. The only mutations were 6 `CLUSTER MEET` commands and 6 synthetic Valkey keys, which were written and then deleted. Nothing else changed: no restarts, Helm, scaling, labels, PDBs or Terraform.
+
+| Area | Result |
+|---|---|
+| GKE | Two operations, both DONE:<br>- `UPGRADE_MASTER` 15:58–16:06Z;<br>- `UPGRADE_NODES` 16:13–17:26Z: 5/5 nodes, 0 failed. PDB delay 3598 s, from `drift-mcp` (`minAvailable: 1`, 1 replica).<br>All 5 nodes are Ready on `1.36.4-gke.2377000`. `ewallet.io/g3-llm=true` is on exactly cbl0, jt0h and wcka, so no relabel was needed. |
+| Valkey | Root cause E (A+B+C): every node had stale self and peer addresses.<br>Fixed with one 6-MEET sequence: all `myself` addresses are now correct, 16,384 slots, `--cluster check` OK, a `-c` client read and wrote in all 3 shards, and existing keys are readable.<br>The node IDs and the master/replica pairs did not change. One automatic in-pair failover: `1724…` is now master of 10923–16383. |
+| Agent runtime | `ate-api-server` and `kagent-controller` became Ready through their own backoff.<br>Synthetic A2A: HTTP 200, `completed`, 2.57 s. Coordinator → Specialist → MCP gateway → `feature_lookup` (486 ms) and `fraud_scoring` (273 ms). Model version 1, probability 0.0639895560144887, trace `a6979d141c65491146a1d48aacd89aa7`. |
+| Serving | Both APIs run `dbaf8b70…` under KSAs `fraud-api` and `feature-api` (own GSAs). `ewallet-serving` r1; predictor `cba90c22…`.<br>One lookup returned 200 in 0.28 s, with values identical to Package 4. One predict returned 200 in 0.39 s, probability 0.0639895560144887, correlation ID echoed. |
+| Capacity | 19.6 CPU allocatable, 13.7 requested (70%), 5.9 free; memory 47% requested. cbl0 is at 98% CPU requests. |
+| Still broken, out of scope | Kubeflow `persistenceagent` and `scheduledworkflow` are stuck in `Init:0/1` (network policies; no change made). |
+
+**Maintenance policy (recommendation only, not applied).** The current state:
+- REGULAR channel, node auto-upgrade on;
+- `maintenancePolicy` is empty, so GKE may upgrade at any time;
+- `1.37.1-gke.1552000` is already valid on REGULAR;
+- Terraform's `modules/gke` has no `maintenance_policy`.
+
+Recommendation:
+1. **Recurring window**, every day 18:00–22:00 UTC (01:00–05:00 ICT), outside campaign hours.
+2. **Campaign exclusion** with scope `no_minor_or_node_upgrades`, only for the campaign days and at most 14 days. Control-plane security patches still apply. Remove it when the campaign ends.
+
+Neither cancels an operation already running; none is running now. Applying them by gcloud creates Terraform drift in `module.gke`. That is harmless while this state is never applied untargeted, but add a matching `maintenance_policy` block before any future full apply.
+
+```bash
+gcloud container clusters update ewallet-dev --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26 \
+  --maintenance-window-start=2026-11-08T18:00:00Z --maintenance-window-end=2026-11-08T22:00:00Z \
+  --maintenance-window-recurrence='FREQ=DAILY'
+gcloud container clusters update ewallet-dev --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26 \
+  --add-maintenance-exclusion-name=edai2-campaign --add-maintenance-exclusion-start=<start> \
+  --add-maintenance-exclusion-end=<start + ≤14 days> --add-maintenance-exclusion-scope=no_minor_or_node_upgrades
+# Rollback
+gcloud container clusters update ewallet-dev --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26 --remove-maintenance-exclusion=edai2-campaign
+gcloud container clusters update ewallet-dev --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26 --clear-maintenance-window
+```
+
+**Package 5 readiness.**
+
+| Package | State | What it still needs |
+|---|---|---|
+| 5-A Locust (P-A2) | Ready | Use the Package 4 `fixture/verified.jsonl`: 500/500 verified against the online window. The raw `split=test` snapshot falls outside the Feast window. One 1-minute smoke run per target first. |
+| 5-B serving KEDA (P-A3) | Ready after 5-A | KEDA is not installed: 0 CRDs, no `keda` namespace. The thresholds come from the 5-A fixed arms. The `helm upgrade llm-agent` scrape-job step also restarts Grafana and Prometheus (checksum drift). The R1 handover is required. |
+| 5-C agent KEDA (P-A4) | Needs approvals | The agents still run r41 images (`483dd943…`, `5f848a1c…`), not `b84d8c7e…` / `a88404fa…`. First the chart refresh, then image promotion, then the `transferHpa` overlay; 3 HPAs (2/3 replicas) exist today. Synthetic prompts only (R8-P1). |

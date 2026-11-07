@@ -1,0 +1,10 @@
+view 0: ids=6 replicas->master {'1724449773ee': '2f14ae475598', '34207b4beee1': '2a8bb94915f4', '81d1c97b5c72': '29573e658d09'}
+view 1: ids=6 replicas->master {'81d1c97b5c72': '29573e658d09', '1724449773ee': '2f14ae475598', '34207b4beee1': '2a8bb94915f4'}
+view 2: ids=6 replicas->master {'81d1c97b5c72': '29573e658d09', '34207b4beee1': '2a8bb94915f4', '1724449773ee': '2f14ae475598'}
+view 3: ids=6 replicas->master {'81d1c97b5c72': '29573e658d09', '1724449773ee': '2f14ae475598', '34207b4beee1': '2a8bb94915f4'}
+view 4: ids=6 replicas->master {'34207b4beee1': '2a8bb94915f4', '81d1c97b5c72': '29573e658d09', '1724449773ee': '2f14ae475598'}
+view 5: ids=6 replicas->master {'1724449773ee': '2f14ae475598', '81d1c97b5c72': '29573e658d09', '34207b4beee1': '2a8bb94915f4'}
+slot range 0-5460 owners {'2a8bb94915f4'}
+slot range 10923-16383 owners {'2f14ae475598'}
+slot range 5461-10922 owners {'29573e658d09'}
+coverage 16384 PRECHECK PASS

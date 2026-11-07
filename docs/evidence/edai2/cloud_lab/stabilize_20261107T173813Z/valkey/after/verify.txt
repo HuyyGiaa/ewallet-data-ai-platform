@@ -1,0 +1,14 @@
+valkey-0 state=ok assigned=16384 ok=16384 known=6 epoch=8 self=10.216.5.31:6379 self_correct=True role=master stale_addrs=[] bad_flags=[] same_ids=True keyspace=['db0:keys=3,expires=0,avg_ttl=0']
+valkey-1 state=ok assigned=16384 ok=16384 known=6 epoch=8 self=10.216.2.9:6379 self_correct=True role=master stale_addrs=[] bad_flags=[] same_ids=True keyspace=['db0:keys=2,expires=0,avg_ttl=0']
+valkey-2 state=ok assigned=16384 ok=16384 known=6 epoch=8 self=10.216.1.24:6379 self_correct=True role=master stale_addrs=[] bad_flags=[] same_ids=True keyspace=['db0:keys=4,expires=0,avg_ttl=0']
+valkey-3 state=ok assigned=16384 ok=16384 known=6 epoch=8 self=10.216.0.19:6379 self_correct=True role=slave stale_addrs=[] bad_flags=[] same_ids=True keyspace=['db0:keys=4,expires=0,avg_ttl=0']
+valkey-4 state=ok assigned=16384 ok=16384 known=6 epoch=8 self=10.216.2.11:6379 self_correct=True role=slave stale_addrs=[] bad_flags=[] same_ids=True keyspace=['db0:keys=3,expires=0,avg_ttl=0']
+valkey-5 state=ok assigned=16384 ok=16384 known=6 epoch=8 self=10.216.0.20:6379 self_correct=True role=slave stale_addrs=[] bad_flags=[] same_ids=True keyspace=['db0:keys=2,expires=0,avg_ttl=0']
+roles/replica-of/slots identical to before (view of node 1): False
+   1724449773ee ('master', '-', '10923-16383')
+   29573e658d09 ('master', '-', '5461-10922')
+   2a8bb94915f4 ('master', '-', '0-5460')
+   2f14ae475598 ('slave', '1724449773ee', '')
+   34207b4beee1 ('slave', '2a8bb94915f4', '')
+   81d1c97b5c72 ('slave', '29573e658d09', '')
+VERIFY FAIL

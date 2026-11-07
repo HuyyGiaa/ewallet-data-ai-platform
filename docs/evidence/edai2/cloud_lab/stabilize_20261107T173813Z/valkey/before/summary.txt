@@ -1,0 +1,13 @@
+valkey-0 ip=10.216.5.31 node=wcka ready=True pvc=['data-valkey-cluster-0'] myid=2a8bb94915f4 self_addr=10.216.1.95:6379 role=myself,master state=fail slots_ok=5461 epoch=7 version=8.0.12 announce_ip=['']
+valkey-1 ip=10.216.2.9 node=zm4y ready=True pvc=['data-valkey-cluster-1'] myid=29573e658d09 self_addr=10.216.1.14:6379 role=myself,master state=fail slots_ok=5462 epoch=7 version=8.0.12 announce_ip=['']
+valkey-2 ip=10.216.1.24 node=h874 ready=True pvc=['data-valkey-cluster-2'] myid=1724449773ee self_addr=10.216.1.15:6379 role=myself,slave state=fail slots_ok=0 epoch=7 version=8.0.12 announce_ip=['']
+valkey-3 ip=10.216.0.19 node=jt0h ready=True pvc=['data-valkey-cluster-3'] myid=2f14ae475598 self_addr=10.216.1.17:6379 role=myself,master state=fail slots_ok=5461 epoch=7 version=8.0.12 announce_ip=['']
+valkey-4 ip=10.216.2.11 node=zm4y ready=True pvc=['data-valkey-cluster-4'] myid=34207b4beee1 self_addr=10.216.1.11:6379 role=myself,slave state=fail slots_ok=0 epoch=7 version=8.0.12 announce_ip=['']
+valkey-5 ip=10.216.0.20 node=jt0h ready=True pvc=['data-valkey-cluster-5'] myid=81d1c97b5c72 self_addr=10.216.1.16:6379 role=myself,slave state=fail slots_ok=0 epoch=7 version=8.0.12 announce_ip=['']
+--- view from node 1 (peer addresses)
+   2f14ae475598 10.216.1.17:6379 master,fail? disconnected 10923-16383
+   81d1c97b5c72 10.216.1.16:6379 slave,fail? connected 
+   2a8bb94915f4 10.216.1.12:6379 master,fail? disconnected 0-5460
+   1724449773ee 10.216.1.15:6379 slave,fail? disconnected 
+   29573e658d09 10.216.1.14:6379 myself,master connected 5461-10922
+   34207b4beee1 10.216.1.11:6379 slave,fail? disconnected 

@@ -1,0 +1,23 @@
+== KEDA
+0
+Error from server (NotFound): namespaces "keda" not found
+error: the server doesn't have a resource type "scaledobjects"
+== agent images and HPAs
+fraud-coordinator asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+feature-rag-specialist asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:5f848a1ce7942f4fd5027264bc54c3164d09065d3c8932fcd4a93bce8db57606
+drift-specialist         Deployment/drift-specialist         cpu: 1%/60%   2     3     2     5d5h
+feature-rag-specialist   Deployment/feature-rag-specialist   cpu: 4%/60%   2     3     2     5d5h
+fraud-coordinator        Deployment/fraud-coordinator        cpu: 4%/60%   2     3     2     5d5h
+ewallet-serving ml-platform 1 deployed ewallet-serving-0.1.0
+llm-agent default 41 deployed llm-agent-platform-0.1.0
+llm-agent-mcp ewallet-mcp 6 deployed llm-agent-platform-0.1.0
+prompt-registry ewallet-prompts 1 deployed agentregistry-0.4.0
+== locust fixture snapshot
+gs://ewallet-data-ai-platform-hg26-data/ml/training-snapshots/canonical-100gb-v1/training-20261031-151638-ml2/split=test/part-00000.parquet
+== scripts
+scripts/experiments/agent_experiment.sh
+scripts/llm_agent/keda_install.sh
+scripts/serving/fraud_api_keda_handover.sh
+66:## P-A2: Real API Locust
+== release_state check (read-only)
+scripts/ci/release_state.py

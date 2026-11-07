@@ -1,0 +1,4 @@
+{"actor_id": "feature-rag-specialist", "duration_ms": 485.705, "error_code": null, "event": "tool_call_completed", "request_id": "g45-synthetic-16a14e23dcbc", "status": "ok", "tool_name": "feature_lookup"}
+{"duration_seconds":0.486936,"event":"mcp.tool.completed","outcome":"success","service":"feature-rag-mcp","severity":"INFO","span_id":"7eb68dc0849dfd4b","timestamp":"2026-11-07T17:47:22.827867+00:00","tool":"feature_lookup","trace_id":"a6979d141c65491146a1d48aacd89aa7"}
+{"actor_id": "feature-rag-specialist", "duration_ms": 273.07, "error_code": null, "event": "tool_call_completed", "request_id": "g45-synthetic-16a14e23dcbc", "status": "ok", "tool_name": "fraud_scoring"}
+{"duration_seconds":0.273471,"event":"mcp.tool.completed","outcome":"success","service":"feature-rag-mcp","severity":"INFO","span_id":"9dfcd22af5c576ee","timestamp":"2026-11-07T17:47:23.126771+00:00","tool":"fraud_scoring","trace_id":"a6979d141c65491146a1d48aacd89aa7"}

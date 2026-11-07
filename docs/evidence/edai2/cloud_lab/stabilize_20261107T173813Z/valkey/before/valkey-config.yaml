@@ -1,0 +1,22 @@
+apiVersion: v1
+data:
+  valkey.conf: |
+    # Plaintext: serve on the standard port, no TLS.
+    port 6379
+    cluster-enabled yes
+    cluster-config-file nodes.conf
+    cluster-node-timeout 5000
+    appendonly yes
+    protected-mode no
+kind: ConfigMap
+metadata:
+  annotations:
+    meta.helm.sh/release-name: substrate
+    meta.helm.sh/release-namespace: ate-system
+  creationTimestamp: "2026-11-02T12:28:55Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: valkey-config
+  namespace: ate-system
+  resourceVersion: "1793622535169151024"
+  uid: 585f9023-a06a-4936-b6c6-7bc4a782f459

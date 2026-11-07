@@ -1,0 +1,14 @@
+== runtime identity
+fraud-api sa=fraud-api image=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803 ready=1/1
+feature-api sa=feature-api image=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803 ready=1/1
+feature-api-6cbcbd7b59-llcdv   1/1   Running   0     22m
+fraud-api-777c8454-tkzr5       1/1   Running   0     22m
+fraud-api gsa=ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+feature-api gsa=ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+NAME           	NAMESPACE  	REVISION	UPDATED                                	STATUS  	CHART                	APP VERSION
+ewallet-serving	ml-platform	1       	2026-11-07 22:57:35.452406037 +0700 +07	deployed	ewallet-serving-0.1.0	1          
+Error from server (NotFound): inferenceservices.serving.kserve.io "fraud-detector" not found
+fraud-serving/fraud-detector ready=True
+fraud-detector-predictor-6b649bc8b6-8hc2x node=gke-ewallet-dev-cpu-pool-58daed59-wcka kserve-container=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896 
+feature-api-6cbcbd7b59-llcdv asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803
+fraud-api-777c8454-tkzr5 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803

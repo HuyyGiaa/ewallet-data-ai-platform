@@ -1,0 +1,50 @@
+INFO:     169.254.7.127:54768 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:60550 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:51664 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:34840 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36312 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:55802 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36354 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:44272 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:56804 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:40818 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:42240 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33244 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36190 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:41774 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:59180 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:43448 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33970 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:54938 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:47592 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:47046 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:35920 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:44196 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:44494 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:47824 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:39336 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36388 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:56070 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:58330 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33246 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:43354 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36104 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:40874 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:50514 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:49296 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:59026 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:43678 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:45336 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:33028 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+INFO:     169.254.7.127:36624 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+2026-11-07 17:47:21,095 - ewallet.agent.audit - INFO - coordinator.task_started task_id=5abca7dd-705e-4b27-a6f2-015d622c688d context_id=2b2748d9-b866-4e6a-a361-e90da44b4146 mode=typed
+2026-11-07 17:47:21,488 - httpx - INFO - HTTP Request: GET http://kagent-controller.kagent:8083/api/tasks/5abca7dd-705e-4b27-a6f2-015d622c688d "HTTP/1.1 404 Not Found"
+2026-11-07 17:47:21,490 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 5abca7dd-705e-4b27-a6f2-015d622c688d, context_id: 2b2748d9-b866-4e6a-a361-e90da44b4146).
+2026-11-07 17:47:21,513 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-07 17:47:21,522 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-07 17:47:23,209 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/ "HTTP/1.1 200 OK"
+2026-11-07 17:47:23,216 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=g45-synthetic-16a14e23dcbc task_id=5abca7dd-705e-4b27-a6f2-015d622c688d mode=typed status=ok duration_ms=2121
+2026-11-07 17:47:23,230 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+2026-11-07 17:47:23,288 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+INFO:     127.0.0.1:56922 - "POST / HTTP/1.1" 200 OK
+INFO:     169.254.7.127:45200 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK

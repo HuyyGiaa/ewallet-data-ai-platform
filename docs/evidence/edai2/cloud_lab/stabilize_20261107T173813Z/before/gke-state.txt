@@ -1,0 +1,22 @@
+2026-11-07T17:38:13Z
+--- operation
+operation-1794068019362-71bcc4a3-ce72-4ad8-8ffe-1d0851161c8a	DONE	2026-11-07T16:13:39.362693234Z	2026-11-07T17:26:53.665366697Z
+{'intValue': '5', 'name': 'NODES_TOTAL'};{'intValue': '0', 'name': 'NODES_FAILED'};{'intValue': '5', 'name': 'NODES_COMPLETE'};{'intValue': '5', 'name': 'NODES_DONE'};{'intValue': '3598', 'name': 'NODE_PDB_DELAY_SECONDS'}		
+--- pool/MIG
+1.36.4-gke.2377000		1	SURGE	RUNNING
+gke-ewallet-dev-cpu-pool-58daed59-grp	5	5
+--- nodes
+gke-ewallet-dev-cpu-pool-58daed59-cbl0   True   v1.36.4-gke.2377000   true     <none>
+gke-ewallet-dev-cpu-pool-58daed59-h874   True   v1.36.4-gke.2377000   <none>   <none>
+gke-ewallet-dev-cpu-pool-58daed59-jt0h   True   v1.36.4-gke.2377000   true     <none>
+gke-ewallet-dev-cpu-pool-58daed59-wcka   True   v1.36.4-gke.2377000   true     <none>
+gke-ewallet-dev-cpu-pool-58daed59-zm4y   True   v1.36.4-gke.2377000   <none>   <none>
+--- PDB zero-disruption
+ewallet-agents   drift-mcp                               1     N/A   0     6d
+ewallet-mcp      drift-mcp                               1     N/A   0     5d21h
+--- not running
+kagent            kagent-controller-58fc5667dc-r5jxd                    0/1   CrashLoopBackOff   17 (3m15s ago)   77m
+kubeflow          ml-pipeline-persistenceagent-7bbbc8977f-7wpcb         0/1   Init:0/1           10 (2m45s ago)   83m
+kubeflow          ml-pipeline-scheduledworkflow-766f78cc69-89wn5        0/1   Init:0/1           9 (5m46s ago)    77m
+--- PVC
+     15 Bound

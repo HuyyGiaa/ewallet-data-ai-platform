@@ -95,7 +95,30 @@ pods. System namespaces are left alone. `wake-full` later restores everything.
 
   All six nodes reached `cluster_state:ok` within about 20 seconds, with all slots OK and the node IDs unchanged. One shard failed over to its replica automatically, with the same slot range. Synthetic read and write worked in every slot range. `ate-api-server` was Ready about 6 minutes later, and `kagent-controller` about 10 minutes later, through their own backoff; nothing was restarted by hand.
 
-  **Residual:** `valkey-cluster-0` still advertises its old IP for itself, while its peers have the new one. A client that reads `CLUSTER SLOTS` from node 0 gets a stale address for slots 0–5460. Fixing that takes one `CLUSTER MEET` back to node 0 from another node; it needs a separate approval. Never use `CLUSTER RESET`, `FLUSHALL`, a reshard, or edit `nodes.conf`.
+  **Residual of that first recovery:** `valkey-cluster-0` sent the MEETs but never received one, so it kept its old self-address.
+
+  **Every pod move repeats the failure (G4.5, 2026-11-07).** The GKE node upgrade rescheduled all six pods. Afterwards every node advertised a stale address for *itself* and for its peers. `ate-api` (go-redis cluster client) dialled a stale address, `10.216.1.17`. The root cause combines three things:
+  - stale peer addresses (A);
+  - stale self-addresses on all six nodes (B);
+  - `nodes.conf` on the PVC, with no `cluster-announce-ip` in `valkey-config` (C).
+
+  Valkey sets its own address from the socket of an incoming `CLUSTER MEET` when `cluster-announce-ip` is empty. So the bounded sequence must deliver a MEET **to every node, including the sender**:
+  1. Run the same prechecks: six known IDs, one slot map, 16,384 slots.
+  2. From `valkey-cluster-1`, `CLUSTER MEET <current IP> 6379` to pods 0, 2, 3, 4 and 5.
+  3. From `valkey-cluster-0`, `CLUSTER MEET <current IP of pod 1> 6379`.
+  4. Verify:
+     - every `myself` address equals its pod IP;
+     - no `fail`, `handshake` or `noaddr` flags;
+     - `valkey-cli --cluster check` reports OK;
+     - a `-c` read and write in all three shards, then delete the keys.
+
+  This took 6 MEETs, with no `CONFIG SET`, and reached `cluster_state:ok` within 20 seconds. Again one shard failed over inside its own pair. Evidence: `docs/evidence/edai2/cloud_lab/stabilize_20261107T173813Z/valkey`.
+
+  **Durable fix (needs its own approval, not applied):** set `cluster-announce-ip` from the pod IP at start-up. Use a `POD_IP` downward-API env and `--cluster-announce-ip $(POD_IP)` in the `valkey-cluster` StatefulSet, or announce hostnames through a headless Service. Changing the StatefulSet restarts the pods one by one. Until then, every wake, node upgrade or repair needs the sequence above.
+
+  **Placement.** There is no pod anti-affinity. After G4.5 each shard happens to span two nodes, but the scheduler gives no guarantee: before the upgrade all six pods sat on one node.
+
+  Never use `CLUSTER RESET`, `FLUSHALL`, a reshard, or edit `nodes.conf`.
 - **Observability history is gone.** Prometheus, Loki and Tempo used `emptyDir`.
   Grafana dashboards come from ConfigMaps and survive. Repository evidence is unaffected.
 - **Third-party images.** 19 images use tags, and many come from Docker Hub,

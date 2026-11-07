@@ -1,0 +1,7 @@
+configmap/ate-api-server-envvars
+configmap/ateapi-ca
+configmap/atenet-router-agentgateway-config
+configmap/istio-ca-crl
+configmap/istio-ca-root-cert
+configmap/kube-root-ca.crt
+configmap/valkey-config

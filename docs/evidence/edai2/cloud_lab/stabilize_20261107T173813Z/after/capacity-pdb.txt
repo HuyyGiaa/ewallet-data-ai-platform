@@ -1,0 +1,32 @@
+== PDBs with zero allowed disruptions
+ewallet-agents/drift-mcp min=1 maxUnavail= healthy=1/1 allowed=0
+ewallet-mcp/drift-mcp min=1 maxUnavail= healthy=1/1 allowed=0
+== drift-mcp pods
+ewallet-agents   drift-mcp-c845bfc5f-6ql2l    1/1   Running   0     28m   10.216.0.18   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>   <none>
+ewallet-mcp      drift-mcp-55d97bff46-q56ck   1/1   Running   0     28m   10.216.0.17   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>   <none>
+ewallet-agents    drift-mcp                            1/1   1     1     6d
+ewallet-mcp       drift-mcp                            1/1   1     1     5d21h
+== node allocation
+cbl0  pods=26 llm=true
+h874  pods=33 llm=
+jt0h  pods=34 llm=true
+wcka  pods=38 llm=true
+zm4y  pods=22 llm=
+== valkey placement
+valkey-cluster-0   gke-ewallet-dev-cpu-pool-58daed59-wcka
+valkey-cluster-1   gke-ewallet-dev-cpu-pool-58daed59-zm4y
+valkey-cluster-2   gke-ewallet-dev-cpu-pool-58daed59-h874
+valkey-cluster-3   gke-ewallet-dev-cpu-pool-58daed59-jt0h
+valkey-cluster-4   gke-ewallet-dev-cpu-pool-58daed59-zm4y
+valkey-cluster-5   gke-ewallet-dev-cpu-pool-58daed59-jt0h
+== kubeflow blocked pods: init container status
+ml-pipeline-persistenceagent-7bbbc8977f-7wpcb      0/1   Init:0/1   11 (5m58s ago)   94m
+ml-pipeline-scheduledworkflow-766f78cc69-89wn5     0/1   Init:0/1   11 (111s ago)    88m
+node  alloc_cpu req_cpu  alloc_mem_GiB req_mem_GiB
+node  alloc_cpu req_cpu  alloc_mem_GiB req_mem_GiB
+cbl0  3.92  3.86 (98%)  13.0  9.0 (70%)
+h874  3.92  2.33 (59%)  13.0  4.9 (38%)
+jt0h  3.92  2.28 (58%)  13.0  6.0 (46%)
+wcka  3.92  2.47 (63%)  13.0  5.4 (42%)
+zm4y  3.92  2.80 (71%)  13.0  5.1 (39%)
+total 19.60 cpu, requested 13.73 (70%); free 5.87 cpu; mem 64.8 GiB, requested 30.4 (47%); free 34.4 GiB
