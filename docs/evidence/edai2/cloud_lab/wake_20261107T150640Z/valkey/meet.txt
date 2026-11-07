@@ -1,0 +1,5 @@
+15:32:05 valkey-cluster-0: CLUSTER MEET 10.216.1.14 6379 (valkey-cluster-1) -> OK
+15:32:06 valkey-cluster-0: CLUSTER MEET 10.216.1.15 6379 (valkey-cluster-2) -> OK
+15:32:08 valkey-cluster-0: CLUSTER MEET 10.216.1.17 6379 (valkey-cluster-3) -> OK
+15:32:10 valkey-cluster-0: CLUSTER MEET 10.216.1.11 6379 (valkey-cluster-4) -> OK
+15:32:11 valkey-cluster-0: CLUSTER MEET 10.216.1.16 6379 (valkey-cluster-5) -> OK

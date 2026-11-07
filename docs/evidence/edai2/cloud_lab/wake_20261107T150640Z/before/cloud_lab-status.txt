@@ -1,0 +1,7 @@
+{
+  "cluster": "ewallet-dev",
+  "pool": "cpu-pool",
+  "pool_status": "RUNNING",
+  "pool_autoscaling": {},
+  "pool_vms": []
+}

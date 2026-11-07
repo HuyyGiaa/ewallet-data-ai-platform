@@ -1,0 +1,6 @@
+valkey-0: cluster_state:fail  cluster_slots_assigned:16384  cluster_known_nodes:6  
+valkey-1: cluster_state:fail  cluster_slots_assigned:16384  cluster_known_nodes:6  
+valkey-2: cluster_state:fail  cluster_slots_assigned:16384  cluster_known_nodes:6  
+valkey-3: cluster_state:fail  cluster_slots_assigned:16384  cluster_known_nodes:6  
+valkey-4: cluster_state:fail  cluster_slots_assigned:16384  cluster_known_nodes:6  
+valkey-5: cluster_state:fail  cluster_slots_assigned:16384  cluster_known_nodes:6  

@@ -1,0 +1,50 @@
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:37082 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:59674 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:57874 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:47502 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:42502 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:36288 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:49700 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:39362 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:41516 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:54488 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:39760 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:55194 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:59780 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:54486 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:41044 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:42936 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:56572 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:55938 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:53896 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:42454 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:50404 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:56046 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:38674 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:34316 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:46196 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:54892 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:46362 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:50716 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:44622 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:35618 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:48844 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:57084 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:33124 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:41002 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:35678 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:56758 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:33894 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:53162 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:44222 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:11,240 - ewallet.agent.audit - INFO - coordinator.task_started task_id=88822e34-0b2e-43c5-9383-24b61c825e95 context_id=38df057c-bc45-4cce-87bd-d8366e4440f2 mode=typed
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:11,529 - httpx - INFO - HTTP Request: GET http://kagent-controller.kagent:8083/api/tasks/88822e34-0b2e-43c5-9383-24b61c825e95 "HTTP/1.1 404 Not Found"
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:11,530 - a2a.server.tasks.task_manager - INFO - Task not found or task_id not set. Creating new task for event (task_id: 88822e34-0b2e-43c5-9383-24b61c825e95, context_id: 38df057c-bc45-4cce-87bd-d8366e4440f2).
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:11,547 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:11,557 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:12,879 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/ "HTTP/1.1 200 OK"
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:12,886 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=g3-wake-smoke-20261107T154348Z task_id=88822e34-0b2e-43c5-9383-24b61c825e95 mode=typed status=ok duration_ms=1646
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:12,896 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] 2026-11-07 15:44:12,905 - httpx - INFO - HTTP Request: POST http://kagent-controller.kagent:8083/api/tasks "HTTP/1.1 201 Created"
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     127.0.0.1:45716 - "POST / HTTP/1.1" 200 OK
+[pod/fraud-coordinator-7dccdc448c-l6s77/kagent] INFO:     169.254.7.127:41548 - "GET /.well-known/agent-card.json HTTP/1.1" 200 OK

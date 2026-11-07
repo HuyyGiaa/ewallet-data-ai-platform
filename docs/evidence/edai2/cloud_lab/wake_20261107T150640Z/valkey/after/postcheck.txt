@@ -1,0 +1,14 @@
+node 0: state=ok slots_ok=16384 slots_fail=0 ids_same=True fail_flags=[] disconnected=[]
+node 1: state=ok slots_ok=16384 slots_fail=0 ids_same=True fail_flags=[] disconnected=[]
+node 2: state=ok slots_ok=16384 slots_fail=0 ids_same=True fail_flags=[] disconnected=[]
+node 3: state=ok slots_ok=16384 slots_fail=0 ids_same=True fail_flags=[] disconnected=[]
+node 4: state=ok slots_ok=16384 slots_fail=0 ids_same=True fail_flags=[] disconnected=[]
+node 5: state=ok slots_ok=16384 slots_fail=0 ids_same=True fail_flags=[] disconnected=[]
+   81d1c97b5c72 10.216.1.16:6379 slave 
+   29573e658d09 10.216.1.14:6379 master ['5461-10922']
+   2f14ae475598 10.216.1.17:6379 master ['10923-16383']
+   1724449773ee 10.216.1.15:6379 slave 
+   34207b4beee1 10.216.1.11:6379 slave 
+   2a8bb94915f4 10.216.1.95:6379 myself,master ['0-5460']
+master slot map unchanged: False
+POSTCHECK FAIL

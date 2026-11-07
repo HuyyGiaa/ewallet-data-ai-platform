@@ -1,0 +1,7 @@
+10d0 g3=true: cpu 3875/3920m (99%)  mem 8.3/13.0GiB (64%)
+3hnn g3=true: cpu 3268/3920m (83%)  mem 8.2/13.0GiB (64%)
+79wp g3=true: cpu 1818/3920m (46%)  mem 3.7/13.0GiB (28%)
+kk6f g3=-: cpu 3132/3920m (80%)  mem 7.1/13.0GiB (55%)
+rk2f g3=-: cpu 1383/3920m (35%)  mem 2.6/13.0GiB (20%)
+TOTAL requests cpu 13476/19600m (69%), mem 29.9/64.8GiB (46%); unscheduled pods: 0
+g3-llm nodes: cpu 8961/11760m, mem 20.2/38.9GiB

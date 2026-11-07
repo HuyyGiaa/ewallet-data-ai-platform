@@ -1,0 +1,6 @@
+key=g0wake:a slot=3314 set=OK get=synthetic del=1
+key=g0wake:b slot=15505 set=OK get=synthetic del=1
+key=g0wake:c slot=11440 set=OK get=synthetic del=1
+key=g0wake:d slot=7255 set=OK get=synthetic del=1
+key=g0wake:e slot=3190 set=OK get=synthetic del=1
+key=g0wake:f slot=15381 set=OK get=synthetic del=1

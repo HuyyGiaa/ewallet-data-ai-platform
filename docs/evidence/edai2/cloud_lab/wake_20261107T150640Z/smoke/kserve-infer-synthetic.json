@@ -1,0 +1,2 @@
+{"model_name":"fraud-detector","model_version":"1","id":"wake-smoke-synthetic","parameters":null,"outputs":[{"name":"fraud_probability","shape":[1],"datatype":"FP64","parameters":null,"data":[0.20896585312743782]},{"name":"fraud_prediction","shape":[1],"datatype":"INT64","parameters":null,"data":[0]}]}
+http=200

@@ -1,0 +1,16 @@
+NAMESPACE         NAME                                   STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE     VOLUMEMODE
+ate-system        data-valkey-cluster-0                  Bound    pvc-67e5b27b-eab9-4432-8893-e27be9e97b5e   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ate-system        data-valkey-cluster-1                  Bound    pvc-438af628-dd28-492c-ad6f-d8928315a9ba   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ate-system        data-valkey-cluster-2                  Bound    pvc-93854a67-cf39-42c6-9caa-81105121c892   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ate-system        data-valkey-cluster-3                  Bound    pvc-16d4ee07-d52c-4ac2-b5fa-e35878aba498   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ate-system        data-valkey-cluster-4                  Bound    pvc-a1f4de45-263c-4bc6-bf07-28896749e7b8   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ate-system        data-valkey-cluster-5                  Bound    pvc-c21e432e-6460-4e9c-af3d-c41c2e219223   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ate-system        rustfs-data                            Bound    pvc-524748f5-14d5-4b8a-bcf1-23ee4d5389ee   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ewallet-agents    data-coordinator-idempotency-redis-0   Bound    pvc-9599e1dc-ebf0-491c-a7f4-72f06061ae12   1Gi        RWO            standard-rwo   <unset>                 5d3h    Filesystem
+ewallet-ci        jenkins-home                           Bound    pvc-39eef168-18c6-44cd-a6d9-c718b57ddbc9   16Gi       RWO            standard-rwo   <unset>                 5d      Filesystem
+ewallet-prompts   prompt-registry-db                     Bound    pvc-831247e8-eef1-4749-a2fa-2c942b86c936   1Gi        RWO            standard-rwo   <unset>                 4d7h    Filesystem
+feature-store     data-redis-0                           Bound    pvc-5e8eb19e-f92d-48e2-8468-c2bfe726be99   2Gi        RWO            standard-rwo   <unset>                 6d23h   Filesystem
+kagent            kagent-postgresql                      Bound    pvc-2272b0b2-4e4a-44f6-98b3-429f94ac8816   1Gi        RWO            standard-rwo   <unset>                 5d22h   Filesystem
+kubeflow          mysql-pv-claim                         Bound    pvc-3df9eb72-4169-4fc4-aed3-01b7928e599a   20Gi       RWO            standard-rwo   <unset>                 10d     Filesystem
+kubeflow          seaweedfs-pvc                          Bound    pvc-dcaa888b-af89-48c2-945c-188a4e10109d   20Gi       RWO            standard-rwo   <unset>                 10d     Filesystem
+ml-platform       data-mlflow-postgresql-0               Bound    pvc-cb185278-ea75-4fa2-8fe5-fe07b9311e13   5Gi        RWO            standard-rwo   <unset>                 11d     Filesystem

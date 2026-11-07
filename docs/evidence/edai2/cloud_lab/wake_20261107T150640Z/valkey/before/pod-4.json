@@ -1,0 +1,294 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "annotations": {
+            "cloud.google.com/cluster_autoscaler_unhelpable_since": "2026-11-06T16:35:17+0000",
+            "cloud.google.com/cluster_autoscaler_unhelpable_until": "Inf",
+            "cni.projectcalico.org/containerID": "4f70fd81b3a6b2bfd981bcf20d4f6fee96ceb5a49008459e8dfbe8883e582a61",
+            "cni.projectcalico.org/podIP": "10.216.1.11/32",
+            "cni.projectcalico.org/podIPs": "10.216.1.11/32"
+        },
+        "creationTimestamp": "2026-11-06T16:35:15Z",
+        "generateName": "valkey-cluster-",
+        "generation": 1,
+        "labels": {
+            "app": "valkey-cluster",
+            "apps.kubernetes.io/pod-index": "4",
+            "controller-revision-hash": "valkey-cluster-566c79b87b",
+            "statefulset.kubernetes.io/pod-name": "valkey-cluster-4",
+            "topology.kubernetes.io/region": "asia-southeast1",
+            "topology.kubernetes.io/zone": "asia-southeast1-b"
+        },
+        "name": "valkey-cluster-4",
+        "namespace": "ate-system",
+        "ownerReferences": [
+            {
+                "apiVersion": "apps/v1",
+                "blockOwnerDeletion": true,
+                "controller": true,
+                "kind": "StatefulSet",
+                "name": "valkey-cluster",
+                "uid": "71a62b0a-5e85-4098-ac1b-9af8a0c74805"
+            }
+        ],
+        "resourceVersion": "1794064202965007007",
+        "uid": "22c8954a-2f36-4c5e-91d3-d9bd0275861f"
+    },
+    "spec": {
+        "containers": [
+            {
+                "command": [
+                    "valkey-server",
+                    "/etc/valkey/valkey.conf"
+                ],
+                "image": "valkey/valkey:8.0@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "valkey",
+                "ports": [
+                    {
+                        "containerPort": 6379,
+                        "name": "valkey",
+                        "protocol": "TCP"
+                    },
+                    {
+                        "containerPort": 16379,
+                        "name": "bus",
+                        "protocol": "TCP"
+                    }
+                ],
+                "resources": {
+                    "limits": {
+                        "cpu": "250m",
+                        "memory": "256Mi"
+                    },
+                    "requests": {
+                        "cpu": "25m",
+                        "memory": "64Mi"
+                    }
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                    {
+                        "mountPath": "/etc/valkey",
+                        "name": "config"
+                    },
+                    {
+                        "mountPath": "/data",
+                        "name": "data"
+                    },
+                    {
+                        "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                        "name": "kube-api-access-fsfmg",
+                        "readOnly": true
+                    }
+                ]
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "hostname": "valkey-cluster-4",
+        "nodeName": "gke-ewallet-dev-cpu-pool-58daed59-kk6f",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "subdomain": "valkey-cluster-service",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            },
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/unreachable",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            }
+        ],
+        "volumes": [
+            {
+                "name": "data",
+                "persistentVolumeClaim": {
+                    "claimName": "data-valkey-cluster-4"
+                }
+            },
+            {
+                "configMap": {
+                    "defaultMode": 420,
+                    "name": "valkey-config"
+                },
+                "name": "config"
+            },
+            {
+                "name": "kube-api-access-fsfmg",
+                "projected": {
+                    "defaultMode": 420,
+                    "sources": [
+                        {
+                            "serviceAccountToken": {
+                                "expirationSeconds": 3607,
+                                "path": "token"
+                            }
+                        },
+                        {
+                            "configMap": {
+                                "items": [
+                                    {
+                                        "key": "ca.crt",
+                                        "path": "ca.crt"
+                                    }
+                                ],
+                                "name": "kube-root-ca.crt"
+                            }
+                        },
+                        {
+                            "downwardAPI": {
+                                "items": [
+                                    {
+                                        "fieldRef": {
+                                            "apiVersion": "v1",
+                                            "fieldPath": "metadata.namespace"
+                                        },
+                                        "path": "namespace"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "status": {
+        "allocatedResources": {
+            "cpu": "25m",
+            "memory": "64Mi"
+        },
+        "conditions": [
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T15:08:37Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "PodReadyToStartContainers"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T15:08:14Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "Initialized"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T15:08:55Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "Ready"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T15:08:55Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "ContainersReady"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-11-07T15:08:14Z",
+                "observedGeneration": 1,
+                "status": "True",
+                "type": "PodScheduled"
+            }
+        ],
+        "containerStatuses": [
+            {
+                "allocatedResources": {
+                    "cpu": "25m",
+                    "memory": "64Mi"
+                },
+                "containerID": "containerd://e99524082ca135122e720600750922e347ca7403f92ee6ac888808bd982069a1",
+                "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+                "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f",
+                "lastState": {},
+                "name": "valkey",
+                "ready": true,
+                "resources": {
+                    "limits": {
+                        "cpu": "250m",
+                        "memory": "256Mi"
+                    },
+                    "requests": {
+                        "cpu": "25m",
+                        "memory": "64Mi"
+                    }
+                },
+                "restartCount": 0,
+                "started": true,
+                "state": {
+                    "running": {
+                        "startedAt": "2026-11-07T15:08:55Z"
+                    }
+                },
+                "user": {
+                    "linux": {
+                        "gid": 0,
+                        "supplementalGroups": [
+                            0
+                        ],
+                        "uid": 0
+                    }
+                },
+                "volumeMounts": [
+                    {
+                        "mountPath": "/etc/valkey",
+                        "name": "config"
+                    },
+                    {
+                        "mountPath": "/data",
+                        "name": "data"
+                    },
+                    {
+                        "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                        "name": "kube-api-access-fsfmg",
+                        "readOnly": true,
+                        "recursiveReadOnly": "Disabled"
+                    }
+                ]
+            }
+        ],
+        "hostIP": "10.20.15.194",
+        "hostIPs": [
+            {
+                "ip": "10.20.15.194"
+            }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.216.1.11",
+        "podIPs": [
+            {
+                "ip": "10.216.1.11"
+            }
+        ],
+        "qosClass": "Burstable",
+        "resources": {
+            "limits": {
+                "cpu": "250m",
+                "memory": "256Mi"
+            },
+            "requests": {
+                "memory": "64Mi"
+            }
+        },
+        "startTime": "2026-11-07T15:08:14Z"
+    }
+}

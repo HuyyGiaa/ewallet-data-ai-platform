@@ -1,0 +1,6 @@
+valkey-cluster-0 ip=10.216.1.12 myid=2a8bb94915f4
+valkey-cluster-1 ip=10.216.1.14 myid=29573e658d09
+valkey-cluster-2 ip=10.216.1.15 myid=1724449773ee
+valkey-cluster-3 ip=10.216.1.17 myid=2f14ae475598
+valkey-cluster-4 ip=10.216.1.11 myid=34207b4beee1
+valkey-cluster-5 ip=10.216.1.16 myid=81d1c97b5c72

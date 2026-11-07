@@ -1,0 +1,6 @@
+81d1c97b5c72 10.216.1.97:6379@16379 slave,fail? connected
+29573e658d09 10.216.5.80:6379@16379 master,fail? connected
+2f14ae475598 10.216.5.81:6379@16379 slave,fail? connected
+1724449773ee 10.216.4.27:6379@16379 master,fail? connected
+34207b4beee1 10.216.0.14:6379@16379 slave,fail? disconnected
+2a8bb94915f4 10.216.1.95:6379@16379 myself,master connected

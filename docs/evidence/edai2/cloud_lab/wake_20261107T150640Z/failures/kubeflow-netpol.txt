@@ -1,0 +1,4 @@
+allow-ewallet-agents-otel-to-kfp created 2026-11-02T13:56:23Z selects {'matchLabels': {'app': 'ml-pipeline'}} types ['Ingress']
+  from [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "ewallet-agents"}}, "podSelector": {"matchLabels": {"app.kubernetes.io/name": "otel-collector"}}}] ports [{"port": 8888, "protocol": "TCP"}]
+allow-kfp-ui-to-ml-pipeline created 2026-11-04T00:54:53Z selects {'matchLabels': {'app': 'ml-pipeline'}} types ['Ingress']
+  from [{"podSelector": {"matchLabels": {"app": "ml-pipeline-ui", "application-crd-id": "kubeflow-pipelines"}}}] ports [{"port": 8888, "protocol": "TCP"}]

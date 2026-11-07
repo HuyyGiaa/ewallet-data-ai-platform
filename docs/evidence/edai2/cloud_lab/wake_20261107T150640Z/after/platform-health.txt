@@ -1,0 +1,41 @@
+--- Feast Redis
+PONG
+173382
+loading:0
+async_loading:0
+aof_last_write_status:ok
+--- idempotency Redis
+PONG
+--- KServe
+fraud-detector   http://fraud-detector-fraud-serving.example.com   True                           6d21h
+--- fraud-api
+fraud-api   1/1   1     1     6d21h
+sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165
+--- monitoring
+prometheus       1/1   1     1     5d7h
+grafana          1/1   1     1     5d7h
+loki             1/1   1     1     5d7h
+tempo            1/1   1     1     5d7h
+otel-collector   1/1   1     1     5d7h
+--- vllm
+vllm-primary   1/1   1     1     5d21h
+INFO:     169.254.7.127:49454 - "GET /health HTTP/1.1" 200 OK
+INFO:     10.216.0.38:50253 - "GET /metrics HTTP/1.1" 200 OK
+INFO:     169.254.7.127:48234 - "GET /health HTTP/1.1" 200 OK
+--- kubeflow api
+ml-pipeline   1/1   1     1     10d
+mysql         1/1   1     1     10d
+--- agents/mcp
+fraud-coordinator        2/2   2     2     5d21h
+feature-rag-specialist   2/2   2     2     5d21h
+drift-specialist         2/2   2     2     5d21h
+drift-mcp                1/1   1     1     5d21h
+agentgateway             1/1   1     1     5d21h
+a2a-gateway              1/1   1     1     5d21h
+mcp-gateway              1/1   1     1     5d21h
+drift-mcp         1/1   1     1     5d18h
+feature-rag-mcp   1/1   1     1     5d18h
+--- HPA
+drift-specialist         Deployment/drift-specialist         cpu: 1%/60%   2     3     2     5d3h
+feature-rag-specialist   Deployment/feature-rag-specialist   cpu: 3%/60%   2     3     2     5d3h
+fraud-coordinator        Deployment/fraud-coordinator        cpu: 4%/60%   2     3     2     5d3h

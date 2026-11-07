@@ -1,0 +1,40 @@
+{
+  "id": "g3-wake-smoke-20261107T154348Z",
+  "jsonrpc": "2.0",
+  "result": {
+    "artifacts": [
+      {
+        "artifactId": "result-88822e34-0b2e-43c5-9383-24b61c825e95",
+        "name": "validated-fraud-investigation",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"citations\":[],\"contract_version\":\"g3-orchestration/v1\",\"coordinator_revision\":\"programmatic-coordinator/byo-v1\",\"decision_support\":\"Bằng chứng chuyên gia đã được xác thực; các giá trị nguồn được giữ nguyên bên dưới.\",\"drift\":[],\"features\":{\"account_behavior__account_tx_count_1h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"account_behavior__account_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"merchant_behavior__merchant_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":6},\"user_behavior__user_avg_amount_30d\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":474960.33}},\"fraud_score\":{\"feature_timestamp\":\"2026-05-31T23:59:56+00:00\",\"fraud_prediction\":0,\"fraud_probability\":0.0639895560144887,\"model_input_schema_sha256\":\"03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176\",\"model_name\":\"fraud-detector\",\"model_version\":\"1\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\"},\"request_id\":\"g3-wake-smoke-20261107T154348Z\",\"status\":\"ok\",\"unavailable\":[]}"
+          }
+        ]
+      }
+    ],
+    "contextId": "38df057c-bc45-4cce-87bd-d8366e4440f2",
+    "history": [
+      {
+        "contextId": "38df057c-bc45-4cce-87bd-d8366e4440f2",
+        "kind": "message",
+        "messageId": "g3-wake-smoke-20261107T154348Z",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "CALL_AGENT=feature-rag-specialist\nREQUEST_JSON={\"capabilities\":[\"fraud-evidence\"],\"contract_version\":\"g3-business-request/v1\",\"feature_names\":[\"account_behavior__account_tx_count_1h\",\"account_behavior__account_tx_count_24h\",\"user_behavior__user_avg_amount_30d\",\"merchant_behavior__merchant_tx_count_24h\"],\"knowledge_query\":null,\"request_id\":\"g3-wake-smoke-20261107T154348Z\",\"requested_tools\":[\"feature_lookup\",\"fraud_scoring\"],\"target_agent\":\"feature-rag-specialist\",\"transaction\":{\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"amount\":275465.53,\"channel\":\"app\",\"counterparty_account_id\":null,\"currency\":\"VND\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"event_timestamp\":\"2026-06-01T00:00:00Z\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"type\":\"payment\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\"}}"
+          }
+        ],
+        "role": "user",
+        "taskId": "88822e34-0b2e-43c5-9383-24b61c825e95"
+      }
+    ],
+    "id": "88822e34-0b2e-43c5-9383-24b61c825e95",
+    "kind": "task",
+    "status": {
+      "state": "completed",
+      "timestamp": "2026-11-07T15:44:12.886446+00:00"
+    }
+  }
+}

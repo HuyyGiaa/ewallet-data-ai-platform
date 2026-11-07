@@ -1,0 +1,5 @@
+gke-ewallet-dev-cpu-pool-58daed59-10d0 Ready v1.36.4-gke.2046003 10.20.15.193 true
+gke-ewallet-dev-cpu-pool-58daed59-3hnn Ready v1.36.4-gke.2046003 10.20.15.200 true
+gke-ewallet-dev-cpu-pool-58daed59-79wp Ready v1.36.4-gke.2046003 10.20.15.197 true
+gke-ewallet-dev-cpu-pool-58daed59-kk6f Ready v1.36.4-gke.2046003 10.20.15.194 containerd://2.2.7
+gke-ewallet-dev-cpu-pool-58daed59-rk2f Ready v1.36.4-gke.2046003 10.20.15.199 containerd://2.2.7

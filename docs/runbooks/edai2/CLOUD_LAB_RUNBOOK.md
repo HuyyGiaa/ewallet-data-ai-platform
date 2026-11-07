@@ -83,10 +83,19 @@ pods. System namespaces are left alone. `wake-full` later restores everything.
 
 ## Known limitations
 
-- **Valkey may not re-form.** `nodes.conf` stores pod IPs, there is no
-  announce-hostname, and the init Job will not rerun. Every IP changes on wake,
-  so Substrate and the sandbox lane may fail until peers are reconnected with
-  `CLUSTER MEET`. Valkey data stays on its PVCs. Untested; needs approval.
+- **Valkey does not re-form (observed 2026-11-07).** `nodes.conf` stores pod
+  IPs, there is no announce-hostname, and the init Job does not rerun. After the
+  wake all six nodes reported `cluster_state:fail`. That made `ate-api-server`
+  crash-loop, and `kagent-controller` crash-loops while it cannot dial `ate-api`.
+
+  **Owner-approved recovery** (evidence in `docs/evidence/edai2/cloud_lab/wake_20261107T150640Z/valkey`):
+  1. Check that the six node IDs are unique and unchanged.
+  2. Check that every node holds the same slot map covering 16,384 slots.
+  3. From `valkey-cluster-0`, run `valkey-cli CLUSTER MEET <new pod IP> 6379` for each of the other five pods.
+
+  All six nodes reached `cluster_state:ok` within about 20 seconds, with all slots OK and the node IDs unchanged. One shard failed over to its replica automatically, with the same slot range. Synthetic read and write worked in every slot range. `ate-api-server` was Ready about 6 minutes later, and `kagent-controller` about 10 minutes later, through their own backoff; nothing was restarted by hand.
+
+  **Residual:** `valkey-cluster-0` still advertises its old IP for itself, while its peers have the new one. A client that reads `CLUSTER SLOTS` from node 0 gets a stale address for slots 0–5460. Fixing that takes one `CLUSTER MEET` back to node 0 from another node; it needs a separate approval. Never use `CLUSTER RESET`, `FLUSHALL`, a reshard, or edit `nodes.conf`.
 - **Observability history is gone.** Prometheus, Loki and Tempo used `emptyDir`.
   Grafana dashboards come from ConfigMaps and survive. Repository evidence is unaffected.
 - **Third-party images.** 19 images use tags, and many come from Docker Hub,

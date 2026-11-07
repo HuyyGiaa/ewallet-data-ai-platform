@@ -1,0 +1,84 @@
+[
+  {
+    "autoscaled": "no",
+    "baseInstanceName": "gke-ewallet-dev-cpu-pool-58daed59",
+    "creationTimestamp": "2026-10-22T02:40:59.644-07:00",
+    "currentActions": {
+      "abandoning": 0,
+      "creating": 0,
+      "creatingWithoutRetries": 0,
+      "deleting": 0,
+      "none": 0,
+      "recreating": 0,
+      "refreshing": 0,
+      "restarting": 0,
+      "resuming": 0,
+      "starting": 0,
+      "stopping": 0,
+      "suspending": 0,
+      "verifying": 0
+    },
+    "fingerprint": "yKPqhA00tHo=",
+    "id": "6426768771594347716",
+    "instanceGroup": "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/instanceGroups/gke-ewallet-dev-cpu-pool-58daed59-grp",
+    "instanceLifecyclePolicy": {
+      "defaultActionOnFailure": "REPAIR",
+      "forceUpdateOnRepair": "YES",
+      "onFailedHealthCheck": "DEFAULT_ACTION"
+    },
+    "instanceTemplate": "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/regions/asia-southeast1/instanceTemplates/gke-ewallet-dev-cpu-pool-2b1e5063",
+    "kind": "compute#instanceGroupManager",
+    "listManagedInstancesResults": "PAGINATED",
+    "name": "gke-ewallet-dev-cpu-pool-58daed59-grp",
+    "satisfiesPzi": true,
+    "satisfiesPzs": true,
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/instanceGroupManagers/gke-ewallet-dev-cpu-pool-58daed59-grp",
+    "size": "0",
+    "standbyPolicy": {
+      "mode": "MANUAL"
+    },
+    "status": {
+      "allInstancesConfig": {
+        "effective": true
+      },
+      "isStable": true,
+      "stateful": {
+        "hasStatefulConfig": false,
+        "perInstanceConfigs": {
+          "allEffective": true
+        }
+      },
+      "versionTarget": {
+        "isReached": true
+      }
+    },
+    "targetSize": 0,
+    "targetSizePolicy": {
+      "mode": "INDIVIDUAL"
+    },
+    "targetStoppedSize": 0,
+    "targetSuspendedSize": 0,
+    "updatePolicy": {
+      "maxSurge": {
+        "calculated": 1,
+        "fixed": 1
+      },
+      "maxUnavailable": {
+        "calculated": 1,
+        "fixed": 1
+      },
+      "minimalAction": "REPLACE",
+      "replacementMethod": "SUBSTITUTE",
+      "type": "OPPORTUNISTIC"
+    },
+    "versions": [
+      {
+        "instanceTemplate": "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/regions/asia-southeast1/instanceTemplates/gke-ewallet-dev-cpu-pool-2b1e5063",
+        "targetSize": {
+          "calculated": 0
+        }
+      }
+    ],
+    "zone": "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b"
+  }
+]

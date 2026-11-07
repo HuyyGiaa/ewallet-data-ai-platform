@@ -1,0 +1,1 @@
+{"status":"ready","service":"fraud-inference","scope":"dependency_connectivity","feature_materialization_verified":false,"offline_online_parity_verified":false} http=200

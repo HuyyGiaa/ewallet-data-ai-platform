@@ -1,0 +1,22 @@
+valkey-cluster-0 ip=10.216.1.12 owner=StatefulSet/valkey-cluster phase=Running myid=2a8bb94915f4
+valkey-cluster-1 ip=10.216.1.14 owner=StatefulSet/valkey-cluster phase=Running myid=29573e658d09
+valkey-cluster-2 ip=10.216.1.15 owner=StatefulSet/valkey-cluster phase=Running myid=1724449773ee
+valkey-cluster-3 ip=10.216.1.17 owner=StatefulSet/valkey-cluster phase=Running myid=2f14ae475598
+valkey-cluster-4 ip=10.216.1.11 owner=StatefulSet/valkey-cluster phase=Running myid=34207b4beee1
+valkey-cluster-5 ip=10.216.1.16 owner=StatefulSet/valkey-cluster phase=Running myid=81d1c97b5c72
+unique node ids True
+all owned by StatefulSet/valkey-cluster True
+view 0: known ids == pod ids: True; masters=3; slot map same as view0: True
+view 1: known ids == pod ids: True; masters=3; slot map same as view0: True
+view 2: known ids == pod ids: True; masters=3; slot map same as view0: True
+view 3: known ids == pod ids: True; masters=3; slot map same as view0: True
+view 4: known ids == pod ids: True; masters=3; slot map same as view0: True
+view 5: known ids == pod ids: True; masters=3; slot map same as view0: True
+slots covered 16384 of 16384, no overlap: True
+info 0: state=fail slots_assigned=16384 known=6 epoch=6
+info 1: state=fail slots_assigned=16384 known=6 epoch=6
+info 2: state=fail slots_assigned=16384 known=6 epoch=6
+info 3: state=fail slots_assigned=16384 known=6 epoch=6
+info 4: state=fail slots_assigned=16384 known=6 epoch=6
+info 5: state=fail slots_assigned=16384 known=6 epoch=6
+PRECHECK PASS
