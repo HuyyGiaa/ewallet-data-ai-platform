@@ -31,12 +31,16 @@ gcloud iam service-accounts list --project "$PROJECT" --filter='email~ewallet-(f
 gcloud storage buckets get-iam-policy "gs://$PROJECT-data" --format=json > "$EV/bucket-iam-before.json"
 ```
 
-### 1. MUTATING (Terraform): GSAs, conditional bucket access and Workload Identity bindings
+### 1. MUTATING (Terraform and gcloud): GSAs, conditional bucket access and Workload Identity bindings
 
-Modules `iam` and `workload_identity`. Review `terraform plan`. It must show only additions:
-- 2 service accounts;
-- 2 conditional `registry_reader` members;
-- 2 `workloadIdentityUser` bindings.
+**Do not run a plain or 6-target `terraform apply`.** A read-only plan on 2026-11-07 showed that both replace the GKE node pool:
+- the state's node pool and cluster settings have drifted from the live cluster;
+- `module.workload_identity` depends on `module.gke`, so targeting a binding pulls the node pool in.
+
+The exact procedure is Package 2 of [G3_G4_CLOUD_CAMPAIGN.md](G3_G4_CLOUD_CAMPAIGN.md):
+1. Terraform creates only the 4 IAM resources. `ops.gcp.r2_terraform guard` must accept the plan.
+2. `gcloud` adds the 2 Workload Identity bindings.
+3. `terraform import` records both bindings in the state.
 
 ### 2. MUTATING (Kubernetes): the KSAs
 

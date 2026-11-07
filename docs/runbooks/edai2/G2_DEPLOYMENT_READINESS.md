@@ -58,7 +58,7 @@ The production render of `llm-agent` r41 changes only the Grafana and Prometheus
 ## Ownership handovers
 
 - **R1, replicas.** Hand the Fraud API's replica count to KEDA with `scripts/serving/fraud_api_keda_handover.sh`. Never apply the `keda` manifest directly. See [R1_FRAUD_API_KEDA_HANDOVER.md](R1_FRAUD_API_KEDA_HANDOVER.md).
-- **R2, identities.** Follow [R2_SERVING_IDENTITY_MIGRATION.md](R2_SERVING_IDENTITY_MIGRATION.md). Terraform first, then the KSAs and an identity check, then the rollout. Do not run `terraform apply` while the cluster is asleep, because it reconciles the node pool. Apply only the `iam` and `workload_identity` changes, on the reviewed plan.
+- **R2, identities.** Follow [R2_SERVING_IDENTITY_MIGRATION.md](R2_SERVING_IDENTITY_MIGRATION.md). Terraform first, then the KSAs and an identity check, then the rollout. Never run an untargeted or Workload Identity-targeted `terraform apply`: either would replace the node pool. Use Package 2 of [G3_G4_CLOUD_CAMPAIGN.md](G3_G4_CLOUD_CAMPAIGN.md).
 - **Agents.** The `transferHpa` path from C-B. Delete ScaledObjects before removing KEDA.
 
 ## Capacity

@@ -86,10 +86,10 @@
   "components": {
     "ci-platform": {
       "maturity": "active",
-      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci", "infra/kubernetes/cicd-runtime/namespaces.yaml", "infra/kubernetes/jenkins", "ops/experiments", "scripts/experiments", "configs/experiments", "tests/experiments", "tests/ops/test_cloud_lab.py", "ops/gcp/cloud_lab.py", "ops/gcp/cloud_lab_profiles.json"],
+      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci", "infra/kubernetes/cicd-runtime/namespaces.yaml", "infra/kubernetes/jenkins", "ops/experiments", "scripts/experiments", "configs/experiments", "tests/experiments", "tests/ops/test_cloud_lab.py", "ops/gcp/cloud_lab.py", "ops/gcp/cloud_lab_profiles.json", "ops/gcp/r2_terraform.py", "tests/ops/test_r2_terraform.py"],
       "dependencies": [],
       "python_projects": ["infra/docker/llm-agent-tooling"],
-      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --group test python -m pytest -q tests/ci tests/experiments tests/ops/test_cloud_lab.py tests/unit/test_uv_dependency_contract.py"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --group test python -m pytest -q tests/ci tests/experiments tests/ops/test_cloud_lab.py tests/ops/test_r2_terraform.py tests/unit/test_uv_dependency_contract.py"],
       "build_artifact": null,
       "deployment_target": null,
       "deploy_handler": null
