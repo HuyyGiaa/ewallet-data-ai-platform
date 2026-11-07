@@ -88,7 +88,8 @@ case "$action" in
     k -n "$ns" get events --sort-by=.lastTimestamp --field-selector "involvedObject.name=$api" > "$out/deployment-events.txt" 2>&1 || true
     status "$api" > "$out/state-after.txt" 2>&1
     (cd "$root" && python3 -m ops.experiments.autoscale_summary --samples "$out/replicas.jsonl" \
-      --manifest "$run_dir/run-manifest.json" --min-replicas "$min" --out "$out/autoscale-summary.json")
+      --manifest "$run_dir/run-manifest.json" --min-replicas "$min" --history "$run_dir/locust_stats_history.csv" \
+      --out "$out/autoscale-summary.json")
     say "Locust summary: $run_dir/summary.json; HTML report: $run_dir/report.html"
     exit "$status_code" ;;
   *) echo "action must be status, watch, run or cleanup" >&2; exit 2 ;;

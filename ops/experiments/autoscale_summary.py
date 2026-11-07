@@ -1,13 +1,15 @@
 """Scale-up and scale-down timings of one autoscaling run, from real samples.
 
-Inputs are the replica samples (``replica_sampler --hpa``) and the Locust run manifest,
-whose ``started_at`` and ``ended_at`` bound the load. Nothing is estimated: every time comes
+Inputs are the replica samples (``replica_sampler --hpa``) and the Locust run. The load
+window is the first to last row of ``locust_stats_history.csv`` when given; the manifest's
+``started_at``/``ended_at`` also include the runner's setup, so they are only a fallback. Nothing is estimated: every time comes
 from a sample, so its resolution is the sampling interval.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 from datetime import datetime
 from pathlib import Path
@@ -53,17 +55,45 @@ def summarise(samples: Iterable[Mapping[str, Any]], load_start: float, load_end:
     }
 
 
+def steady_state(history: Path, from_ts: float | None, to_ts: float) -> dict[str, Any] | None:
+    """Mean Locust request rate once replicas reached their peak, kept apart from cold scale-up.
+
+    ``Requests/s`` in the history is Locust's short rolling rate, so the mean over the window
+    is a throughput, not a total. Returns None when replicas never peaked inside the load.
+    """
+    if from_ts is None or not history.exists():
+        return None
+    with history.open(encoding="utf-8", newline="") as handle:
+        rows = [r for r in csv.DictReader(handle) if r["Name"] == "Aggregated" and from_ts <= float(r["Timestamp"]) <= to_ts]
+    if not rows:
+        return None
+    rates = [float(r["Requests/s"]) for r in rows]
+    return {"window_seconds": round(to_ts - from_ts, 1), "history_rows": len(rows),
+            "mean_requests_per_second": round(sum(rates) / len(rates), 2)}
+
+
 def main(argv: list[str] | None = None) -> int:
     """Write the timing summary of one run as JSON."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--samples", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--min-replicas", type=int, default=1)
+    parser.add_argument("--history", type=Path, help="locust_stats_history.csv of the same run")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     rows = [json.loads(line) for line in args.samples.read_text(encoding="utf-8").splitlines() if line.strip()]
-    result = summarise(rows, _epoch(manifest["started_at"]), _epoch(manifest["ended_at"]), args.min_replicas)
+    start, end = _epoch(manifest["started_at"]), _epoch(manifest["ended_at"])
+    if args.history and args.history.exists():
+        with args.history.open(encoding="utf-8", newline="") as handle:
+            stamps = [float(r["Timestamp"]) for r in csv.DictReader(handle) if r["Name"] == "Aggregated"]
+        if stamps:
+            start, end = min(stamps), max(stamps)
+    result = summarise(rows, start, end, args.min_replicas)
+    result["load_window"] = {"start": start, "end": end, "source": "locust history" if args.history else "manifest"}
+    if args.history:
+        peak_at = None if result["seconds_to_peak"] is None else start + result["seconds_to_peak"]
+        result["steady_state_at_peak_replicas"] = steady_state(args.history, peak_at, end)
     args.out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result))
     return 0

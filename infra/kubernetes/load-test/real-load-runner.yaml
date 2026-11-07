@@ -3,7 +3,8 @@
 # - Locust is installed from infra/load-test/uv.lock (hash-checked) into an emptyDir.
 # - Required anti-affinity keeps it off the nodes running the APIs, the KServe predictor
 #   and Feast Redis, so the load generator does not steal their CPU.
-# - The NetworkPolicy is additive: it admits only this pod to the Fraud API on 8080.
+# - The NetworkPolicies are additive: they admit only this pod to the Fraud API and the
+#   Feature API on 8080.
 apiVersion: v1
 kind: Pod
 metadata:
@@ -110,6 +111,29 @@ spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: fraud-api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: real-load-runner
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# Same for the Feature API: once metricsDiscovery adds allow-prometheus-to-feature-api, the
+# Feature API admits only listed clients. Deleted with the runner.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-real-load-runner-to-feature-api
+  namespace: ml-platform
+  labels:
+    ewallet.io/temporary: real-load
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: feature-api
   policyTypes: [Ingress]
   ingress:
     - from:

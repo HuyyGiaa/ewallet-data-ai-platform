@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ops.experiments.autoscale_summary import summarise
+from ops.experiments.autoscale_summary import steady_state, summarise
 
 
 def rows(pairs):
@@ -30,3 +30,12 @@ def test_a_run_that_never_returns_says_so():
 def test_collect_errors_are_skipped():
     with pytest.raises(ValueError):
         summarise([{"ts": 1, "collect_error": "TimeoutExpired"}], 0, 1)
+
+
+def test_steady_state_uses_only_rows_after_the_peak(tmp_path):
+    history = tmp_path / "locust_stats_history.csv"
+    history.write_text("Timestamp,Name,Requests/s\n100,Aggregated,80\n200,Aggregated,160\n250,feature,999\n"
+                       "300,Aggregated,170\n500,Aggregated,10\n")
+    result = steady_state(history, from_ts=200, to_ts=400)
+    assert result == {"window_seconds": 200, "history_rows": 2, "mean_requests_per_second": 165.0}
+    assert steady_state(history, None, 400) is None
