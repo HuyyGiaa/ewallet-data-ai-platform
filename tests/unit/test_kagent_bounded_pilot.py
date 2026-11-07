@@ -277,6 +277,103 @@ spec:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unreviewed mutable Substrate image", result.stderr)
 
+    VALKEY_STS = """
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: valkey-cluster}
+spec:
+  replicas: 6
+  template:
+    spec:
+      containers:
+        - name: valkey
+          image: valkey/valkey:8.0
+          command: [valkey-server, /etc/valkey/valkey.conf]
+"""
+
+    def render_substrate(self, text: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(PILOT / "scripts" / "substrate_resource_post_renderer.py")],
+            input=text, check=False, capture_output=True, text=True,
+        )
+
+    def test_valkey_announces_its_pod_ip_and_gets_a_reconciler(self) -> None:
+        result = self.render_substrate(self.VALKEY_STS)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        [sts] = load_documents_from_text(result.stdout)
+        containers = {c["name"]: c for c in sts["spec"]["template"]["spec"]["containers"]}
+        valkey, reconciler = containers["valkey"], containers["cluster-address-reconciler"]
+        self.assertEqual(valkey["command"][-2:], ["--cluster-announce-ip", "$(POD_IP)"])
+        self.assertEqual(valkey["env"][0]["valueFrom"]["fieldRef"]["fieldPath"], "status.podIP")
+        self.assertEqual(valkey["readinessProbe"]["exec"]["command"][-1], "ping")
+        self.assertEqual(reconciler["image"], valkey["image"])
+        self.assertIn("@sha256:", reconciler["image"])
+        security = reconciler["securityContext"]
+        self.assertTrue(security["runAsNonRoot"] and security["readOnlyRootFilesystem"])
+        self.assertEqual(security["capabilities"]["drop"], ["ALL"])
+        self.assertIn("limits", reconciler["resources"])
+        script = reconciler["command"][-1]
+        for forbidden in ("reset", "flush", "addslots", "delslots", "setslot", "forget", "reshard", "nodes.conf"):
+            self.assertNotIn(forbidden, script.lower())
+        subprocess.run(["sh", "-n"], input=script, check=True, text=True)
+
+    def test_valkey_patch_fails_closed_on_upstream_changes(self) -> None:
+        for change in ("command: [valkey-server, /etc/valkey/valkey.conf, --port, '6380']",
+                       "command: [valkey-server, /etc/valkey/valkey.conf]\n          args: [--x]"):
+            with self.subTest(change=change):
+                text = self.VALKEY_STS.replace("command: [valkey-server, /etc/valkey/valkey.conf]", change)
+                result = self.render_substrate(text)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("G5-R", result.stderr)
+
+    def test_ca_bundle_keeps_its_install_form_across_upgrades(self) -> None:
+        pem = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+        for leading in (1, 2, 3):
+            config = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "ateapi-ca"},
+                      "data": {"ca.crt": "\n" * leading + pem}}
+            result = self.render_substrate(yaml.safe_dump(config))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            [rendered] = load_documents_from_text(result.stdout)
+            self.assertEqual(rendered["data"]["ca.crt"], "\n" + pem)
+
+    def test_reconciler_meets_only_known_members_with_a_bounded_retry(self) -> None:
+        result = self.render_substrate(self.VALKEY_STS)
+        [sts] = load_documents_from_text(result.stdout)
+        script = next(c for c in sts["spec"]["template"]["spec"]["containers"]
+                      if c["name"] == "cluster-address-reconciler")["command"][-1]
+        with tempfile.TemporaryDirectory() as tmp:
+            bin_dir, log = Path(tmp) / "bin", Path(tmp) / "calls.log"
+            bin_dir.mkdir()
+            # Peer 1 moved (known id, stale address); peer 2 is current; peer 3 has an unknown id.
+            (bin_dir / "getent").write_text(
+                "#!/bin/sh\ncase \"$2\" in valkey-cluster-0.*) echo 10.0.0.10;; valkey-cluster-1.*) echo 10.0.0.11;;"
+                " valkey-cluster-2.*) echo 10.0.0.12;; valkey-cluster-3.*) echo 10.0.0.13;; esac\n")
+            (bin_dir / "valkey-cli").write_text(f"""#!/bin/sh
+echo "$*" >> {log}
+case "$*" in
+  "-h 127.0.0.1 ping") echo PONG;;
+  "-h 127.0.0.1 cluster nodes") printf '%s\\n' \
+    "aaa 10.0.0.10:6379@16379 myself,master - 0 0 1 connected 0-100" \
+    "bbb 10.9.9.9:6379@16379 master - 0 0 2 connected 101-200" \
+    "ccc 10.0.0.12:6379@16379 slave bbb 0 0 2 connected";;
+  "-h 10.0.0.11 cluster myid") echo bbb;;
+  "-h 10.0.0.12 cluster myid") echo ccc;;
+  "-h 10.0.0.13 cluster myid") echo zzz;;
+  *"cluster meet"*) echo OK;;
+esac
+""")
+            for tool in ("getent", "valkey-cli"):
+                (bin_dir / tool).chmod(0o755)
+            env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "POD_IP": "10.0.0.10", "POD_NAMESPACE": "ate-system",
+                   "VALKEY_SERVICE": "valkey-cluster-service", "VALKEY_REPLICAS": "4", "MAX_MEET_ATTEMPTS": "2"}
+            # Speed the loop up and stop it after a few passes.
+            fast = script.replace("sleep 15", "sleep 0.05").replace("attempts=/tmp/meet-attempts", f"attempts={tmp}/a")
+            subprocess.run(["timeout", "1", "sh", "-c", fast], env=env, check=False, capture_output=True, text=True)
+            calls = log.read_text().splitlines()
+        meets = [c for c in calls if "cluster meet" in c]
+        self.assertEqual(set(meets), {"-h 127.0.0.1 cluster meet 10.0.0.11 6379"})
+        self.assertEqual(len(meets), 2)  # bounded by MAX_MEET_ATTEMPTS
+
     def test_kagent_runtime_post_renderer_isolates_env_source_rbac(self) -> None:
         rendered = """
 apiVersion: rbac.authorization.k8s.io/v1
