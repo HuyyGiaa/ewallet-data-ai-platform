@@ -1,0 +1,12 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[data-platform/generator]"
+      ],
+      "role": "roles/iam.workloadIdentityUser"
+    }
+  ],
+  "etag": "BwZeaqzaS5o=",
+  "version": 1
+}

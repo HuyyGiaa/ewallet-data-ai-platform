@@ -1,0 +1,1 @@
+gs://ewallet-data-ai-platform-hg26-tfstate/terraform/dev/default.tfstate

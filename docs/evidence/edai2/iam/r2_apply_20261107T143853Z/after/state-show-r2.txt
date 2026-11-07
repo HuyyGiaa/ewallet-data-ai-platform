@@ -1,0 +1,78 @@
+# module.iam.google_service_account.workload["feature_api"]:
+resource "google_service_account" "workload" {
+    account_id      = "ewallet-feature-api"
+    deletion_policy = "DELETE"
+    description     = "Feature Retrieval API: reads the online Feast registry only"
+    disabled        = false
+    display_name    = "E-Wallet feature_api"
+    email           = "ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    id              = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    member          = "serviceAccount:ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    name            = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    project         = "ewallet-data-ai-platform-hg26"
+    unique_id       = "112389832050629133784"
+}
+
+# module.iam.google_service_account.workload["fraud_api"]:
+resource "google_service_account" "workload" {
+    account_id      = "ewallet-fraud-api"
+    deletion_policy = "DELETE"
+    description     = "Fraud API: reads the online Feast registry only"
+    disabled        = false
+    display_name    = "E-Wallet fraud_api"
+    email           = "ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    id              = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    member          = "serviceAccount:ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    name            = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    project         = "ewallet-data-ai-platform-hg26"
+    unique_id       = "108664217532020842482"
+}
+
+# module.iam.google_storage_bucket_iam_member.registry_reader["feature_api"]:
+resource "google_storage_bucket_iam_member" "registry_reader" {
+    bucket = "b/ewallet-data-ai-platform-hg26-data"
+    etag   = "CAY="
+    id     = "b/ewallet-data-ai-platform-hg26-data/roles/storage.objectViewer/serviceAccount:ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/online-feast-registry-only/Read objects under features/registries/ and nothing else/resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/\")"
+    member = "serviceAccount:ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    role   = "roles/storage.objectViewer"
+
+    condition {
+        description = "Read objects under features/registries/ and nothing else"
+        expression  = "resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/\")"
+        title       = "online-feast-registry-only"
+    }
+}
+
+# module.iam.google_storage_bucket_iam_member.registry_reader["fraud_api"]:
+resource "google_storage_bucket_iam_member" "registry_reader" {
+    bucket = "b/ewallet-data-ai-platform-hg26-data"
+    etag   = "CAc="
+    id     = "b/ewallet-data-ai-platform-hg26-data/roles/storage.objectViewer/serviceAccount:ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/online-feast-registry-only/Read objects under features/registries/ and nothing else/resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/\")"
+    member = "serviceAccount:ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    role   = "roles/storage.objectViewer"
+
+    condition {
+        description = "Read objects under features/registries/ and nothing else"
+        expression  = "resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/\")"
+        title       = "online-feast-registry-only"
+    }
+}
+
+# module.workload_identity.google_service_account_iam_member.workload_identity["feature_api"]:
+resource "google_service_account_iam_member" "workload_identity" {
+    etag               = "BwZfsLc9dTc="
+    id                 = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/roles/iam.workloadIdentityUser/serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/feature-api]"
+    member             = "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/feature-api]"
+    role               = "roles/iam.workloadIdentityUser"
+    service_account_id = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+}
+
+# module.workload_identity.google_service_account_iam_member.workload_identity["fraud_api"]:
+resource "google_service_account_iam_member" "workload_identity" {
+    etag               = "BwZfsLbuXbY="
+    id                 = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/roles/iam.workloadIdentityUser/serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/fraud-api]"
+    member             = "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/fraud-api]"
+    role               = "roles/iam.workloadIdentityUser"
+    service_account_id = "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+}
+

@@ -1,0 +1,4 @@
+-target=module.iam.google_service_account.workload["fraud_api"]
+-target=module.iam.google_service_account.workload["feature_api"]
+-target=module.iam.google_storage_bucket_iam_member.registry_reader["fraud_api"]
+-target=module.iam.google_storage_bucket_iam_member.registry_reader["feature_api"]

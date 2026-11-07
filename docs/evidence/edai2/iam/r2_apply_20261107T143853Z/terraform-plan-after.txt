@@ -1,0 +1,35 @@
+module.project_services.google_project_service.required["dataproc.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/dataproc.googleapis.com]
+module.project_services.google_project_service.required["artifactregistry.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/artifactregistry.googleapis.com]
+module.project_services.google_project_service.required["iam.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/iam.googleapis.com]
+module.project_services.google_project_service.required["compute.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/compute.googleapis.com]
+module.project_services.google_project_service.required["cloudresourcemanager.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/cloudresourcemanager.googleapis.com]
+module.project_services.google_project_service.required["monitoring.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/monitoring.googleapis.com]
+module.project_services.google_project_service.required["sts.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/sts.googleapis.com]
+module.project_services.google_project_service.required["container.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/container.googleapis.com]
+module.project_services.google_project_service.required["storage.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/storage.googleapis.com]
+module.project_services.google_project_service.required["iamcredentials.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/iamcredentials.googleapis.com]
+module.project_services.google_project_service.required["iap.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/iap.googleapis.com]
+module.project_services.google_project_service.required["serviceusage.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/serviceusage.googleapis.com]
+module.project_services.google_project_service.required["logging.googleapis.com"]: Refreshing state... [id=ewallet-data-ai-platform-hg26/logging.googleapis.com]
+module.artifact_registry.google_artifact_registry_repository.docker: Refreshing state... [id=projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/repositories/ewallet-platform]
+module.storage.google_storage_bucket.canonical: Refreshing state... [id=ewallet-data-ai-platform-hg26-data]
+module.storage.google_storage_bucket.temporary: Refreshing state... [id=ewallet-data-ai-platform-hg26-temp]
+module.iam.google_service_account.workload["fraud_api"]: Refreshing state... [id=projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com]
+module.iam.google_service_account.workload["feature_api"]: Refreshing state... [id=projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com]
+module.iam.google_storage_bucket_iam_member.registry_reader["feature_api"]: Refreshing state... [id=b/ewallet-data-ai-platform-hg26-data/roles/storage.objectViewer/serviceAccount:ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/online-feast-registry-only/Read objects under features/registries/ and nothing else/resource.name.startsWith("projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/")]
+module.iam.google_storage_bucket_iam_member.registry_reader["fraud_api"]: Refreshing state... [id=b/ewallet-data-ai-platform-hg26-data/roles/storage.objectViewer/serviceAccount:ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/online-feast-registry-only/Read objects under features/registries/ and nothing else/resource.name.startsWith("projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/")]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration
+and found no differences, so no changes are needed.
+
+Warning: Resource targeting is in effect
+
+You are creating a plan with the -target option, which means that the result
+of this plan may not represent all of the changes requested by the current
+configuration.
+
+The -target option is not for routine use, and is provided only for
+exceptional situations such as recovering from errors or mistakes, or when
+Terraform specifically suggests to use it as part of an error message.

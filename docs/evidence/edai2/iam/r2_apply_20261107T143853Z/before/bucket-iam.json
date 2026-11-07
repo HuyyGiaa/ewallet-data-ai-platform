@@ -1,0 +1,45 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "projectEditor:ewallet-data-ai-platform-hg26",
+        "projectOwner:ewallet-data-ai-platform-hg26"
+      ],
+      "role": "roles/storage.legacyBucketOwner"
+    },
+    {
+      "members": [
+        "projectViewer:ewallet-data-ai-platform-hg26"
+      ],
+      "role": "roles/storage.legacyBucketReader"
+    },
+    {
+      "members": [
+        "projectEditor:ewallet-data-ai-platform-hg26",
+        "projectOwner:ewallet-data-ai-platform-hg26"
+      ],
+      "role": "roles/storage.legacyObjectOwner"
+    },
+    {
+      "members": [
+        "projectViewer:ewallet-data-ai-platform-hg26"
+      ],
+      "role": "roles/storage.legacyObjectReader"
+    },
+    {
+      "members": [
+        "serviceAccount:ewallet-generator@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+        "serviceAccount:ewallet-spark@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+        "serviceAccount:ewallet-training@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectUser"
+    },
+    {
+      "members": [
+        "serviceAccount:ewallet-serving@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectViewer"
+    }
+  ],
+  "etag": "CAU="
+}

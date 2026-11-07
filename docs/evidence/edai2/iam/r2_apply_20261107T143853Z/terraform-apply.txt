@@ -1,0 +1,55 @@
+module.iam.google_service_account.workload["feature_api"]: Creating...
+module.iam.google_service_account.workload["fraud_api"]: Creating...
+module.iam.google_service_account.workload["feature_api"]: Still creating... [00m10s elapsed]
+module.iam.google_service_account.workload["fraud_api"]: Still creating... [00m10s elapsed]
+module.iam.google_service_account.workload["fraud_api"]: Creation complete after 15s [id=projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com]
+module.iam.google_service_account.workload["feature_api"]: Creation complete after 19s [id=projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com]
+module.iam.google_storage_bucket_iam_member.registry_reader["fraud_api"]: Creating...
+module.iam.google_storage_bucket_iam_member.registry_reader["feature_api"]: Creating...
+module.iam.google_storage_bucket_iam_member.registry_reader["feature_api"]: Creation complete after 4s [id=b/ewallet-data-ai-platform-hg26-data/roles/storage.objectViewer/serviceAccount:ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/online-feast-registry-only/Read objects under features/registries/ and nothing else/resource.name.startsWith("projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/")]
+module.iam.google_storage_bucket_iam_member.registry_reader["fraud_api"]: Creation complete after 9s [id=b/ewallet-data-ai-platform-hg26-data/roles/storage.objectViewer/serviceAccount:ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/online-feast-registry-only/Read objects under features/registries/ and nothing else/resource.name.startsWith("projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/")]
+
+Warning: Applied changes may be incomplete
+
+The plan was created with the -target option in effect, so some changes
+requested in the configuration may have been ignored and the output values
+may not be fully updated. Run the following command to verify that no other
+changes are pending:
+    terraform plan
+
+Note that the -target option is not suitable for routine use, and is provided
+only for exceptional situations such as recovering from errors or mistakes,
+or when Terraform specifically suggests to use it as part of an error
+message.
+
+Apply complete! Resources: 4 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+artifact_registry_url = "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform"
+data_bucket_name = "ewallet-data-ai-platform-hg26-data"
+dataproc_batch_runtime = {
+  "execution_mode" = "serverless-batch"
+  "performance_tier" = "standard"
+  "project_id" = "ewallet-data-ai-platform-hg26"
+  "region" = "asia-southeast1"
+  "service_account_email" = "ewallet-spark@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "staging_bucket" = "ewallet-data-ai-platform-hg26-temp"
+  "subnet" = "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/regions/asia-southeast1/subnetworks/ewallet-dev-asia-southeast1"
+}
+gke_cluster_name = "ewallet-dev"
+network_name = "ewallet-dev-vpc"
+project_id = "ewallet-data-ai-platform-hg26"
+region = "asia-southeast1"
+service_account_emails = {
+  "ci" = "ewallet-ci@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "feature_api" = "ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "fraud_api" = "ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "generator" = "ewallet-generator@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "gke_nodes" = "ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "serving" = "ewallet-serving@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "spark" = "ewallet-spark@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  "training" = "ewallet-training@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+}
+subnet_name = "ewallet-dev-asia-southeast1"
+temporary_bucket_name = "ewallet-data-ai-platform-hg26-temp"

@@ -1,0 +1,10 @@
+{
+  "description": "Feature Retrieval API: reads the online Feast registry only",
+  "displayName": "E-Wallet feature_api",
+  "email": "ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "etag": "MDEwMjE5MjA=",
+  "name": "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "oauth2ClientId": "112389832050629133784",
+  "projectId": "ewallet-data-ai-platform-hg26",
+  "uniqueId": "112389832050629133784"
+}

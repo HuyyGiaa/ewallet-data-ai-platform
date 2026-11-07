@@ -213,6 +213,29 @@ review.
 | deletion protection error | Terraform đang cố xóa resource bảo vệ | Dừng và review plan; đây là guardrail đúng |
 | plan có GKE/Jenkins ngoài ý muốn | Cost flag local đang bật | Đặt lại hai `enable_* = false` và tạo plan mới |
 
+## R2: định danh riêng cho serving (2026-11-07)
+
+**Đã chạy thật trên dự án `ewallet-data-ai-platform-hg26`.** Evidence: `docs/evidence/edai2/iam/r2_apply_20261107T143853Z`.
+
+**Vì sao không apply bình thường.** State dev đã lệch khỏi cluster thật: node pool trong state có autoscaling 0–3, còn live thì tắt; authorized networks và network policy cũng lệch. Plan đầy đủ sẽ **xóa và tạo lại node pool**. Kể cả `-target` vào binding Workload Identity cũng kéo theo node pool, vì `module.workload_identity` có `depends_on = [module.gke]`. **Không ai được chạy `terraform apply` không giới hạn cho tới khi drift được xử lý bằng một quyết định riêng.**
+
+| Bước | Công cụ | Kết quả |
+|---|---|---|
+| Plan 4 target, có lock, serial 10 | Terraform | "4 to add, 0 to change, 0 to destroy"; guard `ops.gcp.r2_terraform` chấp nhận; sha256 của plan đã lưu nằm trong `saved-plan.sha256` |
+| Apply đúng plan đã lưu | **Terraform tạo** | 2 GSA `ewallet-fraud-api`, `ewallet-feature-api`; 2 binding `roles/storage.objectViewer` có điều kiện `online-feast-registry-only` (chỉ prefix `features/registries/`) |
+| 2 binding Workload Identity | **`gcloud add-iam-policy-binding`** | `ml-platform/fraud-api` → `ewallet-fraud-api`; `ml-platform/feature-api` → `ewallet-feature-api`; chỉ thêm member, không thay cả policy |
+| Đưa vào state | **`terraform import`**, có lock | 2 địa chỉ `module.workload_identity…["fraud_api"/"feature_api"]` |
+| Readback | Terraform, gcloud | State serial 10 → 13, chỉ thêm đúng 6 địa chỉ; plan 4 target sau đó báo "No changes" |
+
+**Không đổi** (so sánh before/after):
+- binding của `ewallet-training` (`ml-platform/training`, `kubeflow/pipeline-runner`), `ewallet-serving`, `ewallet-generator`;
+- các binding khác của bucket;
+- node pool `cpu-pool` và các trường cluster đã đọc.
+
+**Chưa kiểm chứng:**
+- Pod chạy bằng KSA mới có thật sự nhận được danh tính GSA hay không. Việc này kiểm tra ở Gói 4, khi cluster đã wake.
+- Ảnh chụp Console: owner tự chụp, vì không có ảnh tổng hợp.
+
 ## Giới hạn hiện tại
 
 - Bootstrap và dev foundation đã apply; remote state nằm trên GCS và plan hiện

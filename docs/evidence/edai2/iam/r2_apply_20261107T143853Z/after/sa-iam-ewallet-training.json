@@ -1,0 +1,13 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[kubeflow/pipeline-runner]",
+        "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/training]"
+      ],
+      "role": "roles/iam.workloadIdentityUser"
+    }
+  ],
+  "etag": "BwZe01ZsDmI=",
+  "version": 1
+}

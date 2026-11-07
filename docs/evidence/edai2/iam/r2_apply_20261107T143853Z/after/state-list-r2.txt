@@ -1,0 +1,6 @@
+module.iam.google_service_account.workload["feature_api"]
+module.iam.google_service_account.workload["fraud_api"]
+module.iam.google_storage_bucket_iam_member.registry_reader["feature_api"]
+module.iam.google_storage_bucket_iam_member.registry_reader["fraud_api"]
+module.workload_identity.google_service_account_iam_member.workload_identity["feature_api"]
+module.workload_identity.google_service_account_iam_member.workload_identity["fraud_api"]

@@ -1,0 +1,12 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[serving/fraud-inference]"
+      ],
+      "role": "roles/iam.workloadIdentityUser"
+    }
+  ],
+  "etag": "BwZeaqzaUWQ=",
+  "version": 1
+}

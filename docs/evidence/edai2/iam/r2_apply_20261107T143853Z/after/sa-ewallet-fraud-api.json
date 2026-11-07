@@ -1,0 +1,10 @@
+{
+  "description": "Fraud API: reads the online Feast registry only",
+  "displayName": "E-Wallet fraud_api",
+  "email": "ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "etag": "MDEwMjE5MjA=",
+  "name": "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "oauth2ClientId": "108664217532020842482",
+  "projectId": "ewallet-data-ai-platform-hg26",
+  "uniqueId": "108664217532020842482"
+}

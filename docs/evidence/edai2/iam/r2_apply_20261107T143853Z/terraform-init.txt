@@ -1,0 +1,23 @@
+Initializing the backend...
+
+Successfully configured the backend "gcs"! Terraform will automatically
+use this backend unless the backend configuration changes.
+
+Initializing modules...
+- network in ../../modules/network
+- dataproc in ../../modules/dataproc
+- artifact_registry in ../../modules/artifact_registry
+- cicd_build in ../../modules/cicd_build
+- jenkins_vm in ../../modules/jenkins_vm
+- workload_identity in ../../modules/workload_identity
+- iam in ../../modules/iam
+- gke in ../../modules/gke
+- project_services in ../../modules/project_services
+- storage in ../../modules/storage
+
+Initializing provider plugins...
+- terraform.io/builtin/terraform is built in to Terraform
+- Reusing previous version of hashicorp/google from the dependency lock file
+- Using hashicorp/google v7.46.1 from the shared cache directory
+
+Terraform has been successfully initialized!

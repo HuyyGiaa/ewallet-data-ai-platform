@@ -1,0 +1,15 @@
+SA ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com disabled= False description= Fraud API: reads the online Feast registry only
+SA ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com disabled= False description= Feature Retrieval API: reads the online Feast registry only
+bucket removed members: []
+bucket added: roles/storage.objectViewer serviceAccount:ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com {'description': 'Read objects under features/registries/ and nothing else', 'expression': 'resource.name.startsWith("projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/")', 'title': 'online-feast-registry-only'}
+bucket added: roles/storage.objectViewer serviceAccount:ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com {'description': 'Read objects under features/registries/ and nothing else', 'expression': 'resource.name.startsWith("projects/_/buckets/ewallet-data-ai-platform-hg26-data/objects/features/registries/")', 'title': 'online-feast-registry-only'}
+WI fraud-api [('roles/iam.workloadIdentityUser', ['serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/fraud-api]'])]
+WI feature-api [('roles/iam.workloadIdentityUser', ['serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/feature-api]'])]
+unchanged training True
+unchanged serving True
+unchanged generator True
+node pool unchanged True
+cluster selected fields unchanged True
+state serial 10 -> 13 lineage same True
+state added: ['module.iam.google_service_account.workload["feature_api"]', 'module.iam.google_service_account.workload["fraud_api"]', 'module.iam.google_storage_bucket_iam_member.registry_reader["feature_api"]', 'module.iam.google_storage_bucket_iam_member.registry_reader["fraud_api"]', 'module.workload_identity.google_service_account_iam_member.workload_identity["feature_api"]', 'module.workload_identity.google_service_account_iam_member.workload_identity["fraud_api"]']
+state removed: []

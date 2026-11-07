@@ -1,0 +1,12 @@
+module.jenkins_vm.data.google_compute_image.ubuntu: Reading...
+module.workload_identity.google_service_account_iam_member.workload_identity["fraud_api"]: Importing from ID "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com roles/iam.workloadIdentityUser serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/fraud-api]"...
+module.jenkins_vm.data.google_compute_image.ubuntu: Read complete after 0s [id=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20261105]
+module.workload_identity.google_service_account_iam_member.workload_identity["fraud_api"]: Import prepared!
+  Prepared google_service_account_iam_member for import
+module.workload_identity.google_service_account_iam_member.workload_identity["fraud_api"]: Refreshing state... [id=projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com/roles/iam.workloadIdentityUser/serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/fraud-api]]
+
+Import successful!
+
+The resources that were imported are shown above. These resources are now in
+your Terraform state and will henceforth be managed by Terraform.
+
