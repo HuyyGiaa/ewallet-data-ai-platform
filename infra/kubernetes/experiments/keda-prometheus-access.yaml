@@ -1,0 +1,38 @@
+# Lets the KEDA operator query Prometheus. Without it the scaler fails: ewallet-agents is
+# default-deny and Prometheus has an ALLOW-only AuthorizationPolicy. Both objects only add
+# one flow. Rollback: kubectl delete -f this file; KEDA then falls back to its fixed replicas.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-keda-operator-to-prometheus
+  namespace: ewallet-agents
+spec:
+  action: ALLOW
+  selector:
+    matchLabels: {app.kubernetes.io/name: prometheus}
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/keda/sa/keda-operator"]
+      to:
+        - operation:
+            ports: ["9090"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-keda-operator-to-prometheus-ingress
+  namespace: ewallet-agents
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: prometheus}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: keda}
+          podSelector:
+            matchLabels: {app: keda-operator}
+      ports:
+        - {protocol: TCP, port: 9090}
+        - {protocol: TCP, port: 15008}

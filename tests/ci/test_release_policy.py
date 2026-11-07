@@ -103,7 +103,7 @@ class ReleasePolicyTests(unittest.TestCase):
         }
         plan = build_release_plan(
             CATALOG,
-            self.request(components=("llm-serving", "mcp-agents")),
+            self.request(components=("llm-serving", "mcp-agents"), branch="release/llm-serving"),
             manifest,
         )
         self.assertEqual([unit["component"] for unit in plan["units"]], ["llm-serving"])

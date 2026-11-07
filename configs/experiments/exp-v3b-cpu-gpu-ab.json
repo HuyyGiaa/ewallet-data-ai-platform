@@ -1,0 +1,44 @@
+{
+  "experiment_id": "EXP-V3B",
+  "hypothesis": "Concurrent weighted A/B between a CPU model and a GPU model shows live routing, attribution and per-arm quality under one gateway. It is a deployment comparison, not a serving optimization: the two arms differ in model and hardware together.",
+  "variable": "Whole serving arm: Qwen3-0.6B on CPU versus Qwen3-1.7B on L4. Model and hardware are confounded.",
+  "baseline": "cpu-qwen3-0.6b",
+  "optimized": "l4-qwen3-1.7b",
+  "controls": [
+    "workload_sha256",
+    "gateway_token_budget",
+    "traffic_split"
+  ],
+  "metrics": [
+    {
+      "name": "e2e_p95_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p95"
+    },
+    {
+      "name": "ttft_p95_ms",
+      "direction": "lower",
+      "path": "ttft_ms.p95"
+    },
+    {
+      "name": "tool_calls_valid",
+      "direction": "higher",
+      "path": "tool_calls_valid"
+    },
+    {
+      "name": "output_tokens_per_second",
+      "direction": "higher",
+      "path": "output_tokens_per_second"
+    }
+  ],
+  "primary_metric": "tool_calls_valid",
+  "min_runs": 3,
+  "significant_percent": 10,
+  "screenshots": [
+    "Gateway weighted routing configuration",
+    "Per-arm request counts from x-ewallet-backend",
+    "nvidia-smi on the L4 node and CPU usage on the CPU node",
+    "Per-arm latency and validity table",
+    "comparison.md with the verdict and the confounder statement"
+  ]
+}

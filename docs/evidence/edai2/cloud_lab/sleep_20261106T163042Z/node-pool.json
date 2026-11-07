@@ -1,0 +1,27 @@
+{
+  "name": "cpu-pool",
+  "status": "RUNNING",
+  "version": "1.36.4-gke.2046003",
+  "initialNodeCount": 4,
+  "autoscaling": {},
+  "management": {
+    "autoRepair": true,
+    "autoUpgrade": true
+  },
+  "upgradeSettings": {
+    "maxSurge": 1,
+    "strategy": "SURGE"
+  },
+  "config": {
+    "machineType": "e2-standard-4",
+    "diskSizeGb": 50,
+    "diskType": "pd-balanced",
+    "labels": {
+      "workload": "cpu"
+    },
+    "serviceAccount": "ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+  },
+  "instanceGroupUrls": [
+    "https://www.googleapis.com/compute/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/instanceGroupManagers/gke-ewallet-dev-cpu-pool-58daed59-grp"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "_comment": "Workload allow-lists for on-demand GKE modes. Node counts are computed from recorded requests by cloud_lab.py; none of these profiles has been run yet.",
+  "minimal": {
+    "mcp-fallback": ["ewallet-mcp/feature-rag-mcp", "ewallet-mcp/drift-mcp", "ewallet-agents/drift-mcp", "ewallet-agents/mcp-gateway", "ewallet-agents/agentgateway", "feature-store/redis"],
+    "one-agent": ["kagent/kagent-controller", "kagent/kagent-postgresql", "ewallet-agents/drift-specialist", "ewallet-agents/vllm-primary", "ewallet-agents/agentgateway", "ewallet-agents/mcp-gateway", "ewallet-agents/drift-mcp", "ewallet-mcp/drift-mcp"],
+    "jenkins-smoke": ["ewallet-ci/jenkins"],
+    "sandbox": ["ate-system/*", "kagent/kagent-controller", "kagent/kagent-postgresql", "kagent-pilot/*"],
+    "kserve-small": ["kserve/kserve-controller-manager", "fraud-serving/fraud-detector-predictor", "ml-platform/fraud-api", "feature-store/redis"]
+  },
+  "experiment": {
+    "vllm-cpu": ["ewallet-agents/vllm-primary", "ewallet-agents/prometheus", "ewallet-agents/grafana", "ewallet-agents/otel-collector"],
+    "agent-keda": ["kagent/*", "ewallet-agents/*", "ewallet-mcp/*", "feature-store/redis", "fraud-serving/fraud-detector-predictor", "kserve/kserve-controller-manager", "ml-platform/fraud-api"],
+    "agent-sandbox": ["ate-system/*", "kagent/*", "kagent-pilot/*", "ewallet-agents/vllm-primary", "ewallet-agents/agentgateway"]
+  }
+}

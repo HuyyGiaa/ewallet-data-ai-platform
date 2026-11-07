@@ -1,0 +1,114 @@
+[
+  {
+    "name": "cert-manager",
+    "namespace": "cert-manager",
+    "revision": "1",
+    "status": "deployed",
+    "chart": "cert-manager-v1.16.2",
+    "app_version": "v1.16.2"
+  },
+  {
+    "name": "istio-base",
+    "namespace": "istio-system",
+    "revision": "13",
+    "status": "deployed",
+    "chart": "base-1.30.7",
+    "app_version": "1.30.7"
+  },
+  {
+    "name": "istio-cni",
+    "namespace": "istio-system",
+    "revision": "13",
+    "status": "deployed",
+    "chart": "cni-1.30.7",
+    "app_version": "1.30.7"
+  },
+  {
+    "name": "istiod",
+    "namespace": "istio-system",
+    "revision": "13",
+    "status": "deployed",
+    "chart": "istiod-1.30.7",
+    "app_version": "1.30.7"
+  },
+  {
+    "name": "kagent",
+    "namespace": "kagent",
+    "revision": "5",
+    "status": "deployed",
+    "chart": "kagent-0.10.3",
+    "app_version": ""
+  },
+  {
+    "name": "kagent-crds",
+    "namespace": "kagent",
+    "revision": "1",
+    "status": "deployed",
+    "chart": "kagent-crds-0.10.3",
+    "app_version": ""
+  },
+  {
+    "name": "kserve",
+    "namespace": "kserve",
+    "revision": "1",
+    "status": "deployed",
+    "chart": "kserve-v0.16.0",
+    "app_version": ""
+  },
+  {
+    "name": "kserve-crd",
+    "namespace": "kserve",
+    "revision": "1",
+    "status": "deployed",
+    "chart": "kserve-crd-v0.16.0",
+    "app_version": ""
+  },
+  {
+    "name": "llm-agent",
+    "namespace": "default",
+    "revision": "41",
+    "status": "deployed",
+    "chart": "llm-agent-platform-0.1.0",
+    "app_version": "llm-agent-v1"
+  },
+  {
+    "name": "llm-agent-mcp",
+    "namespace": "ewallet-mcp",
+    "revision": "6",
+    "status": "deployed",
+    "chart": "llm-agent-platform-0.1.0",
+    "app_version": "llm-agent-v1"
+  },
+  {
+    "name": "prompt-registry",
+    "namespace": "ewallet-prompts",
+    "revision": "1",
+    "status": "deployed",
+    "chart": "agentregistry-0.4.0",
+    "app_version": "v0.4.0"
+  },
+  {
+    "name": "substrate",
+    "namespace": "ate-system",
+    "revision": "1",
+    "status": "deployed",
+    "chart": "substrate-0.0.9",
+    "app_version": "v0.0.9"
+  },
+  {
+    "name": "substrate-crds",
+    "namespace": "ate-system",
+    "revision": "1",
+    "status": "deployed",
+    "chart": "substrate-crds-0.0.9",
+    "app_version": "v0.0.9"
+  },
+  {
+    "name": "ztunnel",
+    "namespace": "istio-system",
+    "revision": "13",
+    "status": "deployed",
+    "chart": "ztunnel-1.30.7",
+    "app_version": "1.30.7"
+  }
+]

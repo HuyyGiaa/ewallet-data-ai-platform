@@ -29,7 +29,12 @@ from opentelemetry import propagate, trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from ai_platform.llm_agent.business_request import a2a_message_send
-from ai_platform.llm_agent.agent_metrics import initialize as initialize_agent_metrics, record_invocation, record_prompt_screen
+from ai_platform.llm_agent.agent_metrics import (
+    InflightTrackingExecutor,
+    initialize as initialize_agent_metrics,
+    record_invocation,
+    record_prompt_screen,
+)
 from ai_platform.llm_agent.byo_runtime import (
     AppResources,
     flush_agent_metrics,
@@ -37,6 +42,7 @@ from ai_platform.llm_agent.byo_runtime import (
     audit,
     configure_telemetry,
     controller_task_store,
+    listen_port,
 )
 from ai_platform.llm_agent.nl_intake import (
     IntakeFailure,
@@ -440,7 +446,7 @@ def build_app(
         task_store, resources = controller_task_store(APP_NAME)
     effective_executor = executor or CoordinatorExecutor()
     request_handler = DefaultRequestHandler(
-        agent_executor=effective_executor,
+        agent_executor=InflightTrackingExecutor(APP_NAME, effective_executor),
         task_store=task_store,
         request_context_builder=KAgentRequestContextBuilder(task_store=task_store),
     )
@@ -482,10 +488,12 @@ app = build_app()
 
 
 def main() -> None:
+    """Serve the Coordinator on the configured port."""
+
     import uvicorn
 
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-    uvicorn.run(app, host="0.0.0.0", port=8080, access_log=True)
+    uvicorn.run(app, host="0.0.0.0", port=listen_port(os.environ), access_log=True)
 
 
 if __name__ == "__main__":

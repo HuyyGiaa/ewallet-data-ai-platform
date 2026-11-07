@@ -40,6 +40,11 @@ pool_size() {
     --format='value(targetSize)' | awk '{s+=$1} END {print s+0}'
 }
 guard_pid="" pfs=()
+# Before any trap: cleanup below uninstalls llm-agent and must never run against production.
+# shellcheck source=production_guard.sh
+. "$root/scripts/llm_agent/production_guard.sh"
+refuse_production_release "$KUBE_CONTEXT"
+export G1_EXPERIMENT_OWNS_RELEASE=yes
 log "o1 start git=$(git -C "$root" rev-parse HEAD) configs=$configs"
 
 cleanup() {

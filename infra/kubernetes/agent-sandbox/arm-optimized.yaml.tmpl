@@ -1,0 +1,94 @@
+# EXP-C5-SANDBOX candidate arm. Rendered by scripts/experiments/render_sandbox.py, which fills the
+# image digest. Both arms run one image with the same settings. The differences are the ones
+# the runtime demands:
+#  - Substrate copies the command verbatim, with no image entrypoint, working directory or
+#    PATH, so the candidate names the interpreter and sets PYTHONPATH.
+#  - Substrate probes port 80; a Deployment serves on 8080.
+# Secret values are not in Git; see README.md.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-feature-rag
+  namespace: ewallet-sandbox
+automountServiceAccountToken: false
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: bench-feature-rag-sandbox
+  namespace: ewallet-sandbox
+  labels:
+    ewallet.io/experiment: 'true'
+spec:
+  description: Feature-RAG specialist under test
+  version: 0.1.0
+  type: BYO
+  byo:
+    deployment:
+      image: __AGENT_IMAGE__
+      imagePullPolicy: IfNotPresent
+      env:
+      - name: EWALLET_NL_INTAKE_ENABLED
+        value: 'true'
+      - name: EWALLET_LLM_BASE_URL
+        value: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+      - name: EWALLET_LLM_MODEL
+        value: ewallet-fraud-llm
+      - name: EWALLET_LLM_TIMEOUT_SECONDS
+        value: '190'
+      - name: EWALLET_LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: sandbox-llm-key
+            key: value
+      - name: EWALLET_MCP_SERVICE_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: sandbox-mcp-token
+            key: value
+      - name: EWALLET_MCP_MAX_ATTEMPTS
+        value: '3'
+      - name: PYTHONUNBUFFERED
+        value: '1'
+      - name: EWALLET_AGENT_PORT
+        value: '80'
+      - name: PYTHONPATH
+        value: /workspace
+      - name: PATH
+        value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin
+      serviceAccountName: sandbox-feature-rag
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      cmd: /opt/venv/bin/python
+      args:
+      - -m
+      - ai_platform.llm_agent.byo_feature_rag_specialist
+  substrate:
+    workerPoolRef:
+      apiGroup: ate.dev
+      kind: WorkerPool
+      name: business-agents
+    snapshotsConfig:
+      location: gs://ate-snapshots/ewallet-sandbox/bench-feature-rag-sandbox/
+  sandbox:
+    network:
+      allowedDomains:
+      - agentgateway.ewallet-agents.svc.cluster.local
+      - mcp-gateway.ewallet-agents.svc
+      - mcp-gateway.ewallet-agents.svc.cluster.local
+      - kagent-controller.kagent
+      - otel-collector.ewallet-agents.svc.cluster.local

@@ -1,0 +1,2135 @@
+[
+  {
+    "namespace": "ate-system",
+    "pod": "ate-api-server-deployment-6558549c7c-h2846",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ate-api-server",
+        "image": "sha256:7304952613823684cadc76c4cba18974e2e262b67eb74d3df5926e8d35d217d7",
+        "imageID": "ghcr.io/kagent-dev/substrate/ateapi@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "ate-controller-6bcb5b4bf7-w84zb",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ate-controller",
+        "image": "sha256:3826bfcf489cbd5a530de1bbae225943538e21090996bb112c49a2bc99283f2b",
+        "imageID": "ghcr.io/kagent-dev/substrate/atecontroller@sha256:dc29e79987fe4177b92c8b30a4fa4f36f3cf1a80937b03a7a8cd3411f98693e5"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "atelet-dnvft",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "atelet",
+        "image": "sha256:665ef565993d096301fc8118dcb667ec38307b2cafab2a49ce6533f42c1b148d",
+        "imageID": "ghcr.io/kagent-dev/substrate/atelet@sha256:ec3e842a1a0a060192710c34be83354d0b45e8d0e40342384d3b836413c3c8e1"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "atelet-h7m8c",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "atelet",
+        "image": "sha256:665ef565993d096301fc8118dcb667ec38307b2cafab2a49ce6533f42c1b148d",
+        "imageID": "ghcr.io/kagent-dev/substrate/atelet@sha256:ec3e842a1a0a060192710c34be83354d0b45e8d0e40342384d3b836413c3c8e1"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "atelet-hk8jn",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "atelet",
+        "image": "sha256:665ef565993d096301fc8118dcb667ec38307b2cafab2a49ce6533f42c1b148d",
+        "imageID": "ghcr.io/kagent-dev/substrate/atelet@sha256:ec3e842a1a0a060192710c34be83354d0b45e8d0e40342384d3b836413c3c8e1"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "atelet-x6v6w",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "atelet",
+        "image": "sha256:665ef565993d096301fc8118dcb667ec38307b2cafab2a49ce6533f42c1b148d",
+        "imageID": "ghcr.io/kagent-dev/substrate/atelet@sha256:ec3e842a1a0a060192710c34be83354d0b45e8d0e40342384d3b836413c3c8e1"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "atenet-router-85b65959f5-jtwvd",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "agentgateway",
+        "image": "sha256:b90bda51f9d0d91c75805d5ff6bb7fab8d8d4b062e9526b52276bc5a246da389",
+        "imageID": "cr.agentgateway.dev/agentgateway@sha256:95e8d849c44ba31399daf504367ecfcfe2d3d3e59ffd96b1098234353afc3ef7"
+      },
+      {
+        "name": "atenet-router",
+        "image": "sha256:b8fe989c81c2557e300b7896ba76f2a4e9eae5efe4cbba14afefae230f43dda3",
+        "imageID": "ghcr.io/kagent-dev/substrate/atenet@sha256:15892218c70e736bca06bd9f1134425897f8b9c265428f932de5d6d779e9452a"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "dns-669f5bf88b-hj4k7",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "coredns",
+        "image": "sha256:cbb01a7bd410dc08ba382018ab909a674fb0e48687f0c00797ed5bc34fcc6bb4",
+        "imageID": "docker.io/coredns/coredns@sha256:1eeb4c7316bacb1d4c8ead65571cd92dd21e27359f0d4917f1a5822a73b75db1"
+      },
+      {
+        "name": "dns-controller",
+        "image": "sha256:b8fe989c81c2557e300b7896ba76f2a4e9eae5efe4cbba14afefae230f43dda3",
+        "imageID": "ghcr.io/kagent-dev/substrate/atenet@sha256:15892218c70e736bca06bd9f1134425897f8b9c265428f932de5d6d779e9452a"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "rustfs-5587886f5c-264s7",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "rustfs",
+        "image": "sha256:c5102f4ed5f9677c04cdbead7b848c24f0dd6ddc99473077f7387e872fb6dbe1",
+        "imageID": "docker.io/rustfs/rustfs@sha256:378642b05b7dcb4849fb77ebe6aca4ced1c3f66e7e504247df95a5c9018d3358"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "rustfs-bucket-init-qnpzx",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Succeeded",
+    "images": [
+      {
+        "name": "create-bucket",
+        "image": "sha256:0a3483bb3332bbe9dcb42c34c3abfd10f07bf9735023016ba613aea640b7cf56",
+        "imageID": "docker.io/amazon/aws-cli@sha256:643507c10ada7964ca6157b3d799f030b90577643da9955d319a77399ed80d73"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "valkey-cluster-0",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "valkey",
+        "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "valkey-cluster-1",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "valkey",
+        "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "valkey-cluster-2",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "valkey",
+        "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "valkey-cluster-3",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "valkey",
+        "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "valkey-cluster-4",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "valkey",
+        "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "valkey-cluster-5",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "valkey",
+        "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "namespace": "ate-system",
+    "pod": "valkey-cluster-init-zgxrf",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Succeeded",
+    "images": [
+      {
+        "name": "init",
+        "image": "sha256:9cdba8804a885dc6f65b5037b142ca84f2a40b781dd933a295e69951917ab390",
+        "imageID": "docker.io/valkey/valkey@sha256:04b9002ae24bbe66687fb025052ed9bcebb54f8da3937338eb718d98d362887f"
+      }
+    ]
+  },
+  {
+    "namespace": "cert-manager",
+    "pod": "cert-manager-7b7c4d58c4-qgv7m",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "cert-manager-controller",
+        "image": "quay.io/jetstack/cert-manager-controller:v1.16.2",
+        "imageID": "quay.io/jetstack/cert-manager-controller@sha256:0eec9c89554011c9aa16eea88ab89a91b32dc8d6eb96307b7fc2dcd6bbbc7fcf"
+      }
+    ]
+  },
+  {
+    "namespace": "cert-manager",
+    "pod": "cert-manager-cainjector-6b95b7d4d4-wq5sc",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "cert-manager-cainjector",
+        "image": "quay.io/jetstack/cert-manager-cainjector:v1.16.2",
+        "imageID": "quay.io/jetstack/cert-manager-cainjector@sha256:593abc7bf8b926d6fcb9c63b91504ad85e1379b25056aa5dee90b35505ab3211"
+      }
+    ]
+  },
+  {
+    "namespace": "cert-manager",
+    "pod": "cert-manager-webhook-66465b85d8-lg27w",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "cert-manager-webhook",
+        "image": "quay.io/jetstack/cert-manager-webhook:v1.16.2",
+        "imageID": "quay.io/jetstack/cert-manager-webhook@sha256:64c4d5dd55d7d00e5b162e21887f9bffbf1e531ee0668eaf801fae9bd54e536d"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "a2a-gateway-6d8bc9c59c-tkdpj",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "agentgateway",
+        "image": "sha256:1d52eae857d13e142bb67a57010e1702110410e662e6dd9a85fe23d52dd4f188",
+        "imageID": "ghcr.io/agentgateway/agentgateway@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "agentgateway-59ccc6b6db-zsv2l",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "agentgateway",
+        "image": "sha256:1d52eae857d13e142bb67a57010e1702110410e662e6dd9a85fe23d52dd4f188",
+        "imageID": "ghcr.io/agentgateway/agentgateway@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "coordinator-idempotency-redis-0",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "redis",
+        "image": "sha256:8f5c54441eb93183170be8c9fc2d8e8275171a6866ca1b4ae682a2ced6a98889",
+        "imageID": "docker.io/library/redis@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "drift-mcp-c845bfc5f-4ttkw",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "mcp-server",
+        "image": "sha256:d744ccb3eaa1df57ee8f4b948996394fa5fe6382e770e0ddf36665e37ed43479",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "drift-specialist-778b47fd6f-fxjrn",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kagent",
+        "image": "sha256:869b98f1e423328ff1eab3b65004e1bf5a4893fdb228044026423e32c9388c75",
+        "imageID": "ghcr.io/kagent-dev/kagent/golang-adk@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "drift-specialist-778b47fd6f-stffm",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kagent",
+        "image": "sha256:869b98f1e423328ff1eab3b65004e1bf5a4893fdb228044026423e32c9388c75",
+        "imageID": "ghcr.io/kagent-dev/kagent/golang-adk@sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "feature-rag-specialist-855c67457d-c66mn",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kagent",
+        "image": "sha256:63d0ad003ce40660e250e9f2a5e7d6f63840d2ea7a299547ce4cfba9b525bd04",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "feature-rag-specialist-855c67457d-dvttw",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kagent",
+        "image": "sha256:63d0ad003ce40660e250e9f2a5e7d6f63840d2ea7a299547ce4cfba9b525bd04",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "fraud-coordinator-7dccdc448c-vpnht",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kagent",
+        "image": "sha256:63d0ad003ce40660e250e9f2a5e7d6f63840d2ea7a299547ce4cfba9b525bd04",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "fraud-coordinator-7dccdc448c-xlw8s",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kagent",
+        "image": "sha256:63d0ad003ce40660e250e9f2a5e7d6f63840d2ea7a299547ce4cfba9b525bd04",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "grafana-57d6cd5f79-v4vhb",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "grafana",
+        "image": "sha256:d65277dbf54f2f7570e7889aa48a0d19df9c1c6a0a36eabfa770a8828bfecc14",
+        "imageID": "docker.io/grafana/grafana@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "loki-5f7948b5f7-94n9r",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "loki",
+        "image": "sha256:4d58e59bc9fc417097c0694571572731e138b1e8bfa8e0b5dbc3cf8d0d1b54aa",
+        "imageID": "docker.io/grafana/loki@sha256:bf26399a58b4719387b06abfd024ebca942d702b2e77cc600fa3439356584c73"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "mcp-gateway-69658c7f94-qxkjn",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "agentgateway",
+        "image": "sha256:1d52eae857d13e142bb67a57010e1702110410e662e6dd9a85fe23d52dd4f188",
+        "imageID": "ghcr.io/agentgateway/agentgateway@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "observability-alloy-6d9859b56c-5d5qv",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "alloy",
+        "image": "sha256:b95ad0d53420e36b0dd72ddb2466b75cfd0d0af2787094a756b93f65cb26f5fc",
+        "imageID": "docker.io/grafana/alloy@sha256:8c7256f412feb9f5f48f9f6f9394dc97ca887f63dea9304f347970ecc1787669"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "otel-collector-7588f6c5dc-hhbdh",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "otel-collector",
+        "image": "sha256:b90b3ed4cab89c4e196d0c58234b71a862165e77631871fc9b5b1b6f2aad3163",
+        "imageID": "docker.io/otel/opentelemetry-collector-contrib@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "prometheus-654bb6475f-5zvgt",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "prometheus",
+        "image": "sha256:a683da7699127231b140f7dbd7d60e9741d51543ba91c656bf3287860a39428f",
+        "imageID": "docker.io/prom/prometheus@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "tempo-c59569895-7cfcr",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "tempo",
+        "image": "sha256:08c4147d7e1e57d89f0f93d79139a9cce7ca94adb0f550b0aeba98e2fee41562",
+        "imageID": "docker.io/grafana/tempo@sha256:8cfd15734001588eb9c4de7326614be2b668e84d71f8479b149906f0dd65983d"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-agents",
+    "pod": "vllm-primary-588445cd8-wbbxf",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "vllm",
+        "image": "sha256:8e188f25d338690eff16cacbc479f5213dc6836715980df4fd697058a08fb218",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-ci",
+    "pod": "jenkins-658878f55b-zq56m",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "jenkins",
+        "image": "sha256:a50e30356ec3a1f92018a2ff63627430fcfef6d792f968f2fbcb3f4fe64ea6f8",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/jenkins-controller@sha256:9c301d1a7fa4e8a6a2de8eafbc85c664eda292c6170f1168f71982c1fee5565d"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-mcp",
+    "pod": "drift-mcp-55d97bff46-4dd44",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "mcp-server",
+        "image": "sha256:36375bf1dbf65907e54c1fc9dc71cf0d98d9c38f2d521c75238dfc27c66ac4cc",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-mcp",
+    "pod": "feature-rag-mcp-7c685b9ff-4ssfz",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "mcp-server",
+        "image": "sha256:36375bf1dbf65907e54c1fc9dc71cf0d98d9c38f2d521c75238dfc27c66ac4cc",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-prompts",
+    "pod": "prompt-registry-agentregistry-8687d9b776-9fq7r",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "agentregistry",
+        "image": "sha256:7b9cca353084839255c9be0b4d6047612dfa9d79cbbef90476930ab672f5439b",
+        "imageID": "ghcr.io/agentregistry-dev/agentregistry/server@sha256:a2f69bd36fcdb8000d9a72fd6eef88f0c4aebc17ff3c55ea3ed174ae0bb12e3c"
+      }
+    ]
+  },
+  {
+    "namespace": "ewallet-prompts",
+    "pod": "prompt-registry-db-558448445c-98n5p",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "postgres",
+        "image": "sha256:a1be1c8380f5c8ca80b4ad72f6be191f8a283e0ecb2e9496b1ee67dc0022d0f1",
+        "imageID": "docker.io/library/postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81"
+      }
+    ]
+  },
+  {
+    "namespace": "feature-store",
+    "pod": "redis-0",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "redis",
+        "image": "sha256:8f5c54441eb93183170be8c9fc2d8e8275171a6866ca1b4ae682a2ced6a98889",
+        "imageID": "docker.io/library/redis@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"
+      }
+    ]
+  },
+  {
+    "namespace": "fraud-serving",
+    "pod": "fraud-detector-predictor-6b649bc8b6-48csb",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kserve-container",
+        "image": "sha256:d74a21ca315bce8ccc0a310e5ec935463880aec8a6ee36c042a70455162c2be7",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896"
+      }
+    ]
+  },
+  {
+    "namespace": "gke-managed-cim",
+    "pod": "kube-state-metrics-0",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ksm-metrics-collector",
+        "image": "sha256:72e3f3df374166bceea17ac0e3d409b8be652be13a89074f7cdf506fbdf412f6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:5eb81dc265af031294a413a32fde1b59d5b8480e3f131a09b5a1059294aefd99"
+      },
+      {
+        "name": "kube-state-metrics",
+        "image": "sha256:2aae68f953ba5297849684eabd2a000d8cf6f290e2259917d58b635a6544758e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kube-state-metrics@sha256:b96a02c2a2a4d2039c8255a98db785a3aa5b55f0345bed25d635e11c95727973"
+      }
+    ]
+  },
+  {
+    "namespace": "gmp-system",
+    "pod": "collector-96ck8",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "config-reloader",
+        "image": "sha256:05134b102401d2a6bfbb025464761b2fe865a1ff5e5beac10df79af357972f38",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/config-reloader@sha256:639d8d8b5ed224515ee0c1a52f579db56fd5a66ad62a4a165acce19006845324"
+      },
+      {
+        "name": "prometheus",
+        "image": "sha256:3638c8370ba0294254a825e4800f6b13b97be6716147472227f834d65347c552",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/prometheus@sha256:e9d39fbb1b191aa85afa902d5dc368d5ae33105ae501a4211c7e178121ae5c68"
+      }
+    ]
+  },
+  {
+    "namespace": "gmp-system",
+    "pod": "collector-b9hq6",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "config-reloader",
+        "image": "sha256:05134b102401d2a6bfbb025464761b2fe865a1ff5e5beac10df79af357972f38",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/config-reloader@sha256:639d8d8b5ed224515ee0c1a52f579db56fd5a66ad62a4a165acce19006845324"
+      },
+      {
+        "name": "prometheus",
+        "image": "sha256:3638c8370ba0294254a825e4800f6b13b97be6716147472227f834d65347c552",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/prometheus@sha256:e9d39fbb1b191aa85afa902d5dc368d5ae33105ae501a4211c7e178121ae5c68"
+      }
+    ]
+  },
+  {
+    "namespace": "gmp-system",
+    "pod": "collector-ctqrg",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "config-reloader",
+        "image": "sha256:05134b102401d2a6bfbb025464761b2fe865a1ff5e5beac10df79af357972f38",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/config-reloader@sha256:639d8d8b5ed224515ee0c1a52f579db56fd5a66ad62a4a165acce19006845324"
+      },
+      {
+        "name": "prometheus",
+        "image": "sha256:3638c8370ba0294254a825e4800f6b13b97be6716147472227f834d65347c552",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/prometheus@sha256:e9d39fbb1b191aa85afa902d5dc368d5ae33105ae501a4211c7e178121ae5c68"
+      }
+    ]
+  },
+  {
+    "namespace": "gmp-system",
+    "pod": "collector-qrzzn",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "config-reloader",
+        "image": "sha256:05134b102401d2a6bfbb025464761b2fe865a1ff5e5beac10df79af357972f38",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/config-reloader@sha256:639d8d8b5ed224515ee0c1a52f579db56fd5a66ad62a4a165acce19006845324"
+      },
+      {
+        "name": "prometheus",
+        "image": "sha256:3638c8370ba0294254a825e4800f6b13b97be6716147472227f834d65347c552",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/prometheus@sha256:e9d39fbb1b191aa85afa902d5dc368d5ae33105ae501a4211c7e178121ae5c68"
+      }
+    ]
+  },
+  {
+    "namespace": "gmp-system",
+    "pod": "gmp-operator-5fb46c74b5-j2qjf",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "operator",
+        "image": "sha256:f0ecbb342a6acbbddfaac744348bcbada253c4af202b469623b9988d5d0d1f2a",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-engine/operator@sha256:4fb99ed113ea8b9bd7a869e198def79b01c038e490270ca4e6709c0ac5b61091"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "istio-cni-node-5xg59",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "install-cni",
+        "image": "registry.istio.io/release/install-cni:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/install-cni@sha256:5d65fa948ff28fac54d99f272205a3f71ee84e609d7e46792eecd77db0501d79"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "istio-cni-node-6tk7r",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "install-cni",
+        "image": "registry.istio.io/release/install-cni:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/install-cni@sha256:5d65fa948ff28fac54d99f272205a3f71ee84e609d7e46792eecd77db0501d79"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "istio-cni-node-sfl9m",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "install-cni",
+        "image": "registry.istio.io/release/install-cni:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/install-cni@sha256:5d65fa948ff28fac54d99f272205a3f71ee84e609d7e46792eecd77db0501d79"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "istio-cni-node-tlhxh",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "install-cni",
+        "image": "registry.istio.io/release/install-cni:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/install-cni@sha256:5d65fa948ff28fac54d99f272205a3f71ee84e609d7e46792eecd77db0501d79"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "istiod-5699dbf6d9-6pz4z",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "discovery",
+        "image": "registry.istio.io/release/pilot:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/pilot@sha256:337c5423c9b235855aadca8762f1ac3f0ce584833e49c50176382382099ff201"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "ztunnel-79s9l",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "istio-proxy",
+        "image": "registry.istio.io/release/ztunnel:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/ztunnel@sha256:02f183c632d08fe25317e6f7ffd057384f5d54620e620264af429e0d4dbf8889"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "ztunnel-8ws88",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "istio-proxy",
+        "image": "registry.istio.io/release/ztunnel:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/ztunnel@sha256:02f183c632d08fe25317e6f7ffd057384f5d54620e620264af429e0d4dbf8889"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "ztunnel-9wcfx",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "istio-proxy",
+        "image": "registry.istio.io/release/ztunnel:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/ztunnel@sha256:02f183c632d08fe25317e6f7ffd057384f5d54620e620264af429e0d4dbf8889"
+      }
+    ]
+  },
+  {
+    "namespace": "istio-system",
+    "pod": "ztunnel-sr828",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "istio-proxy",
+        "image": "registry.istio.io/release/ztunnel:1.30.7-distroless",
+        "imageID": "registry.istio.io/release/ztunnel@sha256:02f183c632d08fe25317e6f7ffd057384f5d54620e620264af429e0d4dbf8889"
+      }
+    ]
+  },
+  {
+    "namespace": "kagent-pilot",
+    "pod": "kagent-pilot-deployment-9b94d6787-7l2ws",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ateom",
+        "image": "sha256:985e66936fb086c597cb0ecaff2f6bae10cc6aa04cc4ce8043662d2f54f55c11",
+        "imageID": "ghcr.io/kagent-dev/substrate/ateom-gvisor@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc"
+      }
+    ]
+  },
+  {
+    "namespace": "kagent-pilot",
+    "pod": "mock-openai-5fd687968d-n9vsw",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "mock-openai",
+        "image": "sha256:beb80cc3d3e4d4900185b5396b31094434bbac0b08637e6dd187533f025b36ff",
+        "imageID": "docker.io/library/python@sha256:848ba4413eb897e225159b8fc1b02094576cbae4aa73fc13142608ae2c8c0e32"
+      }
+    ]
+  },
+  {
+    "namespace": "kagent",
+    "pod": "kagent-controller-58fc5667dc-qvrtf",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "controller",
+        "image": "sha256:84a2b0198392941e3739df6751d642026975a26e2fe290864b862e0d88d2d380",
+        "imageID": "ghcr.io/kagent-dev/kagent/controller@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76"
+      }
+    ]
+  },
+  {
+    "namespace": "kagent",
+    "pod": "kagent-postgresql-58997cbd8-nps2r",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "postgresql",
+        "image": "sha256:6a7f7cd6ec4a7e5364e98cfcafb0a5c07f6284ed222a0710ac730f4983da154e",
+        "imageID": "docker.io/library/postgres@sha256:1a0c23d53c1ad77468c8653fa6eed4f4105cfbef9e6f027bc1dfeb16949a8c29"
+      }
+    ]
+  },
+  {
+    "namespace": "kagent",
+    "pod": "kagent-ui-7fc9467f99-khkgc",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ui",
+        "image": "sha256:e6f18e848bdf7050d52550034d6df12bc23ba3dc4410a338ac013757598e019a",
+        "imageID": "ghcr.io/kagent-dev/kagent/ui@sha256:13f62914b66e19d394eea5fe04db85f689457ad582ef6b2ebd3bb44ec01a1127"
+      }
+    ]
+  },
+  {
+    "namespace": "kserve",
+    "pod": "kserve-controller-manager-88cdd4954-s2vdh",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kube-rbac-proxy",
+        "image": "quay.io/brancz/kube-rbac-proxy:v0.18.0",
+        "imageID": "quay.io/brancz/kube-rbac-proxy@sha256:754ab2a723c8fc7ea8e09ae1224f8af5be91849b8b2f2a3735c6237f1c534187"
+      },
+      {
+        "name": "manager",
+        "image": "docker.io/kserve/kserve-controller:v0.16.0",
+        "imageID": "docker.io/kserve/kserve-controller@sha256:4d89de192a7961a4fa456270e8d52de0b6f6d3e301fd16d150618f052653ddf6"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-node-5gnsz",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "calico-node",
+        "image": "sha256:1597b45c648983923f696be3ad77eb8fdd659a2f485d804d3d24fbd72e4950e4",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/node@sha256:8afe4a3f08887342787d052c5483e8ffda6c99e783ac068d53ac1f251cbce520"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-node-gs276",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "calico-node",
+        "image": "sha256:1597b45c648983923f696be3ad77eb8fdd659a2f485d804d3d24fbd72e4950e4",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/node@sha256:8afe4a3f08887342787d052c5483e8ffda6c99e783ac068d53ac1f251cbce520"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-node-nfgr5",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "calico-node",
+        "image": "sha256:1597b45c648983923f696be3ad77eb8fdd659a2f485d804d3d24fbd72e4950e4",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/node@sha256:8afe4a3f08887342787d052c5483e8ffda6c99e783ac068d53ac1f251cbce520"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-node-rvb97",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "calico-node",
+        "image": "sha256:1597b45c648983923f696be3ad77eb8fdd659a2f485d804d3d24fbd72e4950e4",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/node@sha256:8afe4a3f08887342787d052c5483e8ffda6c99e783ac068d53ac1f251cbce520"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-node-vertical-autoscaler-5b8cc46db-26c7h",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "sha256:b7e7df27309391efbf1e1df42ac5f63d0993f5960a37314bd68ab17254c6a8f3",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cpvpa@sha256:82fa4901131b100222404fb357027ab46fbd59825a9116399bf0b63e7342e896"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-typha-6566698959-fvdfb",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "calico-typha",
+        "image": "sha256:3a386927a9ba0218a0c8f8d44671f487edd560c0d3e9dcdc4a8bfe86a30b3f17",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/typha@sha256:cb83a36ea55ea8d0046076bab45aab0cce64e7d9609754f0816628cc17adb44e"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-typha-6566698959-l6slc",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "calico-typha",
+        "image": "sha256:3a386927a9ba0218a0c8f8d44671f487edd560c0d3e9dcdc4a8bfe86a30b3f17",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/calico/typha@sha256:cb83a36ea55ea8d0046076bab45aab0cce64e7d9609754f0816628cc17adb44e"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-typha-horizontal-autoscaler-645cd89fb-5wzj4",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "sha256:2c7aeb373f96b3880b991d9bbc98a0aa928f3ae81577d9d000d5de788aa830e1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cluster-proportional-autoscaler@sha256:d1b254f8c2dd0c7bdb450a62d6d249d7d767a2ae691e3aa6335cc05e6e12d38a"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "calico-typha-vertical-autoscaler-5d7cc9745c-d5njn",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "sha256:b7e7df27309391efbf1e1df42ac5f63d0993f5960a37314bd68ab17254c6a8f3",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cpvpa@sha256:82fa4901131b100222404fb357027ab46fbd59825a9116399bf0b63e7342e896"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "event-exporter-gke-58b9647478-56p2g",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "event-exporter",
+        "image": "sha256:58e372c18432a1d0f7a9eee198e47025b2afd6bcac0ac3ca4fe5662e4e07f8b2",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/event-exporter@sha256:28cb2c4309acbb1ad4ca27b9515ff084e0a10d1f8c0eb3bb2f5e33f86d0f1876"
+      },
+      {
+        "name": "prometheus-to-sd-exporter",
+        "image": "sha256:2619733fc1ea03241f952d6c5320041ae2ca20d8d481ccdc82f4cebe610797f6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/prometheus-to-sd@sha256:23c60c0b979b91c95db2ac95586eccdea00e3602535757ac080dc1a0d75f2fec"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "filestore-lock-release-controller-dbd699df7-mlvsb",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "filestore-lock-release-controller",
+        "image": "sha256:2d951658b15b6957644c893084161c08680ecc50ded3880b89eef2d8ea851422",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver-lockrelease@sha256:e772e101adbfac98d9cdbfc387ec6a4381b8edbbc75fd1f5dba2412533c89459"
+      },
+      {
+        "name": "filestorecsi-lockrelease-metrics-collector",
+        "image": "sha256:dc23ca87cc32cc320d93d1fa9d9ca7a60e3af5d63737b3eec63996ef4d4abb1e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:27f154d202c98b023ed5ee712d24cba94673d3582957d5b747773bf66ca393e1"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "filestore-node-2qvdl",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "filestorecsi-metrics-collector",
+        "image": "sha256:dc23ca87cc32cc320d93d1fa9d9ca7a60e3af5d63737b3eec63996ef4d4abb1e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:27f154d202c98b023ed5ee712d24cba94673d3582957d5b747773bf66ca393e1"
+      },
+      {
+        "name": "gcp-filestore-driver",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      },
+      {
+        "name": "nfs-services",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "filestore-node-6hf6w",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "filestorecsi-metrics-collector",
+        "image": "sha256:dc23ca87cc32cc320d93d1fa9d9ca7a60e3af5d63737b3eec63996ef4d4abb1e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:27f154d202c98b023ed5ee712d24cba94673d3582957d5b747773bf66ca393e1"
+      },
+      {
+        "name": "gcp-filestore-driver",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      },
+      {
+        "name": "nfs-services",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "filestore-node-8gnsl",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "filestorecsi-metrics-collector",
+        "image": "sha256:dc23ca87cc32cc320d93d1fa9d9ca7a60e3af5d63737b3eec63996ef4d4abb1e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:27f154d202c98b023ed5ee712d24cba94673d3582957d5b747773bf66ca393e1"
+      },
+      {
+        "name": "gcp-filestore-driver",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      },
+      {
+        "name": "nfs-services",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "filestore-node-l47d7",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "filestorecsi-metrics-collector",
+        "image": "sha256:dc23ca87cc32cc320d93d1fa9d9ca7a60e3af5d63737b3eec63996ef4d4abb1e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:27f154d202c98b023ed5ee712d24cba94673d3582957d5b747773bf66ca393e1"
+      },
+      {
+        "name": "gcp-filestore-driver",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      },
+      {
+        "name": "nfs-services",
+        "image": "sha256:e03b837169169a1bc065d108ae3031649a5e36aed88638b76849dbf3d88b11c9",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-filestore-csi-driver@sha256:b9e42774d0d4957958a7063f4f77f800a69b18be376982154677af0eb946b547"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "fluentbit-gke-6bf27",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "fluentbit",
+        "image": "sha256:894c16a14e237ca4ea02c1c58f33a1460b4c90c5ff4e539b64c47ffb1bb69589",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "sha256:65e7b23bfe62951d5f80afe559e0507b5f9aac752c05be635dad0ba0ec3469b6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "metadata-server-sidecar",
+        "image": "sha256:0ed14848431443e8dd68f0f30121cf7c0473143a859fe7d7c7a998f5448c4cd5",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "fluentbit-gke-hxt9t",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "fluentbit",
+        "image": "sha256:894c16a14e237ca4ea02c1c58f33a1460b4c90c5ff4e539b64c47ffb1bb69589",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "sha256:65e7b23bfe62951d5f80afe559e0507b5f9aac752c05be635dad0ba0ec3469b6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "metadata-server-sidecar",
+        "image": "sha256:0ed14848431443e8dd68f0f30121cf7c0473143a859fe7d7c7a998f5448c4cd5",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "fluentbit-gke-mkm6s",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "fluentbit",
+        "image": "sha256:894c16a14e237ca4ea02c1c58f33a1460b4c90c5ff4e539b64c47ffb1bb69589",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "sha256:65e7b23bfe62951d5f80afe559e0507b5f9aac752c05be635dad0ba0ec3469b6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "metadata-server-sidecar",
+        "image": "sha256:0ed14848431443e8dd68f0f30121cf7c0473143a859fe7d7c7a998f5448c4cd5",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "fluentbit-gke-rg85b",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "fluentbit",
+        "image": "sha256:894c16a14e237ca4ea02c1c58f33a1460b4c90c5ff4e539b64c47ffb1bb69589",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/fluent-bit@sha256:ad37e958d601c38a97feabd54c8c341cdf2fc2b5523e6396a36cf091a5ab8134"
+      },
+      {
+        "name": "fluentbit-metrics-collector",
+        "image": "sha256:65e7b23bfe62951d5f80afe559e0507b5f9aac752c05be635dad0ba0ec3469b6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:22c4903be5202ac7d00591683c25dfea826afd51fefd0bede1421c669522241b"
+      },
+      {
+        "name": "metadata-server-sidecar",
+        "image": "sha256:0ed14848431443e8dd68f0f30121cf7c0473143a859fe7d7c7a998f5448c4cd5",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metadata-server-sidecar@sha256:a7506674e4aba8afec4231ac0f3f2336c5326901e6c75412d823d6b57498443d"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metadata-server-7mgft",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "gke-metadata-server",
+        "image": "sha256:c26994e5f30e8ee5d3288a57f090496e80e2c8d7f525cc6e7ff3e5d0b60159b1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metadata-server@sha256:771b053eff4767719771339d4e2cec6301ecd2ae56649d8945651e6687ca56dd"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metadata-server-mfwtk",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "gke-metadata-server",
+        "image": "sha256:c26994e5f30e8ee5d3288a57f090496e80e2c8d7f525cc6e7ff3e5d0b60159b1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metadata-server@sha256:771b053eff4767719771339d4e2cec6301ecd2ae56649d8945651e6687ca56dd"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metadata-server-mqrss",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "gke-metadata-server",
+        "image": "sha256:c26994e5f30e8ee5d3288a57f090496e80e2c8d7f525cc6e7ff3e5d0b60159b1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metadata-server@sha256:771b053eff4767719771339d4e2cec6301ecd2ae56649d8945651e6687ca56dd"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metadata-server-rk6wq",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "gke-metadata-server",
+        "image": "sha256:c26994e5f30e8ee5d3288a57f090496e80e2c8d7f525cc6e7ff3e5d0b60159b1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metadata-server@sha256:771b053eff4767719771339d4e2cec6301ecd2ae56649d8945651e6687ca56dd"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metrics-agent-6qgq7",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "sha256:5333ab49a4d250c4ba4128a6111949b5d63005d2c1669e40c797916374c58d07",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/autoscaling-metrics-exporter@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "sha256:11b6272efd8abec3e0112fbd3176d2f83aff9c294aa6205f6a131fff0536275b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-agent@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "sha256:827d9693ea68b513db3d2b47684ef97f00a066bb138912e3fe3e86da1f7d2a9b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metrics-agent-7gxcb",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "sha256:5333ab49a4d250c4ba4128a6111949b5d63005d2c1669e40c797916374c58d07",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/autoscaling-metrics-exporter@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "sha256:11b6272efd8abec3e0112fbd3176d2f83aff9c294aa6205f6a131fff0536275b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-agent@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "sha256:827d9693ea68b513db3d2b47684ef97f00a066bb138912e3fe3e86da1f7d2a9b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metrics-agent-n8d28",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "sha256:5333ab49a4d250c4ba4128a6111949b5d63005d2c1669e40c797916374c58d07",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/autoscaling-metrics-exporter@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "sha256:11b6272efd8abec3e0112fbd3176d2f83aff9c294aa6205f6a131fff0536275b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-agent@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "sha256:827d9693ea68b513db3d2b47684ef97f00a066bb138912e3fe3e86da1f7d2a9b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "gke-metrics-agent-n9lzp",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaling-metrics-exporter",
+        "image": "sha256:5333ab49a4d250c4ba4128a6111949b5d63005d2c1669e40c797916374c58d07",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/autoscaling-metrics-exporter@sha256:1bc757180c0b065e1c29b359c88969f34543bc3ee3d1d362934c8b8f66bf5778"
+      },
+      {
+        "name": "core-metrics-exporter",
+        "image": "sha256:11b6272efd8abec3e0112fbd3176d2f83aff9c294aa6205f6a131fff0536275b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-agent@sha256:a8eb639c4553f9910f0d7b99da97b40294c97c710665b117005d26cd1a7a49b6"
+      },
+      {
+        "name": "prometheus-metrics-collector",
+        "image": "sha256:827d9693ea68b513db3d2b47684ef97f00a066bb138912e3fe3e86da1f7d2a9b",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:4421b70be83f7e46c144aad82f065896d2a7975791d6f73566b29f7d41a811e2"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "ip-masq-agent-5d5nn",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ip-masq-agent",
+        "image": "sha256:170a5bcb7098874b81039ef383e1ec327511069c7c1cbe07f21038c34d894228",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/ip-masq-agent@sha256:11cf68731522f1a5cc6e48ac88094dc02374b5d6598dfae24eef2201aa67d1db"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "ip-masq-agent-8q9ct",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ip-masq-agent",
+        "image": "sha256:170a5bcb7098874b81039ef383e1ec327511069c7c1cbe07f21038c34d894228",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/ip-masq-agent@sha256:11cf68731522f1a5cc6e48ac88094dc02374b5d6598dfae24eef2201aa67d1db"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "ip-masq-agent-d85c9",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ip-masq-agent",
+        "image": "sha256:170a5bcb7098874b81039ef383e1ec327511069c7c1cbe07f21038c34d894228",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/ip-masq-agent@sha256:11cf68731522f1a5cc6e48ac88094dc02374b5d6598dfae24eef2201aa67d1db"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "ip-masq-agent-xmmlk",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ip-masq-agent",
+        "image": "sha256:170a5bcb7098874b81039ef383e1ec327511069c7c1cbe07f21038c34d894228",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/ip-masq-agent@sha256:11cf68731522f1a5cc6e48ac88094dc02374b5d6598dfae24eef2201aa67d1db"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "konnectivity-agent-68b6ff9f6f-6xv28",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "konnectivity-agent",
+        "image": "sha256:60ebb57726e7f4e0184d1422252753069f030ce3a4dfd540a12e39a8ef705cc6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/proxy-agent@sha256:acd3bd37494c1ea2debc2ae0bfbeb4557830c674fa67bf8801b6e8703e3d595a"
+      },
+      {
+        "name": "konnectivity-agent-metrics-collector",
+        "image": "sha256:d7e53508b1ffaf4f69b93299f14b1f53ecfa49cb910292426dcff7e8266a4616",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:ce9d6a1f370bac57b039d55e17ed566bca054ba8a526b38a56629d8c143429de"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "konnectivity-agent-68b6ff9f6f-79648",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "konnectivity-agent",
+        "image": "sha256:60ebb57726e7f4e0184d1422252753069f030ce3a4dfd540a12e39a8ef705cc6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/proxy-agent@sha256:acd3bd37494c1ea2debc2ae0bfbeb4557830c674fa67bf8801b6e8703e3d595a"
+      },
+      {
+        "name": "konnectivity-agent-metrics-collector",
+        "image": "sha256:d7e53508b1ffaf4f69b93299f14b1f53ecfa49cb910292426dcff7e8266a4616",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:ce9d6a1f370bac57b039d55e17ed566bca054ba8a526b38a56629d8c143429de"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "konnectivity-agent-68b6ff9f6f-hjq7b",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "konnectivity-agent",
+        "image": "sha256:60ebb57726e7f4e0184d1422252753069f030ce3a4dfd540a12e39a8ef705cc6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/proxy-agent@sha256:acd3bd37494c1ea2debc2ae0bfbeb4557830c674fa67bf8801b6e8703e3d595a"
+      },
+      {
+        "name": "konnectivity-agent-metrics-collector",
+        "image": "sha256:d7e53508b1ffaf4f69b93299f14b1f53ecfa49cb910292426dcff7e8266a4616",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:ce9d6a1f370bac57b039d55e17ed566bca054ba8a526b38a56629d8c143429de"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "konnectivity-agent-68b6ff9f6f-xghfk",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "konnectivity-agent",
+        "image": "sha256:60ebb57726e7f4e0184d1422252753069f030ce3a4dfd540a12e39a8ef705cc6",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/proxy-agent@sha256:acd3bd37494c1ea2debc2ae0bfbeb4557830c674fa67bf8801b6e8703e3d595a"
+      },
+      {
+        "name": "konnectivity-agent-metrics-collector",
+        "image": "sha256:d7e53508b1ffaf4f69b93299f14b1f53ecfa49cb910292426dcff7e8266a4616",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:ce9d6a1f370bac57b039d55e17ed566bca054ba8a526b38a56629d8c143429de"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "konnectivity-agent-autoscaler-c5cd6df9b-srzwg",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "sha256:b5b0d7b9fdb1f87c7c9b3fc9b334487cdf38269c792694ffe2de79a648ca2c54",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cluster-proportional-autoscaler@sha256:5ea0bfb4e7a45e7387b4d9998d3242c57dec27031cf3def6220d4df866505ad4"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "kube-dns-6d54785669-lmz28",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kubedns",
+        "image": "sha256:49299d1185d8fb943261af4abe2019e3d362482dd1eed90cfff74618d4e9b79d",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kubedns@sha256:b2e9370c81891c5a932adf441d050b88e9aa3491b5d9eb178db08656c1a431c6"
+      },
+      {
+        "name": "kubedns-metrics-collector",
+        "image": "sha256:20c5e8cbd8ee2f28afa6066268403b41b913e43b6c2f5eeaf6c4e34d4d749baa",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:b136d6d8eb587ac10f657cbcca539dd82bb6dd8b76bc91cd1a2c3f08fafe07b8"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "kube-dns-6d54785669-qmnjk",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kubedns",
+        "image": "sha256:49299d1185d8fb943261af4abe2019e3d362482dd1eed90cfff74618d4e9b79d",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kubedns@sha256:b2e9370c81891c5a932adf441d050b88e9aa3491b5d9eb178db08656c1a431c6"
+      },
+      {
+        "name": "kubedns-metrics-collector",
+        "image": "sha256:20c5e8cbd8ee2f28afa6066268403b41b913e43b6c2f5eeaf6c4e34d4d749baa",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:b136d6d8eb587ac10f657cbcca539dd82bb6dd8b76bc91cd1a2c3f08fafe07b8"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "kube-dns-autoscaler-696959678b-gh68r",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "autoscaler",
+        "image": "sha256:2831a96594f7282face8f3a79a9dbaf26927a997021bff8039f203e0f27850ae",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/cluster-proportional-autoscaler@sha256:c48bbe90159f151ec436111ad301bc61ad18191381c04b109634afe0f6800503"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "kube-proxy-gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kube-proxy",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kube-proxy:v1.36.4-gke.2046003",
+        "imageID": "sha256:b2310912ff68b0b3b06ef6f9ae60cf244abaf86abcd14c6451b7f056a6f5f173"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "kube-proxy-gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kube-proxy",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kube-proxy:v1.36.4-gke.2046003",
+        "imageID": "sha256:b2310912ff68b0b3b06ef6f9ae60cf244abaf86abcd14c6451b7f056a6f5f173"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "kube-proxy-gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kube-proxy",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kube-proxy:v1.36.4-gke.2046003",
+        "imageID": "sha256:b2310912ff68b0b3b06ef6f9ae60cf244abaf86abcd14c6451b7f056a6f5f173"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "kube-proxy-gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "kube-proxy",
+        "image": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/kube-proxy:v1.36.4-gke.2046003",
+        "imageID": "sha256:b2310912ff68b0b3b06ef6f9ae60cf244abaf86abcd14c6451b7f056a6f5f173"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "l7-default-backend-5df94dd995-886p9",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "default-http-backend",
+        "image": "sha256:d08b39457aea73a7f3a4832fad6f798c75a2db9fbf94b9c95ec5a10bfd904e04",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/ingress-gce-404-server-with-metrics@sha256:c29881165f4c6c9d0c66b9fa5df8e9a5f4d92b154f1e38c0cd1c71092606a3a4"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "metrics-server-v1.36.0-74c777fb6d-6cgps",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "metrics-server",
+        "image": "sha256:d2beb59224dfe73aa2dcf48bcce1c8fe53c394611ff51c2ce74e146a5c2e7900",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/metrics-server@sha256:daa3d2c30ffd887c36d8239e5411771240a4af42186e9ce6beac48e38be844ec"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "netd-8gkzc",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "netd",
+        "image": "sha256:7d7fe2d0c266bf87d2b7a3d86139476a4cf52af923c458fc0b43abba3365f513",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/netd@sha256:317aa377a6a032c431482e195ed9af5caa9ad210ad1a5e4f1add745b6ca8b46e"
+      },
+      {
+        "name": "netd-metrics-collector",
+        "image": "sha256:038570d83a339207b1bc6fc4161ab1c82689725c5f0be146f5646c74e2383af0",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:f3ae56b3050cec25b87f55c85966cb6728430ee590130425008dd50b6e0cc9ab"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "netd-d55n8",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "netd",
+        "image": "sha256:7d7fe2d0c266bf87d2b7a3d86139476a4cf52af923c458fc0b43abba3365f513",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/netd@sha256:317aa377a6a032c431482e195ed9af5caa9ad210ad1a5e4f1add745b6ca8b46e"
+      },
+      {
+        "name": "netd-metrics-collector",
+        "image": "sha256:038570d83a339207b1bc6fc4161ab1c82689725c5f0be146f5646c74e2383af0",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:f3ae56b3050cec25b87f55c85966cb6728430ee590130425008dd50b6e0cc9ab"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "netd-k6ccw",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "netd",
+        "image": "sha256:7d7fe2d0c266bf87d2b7a3d86139476a4cf52af923c458fc0b43abba3365f513",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/netd@sha256:317aa377a6a032c431482e195ed9af5caa9ad210ad1a5e4f1add745b6ca8b46e"
+      },
+      {
+        "name": "netd-metrics-collector",
+        "image": "sha256:038570d83a339207b1bc6fc4161ab1c82689725c5f0be146f5646c74e2383af0",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:f3ae56b3050cec25b87f55c85966cb6728430ee590130425008dd50b6e0cc9ab"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "netd-xdz6d",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "netd",
+        "image": "sha256:7d7fe2d0c266bf87d2b7a3d86139476a4cf52af923c458fc0b43abba3365f513",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/netd@sha256:317aa377a6a032c431482e195ed9af5caa9ad210ad1a5e4f1add745b6ca8b46e"
+      },
+      {
+        "name": "netd-metrics-collector",
+        "image": "sha256:038570d83a339207b1bc6fc4161ab1c82689725c5f0be146f5646c74e2383af0",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release-staging/gke-release-staging/gke-metrics-collector@sha256:f3ae56b3050cec25b87f55c85966cb6728430ee590130425008dd50b6e0cc9ab"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "node-local-dns-fpd2x",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "node-cache",
+        "image": "sha256:73bdcb5d2bf0392441751bc8bd9cb6f5f87ff2aefbfaa1ec170149f604ab1167",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/k8s-dns-node-cache@sha256:3fab05ccac52d8d9d12704fe2f327bdcb596db95a89d21fef8a09f9c9451fe42"
+      },
+      {
+        "name": "nodelocaldns-metrics-collector",
+        "image": "sha256:9cc0d4acb16bf4d5c74d349bb30a70ef37b5719ae53dc55881368fac3b0d853d",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:8bf062528b5f35bccc1cf839a00f9b73b74978aac0bc4ee5aaa2d674ca742a58"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "node-local-dns-tc95j",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "node-cache",
+        "image": "sha256:73bdcb5d2bf0392441751bc8bd9cb6f5f87ff2aefbfaa1ec170149f604ab1167",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/k8s-dns-node-cache@sha256:3fab05ccac52d8d9d12704fe2f327bdcb596db95a89d21fef8a09f9c9451fe42"
+      },
+      {
+        "name": "nodelocaldns-metrics-collector",
+        "image": "sha256:9cc0d4acb16bf4d5c74d349bb30a70ef37b5719ae53dc55881368fac3b0d853d",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:8bf062528b5f35bccc1cf839a00f9b73b74978aac0bc4ee5aaa2d674ca742a58"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "node-local-dns-vprpg",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "node-cache",
+        "image": "sha256:73bdcb5d2bf0392441751bc8bd9cb6f5f87ff2aefbfaa1ec170149f604ab1167",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/k8s-dns-node-cache@sha256:3fab05ccac52d8d9d12704fe2f327bdcb596db95a89d21fef8a09f9c9451fe42"
+      },
+      {
+        "name": "nodelocaldns-metrics-collector",
+        "image": "sha256:9cc0d4acb16bf4d5c74d349bb30a70ef37b5719ae53dc55881368fac3b0d853d",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:8bf062528b5f35bccc1cf839a00f9b73b74978aac0bc4ee5aaa2d674ca742a58"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "node-local-dns-ws7j6",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "node-cache",
+        "image": "sha256:73bdcb5d2bf0392441751bc8bd9cb6f5f87ff2aefbfaa1ec170149f604ab1167",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/k8s-dns-node-cache@sha256:3fab05ccac52d8d9d12704fe2f327bdcb596db95a89d21fef8a09f9c9451fe42"
+      },
+      {
+        "name": "nodelocaldns-metrics-collector",
+        "image": "sha256:9cc0d4acb16bf4d5c74d349bb30a70ef37b5719ae53dc55881368fac3b0d853d",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:8bf062528b5f35bccc1cf839a00f9b73b74978aac0bc4ee5aaa2d674ca742a58"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "pdcsi-node-4dwps",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "gce-pd-driver",
+        "image": "sha256:3f4fbf87f5cef448820b3d989ea2ec9af27f908975fb3ee5705b6aa1de4ffbb1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-compute-persistent-disk-csi-driver@sha256:34549212dc60740f9052f5c3c7b8af9c094a79834b5b61217cf41493c8d201f5"
+      },
+      {
+        "name": "pdcsi-metrics-collector",
+        "image": "sha256:e2974bbde01e58f2b84d1c5462ab84cf03f95a252da3f1ec39ec42b6efb3fc76",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:e6713a8266629d9e103f7b2c7715bf510170fe28ebe2dc341327fa5e6a0facde"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "pdcsi-node-4wgxj",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "gce-pd-driver",
+        "image": "sha256:3f4fbf87f5cef448820b3d989ea2ec9af27f908975fb3ee5705b6aa1de4ffbb1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-compute-persistent-disk-csi-driver@sha256:34549212dc60740f9052f5c3c7b8af9c094a79834b5b61217cf41493c8d201f5"
+      },
+      {
+        "name": "pdcsi-metrics-collector",
+        "image": "sha256:e2974bbde01e58f2b84d1c5462ab84cf03f95a252da3f1ec39ec42b6efb3fc76",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:e6713a8266629d9e103f7b2c7715bf510170fe28ebe2dc341327fa5e6a0facde"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "pdcsi-node-9cfq2",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-gz40",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "gce-pd-driver",
+        "image": "sha256:3f4fbf87f5cef448820b3d989ea2ec9af27f908975fb3ee5705b6aa1de4ffbb1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-compute-persistent-disk-csi-driver@sha256:34549212dc60740f9052f5c3c7b8af9c094a79834b5b61217cf41493c8d201f5"
+      },
+      {
+        "name": "pdcsi-metrics-collector",
+        "image": "sha256:e2974bbde01e58f2b84d1c5462ab84cf03f95a252da3f1ec39ec42b6efb3fc76",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:e6713a8266629d9e103f7b2c7715bf510170fe28ebe2dc341327fa5e6a0facde"
+      }
+    ]
+  },
+  {
+    "namespace": "kube-system",
+    "pod": "pdcsi-node-tj67z",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-9v0c",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "csi-driver-registrar",
+        "image": "sha256:968859e70d227786733b0824f9f0bb9b03493184c0ff166ec8eadc4e7be2524e",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/csi-node-driver-registrar@sha256:5892121d3654184800b7afb3686c44178957a64cf270e7ca650b61138c6f6953"
+      },
+      {
+        "name": "gce-pd-driver",
+        "image": "sha256:3f4fbf87f5cef448820b3d989ea2ec9af27f908975fb3ee5705b6aa1de4ffbb1",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gcp-compute-persistent-disk-csi-driver@sha256:34549212dc60740f9052f5c3c7b8af9c094a79834b5b61217cf41493c8d201f5"
+      },
+      {
+        "name": "pdcsi-metrics-collector",
+        "image": "sha256:e2974bbde01e58f2b84d1c5462ab84cf03f95a252da3f1ec39ec42b6efb3fc76",
+        "imageID": "asia-southeast1-artifactregistry.gcr.io/gke-release/gke-release/gke-metrics-collector@sha256:e6713a8266629d9e103f7b2c7715bf510170fe28ebe2dc341327fa5e6a0facde"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "cache-deployer-deployment-6c8f84d957-k65rs",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "main",
+        "image": "sha256:7c5f4bc70ba701f8672eb7474ce0174cc5d48307ad74483f297e8e2c9e5d9588",
+        "imageID": "ghcr.io/kubeflow/kfp-cache-deployer@sha256:97784329a5af2274097d13095ddc71f8e0c72ccad76fc4e67d40a06eb14417e7"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "cache-server-6cdb876bd4-ksww6",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "server",
+        "image": "sha256:e6d7fac7a8e191786c66659bee1faa0f9f55bd0d2dbf1ef9e390b6c1d3c58a70",
+        "imageID": "ghcr.io/kubeflow/kfp-cache-server@sha256:09f16342f896b05714933661fb65bf49b4faa5f07f2414002f1e015bc8a608e0"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "controller-manager-67b4c49686-sqwbs",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "manager",
+        "image": "gcr.io/ml-pipeline/application-crd-controller:20231101",
+        "imageID": "gcr.io/ml-pipeline/application-crd-controller@sha256:1ca235bf8383e7fcde640779d3264c99879e2524385693b2ce8ccfc8951b21d3"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "metadata-envoy-deployment-867c98f8bc-48wz6",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "container",
+        "image": "sha256:cf1ad3374fa06571c455541699717186924b58ab157a535bf3f7406829ac32dc",
+        "imageID": "ghcr.io/kubeflow/kfp-metadata-envoy@sha256:5cc007cfa3ec2f3f9442430a66d4e65239760cae2ff66dfe576e1b2f685e0cfb"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "metadata-grpc-deployment-84c6f9cf79-7lwfc",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "container",
+        "image": "gcr.io/tfx-oss-public/ml_metadata_store_server:1.14.0",
+        "imageID": "gcr.io/tfx-oss-public/ml_metadata_store_server@sha256:51404ef4419c1426da80f3e14a83dcb55f65bb5a971371d36d14cec1e50af830"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "metadata-writer-5cdd66d5c4-s8zb2",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "main",
+        "image": "sha256:d29b49b9e655e2ecd34d16003a233f819233f3dd050378c541290ee3957a8c00",
+        "imageID": "ghcr.io/kubeflow/kfp-metadata-writer@sha256:fbcf3704239ee92135a7f7c82ba177c65977ab1da7044b4cc02b6de5ace698bb"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "ml-pipeline-7bf5bdc78-t8sjq",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ml-pipeline-api-server",
+        "image": "sha256:39cdb9ede660781eb1174e8009b8922599deccf03d2976712814a2a1e40d037f",
+        "imageID": "ghcr.io/kubeflow/kfp-api-server@sha256:1e03770233cadc146df0b83a82603b93f32fc3b57bd6dcb29375e2e8d28eb605"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "ml-pipeline-persistenceagent-7bbbc8977f-6pgwh",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ml-pipeline-persistenceagent",
+        "image": "sha256:504c4a5c999c3a100a36cd536ce6468c3268c92b25eabbeb9e9427527b11924b",
+        "imageID": "ghcr.io/kubeflow/kfp-persistence-agent@sha256:c0b417e60009d058c2d342ab33424e10cf57121d9b771cca9c09dda32475c03e"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "ml-pipeline-scheduledworkflow-766f78cc69-ff786",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ml-pipeline-scheduledworkflow",
+        "image": "sha256:63b0a0273217d8aab5e3e28e0fa2f6d50db022c708e9dcd23c1aa438c4010d31",
+        "imageID": "ghcr.io/kubeflow/kfp-scheduled-workflow-controller@sha256:e2e5b80707955f3295e8a24c340c838f81398b988a9d73318918bea5ffdde7d8"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "ml-pipeline-ui-547694958d-htb5j",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ml-pipeline-ui",
+        "image": "sha256:4dd442bf4235d296c1a882a5d009963ba0ed165c8e08dd410c211dfc8f744406",
+        "imageID": "ghcr.io/kubeflow/kfp-frontend@sha256:06d5481f404f89647ac5ee958f6665446014fdd78e6c1b195a1687ff1badf1d8"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "ml-pipeline-viewer-crd-869754d49-skg2z",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ml-pipeline-viewer-crd",
+        "image": "sha256:9c8ed53e5e28889c20f9e387e31fd05465a85fe10cea05662100a4245ade7ecf",
+        "imageID": "ghcr.io/kubeflow/kfp-viewer-crd-controller@sha256:2b6e0e92b99f709c11a484fbf4163fc519003d22c4f9d040f3fba862f5b69780"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "ml-pipeline-visualizationserver-7dff9f68f9-f87q8",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "ml-pipeline-visualizationserver",
+        "image": "sha256:68304eaeea24b09422fd34f6b0ae07984128394b9b1d6ed047aa2a657ec4dea8",
+        "imageID": "ghcr.io/kubeflow/kfp-visualization-server@sha256:d143f368b428c92cccf2b33c4c1b0274f8b1a14cf04f25659fe0f091e96cef6f"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "mysql-5b6cf8556-g82g8",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "mysql",
+        "image": "docker.io/library/mysql:8.4",
+        "imageID": "docker.io/library/mysql@sha256:a0225d1ea6631c8bc2385dc4c2faba17bbf1834ecf369e1659a9a382bd8d5dd7"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "seaweedfs-5f6996f6f-8js87",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "seaweedfs",
+        "image": "ghcr.io/chrislusf/seaweedfs:4.34",
+        "imageID": "ghcr.io/chrislusf/seaweedfs@sha256:6620371e8af8282056685c652d4637265698c9e2c2d59f9594e6ac333ad6c634"
+      }
+    ]
+  },
+  {
+    "namespace": "kubeflow",
+    "pod": "workflow-controller-65dbbbbd96-4dhqk",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "workflow-controller",
+        "image": "quay.io/argoproj/workflow-controller:v4.0.6",
+        "imageID": "quay.io/argoproj/workflow-controller@sha256:87481cd0c76a31b394bfb02f378286bfc09cb23a01735115eeaead21de185494"
+      }
+    ]
+  },
+  {
+    "namespace": "ml-platform",
+    "pod": "fraud-api-6dbb7d4456-9f6xq",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "fraud-api",
+        "image": "sha256:27e22554244e519bb1c36a51deaeebf52e1375a0e58262df6f45a05a536369b4",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165"
+      }
+    ]
+  },
+  {
+    "namespace": "ml-platform",
+    "pod": "mlflow-df68bccb-zcxsw",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-mb8v",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "mlflow",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mlflow:v3.17.1-gcs-postgres-1",
+        "imageID": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mlflow@sha256:b09d74562546b1cece43c56b63b48fdc38aa0afdc5d40ed5f4d691959109a355"
+      }
+    ]
+  },
+  {
+    "namespace": "ml-platform",
+    "pod": "mlflow-postgresql-0",
+    "node": "gke-ewallet-dev-cpu-pool-58daed59-08s1",
+    "phase": "Running",
+    "images": [
+      {
+        "name": "postgresql",
+        "image": "sha256:1b3c642526f8d274b12bdcd93b90aeb7e68a1f59eb20613adb96ed561c01d98c",
+        "imageID": "docker.io/library/postgres@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54"
+      }
+    ]
+  }
+]

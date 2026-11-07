@@ -417,6 +417,23 @@ agents:
   # name must be read back from the a2a-gateway first.
   autoscaling:
     enabled: false
+    # hpa or keda; exactly one owner per Deployment. keda renders a ScaledObject in
+    # place of the HPA, so the two can never scale the same workload.
+    engine: hpa
+    keda:
+      # Agents wait on the LLM and tools, so CPU barely moves under load. Scale on
+      # tasks in flight instead (agent_metrics.py). Needs Prometheus reachable from
+      # the keda namespace and the gauge exported by a rebuilt agent image.
+      serverAddress: http://prometheus.ewallet-agents.svc.cluster.local:9090
+      queryTemplate: 'sum(ewallet_agent_inflight_tasks{agent="%s"}) or vector(0)'
+      inflightPerReplica: "2"
+      pollingIntervalSeconds: 15
+      cooldownSeconds: 120
+      # Used when Prometheus cannot be queried: hold the safe floor.
+      fallback: {failureThreshold: 3, replicas: 2}
+      # Adopt the HPA of the same name instead of requiring its deletion first. KEDA's
+      # webhook refuses a ScaledObject beside a foreign HPA. See the C-B runbook for rollback.
+      transferHpa: false
     # Native HPA for kagent Agent/BYO mode. kagent 0.10.3 intentionally leaves
     # a generated Deployment's replicas untouched when the Agent deployment
     # replicas field is absent, so HPA and the reconciler have one owner each.
@@ -759,6 +776,8 @@ mcpServices:
     otlpEndpoint: ""
     insecure: true
   replicas: 2
+  # Spreads replicas over nodes, so one node loss leaves a healthy MCP server.
+  topologySpread: false
   port: 8080
   maxConcurrency: 8
   # Per-tool cap; below the MCP Gateway budget so the server answers first.

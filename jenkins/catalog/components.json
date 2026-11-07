@@ -114,13 +114,18 @@
     },
     "streaming": {
       "maturity": "active",
-      "source_paths": ["data_platform/processing/flink", "configs/streaming", "infra/docker/flink-benchmark", "tests/streaming"],
+      "source_paths": ["data_platform/processing/flink", "configs/streaming", "infra/docker/flink-benchmark", "tests/streaming",
+        "data_platform/streaming",
+        "infra/kubernetes/cicd-runtime/streaming",
+        "jenkins/cd/streaming.contract.json"
+      ],
       "dependencies": ["data-platform"],
       "python_projects": ["infra/docker/flink-benchmark"],
       "commands": ["uv run --locked --project infra/docker/flink-benchmark --extra flink python -m unittest discover -s tests/streaming -t ."],
       "build_artifact": "infra/docker/flink-benchmark/Dockerfile",
-      "deployment_target": null,
-      "deploy_handler": null
+      "deployment_target": "infra/kubernetes/cicd-runtime/streaming",
+      "deploy_handler": "scripts/ci/deploy/streaming.sh",
+      "release_artifact_selector": "images/flink-block-a"
     },
     "feast": {
       "maturity": "active",
@@ -218,13 +223,18 @@
     },
     "mcp-agents": {
       "maturity": "active",
-      "source_paths": ["ai_platform/llm_agent/tools", "ai_platform/llm_agent/tools/service.py", "infra/kubernetes/kagent-platform", "ops/llm_agent/helm_release_rehome.py", "tests/llm_agent/test_helm_release_rehome.py"],
+      "source_paths": ["ai_platform/llm_agent/tools", "ai_platform/llm_agent/tools/service.py", "infra/kubernetes/kagent-platform", "ops/llm_agent/helm_release_rehome.py", "tests/llm_agent/test_helm_release_rehome.py",
+        "infra/kubernetes/cicd-runtime/mcp",
+        "jenkins/cd/mcp-agents.contract.json"
+      ],
       "dependencies": ["rag-pipeline", "llm-serving", "fraud-api"],
       "python_projects": ["infra/docker/llm-agent-tooling"],
       "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --extra feast python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security tests.llm_agent.test_mcp_production_authenticator tests.llm_agent.test_agents_chart tests.llm_agent.test_phase_d_chart tests.llm_agent.test_registry_catalog tests.llm_agent.test_helm_release_rehome"],
       "build_artifact": "infra/docker/llm-agent-tooling/Dockerfile",
-      "deployment_target": null,
-      "deploy_handler": null
+      "deployment_target": "infra/kubernetes/cicd-runtime/mcp",
+      "deploy_handler": "scripts/ci/deploy/mcp_agents.sh",
+      "release_artifact_selector": "images/mcp-tools",
+      "build_target": "mcp-server"
     },
     "llm-d-routing": {
       "maturity": "extension-only",
@@ -248,13 +258,17 @@
     },
     "agents": {
       "maturity": "active",
-      "source_paths": ["ai_platform/llm_agent/__init__.py", "ai_platform/llm_agent/business_request.py", "ai_platform/llm_agent/byo_coordinator.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py", "ai_platform/llm_agent/byo_runtime.py", "ai_platform/llm_agent/config.py", "ai_platform/llm_agent/contracts.py", "ai_platform/llm_agent/agent_metrics.py", "ai_platform/llm_agent/idempotency.py", "ai_platform/llm_agent/nl_intake.py", "ai_platform/llm_agent/prompt_safety.py", "ai_platform/llm_agent/orchestration.py", "ai_platform/llm_agent/programmatic_coordinator.py", "ai_platform/llm_agent/redis_idempotency.py", "infra/docker/g3-byo-coordinator"],
+      "source_paths": ["ai_platform/llm_agent/__init__.py", "ai_platform/llm_agent/business_request.py", "ai_platform/llm_agent/byo_coordinator.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py", "ai_platform/llm_agent/byo_runtime.py", "ai_platform/llm_agent/config.py", "ai_platform/llm_agent/contracts.py", "ai_platform/llm_agent/agent_metrics.py", "ai_platform/llm_agent/idempotency.py", "ai_platform/llm_agent/nl_intake.py", "ai_platform/llm_agent/prompt_safety.py", "ai_platform/llm_agent/orchestration.py", "ai_platform/llm_agent/programmatic_coordinator.py", "ai_platform/llm_agent/redis_idempotency.py", "infra/docker/g3-byo-coordinator",
+        "infra/kubernetes/cicd-runtime/agents",
+        "jenkins/cd/agents.contract.json"
+      ],
       "dependencies": ["mcp-agents", "prompt-management"],
       "python_projects": ["infra/docker/g3-byo-coordinator", "infra/docker/llm-agent-tooling"],
       "commands": ["uv run --locked --project infra/docker/g3-byo-coordinator python -m unittest tests.llm_agent.test_g3_byo_coordinator tests.llm_agent.test_g3_byo_feature_rag_specialist tests.llm_agent.test_g3_durable_idempotency tests.llm_agent.test_n11_nl_intake tests.llm_agent.test_n11_a2a_streaming tests.llm_agent.test_n11_audit_logs tests.llm_agent.test_n12_agent_telemetry", "uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_g3_business_request tests.llm_agent.test_g3_orchestration tests.llm_agent.test_g3_programmatic_coordinator tests.llm_agent.test_g3_runtime_config tests.llm_agent.test_n11_chart tests.llm_agent.test_n12_chart"],
       "build_artifact": "infra/docker/g3-byo-coordinator/Dockerfile",
-      "deployment_target": null,
-      "deploy_handler": null
+      "deployment_target": "infra/kubernetes/cicd-runtime/agents",
+      "deploy_handler": "scripts/ci/deploy/agents.sh",
+      "release_artifact_selector": "images/g3-byo-coordinator"
     }
   }
 }

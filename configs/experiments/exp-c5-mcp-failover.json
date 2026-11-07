@@ -1,0 +1,39 @@
+{
+  "experiment_id": "EXP-C5-MCP",
+  "hypothesis": "In an isolated namespace, two replicas with bounded read-only client retry keep MCP calls succeeding while one replica is deleted, where one replica without retry fails. The result says nothing about production until the overlays are rolled out.",
+  "variable": "MCP availability: one replica without retry versus two replicas with client failover",
+  "baseline": "single-replica",
+  "optimized": "two-replicas-retry",
+  "controls": [
+    "load_profile_sha256",
+    "image_digest",
+    "failure_action",
+    "tool_set"
+  ],
+  "metrics": [
+    {
+      "name": "availability_percent",
+      "direction": "higher",
+      "path": "availability_percent"
+    },
+    {
+      "name": "e2e_p95_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p95"
+    },
+    {
+      "name": "recovery_seconds",
+      "direction": "lower",
+      "path": "recovery_seconds"
+    }
+  ],
+  "primary_metric": "availability_percent",
+  "min_runs": 2,
+  "significant_percent": 5,
+  "screenshots": [
+    "Pods in ewallet-mcp-exp before, during and after the deletion for each arm",
+    "Probe summary for each arm",
+    "production-before.txt and production-after.txt matching for each run",
+    "comparison.md with the verdict"
+  ]
+}

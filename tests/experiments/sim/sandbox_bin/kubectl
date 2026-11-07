@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""Fake kubectl for sandbox runs: tracks the arm object and answers readiness."""
+import os, sys, time
+from pathlib import Path
+
+state = Path(os.environ["SIM_STATE"])
+argv = sys.argv[1:]
+(state / "calls.log").open("a").write("kubectl " + " ".join(argv) + "\n")
+text = " ".join(argv)
+arm = state / "arm"
+if "get namespace" in text:
+    print(os.environ.get("SIM_NS_MARK", "true"), end="")
+elif "get workerpool" in text:
+    print(os.environ.get("SIM_WORKERS", "1"), end="")
+elif "get secret" in text:
+    if os.environ.get("SIM_NO_SECRET", "-none-") not in text:
+        print("secret/x", end="")
+elif " apply " in text:
+    arm.write_text("yes")
+elif " wait " in text:
+    sys.exit(1 if os.environ.get("SIM_NEVER_READY") else 0)
+elif " delete pod " in text:
+    (state / "deleted").write_text(text)
+elif " delete " in text:
+    (state / "deletes.log").open("a").write(text + "\n")
+    arm.unlink(missing_ok=True)
+elif " port-forward " in text:
+    time.sleep(600)
+elif " top " in text:
+    print("business-agents-deployment-a ateom 600m 900Mi\nbench-feature-rag-byo-a kagent 200m 300Mi")
+elif "get pods" in text and "wide" in text or "get nodes" in text:
+    print("row")
+elif "get pods" in text:
+    print("victim-pod", end="")
+elif "get agents.kagent.dev" in text or "get sandboxagents.kagent.dev" in text:
+    if arm.exists():
+        print("kind: x", end="")
+elif " describe " in text:
+    print("status")
+else:
+    sys.stderr.write(f"fake kubectl: unsupported: {text}\n"); sys.exit(1)

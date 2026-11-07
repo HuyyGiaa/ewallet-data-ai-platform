@@ -1,0 +1,15 @@
+{
+  "component": "streaming",
+  "namespace": "ewallet-cicd",
+  "manifest": "infra/kubernetes/cicd-runtime/streaming/streaming-cd.yaml",
+  "deployments": [],
+  "smoke_job": "streaming-cd-smoke",
+  "expected": {
+    "mode": "streaming",
+    "job_plan_operators": 7,
+    "duplicates_removed": 1,
+    "history_written": 1,
+    "online_updates_positive": true,
+    "event_time_after_source": true
+  }
+}

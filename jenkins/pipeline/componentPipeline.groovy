@@ -112,6 +112,7 @@ def run(Map configuration) {
                 --git-sha "$EXPECTED_GIT_SHA" \
                 --scope '${evidenceDir}/scope.json' \
                 --profile '${profile}' \
+                --release-branch '${params.RELEASE_BRANCH ?: ''}' \
                 --evidence-dir '${evidenceDir}/build' \
                 --output '${imageManifest}'
             """

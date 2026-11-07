@@ -1,0 +1,177 @@
+# Isolated MCP failover experiment. The released MCP server runs in its own namespace, with
+# a per-run token, and shares nothing with ewallet-mcp, so a deleted pod here cannot touch
+# production. The tool backends stay unavailable, as in the CD smoke: the test measures
+# whether a call reaches a live replica, and no data is read.
+# Rendered by scripts/experiments/render_mcp.py.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-mcp-exp
+  labels:
+    ewallet.io/experiment: "true"
+    pod-security.kubernetes.io/enforce: restricted
+---
+# GKE adds three Istio ConfigMaps to every new namespace; the count leaves room for them.
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: mcp-exp-budget, namespace: ewallet-mcp-exp}
+spec:
+  hard:
+    requests.cpu: 500m
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    pods: "6"
+    configmaps: "8"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny, namespace: ewallet-mcp-exp}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-same-namespace, namespace: ewallet-mcp-exp}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{podSelector: {}}]
+  egress:
+    - to: [{podSelector: {}}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-dns, namespace: ewallet-mcp-exp}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: mcp-exp-probe, namespace: ewallet-mcp-exp}
+data:
+  mcp_probe.py: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-exp-drift
+  namespace: ewallet-mcp-exp
+  labels: {app.kubernetes.io/name: mcp-exp-drift}
+spec:
+  replicas: __REPLICAS__
+  selector:
+    matchLabels: {app.kubernetes.io/name: mcp-exp-drift}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: mcp-exp-drift}
+    spec:
+      automountServiceAccountToken: false
+      # Stay off the nodes budgeted for LLM agents.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: ewallet.io/g3-llm, operator: DoesNotExist}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels: {app.kubernetes.io/name: mcp-exp-drift}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mcp-server
+          image: __MCP_IMAGE__
+          command: ["python", "-m", "uvicorn", "--factory", "ai_platform.llm_agent.tools.service:create_drift_app",
+                    "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+          env:
+            - {name: EWALLET_GIT_SHA, value: "__RELEASE_SHA__"}
+            - {name: EWALLET_IMAGE_DIGEST, value: "__MCP_DIGEST__"}
+            - {name: EWALLET_CONFIG_REVISION, value: mcp-exp}
+            - {name: EWALLET_PROMPT_REVISION, value: mcp-exp}
+            - {name: EWALLET_MODEL_REVISION, value: mcp-exp}
+            - {name: EWALLET_FEATURE_REVISION, value: mcp-exp}
+            - {name: EWALLET_CORPUS_REVISION, value: mcp-exp}
+            - name: EWALLET_MCP_SERVICE_TOKENS
+              valueFrom: {secretKeyRef: {name: mcp-exp-auth, key: tokens}}
+            - {name: EWALLET_MCP_TOOL_GRANTS, value: '{"mcp-exp":["drift_detection"]}'}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: mcp-exp-drift, namespace: ewallet-mcp-exp}
+spec:
+  selector: {app.kubernetes.io/name: mcp-exp-drift}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: mcp-exp-probe, namespace: ewallet-mcp-exp}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: __JOB_DEADLINE__
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: mcp-exp-probe}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: probe
+          image: __PROBE_IMAGE__
+          command: ["python", "/probe/mcp_probe.py", "--url", "http://mcp-exp-drift:8080/mcp",
+                    "--duration", "__DURATION__", "--rate", "__RATE__"]
+          env:
+            - {name: PYTHONPATH, value: /workspace}
+            - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "__ATTEMPTS__"}
+            - name: MCP_EXP_TOKEN
+              valueFrom: {secretKeyRef: {name: mcp-exp-auth, key: token}}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 300m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: probe, mountPath: /probe, readOnly: true}
+      volumes:
+        - name: probe
+          configMap: {name: mcp-exp-probe}

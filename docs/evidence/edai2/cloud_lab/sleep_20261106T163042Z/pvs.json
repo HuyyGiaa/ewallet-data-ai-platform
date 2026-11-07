@@ -1,0 +1,92 @@
+[
+  {
+    "name": "pvc-16d4ee07-d52c-4ac2-b5fa-e35878aba498",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-16d4ee07-d52c-4ac2-b5fa-e35878aba498",
+    "claim": "ate-system/data-valkey-cluster-3"
+  },
+  {
+    "name": "pvc-2272b0b2-4e4a-44f6-98b3-429f94ac8816",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-2272b0b2-4e4a-44f6-98b3-429f94ac8816",
+    "claim": "kagent/kagent-postgresql"
+  },
+  {
+    "name": "pvc-39eef168-18c6-44cd-a6d9-c718b57ddbc9",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-39eef168-18c6-44cd-a6d9-c718b57ddbc9",
+    "claim": "ewallet-ci/jenkins-home"
+  },
+  {
+    "name": "pvc-3df9eb72-4169-4fc4-aed3-01b7928e599a",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-3df9eb72-4169-4fc4-aed3-01b7928e599a",
+    "claim": "kubeflow/mysql-pv-claim"
+  },
+  {
+    "name": "pvc-438af628-dd28-492c-ad6f-d8928315a9ba",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-438af628-dd28-492c-ad6f-d8928315a9ba",
+    "claim": "ate-system/data-valkey-cluster-1"
+  },
+  {
+    "name": "pvc-524748f5-14d5-4b8a-bcf1-23ee4d5389ee",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-524748f5-14d5-4b8a-bcf1-23ee4d5389ee",
+    "claim": "ate-system/rustfs-data"
+  },
+  {
+    "name": "pvc-5e8eb19e-f92d-48e2-8468-c2bfe726be99",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-5e8eb19e-f92d-48e2-8468-c2bfe726be99",
+    "claim": "feature-store/data-redis-0"
+  },
+  {
+    "name": "pvc-67e5b27b-eab9-4432-8893-e27be9e97b5e",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-67e5b27b-eab9-4432-8893-e27be9e97b5e",
+    "claim": "ate-system/data-valkey-cluster-0"
+  },
+  {
+    "name": "pvc-831247e8-eef1-4749-a2fa-2c942b86c936",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-831247e8-eef1-4749-a2fa-2c942b86c936",
+    "claim": "ewallet-prompts/prompt-registry-db"
+  },
+  {
+    "name": "pvc-93854a67-cf39-42c6-9caa-81105121c892",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-93854a67-cf39-42c6-9caa-81105121c892",
+    "claim": "ate-system/data-valkey-cluster-2"
+  },
+  {
+    "name": "pvc-9599e1dc-ebf0-491c-a7f4-72f06061ae12",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-9599e1dc-ebf0-491c-a7f4-72f06061ae12",
+    "claim": "ewallet-agents/data-coordinator-idempotency-redis-0"
+  },
+  {
+    "name": "pvc-a1f4de45-263c-4bc6-bf07-28896749e7b8",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-a1f4de45-263c-4bc6-bf07-28896749e7b8",
+    "claim": "ate-system/data-valkey-cluster-4"
+  },
+  {
+    "name": "pvc-c21e432e-6460-4e9c-af3d-c41c2e219223",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-c21e432e-6460-4e9c-af3d-c41c2e219223",
+    "claim": "ate-system/data-valkey-cluster-5"
+  },
+  {
+    "name": "pvc-cb185278-ea75-4fa2-8fe5-fe07b9311e13",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-cb185278-ea75-4fa2-8fe5-fe07b9311e13",
+    "claim": "ml-platform/data-mlflow-postgresql-0"
+  },
+  {
+    "name": "pvc-dcaa888b-af89-48c2-945c-188a4e10109d",
+    "reclaim": "Delete",
+    "disk": "projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/disks/pvc-dcaa888b-af89-48c2-945c-188a4e10109d",
+    "claim": "kubeflow/seaweedfs-pvc"
+  }
+]

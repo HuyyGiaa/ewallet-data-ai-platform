@@ -137,7 +137,9 @@ def build_release_plan(
     """Return an executable plan only after every release gate passes."""
 
     _validate_request(catalog, request, image_manifest)
-    ordered = _ordered_deployable_components(catalog, set(request.components))
+    ordered = _ordered_deployable_components(
+        catalog, set(catalog.release_components(request.components, request.branch))
+    )
     _require(bool(ordered), "release request has no deployable components")
     refs = _manifest_refs(image_manifest)
     units: list[dict[str, Any]] = []

@@ -1,0 +1,80 @@
+{
+  "experiment_id": "EXP-V1",
+  "hypothesis": "Binding vLLM's two OpenMP threads to CPUs 0-1 improves output throughput at concurrency 4 compared with automatic binding, on the same pod budget.",
+  "variable": "VLLM_CPU_OMP_THREADS_BIND: auto versus 0-1",
+  "baseline": "b0-prime",
+  "optimized": "c1-thread-bind",
+  "controls": [
+    "workload_sha256",
+    "image_digest",
+    "model_revision",
+    "cpu_request",
+    "memory_request",
+    "node_type",
+    "max_num_seqs",
+    "prefix_cache",
+    "gateway_token_budget",
+    "node_names"
+  ],
+  "metrics": [
+    {
+      "name": "ttft_p50_ms",
+      "direction": "lower",
+      "path": "ttft_ms.p50"
+    },
+    {
+      "name": "ttft_p95_ms",
+      "direction": "lower",
+      "path": "ttft_ms.p95"
+    },
+    {
+      "name": "e2e_p50_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p50"
+    },
+    {
+      "name": "e2e_p95_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p95"
+    },
+    {
+      "name": "output_tokens_per_second",
+      "direction": "higher",
+      "path": "output_tokens_per_second"
+    },
+    {
+      "name": "request_throughput",
+      "direction": "higher",
+      "path": "requests_per_second"
+    },
+    {
+      "name": "tpot_ms",
+      "direction": "lower",
+      "path": "tpot_ms.p50"
+    },
+    {
+      "name": "cpu_cores_mean",
+      "direction": "lower",
+      "path": "derived.cpu_cores_mean"
+    },
+    {
+      "name": "memory_mib_peak",
+      "direction": "lower",
+      "path": "derived.memory_mib_peak"
+    }
+  ],
+  "primary_metric": "output_tokens_per_second",
+  "min_runs": 3,
+  "significant_percent": 10,
+  "screenshots": [
+    "Baseline configuration (Deployment env and args)",
+    "Baseline benchmark terminal output",
+    "Baseline Cloud Monitoring panels for namespace ewallet-bench for the same window",
+    "Optimized configuration",
+    "Optimized benchmark terminal output",
+    "Optimized Cloud Monitoring panels for namespace ewallet-bench for the same window",
+    "comparison.md with the verdict",
+    "kubectl get nodes,pods -o wide during each arm",
+    "manifest.json with source SHA and image digest"
+  ]
+}

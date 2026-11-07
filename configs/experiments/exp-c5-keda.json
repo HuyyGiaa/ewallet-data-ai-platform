@@ -1,0 +1,56 @@
+{
+  "experiment_id": "EXP-C5-KEDA",
+  "hypothesis": "Scaling on tasks in flight adds a replica under load where CPU-based HPA does not, without more failed requests.",
+  "variable": "Autoscaler: CPU HPA versus KEDA on in-flight tasks",
+  "baseline": "hpa-cpu",
+  "optimized": "keda-inflight",
+  "controls": [
+    "load_profile_sha256",
+    "image_digest",
+    "min_replicas",
+    "max_replicas",
+    "node_type"
+  ],
+  "metrics": [
+    {
+      "name": "e2e_p50_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p50"
+    },
+    {
+      "name": "e2e_p95_ms",
+      "direction": "lower",
+      "path": "e2e_ms.p95"
+    },
+    {
+      "name": "request_throughput",
+      "direction": "higher",
+      "path": "requests_per_second"
+    },
+    {
+      "name": "scale_out_seconds",
+      "direction": "lower",
+      "path": "scale_out_seconds"
+    },
+    {
+      "name": "scale_in_seconds",
+      "direction": "lower",
+      "path": "scale_in_seconds"
+    },
+    {
+      "name": "peak_replicas",
+      "direction": "higher",
+      "path": "peak_replicas"
+    }
+  ],
+  "primary_metric": "e2e_p95_ms",
+  "min_runs": 2,
+  "significant_percent": 10,
+  "screenshots": [
+    "kubectl get hpa or scaledobject during each arm",
+    "Replica count over time in Grafana",
+    "Load generator summary for each arm",
+    "Pending pods and events during each arm",
+    "comparison.md with the verdict"
+  ]
+}

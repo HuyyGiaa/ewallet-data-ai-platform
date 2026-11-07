@@ -1,0 +1,54 @@
+# Stage S1 only, after S0 boots. These rules let the worker reach the two gateways. Each object
+# adds one flow for the dedicated identity. NOT applied by any script: it changes
+# ewallet-agents and needs owner approval.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ewallet-sandbox-gateway-ingress
+  namespace: ewallet-agents
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/name, operator: In, values: [agentgateway, mcp-gateway]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-sandbox}
+      ports:
+        - {protocol: TCP, port: 3000}
+        - {protocol: TCP, port: 4000}
+        - {protocol: TCP, port: 8080}
+        - {protocol: TCP, port: 15008}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ewallet-sandbox-to-mcp-gateway
+  namespace: ewallet-agents
+spec:
+  action: ALLOW
+  selector:
+    matchLabels: {app.kubernetes.io/name: mcp-gateway}
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/ewallet-sandbox/sa/default
+              - cluster.local/ns/ewallet-sandbox/sa/sandbox-feature-rag
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ewallet-sandbox-to-agentgateway
+  namespace: ewallet-agents
+spec:
+  action: ALLOW
+  selector:
+    matchLabels: {app.kubernetes.io/name: agentgateway}
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/ewallet-sandbox/sa/default
+              - cluster.local/ns/ewallet-sandbox/sa/sandbox-feature-rag

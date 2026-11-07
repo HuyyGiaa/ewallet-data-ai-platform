@@ -1,0 +1,107 @@
+[
+  {
+    "namespace": "ate-system",
+    "name": "data-valkey-cluster-0",
+    "volume": "pvc-67e5b27b-eab9-4432-8893-e27be9e97b5e",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ate-system",
+    "name": "data-valkey-cluster-1",
+    "volume": "pvc-438af628-dd28-492c-ad6f-d8928315a9ba",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ate-system",
+    "name": "data-valkey-cluster-2",
+    "volume": "pvc-93854a67-cf39-42c6-9caa-81105121c892",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ate-system",
+    "name": "data-valkey-cluster-3",
+    "volume": "pvc-16d4ee07-d52c-4ac2-b5fa-e35878aba498",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ate-system",
+    "name": "data-valkey-cluster-4",
+    "volume": "pvc-a1f4de45-263c-4bc6-bf07-28896749e7b8",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ate-system",
+    "name": "data-valkey-cluster-5",
+    "volume": "pvc-c21e432e-6460-4e9c-af3d-c41c2e219223",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ate-system",
+    "name": "rustfs-data",
+    "volume": "pvc-524748f5-14d5-4b8a-bcf1-23ee4d5389ee",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ewallet-agents",
+    "name": "data-coordinator-idempotency-redis-0",
+    "volume": "pvc-9599e1dc-ebf0-491c-a7f4-72f06061ae12",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ewallet-ci",
+    "name": "jenkins-home",
+    "volume": "pvc-39eef168-18c6-44cd-a6d9-c718b57ddbc9",
+    "capacity": "16Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ewallet-prompts",
+    "name": "prompt-registry-db",
+    "volume": "pvc-831247e8-eef1-4749-a2fa-2c942b86c936",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "feature-store",
+    "name": "data-redis-0",
+    "volume": "pvc-5e8eb19e-f92d-48e2-8468-c2bfe726be99",
+    "capacity": "2Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "kagent",
+    "name": "kagent-postgresql",
+    "volume": "pvc-2272b0b2-4e4a-44f6-98b3-429f94ac8816",
+    "capacity": "1Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "kubeflow",
+    "name": "mysql-pv-claim",
+    "volume": "pvc-3df9eb72-4169-4fc4-aed3-01b7928e599a",
+    "capacity": "20Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "kubeflow",
+    "name": "seaweedfs-pvc",
+    "volume": "pvc-dcaa888b-af89-48c2-945c-188a4e10109d",
+    "capacity": "20Gi",
+    "storageClass": "standard-rwo"
+  },
+  {
+    "namespace": "ml-platform",
+    "name": "data-mlflow-postgresql-0",
+    "volume": "pvc-cb185278-ea75-4fa2-8fe5-fe07b9311e13",
+    "capacity": "5Gi",
+    "storageClass": "standard-rwo"
+  }
+]

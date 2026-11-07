@@ -79,6 +79,14 @@ spec:
     spec:
       serviceAccountName: {{ $service.serviceAccount }}
       automountServiceAccountToken: false
+      {{- if $mcp.topologySpread }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {app.kubernetes.io/name: {{ $name }}}
+      {{- end }}
       {{- with $.Values.llmPlacement.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

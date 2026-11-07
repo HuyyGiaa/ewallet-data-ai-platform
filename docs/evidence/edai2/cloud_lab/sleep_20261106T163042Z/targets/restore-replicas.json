@@ -1,0 +1,34 @@
+{
+  "scaled_for_sleep": [
+    {
+      "namespace": "ewallet-agents",
+      "name": "drift-mcp",
+      "replicas": 1,
+      "generation": 1
+    },
+    {
+      "namespace": "ewallet-mcp",
+      "name": "drift-mcp",
+      "replicas": 1,
+      "generation": 5
+    },
+    {
+      "namespace": "ewallet-agents",
+      "name": "fraud-coordinator",
+      "replicas": 2,
+      "generation": 367
+    },
+    {
+      "namespace": "ewallet-agents",
+      "name": "drift-specialist",
+      "replicas": 2,
+      "generation": 12
+    },
+    {
+      "namespace": "ewallet-agents",
+      "name": "feature-rag-specialist",
+      "replicas": 2,
+      "generation": 19
+    }
+  ]
+}

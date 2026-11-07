@@ -1,0 +1,158 @@
+"""Bounded client-side failover for read-only MCP tool calls.
+
+agentgateway 1.7 does not retry MCP backends: with a ``retry`` policy on an MCP route, a
+backend answering 503 was called once and the 503 reached the caller. Failover therefore
+lives in the client, which also knows what is safe to repeat.
+
+A call may be repeated only when every tool in it is declared read-only here. Repeating
+such a call can reach the server twice, which is harmless because it changes nothing. A
+future tool with side effects stays outside the set and is never retried, whatever the
+failure.
+
+Only failures another replica could heal are retried: a lost connection, or a 502, 503 or
+504 from the gateway. Anything else is an answer, including a rejected credential, a tool
+error, an invalid result and a spent deadline. An unrecognized exception is not retried, so
+the default is the safe side. The caller's single overall deadline still bounds the run.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass
+from typing import Awaitable, Callable, Collection, Iterator, Mapping, TypeVar
+
+import anyio
+import httpx
+
+
+Result = TypeVar("Result")
+
+READ_ONLY_TOOLS = frozenset(
+    {"feature_lookup", "fraud_scoring", "knowledge_search", "chunk_lookup", "drift_detection"}
+)
+
+
+RECOVERABLE_STATUS = frozenset({502, 503, 504})
+_LOST_CONNECTION = (
+    httpx.TransportError,
+    ConnectionError,
+    anyio.BrokenResourceError,
+    anyio.ClosedResourceError,
+    anyio.EndOfStream,
+)
+
+
+@dataclass(frozen=True)
+class FailoverPolicy:
+    """How often and how fast to repeat a failed read-only call.
+
+    Attributes:
+        max_attempts: Total attempts, including the first.
+        base_delay_seconds: Wait before the second attempt; doubles after each attempt.
+        max_delay_seconds: Longest single wait.
+    """
+
+    max_attempts: int = 3
+    base_delay_seconds: float = 0.25
+    max_delay_seconds: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.max_attempts <= 5:
+            raise ValueError("max_attempts must be between 1 and 5")
+        if self.base_delay_seconds < 0 or self.max_delay_seconds < self.base_delay_seconds:
+            raise ValueError("retry delays are invalid")
+
+    def delay(self, attempt: int) -> float:
+        """Return the wait after failed attempt number ``attempt`` (one-based)."""
+
+        return min(self.base_delay_seconds * 2 ** (attempt - 1), self.max_delay_seconds)
+
+
+def policy_from_env(env: Mapping[str, str]) -> FailoverPolicy:
+    """Read the attempt budget from ``EWALLET_MCP_MAX_ATTEMPTS``.
+
+    Setting it to 1 turns retry off without changing the image, so the failover experiment
+    can compare both arms on one image.
+
+    Raises:
+        ValueError: The value is not an integer from 1 to 5.
+    """
+
+    value = env.get("EWALLET_MCP_MAX_ATTEMPTS")
+    return FailoverPolicy() if value is None else FailoverPolicy(max_attempts=int(value))
+
+
+def _causes(error: BaseException) -> Iterator[BaseException]:
+    """Walk an exception, its causes and the members of exception groups."""
+
+    pending, seen = [error], set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        yield current
+        if isinstance(current, BaseExceptionGroup):
+            pending.extend(current.exceptions)
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+
+
+def is_recoverable(error: BaseException) -> bool:
+    """Return whether a failure could heal on another replica.
+
+    The MCP client wraps transport errors in task groups and in the caller's own error, so
+    the whole chain is searched. A definite rejection anywhere in it wins: a 401 is not
+    healed by asking again, even if a connection also closed while it was reported.
+    """
+
+    chain = list(_causes(error))
+    statuses = [item.response.status_code for item in chain if isinstance(item, httpx.HTTPStatusError)]
+    if any(status not in RECOVERABLE_STATUS for status in statuses):
+        return False
+    return bool(statuses) or any(isinstance(item, _LOST_CONNECTION) for item in chain)
+
+
+def may_repeat(tools: Collection[str]) -> bool:
+    """Return whether a call using ``tools`` is safe to repeat."""
+
+    return bool(tools) and set(tools) <= READ_ONLY_TOOLS
+
+
+async def with_failover(
+    call: Callable[[], Awaitable[Result]],
+    *,
+    tools: Collection[str],
+    is_transient: Callable[[Exception], bool],
+    policy: FailoverPolicy = FailoverPolicy(),
+    on_retry: Callable[[int], None] = lambda attempt: None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> Result:
+    """Run ``call``, repeating it after transient failures when that is safe.
+
+    Args:
+        call: One complete attempt, opening its own session.
+        tools: Tools the attempt may execute.
+        is_transient: Whether a failure may heal on another replica.
+        policy: Attempt budget and backoff.
+        on_retry: Called with the failed attempt number before each retry.
+        sleep: Wait function, replaced in tests.
+
+    Returns:
+        The first successful result.
+
+    Raises:
+        Exception: The last failure, unchanged, when it is not retryable or the
+            budget is spent.
+    """
+
+    attempts = policy.max_attempts if may_repeat(tools) else 1
+    for attempt in range(1, attempts + 1):
+        try:
+            return await call()
+        except Exception as error:
+            if attempt == attempts or not is_transient(error):
+                raise
+            on_retry(attempt)
+            await sleep(policy.delay(attempt))
+    raise AssertionError("the loop always returns or raises")

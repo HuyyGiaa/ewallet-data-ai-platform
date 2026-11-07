@@ -1,0 +1,8 @@
+# EXP-C5-MCP baseline only. Runs the same image as the candidate with client retry turned
+# off, so the comparison measures the behaviour and not an image change. Remove it after the
+# baseline run.
+agents:
+  specialists:
+    feature-rag-specialist:
+      byo:
+        mcpMaxAttempts: 1

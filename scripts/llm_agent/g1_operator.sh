@@ -109,6 +109,13 @@ if contains "$MUTATING" "$stage"; then
 fi
 record "$(date -u +%FT%TZ) stage=$stage git=$(git -C "$root" rev-parse HEAD)"
 
+# cleanup and session resize cpu-pool, so they are guarded with the mutating stages. O1 and
+# G2 run this check themselves, then set G1_EXPERIMENT_OWNS_RELEASE for their own release.
+if contains "$MUTATING cleanup session" "$stage" && [ "${G1_EXPERIMENT_OWNS_RELEASE:-}" != yes ]; then
+  # shellcheck source=production_guard.sh
+  . "$root/scripts/llm_agent/production_guard.sh"
+  refuse_production_release "$KUBE_CONTEXT" || die "production release present"
+fi
 case "$stage" in
 status)
   gc describe --format=json > "$evidence/cluster.json"

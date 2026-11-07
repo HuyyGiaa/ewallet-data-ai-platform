@@ -27,6 +27,7 @@ has completed.
 | Feast/PIT boundary | [Cloud Feast training snapshot](../edai2/mlops/references/cloud_feast_training_snapshot.md) | Registry readback, PIT validation, bounded snapshot workflow | Immutable registry/data manifests and explicit cloud gate | Bounded, approval-gated procedure |
 | ML training snapshot | [ML2 operator runbook](../ml/ml2_training_snapshot_operator_runbook.md) | Source-controlled snapshot/training boundary | Feast gates, exact Git/data identity | Bounded, approval-gated procedure |
 | MLflow/F9 | [Canonical F9 and MLflow](../edai2/mlops/references/f9_mlflow_canonical.md) | Four-model experiment and tracking | Complete snapshot, MLflow, image identity | Bounded, approval-gated procedure |
+| Agent platform and benchmarks | [C-B runbook](edai2/llm_agent/C_AGENT_PLATFORM_RUNBOOK.md) | Approval packages P1–P6: Jenkins CD, EXP-V1/V2, KEDA, isolated MCP, Sandbox | Owner approval per package | Not yet run on the cluster |
 | KFP | [Canonical standalone KFP](../edai2/mlops/references/kfp_canonical.md) | Compile/submit/verify KFP pipeline | Healthy standalone KFP and explicit approval | Bounded, approval-gated procedure |
 | GKE MLOps | [Runtime gate](../edai2/mlops/references/gke_mlops_runtime_gate.md) | Deploy/validate PostgreSQL, MLflow, KFP | GKE access/capacity and mutation gate | Bounded, approval-gated procedure |
 | LLM/Agent platform | [Runtime runbook](../llm_agent/runtime_runbook.md) | LLM, gateway, MCP/Agent bounded operations | Pinned images, security preflight, exclusive GKE window | Bounded, approval-gated procedure |
