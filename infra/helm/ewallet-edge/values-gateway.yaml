@@ -1,0 +1,17 @@
+# Values for the official chart: istio/gateway 1.30.7
+# (sha256 f8b350a2136ece7a103e479cb67ca9f71e2162ab7bc05100922fe65e681e125f).
+# ClusterIP by default: a public LoadBalancer is a separate owner decision.
+service:
+  type: ClusterIP
+autoscaling:
+  enabled: false
+replicaCount: 1
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: "1", memory: 512Mi}
+volumes:
+  - name: edge-auth
+    # 0444: the proxy runs as an unprivileged user. Only this pod mounts the Secret.
+    secret: {secretName: edge-basic-auth, defaultMode: 0444}
+volumeMounts:
+  - {name: edge-auth, mountPath: /etc/edge-auth, readOnly: true}

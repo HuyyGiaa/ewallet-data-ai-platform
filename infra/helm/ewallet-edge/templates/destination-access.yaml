@@ -1,0 +1,57 @@
+{{- if .Values.enabled }}
+{{- range $name, $route := .Values.routes }}
+{{- if and $route.enabled $route.access }}
+{{- $a := $route.access }}
+---
+# Additive: lets only the edge gateway reach this one workload. Existing policies stay.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-edge-to-{{ $name }}
+  namespace: {{ $a.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $a.podLabels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: {{ $.Values.namespace }}}
+          podSelector:
+            matchLabels:
+              {{- toYaml $.Values.gatewaySelector | nindent 14 }}
+      ports:
+        - {port: {{ $a.port }}, protocol: TCP}
+        {{- if $a.ambient }}
+        # Ambient traffic arrives through the HBONE tunnel port.
+        - {port: 15008, protocol: TCP}
+        {{- end }}
+{{- if $a.authorizationPolicy }}
+---
+# Only where the namespace already runs ALLOW-only policies. In kagent none exists, and a
+# first ALLOW would deny every other caller of the pod, so none is rendered there.
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-edge-to-{{ $name }}
+  namespace: {{ $a.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" $ | nindent 4 }}
+spec:
+  action: ALLOW
+  selector:
+    matchLabels:
+      {{- toYaml $a.podLabels | nindent 6 }}
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/{{ $.Values.namespace }}/sa/{{ $.Values.gatewayServiceAccount }}"]
+      to:
+        - operation: {ports: ["{{ $a.port }}"]}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

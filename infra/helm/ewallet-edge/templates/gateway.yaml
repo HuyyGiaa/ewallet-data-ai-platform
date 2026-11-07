@@ -1,0 +1,47 @@
+{{- if .Values.enabled }}
+{{- if not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$" .Values.domain) }}
+{{- fail "domain must be the owner-approved DNS name" }}
+{{- end }}
+{{- $hosts := include "ewallet-edge.hosts" . | fromJsonArray }}
+{{- if not $hosts }}
+{{- fail "enable at least one route" }}
+{{- end }}
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: ewallet-edge
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- toYaml .Values.gatewaySelector | nindent 4 }}
+  servers:
+    - port: {number: 443, name: https, protocol: HTTPS}
+      hosts: {{ toJson $hosts }}
+      tls:
+        mode: SIMPLE
+        credentialName: {{ .Values.tls.secretName }}
+        minProtocolVersion: {{ .Values.tls.minProtocolVersion }}
+    # Plain HTTP only ever answers with a redirect.
+    - port: {number: 80, name: http, protocol: HTTP}
+      hosts: {{ toJson $hosts }}
+      tls:
+        httpsRedirect: true
+{{- if .Values.tls.certificate.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: edge-tls
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.tls.secretName }}
+  dnsNames: {{ toJson $hosts }}
+  issuerRef:
+    name: {{ required "tls.certificate.issuerName is required" .Values.tls.certificate.issuerName }}
+    kind: {{ .Values.tls.certificate.issuerKind }}
+{{- end }}
+{{- end }}

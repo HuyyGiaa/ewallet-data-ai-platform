@@ -1,0 +1,399 @@
+---
+# Source: ewallet-edge/templates/envoyfilter.yaml
+# Order matters: the limiter runs first, so password guessing also spends tokens, then
+# Basic Auth, then routing. Both are Envoy filters in the pinned proxy, so no extra
+# service sits in the request path and a failed check cannot fail open.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: edge-security
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ewallet-edge-gateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 443
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter: {name: envoy.filters.http.router}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.local_ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            stat_prefix: edge_rate_limit
+            token_bucket:
+              max_tokens: 200
+              tokens_per_fill: 200
+              fill_interval: 1s
+            filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+            filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+            response_headers_to_add:
+              - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 443
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter: {name: envoy.filters.http.router}
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.basic_auth
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.basic_auth.v3.BasicAuth
+            users: {filename: /etc/edge-auth/htpasswd}
+    # Browsers show a login box only when a 401 carries WWW-Authenticate.
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 443
+          filterChain:
+            filter: {name: envoy.filters.network.http_connection_manager}
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            local_reply_config:
+              mappers:
+                - filter: {status_code_filter: {comparison: {op: EQ, value: {default_value: 401, runtime_key: edge_unused_401}}}}
+                  headers_to_add:
+                    - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: www-authenticate, value: "Basic realm=\"E-Wallet\""}}
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration: {vhost: {route: {name: a2a}}}
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: edge_rate_limit_a2a
+              token_bucket:
+                max_tokens: 5
+                tokens_per_fill: 5
+                fill_interval: 1s
+              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+              response_headers_to_add:
+                - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration: {vhost: {route: {name: agent-registry}}}
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: edge_rate_limit_agent_registry
+              token_bucket:
+                max_tokens: 50
+                tokens_per_fill: 50
+                fill_interval: 1s
+              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+              response_headers_to_add:
+                - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration: {vhost: {route: {name: feature-api}}}
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: edge_rate_limit_feature_api
+              token_bucket:
+                max_tokens: 100
+                tokens_per_fill: 100
+                fill_interval: 1s
+              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+              response_headers_to_add:
+                - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration: {vhost: {route: {name: fraud-api}}}
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: edge_rate_limit_fraud_api
+              token_bucket:
+                max_tokens: 50
+                tokens_per_fill: 50
+                fill_interval: 1s
+              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+              response_headers_to_add:
+                - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration: {vhost: {route: {name: grafana}}}
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: edge_rate_limit_grafana
+              token_bucket:
+                max_tokens: 50
+                tokens_per_fill: 50
+                fill_interval: 1s
+              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+              response_headers_to_add:
+                - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration: {vhost: {route: {name: kagent-ui}}}
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: edge_rate_limit_kagent_ui
+              token_bucket:
+                max_tokens: 100
+                tokens_per_fill: 100
+                fill_interval: 1s
+              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+              response_headers_to_add:
+                - {append_action: OVERWRITE_IF_EXISTS_OR_ADD, header: {key: x-edge-rate-limited, value: "true"}}
+---
+# Source: ewallet-edge/templates/gateway.yaml
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: ewallet-edge
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  selector:
+    istio: ewallet-edge-gateway
+  servers:
+    - port: {number: 443, name: https, protocol: HTTPS}
+      hosts: ["a2a.edge.local.test","registry.edge.local.test","features.edge.local.test","fraud.edge.local.test","grafana.edge.local.test","agents.edge.local.test"]
+      tls:
+        mode: SIMPLE
+        credentialName: edge-tls
+        minProtocolVersion: TLSV1_2
+    # Plain HTTP only ever answers with a redirect.
+    - port: {number: 80, name: http, protocol: HTTP}
+      hosts: ["a2a.edge.local.test","registry.edge.local.test","features.edge.local.test","fraud.edge.local.test","grafana.edge.local.test","agents.edge.local.test"]
+      tls:
+        httpsRedirect: true
+---
+# Source: ewallet-edge/templates/virtualservices.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: a2a
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  hosts: ["a2a.edge.local.test"]
+  gateways: [ewallet-edge]
+  http:
+    - name: a2a
+      match:
+        - uri:
+            exact: /api/a2a/ewallet-agents/fraud-coordinator
+        - uri:
+            prefix: /api/a2a/ewallet-agents/fraud-coordinator/
+      # A gateway must not repeat a request: agent and prediction calls are not all idempotent.
+      retries: {attempts: 0}
+      headers:
+        request:
+          remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+          set:
+            x-user-id: edge-a2a-client
+      route:
+        - destination:
+            host: stub.edge-stub.svc.cluster.local
+            port: {number: 8080}
+---
+# Source: ewallet-edge/templates/virtualservices.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: agent-registry
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  hosts: ["registry.edge.local.test"]
+  gateways: [ewallet-edge]
+  http:
+    - name: agent-registry
+      match:
+        - uri:
+            prefix: /
+      # A gateway must not repeat a request: agent and prediction calls are not all idempotent.
+      retries: {attempts: 0}
+      headers:
+        request:
+          remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      route:
+        - destination:
+            host: stub.edge-stub.svc.cluster.local
+            port: {number: 8080}
+---
+# Source: ewallet-edge/templates/virtualservices.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: feature-api
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  hosts: ["features.edge.local.test"]
+  gateways: [ewallet-edge]
+  http:
+    - name: feature-api
+      match:
+        - uri:
+            exact: /v1/features/lookup
+          method: {exact: POST}
+      timeout: 5s
+      # A gateway must not repeat a request: agent and prediction calls are not all idempotent.
+      retries: {attempts: 0}
+      headers:
+        request:
+          remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      route:
+        - destination:
+            host: stub.edge-stub.svc.cluster.local
+            port: {number: 8080}
+---
+# Source: ewallet-edge/templates/virtualservices.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fraud-api
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  hosts: ["fraud.edge.local.test"]
+  gateways: [ewallet-edge]
+  http:
+    - name: fraud-api
+      match:
+        - uri:
+            exact: /v1/fraud/predict
+          method: {exact: POST}
+      timeout: 10s
+      # A gateway must not repeat a request: agent and prediction calls are not all idempotent.
+      retries: {attempts: 0}
+      headers:
+        request:
+          remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      route:
+        - destination:
+            host: stub.edge-stub.svc.cluster.local
+            port: {number: 8080}
+---
+# Source: ewallet-edge/templates/virtualservices.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: grafana
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  hosts: ["grafana.edge.local.test"]
+  gateways: [ewallet-edge]
+  http:
+    - name: grafana
+      match:
+        - uri:
+            prefix: /
+      # A gateway must not repeat a request: agent and prediction calls are not all idempotent.
+      retries: {attempts: 0}
+      headers:
+        request:
+          remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      route:
+        - destination:
+            host: stub.edge-stub.svc.cluster.local
+            port: {number: 8080}
+---
+# Source: ewallet-edge/templates/virtualservices.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: kagent-ui
+  namespace: ewallet-edge
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.1.0
+spec:
+  hosts: ["agents.edge.local.test"]
+  gateways: [ewallet-edge]
+  http:
+    - name: kagent-ui
+      match:
+        - uri:
+            prefix: /
+      # A gateway must not repeat a request: agent and prediction calls are not all idempotent.
+      retries: {attempts: 0}
+      headers:
+        request:
+          remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      route:
+        - destination:
+            host: stub.edge-stub.svc.cluster.local
+            port: {number: 8080}
