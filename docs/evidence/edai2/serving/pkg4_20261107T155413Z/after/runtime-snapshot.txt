@@ -1,0 +1,39 @@
+2026-11-07T17:09:26Z
+--- serving pods
+feature-api-6cbcbd7b59-f2xfs 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-rk2f
+fraud-api-777c8454-r74vr 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-rk2f
+mlflow-df68bccb-t4k7l 1/1 Running 2 24h
+mlflow-postgresql-0 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-kk6f
+fraud-detector-predictor-6b649bc8b6-8hc2x 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-wcka
+--- requests/limits
+fraud-api: {"limits":{"cpu":"1","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}}
+feature-api: {"limits":{"cpu":"1","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}}
+fraud-detector-predictor: {"limits":{"cpu":"1","memory":"1536Mi"},"requests":{"cpu":"250m","memory":"768Mi"}}
+--- usage
+feature-api-6cbcbd7b59-f2xfs   6m    130Mi    
+fraud-api-777c8454-r74vr       8m    138Mi    
+mlflow-df68bccb-t4k7l          14m   1563Mi   
+mlflow-postgresql-0            19m   31Mi     
+fraud-detector-predictor-6b649bc8b6-8hc2x   4m    179Mi   
+--- nodes
+gke-ewallet-dev-cpu-pool-58daed59-79wp   v1.36.4-gke.2046003   true     true
+gke-ewallet-dev-cpu-pool-58daed59-cbl0   v1.36.4-gke.2377000   true     <none>
+gke-ewallet-dev-cpu-pool-58daed59-jt0h   v1.36.4-gke.2377000   true     <none>
+gke-ewallet-dev-cpu-pool-58daed59-kk6f   v1.36.4-gke.2046003   <none>   <none>
+gke-ewallet-dev-cpu-pool-58daed59-rk2f   v1.36.4-gke.2046003   <none>   <none>
+gke-ewallet-dev-cpu-pool-58daed59-wcka   v1.36.4-gke.2377000   true     <none>
+gke-ewallet-dev-cpu-pool-58daed59-79wp   168m   4%    3091Mi   23%   
+gke-ewallet-dev-cpu-pool-58daed59-cbl0   264m   6%    9744Mi   73%   
+gke-ewallet-dev-cpu-pool-58daed59-jt0h   371m   9%    2926Mi   22%   
+gke-ewallet-dev-cpu-pool-58daed59-kk6f   392m   10%   4148Mi   31%   
+gke-ewallet-dev-cpu-pool-58daed59-rk2f   307m   7%    4861Mi   36%   
+gke-ewallet-dev-cpu-pool-58daed59-wcka   338m   8%    4119Mi   31%   
+--- upgrade
+RUNNING	2026-11-07T16:13:39.362693234Z	
+--- not running
+ate-system        ate-api-server-deployment-6558549c7c-hcgvk            0/1   CrashLoopBackOff   14 (5m8s ago)   54m
+kagent            kagent-controller-58fc5667dc-r5jxd                    0/1   CrashLoopBackOff   12 (52s ago)    48m
+kubeflow          ml-pipeline-persistenceagent-7bbbc8977f-7wpcb         0/1   Init:0/1           6 (8m52s ago)   54m
+kubeflow          ml-pipeline-scheduledworkflow-766f78cc69-89wn5        0/1   Init:0/1           6 (4m21s ago)   48m
+--- helm
+ewallet-serving	ml-platform	1	2026-11-07 22:57:35.452406037 +0700 +07	deployed	ewallet-serving-0.1.0	1

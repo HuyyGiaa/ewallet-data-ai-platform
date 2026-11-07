@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app.kubernetes.io/name":"fraud-api"},"name":"fraud-api","namespace":"ml-platform"},"spec":{"ports":[{"name":"http","port":80,"targetPort":"http"}],"selector":{"app.kubernetes.io/name":"fraud-api"},"type":"ClusterIP"}}
+  creationTimestamp: "2026-10-31T17:38:39Z"
+  labels:
+    app.kubernetes.io/name: fraud-api
+  name: fraud-api
+  namespace: ml-platform
+  resourceVersion: "1793468319590015005"
+  uid: efac6192-71d0-4a4a-bfe6-9240acc66140
+spec:
+  clusterIP: 34.118.225.242
+  clusterIPs:
+  - 34.118.225.242
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: fraud-api
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

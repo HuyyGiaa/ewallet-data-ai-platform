@@ -1,0 +1,32 @@
+--- context/project
+gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+ewallet-data-ai-platform-hg26
+--- nodes
+gke-ewallet-dev-cpu-pool-58daed59-10d0 Ready
+gke-ewallet-dev-cpu-pool-58daed59-3hnn Ready
+gke-ewallet-dev-cpu-pool-58daed59-79wp Ready
+gke-ewallet-dev-cpu-pool-58daed59-kk6f Ready
+gke-ewallet-dev-cpu-pool-58daed59-rk2f Ready
+--- fraud-api deploy
+1 sa=training image=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165
+ClusterIP [{"name":"http","port":80,"protocol":"TCP","targetPort":"http"}]
+--- HPA/ScaledObject owning fraud-api
+No resources found in ml-platform namespace.
+Error from server (NotFound): customresourcedefinitions.apiextensions.k8s.io "scaledobjects.keda.sh" not found
+--- managedFields replicas owners
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys;d=json.load(sys.stdin);print([ (f['manager'],f['operation']) for f in d['metadata']['managedFields'] if 'f:replicas' in (f.get('fieldsV1',{}).get('f:spec') or {})])
+                                                                                          ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'managedFields'
+--- KSAs
+default mlflow-postgresql training 
+--- feature-api / ewallet-serving release
+
+Error from server (NotFound): deployments.apps "feature-api" not found
+--- redis / kserve
+redis-0   1/1   Running   0     23h
+fraud-detector   http://fraud-detector-fraud-serving.example.com   True                           6d22h
+--- GSAs + WI
+fraud-api: ['serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/fraud-api]']
+feature-api: ['serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ml-platform/feature-api]']

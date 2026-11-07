@@ -1,0 +1,12 @@
+ewallet-serving
+infra/helm/ewallet-serving
+-n
+ml-platform
+--set
+featureApi.enabled=true
+--set
+featureApi.image=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803
+--set
+featureApi.registryUri=gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db
+--set
+featureApi.serviceAccount.gcpServiceAccount=ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com

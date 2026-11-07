@@ -1,0 +1,3 @@
+gke-ewallet-dev-cpu-pool-58daed59-cbl0
+gke-ewallet-dev-cpu-pool-58daed59-jt0h
+gke-ewallet-dev-cpu-pool-58daed59-wcka

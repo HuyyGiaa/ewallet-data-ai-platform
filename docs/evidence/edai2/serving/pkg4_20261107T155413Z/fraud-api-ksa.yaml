@@ -1,0 +1,15 @@
+# R2: the Fraud API's own identity. Workload Identity maps it to the GSA
+# ewallet-fraud-api, which may read only the online Feast registry prefix
+# (infra/terraform/gcp/modules/iam). The API never calls the Kubernetes API, so no
+# token is mounted; Vault login uses a projected token with audience "vault".
+# Render: GCP_PROJECT_ID=<project> envsubst 'ewallet-data-ai-platform-hg26' < service-account.yaml.tmpl
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fraud-api
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/name: fraud-api
+  annotations:
+    iam.gke.io/gcp-service-account: ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+automountServiceAccountToken: false

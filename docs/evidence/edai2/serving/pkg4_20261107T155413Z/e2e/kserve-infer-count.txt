@@ -1,0 +1,1 @@
+kserve infer 200 in last 40m: 530

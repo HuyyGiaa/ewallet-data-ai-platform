@@ -1,0 +1,11 @@
+LAST SEEN   TYPE      REASON             OBJECT                                           MESSAGE
+4m37s       Normal    Killing            pod/fraud-detector-predictor-6b649bc8b6-lklcj    Stopping container kserve-container
+4m36s       Normal    Scheduled          pod/fraud-detector-predictor-6b649bc8b6-8hc2x    Successfully assigned fraud-serving/fraud-detector-predictor-6b649bc8b6-8hc2x to gke-ewallet-dev-cpu-pool-58daed59-wcka
+4m36s       Normal    SuccessfulCreate   replicaset/fraud-detector-predictor-6b649bc8b6   Created pod: fraud-detector-predictor-6b649bc8b6-8hc2x
+4m36s       Warning   InternalError      inferenceservice/fraud-detector                  failed to get InferenceService ConfigMap: Get "https://34.118.224.1:443/api/v1/namespaces/kserve/configmaps/inferenceservice-confi
+4m35s       Normal    Pulling            pod/fraud-detector-predictor-6b649bc8b6-8hc2x    Pulling image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90
+4m35s       Warning   Unhealthy          pod/fraud-detector-predictor-6b649bc8b6-lklcj    Readiness probe failed: Get "http://10.216.0.9:8080/v2/models/fraud-detector/ready": dial tcp 10.216.0.9:8080: connect: connection
+3m17s       Normal    Pulled             pod/fraud-detector-predictor-6b649bc8b6-8hc2x    Successfully pulled image "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@
+3m17s       Normal    Created            pod/fraud-detector-predictor-6b649bc8b6-8hc2x    Container created
+3m17s       Normal    Started            pod/fraud-detector-predictor-6b649bc8b6-8hc2x    Container started
+3m12s       Warning   Unhealthy          pod/fraud-detector-predictor-6b649bc8b6-8hc2x    Startup probe failed: Get "http://10.216.5.18:8080/v2/health/live": dial tcp 10.216.5.18:8080: connect: connection refused

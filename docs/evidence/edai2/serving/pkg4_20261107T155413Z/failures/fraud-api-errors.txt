@@ -1,0 +1,8 @@
+{"correlation_id":"cd5b4acc-ce75-4308-b085-ca7a4646bd44","error_code":"missing_feature","event":"prediction_failed","retryable":false,"service.name":"fraud-inference","severity":"INFO","timestamp":"2026-11-07T16:12:16.343962+00:00"}
+{"correlation_id":"81aacb37-d7a5-4efd-acb4-13e01d13aedf","error_code":"stale_feature","event":"prediction_failed","retryable":false,"service.name":"fraud-inference","severity":"INFO","timestamp":"2026-11-07T16:12:17.467891+00:00"}
+{"correlation_id":"63ee6cf4-2f56-4917-98c6-641148a58c44","error_code":"model_backend_error","event":"prediction_failed","retryable":true,"service.name":"fraud-inference","severity":"INFO","timestamp":"2026-11-07T16:15:16.851759+00:00"}
+{"event":"request_finished","path":"/v1/fraud/predict","status":502,"trace_id":"ffbdac4636d576394e786f01559ecbce","correlation_id":"63ee6cf4-2f56-4917-98c6-641148a58c44"}
+INFO:     127.0.0.1:58672 - "POST /v1/fraud/predict HTTP/1.1" 502 Bad Gateway
+{"correlation_id":"4e541508-4181-4139-b228-8d257cc44860","error_code":"model_backend_error","event":"prediction_failed","retryable":true,"service.name":"fraud-inference","severity":"INFO","timestamp":"2026-11-07T16:15:17.326625+00:00"}
+{"event":"request_finished","path":"/v1/fraud/predict","status":502,"trace_id":"7e4bbb5b488940ae31c39c49c28f0490","correlation_id":"4e541508-4181-4139-b228-8d257cc44860"}
+INFO:     127.0.0.1:58686 - "POST /v1/fraud/predict HTTP/1.1" 502 Bad Gateway

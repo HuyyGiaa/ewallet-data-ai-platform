@@ -1,0 +1,1 @@
+feature-api-6cbcbd7b59-f2xfs node=gke-ewallet-dev-cpu-pool-58daed59-rk2f sa=feature-api automount=false imageID=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803 restarts=0

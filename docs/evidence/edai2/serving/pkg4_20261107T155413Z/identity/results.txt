@@ -1,0 +1,4 @@
+fraud-api: {"identity": "ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com", "registry_read": "OK 13547 bytes", "outside_prefix_read": "DENIED 403 (expected)", "bucket_list": "DENIED 403 (expected)"}
+gke-ewallet-dev-cpu-pool-58daed59-rk2f asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803
+feature-api: {"identity": "ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com", "registry_read": "OK 13547 bytes", "outside_prefix_read": "DENIED 403 (expected)", "bucket_list": "DENIED 403 (expected)"}
+gke-ewallet-dev-cpu-pool-58daed59-rk2f asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803

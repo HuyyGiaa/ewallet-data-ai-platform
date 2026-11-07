@@ -1,0 +1,6 @@
+valkey-0 ip=10.216.1.12 gke-ewallet-dev-cpu-pool-58daed59-kk6f cluster_state:ok
+valkey-1 ip=10.216.1.14 gke-ewallet-dev-cpu-pool-58daed59-kk6f cluster_state:ok
+valkey-2 ip=10.216.1.15 gke-ewallet-dev-cpu-pool-58daed59-kk6f cluster_state:ok
+valkey-3 ip=10.216.1.17 gke-ewallet-dev-cpu-pool-58daed59-kk6f cluster_state:ok
+valkey-4 ip=10.216.1.11 gke-ewallet-dev-cpu-pool-58daed59-kk6f cluster_state:ok
+valkey-5 ip=10.216.1.16 gke-ewallet-dev-cpu-pool-58daed59-kk6f cluster_state:ok

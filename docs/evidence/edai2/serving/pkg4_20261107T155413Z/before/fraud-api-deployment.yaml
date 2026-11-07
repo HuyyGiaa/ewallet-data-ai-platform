@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app.kubernetes.io/name":"fraud-api","app.kubernetes.io/part-of":"ewallet-mlops"},"name":"fraud-api","namespace":"ml-platform"},"spec":{"replicas":1,"selector":{"matchLabels":{"app.kubernetes.io/name":"fraud-api"}},"template":{"metadata":{"annotations":{"prometheus.io/path":"/metrics","prometheus.io/port":"8080","prometheus.io/scrape":"true"},"labels":{"app.kubernetes.io/name":"fraud-api"}},"spec":{"containers":[{"env":[{"name":"EWALLET_FEAST_REGISTRY","value":"gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db"},{"name":"EWALLET_KSERVE_BASE_URL","value":"http://fraud-detector-predictor.fraud-serving.svc.cluster.local"},{"name":"EWALLET_MODEL_NAME","value":"fraud-detector"},{"name":"EWALLET_MODEL_VERSION","value":"1"},{"name":"EWALLET_GIT_SHA","value":"a1e7df5617dc90901272572687e4c42599fbb6ad"},{"name":"EWALLET_REDIS_CONNECTION_STRING","valueFrom":{"secretKeyRef":{"key":"connection_string","name":"feast-online-redis"}}}],"image":"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:c8e4b5e689d245ba8a38a250bc4ab03628937701c39174cce4b19082f1718c6b","livenessProbe":{"httpGet":{"path":"/health/live","port":"http"},"initialDelaySeconds":20,"periodSeconds":10},"name":"fraud-api","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/health/ready","port":"http"},"periodSeconds":10,"timeoutSeconds":5},"resources":{"limits":{"cpu":"1","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}}],"nodeSelector":{"iam.gke.io/gke-metadata-server-enabled":"true"},"securityContext":{"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}},"serviceAccountName":"training"}}}}
+  creationTimestamp: "2026-10-31T17:38:39Z"
+  generation: 3
+  labels:
+    app.kubernetes.io/name: fraud-api
+    app.kubernetes.io/part-of: ewallet-mlops
+  name: fraud-api
+  namespace: ml-platform
+  resourceVersion: "1794064300572687006"
+  uid: b3042434-13c5-467a-8dc6-6af297a8bd24
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fraud-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/name: fraud-api
+    spec:
+      containers:
+      - env:
+        - name: EWALLET_FEAST_REGISTRY
+          value: gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db
+        - name: EWALLET_KSERVE_BASE_URL
+          value: http://fraud-detector-predictor.fraud-serving.svc.cluster.local
+        - name: EWALLET_MODEL_NAME
+          value: fraud-detector
+        - name: EWALLET_MODEL_VERSION
+          value: "1"
+        - name: EWALLET_GIT_SHA
+          value: 7b095baa46e1112b190c774afd4800e79c1696cc
+        - name: EWALLET_REDIS_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              key: connection_string
+              name: feast-online-redis
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/live
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: fraud-api
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/ready
+            port: http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: 250m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: training
+      serviceAccountName: training
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-10-31T17:38:39Z"
+    lastUpdateTime: "2026-10-31T17:49:01Z"
+    message: ReplicaSet "fraud-api-6dbb7d4456" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  - lastTransitionTime: "2026-11-07T15:11:40Z"
+    lastUpdateTime: "2026-11-07T15:11:40Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  observedGeneration: 3
+  readyReplicas: 1
+  replicas: 1
+  terminatingReplicas: 0
+  updatedReplicas: 1

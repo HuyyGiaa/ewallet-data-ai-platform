@@ -1,0 +1,2 @@
+service/fraud-api unchanged
+deployment.apps/fraud-api configured

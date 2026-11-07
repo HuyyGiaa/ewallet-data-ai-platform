@@ -1,0 +1,12 @@
+feature unknown entity                   http=424 missing_feature retryable=False
+feature missing user_id                  http=422 invalid_request retryable=False
+feature empty feature_names              http=422 invalid_request retryable=False
+feature undeclared feature name          http=422 invalid_request retryable=False
+feature stale (2 days later)             http=424 stale_feature retryable=False
+feature request before feature time      http=424 invalid_feature_timestamp retryable=False
+predict unknown entity                   http=424 missing_feature retryable=False
+predict missing amount                   http=422 invalid_request retryable=False
+predict invalid amount type              http=422 invalid_request retryable=False
+predict invalid transaction type         http=422 invalid_request retryable=False
+predict stale features                   http=424 stale_feature retryable=False
+internal endpoint via feature svc: http=422

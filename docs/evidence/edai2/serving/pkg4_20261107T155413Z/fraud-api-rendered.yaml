@@ -1,0 +1,95 @@
+# Runs in ml-platform as its own KSA `fraud-api` (service-account.yaml.tmpl),
+# mapped by Workload Identity to a GSA that reads only the online Feast registry.
+# Apply the ServiceAccount and its IAM binding first: see
+# docs/runbooks/edai2/R2_SERVING_IDENTITY_MIGRATION.md.
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-api
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/name: fraud-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fraud-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-api
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/name: fraud-api
+    app.kubernetes.io/part-of: ewallet-mlops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fraud-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fraud-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: fraud-api
+      automountServiceAccountToken: false
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fraud-api
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: EWALLET_FEAST_REGISTRY
+              value: "gs://ewallet-data-ai-platform-hg26-data/features/registries/canonical-100gb-v1/online/online-20261031-163506/registry.db"
+            - name: EWALLET_KSERVE_BASE_URL
+              value: http://fraud-detector-predictor.fraud-serving.svc.cluster.local
+            - name: EWALLET_MODEL_NAME
+              value: fraud-detector
+            - name: EWALLET_MODEL_VERSION
+              value: "1"
+            - name: EWALLET_GIT_SHA
+              value: "5801bcf77eb8a83c9e4e5cbd6e22d520fd0512ec"
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: feast-online-redis
+                  key: connection_string
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

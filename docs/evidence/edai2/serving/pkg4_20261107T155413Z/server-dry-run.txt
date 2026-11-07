@@ -1,0 +1,3 @@
+serviceaccount/fraud-api created (server dry run)
+service/fraud-api unchanged (server dry run)
+deployment.apps/fraud-api configured (server dry run)

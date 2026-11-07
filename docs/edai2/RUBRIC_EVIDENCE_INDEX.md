@@ -88,7 +88,7 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | 41 | 2 | Registry UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
 | 42 | 2 | Basic auth + rate limit (UI) | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
 | 43 | 1 | Domain + HTTPS for Web API | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
-| 44 | 1 | Terraform | Terraform/Ansible ran (images) | PARTIAL | [PLATFORM §2](platform/GATEWAY_IAC_SECURITY_AB.md#1-infrastructure-as-code-terraform), [Terraform foundation](../cloud/terraform_gcp_foundation.md#r2-định-danh-riêng-cho-serving-2026-11-07) | `r2_terraform_plan.json`: 43 resources applied; R2 run 2026-11-07 CLOUD_VERIFIED: locked guarded plan, apply 4 added, 2 imports, readback in `docs/evidence/edai2/iam/r2_apply_20261107T143853Z` | SCREENSHOT_MISSING (Console captures by the owner) |
+| 44 | 1 | Terraform | Terraform/Ansible ran (images) | PARTIAL | [PLATFORM §2](platform/GATEWAY_IAC_SECURITY_AB.md#1-infrastructure-as-code-terraform), [Terraform foundation](../cloud/terraform_gcp_foundation.md#r2-định-danh-riêng-cho-serving-2026-11-07) | `r2_terraform_plan.json`: 43 resources applied; R2 run 2026-11-07 CLOUD_VERIFIED: locked guarded plan, apply 4 added, 2 imports, readback in `docs/evidence/edai2/iam/r2_apply_20261107T143853Z`; Workload Identity verified on running pods in `docs/evidence/edai2/serving/pkg4_20261107T155413Z/identity` | SCREENSHOT_MISSING (Console captures by the owner) |
 | 45 | 1 | Ansible roles | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
 | 46 | 1 | Web API metrics | Telemetry shown | COMPLETE | [OBSERVABILITY §2](observability/OBSERVABILITY.md#2-web-api-metrics-fraud-api) | observability/46_* | — |
 | 47 | 1 | Computing telemetry | same | COMPLETE | [OBSERVABILITY §3](observability/OBSERVABILITY.md#3-compute-telemetry-cpu-memory-network-disk) | observability/47_* | — |
@@ -139,6 +139,7 @@ Branch `integration/g0-20261107` merges B1, C-A, C-B, C-C and Session A on `orig
 | 52 | C-C | LOCAL_VALIDATED | Coordinator variants with real models | CLOUD_PENDING: P9, after the prompt-masking release review (B1-F6 fixed in source, B1-F7 open) |
 | 53 | C-C | LOCAL_VALIDATED | Qwen3 routing on CPU | CLOUD_PENDING: P10, blocked by GPU quota 0 |
 | 54 | C-C | LOCAL_VALIDATED | Real Vault on kind | CLOUD_PENDING: P7 |
+| Serving (Feature API, Fraud API) | Session A, G2 | CLOUD_VERIFIED | GKE 2026-11-07: dedicated Workload Identity proven on pods; Feature and Fraud E2E on Feast Online and KServe v1; 500/500 real-entity fixture (`docs/evidence/edai2/serving/pkg4_20261107T155413Z`) | Package 5: Locust, then KEDA |
 
 ## Reconciliation with the external N13 inventory (quality gate, 2026-11-04)
 

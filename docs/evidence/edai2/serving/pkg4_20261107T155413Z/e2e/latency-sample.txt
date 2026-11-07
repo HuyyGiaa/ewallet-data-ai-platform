@@ -1,0 +1,19 @@
+{
+ "note": "30 sequential requests through kubectl port-forward from the operator laptop; a smoke sample, not a load test",
+ "results": {
+  "feature_lookup": {
+   "n": 30,
+   "http_200": 30,
+   "p50_ms": 306.6,
+   "p95_ms": 335.4,
+   "max_ms": 358.8
+  },
+  "fraud_predict": {
+   "n": 30,
+   "http_200": 30,
+   "p50_ms": 331.8,
+   "p95_ms": 411.8,
+   "max_ms": 615.4
+  }
+ }
+}

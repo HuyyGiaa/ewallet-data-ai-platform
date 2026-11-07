@@ -1,0 +1,2 @@
+ewallet-agents   drift-mcp                               1     N/A   0     5d23h
+ewallet-mcp      drift-mcp                               1     N/A   0     5d20h

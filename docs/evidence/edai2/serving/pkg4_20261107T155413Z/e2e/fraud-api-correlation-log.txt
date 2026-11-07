@@ -1,0 +1,2 @@
+{"correlation_id":"pkg4-predict-1","event":"prediction_completed","model_name":"fraud-detector","model_version":"1","service.name":"fraud-inference","severity":"INFO","timestamp":"2026-11-07T16:11:42.191996+00:00"}
+{"event":"request_finished","path":"/v1/fraud/predict","status":200,"trace_id":"cbdda7049872e584e8907ef1994ab639","correlation_id":"pkg4-predict-1"}

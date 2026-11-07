@@ -1,0 +1,15 @@
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  annotations:
+    iam.gke.io/gcp-service-account: ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+    meta.helm.sh/release-name: ewallet-serving
+    meta.helm.sh/release-namespace: ml-platform
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: feature-api
+    app.kubernetes.io/part-of: ewallet-mlops
+    helm.sh/chart: ewallet-serving-0.1.0
+  name: feature-api
+  namespace: ml-platform

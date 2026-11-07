@@ -1,0 +1,16 @@
+backend_client_requests_total{backend="feast-online",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 432.0
+backend_client_requests_total{backend="kserve",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 423.0
+backend_client_requests_total{backend="feast-online",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 1031.0
+backend_client_requests_total{backend="kserve",operation="infer",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 919.0
+backend_client_requests_total{backend="feast-online",operation="get_features",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="error"} 2.0
+backend_client_requests_total{backend="kserve",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="error"} 9.0
+backend_client_requests_total{backend="kserve",operation="infer",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="error"} 112.0
+backend_client_requests_total{backend="feast-online",operation="ready",otel_scope_name="ewallet.ml_backends",otel_scope_schema_url="",otel_scope_version="",outcome="error"} 2.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="feature_retrieval"} 1031.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="feature_assembly"} 1031.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="model_inference"} 919.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success",stage="request"} 919.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="error",stage="feature_retrieval"} 2.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="error",stage="request"} 114.0
+fraud_inference_stage_latency_seconds_count{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="error",stage="model_inference"} 112.0
+fraud_inference_requests_total{otel_scope_name="ewallet.fraud_inference",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 919.0

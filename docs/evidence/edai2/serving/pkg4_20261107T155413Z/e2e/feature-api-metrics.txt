@@ -1,0 +1,10 @@
+feature_api_requests_total{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 31.0
+feature_api_requests_total{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="missing_feature"} 1.0
+feature_api_requests_total{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="invalid_request"} 4.0
+feature_api_requests_total{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="stale_feature"} 1.0
+feature_api_requests_total{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="invalid_feature_timestamp"} 1.0
+feature_api_request_latency_seconds_count{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="success"} 31.0
+feature_api_request_latency_seconds_count{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="missing_feature"} 1.0
+feature_api_request_latency_seconds_count{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="invalid_request"} 4.0
+feature_api_request_latency_seconds_count{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="stale_feature"} 1.0
+feature_api_request_latency_seconds_count{otel_scope_name="ewallet.feature_api",otel_scope_schema_url="",otel_scope_version="",outcome="invalid_feature_timestamp"} 1.0

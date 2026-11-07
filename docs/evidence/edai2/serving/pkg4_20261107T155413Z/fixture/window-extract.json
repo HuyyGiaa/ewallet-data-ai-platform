@@ -1,0 +1,25 @@
+{
+  "source_table": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261025134342-optimized-gold-r261025181923/gold/fact_transactions",
+  "delta_version": 0,
+  "active_files_in_partition": 368,
+  "partition": "event_date=2026-05-31",
+  "window_utc": [
+    "2026-05-31T22:00:00Z",
+    "2026-06-01T00:00:00Z"
+  ],
+  "rows_in_window": 52368,
+  "types": {
+    "payment": 21552,
+    "deposit": 10312,
+    "transfer": 12855,
+    "withdraw": 7649
+  },
+  "statuses": {
+    "success": 49520,
+    "pending": 1008,
+    "failed": 1840
+  },
+  "min_ts": "2026-05-31 22:00:00.646499",
+  "max_ts": "2026-05-31 23:59:58.617471",
+  "extract_sha256": "dbd9be23680804a01f4a8036e94edc345a6216338be8d657994c8175391110a8"
+}

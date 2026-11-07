@@ -1,0 +1,2 @@
+fraud-api-6dbb7d4456-xfwb4 sa=training automount= imageID=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:20e9c2ad1272d1564198dc970dd402ead17dbca0b1881b3119dca0c4c90e3165
+fraud-api-777c8454-r74vr sa=fraud-api automount=false imageID=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-api@sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803

@@ -1,0 +1,6 @@
+NAME: ewallet-serving
+LAST DEPLOYED: Sat Nov  7 22:57:35 2026
+NAMESPACE: ml-platform
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None

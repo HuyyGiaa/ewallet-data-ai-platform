@@ -1,0 +1,3 @@
+NAME          GSA                                                                         AUTOMOUNT
+fraud-api     ewallet-fraud-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com     false
+feature-api   ewallet-feature-api@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com   false
