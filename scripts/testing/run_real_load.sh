@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One bounded Locust run against a real target; never starts a backend of its own.
-# usage: run_real_load.sh <feature|inference> <internal|external|local> <low|medium|high> <evidence-dir>
+# usage: run_real_load.sh <feature|inference> <internal|external|local> <smoke|low|medium|high> <evidence-dir>
 #
 # Env: LOAD_HOST (http://127.0.0.1:18080), EWALLET_LOAD_ENTITIES (verified fixture),
 #      EWALLET_LOAD_ACKNOWLEDGE_REMOTE, EWALLET_LOAD_BASIC_AUTH_FILE, EWALLET_LOAD_CA_FILE,
@@ -8,12 +8,11 @@
 set -euo pipefail
 target=${1:?target required} path=${2:?network path required} profile=${3:?profile required} evidence=${4:?evidence dir required}
 root=$(cd "$(dirname "$0")/../.." && pwd)
-case "$profile" in
-  low) users=5 spawn=2 ;; medium) users=10 spawn=5 ;; high) users=20 spawn=5 ;;
-  *) echo "profile must be low, medium or high" >&2; exit 2 ;;
-esac
+# shellcheck source=load_profiles.sh
+. "$root/scripts/testing/load_profiles.sh"
+load_profile "$profile" || exit 2
 case "$path" in internal|external|local) ;; *) echo "path must be internal, external or local" >&2; exit 2 ;; esac
-run_time=${LOAD_RUN_TIME:-5m} host=${LOAD_HOST:-http://127.0.0.1:18080}
+run_time=${LOAD_RUN_TIME:-$default_run_time} host=${LOAD_HOST:-http://127.0.0.1:18080}
 fixture=${EWALLET_LOAD_ENTITIES:?EWALLET_LOAD_ENTITIES must name a verified fixture}
 out=$evidence/$target-$path-$profile; mkdir -p "$out"; out=$(cd "$out" && pwd)
 started=$(date -u +%FT%TZ)

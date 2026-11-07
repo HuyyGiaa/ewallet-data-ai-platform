@@ -8,7 +8,9 @@ Invalid-request and fault scenarios stay in the separate mock-backed harness.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+import itertools
+import random
+from typing import Any, Callable, Iterator, Mapping
 from uuid import uuid4
 
 FEATURE = "feature"
@@ -80,6 +82,18 @@ REGISTRY = {
     FEATURE: Target(FEATURE, "/v1/features/lookup", feature_request, check_feature),
     INFERENCE: Target(INFERENCE, "/v1/fraud/predict", inference_request, check_inference),
 }
+
+
+def entity_order(count: int, seed: int) -> Iterator[int]:
+    """Yield fixture indexes forever: one seeded permutation, repeated.
+
+    Every entity is sent equally often, and a rerun with the same seed sends the same sequence.
+    """
+    if count < 1:
+        raise LoadConfigurationError("the entity fixture is empty")
+    order = list(range(count))
+    random.Random(seed).shuffle(order)
+    return itertools.cycle(order)
 
 
 def select_target(name: str) -> Target:

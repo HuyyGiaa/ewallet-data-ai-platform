@@ -5,12 +5,13 @@ from __future__ import annotations
 import pytest
 
 from ops.experiments.fraud_entities import fit_timestamp, prepare
-from scripts.testing.real_load_report import summarise
+from scripts.testing.real_load_report import html_aggregated, peak_rps, summarise
 from tests.load.real_targets import (
     DEFAULT_FEATURES,
     LoadConfigurationError,
     check_feature,
     check_inference,
+    entity_order,
     feature_request,
     inference_request,
     select_target,
@@ -97,6 +98,38 @@ def test_prepare_keeps_every_outcome():
 
 def test_report_keeps_failures_in_the_totals():
     row = {"Request Count": "100", "Failure Count": "5", "Requests/s": "12.5", "Average Response Time": "20.5",
-           "50%": "18", "95%": "40", "99%": "60"}
+           "50%": "18", "95%": "40", "99%": "60", "Max Response Time": "310.4"}
     summary = summarise(row)
-    assert (summary["successful_requests"], summary["failure_rate"]) == (95, 0.05)
+    assert (summary["successful_requests"], summary["failure_rate"], summary["max_ms"]) == (95, 0.05, 310.4)
+
+
+def test_peak_rate_comes_from_the_aggregated_history(tmp_path):
+    history = tmp_path / "locust_stats_history.csv"
+    history.write_text("Timestamp,Name,Requests/s\n1,feature,99\n1,Aggregated,10.5\n2,Aggregated,12.25\n")
+    assert peak_rps(history) == 12.25
+    assert peak_rps(tmp_path / "missing.csv") is None
+
+
+def test_entity_order_is_reproducible_and_uses_every_entity_equally():
+    def take(order, n=10):
+        return [next(order) for _ in range(n)]
+
+    first = take(entity_order(5, 7))
+    assert first == take(entity_order(5, 7))
+    assert sorted(first[:5]) == [0, 1, 2, 3, 4] and first[5:] == first[:5]
+
+
+def test_entity_order_refuses_an_empty_fixture():
+    with pytest.raises(LoadConfigurationError):
+        entity_order(0, 1)
+
+
+def test_final_statistics_come_from_the_html_report(tmp_path):
+    report = tmp_path / "report.html"
+    args = {"requests_statistics": [{"name": "Aggregated", "num_requests": 4346, "num_failures": 0, "total_rps": 73.2,
+                                     "avg_response_time": 13.4, "max_response_time": 59.0}],
+            "response_time_statistics": [{"name": "Aggregated", "0.5": 13, "0.95": 16, "0.99": 20}]}
+    report.write_text("<script>window.templateArgs = " + __import__("json").dumps(args) + ";</script>")
+    summary = summarise(html_aggregated(report))
+    assert (summary["total_requests"], summary["p95_ms"], summary["max_ms"]) == (4346, 16.0, 59.0)
+    assert html_aggregated(tmp_path / "missing.html") is None

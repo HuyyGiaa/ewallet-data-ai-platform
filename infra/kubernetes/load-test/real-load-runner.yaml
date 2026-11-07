@@ -1,0 +1,121 @@
+# Temporary in-cluster Locust runner for real-API load tests (G5-A).
+# Created and deleted by scripts/testing/run_incluster_load.sh; never part of a release.
+# - Locust is installed from infra/load-test/uv.lock (hash-checked) into an emptyDir.
+# - Required anti-affinity keeps it off the nodes running the APIs, the KServe predictor
+#   and Feast Redis, so the load generator does not steal their CPU.
+# - The NetworkPolicy is additive: it admits only this pod to the Fraud API on 8080.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: real-load-runner
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/name: real-load-runner
+    ewallet.io/temporary: real-load
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 5
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          namespaces: [ml-platform]
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [fraud-api, feature-api]
+        - topologyKey: kubernetes.io/hostname
+          namespaces: [fraud-serving]
+          labelSelector:
+            matchLabels:
+              serving.kserve.io/inferenceservice: fraud-detector
+        - topologyKey: kubernetes.io/hostname
+          namespaces: [feature-store]
+          labelSelector:
+            matchLabels:
+              statefulset.kubernetes.io/pod-name: redis-0
+  containers:
+    - name: locust
+      # python:3.12.12-slim-bookworm
+      image: docker.io/library/python@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
+      command: ["sh", "-c"]
+      args:
+        - >-
+          python -m venv /tmp/venv &&
+          /tmp/venv/bin/pip install --quiet --no-cache-dir --require-hashes --only-binary=:all:
+          -r /work/requirements/requirements.txt &&
+          touch /tmp/ready && exec sleep infinity
+      env:
+        - name: HOME
+          value: /tmp
+        - name: PYTHONPATH
+          value: /work
+      readinessProbe:
+        exec:
+          command: ["test", "-f", "/tmp/ready"]
+        periodSeconds: 5
+        failureThreshold: 60
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - { name: tmp, mountPath: /tmp }
+        - { name: code, mountPath: /work/tests/load, readOnly: true }
+        - { name: tests-init, mountPath: /work/tests/__init__.py, subPath: __init__.py, readOnly: true }
+        - { name: fixture, mountPath: /work/fixture, readOnly: true }
+        - { name: requirements, mountPath: /work/requirements, readOnly: true }
+  volumes:
+    - name: tmp
+      emptyDir:
+        sizeLimit: 1Gi
+    - name: code
+      configMap:
+        name: real-load-code
+    - name: tests-init
+      configMap:
+        name: real-load-code
+        items:
+          - { key: __init__.py, path: __init__.py }
+    - name: fixture
+      configMap:
+        name: real-load-fixture
+    - name: requirements
+      configMap:
+        name: real-load-requirements
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-real-load-runner-to-fraud-api
+  namespace: ml-platform
+  labels:
+    ewallet.io/temporary: real-load
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fraud-api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: real-load-runner
+      ports:
+        - port: 8080
+          protocol: TCP

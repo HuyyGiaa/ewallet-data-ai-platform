@@ -1,7 +1,8 @@
 """Locust user for one real target, selected by ``EWALLET_LOAD_TARGET``.
 
 Every request comes from a verified entity fixture and every response is checked against
-the target's contract. Run through ``scripts/testing/run_real_load.sh``.
+the target's contract. Run through ``scripts/testing/run_real_load.sh`` (laptop)
+or ``scripts/testing/run_incluster_load.sh`` (temporary pod in the cluster).
 """
 
 from __future__ import annotations
@@ -9,12 +10,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import random
 import sys
 
 from locust import HttpUser, constant, events, task
 
-from tests.load.real_targets import LoadConfigurationError, select_target, validate_host
+from tests.load.real_targets import LoadConfigurationError, entity_order, select_target, validate_host
 
 _state: dict = {}
 
@@ -36,15 +36,15 @@ def configure(environment, **_kwargs) -> None:
         target=target,
         rows=rows,
         options={"model_version": os.environ.get("EWALLET_LOAD_MODEL_VERSION", "")},
-        rng=random.Random(int(os.environ.get("EWALLET_LOAD_SEED", "20261107"))),
+        order=entity_order(len(rows), int(os.environ.get("EWALLET_LOAD_SEED", "20261107"))),
     )
     print(f"real load: target={target.name} entities={len(rows)} host={environment.host}")
 
 
 class RealApiUser(HttpUser):
-    """One client sending valid requests with no think time."""
+    """One client sending valid requests; think time comes from ``EWALLET_LOAD_WAIT_SECONDS`` (default 0)."""
 
-    wait_time = constant(0)
+    wait_time = constant(float(os.environ.get("EWALLET_LOAD_WAIT_SECONDS", "0")))
 
     def on_start(self) -> None:
         """Attach gateway credentials and the route's Host header when configured."""
@@ -61,7 +61,7 @@ class RealApiUser(HttpUser):
     def send(self) -> None:
         """Send one valid request and judge it by the target's contract."""
         target = _state["target"]
-        body = target.build(_state["rng"].choice(_state["rows"]))
+        body = target.build(_state["rows"][next(_state["order"])])
         with self.client.post(target.path, json=body, name=target.name, catch_response=True) as response:
             if response.status_code != 200:
                 response.failure(f"HTTP {response.status_code}")
