@@ -66,18 +66,18 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | 29 | 2 | Equivalence partitioning / boundary values | same | PARTIAL | [TESTING §2](testing/TESTING.md#3-test-design) | partition tests run in N9 CI | SCREENSHOT_MISSING |
 | 30 | 2 | Mutation testing (mutmut) | same | NOT IMPLEMENTED | [TESTING](testing/TESTING.md) | targeted smoke only (not mutmut) | IMPLEMENTATION_MISSING |
 | 31 | 2 | Property-based idempotency | same | PARTIAL | [TESTING](testing/TESTING.md) | deterministic idempotency tests only | IMPLEMENTATION_MISSING |
-| 32 | 2 | Locust load test HTML | same | NOT IMPLEMENTED | [TESTING](testing/TESTING.md) | — | IMPLEMENTATION_MISSING |
+| 32 | 2 | Locust load test HTML | same | LOCAL_VALIDATED | [Row 32 plan](testing/ROW_32_LOCUST_PLAN.md) | Real local stack; no GKE run | RUNTIME_EVIDENCE_MISSING (P-A2) |
 | 33 | 2 | CI/CD for RAG pipeline | Pipelines ran + steps + Jenkinsfile | COMPLETE | [CICD §3](cicd/CICD.md#4-continuous-delivery-of-the-rag-ingestion-pipeline) | CD #8 7 stages SUCCESS; cicd/07–09; rollback verified | — |
 | 34 | 2 | CI/CD MCP servers + data Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 agent-ci #2, negative #2 | RUNTIME_EVIDENCE_MISSING (CD not executed) |
 | 35 | 2 | CI/CD Coordinator Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 | RUNTIME_EVIDENCE_MISSING (CD not executed) |
 | 36 | 2 | CI/CD stream feature jobs | same | PARTIAL | [CICD §4](cicd/CICD.md#6-limitations) | CI catalog only | RUNTIME_EVIDENCE_MISSING |
-| 37 | 2 | Grafana behind NGINX | NGINX settings | NOT IMPLEMENTED | [PLATFORM §1](platform/GATEWAY_IAC_SECURITY_AB.md#5-limitations-and-future-work) | — | IMPLEMENTATION_MISSING |
-| 38 | 2 | Log UI behind NGINX | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
-| 39 | 2 | Trace UI behind NGINX | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
-| 40 | 2 | Agent test UI behind NGINX | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
-| 41 | 2 | Registry UI behind NGINX | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
-| 42 | 2 | Basic auth + rate limit (UI) | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
-| 43 | 1 | Domain + HTTPS for Web API | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
+| 37 | 2 | Grafana behind NGINX | NGINX settings | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
+| 38 | 2 | Log UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
+| 39 | 2 | Trace UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
+| 40 | 2 | Agent test UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
+| 41 | 2 | Registry UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
+| 42 | 2 | Basic auth + rate limit (UI) | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
+| 43 | 1 | Domain + HTTPS for Web API | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
 | 44 | 1 | Terraform | Terraform/Ansible ran (images) | PARTIAL | [PLATFORM §2](platform/GATEWAY_IAC_SECURITY_AB.md#1-infrastructure-as-code-terraform) | `r2_terraform_plan.json`: 43 resources applied | SCREENSHOT_MISSING |
 | 45 | 1 | Ansible roles | same | NOT IMPLEMENTED | same | — | IMPLEMENTATION_MISSING |
 | 46 | 1 | Web API metrics | Telemetry shown | COMPLETE | [OBSERVABILITY §2](observability/OBSERVABILITY.md#2-web-api-metrics-fraud-api) | observability/46_* | — |
