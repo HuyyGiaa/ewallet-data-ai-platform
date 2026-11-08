@@ -12,6 +12,6 @@ spec:
   provider: OpenAI
   model: {{ .Values.modelConfig.model }}
   openAI:
-    baseUrl: http://agentgateway.{{ .Values.namespace.name }}.svc.cluster.local:3000/v1
+    baseUrl: {{ include "llm-agent-platform.modelConfigBaseUrl" . }}
     timeout: {{ .Values.modelConfig.timeoutSeconds }}
 {{- end }}

@@ -240,3 +240,34 @@ loki.write "loki" {
   }
 }
 {{- end -}}
+
+{{- /* The one base URL of the global ModelConfig (ewallet-global-llm). kagent 0.10.3 BYO
+agents have no modelConfig field: with modelConfig.byoResolver on they read the CR itself
+(templates/modelconfig-rbac.yaml); off, the legacy bridge renders this URL as env. */}}
+{{- define "llm-agent-platform.modelConfigBaseUrl" -}}
+http://agentgateway.{{ .Values.namespace.name }}.svc.cluster.local:3000/v1
+{{- end }}
+
+{{- /* Mount point of the projected Kubernetes API credentials that BYO agents use
+to GET the global ModelConfig (modelConfig.byoResolver). */}}
+{{- define "llm-agent-platform.kubeApiTokenDir" -}}
+/var/run/secrets/ewallet/kube-api
+{{- end }}
+
+{{- /* BYO agents that make LLM calls (natural-language intake on) and therefore
+resolve the global ModelConfig: the only subjects of its read Role. */}}
+{{- define "llm-agent-platform.byoModelConfigAgents" -}}
+{{- $names := list }}
+{{- if and .Values.agents.enabled (eq .Values.agents.mode "agent") }}
+{{- $all := dict }}
+{{- range $name, $spec := .Values.agents.specialists }}{{ $_ := set $all $name $spec }}{{ end }}
+{{- $_ := set $all .Values.agents.coordinator.name .Values.agents.coordinator }}
+{{- range $name := keys $all | sortAlpha }}
+{{- $byo := index (index $all $name) "byo" | default dict }}
+{{- if and (index $byo "enabled") (index (index $byo "naturalLanguageIntake" | default dict) "enabled") }}
+{{- $names = append $names $name }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- toYaml $names }}
+{{- end }}

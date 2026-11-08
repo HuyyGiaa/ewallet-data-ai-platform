@@ -1,0 +1,72 @@
+{{- /* modelConfig.byoResolver: BYO agents read the global ModelConfig CR at startup
+(ai_platform/llm_agent/model_config.py). Least privilege: one namespaced Role with
+get on that single resource name (no list, no watch, no Secrets), bound only to
+the ServiceAccounts of BYO agents with natural-language intake on, and egress
+from those pods to the API server endpoints only. */}}
+{{- if and .Values.modelConfig.enabled .Values.modelConfig.byoResolver.enabled }}
+{{- $agents := include "llm-agent-platform.byoModelConfigAgents" . | fromYamlArray }}
+{{- $api := .Values.modelConfig.byoResolver.apiServer }}
+{{- if not $agents }}
+{{- fail "modelConfig.byoResolver.enabled needs at least one BYO agent with naturalLanguageIntake enabled" }}
+{{- end }}
+{{- if and .Values.networkPolicy.enabled (not $api.cidrs) }}
+{{- fail "modelConfig.byoResolver.apiServer.cidrs is required (read back the kubernetes Service ClusterIP and its endpoints)" }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.modelConfig.name }}-reader
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [kagent.dev]
+    resources: [modelconfigs]
+    resourceNames: [{{ .Values.modelConfig.name }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.modelConfig.name }}-reader
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.modelConfig.name }}-reader
+subjects:
+  {{- range $agents }}
+  - kind: ServiceAccount
+    name: {{ . }}
+    namespace: {{ $.Values.namespace.name }}
+  {{- end }}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-byo-modelconfig-to-kube-apiserver
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "llm-agent-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: ewallet.io/agent
+        operator: In
+        values: [{{ join ", " $agents }}]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- range $api.cidrs }}
+        - ipBlock: {cidr: {{ . }}}
+        {{- end }}
+      ports:
+        {{- range $api.ports }}
+        - {protocol: TCP, port: {{ int . }}}
+        {{- end }}
+{{- end }}
+{{- end }}
