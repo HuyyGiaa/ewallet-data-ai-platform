@@ -16,6 +16,7 @@
 #   EXP_PROFILE (formal | smoke: one run per arm, fewer levels, never a result),
 #   EXP_CAPTURE_MODE (unattended | interactive: owner checkpoint after every run),
 #   EXP_CHECKPOINT_MINUTES (longest wait at a checkpoint, default 20, max 45),
+#   EXP_CHECKPOINT_RUNS (all | first: stop only after run 01 of each arm and at the comparison),
 #   EXP_MAX_USD (worst-case ceiling, default 5, max 5), EXP_LAPTOP_TIMER (auto | off),
 #   EXP_POLICY_PROBE (on | off).
 #
@@ -71,7 +72,7 @@ else
   route_baseline="Kubernetes Service" route_optimized="llm-d EPP"
 fi
 max_minutes=${EXP_MAX_MINUTES:-210} capture_mode=${EXP_CAPTURE_MODE:-unattended}
-checkpoint_minutes=${EXP_CHECKPOINT_MINUTES:-20} max_usd=${EXP_MAX_USD:-5}
+checkpoint_minutes=${EXP_CHECKPOINT_MINUTES:-20} max_usd=${EXP_MAX_USD:-5} checkpoint_runs=${EXP_CHECKPOINT_RUNS:-all}
 if [ "$profile" = smoke ]; then runs=${EXP_RUNS:-1}; else runs=${EXP_RUNS:-3}; fi
 if [ "$profile" = smoke ]; then
   [ "$runs" = 1 ] || die "EXP_PROFILE=smoke runs exactly one run per arm"
@@ -81,6 +82,7 @@ fi
 [[ "$max_minutes" =~ ^[0-9]+$ ]] && [ "$max_minutes" -ge 1 ] && [ "$max_minutes" -le 215 ] \
   || die "EXP_MAX_MINUTES must be 1-215 (10 min setup + limit + 15 min teardown <= 240)"
 case "$capture_mode" in unattended|interactive) ;; *) die "EXP_CAPTURE_MODE must be unattended or interactive";; esac
+case "$checkpoint_runs" in all|first) ;; *) die "EXP_CHECKPOINT_RUNS must be all or first";; esac
 [[ "$checkpoint_minutes" =~ ^[0-9]+$ ]] && [ "$checkpoint_minutes" -ge 1 ] && [ "$checkpoint_minutes" -le 45 ] \
   || die "EXP_CHECKPOINT_MINUTES must be 1-45"
 "$python" -c "import sys; v=float(sys.argv[1]); sys.exit(0 if 0 < v <= 5 else 1)" "$max_usd" 2>/dev/null \
@@ -573,7 +575,11 @@ run_arm() {  # <arm> <run-number>
     --readback "$metrics/prometheus-readback.json" ${policy:+--policy "$policy"} \
     --screenshots "$evidence/$arm/screenshots" > "$logs/checkpoint.txt"
   local answer=0
-  checkpoint "$logs/checkpoint.txt" || answer=$?
+  # Every vLLM start costs about 16 min, so a formal interactive session can stop only at
+  # the first run of each arm (EXP_CHECKPOINT_RUNS=first) to stay inside the time limit.
+  if [ "$checkpoint_runs" = all ] || [ "$run" = 01 ]; then
+    checkpoint "$logs/checkpoint.txt" || answer=$?
+  fi
   stop_children
   case "$answer" in
     0) ;;

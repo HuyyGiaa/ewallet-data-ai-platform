@@ -254,3 +254,18 @@ def test_g2_client_gets_the_epp_base_url_and_the_probe_the_full_one() -> None:
     assert 'epp_args=(--epp-metrics "http://127.0.0.1:$EPP_PORT/metrics")' in script
     real = (DRIVER.parents[2] / "scripts/llm_agent/g2_benchmark.py").read_text(encoding="utf-8")
     assert 'url.rstrip("/") + "/metrics"' in real
+
+
+def test_checkpoints_can_be_limited_to_the_first_run_of_each_arm(tmp_path) -> None:
+    result, _, _ = run(tmp_path, EXP_CAPTURE_MODE="interactive", EXP_CHECKPOINT_RUNS="first", EXP_RUNS="3",
+                       stdin="CONTINUE\n" * 3)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stderr.count("OWNER EVIDENCE CHECKPOINT") == 2
+    assert "BASELINE run 01" in result.stderr and "OPTIMIZED run 01" in result.stderr
+    assert "COMPARISON CHECKPOINT" in result.stderr
+
+
+def test_bad_checkpoint_runs_value_is_refused(tmp_path) -> None:
+    result, _, state = run(tmp_path, EXP_CHECKPOINT_RUNS="some")
+    assert result.returncode != 0 and "EXP_CHECKPOINT_RUNS" in result.stderr
+    assert not (state / "pool").exists()
