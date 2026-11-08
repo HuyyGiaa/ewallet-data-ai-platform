@@ -14,6 +14,8 @@ metadata:
     pod-security.kubernetes.io/warn: restricted
 ---
 # GKE adds three Istio ConfigMaps to every new namespace; the count leaves room for them.
+# The budget covers the serving stack plus the isolated Prometheus, Grafana and watchdog
+# (bench-observability.yaml.tmpl, bench-watchdog.yaml.tmpl).
 apiVersion: v1
 kind: ResourceQuota
 metadata: {name: bench-budget, namespace: ewallet-bench}
@@ -21,10 +23,10 @@ spec:
   hard:
     requests.cpu: "5"
     requests.memory: 16Gi
-    limits.cpu: "10"
-    limits.memory: 24Gi
-    pods: "8"
-    configmaps: "12"
+    limits.cpu: "12"
+    limits.memory: 28Gi
+    pods: "10"
+    configmaps: "20"
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -67,7 +69,7 @@ spec:
     matchLabels: {llm-d-router-standalone: llmd-router-epp}
   policyTypes: [Egress]
   egress:
-    - to: [{ipBlock: {cidr: __API_SERVER_CIDR__}}]
+    - to: __API_SERVER_PEERS__
       ports:
         - {protocol: TCP, port: __API_SERVER_PORT__}
 ---
@@ -171,6 +173,9 @@ spec:
               valueFrom: {secretKeyRef: {name: agentgateway-client-key, key: api-key}}
           ports:
             - {name: entry, containerPort: 4000}
+            # Prometheus metrics (agentgateway default stats listener); scraped per pod by
+            # the benchmark Prometheus only.
+            - {name: metrics, containerPort: 15020}
           readinessProbe:
             tcpSocket: {port: entry}
             periodSeconds: 5

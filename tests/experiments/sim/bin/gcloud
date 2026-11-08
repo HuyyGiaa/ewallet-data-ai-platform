@@ -18,12 +18,17 @@ elif "node-pools describe bench-pool" in text:
 elif "node-pools describe cpu-pool" in text:
     print("4\tFalse")
 elif "instance-groups managed list" in text:
-    print("4")
+    print("gke-ewallet-dev-bench-pool-grp\t0" if "bench-pool" in text else "4")
+elif "compute instances list" in text or "compute disks list" in text:
+    if pool.exists() or os.environ.get("SIM_VM_LEFT"):
+        print("gke-ewallet-dev-bench-pool-1234")
 elif "artifacts docker images describe" in text:
     sys.exit(1 if os.environ.get("SIM_IMAGE_MISSING") else 0)
 elif "node-pools create bench-pool" in text:
     if "--no-enable-autoupgrade" in text:
         sys.stderr.write("auto-upgrade cannot be disabled on a release channel\n"); sys.exit(1)
+    if "--enable-autoscaling --min-nodes 0" not in text:
+        sys.stderr.write("simulated: pool without the scale-to-zero path\n"); sys.exit(1)
     if "--service-account ewallet-gke-nodes@" not in text:
         sys.stderr.write("simulated: nodes could not pull the image\n"); sys.exit(1)
     pool.write_text("up")

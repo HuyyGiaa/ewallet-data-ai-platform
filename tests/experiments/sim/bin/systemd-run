@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Fake systemd-run: records the transient timer instead of creating one."""
+import os, sys
+from pathlib import Path
+state = Path(os.environ["SIM_STATE"])
+(state / "calls.log").open("a").write("systemd-run " + " ".join(sys.argv[1:]) + "\n")
+(state / "laptop-timer").write_text(" ".join(sys.argv[1:]))

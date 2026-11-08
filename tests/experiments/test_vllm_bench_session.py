@@ -33,7 +33,8 @@ def session(tmp_path: Path, experiment: str = "exp-v1", action: str = "session",
     evidence = tmp_path / "evidence"
     full = {**os.environ, "PATH": f"{SIM / 'bin'}:{os.environ['PATH']}", "SIM_STATE": str(state),
             "KUBE_CONTEXT": CONTEXT, "VLLM_IMAGE": IMAGE, "EXP_APPROVED": "yes", "EXP_PYTHON": sys.executable,
-            "EXP_CLIENT_DIR": str(SIM / "client"), "EXP_FORWARD_WAIT": "0", "EXP_RUNS": "2", **env}
+            "EXP_CLIENT_DIR": str(SIM / "client"), "EXP_FORWARD_WAIT": "0", "EXP_RUNS": "2", "EXP_SCRAPE_SETTLE": "0",
+            "EXP_LOCK_FILE": str(tmp_path / "cleanup.lock"), "EXP_DRILL_POLL_SECONDS": "0", **env}
     result = subprocess.run([str(DRIVER), experiment, action, str(evidence)], capture_output=True, text=True,
                             env=full, timeout=120, check=False)
     return result, evidence, state
