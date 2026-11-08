@@ -230,3 +230,19 @@ def test_drill_that_never_reaches_zero_fails_and_still_cleans_up(tmp_path) -> No
     assert result.returncode != 0 and "did not reach zero nodes" in result.stderr
     assert (evidence / "safety/drill-result.txt").read_text(encoding="utf-8").strip() == "FAIL"
     assert not (state / "pool").exists() and not (state / "namespace").exists()
+
+
+def test_dns_egress_reaches_nodelocal_dns_and_the_kube_dns_service(tmp_path) -> None:
+    result, evidence, _ = run(tmp_path)
+    assert result.returncode == 0, result.stderr
+    docs = list(yaml.safe_load_all((evidence / "baseline/config/run-01.yaml").read_text(encoding="utf-8")))
+    dns = next(d for d in docs if d["kind"] == "NetworkPolicy" and d["metadata"]["name"] == "allow-dns")
+    peers = dns["spec"]["egress"][0]["to"]
+    assert {"ipBlock": {"cidr": "169.254.20.10/32"}} in peers and {"ipBlock": {"cidr": "10.0.0.10/32"}} in peers
+    assert peers[0]["podSelector"] == {"matchLabels": {"k8s-app": "kube-dns"}}
+
+
+def test_failed_run_still_records_a_successful_cleanup(tmp_path) -> None:
+    result, evidence, _ = run(tmp_path, SIM_FAIL_RUN="1")
+    assert result.returncode != 0
+    assert (evidence / "safety/cleanup.txt").read_text(encoding="utf-8").startswith("pool and namespace confirmed absent")

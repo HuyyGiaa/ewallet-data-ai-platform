@@ -61,6 +61,8 @@ elif text.startswith("get namespace"):
         print(f"ewallet-bench={mark}", end="")
 elif text.startswith("delete namespace"):
     ns.unlink(missing_ok=True)
+elif text.startswith("get service kube-dns"):
+    print("10.0.0.10", end="")
 elif text.startswith("get service kubernetes"):
     print("10.0.0.1", end="")
 elif text.startswith("get endpoints"):

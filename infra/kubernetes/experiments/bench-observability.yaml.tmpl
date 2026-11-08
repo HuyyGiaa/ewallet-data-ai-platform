@@ -159,6 +159,8 @@ spec:
             - name: NAMESPACE
               valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
             - {name: POLL_SECONDS, value: "10"}
+            # Explicit: the helper image sets PORT=8080 for its own app.
+            - {name: EXPORTER_PORT, value: "9101"}
           resources:
             requests: {cpu: 10m, memory: 32Mi}
             limits: {cpu: 100m, memory: 96Mi}

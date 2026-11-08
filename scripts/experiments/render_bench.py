@@ -197,6 +197,15 @@ def api_peers(cidrs: str) -> str:
     return "[" + ", ".join(f"{{ipBlock: {{cidr: {item}}}}}" for item in items) + "]"
 
 
+def dns_peers(addresses: str) -> str:
+    """Extra DNS egress peers (NodeLocal DNSCache and kube-dns ClusterIP), one list item each."""
+
+    items = [item.strip() for item in addresses.split(",") if item.strip()]
+    if not items or not all(re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", item) for item in items):
+        raise ValueError("--dns-ips must be one or more comma-separated IPv4 addresses")
+    return "\n        ".join(f"- {{ipBlock: {{cidr: {item}/32}}}}" for item in items)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Print the rendered stack for one experiment arm, or the observability or watchdog stack."""
 
@@ -211,6 +220,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--api-server-cidr", required=True, help="comma-separated /32s: endpoint and ClusterIP")
     parser.add_argument("--api-server-port", required=True)
     parser.add_argument("--run-id", default="")
+    parser.add_argument("--dns-ips", default="169.254.20.10",
+                        help="NodeLocal DNSCache address and kube-dns ClusterIP, comma separated")
     args = parser.parse_args(argv)
     common = {"API_SERVER_PEERS": api_peers(args.api_server_cidr), "API_SERVER_PORT": args.api_server_port}
     try:
@@ -224,7 +235,8 @@ def main(argv: list[str] | None = None) -> int:
         if not args.run_id:
             raise ValueError("--run-id is required for the serving stack")
         values = {**ARMS[args.experiment][args.arm], "VLLM_IMAGE": args.vllm_image,
-                  "GATEWAY_IMAGE": args.gateway_image, **common, "RUN_ID": args.run_id}
+                  "GATEWAY_IMAGE": args.gateway_image, **common, "RUN_ID": args.run_id,
+                  "DNS_PEERS": dns_peers(args.dns_ips)}
         template = TEMPLATE.read_text(encoding="utf-8")
         if args.experiment == "exp-v3a":
             template = to_gpu(template, values.pop("MODEL_PATH"))

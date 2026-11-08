@@ -89,7 +89,7 @@ case "$capture_mode" in unattended|interactive) ;; *) die "EXP_CAPTURE_MODE must
 render_arm() {  # <arm> <run-id> <cidr> <port> [stack]
   "$python" "$root/scripts/experiments/render_bench.py" "$experiment" "$1" --vllm-image "$VLLM_IMAGE" \
     --gateway-image "$GATEWAY_IMAGE" --helper-image "$HELPER_IMAGE" --run-id "$2" --api-server-cidr "$3" \
-    --api-server-port "$4" --stack "${5:-serving}"
+    --api-server-port "$4" --stack "${5:-serving}" --dns-ips "${dns_ips:-169.254.20.10}"
 }
 render_watchdog() {  # <deadline-utc> <cidr> <port>
   "$python" "$root/scripts/experiments/render_bench.py" "$experiment" baseline --stack watchdog \
@@ -309,8 +309,13 @@ finish() {
   k -n "$NS" get jobs,cronjobs -o wide > "$evidence/safety/watchdog-jobs.txt" 2>&1
   k -n "$NS" logs -l app.kubernetes.io/name=bench-watchdog --tail=50 --prefix > "$evidence/safety/watchdog.log" 2>&1
   log "cleanup (status $status)"
-  remove_stack >> "$evidence/session.log" 2>&1 || { log "CLEANUP FAILED: run down"; status=1; }
-  [ "$status" = 0 ] && echo "pool and namespace confirmed absent; no bench VMs or disks" > "$status_file"
+  if remove_stack >> "$evidence/session.log" 2>&1; then
+    echo "pool and namespace confirmed absent; no bench VMs or disks" > "$status_file"
+  else
+    log "CLEANUP FAILED: run down"
+    echo "CLEANUP FAILED: see session.log, then run down" > "$status_file"
+    status=1
+  fi
   disarm_laptop_timer
   production_state > "$evidence/production-after.txt"
   if ! cmp -s "$evidence/production-before.txt" "$evidence/production-after.txt"; then
@@ -358,6 +363,10 @@ api_svc=$(k get service kubernetes -n default -o 'jsonpath={.spec.clusterIP}')
 [ -n "$api_ip" ] && [ -n "$api_port" ] && [ -n "$api_svc" ] || die "cannot read the API server endpoint"
 # Both the endpoint and the Service address, as in the global ModelConfig canary.
 api_cidrs="$api_ip/32,$api_svc/32"
+# NodeLocal DNSCache listens on 169.254.20.10 and on the kube-dns ClusterIP.
+dns_svc=$(k get service kube-dns -n kube-system -o 'jsonpath={.spec.clusterIP}')
+[ -n "$dns_svc" ] || die "cannot read the kube-dns Service address"
+dns_ips="169.254.20.10,$dns_svc"
 if [ "$action" = drill ]; then
   render_arm baseline drill "$api_cidrs" "$api_port" drill > "$evidence/safety/drill-stack.yaml"
   awk '/^---$/ {exit} {print}' "$evidence/safety/drill-stack.yaml" | k apply -f -

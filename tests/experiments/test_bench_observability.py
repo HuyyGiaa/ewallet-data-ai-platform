@@ -340,3 +340,15 @@ def test_api_server_egress_lists_endpoint_and_service_address() -> None:
                           "--helper-image", HELPER, "--api-server-cidr", "10.0.0.0/8", "--api-server-port", "443"],
                          capture_output=True, text=True, check=False)
     assert bad.returncode != 0 and "/32" in bad.stderr
+
+
+def test_exporter_port_is_explicit_and_matches_the_scrape_target() -> None:
+    docs = render("--stack", "observability")
+    deployment = next(d for d in docs if d["kind"] == "Deployment" and d["metadata"]["name"] == "bench-prometheus")
+    exporter = next(c for c in deployment["spec"]["template"]["spec"]["containers"] if c["name"] == "pod-usage-exporter")
+    port = {e["name"]: e.get("value") for e in exporter["env"]}["EXPORTER_PORT"]
+    config = next(d for d in docs if d["metadata"]["name"] == "bench-prometheus-config")
+    usage = next(j for j in yaml.safe_load(config["data"]["prometheus.yaml"])["scrape_configs"] if j["job_name"] == "pod-usage")
+    assert usage["static_configs"][0]["targets"] == [f"127.0.0.1:{port}"]
+    # The image's own PORT=8080 must not move the exporter.
+    assert "os.environ.get(\"PORT\"" not in (ROOT / "ops/experiments/pod_usage_exporter.py").read_text(encoding="utf-8")

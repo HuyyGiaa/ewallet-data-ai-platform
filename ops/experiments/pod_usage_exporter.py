@@ -121,7 +121,7 @@ def fetcher(namespace: str) -> Callable[[], dict[str, Any]]:
 
 
 def main() -> int:
-    """Poll every POLL_SECONDS and serve /metrics on PORT."""
+    """Poll every POLL_SECONDS and serve /metrics on EXPORTER_PORT."""
 
     namespace = os.environ.get("NAMESPACE") or (SA_DIR / "namespace").read_text(encoding="utf-8").strip()
     poller = Poller(fetcher(namespace))
@@ -146,7 +146,8 @@ def main() -> int:
             return
 
     # Loopback only: Prometheus is in the same pod, nothing else needs this port.
-    ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("PORT", "9101"))), Handler).serve_forever()
+    # EXPORTER_PORT, not PORT: the helper image already sets PORT=8080 for its own app.
+    ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("EXPORTER_PORT", "9101"))), Handler).serve_forever()
     return 0
 
 
