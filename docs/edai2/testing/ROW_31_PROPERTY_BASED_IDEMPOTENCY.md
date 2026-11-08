@@ -1,10 +1,13 @@
-# Row 31: property-based idempotency testing
+# Property-Based Testing and Idempotency Verification
 
-| Rubric row 31 (2 points) | Status |
-|---|---|
-| "Idempotency testing sử dụng property-based testing … ví dụ kiểm tra xem model prediction có generate ra kết quả consistent sau nhiều lần chạy không. You can use the library hypothesis … combine with crosshair backend" | **Met with Hypothesis:** 551 passed on the B1 commit (50 and 300 examples per property) and 566 passed on HEAD. CrossHair, which the rubric lists as optional, is not used |
+Retries are routine in the fraud platform: clients resubmit predictions, agents repeat tool calls, and the Coordinator may see the same delegation twice. Repeating a call must therefore not change its result or create duplicate work. This report describes how that idempotency is verified with property-based tests in Hypothesis, which generate the inputs instead of relying on a few hand-written examples.
 
-## 1. Why property-based
+**Principal findings:**
+- On the B1 commit `281db72`: 551 properties and tests pass, with 13 expected failures, at both 50 and 300 generated examples per property.
+- On the integration HEAD `d388bd9`: 566 pass, with 9 expected failures.
+- The expected failures are documented known defects, kept as strict `xfail` so that a fix is noticed.
+
+## 1. Approach
 
 A parameterized test checks the cases someone wrote down. A **property** states a rule that must hold for *every* input, and [Hypothesis](https://hypothesis.readthedocs.io/) generates the inputs, including edge cases and shrunk counter-examples. For idempotency the rule is *repeat the call and nothing changes*, which is exactly the kind of rule a few hand-picked cases would miss.
 
@@ -15,7 +18,7 @@ Configuration ([`conftest.py` (line 28)](../../../tests/property/conftest.py#L28
 
 Hypothesis is pinned at `6.168.5` in the inference project's lockfile.
 
-## 2. Properties
+## 2. Properties under test
 
 | Property | Where |
 |---|---|
@@ -37,25 +40,25 @@ What "idempotent" means differs per component: the Fraud API is stateless, so it
 
 The **xfails are known defects**, pinned as strict expected failures in [`test_known_defects.py`](../../../tests/property/test_known_defects.py), so a fix shows up as an unexpected pass. G2 fixed B1-F7 (phone and email masking at digit boundaries, four parametrized cases) in commit `8fe0f98`; it is now a regular regression test, which takes the count from 13 to 9. The remaining xfails are B1-F1 to B1-F5. R8-P1 (raw prompts persisted by the kagent task store) is pinned separately in `tests/llm_agent/test_r8_pii_screen.py` and is not part of this count.
 
-> **31_03: an idempotency property.** `@given(transactions, feature_subsets, duplicate_counts)` generates a transaction, a feature subset and a repeat count. `assert_repeatable` calls the tool that many extra times and requires each response to equal the first. This is what separates it from a parameterized test: the inputs are generated, not listed.
+> **Figure 1. An idempotency property for agent tools (`31_03`).** `@given(transactions, feature_subsets, duplicate_counts)` generates a transaction, a feature subset and a repeat count. `assert_repeatable` calls the tool that many extra times and requires every response to equal the first. Unlike a parameterized test, the inputs are generated rather than listed.
 
 ![31_03 idempotency property source](../../evidence/edai2/screenshots/testing/31_03_idempotency_property_source.png)
 
-> **31_01: CI profile statistics.** Hypothesis reports per property, for example: `50 passing, 0 failing`, with invalid (filtered) examples counted separately and `Stopped because settings.max_examples=50`. Final line: `551 passed, 13 xfailed`.
+> **Figure 2. Hypothesis statistics, CI profile, B1 commit (`31_01`).** For each property Hypothesis reports, for example, `50 passing, 0 failing`. Filtered (invalid) examples are counted separately, and generation stops at `settings.max_examples=50`. The run ends with `551 passed, 13 xfailed`; the 13 are the known defects described above, not passes.
 
 ![31_01 Hypothesis CI results](../../evidence/edai2/screenshots/testing/31_01_hypothesis_ci_results.png)
 
-> **31_02: thorough profile.** The same properties with 300 examples each; `knowledge_search` stops early because Hypothesis exhausted its input space. `551 passed, 13 xfailed in 188 s`.
+> **Figure 3. Thorough profile, B1 commit (`31_02`).** The same properties with 300 examples each. `knowledge_search` stops early because Hypothesis exhausted its input space. The run ends with `551 passed, 13 xfailed in 188 s`.
 
 ![31_02 Hypothesis thorough results](../../evidence/edai2/screenshots/testing/31_02_hypothesis_thorough_results.png)
 
 ## 4. Limitations
 
-- **CrossHair is not used.** The rubric suggests it ("can"). Symbolic search could find inputs that random generation misses.
+- **CrossHair is not used.** It is a symbolic-execution backend for Hypothesis that could find inputs random generation misses.
 - **No screenshot of the HEAD run exists;** its raw output is committed. No thorough-profile run exists for HEAD.
-- **The properties run against in-process fakes** (`tests/property/fraud_api_harness.py`), not the deployed services. Live repeatability was observed separately in the GKE runs (row 32).
+- **The properties run against in-process fakes** (`tests/property/fraud_api_harness.py`), not the deployed services. Live repeatability was observed separately in the GKE load tests ([Web API Load Testing and Performance Analysis on GKE](ROW_32_LOCUST_GKE.md)).
 
-## 5. Reproduce
+## 5. Reproducing the runs
 
 ```bash
 scripts/testing/run_property_tests.sh docs/evidence/edai2/testing/<run-id>                         # b1-ci

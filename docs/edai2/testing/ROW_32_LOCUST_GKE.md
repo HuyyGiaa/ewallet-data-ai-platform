@@ -1,21 +1,30 @@
-# Row 32: Locust load test of the Web API on GKE
+# Web API Load Testing and Performance Analysis on GKE
 
-| Rubric row 32 | Status |
-|---|---|
-| Load test the Web API to understand throughput and latency; Locust HTML report as the SLA deliverable | **CLOUD_VERIFIED** (G5-A, 2026-11-07) |
+This report measures the throughput, latency and reliability of the two serving Web APIs of the fraud platform on the `ewallet-dev` GKE cluster:
+- the **Feature API**, which retrieves online features;
+- the **Fraud API**, which retrieves features and scores a transaction with the KServe model.
 
-The Feature API is the data-retrieval Web API, so it is the primary target. The Fraud API (prediction) is measured as a second target. Both ran on the `ewallet-dev` GKE cluster, against the real services: nothing was mocked.
+The tests ran on 2026-11-07 (campaign G5-A) against the real deployed services, from a load generator inside the cluster; nothing was mocked. Each API ran with one fixed replica, so the results form the baseline for the autoscaling work in [SERVING_AUTOSCALING_KEDA.md](../mlops/SERVING_AUTOSCALING_KEDA.md).
+
+**Principal findings** (8 runs, 103,977 requests, no failed request):
+- The Feature API saturates at about **86 req/s per replica**, bound by its own 1-CPU limit.
+- The Fraud API saturates at about **24.5 req/s**, bound by the single KServe predictor together with the API's CPU.
+- Beyond saturation, extra users raise latency instead of throughput, and no request fails. At 20 users, p95 reached 330 ms for the Feature API and 1,300 ms for the Fraud API.
+
+No numerical SLA was defined for this experiment. The report therefore states the observed throughput, latency and reliability and the system's limits, without inventing an acceptance threshold.
+
+## 1. System under test
 
 | Target | Runtime path |
 |---|---|
 | Feature API, `POST /v1/features/lookup` | Locust → Feature API → Feast SDK → Redis online store |
 | Fraud API, `POST /v1/fraud/predict` | Locust → Fraud API → Feast/Redis → 41-feature assembly → KServe `fraud-detector` v1 |
 
-The rubric gives no numeric SLA, so this page reports observed performance and its limits; it does not invent a threshold.
+Both APIs share one image (`fraud-api@sha256:dbaf8b70…`). The Feature API reads Feast online features from Redis. The Fraud API adds feature assembly into the 41-input model vector and a KServe V2 inference call. Section 3 lists the replicas, resource limits and node placement.
 
-## 1. Implementation
+## 2. Load-test implementation
 
-### 1.1 Workload definitions
+### 2.1 Workload definitions
 
 The two workloads are kept separate. Each one has its own request builder and its own response contract. A request counts as a success only if it returns HTTP 200 **and** honours that contract.
 
@@ -25,14 +34,14 @@ The two workloads are kept separate. Each one has its own request builder and it
 - [real_targets.py (line 66)](../../../tests/load/real_targets.py#L66): the Fraud contract. The response must carry the same transaction, a probability in [0, 1], a prediction of 0 or 1, and `model_version` 1.
 - [real_targets.py (line 87)](../../../tests/load/real_targets.py#L87): deterministic entity order. One seeded permutation of the fixture, repeated, so every entity is used equally and a rerun sends the same sequence.
 
-### 1.2 Locust user
+### 2.2 Locust user
 
 - [locustfile_real.py (line 23)](../../../tests/load/locustfile_real.py#L23): validates the target and the fixture before any user starts.
 - [locustfile_real.py (line 44)](../../../tests/load/locustfile_real.py#L44): one `HttpUser`. Think time comes from `EWALLET_LOAD_WAIT_SECONDS` and is 0 in every run: a closed loop, so each run measures the highest rate that many users can drive.
 - [load_profiles.sh (line 5)](../../../scripts/testing/load_profiles.sh#L5): the profiles, shared by the laptop runner and the in-cluster runner.
 - Locust 2.46.0 is pinned in [infra/load-test](../../../infra/load-test/pyproject.toml) and its `uv.lock`. Inside the cluster it is installed hash-checked from that lockfile ([real-load-runner.yaml (line 53)](../../../infra/kubernetes/load-test/real-load-runner.yaml#L53)).
 
-### 1.3 Load generator inside the cluster
+### 2.3 Load generator inside the cluster
 
 The Locust client runs in a temporary pod inside the cluster and calls the Service DNS names. Neither the laptop link nor a port-forward is in the measured path.
 
@@ -46,7 +55,7 @@ The Locust client runs in a temporary pod inside the cluster and calls the Servi
 - [real-load-runner.yaml (line 26)](../../../infra/kubernetes/load-test/real-load-runner.yaml#L26): required anti-affinity keeps the client off the nodes running the APIs, the predictor and Redis.
 - [real-load-runner.yaml (line 103)](../../../infra/kubernetes/load-test/real-load-runner.yaml#L103): a temporary additive NetworkPolicy admits only this pod to the Fraud API.
 
-### 1.4 Server-side metrics
+### 2.4 Server-side metrics
 
 Client latency, server latency and KServe latency are measured separately and never mixed.
 
@@ -55,7 +64,7 @@ Client latency, server latency and KServe latency are measured separately and ne
 - **Limit:** the API histograms use OpenTelemetry's default bucket edges with seconds as the unit (≤ 5 s is the first bucket). Server-side, only the exact **mean** can be reported for the APIs. The KServe predictor's `request_predict_seconds` has fine buckets, so it also gets p50, p95 and p99.
 - [real_load_report.py (line 55)](../../../scripts/testing/real_load_report.py#L55): totals come from the final statistics in the HTML report. `locust_stats.csv` is Locust's last periodic write and can miss the final second.
 
-## 2. Test environment
+## 3. Experimental setup
 
 | Item | Value |
 |---|---|
@@ -78,26 +87,11 @@ Client latency, server latency and KServe latency are measured separately and ne
 
 The two APIs ran one after the other, never together, with 90 s between runs.
 
-## 3. Reproduction
-
-```bash
-export KUBE_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
-export IMAGE_DIGEST=sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803 EWALLET_LOAD_MODEL_VERSION=1
-EV=docs/evidence/edai2/load/g5a_<run-id>
-scripts/testing/run_incluster_load.sh up docs/evidence/edai2/serving/pkg4_20261107T155413Z/fixture/verified.jsonl
-for target in feature inference; do
-  for profile in smoke low medium high; do
-    scripts/testing/run_incluster_load.sh run "$target" "$profile" "$EV"; sleep 90
-  done
-done
-scripts/testing/run_incluster_load.sh down
-```
-
 ## 4. Results
 
 All eight runs completed: **0 failed requests out of 103,977**, no restarts of the APIs, KServe or Redis, and no GKE operation. Evidence: [`docs/evidence/edai2/load/g5a_20261107T183037Z`](../../evidence/edai2/load/g5a_20261107T183037Z/README.md). Each run directory has `report.html`, the CSVs, `summary.json`, `server-metrics.json` and resource samples.
 
-### 4.1 Client-observed (Locust)
+### 4.1 Client-observed latency and throughput (Locust)
 
 | API | Users | Requests | Failed | Error rate | Avg req/s | Peak req/s | p50 ms | p95 ms | p99 ms | Max ms |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -112,7 +106,7 @@ All eight runs completed: **0 failed requests out of 103,977**, no restarts of t
 
 Peak req/s is the highest value in Locust's per-second history, which Locust smooths over a short window.
 
-### 4.2 Server side and KServe (means from Prometheus histograms; predictor percentiles from its own buckets)
+### 4.2 Server-side and KServe latency (means from Prometheus histograms; predictor percentiles from its own buckets)
 
 | API | Users | API request mean | Feast read mean | Assembly mean | KServe call, seen by the API | Inside the predictor: mean / p95 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -131,16 +125,14 @@ Peak req/s is the highest value in Locust's per-second history, which Locust smo
 
 The first 10 s sample of the Feature 5-user run still shows the end of the Fraud smoke run on the Fraud API and the predictor, because metrics-server averages over a window. Memory stayed under 150 MiB for each API and 180 MiB for the predictor.
 
-## 5. Findings
+## 5. Analysis
 
 1. **Feature API: about 86 req/s per replica, limited by its own CPU.** Throughput is flat from 5 to 20 users while the pod sits at its 1-CPU limit. Latency grows almost linearly with users: p95 goes 82 → 160 → 330 ms. Redis uses under 100m CPU, so the store is not the bottleneck.
 2. **Fraud API: about 24.5 req/s, limited by the single KServe predictor and the API's CPU together.** Time inside the predictor stays at 34 ms (p95 49 ms) at every load, but the KServe call seen by the API grows from 43 to 360 ms. Requests queue in front of a single-process predictor capped at 1 CPU. At 34 ms per prediction that caps one process near 29 req/s. The Fraud API is also at its CPU limit, which explains why its own Feast read grows from 7 to 283 ms while Redis stays idle.
 3. **Client vs. server.** At 1 user the client sees 13.4 ms for the Feature API against a 7.5 ms server mean. The difference is the in-cluster network, HTTP and JSON handling, about 6 ms. For Fraud it is 76.8 against 69.0 ms.
 4. **No errors at saturation.** Overload showed up as latency, never as failures. Fraud max latency reached 2.1 s at 20 users.
 
-**Limits of these results:** one replica of everything, no autoscaling, a closed loop with no think time, and 5-minute runs. The Fraud API's p95 and p99 are client-side only, because of the coarse server buckets.
-
-## 6. Genuine Locust reports
+## 6. Evidence: original Locust reports
 
 Both images are the actual `report.html` files written by Locust 2.46.0 in these runs, rendered by headless Google Chrome with no editing. Times are in local time (UTC+7).
 
@@ -153,14 +145,36 @@ All eight original reports (open the HTML file in a browser; GitHub shows the so
 
 Each run folder also holds `locust_stats.csv`, `locust_stats_history.csv`, `locust_failures.csv` and `summary.json`.
 
-> **Proof note — Feature API, 20 users:** 25,369 requests, 0 failures, 84.7 req/s. The flat throughput line against the 5- and 10-user runs shows the per-replica ceiling. Original report: [`feature-incluster-high/report.html`](../../evidence/edai2/load/g5a_20261107T183037Z/feature-incluster-high/report.html).
+> **Figure 1. Feature API under 20 concurrent users, one fixed replica.** Locust recorded 25,369 requests with no failures at 84.7 req/s (p50 230 ms, p95 330 ms). The throughput chart stays flat while the response-time chart rises, which matches the per-replica CPU ceiling in section 5; the 5- and 10-user reports linked above show the same ceiling. The image is a headless-Chrome rendering of the report file, not a screen capture. Original report: [`feature-incluster-high/report.html`](../../evidence/edai2/load/g5a_20261107T183037Z/feature-incluster-high/report.html).
 
 ![Locust report, Feature API, 20 users](../../evidence/edai2/screenshots/load/g5a_locust_feature_api_20_users.png)
 
-> **Proof note — Fraud API, 20 users:** 6,743 requests, 0 failures, 22.5 req/s, p95 1,300 ms. Throughput stays near 22–25 req/s while latency climbs: the queueing in front of the predictor. Original report: [`inference-incluster-high/report.html`](../../evidence/edai2/load/g5a_20261107T183037Z/inference-incluster-high/report.html).
+> **Figure 2. Fraud API under 20 concurrent users, one fixed replica.** 6,743 requests with no failures at 22.5 req/s; p95 reached 1,300 ms. Throughput holds near 22–25 req/s while latency climbs, consistent with requests queueing in front of the single-process KServe predictor (section 5). Original report: [`inference-incluster-high/report.html`](../../evidence/edai2/load/g5a_20261107T183037Z/inference-incluster-high/report.html).
 
 ![Locust report, Fraud API, 20 users](../../evidence/edai2/screenshots/load/g5a_locust_inference_api_20_users.png)
 
-## 7. Next: autoscaling (G5-B)
+## 7. Limitations
+
+- **One replica of everything and no autoscaling,** so the results describe a single replica's capacity.
+- **Closed loop with no think time.** Each user sends its next request as soon as the previous one returns, so offered load grows only with capacity.
+- **Five-minute runs, one run per profile;** no repetitions.
+- **The Fraud API's p95 and p99 are client-side only,** because the server-side histograms use coarse buckets (section 2.4).
+
+## 8. Reproducing the experiment
+
+```bash
+export KUBE_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+export IMAGE_DIGEST=sha256:dbaf8b7060e6bebf477f2bff02dfede382102410b4ab68b51e836de9f7c1c803 EWALLET_LOAD_MODEL_VERSION=1
+EV=docs/evidence/edai2/load/g5a_<run-id>
+scripts/testing/run_incluster_load.sh up docs/evidence/edai2/serving/pkg4_20261107T155413Z/fixture/verified.jsonl
+for target in feature inference; do
+  for profile in smoke low medium high; do
+    scripts/testing/run_incluster_load.sh run "$target" "$profile" "$EV"; sleep 90
+  done
+done
+scripts/testing/run_incluster_load.sh down
+```
+
+## 9. Related work
 
 These baselines calibrate the serving KEDA scalers, which are now deployed. See [SERVING_AUTOSCALING_KEDA.md](../mlops/SERVING_AUTOSCALING_KEDA.md).
