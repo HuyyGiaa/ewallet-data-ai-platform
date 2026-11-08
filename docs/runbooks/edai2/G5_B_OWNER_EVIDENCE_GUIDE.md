@@ -1,5 +1,7 @@
 # G5-B owner evidence guide: serving autoscaling
 
+> **Executed 2026-11-08** by the owner: evidence `docs/evidence/edai2/keda/owner_20261108T062413Z`; screenshots in `docs/evidence/edai2/screenshots/keda/` ([manifest](../../evidence/edai2/screenshots/keda/EVIDENCE_MANIFEST.md)); results in section 8–11 of [SERVING_AUTOSCALING_KEDA.md](../../edai2/mlops/SERVING_AUTOSCALING_KEDA.md). Cleanup (section 4) was not yet confirmed at closeout: the cluster API was unreachable from the workstation. Run it once access returns.
+
 You run these experiments and capture the screenshots yourself. Everything is already deployed; nothing here installs or reconfigures anything. Background and results table: [SERVING_AUTOSCALING_KEDA.md](../../edai2/mlops/SERVING_AUTOSCALING_KEDA.md).
 
 ## 0. Setup (once per session)

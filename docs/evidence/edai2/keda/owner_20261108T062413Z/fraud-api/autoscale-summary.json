@@ -1,0 +1,20 @@
+{
+  "replicas_at_load_start": 1,
+  "peak_ready_replicas": 2,
+  "first_scale_out_seconds": 81.4,
+  "seconds_to_peak": 81.4,
+  "scale_down_to_min_seconds": 152.5,
+  "returned_to_min": true,
+  "max_trigger_value": 21.444,
+  "samples": 80,
+  "load_window": {
+    "start": 1794121416.0,
+    "end": 1794121712.0,
+    "source": "locust history"
+  },
+  "steady_state_at_peak_replicas": {
+    "window_seconds": 214.6,
+    "history_rows": 214,
+    "mean_requests_per_second": 22.14
+  }
+}

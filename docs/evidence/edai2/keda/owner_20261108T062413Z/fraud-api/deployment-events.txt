@@ -1,0 +1,3 @@
+LAST SEEN   TYPE     REASON              OBJECT                 MESSAGE
+6m33s       Normal   ScalingReplicaSet   deployment/fraud-api   Scaled up replica set fraud-api-777c8454 from 1 to 2
+17s         Normal   ScalingReplicaSet   deployment/fraud-api   Scaled down replica set fraud-api-777c8454 from 2 to 1

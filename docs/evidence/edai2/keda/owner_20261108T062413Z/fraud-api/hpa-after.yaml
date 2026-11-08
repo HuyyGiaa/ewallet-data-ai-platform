@@ -1,0 +1,91 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  annotations:
+    meta.helm.sh/release-name: ewallet-serving
+    meta.helm.sh/release-namespace: ml-platform
+  creationTimestamp: "2026-11-07T21:01:19Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: fraud-api
+    app.kubernetes.io/part-of: ewallet-mlops
+    app.kubernetes.io/version: 2.21.0
+    helm.sh/chart: ewallet-serving-0.1.0
+    scaledobject.keda.sh/name: fraud-api
+  name: keda-hpa-fraud-api
+  namespace: ml-platform
+  ownerReferences:
+  - apiVersion: keda.sh/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ScaledObject
+    name: fraud-api
+    uid: cf0d4421-a57b-415c-b900-846082231b4c
+  resourceVersion: "1794121874741183002"
+  uid: 6509a631-5ae7-4cb7-a4f6-a8a38163a545
+spec:
+  behavior:
+    scaleDown:
+      policies:
+      - periodSeconds: 60
+        type: Pods
+        value: 1
+      selectPolicy: Max
+      stabilizationWindowSeconds: 120
+    scaleUp:
+      policies:
+      - periodSeconds: 30
+        type: Pods
+        value: 1
+      selectPolicy: Max
+      stabilizationWindowSeconds: 0
+  maxReplicas: 3
+  metrics:
+  - external:
+      metric:
+        name: s0-prometheus
+        selector:
+          matchLabels:
+            scaledobject.keda.sh/name: fraud-api
+      target:
+        averageValue: "17"
+        type: AverageValue
+    type: External
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fraud-api
+status:
+  conditions:
+  - lastTransitionTime: "2026-11-08T07:09:14Z"
+    message: recent recommendations were higher than current one, applying the highest
+      recent recommendation
+    reason: ScaleDownStabilized
+    status: "True"
+    type: AbleToScale
+  - lastTransitionTime: "2026-11-07T21:01:35Z"
+    message: 'the HPA was able to successfully calculate a replica count from external
+      metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name:
+      fraud-api,},MatchExpressions:[]LabelSelectorRequirement{},})'
+    reason: ValidMetricFound
+    status: "True"
+    type: ScalingActive
+  - lastTransitionTime: "2026-11-08T07:03:58Z"
+    message: the desired count is within the acceptable range
+    reason: DesiredWithinRange
+    status: "False"
+    type: ScalingLimited
+  currentMetrics:
+  - external:
+      current:
+        averageValue: "0"
+      metric:
+        name: s0-prometheus
+        selector:
+          matchLabels:
+            scaledobject.keda.sh/name: fraud-api
+    type: External
+  currentReplicas: 1
+  desiredReplicas: 1
+  lastScaleTime: "2026-11-08T07:10:59Z"

@@ -1,0 +1,100 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  annotations:
+    meta.helm.sh/release-name: ewallet-serving
+    meta.helm.sh/release-namespace: ml-platform
+  creationTimestamp: "2026-11-07T21:01:19Z"
+  finalizers:
+  - finalizer.keda.sh
+  generation: 2
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: fraud-api
+    app.kubernetes.io/part-of: ewallet-mlops
+    helm.sh/chart: ewallet-serving-0.1.0
+    scaledobject.keda.sh/name: fraud-api
+  name: fraud-api
+  namespace: ml-platform
+  resourceVersion: "1794085430048975005"
+  uid: cf0d4421-a57b-415c-b900-846082231b4c
+spec:
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          policies:
+          - periodSeconds: 60
+            type: Pods
+            value: 1
+          selectPolicy: Max
+          stabilizationWindowSeconds: 120
+        scaleUp:
+          policies:
+          - periodSeconds: 30
+            type: Pods
+            value: 1
+          selectPolicy: Max
+          stabilizationWindowSeconds: 0
+    scalingModifiers: {}
+  cooldownPeriod: 120
+  fallback:
+    behavior: currentReplicasIfHigher
+    failureThreshold: 3
+    replicas: 1
+  maxReplicaCount: 3
+  minReplicaCount: 1
+  pollingInterval: 15
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fraud-api
+  triggers:
+  - metadata:
+      query: sum(rate(fraud_inference_requests_total{job="fraud-api-pods"}[1m])) or
+        vector(0)
+      serverAddress: http://prometheus.ewallet-agents.svc.cluster.local:9090
+      threshold: "17"
+    metricType: AverageValue
+    name: request-rate
+    type: prometheus
+status:
+  authenticationsTypes: ""
+  conditions:
+  - message: ScaledObject is defined correctly and is ready for scaling
+    reason: ScaledObjectReady
+    status: "True"
+    type: Ready
+  - message: Scaling is not performed because triggers are not active
+    reason: ScalerNotActive
+    status: "False"
+    type: Active
+  - message: No fallbacks are active on this scaled object
+    reason: NoFallbackFound
+    status: "False"
+    type: Fallback
+  - status: "False"
+    type: Paused
+  - message: HPA is actively scaling
+    reason: HPAActive
+    status: "True"
+    type: HPAActive
+  externalMetricNames:
+  - s0-prometheus
+  health:
+    s0-prometheus:
+      numberOfFailures: 0
+      status: Happy
+  hpaName: keda-hpa-fraud-api
+  lastActiveTime: "2026-11-07T21:03:35Z"
+  originalReplicaCount: 1
+  scaleTargetGVKR:
+    group: apps
+    kind: Deployment
+    resource: deployments
+    version: v1
+  scaleTargetKind: apps/v1.Deployment
+  triggersActivity:
+    s0-prometheus:
+      isActive: false
+  triggersTypes: prometheus

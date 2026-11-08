@@ -1,0 +1,15 @@
+{
+  "request_predict_seconds": [
+    {
+      "labels": {
+        "model_name": "fraud-detector"
+      },
+      "count": 6595,
+      "mean_ms": 35.256,
+      "quantiles_resolved": true,
+      "p50_ms": 37.839,
+      "p95_ms": 49.394,
+      "p99_ms": 70.62
+    }
+  ]
+}

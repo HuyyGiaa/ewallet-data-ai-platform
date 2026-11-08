@@ -1,0 +1,8 @@
+NAME          SCALETARGETKIND      SCALETARGETNAME   MIN   MAX   READY   ACTIVE   FALLBACK   PAUSED   TRIGGERS     AUTHENTICATIONS   AGE
+feature-api   apps/v1.Deployment   feature-api       1     3     True    False    Unknown    False    prometheus                     9h
+NAME                   REFERENCE                TARGETS      MINPODS   MAXPODS   REPLICAS   AGE
+keda-hpa-feature-api   Deployment/feature-api   0/60 (avg)   1         3         2          9h
+NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+feature-api   1/1     1            1           14h
+NAME                           READY   STATUS    RESTARTS   AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+feature-api-6cbcbd7b59-llcdv   1/1     Running   0          13h   10.216.1.18   gke-ewallet-dev-cpu-pool-58daed59-h874   <none>           <none>

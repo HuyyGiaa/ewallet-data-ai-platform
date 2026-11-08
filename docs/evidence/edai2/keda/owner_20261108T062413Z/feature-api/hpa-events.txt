@@ -1,0 +1,3 @@
+LAST SEEN   TYPE     REASON              OBJECT                                         MESSAGE
+6m30s       Normal   SuccessfulRescale   horizontalpodautoscaler/keda-hpa-feature-api   New size: 2; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: feature-api,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+14s         Normal   SuccessfulRescale   horizontalpodautoscaler/keda-hpa-feature-api   New size: 1; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: feature-api,},MatchExpressions:[]LabelSelectorRequirement{},}) below target
