@@ -1,0 +1,39 @@
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests          Limits
+  --------           --------          ------
+  cpu                3899m (99%)       15600m (397%)
+  memory             9819214080 (70%)  20529587712 (147%)
+  ephemeral-storage  0 (0%)            0 (0%)
+--
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests          Limits
+  --------           --------          ------
+  cpu                2635m (67%)       16 (408%)
+  memory             5519838080 (39%)  14321334784 (102%)
+  ephemeral-storage  0 (0%)            0 (0%)
+--
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests          Limits
+  --------           --------          ------
+  cpu                2742m (69%)       18200m (464%)
+  memory             7071944960 (50%)  16190580224 (116%)
+  ephemeral-storage  0 (0%)            0 (0%)
+--
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests          Limits
+  --------           --------          ------
+  cpu                3333m (85%)       15694m (400%)
+  memory             5989814528 (43%)  14628201984 (105%)
+  ephemeral-storage  0 (0%)            0 (0%)
+--
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests          Limits
+  --------           --------          ------
+  cpu                3408m (86%)       14350m (366%)
+  memory             6327456000 (45%)  14571578880 (104%)
+  ephemeral-storage  0 (0%)            0 (0%)

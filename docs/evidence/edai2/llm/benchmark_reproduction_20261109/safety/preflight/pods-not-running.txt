@@ -1,0 +1,3 @@
+NAMESPACE   NAME                                             READY   STATUS     RESTARTS          AGE   IP            NODE                                     NOMINATED NODE   READINESS GATES
+kubeflow    ml-pipeline-persistenceagent-7bbbc8977f-7wpcb    0/1     Init:0/1   200 (6m26s ago)   28h   10.216.5.27   gke-ewallet-dev-cpu-pool-58daed59-wcka   <none>           <none>
+kubeflow    ml-pipeline-scheduledworkflow-766f78cc69-89wn5   0/1     Init:0/1   200 (4m44s ago)   28h   10.216.4.4    gke-ewallet-dev-cpu-pool-58daed59-cbl0   <none>           <none>

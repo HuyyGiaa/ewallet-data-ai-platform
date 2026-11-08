@@ -1,0 +1,5 @@
+autoscaling:
+  autoscalingProfile: BALANCED
+currentMasterVersion: 1.36.4-gke.2377000
+releaseChannel:
+  channel: REGULAR
