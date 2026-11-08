@@ -96,10 +96,10 @@
     },
     "data-platform": {
       "maturity": "active",
-      "source_paths": ["data_platform", "configs/environments", "tests/contract", "ops/schema", "ops/gcp/spark_stage_report.py", "ops/gcp/validate_gold_row_equivalence.py", "tests/unit/test_gold_row_equivalence.py", "tests/unit/test_schema_diagrams.py", "tests/unit/test_spark_stage_report.py"],
+      "source_paths": ["data_platform", "configs/environments", "tests/contract", "ops/schema", "ops/gcp/spark_stage_report.py", "ops/gcp/validate_gold_row_equivalence.py", "tests/unit/test_gold_row_equivalence.py", "tests/unit/test_schema_diagrams.py", "tests/unit/test_schema_visualization.py", "infra/docker/schema-viz", "docs/edai1/schema", "docs/runbooks/edai1/SCHEMA_VISUALIZATION_DBEAVER.md", "tests/unit/test_spark_stage_report.py"],
       "dependencies": [],
       "python_projects": ["data_platform/generation"],
-      "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract tests.unit.test_gold_row_equivalence tests.unit.test_schema_diagrams tests.unit.test_spark_stage_report", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py"],
+      "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract tests.unit.test_gold_row_equivalence tests.unit.test_schema_diagrams tests.unit.test_spark_stage_report", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py tests/unit/test_schema_visualization.py"],
       "build_artifact": null,
       "deployment_target": null,
       "deploy_handler": null

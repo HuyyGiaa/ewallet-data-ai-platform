@@ -6,9 +6,9 @@ Delta declares no primary or foreign keys. **PK** and **FK** below are logical: 
 
 | Zone | Run | Tables | Columns |
 |---|---|---:|---:|
-| Bronze | `ab-20261029174838-baseline-bronze-r261029174838` | 8 | 45 |
-| Silver | `ab-20261031035745-baseline-silver-r261031035745` | 8 | 47 |
-| Gold core | `ab-20261031035745-baseline-gold-r261031035746` | 11 | 103 |
+| Bronze | `ab-20261025134342-optimized-bronze-r261025174525` | 8 | 45 |
+| Silver | `ab-20261025134342-optimized-silver-r261025181923` | 8 | 47 |
+| Gold core | `ab-20261025134342-optimized-gold-r261025181923` | 11 | 103 |
 | Gold features | `ab-20261025134342-optimized-feat-r261026025955` | 4 | 39 |
 
 | Artifact | Use |
@@ -16,6 +16,11 @@ Delta declares no primary or foreign keys. **PK** and **FK** below are logical: 
 | [bronze.mmd](bronze.mmd), [silver.mmd](silver.mmd), [gold.mmd](gold.mmd), [features.mmd](features.mmd) | Mermaid ER diagrams |
 | [silver.dbml](silver.dbml), [gold.dbml](gold.dbml) | Import at dbdiagram.io |
 | [gold_erd_import.sql](gold_erd_import.sql) | Load into a scratch PostgreSQL database, then reverse engineer in DBeaver |
+| [ZONE_COLUMNS.md](ZONE_COLUMNS.md) | Every table of every zone with its columns |
+| [GOLD_ERD.md](GOLD_ERD.md) | Gold dimension-fact ERD: grain, cardinality, DBeaver virtual keys |
+| [trino_register_tables.sql](trino_register_tables.sql) | Register the observed runs in the task-owned Trino (local metastore only) |
+| [trino_metadata_queries.sql](trino_metadata_queries.sql) | Read-only metadata queries for evidence E01-E08 |
+| [trino_provenance_queries.sql](trino_provenance_queries.sql) | Print the GCS location of one table per zone (E08) |
 | [observed_schemas.json](observed_schemas.json) | Source of these diagrams |
 
 ## Zone-to-zone column changes

@@ -1,0 +1,9 @@
+{
+  "catalogs": [
+    {"user": "registrar", "catalog": "(delta|hive)", "allow": "all"},
+    {"catalog": "(delta|hive|system)", "allow": "read-only"}
+  ],
+  "procedures": [
+    {"user": "registrar", "catalog": "delta", "schema": "system", "procedure": "register_table", "privileges": ["EXECUTE"]}
+  ]
+}
