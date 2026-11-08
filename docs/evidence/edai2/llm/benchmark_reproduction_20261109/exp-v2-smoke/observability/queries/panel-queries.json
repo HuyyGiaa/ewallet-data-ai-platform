@@ -1,0 +1,134 @@
+[
+ {
+  "group": "A. Serving performance",
+  "panel": "Output tokens/s per vLLM pod",
+  "legend": "{{pod}} {{run_id}}",
+  "expr": "sum by (pod, run_id) (rate(vllm:generation_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "Prompt tokens/s per vLLM pod",
+  "legend": "{{pod}} {{run_id}}",
+  "expr": "sum by (pod, run_id) (rate(vllm:prompt_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "TTFT p50 / p95 (vLLM histogram)",
+  "legend": "p50 {{run_id}}",
+  "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "TTFT p50 / p95 (vLLM histogram)",
+  "legend": "p95 {{run_id}}",
+  "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "End-to-end latency p50 / p95 (vLLM histogram)",
+  "legend": "p50 {{run_id}}",
+  "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "End-to-end latency p50 / p95 (vLLM histogram)",
+  "legend": "p95 {{run_id}}",
+  "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "Running and waiting requests per pod",
+  "legend": "running {{pod}}",
+  "expr": "sum by (pod) (vllm:num_requests_running{job=\"vllm\",run_id=~\"$run_id\"})"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "Running and waiting requests per pod",
+  "legend": "waiting {{pod}}",
+  "expr": "sum by (pod) (vllm:num_requests_waiting{job=\"vllm\",run_id=~\"$run_id\"})"
+ },
+ {
+  "group": "A. Serving performance",
+  "panel": "Gateway responses by HTTP status",
+  "legend": "{{status}}",
+  "expr": "sum by (status) (rate(agentgateway_requests_total{job=\"agentgateway\"}[1m]))"
+ },
+ {
+  "group": "B. Resource utilization",
+  "panel": "CPU usage per container (metrics-server)",
+  "legend": "{{pod}}/{{container}}",
+  "expr": "sum by (pod, container) (bench_pod_container_cpu_cores{job=\"pod-usage\"})"
+ },
+ {
+  "group": "B. Resource utilization",
+  "panel": "Memory working set per container (metrics-server)",
+  "legend": "{{pod}}/{{container}}",
+  "expr": "sum by (pod, container) (bench_pod_container_memory_working_set_bytes{job=\"pod-usage\"})"
+ },
+ {
+  "group": "B. Resource utilization",
+  "panel": "Mean queue time per vLLM pod",
+  "legend": "{{pod}}",
+  "expr": "sum by (pod) (rate(vllm:request_queue_time_seconds_sum{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:request_queue_time_seconds_count{job=\"vllm\",run_id=~\"$run_id\"}[1m]))"
+ },
+ {
+  "group": "B. Resource utilization",
+  "panel": "Prefix-cache hit ratio per vLLM pod",
+  "legend": "{{pod}}",
+  "expr": "sum by (pod) (rate(vllm:prefix_cache_hits_total{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:prefix_cache_queries_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "Completed requests per replica",
+  "legend": "{{pod}}",
+  "expr": "sum by (pod) (rate(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "Share of completed requests per replica (selected range)",
+  "legend": "{{pod}}",
+  "expr": "sum by (pod) (increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range])) / ignoring(pod) group_left sum(increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range]))"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "llm-d EPP ready endpoints",
+  "legend": "ready",
+  "expr": "max(llm_d_epp_ready_endpoints{job=\"epp\"})"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "llm-d EPP scheduling decisions per endpoint",
+  "legend": "{{endpoint_name}} {{status}}",
+  "expr": "sum by (endpoint_name, status) (rate(llm_d_epp_scheduler_attempts_total{job=\"epp\"}[1m]))"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "llm-d EPP errors and metric-poll errors",
+  "legend": "request {{error_code}}",
+  "expr": "sum by (error_code) (rate(llm_d_epp_request_error_total{job=\"epp\"}[1m]))"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "llm-d EPP errors and metric-poll errors",
+  "legend": "metric poll",
+  "expr": "sum(rate(llm_d_epp_datalayer_poll_errors_total{job=\"epp\"}[1m]))"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "llm-d EPP scheduler latency p95",
+  "legend": "p95",
+  "expr": "histogram_quantile(0.95, sum by (le) (rate(llm_d_epp_scheduler_e2e_duration_seconds_bucket{job=\"epp\"}[1m])))"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "Scrape health per target",
+  "legend": "{{job}} {{pod}}",
+  "expr": "up"
+ },
+ {
+  "group": "C. Routing",
+  "panel": "Scrape health per target",
+  "legend": "pod-usage age (s)",
+  "expr": "time() - bench_pod_usage_last_success_timestamp_seconds{job=\"pod-usage\"}"
+ }
+]

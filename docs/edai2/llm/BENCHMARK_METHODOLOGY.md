@@ -1,6 +1,6 @@
 # Benchmark methodology
 
-This page defines how EDAI-2 compares a baseline with an optimization, and the experiments that use the method. No experiment here has run yet. The O1 and G2 results are `HISTORICAL`: each was one run per configuration, so they motivate these experiments but do not settle them.
+This page defines how EDAI-2 compares a baseline with an optimization, and the experiments that use the method. No formal EXP-V1 or EXP-V2 session has run yet; the 2026-11-09 GKE runs were smoke tests ([BENCHMARK_REPLAY.md](BENCHMARK_REPLAY.md)). The O1 and G2 results are `HISTORICAL`: each was one run per configuration, so they motivate these experiments but do not settle them.
 
 ## Rules
 
@@ -80,6 +80,17 @@ See the [LLM A/B design](LLM_AB_DESIGN.md). Both need GPU quota.
 | EXP-C5-SANDBOX | BYO Deployment | SandboxAgent on gVisor | e2e p95, no expected winner | `ewallet-sandbox` |
 
 They have two runs per arm and smaller bounds. KEDA load runs inside a Job and goes through a Service, because a port-forward would pin all traffic to one pod. EXP-C5-MCP and EXP-C5-SANDBOX are isolated, so their failure injection can't reach production.
+
+## Observability, capture and unattended safety (2026-11-09)
+
+Sessions now bring their own Prometheus and Grafana inside `ewallet-bench`, can stop for owner screenshots (`EXP_CAPTURE_MODE=interactive`), and are protected against host loss by an in-cluster watchdog and a scale-to-zero pool. The serving settings and the comparison rules above are unchanged.
+
+Two consequences for comparability:
+
+- the monitoring pods share the benchmark nodes in both arms (about 0.16 CPU requested);
+- every run pays about 16 minutes of vLLM start-up: about 2 min image pull, then 4 min of engine init including torch.compile, then a first completion that compiles again.
+
+See [BENCHMARK_REPLAY.md](BENCHMARK_REPLAY.md).
 
 ## Evidence layout
 

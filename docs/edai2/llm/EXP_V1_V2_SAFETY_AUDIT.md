@@ -48,9 +48,35 @@ The quota has room: `CPUS_ALL_REGIONS` 16 of 32, in-use IPs 4 of 8, SSD 273 of 5
 
 - **Auto-upgrade can't be disabled.** A node replaced mid-session changes `node_names`, and the comparison becomes `INVALID_COMPARISON`. That wastes the session but can't mislead.
 - **e2 CPU families vary.** Both arms share the same nodes within a session, so the comparison holds, but numbers may not match another session.
-- **Host loss.** If the laptop sleeps or dies, the pool keeps billing about $0.18 per node-hour until `down` runs. Keep the machine awake.
-- **Resource panels.** Prometheus doesn't scrape `ewallet-bench`, so use Cloud Monitoring.
+- **Host loss.** Closed on 2026-11-09, see below. Before that, a lost laptop left the pool billing until `down` ran.
+- **Resource panels.** Closed on 2026-11-09: an isolated Prometheus and Grafana run inside `ewallet-bench`.
 
 ## Using historical results
 
 O1 and G2 are context only. Their stack differs (two gateways, fallback, ambient mesh), and the driver can't read them into a comparison. Do not mix them with new runs.
+
+## Update 2026-11-09: unattended safety
+
+Point 8's gap is closed. Two cleanup paths no longer depend on the session's own process:
+
+- **In the cluster.** `bench-pool` autoscales with min 0 and max = the planned nodes. A CronJob watchdog in `ewallet-bench` deletes the namespace's Deployments, StatefulSets and Jobs at the time limit + 10 min, then deletes its own CronJob. The autoscaler then removes the empty nodes. The watchdog's Role exists only in `ewallet-bench`. The runner reads `kubectl auth can-i` for it and stops if it can reach another namespace, nodes, namespaces or Secrets.
+- **On the laptop.** A systemd user timer runs `down` at the limit + 20 min. It fires on resume if the laptop slept through it. Cleanups are serialized with a lock.
+
+The time limit is now wall-clock time, so a resumed laptop stops at once. The limit is at most 215 min, so 10 min setup + limit + 15 min teardown fits the owner's 4-hour window. The session refuses to start when the worst-case cost exceeds USD 5. Cleanup also proves that no `gke-ewallet-dev-bench-pool-*` VM or disk remains.
+
+**Drill on GKE** ([evidence](../../evidence/edai2/llm/benchmark_reproduction_20261109/safety/drill/)), one node, one idle pod with local storage, watchdog deadline 20:49:26Z:
+
+| Time (UTC) | Deployments | Watchdog CronJob | Bench nodes |
+|---|---|---|---|
+| 20:46:01 | 1 | 1 | 1 |
+| 20:51:30 | 0 | 0 | 1 |
+| 21:08:05 | 0 | 0 | 0 |
+
+The watchdog acted on its first run after the deadline, and the autoscaler removed the node about 16 min after it emptied. The laptop did nothing but watch. The RBAC read-back was:
+
+- yes: delete Deployments in `ewallet-bench`, delete `cronjobs/bench-watchdog`;
+- no: `ewallet-agents`, `default`, namespaces, nodes, Secrets, and other CronJobs.
+
+The production state was identical before and after.
+
+Three latent defects that would have failed a real session were found on GKE and fixed: Secrets carried a trailing newline, DNS egress missed NodeLocal DNSCache, and the EPP metrics URL got `/metrics` twice. See [BENCHMARK_REPLAY.md §3](BENCHMARK_REPLAY.md#3-what-this-replay-adds).

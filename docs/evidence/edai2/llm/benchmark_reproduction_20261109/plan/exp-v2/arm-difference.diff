@@ -1,0 +1,8 @@
+130c130
+<             baseUrl: http://vllm-primary.ewallet-bench.svc.cluster.local:8000/v1
+---
+>             baseUrl: http://llmd-router-epp.ewallet-bench.svc.cluster.local:8081/v1
+134c134
+<               x-ewallet-backend: primary
+---
+>               x-ewallet-backend: llm-d

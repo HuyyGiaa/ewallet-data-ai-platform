@@ -1,0 +1,8 @@
+delete deployments -n ewallet-bench: yes
+delete deployments -n ewallet-agents: no
+delete deployments -n default: no
+delete namespaces: no
+delete nodes: no
+get secrets -n ewallet-bench: no
+delete cronjobs/bench-watchdog -n ewallet-bench: yes
+delete cronjobs/other -n ewallet-bench: no

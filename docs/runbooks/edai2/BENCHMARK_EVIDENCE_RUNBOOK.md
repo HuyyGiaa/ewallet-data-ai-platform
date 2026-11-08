@@ -12,7 +12,7 @@ Design, validation results and limits: [BENCHMARK_REPLAY.md](../../edai2/llm/BEN
 | Branch | `feature/llm-benchmark-evidence-replay` |
 | Source | the commit you check out; `git status` must be clean (the manifest records `source_sha` and `source_dirty`) |
 | Cluster access | `~/.kube/ewallet-n15-dns-config` (DNS endpoint; the public IP endpoint times out from the laptop) |
-| Time | EXP-V1 about 2 h, EXP-V2 about 2 h, run one after the other |
+| Time | EXP-V1 about 3 h 10 min, EXP-V2 about 2 h 50 min, run one after the other. Each run starts vLLM fresh, and that alone takes about 16 min (measured on 2026-11-09) |
 | Cost | worst case USD 0.91 (EXP-V1) and USD 1.82 (EXP-V2), printed by `plan` |
 
 Open three terminals in the worktree, plus a browser:
@@ -66,10 +66,15 @@ Screenshot `0-1_plan_and_cost.png`: both `plan` outputs with the cost plan, and 
 T1:
 
 ```bash
-EXP_APPROVED=yes EXP_CAPTURE_MODE=interactive scripts/experiments/vllm_bench.sh exp-v1 session $CAMPAIGN/exp-v1 2>&1 | tee $CAMPAIGN-exp-v1.terminal.log
+EXP_APPROVED=yes EXP_CAPTURE_MODE=interactive EXP_CHECKPOINT_RUNS=first EXP_MAX_MINUTES=215 \
+  scripts/experiments/vllm_bench.sh exp-v1 session $CAMPAIGN/exp-v1 2>&1 | tee $CAMPAIGN-exp-v1.terminal.log
 ```
 
-Run order is baseline (`auto`), optimized (`0-1`), optimized, baseline, baseline, optimized. Each run restarts vLLM and the gateway. After each run the runner prints a block like this:
+Run order is baseline (`auto`), optimized (`0-1`), optimized, baseline, baseline, optimized. Each run restarts vLLM and the gateway.
+
+With `EXP_CHECKPOINT_RUNS=first`, the runner stops after `baseline-01` and `optimized-01` and at the comparison. Runs 02 and 03 continue on their own, because each extra stop costs time against the 215-minute limit. Grafana keeps every run, so you can still capture runs 02 and 03 at the comparison checkpoint by choosing them in the `run` selector. To stop after every run, use `EXP_CHECKPOINT_RUNS=all` with `EXP_RUNS=3`, and keep each stop short.
+
+At each checkpoint the runner prints a block like this:
 
 ```text
 ================================================================
@@ -81,7 +86,7 @@ Raw output / Prometheus / Grafana: <link to exactly this run's window>
 Capture now ... screenshots -> <evidence>/<arm>/screenshots/<run-id>-<name>.png
 ```
 
-At every checkpoint, capture the following. Use the exact path the block prints.
+At every checkpoint, capture the following. Use the exact path the block prints. A validated example of the block is in `docs/evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt2/baseline/logs/run-01/checkpoint.txt`.
 
 | Name | What | How |
 |---|---|---|
@@ -104,7 +109,8 @@ After the last run comes a COMPARISON CHECKPOINT. Capture `comparison.md` (`comp
 Start only after EXP-V1 has printed `session end status=0` (§6 shows how to check).
 
 ```bash
-EXP_APPROVED=yes EXP_CAPTURE_MODE=interactive scripts/experiments/vllm_bench.sh exp-v2 session $CAMPAIGN/exp-v2 2>&1 | tee $CAMPAIGN-exp-v2.terminal.log
+EXP_APPROVED=yes EXP_CAPTURE_MODE=interactive EXP_CHECKPOINT_RUNS=first EXP_MAX_MINUTES=215 \
+  scripts/experiments/vllm_bench.sh exp-v2 session $CAMPAIGN/exp-v2 2>&1 | tee $CAMPAIGN-exp-v2.terminal.log
 ```
 
 Capture the same four screenshots per run. EXP-V2 needs a few more:
@@ -127,7 +133,7 @@ The runner runs the probe after the measured window of run 01 in each arm and wr
 | `missing_key`, `wrong_key` | 401 or 403 |
 | `backend_key_as_client_key` | 401 or 403 (the vLLM key is a separate Secret) |
 | `routing_backend_header` | `x-ewallet-backend: primary` (Service) or `llm-d`; in the llm-d arm the EPP request counter must grow |
-| `rate_limit_burst` | 16 concurrent requests against the 12 requests/s limit: some 200 and some 429 |
+| `rate_limit_burst` | 16 concurrent requests against the 12 requests/s limit: some 200 and some 429. In the llm-d arm, a few requests that pass the limit may get 503 from the router (EPP saturation); that is recorded, not hidden |
 
 To show it live while a checkpoint is waiting (the gateway port-forward is still open), run this in T2. The keys go straight from the Secret into the probe's environment and are never printed:
 
@@ -173,6 +179,7 @@ If `CLEANUP FAILED` appears, run `scripts/experiments/vllm_bench.sh exp-v1 down 
 |---|---|---|
 | `EXP_CAPTURE_MODE` | `unattended` | `interactive` stops at each checkpoint |
 | `EXP_CHECKPOINT_MINUTES` | 20 | longest wait per checkpoint (1-45) |
+| `EXP_CHECKPOINT_RUNS` | `all` | `first`: stop only after run 01 of each arm and at the comparison (recommended for formal runs) |
 | `EXP_RUNS` | 3 | runs per arm (2-5); below 3 the verdict is `INCONCLUSIVE` |
 | `EXP_PROFILE` | `formal` | `smoke`: one run per arm, fewer levels, always reported as a smoke test |
 | `EXP_MAX_MINUTES` | 210 | time limit (at most 215, so setup + limit + teardown fits 4 h) |

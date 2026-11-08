@@ -1,0 +1,3 @@
+NAMESPACE   NAME                                             READY   STATUS     RESTARTS          AGE
+kubeflow    ml-pipeline-persistenceagent-7bbbc8977f-7wpcb    0/1     Init:0/1   222 (4m37s ago)   31h
+kubeflow    ml-pipeline-scheduledworkflow-766f78cc69-89wn5   0/1     Init:0/1   222 (3m31s ago)   31h

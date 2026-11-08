@@ -1,0 +1,360 @@
+{
+  "config": "b2",
+  "expected_backend": "primary",
+  "pods": [
+    "vllm-primary-5bd87f4bfb-786h4",
+    "vllm-primary-5bd87f4bfb-czd4t"
+  ],
+  "workload_version": "o1-workload-v1",
+  "workload_sha256": "c4816ca1f1dc8622d198740d6c22161e7f825129b791da9034ca07e437d7695f",
+  "levels": {
+    "1": {
+      "status": "MEASURED",
+      "requests": 12,
+      "succeeded": 0,
+      "error_rate": 1.0,
+      "timeout_rate": 0.0,
+      "tool_calls_valid": 0,
+      "ttft_ms": {
+        "p50": null,
+        "p95": null
+      },
+      "itl_ms": {
+        "p50": null,
+        "p95": null
+      },
+      "tpot_ms": {
+        "p50": null,
+        "p95": null
+      },
+      "e2e_ms": {
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "requests_per_second": 2.9103772746812253,
+      "output_tokens_per_second": 0.0,
+      "output_tokens_per_second_per_allocated_cpu": 0.0,
+      "wall_seconds": 4.123176779998175,
+      "backends": [
+        "unknown"
+      ],
+      "by_category": {
+        "long_chat": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "nonstream_chat": {
+          "n": 1,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "prefix_repeat": {
+          "n": 3,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "prefix_unique": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "short_chat": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "tool_call": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        }
+      },
+      "attribution_mismatch": [],
+      "distribution": {
+        "per_pod": {
+          "vllm-primary-5bd87f4bfb-786h4": {
+            "vllm:request_success": 0.0,
+            "vllm:prompt_tokens": 0.0,
+            "vllm:generation_tokens": 0.0,
+            "vllm:prefix_cache_queries": 0.0,
+            "vllm:prefix_cache_hits": 0.0,
+            "vllm:num_preemptions": 0.0,
+            "vllm:request_queue_time_seconds_sum": 0.0,
+            "vllm:request_queue_time_seconds_count": 0.0
+          },
+          "vllm-primary-5bd87f4bfb-czd4t": {
+            "vllm:request_success": 0.0,
+            "vllm:prompt_tokens": 0.0,
+            "vllm:generation_tokens": 0.0,
+            "vllm:prefix_cache_queries": 0.0,
+            "vllm:prefix_cache_hits": 0.0,
+            "vllm:num_preemptions": 0.0,
+            "vllm:request_queue_time_seconds_sum": 0.0,
+            "vllm:request_queue_time_seconds_count": 0.0
+          }
+        },
+        "requests_share": {
+          "vllm-primary-5bd87f4bfb-786h4": null,
+          "vllm-primary-5bd87f4bfb-czd4t": null
+        },
+        "requests_max_share": null,
+        "prompt_tokens_share": {
+          "vllm-primary-5bd87f4bfb-786h4": null,
+          "vllm-primary-5bd87f4bfb-czd4t": null
+        },
+        "prompt_tokens_max_share": null,
+        "generation_tokens_share": {
+          "vllm-primary-5bd87f4bfb-786h4": null,
+          "vllm-primary-5bd87f4bfb-czd4t": null
+        },
+        "generation_tokens_max_share": null,
+        "pods_serving": 0
+      },
+      "resources": null
+    },
+    "4": {
+      "status": "MEASURED",
+      "requests": 12,
+      "succeeded": 0,
+      "error_rate": 1.0,
+      "timeout_rate": 0.0,
+      "tool_calls_valid": 0,
+      "ttft_ms": {
+        "p50": null,
+        "p95": null
+      },
+      "itl_ms": {
+        "p50": null,
+        "p95": null
+      },
+      "tpot_ms": {
+        "p50": null,
+        "p95": null
+      },
+      "e2e_ms": {
+        "p50": null,
+        "p95": null,
+        "p99": null
+      },
+      "requests_per_second": 12.00428327233465,
+      "output_tokens_per_second": 0.0,
+      "output_tokens_per_second_per_allocated_cpu": 0.0,
+      "wall_seconds": 0.9996431879990268,
+      "backends": [
+        "unknown"
+      ],
+      "by_category": {
+        "long_chat": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "nonstream_chat": {
+          "n": 1,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "prefix_repeat": {
+          "n": 3,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "prefix_unique": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "short_chat": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        },
+        "tool_call": {
+          "n": 2,
+          "ok": 0,
+          "ttft_p50_ms": null,
+          "e2e_p50_ms": null
+        }
+      },
+      "attribution_mismatch": [],
+      "distribution": {
+        "per_pod": {
+          "vllm-primary-5bd87f4bfb-786h4": {
+            "vllm:request_success": 0.0,
+            "vllm:prompt_tokens": 0.0,
+            "vllm:generation_tokens": 0.0,
+            "vllm:prefix_cache_queries": 0.0,
+            "vllm:prefix_cache_hits": 0.0,
+            "vllm:num_preemptions": 0.0,
+            "vllm:request_queue_time_seconds_sum": 0.0,
+            "vllm:request_queue_time_seconds_count": 0.0
+          },
+          "vllm-primary-5bd87f4bfb-czd4t": {
+            "vllm:request_success": 0.0,
+            "vllm:prompt_tokens": 0.0,
+            "vllm:generation_tokens": 0.0,
+            "vllm:prefix_cache_queries": 0.0,
+            "vllm:prefix_cache_hits": 0.0,
+            "vllm:num_preemptions": 0.0,
+            "vllm:request_queue_time_seconds_sum": 0.0,
+            "vllm:request_queue_time_seconds_count": 0.0
+          }
+        },
+        "requests_share": {
+          "vllm-primary-5bd87f4bfb-786h4": null,
+          "vllm-primary-5bd87f4bfb-czd4t": null
+        },
+        "requests_max_share": null,
+        "prompt_tokens_share": {
+          "vllm-primary-5bd87f4bfb-786h4": null,
+          "vllm-primary-5bd87f4bfb-czd4t": null
+        },
+        "prompt_tokens_max_share": null,
+        "generation_tokens_share": {
+          "vllm-primary-5bd87f4bfb-786h4": null,
+          "vllm-primary-5bd87f4bfb-czd4t": null
+        },
+        "generation_tokens_max_share": null,
+        "pods_serving": 0
+      },
+      "resources": {
+        "samples": 1,
+        "vllm_pods": {
+          "vllm-primary-5bd87f4bfb-786h4": {
+            "cpu_m": {
+              "mean": 26.0,
+              "peak": 26.0
+            },
+            "mem_mib_peak": 6278.0
+          },
+          "vllm-primary-5bd87f4bfb-czd4t": {
+            "cpu_m": {
+              "mean": 17.0,
+              "peak": 17.0
+            },
+            "mem_mib_peak": 6488.0
+          }
+        },
+        "vllm_total_cpu_m": {
+          "mean": 43.0,
+          "peak": 43.0
+        },
+        "gateway_cpu_m": {
+          "mean": 2.0,
+          "peak": 2.0
+        }
+      }
+    }
+  },
+  "stopped_by_guard": false,
+  "vllm_signal_support": {
+    "vllm-primary-5bd87f4bfb-786h4": {
+      "vllm:num_requests_waiting": true,
+      "vllm:num_requests_running": true,
+      "vllm:kv_cache_usage_perc": true,
+      "vllm:lora_requests_info": false,
+      "vllm:cache_config_info": true
+    },
+    "vllm-primary-5bd87f4bfb-czd4t": {
+      "vllm:num_requests_waiting": true,
+      "vllm:num_requests_running": true,
+      "vllm:kv_cache_usage_perc": true,
+      "vllm:lora_requests_info": false,
+      "vllm:cache_config_info": true
+    }
+  },
+  "cold_prefix": {
+    "rows": [
+      {
+        "id": "cold-prefix-0",
+        "ttft_ms": 170421.65746300088,
+        "e2e_ms": 170421.65746300088,
+        "failed": true,
+        "input_tokens": 0,
+        "backend": "unknown"
+      },
+      {
+        "id": "cold-prefix-1",
+        "ttft_ms": 40038.73913700227,
+        "e2e_ms": 40038.73913700227,
+        "failed": true,
+        "input_tokens": 0,
+        "backend": "unknown"
+      },
+      {
+        "id": "cold-prefix-2",
+        "ttft_ms": 327.562268001202,
+        "e2e_ms": 327.562268001202,
+        "failed": true,
+        "input_tokens": 0,
+        "backend": "unknown"
+      }
+    ],
+    "distribution": {
+      "per_pod": {
+        "vllm-primary-5bd87f4bfb-786h4": {
+          "vllm:request_success": 0.0,
+          "vllm:prompt_tokens": 0.0,
+          "vllm:generation_tokens": 0.0,
+          "vllm:prefix_cache_queries": 0.0,
+          "vllm:prefix_cache_hits": 0.0,
+          "vllm:num_preemptions": 0.0,
+          "vllm:request_queue_time_seconds_sum": 0.0,
+          "vllm:request_queue_time_seconds_count": 0.0
+        },
+        "vllm-primary-5bd87f4bfb-czd4t": {
+          "vllm:request_success": 0.0,
+          "vllm:prompt_tokens": 0.0,
+          "vllm:generation_tokens": 0.0,
+          "vllm:prefix_cache_queries": 0.0,
+          "vllm:prefix_cache_hits": 0.0,
+          "vllm:num_preemptions": 0.0,
+          "vllm:request_queue_time_seconds_sum": 0.0,
+          "vllm:request_queue_time_seconds_count": 0.0
+        }
+      },
+      "requests_share": {
+        "vllm-primary-5bd87f4bfb-786h4": null,
+        "vllm-primary-5bd87f4bfb-czd4t": null
+      },
+      "requests_max_share": null,
+      "prompt_tokens_share": {
+        "vllm-primary-5bd87f4bfb-786h4": null,
+        "vllm-primary-5bd87f4bfb-czd4t": null
+      },
+      "prompt_tokens_max_share": null,
+      "generation_tokens_share": {
+        "vllm-primary-5bd87f4bfb-786h4": null,
+        "vllm-primary-5bd87f4bfb-czd4t": null
+      },
+      "generation_tokens_max_share": null,
+      "pods_serving": 0
+    }
+  },
+  "warmup": [
+    {
+      "id": "warmup-1",
+      "failed": true,
+      "backend": "unknown"
+    },
+    {
+      "id": "warmup-2",
+      "failed": true,
+      "backend": "unknown"
+    }
+  ],
+  "status": "MEASURED"
+}

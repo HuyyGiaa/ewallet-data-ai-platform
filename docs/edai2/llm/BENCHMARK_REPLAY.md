@@ -129,7 +129,7 @@ The benchmark gateway configures exactly these policies, and the probe tests eac
 
 ## 7. Local validation
 
-`tests/experiments` (265 tests) runs the real runner, renderer, preflight, readback and comparator against fake `kubectl`, `gcloud`, `helm`, `systemd-run` and benchmark clients. It covers:
+`tests/experiments` (268 tests) runs the real runner, renderer, preflight, readback and comparator against fake `kubectl`, `gcloud`, `helm`, `systemd-run` and benchmark clients. It covers:
 
 - every stage and both arm transitions;
 - refusals before any resource;
@@ -138,12 +138,13 @@ The benchmark gateway configures exactly these policies, and the probe tests eac
 - the laptop timer;
 - secrets without a newline;
 - the cost and time ceilings;
-- interactive `CONTINUE`, `ABORT`, timeout and closed input;
+- interactive `CONTINUE`, `ABORT`, timeout and closed input, and checkpoints on the first run only;
 - the smoke profile;
 - leaked port-forwards;
 - a leftover VM;
 - the drill pass and failure paths;
-- DNS egress.
+- DNS egress;
+- the EPP URL contract.
 
 Additional checks:
 
@@ -153,8 +154,52 @@ Additional checks:
 
 ## 8. GKE validation (2026-11-09)
 
-Filled in from the evidence below.
+Evidence: [`benchmark_reproduction_20261109/`](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md). Window 20:44Z–23:35Z (171 of 240 minutes), about 4.9 node-hours, estimated USD 0.88 at list price (not a billing readback). No GPU, no production change.
+
+| Session | Nodes | Result |
+|---|---|---|
+| [Cleanup drill](../../evidence/edai2/llm/benchmark_reproduction_20261109/safety/drill/) | 1 | **PASS.** Watchdog deadline 20:49:26; Deployments and CronJob gone 20:51:30; node removed by the autoscaler 21:08:05. The laptop only watched. RBAC read-back: yes in `ewallet-bench` only |
+| [EXP-V2 smoke, attempt 1](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt1/) | 2 | Failed on DNS egress (§3), found by this run. Cleanup confirmed |
+| [EXP-V2 smoke, attempt 2](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt2/) | 2 | Interactive checkpoint answered over stdin; baseline passed. The optimized client got 404 on `/metrics/metrics` (§3). Cleanup confirmed |
+| [EXP-V2 smoke, attempt 3](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke/) | 2 | Both arms passed. Comparison `INCONCLUSIVE` (1 run per arm, by design) |
+
+What attempt 3 verified, per arm:
+
+| Check | Kubernetes Service (B2) | llm-d EPP (O2) |
+|---|---|---|
+| Running image and model | digest `f695b23e…`, revision `c1899de2…`, read from the pods before the first request | same |
+| Replicas | 2, one per node, bind `0-1` | same |
+| Requests | 24/24 HTTP 200, backend header `primary` | 24/24 HTTP 200, backend header `llm-d` |
+| Per-replica share (vLLM counters, c=1 / c=4) | 0 / 1.0, then 0.33 / 0.67 | 0.75 / 0.25 at both levels |
+| EPP | — | 12 scheduling attempts per level, both endpoints, `success` |
+| Prometheus targets | two vLLM pods, gateway, exporter: `up` | plus EPP: `up` |
+| Dashboard queries with data | 17/22 (5 EPP-only empty) | 20/22 (2 EPP error counters empty: no errors) |
+| Grafana | dashboard provisioned, data source path to Prometheus OK | same |
+| Policy probe | PASS | PASS |
+
+Policy probe details (the instructor's request):
+
+| Case | B2 | O2 |
+|---|---|---|
+| valid client key | 200 | 200 |
+| no key / wrong key / vLLM backend key | 401 / 401 / 401 | 401 / 401 / 401 |
+| route | 3 × 200, `x-ewallet-backend: primary` | 3 × 200, `x-ewallet-backend: llm-d`, EPP `llm_d_epp_request_total` +3 |
+| 16 concurrent requests against 12/s | 12 × 200, 4 × 429 `rate limit exceeded` (`x-ratelimit-limit: 12`) | 8 × 200, 4 × 429, 4 × 503 |
+
+The four 503s in the llm-d burst came from the router path: the gateway records no reason of its own. They match the EPP's saturation filter, which G2 also recorded as `ServiceUnavailable`. This was not attributed further.
+
+Start-up dominates the time budget. Each vLLM start took about 16 minutes:
+
+- about 2 min image pull;
+- 4 min engine init, including torch.compile and profiling;
+- about 7 min for the startup probe's first completion, which compiles the remaining shapes.
+
+A formal EXP-V1 session (6 starts) therefore needs about 190 minutes before any checkpoint waits. That is why the runbook sets `EXP_MAX_MINUTES=215` and `EXP_CHECKPOINT_RUNS=first`.
+
+Not run on GKE: EXP-V1. It no longer fitted the window. Its path differs from the verified one only in the O1 client, one replica and thread binding, and the local tests cover it.
 
 ## 9. Remaining work
 
-Filled in at the end of the validation.
+1. **Owner evidence session** ([runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md)): EXP-V1 and then EXP-V2, interactive, 3 runs per arm, screenshots at the printed paths.
+2. **Fill in the results from that session's `comparison/metrics.json`.** Until then the historical O1 and G2 figures in [LLM_PLATFORM.md §5](LLM_PLATFORM.md#5-performance-and-optimisation) stay labelled historical.
+3. **Optional.** Persist the torch.compile cache across runs, to cut about 6 min per start. This changes the stack and needs its own review.

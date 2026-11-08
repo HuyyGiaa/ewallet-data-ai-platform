@@ -202,7 +202,16 @@ All 96 requests succeeded in both runs.
 - [`g2_20261101T124444Z/g2/comparison.json`](../../evidence/llm_agent/g2_20261101T124444Z/g2/comparison.json);
 - full experiment record: [llmd_g2_routing_benchmark.md](llmd_g2_routing_benchmark.md).
 
-### 5.4 Production telemetry
+### 5.4 Reproducing the benchmarks with screenshots
+
+O1 and G2 above are historical single runs. To reproduce them for screenshot evidence, the matched EXP-V1 and EXP-V2 sessions run in a temporary `ewallet-bench` namespace on their own node pool. Each session has its own Prometheus and Grafana, an owner checkpoint after each run, an agentgateway policy probe, and an in-cluster cleanup watchdog.
+
+- On 2026-11-09 a cleanup drill and an EXP-V2 smoke test validated the workflow on GKE. Both routes, the EPP metrics, per-replica scraping and the policy probe were checked: 401 for missing, wrong and backend keys, and 429 above 12 requests/s.
+- These are smoke results, not benchmark results. The owner's formal session is pending.
+
+Details: [BENCHMARK_REPLAY.md](BENCHMARK_REPLAY.md). Runbook: [BENCHMARK_EVIDENCE_RUNBOOK.md](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md). Evidence: [`benchmark_reproduction_20261109`](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md).
+
+### 5.5 Production telemetry
 
 Under real agent traffic the deployed server reports:
 
