@@ -38,6 +38,7 @@ class FakeApi:
         resource = path.rstrip("/").split("/")[-1] if method == "GET" else path.split("/")[-2]
         if method == "GET":
             return 200, {"items": self.items.get(resource, [])}
+        path = path.removesuffix("?orphan")
         name = path.split("/")[-1]
         if name == self.fail_delete:
             return 403, {}
@@ -66,7 +67,8 @@ def test_watchdog_deletes_workloads_then_itself_but_not_its_own_job() -> None:
     assert report["deleted"] == ["deployments/vllm-primary", "deployments/bench-grafana", "jobs/other",
                                  "cronjobs/bench-watchdog"]
     deletes = [path for method, path in api.calls if method == "DELETE"]
-    assert deletes[-1].endswith("/cronjobs/bench-watchdog")
+    assert deletes[-1].endswith("/cronjobs/bench-watchdog?orphan")
+    assert not any(path.endswith("?orphan") for path in deletes[:-1])
     assert all("/namespaces/ewallet-bench/" in path for _, path in api.calls)
     assert report["remaining"] == []
 

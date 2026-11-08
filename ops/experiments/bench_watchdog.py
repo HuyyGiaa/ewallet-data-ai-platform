@@ -56,7 +56,10 @@ def api_caller(host: str, port: str, token: str, ca_file: Path) -> Call:
     context = ssl.create_default_context(cafile=str(ca_file))
 
     def call(method: str, path: str) -> tuple[int, dict[str, Any]]:
-        body = b'{"propagationPolicy":"Background"}' if method == "DELETE" else None
+        orphan = path.endswith("?orphan")
+        path = path.removesuffix("?orphan")
+        policy = "Orphan" if orphan else "Background"
+        body = f'{{"propagationPolicy":"{policy}"}}'.encode() if method == "DELETE" else None
         request = Request(f"https://{host}:{port}/{path}", data=body, method=method,
                           headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
                                    "Content-Type": "application/json"})
@@ -97,7 +100,9 @@ def enforce(call: Call, namespace: str, cronjob: str) -> dict[str, Any]:
                 deleted.append(f"{resource}/{name}")
             else:
                 errors.append(f"delete {resource}/{name}: {code}")
-    code, _ = call("DELETE", f"apis/batch/v1/namespaces/{namespace}/cronjobs/{cronjob}")
+    # Orphan: the Job running this code, and its log, outlive the CronJob as evidence. A
+    # finished pod does not keep a node alive, and ttlSecondsAfterFinished removes it later.
+    code, _ = call("DELETE", f"apis/batch/v1/namespaces/{namespace}/cronjobs/{cronjob}?orphan")
     if code in (200, 202, 404):
         deleted.append(f"cronjobs/{cronjob}")
     else:
