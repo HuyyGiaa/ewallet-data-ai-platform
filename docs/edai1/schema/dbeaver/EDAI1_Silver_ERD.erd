@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<diagram version="1" name="EDAI1_Silver_ERD">
+	<entities>
+		<data-source id="trino_jdbc-1a1bc568a5c-7b077594de5ea55">
+			<entity id="1" name="users" fq-name="delta.silver_zone.users" showAttrs="ALL" x="600" y="40">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="2" name="accounts" fq-name="delta.silver_zone.accounts" showAttrs="ALL" x="240" y="280">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="3" name="devices" fq-name="delta.silver_zone.devices" showAttrs="ALL" x="960" y="280">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="4" name="balance_snapshots" fq-name="delta.silver_zone.balance_snapshots" showAttrs="ALL" x="40" y="520">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="5" name="transactions" fq-name="delta.silver_zone.transactions" showAttrs="ALL" x="560" y="520">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="6" name="login_events" fq-name="delta.silver_zone.login_events" showAttrs="ALL" x="1060" y="520">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="7" name="merchants" fq-name="delta.silver_zone.merchants" showAttrs="ALL" x="240" y="760">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="8" name="fraud_labels" fq-name="delta.silver_zone.fraud_labels" showAttrs="ALL" x="600" y="1000">
+				<path name="silver_zone"/>
+				<path name="delta"/>
+			</entity>
+		</data-source>
+	</entities>
+	<notes>
+		<note id="9" x="40" y="40" w="480" h="150">Silver zone (delta.silver_zone), 8 tables: the cleaned relational business model. Not a star schema. Lines are DBeaver VIRTUAL foreign keys: workspace metadata only. Delta declares no primary or foreign key, and no constraint exists in Trino or GCS.</note>
+		<note id="10" x="1060" y="1000" w="380" h="110">Optional (nullable) references: transactions.merchant_id (payments only) and transactions.counterparty_account_id (transfers only).</note>
+	</notes>
+	<relations/>
+</diagram>

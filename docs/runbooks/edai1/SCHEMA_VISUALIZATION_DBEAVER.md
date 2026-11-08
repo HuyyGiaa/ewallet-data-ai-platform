@@ -138,57 +138,71 @@ Row counts and file counts come from the dataset manifest, not from Trino. They 
 3. Open `fact_transactions` → **Properties → Columns**: 17 columns. Its partition column is `event_date`.
 4. SQL: the `E03` and `E04` blocks.
 
-## G. Gold dimension–fact ER diagram (E05, E06)
+## G. Native ER diagrams: Silver and Gold (E05, E06, E09)
 
-Delta has no primary or foreign keys, so DBeaver first shows eight unconnected boxes. The relationships are added as **virtual keys**. They are stored in your DBeaver workspace only, never in Trino or GCS. The authoritative list is [GOLD_ERD.md](../../edai1/schema/generated/GOLD_ERD.md): 8 virtual unique keys and 13 virtual foreign keys.
+Two native DBeaver diagrams are provided as project files:
 
-### G.1 Virtual unique keys (8)
+| Diagram | Tables | Relationship lines | File in the DBeaver project |
+|---|---|---|---|
+| `EDAI1_Silver_ERD` | the 8 tables of `delta.silver_zone` | 11 | `General/Diagrams/EDAI1_Silver_ERD.erd` |
+| `EDAI1_Gold_ERD` | the 15 tables of `delta.gold_zone` | 19 (13 of them dimension–fact) | `General/Diagrams/EDAI1_Gold_ERD.erd` |
 
-For each table below: double-click it in the navigator, open the **Virtual** tab, and under **Virtual Unique Keys** choose **Add**/**Edit…**. Tick the key column(s), then **OK**, then **Save** (Ctrl+S).
+`ops/schema/dbeaver_erd.py` generates both into [docs/edai1/schema/dbeaver/](../../edai1/schema/dbeaver/). Its output uses the `.erd` format of the installed DBeaver 26.1.3 (`DiagramLoader` in the `ui.editors.erd` plugin). Each file names the connection `EDAI1 - GCS Cloud Schema` by its id, plus every table as `delta` → `<schema>` → `<table>`, with its position and the labelled group notes.
 
-| Table | Key column(s) |
+**A `.erd` file stores no column-level relationship.** DBeaver draws a line from a table's foreign keys. Delta has none, so the lines come from **virtual keys**: DBeaver stores them in its own workspace configuration, never in Trino or GCS. They are created in the UI (G.2), so DBeaver writes that configuration itself. The script never edits it.
+
+The authoritative list is [DBEAVER_VIRTUAL_KEYS.md](../../edai1/schema/dbeaver/DBEAVER_VIRTUAL_KEYS.md). An edge is listed there only when it is in `schema_relationships.yml` **and** a rule in `validate_silver.py` or `validate_gold.py` checks it for orphans. `obt_transaction_enriched.transaction_id → fact_transactions` is ETL lineage with no validator rule, so it is deliberately left undrawn.
+
+### G.1 Install and open the diagrams
+
+```bash
+python3 -m ops.schema.dbeaver_erd install   # creates General/Diagrams/*.erd; never overwrites, never touches .dbeaver/
+python3 -m ops.schema.dbeaver_erd check     # PASS = both files present and bound to the 8091 connection
+```
+
+1. In DBeaver, open the **Projects** view (**Window → Projects**). Right-click **General → Refresh** (F5), because the files were added outside DBeaver.
+2. Expand **General → Diagrams** and double-click `EDAI1_Silver_ERD`. DBeaver connects to `localhost:8091` and draws 8 boxes with their real columns and types, plus two notes. Until G.2 is done there are no lines.
+3. Open `EDAI1_Gold_ERD` the same way: 15 boxes in three groups. The OBT/optimization tables are on the left, the dimensional core in the centre, the feature tables on the right.
+
+If a box is missing, the editor shows an error such as *Container 'delta' not found*. Check that the connection is connected and that `SHOW TABLES FROM delta.gold_zone` returns 15 rows (B.3).
+
+### G.2 Create the virtual keys (once)
+
+Virtual keys belong to the tables, not to a diagram, so each key is defined once and appears in every diagram that shows both tables.
+
+**Virtual unique keys (10).** For each parent table: double-click it in the navigator, open the **Virtual** tab, and under **Virtual Unique Keys** choose **Add**. Tick the key column, click **OK**, then **Save** (Ctrl+S).
+
+| Silver table | Key | Gold table | Key |
+|---|---|---|---|
+| `users` | `user_id` | `dim_user` | `user_id` |
+| `accounts` | `account_id` | `dim_account` | `account_id` |
+| `merchants` | `merchant_id` | `dim_merchant` | `merchant_id` |
+| `devices` | `device_id` | `dim_device` | `device_id` |
+| `transactions` | `transaction_id` | `dim_date` | `date_key` |
+
+**Virtual foreign keys (11 Silver + 19 Gold).** For each row of DBEAVER_VIRTUAL_KEYS.md, open the *child* table's **Virtual** tab and choose **Add** under **Virtual Foreign Keys**. Set **Ref Datasource** to this connection and **Ref Table** to the parent, pick the parent's virtual unique key, and map the column under **Columns**. Then click **OK** and **Save**.
+
+You can also draw a key on the open diagram with the palette's connection tool, dragging from the child column to the parent column. DBeaver then creates the same logical virtual foreign key (`AssociationCreateCommand` → `createVirtualForeignKey`) and saves it.
+
+`transactions` / `fact_transactions` reference `accounts` / `dim_account` twice: through `account_id` and through `counterparty_account_id`. Create each as a separate key. DBeaver cannot show "optional", so the optional edges (`merchant_id`, `counterparty_account_id`) are documented in DBEAVER_VIRTUAL_KEYS.md and in the Silver note.
+
+**Verify on each child's Virtual tab:**
+
+| Diagram | Virtual foreign keys per child table |
 |---|---|
-| `dim_user` | `user_id` |
-| `dim_account` | `account_id` |
-| `dim_merchant` | `merchant_id` |
-| `dim_device` | `device_id` |
-| `dim_date` | `date_key` |
-| `fact_transactions` | `transaction_id` |
-| `fact_login_events` | `login_id` |
-| `fact_balance_snapshot` | `account_id`, `snapshot_date` |
+| Silver (11) | `transactions` 5; `login_events` 2; `accounts`, `devices`, `balance_snapshots`, `fraud_labels` 1 each |
+| Gold (19) | `fact_transactions` 6; `fact_login_events` 3; `fact_balance_snapshot` 2; `dim_account`, `dim_device`, `feat_user_90d`, `opt_merchant_performance` and the four `feat_*_behavior` tables 1 each |
 
-### G.2 Virtual foreign keys (13)
+### G.3 Persistence check and capture
 
-On the child table's **Virtual** tab, under **Virtual Foreign Keys**, choose **Add**. Set **Ref Datasource** to this connection and **Ref Table** to the parent table. Pick the parent's virtual unique key, map the column under **Columns**, then **OK** and **Save**.
-
-| # | Child table | Column | Ref Table | Ref column | Optional |
-|---:|---|---|---|---|---|
-| 1 | `dim_account` | `user_id` | `dim_user` | `user_id` | no |
-| 2 | `dim_device` | `user_id` | `dim_user` | `user_id` | no |
-| 3 | `fact_transactions` | `user_id` | `dim_user` | `user_id` | no |
-| 4 | `fact_transactions` | `account_id` | `dim_account` | `account_id` | no |
-| 5 | `fact_transactions` | `device_id` | `dim_device` | `device_id` | no |
-| 6 | `fact_transactions` | `merchant_id` | `dim_merchant` | `merchant_id` | **yes** (payments only) |
-| 7 | `fact_transactions` | `counterparty_account_id` | `dim_account` | `account_id` | **yes** (transfers only) |
-| 8 | `fact_transactions` | `date_key` | `dim_date` | `date_key` | no |
-| 9 | `fact_login_events` | `user_id` | `dim_user` | `user_id` | no |
-| 10 | `fact_login_events` | `device_id` | `dim_device` | `device_id` | no |
-| 11 | `fact_login_events` | `date_key` | `dim_date` | `date_key` | no |
-| 12 | `fact_balance_snapshot` | `account_id` | `dim_account` | `account_id` | no |
-| 13 | `fact_balance_snapshot` | `date_key` | `dim_date` | `date_key` | no |
-
-`fact_transactions` has two edges to `dim_account`, numbers 4 and 7. Create them as two separate virtual foreign keys. DBeaver cannot express "optional"; that information comes from the table above and from GOLD_ERD.md.
-
-**Verify:** the **Virtual Foreign Keys** list on `fact_transactions` holds 6 rows, on `fact_login_events` 3, on `fact_balance_snapshot` 2, and on `dim_account` and `dim_device` 1 each.
-
-### G.3 Build the diagram
-
-1. **File → New → DBeaver → ER Diagram**. In the wizard (*Create new diagram*), name it `edai1_gold_dim_fact`. Under *Manage diagram content*, expand the connection to `delta` → `gold_zone` and tick the 8 tables. Alternatively, on `gold_zone` use **View Diagram**, then *Remove from diagram* every table that is not one of the 8.
-2. Use **Arrange Diagram**, then drag the boxes: `fact_transactions` in the centre, the five dimensions around it, `fact_login_events` and `fact_balance_snapshot` on the sides. Turn on **Keep layout** so the arrangement persists.
-3. Right-click the canvas: **Notation → Crow's Foot**. Under **Show Attributes**, choose all columns for E06, or keys only for a compact E05.
-4. Check that 13 links are drawn and that `fact_transactions` has 6.
-5. **Export:** right-click → **Save diagram as …** → PNG, as `E05_gold_dim_fact_erd.png`. Also save the `.erd` format to `docs/evidence/edai1/schema/edai1_gold_dim_fact.erd`, so the layout can be reopened.
-6. **Reproduce later:** the diagram lives in the DBeaver project under *ER diagrams*. After `down -v` and a re-registration (B.1), table identities stay the same (`delta.gold_zone.<table>`), so the virtual keys and the diagram reconnect after **Refresh** (F5) on the connection. If the connection itself was deleted, repeat G.1–G.3.
+1. On each open diagram, press F5 (refresh): Silver now shows 11 lines, Gold 19. Optionally set **Notation → Crow's Foot** from the canvas context menu. Tidy any box that DBeaver sized differently from the layout, then press **Ctrl+S** to save the diagram.
+2. Close both editors. Reopen them from **General → Diagrams** and confirm the same tables, lines and positions. The editor's connection must be `EDAI1 - GCS Cloud Schema` (`localhost:8091`), never `delta` (8081). Only after this check is diagram persistence verified.
+3. Capture (J):
+   - **E09:** the whole Silver diagram.
+   - **E05:** the whole Gold diagram (zoom to fit).
+   - **E06:** zoom the same Gold diagram on the centre group (5 dimensions, 3 facts, 13 lines), plus the **Virtual** tab of `fact_transactions` with its 6 keys.
+4. To keep the diagrams as files too, use **right-click → Save diagram as …** in PNG and `.erd` format into `docs/evidence/edai1/screenshots/schema/`. Exports are only made from the live editor.
+5. **Reproduce later:** after `down -v` and a re-registration (B.1), table identities stay `delta.<schema>.<table>`. The diagrams and virtual keys therefore reconnect after **Refresh** on the connection. If the connection is deleted, its virtual keys go with it: repeat G.2.
 
 ## H. Naming conventions (E07)
 
@@ -212,16 +226,19 @@ diff "$EVID/gcs_before.txt" "$EVID/gcs_after.txt" && echo "GCS unchanged"
 
 Save screenshots to `docs/evidence/edai1/screenshots/schema/`. A row stays `OWNER_SCREENSHOT_PENDING` until its file exists; never link a missing image from a report.
 
+E05 and E06 were first defined for an 8-table diagram `edai1_gold_dim_fact`. They now refer to the 15-table `EDAI1_Gold_ERD`, whose centre group is that same 8-table model. E09 (Silver) was appended rather than renumbering E07 and E08.
+
 | ID | Screen or command | Expected | Screenshot | Raw artifact | Proves | Does not prove |
 |---|---|---|---|---|---|---|
 | E01 | Navigator `hive.source_zone` + Columns of `transactions_v1`/`_v2` | 9 tables; `channel` only in v2 | `E01_source_tables.png` | readback `E01` block; `observed_schemas.json` → `source` | Source datasets on GCS, read through Trino from their real Parquet files | row counts (from the manifest, not Trino) |
 | E02 | Navigator `delta.bronze_zone` + Columns of `transactions` | 8 tables; 15 columns | `E02_bronze_tables.png` | `E02` block | Bronze Delta schemas of the canonical run | data quality |
 | E03 | Navigator `delta.silver_zone` + Columns of `transactions` | 8 tables; `event_date` added | `E03_silver_tables.png` | `E03` block | Silver schemas and partition column | deduplication (proved by validators) |
 | E04 | Navigator `delta.gold_zone` + Columns of `fact_transactions` | 15 tables; 17 columns | `E04_gold_tables.png` | `E04` block | Gold inventory and fact columns | contents of the tables |
-| E05 | ER diagram `edai1_gold_dim_fact`, keys only | 8 tables, 13 links | `E05_gold_dim_fact_erd.png` | `.erd` export; [GOLD_ERD.md](../../edai1/schema/generated/GOLD_ERD.md) | the logical star model on the real tables | physical constraints: the links are DBeaver virtual keys |
-| E06 | ER diagram with all attributes, plus the **Virtual** tab of `fact_transactions` | 6 virtual FKs on the fact | `E06_keys_and_relationships.png` | `E06` block (`DESCRIBE`); GOLD_ERD.md | join columns and keys | optionality (documented in GOLD_ERD.md; DBeaver cannot show it) |
+| E05 | Native diagram `EDAI1_Gold_ERD`, zoom to fit | 15 tables in 3 groups; 19 lines | `E05_gold_erd_overview.png` | [EDAI1_Gold_ERD.erd](../../edai1/schema/dbeaver/EDAI1_Gold_ERD.erd); [DBEAVER_VIRTUAL_KEYS.md](../../edai1/schema/dbeaver/DBEAVER_VIRTUAL_KEYS.md) | the whole Gold zone on the real tables, and which tables carry validated key references | physical constraints: the lines are DBeaver virtual keys; ETL lineage (OBT and feature derivation) |
+| E06 | Same diagram zoomed on the dimensional core, plus the **Virtual** tab of `fact_transactions` | 5 dims, 3 facts, 13 lines; 6 virtual FKs on the fact | `E06_gold_dim_fact_detail.png` | `E06` block (`DESCRIBE`); [GOLD_ERD.md](../../edai1/schema/generated/GOLD_ERD.md) | join columns, keys and the outriggers to `dim_user` | optionality (documented in GOLD_ERD.md; DBeaver cannot show it) |
 | E07 | Three zone nodes expanded; E07 query result | unprefixed Bronze/Silver names; prefixed Gold names | `E07_naming_conventions.png` | `E07` block | the naming rules as stored in the catalog | that every future table will follow them |
 | E08 | Connection editor (8091) + `SHOW CATALOGS`; terminal `provenance.txt` | `gs://…/runs/<canonical run>/…` locations | `E08_trino_cloud_provenance.png` | `provenance.txt`; `gcs_before/after.txt` | the screens show the canonical cloud runs, and GCS was not modified | anything about the MinIO stack on 8081 |
+| E09 | Native diagram `EDAI1_Silver_ERD` | 8 tables; 11 lines | `E09_silver_erd.png` | [EDAI1_Silver_ERD.erd](../../edai1/schema/dbeaver/EDAI1_Silver_ERD.erd); DBEAVER_VIRTUAL_KEYS.md | the relational Silver model on the real tables | physical constraints; that the model is a star schema (it is not) |
 
 ## K. Troubleshooting
 
@@ -235,7 +252,7 @@ Save screenshots to `docs/evidence/edai1/screenshots/schema/`. A row stays `OWNE
 | `Table already exists` during registration | volume already registered | nothing to do, or `down -v` and re-register |
 | DBeaver shows MinIO tables or other run IDs | connected to `localhost:8081` | use the 8091 connection; verify with `SHOW CREATE TABLE` (B.3) |
 | A table is missing | wrong run, or the cloud run was deleted | compare against `observed_schemas.json`; `gcloud storage ls <root>/<table>/_delta_log/` |
-| ERD shows no links | no physical keys exist (expected) | add the virtual keys (G.1, G.2) |
+| ERD shows no links | no physical keys exist (expected) | create the virtual keys (G.2), then F5 on the diagram |
 | Virtual FK not drawn | parent virtual key missing, or editor not saved | create the parent key first, Ctrl+S, then **Refresh Diagram** |
 | DDL tab: `Cannot show create table` | `viewer` lacks table ownership | expected; use `provenance.txt` |
 | `Access Denied` for any write | the guard working | none. Do not loosen `rules.json` |

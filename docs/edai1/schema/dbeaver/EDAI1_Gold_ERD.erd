@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<diagram version="1" name="EDAI1_Gold_ERD">
+	<entities>
+		<data-source id="trino_jdbc-1a1bc568a5c-7b077594de5ea55">
+			<entity id="1" name="obt_transaction_enriched" fq-name="delta.gold_zone.obt_transaction_enriched" showAttrs="ALL" x="40" y="200">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="2" name="opt_merchant_performance" fq-name="delta.gold_zone.opt_merchant_performance" showAttrs="ALL" x="40" y="1080">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="3" name="dim_user" fq-name="delta.gold_zone.dim_user" showAttrs="ALL" x="1120" y="40">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="4" name="dim_account" fq-name="delta.gold_zone.dim_account" showAttrs="ALL" x="780" y="280">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="5" name="dim_device" fq-name="delta.gold_zone.dim_device" showAttrs="ALL" x="1460" y="280">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="6" name="fact_balance_snapshot" fq-name="delta.gold_zone.fact_balance_snapshot" showAttrs="ALL" x="480" y="520">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="7" name="fact_transactions" fq-name="delta.gold_zone.fact_transactions" showAttrs="ALL" x="1040" y="520">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="8" name="fact_login_events" fq-name="delta.gold_zone.fact_login_events" showAttrs="ALL" x="1540" y="520">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="9" name="dim_merchant" fq-name="delta.gold_zone.dim_merchant" showAttrs="ALL" x="600" y="800">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="10" name="dim_date" fq-name="delta.gold_zone.dim_date" showAttrs="ALL" x="1080" y="1040">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="11" name="feat_user_90d" fq-name="delta.gold_zone.feat_user_90d" showAttrs="ALL" x="1960" y="200">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="12" name="feat_user_behavior" fq-name="delta.gold_zone.feat_user_behavior" showAttrs="ALL" x="1960" y="440">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="13" name="feat_device_behavior" fq-name="delta.gold_zone.feat_device_behavior" showAttrs="ALL" x="1960" y="800">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="14" name="feat_account_behavior" fq-name="delta.gold_zone.feat_account_behavior" showAttrs="ALL" x="2480" y="200">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+			<entity id="15" name="feat_merchant_behavior" fq-name="delta.gold_zone.feat_merchant_behavior" showAttrs="ALL" x="2480" y="580">
+				<path name="gold_zone"/>
+				<path name="delta"/>
+			</entity>
+		</data-source>
+	</entities>
+	<notes>
+		<note id="16" x="40" y="40" w="400" h="140">OBT and optimization (left): denormalized analytics. obt_transaction_enriched is built from fact_transactions and the dimensions (ETL lineage, builder only, no validator rule), so it has no relationship line.</note>
+		<note id="17" x="480" y="40" w="600" h="170">Dimensional core (centre): star schema / fact constellation, 5 dimensions and 3 facts. dim_account and dim_device reference dim_user (outriggers). Lines are DBeaver VIRTUAL foreign keys: workspace metadata only. Delta declares no primary or foreign key, and no constraint exists in Trino or GCS.</note>
+		<note id="18" x="1960" y="40" w="860" h="110">Feature tables (right): point-in-time features. Their lines are validated key references to a dimension, not the aggregation lineage they are computed from.</note>
+	</notes>
+	<relations/>
+</diagram>

@@ -212,8 +212,9 @@ The same model is drawn by DBeaver on the registered cloud tables (runbook §G):
 
 | Evidence | Content | Status |
 |---|---|---|
-| E05 | DBeaver ER diagram `edai1_gold_dim_fact`: 8 tables, 13 virtual links | OWNER_SCREENSHOT_PENDING |
-| E06 | The same diagram with all attributes, and the virtual keys of `fact_transactions` | OWNER_SCREENSHOT_PENDING |
+| E05 | Native DBeaver diagram `EDAI1_Gold_ERD`: all 15 Gold tables, 19 virtual links | OWNER_SCREENSHOT_PENDING |
+| E06 | The same diagram zoomed on the 8-table dimensional core (13 links), and the virtual keys of `fact_transactions` | OWNER_SCREENSHOT_PENDING |
+| E09 | Native DBeaver diagram `EDAI1_Silver_ERD`: 8 Silver tables, 11 virtual links | OWNER_SCREENSHOT_PENDING |
 
 **Grain.**
 
