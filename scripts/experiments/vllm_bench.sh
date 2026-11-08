@@ -517,7 +517,8 @@ run_arm() {  # <arm> <run-number>
     if [ "$arm" = optimized ]; then
       kubectl --context "$KUBE_CONTEXT" -n "$NS" port-forward svc/llmd-router-epp "$EPP_PORT:9090" >> "$logs/pf-epp.log" 2>&1 </dev/null &
       pids+=("$!")
-      client_args+=(--epp-metrics "http://127.0.0.1:$EPP_PORT/metrics")
+      # The G2 client appends /metrics itself; the policy probe takes the full URL.
+      client_args+=(--epp-metrics "http://127.0.0.1:$EPP_PORT")
       epp_args=(--epp-metrics "http://127.0.0.1:$EPP_PORT/metrics")
     fi
   fi

@@ -246,3 +246,11 @@ def test_failed_run_still_records_a_successful_cleanup(tmp_path) -> None:
     result, evidence, _ = run(tmp_path, SIM_FAIL_RUN="1")
     assert result.returncode != 0
     assert (evidence / "safety/cleanup.txt").read_text(encoding="utf-8").startswith("pool and namespace confirmed absent")
+
+
+def test_g2_client_gets_the_epp_base_url_and_the_probe_the_full_one() -> None:
+    script = (DRIVER).read_text(encoding="utf-8")
+    assert 'client_args+=(--epp-metrics "http://127.0.0.1:$EPP_PORT")' in script
+    assert 'epp_args=(--epp-metrics "http://127.0.0.1:$EPP_PORT/metrics")' in script
+    real = (DRIVER.parents[2] / "scripts/llm_agent/g2_benchmark.py").read_text(encoding="utf-8")
+    assert 'url.rstrip("/") + "/metrics"' in real
