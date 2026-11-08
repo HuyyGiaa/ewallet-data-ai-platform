@@ -1,0 +1,98 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.22, pytest-9.2.0, pluggy-1.7.0 -- /home/huyy-giaa/Develop/ewallet-b1-evidence/source/ai_platform/inference/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /home/huyy-giaa/Develop/ewallet-b1-evidence/source
+plugins: typeguard-4.6.0, platformdirs-4.12.4, cov-7.1.0, anyio-4.15.1, hypothesis-6.168.5
+collecting ... collected 70 items
+
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_duplicate_parameter_is_ambiguous_and_rejected PASSED [  1%]
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_immutable_store_configuration_fails_closed PASSED [  2%]
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_invalid_existing_deadlines_fail_closed 
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_invalid_existing_deadlines_fail_closed PASSED [  4%]
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_non_string_connection_is_rejected PASSED [  5%]
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_only_the_missing_deadline_is_appended PASSED [  7%]
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_tighter_existing_deadlines_are_preserved PASSED [  8%]
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_timeout_argument_must_be_finite_within_the_bound 
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_timeout_argument_must_be_finite_within_the_bound PASSED [ 10%]
+tests/inference/test_config_boundaries.py::RedisTimeoutConfigurationTest::test_upper_bound_is_inclusive PASSED [ 11%]
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_feast_repo_requires_a_feature_store_file PASSED [ 12%]
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_kserve_url_must_be_a_plain_http_origin 
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_kserve_url_must_be_a_plain_http_origin PASSED [ 14%]
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_model_identity_length_boundary 
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_model_identity_length_boundary PASSED [ 15%]
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_timeouts_must_be_numeric_and_within_the_bound 
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_timeouts_must_be_numeric_and_within_the_bound PASSED [ 17%]
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_values_are_normalized PASSED [ 18%]
+tests/inference/test_config_boundaries.py::EnvironmentSettingsTest::test_whitespace_required_value_is_absent PASSED [ 20%]
+tests/inference/test_assembler_boundaries.py::HistoricalFeatureSetTest::test_contents_are_read_only_copies_of_the_inputs PASSED [ 21%]
+tests/inference/test_assembler_boundaries.py::ModelInputVectorTest::test_as_dict_pairs_every_column_with_its_value PASSED [ 22%]
+tests/inference/test_assembler_boundaries.py::ModelInputVectorTest::test_rejects_reordered_columns_and_wrong_arity PASSED [ 24%]
+tests/inference/test_assembler_boundaries.py::HistoricalTypeValidationTest::test_accepts_canonical_numeric_types PASSED [ 25%]
+tests/inference/test_assembler_boundaries.py::HistoricalTypeValidationTest::test_rejects_values_outside_the_frozen_types 
+tests/inference/test_assembler_boundaries.py::HistoricalTypeValidationTest::test_rejects_values_outside_the_frozen_types PASSED [ 27%]
+tests/inference/test_assembler_boundaries.py::JsonCompatibilityTest::test_array_like_values_pass_through_unchanged PASSED [ 28%]
+tests/inference/test_assembler_boundaries.py::JsonCompatibilityTest::test_numpy_and_missing_values_become_plain_json_values 
+tests/inference/test_assembler_boundaries.py::JsonCompatibilityTest::test_numpy_and_missing_values_become_plain_json_values PASSED [ 30%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_absent_merchant_is_null_in_the_model_vector PASSED [ 31%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_absent_merchant_must_not_receive_merchant_values 
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_absent_merchant_must_not_receive_merchant_values PASSED [ 32%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_absent_timestamp_is_missing_even_for_a_nullable_column PASSED [ 34%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_every_missing_column_is_reported_in_contract_order PASSED [ 35%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_feature_timestamp_is_the_oldest_contributing_timestamp PASSED [ 37%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_null_is_missing_only_for_non_nullable_columns PASSED [ 38%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_timestamps_without_a_usable_offset_violate_the_contract 
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_timestamps_without_a_usable_offset_violate_the_contract PASSED [ 40%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_timezone_offsets_are_compared_as_instants PASSED [ 41%]
+tests/inference/test_assembler_boundaries.py::AssembleContractTest::test_unknown_or_absent_columns_violate_the_contract PASSED [ 42%]
+tests/inference/test_app_error_paths.py::DependencyFailureMappingTest::test_feature_failures_keep_their_status_and_retry_semantics 
+tests/inference/test_app_error_paths.py::DependencyFailureMappingTest::test_feature_failures_keep_their_status_and_retry_semantics PASSED [ 44%]
+tests/inference/test_app_error_paths.py::DependencyFailureMappingTest::test_model_failures_keep_their_status_and_retry_semantics 
+tests/inference/test_app_error_paths.py::DependencyFailureMappingTest::test_model_failures_keep_their_status_and_retry_semantics PASSED [ 45%]
+tests/inference/test_app_error_paths.py::DependencyFailureMappingTest::test_public_failure_message_hides_the_backend_exception PASSED [ 47%]
+tests/inference/test_app_error_paths.py::UnexpectedExceptionTest::test_unexpected_exception_is_sanitized_to_internal_error PASSED [ 48%]
+tests/inference/test_app_error_paths.py::RequestParsingTest::test_malformed_json_is_a_structured_validation_error PASSED [ 50%]
+tests/inference/test_app_error_paths.py::RequestParsingTest::test_validation_failure_is_counted_once PASSED [ 51%]
+tests/inference/test_app_error_paths.py::CorrelationIdTest::test_absent_or_unsafe_identifiers_are_replaced 
+tests/inference/test_app_error_paths.py::CorrelationIdTest::test_absent_or_unsafe_identifiers_are_replaced PASSED [ 52%]
+tests/inference/test_app_error_paths.py::CorrelationIdTest::test_requests_are_served_when_opentelemetry_is_not_installed PASSED [ 54%]
+tests/inference/test_app_error_paths.py::CorrelationIdTest::test_valid_identifiers_are_preserved_up_to_the_length_boundary 
+tests/inference/test_app_error_paths.py::CorrelationIdTest::test_valid_identifiers_are_preserved_up_to_the_length_boundary PASSED [ 55%]
+tests/inference/test_app_error_paths.py::ProductionWiringTest::test_default_telemetry_is_used_when_none_is_injected PASSED [ 57%]
+tests/inference/test_app_error_paths.py::ProductionWiringTest::test_explicit_settings_compose_real_adapters PASSED [ 58%]
+tests/inference/test_app_error_paths.py::ProductionWiringTest::test_missing_settings_are_read_from_the_environment PASSED [ 60%]
+tests/inference/test_feast_online_failures.py::ConstructionTest::test_non_positive_staleness_is_rejected PASSED [ 61%]
+tests/inference/test_feast_online_failures.py::ConstructionTest::test_timeout_must_be_finite_and_bounded 
+tests/inference/test_feast_online_failures.py::ConstructionTest::test_timeout_must_be_finite_and_bounded PASSED [ 62%]
+tests/inference/test_feast_online_failures.py::ConstructionTest::test_timeout_upper_bound_is_inclusive PASSED [ 64%]
+tests/inference/test_feast_online_failures.py::TimestampParsingTest::test_numeric_and_aware_values_become_utc PASSED [ 65%]
+tests/inference/test_feast_online_failures.py::TimestampParsingTest::test_unusable_values_are_rejected 
+tests/inference/test_feast_online_failures.py::TimestampParsingTest::test_unusable_values_are_rejected PASSED [ 67%]
+tests/inference/test_feast_online_failures.py::BackendTimeoutDetectionTest::test_direct_and_chained_timeouts_are_found PASSED [ 68%]
+tests/inference/test_feast_online_failures.py::BackendTimeoutDetectionTest::test_exception_cycles_terminate PASSED [ 70%]
+tests/inference/test_feast_online_failures.py::BackendTimeoutDetectionTest::test_redis_timeout_is_recognized_by_origin PASSED [ 71%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_absent_timestamp_key_is_reported_as_missing PASSED [ 72%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_entity_without_a_value_is_only_allowed_for_merchant PASSED [ 74%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_every_column_of_an_unknown_entity_is_reported PASSED [ 75%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_every_column_without_a_timestamp_key_is_reported PASSED [ 77%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_every_column_without_a_value_is_reported PASSED [ 78%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_every_required_null_value_is_reported PASSED [ 80%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_every_stale_column_is_reported PASSED [ 81%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_feature_written_at_the_event_instant_is_not_future PASSED [ 82%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_freshness_records_the_oldest_observed_age PASSED [ 84%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_non_mapping_response_violates_the_contract PASSED [ 85%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_null_merchant_skips_the_merchant_view PASSED [ 87%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_scalar_feature_shape_is_reported_as_missing PASSED [ 88%]
+tests/inference/test_feast_online_failures.py::FeatureRetrievalContractTest::test_staleness_boundary_is_inclusive PASSED [ 90%]
+tests/inference/test_feast_online_failures.py::BoundedExecutionTest::test_hung_store_call_times_out PASSED [ 91%]
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_probe_failures_are_classified 
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_probe_failures_are_classified PASSED [ 92%]
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_probe_requests_the_same_response_shape_as_serving PASSED [ 94%]
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_probe_response_must_be_a_mapping PASSED [ 95%]
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_probe_uses_sentinel_entities_for_every_view PASSED [ 97%]
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_registry_failures_are_classified 
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_registry_failures_are_classified PASSED [ 98%]
+tests/inference/test_feast_online_failures.py::ReadinessTest::test_registry_must_expose_exactly_the_contract_views PASSED [100%]
+
+- generated xml file: /home/huyy-giaa/Develop/ewallet-b1-evidence/results/equivalence-boundary/junit.xml -
+==================== 70 passed, 77 subtests passed in 5.24s ====================

@@ -1,0 +1,1099 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.22, pytest-9.2.0, pluggy-1.7.0
+rootdir: /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration
+plugins: locust-2.46.0, typeguard-4.6.0, platformdirs-4.12.4, cov-7.1.0, anyio-4.15.1, hypothesis-6.168.5
+collected 575 items
+
+tests/property/test_card_masking_regression.py ......................... [  4%]
+........................................................................ [ 16%]
+........................................................................ [ 29%]
+........................................................................ [ 41%]
+........................................................................ [ 54%]
+........................................................................ [ 66%]
+................................................................         [ 78%]
+tests/property/test_coordinator_idempotency_properties.py .......        [ 79%]
+tests/property/test_derived_feature_properties.py .......                [ 80%]
+tests/property/test_failure_properties.py .........                      [ 82%]
+tests/property/test_feature_vector_properties.py ........                [ 83%]
+tests/property/test_idempotency_store_properties.py .................... [ 86%]
+.                                                                        [ 87%]
+tests/property/test_known_defects.py xxxxxxxxx....                       [ 89%]
+tests/property/test_prediction_properties.py .........                   [ 90%]
+tests/property/test_prompt_safety_properties.py ......................   [ 94%]
+tests/property/test_request_schema_properties.py ....................... [ 98%]
+...                                                                      [ 99%]
+tests/property/test_tool_idempotency_properties.py ....                  [100%]
+
+- generated xml file: /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration/docs/evidence/edai2/testing/head_property_20261108T082124Z/junit-b1-ci.xml -
+============================ Hypothesis Statistics =============================
+tests/property/test_card_masking_regression.py::test_any_valid_card_next_to_any_number_is_masked:
+
+  - during generate phase (0.11 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_any_grouped_card_next_to_any_number_is_masked:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_any_punctuated_card_next_to_any_number_is_masked:
+
+  - during generate phase (0.47 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 144 invalid test cases
+    - Events:
+      * 84.02%, Retried draw from ListStrategy(integers(0, 9), min_size=12, max_size=18).map(lambda digits: _card(digits, luhn_check_digit(digits))).filter(lambda card: len(card) == 16) to satisfy filter
+      * 72.16%, gave up because: Aborted test because unable to satisfy ListStrategy(integers(0, 9), min_size=12, max_size=18).map(lambda digits: _card(digits, luhn_check_digit(digits))).filter(lambda card: len(card) == 16)
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_any_grouped_number_failing_the_checksum_is_preserved:
+
+  - during generate phase (0.45 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 116 invalid test cases
+    - Events:
+      * 75.90%, Retried draw from builds(lambda digits, shift: _card(digits, (luhn_check_digit(digits) + shift) % 10), ListStrategy(integers(0, 9), min_size=12, max_size=18), integers(1, 9)).filter(lambda number: len(number) == 16) to satisfy filter
+      * 68.67%, gave up because: Aborted test because unable to satisfy builds(lambda digits, shift: _card(digits, (luhn_check_digit(digits) + shift) % 10), ListStrategy(integers(0, 9), min_size=12, max_size=18), integers(1, 9)).filter(lambda number: len(number) == 16)
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_thousands_grouped_amounts_are_preserved:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_decimal_amounts_are_preserved:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_all_digit_uuids_next_to_numbers_are_preserved:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_timestamps_next_to_numbers_are_preserved:
+
+  - during generate phase (0.04 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_digits_are_never_searched_inside_a_solid_number:
+
+  - during generate phase (0.09 seconds):
+    - Typical runtimes: ~ 0-2 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_card_masking_regression.py::test_masking_numbers_and_cards_is_idempotent:
+
+  - during generate phase (0.10 seconds):
+    - Typical runtimes: ~ 0-2 ms, of which ~ 0-2 ms in data generation
+    - 50 passing, 0 failing, and 5 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_coordinator_idempotency_properties.py::test_duplicates_replay_the_result_without_delegating_again:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_coordinator_idempotency_properties.py::test_a_reused_id_with_a_changed_payload_is_a_conflict:
+
+  - during generate phase (0.12 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 85 invalid test cases
+    - Events:
+      * 62.96%, Retried draw from TupleStrategy((FloatStrategy(min_value=0.01, max_value=1000000000.0, allow_nan=False, smallest_nonzero_magnitude=2.2250738585072014e-308), FloatStrategy(min_value=0.01, max_value=1000000000.0, allow_nan=False, smallest_nonzero_magnitude=2.2250738585072014e-308))).filter(lambda pair: key(pair[0]) != key(pair[1])) to satisfy filter
+      * 4.44%, gave up because: Aborted test because unable to satisfy TupleStrategy((FloatStrategy(min_value=0.01, max_value=1000000000.0, allow_nan=False, smallest_nonzero_magnitude=2.2250738585072014e-308), FloatStrategy(min_value=0.01, max_value=1000000000.0, allow_nan=False, smallest_nonzero_magnitude=2.2250738585072014e-308))).filter(lambda pair: key(pair[0]) != key(pair[1]))
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_coordinator_idempotency_properties.py::test_the_same_id_for_different_users_is_independent:
+
+  - during generate phase (0.13 seconds):
+    - Typical runtimes: ~ 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_coordinator_idempotency_properties.py::test_trusted_callers_have_separate_idempotency_scopes:
+
+  - during generate phase (0.10 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 67 invalid test cases
+    - Events:
+      * 65.81%, Retried draw from TupleStrategy((sampled_from(['caller-a', 'caller-b', 'caller-c']), sampled_from(['caller-a', 'caller-b', 'caller-c']))).filter(lambda pair: key(pair[0]) != key(pair[1])) to satisfy filter
+      * 7.69%, gave up because: Aborted test because unable to satisfy TupleStrategy((sampled_from(['caller-a', 'caller-b', 'caller-c']), sampled_from(['caller-a', 'caller-b', 'caller-c']))).filter(lambda pair: key(pair[0]) != key(pair[1]))
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_coordinator_idempotency_properties.py::test_a_lost_delegation_is_never_executed_twice:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_coordinator_idempotency_properties.py::test_cancellation_before_delegation_allows_a_clean_retry:
+
+  - during generate phase (0.05 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_coordinator_idempotency_properties.py::test_concurrent_duplicates_delegate_exactly_once:
+
+  - during generate phase (0.19 seconds):
+    - Typical runtimes: ~ 1-3 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_derived_feature_properties.py::test_safe_divide_matches_the_oracle_row_by_row:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 0-3 ms, of which ~ 0-2 ms in data generation
+    - 50 passing, 0 failing, and 8 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_derived_feature_properties.py::test_safe_divide_keeps_the_input_index:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 1-3 ms, of which ~ 0-2 ms in data generation
+    - 50 passing, 0 failing, and 7 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_derived_feature_properties.py::test_division_by_zero_is_missing_never_infinite:
+
+  - during generate phase (0.06 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+    - Events:
+      * 1.96%, Retried draw from FloatStrategy(min_value=-1000000000000.0, max_value=1000000000000.0, allow_nan=False, smallest_nonzero_magnitude=5e-324).filter(lambda value: value != 0) to satisfy filter
+      * 1.96%, gave up because: Aborted test because unable to satisfy FloatStrategy(min_value=-1000000000000.0, max_value=1000000000000.0, allow_nan=False, smallest_nonzero_magnitude=5e-324).filter(lambda value: value != 0)
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_derived_feature_properties.py::test_division_by_one_is_the_identity:
+
+  - during generate phase (0.06 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_derived_feature_properties.py::test_non_numeric_operands_become_missing:
+
+  - during generate phase (0.10 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 8 invalid test cases
+    - Events:
+      * 17.24%, Retried draw from FloatStrategy(min_value=-1000000000000.0, max_value=1000000000000.0, allow_nan=False, smallest_nonzero_magnitude=5e-324).filter(lambda value: value != 0) to satisfy filter
+      * 13.79%, gave up because: Aborted test because unable to satisfy FloatStrategy(min_value=-1000000000000.0, max_value=1000000000000.0, allow_nan=False, smallest_nonzero_magnitude=5e-324).filter(lambda value: value != 0)
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_derived_feature_properties.py::test_add_derived_features_preserves_the_frame:
+
+  - during generate phase (0.30 seconds):
+    - Typical runtimes: ~ 0-6 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 9 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_feature_faults_always_map_to_the_same_error:
+
+  - during generate phase (0.64 seconds):
+    - Typical runtimes: ~ 6-18 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_model_faults_always_map_to_the_same_error:
+
+  - during generate phase (1.79 seconds):
+    - Typical runtimes: ~ 14-72 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_a_failed_request_does_not_affect_the_next_one:
+
+  - during generate phase (1.71 seconds):
+    - Typical runtimes: ~ 27-37 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_a_model_failure_does_not_affect_the_next_request:
+
+  - during generate phase (1.33 seconds):
+    - Typical runtimes: ~ 21-30 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_error_bodies_never_echo_request_values:
+
+  - during generate phase (0.48 seconds):
+    - Typical runtimes: ~ 6-10 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_features_up_to_the_staleness_limit_are_served:
+
+  - during generate phase (0.84 seconds):
+    - Typical runtimes: ~ 12-19 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_features_beyond_the_staleness_limit_are_refused:
+
+  - during generate phase (0.45 seconds):
+    - Typical runtimes: ~ 6-10 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_failure_properties.py::test_features_newer_than_the_event_are_refused:
+
+  - during generate phase (0.43 seconds):
+    - Typical runtimes: ~ 6-9 ms, of which ~ 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_vector_keeps_the_frozen_order_values_and_formulas:
+
+  - during generate phase (0.61 seconds):
+    - Typical runtimes: ~ 9-11 ms, of which ~ 3-6 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_input_mapping_order_cannot_change_the_vector:
+
+  - during generate phase (0.89 seconds):
+    - Typical runtimes: ~ 14-22 ms, of which ~ 3-6 ms in data generation
+    - 50 passing, 0 failing, and 2 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_assembly_is_deterministic:
+
+  - during generate phase (0.82 seconds):
+    - Typical runtimes: ~ 14-17 ms, of which ~ 3-5 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_feature_timestamp_is_the_oldest_contribution:
+
+  - during generate phase (0.55 seconds):
+    - Typical runtimes: ~ 9-12 ms, of which ~ 3-5 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_merchant_columns_are_null_exactly_when_merchant_is_absent:
+
+  - during generate phase (0.60 seconds):
+    - Typical runtimes: ~ 9-11 ms, of which ~ 3-5 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_null_in_a_required_column_is_reported_by_name:
+
+  - during generate phase (0.28 seconds):
+    - Typical runtimes: ~ 4-6 ms, of which ~ 3-5 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_a_dropped_column_never_produces_a_vector:
+
+  - during generate phase (0.29 seconds):
+    - Typical runtimes: ~ 3-6 ms, of which ~ 3-5 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_feature_vector_properties.py::test_every_assembled_vector_encodes_to_41_ordered_inputs:
+
+  - during generate phase (0.54 seconds):
+    - Typical runtimes: ~ 9-11 ms, of which ~ 3-5 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_scope_key_is_stable_and_opaque:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 3 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_distinct_identities_never_share_a_key:
+
+  - during generate phase (0.13 seconds):
+    - Typical runtimes: ~ 1-2 ms, of which ~ 0-2 ms in data generation
+    - 50 passing, 0 failing, and 8 invalid test cases
+    - Events:
+      * 10.34%, Retried draw from TupleStrategy((TupleStrategy((<hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), <hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), text(characters(categories=(), include_characters='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'), min_size=1, max_size=64))), TupleStrategy((<hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), <hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), text(characters(categories=(), include_characters='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'), min_size=1, max_size=64))))).filter(lambda pair: key(pair[0]) != key(pair[1])) to satisfy filter
+      * 1.72%, gave up because: Aborted test because unable to satisfy TupleStrategy((TupleStrategy((<hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), <hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), text(characters(categories=(), include_characters='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'), min_size=1, max_size=64))), TupleStrategy((<hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), <hypothesis.strategies._internal.core.CompositeStrategy object at 0x73e41c5a8160>.filter(re.compile('[A-Za-z0-9][A-Za-z0-9_-]{0,31}').fullmatch), text(characters(categories=(), include_characters='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'), min_size=1, max_size=64))))).filter(lambda pair: key(pair[0]) != key(pair[1]))
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_request_id_length_is_bounded:
+
+  - during generate phase (0.06 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_request_ids_up_to_the_limit_are_accepted:
+
+  - during generate phase (0.02 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_path_traversal_is_refused_in_trusted_identities:
+
+  - during generate phase (0.13 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 2 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_owner_tokens_up_to_the_limit_are_accepted:
+
+  - during generate phase (0.02 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_owner_tokens_outside_the_limit_are_rejected:
+
+  - during generate phase (0.00 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 3 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because nothing left to do
+
+
+tests/property/test_idempotency_store_properties.py::test_an_expired_unstarted_claim_passes_to_the_next_owner:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_an_active_claim_has_one_owner:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_a_different_fingerprint_conflicts_in_every_live_state:
+
+  - during generate phase (0.12 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 81 invalid test cases
+    - Events:
+      * 61.83%, Retried draw from TupleStrategy((text(characters(categories=(), include_characters='0123456789abcdef'), min_size=64, max_size=64), text(characters(categories=(), include_characters='0123456789abcdef'), min_size=64, max_size=64))).filter(lambda pair: key(pair[0]) != key(pair[1])) to satisfy filter
+      * 0.76%, gave up because: Aborted test because unable to satisfy TupleStrategy((text(characters(categories=(), include_characters='0123456789abcdef'), min_size=64, max_size=64), text(characters(categories=(), include_characters='0123456789abcdef'), min_size=64, max_size=64))).filter(lambda pair: key(pair[0]) != key(pair[1]))
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_completed_results_replay_unchanged_until_the_ttl:
+
+  - during generate phase (0.08 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 14 invalid test cases
+    - Events:
+      * 28.12%, Retried draw from text(characters(categories=(), include_characters='abcdefghijklmnopqrstuvwxyz'), min_size=1, max_size=6).filter(not_yet_in_unique_list) to satisfy filter
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_completed_results_are_bounded:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_lease_durations_are_bounded:
+
+  - during generate phase (0.02 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_fingerprints_must_be_sha256_digests:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::test_concurrent_claims_elect_exactly_one_owner:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_idempotency_store_properties.py::TestIdempotencyStoreMachine::runTest:
+
+  - during generate phase (0.27 seconds):
+    - Typical runtimes: ~ 0-6 ms, of which ~ 0-4 ms in data generation
+    - 50 passing, 0 failing, and 8 invalid test cases
+    - Events:
+      * 87.93%, Retried draw from sampled_from([Rule(function=conflicting_claim_changes_nothing, _cached_hash=-1625108333842820160), Rule(function=read, _cached_hash=8220464702673819336), Rule(function=advance_clock, arguments={'milliseconds': integers(min_value=0, max_value=3000)}, _cached_hash=6468654519836998616, arguments_strategies={'milliseconds': integers(min_value=0, max_value=3000)}), Rule(function=mark_started, arguments={'claim': Bundle(name='claims')}, bundles=(Bundle(name='claims'),), _cached_hash=-382498690596871046, arguments_strategies={'claim': Bundle(name='claims')}), Rule(function=release_unstarted, arguments={'claim': Bundle(name='claims', consume=True)}, bundles=(Bundle(name='claims', consume=True),), _cached_hash=237425977149324189, arguments_strategies={'claim': Bundle(name='claims', consume=True)}), Rule(function=complete, arguments={'claim': Bundle(name='claims'), 'document': dictionaries(keys=text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=6), values=one_of(integers(), text(max_size=12), booleans()), max_size=4)}, bundles=(Bundle(name='claims'),), _cached_hash=-6136197317133327735, arguments_strategies={'claim': Bundle(name='claims'), 'document': dictionaries(keys=text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=6), values=one_of(integers(), text(max_size=12), booleans()), max_size=4)}), Rule(targets=('claims',), function=claim, _cached_hash=-8740934277070388102)]).filter(RuleStrategy(machine=IdempotencyStoreMachine({...}))._rule_is_enabled) to satisfy filter
+      * 5.17%, gave up because: Aborted test because unable to satisfy sampled_from([Rule(function=conflicting_claim_changes_nothing, _cached_hash=-1625108333842820160), Rule(function=read, _cached_hash=8220464702673819336), Rule(function=advance_clock, arguments={'milliseconds': integers(min_value=0, max_value=3000)}, _cached_hash=6468654519836998616, arguments_strategies={'milliseconds': integers(min_value=0, max_value=3000)}), Rule(function=mark_started, arguments={'claim': Bundle(name='claims')}, bundles=(Bundle(name='claims'),), _cached_hash=-382498690596871046, arguments_strategies={'claim': Bundle(name='claims')}), Rule(function=release_unstarted, arguments={'claim': Bundle(name='claims', consume=True)}, bundles=(Bundle(name='claims', consume=True),), _cached_hash=237425977149324189, arguments_strategies={'claim': Bundle(name='claims', consume=True)}), Rule(function=complete, arguments={'claim': Bundle(name='claims'), 'document': dictionaries(keys=text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=6), values=one_of(integers(), text(max_size=12), booleans()), max_size=4)}, bundles=(Bundle(name='claims'),), _cached_hash=-6136197317133327735, arguments_strategies={'claim': Bundle(name='claims'), 'document': dictionaries(keys=text(alphabet='abcdefghijklmnopqrstuvwxyz', min_size=1, max_size=6), values=one_of(integers(), text(max_size=12), booleans()), max_size=4)}), Rule(targets=('claims',), function=claim, _cached_hash=-8740934277070388102)]).filter(RuleStrategy(machine=IdempotencyStoreMachine({...}))._rule_is_enabled)
+      * 1.72%, Retried draw from text(characters(categories=(), include_characters='abcdefghijklmnopqrstuvwxyz'), min_size=1, max_size=6).filter(not_yet_in_unique_list) to satisfy filter
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_valid_requests_produce_a_bounded_prediction:
+
+  - during generate phase (0.67 seconds):
+    - Typical runtimes: ~ 9-14 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_feature_timestamp_is_the_stored_feature_time:
+
+  - during generate phase (0.63 seconds):
+    - Typical runtimes: ~ 8-14 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_invalid_requests_are_rejected_before_scoring:
+
+  - during generate phase (0.21 seconds):
+    - Typical runtimes: ~ 2-4 ms, of which ~ 1-2 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_repeating_a_request_returns_an_identical_response:
+
+  - during generate phase (1.92 seconds):
+    - Typical runtimes: ~ 19-72 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_correlation_id_is_the_only_field_that_varies:
+
+  - during generate phase (1.09 seconds):
+    - Typical runtimes: ~ 18-24 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_the_same_instant_in_another_offset_scores_identically:
+
+  - during generate phase (1.18 seconds):
+    - Typical runtimes: ~ 18-28 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_reused_transaction_id_is_scored_independently:
+
+  - during generate phase (1.83 seconds):
+    - Typical runtimes: ~ 28-40 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_concurrent_identical_requests_agree_and_keep_their_correlation:
+
+  - during generate phase (1.44 seconds):
+    - Typical runtimes: ~ 14-55 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prediction_properties.py::test_concurrent_distinct_requests_match_their_sequential_results:
+
+  - during generate phase (3.73 seconds):
+    - Typical runtimes: ~ 34-110 ms, of which ~ 1-7 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_text_without_pii_is_unchanged:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_luhn_valid_cards_are_masked:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_separators_do_not_hide_a_card:
+
+  - during generate phase (0.06 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_numbers_failing_the_checksum_are_not_cards:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_emails_are_masked:
+
+  - during generate phase (0.04 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_vietnamese_mobile_numbers_are_masked:
+
+  - during generate phase (0.09 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_every_detection_is_counted:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 1-3 ms, of which ~ 0-2 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_uuids_used_by_the_intake_are_preserved:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_timestamps_used_by_the_intake_are_preserved:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_masking_is_idempotent_and_counts_stay_zero_on_masked_text:
+
+  - during generate phase (0.10 seconds):
+    - Typical runtimes: ~ 0-2 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_screening_arbitrary_text_is_total_and_deterministic:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_a_phone_followed_by_a_separate_digit_is_masked:
+
+  - during generate phase (0.05 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_a_phone_glued_to_a_word_is_masked:
+
+  - during generate phase (0.05 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_an_email_followed_by_a_digit_is_masked:
+
+  - during generate phase (0.04 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_a_separator_between_every_phone_digit_does_not_hide_it:
+
+  - during generate phase (0.04 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_invisible_characters_do_not_hide_a_value:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_full_width_forms_do_not_hide_a_value:
+
+  - during generate phase (0.05 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_prompt_injection_wrappers_do_not_bypass_the_screen:
+
+  - during generate phase (0.05 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_digits_of_any_script_do_not_hide_a_phone:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_an_identifier_elsewhere_in_the_prompt_does_not_shield_a_phone:
+
+  - during generate phase (0.04 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_prompt_safety_properties.py::test_a_phone_right_after_a_timestamp_is_masked:
+
+  - during generate phase (0.04 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_valid_payload_is_accepted:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_request_time_features_are_the_four_contract_values:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[blank_account_id]:
+
+  - during generate phase (0.18 seconds):
+    - Typical runtimes: ~ 1-2 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[blank_device_id]:
+
+  - during generate phase (0.15 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[blank_transaction_id]:
+
+  - during generate phase (0.20 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 2 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[blank_user_id]:
+
+  - during generate phase (0.15 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[missing_required_field]:
+
+  - during generate phase (0.15 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[naive_timestamp]:
+
+  - during generate phase (0.21 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[non_finite_amount]:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 2 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[non_positive_amount]:
+
+  - during generate phase (0.21 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[oversized_account_id]:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[oversized_device_id]:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[oversized_transaction_id]:
+
+  - during generate phase (0.22 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 1ms in data generation
+    - 50 passing, 0 failing, and 3 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[oversized_user_id]:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[payment_without_merchant]:
+
+  - during generate phase (0.13 seconds):
+    - Typical runtimes: ~ 2ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[transfer_without_counterparty]:
+
+  - during generate phase (0.18 seconds):
+    - Typical runtimes: ~ 2ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[unknown_channel]:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[unknown_field]:
+
+  - during generate phase (0.20 seconds):
+    - Typical runtimes: ~ 2ms, of which ~ 0-1 ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[unknown_type]:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_every_invalid_partition_is_rejected[unsupported_currency]:
+
+  - during generate phase (0.16 seconds):
+    - Typical runtimes: ~ 2-3 ms, of which ~ 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_json_round_trip_preserves_the_request:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_surrounding_whitespace_never_changes_an_identifier:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_requests_are_immutable:
+
+  - during generate phase (0.13 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_probabilities_inside_the_unit_interval_are_accepted:
+
+  - during generate phase (0.02 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_probabilities_outside_the_unit_interval_are_rejected:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 18 invalid test cases
+    - Events:
+      * 26.47%, gave up because: failed to satisfy assume() in test_probabilities_outside_the_unit_interval_are_rejected (line 90)
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_request_schema_properties.py::test_predictions_are_binary:
+
+  - during generate phase (0.03 seconds):
+    - Typical runtimes: < 1ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 1 invalid test cases
+    - Events:
+      * 1.96%, Retried draw from integers().filter(lambda value: value not in (0, 1)) to satisfy filter
+      * 1.96%, gave up because: Aborted test because unable to satisfy integers().filter(lambda value: value not in (0, 1))
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_tool_idempotency_properties.py::test_feature_lookup_is_repeatable_and_projects_the_request:
+
+  - during generate phase (0.15 seconds):
+    - Typical runtimes: ~ 0-2 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 34 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_tool_idempotency_properties.py::test_fraud_scoring_is_repeatable:
+
+  - during generate phase (0.08 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_tool_idempotency_properties.py::test_knowledge_search_is_repeatable:
+
+  - during generate phase (0.11 seconds):
+    - Typical runtimes: ~ 1-2 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 0 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+tests/property/test_tool_idempotency_properties.py::test_unknown_features_are_rejected_deterministically:
+
+  - during generate phase (0.07 seconds):
+    - Typical runtimes: ~ 0-1 ms, of which < 1ms in data generation
+    - 50 passing, 0 failing, and 8 invalid test cases
+
+  - Stopped because settings.max_examples=50
+
+
+======================= 566 passed, 9 xfailed in 35.89s ========================

@@ -7,6 +7,18 @@ This report describes how the platform is tested:
 - how they run in Jenkins;
 - what the recorded executions show.
 
+## Rubric rows 28–32
+
+Each row has its own document with the evidence, results and limitations. This page keeps the overall strategy and the Jenkins execution.
+
+| Row | Technique | Document | Headline result |
+|---|---|---|---|
+| 28 | Unit tests, coverage > 90 %, Web API, fixtures, mocks | [ROW_28_UNIT_TEST_COVERAGE.md](ROW_28_UNIT_TEST_COVERAGE.md) | 99.03 % at `281db72`; 91.90 % at HEAD |
+| 29 | Equivalence partitioning and boundary values | [ROW_29_EQUIVALENCE_BOUNDARY.md](ROW_29_EQUIVALENCE_BOUNDARY.md) | 70 tests, 77 subtests, green |
+| 30 | Mutation testing (mutmut) | [ROW_30_MUTATION_TESTING.md](ROW_30_MUTATION_TESTING.md) | Actionable 94.69 % (B1), 91.44 % (integrated) |
+| 31 | Property-based idempotency (Hypothesis) | [ROW_31_PROPERTY_BASED_IDEMPOTENCY.md](ROW_31_PROPERTY_BASED_IDEMPOTENCY.md) | 551 passed (B1), 566 passed (HEAD) |
+| 32 | Locust load test of the Web API | [ROW_32_LOCUST_GKE.md](ROW_32_LOCUST_GKE.md) | GKE in-cluster, 103,977 requests, 0 failures |
+
 ## 1. Testing strategy
 
 The repository is split by domain. Each domain is a separately locked Python project:

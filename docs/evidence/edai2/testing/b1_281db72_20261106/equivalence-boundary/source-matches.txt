@@ -1,0 +1,44 @@
+tests/inference/support.py-175-    """KServe V2 transport scoring requests with a hash of their inputs.
+tests/inference/support.py-176-
+tests/inference/support.py-177-    ``correlation_faults`` selects a failure by correlation id, because that is
+tests/inference/support.py:178:    the only caller-controlled value that reaches the model boundary.
+tests/inference/support.py-179-    ``latency_seconds`` is an optional model delay for load profiles.
+tests/inference/support.py-180-    """
+tests/inference/support.py-181-
+--
+tests/quality/test_mutation_report.py-63-            ),
+tests/quality/test_mutation_report.py-64-        )
+tests/quality/test_mutation_report.py-65-
+tests/quality/test_mutation_report.py:66:    def test_equivalence_only_shrinks_the_actionable_denominator(self):
+tests/quality/test_mutation_report.py-67-        self.assertAlmostEqual(1 / 6, self.summary.raw_score)
+tests/quality/test_mutation_report.py-68-        self.assertAlmostEqual(1 / 5, self.summary.actionable_score)
+tests/quality/test_mutation_report.py-69-
+--
+tests/inference/test_assembler_boundaries.py:1:"""Boundary behaviour of online feature assembly beyond the happy path."""
+tests/inference/test_assembler_boundaries.py-2-
+tests/inference/test_assembler_boundaries.py-3-from __future__ import annotations
+tests/inference/test_assembler_boundaries.py-4-
+--
+tests/inference/test_config_boundaries.py-163-                            self.environment(**{name: value})
+tests/inference/test_config_boundaries.py-164-                        )
+tests/inference/test_config_boundaries.py-165-
+tests/inference/test_config_boundaries.py:166:    def test_model_identity_length_boundary(self):
+tests/inference/test_config_boundaries.py-167-        accepted = InferenceSettings.from_env(
+tests/inference/test_config_boundaries.py-168-            self.environment(
+tests/inference/test_config_boundaries.py-169-                EWALLET_MODEL_NAME="m" * 128, EWALLET_MODEL_VERSION="v" * 128
+--
+tests/inference/test_app_error_paths.py-187-
+tests/inference/test_app_error_paths.py-188-
+tests/inference/test_app_error_paths.py-189-class CorrelationIdTest(unittest.TestCase):
+tests/inference/test_app_error_paths.py:190:    def test_valid_identifiers_are_preserved_up_to_the_length_boundary(self):
+tests/inference/test_app_error_paths.py-191-        for value in ("a", "A.b_c:d-1", "x" * 128):
+tests/inference/test_app_error_paths.py-192-            with self.subTest(value=value):
+tests/inference/test_app_error_paths.py-193-                self.assertEqual(value, normalize_correlation_id(value))
+--
+tests/inference/test_feast_online_failures.py-217-            asyncio.run(adapter(store).get_features(_recent(request())))
+tests/inference/test_feast_online_failures.py-218-        self.assertEqual(USER_COLUMNS, raised.exception.feature_names)
+tests/inference/test_feast_online_failures.py-219-
+tests/inference/test_feast_online_failures.py:220:    def test_staleness_boundary_is_inclusive(self):
+tests/inference/test_feast_online_failures.py-221-        at_limit = _at(FEATURE_TIME + DEFAULT_MAX_STALENESS)
+tests/inference/test_feast_online_failures.py-222-        result = asyncio.run(adapter(EntityFeatureStore()).get_features(at_limit))
+tests/inference/test_feast_online_failures.py-223-        self.assertEqual(31, len(result.values))

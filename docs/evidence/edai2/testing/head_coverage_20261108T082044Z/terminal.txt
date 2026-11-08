@@ -1,0 +1,88 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.22, pytest-9.2.0, pluggy-1.7.0
+rootdir: /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration
+plugins: locust-2.46.0, typeguard-4.6.0, platformdirs-4.12.4, cov-7.1.0, anyio-4.15.1, hypothesis-6.168.5
+collected 256 items
+
+tests/inference/test_ab_router.py .........................              [  9%]
+tests/inference/test_app_error_paths.py ............                     [ 14%]
+tests/inference/test_assembler.py ..----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 51900)
+....                                 [ 16%]
+tests/inference/test_assembler_boundaries.py ........Traceback (most recent call last):
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/socketserver.py", line 683, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/socketserver.py", line 360, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/socketserver.py", line 747, in __init__
+    self.handle()
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/http/server.py", line 437, in handle
+    self.handle_one_request()
+  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/http/server.py", line 425, in handle_one_request
+    method()
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration/tests/inference/test_ab_router.py", line 141, in do_POST
+    self._send(200, {
+  File "/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration/tests/inference/test_ab_router.py", line 122, in _send
+    self.wfile.write(raw)
+.  File "/home/huyy-giaa/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/socketserver.py", line 826, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+.......            [ 23%]
+tests/inference/test_config_boundaries.py ..............                 [ 28%]
+tests/inference/test_contracts_and_schemas.py ..........                 [ 32%]
+tests/inference/test_feast_online.py ................                    [ 38%]
+tests/inference/test_feast_online_failures.py .......................... [ 48%]
+..                                                                       [ 49%]
+tests/inference/test_feature_api.py ................                     [ 55%]
+tests/inference/test_kserve.py ............                              [ 60%]
+tests/inference/test_kserve_failures.py .............................    [ 71%]
+tests/inference/test_observability.py ...............                    [ 77%]
+tests/inference/test_server_entrypoint.py .........                      [ 81%]
+tests/inference/test_service_and_app.py ............                     [ 85%]
+tests/inference/test_service_failures.py ......                          [ 88%]
+tests/inference/test_vault.py ................                           [ 94%]
+tests/inference/test_wire_contract.py ..............                     [100%]
+
+=============================== warnings summary ===============================
+../../../../.cache/ewallet-g0-venvs/ai_platform_inference_base/lib/python3.10/site-packages/google/api_core/_python_version_support.py:212
+  /home/huyy-giaa/.cache/ewallet-g0-venvs/ai_platform_inference_base/lib/python3.10/site-packages/google/api_core/_python_version_support.py:212: FutureWarning: You are using a non-supported Python version (3.10.22). Google will not post any further updates to google.api_core supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.11, and then update google.api_core.
+    warnings.warn(message, FutureWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration/docs/evidence/edai2/testing/head_coverage_20261108T082044Z/junit.xml -
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.10.22-final-0 _______________
+
+Name                                      Stmts   Miss Branch BrPart   Cover   Missing
+--------------------------------------------------------------------------------------
+ai_platform/features/feast/schema.py          3      0      0      0 100.00%
+ai_platform/inference/__init__.py             0      0      0      0 100.00%
+ai_platform/inference/ab_assignment.py       42      4     16      4  86.21%   38, 43, 64, 71
+ai_platform/inference/ab_router.py          116      5     18      2  94.78%   126, 134-135, 137, 234
+ai_platform/inference/ab_telemetry.py        32     23      4      0  25.00%   18-26, 36-51, 55, 59, 64-67
+ai_platform/inference/app.py                 78      5      6      1  90.48%   66-79
+ai_platform/inference/assembler.py           97      1     40      1  98.54%   142
+ai_platform/inference/config.py              90      0     28      0 100.00%
+ai_platform/inference/contracts.py           19      0     10      0 100.00%
+ai_platform/inference/errors.py              67      0      0      0 100.00%
+ai_platform/inference/feast_online.py       194     11     68      2  94.27%   139->144, 225, 264-265, 268-283
+ai_platform/inference/feature_app.py        104     20      8      2  78.57%   71-75, 79-80, 100-106, 111-115, 158-159, 180
+ai_platform/inference/feature_server.py      21     21      2      0   0.00%   7-46
+ai_platform/inference/http_common.py         13      0      2      0 100.00%
+ai_platform/inference/kserve.py             163      0     48      0 100.00%
+ai_platform/inference/observability.py      111      0      6      0 100.00%
+ai_platform/inference/schemas.py            122      0      8      0 100.00%
+ai_platform/inference/server.py              43      2      8      2  92.16%   45, 91
+ai_platform/inference/service.py             47      0      2      0 100.00%
+ai_platform/inference/vault.py              157     28     36      2  80.31%   59, 71-85, 89-97, 218, 282-287
+ai_platform/inference/wire.py                78      0     42      0 100.00%
+ai_platform/ml/training/contract.py          19      2      4      2  82.61%   91, 93
+ai_platform/ml/training/derived.py           27      1      2      1  93.10%   48
+--------------------------------------------------------------------------------------
+TOTAL                                      1643    123    358     19  91.90%
+Coverage HTML written to dir /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration/docs/evidence/edai2/testing/head_coverage_20261108T082044Z/html
+Coverage XML written to file /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration/docs/evidence/edai2/testing/head_coverage_20261108T082044Z/coverage.xml
+Coverage JSON written to file /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/main-integration/docs/evidence/edai2/testing/head_coverage_20261108T082044Z/coverage.json
+Required test coverage of 90.0% reached. Total coverage: 91.90%
+======================== 256 passed, 1 warning in 8.64s ========================

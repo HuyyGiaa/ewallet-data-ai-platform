@@ -1,0 +1,60 @@
+Using CPython 3.10.22
+Creating virtual environment at: ai_platform/inference/.venv
+Installed 121 packages in 26ms
+============================= test session starts ==============================
+platform linux -- Python 3.10.22, pytest-9.2.0, pluggy-1.7.0
+rootdir: /home/huyy-giaa/Develop/ewallet-b1-evidence/source
+plugins: typeguard-4.6.0, platformdirs-4.12.4, cov-7.1.0, anyio-4.15.1, hypothesis-6.168.5
+collected 199 items
+
+tests/inference/test_app_error_paths.py ............                     [  6%]
+tests/inference/test_assembler.py ......                                 [  9%]
+tests/inference/test_assembler_boundaries.py ................            [ 17%]
+tests/inference/test_config_boundaries.py ..............                 [ 24%]
+tests/inference/test_contracts_and_schemas.py ..........                 [ 29%]
+tests/inference/test_feast_online.py ................                    [ 37%]
+tests/inference/test_feast_online_failures.py .......................... [ 50%]
+..                                                                       [ 51%]
+tests/inference/test_kserve.py ............                              [ 57%]
+tests/inference/test_kserve_failures.py .............................    [ 71%]
+tests/inference/test_observability.py ...............                    [ 79%]
+tests/inference/test_server_entrypoint.py .........                      [ 83%]
+tests/inference/test_service_and_app.py ............                     [ 89%]
+tests/inference/test_service_failures.py ......                          [ 92%]
+tests/inference/test_wire_contract.py ..............                     [100%]
+
+=============================== warnings summary ===============================
+ai_platform/inference/.venv/lib/python3.10/site-packages/google/api_core/_python_version_support.py:212
+  /home/huyy-giaa/Develop/ewallet-b1-evidence/source/ai_platform/inference/.venv/lib/python3.10/site-packages/google/api_core/_python_version_support.py:212: FutureWarning: You are using a non-supported Python version (3.10.22). Google will not post any further updates to google.api_core supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.11, and then update google.api_core.
+    warnings.warn(message, FutureWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /home/huyy-giaa/Develop/ewallet-b1-evidence/results/coverage/junit.xml -
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.10.22-final-0 _______________
+
+Name                                     Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------
+ai_platform/features/feast/schema.py         3      0      0      0 100.00%
+ai_platform/inference/__init__.py            0      0      0      0 100.00%
+ai_platform/inference/app.py                76      0      4      0 100.00%
+ai_platform/inference/assembler.py          97      1     40      1  98.54%   142
+ai_platform/inference/config.py             86      0     28      0 100.00%
+ai_platform/inference/contracts.py          19      0     10      0 100.00%
+ai_platform/inference/errors.py             67      0      0      0 100.00%
+ai_platform/inference/feast_online.py      175      1     66      2  98.76%   130->135, 210
+ai_platform/inference/kserve.py            163      0     48      0 100.00%
+ai_platform/inference/observability.py     111      0      6      0 100.00%
+ai_platform/inference/schemas.py            78      0      4      0 100.00%
+ai_platform/inference/server.py             40      1      6      1  95.65%   82
+ai_platform/inference/service.py            38      0      0      0 100.00%
+ai_platform/inference/wire.py               78      0     42      0 100.00%
+ai_platform/ml/training/contract.py         19      2      4      2  82.61%   91, 93
+ai_platform/ml/training/derived.py          27      1      2      1  93.10%   48
+-------------------------------------------------------------------------------------
+TOTAL                                     1077      6    260      7  99.03%
+Coverage HTML written to dir /home/huyy-giaa/Develop/ewallet-b1-evidence/results/coverage/html
+Coverage XML written to file /home/huyy-giaa/Develop/ewallet-b1-evidence/results/coverage/coverage.xml
+Coverage JSON written to file /home/huyy-giaa/Develop/ewallet-b1-evidence/results/coverage/coverage.json
+Required test coverage of 90.0% reached. Total coverage: 99.03%
+======================== 199 passed, 1 warning in 8.52s ========================
