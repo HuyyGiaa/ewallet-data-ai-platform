@@ -21,6 +21,8 @@ The overall architecture, with numbered data and investigation flows, is in the 
 | Coordinator and specialist agents, MCP tools, Agent Registry, MCP/A2A gateways, scaling, sandbox pilot | [Agents, MCP Tools, Registry and Gateways](agents/AGENTS_REGISTRY_GATEWAYS.md) |
 | RAG ingestion, retrieval and governance | [RAG Knowledge Pipeline](rag/RAG_PIPELINE.md) |
 | Test strategy and Jenkins test results | [Testing and Continuous Verification](testing/TESTING.md) |
+| Testing rubric rows 28–32 (coverage, partitions, mutation, properties, Locust) | [Row 28](testing/ROW_28_UNIT_TEST_COVERAGE.md), [Row 29](testing/ROW_29_EQUIVALENCE_BOUNDARY.md), [Row 30](testing/ROW_30_MUTATION_TESTING.md), [Row 31](testing/ROW_31_PROPERTY_BASED_IDEMPOTENCY.md), [Row 32](testing/ROW_32_LOCUST_GKE.md) |
+| KEDA autoscaling of the Feature and Fraud APIs (G5-B) | [Serving Autoscaling with KEDA](mlops/SERVING_AUTOSCALING_KEDA.md) |
 | Jenkins pipelines and continuous delivery | [CI/CD with Jenkins](cicd/CICD.md) |
 | Metrics, logs, traces, LLM and agent telemetry | [Observability](observability/OBSERVABILITY.md) |
 | Terraform, access control, network security, secrets | [Platform Infrastructure and Security](platform/GATEWAY_IAC_SECURITY_AB.md) |

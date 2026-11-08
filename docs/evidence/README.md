@@ -17,6 +17,8 @@ existing locations remain authoritative until a later owner-approved Phase B1.
 | EDAI-2 | [EDAI-2 documentation and evidence links](../edai2/README.md) | Mixed historical/partial/current artifacts |
 | Rubric | [Rubric audit](../rubric/rubric_audit.md) | Point-in-time crosswalk |
 | Migration planning | `docs/migration/evidence/` | Phase B0 mapping only; not migrated |
+| EDAI-2 testing runs | [edai2/testing/README.md](edai2/testing/README.md) | Rows 28–31 raw results with provenance |
+| EDAI-2 testing and KEDA screenshots | [testing](edai2/screenshots/testing/EVIDENCE_MANIFEST.md), [keda](edai2/screenshots/keda/EVIDENCE_MANIFEST.md) | Owner captures, SHA-256 verified |
 
 ## Approved future taxonomy
 

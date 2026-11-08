@@ -72,10 +72,10 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | 25 | 2 | Coordinator multi-replica + auto-scale | Registry + replicas + scale test image + kagent chat | PARTIAL | [AGENTS §5–6](agents/AGENTS_REGISTRY_GATEWAYS.md#4-deployment-and-configuration) | raw transcript 01; genuine UI runtime/09–10 and agents/07–08 | RUNTIME_EVIDENCE_MISSING (KEDA LOCAL_VALIDATED on a stand-in pod; scale test not run; P-A4) |
 | 26 | 2 | Publish Coordinator to registry | same | COMPLETE | [AGENTS §3](agents/AGENTS_REGISTRY_GATEWAYS.md#5-agent-registry) | agents/02 | Metadata wording (note) |
 | 27 | 2 | Warm pool / Substrate | Substrate code + image of many agents on few workers | PARTIAL | [AGENTS §9](agents/AGENTS_REGISTRY_GATEWAYS.md#8-sandbox-and-warm-worker-pool-pilot) | raw transcript 03 only | RUNTIME_EVIDENCE_MISSING (literal image) |
-| 28 | 1 | Coverage > 90 % with Web API, fixture, mock | Test results + link | LOCAL_VALIDATED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | Jenkins JUnit (N9); B1 coverage 91.90 % local, scope: the Fraud API request path only (`tests/quality/coverage.ini`) | RUNTIME_EVIDENCE_MISSING (owner B1 run, `scripts/testing/run_coverage.sh`) |
-| 29 | 2 | Equivalence partitioning / boundary values | same | PARTIAL | [TESTING §2](testing/TESTING.md#3-test-design) | partition tests run in N9 CI; B1 boundary suites LOCAL_VALIDATED | SCREENSHOT_MISSING |
-| 30 | 2 | Mutation testing (mutmut) | same | SOURCE_IMPLEMENTED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | B1 mutmut scope and report tooling; tooling tests pass; no mutation run yet | RUNTIME_EVIDENCE_MISSING (owner B1 run; equivalent mutants to re-review after integration) |
-| 31 | 2 | Property-based idempotency | same | LOCAL_VALIDATED | [B1 testing quality](testing/B1_TESTING_QUALITY.md) | B1 Hypothesis suites for idempotency, schemas and masking pass locally | RUNTIME_EVIDENCE_MISSING (owner B1 run with the `b1-thorough` profile) |
+| 28 | 1 | Coverage > 90 % with Web API, fixture, mock | Test results + link | COMPLETE | [Row 28](testing/ROW_28_UNIT_TEST_COVERAGE.md) | 99.03 % at B1 commit `281db72` (owner screenshots testing/28_01–02); 91.90 % on integration HEAD `d388bd9` (raw run); Web API, fixtures and mocks linked | Feature API and Vault modules near 80 % (follow-up) |
+| 29 | 2 | Equivalence partitioning / boundary values | same | COMPLETE | [Row 29](testing/ROW_29_EQUIVALENCE_BOUNDARY.md) | 70 tests, 77 parametrized subtests; pass at `281db72` (testing/29_01–05) and at HEAD | Screenshot 29_03 shows a partial command line (documented) |
+| 30 | 2 | Mutation testing (mutmut) | same | PARTIAL | [Row 30](testing/ROW_30_MUTATION_TESTING.md) | mutmut actionable 94.69 % (raw 90.87 %) at `281db72` (testing/30_01–02); actionable 91.44 % on integrated `cceb274` | "Mutate only changed code" is a reviewed fixed module list, not a per-push diff; not a CI stage |
+| 31 | 2 | Property-based idempotency | same | COMPLETE | [Row 31](testing/ROW_31_PROPERTY_BASED_IDEMPOTENCY.md) | Hypothesis: 551 passed at `281db72` with 50 and 300 examples (testing/31_01–03); 566 passed at HEAD | CrossHair (optional in the rubric) not used |
 | 32 | 2 | Locust load test HTML | same | CLOUD_VERIFIED | [Row 32 on GKE](testing/ROW_32_LOCUST_GKE.md) | G5-A: 8 in-cluster runs, 103,977 requests, 0 failures; Locust HTML reports and 2 rendered report screenshots | None |
 | 33 | 2 | CI/CD for RAG pipeline | Pipelines ran + steps + Jenkinsfile | COMPLETE | [CICD §3](cicd/CICD.md#4-continuous-delivery-of-the-rag-ingestion-pipeline) | CD #8 7 stages SUCCESS; cicd/07–09; rollback verified | — |
 | 34 | 2 | CI/CD MCP servers + data Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 agent-ci #2, negative #2; bounded CD SOURCE_IMPLEMENTED (C-B) | RUNTIME_EVIDENCE_MISSING (CD not executed; P1) |
@@ -128,10 +128,10 @@ Branch `integration/g0-20261107` merges B1, C-A, C-B, C-C and Session A on `orig
 | 18 | C-B | SOURCE_IMPLEMENTED | Client-side MCP failover only; service-level fallback not implemented | CLOUD_PENDING: P5 for the client side |
 | 19, 22, 25 | C-B, Session A | LOCAL_VALIDATED | Real KEDA 2.21 and Prometheus on kind, stand-in pod | CLOUD_PENDING: P4/P-A4 |
 | 20 | C-B | SOURCE_IMPLEMENTED | Staged SandboxAgent manifests, never booted | CLOUD_PENDING: P6 |
-| 28 | B1 | LOCAL_VALIDATED | 91.90 % on the Fraud API request path scope only | Owner B1 run |
-| 29 | B1 | LOCAL_VALIDATED | Boundary and partition suites | Screenshot |
-| 30 | B1 | SOURCE_IMPLEMENTED | mutmut scope and report tooling; no mutation run | Owner B1 run |
-| 31 | B1 | LOCAL_VALIDATED | Hypothesis property suites | Owner B1 run |
+| 28 | B1 | COMPLETE | 99.03 % at `281db72`; 91.90 % at HEAD, same scope file | None |
+| 29 | B1 | COMPLETE | Boundary and partition suites, owner screenshots | None |
+| 30 | B1, G2 | PARTIAL | mutmut runs above 80 % on B1 and integrated code | Diff-based selection in CI |
+| 31 | B1 | COMPLETE | Hypothesis properties, CI and thorough profiles | None |
 | 32 | B1, Session A, G5-A | CLOUD_VERIFIED | Real Feature and Fraud APIs on GKE, in-cluster Locust | None |
 | 34, 35 | C-B | SOURCE_IMPLEMENTED | Bounded Jenkins CD | CLOUD_PENDING: P1 |
 | 36 | C-A, C-B | LOCAL_VALIDATED | Streaming CD gate in Docker with the watermark fix | CLOUD_PENDING: P1 |
@@ -140,7 +140,7 @@ Branch `integration/g0-20261107` merges B1, C-A, C-B, C-C and Session A on `orig
 | 53 | C-C | LOCAL_VALIDATED | Qwen3 routing on CPU | CLOUD_PENDING: P10, blocked by GPU quota 0 |
 | 54 | C-C | LOCAL_VALIDATED | Real Vault on kind | CLOUD_PENDING: P7 |
 | Serving (Feature API, Fraud API) | Session A, G2 | CLOUD_VERIFIED | GKE 2026-11-07: dedicated Workload Identity proven on pods; Feature and Fraud E2E on Feast Online and KServe v1; 500/500 real-entity fixture (`docs/evidence/edai2/serving/pkg4_20261107T155413Z`) | Package 5: Locust, then KEDA |
-| Serving autoscaling (KEDA) | G5-B | DEPLOYED; owner experiment PENDING | KEDA 2.21 on GKE; ScaledObjects for the Feature API (60 req/s) and Fraud API (17 req/s), 1–3 replicas; R1 handover done; [page](mlops/SERVING_AUTOSCALING_KEDA.md) | Owner-run scale-out and scale-down experiment and screenshots |
+| Serving autoscaling (KEDA) | G5-B | CLOUD_VERIFIED (control loop); no throughput gain shown | KEDA 2.21 on GKE, owner-run 2026-11-08: Feature and Fraud APIs scaled 1 → 2 → 1 under real Locust load with 0 failures (first scale-out 69.5 s and 81.4 s; back to 1 in 137 s and 152.5 s); [page](mlops/SERVING_AUTOSCALING_KEDA.md) | Throughput unchanged (keep-alive connections stayed on the first pod); one run per arm; rows 19 and 25 (agent KEDA) remain G5-C |
 
 ## Reconciliation with the external N13 inventory (quality gate, 2026-11-04)
 

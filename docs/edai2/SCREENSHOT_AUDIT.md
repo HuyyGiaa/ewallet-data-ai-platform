@@ -168,3 +168,17 @@ Rows 3–7, 37–43, 54 and 55–57 require documents, configuration links or pr
 | `load/g5a_locust_inference_api_20_users.png` | NATIVE_UI (Locust HTML report) | 32 | `inference-incluster-high/report.html`, same method; SHA-256 `0f176859…` |
 
 These are renders of the report file Locust wrote in the run, not of recorded text. They are not additions to the N9–N13 curated totals above.
+
+## G5-B additions (2026-11-08)
+
+25 owner-captured screenshots of the KEDA serving experiments, copied unchanged into `docs/evidence/edai2/screenshots/keda/` (byte-identical to `~/Pictures/Screenshots/`; see its `EVIDENCE_MANIFEST.md` and `SHA256SUMS`).
+- **Classes:** REAL_TERMINAL (kubectl and the experiment script), NATIVE_UI (Prometheus, Grafana, Locust report in Chrome).
+- **Row mapping:** these support the serving-autoscaling line of the index, not rows 19 and 25 (agent KEDA).
+- **Caveat:** in G5B-09a and G5B-15a the Grafana p95 panels show a coarse-bucket artefact and are not latency evidence.
+
+## Testing additions (2026-11-08)
+
+12 owner-captured screenshots for rows 28–31, copied unchanged into `docs/evidence/edai2/screenshots/testing/` (see its `EVIDENCE_MANIFEST.md` and `SHA256SUMS`).
+- **Classes:** REAL_TERMINAL (pytest, mutmut, source listings) and NATIVE_UI (the coverage.py HTML report in Firefox).
+- **Code:** they show the B1 commit `281db72`, not HEAD; the HEAD reruns are raw files only.
+- **Caveat:** 29_03 shows only part of the command line (documented in the row 29 document).
