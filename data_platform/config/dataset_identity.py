@@ -39,12 +39,24 @@ class DatasetIdentity:
     target_source_bytes: int
     forbidden_buckets: frozenset[str]
     merchant_history: bool = False
+    # Immutable plan identity of the published source, checked before publication
+    # and by the campaign source gate. None means "not pinned here".
+    generator_config: str | None = None
+    global_seed: int | None = None
+    source_shard_count: int | None = None
+    size_tolerance_ratio: float | None = None
 
 
 APPROVED_DATASETS: dict[str, DatasetIdentity] = {
     CANONICAL_100GB: DatasetIdentity(CANONICAL_100GB, "canonical", 100_000_000_000, frozenset()),
-    REHEARSAL_5GB: DatasetIdentity(REHEARSAL_5GB, "rehearsal", 5_000_000_000, frozenset({CANONICAL_DATA_BUCKET}),
-                                   merchant_history=True),
+    REHEARSAL_5GB: DatasetIdentity(
+        REHEARSAL_5GB, "rehearsal", 5_000_000_000, frozenset({CANONICAL_DATA_BUCKET}),
+        merchant_history=True,
+        generator_config="data_platform/generation/config/settings_merchant_history.yaml",
+        global_seed=7001,
+        source_shard_count=186,
+        size_tolerance_ratio=0.1,
+    ),
 }
 
 
@@ -89,3 +101,17 @@ def dataset_has_merchant_history(version: str) -> bool:
 
     identity = APPROVED_DATASETS.get(version)
     return identity is not None and identity.merchant_history
+
+
+def require_publishable_dataset(version: str, bucket: str) -> DatasetIdentity | None:
+    """Refuse publishing a canonical dataset or a dataset into a forbidden bucket.
+
+    Returns the identity of a registered dataset, or None for smoke and calibration
+    versions, which keep their existing freedom.
+    """
+
+    refuse_misplaced_dataset(version, bucket)
+    identity = APPROVED_DATASETS.get(version)
+    if identity is not None and identity.role == "canonical":
+        raise ValueError(f"{version} is an immutable canonical dataset and cannot be published again")
+    return identity

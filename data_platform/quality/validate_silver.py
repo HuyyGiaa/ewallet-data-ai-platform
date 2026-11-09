@@ -16,6 +16,13 @@ from data_platform.config import (
     load_runtime_config_file,
 )
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.quality.reporting import (
+    add_cloud_arguments,
+    build_report,
+    cloud_environ,
+    report_context,
+    write_report,
+)
 from data_platform.quality.results import ValidationResult
 from data_platform.quality.scd2_quality import merchant_history_results
 
@@ -737,6 +744,8 @@ def run_validation(
     include_fraud_labels: bool = False,
     runtime_config: RuntimeConfig | None = None,
     include_merchant_history: bool = False,
+    report_uri: str | None = None,
+    report_details: dict | None = None,
 ) -> None:
     spark = None
     config = runtime_config or load_runtime_config()
@@ -903,6 +912,9 @@ def run_validation(
         passed = log_results(
             all_results
         )
+        if report_uri is not None:
+            write_report(spark, report_uri, build_report("silver", all_results, context=report_details))
+            logger.info("Report written: %s", report_uri)
 
         if not passed:
             raise RuntimeError(
@@ -962,17 +974,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bronze-root", help="Run-scoped Bronze root (required on gcp).")
     parser.add_argument("--silver-root", help="Run-scoped Silver root (required on gcp).")
     parser.add_argument("--runtime-config-file", type=Path)
+    add_cloud_arguments(parser)
     args = parser.parse_args(argv)
     try:
+        environ = cloud_environ(args)
         if args.runtime_config_file is not None:
-            config = load_runtime_config_file(args.runtime_config_file, args.environment)
+            config = load_runtime_config_file(args.runtime_config_file, args.environment, environ=environ)
         else:
-            config = load_runtime_config(args.environment)
+            config = load_runtime_config(args.environment, environ=environ)
         config = apply_explicit_roots(config, bronze_root=args.bronze_root, silver_root=args.silver_root)
         run_validation(
             include_fraud_labels=args.include_fraud_labels,
             runtime_config=config,
             include_merchant_history=args.include_merchant_history,
+            report_uri=args.report_uri,
+            report_details=report_context(
+                args,
+                bronze_root=config.storage.bronze_root,
+                silver_root=config.storage.silver_root,
+            ),
         )
         return 0
 

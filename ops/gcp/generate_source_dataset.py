@@ -10,15 +10,18 @@ from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Callable, Iterable, TextIO
+from urllib.parse import urlsplit
 
 from data_platform.config import load_runtime_config
+from data_platform.config.dataset_identity import require_publishable_dataset
+from data_platform.generation.src.offline.merchant_history import merchant_history_enabled
 from data_platform.generation.src.offline.offline_generator import load_config
 from data_platform.generation.src.sharded.generator import generate_shard, physical_tables
 from data_platform.generation.src.sharded.manifest import (
     DatasetPublisher,
     IncompleteDatasetError,
 )
-from data_platform.generation.src.sharded.planner import build_shard_plan
+from data_platform.generation.src.sharded.planner import build_shard_plan, canonical_json_sha256
 from data_platform.generation.src.sharded.storage import GcloudObjectStore
 
 
@@ -181,12 +184,49 @@ def generate_and_publish_shards(
         executor.shutdown(wait=True)
 
 
+def validate_publication_target(
+    *,
+    dataset_version: str,
+    source_root: str,
+    base_config: dict,
+    global_seed: int,
+    shard_count: int,
+) -> None:
+    """Fail closed before a registered dataset could be published with the wrong plan."""
+    bucket = urlsplit(source_root).netloc
+    identity = require_publishable_dataset(dataset_version, bucket)
+    if identity is None:
+        return
+    if merchant_history_enabled(base_config) != identity.merchant_history:
+        raise ValueError(
+            f"{dataset_version} requires merchant_history={identity.merchant_history}; "
+            "the generator config disagrees"
+        )
+    if identity.generator_config is not None:
+        pinned = load_config(PROJECT_ROOT / identity.generator_config)
+        if canonical_json_sha256(pinned) != canonical_json_sha256(base_config):
+            raise ValueError(
+                f"{dataset_version} must be generated with {identity.generator_config}"
+            )
+    if identity.global_seed is not None and global_seed != identity.global_seed:
+        raise ValueError(f"{dataset_version} requires global seed {identity.global_seed}")
+    if identity.source_shard_count is not None and shard_count != identity.source_shard_count:
+        raise ValueError(f"{dataset_version} requires {identity.source_shard_count} shards")
+
+
 def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
     args = parse_args(argv)
     base_config = load_config(resolve_generator_config_path(args.config))
     runtime = load_runtime_config(args.environment)
     if runtime.storage.scheme != "gs":
         raise ValueError("source publication requires a gs:// runtime profile")
+    validate_publication_target(
+        dataset_version=args.dataset_version,
+        source_root=runtime.storage.source_root,
+        base_config=base_config,
+        global_seed=args.global_seed,
+        shard_count=args.shard_count,
+    )
 
     plan = build_shard_plan(
         base_config,
@@ -208,6 +248,9 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
 
     print("SOURCE DATASET PLAN", file=stdout)
     print(json.dumps(plan.to_dict(), indent=2, sort_keys=True), file=stdout)
+    print(f"project_id: {runtime.project_id}", file=stdout)
+    print(f"bucket: {urlsplit(dataset_root).netloc}", file=stdout)
+    print(f"generator_config: {args.config}", file=stdout)
     print(f"source_root: {dataset_root}", file=stdout)
     print(f"physical_tables: {list(physical_tables(base_config))}", file=stdout)
     print(

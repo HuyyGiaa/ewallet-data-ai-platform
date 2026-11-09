@@ -48,6 +48,13 @@ from data_platform.quality.feature_timestamp_quality import (
     feature_timestamp_results,
     historical_feature_timestamp_results,
 )
+from data_platform.quality.reporting import (
+    add_cloud_arguments,
+    build_report,
+    cloud_environ,
+    report_context,
+    write_report,
+)
 from data_platform.quality.results import ValidationResult
 from data_platform.quality.scd2_quality import (
     merchant_history_results,
@@ -1487,6 +1494,8 @@ def run_validation(
     require_feature_created: bool = True,
     pit_sample_modulus: int = 1000,
     feature_storage: StorageConfig | None = None,
+    report_uri: str | None = None,
+    report_details: dict | None = None,
 ) -> list[ValidationResult]:
     """Validate one stage boundary and raise if any rule fails.
 
@@ -1570,6 +1579,9 @@ def run_validation(
         passed = log_results(
             all_results
         )
+        if report_uri is not None:
+            write_report(spark, report_uri, build_report(scope, all_results, context=report_details))
+            logger.info("Report written: %s", report_uri)
 
         if not passed:
             raise RuntimeError(
@@ -1667,6 +1679,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--pit-sample-modulus", type=int, default=1000)
     parser.add_argument("--runtime-config-file", type=Path)
+    add_cloud_arguments(parser)
     return parser.parse_args(argv)
 
 
@@ -1674,10 +1687,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     try:
+        environ = cloud_environ(args)
         if args.runtime_config_file is not None:
-            config = load_runtime_config_file(args.runtime_config_file, args.environment)
+            config = load_runtime_config_file(args.runtime_config_file, args.environment, environ=environ)
         else:
-            config = load_runtime_config(args.environment)
+            config = load_runtime_config(args.environment, environ=environ)
         core_storage, feature_storage = resolve_storage(
             config,
             scope=args.scope,
@@ -1696,6 +1710,13 @@ def main(argv: list[str] | None = None) -> int:
             require_feature_created=not args.allow_legacy_feature_schema,
             pit_sample_modulus=args.pit_sample_modulus,
             feature_storage=feature_storage,
+            report_uri=args.report_uri,
+            report_details=report_context(
+                args,
+                silver_root=core_storage.silver_root,
+                gold_root=core_storage.gold_root,
+                feature_gold_root=feature_storage.gold_root,
+            ),
         )
         return 0
 

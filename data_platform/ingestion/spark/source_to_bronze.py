@@ -11,7 +11,11 @@ from pathlib import PurePosixPath
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
-from pyspark.sql import DataFrame, SparkSession, functions as F
+try:
+    from pyspark.sql import DataFrame, SparkSession, functions as F
+except ImportError:  # the manifest contract is also used where pyspark is absent
+    DataFrame = SparkSession = F = None
+
 from data_platform.config.dataset_identity import (
     APPROVED_DATASETS,
     dataset_has_merchant_history,

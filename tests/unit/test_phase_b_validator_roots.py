@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from data_platform.config import load_runtime_config
-from data_platform.quality import validate_gold, validate_silver
+from data_platform.quality import validate_bronze, validate_gold, validate_silver
 
 
 ENV = {"GCP_PROJECT_ID": "p", "EWALLET_DATA_BUCKET": "ewallet-rehearsal-5gb-data",
@@ -68,6 +68,28 @@ class SilverValidatorRootsTest(unittest.TestCase):
         bound = validate_silver.apply_explicit_roots(gcp, bronze_root=f"{RUNS}/b1/bronze", silver_root=SILVER)
         self.assertEqual((f"{RUNS}/b1/bronze", SILVER), (bound.storage.bronze_root, bound.storage.silver_root))
 
+
+
+class BronzeValidatorRootsTest(unittest.TestCase):
+    def test_gcp_requires_one_run_scoped_root(self):
+        gcp = load_runtime_config("gcp", environ=ENV)
+        for bad in (None, gcp.storage.bronze_root, f"{RUNS}/b1/silver"):
+            with self.subTest(bad), self.assertRaisesRegex(ValueError, "run-scoped"):
+                validate_bronze.apply_explicit_root(gcp, bad)
+        bound = validate_bronze.apply_explicit_root(gcp, f"{RUNS}/b1/bronze/")
+        self.assertEqual(f"{RUNS}/b1/bronze", bound.storage.bronze_root)
+
+    def test_local_runs_keep_the_profile_root(self):
+        local = load_runtime_config("local", environ={"MINIO_ACCESS_KEY": "x", "MINIO_SECRET_KEY": "x"})
+        self.assertEqual(local, validate_bronze.apply_explicit_root(local, None))
+
+    def test_a_cloud_validator_resolves_the_profile_from_its_arguments(self):
+        from argparse import Namespace
+
+        from data_platform.quality.reporting import cloud_environ
+
+        environ = cloud_environ(Namespace(environment="gcp", project_id="p", region="r", data_bucket="b"))
+        self.assertEqual("b", environ["EWALLET_DATA_BUCKET"])
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import importlib.metadata
+import json
 import os
 import shutil
 import tempfile
@@ -228,6 +229,80 @@ class PhaseBPipelineDeltaTest(unittest.TestCase):
             run_gold_pipeline(runtime_config=config, include_merchant_scd2=True, materialized_at=CORE_CLOCK)
         self.assertIn("merchant_history", str(raised.exception))
         self.assertFalse(gold.exists() and any(gold.iterdir()), "nothing may be written")
+
+    # --------------------------------------------------- campaign stage reports
+    def report(self, name: str) -> tuple[str, Path]:
+        path = self.directory / "reports" / f"{name}.json"
+        return path.as_uri(), path
+
+    def test_bronze_validator_covers_merchant_history_and_writes_its_report(self):
+        from data_platform.quality.validate_bronze import run_validation
+
+        uri, path = self.report("bronze")
+        self.assertTrue(run_validation(include_fraud_labels=True, runtime_config=self.config,
+                                       include_merchant_history=True, report_uri=uri,
+                                       report_details={"run_id": "r", "dataset_version": "d"}))
+        report = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(("PASS", "r", "bronze"), (report["status"], report["run_id"], report["scope"]))
+        self.assertIn("merchant_history.delta_readable", [item["rule_name"] for item in report["results"]])
+
+    def test_a_broken_bronze_table_fails_validation_with_a_report(self):
+        from pyspark.sql import functions as F
+
+        from data_platform.quality.validate_bronze import run_validation
+
+        copy = self.directory / "bronze_broken"
+        shutil.copytree(self.directory / "bronze", copy)
+        config = replace(self.config, storage=replace(self.config.storage, bronze_root=copy.as_uri()))
+        session = self.session()
+        table = config.storage.table_uri("bronze", "merchant_history")
+        broken = session.read.format("delta").load(table).drop("snapshot_ts").withColumn("x", F.lit(1))
+        broken.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(table)
+        uri, path = self.report("bronze_broken")
+        self.assertFalse(run_validation(include_fraud_labels=True, runtime_config=config,
+                                        include_merchant_history=True, report_uri=uri, report_details={}))
+        report = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual("FAIL", report["status"])
+        self.assertIn("merchant_history.required_columns", report["failed_rules"])
+
+    def test_silver_gold_and_feature_validators_write_pass_reports(self):
+        from data_platform.quality import validate_gold, validate_silver
+
+        uri, path = self.report("silver")
+        validate_silver.run_validation(include_fraud_labels=True, runtime_config=self.config,
+                                       include_merchant_history=True, report_uri=uri, report_details={})
+        self.assertEqual("PASS", json.loads(path.read_text(encoding="utf-8"))["status"])
+        uri, path = self.report("core-gold")
+        validate_gold.run_validation(self.config, scope="core-gold", include_merchant_scd2=True,
+                                     report_uri=uri, report_details={})
+        core = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(("PASS", "core-gold"), (core["status"], core["scope"]))
+        self.assertIn("feat_user_90d.created_matches_materialization_clock", [r["rule_name"] for r in core["results"]])
+        uri, path = self.report("features")
+        validate_gold.run_validation(self.config, scope="features", feature_storage=self.feature_config.storage,
+                                     pit_sample_modulus=1, report_uri=uri, report_details={})
+        features = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual("PASS", features["status"])
+        with self.assertRaises(Exception):  # reports are immutable
+            validate_gold.run_validation(self.config, scope="features", feature_storage=self.feature_config.storage,
+                                         pit_sample_modulus=1, report_uri=uri, report_details={})
+
+    def test_comparison_passes_two_runs_of_the_same_input_and_flags_a_difference(self):
+        from pyspark.sql import functions as F
+
+        from ops.gcp.compare_campaign_outputs import compare_table
+
+        session = self.session()
+        for table, key in (("fact_transactions", ("transaction_id",)), ("feat_user_90d", ("user_id",))):
+            with self.subTest(table):
+                left = session.read.format("delta").load(self.config.storage.table_uri("gold", table))
+                right = session.read.format("delta").load(self.legacy_config.storage.table_uri("gold", table))
+                self.assertTrue(compare_table(left, right, table, key)["passed"])
+        left = session.read.format("delta").load(self.config.storage.table_uri("gold", "dim_merchant"))
+        changed = left.withColumn("merchant_name", F.concat(F.col("merchant_name"), F.lit("x")))
+        report = compare_table(left, changed, "dim_merchant", ("merchant_id",))
+        self.assertFalse(report["passed"])
+        self.assertIn("merchant_name", report["differences"]["columns"])
 
     # ------------------------------------------------------- Delta negatives
     def test_corrupted_delta_outputs_fail_validation(self):

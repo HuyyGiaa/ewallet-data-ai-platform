@@ -7,8 +7,23 @@ from dataclasses import dataclass
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
+from dataclasses import replace
+from pathlib import Path
+
+from data_platform.config import (
+    RuntimeConfig,
+    StorageConfig,
+    load_runtime_config,
+    load_runtime_config_file,
+)
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.quality.reporting import (
+    add_cloud_arguments,
+    build_report,
+    cloud_environ,
+    report_context,
+    write_report,
+)
 from data_platform.storage.scripts.config import OFFLINE_TABLES, offline_tables
 
 
@@ -81,6 +96,14 @@ EXPECTED_TYPES = {
         "transaction_id": "string",
         "label": "numeric",
         "fraud_type": "string",
+    },
+    "merchant_history": {
+        "snapshot_id": "string",
+        "merchant_id": "string",
+        "merchant_name": "string",
+        "category": "string",
+        "snapshot_ts": "timestamp",
+        "history_source": "string",
     },
 }
 
@@ -421,12 +444,20 @@ def print_summary(
 def run_validation(
     include_fraud_labels: bool = False,
     runtime_config: RuntimeConfig | None = None,
+    include_merchant_history: bool = False,
+    report_uri: str | None = None,
+    report_details: dict | None = None,
 ) -> bool:
     spark = None
     passed_count = 0
     failed_count = 0
     tables: dict[str, DataFrame] = {}
     config = runtime_config or load_runtime_config()
+    collected: list[ValidationResult] = []
+
+    def emit(result: ValidationResult) -> None:
+        print_result(result)
+        collected.append(result)
 
     try:
         spark = create_spark_session(
@@ -436,7 +467,7 @@ def run_validation(
             runtime_config=config,
         )
 
-        for table_name in offline_tables(include_fraud_labels):
+        for table_name in offline_tables(include_fraud_labels, include_merchant_history):
             print(
                 f"========== VALIDATE {table_name} =========="
             )
@@ -448,7 +479,7 @@ def run_validation(
                     storage=config.storage,
                 )
 
-                print_result(
+                emit(
                     ValidationResult(
                         rule_name=f"{table_name}.delta_readable",
                         passed=True,
@@ -460,10 +491,7 @@ def run_validation(
                 tables[table_name] = df
 
             except Exception as exc:
-                print(
-                    f"ERROR | Unable to read Bronze table "
-                    f"'{table_name}': {exc}"
-                )
+                emit(ValidationResult(f"{table_name}.delta_readable", False, str(exc), "persisted Delta table is readable"))
                 failed_count += 1
                 continue
 
@@ -489,7 +517,7 @@ def run_validation(
                 results.extend(validate_fraud_labels(df))
 
             for result in results:
-                print_result(result)
+                emit(result)
 
                 if result.passed:
                     passed_count += 1
@@ -501,7 +529,7 @@ def run_validation(
                     df
                 )
 
-                print_result(
+                emit(
                     ValidationResult(
                         rule_name=(
                             f"{table_name}.persisted_data_scan"
@@ -517,7 +545,7 @@ def run_validation(
                     table_name,
                     row_count,
                 )
-                print_result(non_empty_result)
+                emit(non_empty_result)
 
                 if non_empty_result.passed:
                     passed_count += 1
@@ -525,10 +553,7 @@ def run_validation(
                     failed_count += 1
 
             except Exception as exc:
-                print(
-                    f"ERROR | Unable to scan persisted Bronze "
-                    f"data for '{table_name}': {exc}"
-                )
+                emit(ValidationResult(f"{table_name}.persisted_data_scan", False, str(exc), "persisted Delta data can be scanned"))
                 failed_count += 1
 
         if include_fraud_labels and {
@@ -540,20 +565,22 @@ def run_validation(
                 tables["fraud_labels"],
                 tables["transactions"],
             ):
-                print_result(result)
+                emit(result)
                 if result.passed:
                     passed_count += 1
                 else:
                     failed_count += 1
 
     except Exception as exc:
-        print(
-            f"ERROR | Unable to start Bronze validation: {exc}"
-        )
+        emit(ValidationResult("bronze.validation_started", False, str(exc), "Bronze validation runs"))
         failed_count += 1
 
     finally:
         if spark is not None:
+            if report_uri is not None:
+                report = build_report("bronze", collected, context=report_details)
+                write_report(spark, report_uri, report)
+                print(f"Report written: {report_uri}")
             try:
                 spark.stop()
             except Exception as exc:
@@ -570,6 +597,21 @@ def run_validation(
     return failed_count == 0
 
 
+def apply_explicit_root(config: RuntimeConfig, bronze_root: str | None) -> RuntimeConfig:
+    """Bind validation to one run root; required on gcp so no default root is read."""
+
+    if config.environment != "gcp" and bronze_root is None:
+        return config
+    if (
+        not bronze_root
+        or not bronze_root.startswith("gs://")
+        or "/lakehouse/runs/" not in bronze_root
+        or not bronze_root.rstrip("/").endswith("/bronze")
+    ):
+        raise ValueError("--bronze-root must be a run-scoped gs://.../lakehouse/runs/<run>/bronze root")
+    return replace(config, storage=replace(config.storage, bronze_root=bronze_root.rstrip("/")))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate persisted Bronze Delta data.")
     parser.add_argument(
@@ -583,13 +625,30 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Require and validate Bronze fraud_labels in transitional fraud mode.",
     )
+    parser.add_argument(
+        "--include-merchant-history",
+        action="store_true",
+        help="Require and validate Bronze merchant_history.",
+    )
+    parser.add_argument("--bronze-root", help="Run-scoped Bronze root (required on gcp).")
+    parser.add_argument("--runtime-config-file", type=Path)
+    add_cloud_arguments(parser)
     args = parser.parse_args(argv)
-    config = load_runtime_config(args.environment)
+    environ = cloud_environ(args)
+    if args.runtime_config_file is not None:
+        config = load_runtime_config_file(args.runtime_config_file, args.environment, environ=environ)
+    else:
+        config = load_runtime_config(args.environment, environ=environ)
+    config = apply_explicit_root(config, args.bronze_root)
+    print(f"Bronze root: {config.storage.bronze_root}")
     return (
         0
         if run_validation(
             include_fraud_labels=args.include_fraud_labels,
             runtime_config=config,
+            include_merchant_history=args.include_merchant_history,
+            report_uri=args.report_uri,
+            report_details=report_context(args, bronze_root=config.storage.bronze_root),
         )
         else 1
     )

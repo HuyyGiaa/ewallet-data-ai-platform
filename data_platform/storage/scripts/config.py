@@ -48,10 +48,16 @@ MERCHANT_HISTORY_TABLE = "merchant_history"
 MERCHANT_SCD2_TABLE = "dim_merchant_scd2"
 
 
-def offline_tables(include_fraud_labels: bool = False) -> tuple[str, ...]:
+def offline_tables(
+    include_fraud_labels: bool = False,
+    include_merchant_history: bool = False,
+) -> tuple[str, ...]:
+    tables = OFFLINE_TABLES
     if include_fraud_labels:
-        return OFFLINE_TABLES + (FRAUD_LABEL_TABLE,)
-    return OFFLINE_TABLES
+        tables += (FRAUD_LABEL_TABLE,)
+    if include_merchant_history:
+        tables += (MERCHANT_HISTORY_TABLE,)
+    return tables
 
 
 def silver_tables(
