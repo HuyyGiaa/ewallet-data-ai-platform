@@ -8,6 +8,7 @@ import os
 import sys
 import time
 from dataclasses import replace
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 
@@ -84,13 +85,19 @@ def apply_run_scoped_storage(
     )
 
 
-def feature_definitions(transactions_df, devices_df):
+def feature_definitions(transactions_df, devices_df, *, materialized_at=None):
+    """Return (table, DataFrame, required columns) for the four DP3 tables.
+
+    ``materialized_at`` is the single UTC instant written to ``created`` in all
+    four tables; ``event_timestamp`` stays the transaction time.
+    """
+    stamp = {"materialized_at": materialized_at}
     return (
         (
             "feat_user_behavior",
-            build_feat_user_behavior(transactions_df),
+            build_feat_user_behavior(transactions_df, **stamp),
             (
-                "user_id", "event_timestamp", "user_tx_count_5m",
+                "user_id", "event_timestamp", "created", "user_tx_count_5m",
                 "user_tx_count_1h", "user_tx_count_24h",
                 "user_amount_sum_1h", "user_amount_observation_count_30d",
                 "user_avg_amount_30d", "user_std_amount_30d",
@@ -99,9 +106,9 @@ def feature_definitions(transactions_df, devices_df):
         ),
         (
             "feat_account_behavior",
-            build_feat_account_behavior(transactions_df),
+            build_feat_account_behavior(transactions_df, **stamp),
             (
-                "account_id", "event_timestamp", "account_tx_count_5m",
+                "account_id", "event_timestamp", "created", "account_tx_count_5m",
                 "account_tx_count_1h", "account_tx_count_24h",
                 "account_amount_sum_1h", "account_amount_sum_24h",
                 "account_amount_observation_count_30d",
@@ -111,18 +118,18 @@ def feature_definitions(transactions_df, devices_df):
         ),
         (
             "feat_device_behavior",
-            build_feat_device_behavior(transactions_df, devices_df),
+            build_feat_device_behavior(transactions_df, devices_df, **stamp),
             (
-                "device_id", "event_timestamp", "device_age_seconds",
+                "device_id", "event_timestamp", "created", "device_age_seconds",
                 "device_tx_count_1h", "device_tx_count_24h",
                 "device_amount_sum_24h", "device_failed_rate_24h",
             ),
         ),
         (
             "feat_merchant_behavior",
-            build_feat_merchant_behavior(transactions_df),
+            build_feat_merchant_behavior(transactions_df, **stamp),
             (
-                "merchant_id", "event_timestamp", "merchant_tx_count_10m",
+                "merchant_id", "event_timestamp", "created", "merchant_tx_count_10m",
                 "merchant_tx_count_1h", "merchant_tx_count_24h",
                 "merchant_unique_users_10m", "merchant_unique_users_1h",
                 "merchant_amount_sum_1h", "merchant_avg_amount_24h",
@@ -146,7 +153,9 @@ def project_feature_transactions(transactions_df):
 def run_historical_feature_pipeline(
     optimized: bool = True,
     runtime_config: RuntimeConfig | None = None,
+    materialized_at: datetime | None = None,
 ) -> None:
+    materialized_at = materialized_at or datetime.now(timezone.utc)
     spark = None
     config = runtime_config or load_runtime_config()
     persist = partial(process_gold_table, storage=config.storage)
@@ -166,8 +175,11 @@ def run_historical_feature_pipeline(
             project_feature_transactions(transactions_df),
             StorageLevel.DISK_ONLY,
         ) as projected_transactions_df:
+            logger.info("Materialized at (UTC): %s", materialized_at.isoformat())
             for table_name, feature_df, required_columns in feature_definitions(
-                projected_transactions_df, devices_df
+                projected_transactions_df,
+                devices_df,
+                materialized_at=materialized_at,
             ):
                 validate_feature_columns(feature_df, table_name, required_columns)
                 persist(table_name, feature_df)

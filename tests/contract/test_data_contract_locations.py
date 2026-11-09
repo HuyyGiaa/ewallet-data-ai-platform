@@ -12,7 +12,8 @@ CONTRACT_ROOT = Path(__file__).resolve().parents[2] / "data_platform" / "contrac
 class DataContractLocationTest(unittest.TestCase):
     def test_contracts_use_environment_independent_logical_locations(self) -> None:
         contract_paths = sorted(CONTRACT_ROOT.glob("*.yml"))
-        self.assertEqual(9, len(contract_paths))
+        # Nine legacy contracts plus silver.merchant_history and gold.dim_merchant_scd2.
+        self.assertEqual(11, len(contract_paths))
 
         for contract_path in contract_paths:
             with self.subTest(contract=contract_path.name):

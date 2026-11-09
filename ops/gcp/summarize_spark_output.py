@@ -29,7 +29,7 @@ from data_platform.config.spark_profiles import (
     validate_git_sha,
 )
 from data_platform.processing.spark.common.write_layout import resolve_write_layout
-from ops.gcp.validate_spark_output_equivalence import EXPECTED_TABLES
+from ops.gcp.validate_spark_output_equivalence import EXPECTED_TABLES, expected_tables
 
 
 FEATURE_GRAINS = {
@@ -51,10 +51,22 @@ GOLD_PRIMARY_KEYS = {
     "feat_user_90d": ("user_id",),
     "opt_merchant_performance": ("merchant_id",),
 }
+# Keys of tables that only datasets with the merchant_history source extension
+# produce. Kept apart from GOLD_PRIMARY_KEYS, which mirrors the observed
+# fifteen-table schema contract.
+EXTENSION_GOLD_PRIMARY_KEYS = {
+    "dim_merchant_scd2": ("merchant_id", "valid_from_ts"),
+}
 # Write-time audit columns differ between two otherwise identical runs. They are
 # excluded from the content fingerprint but remain schema- and null-checked.
+# Columns listed here are excluded only when the table has them, so summaries of
+# outputs written before ``created`` existed are unchanged.
 VOLATILE_AUDIT_COLUMNS = {
-    ("dp2-gold", "feat_user_90d"): ("created_timestamp",),
+    ("dp2-gold", "feat_user_90d"): ("created_timestamp", "created"),
+    ("dp3-features", "feat_user_behavior"): ("created",),
+    ("dp3-features", "feat_account_behavior"): ("created",),
+    ("dp3-features", "feat_device_behavior"): ("created",),
+    ("dp3-features", "feat_merchant_behavior"): ("created",),
 }
 
 
@@ -145,7 +157,7 @@ def _required_columns(stage: str, table: str) -> tuple[str, ...]:
     if stage == "dp3-features":
         return FEATURE_GRAINS[table]
     if stage == "dp2-gold":
-        return GOLD_PRIMARY_KEYS[table]
+        return {**GOLD_PRIMARY_KEYS, **EXTENSION_GOLD_PRIMARY_KEYS}[table]
     if table == "transactions":
         return ("transaction_id",)
     if table == "fraud_labels":
@@ -162,7 +174,11 @@ def _table_summary(
 ) -> dict[str, object]:
     from pyspark.sql import functions as F
 
-    volatile = VOLATILE_AUDIT_COLUMNS.get((stage, table), ())
+    volatile = tuple(
+        name
+        for name in VOLATILE_AUDIT_COLUMNS.get((stage, table), ())
+        if name in dataframe.columns
+    )
     columns = sorted(name for name in dataframe.columns if name not in volatile)
     canonical_row = F.to_json(
         F.struct(*[F.col(name).alias(name) for name in columns]),
@@ -287,7 +303,9 @@ def _invariants(
             return left.join(right, key, "left_anti").limit(1).count() == 0
 
         keys_unique = all(
-            unique(table, keys) for table, keys in GOLD_PRIMARY_KEYS.items()
+            unique(table, keys)
+            for table, keys in {**GOLD_PRIMARY_KEYS, **EXTENSION_GOLD_PRIMARY_KEYS}.items()
+            if table in frames
         )
         references_valid = all(
             no_orphans("fact_transactions", dimension, key)
@@ -307,14 +325,19 @@ def _invariants(
             {"label", "fraud_type", "is_fraud"}.isdisjoint(frame.columns)
             for frame in frames.values()
         )
+        scd2_valid = (
+            "dim_merchant_scd2" not in frames
+            or _merchant_scd2_valid(frames["dim_merchant_scd2"], frames["dim_merchant"])
+        )
         return {
             "business_invariants": (
-                keys_unique and references_valid and row_parity
+                keys_unique and references_valid and row_parity and scd2_valid
             ),
             "no_label_leakage": no_leakage,
         }
     grain_ok = True
     timestamps_ok = True
+    created_ok = True
     no_leakage = True
     for table, frame in frames.items():
         grain = FEATURE_GRAINS[table]
@@ -325,14 +348,28 @@ def _invariants(
         ).first()
         grain_ok = grain_ok and counts["rows"] == counts["distinct_rows"]
         timestamps_ok = timestamps_ok and int(counts["null_times"] or 0) == 0
+        created_ok = created_ok and "created" in frame.columns and (
+            frame.where(F.col("created").isNull()).limit(1).count() == 0
+        )
         no_leakage = no_leakage and {
             "label", "fraud_type", "is_fraud"
         }.isdisjoint(frame.columns)
     return {
         "grain_invariants": grain_ok,
         "event_timestamp_populated": timestamps_ok,
+        # Informational: not in REQUIRED_INVARIANTS, so summaries of outputs
+        # written before the created column existed still validate.
+        "created_populated": created_ok,
         "no_label_leakage": no_leakage,
     }
+
+
+def _merchant_scd2_valid(scd2: Any, dim_merchant: Any) -> bool:
+    """Interval and coverage invariants of dim_merchant_scd2 (cloud summary)."""
+
+    from data_platform.quality.scd2_quality import merchant_scd2_results
+
+    return all(result.passed for result in merchant_scd2_results(scd2, dim_merchant))
 
 
 def build_summary(
@@ -402,7 +439,7 @@ def build_summary(
             raise ValueError("runtime pair manifest digest mismatch")
         if actual_properties.get(METHOD2_OUTPUT_RUN_PROPERTY) != output_run_id:
             raise ValueError("runtime output_run_id binding mismatch")
-        expected = EXPECTED_TABLES[stage]
+        expected = expected_tables(stage, dataset_version)
         inventory = _inventory(spark, root)
         if inventory != expected:
             raise ValueError(

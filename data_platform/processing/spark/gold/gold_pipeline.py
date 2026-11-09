@@ -6,6 +6,7 @@ import os
 import sys
 import time
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 from functools import partial
 
@@ -28,6 +29,7 @@ from data_platform.processing.spark.gold.dimension_builder import (
     build_dim_date,
     build_dim_device,
     build_dim_merchant,
+    build_dim_merchant_scd2,
     build_dim_user,
 )
 from data_platform.processing.spark.gold.fact_builder import (
@@ -45,7 +47,12 @@ from data_platform.processing.spark.gold.delta_gold_io import (
 from data_platform.processing.spark.gold.obt_builder import (
     build_obt_transaction_enriched,
 )
-from data_platform.storage.scripts.config import CORE_GOLD_TABLES
+from data_platform.storage.scripts.config import (
+    CORE_GOLD_TABLES,  # noqa: F401 - re-exported for existing imports
+    MERCHANT_HISTORY_TABLE,
+    MERCHANT_SCD2_TABLE,
+    core_gold_tables,
+)
 
 
 logging.basicConfig(
@@ -86,7 +93,21 @@ def apply_run_scoped_storage(
 def run_gold_pipeline(
     optimized: bool = True,
     runtime_config: RuntimeConfig | None = None,
+    include_merchant_scd2: bool = False,
+    materialized_at: datetime | None = None,
 ) -> None:
+    """Build core Gold.
+
+    ``include_merchant_scd2`` builds ``dim_merchant_scd2`` from Silver
+    ``merchant_history`` and fails if that table is absent. Datasets published
+    without the source extension (canonical-100gb-v1) run with it off and
+    produce the legacy eleven tables; history is never derived from the
+    current-state merchants table.
+
+    ``materialized_at`` is the one UTC instant written to the ``created`` audit
+    column of feat_user_90d; it defaults to the pipeline start.
+    """
+    materialized_at = materialized_at or datetime.now(timezone.utc)
     spark = None
     persisted_dataframes = []
     config = runtime_config or load_runtime_config()
@@ -114,6 +135,8 @@ def run_gold_pipeline(
             optimized,
         )
         logger.info("Environment: %s", config.environment)
+        logger.info("Merchant SCD2 enabled: %s", include_merchant_scd2)
+        logger.info("Materialized at (UTC): %s", materialized_at.isoformat())
         logger.info(
             "========================================="
         )
@@ -211,6 +234,17 @@ def run_gold_pipeline(
             dim_merchant_df,
         )
 
+        if include_merchant_scd2:
+            merchant_history_df = read_silver(
+                spark,
+                MERCHANT_HISTORY_TABLE,
+                storage=config.storage,
+            )
+            persist_gold_table(
+                MERCHANT_SCD2_TABLE,
+                build_dim_merchant_scd2(merchant_history_df),
+            )
+
         persist_gold_table(
             "dim_device",
             dim_device_df,
@@ -302,6 +336,7 @@ def run_gold_pipeline(
                 reference_timestamp=fact_transactions_df.agg(
                     F.max("timestamp").alias("reference_timestamp")
                 ).first()["reference_timestamp"],
+                materialized_at=materialized_at,
             )
         )
 
@@ -381,6 +416,15 @@ def parse_args(argv: list[str] | None = None):
         ),
     )
 
+    parser.add_argument(
+        "--include-merchant-scd2",
+        action="store_true",
+        help=(
+            "Build dim_merchant_scd2 from Silver merchant_history; fails when the "
+            "dataset has no merchant_history."
+        ),
+    )
+
     parser.add_argument("--silver-root")
     parser.add_argument("--gold-root")
     parser.add_argument("--dataset-version")
@@ -451,19 +495,21 @@ def main(argv: list[str] | None = None) -> int:
                 silver_root=args.silver_root,
                 gold_root=args.gold_root,
             )
+        tables = core_gold_tables(args.include_merchant_scd2)
         if (
             args.expected_table_count is not None
-            and args.expected_table_count != len(CORE_GOLD_TABLES)
+            and args.expected_table_count != len(tables)
         ):
             raise ValueError(
                 f"expected {args.expected_table_count} core Gold tables, "
-                f"pipeline defines {len(CORE_GOLD_TABLES)}"
+                f"pipeline defines {len(tables)}"
             )
         run_gold_pipeline(
             optimized=(
                 args.mode == "optimized"
             ),
             runtime_config=config,
+            include_merchant_scd2=args.include_merchant_scd2,
         )
         return 0
 

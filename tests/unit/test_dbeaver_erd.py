@@ -76,7 +76,11 @@ class RelationshipTest(unittest.TestCase):
         self.assertEqual(len(silver), 11)
         self.assertEqual(silver[("fraud_labels", "transaction_id", "transactions", "transaction_id")],
                          "fraud_labels.transaction_fk")
-        self.assertEqual(len(gold), 19)
+        # 19 canonical edges plus dim_merchant_scd2 -> dim_merchant, checked only with
+        # --include-merchant-scd2 and drawn only once that table is observed.
+        self.assertEqual(len(gold), 20)
+        self.assertEqual(gold[("dim_merchant_scd2", "merchant_id", "dim_merchant", "merchant_id")],
+                         "dim_merchant_scd2.merchant_id_exists_in_dim_merchant")
         self.assertEqual(gold[("fact_transactions", "date_key", "dim_date", "date_key")],
                          "fact_transactions.date_key_exists_in_dim_date")
 

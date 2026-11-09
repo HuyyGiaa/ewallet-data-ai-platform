@@ -26,6 +26,7 @@ from data_platform.processing.spark.silver.cleaners import (
     clean_devices,
     clean_fraud_labels,
     clean_login_events,
+    clean_merchant_history,
     clean_merchants,
     clean_users,
 )
@@ -90,10 +91,16 @@ PIPELINES = [
 ]
 
 
-def selected_pipelines(include_fraud_labels: bool = False):
+def selected_pipelines(
+    include_fraud_labels: bool = False,
+    include_merchant_history: bool = False,
+):
+    pipelines = list(PIPELINES)
     if include_fraud_labels:
-        return PIPELINES + [("fraud_labels", clean_fraud_labels, None)]
-    return list(PIPELINES)
+        pipelines.append(("fraud_labels", clean_fraud_labels, None))
+    if include_merchant_history:
+        pipelines.append(("merchant_history", clean_merchant_history, None))
+    return pipelines
 
 
 def apply_run_scoped_storage(
@@ -125,6 +132,7 @@ def run_silver_pipeline(
     optimized: bool = True,
     include_fraud_labels: bool = False,
     runtime_config: RuntimeConfig | None = None,
+    include_merchant_history: bool = False,
 ) -> None:
     spark = None
     config = runtime_config or load_runtime_config()
@@ -160,8 +168,9 @@ def run_silver_pipeline(
             time.perf_counter()
         )
 
+        logger.info("Merchant history enabled: %s", include_merchant_history)
         for (table_name, cleaner, partition_columns,) in selected_pipelines(
-            include_fraud_labels
+            include_fraud_labels, include_merchant_history
         ):
             logger.info("")
             logger.info(
@@ -238,6 +247,15 @@ def parse_args(argv: list[str] | None = None):
         "--include-fraud-labels",
         action="store_true",
         help="Require Bronze fraud_labels and write Silver fraud_labels.",
+    )
+
+    parser.add_argument(
+        "--include-merchant-history",
+        action="store_true",
+        help=(
+            "Require Bronze merchant_history (synthetic snapshots for the SCD2 "
+            "merchant dimension) and write Silver merchant_history."
+        ),
     )
 
     parser.add_argument(
@@ -325,7 +343,9 @@ def main(argv: list[str] | None = None) -> int:
                 silver_root=args.silver_root,
             )
             actual_table_count = len(
-                selected_pipelines(args.include_fraud_labels)
+                selected_pipelines(
+                    args.include_fraud_labels, args.include_merchant_history
+                )
             )
             if args.expected_table_count != actual_table_count:
                 raise ValueError(
@@ -346,6 +366,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             include_fraud_labels=args.include_fraud_labels,
             runtime_config=config,
+            include_merchant_history=args.include_merchant_history,
         )
         return 0
 

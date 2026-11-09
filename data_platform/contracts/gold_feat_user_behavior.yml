@@ -20,10 +20,15 @@ columns:
   - {name: user_std_amount_30d, type: double, nullable: true}
   - {name: user_failed_rate_24h, type: double, nullable: true}
   - {name: user_distinct_merchants_24h, type: long, nullable: false}
+  - {name: created, type: timestamp, nullable: false}
 temporal_semantics:
   window: "[T-window, T)"
   same_timestamp: Same-user peers share one snapshot and do not observe each other.
   ordering: No transaction_id, ingested_at, or row-order tie breaker.
+audit_columns:
+  event_timestamp: Business time. The transaction time the snapshot describes; the PIT join key used by Feast.
+  created: Materialization time. One timezone-aware UTC instant per DP3 run, shared by the four historical feature tables; never copied from event_timestamp; not a model feature.
+  created_ordering: No created >= event_timestamp rule; a replay of future-dated synthetic events may materialize earlier than the events.
 point_in_time_contract:
   current_transaction_excluded: true
   future_transactions_excluded: true
@@ -33,6 +38,10 @@ null_semantics:
   average_or_rate_without_denominator: null
   standard_deviation_with_fewer_than_two_observations: null
 quality_rules:
+  - {expectation: event_timestamp and created are non-null timestamps., validator_rule: feat_user_behavior.timestamp_columns_not_null}
+  - {expectation: One materialization instant per table and run., validator_rule: feat_user_behavior.created_single_materialization}
+  - {expectation: created is not a copy of event_timestamp., validator_rule: feat_user_behavior.created_not_copied_from_event_timestamp}
+  - {expectation: "A sampled recomputation of the 1-hour count with [T-1h, T) bounds equals the persisted value.", validator_rule: feat_user_behavior.pit_user_tx_count_1h_matches_recomputation}
   - {expectation: Entity and timestamp are required and the logical key is unique., validator_rule: feat_user_behavior.unique_key(user_id,event_timestamp)}
   - {expectation: Counts and sums are non-negative and window counts are monotonic., validator_rule: feat_user_behavior.monotonic_windows}
   - {expectation: Non-null rates are within 0 and 1., validator_rule: feat_user_behavior.valid_rate_ranges}

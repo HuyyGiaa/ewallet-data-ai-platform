@@ -7,7 +7,7 @@ The schema is the contract that connects ingestion, data quality, analytics and 
 - the tables of every zone and their roles;
 - how schema evolution is handled;
 - the dimension–fact model and the naming conventions, visualized on the real cloud tables with DBeaver and Trino;
-- two schema extensions that have been prototyped: a Type 2 slowly changing merchant dimension, and a `created` materialisation timestamp on the feature tables.
+- two schema extensions implemented in the pipeline code and tested locally, but not yet materialized by a cloud run: a Type 2 slowly changing merchant dimension, and a `created` materialisation timestamp on the feature tables.
 
 ## 2. Medallion data architecture
 
@@ -89,26 +89,41 @@ The screenshots below come from the local 500k-user dataset:
 
 Their SHA-256 values are respectively `1821c5472d13c74304db9fc3295309198b25da8615b989d9322b71d94a8c7c2a` and `9d809903451e5c258aeb267cde95ad2ce240df6d160ab21dae8ff54320311d73`.
 
-## 5. Prototype: Type 2 slowly changing merchant dimension
+## 5. Type 2 slowly changing merchant dimension
 
 ### 5.1 Motivation and constraint
 
 Merchant attributes such as name and category change over time. A fraud analysis of a past transaction should see the merchant *as it was then*.
 
-`dim_merchant` was chosen for the prototype because its two descriptive attributes (`merchant_name`, `category`) make version changes easy to verify. The source `silver.merchants` holds only the current state, with no effective timestamp. A real history therefore requires retained merchant snapshots. The current pipeline builds `dim_merchant` as a current-state table.
+`silver.merchants` holds only the current state, with no effective timestamp, so it cannot establish history. History must come from persisted snapshots; it is never derived from the current-state table at Gold time.
 
-### 5.2 Algorithm
+### 5.2 Design
 
-The prototype builder takes one state per `(merchant_id, snapshot_ts)` and uses PySpark window functions:
+**Source extension.** The generator can emit a tenth physical table, `merchant_history`: a full snapshot of every merchant at `generation.temporal.start_timestamp` (the first transaction instant) and every 30 days after it. A configured share of merchants change name and/or category once or twice; other snapshots repeat the previous state. The last snapshot equals `merchants`. The history is **synthetic**: every row has `history_source = synthetic`, and the dataset manifest declares it under `source_extensions.merchant_history` with the generator module. A private seeded RNG keeps the nine legacy tables byte-identical to a run without the extension.
 
-1. Order the snapshots by `snapshot_ts` within each `merchant_id`.
-2. Compare a hash of name and category with the previous snapshot (`lag`), and drop consecutive unchanged snapshots.
-3. Set `valid_from_ts` to the snapshot time of each remaining change, and `valid_to_ts` to the next change (`lead`).
-4. Set `is_current = true` only where `valid_to_ts` is null.
+| Step | Code | Table |
+|---|---|---|
+| Generate | `data_platform/generation/src/offline/merchant_history.py` (enabled by `config/settings_merchant_history.yaml`) | `source.merchant_history` |
+| Ingest | `source_to_bronze.py` (only when the manifest declares the extension) | `bronze.merchant_history` |
+| Clean | `clean_merchant_history` in `silver/cleaners.py` (`--include-merchant-history`) | `silver.merchant_history` |
+| Build | `build_dim_merchant_scd2` → `gold/scd2.py` (`gold_pipeline.py --include-merchant-scd2`) | `gold.dim_merchant_scd2` |
 
-Versions use the half-open interval `[valid_from_ts, valid_to_ts)`, so a fact exactly at a boundary resolves to the new version.
+`gold.dim_merchant` is unchanged: one row per merchant, used by the fact, OBT, feature and analytics joins. The versioned table is a separate Gold dimension so that no existing join can fan out.
 
-### 5.3 Fixture result
+**Which datasets carry it.** `data_platform/config/dataset_identity.py` records the extension per dataset version. `rehearsal-5gb-v1` carries it; `canonical-100gb-v1` was published without it and keeps its 8/8/8/15 inventory. The Silver and Gold submitters read the registry and pass the flags; Bronze checks the source manifest against it. A run that requests SCD2 on a dataset without history fails, rather than inventing history.
+
+**Builder.** One state per `(merchant_id, snapshot_ts)`:
+
+1. Drop exact duplicate snapshots; reject null keys, null effective times and conflicting states at the same time (`Scd2ContractError`).
+2. Order by `snapshot_ts` within `merchant_id` and open a version where name or category differs, null-safely, from the previous snapshot (`lag`).
+3. `valid_from_ts` is the snapshot time; `valid_to_ts` is the next version's start (`lead`); `is_current = valid_to_ts IS NULL`.
+4. `merchant_sk` is SHA-256 of `merchant_id` and the `valid_from_ts` microseconds, so a rebuild gives the same keys.
+
+Versions use the half-open interval `[valid_from_ts, valid_to_ts)` in UTC. An as-of lookup (`lookup_as_of`) matches `valid_from_ts <= t AND (valid_to_ts IS NULL OR t < valid_to_ts)`, so a fact exactly at a boundary resolves to the new version.
+
+**Validation.** `validate_gold --scope core-gold --include-merchant-scd2` checks types, non-null keys, unique `(merchant_id, valid_from_ts)` and `merchant_sk`, `valid_to_ts > valid_from_ts`, the current flag against the open end, exactly one current version per merchant, contiguous non-overlapping intervals, no redundant versions, the current version against `dim_merchant`, and that every transaction with a merchant resolves to exactly one version. `validate_silver --include-merchant-history` checks the snapshots against `merchants`.
+
+### 5.3 Earlier fixture result
 
 The prototype was verified on a deterministic local fixture, which deliberately includes an unchanged February snapshot:
 
@@ -138,21 +153,26 @@ Four focused tests passed with Spark 4.1.1:
 - exactly one current version per key;
 - adjacent, non-overlapping intervals, with lookups before, on and after a boundary.
 
-**Status.** The SCD2 builder and its tests are still under development and are not yet part of the pipeline code in this repository version. They have run only against the fixture shown above.
+The screenshots above come from the earlier prototype fixture.
 
-## 6. Prototype: feature materialisation timestamp
+**Status.** Implemented in the DP2 core Gold path and tested locally: 27 unit tests (builder, as-of lookup, corrupted inputs) and a local Spark/Delta run of generator → Bronze → Silver → Gold with the real validators. No cloud run has produced `dim_merchant_scd2` yet; rubric row 35 still needs the owner's 5GB/100GB runs. See [PHASE_B_SCD2_FEATURE_TIMESTAMPS.md](PHASE_B_SCD2_FEATURE_TIMESTAMPS.md).
+
+## 6. Feature materialisation timestamp
 
 Each feature row carries `event_timestamp`: the business time the features describe, and the Feast timestamp used for point-in-time lookup. DP3 windows end one microsecond before the event, enforcing `[T − window, T)`.
 
 `feat_user_90d` additionally records its write time in `created_timestamp`.
 
-**Design of the extension.** The extension adds a `created` column, holding the UTC materialisation time, to all five `feat_` tables:
+**Design.** All five `feat_` tables carry a `created` column, holding the UTC materialisation time:
 
-- It is captured once per DP3 run and shared by all four point-in-time builders.
+- DP3 captures one timezone-aware UTC instant at the start of the run and writes it to all four point-in-time tables; DP2 core Gold does the same for `feat_user_90d`, where `created` equals the legacy `created_timestamp` (kept for existing readers). The builders accept the instant as a parameter, so tests use a fixed clock.
+- `created` is appended after the existing columns. Feature values are unchanged: on a generated dataset the new builders' outputs, minus `created`, are bit-identical to the previous builders'.
 - It is excluded from semantic A/B fingerprints, but still checked for schema and nulls.
-- Feast keeps `event_timestamp` as its timestamp field and ignores `created`, so the 31 model features are unchanged.
+- Feast keeps `event_timestamp` as its timestamp field. The Feast export accepts the legacy schema or the legacy schema plus `created` and writes exactly the legacy columns, so the offline snapshot, online materialization and the 31 model features are unchanged.
 
-Existing outputs are not rewritten, and no `created` value is inferred from event time.
+Existing outputs are not rewritten, and no `created` value is inferred from event time. No rule requires `created >= event_timestamp`, because a replay of future-dated synthetic events can be materialized before its event times.
+
+**Validation.** `validate_gold --scope features` checks that both columns are non-null timestamps, that `created` has one value per table shared by the four DP3 tables, that it is not a copy of `event_timestamp`, and recomputes each table's 1-hour count with strict `[T − 1h, T)` bounds on a deterministic entity sample.
 
 ![Local fixture: user and account feature schemas](../../evidence/edai1/dp3/01_feature_timestamp_schema_user_account.png)
 
@@ -170,7 +190,9 @@ Existing outputs are not rewritten, and no `created` value is inferred from even
 
 *Feast still exposes exactly 31 model features (9 user, 10 account, 5 device, 7 merchant).*
 
-**Status.** Sixteen focused tests passed locally. Like the SCD2 prototype, this extension is still under development and is not part of the pipeline code in this repository version. No cloud feature output contains `created` yet.
+The screenshots above come from the earlier prototype fixture.
+
+**Status.** Implemented in the DP2 and DP3 builders and tested locally (unit tests, corrupted-input tests and the local Spark/Delta run). No cloud feature output contains `created` yet; rubric row 36 still needs the owner's 5GB/100GB runs.
 
 ## 7. Dimension–fact relationships
 
@@ -352,7 +374,7 @@ Canonical cloud identities reused by this report are dataset `canonical-100gb-v1
 
 ## 10. Limitations
 
-- **SCD2 and `created`.** The SCD2 dimension and the `created` feature column are prototypes verified on local fixtures. They are not yet integrated into the submitted pipeline, and no cloud output contains them.
+- **SCD2 and `created`.** Both are in the pipeline code and tested locally, but no cloud run has materialized them. `canonical-100gb-v1` has no merchant history, so its runs keep the 15-table Gold inventory; the history is synthetic and declared as such.
 - **ERD screenshots pending.** The DBeaver connection, the virtual keys and the diagram are fully specified and the underlying Trino metadata is verified, but the DBeaver screenshots (E05–E07) have not been captured yet.
 - **Virtual, not physical, keys.** DBeaver draws the relationships from virtual keys stored in the DBeaver workspace. Delta has no key constraints, and DBeaver cannot display optionality; [GOLD_ERD.md](generated/GOLD_ERD.md) records it.
 - **Unchecked user consistency.** No rule checks that `fact_transactions.user_id` equals the `user_id` of its `account_id` in `dim_account`.

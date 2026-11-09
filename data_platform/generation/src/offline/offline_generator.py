@@ -14,6 +14,7 @@ Output:
 - balance_snapshots.parquet
 - login_events.parquet
 - fraud_labels.parquet
+- merchant_history.parquet (only when ``merchant_history.enabled`` is true)
 """
 
 import argparse
@@ -38,6 +39,11 @@ from data_platform.generation.src.fintech_schema import (
     TYPE_WEIGHTS,
 )
 from data_platform.generation.src.offline.fraud import inject_fraud
+from data_platform.generation.src.offline.merchant_history import (
+    MERCHANT_HISTORY_TABLE,
+    generate_merchant_history,
+    merchant_history_enabled,
+)
 
 fake = Faker("vi_VN")
 _ID_RANDOM = random.Random()
@@ -657,7 +663,7 @@ def generate_offline_datasets(cfg: dict) -> tuple[dict[str, pd.DataFrame], dict]
         f"channel={'channel' in transactions_v2_df.columns}"
     )
 
-    return {
+    datasets = {
         "users": users_df,
         "accounts": accounts_df,
         "merchants": merchants_df,
@@ -667,7 +673,15 @@ def generate_offline_datasets(cfg: dict) -> tuple[dict[str, pd.DataFrame], dict]
         "balance_snapshots": balance_snapshots_df,
         "login_events": login_events_df,
         "fraud_labels": fraud_labels_df,
-    }, fraud_metrics
+    }
+    if merchant_history_enabled(cfg):
+        # Runs last and uses private RNG state, so the nine tables above are
+        # identical with or without the extension.
+        print("Generate synthetic merchant_history snapshots...")
+        datasets[MERCHANT_HISTORY_TABLE] = generate_merchant_history(
+            merchants_df, cfg, temporal.start, temporal.end
+        )
+    return datasets, fraud_metrics
 
 
 def write_offline_datasets(datasets: dict[str, pd.DataFrame], out_dir: Path) -> None:
@@ -694,7 +708,7 @@ def main():
     out_dir = data_generator_dir / cfg.get("output_dir", "output/offline")
     datasets, fraud_metrics = generate_offline_datasets(cfg)
 
-    print(f"\nWriting 9 physical outputs to: {out_dir}")
+    print(f"\nWriting {len(datasets)} physical outputs to: {out_dir}")
     write_offline_datasets(datasets, out_dir)
     for name, dataframe in datasets.items():
         print(f"  {name}: {len(dataframe):,}")

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -236,6 +237,33 @@ def describe_checks(item: Relationship, evidence: Evidence) -> str:
             text += f"; rule {rule} exists but is not counted as validation"
     cloud = "checked" if _edge_key(item) in evidence.cloud else "not checked"
     return f"{text}; {cloud} on the 100GB cloud run"
+
+
+def effective_document(observed: Mapping[str, object], document: Mapping[str, object]) -> dict[str, object]:
+    """Merge ``pending_observation`` entries whose tables are now in the observed schema.
+
+    A pending key joins once its table is observed; a pending relationship joins
+    once both of its tables are. Nothing unobserved is ever drawn.
+    """
+
+    pending = document.get("pending_observation") or {}
+    merged = copy.deepcopy({key: value for key, value in document.items() if key != "pending_observation"})
+    zones = observed["zones"]
+
+    def observed_table(zone: str, table: str) -> bool:
+        return table in zones.get(zone, {}).get("tables", {})
+
+    for zone, tables in (pending.get("keys") or {}).items():
+        for table, keys in tables.items():
+            if observed_table(zone, table):
+                merged.setdefault("keys", {}).setdefault(zone, {})[table] = list(keys)
+    for zone, items in (pending.get("relationships") or {}).items():
+        for item in items:
+            target = str(item["references"]).split(".")
+            target_zone, target_table = (target[0], target[1]) if len(target) == 3 else (zone, target[0])
+            if observed_table(zone, item["table"]) and observed_table(target_zone, target_table):
+                merged.setdefault("relationships", {}).setdefault(zone, []).append(dict(item))
+    return merged
 
 
 def validate_relationships(
@@ -803,6 +831,7 @@ def render_all(
     """Return every generated file by name, after validating the inputs."""
 
     evidence = evidence if evidence is not None else load_evidence()
+    document = effective_document(observed, document)
     problems = validate_relationships(observed, document)
     if problems:
         raise ValueError("schema relationships do not match observed schemas: " + "; ".join(problems))

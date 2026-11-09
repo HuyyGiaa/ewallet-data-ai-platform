@@ -10,13 +10,16 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from data_platform.config.dataset_identity import refuse_misplaced_dataset
+from data_platform.config.dataset_identity import (
+    dataset_has_merchant_history,
+    refuse_misplaced_dataset,
+)
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
     method2_runtime_properties,
     validate_pair_member,
 )
-from data_platform.storage.scripts.config import CORE_GOLD_TABLES
+from data_platform.storage.scripts.config import core_gold_tables
 from ops.gcp.dataproc_batch_properties import (
     DEFAULT_PERFORMANCE_PROFILE,
     add_performance_profile_argument,
@@ -143,6 +146,7 @@ def build_submission_command(
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
     refuse_misplaced_dataset(dataset_version, runtime.data_bucket)
+    merchant_scd2 = dataset_has_merchant_history(dataset_version)
     ttl = _validate_ttl(ttl)
     execution_profile = resolve_submission_profile(
         spark_profile=spark_profile,
@@ -233,7 +237,8 @@ def build_submission_command(
         f"--staging-bucket={runtime.temporary_bucket}", f"--ttl={ttl}",
         f"--labels={labels}", f"--properties={properties}", "--",
         "--environment=gcp", f"--mode={spark_profile or 'optimized'}",
-        f"--expected-table-count={len(CORE_GOLD_TABLES)}",
+        *(("--include-merchant-scd2",) if merchant_scd2 else ()),
+        f"--expected-table-count={len(core_gold_tables(merchant_scd2))}",
         f"--dataset-version={dataset_version}",
         f"--source-silver-run-id={source_silver_run_id}", f"--run-id={run_id}",
         f"--project-id={runtime.project_id}", f"--region={runtime.region}",
@@ -375,7 +380,8 @@ def main(
             )
         print(f"Silver input root: {silver_root}")
         print(f"Core Gold output root: {gold_root}")
-        print(f"Tables ({len(CORE_GOLD_TABLES)}): {', '.join(CORE_GOLD_TABLES)}")
+        tables = core_gold_tables(dataset_has_merchant_history(args.dataset_version))
+        print(f"Tables ({len(tables)}): {', '.join(tables)}")
         print(shlex.join(command))
         return 0
     runner(command, check=True)

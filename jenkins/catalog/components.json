@@ -96,10 +96,10 @@
     },
     "data-platform": {
       "maturity": "active",
-      "source_paths": ["data_platform", "configs/environments", "tests/contract", "ops/schema", "ops/gcp/spark_stage_report.py", "ops/gcp/validate_gold_row_equivalence.py", "tests/unit/test_gold_row_equivalence.py", "tests/unit/test_schema_diagrams.py", "tests/unit/test_schema_visualization.py", "tests/unit/test_dbeaver_erd.py", "tests/unit/test_dataset_isolation.py", "configs/generation", "ops/gcp/dp2_method2.py", "ops/gcp/submit_source_to_bronze.py", "ops/gcp/submit_bronze_to_silver.py", "ops/gcp/submit_silver_to_gold.py", "ops/gcp/submit_historical_features.py", "ops/gcp/summarize_spark_output.py", "infra/docker/schema-viz", "docs/edai1/schema", "docs/runbooks/edai1/SCHEMA_VISUALIZATION_DBEAVER.md", "tests/unit/test_spark_stage_report.py"],
+      "source_paths": ["data_platform", "configs/environments", "tests/contract", "ops/schema", "ops/gcp/spark_stage_report.py", "ops/gcp/validate_gold_row_equivalence.py", "tests/unit/test_gold_row_equivalence.py", "tests/unit/test_schema_diagrams.py", "tests/unit/test_schema_visualization.py", "tests/unit/test_dbeaver_erd.py", "tests/unit/test_dataset_isolation.py", "tests/unit/test_merchant_history_source.py", "configs/generation", "ops/gcp/dp2_method2.py", "ops/gcp/submit_source_to_bronze.py", "ops/gcp/submit_bronze_to_silver.py", "ops/gcp/submit_silver_to_gold.py", "ops/gcp/submit_historical_features.py", "ops/gcp/summarize_spark_output.py", "infra/docker/schema-viz", "docs/edai1/schema", "docs/runbooks/edai1/SCHEMA_VISUALIZATION_DBEAVER.md", "tests/unit/test_spark_stage_report.py"],
       "dependencies": [],
       "python_projects": ["data_platform/generation"],
-      "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract tests.unit.test_gold_row_equivalence tests.unit.test_schema_diagrams tests.unit.test_spark_stage_report", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py tests/unit/test_schema_visualization.py tests/unit/test_dbeaver_erd.py tests/unit/test_dataset_isolation.py"],
+      "commands": ["uv run --locked --project data_platform/generation python -m unittest tests.test_fraud_generator tests.contract.test_data_contract_locations tests.unit.test_offline_writer_timestamp_contract tests.unit.test_gold_row_equivalence tests.unit.test_schema_diagrams tests.unit.test_spark_stage_report", "uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_schema_inventory.py tests/unit/test_schema_visualization.py tests/unit/test_dbeaver_erd.py tests/unit/test_dataset_isolation.py tests/unit/test_merchant_history_source.py"],
       "build_artifact": null,
       "deployment_target": null,
       "deploy_handler": null
@@ -134,10 +134,10 @@
     },
     "feast": {
       "maturity": "active",
-      "source_paths": ["ai_platform/features/feast", "tests/test_feast_offline.py", "tests/unit/test_feast_pit_validation.py", "ops/mlops/feast_incremental.py", "scripts/mlops/feast_online_job.sh", "tests/unit/test_feast_incremental_plan.py", "tests/unit/test_feast_incremental_orchestration.py", "tests/integration/test_feast_online_local.py"],
+      "source_paths": ["ai_platform/features/feast", "tests/test_feast_offline.py", "tests/unit/test_feast_pit_validation.py", "ops/mlops/feast_incremental.py", "scripts/mlops/feast_online_job.sh", "tests/unit/test_feast_incremental_plan.py", "tests/unit/test_feast_incremental_orchestration.py", "tests/integration/test_feast_online_local.py", "tests/unit/test_feast_export_created.py"],
       "dependencies": ["data-platform"],
       "python_projects": ["ai_platform/features/feast"],
-      "commands": ["uv run --locked --project ai_platform/features/feast python -m unittest tests.test_feast_offline tests.unit.test_feast_pit_validation tests.unit.test_feast_incremental_plan tests.unit.test_feast_incremental_orchestration tests.integration.test_feast_online_local"],
+      "commands": ["uv run --locked --project ai_platform/features/feast python -m unittest tests.test_feast_offline tests.unit.test_feast_pit_validation tests.unit.test_feast_incremental_plan tests.unit.test_feast_incremental_orchestration tests.integration.test_feast_online_local tests.unit.test_feast_export_created"],
       "build_artifact": "ops/gcp/ml2_materialize/Dockerfile",
       "deployment_target": "infra/kubernetes/feast-online",
       "deploy_handler": null

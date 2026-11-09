@@ -13,6 +13,10 @@ from pathlib import Path
 import pandas as pd
 import pyarrow.parquet as pq
 
+from data_platform.generation.src.offline.merchant_history import (
+    MERCHANT_HISTORY_TABLE,
+    merchant_history_enabled,
+)
 from data_platform.generation.src.offline.offline_generator import (
     generate_offline_datasets,
     write_offline_datasets,
@@ -33,6 +37,16 @@ PHYSICAL_TABLES = (
     "login_events",
     "fraud_labels",
 )
+# The nine tables every published dataset carries, including canonical-100gb-v1.
+LEGACY_PHYSICAL_TABLES = PHYSICAL_TABLES
+
+
+def physical_tables(base_config: dict) -> tuple[str, ...]:
+    """Return the physical table contract a generator configuration produces."""
+
+    if merchant_history_enabled(base_config):
+        return LEGACY_PHYSICAL_TABLES + (MERCHANT_HISTORY_TABLE,)
+    return LEGACY_PHYSICAL_TABLES
 
 
 def _sha256_file(path: Path) -> str:
@@ -130,10 +144,11 @@ def generate_shard(
         datasets, fraud_metrics = generate_offline_datasets(
             _shard_config(base_config, plan, shard_id)
         )
-        if tuple(datasets) != PHYSICAL_TABLES:
+        expected_tables = physical_tables(base_config)
+        if tuple(datasets) != expected_tables:
             raise ShardPlanError(
                 "offline generator physical table contract changed: "
-                f"expected {PHYSICAL_TABLES}, got {tuple(datasets)}"
+                f"expected {expected_tables}, got {tuple(datasets)}"
             )
 
         transactions = pd.concat(
@@ -147,7 +162,7 @@ def generate_shard(
         write_offline_datasets(datasets, partial_directory)
         files = tuple(
             _file_metadata(partial_directory, final_name, table)
-            for table in PHYSICAL_TABLES
+            for table in expected_tables
         )
         scenario_counts = {
             str(name): int(count)

@@ -13,6 +13,7 @@ import yaml
 
 from ops.schema.export_observed_schemas import export_zone, parse_delta_metadata
 from ops.schema.render_schema_diagrams import (
+    effective_document,
     RELATIONSHIPS,
     Evidence,
     cloud_reference_checks,
@@ -201,6 +202,46 @@ class DeltaMetadataTest(unittest.TestCase):
         self.assertEqual("run", result["run_id"])
 
 
+
+class PendingObservationTest(unittest.TestCase):
+    """dim_merchant_scd2 is drawn only once an observed schema contains it."""
+
+    SCD2_COLUMNS = [("merchant_sk", "string"), ("merchant_id", "string"), ("merchant_name", "string"),
+                    ("category", "string"), ("valid_from_ts", "timestamp"), ("valid_to_ts", "timestamp"),
+                    ("is_current", "boolean")]
+
+    def observed_with_scd2(self):
+        observed, document = inputs()
+        observed = copy.deepcopy(observed)
+        observed["zones"]["gold"]["tables"]["dim_merchant_scd2"] = {
+            "columns": [{"name": name, "nullable": True, "type": kind} for name, kind in self.SCD2_COLUMNS],
+            "partition_columns": [],
+        }
+        return observed, document
+
+    def test_the_current_observed_schema_draws_no_pending_table(self):
+        observed, document = inputs()
+        merged = effective_document(observed, document)
+        self.assertNotIn("pending_observation", merged)
+        self.assertNotIn("dim_merchant_scd2", merged["keys"]["gold"])
+        self.assertNotIn("dim_merchant_scd2", render_all(observed, document)["gold.dbml"])
+
+    def test_an_observed_scd2_table_is_drawn_many_to_one_and_required(self):
+        observed, document = self.observed_with_scd2()
+        gold = render_all(observed, document)["gold.dbml"]
+        self.assertIn("Table gold.dim_merchant_scd2", gold)
+        self.assertIn("Ref fk_dim_merchant_scd2_merchant_id: "
+                      "gold.dim_merchant_scd2.merchant_id > gold.dim_merchant.merchant_id", gold)
+        self.assertIn("validated by rule dim_merchant_scd2.merchant_id_exists_in_dim_merchant", gold)
+        self.assertEqual(21, len(dbml_refs(gold)))
+
+    def test_pending_keys_match_the_cloud_summary_extension_keys(self):
+        from ops.gcp.summarize_spark_output import EXTENSION_GOLD_PRIMARY_KEYS
+
+        _, document = inputs()
+        pending = document["pending_observation"]["keys"]["gold"]
+        self.assertEqual({key: list(value) for key, value in EXTENSION_GOLD_PRIMARY_KEYS.items()}, pending)
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -370,8 +411,9 @@ class CheckEvidenceTest(unittest.TestCase):
 
     def test_validators_check_no_edge_outside_the_contract(self):
         _, document = inputs()
+        pending = {"relationships": document["pending_observation"]["relationships"]}
         contract = {(item.table, item.column, item.target_table, item.target_column)
-                    for item in load_relationships(document)}
+                    for item in [*load_relationships(document), *load_relationships(pending)]}
         self.assertLessEqual(set(load_evidence(ROOT).validators), contract)
 
     def test_the_fraud_label_check_runs_only_behind_its_flag(self):

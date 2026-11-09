@@ -16,10 +16,13 @@ from data_platform.config.spark_benchmark import (
     validate_pair_manifest,
     validate_stage_evidence,
 )
+from data_platform.config.dataset_identity import dataset_has_merchant_history
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.storage.scripts.config import (
     CORE_GOLD_TABLES,
     HISTORICAL_FEATURE_TABLES,
+    MERCHANT_HISTORY_TABLE,
+    MERCHANT_SCD2_TABLE,
     silver_tables,
 )
 
@@ -31,6 +34,26 @@ EXPECTED_TABLES = {
     "dp2-gold": set(CORE_GOLD_TABLES),
     "dp3-features": set(HISTORICAL_FEATURE_TABLES),
 }
+# Tables a dataset with the merchant_history source extension adds per stage.
+MERCHANT_HISTORY_EXTENSION_TABLES = {
+    "dp1-bronze": {MERCHANT_HISTORY_TABLE},
+    "dp2-silver": {MERCHANT_HISTORY_TABLE},
+    "dp2-gold": {MERCHANT_SCD2_TABLE},
+    "dp3-features": set(),
+}
+
+
+def expected_tables(stage: str, dataset_version: str) -> set[str]:
+    """Exact output inventory of one stage for one dataset version."""
+
+    if stage not in EXPECTED_TABLES:
+        raise ValueError("validation summaries must use one supported stage")
+    tables = set(EXPECTED_TABLES[stage])
+    if dataset_has_merchant_history(dataset_version):
+        tables |= MERCHANT_HISTORY_EXTENSION_TABLES[stage]
+    return tables
+
+
 REQUIRED_INVARIANTS = {
     "dp1-bronze": {"source_coverage", "source_counts_match"},
     "dp2-silver": {
@@ -98,21 +121,20 @@ def compare_summaries(
     if len(set(validation_git_shas)) != 1:
         raise ValueError("baseline and optimized summaries require one validation Git SHA")
     stage = str(pair["stage"])
-    if stage not in EXPECTED_TABLES:
-        raise ValueError("validation summaries must use one supported stage")
+    stage_tables = expected_tables(stage, str(pair["dataset_version"]))
     baseline_tables = baseline.get("tables")
     optimized_tables = optimized.get("tables")
     if not isinstance(baseline_tables, Mapping) or not isinstance(
         optimized_tables, Mapping
     ):
         raise ValueError("tables must be objects")
-    if set(baseline_tables) != EXPECTED_TABLES[stage] or set(
+    if set(baseline_tables) != stage_tables or set(
         optimized_tables
-    ) != EXPECTED_TABLES[stage]:
+    ) != stage_tables:
         raise ValueError(f"{stage} table inventory is not exact")
 
     differences: list[str] = []
-    for table in sorted(EXPECTED_TABLES[stage]):
+    for table in sorted(stage_tables):
         left = baseline_tables[table]
         right = optimized_tables[table]
         if not isinstance(left, Mapping) or not isinstance(right, Mapping):
@@ -170,11 +192,11 @@ def compare_summaries(
         "physical_layouts": {
             "baseline": {
                 table: baseline_tables[table].get("physical_layout")
-                for table in sorted(EXPECTED_TABLES[stage])
+                for table in sorted(stage_tables)
             },
             "optimized": {
                 table: optimized_tables[table].get("physical_layout")
-                for table in sorted(EXPECTED_TABLES[stage])
+                for table in sorted(stage_tables)
             },
         },
         "output_equivalent": equivalent,

@@ -1,6 +1,17 @@
 """
 Gold Layer Data Quality Validation.
 
+Two stage boundaries can be validated independently (``--scope``):
+
+* ``core-gold`` after DP2: Silver + core Gold, plus Silver merchant_history and
+  Gold dim_merchant_scd2 with ``--include-merchant-scd2``;
+* ``features`` after DP3: the four historical feature tables against Silver
+  transactions and the core Gold dimensions, with the event_timestamp/created
+  and sampled point-in-time rules.
+
+On ``--environment gcp`` every root must be given explicitly as a run-scoped
+path, so a validation can never fall back to a default or canonical location.
+
 Checks:
     - Dimensions
     - Facts
@@ -16,14 +27,30 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from dataclasses import dataclass
-from functools import partial
+from collections.abc import Mapping
+from dataclasses import replace
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
+from pathlib import Path
+
+from data_platform.config import (
+    RuntimeConfig,
+    StorageConfig,
+    load_runtime_config,
+    load_runtime_config_file,
+)
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.quality.feature_timestamp_quality import (
+    feature_timestamp_results,
+    historical_feature_timestamp_results,
+)
+from data_platform.quality.results import ValidationResult
+from data_platform.quality.scd2_quality import (
+    merchant_history_results,
+    merchant_scd2_results,
+)
 
 
 # ============================================================
@@ -43,12 +70,7 @@ logger = logging.getLogger(__name__)
 # Result Model
 # ============================================================
 
-@dataclass
-class ValidationResult:
-    rule_name: str
-    passed: bool
-    actual_value: int | float | str
-    expected: str
+# ValidationResult is shared with the Phase B rule modules (quality.results).
 
 
 # ============================================================
@@ -858,14 +880,618 @@ def log_results(
 # Validation Pipeline
 # ============================================================
 
+CORE_GOLD_INPUTS = (
+    "dim_user",
+    "dim_account",
+    "dim_merchant",
+    "dim_device",
+    "dim_date",
+    "fact_transactions",
+    "fact_login_events",
+    "fact_balance_snapshot",
+    "obt_transaction_enriched",
+    "feat_user_90d",
+    "opt_merchant_performance",
+)
+CORE_SILVER_INPUTS = (
+    "users",
+    "accounts",
+    "merchants",
+    "devices",
+    "transactions",
+    "login_events",
+    "balance_snapshots",
+)
+HISTORICAL_FEATURE_INPUTS = (
+    "feat_user_behavior",
+    "feat_account_behavior",
+    "feat_device_behavior",
+    "feat_merchant_behavior",
+)
+FEATURE_DIMENSION_INPUTS = ("dim_user", "dim_account", "dim_device", "dim_merchant")
+VALIDATION_SCOPES = ("all", "core-gold", "features")
+
+
+def core_gold_results(
+    gold: Mapping[str, DataFrame],
+    silver: Mapping[str, DataFrame],
+    *,
+    merchant_scd2: DataFrame | None = None,
+    merchant_history: DataFrame | None = None,
+    require_feature_created: bool = True,
+) -> list[ValidationResult]:
+    """DP2 core Gold rules; adds SCD2 rules when ``merchant_scd2`` is given.
+
+    ``require_feature_created`` checks the Phase B ``created`` column of
+    feat_user_90d; turn it off only to re-validate outputs written before it.
+    """
+
+    dim_user = gold["dim_user"]
+    dim_account = gold["dim_account"]
+    dim_merchant = gold["dim_merchant"]
+    dim_device = gold["dim_device"]
+    dim_date = gold["dim_date"]
+    fact_transactions = gold["fact_transactions"]
+    fact_login_events = gold["fact_login_events"]
+    fact_balance_snapshot = gold["fact_balance_snapshot"]
+    obt_transaction_enriched = gold["obt_transaction_enriched"]
+    feat_user_90d = gold["feat_user_90d"]
+    opt_merchant_performance = gold["opt_merchant_performance"]
+    silver_users = silver["users"]
+    silver_accounts = silver["accounts"]
+    silver_merchants = silver["merchants"]
+    silver_devices = silver["devices"]
+    silver_transactions = silver["transactions"]
+    silver_login_events = silver["login_events"]
+    silver_balance_snapshots = silver["balance_snapshots"]
+
+    all_results: list[ValidationResult] = []
+
+    # ====================================================
+    # Dimensions
+    # ====================================================
+
+    all_results.extend(
+        validate_dimension(
+            dim_user,
+            "dim_user",
+            "user_id",
+            [
+                "user_id",
+                "full_name",
+                "email",
+                "phone",
+                "kyc_verified",
+                "created_at",
+            ],
+        )
+    )
+
+    all_results.extend(
+        validate_dimension(
+            dim_account,
+            "dim_account",
+            "account_id",
+            [
+                "account_id",
+                "user_id",
+                "account_type",
+                "currency",
+                "created_at",
+            ],
+        )
+    )
+
+    all_results.extend(
+        validate_dimension(
+            dim_merchant,
+            "dim_merchant",
+            "merchant_id",
+            [
+                "merchant_id",
+                "merchant_name",
+                "category",
+            ],
+        )
+    )
+
+    all_results.extend(
+        validate_dimension(
+            dim_device,
+            "dim_device",
+            "device_id",
+            [
+                "device_id",
+                "user_id",
+                "device_type",
+                "os",
+                "first_seen_at",
+            ],
+        )
+    )
+
+    all_results.extend(
+        validate_dimension(
+            dim_date,
+            "dim_date",
+            "date_key",
+            [
+                "date_key",
+                "calendar_date",
+                "day",
+                "month",
+                "quarter",
+                "year",
+                "day_of_week",
+                "is_weekend",
+            ],
+        )
+    )
+
+    # ====================================================
+    # Facts
+    # ====================================================
+
+    all_results.extend(
+        validate_fact_transactions(
+            fact_transactions
+        )
+    )
+
+    all_results.extend(
+        validate_fact_login_events(
+            fact_login_events
+        )
+    )
+
+    all_results.extend(
+        validate_fact_balance_snapshot(
+            fact_balance_snapshot
+        )
+    )
+
+    # ====================================================
+    # OBT
+    # ====================================================
+
+    all_results.extend(
+        validate_obt_transaction_enriched(
+            obt_transaction_enriched
+        )
+    )
+
+    # ====================================================
+    # Feature + Analytical
+    # ====================================================
+
+    all_results.extend(
+        validate_feat_user_90d(
+            feat_user_90d
+        )
+    )
+
+    all_results.extend(
+        validate_opt_merchant_performance(
+            opt_merchant_performance
+        )
+    )
+
+    # ====================================================
+    # Silver -> Gold row-count contracts
+    # ====================================================
+
+    all_results.extend([
+        validate_row_count_equal(
+            silver_users,
+            dim_user,
+            "silver.users_count_equals_dim_user_count",
+        ),
+
+        validate_row_count_equal(
+            silver_accounts,
+            dim_account,
+            "silver.accounts_count_equals_dim_account_count",
+        ),
+
+        validate_row_count_equal(
+            silver_merchants,
+            dim_merchant,
+            "silver.merchants_count_equals_dim_merchant_count",
+        ),
+
+        validate_row_count_equal(
+            silver_devices,
+            dim_device,
+            "silver.devices_count_equals_dim_device_count",
+        ),
+
+        validate_row_count_equal(
+            silver_transactions,
+            fact_transactions,
+            (
+                "silver.transactions_count_equals_"
+                "fact_transactions_count"
+            ),
+        ),
+
+        validate_row_count_equal(
+            silver_login_events,
+            fact_login_events,
+            (
+                "silver.login_events_count_equals_"
+                "fact_login_events_count"
+            ),
+        ),
+
+        validate_row_count_equal(
+            silver_balance_snapshots,
+            fact_balance_snapshot,
+            (
+                "silver.balance_snapshots_count_equals_"
+                "fact_balance_snapshot_count"
+            ),
+        ),
+    ])
+
+    # ====================================================
+    # Gold internal contracts
+    # ====================================================
+
+    all_results.extend([
+        validate_row_count_equal(
+            fact_transactions,
+            obt_transaction_enriched,
+            (
+                "fact_transactions_count_equals_"
+                "obt_transaction_enriched_count"
+            ),
+        ),
+
+        validate_row_count_equal(
+            dim_user,
+            feat_user_90d,
+            (
+                "dim_user_count_equals_"
+                "feat_user_90d_count"
+            ),
+        ),
+
+        validate_row_count_equal(
+            dim_merchant,
+            opt_merchant_performance,
+            (
+                "dim_merchant_count_equals_"
+                "opt_merchant_performance_count"
+            ),
+        ),
+    ])
+
+    # ====================================================
+    # Gold foreign-key relationships
+    # ====================================================
+
+    all_results.extend([
+        validate_foreign_key(
+            dim_account,
+            dim_user,
+            "user_id",
+            "user_id",
+            "dim_account.user_id_exists_in_dim_user",
+        ),
+
+        validate_foreign_key(
+            dim_device,
+            dim_user,
+            "user_id",
+            "user_id",
+            "dim_device.user_id_exists_in_dim_user",
+        ),
+
+        validate_foreign_key(
+            fact_transactions,
+            dim_user,
+            "user_id",
+            "user_id",
+            "fact_transactions.user_id_exists_in_dim_user",
+        ),
+
+        validate_foreign_key(
+            fact_transactions,
+            dim_account,
+            "account_id",
+            "account_id",
+            "fact_transactions.account_id_exists_in_dim_account",
+        ),
+
+        validate_foreign_key(
+            fact_transactions,
+            dim_device,
+            "device_id",
+            "device_id",
+            "fact_transactions.device_id_exists_in_dim_device",
+        ),
+
+        validate_foreign_key(
+            fact_transactions,
+            dim_merchant,
+            "merchant_id",
+            "merchant_id",
+            (
+                "fact_transactions.merchant_id_"
+                "exists_in_dim_merchant"
+            ),
+        ),
+
+        validate_foreign_key(
+            fact_transactions,
+            dim_account,
+            "counterparty_account_id",
+            "account_id",
+            (
+                "fact_transactions.counterparty_account_id_"
+                "exists_in_dim_account"
+            ),
+        ),
+
+        validate_foreign_key(
+            fact_transactions,
+            dim_date,
+            "date_key",
+            "date_key",
+            (
+                "fact_transactions.date_key_"
+                "exists_in_dim_date"
+            ),
+        ),
+
+        validate_foreign_key(
+            fact_login_events,
+            dim_user,
+            "user_id",
+            "user_id",
+            "fact_login_events.user_id_exists_in_dim_user",
+        ),
+
+        validate_foreign_key(
+            fact_login_events,
+            dim_device,
+            "device_id",
+            "device_id",
+            "fact_login_events.device_id_exists_in_dim_device",
+        ),
+
+        validate_foreign_key(
+            fact_login_events,
+            dim_date,
+            "date_key",
+            "date_key",
+            (
+                "fact_login_events.date_key_"
+                "exists_in_dim_date"
+            ),
+        ),
+
+        validate_foreign_key(
+            fact_balance_snapshot,
+            dim_account,
+            "account_id",
+            "account_id",
+            (
+                "fact_balance_snapshot.account_id_"
+                "exists_in_dim_account"
+            ),
+        ),
+
+        validate_foreign_key(
+            fact_balance_snapshot,
+            dim_date,
+            "date_key",
+            "date_key",
+            (
+                "fact_balance_snapshot.date_key_"
+                "exists_in_dim_date"
+            ),
+        ),
+
+        validate_foreign_key(
+            feat_user_90d,
+            dim_user,
+            "user_id",
+            "user_id",
+            "feat_user_90d.user_id_exists_in_dim_user",
+        ),
+
+        validate_foreign_key(
+            opt_merchant_performance,
+            dim_merchant,
+            "merchant_id",
+            "merchant_id",
+            (
+                "opt_merchant_performance.merchant_id_"
+                "exists_in_dim_merchant"
+            ),
+        ),
+    ])
+
+
+    if require_feature_created:
+        all_results.extend(feature_timestamp_results(
+            feat_user_90d, "feat_user_90d", legacy_created_column="created_timestamp"
+        ))
+    if merchant_history is not None:
+        all_results.extend(merchant_history_results(merchant_history, silver_merchants))
+    if merchant_scd2 is not None:
+        dim_merchant_scd2 = merchant_scd2
+        all_results.append(validate_foreign_key(
+            dim_merchant_scd2,
+            dim_merchant,
+            "merchant_id",
+            "merchant_id",
+            "dim_merchant_scd2.merchant_id_exists_in_dim_merchant",
+        ))
+        all_results.extend(merchant_scd2_results(
+            merchant_scd2, dim_merchant, transactions=fact_transactions
+        ))
+    return all_results
+
+
+def historical_feature_results(
+    features: Mapping[str, DataFrame],
+    dimensions: Mapping[str, DataFrame],
+    silver_transactions: DataFrame,
+    *,
+    require_feature_created: bool = True,
+    pit_sample_modulus: int = 1000,
+) -> list[ValidationResult]:
+    """DP3 historical feature rules: grain, values, population, references, PIT.
+
+    ``require_feature_created`` adds the Phase B event_timestamp/created rules
+    and the sampled PIT recomputation.
+    """
+
+    feat_user_behavior = features["feat_user_behavior"]
+    feat_account_behavior = features["feat_account_behavior"]
+    feat_device_behavior = features["feat_device_behavior"]
+    feat_merchant_behavior = features["feat_merchant_behavior"]
+    dim_user = dimensions["dim_user"]
+    dim_account = dimensions["dim_account"]
+    dim_device = dimensions["dim_device"]
+    dim_merchant = dimensions["dim_merchant"]
+
+    all_results: list[ValidationResult] = []
+    all_results.extend(validate_historical_feature(
+        feat_user_behavior, "feat_user_behavior", "user_id",
+        ["user_id", "event_timestamp", "user_tx_count_5m",
+         "user_tx_count_1h", "user_tx_count_24h", "user_amount_sum_1h",
+         "user_amount_observation_count_30d", "user_distinct_merchants_24h"],
+        ["user_tx_count_5m", "user_tx_count_1h", "user_tx_count_24h",
+         "user_amount_sum_1h", "user_amount_observation_count_30d",
+         "user_std_amount_30d", "user_distinct_merchants_24h"],
+        ["user_failed_rate_24h"],
+        (F.col("user_tx_count_5m") > F.col("user_tx_count_1h"))
+        | (F.col("user_tx_count_1h") > F.col("user_tx_count_24h")),
+    ))
+    all_results.extend(validate_historical_feature(
+        feat_account_behavior, "feat_account_behavior", "account_id",
+        ["account_id", "event_timestamp", "account_tx_count_5m",
+         "account_tx_count_1h", "account_tx_count_24h",
+         "account_amount_sum_1h", "account_amount_sum_24h",
+         "account_amount_observation_count_30d"],
+        ["account_tx_count_5m", "account_tx_count_1h",
+         "account_tx_count_24h", "account_amount_sum_1h",
+         "account_amount_sum_24h", "account_amount_observation_count_30d",
+         "account_std_amount_30d", "account_seconds_since_last_tx"],
+        ["account_failed_rate_24h"],
+        (F.col("account_tx_count_5m") > F.col("account_tx_count_1h"))
+        | (F.col("account_tx_count_1h") > F.col("account_tx_count_24h")),
+    ))
+    all_results.extend(validate_historical_feature(
+        feat_device_behavior, "feat_device_behavior", "device_id",
+        ["device_id", "event_timestamp", "device_age_seconds",
+         "device_tx_count_1h", "device_tx_count_24h", "device_amount_sum_24h"],
+        ["device_age_seconds", "device_tx_count_1h",
+         "device_tx_count_24h", "device_amount_sum_24h"],
+        ["device_failed_rate_24h"],
+        F.col("device_tx_count_1h") > F.col("device_tx_count_24h"),
+    ))
+    all_results.extend(validate_historical_feature(
+        feat_merchant_behavior, "feat_merchant_behavior", "merchant_id",
+        ["merchant_id", "event_timestamp", "merchant_tx_count_10m",
+         "merchant_tx_count_1h", "merchant_tx_count_24h",
+         "merchant_unique_users_10m", "merchant_unique_users_1h",
+         "merchant_amount_sum_1h"],
+        ["merchant_tx_count_10m", "merchant_tx_count_1h",
+         "merchant_tx_count_24h", "merchant_unique_users_10m",
+         "merchant_unique_users_1h", "merchant_amount_sum_1h"],
+        [],
+        (F.col("merchant_tx_count_10m") > F.col("merchant_tx_count_1h"))
+        | (F.col("merchant_tx_count_1h") > F.col("merchant_tx_count_24h"))
+        | (F.col("merchant_unique_users_10m") > F.col("merchant_unique_users_1h")),
+    ))
+
+
+    all_results.extend([
+        validate_row_count_equal(
+            silver_transactions.select("user_id", "timestamp").distinct(),
+            feat_user_behavior,
+            "silver.transactions_user_timestamp_population_equals_feat_user_behavior",
+        ),
+        validate_row_count_equal(
+            silver_transactions.select("account_id", "timestamp").distinct(),
+            feat_account_behavior,
+            "silver.transactions_account_timestamp_population_equals_feat_account_behavior",
+        ),
+        validate_row_count_equal(
+            silver_transactions.select("device_id", "timestamp").distinct(),
+            feat_device_behavior,
+            "silver.transactions_device_timestamp_population_equals_feat_device_behavior",
+        ),
+        validate_row_count_equal(
+            silver_transactions.filter(
+                (F.col("type") == "payment") & F.col("merchant_id").isNotNull()
+            ).select("merchant_id", "timestamp").distinct(),
+            feat_merchant_behavior,
+            "silver.payment_merchant_timestamp_population_equals_feat_merchant_behavior",
+        ),
+    ])
+    all_results.extend([
+        validate_foreign_key(
+            feat_user_behavior, dim_user, "user_id", "user_id",
+            "feat_user_behavior.user_id_exists_in_dim_user",
+        ),
+        validate_foreign_key(
+            feat_account_behavior, dim_account, "account_id", "account_id",
+            "feat_account_behavior.account_id_exists_in_dim_account",
+        ),
+        validate_foreign_key(
+            feat_device_behavior, dim_device, "device_id", "device_id",
+            "feat_device_behavior.device_id_exists_in_dim_device",
+        ),
+        validate_foreign_key(
+            feat_merchant_behavior, dim_merchant, "merchant_id", "merchant_id",
+            "feat_merchant_behavior.merchant_id_exists_in_dim_merchant",
+        ),
+
+    ])
+    if require_feature_created:
+        all_results.extend(historical_feature_timestamp_results(
+            features, silver_transactions, sample_modulus=pit_sample_modulus
+        ))
+    return all_results
+
+
+def _read_tables(spark, layer: str, tables, storage: StorageConfig) -> dict[str, DataFrame]:
+    return {
+        table: read_delta_table(spark, layer, table, storage=storage)
+        for table in tables
+    }
+
+
 def run_validation(
     runtime_config: RuntimeConfig | None = None,
-) -> None:
+    *,
+    scope: str = "all",
+    include_merchant_scd2: bool = False,
+    require_feature_created: bool = True,
+    pit_sample_modulus: int = 1000,
+    feature_storage: StorageConfig | None = None,
+) -> list[ValidationResult]:
+    """Validate one stage boundary and raise if any rule fails.
 
+    * ``core-gold``: Silver + core Gold (+ merchant_history/SCD2 when enabled).
+    * ``features``: Silver transactions + core Gold dimensions + DP3 features.
+    * ``all``: both, as the original single validator did.
+
+    Core Gold and Silver are read from ``runtime_config.storage``; DP3 features
+    from ``feature_storage`` (default: the same storage). On cloud, both point at
+    explicit run-scoped roots (see ``main``).
+    """
+
+    if scope not in VALIDATION_SCOPES:
+        raise ValueError(f"scope must be one of {VALIDATION_SCOPES}")
     spark = None
     config = runtime_config or load_runtime_config()
-    read_configured_gold = partial(read_gold, storage=config.storage)
-    read_configured_silver = partial(read_silver, storage=config.storage)
+    feature_storage = feature_storage or config.storage
 
     try:
 
@@ -875,573 +1501,36 @@ def run_validation(
             optimized=True,
             runtime_config=config,
         )
+        all_results: list[ValidationResult] = []
 
-        # ====================================================
-        # Read Gold
-        # ====================================================
+        if scope in ("all", "core-gold"):
+            logger.info("========== VALIDATE CORE GOLD ==========")
+            gold = _read_tables(spark, "gold", CORE_GOLD_INPUTS, config.storage)
+            silver = _read_tables(spark, "silver", CORE_SILVER_INPUTS, config.storage)
+            merchant_history = merchant_scd2 = None
+            if include_merchant_scd2:
+                merchant_history = read_silver(spark, "merchant_history", storage=config.storage)
+                merchant_scd2 = read_gold(spark, "dim_merchant_scd2", storage=config.storage)
+            all_results.extend(core_gold_results(
+                gold,
+                silver,
+                merchant_scd2=merchant_scd2,
+                merchant_history=merchant_history,
+                require_feature_created=require_feature_created,
+            ))
 
-        logger.info(
-            "========== READ GOLD =========="
-        )
-
-        dim_user = read_configured_gold(
-            spark,
-            "dim_user",
-        )
-
-        dim_account = read_configured_gold(
-            spark,
-            "dim_account",
-        )
-
-        dim_merchant = read_configured_gold(
-            spark,
-            "dim_merchant",
-        )
-
-        dim_device = read_configured_gold(
-            spark,
-            "dim_device",
-        )
-
-        dim_date = read_configured_gold(
-            spark,
-            "dim_date",
-        )
-
-        fact_transactions = read_configured_gold(
-            spark,
-            "fact_transactions",
-        )
-
-        fact_login_events = read_configured_gold(
-            spark,
-            "fact_login_events",
-        )
-
-        fact_balance_snapshot = read_configured_gold(
-            spark,
-            "fact_balance_snapshot",
-        )
-
-        obt_transaction_enriched = read_configured_gold(
-            spark,
-            "obt_transaction_enriched",
-        )
-        
-        feat_user_90d = read_configured_gold(
-            spark,
-            "feat_user_90d",
-        )
-
-        feat_user_behavior = read_configured_gold(spark, "feat_user_behavior")
-        feat_account_behavior = read_configured_gold(spark, "feat_account_behavior")
-        feat_device_behavior = read_configured_gold(spark, "feat_device_behavior")
-        feat_merchant_behavior = read_configured_gold(spark, "feat_merchant_behavior")
-
-        opt_merchant_performance = read_configured_gold(
-            spark,
-            "opt_merchant_performance",
-        )
-
-        # ====================================================
-        # Read Silver for cross-layer contracts
-        # ====================================================
-
-        logger.info(
-            "========== READ SILVER FOR CONTRACTS =========="
-        )
-
-        silver_users = read_configured_silver(
-            spark,
-            "users",
-        )
-
-        silver_accounts = read_configured_silver(
-            spark,
-            "accounts",
-        )
-
-        silver_merchants = read_configured_silver(
-            spark,
-            "merchants",
-        )
-
-        silver_devices = read_configured_silver(
-            spark,
-            "devices",
-        )
-
-        silver_transactions = read_configured_silver(
-            spark,
-            "transactions",
-        )
-
-        silver_login_events = read_configured_silver(
-            spark,
-            "login_events",
-        )
-
-        silver_balance_snapshots = read_configured_silver(
-            spark,
-            "balance_snapshots",
-        )
-
-        all_results = []
-
-        # ====================================================
-        # Dimensions
-        # ====================================================
-
-        all_results.extend(
-            validate_dimension(
-                dim_user,
-                "dim_user",
-                "user_id",
-                [
-                    "user_id",
-                    "full_name",
-                    "email",
-                    "phone",
-                    "kyc_verified",
-                    "created_at",
-                ],
-            )
-        )
-
-        all_results.extend(
-            validate_dimension(
-                dim_account,
-                "dim_account",
-                "account_id",
-                [
-                    "account_id",
-                    "user_id",
-                    "account_type",
-                    "currency",
-                    "created_at",
-                ],
-            )
-        )
-
-        all_results.extend(
-            validate_dimension(
-                dim_merchant,
-                "dim_merchant",
-                "merchant_id",
-                [
-                    "merchant_id",
-                    "merchant_name",
-                    "category",
-                ],
-            )
-        )
-
-        all_results.extend(
-            validate_dimension(
-                dim_device,
-                "dim_device",
-                "device_id",
-                [
-                    "device_id",
-                    "user_id",
-                    "device_type",
-                    "os",
-                    "first_seen_at",
-                ],
-            )
-        )
-
-        all_results.extend(
-            validate_dimension(
-                dim_date,
-                "dim_date",
-                "date_key",
-                [
-                    "date_key",
-                    "calendar_date",
-                    "day",
-                    "month",
-                    "quarter",
-                    "year",
-                    "day_of_week",
-                    "is_weekend",
-                ],
-            )
-        )
-
-        # ====================================================
-        # Facts
-        # ====================================================
-
-        all_results.extend(
-            validate_fact_transactions(
-                fact_transactions
-            )
-        )
-
-        all_results.extend(
-            validate_fact_login_events(
-                fact_login_events
-            )
-        )
-
-        all_results.extend(
-            validate_fact_balance_snapshot(
-                fact_balance_snapshot
-            )
-        )
-
-        # ====================================================
-        # OBT
-        # ====================================================
-
-        all_results.extend(
-            validate_obt_transaction_enriched(
-                obt_transaction_enriched
-            )
-        )
-        
-        # ====================================================
-        # Feature + Analytical
-        # ====================================================
-
-        all_results.extend(
-            validate_feat_user_90d(
-                feat_user_90d
-            )
-        )
-
-        all_results.extend(validate_historical_feature(
-            feat_user_behavior, "feat_user_behavior", "user_id",
-            ["user_id", "event_timestamp", "user_tx_count_5m",
-             "user_tx_count_1h", "user_tx_count_24h", "user_amount_sum_1h",
-             "user_amount_observation_count_30d", "user_distinct_merchants_24h"],
-            ["user_tx_count_5m", "user_tx_count_1h", "user_tx_count_24h",
-             "user_amount_sum_1h", "user_amount_observation_count_30d",
-             "user_std_amount_30d", "user_distinct_merchants_24h"],
-            ["user_failed_rate_24h"],
-            (F.col("user_tx_count_5m") > F.col("user_tx_count_1h"))
-            | (F.col("user_tx_count_1h") > F.col("user_tx_count_24h")),
-        ))
-        all_results.extend(validate_historical_feature(
-            feat_account_behavior, "feat_account_behavior", "account_id",
-            ["account_id", "event_timestamp", "account_tx_count_5m",
-             "account_tx_count_1h", "account_tx_count_24h",
-             "account_amount_sum_1h", "account_amount_sum_24h",
-             "account_amount_observation_count_30d"],
-            ["account_tx_count_5m", "account_tx_count_1h",
-             "account_tx_count_24h", "account_amount_sum_1h",
-             "account_amount_sum_24h", "account_amount_observation_count_30d",
-             "account_std_amount_30d", "account_seconds_since_last_tx"],
-            ["account_failed_rate_24h"],
-            (F.col("account_tx_count_5m") > F.col("account_tx_count_1h"))
-            | (F.col("account_tx_count_1h") > F.col("account_tx_count_24h")),
-        ))
-        all_results.extend(validate_historical_feature(
-            feat_device_behavior, "feat_device_behavior", "device_id",
-            ["device_id", "event_timestamp", "device_age_seconds",
-             "device_tx_count_1h", "device_tx_count_24h", "device_amount_sum_24h"],
-            ["device_age_seconds", "device_tx_count_1h",
-             "device_tx_count_24h", "device_amount_sum_24h"],
-            ["device_failed_rate_24h"],
-            F.col("device_tx_count_1h") > F.col("device_tx_count_24h"),
-        ))
-        all_results.extend(validate_historical_feature(
-            feat_merchant_behavior, "feat_merchant_behavior", "merchant_id",
-            ["merchant_id", "event_timestamp", "merchant_tx_count_10m",
-             "merchant_tx_count_1h", "merchant_tx_count_24h",
-             "merchant_unique_users_10m", "merchant_unique_users_1h",
-             "merchant_amount_sum_1h"],
-            ["merchant_tx_count_10m", "merchant_tx_count_1h",
-             "merchant_tx_count_24h", "merchant_unique_users_10m",
-             "merchant_unique_users_1h", "merchant_amount_sum_1h"],
-            [],
-            (F.col("merchant_tx_count_10m") > F.col("merchant_tx_count_1h"))
-            | (F.col("merchant_tx_count_1h") > F.col("merchant_tx_count_24h"))
-            | (F.col("merchant_unique_users_10m") > F.col("merchant_unique_users_1h")),
-        ))
-
-        all_results.extend(
-            validate_opt_merchant_performance(
-                opt_merchant_performance
-            )
-        )
-
-        # ====================================================
-        # Silver -> Gold row-count contracts
-        # ====================================================
-
-        all_results.extend([
-            validate_row_count_equal(
-                silver_users,
-                dim_user,
-                "silver.users_count_equals_dim_user_count",
-            ),
-
-            validate_row_count_equal(
-                silver_accounts,
-                dim_account,
-                "silver.accounts_count_equals_dim_account_count",
-            ),
-
-            validate_row_count_equal(
-                silver_merchants,
-                dim_merchant,
-                "silver.merchants_count_equals_dim_merchant_count",
-            ),
-
-            validate_row_count_equal(
-                silver_devices,
-                dim_device,
-                "silver.devices_count_equals_dim_device_count",
-            ),
-
-            validate_row_count_equal(
+        if scope in ("all", "features"):
+            logger.info("========== VALIDATE HISTORICAL FEATURES ==========")
+            features = _read_tables(spark, "gold", HISTORICAL_FEATURE_INPUTS, feature_storage)
+            dimensions = _read_tables(spark, "gold", FEATURE_DIMENSION_INPUTS, config.storage)
+            silver_transactions = read_silver(spark, "transactions", storage=config.storage)
+            all_results.extend(historical_feature_results(
+                features,
+                dimensions,
                 silver_transactions,
-                fact_transactions,
-                (
-                    "silver.transactions_count_equals_"
-                    "fact_transactions_count"
-                ),
-            ),
-
-            validate_row_count_equal(
-                silver_login_events,
-                fact_login_events,
-                (
-                    "silver.login_events_count_equals_"
-                    "fact_login_events_count"
-                ),
-            ),
-
-            validate_row_count_equal(
-                silver_balance_snapshots,
-                fact_balance_snapshot,
-                (
-                    "silver.balance_snapshots_count_equals_"
-                    "fact_balance_snapshot_count"
-                ),
-            ),
-        ])
-
-        # ====================================================
-        # Gold internal contracts
-        # ====================================================
-
-        all_results.extend([
-            validate_row_count_equal(
-                fact_transactions,
-                obt_transaction_enriched,
-                (
-                    "fact_transactions_count_equals_"
-                    "obt_transaction_enriched_count"
-                ),
-            ),
-
-            validate_row_count_equal(
-                dim_user,
-                feat_user_90d,
-                (
-                    "dim_user_count_equals_"
-                    "feat_user_90d_count"
-                ),
-            ),
-
-            validate_row_count_equal(
-                dim_merchant,
-                opt_merchant_performance,
-                (
-                    "dim_merchant_count_equals_"
-                    "opt_merchant_performance_count"
-                ),
-            ),
-            validate_row_count_equal(
-                silver_transactions.select("user_id", "timestamp").distinct(),
-                feat_user_behavior,
-                "silver.transactions_user_timestamp_population_equals_feat_user_behavior",
-            ),
-            validate_row_count_equal(
-                silver_transactions.select("account_id", "timestamp").distinct(),
-                feat_account_behavior,
-                "silver.transactions_account_timestamp_population_equals_feat_account_behavior",
-            ),
-            validate_row_count_equal(
-                silver_transactions.select("device_id", "timestamp").distinct(),
-                feat_device_behavior,
-                "silver.transactions_device_timestamp_population_equals_feat_device_behavior",
-            ),
-            validate_row_count_equal(
-                silver_transactions.filter(
-                    (F.col("type") == "payment") & F.col("merchant_id").isNotNull()
-                ).select("merchant_id", "timestamp").distinct(),
-                feat_merchant_behavior,
-                "silver.payment_merchant_timestamp_population_equals_feat_merchant_behavior",
-            ),
-        ])
-
-        # ====================================================
-        # Gold foreign-key relationships
-        # ====================================================
-
-        all_results.extend([
-            validate_foreign_key(
-                dim_account,
-                dim_user,
-                "user_id",
-                "user_id",
-                "dim_account.user_id_exists_in_dim_user",
-            ),
-
-            validate_foreign_key(
-                dim_device,
-                dim_user,
-                "user_id",
-                "user_id",
-                "dim_device.user_id_exists_in_dim_user",
-            ),
-
-            validate_foreign_key(
-                fact_transactions,
-                dim_user,
-                "user_id",
-                "user_id",
-                "fact_transactions.user_id_exists_in_dim_user",
-            ),
-
-            validate_foreign_key(
-                fact_transactions,
-                dim_account,
-                "account_id",
-                "account_id",
-                "fact_transactions.account_id_exists_in_dim_account",
-            ),
-
-            validate_foreign_key(
-                fact_transactions,
-                dim_device,
-                "device_id",
-                "device_id",
-                "fact_transactions.device_id_exists_in_dim_device",
-            ),
-
-            validate_foreign_key(
-                fact_transactions,
-                dim_merchant,
-                "merchant_id",
-                "merchant_id",
-                (
-                    "fact_transactions.merchant_id_"
-                    "exists_in_dim_merchant"
-                ),
-            ),
-
-            validate_foreign_key(
-                fact_transactions,
-                dim_account,
-                "counterparty_account_id",
-                "account_id",
-                (
-                    "fact_transactions.counterparty_account_id_"
-                    "exists_in_dim_account"
-                ),
-            ),
-
-            validate_foreign_key(
-                fact_transactions,
-                dim_date,
-                "date_key",
-                "date_key",
-                (
-                    "fact_transactions.date_key_"
-                    "exists_in_dim_date"
-                ),
-            ),
-
-            validate_foreign_key(
-                fact_login_events,
-                dim_user,
-                "user_id",
-                "user_id",
-                "fact_login_events.user_id_exists_in_dim_user",
-            ),
-
-            validate_foreign_key(
-                fact_login_events,
-                dim_device,
-                "device_id",
-                "device_id",
-                "fact_login_events.device_id_exists_in_dim_device",
-            ),
-
-            validate_foreign_key(
-                fact_login_events,
-                dim_date,
-                "date_key",
-                "date_key",
-                (
-                    "fact_login_events.date_key_"
-                    "exists_in_dim_date"
-                ),
-            ),
-
-            validate_foreign_key(
-                fact_balance_snapshot,
-                dim_account,
-                "account_id",
-                "account_id",
-                (
-                    "fact_balance_snapshot.account_id_"
-                    "exists_in_dim_account"
-                ),
-            ),
-
-            validate_foreign_key(
-                fact_balance_snapshot,
-                dim_date,
-                "date_key",
-                "date_key",
-                (
-                    "fact_balance_snapshot.date_key_"
-                    "exists_in_dim_date"
-                ),
-            ),
-
-            validate_foreign_key(
-                feat_user_90d,
-                dim_user,
-                "user_id",
-                "user_id",
-                "feat_user_90d.user_id_exists_in_dim_user",
-            ),
-            validate_foreign_key(
-                feat_user_behavior, dim_user, "user_id", "user_id",
-                "feat_user_behavior.user_id_exists_in_dim_user",
-            ),
-            validate_foreign_key(
-                feat_account_behavior, dim_account, "account_id", "account_id",
-                "feat_account_behavior.account_id_exists_in_dim_account",
-            ),
-            validate_foreign_key(
-                feat_device_behavior, dim_device, "device_id", "device_id",
-                "feat_device_behavior.device_id_exists_in_dim_device",
-            ),
-            validate_foreign_key(
-                feat_merchant_behavior, dim_merchant, "merchant_id", "merchant_id",
-                "feat_merchant_behavior.merchant_id_exists_in_dim_merchant",
-            ),
-
-            validate_foreign_key(
-                opt_merchant_performance,
-                dim_merchant,
-                "merchant_id",
-                "merchant_id",
-                (
-                    "opt_merchant_performance.merchant_id_"
-                    "exists_in_dim_merchant"
-                ),
-            ),
-        ])
+                require_feature_created=require_feature_created,
+                pit_sample_modulus=pit_sample_modulus,
+            ))
 
         # ====================================================
         # Final Report
@@ -1460,6 +1549,7 @@ def run_validation(
         logger.info(
             "Gold Data Quality validation PASSED."
         )
+        return all_results
 
     finally:
 
@@ -1475,7 +1565,48 @@ def run_validation(
 # Entry Point
 # ============================================================
 
-def main(argv: list[str] | None = None) -> int:
+def _run_scoped(uri: str | None, zone: str, flag: str) -> str:
+    if not uri or not uri.startswith("gs://") or "/lakehouse/runs/" not in uri or not uri.rstrip("/").endswith(f"/{zone}"):
+        raise ValueError(f"{flag} must be a run-scoped gs://.../lakehouse/runs/<run>/{zone} root")
+    return uri.rstrip("/")
+
+
+def resolve_storage(
+    config: RuntimeConfig,
+    *,
+    scope: str,
+    silver_root: str | None,
+    gold_root: str | None,
+    feature_gold_root: str | None,
+) -> tuple[StorageConfig, StorageConfig]:
+    """Return (core storage, feature storage) for one validation run.
+
+    Local runs may use the configured roots. GCP runs must name every root the
+    scope reads; nothing falls back to the profile's default (canonical) roots.
+    """
+
+    explicit = any(value is not None for value in (silver_root, gold_root, feature_gold_root))
+    if config.environment != "gcp" and not explicit:
+        return config.storage, config.storage
+    needs_features = scope in ("all", "features")
+    silver = _run_scoped(silver_root, "silver", "--silver-root")
+    gold = _run_scoped(gold_root, "gold", "--gold-root")
+    core = replace(config.storage, silver_root=silver, gold_root=gold)
+    if not needs_features:
+        if feature_gold_root is not None:
+            raise ValueError("--feature-gold-root is only read by the features scope")
+        return core, core
+    features = replace(
+        config.storage,
+        silver_root=silver,
+        gold_root=_run_scoped(feature_gold_root, "gold", "--feature-gold-root"),
+    )
+    if features.gold_root == core.gold_root and scope == "features" and config.environment == "gcp":
+        raise ValueError("DP3 features are written to their own run root, not the core Gold root")
+    return core, features
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate persisted Gold Delta data.")
     parser.add_argument(
         "--environment",
@@ -1483,11 +1614,58 @@ def main(argv: list[str] | None = None) -> int:
         default="local",
         help="Runtime storage and Spark profile (default: local).",
     )
-    args = parser.parse_args(argv)
+    parser.add_argument("--scope", choices=VALIDATION_SCOPES, default="all")
+    parser.add_argument("--silver-root", help="Run-scoped Silver root (required on gcp).")
+    parser.add_argument("--gold-root", help="Run-scoped core Gold root (required on gcp).")
+    parser.add_argument(
+        "--feature-gold-root",
+        help="Run-scoped DP3 feature Gold root (required on gcp for features/all).",
+    )
+    parser.add_argument(
+        "--include-merchant-scd2",
+        action="store_true",
+        help="Validate Silver merchant_history and Gold dim_merchant_scd2.",
+    )
+    parser.add_argument(
+        "--allow-legacy-feature-schema",
+        action="store_true",
+        help=(
+            "Skip the Phase B event_timestamp/created and PIT rules, to re-validate "
+            "outputs written before the created column existed."
+        ),
+    )
+    parser.add_argument("--pit-sample-modulus", type=int, default=1000)
+    parser.add_argument("--runtime-config-file", type=Path)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
 
     try:
-        config = load_runtime_config(args.environment)
-        run_validation(runtime_config=config)
+        if args.runtime_config_file is not None:
+            config = load_runtime_config_file(args.runtime_config_file, args.environment)
+        else:
+            config = load_runtime_config(args.environment)
+        core_storage, feature_storage = resolve_storage(
+            config,
+            scope=args.scope,
+            silver_root=args.silver_root,
+            gold_root=args.gold_root,
+            feature_gold_root=args.feature_gold_root,
+        )
+        logger.info("Scope: %s", args.scope)
+        logger.info("Silver root: %s", core_storage.silver_root)
+        logger.info("Core Gold root: %s", core_storage.gold_root)
+        logger.info("Feature Gold root: %s", feature_storage.gold_root)
+        run_validation(
+            runtime_config=replace(config, storage=core_storage),
+            scope=args.scope,
+            include_merchant_scd2=args.include_merchant_scd2,
+            require_feature_created=not args.allow_legacy_feature_schema,
+            pit_sample_modulus=args.pit_sample_modulus,
+            feature_storage=feature_storage,
+        )
         return 0
 
     except Exception:

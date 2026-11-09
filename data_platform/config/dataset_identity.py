@@ -11,6 +11,13 @@ strict 100 GB source gate, and a rehearsal version cannot be confused with it.
   refused in the canonical data bucket, so its source, lakehouse runs, Spark event
   logs and evidence can never land next to the 100 GB outputs.
 
+A dataset may also carry source extensions beyond the nine legacy physical
+tables. ``merchant_history`` is the synthetic merchant snapshot table that feeds
+the SCD Type 2 merchant dimension. ``canonical-100gb-v1`` was published without
+it and stays that way; the rehearsal is generated with it. The stage submitters
+read this flag so Silver and Gold include the extension exactly when the source
+dataset carries it.
+
 Adding a version (for example a fresh final 100 GB campaign) is a reviewed code
 change, not a runtime parameter.
 """
@@ -31,11 +38,13 @@ class DatasetIdentity:
     role: str
     target_source_bytes: int
     forbidden_buckets: frozenset[str]
+    merchant_history: bool = False
 
 
 APPROVED_DATASETS: dict[str, DatasetIdentity] = {
     CANONICAL_100GB: DatasetIdentity(CANONICAL_100GB, "canonical", 100_000_000_000, frozenset()),
-    REHEARSAL_5GB: DatasetIdentity(REHEARSAL_5GB, "rehearsal", 5_000_000_000, frozenset({CANONICAL_DATA_BUCKET})),
+    REHEARSAL_5GB: DatasetIdentity(REHEARSAL_5GB, "rehearsal", 5_000_000_000, frozenset({CANONICAL_DATA_BUCKET}),
+                                   merchant_history=True),
 }
 
 
@@ -70,3 +79,13 @@ def refuse_misplaced_dataset(version: str, bucket: str) -> None:
     if identity is not None and bucket in identity.forbidden_buckets:
         raise ValueError(f"{version} is a {identity.role} dataset and must not use bucket {bucket}; "
                          "use its dedicated bucket")
+
+
+def dataset_has_merchant_history(version: str) -> bool:
+    """Return whether an approved dataset carries the merchant_history extension.
+
+    Versions outside the registry (smoke and calibration datasets) never carry it.
+    """
+
+    identity = APPROVED_DATASETS.get(version)
+    return identity is not None and identity.merchant_history

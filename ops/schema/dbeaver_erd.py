@@ -40,6 +40,7 @@ from ops.schema.render_schema_diagrams import (
     GENERATED_DIR,
     RELATIONSHIPS,
     edge_semantics,
+    effective_document,
     load_relationships,
     validator_edges,
 )
@@ -313,6 +314,7 @@ def render_all(
     observed: Mapping[str, object], document: Mapping[str, object], validators: Mapping[tuple[str, str, str, str], str],
     data_source_id: str,
 ) -> dict[str, str]:
+    document = effective_document(observed, document)
     edges = {diagram.name: diagram_edges(diagram, document, observed, validators) for diagram in DIAGRAMS}
     files = {f"{diagram.name}.erd": render_erd(diagram, data_source_id) for diagram in DIAGRAMS}
     files["DBEAVER_VIRTUAL_KEYS.md"] = render_guide(edges, data_source_id)

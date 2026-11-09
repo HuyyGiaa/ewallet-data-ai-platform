@@ -21,6 +21,7 @@ columns:
   - {name: f_user_distinct_merchants_90d, type: long, nullable: false}
   - {name: event_timestamp, type: timestamp, nullable: false}
   - {name: created_timestamp, type: timestamp, nullable: false}
+  - {name: created, type: timestamp, nullable: false}
 
 quality_rules:
   - expectation: Dataset is non-empty.
@@ -33,6 +34,10 @@ quality_rules:
     validator_rule: feat_user_90d.non_negative_metrics
   - expectation: Failed transaction rate is between 0 and 1 inclusive.
     validator_rule: feat_user_90d.failed_transaction_rate_between_0_and_1
+  - expectation: event_timestamp and created are non-null timestamps; created is one materialization instant.
+    validator_rule: feat_user_90d.created_single_materialization
+  - expectation: created equals the legacy created_timestamp.
+    validator_rule: feat_user_90d.created_matches_created_timestamp
 
 foreign_keys:
   - columns: [user_id]
@@ -49,6 +54,9 @@ semantics:
   window: Inclusive interval from reference_time minus 90 days through reference_time.
   users_without_activity: Numeric feature values are filled with zero.
   semantic_evidence: data_platform.processing.spark.gold.feature_builder
+  event_timestamp: Business time, the reference_time of the window.
+  created: Materialization time, one timezone-aware UTC instant per DP2 core Gold run.
+  created_timestamp: Legacy name of created, kept for existing readers (Feast does not read this table).
 
 notes:
   - Reference-time semantics are transformation behavior documented by the contract; the validator enforces the resulting population and value ranges.

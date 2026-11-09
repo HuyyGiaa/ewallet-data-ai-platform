@@ -3,6 +3,11 @@ from __future__ import annotations
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from data_platform.processing.spark.gold.scd2 import build_scd2_from_snapshots
+
+
+MERCHANT_SCD2_ATTRIBUTES = ("merchant_name", "category")
+
 
 def build_dim_user(users_df: DataFrame,) -> DataFrame:
     """
@@ -42,6 +47,25 @@ def build_dim_merchant(merchants_df: DataFrame,) -> DataFrame:
         "merchant_id",
         "merchant_name",
         "category",
+    )
+
+
+def build_dim_merchant_scd2(merchant_history_df: DataFrame) -> DataFrame:
+    """
+    Grain:
+        1 row / merchant version, keyed by (merchant_id, valid_from_ts).
+
+    Built from the persisted Silver ``merchant_history`` snapshots, never from
+    the current-state ``merchants`` table. ``dim_merchant`` stays one row per
+    merchant, so existing fact, OBT, feature and analytics joins are unchanged.
+    ``merchant_sk`` is a deterministic surrogate key for one version.
+    """
+    return build_scd2_from_snapshots(
+        merchant_history_df,
+        business_key="merchant_id",
+        attribute_columns=MERCHANT_SCD2_ATTRIBUTES,
+        effective_ts_column="snapshot_ts",
+        surrogate_key_column="merchant_sk",
     )
 
 

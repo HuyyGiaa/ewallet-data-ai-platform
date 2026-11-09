@@ -13,7 +13,7 @@ from typing import Callable, Iterable, TextIO
 
 from data_platform.config import load_runtime_config
 from data_platform.generation.src.offline.offline_generator import load_config
-from data_platform.generation.src.sharded.generator import generate_shard
+from data_platform.generation.src.sharded.generator import generate_shard, physical_tables
 from data_platform.generation.src.sharded.manifest import (
     DatasetPublisher,
     IncompleteDatasetError,
@@ -209,6 +209,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
     print("SOURCE DATASET PLAN", file=stdout)
     print(json.dumps(plan.to_dict(), indent=2, sort_keys=True), file=stdout)
     print(f"source_root: {dataset_root}", file=stdout)
+    print(f"physical_tables: {list(physical_tables(base_config))}", file=stdout)
     print(
         "estimated_logical_transactions: "
         f"{plan.shard_count * plan.transactions_per_shard}",
@@ -221,7 +222,9 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
         return 0
 
     store = GcloudObjectStore()
-    publisher = DatasetPublisher(store, dataset_root, plan)
+    publisher = DatasetPublisher(
+        store, dataset_root, plan, physical_tables=physical_tables(base_config)
+    )
     if publisher.dataset_complete():
         raise RuntimeError(
             f"dataset version is already complete and immutable: {dataset_root}"

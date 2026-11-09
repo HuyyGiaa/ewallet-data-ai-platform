@@ -10,7 +10,10 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from data_platform.config.dataset_identity import refuse_misplaced_dataset
+from data_platform.config.dataset_identity import (
+    dataset_has_merchant_history,
+    refuse_misplaced_dataset,
+)
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
     method2_runtime_properties,
@@ -170,7 +173,10 @@ def build_submission_command(
             output_run_id=run_id,
             output_root=silver_root,
         )
-    tables = silver_tables(include_fraud_labels=True)
+    merchant_history = dataset_has_merchant_history(dataset_version)
+    tables = silver_tables(
+        include_fraud_labels=True, include_merchant_history=merchant_history
+    )
     jars = tuple(jar_paths or dependency_jar_paths())
     property_items = list(
         build_dataproc_batch_properties(
@@ -219,6 +225,7 @@ def build_submission_command(
         "--environment=gcp",
         f"--mode={spark_profile or 'optimized'}",
         "--include-fraud-labels",
+        *(("--include-merchant-history",) if merchant_history else ()),
         f"--expected-table-count={len(tables)}",
         f"--dataset-version={dataset_version}",
         f"--source-bronze-run-id={source_bronze_run_id}",
@@ -286,7 +293,10 @@ def _print_plan(
         source_bronze_run_id=source_bronze_run_id,
         run_id=run_id,
     )
-    table_names = silver_tables(include_fraud_labels=True)
+    table_names = silver_tables(
+        include_fraud_labels=True,
+        include_merchant_history=dataset_has_merchant_history(dataset_version),
+    )
     print(f"Dataset version: {dataset_version}")
     print(f"Source Bronze run: {source_bronze_run_id}")
     print(f"Bronze input root: {bronze_root}")

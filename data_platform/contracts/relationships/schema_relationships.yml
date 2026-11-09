@@ -78,3 +78,15 @@ relationships:
     - {table: feat_account_behavior, column: account_id, references: gold.dim_account.account_id, nullable: false, enforcement: validated}
     - {table: feat_device_behavior, column: device_id, references: gold.dim_device.device_id, nullable: false, enforcement: validated}
     - {table: feat_merchant_behavior, column: merchant_id, references: gold.dim_merchant.merchant_id, nullable: false, enforcement: validated}
+# Tables that exist in code but have not been observed in a materialized run yet.
+# The diagram renderers merge an entry only once observed_schemas.json (refreshed
+# from a real Trino run) contains its tables, so nothing here is drawn as if it had
+# been observed. dim_merchant_scd2 is built only for datasets with the
+# merchant_history source extension.
+pending_observation:
+  keys:
+    gold:
+      dim_merchant_scd2: [merchant_id, valid_from_ts]
+  relationships:
+    gold:
+      - {table: dim_merchant_scd2, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated}

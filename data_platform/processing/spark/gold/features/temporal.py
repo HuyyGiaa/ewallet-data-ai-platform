@@ -1,10 +1,33 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 
 
 MICROSECONDS_PER_SECOND = 1_000_000
+CREATED_COLUMN = "created"
+
+
+def created_column(materialized_at: datetime | None = None) -> F.Column:
+    """Return the ``created`` audit value: when the feature row was materialized.
+
+    ``created`` is processing time, not event time. Pass one timezone-aware UTC
+    instant per write scope so every row and table of a run shares it; without
+    one, Spark's ``current_timestamp()`` (fixed per query) is used. A naive
+    datetime is refused because PySpark would read it in the driver's local zone.
+    """
+    if materialized_at is None:
+        return F.current_timestamp()
+    if materialized_at.tzinfo is None or materialized_at.utcoffset() != timedelta(0):
+        raise ValueError("materialized_at must be a timezone-aware UTC datetime")
+    return F.lit(materialized_at).cast("timestamp")
+
+
+def with_created(df: DataFrame, materialized_at: datetime | None = None) -> DataFrame:
+    """Append the ``created`` audit column; feature values are untouched."""
+    return df.withColumn(CREATED_COLUMN, created_column(materialized_at))
 
 
 def with_event_time(df: DataFrame) -> DataFrame:
