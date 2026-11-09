@@ -27,7 +27,8 @@
 #  - A read that fails is an error, never "absent", so cleanup cannot report a false success.
 #  - Arms alternate (A B, B A, A B) so slow drift does not favour one arm.
 #  - vLLM and the gateway restart before every run: no shared cache, fresh token budget.
-#  - A failed run stops the session. It is not retried and its evidence is kept.
+#  - A failed run stops the session (a run that measured every level is kept, its failed
+#    requests counted: ops/experiments/run_outcome.py). It is not retried; evidence is kept.
 #  - The time limit bounds every wait, and it is wall-clock time, so a suspended laptop
 #    that wakes up past the limit stops at once.
 #  - Host loss: an in-cluster watchdog deletes the workloads at limit + 10 min and the

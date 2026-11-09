@@ -1,0 +1,29 @@
+{
+  "component": "vLLM admission control (max_num_queued_reqs) on vllm-primary-fdcc967bf-442gm",
+  "epp_request_errors": null,
+  "epp_request_errors_total": null,
+  "http_503": 4,
+  "schema": "ewallet-bench-probe-attribution-v1",
+  "status_counts": {
+    "200": 8,
+    "429": 4,
+    "503": 4
+  },
+  "verdict": "ATTRIBUTED",
+  "vllm": {
+    "vllm-primary-fdcc967bf-442gm": {
+      "admission_rejections": {
+        "max_num_queued_reqs": 4.0,
+        "max_num_queued_tokens": 0.0
+      },
+      "request_success": {
+        "abort": 0.0,
+        "error": 0.0,
+        "length": 12.0,
+        "repetition": 0.0,
+        "stop": 0.0
+      }
+    }
+  },
+  "vllm_admission_rejections_total": 4.0
+}
