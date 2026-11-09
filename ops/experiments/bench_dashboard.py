@@ -53,6 +53,11 @@ PANELS: list[tuple[str, str, str, list[tuple[str, str]], str]] = [
     ("A. Serving performance", "Gateway responses by HTTP status", "reqps", [
         ("{{status}}", 'sum by (status) (rate(agentgateway_requests_total{job="agentgateway"}[1m]))')],
      "timeseries"),
+    # vLLM's --max-num-queued-reqs answers a request beyond a pod's in-flight cap with HTTP 503 and
+    # counts it here; 0 across a measured window shows the cap did not shape the run.
+    ("A. Serving performance", "vLLM admission rejections per pod (queue cap, HTTP 503)", "short", [
+        ("{{pod}} {{reason}}", f"sum by (pod, reason) (increase(vllm:admission_rejections_total{{{VLLM}}}[1m]))")],
+     "timeseries"),
     ("B. Resource utilization", "CPU usage per container (metrics-server)", "short", [
         ("{{pod}}/{{container}}", 'sum by (pod, container) (bench_pod_container_cpu_cores{job="pod-usage"})')],
      "timeseries"),
@@ -138,6 +143,11 @@ def dashboard() -> dict[str, Any]:
         "tags": ["edai2", "benchmark", "ewallet-bench"], "timezone": "utc", "refresh": "10s",
         "time": {"from": "now-30m", "to": "now"},
         "templating": {"list": [{
+            # Display only: names the experiment on every screenshot; no query filters on it.
+            "name": "experiment", "label": "experiment", "type": "query", "datasource": DATASOURCE,
+            "query": {"query": "label_values(vllm:num_requests_running, experiment)", "refId": "experiment"},
+            "definition": "label_values(vllm:num_requests_running, experiment)",
+            "refresh": 2, "multi": False, "includeAll": False}, {
             "name": "run_id", "label": "run (arm-run)", "type": "query", "datasource": DATASOURCE,
             "query": {"query": "label_values(vllm:num_requests_running, run_id)", "refId": "run_id"},
             "definition": "label_values(vllm:num_requests_running, run_id)",

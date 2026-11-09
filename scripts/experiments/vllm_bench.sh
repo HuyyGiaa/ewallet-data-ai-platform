@@ -467,6 +467,22 @@ forward "$evidence/observability/pf-grafana.log" "$GRAFANA_PORT" svc/bench-grafa
 forward "$evidence/observability/pf-prometheus.log" "$PROM_PORT" svc/bench-prometheus 9090
 log "observability ready: Grafana http://127.0.0.1:$GRAFANA_PORT  Prometheus http://127.0.0.1:$PROM_PORT"
 
+probe_counters() {  # <dir> <before|after>: vLLM and EPP counters around the policy probe
+  local dir=$1 tag=$2 pod
+  mkdir -p "$dir"
+  # /metrics needs no key; read on the pod's loopback so no NetworkPolicy is involved.
+  for pod in $(k -n "$NS" get pods -l app.kubernetes.io/name=vllm -o 'jsonpath={.items[*].metadata.name}' 2>/dev/null); do
+    k -n "$NS" exec "$pod" -c vllm -- python3 -c \
+      'import urllib.request; print(urllib.request.urlopen("http://127.0.0.1:8000/metrics", timeout=20).read().decode())' \
+      2>/dev/null | grep -E '^vllm:(admission_rejections|request_success)_total' > "$dir/vllm-$pod-$tag.prom" || true
+  done
+  if [ "$arm" = optimized ] && [ "$experiment" = exp-v2 ]; then
+    "$python" -c 'import sys, urllib.request; print(urllib.request.urlopen(sys.argv[1], timeout=10).read().decode())' \
+      "http://127.0.0.1:$EPP_PORT/metrics" 2>/dev/null </dev/null \
+      | grep -E '^llm_d_epp_request_(error_)?total' > "$dir/epp-$tag.prom" || true
+  fi
+}
+
 run_arm() {  # <arm> <run-number>
   local arm=$1 run=$2 label route dir config metrics logs resources
   if [ "$arm" = baseline ]; then label=$baseline_label route=$route_baseline; else label=$optimized_label route=$route_optimized; fi
@@ -531,6 +547,7 @@ run_arm() {  # <arm> <run-number>
   local status=0 window_start window_end
   window_start=$(date -u +%FT%TZ)
   echo "$window_start" > "$metrics/window-start.txt"
+  log "run $run $arm measuring (levels $levels); live view in another terminal: python -m ops.experiments.progress $evidence"
   EWALLET_GATEWAY_KEY=$client_key "$python" "$client_dir/$client" "${client_args[@]}" > "$logs/client.log" 2>&1 </dev/null || status=$?
   window_end=$(date -u +%FT%TZ)
   echo "$window_end" > "$metrics/window-end.txt"
@@ -538,9 +555,18 @@ run_arm() {  # <arm> <run-number>
   k -n "$NS" logs deployment/agentgateway --tail=2000 2>/dev/null | grep -viE 'authorization|bearer|api[-_]key' \
     > "$logs/gateway.log" || true
   if [ "$status" != 0 ]; then
-    stop_children
-    deviations+=("run $run $arm client exit $status")
-    die "run $run $arm failed; see $logs/client.log"
+    # The clients exit 1 when any request failed. A run that measured every level is data
+    # (the comparison counts its failures); anything else stops the session.
+    local outcome
+    if outcome=$("$python" -m ops.experiments.run_outcome --summary "$dir/summary.json" --levels "$levels" \
+         --exit-code "$status" 2>&1 </dev/null); then
+      log "run $run $arm: $outcome"
+      deviations+=("run $run $arm: $outcome")
+    else
+      stop_children
+      deviations+=("run $run $arm client exit $status: $outcome")
+      die "run $run $arm failed ($outcome); see $logs/client.log"
+    fi
   fi
   # Supporting evidence, after the measured window so it cannot disturb it.
   { k -n "$NS" get pods -o wide; k get nodes -l ewallet.io/bench=true -o wide; } > "$logs/inventory.txt" 2>&1 || true
@@ -557,6 +583,8 @@ run_arm() {  # <arm> <run-number>
     [ "$route" = "llm-d EPP" ] && expect=llm-d
     k -n "$NS" get configmap agentgateway-llm-config -o 'jsonpath={.data.config\.yaml}' \
       | grep -vE 'key:|apiKey' > "$evidence/gateway-policy/$arm/gateway-policy-config.yaml" || true
+    local snaps="$evidence/gateway-policy/$arm/counters"
+    probe_counters "$snaps" before
     if EWALLET_GATEWAY_KEY=$client_key EWALLET_BACKEND_KEY=$(k -n "$NS" get secret vllm-api-key -o 'jsonpath={.data.api-key}' | base64 -d | tr -d '\n') \
          "$python" -m ops.experiments.gateway_policy --gateway "http://127.0.0.1:$GW_PORT" --expect-backend "$expect" \
          "${epp_args[@]}" --output "$policy" > "$evidence/gateway-policy/$arm/probe.log" 2>&1 </dev/null; then
@@ -564,8 +592,18 @@ run_arm() {  # <arm> <run-number>
     else
       log "gateway policy probe ($arm): FAIL or incomplete; see gateway-policy/$arm/probe.log"
     fi
+    probe_counters "$snaps" after
+    log "gateway policy probe ($arm): $("$python" -m ops.experiments.probe_attribution --results "$policy" \
+      --snapshots "$snaps" --output "$evidence/gateway-policy/$arm/attribution.json" 2>&1 </dev/null | tail -1)"
     k -n "$NS" logs deployment/agentgateway --since=3m 2>/dev/null | grep -viE 'authorization|bearer|api[-_]key' \
       > "$evidence/gateway-policy/$arm/gateway.log" || true
+    if [ "$arm" = optimized ] && [ "$experiment" = exp-v2 ]; then
+      # EPP decisions (v=3) and the Envoy sidecar, for the same three minutes.
+      k -n "$NS" logs deployment/llmd-router-epp -c epp --since=3m 2>/dev/null | grep -viE 'authorization|bearer|api[-_]key' \
+        | tail -n 4000 > "$evidence/gateway-policy/$arm/epp.log" || true
+      k -n "$NS" logs deployment/llmd-router-epp -c envoy-proxy --since=3m 2>/dev/null \
+        | grep -viE 'authorization|bearer|api[-_]key' | tail -n 2000 > "$evidence/gateway-policy/$arm/envoy.log" || true
+    fi
   fi
   "$python" -m ops.experiments.checkpoint --title "${experiment^^} / ${arm^^} run $run" --experiment "${experiment^^}" \
     --arm "$arm" --label "$label" --route "$route" --run-id "$arm-$run" --kube-context "$KUBE_CONTEXT" \

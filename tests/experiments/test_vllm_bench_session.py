@@ -102,6 +102,28 @@ def test_failed_run_stops_without_retry_and_still_cleans_up(tmp_path) -> None:
     assert report["verdict"] == "NOT_EXECUTED"
 
 
+def test_run_with_failed_requests_is_kept_and_counted(tmp_path) -> None:
+    # O1 B0' once lost a level-1 request to the gateway's 160 s timeout: that run is data.
+    result, evidence, state = session(tmp_path, EXP_RUNS="3", SIM_PARTIAL_RUN="2")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len((state / "clients.log").read_text(encoding="utf-8").splitlines()) == 6
+    report = json.loads((evidence / "comparison/metrics.json").read_text(encoding="utf-8"))
+    assert report["failures"]["1"]["optimized"] == {"requests": 36, "failed": 1}
+    assert report["verdict"] == "REGRESSED"
+    manifest = json.loads((evidence / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["deviations"] == ["run 01 optimized: measured; 1 of 36 requests failed and stay in the comparison"]
+    assert not (state / "pool").exists() and not (state / "namespace").exists()
+
+
+def test_rate_limited_run_still_stops_the_session(tmp_path) -> None:
+    result, evidence, state = session(tmp_path, SIM_BLOCKED_RUN="1")
+    assert result.returncode != 0
+    assert len((state / "clients.log").read_text(encoding="utf-8").splitlines()) == 1
+    manifest = json.loads((evidence / "manifest.json").read_text(encoding="utf-8"))
+    assert any("level 1 BLOCKED_GATEWAY_RATE_LIMIT" in item for item in manifest["deviations"])
+    assert not (state / "pool").exists() and not (state / "namespace").exists()
+
+
 def test_time_limit_stops_the_campaign(tmp_path) -> None:
     result, evidence, state = session(tmp_path, SIM_STOP_AT="1")
     assert result.returncode != 0
