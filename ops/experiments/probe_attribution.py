@@ -12,7 +12,9 @@ gateway log could only place "upstream of agentgateway". Two components can prod
 
 The runner snapshots both counters immediately before and after the probe (outside every
 measured window). This module diffs the snapshots and names the component only when its
-counter delta equals the 503 count; otherwise the result is ``UNATTRIBUTED``.
+counter delta equals the 503 count; otherwise the result is ``UNATTRIBUTED``. Behind the
+EPP, a vLLM rejection is also counted by the EPP as ``ModelServerError`` (it relays the
+backend's 503); when both deltas equal the 503 count, the cause is vLLM admission control.
 
 usage: python -m ops.experiments.probe_attribution --results results.json --snapshots <dir> --output attribution.json
 Snapshot files: ``vllm-<pod>-before.prom`` / ``-after.prom`` and ``epp-before.prom`` / ``epp-after.prom``.
@@ -31,6 +33,7 @@ LABEL = re.compile(r'(\w+)="((?:[^"\\]|\\.)*)"')
 ADMISSION = "vllm:admission_rejections_total"
 SUCCESS = "vllm:request_success_total"
 EPP_ERROR = "llm_d_epp_request_error_total"
+RELAYED = "ModelServerError"
 
 
 def parse(text: str) -> dict[tuple[str, tuple[tuple[str, str], ...]], float]:
@@ -91,12 +94,20 @@ def attribute(results: Mapping[str, Any], snapshots: Path) -> dict[str, Any]:
     vllm_rejected = sum(sum((item["admission_rejections"] or {}).values()) for item in pods.values())
     epp_errors = sum((epp or {}).values())
     readable = bool(pods) and all(item["admission_rejections"] is not None for item in pods.values())
+    # Behind the EPP, vLLM's own 503 also counts once as an EPP ModelServerError: the EPP
+    # relays the backend's answer. Those errors are the same requests, not a second cause.
+    relayed = round((epp or {}).get(RELAYED, 0.0))
+    only_relayed = round(epp_errors) == relayed
+    rejecting = sorted(pod for pod, item in pods.items() if sum((item["admission_rejections"] or {}).values()))
     if unavailable == 0:
         verdict, component = "NO_503", None
     elif readable and round(vllm_rejected) == unavailable and round(epp_errors) == 0:
         verdict = "ATTRIBUTED"
-        rejecting = sorted(pod for pod, item in pods.items() if sum((item["admission_rejections"] or {}).values()))
         component = f"vLLM admission control (max_num_queued_reqs) on {', '.join(rejecting)}"
+    elif readable and round(vllm_rejected) == unavailable and only_relayed and relayed == unavailable:
+        verdict = "ATTRIBUTED"
+        component = (f"vLLM admission control (max_num_queued_reqs) on {', '.join(rejecting)}, "
+                     f"relayed by the llm-d EPP as {RELAYED}")
     elif epp is not None and round(epp_errors) == unavailable and round(vllm_rejected) == 0:
         verdict, component = "ATTRIBUTED", f"llm-d EPP request errors {sorted(k for k, v in epp.items() if v)}"
     else:

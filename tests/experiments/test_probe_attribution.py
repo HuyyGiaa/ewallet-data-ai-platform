@@ -17,8 +17,8 @@ def vllm(rejected: int, success: int) -> str:
             f'vllm:request_success_total{{engine="0",finished_reason="length",model_name="m"}} {success}.0\n')
 
 
-def epp(errors: int) -> str:
-    return (f'llm_d_epp_request_error_total{{error_code="ServiceUnavailable",model_name="m"}} {errors}\n'
+def epp(errors: int, code: str = "ServiceUnavailable") -> str:
+    return (f'llm_d_epp_request_error_total{{error_code="{code}",model_name="m"}} {errors}\n'
             'llm_d_epp_request_total{model_name="m"} 40\n') if errors >= 0 else ""
 
 
@@ -52,6 +52,22 @@ def test_epp_errors_explain_503s_only_when_vllm_rejected_nothing(tmp_path) -> No
         "epp-before.prom": epp(1), "epp-after.prom": epp(5)})
     report = attribute(GKE_BURST, snaps)
     assert report["verdict"] == "ATTRIBUTED" and "llm-d EPP" in report["component"]
+
+
+def test_vllm_rejection_relayed_by_epp_is_attributed_to_vllm(tmp_path) -> None:
+    # EXP-V2 optimized arm, 2026-11-09: vLLM +4 rejections and EPP +4 ModelServerError for 4 503s.
+    snaps = write(tmp_path / "s", {
+        "vllm-pod-a-before.prom": vllm(0, 10), "vllm-pod-a-after.prom": vllm(4, 22),
+        "vllm-pod-b-before.prom": vllm(0, 10), "vllm-pod-b-after.prom": vllm(0, 10),
+        "epp-before.prom": epp(0, "ModelServerError"), "epp-after.prom": epp(4, "ModelServerError")})
+    report = attribute(GKE_BURST, snaps)
+    assert report["verdict"] == "ATTRIBUTED"
+    assert report["component"] == ("vLLM admission control (max_num_queued_reqs) on pod-a, "
+                                   "relayed by the llm-d EPP as ModelServerError")
+    other = write(tmp_path / "o", {
+        "vllm-pod-a-before.prom": vllm(0, 10), "vllm-pod-a-after.prom": vllm(4, 22),
+        "epp-before.prom": epp(0), "epp-after.prom": epp(4)})
+    assert attribute(GKE_BURST, other)["verdict"] == "UNATTRIBUTED"
 
 
 def test_mismatch_or_missing_snapshot_stays_unattributed(tmp_path) -> None:
