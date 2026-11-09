@@ -23,8 +23,8 @@ This runbook is for the owner's own screenshot session. It replays the two CPU b
 
 | Session | Unattended rehearsal (measured 2026-11-09) | Your replay, with 3 checkpoints | Limit |
 |---|---|---|---|
-| EXP-V1 | see the rehearsal README | rehearsal + about 15 min of checkpoint pauses | `EXP_MAX_MINUTES=215` |
-| EXP-V2 | see the rehearsal README | rehearsal + about 15 min of checkpoint pauses | `EXP_MAX_MINUTES=215` |
+| EXP-V1 | 156 min (6 runs; Ready 11–14 min, window ≈16 min `auto`, ≈8.5 min `0-1`) | ≈170 min | `EXP_MAX_MINUTES=215` |
+| EXP-V2 | 144 min (6 runs; Ready 11–12 min, window 10–12.5 min) | ≈160 min | `EXP_MAX_MINUTES=215` |
 
 The time a checkpoint waits for you counts against the 215-minute limit. Capture the screenshots and type `CONTINUE` within about 5 minutes per checkpoint. If a session reaches its limit, it stops, keeps its evidence, cleans up, and reports `INCONCLUSIVE`. In that case run the session again (§9); do not raise the limit.
 
@@ -89,7 +89,7 @@ until [ -d $CAMPAIGN/exp-v1 ]; do sleep 5; done; python3 -m ops.experiments.prog
 
 - **Run order:** baseline-01, optimized-01, optimized-02, baseline-02, baseline-03, optimized-03 (AB, BA, AB). Every run restarts vLLM and the gateway.
 - **Checkpoints:** with `EXP_CHECKPOINT_RUNS=first`, T1 stops after baseline-01, after optimized-01, and at the comparison. Runs 02 and 03 continue on their own.
-- **Failed requests:** a request that fails does not stop the session. The `auto` arm often loses `long-1` to the gateway's 160 s timeout. T1 then logs `measured; N of M requests failed and stay in the comparison`.
+- **Failed requests:** a request that fails does not stop the session. The `auto` arm can lose `long-1` to the gateway's 160 s timeout (it did in the smoke; in the formal rehearsal no request failed). T1 then logs `measured; N of M requests failed and stay in the comparison`.
 - **Grafana:** at a checkpoint, the banner prints a link for exactly that run's window (`from`, `to` and `var-run_id`). Leave the `experiment` and `run` selectors visible in the screenshot. For a run without a checkpoint (02, 03), pick it in the `run` selector and use its window from `$CAMPAIGN/exp-v1/<arm>/metrics/run-NN/window-start.txt` and `window-end.txt`.
 
 Below, `$R` is the raw directory of the run being shown, for example `R=$CAMPAIGN/exp-v1/baseline/raw/run-01`.
@@ -106,7 +106,7 @@ Below, `$R` is the raw directory of the run being shown, for example `R=$CAMPAIG
 | `V1-07` optimized running → `exp-v1/optimized/screenshots/optimized-01-0_running.png` | 6 | during optimized-01 | T3 + Grafana `run` = `optimized-01` | as V1-03 | nothing | `optimized/raw/run-01/raw_requests.jsonl` |
 | `V1-08` optimized result and Grafana → `exp-v1/optimized/screenshots/optimized-01-2_terminal.png`, `optimized-01-3_grafana.png` | 6, 50 | optimized-01 checkpoint | T1 block; browser link | as V1-04/V1-05 with `Thread binding: 0-1`, same node | nothing | `optimized/raw/run-01/summary.json`, `prometheus-readback.json` |
 | `V1-09` comparison → `exp-v1/comparison/screenshots/comparison-1_verdict.png` | 6 | comparison checkpoint | T1: the COMPARISON block (`cat $CAMPAIGN/exp-v1/comparison/comparison.md` shows the same) | `Runs: 3 baseline, 3 optimized`, the verdict and its reasons, the failure table (failed / requests per level and arm), the metric table | nothing | `comparison/metrics.json`, `comparison.csv` |
-| `V1-10` manifest → `exp-v1/comparison/screenshots/comparison-2_manifest.png` | 3, 6 | comparison checkpoint | T2: `python3 -m json.tool $CAMPAIGN/exp-v1/manifest.json \| head -60` | `source_sha`, `source_dirty: false`, image digests, `deviations` (lists every run with failed requests) | nothing | `manifest.json` |
+| `V1-10` manifest → `exp-v1/comparison/screenshots/comparison-2_manifest.png` | 3, 6 | comparison checkpoint | T2: `python3 -m json.tool $CAMPAIGN/exp-v1/manifest.json \| head -60` | `source_sha` (the commit from PRE: `git log --oneline -1`), image digests, `source_dirty: true` (expected: the session writes its evidence inside the worktree; PRE's empty `git status` is the proof that the source was clean), `deviations` (lists every run with failed requests) | nothing | `manifest.json` |
 | `V1-11` whole session in Grafana → `exp-v1/comparison/screenshots/comparison-3_grafana_session.png` | 6, 50 | comparison checkpoint | Browser: Grafana, `run` = All, time range = session start to now | six runs, each with its own `run_id` series | nothing | `observability/metric-readback/*.json` |
 | `V1-12` cleanup → `$CAMPAIGN/screenshots/V1-12_cleanup.png` | 6 | after T1 prints `session end status=0` | T2: `ev_cleanup $CAMPAIGN/exp-v1` | `status=0`; `pool and namespace confirmed absent; no bench VMs or disks`; only `cpu-pool`; `bench VMs: 0`, `bench disks: 0`; `NotFound`; `production unchanged`; `armed bench timers: 0` | nothing | `safety/cleanup.txt`, `production-before.txt` / `production-after.txt` |
 
@@ -178,6 +178,8 @@ until [ -d $CAMPAIGN/exp-v2 ]; do sleep 5; done; python3 -m ops.experiments.prog
 | `POL-7` → `…-P7_policy_config.png` | the policy itself | `cat $CAMPAIGN/exp-v2/gateway-policy/<arm>/gateway-policy-config.yaml` | `apiKey` auth (keys removed), `localRateLimit` 12/s and the token budget, `backendRequestTimeout 160s` | the same file |
 
 Why POL-6 happens: the burst repeats one prompt. With one replica (EXP-V1), or with the EPP's prefix affinity (EXP-V2 O2), it reaches one pod, and vLLM `--max-num-queued-reqs 8` answers the 9th to 12th requests with 503. The measured workload never has more than 8 requests in flight, so it cannot trigger this.
+
+In the rehearsal, the B2 arm spread the burst over both pods (11 and 5 successes) and returned no 503, so POL-6 applies to EXP-V1 and the EXP-V2 O2 arm only. In O2, `attribution.json` names `vLLM admission control (max_num_queued_reqs) on <pod>, relayed by the llm-d EPP as ModelServerError`: the EPP counts the same 503s once more as `ModelServerError`.
 
 **Failover: NOT_EXECUTED.** The benchmark stack has no fallback backend, on purpose: a fallback would hide failed requests. Failover was shown in G1; see [BENCHMARK_REPLAY.md §6](../../edai2/llm/BENCHMARK_REPLAY.md#6-gateway-policy-evidence).
 

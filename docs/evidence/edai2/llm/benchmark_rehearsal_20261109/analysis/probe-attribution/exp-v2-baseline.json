@@ -1,0 +1,41 @@
+{
+  "component": null,
+  "epp_request_errors": null,
+  "epp_request_errors_total": null,
+  "http_503": 0,
+  "schema": "ewallet-bench-probe-attribution-v1",
+  "status_counts": {
+    "200": 12,
+    "429": 4
+  },
+  "verdict": "NO_503",
+  "vllm": {
+    "vllm-primary-5bd87f4bfb-gkjqf": {
+      "admission_rejections": {
+        "max_num_queued_reqs": 0.0,
+        "max_num_queued_tokens": 0.0
+      },
+      "request_success": {
+        "abort": 0.0,
+        "error": 0.0,
+        "length": 11.0,
+        "repetition": 0.0,
+        "stop": 0.0
+      }
+    },
+    "vllm-primary-5bd87f4bfb-x52tc": {
+      "admission_rejections": {
+        "max_num_queued_reqs": 0.0,
+        "max_num_queued_tokens": 0.0
+      },
+      "request_success": {
+        "abort": 0.0,
+        "error": 0.0,
+        "length": 5.0,
+        "repetition": 0.0,
+        "stop": 0.0
+      }
+    }
+  },
+  "vllm_admission_rejections_total": 0.0
+}

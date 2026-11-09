@@ -240,6 +240,18 @@ No meaningful safe speed-up remains, and none was applied. A longer valid sessio
 
 The two experiments therefore run as **two bounded sessions, one after the other**, each with its own pool, time limit, watchdog, evidence directory, comparison and cleanup. Together they come to ≈6.5 h, more than one 4-hour window. The limit was not raised and no repetition was dropped. If a session reaches its limit, it stops, keeps its evidence and reports `INCONCLUSIVE`.
 
+### Formal rehearsal (2026-11-09)
+
+Both formal sessions ran once, unattended, with 3 runs per arm, every level and no failed request. See the [rehearsal README](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
+
+| Session | Duration | Verdict |
+|---|---|---|
+| EXP-V1 | 156 min | `IMPROVED`: `0-1` gives +87 / +73 / +76 % tok/s at c=1/2/4 and about −45 % TTFT p50, at higher CPU use |
+| EXP-V2 | 144 min | `NO_SIGNIFICANT_CHANGE`: the EPP means are higher at c=4 and c=8, but they fall within the run-to-run spread |
+
+- Both sessions were cleaned up and production was unchanged. The estimated cost of the whole campaign is about USD 1.8, from list prices and not a billing readback.
+- These are rehearsal numbers, not owner evidence. The owner session below replaces them in the reports.
+
 ## 9. Remaining work
 
 1. **Owner evidence session** ([runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md)): EXP-V1 and then EXP-V2, interactive, 3 runs per arm, screenshots at the printed paths.
