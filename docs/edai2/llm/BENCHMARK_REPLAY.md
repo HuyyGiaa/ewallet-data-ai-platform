@@ -14,7 +14,8 @@ Keep these apart when reading any number:
 | Historical G2 (llm-d routing) | [llmd_g2_routing_benchmark.md](llmd_g2_routing_benchmark.md), evidence `g2_20261101T124444Z` | Frozen. `MIXED`. The original `comparison.json` showed 0 EPP decisions (parser issue); `comparison.recomputed.json` shows 53 and changes no performance result |
 | This replay's implementation | `scripts/experiments/vllm_bench.sh` and the `ops/experiments` modules listed in §3 | Tested locally (§7) |
 | This replay's GKE validation | [§8](#8-gke-validation-2026-11-09), evidence `benchmark_reproduction_20261109/` | Smoke and drill only. These are not benchmark results |
-| Owner's evidence session | runbook | **Pending** |
+| Multi-run formal rehearsal (3 runs per arm) | [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) | Done 2026-11-09. Historical engineering evidence; not the submission result |
+| Owner's single-run evidence session (`EXP_PROFILE=single`) | runbook | **Pending**: `SINGLE_RUN_RESULTS=PENDING`, `OWNER_SCREENSHOTS=PENDING`. This is the EDAI-2 submission result |
 | Production LLM deployment | `llm-agent` Helm release (revision 42) | Not touched by any of this |
 | Benchmark deployment | namespace `ewallet-bench`, node pool `bench-pool` | Temporary. Created and deleted per session; never a production promotion |
 
@@ -247,13 +248,20 @@ Both formal sessions ran once, unattended, with 3 runs per arm, every level and 
 | Session | Duration | Verdict |
 |---|---|---|
 | EXP-V1 | 156 min | `IMPROVED`: `0-1` gives +87 / +73 / +76 % tok/s at c=1/2/4 and about −45 % TTFT p50, at higher CPU use |
-| EXP-V2 | 144 min | `NO_SIGNIFICANT_CHANGE`: the EPP means are higher at c=4 and c=8, but they fall within the run-to-run spread |
+| EXP-V2 | 144 min | `NO_SIGNIFICANT_CHANGE`: the EPP medians of e2e p95 (decision metric) and tok/s are better at c=4 and c=8, but they fall within the run-to-run spread |
 
 - Both sessions were cleaned up and production was unchanged. The estimated cost of the whole campaign is about USD 1.8, from list prices and not a billing readback.
-- These are rehearsal numbers, not owner evidence. The owner session below replaces them in the reports.
+- These are multi-run rehearsal numbers, not owner evidence. The submission uses the owner's single-run session instead (§9). These numbers stay as historical engineering evidence.
 
 ## 9. Remaining work
 
-1. **Owner evidence session** ([runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md)): EXP-V1 and then EXP-V2, interactive, 3 runs per arm, screenshots at the printed paths.
-2. **Fill in the results from that session's `comparison/metrics.json`.** Until then the historical O1 and G2 figures in [LLM_PLATFORM.md §5](LLM_PLATFORM.md#5-performance-and-optimisation) stay labelled historical.
+1. **Owner single-run evidence session** ([runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md)). The owner chose this methodology for the submission ([BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md#single-run-comparison-selected-for-the-edai-2-submission)).
+   - `EXP_PROFILE=single`: EXP-V1, then EXP-V2.
+   - Interactive, inside `tmux`, with one run per arm at every level.
+   - Screenshots at the printed paths.
+
+   The rehearsal timings give estimates of about 60 min for EXP-V1 and 60 min for EXP-V2, plus the time spent at checkpoints (runbook §0.1).
+2. **Fill in the results from that session's `comparison/metrics.json`** (`methodology: single-run`, `OBSERVED_*` verdicts). Write them up as observed differences between one pair of runs. Until then:
+   - `SINGLE_RUN_RESULTS=PENDING`;
+   - the historical O1 and G2 figures, and the multi-run rehearsal figures, keep their labels.
 3. **Not planned.** Persisting the torch.compile cache across runs would shorten each start, but it gives warm starts after a cold run 01. It was rejected for this methodology (see the table above).

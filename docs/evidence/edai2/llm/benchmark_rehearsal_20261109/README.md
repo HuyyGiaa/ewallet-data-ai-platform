@@ -1,5 +1,7 @@
 # Formal rehearsal of EXP-V1 and EXP-V2 (GKE, 2026-11-09)
 
+> **Status: historical engineering evidence (multi-run, 3 runs per arm).** The EDAI-2 submission uses the single-run methodology (`EXP_PROFILE=single`, [BENCHMARK_METHODOLOGY.md](../../../../edai2/llm/BENCHMARK_METHODOLOGY.md)). The numbers on this page are not single-run results, and they are not reused as single-run results. Raw files in this directory are unchanged. Later on 2026-11-09 only this README's wording was corrected: the arm values are medians, not means, and EXP-V2's decision metric is e2e p95.
+
 Both formal benchmark sessions were run once, unattended, on GKE, before the owner's own screenshot replay. The goal was to show that the full workflow completes under its limits and to record what correct output looks like.
 
 - **What this is:** real GKE runs; every number below comes from this directory.
@@ -27,12 +29,12 @@ Both formal benchmark sessions were run once, unattended, on GKE, before the own
 
 ## 2. EXP-V1: `VLLM_CPU_OMP_THREADS_BIND` `auto` versus `0-1`
 
-**Verdict:** `IMPROVED` (`exp-v1/comparison/comparison.md`).
+**Verdict:** `IMPROVED` (`exp-v1/comparison/comparison.md`). The arm values below are medians of the 3 runs, as the multi-run comparator reports them.
 - No request failed: 0 of 36 per level, in each arm.
 - `deviations` is empty.
-- The `0-1` arm uses more CPU. Mean CPU cores at c=1 were 2.24 against 1.23.
+- The `0-1` arm uses more CPU. At c=1, the median over the runs of each run's mean vLLM CPU was 2.24 cores against 1.23.
 
-| Level | Baseline tok/s | Optimized tok/s | Change | TTFT p50 baseline → optimized | E2E p50 baseline → optimized |
+| Level | Baseline tok/s (median) | Optimized tok/s (median) | Change | TTFT p50 baseline → optimized (median) | E2E p50 baseline → optimized (median) |
 |---|---:|---:|---:|---|---|
 | 1 | 1.492 | 2.786 | +86.7 % | 7.71 s → 4.19 s | 14.60 s → 8.52 s |
 | 2 | 4.101 | 7.108 | +73.3 % | 8.45 s → 4.54 s | 28.97 s → 16.46 s |
@@ -57,13 +59,13 @@ Both formal benchmark sessions were run once, unattended, on GKE, before the own
 - No request failed: 0 of 36 per level, in each arm.
 - `deviations` is empty.
 
-The arm means differ at c=4 (tok/s +50.5 %) and c=8 (+16.3 %), but the per-run values overlap:
-- baseline c=4 ranged from 6.92 to 10.88 tok/s;
-- optimized c=4 ranged from 9.17 to 12.83 tok/s.
+The decision metric for EXP-V2 is `e2e_p95_ms`. Its arm medians improve by +33.9 % at c=4 and +14.0 % at c=8. The tok/s medians improve by +50.5 % at c=4 and +16.3 % at c=8. In every case the per-run values of the two arms overlap:
+- baseline c=4 ranged from 6.92 to 10.88 tok/s, and its e2e p95 from 48.1 to 102.9 s;
+- optimized c=4 ranged from 9.17 to 12.83 tok/s, and its e2e p95 from 43.5 to 69.0 s.
 
 The comparator therefore reports no significant change. This is the reported result. It was not re-run to look for a win.
 
-| Level | Baseline tok/s | Optimized tok/s | Change | Within spread | TTFT p50 baseline → optimized |
+| Level | Baseline tok/s (median) | Optimized tok/s (median) | Change | Within spread | TTFT p50 baseline → optimized (median) |
 |---|---:|---:|---:|---|---|
 | 1 | 2.737 | 2.654 | −3.0 % | yes | 4.19 s → 4.88 s |
 | 2 | 6.983 | 7.609 | +9.0 % | yes | 4.18 s → 4.44 s |
