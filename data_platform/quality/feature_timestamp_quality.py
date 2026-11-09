@@ -7,11 +7,16 @@ write one UTC instant per run into ``created``, so the rules check:
 * both columns exist as ``TIMESTAMP`` and are never NULL;
 * ``created`` holds one value per table (one materialization boundary), and the
   four DP3 tables share it;
-* ``created`` is not a copy of ``event_timestamp``;
+* provenance: every ``created`` equals the materialization clock the run
+  recorded in the Delta commit (``userMetadata``, see
+  ``processing.spark.gold.materialization``). A builder that copied
+  ``event_timestamp`` into ``created`` fails this rule even when every event has
+  the same time;
 * ``feat_user_90d.created`` equals its legacy ``created_timestamp``.
 
-No rule requires ``created >= event_timestamp``: a replay or backfill of future
-dated synthetic events can legitimately materialize earlier than the events.
+No rule compares ``created`` with ``event_timestamp`` row by row. The two are
+different clocks: ``created`` may be earlier than (a replay or backfill of
+future-dated synthetic events), equal to, or later than ``event_timestamp``.
 
 The PIT rule recomputes one window count for a deterministic sample of entities
 directly from Silver transactions with strict ``[T - window, T)`` bounds and
@@ -23,10 +28,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from data_platform.processing.spark.gold.materialization import require_utc
 from data_platform.quality.results import ValidationResult
 
 
@@ -65,8 +72,15 @@ def feature_timestamp_results(
     table: str,
     *,
     legacy_created_column: str | None = None,
+    materialization_clock: datetime | None = None,
+    require_clock: bool = False,
 ) -> list[ValidationResult]:
-    """event_timestamp/created rules for one persisted feature table."""
+    """event_timestamp/created rules for one persisted feature table.
+
+    ``materialization_clock`` is the instant the run recorded with the write.
+    With ``require_clock`` a missing clock fails the provenance rule instead of
+    skipping it (the stage validators require it; fixtures may omit it).
+    """
 
     types = {column: _type_of(df, column) for column in ("event_timestamp", "created")}
     typed = ValidationResult(
@@ -82,7 +96,6 @@ def feature_timestamp_results(
         F.sum(F.col("event_timestamp").isNull().cast("long")).alias("null_event"),
         F.sum(F.col("created").isNull().cast("long")).alias("null_created"),
         F.countDistinct("created").alias("created_values"),
-        F.sum((F.col("created") == F.col("event_timestamp")).cast("long")).alias("copied"),
         F.min("created").alias("created_at"),
         F.max("event_timestamp").alias("max_event"),
     ).first()
@@ -94,10 +107,20 @@ def feature_timestamp_results(
         ValidationResult(f"{table}.created_single_materialization",
                          int(summary["created_values"]) == 1 and int(summary["rows"]) > 0,
                          int(summary["created_values"]), "1 distinct created value per table"),
-        ValidationResult(f"{table}.created_not_copied_from_event_timestamp",
-                         int(summary["copied"] or 0) == 0, int(summary["copied"] or 0),
-                         "0 rows where created = event_timestamp"),
     ]
+    rule = f"{table}.created_matches_materialization_clock"
+    if materialization_clock is not None:
+        clock = F.lit(require_utc(materialization_clock)).cast("timestamp")
+        differ = df.filter(~F.col("created").eqNullSafe(clock)).count()
+        results.append(ValidationResult(
+            rule, differ == 0, differ,
+            f"every created equals the recorded clock {materialization_clock.isoformat()}",
+        ))
+    elif require_clock:
+        results.append(ValidationResult(
+            rule, False, "no recorded clock",
+            "the latest Delta commit records the materialization clock in userMetadata",
+        ))
     if legacy_created_column is not None:
         if legacy_created_column not in df.columns:
             results.append(ValidationResult(
@@ -199,12 +222,22 @@ def historical_feature_timestamp_results(
     *,
     sample_modulus: int = 1000,
     probes: Sequence[PitProbe] = PIT_PROBES,
+    materialization_clocks: Mapping[str, datetime | None] | None = None,
 ) -> list[ValidationResult]:
-    """All Phase B timestamp and PIT rules for the four DP3 tables."""
+    """All Phase B timestamp and PIT rules for the four DP3 tables.
+
+    ``materialization_clocks`` maps each table to its recorded clock; when given,
+    the provenance rule is required for every table.
+    """
 
     results: list[ValidationResult] = []
     for table, frame in features.items():
-        results.extend(feature_timestamp_results(frame, table))
+        results.extend(feature_timestamp_results(
+            frame,
+            table,
+            materialization_clock=(materialization_clocks or {}).get(table),
+            require_clock=materialization_clocks is not None,
+        ))
     if all("created" in frame.columns for frame in features.values()):
         results.append(shared_created_result(features, "dp3_features"))
     for probe in probes:

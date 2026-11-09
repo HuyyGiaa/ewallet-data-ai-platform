@@ -14,6 +14,7 @@ Run with: EWALLET_RUN_SPARK_INTEGRATION=1 (it starts Spark several times).
 from __future__ import annotations
 
 import copy
+import importlib.metadata
 import os
 import shutil
 import tempfile
@@ -60,8 +61,12 @@ class PhaseBPipelineDeltaTest(unittest.TestCase):
             scheme="file", source_root=uri("source"), bronze_root=uri("bronze"),
             silver_root=uri("silver"), gold_root=uri("gold"), feast_root=uri("feast"),
         )
+        # Only Delta artifacts that match the installed delta-spark (file:// storage
+        # needs no hadoop-aws), so the same test runs on Spark 4.1 and on 3.5.
+        delta_storage = f"io.delta:delta-storage:{importlib.metadata.version('delta-spark')}"
         spark = replace(
             base.spark, master="local[2]", shuffle_partitions=4, event_log_uri=uri("events"),
+            packages=(delta_storage,),
             configurations={"spark.sql.session.timeZone": "UTC", "spark.ui.enabled": "false",
                             "spark.eventLog.enabled": "false", "spark.driver.memory": "2g"},
         )
@@ -195,6 +200,34 @@ class PhaseBPipelineDeltaTest(unittest.TestCase):
                                 F.sum(F.col("created").isNull().cast("int")).alias("nulls")).first()
                 self.assertEqual((int(clock.timestamp() * 1e6),) * 2, (row.lo, row.hi))
                 self.assertEqual(0, row.nulls or 0)
+
+    def test_the_materialization_clock_is_recorded_in_delta_history(self):
+        from data_platform.processing.spark.gold.materialization import read_materialization_clock
+
+        session = self.session()
+        for table in FEATURE_TABLES:
+            with self.subTest(table):
+                uri = self.feature_config.storage.table_uri("gold", table)
+                self.assertEqual(FEATURE_CLOCK, read_materialization_clock(session, uri))
+        uri = self.config.storage.table_uri("gold", "feat_user_90d")
+        self.assertEqual(CORE_CLOCK, read_materialization_clock(session, uri))
+        self.assertIsNone(read_materialization_clock(session, self.config.storage.table_uri("gold", "dim_user")))
+
+    def test_scd2_without_source_history_fails_before_any_write(self):
+        from data_platform.processing.spark.gold.gold_pipeline import run_gold_pipeline
+
+        silver = self.directory / "silver"
+        no_history = self.directory / "silver_without_history"
+        for table in silver.iterdir():
+            if table.name != "merchant_history":
+                shutil.copytree(table, no_history / table.name)
+        gold = self.directory / "no_history/gold"
+        config = replace(self.config, storage=replace(self.config.storage, silver_root=no_history.as_uri(),
+                                                      gold_root=gold.as_uri()))
+        with self.assertRaises(Exception) as raised:
+            run_gold_pipeline(runtime_config=config, include_merchant_scd2=True, materialized_at=CORE_CLOCK)
+        self.assertIn("merchant_history", str(raised.exception))
+        self.assertFalse(gold.exists() and any(gold.iterdir()), "nothing may be written")
 
     # ------------------------------------------------------- Delta negatives
     def test_corrupted_delta_outputs_fail_validation(self):

@@ -110,13 +110,23 @@ class CreatedColumnTest(FeatureTimestampBase):
                 epoch = frame.select(F.unix_micros("created").alias("us")).first().us
                 self.assertEqual(int(CLOCK.timestamp() * 1_000_000), epoch)
 
-    def test_05_created_is_processing_time_not_event_time(self):
-        for table, frame in self.all_five().items():
-            with self.subTest(table):
-                copied = frame.filter(F.col("created") == F.col("event_timestamp")).count()
-                self.assertEqual(0, copied)
-                if table != "feat_user_90d":
-                    self.assertGreater(frame.select("event_timestamp").distinct().count(), 1)
+    def test_05_created_comes_from_the_injected_clock_not_event_time(self):
+        """Provenance, not inequality: with the clock before, equal to, or after
+        the event times, every created equals the clock and every
+        event_timestamp keeps its business time."""
+        before = datetime(2025, 6, 1, tzinfo=timezone.utc)
+        equal = datetime(2026, 1, 1, 11, 0, tzinfo=timezone.utc)  # t2/t3 event time
+        after = datetime(2027, 1, 1, tzinfo=timezone.utc)
+        baseline = {table: sorted(utc(row.event_timestamp) for row in frame.select("event_timestamp").collect())
+                    for table, frame in self.all_five(CLOCK).items()}
+        for clock in (before, equal, after):
+            for table, frame in self.all_five(clock).items():
+                with self.subTest(clock=clock, table=table):
+                    self.assertEqual({clock}, {utc(row.created) for row in frame.select("created").collect()})
+                    events = sorted(utc(row.event_timestamp) for row in frame.select("event_timestamp").collect())
+                    self.assertEqual(baseline[table], events)
+        equal_rows = self.tables(equal)["feat_user_behavior"].filter(F.col("created") == F.col("event_timestamp"))
+        self.assertEqual(1, equal_rows.count(), "a row may legitimately have created = event_timestamp")
 
     def test_06_feature_values_do_not_depend_on_the_clock(self):
         for table, frame in self.all_five().items():
@@ -185,12 +195,47 @@ class FeatureValidatorTest(FeatureTimestampBase):
     def failed(self, results):
         return {result.rule_name for result in results if not result.passed}
 
+    def clocks(self, clock=CLOCK):
+        return {table: clock for table in TABLE_ENTITIES}
+
     def test_valid_outputs_pass_every_rule_including_pit(self):
-        results = historical_feature_timestamp_results(self.tables(), self.transactions, sample_modulus=1)
+        results = historical_feature_timestamp_results(self.tables(), self.transactions, sample_modulus=1,
+                                                       materialization_clocks=self.clocks())
         self.assertEqual(set(), self.failed(results))
         self.assertEqual(4, sum(".pit_" in result.rule_name for result in results))
+        self.assertEqual(4, sum("materialization_clock" in result.rule_name for result in results))
         self.assertEqual(set(), self.failed(feature_timestamp_results(
-            self.user_90d(), "feat_user_90d", legacy_created_column="created_timestamp")))
+            self.user_90d(), "feat_user_90d", legacy_created_column="created_timestamp",
+            materialization_clock=CLOCK, require_clock=True)))
+
+    def test_created_before_equal_to_or_after_event_time_is_accepted(self):
+        for clock in (datetime(2025, 6, 1, tzinfo=timezone.utc),
+                      datetime(2026, 1, 1, 11, 0, tzinfo=timezone.utc),
+                      datetime(2027, 1, 1, tzinfo=timezone.utc)):
+            with self.subTest(clock=clock):
+                results = historical_feature_timestamp_results(
+                    self.tables(clock), self.transactions, sample_modulus=1,
+                    materialization_clocks=self.clocks(clock))
+                self.assertEqual(set(), self.failed(results))
+                self.assertEqual(set(), self.failed(feature_timestamp_results(
+                    self.user_90d(clock), "feat_user_90d", legacy_created_column="created_timestamp",
+                    materialization_clock=clock, require_clock=True)))
+
+    def test_a_builder_that_copies_event_time_is_detected_by_provenance(self):
+        """feat_user_90d has one event_timestamp, so a copy has a single created
+        value; only the recorded clock exposes it."""
+        copied = self.user_90d().withColumn("created", F.col("event_timestamp"))
+        failed = self.failed(feature_timestamp_results(copied, "feat_user_90d",
+                                                       materialization_clock=CLOCK, require_clock=True))
+        self.assertEqual({"feat_user_90d.created_matches_materialization_clock"}, failed)
+
+    def test_a_missing_recorded_clock_fails_when_required(self):
+        result = feature_timestamp_results(self.tables()["feat_user_behavior"], "feat_user_behavior",
+                                           require_clock=True)
+        failed = [item for item in result if not item.passed]
+        self.assertEqual(["feat_user_behavior.created_matches_materialization_clock"],
+                         [item.rule_name for item in failed])
+        self.assertEqual("no recorded clock", failed[0].actual_value)
 
     def test_missing_created_is_detected(self):
         frame = self.tables()["feat_user_behavior"].drop("created")
@@ -205,9 +250,10 @@ class FeatureValidatorTest(FeatureTimestampBase):
 
     def test_created_copied_from_event_time_is_detected(self):
         frame = self.tables()["feat_account_behavior"].withColumn("created", F.col("event_timestamp"))
-        failed = self.failed(feature_timestamp_results(frame, "feat_account_behavior"))
-        self.assertIn("feat_account_behavior.created_not_copied_from_event_timestamp", failed)
-        self.assertIn("feat_account_behavior.created_single_materialization", failed)
+        failed = self.failed(feature_timestamp_results(frame, "feat_account_behavior",
+                                                       materialization_clock=CLOCK, require_clock=True))
+        self.assertEqual({"feat_account_behavior.created_matches_materialization_clock",
+                          "feat_account_behavior.created_single_materialization"}, failed)
 
     def test_string_typed_created_and_legacy_drift_are_detected(self):
         frame = self.tables()["feat_device_behavior"].withColumn("created", F.col("created").cast("string"))
@@ -245,6 +291,21 @@ class FeatureValidatorTest(FeatureTimestampBase):
         frame = self.tables()["feat_merchant_behavior"]
         self.assertTrue(pit_sample_result(frame, self.transactions, PIT_PROBES[3], sample_modulus=1).passed)
 
+
+
+class MaterializationMetadataTest(unittest.TestCase):
+    def test_round_trip_and_malformed_metadata(self):
+        from data_platform.processing.spark.gold.materialization import (
+            materialization_metadata,
+            parse_materialization_metadata,
+        )
+
+        self.assertEqual(CLOCK, parse_materialization_metadata(materialization_metadata(CLOCK)))
+        for value in (None, "", "not json", "[]", '{"other": 1}'):
+            with self.subTest(value):
+                self.assertIsNone(parse_materialization_metadata(value))
+        with self.assertRaises(ValueError):
+            materialization_metadata(datetime(2026, 1, 1))
 
 if __name__ == "__main__":
     unittest.main()

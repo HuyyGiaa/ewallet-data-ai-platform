@@ -40,6 +40,10 @@ from data_platform.processing.spark.gold.fact_builder import (
 from data_platform.processing.spark.gold.feature_builder import (
     build_feat_user_90d,
 )
+from data_platform.processing.spark.gold.materialization import (
+    materialization_metadata,
+    require_utc,
+)
 from data_platform.processing.spark.gold.delta_gold_io import (
     process_gold_table,
     read_silver,
@@ -107,7 +111,7 @@ def run_gold_pipeline(
     ``materialized_at`` is the one UTC instant written to the ``created`` audit
     column of feat_user_90d; it defaults to the pipeline start.
     """
-    materialized_at = materialized_at or datetime.now(timezone.utc)
+    materialized_at = require_utc(materialized_at or datetime.now(timezone.utc))
     spark = None
     persisted_dataframes = []
     config = runtime_config or load_runtime_config()
@@ -191,6 +195,14 @@ def run_gold_pipeline(
             storage=config.storage,
         )
 
+        # Read before any write, so a dataset without history fails before
+        # anything is persisted instead of leaving a partial Gold run.
+        merchant_history_df = (
+            read_silver(spark, MERCHANT_HISTORY_TABLE, storage=config.storage)
+            if include_merchant_scd2
+            else None
+        )
+
         logger.info(
             "========== BUILD DIMENSIONS =========="
         )
@@ -234,12 +246,7 @@ def run_gold_pipeline(
             dim_merchant_df,
         )
 
-        if include_merchant_scd2:
-            merchant_history_df = read_silver(
-                spark,
-                MERCHANT_HISTORY_TABLE,
-                storage=config.storage,
-            )
+        if merchant_history_df is not None:
             persist_gold_table(
                 MERCHANT_SCD2_TABLE,
                 build_dim_merchant_scd2(merchant_history_df),
@@ -343,6 +350,7 @@ def run_gold_pipeline(
         persist_gold_table(
             "feat_user_90d",
             feat_user_90d_df,
+            user_metadata=materialization_metadata(materialized_at),
         )
 
         logger.info(

@@ -29,6 +29,7 @@ import logging
 import sys
 from collections.abc import Mapping
 from dataclasses import replace
+from datetime import datetime
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
@@ -42,6 +43,7 @@ from data_platform.config import (
     load_runtime_config_file,
 )
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.processing.spark.gold.materialization import read_materialization_clock
 from data_platform.quality.feature_timestamp_quality import (
     feature_timestamp_results,
     historical_feature_timestamp_results,
@@ -919,6 +921,8 @@ def core_gold_results(
     merchant_scd2: DataFrame | None = None,
     merchant_history: DataFrame | None = None,
     require_feature_created: bool = True,
+    feat_user_90d_clock: datetime | None = None,
+    require_clock: bool = False,
 ) -> list[ValidationResult]:
     """DP2 core Gold rules; adds SCD2 rules when ``merchant_scd2`` is given.
 
@@ -1316,7 +1320,11 @@ def core_gold_results(
 
     if require_feature_created:
         all_results.extend(feature_timestamp_results(
-            feat_user_90d, "feat_user_90d", legacy_created_column="created_timestamp"
+            feat_user_90d,
+            "feat_user_90d",
+            legacy_created_column="created_timestamp",
+            materialization_clock=feat_user_90d_clock,
+            require_clock=require_clock,
         ))
     if merchant_history is not None:
         all_results.extend(merchant_history_results(merchant_history, silver_merchants))
@@ -1342,6 +1350,7 @@ def historical_feature_results(
     *,
     require_feature_created: bool = True,
     pit_sample_modulus: int = 1000,
+    materialization_clocks: Mapping[str, datetime | None] | None = None,
 ) -> list[ValidationResult]:
     """DP3 historical feature rules: grain, values, population, references, PIT.
 
@@ -1455,7 +1464,10 @@ def historical_feature_results(
     ])
     if require_feature_created:
         all_results.extend(historical_feature_timestamp_results(
-            features, silver_transactions, sample_modulus=pit_sample_modulus
+            features,
+            silver_transactions,
+            sample_modulus=pit_sample_modulus,
+            materialization_clocks=materialization_clocks,
         ))
     return all_results
 
@@ -1517,6 +1529,14 @@ def run_validation(
                 merchant_scd2=merchant_scd2,
                 merchant_history=merchant_history,
                 require_feature_created=require_feature_created,
+                feat_user_90d_clock=(
+                    read_materialization_clock(
+                        spark, config.storage.table_uri("gold", "feat_user_90d")
+                    )
+                    if require_feature_created
+                    else None
+                ),
+                require_clock=require_feature_created,
             ))
 
         if scope in ("all", "features"):
@@ -1524,12 +1544,23 @@ def run_validation(
             features = _read_tables(spark, "gold", HISTORICAL_FEATURE_INPUTS, feature_storage)
             dimensions = _read_tables(spark, "gold", FEATURE_DIMENSION_INPUTS, config.storage)
             silver_transactions = read_silver(spark, "transactions", storage=config.storage)
+            clocks = (
+                {
+                    table: read_materialization_clock(
+                        spark, feature_storage.table_uri("gold", table)
+                    )
+                    for table in HISTORICAL_FEATURE_INPUTS
+                }
+                if require_feature_created
+                else None
+            )
             all_results.extend(historical_feature_results(
                 features,
                 dimensions,
                 silver_transactions,
                 require_feature_created=require_feature_created,
                 pit_sample_modulus=pit_sample_modulus,
+                materialization_clocks=clocks,
             ))
 
         # ====================================================

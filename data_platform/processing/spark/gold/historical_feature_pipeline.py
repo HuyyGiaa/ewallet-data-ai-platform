@@ -31,6 +31,10 @@ from data_platform.processing.spark.gold.features import (
     build_feat_merchant_behavior,
     build_feat_user_behavior,
 )
+from data_platform.processing.spark.gold.materialization import (
+    materialization_metadata,
+    require_utc,
+)
 from data_platform.processing.spark.gold.features.validation import (
     validate_feature_columns,
 )
@@ -155,7 +159,8 @@ def run_historical_feature_pipeline(
     runtime_config: RuntimeConfig | None = None,
     materialized_at: datetime | None = None,
 ) -> None:
-    materialized_at = materialized_at or datetime.now(timezone.utc)
+    materialized_at = require_utc(materialized_at or datetime.now(timezone.utc))
+    clock_metadata = materialization_metadata(materialized_at)
     spark = None
     config = runtime_config or load_runtime_config()
     persist = partial(process_gold_table, storage=config.storage)
@@ -182,7 +187,7 @@ def run_historical_feature_pipeline(
                 materialized_at=materialized_at,
             ):
                 validate_feature_columns(feature_df, table_name, required_columns)
-                persist(table_name, feature_df)
+                persist(table_name, feature_df, user_metadata=clock_metadata)
         logger.info(
             "DP3 historical features completed in %.2f seconds",
             time.perf_counter() - started_at,

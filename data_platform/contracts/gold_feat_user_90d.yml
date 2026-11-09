@@ -38,6 +38,8 @@ quality_rules:
     validator_rule: feat_user_90d.created_single_materialization
   - expectation: created equals the legacy created_timestamp.
     validator_rule: feat_user_90d.created_matches_created_timestamp
+  - expectation: Every created equals the materialization clock recorded in the Delta commit userMetadata.
+    validator_rule: feat_user_90d.created_matches_materialization_clock
 
 foreign_keys:
   - columns: [user_id]
@@ -55,7 +57,7 @@ semantics:
   users_without_activity: Numeric feature values are filled with zero.
   semantic_evidence: data_platform.processing.spark.gold.feature_builder
   event_timestamp: Business time, the reference_time of the window.
-  created: Materialization time, one timezone-aware UTC instant per DP2 core Gold run.
+  created: Materialization time, one timezone-aware UTC instant per DP2 core Gold run, recorded in the Delta commit userMetadata; no row-level comparison with event_timestamp.
   created_timestamp: Legacy name of created, kept for existing readers (Feast does not read this table).
 
 notes:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -190,6 +190,108 @@ class AsOfLookupTest(Scd2Base):
         result = as_of_resolution_result(self.scd2, early)
         self.assertFalse(result.passed)
         self.assertEqual(1, result.actual_value)
+
+
+class TemporalCoverageTest(Scd2Base):
+    """Eligible transactions are those with a merchant_id (payments in the
+    generator); each must resolve to exactly one version as of its timestamp.
+    A transaction that resolves to no version is reported, never mapped to the
+    current merchant state."""
+
+    US = timedelta(microseconds=1)
+
+    def setUp(self):
+        self.scd2 = build_dim_merchant_scd2(self.history([
+            # m0: never changes; m1: one change at ts(3); m2: changes at ts(2) and ts(4).
+            ("m0", "Z", "food", ts(1)), ("m0", "Z", "food", ts(3)), ("m0", "Z", "food", ts(5)),
+            ("m1", "A", "food", ts(1)), ("m1", "A", "food", ts(2)), ("m1", "B", "food", ts(3)),
+            ("m1", "B", "food", ts(5)),
+            ("m2", "P", "food", ts(1)), ("m2", "Q", "food", ts(2)), ("m2", "Q", "travel", ts(4)),
+        ]))
+
+    def resolve(self, rows):
+        events = self.spark.createDataFrame(
+            [(f"t{i}", m, t) for i, (m, t) in enumerate(rows)],
+            "transaction_id string, merchant_id string, timestamp timestamp")
+        resolved = lookup_as_of(events, self.scd2, business_key="merchant_id", event_ts_column="timestamp",
+                                version_columns=("merchant_name", "category")).collect()
+        return {row.transaction_id: (row.asof_merchant_name, row.asof_category) for row in resolved}, events
+
+    def test_boundaries_resolve_to_exactly_one_version(self):
+        cases = {
+            "first_valid_instant": ("m1", ts(1), ("A", "food")),
+            "just_before_change": ("m1", ts(3) - self.US, ("A", "food")),
+            "exactly_at_change": ("m1", ts(3), ("B", "food")),
+            "just_after_change": ("m1", ts(3) + self.US, ("B", "food")),
+            "after_last_snapshot": ("m1", ts(12), ("B", "food")),
+            "merchant_without_changes": ("m0", ts(4), ("Z", "food")),
+            "second_change_boundary": ("m2", ts(4), ("Q", "travel")),
+            "between_two_changes": ("m2", ts(3), ("Q", "food")),
+        }
+        resolved, events = self.resolve([(m, t) for m, t, _ in cases.values()])
+        for index, (name, (_, _, expected)) in enumerate(cases.items()):
+            with self.subTest(name):
+                self.assertEqual(expected, resolved[f"t{index}"])
+        self.assertTrue(as_of_resolution_result(self.scd2, events).passed)
+
+    def test_transactions_sharing_one_timestamp_resolve_identically(self):
+        resolved, events = self.resolve([("m1", ts(3))] * 3 + [("m2", ts(3))] * 2)
+        self.assertEqual(5, len(resolved))
+        self.assertEqual({("B", "food")}, {resolved[f"t{i}"] for i in range(3)})
+        self.assertEqual({("Q", "food")}, {resolved[f"t{i}"] for i in (3, 4)})
+        self.assertTrue(as_of_resolution_result(self.scd2, events).passed)
+
+    def test_transactions_without_a_merchant_are_not_eligible(self):
+        _, events = self.resolve([("m1", ts(2))])
+        transfers = events.unionByName(self.spark.createDataFrame(
+            [("x1", None, ts(2))], "transaction_id string, merchant_id string, timestamp timestamp"))
+        self.assertTrue(as_of_resolution_result(self.scd2, transfers).passed)
+
+    def test_unknown_merchant_or_missing_history_is_reported_not_backfilled(self):
+        for name, rows in (("unknown merchant", [("m9", ts(3))]),
+                           ("before the first version", [("m1", ts(1) - self.US)])):
+            with self.subTest(name):
+                resolved, events = self.resolve(rows)
+                self.assertEqual((None, None), resolved["t0"], "no fallback to the current state")
+                result = as_of_resolution_result(self.scd2, events)
+                self.assertFalse(result.passed)
+                self.assertEqual(1, result.actual_value)
+
+    def test_a_gap_in_history_is_detected_by_the_interval_rules(self):
+        gapped = self.scd2.withColumn(
+            "valid_to_ts",
+            F.when((F.col("merchant_id") == "m2") & (F.col("merchant_name") == "P"), F.lit(ts(1, 15)))
+            .otherwise(F.col("valid_to_ts")))
+        dim = build_dim_merchant(self.spark.createDataFrame(
+            [("m0", "Z", "food"), ("m1", "B", "food"), ("m2", "Q", "travel")],
+            "merchant_id string, merchant_name string, category string"))
+        failed = {r.rule_name for r in merchant_scd2_results(gapped, dim) if not r.passed}
+        self.assertEqual({"dim_merchant_scd2.contiguous_non_overlapping_intervals"}, failed)
+        resolved, events = self.resolve([("m2", ts(1, 20))])
+        self.assertFalse(as_of_resolution_result(gapped, events).passed)
+
+    def test_empty_history_builds_nothing_and_fails_validation(self):
+        empty = self.spark.createDataFrame([], HISTORY_SCHEMA)
+        scd2 = build_dim_merchant_scd2(empty)
+        self.assertEqual(0, scd2.count())
+        dim = build_dim_merchant(self.spark.createDataFrame(
+            [("m1", "B", "food")], "merchant_id string, merchant_name string, category string"))
+        failed = {r.rule_name for r in merchant_scd2_results(scd2, dim) if not r.passed}
+        self.assertEqual({"dim_merchant_scd2.non_empty", "dim_merchant_scd2.current_version_equals_dim_merchant"},
+                         failed)
+
+    def test_version_identities_are_stable_and_unique(self):
+        rebuilt = build_dim_merchant_scd2(self.history([
+            ("m2", "Q", "travel", ts(4)), ("m2", "P", "food", ts(1)), ("m2", "Q", "food", ts(2)),
+            ("m1", "B", "food", ts(5)), ("m1", "B", "food", ts(3)), ("m1", "A", "food", ts(2)),
+            ("m1", "A", "food", ts(1)), ("m0", "Z", "food", ts(5)), ("m0", "Z", "food", ts(3)),
+            ("m0", "Z", "food", ts(1)),
+        ]))
+        keys = lambda frame: sorted((r.merchant_id, utc(r.valid_from_ts), r.merchant_sk) for r in frame.collect())
+        self.assertEqual(keys(self.scd2), keys(rebuilt))
+        self.assertEqual(6, len({key for _, _, key in keys(self.scd2)}))
+        flags = {(r.merchant_id, r.is_current, r.valid_to_ts is None) for r in self.scd2.collect()}
+        self.assertTrue(all(current == open_end for _, current, open_end in flags))
 
 
 class ValidatorTest(Scd2Base):

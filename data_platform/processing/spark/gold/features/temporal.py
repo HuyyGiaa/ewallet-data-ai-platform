@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
+
+from data_platform.processing.spark.gold.materialization import require_utc
 
 
 MICROSECONDS_PER_SECOND = 1_000_000
@@ -20,9 +22,7 @@ def created_column(materialized_at: datetime | None = None) -> F.Column:
     """
     if materialized_at is None:
         return F.current_timestamp()
-    if materialized_at.tzinfo is None or materialized_at.utcoffset() != timedelta(0):
-        raise ValueError("materialized_at must be a timezone-aware UTC datetime")
-    return F.lit(materialized_at).cast("timestamp")
+    return F.lit(require_utc(materialized_at)).cast("timestamp")
 
 
 def with_created(df: DataFrame, materialized_at: datetime | None = None) -> DataFrame:

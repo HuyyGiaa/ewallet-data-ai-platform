@@ -165,14 +165,14 @@ Each feature row carries `event_timestamp`: the business time the features descr
 
 **Design.** All five `feat_` tables carry a `created` column, holding the UTC materialisation time:
 
-- DP3 captures one timezone-aware UTC instant at the start of the run and writes it to all four point-in-time tables; DP2 core Gold does the same for `feat_user_90d`, where `created` equals the legacy `created_timestamp` (kept for existing readers). The builders accept the instant as a parameter, so tests use a fixed clock.
+- DP3 captures one timezone-aware UTC instant at the start of the run, writes it to all four point-in-time tables and records it in each table's Delta commit; DP2 core Gold does the same for `feat_user_90d`, where `created` equals the legacy `created_timestamp` (kept for existing readers). The builders accept the instant as a parameter, so tests use a fixed clock.
 - `created` is appended after the existing columns. Feature values are unchanged: on a generated dataset the new builders' outputs, minus `created`, are bit-identical to the previous builders'.
 - It is excluded from semantic A/B fingerprints, but still checked for schema and nulls.
 - Feast keeps `event_timestamp` as its timestamp field. The Feast export accepts the legacy schema or the legacy schema plus `created` and writes exactly the legacy columns, so the offline snapshot, online materialization and the 31 model features are unchanged.
 
 Existing outputs are not rewritten, and no `created` value is inferred from event time. No rule requires `created >= event_timestamp`, because a replay of future-dated synthetic events can be materialized before its event times.
 
-**Validation.** `validate_gold --scope features` checks that both columns are non-null timestamps, that `created` has one value per table shared by the four DP3 tables, that it is not a copy of `event_timestamp`, and recomputes each table's 1-hour count with strict `[T − 1h, T)` bounds on a deterministic entity sample.
+**Validation.** `validate_gold --scope features` checks that both columns are non-null timestamps, that `created` has one value per table shared by the four DP3 tables, and that every `created` equals the materialization clock the run recorded in the Delta commit (`userMetadata`). That provenance check, not a row-level comparison, is what rejects a `created` copied from `event_timestamp`: the two may legitimately be equal. It also recomputes each table's 1-hour count with strict `[T − 1h, T)` bounds on a deterministic entity sample.
 
 ![Local fixture: user and account feature schemas](../../evidence/edai1/dp3/01_feature_timestamp_schema_user_account.png)
 

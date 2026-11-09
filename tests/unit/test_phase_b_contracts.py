@@ -17,7 +17,7 @@ from data_platform.quality.feature_timestamp_quality import (
 )
 from data_platform.quality.scd2_quality import merchant_history_results, merchant_scd2_results
 from data_platform.storage.scripts.config import MERCHANT_HISTORY_TABLE, MERCHANT_SCD2_TABLE
-from tests.unit.test_feature_created_timestamps import FeatureTimestampBase
+from tests.unit.test_feature_created_timestamps import CLOCK, TABLE_ENTITIES, FeatureTimestampBase
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -70,8 +70,10 @@ class PhaseBContractTest(FeatureTimestampBase):
         produced = {result.rule_name for result in [
             *merchant_history_results(self.history, self.merchants),
             *merchant_scd2_results(self.scd2, build_dim_merchant(self.merchants), transactions=transactions),
-            *historical_feature_timestamp_results(self.tables(), self.transactions, sample_modulus=1),
-            *feature_timestamp_results(self.user_90d(), "feat_user_90d", legacy_created_column="created_timestamp"),
+            *historical_feature_timestamp_results(self.tables(), self.transactions, sample_modulus=1,
+                                                  materialization_clocks={table: CLOCK for table in TABLE_ENTITIES}),
+            *feature_timestamp_results(self.user_90d(), "feat_user_90d", legacy_created_column="created_timestamp",
+                                       materialization_clock=CLOCK, require_clock=True),
         ]}
         expected = set()
         for name in ("silver_merchant_history", "gold_dim_merchant_scd2"):
