@@ -12,9 +12,9 @@ erDiagram
     DIM_DATE ||--o{ FACT_LOGIN_EVENTS : date_key
     DIM_ACCOUNT ||--o{ FACT_BALANCE_SNAPSHOT : account_id
     DIM_DATE ||--o{ FACT_BALANCE_SNAPSHOT : date_key
-    FACT_TRANSACTIONS ||--o{ OBT_TRANSACTION_ENRICHED : transaction_id
-    DIM_USER ||--o{ FEAT_USER_90D : user_id
-    DIM_MERCHANT ||--o{ OPT_MERCHANT_PERFORMANCE : merchant_id
+    FACT_TRANSACTIONS ||--|| OBT_TRANSACTION_ENRICHED : transaction_id
+    DIM_USER ||--|| FEAT_USER_90D : user_id
+    DIM_MERCHANT ||--|| OPT_MERCHANT_PERFORMANCE : merchant_id
     DIM_ACCOUNT {
         string account_id PK
         string user_id FK

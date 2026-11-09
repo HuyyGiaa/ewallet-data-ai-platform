@@ -9,7 +9,7 @@ erDiagram
     USERS ||--o{ LOGIN_EVENTS : user_id
     DEVICES ||--o{ LOGIN_EVENTS : device_id
     ACCOUNTS ||--o{ BALANCE_SNAPSHOTS : account_id
-    TRANSACTIONS ||--o{ FRAUD_LABELS : transaction_id
+    TRANSACTIONS ||--|| FRAUD_LABELS : transaction_id
     ACCOUNTS {
         string account_id PK
         string user_id FK
@@ -31,7 +31,7 @@ erDiagram
     }
     FRAUD_LABELS {
         string transaction_id PK,FK
-        integer label PK
+        integer label
         string fraud_type
     }
     LOGIN_EVENTS {

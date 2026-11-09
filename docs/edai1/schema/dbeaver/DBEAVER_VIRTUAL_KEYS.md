@@ -30,7 +30,7 @@ Both diagrams use the DBeaver connection `EDAI1 - GCS Cloud Schema` (id `trino_j
 | 8 | `login_events.user_id` | `users.user_id` | many-to-one | no | relational | `login_events.user_id_exists_in_users` |
 | 9 | `login_events.device_id` | `devices.device_id` | many-to-one | no | relational | `login_events.device_id_exists_in_devices` |
 | 10 | `balance_snapshots.account_id` | `accounts.account_id` | many-to-one | no | relational | `balance_snapshots.account_id_exists_in_accounts` |
-| 11 | `fraud_labels.transaction_id` | `transactions.transaction_id` | many-to-one | no | relational | `fraud_labels.transaction_fk` |
+| 11 | `fraud_labels.transaction_id` | `transactions.transaction_id` | one-to-one | no | relational | `fraud_labels.transaction_fk` |
 
 ### Not drawn (NOT VERIFIED)
 

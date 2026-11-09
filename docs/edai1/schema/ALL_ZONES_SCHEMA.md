@@ -79,7 +79,7 @@ Transaction-like tables gain a partition date: `transactions.event_date` and `lo
 | `transactions` | `transaction_id` | `event_date` | 16 |
 | `balance_snapshots` | `account_id, snapshot_date` | `snapshot_date` | 3 |
 | `login_events` | `login_id` | `login_date` | 6 |
-| `fraud_labels` | `transaction_id, label` | - | 3 |
+| `fraud_labels` | `transaction_id` | - | 3 |
 
 ### Gold
 

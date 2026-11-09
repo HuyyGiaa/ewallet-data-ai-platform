@@ -28,7 +28,6 @@ Commands:
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,7 +36,13 @@ from xml.sax.saxutils import escape, quoteattr
 
 import yaml
 
-from ops.schema.render_schema_diagrams import GENERATED_DIR, RELATIONSHIPS, load_relationships
+from ops.schema.render_schema_diagrams import (
+    GENERATED_DIR,
+    RELATIONSHIPS,
+    edge_semantics,
+    load_relationships,
+    validator_edges,
+)
 
 
 OUTPUT_DIR = Path("docs/edai1/schema/dbeaver")
@@ -159,46 +164,6 @@ GOLD = Diagram(
 DIAGRAMS = (SILVER, GOLD)
 
 
-def _rule_name(node: ast.expr) -> str:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    raise ValueError(f"validator rule name at line {node.lineno} is not a string literal")
-
-
-def _table_name(node: ast.expr) -> str:
-    """Return the table a validator argument names: ``tables["x"]`` or a variable ``x``."""
-
-    if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
-        return str(node.slice.value)
-    if isinstance(node, ast.Name):
-        return node.id
-    raise ValueError(f"cannot read a table name at line {node.lineno}")
-
-
-def validator_edges(source: str) -> dict[tuple[str, str, str, str], str]:
-    """Return every foreign-key check in a validator, keyed by child, column, parent, parent column.
-
-    Reads ``validate_foreign_key(child, parent, column, parent_column, rule)`` calls,
-    and ``validate_exact_transaction_coverage(labels, transactions, prefix)``, whose
-    orphan rule ``<prefix>.transaction_fk`` checks ``transaction_id`` against the
-    transactions table.
-    """
-
-    found: dict[tuple[str, str, str, str], str] = {}
-    for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
-            continue
-        if node.func.id == "validate_foreign_key" and len(node.args) == 5:
-            child, parent, column, parent_column, rule = node.args
-            key = (_table_name(child), _rule_name(column), _table_name(parent), _rule_name(parent_column))
-            found[key] = _rule_name(rule)
-        elif node.func.id == "validate_exact_transaction_coverage" and len(node.args) == 3:
-            labels, transactions, prefix = node.args
-            key = (_table_name(labels), "transaction_id", _table_name(transactions), "transaction_id")
-            found[key] = f"{_rule_name(prefix)}.transaction_fk"
-    return found
-
-
 def _group(child: str, parent: str) -> str:
     if child.startswith("fact_"):
         return "fact-to-dimension"
@@ -253,7 +218,7 @@ def diagram_edges(
             raise ValueError(f"{item.table}.{item.column} ({child_type}) joins {parent_type}")
         if keys[item.target_table] != [item.target_column]:
             raise ValueError(f"{item.table}.{item.column} does not reference the key of {item.target_table}")
-        cardinality = "one-to-one" if keys[item.table] == [item.column] else "many-to-one"
+        cardinality = edge_semantics(item, document).cardinality
         drawn.append(DiagramEdge(item.table, item.column, item.target_table, item.target_column,
                                  item.nullable, cardinality, _group(item.table, item.target_table),
                                  rule, item.enforcement))

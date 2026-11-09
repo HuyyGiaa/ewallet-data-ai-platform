@@ -18,8 +18,9 @@ a test can prove the committed diagrams still match their inputs:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -67,6 +68,7 @@ class Relationship:
     target_column: str
     nullable: bool
     enforcement: str
+    coverage: str = "partial"
 
 
 def load_relationships(document: Mapping[str, object]) -> list[Relationship]:
@@ -78,8 +80,162 @@ def load_relationships(document: Mapping[str, object]) -> list[Relationship]:
             parts = str(item["references"]).split(".")
             target_zone, target_table, target_column = parts if len(parts) == 3 else (zone, *parts)
             result.append(Relationship(zone, item["table"], item["column"], target_zone, target_table,
-                                       target_column, bool(item["nullable"]), item["enforcement"]))
+                                       target_column, bool(item["nullable"]), item["enforcement"],
+                                       str(item.get("coverage", "partial"))))
     return result
+
+
+@dataclass(frozen=True)
+class EdgeSemantics:
+    """Cardinality and participation of one logical relationship.
+
+    ``parent_optional``: a child row may have no parent (the referencing column is
+    nullable in the logical contract). ``child_optional``: for a one-to-one edge, a
+    parent row may have no child row.
+    """
+
+    cardinality: str
+    parent_optional: bool
+    child_optional: bool
+
+
+def edge_semantics(item: Relationship, document: Mapping[str, object]) -> EdgeSemantics:
+    """Derive cardinality from the logical keys, never from column names.
+
+    The child side is "one" only when the referencing column is the child's whole
+    key. Participation of the parent in a one-to-one edge comes from ``coverage``.
+
+    Raises:
+        ValueError: The edge does not reference the parent's whole key, a key column
+            is declared nullable, or ``coverage`` is invalid for the edge.
+    """
+
+    child_keys = document["keys"][item.zone][item.table]
+    parent_keys = document["keys"][item.target_zone][item.target_table]
+    name = f"{item.table}.{item.column}"
+    if parent_keys != [item.target_column]:
+        raise ValueError(f"{name} does not reference the whole key of {item.target_table}")
+    if item.coverage not in ("partial", "complete"):
+        raise ValueError(f"{name} has unknown coverage {item.coverage!r}")
+    one_to_one = child_keys == [item.column]
+    if one_to_one and item.nullable:
+        raise ValueError(f"{name} is the key of {item.table} and cannot be nullable")
+    if item.coverage == "complete" and not one_to_one:
+        raise ValueError(f"{name}: coverage applies only to a one-to-one edge")
+    return EdgeSemantics(
+        "one-to-one" if one_to_one else "many-to-one",
+        parent_optional=item.nullable,
+        child_optional=one_to_one and item.coverage != "complete",
+    )
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+VALIDATOR_SOURCES = ("data_platform/quality/validate_silver.py", "data_platform/quality/validate_gold.py")
+CLOUD_SUMMARY_SOURCE = "ops/gcp/summarize_spark_output.py"
+EdgeKey = tuple[str, str, str, str]
+
+
+def _string(node: ast.expr) -> str:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    raise ValueError(f"expected a string literal at line {node.lineno}")
+
+
+def _table_argument(node: ast.expr) -> str:
+    """Return the table a validator argument names: ``tables["x"]`` or a variable ``x``."""
+
+    if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+        return str(node.slice.value)
+    if isinstance(node, ast.Name):
+        return node.id
+    raise ValueError(f"cannot read a table name at line {node.lineno}")
+
+
+def validator_edges(source: str) -> dict[EdgeKey, str]:
+    """Return every foreign-key check of a validator: (child, column, parent, parent column) -> rule.
+
+    Reads ``validate_foreign_key(child, parent, column, parent_column, rule)`` and
+    ``validate_exact_transaction_coverage(labels, transactions, prefix)``, whose
+    orphan rule ``<prefix>.transaction_fk`` checks ``transaction_id``.
+    """
+
+    found: dict[EdgeKey, str] = {}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+            continue
+        if node.func.id == "validate_foreign_key" and len(node.args) == 5:
+            child, parent, column, parent_column, rule = node.args
+            key = (_table_argument(child), _string(column), _table_argument(parent), _string(parent_column))
+            found[key] = _string(rule)
+        elif node.func.id == "validate_exact_transaction_coverage" and len(node.args) == 3:
+            labels, transactions, prefix = node.args
+            key = (_table_argument(labels), "transaction_id", _table_argument(transactions), "transaction_id")
+            found[key] = f"{_string(prefix)}.transaction_fk"
+    return found
+
+
+def cloud_reference_checks(source: str) -> frozenset[EdgeKey]:
+    """Return the references the 100 GB cloud run checks for orphans.
+
+    ``ops/gcp/summarize_spark_output.py`` is the only runtime check of the cloud
+    DP2 Gold output: ``no_orphans(<fact>, dimension, key)`` over a literal list of
+    (dimension, key) pairs inside ``_invariants``. The cloud run executes neither
+    ``validate_silver.py`` nor ``validate_gold.py``.
+    """
+
+    function = next((node for node in ast.walk(ast.parse(source))
+                     if isinstance(node, ast.FunctionDef) and node.name == "_invariants"), None)
+    if function is None:
+        raise ValueError("summarize_spark_output has no _invariants function")
+    facts: set[str] = set()
+    pairs: list[tuple[str, str]] = []
+    for node in ast.walk(function):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id == "no_orphans" and isinstance(node.args[0], ast.Constant)):
+            facts.add(_string(node.args[0]))
+        if isinstance(node, ast.Tuple) and node.elts and all(
+                isinstance(item, ast.Tuple) and len(item.elts) == 2
+                and all(isinstance(part, ast.Constant) and isinstance(part.value, str) for part in item.elts)
+                for item in node.elts):
+            pairs += [(_string(item.elts[0]), _string(item.elts[1])) for item in node.elts]
+    if len(facts) != 1 or not pairs:
+        raise ValueError("cannot read the cloud reference checks of _invariants")
+    fact = facts.pop()
+    return frozenset((fact, key, dimension, key) for dimension, key in pairs)
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """Which checks exist for each edge, read from the checking code itself."""
+
+    validators: Mapping[EdgeKey, str] = field(default_factory=dict)
+    cloud: frozenset[EdgeKey] = frozenset()
+
+
+def load_evidence(root: Path = REPOSITORY_ROOT) -> Evidence:
+    validators: dict[EdgeKey, str] = {}
+    for path in VALIDATOR_SOURCES:
+        validators.update(validator_edges((root / path).read_text(encoding="utf-8")))
+    cloud = cloud_reference_checks((root / CLOUD_SUMMARY_SOURCE).read_text(encoding="utf-8"))
+    return Evidence(validators, cloud)
+
+
+def _edge_key(item: Relationship) -> EdgeKey:
+    return (item.table, item.column, item.target_table, item.target_column)
+
+
+def describe_checks(item: Relationship, evidence: Evidence) -> str:
+    """Say which code checks an edge, keeping validated and builder_only apart."""
+
+    rule = evidence.validators.get(_edge_key(item))
+    if item.enforcement == "validated":
+        text = f"validated by rule {rule} (local validator runs)" if rule else "validated"
+    else:
+        text = "builder_only: follows from the builder"
+        if rule:
+            text += f"; rule {rule} exists but is not counted as validation"
+    cloud = "checked" if _edge_key(item) in evidence.cloud else "not checked"
+    return f"{text}; {cloud} on the 100GB cloud run"
 
 
 def validate_relationships(
@@ -105,6 +261,10 @@ def validate_relationships(
             problems.append(f"{item.zone}.{item.table}.{item.column} is not in the observed schema")
         if target is None or item.target_column not in target:
             problems.append(f"{item.target_zone}.{item.target_table}.{item.target_column} is not observed")
+        try:
+            edge_semantics(item, document)
+        except (KeyError, ValueError) as exc:
+            problems.append(str(exc))
     return problems
 
 
@@ -123,8 +283,12 @@ def render_mermaid(zone: str, observed: Mapping[str, object], document: Mapping[
     for item in links:
         if item.target_zone != zone:
             continue
-        marker = "o|" if item.nullable else "||"
-        lines.append(f"    {_entity(item.target_table)} {marker}--o{{ {_entity(item.table)} : {item.column}")
+        semantics = edge_semantics(item, document)
+        parent = "o|" if semantics.parent_optional else "||"
+        child = "o{"
+        if semantics.cardinality == "one-to-one":
+            child = "o|" if semantics.child_optional else "||"
+        lines.append(f"    {_entity(item.target_table)} {parent}--{child} {_entity(item.table)} : {item.column}")
     for table in sorted(tables):
         lines.append(f"    {_entity(table)} {{")
         for column in tables[table]["columns"]:
@@ -139,24 +303,73 @@ def render_mermaid(zone: str, observed: Mapping[str, object], document: Mapping[
     return "\n".join(lines) + "\n"
 
 
-def render_dbml(zones: Sequence[str], observed: Mapping[str, object], document: Mapping[str, object]) -> str:
-    """Render zones as DBML. Keys and references are logical."""
+DBML_HEADER = (
+    "// Generated by ops/schema/render_schema_diagrams.py. Do not edit by hand.",
+    "//",
+    "// LOGICAL model of the observed Delta tables. Keys, `not null`/`null` on referencing",
+    "// columns and every Ref come from data_platform/contracts/relationships/schema_relationships.yml.",
+    "// They are not physical constraints: Delta declares no primary or foreign key, and",
+    "// every Delta column is physically nullable (observed_schemas.json). Columns without",
+    "// a setting keep DBML's default (nullable), which is also their physical state.",
+    "//",
+    "// Ref operators (DBML): `>` many-to-one with a required parent; `>?` many-to-one whose",
+    "// referencing column may be NULL; `-` one-to-one where every parent row has exactly one",
+    "// child row; `-?` one-to-one where a parent may have no child. The referencing column",
+    "// is on the left of `>`/`>?` and on the right of `-`/`-?`.",
+    "//",
+    "// Checks per Ref: `validated` = a rule in validate_silver.py/validate_gold.py, run by",
+    "// the local canonical rebuilds; `builder_only` = guaranteed by the builder only.",
+    "// The 100GB cloud run re-checks only the references marked `checked`.",
+)
 
-    lines = ["// Generated. Keys and references are logical; Delta enforces neither.", ""]
+
+def _dbml_text(text: str) -> str:
+    return "'" + text.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def render_dbml(
+    zones: Sequence[str], observed: Mapping[str, object], document: Mapping[str, object],
+    evidence: Evidence | None = None,
+) -> str:
+    """Render zones as DBML: the validated logical model on the observed columns."""
+
+    evidence = evidence if evidence is not None else load_evidence()
+    links = [item for item in load_relationships(document) if item.zone in zones and item.target_zone in zones]
+    referencing = {(item.zone, item.table, item.column): item for item in links}
+    lines = [*DBML_HEADER, ""]
     for zone in zones:
         for table, schema in sorted(observed["zones"][zone]["tables"].items()):
             keys = document["keys"].get(zone, {}).get(table, [])
-            lines.append(f"Table {zone}.{table} {{")
+            grain = f"Logical grain: one row per ({', '.join(keys)})." if keys else "No logical key."
+            lines.append(f"Table {zone}.{table} [note: {_dbml_text(grain + ' Physical Delta: no constraints.')}] {{")
             for column in schema["columns"]:
-                mark = " [pk]" if len(keys) == 1 and column["name"] == keys[0] else ""
-                lines.append(f"  {column['name']} {column['type']}{mark}")
+                settings = []
+                if len(keys) == 1 and column["name"] == keys[0]:
+                    settings.append("pk")
+                link = referencing.get((zone, table, column["name"]))
+                if link is not None:
+                    if "pk" not in settings:
+                        settings.append("null" if link.nullable else "not null")
+                    rule = "optional" if link.nullable else "required"
+                    settings.append(f"note: {_dbml_text(f'Logical FK to {link.target_table}.{link.target_column} ({rule}); {link.enforcement}')}")
+                suffix = f" [{', '.join(settings)}]" if settings else ""
+                lines.append(f"  {column['name']} {column['type']}{suffix}")
             if len(keys) > 1:
                 lines += ["  indexes {", f"    ({', '.join(keys)}) [pk]", "  }"]
             lines += ["}", ""]
-    for item in load_relationships(document):
-        if item.zone in zones and item.target_zone in zones:
-            lines.append(f"Ref: {item.zone}.{item.table}.{item.column} > "
-                         f"{item.target_zone}.{item.target_table}.{item.target_column}")
+    for item in links:
+        semantics = edge_semantics(item, document)
+        child = f"{item.zone}.{item.table}.{item.column}"
+        parent = f"{item.target_zone}.{item.target_table}.{item.target_column}"
+        participation = "optional" if semantics.parent_optional else "required"
+        if semantics.cardinality == "one-to-one":
+            participation += ", every parent has a child" if not semantics.child_optional else ", parent may have no child"
+            expression = f"{parent} {'-?' if semantics.child_optional else '-'} {child}"
+        else:
+            expression = f"{child} {'>?' if semantics.parent_optional else '>'} {parent}"
+        lines.append(f"// {item.table}.{item.column} -> {item.target_table}.{item.target_column}: "
+                     f"{semantics.cardinality}, {participation}; {describe_checks(item, evidence)}")
+        lines.append(f"Ref fk_{item.table}_{item.column}: {expression}")
     return "\n".join(lines) + "\n"
 
 
@@ -174,7 +387,10 @@ def render_erd_sql(zones: Sequence[str], observed: Mapping[str, object], documen
     for zone in zones:
         for table, schema in sorted(observed["zones"][zone]["tables"].items()):
             keys = document["keys"].get(zone, {}).get(table, [])
-            body = [f'    "{column["name"]}" {SQL_TYPES[column["type"]]}' for column in schema["columns"]]
+            required = {item.column for item in load_relationships(document)
+                        if item.zone == zone and item.table == table and not item.nullable}
+            body = [f'    "{column["name"]}" {SQL_TYPES[column["type"]]}'
+                    + (" NOT NULL" if column["name"] in required else "") for column in schema["columns"]]
             if keys:
                 joined = ", ".join(f'"{key}"' for key in keys)
                 body.append(f"    PRIMARY KEY ({joined})")
@@ -213,9 +429,12 @@ def column_changes(
     return rows
 
 
-def render_markdown(observed: Mapping[str, object], document: Mapping[str, object]) -> str:
+def render_markdown(
+    observed: Mapping[str, object], document: Mapping[str, object], evidence: Evidence | None = None,
+) -> str:
     """Render the inventory that links every generated diagram."""
 
+    evidence = evidence if evidence is not None else load_evidence()
     zones = observed["zones"]
     links = load_relationships(document)
     lines = [
@@ -275,13 +494,21 @@ def render_markdown(observed: Mapping[str, object], document: Mapping[str, objec
             partition = ", ".join(schema["partition_columns"]) or "-"
             lines.append(f"| `{table}` | {gold_role(table)} | `{key}` | {partition} | {len(schema['columns'])} |")
     lines += ["", "## Logical relationships", "",
-              "`validated` means a validator rule checks the relationship on real rows. "
-              "`builder_only` means it follows from the transformation.", "",
-              "| Zone | From | To | Nullable | Enforcement |", "|---|---|---|---|---|"]
+              "`validated` means a rule in `validate_silver.py` or `validate_gold.py` checks the "
+              "relationship; those validators run in the local canonical rebuilds. `builder_only` "
+              "means it follows from the transformation. The last column says whether the 100GB "
+              "cloud run re-checks it (`ops/gcp/summarize_spark_output.py`).", "",
+              "| Zone | From | To | Cardinality | Nullable | Enforcement | 100GB cloud check |",
+              "|---|---|---|---|---|---|---|"]
     for item in links:
+        semantics = edge_semantics(item, document)
+        cardinality = semantics.cardinality
+        if cardinality == "one-to-one":
+            cardinality += " (partial)" if semantics.child_optional else " (complete)"
+        cloud = "yes" if _edge_key(item) in evidence.cloud else "no"
         lines.append(f"| {item.zone} | `{item.table}.{item.column}` | "
-                     f"`{item.target_table}.{item.target_column}` | "
-                     f"{'yes' if item.nullable else 'no'} | {item.enforcement} |")
+                     f"`{item.target_table}.{item.target_column}` | {cardinality} | "
+                     f"{'yes' if item.nullable else 'no'} | {item.enforcement} | {cloud} |")
     return "\n".join(lines) + "\n"
 
 
@@ -445,7 +672,7 @@ def gold_erd_edges(document: Mapping[str, object]) -> list[ErdEdge]:
             continue
         if keys[item.target_table] != [item.target_column]:
             raise ValueError(f"{item.table}.{item.column} does not reference the key of {item.target_table}")
-        cardinality = "one-to-one" if keys[item.table] == [item.column] else "many-to-one"
+        cardinality = edge_semantics(item, document).cardinality
         kind = "dimension-to-dimension" if item.table.startswith("dim_") else "fact-to-dimension"
         edges.append(ErdEdge(item.table, item.column, item.target_table, item.target_column,
                              item.nullable, cardinality, kind, item.enforcement))
@@ -570,17 +797,20 @@ def render_zone_columns(observed: Mapping[str, object], document: Mapping[str, o
     return "\n".join(lines) + "\n"
 
 
-def render_all(observed: Mapping[str, object], document: Mapping[str, object]) -> dict[str, str]:
+def render_all(
+    observed: Mapping[str, object], document: Mapping[str, object], evidence: Evidence | None = None,
+) -> dict[str, str]:
     """Return every generated file by name, after validating the inputs."""
 
+    evidence = evidence if evidence is not None else load_evidence()
     problems = validate_relationships(observed, document)
     if problems:
         raise ValueError("schema relationships do not match observed schemas: " + "; ".join(problems))
     files = {f"{zone}.mmd": render_mermaid(zone, observed, document) for zone in ZONE_TITLES}
-    files["silver.dbml"] = render_dbml(("silver",), observed, document)
-    files["gold.dbml"] = render_dbml(("gold", "features"), observed, document)
+    files["silver.dbml"] = render_dbml(("silver",), observed, document, evidence)
+    files["gold.dbml"] = render_dbml(("gold", "features"), observed, document, evidence)
     files["gold_erd_import.sql"] = render_erd_sql(("gold", "features"), observed, document)
-    files["SCHEMA_DIAGRAMS.md"] = render_markdown(observed, document)
+    files["SCHEMA_DIAGRAMS.md"] = render_markdown(observed, document, evidence)
     files["GOLD_ERD.md"] = render_gold_erd(observed, document)
     files["ZONE_COLUMNS.md"] = render_zone_columns(observed, document)
     files["trino_register_tables.sql"] = render_trino_registration(observed)

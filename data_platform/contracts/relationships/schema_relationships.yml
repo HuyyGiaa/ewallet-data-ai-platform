@@ -5,7 +5,14 @@
 # A relationship is "validated" when a validator rule checks it on real rows, and
 # "builder_only" when it follows from the transformation alone.
 #
-# Each entry: table, columns, references (table.column), nullable, enforcement.
+# Each entry: table, column, references (table.column), nullable, enforcement and,
+# for a one-to-one edge, an optional `coverage`.
+#
+# * nullable: whether the referencing column may be NULL in the logical contract.
+#   Delta declares every column nullable; this field is the business rule.
+# * coverage: complete -- every parent row has exactly one child row, because the
+#   builder produces the child from the parent (a left join or a 1:1 projection).
+#   Only valid when the referencing column is the child's whole key.
 version: 1
 keys:
   silver:
@@ -16,7 +23,9 @@ keys:
     transactions: [transaction_id]
     login_events: [login_id]
     balance_snapshots: [account_id, snapshot_date]
-    fraud_labels: [transaction_id, label]
+    # One label row per transaction: validate_silver checks transaction_id is unique
+    # and that labels and transactions cover each other exactly.
+    fraud_labels: [transaction_id]
   gold:
     dim_user: [user_id]
     dim_account: [account_id]
@@ -46,7 +55,7 @@ relationships:
     - {table: login_events, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
     - {table: login_events, column: device_id, references: devices.device_id, nullable: false, enforcement: validated}
     - {table: balance_snapshots, column: account_id, references: accounts.account_id, nullable: false, enforcement: validated}
-    - {table: fraud_labels, column: transaction_id, references: transactions.transaction_id, nullable: false, enforcement: builder_only}
+    - {table: fraud_labels, column: transaction_id, references: transactions.transaction_id, nullable: false, enforcement: builder_only, coverage: complete}
   gold:
     - {table: dim_account, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
     - {table: dim_device, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
@@ -61,9 +70,9 @@ relationships:
     - {table: fact_login_events, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
     - {table: fact_balance_snapshot, column: account_id, references: dim_account.account_id, nullable: false, enforcement: validated}
     - {table: fact_balance_snapshot, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
-    - {table: obt_transaction_enriched, column: transaction_id, references: fact_transactions.transaction_id, nullable: false, enforcement: builder_only}
-    - {table: feat_user_90d, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
-    - {table: opt_merchant_performance, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated}
+    - {table: obt_transaction_enriched, column: transaction_id, references: fact_transactions.transaction_id, nullable: false, enforcement: builder_only, coverage: complete}
+    - {table: feat_user_90d, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated, coverage: complete}
+    - {table: opt_merchant_performance, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated, coverage: complete}
   features:
     - {table: feat_user_behavior, column: user_id, references: gold.dim_user.user_id, nullable: false, enforcement: validated}
     - {table: feat_account_behavior, column: account_id, references: gold.dim_account.account_id, nullable: false, enforcement: validated}

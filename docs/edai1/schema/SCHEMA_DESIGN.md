@@ -187,6 +187,22 @@ The Gold tables are Delta tables on GCS. Delta records columns, types and partit
 
 A link in the ER diagram is therefore a logical relationship, never a constraint that the storage enforces.
 
+**Where each check runs.** The logical contract is checked at two levels, which cover different relationships:
+
+| Level | Code | Relationships checked | Datasets it has run on |
+|---|---|---|---|
+| Local validators | `validate_silver.py`, `validate_gold.py` | Orphan checks for 10 Silver and 19 Gold foreign keys (`validated`). The `fraud_labels → transactions` check runs only with `--include-fraud-labels` | Local canonical rebuilds (f3/f4c evidence) |
+| Cloud runtime invariants | `ops/gcp/summarize_spark_output.py` | Gold key uniqueness. Orphan checks only for `fact_transactions.{user_id, account_id, device_id, merchant_id, date_key}`. OBT/fact row parity | The 100 GB cloud DP2 runs |
+
+The 100 GB cloud run executes neither validator, so `validated` means "checked by a validator rule", not "re-checked on the 100 GB data". `builder_only` edges (`fraud_labels → transactions`, `obt_transaction_enriched → fact_transactions`) follow from the builder alone.
+
+**Diagram representation.** [silver.dbml](generated/silver.dbml) and [gold.dbml](generated/gold.dbml) draw the *logical* model on the observed columns:
+- **Required references:** `not null` on the referencing column and DBML `>` (exactly one parent).
+- **Conditional references** (`merchant_id`, `counterparty_account_id`): `null` and `>?` (zero or one parent).
+- **One-to-one edges:** `-`, with the parent first, wherever the referencing column is the child's whole key. These are `feat_user_90d`, `opt_merchant_performance`, `obt_transaction_enriched` and `fraud_labels`. Their builders produce exactly one child row per parent row (`coverage: complete` in the contract).
+
+Each Ref carries a comment naming its validator rule and whether the cloud run re-checks it. The physical state, with every Delta column nullable and no constraints, is stated in each file's header and table notes.
+
 ### 7.2 The Gold star
 
 The diagram covers the five dimensions and three facts. The Mermaid rendering below is generated from the contracts ([GOLD_ERD.md](generated/GOLD_ERD.md)); it is an explanatory drawing, not a database export.
