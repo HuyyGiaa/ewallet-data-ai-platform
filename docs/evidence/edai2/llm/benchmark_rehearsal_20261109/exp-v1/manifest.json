@@ -1,0 +1,47 @@
+{
+  "arms": {
+    "baseline": "b0-prime",
+    "optimized": "c1-thread-bind"
+  },
+  "capture_problems": [],
+  "controls": [
+    "workload_sha256",
+    "image_digest",
+    "model_revision",
+    "cpu_request",
+    "memory_request",
+    "node_type",
+    "max_num_seqs",
+    "prefix_cache",
+    "gateway_token_budget",
+    "node_names"
+  ],
+  "deviations": [],
+  "disk_free_bytes": 15844265984,
+  "experiment_id": "EXP-V1",
+  "finished_at": "2026-11-09T12:05:37.858731+00:00",
+  "hypothesis": "Binding vLLM's two OpenMP threads to CPUs 0-1 improves output throughput at concurrency 4 compared with automatic binding, on the same pod budget.",
+  "kube_context": "gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev",
+  "namespace": "ewallet-bench",
+  "nodes": "NAME                                       STATUS   ROLES    AGE   VERSION               INTERNAL-IP    EXTERNAL-IP      OS-IMAGE                             KERNEL-VERSION      CONTAINER-RUNTIME\ngke-ewallet-dev-bench-pool-073f69e1-mxjm   Ready    <none>   51s   v1.36.4-gke.2377000   10.20.15.211   35.247.140.83    Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-cbl0     Ready    <none>   41h   v1.36.4-gke.2377000   10.20.15.198   34.142.215.227   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-h874     Ready    <none>   40h   v1.36.4-gke.2377000   10.20.15.196   34.142.215.219   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-jt0h     Ready    <none>   41h   v1.36.4-gke.2377000   10.20.15.203   34.21.227.132    Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-wcka     Ready    <none>   41h   v1.36.4-gke.2377000   10.20.15.202   34.21.156.114    Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-zm4y     Ready    <none>   40h   v1.36.4-gke.2377000   10.20.15.195   34.21.197.96     Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7",
+  "pods": "No resources found in ewallet-bench namespace.",
+  "schema_version": "ewallet-experiment-manifest-v1",
+  "settings": {
+    "capture_mode": "unattended",
+    "gateway_image": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+    "helper_image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff",
+    "levels": "1,2,4",
+    "machine_type": "e2-standard-4",
+    "max_minutes": "215",
+    "nodes": "1",
+    "profile": "formal",
+    "runs_per_arm": "3",
+    "vllm_image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c",
+    "watchdog_deadline": "2026-11-09T13:16:47Z"
+  },
+  "source_dirty": true,
+  "source_sha": "3250424de0eccd585dd899dacb6ea24648a8d7e3",
+  "started_at": "2026-11-09T09:33:31.218096+00:00",
+  "variable": "VLLM_CPU_OMP_THREADS_BIND: auto versus 0-1",
+  "workload_fixture_sha256": null
+}
