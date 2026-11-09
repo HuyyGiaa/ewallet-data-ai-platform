@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.dataset_identity import refuse_misplaced_dataset
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
     method2_runtime_properties,
@@ -124,6 +125,7 @@ def build_submission_command(
     pair_manifest: Mapping[str, object] | None = None,
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
+    refuse_misplaced_dataset(dataset_version, runtime.data_bucket)
     run_id = _validate_id(run_id, "run_id")
     ttl = _validate_ttl(ttl)
     execution_profile = resolve_submission_profile(

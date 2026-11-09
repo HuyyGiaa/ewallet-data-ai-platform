@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from data_platform.config.dataset_identity import require_approved_dataset
 from data_platform.config.spark_profiles import (
     parse_benchmark_run_id,
     resolve_spark_profile,
@@ -249,10 +250,12 @@ def validate_pair_manifest(value: Mapping[str, object]) -> dict[str, object]:
         raise ValueError("pair manifest upstream_run_ids must be explicit")
     if len(upstream) != _UPSTREAM_CARDINALITY[stage]:
         raise ValueError("pair manifest upstream_run_ids have wrong stage cardinality")
-    if stage == "dp1-bronze" and (
-        dataset_version != "canonical-100gb-v1" or upstream != [dataset_version]
-    ):
-        raise ValueError("DP1 Method 2 must bind canonical-100gb-v1")
+    if stage == "dp1-bronze":
+        # The Bronze pair reads the source dataset directly: it must be an approved
+        # campaign dataset and its only upstream.
+        require_approved_dataset(dataset_version)
+        if upstream != [dataset_version]:
+            raise ValueError("DP1 Method 2 must bind its dataset version as the only upstream")
     if manifest.get("required_runtime_metrics") != list(REQUIRED_RUNTIME_METRICS):
         raise ValueError("pair manifest required_runtime_metrics mismatch")
     runs = manifest.get("runs")

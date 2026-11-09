@@ -31,7 +31,10 @@ with DAG(
         # commands by Airflow. Reject quoting and shell metacharacters at schema
         # validation rather than relying on quote delimiters alone.
         "benchmark_id": Param("ab-20260101000000", type="string", pattern=r"^ab-[0-9]{14}$"),
-        "dataset_version": Param("canonical-100gb-v1", type="string", enum=["canonical-100gb-v1"]),
+        # Explicit approved identities only (data_platform/config/dataset_identity.py);
+        # the module refuses a rehearsal in the canonical bucket.
+        "dataset_version": Param("canonical-100gb-v1", type="string",
+                                 enum=["canonical-100gb-v1", "rehearsal-5gb-v1"]),
         "git_sha": Param("0" * 40, type="string", pattern=r"^[0-9a-f]{40}$"),
         "bronze_winner": Param("/ABSOLUTE/PATH/dp1-bronze-winner.json", type="string", pattern=r"^/[A-Za-z0-9_./-]+$"),
         "bronze_source_benchmark_id": Param("ab-20260101000000", type="string", pattern=r"^ab-[0-9]{14}$"),

@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.dataset_identity import refuse_misplaced_dataset
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
     method2_runtime_properties,
@@ -141,6 +142,7 @@ def build_submission_command(
     recovery_git_sha: str | None = None,
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
+    refuse_misplaced_dataset(dataset_version, runtime.data_bucket)
     ttl = _validate_ttl(ttl)
     execution_profile = resolve_submission_profile(
         spark_profile=spark_profile,
