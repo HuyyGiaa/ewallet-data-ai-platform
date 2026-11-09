@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import subprocess
 import sys
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor
@@ -13,7 +15,11 @@ from typing import Callable, Iterable, TextIO
 from urllib.parse import urlsplit
 
 from data_platform.config import load_runtime_config
-from data_platform.config.dataset_identity import require_publishable_dataset
+from data_platform.config.dataset_identity import (
+    isolated_data_bucket,
+    require_publishable_dataset,
+    resolve_storage_context,
+)
 from data_platform.generation.src.offline.merchant_history import merchant_history_enabled
 from data_platform.generation.src.offline.offline_generator import load_config
 from data_platform.generation.src.sharded.generator import generate_shard, physical_tables
@@ -23,7 +29,9 @@ from data_platform.generation.src.sharded.manifest import (
 )
 from data_platform.generation.src.sharded.planner import build_shard_plan, canonical_json_sha256
 from data_platform.generation.src.sharded.storage import GcloudObjectStore
-
+from ops.gcp.rehearsal_storage import StoragePlan, check_bucket
+from ops.gcp.submit_silver_to_gold import _load_outputs
+from ops.gcp.submit_source_to_bronze import load_cloud_runtime
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -66,6 +74,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--shard-end", type=int)
     parser.add_argument("--workers", type=_positive_worker_count, default=1)
     parser.add_argument("--staging-dir", type=Path, default=Path("tmp/source-datasets"))
+    parser.add_argument("--terraform-output-json", type=Path)
     parser.add_argument(
         "--execute",
         action="store_true",
@@ -197,6 +206,7 @@ def validate_publication_target(
     identity = require_publishable_dataset(dataset_version, bucket)
     if identity is None:
         return
+    resolve_storage_context(dataset_version, bucket)
     if merchant_history_enabled(base_config) != identity.merchant_history:
         raise ValueError(
             f"{dataset_version} requires merchant_history={identity.merchant_history}; "
@@ -214,10 +224,33 @@ def validate_publication_target(
         raise ValueError(f"{dataset_version} requires {identity.source_shard_count} shards")
 
 
+def require_destination_ready(
+    dataset_version: str,
+    bucket: str,
+    terraform_output_json: Path | None,
+) -> None:
+    """Before an execute: an isolated dataset's bucket must exist with its contract."""
+    if isolated_data_bucket(dataset_version) is None:
+        return
+    runtime = load_cloud_runtime(_load_outputs(terraform_output_json, subprocess.run))
+    check_bucket(StoragePlan(runtime.project_id, bucket, runtime.service_account_email))
+
+
+def load_publication_runtime(environment: str, dataset_version: str):
+    """Resolve the runtime; an isolated dataset always targets its own bucket."""
+    bucket = isolated_data_bucket(dataset_version)
+    if bucket is None:
+        return load_runtime_config(environment)
+    configured = os.environ.get("EWALLET_DATA_BUCKET")
+    if configured and configured != bucket:
+        raise ValueError(f"{dataset_version} must use bucket {bucket}, not {configured}")
+    return load_runtime_config(environment, environ={**os.environ, "EWALLET_DATA_BUCKET": bucket})
+
+
 def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
     args = parse_args(argv)
     base_config = load_config(resolve_generator_config_path(args.config))
-    runtime = load_runtime_config(args.environment)
+    runtime = load_publication_runtime(args.environment, args.dataset_version)
     if runtime.storage.scheme != "gs":
         raise ValueError("source publication requires a gs:// runtime profile")
     validate_publication_target(
@@ -264,6 +297,9 @@ def main(argv: list[str] | None = None, *, stdout: TextIO = sys.stdout) -> int:
         print("DRY RUN - no local shard generated and no GCS object written", file=stdout)
         return 0
 
+    require_destination_ready(
+        args.dataset_version, urlsplit(dataset_root).netloc, args.terraform_output_json
+    )
     store = GcloudObjectStore()
     publisher = DatasetPublisher(
         store, dataset_root, plan, physical_tables=physical_tables(base_config)

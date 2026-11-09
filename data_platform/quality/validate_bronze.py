@@ -21,7 +21,9 @@ from data_platform.quality.reporting import (
     add_cloud_arguments,
     build_report,
     cloud_environ,
+    execution_record,
     report_context,
+    write_execution_record,
     write_report,
 )
 from data_platform.storage.scripts.config import OFFLINE_TABLES, offline_tables
@@ -447,6 +449,7 @@ def run_validation(
     include_merchant_history: bool = False,
     report_uri: str | None = None,
     report_details: dict | None = None,
+    execution_record: dict | None = None,
 ) -> bool:
     spark = None
     passed_count = 0
@@ -466,6 +469,8 @@ def run_validation(
             optimized=True,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
 
         for table_name in offline_tables(include_fraud_labels, include_merchant_history):
             print(
@@ -649,6 +654,7 @@ def main(argv: list[str] | None = None) -> int:
             include_merchant_history=args.include_merchant_history,
             report_uri=args.report_uri,
             report_details=report_context(args, bronze_root=config.storage.bronze_root),
+            execution_record=execution_record(args, "bronze-validation"),
         )
         else 1
     )

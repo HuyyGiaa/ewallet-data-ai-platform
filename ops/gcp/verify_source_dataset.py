@@ -27,8 +27,8 @@ from typing import Any
 from data_platform.config.dataset_identity import (
     APPROVED_DATASETS,
     DatasetIdentity,
-    refuse_misplaced_dataset,
     require_approved_dataset,
+    resolve_storage_context,
 )
 from data_platform.storage.scripts.config import MERCHANT_HISTORY_TABLE
 from data_platform.generation.src.sharded.planner import canonical_json_sha256
@@ -141,7 +141,7 @@ def verify_source_dataset(
     """Run every check and return a factual report; raise on the first violation."""
 
     identity = require_approved_dataset(dataset_version)
-    refuse_misplaced_dataset(dataset_version, bucket)
+    resolve_storage_context(dataset_version, bucket)
     store = store or GcloudObjectStore()
     prefix = f"source/{dataset_version}"
     root = f"gs://{bucket}/{prefix}"

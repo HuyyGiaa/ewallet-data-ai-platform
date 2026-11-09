@@ -48,11 +48,14 @@ from data_platform.quality.feature_timestamp_quality import (
     feature_timestamp_results,
     historical_feature_timestamp_results,
 )
+from data_platform.config.dataset_identity import require_same_bucket
 from data_platform.quality.reporting import (
     add_cloud_arguments,
     build_report,
     cloud_environ,
+    execution_record,
     report_context,
+    write_execution_record,
     write_report,
 )
 from data_platform.quality.results import ValidationResult
@@ -1496,6 +1499,7 @@ def run_validation(
     feature_storage: StorageConfig | None = None,
     report_uri: str | None = None,
     report_details: dict | None = None,
+    execution_record: dict | None = None,
 ) -> list[ValidationResult]:
     """Validate one stage boundary and raise if any rule fails.
 
@@ -1522,6 +1526,8 @@ def run_validation(
             optimized=True,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
         all_results: list[ValidationResult] = []
 
         if scope in ("all", "core-gold"):
@@ -1634,6 +1640,7 @@ def resolve_storage(
     needs_features = scope in ("all", "features")
     silver = _run_scoped(silver_root, "silver", "--silver-root")
     gold = _run_scoped(gold_root, "gold", "--gold-root")
+    require_same_bucket(silver, gold, *([feature_gold_root] if feature_gold_root else []))
     core = replace(config.storage, silver_root=silver, gold_root=gold)
     if not needs_features:
         if feature_gold_root is not None:
@@ -1717,6 +1724,7 @@ def main(argv: list[str] | None = None) -> int:
                 gold_root=core_storage.gold_root,
                 feature_gold_root=feature_storage.gold_root,
             ),
+            execution_record=execution_record(args, f"{args.scope}-validation"),
         )
         return 0
 

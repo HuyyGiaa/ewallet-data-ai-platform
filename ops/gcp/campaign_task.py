@@ -27,7 +27,8 @@ from typing import Any
 from data_platform.config.dataset_identity import (
     APPROVED_DATASETS,
     dataset_has_merchant_history,
-    refuse_misplaced_dataset,
+    isolated_data_bucket,
+    resolve_storage_context,
 )
 from data_platform.config.spark_profiles import (
     SPARK_PROFILES,
@@ -35,7 +36,7 @@ from data_platform.config.spark_profiles import (
     validate_benchmark_id,
     validate_git_sha,
 )
-from data_platform.generation.src.sharded.storage import GcloudObjectStore
+from data_platform.generation.src.sharded.storage import GcloudObjectStore, ObjectStoreError
 from ops.gcp import (
     submit_bronze_to_silver,
     submit_historical_features,
@@ -45,8 +46,15 @@ from ops.gcp import (
     verify_delta_run,
     wait_for_dataproc_quota,
 )
+from ops.gcp import spark_provenance
+from ops.gcp.rehearsal_storage import StorageNotReady, StoragePlan, check_bucket
 from ops.gcp.submit_silver_to_gold import _load_outputs, assert_batch_id_absent, require_clean_repository
-from ops.gcp.submit_source_to_bronze import CloudRuntime, load_cloud_runtime
+from ops.gcp.submit_source_to_bronze import (
+    CloudRuntime,
+    apply_dataset_bucket,
+    execution_record_uri,
+    load_cloud_runtime,
+)
 from ops.gcp.submit_stage_validation import ValidationRuns, validated_run_id
 from ops.gcp.validate_spark_output_equivalence import expected_tables
 from ops.gcp.verify_source_dataset import verify_source_dataset
@@ -157,7 +165,7 @@ def parse_parameters(values: Mapping[str, str]) -> CampaignParams:
         for stage, run_id in zip(("bronze", "silver", "gold", "feat"), run_ids):
             require_campaign_lineage(run_id, benchmark_id=values["benchmark_id"],
                                      profile=values["spark_profile"], stage=stage)
-        refuse_misplaced_dataset(values["dataset_version"], values["data_bucket"])
+        resolve_storage_context(values["dataset_version"], values["data_bucket"])
     except ValueError as error:
         raise CampaignError(str(error)) from error
     if values["execution_approval"] != expected_approval(values):
@@ -187,7 +195,7 @@ def load_runtime(params: CampaignParams, runner: Callable[..., Any]) -> CloudRun
     """The submitter runtime must be exactly the deployment the DagRun names."""
 
     path = Path(params.terraform_output_json) if params.terraform_output_json else None
-    runtime = load_cloud_runtime(_load_outputs(path, runner))
+    runtime = apply_dataset_bucket(load_cloud_runtime(_load_outputs(path, runner)), params.dataset_version)
     actual = (runtime.project_id, runtime.region, runtime.data_bucket)
     expected = (params.project_id, params.region, params.data_bucket)
     if actual != expected:
@@ -211,6 +219,11 @@ def action_preflight(params: CampaignParams, runner: Callable[..., Any]) -> None
 
     require_clean_repository(REPOSITORY_ROOT, params.git_sha, runner)
     runtime = load_runtime(params, runner)
+    if isolated_data_bucket(params.dataset_version) is not None:
+        try:
+            check_bucket(StoragePlan(runtime.project_id, runtime.data_bucket, runtime.service_account_email), runner)
+        except StorageNotReady as error:
+            raise CampaignError(str(error)) from error
     _require_absent_output_prefixes(params, runtime, runner)
     for run_id in (params.bronze_run_id, params.silver_run_id, params.gold_run_id, params.feature_run_id):
         assert_batch_id_absent(runtime, batch_id=run_id, runner=runner)
@@ -271,9 +284,61 @@ def _common_submit_arguments(params: CampaignParams) -> list[str]:
     ]
 
 
+def _execution_context(params: CampaignParams, stage: str, kind: str) -> spark_provenance.ExecutionContext:
+    storage = resolve_storage_context(params.dataset_version, params.data_bucket)
+    runs = {"bronze": params.bronze_run_id, "silver": params.silver_run_id,
+            "gold": params.gold_run_id, "features": params.feature_run_id}
+    transformation = kind == "transformation"
+    return spark_provenance.ExecutionContext(
+        campaign_id=spark_provenance.campaign_id(params.benchmark_id, params.spark_profile),
+        dataset_version=params.dataset_version, spark_profile=params.spark_profile,
+        stage_name=stage, kind=kind, git_sha=params.git_sha,
+        source_manifest_sha256=params.source_manifest_sha256,
+        project_id=params.project_id, region=params.region, data_bucket=params.data_bucket,
+        run_id=params.stage_run_id(stage),
+        input_roots=(spark_provenance.stage_inputs(storage, stage, runs) if transformation
+                     else spark_provenance.validation_inputs(storage, stage, runs)),
+        output_roots=(spark_provenance.stage_output(storage, stage, runs),) if transformation else (),
+    )
+
+
+def _collect(params: CampaignParams, stage: str, kind: str, batch_id: str, report_uri: str | None,
+             runner: Callable[..., Any]) -> dict[str, Any]:
+    return spark_provenance.collect_execution(
+        _execution_context(params, stage, kind), batch_id=batch_id,
+        record_uri=execution_record_uri(params.data_bucket, params.stage_run_id(stage), batch_id),
+        report_uri=report_uri, runner=runner)
+
+
+def _record_provenance(params: CampaignParams, stage: str, kind: str, batch_id: str, report_uri: str | None,
+                       runner: Callable[..., Any]) -> None:
+    """Keep one record per batch beside the run, also for failed batches.
+
+    Runs after the submission whatever its outcome. A batch that was never
+    submitted leaves no record, and a collection problem never hides the
+    submission's own result; finalization collects again and fails closed.
+    """
+
+    try:
+        record = _collect(params, stage, kind, batch_id, report_uri, runner)
+        if not record["dataproc_batch_found"]:
+            return
+        uri = f"{resolve_storage_context(params.dataset_version).evidence_root(params.stage_run_id(stage))}/execution_provenance-{batch_id}.json"
+        GcloudObjectStore(runner=runner).write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", uri, if_absent=True)
+    except (ValueError, ObjectStoreError) as error:
+        print(f"WARNING: execution provenance not recorded for {batch_id}: {error}", file=sys.stderr)
+
+
 def action_submit(params: CampaignParams, stage: str, runner: Callable[..., Any]) -> None:
     """Submit one transformation. Submitters refuse existing output prefixes."""
 
+    try:
+        _submit_transformation(params, stage, runner)
+    finally:
+        _record_provenance(params, stage, "transformation", params.stage_run_id(stage), None, runner)
+
+
+def _submit_transformation(params: CampaignParams, stage: str, runner: Callable[..., Any]) -> None:
     common = _common_submit_arguments(params)
     if stage == "bronze":
         code = submit_source_to_bronze.main([*common, f"--run-id={params.bronze_run_id}"], runner=runner)
@@ -323,7 +388,13 @@ def action_validate(params: CampaignParams, stage: str, attempt: int, runner: Ca
         "--execute",
         *_terraform_arguments(params),
     ]
-    code = submit_stage_validation.main(arguments, runner=runner)
+    run_id = params.stage_run_id(stage)
+    batch_id = submit_stage_validation.validation_batch_id(run_id, attempt)
+    report = submit_stage_validation.report_uri(params.data_bucket, run_id, scope, attempt)
+    try:
+        code = submit_stage_validation.main(arguments, runner=runner)
+    finally:
+        _record_provenance(params, stage, "validation", batch_id, report, runner)
     if code != 0:
         raise CampaignError(f"{scope} validation failed with exit code {code}")
 
@@ -344,25 +415,24 @@ def latest_validation_report(
     return latest, submit_stage_validation.read_report(latest, runner=runner)
 
 
-def _describe_batch(params: CampaignParams, batch_id: str, runner: Callable[..., Any]) -> Mapping[str, Any]:
-    completed = runner(
-        ["gcloud", "dataproc", "batches", "describe", batch_id,
-         f"--project={params.project_id}", f"--region={params.region}", "--format=json"],
-        check=True, text=True, capture_output=True,
-    )
-    value = json.loads(completed.stdout)
-    if value.get("state") != "SUCCEEDED":
-        raise CampaignError(f"Dataproc batch {batch_id} is {value.get('state')}, expected SUCCEEDED")
-    return {
-        "batch_id": batch_id,
-        "uuid": value.get("uuid"),
-        "state": value.get("state"),
-        "create_time": value.get("createTime"),
-        "state_time": value.get("stateTime"),
-        "runtime_version": (value.get("runtimeConfig") or {}).get("version"),
-        "history_server_uri": ((value.get("runtimeInfo") or {}).get("endpoints") or {}).get("Spark History Server"),
-        "output_uri": (value.get("runtimeInfo") or {}).get("outputUri"),
-    }
+def _validation_attempts(
+    params: CampaignParams, stage: str, latest: int, runner: Callable[..., Any]
+) -> list[dict[str, Any]]:
+    """Every validator attempt up to the latest, failed ones included."""
+
+    scope = VALIDATION_SCOPE[stage]
+    run_id = params.stage_run_id(stage)
+    return [
+        _collect(params, stage, "validation", submit_stage_validation.validation_batch_id(run_id, attempt),
+                 submit_stage_validation.report_uri(params.data_bucket, run_id, scope, attempt), runner)
+        for attempt in range(1, latest + 1)
+    ]
+
+
+def _require_succeeded(record: Mapping[str, Any]) -> None:
+    if record["dataproc_batch_state"] != "SUCCEEDED":
+        raise CampaignError(
+            f"Dataproc batch {record['dataproc_batch_id']} is {record['dataproc_batch_state']}, expected SUCCEEDED")
 
 
 def action_finalize(params: CampaignParams, runner: Callable[..., Any]) -> None:
@@ -375,34 +445,46 @@ def action_finalize(params: CampaignParams, runner: Callable[..., Any]) -> None:
         store=GcloudObjectStore(runner=runner),
         lister=lambda root: _list_objects(root, runner),
     )
+    storage = resolve_storage_context(params.dataset_version, params.data_bucket)
     stages: dict[str, Any] = {}
-    for stage, _, _, _ in STAGES:
-        run_id = params.stage_run_id(stage)
-        scope = VALIDATION_SCOPE[stage]
-        uri, report = latest_validation_report(params, stage, runner)
-        submit_stage_validation.require_passing_report(
-            report, scope=scope, run_id=run_id, dataset_version=params.dataset_version)
-        attempt = int(uri.rsplit("-a", 1)[1].removesuffix(".json"))
-        stages[stage] = {
-            "run_id": run_id,
-            "output_root": params.run_root(stage),
-            "transformation_batch": _describe_batch(params, run_id, runner),
-            "validation_batch": _describe_batch(
-                params, submit_stage_validation.validation_batch_id(run_id, attempt), runner),
-            "validation_report": uri,
-        }
+    try:
+        for stage, _, _, _ in STAGES:
+            run_id = params.stage_run_id(stage)
+            scope = VALIDATION_SCOPE[stage]
+            uri, report = latest_validation_report(params, stage, runner)
+            submit_stage_validation.require_passing_report(
+                report, scope=scope, run_id=run_id, dataset_version=params.dataset_version)
+            latest = int(uri.rsplit("-a", 1)[1].removesuffix(".json"))
+            transformation = _collect(params, stage, "transformation", run_id, None, runner)
+            attempts = _validation_attempts(params, stage, latest, runner)
+            _require_succeeded(transformation)
+            _require_succeeded(attempts[-1])
+            stages[stage] = {
+                "run_id": run_id,
+                "output_root": params.run_root(stage),
+                "execution_metadata": transformation,
+                "validation": {
+                    "report_uri": uri,
+                    "status": report["status"],
+                    "execution_metadata": attempts[-1],
+                    "attempts": attempts,
+                },
+            }
+    except spark_provenance.ProvenanceError as error:
+        raise CampaignError(str(error)) from error
     manifest = {
-        "schema_version": "edai1-pipeline-campaign-v1",
+        "schema_version": "edai1-pipeline-campaign-v2",
         "status": "COMPLETE",
         "benchmark_id": params.benchmark_id,
         "spark_profile": params.spark_profile,
         "dataset_version": params.dataset_version,
         "git_sha": params.git_sha,
+        "storage": {"data_bucket": storage.data_bucket, "source_root": storage.source_root,
+                    "spark_event_log_root": storage.spark_event_log_root},
         "source": {"manifest_uri": source["manifest_uri"], "manifest_sha256": source["manifest_sha256"],
                    "plan_digest": source["plan_digest"], "physical_bytes": source["physical_bytes"]},
         "lineage": ["source", *[stage for stage, _, _, _ in STAGES]],
         "stages": stages,
-        "spark_event_log_dir": f"gs://{params.data_bucket}/spark-events",
         "finalized_at": datetime.now(timezone.utc).isoformat(),
     }
     uri = (f"gs://{params.data_bucket}/lakehouse/campaigns/{params.benchmark_id}/"

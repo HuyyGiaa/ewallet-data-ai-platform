@@ -18,6 +18,7 @@ from data_platform.config.dataset_identity import (
     CANONICAL_100GB,
     CANONICAL_DATA_BUCKET,
     REHEARSAL_5GB,
+    REHEARSAL_DATA_BUCKET,
 )
 from ops.gcp import (
     campaign_task,
@@ -31,7 +32,7 @@ from ops.gcp import (
 from ops.gcp.campaign_task import CampaignError, parse_parameters, run_action
 
 
-BUCKET = "ewallet-rehearsal-5gb-data"
+BUCKET = REHEARSAL_DATA_BUCKET
 SHA = "a" * 40
 BENCH = "ab-20261110000000"
 ATTEMPT_SUFFIX = {"bronze": "r261110000000", "silver": "r261110000001", "gold": "r261110000002", "feat": "r261110000003"}
@@ -56,15 +57,15 @@ def values(profile: str = "baseline", **overrides: str) -> dict[str, str]:
     return result
 
 
-def terraform_outputs(bucket: str = BUCKET) -> dict[str, dict[str, object]]:
+def terraform_outputs(bucket: str = CANONICAL_DATA_BUCKET, project: str = "ewallet-data-ai-platform-hg26") -> dict[str, dict[str, object]]:
     return {
-        "project_id": {"value": "ewallet-data-ai-platform-hg26"},
+        "project_id": {"value": project},
         "region": {"value": "asia-southeast1"},
         "data_bucket_name": {"value": bucket},
         "temporary_bucket_name": {"value": "temp-bucket"},
         "service_account_emails": {"value": {"spark": "spark@example.com"}},
         "dataproc_batch_runtime": {"value": {
-            "project_id": "ewallet-data-ai-platform-hg26", "region": "asia-southeast1",
+            "project_id": project, "region": "asia-southeast1",
             "staging_bucket": "temp-bucket", "service_account_email": "spark@example.com",
             "execution_mode": "serverless-batch", "performance_tier": "standard", "subnet": "subnet-1",
         }},
@@ -76,13 +77,15 @@ class RecordingRunner:
 
     def __init__(self, *, git_sha: str = SHA, dirty: str = "", existing_prefixes=(), existing_batches=(),
                  report_status: str = "PASS", submit_fails: bool = False, tables: set[str] | None = None,
-                 batch_state: str = "SUCCEEDED") -> None:
+                 batch_state: str = "SUCCEEDED", bucket_exists: bool = True) -> None:
         self.calls: list[list[str]] = []
         self.git_sha, self.dirty = git_sha, dirty
         self.existing_prefixes, self.existing_batches = tuple(existing_prefixes), set(existing_batches)
         self.report_status, self.submit_fails, self.tables = report_status, submit_fails, tables
         self.batch_state = batch_state
+        self.bucket_exists = bucket_exists
         self.written: list[str] = []
+        self.bodies: dict[str, str] = {}
 
     @staticmethod
     def _done(returncode: int = 0, stdout: str = "", stderr: str = ""):
@@ -98,7 +101,11 @@ class RecordingRunner:
         if command[:4] == ["gcloud", "dataproc", "batches", "describe"]:
             batch = command[4]
             if batch in self.existing_batches:
-                return self._done(stdout=json.dumps({"state": self.batch_state, "uuid": batch}))
+                return self._done(stdout=json.dumps({
+                    "state": self.batch_state, "uuid": batch, "createTime": "2026-11-10T00:00:00Z",
+                    "stateTime": "2026-11-10T00:10:00Z",
+                    "labels": {"benchmark_id": BENCH, "spark_profile": batch.split("-")[2], "git_sha": SHA},
+                }))
             return self._done(1, stderr="NOT_FOUND: batch")
         if command[:4] == ["gcloud", "dataproc", "batches", "submit"]:
             batch = next(item.split("=", 1)[1] for item in command if item.startswith("--batch="))
@@ -108,12 +115,27 @@ class RecordingRunner:
                     raise subprocess.CalledProcessError(1, command)
                 return self._done(1, stderr="batch failed")
             return self._done()
+        if command[:4] == ["gcloud", "storage", "buckets", "describe"]:
+            if not self.bucket_exists:
+                return self._done(1, stderr="not found: 404")
+            return self._done(stdout=json.dumps({
+                "location": "ASIA-SOUTHEAST1", "uniform_bucket_level_access": True,
+                "public_access_prevention": "enforced", "versioning_enabled": True}))
+        if command[:4] == ["gcloud", "storage", "buckets", "get-iam-policy"]:
+            return self._done(stdout=json.dumps({"bindings": [
+                {"role": "roles/storage.objectUser", "members": ["serviceAccount:spark@example.com"]}]}))
         if command[:3] == ["gcloud", "storage", "cat"]:
+            if "spark_execution-" in command[3]:
+                run = command[3].split("/runs/", 1)[1].split("/", 1)[0]
+                return self._done(stdout=json.dumps({
+                    "run_id": run, "dataset_version": REHEARSAL_5GB, "spark_application_id": "app-1",
+                    "spark_event_log_dir": f"gs://{BUCKET}/spark-events"}))
             return self._done(stdout=json.dumps(self.report(command[3])))
         if command[:3] == ["gcloud", "storage", "ls"]:
             return self.listing(command[3])
         if command[:3] == ["gcloud", "storage", "cp"]:
             self.written.append(command[4])
+            self.bodies[command[4]] = Path(command[3]).read_text(encoding="utf-8")
             return self._done()
         raise AssertionError(f"unexpected command: {command}")
 
@@ -125,6 +147,8 @@ class RecordingRunner:
                 "results": [{"rule_name": "x", "passed": self.report_status == "PASS"}]}
 
     def listing(self, uri: str):
+        if "/spark-events/" in uri:
+            return self._done(stdout=uri.rstrip("*") + "\n")
         if uri.endswith("/_delta_log/*.json"):
             return self._done(stdout=uri.replace("*.json", "0.json") + "\n")
         if uri.endswith("-a*.json"):
@@ -193,7 +217,7 @@ class ParameterTest(unittest.TestCase):
         self.assert_refused("", feature_run_id="not-a-run")
 
     def test_a_rehearsal_in_the_canonical_bucket_is_refused(self):
-        self.assert_refused("must not use bucket", data_bucket=CANONICAL_DATA_BUCKET)
+        self.assert_refused("must use bucket", data_bucket=CANONICAL_DATA_BUCKET)
 
     def test_canonical_dataset_runs_only_in_its_contract(self):
         parse_parameters(values(dataset_version=CANONICAL_100GB, data_bucket=CANONICAL_DATA_BUCKET))
@@ -314,7 +338,8 @@ class SubmissionCommandTest(TerraformFixture):
                 self.assertTrue(report.endswith("-a2.json"))
 
     def test_a_campaign_submission_rejects_a_pair_manifest_and_cross_profile_upstream(self):
-        runtime = submit_source_to_bronze.load_cloud_runtime(terraform_outputs())
+        runtime = submit_source_to_bronze.apply_dataset_bucket(
+            submit_source_to_bronze.load_cloud_runtime(terraform_outputs()), REHEARSAL_5GB)
         with self.assertRaisesRegex(ValueError, "no pair manifest"):
             submit_source_to_bronze.build_submission_command(
                 runtime, dataset_version=REHEARSAL_5GB, run_id=run_id("baseline", "bronze"), ttl="8h",
@@ -345,9 +370,13 @@ class FailClosedTest(TerraformFixture):
                        runner=RecordingRunner(existing_batches=[run_id("baseline", "silver")]))
 
     def test_preflight_refuses_a_deployment_other_than_the_dagrun(self):
-        self.outputs.write_text(json.dumps(terraform_outputs("other-bucket")), encoding="utf-8")
+        self.outputs.write_text(json.dumps(terraform_outputs(project="other-project-id")), encoding="utf-8")
         with self.assertRaisesRegex(CampaignError, "differs from the DagRun"):
             run_action("preflight", self.params(), attempt=1, runner=RecordingRunner())
+
+    def test_preflight_fails_closed_when_the_rehearsal_bucket_is_missing(self):
+        with self.assertRaisesRegex(CampaignError, "GCS_PUBLICATION_BLOCKED_BY_BUCKET_PROVISIONING"):
+            run_action("preflight", self.params(), attempt=1, runner=RecordingRunner(bucket_exists=False))
 
     def test_quota_failure_stops_the_stage(self):
         self.quota.return_value = 1
@@ -415,6 +444,62 @@ class FailClosedTest(TerraformFixture):
                 run_action("finalize", params, attempt=1, runner=RecordingRunner(existing_batches=batches, batch_state="FAILED"))
             with self.assertRaisesRegex(ValueError, "failed"):
                 run_action("finalize", params, attempt=1, runner=RecordingRunner(existing_batches=batches, report_status="FAIL"))
+
+    def finalize_manifest(self, runner, params=None):
+        report = {"status": "PASS", "manifest_uri": "m", "manifest_sha256": "b" * 64, "plan_digest": "p", "physical_bytes": 1}
+        with patch.object(campaign_task, "verify_source_dataset", return_value=report):
+            run_action("finalize", params or self.params(), attempt=1, runner=runner)
+        return json.loads(runner.bodies[runner.written[-1]])
+
+    def test_the_manifest_records_execution_metadata_for_every_stage(self):
+        batches = [run_id("baseline", s) for s in ("bronze", "silver", "gold", "feat")]
+        batches += [f"{item}-v1" for item in batches]
+        manifest = self.finalize_manifest(RecordingRunner(existing_batches=batches))
+        self.assertEqual("edai1-pipeline-campaign-v2", manifest["schema_version"])
+        self.assertEqual(BUCKET, manifest["storage"]["data_bucket"])
+        for stage, alias in (("bronze", "bronze"), ("silver", "silver"), ("gold", "gold"), ("features", "feat")):
+            with self.subTest(stage):
+                entry = manifest["stages"][stage]
+                execution = entry["execution_metadata"]
+                self.assertEqual(run_id("baseline", alias), execution["dataproc_batch_id"])
+                self.assertEqual("app-1", execution["spark_application_id"])
+                self.assertEqual("transformation", execution["kind"])
+                self.assertEqual(f"gs://{BUCKET}/spark-events/app-1", execution["spark_event_log_uri"])
+                self.assertEqual("validation", entry["validation"]["execution_metadata"]["kind"])
+                self.assertEqual("PASS", entry["validation"]["execution_metadata"]["validation_status"])
+
+    def test_a_failed_transformation_keeps_a_provenance_record(self):
+        runner = RecordingRunner(submit_fails=True)
+        with self.assertRaises(subprocess.CalledProcessError):
+            run_action("submit-gold", self.params(), attempt=1, runner=runner)
+        run = run_id("baseline", "gold")
+        uri = f"gs://{BUCKET}/lakehouse/runs/{run}/evidence/execution_provenance-{run}.json"
+        self.assertEqual([uri], runner.written)
+        self.assertEqual("transformation", json.loads(runner.bodies[uri])["kind"])
+
+    def test_a_submission_that_never_started_leaves_no_record(self):
+        runner = RecordingRunner(existing_prefixes=[run_id("baseline", "bronze")])
+        with self.assertRaisesRegex(ValueError, "immutable"):
+            run_action("submit-bronze", self.params(), attempt=1, runner=runner)
+        self.assertEqual([], runner.written)
+
+    def test_a_validator_batch_failure_keeps_its_attempt_record(self):
+        runner = RecordingRunner(submit_fails=True)
+        with self.assertRaises(subprocess.CalledProcessError):
+            run_action("validate-silver", self.params(), attempt=1, runner=runner)
+        run = run_id("baseline", "silver")
+        self.assertEqual([f"gs://{BUCKET}/lakehouse/runs/{run}/evidence/execution_provenance-{run}-v1.json"], runner.written)
+
+    def test_every_stage_submits_with_the_rehearsal_bucket_and_execution_record(self):
+        for action in ("submit-bronze", "submit-silver", "submit-gold", "submit-features",
+                       "validate-bronze", "validate-silver", "validate-gold", "validate-features"):
+            with self.subTest(action):
+                runner = RecordingRunner()
+                run_action(action, self.params(), attempt=1, runner=runner)
+                command = " ".join(self.submits(runner)[0])
+                self.assertIn(f"spark.eventLog.dir=gs://{BUCKET}/spark-events", command)
+                self.assertIn(f"--execution-record-uri=gs://{BUCKET}/lakehouse/runs/", command)
+                self.assertNotIn(CANONICAL_DATA_BUCKET, command)
 
     def test_a_transformation_never_targets_the_canonical_lakehouse(self):
         runner = RecordingRunner()

@@ -30,6 +30,8 @@ from dataclasses import dataclass
 CANONICAL_100GB = "canonical-100gb-v1"
 REHEARSAL_5GB = "rehearsal-5gb-v1"
 CANONICAL_DATA_BUCKET = "ewallet-data-ai-platform-hg26-data"
+# The rehearsal's dedicated bucket; provisioned by ops/gcp/rehearsal_storage.py.
+REHEARSAL_DATA_BUCKET = "ewallet-data-ai-platform-hg26-rehearsal-5gb-data"
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,8 @@ class DatasetIdentity:
     target_source_bytes: int
     forbidden_buckets: frozenset[str]
     merchant_history: bool = False
+    # The bucket holding this dataset's source, Delta runs, reports and event logs.
+    data_bucket: str | None = None
     # Immutable plan identity of the published source, checked before publication
     # and by the campaign source gate. None means "not pinned here".
     generator_config: str | None = None
@@ -48,10 +52,14 @@ class DatasetIdentity:
 
 
 APPROVED_DATASETS: dict[str, DatasetIdentity] = {
-    CANONICAL_100GB: DatasetIdentity(CANONICAL_100GB, "canonical", 100_000_000_000, frozenset()),
+    CANONICAL_100GB: DatasetIdentity(
+        CANONICAL_100GB, "canonical", 100_000_000_000, frozenset({REHEARSAL_DATA_BUCKET}),
+        data_bucket=CANONICAL_DATA_BUCKET,
+    ),
     REHEARSAL_5GB: DatasetIdentity(
         REHEARSAL_5GB, "rehearsal", 5_000_000_000, frozenset({CANONICAL_DATA_BUCKET}),
         merchant_history=True,
+        data_bucket=REHEARSAL_DATA_BUCKET,
         generator_config="data_platform/generation/config/settings_merchant_history.yaml",
         global_seed=7001,
         source_shard_count=186,
@@ -115,3 +123,60 @@ def require_publishable_dataset(version: str, bucket: str) -> DatasetIdentity | 
     if identity is not None and identity.role == "canonical":
         raise ValueError(f"{version} is an immutable canonical dataset and cannot be published again")
     return identity
+
+
+@dataclass(frozen=True)
+class DatasetStorageContext:
+    """Every location of one dataset, derived from its single resolved bucket."""
+
+    dataset_version: str
+    data_bucket: str
+
+    @property
+    def source_root(self) -> str:
+        return f"gs://{self.data_bucket}/source/{self.dataset_version}"
+
+    @property
+    def spark_event_log_root(self) -> str:
+        return f"gs://{self.data_bucket}/spark-events"
+
+    def run_root(self, run_id: str, zone: str) -> str:
+        return f"gs://{self.data_bucket}/lakehouse/runs/{run_id}/{zone}"
+
+    def evidence_root(self, run_id: str) -> str:
+        return f"gs://{self.data_bucket}/lakehouse/runs/{run_id}/evidence"
+
+
+def resolve_storage_context(version: str, bucket: str | None = None) -> DatasetStorageContext:
+    """Resolve the one bucket of an approved dataset; refuse any other bucket."""
+
+    identity = require_approved_dataset(version)
+    if identity.data_bucket is None:
+        raise ValueError(f"{version} has no registered data bucket")
+    if bucket is not None and bucket != identity.data_bucket:
+        raise ValueError(
+            f"{version} must use bucket {identity.data_bucket}, not {bucket}"
+        )
+    return DatasetStorageContext(version, identity.data_bucket)
+
+
+def isolated_data_bucket(version: str) -> str | None:
+    """The dedicated bucket of a non-canonical campaign dataset, else None.
+
+    Canonical datasets keep resolving their bucket from the Terraform outputs, as
+    they always have. Smoke and calibration versions are not registered.
+    """
+
+    identity = APPROVED_DATASETS.get(version)
+    if identity is None or identity.role == "canonical":
+        return None
+    return identity.data_bucket
+
+
+def require_same_bucket(*uris: str) -> str:
+    """Refuse input and output roots that span more than one bucket."""
+
+    buckets = {uri.split("/", 3)[2] for uri in uris if uri.startswith("gs://")}
+    if len(buckets) != 1:
+        raise ValueError(f"run roots must share one bucket, got {sorted(buckets)}")
+    return buckets.pop()

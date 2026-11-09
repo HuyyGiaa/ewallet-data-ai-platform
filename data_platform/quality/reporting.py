@@ -29,6 +29,7 @@ def add_cloud_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--dataset-version", help="Recorded in the validation report.")
     parser.add_argument("--run-id", help="Recorded in the validation report.")
     parser.add_argument("--report-uri", help="Write a JSON report here; refuses to overwrite.")
+    parser.add_argument("--execution-record-uri", help="Write the Spark execution record here at startup.")
 
 
 def cloud_environ(args: argparse.Namespace) -> Mapping[str, str]:
@@ -86,5 +87,43 @@ def write_report(spark: Any, uri: str, report: Mapping[str, Any]) -> None:
         stream.close()
 
 
+def write_execution_record(
+    spark: Any,
+    uri: str,
+    *,
+    stage: str,
+    run_id: str | None,
+    dataset_version: str | None,
+) -> dict[str, Any]:
+    """Record the running application's real identity as soon as Spark has started.
+
+    Written at startup so a job that fails later still has its identity. The
+    application ID and event-log directory come from the live Spark context.
+    """
+
+    context = spark.sparkContext
+    record = {
+        "schema_version": "campaign-spark-execution-v1",
+        "stage": stage,
+        "run_id": run_id,
+        "dataset_version": dataset_version,
+        "spark_application_id": context.applicationId,
+        "spark_application_name": context.appName,
+        "spark_version": spark.version,
+        "spark_event_log_enabled": spark.conf.get("spark.eventLog.enabled", "false"),
+        "spark_event_log_dir": spark.conf.get("spark.eventLog.dir", None),
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+    write_report(spark, uri, record)
+    return record
+
+
 def report_context(args: argparse.Namespace, **extra: Any) -> dict[str, Any]:
     return {"dataset_version": args.dataset_version, "run_id": args.run_id, **extra}
+
+
+def execution_record(args: argparse.Namespace, stage: str) -> dict[str, Any] | None:
+    if not args.execution_record_uri:
+        return None
+    return {"uri": args.execution_record_uri, "stage": stage, "run_id": args.run_id,
+            "dataset_version": args.dataset_version}

@@ -17,6 +17,7 @@ from data_platform.config import (
     load_runtime_config,
     load_runtime_config_file,
 )
+from data_platform.config.dataset_identity import require_same_bucket
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import (
     create_spark_session,
@@ -51,6 +52,7 @@ from data_platform.processing.spark.gold.delta_gold_io import (
 from data_platform.processing.spark.gold.obt_builder import (
     build_obt_transaction_enriched,
 )
+from data_platform.quality.reporting import execution_record as execution_record_from_args, write_execution_record
 from data_platform.storage.scripts.config import (
     CORE_GOLD_TABLES,  # noqa: F401 - re-exported for existing imports
     MERCHANT_HISTORY_TABLE,
@@ -84,6 +86,7 @@ def apply_run_scoped_storage(
         raise ValueError("Silver root must be a run-scoped Silver path")
     if "/lakehouse/runs/" not in gold_root or not gold_root.endswith("/gold"):
         raise ValueError("Gold root must be a run-scoped Gold path")
+    require_same_bucket(silver_root, gold_root)
     return replace(
         config,
         storage=replace(
@@ -99,6 +102,7 @@ def run_gold_pipeline(
     runtime_config: RuntimeConfig | None = None,
     include_merchant_scd2: bool = False,
     materialized_at: datetime | None = None,
+    execution_record: dict | None = None,
 ) -> None:
     """Build core Gold.
 
@@ -127,6 +131,8 @@ def run_gold_pipeline(
             optimized=optimized,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
 
         logger.info(
             "========================================="
@@ -433,6 +439,7 @@ def parse_args(argv: list[str] | None = None):
         ),
     )
 
+    parser.add_argument("--execution-record-uri")
     parser.add_argument("--silver-root")
     parser.add_argument("--gold-root")
     parser.add_argument("--dataset-version")
@@ -518,6 +525,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             runtime_config=config,
             include_merchant_scd2=args.include_merchant_scd2,
+            execution_record=execution_record_from_args(args, "dp2-gold"),
         )
         return 0
 

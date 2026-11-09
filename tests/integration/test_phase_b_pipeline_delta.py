@@ -32,6 +32,7 @@ from data_platform.config import StorageConfig, load_runtime_config
 ROOT = Path(__file__).resolve().parents[2]
 CORE_CLOCK = datetime(2026, 11, 9, 1, 0, tzinfo=timezone.utc)
 FEATURE_CLOCK = datetime(2026, 11, 9, 2, 0, tzinfo=timezone.utc)
+SECOND_CLOCK = datetime(2026, 11, 9, 5, 30, tzinfo=timezone.utc)
 BRONZE_FROM_PHYSICAL = (
     "users", "accounts", "merchants", "devices", "balance_snapshots",
     "login_events", "fraud_labels", "merchant_history",
@@ -91,6 +92,10 @@ class PhaseBPipelineDeltaTest(unittest.TestCase):
         run_gold_pipeline(runtime_config=cls.legacy_config, include_merchant_scd2=False,
                           materialized_at=CORE_CLOCK)
         run_historical_feature_pipeline(runtime_config=cls.feature_config, materialized_at=FEATURE_CLOCK)
+        cls.second_core = replace(cls.config, storage=replace(storage, gold_root=uri("second/core/gold")))
+        cls.second_features = replace(cls.config, storage=replace(storage, gold_root=uri("second/features/gold")))
+        run_gold_pipeline(runtime_config=cls.second_core, include_merchant_scd2=True, materialized_at=SECOND_CLOCK)
+        run_historical_feature_pipeline(runtime_config=cls.second_features, materialized_at=SECOND_CLOCK)
 
     @classmethod
     def _ingest_bronze(cls):
@@ -290,19 +295,78 @@ class PhaseBPipelineDeltaTest(unittest.TestCase):
     def test_comparison_passes_two_runs_of_the_same_input_and_flags_a_difference(self):
         from pyspark.sql import functions as F
 
-        from ops.gcp.compare_campaign_outputs import compare_table
+        from ops.gcp.compare_campaign_outputs import audit_columns, compare_table
 
         session = self.session()
         for table, key in (("fact_transactions", ("transaction_id",)), ("feat_user_90d", ("user_id",))):
             with self.subTest(table):
                 left = session.read.format("delta").load(self.config.storage.table_uri("gold", table))
                 right = session.read.format("delta").load(self.legacy_config.storage.table_uri("gold", table))
-                self.assertTrue(compare_table(left, right, table, key)["passed"])
+                self.assertTrue(compare_table(left, right, table, key, audit_columns("dp2-gold", table))["passed"])
         left = session.read.format("delta").load(self.config.storage.table_uri("gold", "dim_merchant"))
         changed = left.withColumn("merchant_name", F.concat(F.col("merchant_name"), F.lit("x")))
         report = compare_table(left, changed, "dim_merchant", ("merchant_id",))
         self.assertFalse(report["passed"])
         self.assertIn("merchant_name", report["differences"]["columns"])
+
+    # ---------------------------------------- semantic comparison on real runs
+    def compare(self, change=None, table=None):
+        from ops.gcp.compare_campaign_outputs import compare_stage
+
+        root = self.second_core.storage.gold_root
+        if change is not None:
+            session = self.session()
+            copy = self.directory / f"corrupt/{table}-{self._testMethodName}-{len(list((self.directory).glob('corrupt/*')))}/gold"
+            for path in (self.directory / "second/core/gold").iterdir():
+                shutil.copytree(path, copy / path.name)
+            target = (copy / table).as_uri()
+            changed = change(session.read.format("delta").load(target)).localCheckpoint()
+            changed.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(target)
+            root = copy.as_uri()
+        return compare_stage(self.session(), "dp2-gold", "rehearsal-5gb-v1", self.config.storage.gold_root, root)
+
+    def test_two_runs_with_different_clocks_are_semantically_equivalent(self):
+        from ops.gcp.compare_campaign_outputs import compare_stage
+
+        self.assertEqual("SEMANTIC_EQUIVALENT", self.compare()["verdict"])
+        features = compare_stage(self.session(), "dp3-features", "rehearsal-5gb-v1",
+                                 self.feature_config.storage.gold_root, self.second_features.storage.gold_root)
+        self.assertEqual("SEMANTIC_EQUIVALENT", features["verdict"])
+        for item in features["tables"]:
+            self.assertEqual(["created"], item["excluded_audit_columns"])
+            self.assertIn("event_timestamp", item["compared_columns"])
+
+    def test_business_corruption_is_a_mismatch(self):
+        from pyspark.sql import functions as F
+
+        cases = {
+            "valid_from": ("dim_merchant_scd2", lambda df: df.withColumn("merchant_name", F.col("merchant_name")).withColumn(
+                "valid_to_ts", F.when(F.col("valid_to_ts").isNotNull(), F.col("valid_to_ts") + F.expr("INTERVAL 1 SECOND")))),
+            "is_current": ("dim_merchant_scd2", lambda df: df.withColumn("is_current", ~F.col("is_current"))),
+            "count": ("feat_user_90d", lambda df: df.withColumn("f_user_total_transactions_90d", F.col("f_user_total_transactions_90d") + 1)),
+            "float": ("feat_user_90d", lambda df: df.withColumn("f_user_avg_transaction_amount_90d", F.col("f_user_avg_transaction_amount_90d") + 0.01)),
+            "missing_row": ("fact_transactions", lambda df: df.limit(int(df.count()) - 1)),
+        }
+        for name, (table, change) in cases.items():
+            with self.subTest(name):
+                self.assertEqual("SEMANTIC_MISMATCH", self.compare(change, table)["verdict"])
+
+    def test_a_missing_table_makes_the_comparison_incomplete(self):
+        from ops.gcp.compare_campaign_outputs import compare_stage
+
+        report = compare_stage(self.session(), "dp2-gold", "rehearsal-5gb-v1", self.config.storage.gold_root,
+                               self.legacy_config.storage.gold_root)
+        self.assertEqual("COMPARISON_INCOMPLETE", report["verdict"])
+
+    def test_execution_record_captures_the_real_application(self):
+        from data_platform.quality.reporting import write_execution_record
+
+        session = self.session()
+        uri = (self.directory / "reports/spark_execution.json").as_uri()
+        record = write_execution_record(session, uri, stage="dp2-gold", run_id="r", dataset_version="d")
+        self.assertEqual(session.sparkContext.applicationId, record["spark_application_id"])
+        persisted = json.loads((self.directory / "reports/spark_execution.json").read_text(encoding="utf-8"))
+        self.assertEqual(record["spark_application_id"], persisted["spark_application_id"])
 
     # ------------------------------------------------------- Delta negatives
     def test_corrupted_delta_outputs_fail_validation(self):

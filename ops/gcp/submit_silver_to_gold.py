@@ -46,6 +46,8 @@ from ops.gcp.submit_source_to_bronze import (
     REPOSITORY_ROOT,
     _validate_id,
     _validate_ttl,
+    apply_dataset_bucket,
+    execution_record_uri,
     load_cloud_runtime,
 )
 
@@ -248,6 +250,7 @@ def build_submission_command(
         f"--deps-bucket=gs://{runtime.temporary_bucket}",
         f"--staging-bucket={runtime.temporary_bucket}", f"--ttl={ttl}",
         f"--labels={labels}", f"--properties={properties}", "--",
+        *((f"--execution-record-uri={execution_record_uri(runtime.data_bucket, run_id, batch_id)}",) if campaign else ()),
         "--environment=gcp", f"--mode={spark_profile or 'optimized'}",
         *(("--include-merchant-scd2",) if merchant_scd2 else ()),
         f"--expected-table-count={len(core_gold_tables(merchant_scd2))}",
@@ -326,9 +329,9 @@ def main(
         if recovery_attempt and args.compute_repository is not None
         else TERRAFORM_DEV_ROOT
     )
-    runtime = load_cloud_runtime(_load_outputs(
+    runtime = apply_dataset_bucket(load_cloud_runtime(_load_outputs(
         args.terraform_output_json, runner, terraform_root=terraform_root
-    ))
+    )), args.dataset_version)
     jars = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
     script_path = GOLD_SCRIPT

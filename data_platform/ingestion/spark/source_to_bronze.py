@@ -21,6 +21,7 @@ from data_platform.config.dataset_identity import (
     dataset_has_merchant_history,
 )
 from data_platform.config.spark_profiles import validate_git_sha
+from data_platform.quality.reporting import write_execution_record
 
 
 PHYSICAL_TABLES = (
@@ -334,6 +335,7 @@ def run_ingestion(
     benchmark_id: str | None = None,
     spark_profile: str | None = None,
     git_sha: str | None = None,
+    execution_record_uri: str | None = None,
 ) -> dict[str, Any]:
     manifest = validate_source_manifest(
         _download_json(source_manifest_uri),
@@ -351,6 +353,9 @@ def run_ingestion(
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")
+    if execution_record_uri:
+        write_execution_record(spark, execution_record_uri, stage="dp1-bronze", run_id=run_id,
+                               dataset_version=dataset_version)
 
     physical = {
         table: spark.read.parquet(
@@ -483,6 +488,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--benchmark-id")
     parser.add_argument("--spark-profile", choices=("baseline", "optimized"))
     parser.add_argument("--git-sha")
+    parser.add_argument("--execution-record-uri")
     args = parser.parse_args(argv)
     if len(
         [value for value in (args.benchmark_id, args.spark_profile, args.git_sha) if value]
@@ -505,6 +511,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         benchmark_id=args.benchmark_id,
         spark_profile=args.spark_profile,
         git_sha=args.git_sha,
+        execution_record_uri=args.execution_record_uri,
     )
     return 0
 

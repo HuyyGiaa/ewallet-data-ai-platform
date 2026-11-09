@@ -15,11 +15,13 @@ from data_platform.config import (
     load_runtime_config,
     load_runtime_config_file,
 )
+from data_platform.config.dataset_identity import require_same_bucket
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import (
     create_spark_session,
 )
 from data_platform.processing.spark.common.persistence import persisted
+from data_platform.quality.reporting import execution_record as execution_record_from_args, write_execution_record
 from data_platform.processing.spark.silver.cleaners import (
     clean_accounts,
     clean_balance_snapshots,
@@ -120,6 +122,7 @@ def apply_run_scoped_storage(
     if "/lakehouse/runs/" not in silver_root or not silver_root.endswith("/silver"):
         raise ValueError("Silver root must be a run-scoped Silver path")
 
+    require_same_bucket(bronze_root, silver_root)
     storage = replace(
         config.storage,
         bronze_root=bronze_root,
@@ -133,6 +136,7 @@ def run_silver_pipeline(
     include_fraud_labels: bool = False,
     runtime_config: RuntimeConfig | None = None,
     include_merchant_history: bool = False,
+    execution_record: dict | None = None,
 ) -> None:
     spark = None
     config = runtime_config or load_runtime_config()
@@ -144,6 +148,8 @@ def run_silver_pipeline(
             optimized=optimized,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
 
         logger.info(
             "========================================="
@@ -271,6 +277,7 @@ def parse_args(argv: list[str] | None = None):
         ),
     )
 
+    parser.add_argument("--execution-record-uri")
     parser.add_argument("--bronze-root")
     parser.add_argument("--silver-root")
     parser.add_argument("--dataset-version")
@@ -367,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
             include_fraud_labels=args.include_fraud_labels,
             runtime_config=config,
             include_merchant_history=args.include_merchant_history,
+            execution_record=execution_record_from_args(args, "dp2-silver"),
         )
         return 0
 

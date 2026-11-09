@@ -18,6 +18,7 @@ from data_platform.config import (
     load_runtime_config,
     load_runtime_config_file,
 )
+from data_platform.config.dataset_identity import require_same_bucket
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import create_spark_session
 from data_platform.processing.spark.common.persistence import persisted
@@ -38,6 +39,7 @@ from data_platform.processing.spark.gold.materialization import (
 from data_platform.processing.spark.gold.features.validation import (
     validate_feature_columns,
 )
+from data_platform.quality.reporting import execution_record as execution_record_from_args, write_execution_record
 from data_platform.storage.scripts.config import HISTORICAL_FEATURE_TABLES
 
 
@@ -79,6 +81,7 @@ def apply_run_scoped_storage(
         or not feature_gold_root.endswith("/gold")
     ):
         raise ValueError("Feature Gold root must be a run-scoped Gold path")
+    require_same_bucket(silver_root, feature_gold_root)
     return replace(
         config,
         storage=replace(
@@ -158,6 +161,7 @@ def run_historical_feature_pipeline(
     optimized: bool = True,
     runtime_config: RuntimeConfig | None = None,
     materialized_at: datetime | None = None,
+    execution_record: dict | None = None,
 ) -> None:
     materialized_at = require_utc(materialized_at or datetime.now(timezone.utc))
     clock_metadata = materialization_metadata(materialized_at)
@@ -171,6 +175,8 @@ def run_historical_feature_pipeline(
             optimized=optimized,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
         started_at = time.perf_counter()
         transactions_df = read_silver(
             spark, "transactions", storage=config.storage
@@ -209,6 +215,7 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--mode", choices=["baseline", "optimized"], default="optimized"
     )
+    parser.add_argument("--execution-record-uri")
     parser.add_argument("--silver-root")
     parser.add_argument("--source-core-gold-root")
     parser.add_argument("--feature-gold-root")
@@ -288,7 +295,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"pipeline defines {len(HISTORICAL_FEATURE_TABLES)}"
             )
         run_historical_feature_pipeline(
-            optimized=args.mode == "optimized", runtime_config=config
+            optimized=args.mode == "optimized",
+            runtime_config=config,
+            execution_record=execution_record_from_args(args, "dp3-features"),
         )
         return 0
     except Exception:

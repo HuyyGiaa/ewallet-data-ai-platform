@@ -43,6 +43,8 @@ from ops.gcp.submit_source_to_bronze import (
     REPOSITORY_ROOT,
     _validate_id,
     _validate_ttl,
+    apply_dataset_bucket,
+    execution_record_uri,
     load_cloud_runtime,
 )
 
@@ -213,7 +215,9 @@ def build_submission_command(
         f"--deps-bucket=gs://{runtime.temporary_bucket}",
         f"--staging-bucket={runtime.temporary_bucket}", f"--ttl={ttl}",
         f"--labels={labels}",
-        f"--properties={properties}", "--", "--environment=gcp",
+        f"--properties={properties}", "--",
+        *((f"--execution-record-uri={execution_record_uri(runtime.data_bucket, run_id, run_id)}",) if campaign else ()),
+        "--environment=gcp",
         f"--mode={spark_profile or 'optimized'}",
         f"--expected-table-count={len(HISTORICAL_FEATURE_TABLES)}",
         f"--dataset-version={dataset_version}",
@@ -279,7 +283,9 @@ def main(
     runner: Callable[..., Any] = subprocess.run,
 ) -> int:
     args = parse_args(argv)
-    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    runtime = apply_dataset_bucket(
+        load_cloud_runtime(_load_outputs(args.terraform_output_json, runner)), args.dataset_version
+    )
     jars = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
     if args.execute:

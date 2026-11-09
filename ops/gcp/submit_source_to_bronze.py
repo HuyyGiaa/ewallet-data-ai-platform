@@ -8,11 +8,11 @@ import re
 import shlex
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from data_platform.config.dataset_identity import refuse_misplaced_dataset
+from data_platform.config.dataset_identity import isolated_data_bucket, refuse_misplaced_dataset
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
     method2_runtime_properties,
@@ -101,6 +101,22 @@ def load_cloud_runtime(outputs: Mapping[str, Any]) -> CloudRuntime:
         service_account_email=spark_account,
         performance_tier="standard",
     )
+
+
+def execution_record_uri(data_bucket: str, run_id: str, batch_id: str) -> str:
+    """Where a campaign job records its Spark identity at startup."""
+
+    return f"gs://{data_bucket}/lakehouse/runs/{run_id}/evidence/spark_execution-{batch_id}.json"
+
+
+def apply_dataset_bucket(runtime: CloudRuntime, dataset_version: str) -> CloudRuntime:
+    """Use the dataset's dedicated bucket instead of the canonical Terraform output.
+
+    Only isolated datasets change bucket. Canonical runs keep the Terraform value.
+    """
+
+    bucket = isolated_data_bucket(dataset_version)
+    return runtime if bucket is None else replace(runtime, data_bucket=bucket)
 
 
 def _validate_id(value: str, name: str) -> str:
@@ -222,6 +238,10 @@ def build_submission_command(
                 f"--git-sha={git_sha}",
             )
         )
+    if campaign:
+        application_args.append(
+            f"--execution-record-uri={execution_record_uri(runtime.data_bucket, run_id, run_id)}"
+        )
     labels = "component=source-bronze,phase=r4"
     if benchmark_id is not None:
         labels += (
@@ -323,7 +343,9 @@ def main(
     runner: Callable[..., Any] = subprocess.run,
 ) -> int:
     args = parse_args(argv)
-    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    runtime = apply_dataset_bucket(
+        load_cloud_runtime(_load_outputs(args.terraform_output_json, runner)), args.dataset_version
+    )
     jar_paths = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
     if args.execute:

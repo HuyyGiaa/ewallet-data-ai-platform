@@ -13,7 +13,13 @@ from unittest.mock import patch
 
 import yaml
 
-from data_platform.config.dataset_identity import APPROVED_DATASETS, CANONICAL_100GB, CANONICAL_DATA_BUCKET, REHEARSAL_5GB
+from data_platform.config.dataset_identity import (
+    APPROVED_DATASETS,
+    CANONICAL_100GB,
+    CANONICAL_DATA_BUCKET,
+    REHEARSAL_5GB,
+    REHEARSAL_DATA_BUCKET,
+)
 from data_platform.generation.src.offline.offline_generator import load_config
 from data_platform.generation.src.sharded.generator import generate_shard, physical_tables
 from data_platform.generation.src.sharded.manifest import DatasetPublisher
@@ -25,7 +31,7 @@ from tests.unit.test_source_dataset_publisher import FakeObjectStore
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "data_platform/generation/config/settings_merchant_history.yaml"
-BUCKET = "ewallet-rehearsal-5gb-data"
+BUCKET = REHEARSAL_DATA_BUCKET
 PREFIX = f"gs://{BUCKET}/source/{REHEARSAL_5GB}"
 MANIFEST_URI = f"{PREFIX}/_control/dataset_manifest.json"
 PLAN_URI = f"{PREFIX}/_control/plan.json"
@@ -158,7 +164,7 @@ class SourceGateTest(SourceGateBase):
             self.verify()
 
     def test_canonical_bucket_and_unknown_versions_are_refused(self):
-        with self.assertRaisesRegex(ValueError, "must not use bucket"):
+        with self.assertRaisesRegex(ValueError, "must use bucket"):
             verify_source_dataset(bucket=CANONICAL_DATA_BUCKET, dataset_version=REHEARSAL_5GB,
                                   store=self.store, lister=lambda root: {})
         with self.assertRaisesRegex(ValueError, "not an approved"):
@@ -193,7 +199,7 @@ class PublicationTargetTest(unittest.TestCase):
 
     def test_publishing_canonical_again_is_refused(self):
         with self.assertRaisesRegex(ValueError, "immutable canonical"):
-            self.target(dataset_version=CANONICAL_100GB)
+            self.target(dataset_version=CANONICAL_100GB, source_root=f"gs://{CANONICAL_DATA_BUCKET}/source")
 
     def test_wrong_config_seed_or_geometry_is_refused(self):
         legacy = yaml.safe_load((ROOT / "data_platform/generation/config/settings.yaml").read_text(encoding="utf-8"))

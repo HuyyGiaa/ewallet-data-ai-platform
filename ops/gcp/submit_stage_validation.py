@@ -25,7 +25,14 @@ from ops.gcp.dataproc_batch_properties import (
 from ops.gcp.package_python_job import build_python_archive
 from ops.gcp.submit_dataproc_delta_smoke import dependency_jar_paths, ensure_delta_dependencies
 from ops.gcp.submit_silver_to_gold import GCP_RUNTIME_PROFILE, _load_outputs, assert_batch_id_absent
-from ops.gcp.submit_source_to_bronze import DEFAULT_ARCHIVE, CloudRuntime, _validate_ttl, load_cloud_runtime
+from ops.gcp.submit_source_to_bronze import (
+    DEFAULT_ARCHIVE,
+    CloudRuntime,
+    _validate_ttl,
+    apply_dataset_bucket,
+    execution_record_uri,
+    load_cloud_runtime,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -108,6 +115,7 @@ def application_arguments(
         f"--dataset-version={dataset_version}",
         f"--run-id={run_id}",
         f"--report-uri={report_uri(bucket, run_id, scope, attempt)}",
+        f"--execution-record-uri={execution_record_uri(bucket, run_id, validation_batch_id(run_id, attempt))}",
     )
     if scope == "bronze":
         specific = ("--include-fraud-labels", *(("--include-merchant-history",) if history else ()),
@@ -236,7 +244,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None, *, runner: Callable[..., Any] = subprocess.run) -> int:
     args = parse_args(argv)
-    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    runtime = apply_dataset_bucket(
+        load_cloud_runtime(_load_outputs(args.terraform_output_json, runner)), args.dataset_version
+    )
     runs = ValidationRuns(args.bronze_run_id, args.silver_run_id, args.gold_run_id, args.features_run_id)
     run_id = validated_run_id(args.scope, runs)
     batch_id = validation_batch_id(run_id, args.attempt)

@@ -19,6 +19,7 @@ import pendulum
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import DAG, Param, TaskGroup
 
+from data_platform.config.dataset_identity import REHEARSAL_DATA_BUCKET
 from data_platform.orchestration.airflow.python_runtime import (
     python_module_command,
     python_task_environment,
@@ -89,8 +90,8 @@ with DAG(
         "feature_run_id": Param("ab-20260101000000-baseline-feat-r260101000003", type="string", pattern=_RUN % "feat"),
         "project_id": Param("ewallet-data-ai-platform-hg26", type="string", pattern=r"^[a-z][a-z0-9-]{4,61}[a-z0-9]$"),
         "region": Param("asia-southeast1", type="string", pattern=r"^[a-z]+-[a-z]+[0-9]+$"),
-        # No default bucket: the rehearsal needs its own, named explicitly.
-        "data_bucket": Param("REQUIRED-rehearsal-data-bucket", type="string", pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{1,61}[A-Za-z0-9]$"),
+        # Must equal the dataset's registered bucket; every task checks it.
+        "data_bucket": Param(REHEARSAL_DATA_BUCKET, type="string", pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{1,61}[A-Za-z0-9]$"),
         "dataproc_ttl": Param("8h", type="string", enum=["8h"]),
         "terraform_output_json": Param("", type="string", pattern=r"^(|/[A-Za-z0-9_./-]+\.json)$"),
         "execution_approval": Param("NOT_APPROVED", type="string", pattern=r"^[A-Za-z0-9:_.-]+$"),
