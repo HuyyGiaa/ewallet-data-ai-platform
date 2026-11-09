@@ -1,76 +1,98 @@
 {
-  "schema": "ewallet-benchmark-replay-campaign-v1",
-  "date": "2026-11-09",
-  "branch": "feature/llm-benchmark-evidence-replay",
-  "window_utc": {
-    "start": "2026-11-08T20:44:08Z",
-    "end": "2026-11-08T23:35:11Z",
-    "minutes": 171,
-    "ceiling_minutes": 240
+ "schema": "ewallet-benchmark-replay-campaign-v1",
+ "date": "2026-11-09",
+ "branch": "feature/llm-benchmark-evidence-replay",
+ "window_utc": {
+  "start": "2026-11-08T20:44:08Z",
+  "end": "2026-11-08T23:35:11Z",
+  "minutes": 171,
+  "ceiling_minutes": 240
+ },
+ "estimated_cost_usd": {
+  "node_minutes": 295,
+  "node_hour_usd": 0.1783,
+  "estimate": 0.88,
+  "ceiling": 5,
+  "note": "list-price estimate, not a billing readback",
+  "exp_v1_smoke_2026_11_09": {
+   "node_minutes": 52,
+   "estimate": 0.16,
+   "note": "1 e2-standard-4 06:23-07:15Z, list price + disk; not a billing readback"
+  }
+ },
+ "images": {
+  "vllm": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c",
+  "gateway": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
+  "helper": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff",
+  "prometheus": "docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545",
+  "grafana": "docker.io/grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8",
+  "llmd_router_chart_sha256": "c4787dcda88cae57124d8eaf7672d56e9993ce25d6ce62d8a5f71097640c09d3"
+ },
+ "model": {
+  "id": "Qwen/Qwen3-0.6B",
+  "revision": "c1899de289a04d12100db370d81485cdf75e47ca"
+ },
+ "sessions": [
+  {
+   "dir": "safety/drill",
+   "action": "drill",
+   "source": "db20155d",
+   "nodes": 1,
+   "start": "2026-11-08T20:44:08Z",
+   "end": "2026-11-08T21:09:03Z",
+   "result": "PASS"
   },
-  "estimated_cost_usd": {
-    "node_minutes": 295,
-    "node_hour_usd": 0.1783,
-    "estimate": 0.88,
-    "ceiling": 5,
-    "note": "list-price estimate, not a billing readback"
+  {
+   "dir": "exp-v2-smoke-attempt1",
+   "action": "session smoke interactive",
+   "source": "32fbc4d2",
+   "nodes": 2,
+   "start": "2026-11-08T21:10:04Z",
+   "end": "2026-11-08T21:35:48Z",
+   "result": "FAILED: DNS egress (fixed in 6bbf7317)"
   },
-  "images": {
-    "vllm": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/vllm-cpu-model@sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c",
-    "gateway": "ghcr.io/agentgateway/agentgateway:v1.7.0@sha256:60216aafb03d37f94e952ff3d51d2f630a65b10ecaebdc0a864882f92610c45b",
-    "helper": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff",
-    "prometheus": "docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545",
-    "grafana": "docker.io/grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8",
-    "llmd_router_chart_sha256": "c4787dcda88cae57124d8eaf7672d56e9993ce25d6ce62d8a5f71097640c09d3"
+  {
+   "dir": "exp-v2-smoke-attempt2",
+   "action": "session smoke interactive",
+   "source": "6bbf7317",
+   "nodes": 2,
+   "start": "2026-11-08T21:41:56Z",
+   "end": "2026-11-08T22:32:45Z",
+   "result": "baseline PASS, optimized FAILED: EPP URL (fixed in e4d3ec21)"
   },
-  "model": {
-    "id": "Qwen/Qwen3-0.6B",
-    "revision": "c1899de289a04d12100db370d81485cdf75e47ca"
+  {
+   "dir": "exp-v2-smoke",
+   "action": "session smoke unattended",
+   "source": "6f7a9ce7",
+   "nodes": 2,
+   "start": "2026-11-08T22:37:28Z",
+   "end": "2026-11-08T23:35:11Z",
+   "result": "PASS (smoke; comparison INCONCLUSIVE by design)"
   },
-  "sessions": [
-    {
-      "dir": "safety/drill",
-      "action": "drill",
-      "source": "db20155d",
-      "nodes": 1,
-      "start": "2026-11-08T20:44:08Z",
-      "end": "2026-11-08T21:09:03Z",
-      "result": "PASS"
-    },
-    {
-      "dir": "exp-v2-smoke-attempt1",
-      "action": "session smoke interactive",
-      "source": "32fbc4d2",
-      "nodes": 2,
-      "start": "2026-11-08T21:10:04Z",
-      "end": "2026-11-08T21:35:48Z",
-      "result": "FAILED: DNS egress (fixed in 6bbf7317)"
-    },
-    {
-      "dir": "exp-v2-smoke-attempt2",
-      "action": "session smoke interactive",
-      "source": "6bbf7317",
-      "nodes": 2,
-      "start": "2026-11-08T21:41:56Z",
-      "end": "2026-11-08T22:32:45Z",
-      "result": "baseline PASS, optimized FAILED: EPP URL (fixed in e4d3ec21)"
-    },
-    {
-      "dir": "exp-v2-smoke",
-      "action": "session smoke unattended",
-      "source": "6f7a9ce7",
-      "nodes": 2,
-      "start": "2026-11-08T22:37:28Z",
-      "end": "2026-11-08T23:35:11Z",
-      "result": "PASS (smoke; comparison INCONCLUSIVE by design)"
-    }
-  ],
-  "not_executed": [
-    "EXP-V1 on GKE",
-    "formal 3-run sessions",
-    "owner screenshots",
-    "failover"
-  ],
-  "production_unchanged": true,
-  "cleanup_confirmed": true
+  {
+   "dir": "exp-v1-smoke",
+   "action": "session",
+   "experiment": "exp-v1",
+   "profile": "smoke",
+   "capture": "interactive",
+   "source": "fe07f1bb",
+   "nodes": 1,
+   "start": "2026-11-09T06:23:43Z",
+   "end": "2026-11-09T07:15:18Z",
+   "status": 0,
+   "result": "both arms ran on one node; baseline 11/12 (long-1 hit the 160 s gateway timeout, kept and counted), optimized 12/12; tool calls 2/2 per arm; comparison INCONCLUSIVE by design; policy PASS both arms, probe 503s attributed to vLLM admission control from counter deltas; cleanup confirmed"
+  },
+  {
+   "dir": "analysis/llmd-503",
+   "action": "local reproduction (kind, no cloud)",
+   "result": "8 x 200 + 4 x 503 with identical prompts, 12 x 200 with distinct prompts; same EPP and Envoy images and values"
+  }
+ ],
+ "not_executed": [
+  "formal 3-run sessions",
+  "owner screenshots",
+  "failover"
+ ],
+ "production_unchanged": true,
+ "cleanup_confirmed": true
 }

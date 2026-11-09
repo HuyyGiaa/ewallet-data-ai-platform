@@ -12,7 +12,7 @@ Design, validation results and limits: [BENCHMARK_REPLAY.md](../../edai2/llm/BEN
 | Branch | `feature/llm-benchmark-evidence-replay` |
 | Source | the commit you check out; `git status` must be clean (the manifest records `source_sha` and `source_dirty`) |
 | Cluster access | `~/.kube/ewallet-n15-dns-config` (DNS endpoint; the public IP endpoint times out from the laptop) |
-| Time | EXP-V1 about 3 h 10 min, EXP-V2 about 2 h 50 min, run one after the other. Each run starts vLLM fresh, and that alone takes about 16 min (measured on 2026-11-09) |
+| Time | Two bounded sessions, one after the other: EXP-V1 ≈ 170–180 min, EXP-V2 ≈ 190–200 min, each under its own 215-min limit. Allow ≈ 6.5 h in total. Every run starts vLLM fresh: Ready after 11.6 min on a node that already has the image, about 4 min more on the first start (measured 2026-11-09). Breakdown: [BENCHMARK_REPLAY.md](../../edai2/llm/BENCHMARK_REPLAY.md#measured-durations-and-what-can-be-shortened) |
 | Cost | worst case USD 0.91 (EXP-V1) and USD 1.82 (EXP-V2), printed by `plan` |
 
 Open three terminals in the worktree, plus a browser:
@@ -21,10 +21,11 @@ Open three terminals in the worktree, plus a browser:
 |---|---|
 | T1 | the runner; it prints the checkpoints and waits for `CONTINUE` |
 | T2 | the `kubectl` commands each checkpoint prints (configuration, pods, logs) |
-| T3 | optional: `watch kubectl get pods,nodes -o wide` |
+| T3 | **live benchmark view**: `python3 -m ops.experiments.progress $CAMPAIGN/exp-v1` (or `exp-v2`). It follows `session.log` and prints each request as it finishes: level, id, HTTP status, TTFT, E2E, tokens, backend. It only reads local files, so it cannot change the measurement, and it shows no keys |
+| T4 | optional: `watch kubectl --context $KUBE_CONTEXT -n ewallet-bench get pods -o wide` |
 | Browser | Grafana at `http://127.0.0.1:13030` (the runner opens the port-forward; anonymous read-only) |
 
-Set the same environment in T1 and T2:
+Set the same environment in T1, T2 and T3:
 
 ```bash
 cd ~/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay
@@ -42,6 +43,47 @@ git status --short                      # must print nothing
 kubectl --context $KUBE_CONTEXT get nodes -l ewallet.io/bench=true   # must print "No resources found"
 for p in $(pgrep -x kubectl); do tr '\0' ' ' </proc/$p/cmdline; echo; done   # no leftover port-forward on 130xx/133xx
 ```
+
+### Schedule for one evidence day
+
+| Step | What | About |
+|---|---|---|
+| 1 | §1 plan screenshots (local) | 5 min |
+| 2 | §3 EXP-V1 session: 3 checkpoints (baseline-01, optimized-01, comparison) | 170–180 min |
+| 3 | §6 cleanup check for EXP-V1 | 5 min |
+| 4 | §4 EXP-V2 session: 3 checkpoints | 190–200 min |
+| 5 | §6 cleanup check for EXP-V2, then §7 | 10 min |
+
+Do not start EXP-V2 before EXP-V1 has printed `session end status=0` and §6 passes. Nothing is kept running between the two sessions. Each checkpoint waits at most 20 min (`EXP_CHECKPOINT_MINUTES`), but every minute you wait comes out of the session's 215-min limit, so capture and type `CONTINUE` within about 5 min.
+
+### Screenshot checklist
+
+All paths below are inside `$CAMPAIGN/exp-v1/` or `$CAMPAIGN/exp-v2/`. `<arm>` is `baseline` or `optimized`.
+
+| Evidence | When | Screenshot |
+|---|---|---|
+| **EXP-V1** baseline configuration (`VLLM_CPU_OMP_THREADS_BIND=auto`) | baseline-01 checkpoint | `baseline/screenshots/baseline-01-1_config.png` |
+| EXP-V1 baseline benchmark **running** | during baseline-01, after the log line `run 01 baseline measuring` | `baseline/screenshots/baseline-01-0_running.png`: T3, plus Grafana with "Last 15 minutes" |
+| EXP-V1 baseline result | baseline-01 checkpoint | `baseline/screenshots/baseline-01-2_terminal.png` |
+| EXP-V1 baseline Grafana for the measured window | baseline-01 checkpoint (printed link) | `baseline/screenshots/baseline-01-3_grafana.png` |
+| EXP-V1 optimized configuration (`0-1`) | optimized-01 checkpoint | `optimized/screenshots/optimized-01-1_config.png` |
+| EXP-V1 optimized running | during optimized-01 | `optimized/screenshots/optimized-01-0_running.png` |
+| EXP-V1 optimized result and Grafana | optimized-01 checkpoint | `optimized/screenshots/optimized-01-2_terminal.png`, `-3_grafana.png` |
+| EXP-V1 final comparison | comparison checkpoint | `comparison/screenshots/comparison-1_verdict.png`, `-2_manifest.png`, `-3_grafana_session.png` |
+| **EXP-V2** B2 routing configuration (`vllm-primary…:8000`) | baseline-01 checkpoint | `baseline/screenshots/baseline-01-8_route.png` |
+| EXP-V2 two vLLM replicas | baseline-01 checkpoint | `baseline/screenshots/baseline-01-4_pods_nodes.png` |
+| EXP-V2 B2 running | during baseline-01 | `baseline/screenshots/baseline-01-0_running.png` |
+| EXP-V2 B2 Grafana (per-replica share) | baseline-01 checkpoint | `baseline/screenshots/baseline-01-3_grafana.png`, `-5_replicas.png` |
+| EXP-V2 O2 routing configuration (`llmd-router-epp…:8081`) | optimized-01 checkpoint | `optimized/screenshots/optimized-01-8_route.png` |
+| EXP-V2 EPP ready endpoints = 2 and decisions per endpoint | optimized-01 checkpoint | `optimized/screenshots/optimized-01-6_epp.png`, `-7_epp_log.png` |
+| EXP-V2 O2 running | during optimized-01 | `optimized/screenshots/optimized-01-0_running.png` |
+| EXP-V2 O2 Grafana and per-replica distribution | optimized-01 checkpoint | `optimized/screenshots/optimized-01-3_grafana.png`, `-5_replicas.png` |
+| EXP-V2 final comparison | comparison checkpoint | `comparison/screenshots/comparison-1_verdict.png`, `-2_manifest.png`, `-3_grafana_session.png` |
+| Gateway policy (both experiments) | each run-01 checkpoint | `<arm>/screenshots/<arm>-01-5_policy.png`: `cat gateway-policy/<arm>/probe.log gateway-policy/<arm>/attribution.json` |
+| Prometheus targets | any run-01 checkpoint | `<arm>/screenshots/<arm>-01-6_prometheus_targets.png` (`http://127.0.0.1:13090/targets`) |
+| Cleanup | after each session (§6) | `screenshots/6-1_cleanup.png` |
+
+Grafana has an `experiment` selector at the top (EXP-V1 or EXP-V2) and a `run` selector (`baseline-01`, …). Leave both visible in the screenshot.
 
 ## 1. Look at the plan (local, touches no cluster)
 
@@ -71,6 +113,8 @@ EXP_APPROVED=yes EXP_CAPTURE_MODE=interactive EXP_CHECKPOINT_RUNS=first EXP_MAX_
 ```
 
 Run order is baseline (`auto`), optimized (`0-1`), optimized, baseline, baseline, optimized. Each run restarts vLLM and the gateway.
+
+A request that fails does not stop the session. In the 2026-11-09 smoke, the `auto` arm's `long-1` ended at the gateway's 160 s backend timeout. The runner logs `run NN <arm>: measured; N of M requests failed and stay in the comparison` and adds it to the manifest deviations, and the comparison counts the failure. The session still stops if the client crashes, if the gateway answers 429, if the resource guard stops a level, or if a level has no successful request.
 
 With `EXP_CHECKPOINT_RUNS=first`, the runner stops after `baseline-01` and `optimized-01` and at the comparison. Runs 02 and 03 continue on their own, because each extra stop costs time against the 215-minute limit. Grafana keeps every run, so you can still capture runs 02 and 03 at the comparison checkpoint by choosing them in the `run` selector. To stop after every run, use `EXP_CHECKPOINT_RUNS=all` with `EXP_RUNS=3`, and keep each stop short.
 
@@ -133,7 +177,7 @@ The runner runs the probe after the measured window of run 01 in each arm and wr
 | `missing_key`, `wrong_key` | 401 or 403 |
 | `backend_key_as_client_key` | 401 or 403 (the vLLM key is a separate Secret) |
 | `routing_backend_header` | `x-ewallet-backend: primary` (Service) or `llm-d`; in the llm-d arm the EPP request counter must grow |
-| `rate_limit_burst` | 16 concurrent requests against the 12 requests/s limit: some 200 and some 429. In the llm-d arm, a few requests that pass the limit may get 503 from the router (EPP saturation); that is recorded, not hidden |
+| `rate_limit_burst` | 16 concurrent requests against the 12 requests/s limit: some 200 and some 429. In the llm-d arm, some of the 12 admitted requests may get 503. The burst repeats one prompt, the EPP sends it to one pod, and that pod's vLLM `--max-num-queued-reqs 8` rejects the excess. `attribution.json` names the component from counter deltas, and `ATTRIBUTED: vLLM admission control` is the expected result. The 503s are recorded, not hidden. The formal workload (at most 8 in flight) cannot reach the cap |
 
 To show it live while a checkpoint is waiting (the gateway port-forward is still open), run this in T2. The keys go straight from the Secret into the probe's environment and are never printed:
 

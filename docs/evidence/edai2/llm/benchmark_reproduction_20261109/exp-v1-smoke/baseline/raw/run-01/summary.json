@@ -1,0 +1,139 @@
+{
+  "config": "b0-prime",
+  "workload_version": "o1-workload-v1",
+  "workload_sha256": "c4816ca1f1dc8622d198740d6c22161e7f825129b791da9034ca07e437d7695f",
+  "levels": {
+    "1": {
+      "status": "MEASURED",
+      "requests": 12,
+      "succeeded": 11,
+      "error_rate": 0.08333333333333333,
+      "timeout_rate": 0.0,
+      "tool_calls_valid": 2,
+      "ttft_ms": {
+        "p50": 7126.903412005049,
+        "p95": 54926.57889900147
+      },
+      "itl_ms": {
+        "p50": 189.4470389961498,
+        "p95": 281.41651699406793
+      },
+      "tpot_ms": {
+        "p50": 170.12864033324783,
+        "p95": 244.50905348504273
+      },
+      "e2e_ms": {
+        "p50": 14847.693559000618,
+        "p95": 65707.341692505,
+        "p99": 65906.63451770815
+      },
+      "requests_per_second": 0.02497135243737001,
+      "output_tokens_per_second": 1.217353431321788,
+      "output_tokens_per_second_per_allocated_cpu": 0.608676715660894,
+      "wall_seconds": 480.55066420999356,
+      "server": {
+        "raw": {
+          "vllm:request_success": 11.0,
+          "vllm:time_to_first_token_seconds_count": 11.0,
+          "vllm:num_preemptions": 0.0,
+          "vllm:time_to_first_token_seconds_sum": 208.66935324668884,
+          "vllm:prefix_cache_hits": 2816.0,
+          "vllm:prefix_cache_queries": 6588.0,
+          "vllm:request_queue_time_seconds_sum": 0.005014111000036792,
+          "vllm:request_queue_time_seconds_count": 11.0
+        },
+        "prefix_cache_hit_rate": 0.42744383727990287,
+        "queue_time_mean_ms": 0.45582827273061743,
+        "preemptions": 0.0
+      },
+      "resources": {
+        "cpu_millicores_mean": 1197.7666666666667,
+        "cpu_millicores_peak": 1790.0,
+        "memory_mib_mean": 6291.6,
+        "memory_mib_peak": 6293.0
+      },
+      "backends": [
+        "primary"
+      ],
+      "by_category": {
+        "long_chat": {
+          "n": 2,
+          "ok": 1,
+          "ttft_p50_ms": 19150.892222998664,
+          "e2e_p50_ms": 44451.67914999183
+        },
+        "nonstream_chat": {
+          "n": 1,
+          "ok": 1,
+          "ttft_p50_ms": 8716.450534004252,
+          "e2e_p50_ms": 8716.45724499831
+        },
+        "prefix_repeat": {
+          "n": 3,
+          "ok": 3,
+          "ttft_p50_ms": 7126.903412005049,
+          "e2e_p50_ms": 17727.778184998897
+        },
+        "prefix_unique": {
+          "n": 2,
+          "ok": 2,
+          "ttft_p50_ms": 54926.57889900147,
+          "e2e_p50_ms": 65707.341692505
+        },
+        "short_chat": {
+          "n": 2,
+          "ok": 2,
+          "ttft_p50_ms": 2701.386694498069,
+          "e2e_p50_ms": 11603.169070003787
+        },
+        "tool_call": {
+          "n": 2,
+          "ok": 2,
+          "ttft_p50_ms": 6085.836736499914,
+          "e2e_p50_ms": 8861.233364506916
+        }
+      }
+    }
+  },
+  "stopped_by_guard": false,
+  "cold_prefix": {
+    "rows": [
+      {
+        "id": "cold-prefix-0",
+        "ttft_ms": 79554.59656700259,
+        "e2e_ms": 86385.09379899187,
+        "failed": false,
+        "input_tokens": 808
+      },
+      {
+        "id": "cold-prefix-1",
+        "ttft_ms": 5571.595877991058,
+        "e2e_ms": 13035.187750996556,
+        "failed": false,
+        "input_tokens": 807
+      },
+      {
+        "id": "cold-prefix-2",
+        "ttft_ms": 4941.517120998469,
+        "e2e_ms": 11571.280635995208,
+        "failed": false,
+        "input_tokens": 805
+      }
+    ],
+    "server": {
+      "raw": {
+        "vllm:request_success": 3.0,
+        "vllm:time_to_first_token_seconds_count": 3.0,
+        "vllm:num_preemptions": 0.0,
+        "vllm:time_to_first_token_seconds_sum": 88.51358103752136,
+        "vllm:prefix_cache_hits": 1536.0,
+        "vllm:prefix_cache_queries": 2420.0,
+        "vllm:request_queue_time_seconds_sum": 0.00011448000009295356,
+        "vllm:request_queue_time_seconds_count": 3.0
+      },
+      "prefix_cache_hit_rate": 0.6347107438016529,
+      "queue_time_mean_ms": 0.03816000003098452,
+      "preemptions": 0.0
+    }
+  }
+}

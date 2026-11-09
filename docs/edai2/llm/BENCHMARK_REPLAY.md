@@ -162,6 +162,7 @@ Evidence: [`benchmark_reproduction_20261109/`](../../evidence/edai2/llm/benchmar
 | [EXP-V2 smoke, attempt 1](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt1/) | 2 | Failed on DNS egress (§3), found by this run. Cleanup confirmed |
 | [EXP-V2 smoke, attempt 2](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt2/) | 2 | Interactive checkpoint answered over stdin; baseline passed. The optimized client got 404 on `/metrics/metrics` (§3). Cleanup confirmed |
 | [EXP-V2 smoke, attempt 3](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke/) | 2 | Both arms passed. Comparison `INCONCLUSIVE` (1 run per arm, by design) |
+| [EXP-V1 smoke](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v1-smoke/) (2026-11-09, source `fe07f1bb`) | 1 | Both arms passed, interactive, 3 checkpoints. Baseline `auto` 11/12: `long-1` hit the 160 s gateway timeout, as in O1 B0'. The run was kept and counted (see below). Optimized `0-1` 12/12. Tool calls 2/2 per arm. Comparison `INCONCLUSIVE` by design |
 
 What attempt 3 verified, per arm:
 
@@ -186,20 +187,61 @@ Policy probe details (the instructor's request):
 | route | 3 × 200, `x-ewallet-backend: primary` | 3 × 200, `x-ewallet-backend: llm-d`, EPP `llm_d_epp_request_total` +3 |
 | 16 concurrent requests against 12/s | 12 × 200, 4 × 429 `rate limit exceeded` (`x-ratelimit-limit: 12`) | 8 × 200, 4 × 429, 4 × 503 |
 
-The four 503s in the llm-d burst came from the router path: the gateway records no reason of its own. They match the EPP's saturation filter, which G2 also recorded as `ServiceUnavailable`. This was not attributed further.
+The four 503s in the llm-d burst came from behind the gateway: its log shows `endpoint=llmd-router-epp…:8081` and 25–77 ms. Most likely, they are vLLM's own admission control, not EPP saturation. The full analysis is in [analysis/llmd-503](../../evidence/edai2/llm/benchmark_reproduction_20261109/analysis/llmd-503/README.md).
 
-Start-up dominates the time budget. Each vLLM start took about 16 minutes:
+- **vLLM cap.** The pods run `--max-num-queued-reqs 8`. In vLLM 0.32.0, from the pinned image, that caps a pod's in-flight requests and answers the next one with 503.
+- **Why one pod filled up.** The burst repeats one prompt, and the EPP's prefix-cache scorer (weight 3) sends identical prompts to the same pod.
+- **Local reproduction.** With the same EPP and Envoy images and values, and model servers that emulate the cap, the same burst gave 8 × 200 + 4 × 503. Distinct prompts gave 12 × 200. With both endpoints forced to report a queue of 10, the EPP's `utilization-detector` still kept both endpoints, so EPP saturation does not reject default-priority requests.
+- **What was not captured.** The smoke run saved no EPP or Envoy logs and no counters around the probe. The runner now snapshots `vllm:admission_rejections_total` and `llm_d_epp_request_error_total` before and after the probe and writes `gateway-policy/<arm>/attribution.json`.
+- **Effect on the formal workload: none.** The formal client keeps at most 8 requests in flight in total, so no pod can exceed the cap. The dashboard's admission-rejection panel shows 0 for every measured window.
 
-- about 2 min image pull;
-- 4 min engine init, including torch.compile and profiling;
-- about 7 min for the startup probe's first completion, which compiles the remaining shapes.
+### EXP-V1 smoke (2026-11-09)
 
-A formal EXP-V1 session (6 starts) therefore needs about 190 minutes before any checkpoint waits. That is why the runbook sets `EXP_MAX_MINUTES=215` and `EXP_CHECKPOINT_RUNS=first`.
+| Check | Baseline `auto` | Optimized `0-1` |
+|---|---|---|
+| Running image, model, node | `f695b23e…`, `c1899de2…`, 1 replica, node `…-nb5n` | same node |
+| Requests at c=1 | 11/12; `long-1` HTTP 200, 0 tokens, 161 486 ms | 12/12 |
+| Tool calls | 2/2 | 2/2 |
+| Readback | 18/23 queries with data (5 EPP-only empty) | 18/23 |
+| Policy probe | PASS; 8 × 200, 4 × 429, 4 × 503 attributed to vLLM `max_num_queued_reqs` (+4) | PASS; same |
 
-Not run on GKE: EXP-V1. It no longer fitted the window. Its path differs from the verified one only in the O1 client, one replica and thread binding, and the local tests cover it.
+**The failed request matters for the formal session.** Before `78804966`, the runner stopped the session whenever a client exited non-zero. The O1 and G2 clients exit 1 after any failed request, even when every level was measured. So one 160 s timeout in the `auto` arm, which happened here and in the historical O1 B0' run, would have ended a formal EXP-V1 session. Now:
+
+- `ops/experiments/run_outcome.py` keeps a run whose summary measured every level, with at least one success per level, and records it as a deviation;
+- `compare.py` counts its failures, so an arm with more failures cannot be IMPROVED;
+- crashes, 429 or guard stops, missing levels and levels with no success still stop the session.
+
+The 160 s timeout is unchanged. It is the production CPU budget and the condition of the historical runs, and both arms share it.
+
+### Measured durations and what can be shortened
+
+| Stage | Observed | Can optimize? | Risk |
+|---|---|---|---|
+| Node preparation (pool, watchdog, timer) | 2.0 min (V1), 1.6 min (V2) | No | — |
+| Observability stack | 0.7–0.9 min | No | — |
+| Image pull (first start on a node) | ≈4 min (15.6 vs 11.6 min Ready in V1) | SAFE: pre-pull during setup, but setup lasts only ≈1 min, so it would save ≈1 min once. Not done | none |
+| vLLM init (load + torch.compile + warmup) | 246 s | REJECTED: a persisted compile cache makes run 01 cold and the others warm, and it differs per thread-binding arm | warm-state bias |
+| First completion (startup probe) | rest of start-up; Ready at 11.6 min (V1, cached) and 15.3–16.7 min (V2) | REJECTED: keeping pods warm across runs breaks "fresh start per run" | warm-state bias |
+| Benchmark, V1 per run | `auto`: 10.4 min window at c=1 alone; `0-1`: ≈6 min | No | — |
+| Benchmark, V2 per run | ≈9.4 min (c=1,4 smoke); formal c=1,2,4,8 ≈13 min (G2 level times) | No | — |
+| Arm transition | V2 router install/uninstall inside start-up | REJECTED: overlapping the next arm's start with a measured run shares CPU on the node | contention |
+| Readback + policy probe | ≈0.5 min per run; probe ≈1 min on run 01 only | No | — |
+| Evidence checkpoints | owner time; `EXP_CHECKPOINT_RUNS=first` gives 3 stops per session | SAFE: already the default in the runbook | none |
+| Cleanup | 2.1 min (V1), 2.7 min (V2) | No | — |
+
+No meaningful safe speed-up remains, and none was applied. A longer valid session is preferred.
+
+### Realistic formal durations
+
+| Session | Inputs | Estimate | Limit |
+|---|---|---|---|
+| EXP-V1 (1 node, 6 runs, c=1,2,4) | Ready 11.6 min (+4 min on the first start); window `auto` ≈16.4 min, `0-1` ≈10 min, from the smoke's c=1 times plus the O1 ratios for c=2 and c=4; 0.5 min readback | ≈ 160 min + 3 checkpoints ≈ **170–180 min** | `EXP_MAX_MINUTES=215` |
+| EXP-V2 (2 nodes, 6 runs, c=1,2,4,8) | Ready ≈15.3–16.7 min; window ≈13 min | ≈ 183 min + 3 checkpoints ≈ **190–200 min** | `EXP_MAX_MINUTES=215` |
+
+The two experiments therefore run as **two bounded sessions, one after the other**, each with its own pool, time limit, watchdog, evidence directory, comparison and cleanup. Together they come to ≈6.5 h, more than one 4-hour window. The limit was not raised and no repetition was dropped. If a session reaches its limit, it stops, keeps its evidence and reports `INCONCLUSIVE`.
 
 ## 9. Remaining work
 
 1. **Owner evidence session** ([runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md)): EXP-V1 and then EXP-V2, interactive, 3 runs per arm, screenshots at the printed paths.
 2. **Fill in the results from that session's `comparison/metrics.json`.** Until then the historical O1 and G2 figures in [LLM_PLATFORM.md §5](LLM_PLATFORM.md#5-performance-and-optimisation) stay labelled historical.
-3. **Optional.** Persist the torch.compile cache across runs, to cut about 6 min per start. This changes the stack and needs its own review.
+3. **Not planned.** Persisting the torch.compile cache across runs would shorten each start, but it gives warm starts after a cold run 01. It was rejected for this methodology (see the table above).
