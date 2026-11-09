@@ -1,0 +1,55 @@
+{
+  "schema": "ewallet-bench-chain-gate-v1",
+  "session": "docs/evidence/edai2/llm/benchmark_rehearsal_20261109/exp-v1",
+  "levels": [
+    "1",
+    "2",
+    "4"
+  ],
+  "runs_per_arm": 3,
+  "run_order": [
+    "baseline-01",
+    "optimized-01",
+    "optimized-02",
+    "baseline-02",
+    "baseline-03",
+    "optimized-03"
+  ],
+  "verdict": "IMPROVED",
+  "failures": {
+    "1": {
+      "baseline": {
+        "failed": 0,
+        "requests": 36
+      },
+      "optimized": {
+        "failed": 0,
+        "requests": 36
+      }
+    },
+    "2": {
+      "baseline": {
+        "failed": 0,
+        "requests": 36
+      },
+      "optimized": {
+        "failed": 0,
+        "requests": 36
+      }
+    },
+    "4": {
+      "baseline": {
+        "failed": 0,
+        "requests": 36
+      },
+      "optimized": {
+        "failed": 0,
+        "requests": 36
+      }
+    }
+  },
+  "deviations": [],
+  "source_sha": "3250424de0eccd585dd899dacb6ea24648a8d7e3",
+  "passed": true,
+  "problems": []
+}

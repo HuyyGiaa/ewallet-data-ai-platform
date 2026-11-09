@@ -1,0 +1,1 @@
+llm_d_epp_request_total{fairness_id="default-flow",model_name="ewallet-fraud-llm-v1",priority="0",target_model_name="ewallet-fraud-llm-v1"} 53
