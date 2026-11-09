@@ -1,0 +1,97 @@
+# Excerpt from the pinned vLLM image (digest sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c)
+vllm 0.32.0
+--- vllm/config/scheduler.py
+    max_num_queued_reqs: int | None = Field(default=None, ge=0)
+    """Maximum number of requests that can be in-flight (waiting or running)
+    at the same time, or None for no limit. When the limit is reached, new
+    requests are rejected with HTTP 503 so the client can retry on another
+    instance. This bounds vLLM's otherwise unbounded request queue and is
+    primarily a coarse capacity valve.
+
+    Unlike ``max_num_seqs``, which applies per data-parallel rank, this
+    limit is enforced in the API server process and counts in-flight
+    requests across all DP ranks it routes to. Size it as roughly
+    ``data_parallel_size * max_num_seqs`` plus the desired queue depth if
+    it should not bind before per-rank admission does."""
+
+--- vllm/v1/engine/async_llm.py
+
+    def check_admission(self, n: int = 1, request_id: str | None = None) -> None:
+        """Reject the request if it would exceed queue limits.
+
+        Both limits return HTTP 503 (Service Unavailable) so that load
+        balancers and client SDKs retry on a different instance.
+
+        - ``max_num_queued_reqs``: approximate global cap on the number of
+          unfinished requests (waiting + running). A request with ``n > 1``
+          counts as ``n`` slots.
+        - ``max_num_queued_tokens``: TTFT QoS — cap on the total prompt
+          tokens of requests still in prefill.
+
+        Note: ``get_num_queued_tokens`` uses ``prompt_len`` for all prefilling requests.
+        Chunked prefill progress and prefix-cache hits are not subtracted because the
+        scheduler's ``num_computed_tokens`` and ``num_cached_tokens`` are only
+        propagated to the API server after prefill completes. The overestimation is
+        conservative — earlier rejection, preserving TTFT targets.
+
+        Args:
+            n: Number of sequences the request will occupy.
+            request_id: Request id, used for logging only.
+
+        Raises:
+            QueueOverflowError: If ``max_num_queued_reqs`` would be exceeded.
+            MaxQueuedTokensError: If ``max_num_queued_tokens`` would be exceeded.
+
+        """
+        max_num_reqs = self.scheduler_config.max_num_queued_reqs
+        if max_num_reqs is not None:
+            current_requests = (
+                self.admission_stats.get_num_requests()
+                if self.admission_stats is not None
+                else self.get_num_unfinished_requests()
+            )
+            if current_requests + n > max_num_reqs:
+                logger.debug(
+                    "Request queue full - rejecting request %s "
+                    "(current=%d, n=%d, max=%d).",
+                    request_id,
+                    current_requests,
+                    n,
+                    max_num_reqs,
+                )
+                self._record_admission_rejection("max_num_queued_reqs")
+                raise QueueOverflowError()
+
+--- vllm/exceptions.py
+class QueueOverflowError(GracefulHTTPError):
+    """Raised when admitting a request would exceed the request queue limit.
+
+    Returns HTTP 503 (Service Unavailable) so that load balancers and
+    client SDKs retry the request on a different instance.
+    """
+
+    def __init__(self):
+        super().__init__(
+            "The engine is currently busy and cannot accept new requests. "
+            "Please try again later or on a different instance.",
+            HTTPStatus.SERVICE_UNAVAILABLE,
+        )
+
+
+--- vllm/v1/metrics/loggers.py
+        # Frontend admission
+        #
+        counter_admission_rejections = self._counter_cls(
+            name="vllm:admission_rejections",
+            documentation=(
+                "Number of admission attempts rejected by a queue limit, by reason."
+            ),
+            labelnames=["model_name", "reason"],
+        )
+        self.admission_rejections = {
+            reason: counter_admission_rejections.labels(
+                model_name=model_name, reason=reason
+            )
+            for reason in ADMISSION_REASONS
+        }
+
