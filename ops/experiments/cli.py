@@ -3,6 +3,8 @@
     python -m ops.experiments.cli preflight --spec s.json --dir out --kube-context c \
         --namespace ewallet-bench --setting image=...@sha256:...
     python -m ops.experiments.cli compare --spec s.json --dir out
+        (the methodology comes from manifest.json: settings.profile=single selects the
+        single-run comparator, ops/experiments/single_run.py; anything else the multi-run one)
     python -m ops.experiments.cli finish --spec s.json --dir out --deviation "run 2 stopped"
     python -m ops.experiments.cli checklist --spec s.json
 """
@@ -10,14 +12,26 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Sequence
 
 from ops.experiments.adapters import load_arm
 from ops.experiments.compare import compare
+from ops.experiments.single_run import compare_single
 from ops.experiments.preflight import capture, finish_manifest, write_preflight
-from ops.experiments.report import render_checklist, render_markdown, write_comparison
+from ops.experiments.report import render_checklist, write_comparison
 from ops.experiments.spec import load_spec
+
+
+def session_profile(directory: Path) -> str | None:
+    """The ``profile`` the session recorded in ``manifest.json``; ``None`` without one."""
+
+    try:
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return (manifest.get("settings") or {}).get("profile")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -49,9 +63,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "finish":
         finish_manifest(args.dir, args.deviation)
         return 0
-    report = compare(spec, load_arm(args.dir / "baseline"), load_arm(args.dir / "optimized"))
+    comparator = compare_single if session_profile(args.dir) == "single" else compare
+    report = comparator(spec, load_arm(args.dir / "baseline"), load_arm(args.dir / "optimized"))
     write_comparison(report, args.dir)
-    print(render_markdown(report), end="")
+    print((args.dir / "comparison" / "comparison.md").read_text(encoding="utf-8"), end="")
     return 0
 
 

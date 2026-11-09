@@ -13,7 +13,9 @@
 #
 # Env: KUBE_CONTEXT (must be the ewallet-dev context), VLLM_IMAGE (digest reference),
 #   EXP_RUNS (per arm, default 3), EXP_MAX_MINUTES (hard stop, default 210, max 215),
-#   EXP_PROFILE (formal | smoke: one run per arm, fewer levels, never a result),
+#   EXP_PROFILE (formal: EXP_RUNS per arm, multi-run comparison | single: exactly one run per
+#   arm at every formal level, single-run comparison of observed differences
+#   (ops/experiments/single_run.py) | smoke: one run per arm, fewer levels, never a result),
 #   EXP_CAPTURE_MODE (unattended | interactive: owner checkpoint after every run),
 #   EXP_CHECKPOINT_MINUTES (longest wait at a checkpoint, default 20, max 45),
 #   EXP_CHECKPOINT_RUNS (all | first: stop only after run 01 of each arm and at the comparison),
@@ -25,7 +27,8 @@
 #    only when they carry its ownership mark. Every Helm release and the cpu-pool nodes and
 #    size are read before and after and compared.
 #  - A read that fails is an error, never "absent", so cleanup cannot report a false success.
-#  - Arms alternate (A B, B A, A B) so slow drift does not favour one arm.
+#  - Arms alternate (A B, B A, A B) so slow drift does not favour one arm. A single-run
+#    session runs A then B once.
 #  - vLLM and the gateway restart before every run: no shared cache, fresh token budget.
 #  - A failed run stops the session (a run that measured every level is kept, its failed
 #    requests counted: ops/experiments/run_outcome.py). It is not retried; evidence is kept.
@@ -62,21 +65,23 @@ export PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}"
 # shellcheck source=../../infra/helm/llm-d/versions.env
 . "$root/infra/helm/llm-d/versions.env"
 profile=${EXP_PROFILE:-formal}
-case "$profile" in formal|smoke) ;; *) die "EXP_PROFILE must be formal or smoke";; esac
+case "$profile" in formal|single|smoke) ;; *) die "EXP_PROFILE must be formal, single or smoke";; esac
+# Recorded in the manifest and every banner, so single-run and multi-run evidence cannot be mixed up.
+case "$profile" in formal) methodology=multi-run;; single) methodology=single-run;; smoke) methodology=smoke;; esac
 if [ "$experiment" = exp-v1 ]; then
   nodes=1 spec="$root/configs/experiments/exp-v1-vllm-cpu.json" levels=1,2,4 baseline_label=b0-prime optimized_label=c1-thread-bind
-  [ "$profile" = formal ] || levels=1
+  [ "$profile" != smoke ] || levels=1
   route_baseline="Service -> vLLM" route_optimized="Service -> vLLM"
 else
   nodes=2 spec="$root/configs/experiments/exp-v2-llmd-routing.json" levels=1,2,4,8 baseline_label=b2 optimized_label=o2
-  [ "$profile" = formal ] || levels=1,4
+  [ "$profile" != smoke ] || levels=1,4
   route_baseline="Kubernetes Service" route_optimized="llm-d EPP"
 fi
 max_minutes=${EXP_MAX_MINUTES:-210} capture_mode=${EXP_CAPTURE_MODE:-unattended}
 checkpoint_minutes=${EXP_CHECKPOINT_MINUTES:-20} max_usd=${EXP_MAX_USD:-5} checkpoint_runs=${EXP_CHECKPOINT_RUNS:-all}
-if [ "$profile" = smoke ]; then runs=${EXP_RUNS:-1}; else runs=${EXP_RUNS:-3}; fi
-if [ "$profile" = smoke ]; then
-  [ "$runs" = 1 ] || die "EXP_PROFILE=smoke runs exactly one run per arm"
+if [ "$profile" = formal ]; then runs=${EXP_RUNS:-3}; else runs=${EXP_RUNS:-1}; fi
+if [ "$profile" != formal ]; then
+  [ "$runs" = 1 ] || die "EXP_PROFILE=$profile runs exactly one run per arm"
 else
   [[ "$runs" =~ ^[2-5]$ ]] || die "EXP_RUNS must be 2-5; one run cannot support a verdict"
 fi
@@ -115,7 +120,7 @@ if [ "$action" = plan ]; then
   render_watchdog 2000-01-01T00:00:00Z 192.0.2.1/32 443 > "$evidence/plan/watchdog.yaml"
   status=0
   cost_plan "$max_minutes" > "$evidence/plan/cost-plan.json" || status=1
-  echo "experiment=$experiment profile=$profile nodes=$nodes machine=e2-standard-4 runs_per_arm=$runs max_minutes=$max_minutes levels=$levels capture=$capture_mode"
+  echo "experiment=$experiment profile=$profile methodology=$methodology nodes=$nodes machine=e2-standard-4 runs_per_arm=$runs max_minutes=$max_minutes levels=$levels capture=$capture_mode"
   echo "arm difference: $evidence/plan/arm-difference.diff"
   cat "$evidence/plan/cost-plan.json"
   [ "$status" = 0 ] || die "the worst case does not fit the ceilings; see cost-plan.json"
@@ -295,7 +300,7 @@ finish() {
       || log "comparison failed; see compare.log"
     if [ "$status" = 0 ] && [ "$capture_mode" = interactive ] && [ -f "$evidence/comparison/comparison.md" ]; then
       {
-        printf '%s\n%s — COMPARISON CHECKPOINT\n%s\n\n' "$(printf '=%.0s' {1..64})" "${experiment^^}" "$(printf '=%.0s' {1..64})"
+        printf '%s\n%s (%s) — COMPARISON CHECKPOINT\n%s\n\n' "$(printf '=%.0s' {1..64})" "${experiment^^}" "${methodology^^}" "$(printf '=%.0s' {1..64})"
         cat "$evidence/comparison/comparison.md"
         printf '\nCapture: comparison above (%s), manifest.json, and the Grafana dashboard over the whole session:\n' \
           "$evidence/comparison/comparison.md"
@@ -338,7 +343,7 @@ trap 'log "interrupted"; exit 130' INT TERM HUP
   touch "$stop"
 ) </dev/null >/dev/null 2>&1 &
 timer=$!
-log "start $experiment $action profile=$profile source=$(git -C "$root" rev-parse HEAD) runs=$runs capture=$capture_mode"
+log "start $experiment $action profile=$profile methodology=$methodology source=$(git -C "$root" rev-parse HEAD) runs=$runs capture=$capture_mode"
 log "time limit $(date -u -d "@$deadline" +%FT%TZ); watchdog deadline $watchdog_deadline"
 router_chart=""
 if [ "$action" = session ] && [ "$experiment" = exp-v2 ]; then
@@ -452,9 +457,10 @@ unset vllm_key
   --namespace "$NS" --setting "vllm_image=$VLLM_IMAGE" --setting "gateway_image=$GATEWAY_IMAGE" \
   --setting "levels=$levels" --setting "runs_per_arm=$runs" --setting "nodes=$nodes" \
   --setting "machine_type=e2-standard-4" --setting "max_minutes=$max_minutes" --setting "profile=$profile" \
+  --setting "methodology=$methodology" \
   --setting "capture_mode=$capture_mode" --setting "helper_image=$HELPER_IMAGE" \
   --setting "watchdog_deadline=$watchdog_deadline"
-[ "$profile" = formal ] || deviations+=("SMOKE profile: $runs run per arm, levels $levels; a smoke test, not a benchmark result")
+[ "$profile" != smoke ] || deviations+=("SMOKE profile: $runs run per arm, levels $levels; a smoke test, not a benchmark result")
 
 mkdir -p "$evidence/observability"/{dashboard,metric-readback,queries} "$evidence/gateway-policy"
 render_observability "$api_cidrs" "$api_port" > "$evidence/observability/stack.yaml"
@@ -606,7 +612,7 @@ run_arm() {  # <arm> <run-number>
         | grep -viE 'authorization|bearer|api[-_]key' | tail -n 2000 > "$evidence/gateway-policy/$arm/envoy.log" || true
     fi
   fi
-  "$python" -m ops.experiments.checkpoint --title "${experiment^^} / ${arm^^} run $run" --experiment "${experiment^^}" \
+  "$python" -m ops.experiments.checkpoint --title "${experiment^^} ${methodology^^} / ${arm^^} run $run" --experiment "${experiment^^}" \
     --arm "$arm" --label "$label" --route "$route" --run-id "$arm-$run" --kube-context "$KUBE_CONTEXT" \
     --grafana "http://127.0.0.1:$GRAFANA_PORT" --prometheus "http://127.0.0.1:$PROM_PORT" \
     --window-start "$window_start" --window-end "$window_end" --wait-minutes "$checkpoint_minutes" \
