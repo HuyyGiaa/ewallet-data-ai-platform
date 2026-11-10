@@ -22,8 +22,8 @@ from data_platform.config.spark_benchmark import (
 )
 from data_platform.config.spark_profiles import validate_git_sha
 from ops.gcp.validate_spark_output_equivalence import (
-    EXPECTED_TABLES,
     REQUIRED_INVARIANTS,
+    expected_tables,
 )
 
 
@@ -65,7 +65,9 @@ def build_validation_evidence(
 
     stage = str(checked_summary["stage"])
     tables = checked_summary.get("tables")
-    if not isinstance(tables, Mapping) or set(tables) != EXPECTED_TABLES[stage]:
+    if not isinstance(tables, Mapping) or set(tables) != expected_tables(
+        stage, str(checked_summary.get("dataset_version", ""))
+    ):
         raise ValueError("semantic summary table inventory is not exact")
     invariants = checked_summary.get("invariants")
     if not isinstance(invariants, Mapping) or any(

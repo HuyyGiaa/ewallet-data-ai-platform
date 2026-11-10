@@ -1,0 +1,60 @@
+{
+  "base_commit": "f871b33ac9141d09e858e5d0c37b474620470029",
+  "builders": [
+    "data_platform/processing/spark/gold/features/__init__.py",
+    "data_platform/processing/spark/gold/features/account_features.py",
+    "data_platform/processing/spark/gold/features/device_features.py",
+    "data_platform/processing/spark/gold/features/merchant_features.py",
+    "data_platform/processing/spark/gold/features/temporal.py",
+    "data_platform/processing/spark/gold/features/user_features.py",
+    "data_platform/processing/spark/gold/feature_builder.py"
+  ],
+  "excluded_columns": [
+    "created_timestamp (write time)"
+  ],
+  "files": {
+    "feat_account_behavior.parquet": {
+      "rows": 3000,
+      "sha256": "6c2b330338b0304767cbdff608a44c15ec38d46eecf5b71a0ddf5592dc4afcf7"
+    },
+    "feat_device_behavior.parquet": {
+      "rows": 3000,
+      "sha256": "ef48bdfd6e0f6fad10b880d60feedfd3835c03f01e586a1d8bf2a3f738401eba"
+    },
+    "feat_merchant_behavior.parquet": {
+      "rows": 1187,
+      "sha256": "154196c4078ba3b041e1e893ce9668b56eb82983c81bc3380685821a6837000a"
+    },
+    "feat_user_90d.parquet": {
+      "rows": 300,
+      "sha256": "2284fb8b766bb1ae9d43c6e3d9ba971d0445e3678a1fcf7c00d0ccd9b95360e2"
+    },
+    "feat_user_behavior.parquet": {
+      "rows": 3000,
+      "sha256": "c138742a1d6ea1466f3394230f7646105d1813900ff41498a593820694cf217d"
+    },
+    "input_devices.parquet": {
+      "rows": 343,
+      "sha256": "ff6e219cd395b0005c44267634a7d2085751f636de78dbdcef5068bbd87ca001"
+    },
+    "input_transactions.parquet": {
+      "rows": 3000,
+      "sha256": "28ada22a3f83240f546ddd72fa770abce3c03faa4e645a6caff4c258b25b35ea"
+    },
+    "input_users.parquet": {
+      "rows": 300,
+      "sha256": "64db7c64abbfdeeaf49af534ee712287570e8b99d2483dbc7ea1206a7ecfe726"
+    }
+  },
+  "generator": {
+    "config": "data_platform/generation/config/settings.yaml",
+    "n_merchants": 30,
+    "n_transactions": 3000,
+    "n_users": 300,
+    "random_seed": 20261110
+  },
+  "pandas_version": "2.3.3",
+  "purpose": "Pre-Phase-B feature outputs for the permanent equivalence regression.",
+  "spark_version": "4.1.1",
+  "timestamps": "UTC epoch microseconds (*_us columns)"
+}

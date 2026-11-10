@@ -1,0 +1,54 @@
+{
+  "evidence": "edai1-schema-visualization-trino-verification",
+  "captured_at_utc": "2026-11-08T17:15:00Z",
+  "worktree_base_commit": "22018233adb172767a267a9bf76ad295d17ac6cf",
+  "trino": {
+    "container": "edai1-schema-viz-trino",
+    "version": "483",
+    "compose": "infra/docker/schema-viz/compose.yml",
+    "listen": "127.0.0.1:8091"
+  },
+  "canonical_runs": {
+    "bronze": "ab-20261025134342-optimized-bronze-r261025174525",
+    "features": "ab-20261025134342-optimized-feat-r261026025955",
+    "gold": "ab-20261025134342-optimized-gold-r261025181923",
+    "silver": "ab-20261025134342-optimized-silver-r261025181923"
+  },
+  "source_dataset": "canonical-100gb-v1",
+  "registered_tables_per_trino_schema": {
+    "bronze_zone": 8,
+    "gold_zone": 15,
+    "silver_zone": 8,
+    "source_zone": 9
+  },
+  "columns_per_trino_schema": {
+    "bronze_zone": 45,
+    "gold_zone": 142,
+    "silver_zone": 47,
+    "source_zone": 59
+  },
+  "trino_vs_observed": {
+    "tables_compared": 40,
+    "columns_compared": 293,
+    "name_or_order_mismatches": 0,
+    "note": "information_schema.columns of every registered table equals observed_schemas.json (Delta commit 0 / Parquet footer) by column name and order"
+  },
+  "source_footer_check": "9/9 shard-00000 footers hash to the manifest schema_sha256; every manifest table records exactly one schema",
+  "delta_commits_per_table": "31/31 canonical Delta tables have exactly one commit (version 0), so commit-0 metadata is the current schema",
+  "access_control": {
+    "viewer": "denied CREATE SCHEMA, DROP SCHEMA and every CALL (probed with no-op/nonexistent targets)",
+    "registrar": "may CREATE SCHEMA/TABLE in the local metastore and CALL only delta.system.register_table"
+  },
+  "gcs_unchanged": {
+    "method": "infra/docker/schema-viz/gcs_log_snapshot.sh before registration and after all queries",
+    "before": "gcs_log_snapshot_before_20261108T170630Z.txt",
+    "after": "gcs_log_snapshot_after_20261108T171500Z.txt",
+    "before_sha256": "5e4edfda86f78b613eb334fa079678c6a6a154d7417f72e48221f588b7ccc891",
+    "after_sha256": "5e4edfda86f78b613eb334fa079678c6a6a154d7417f72e48221f588b7ccc891",
+    "identical": true
+  },
+  "not_verified_here": [
+    "DBeaver UI rendering (DBEAVER_VISUAL_VERIFIED) - owner step",
+    "screenshots - OWNER_SCREENSHOT_PENDING"
+  ]
+}

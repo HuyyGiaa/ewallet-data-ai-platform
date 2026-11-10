@@ -8,7 +8,7 @@ CREATE SCHEMA IF NOT EXISTS features;
 
 CREATE TABLE gold.dim_account (
     "account_id" TEXT,
-    "user_id" TEXT,
+    "user_id" TEXT NOT NULL,
     "account_type" TEXT,
     "currency" TEXT,
     "created_at" TIMESTAMPTZ,
@@ -29,7 +29,7 @@ CREATE TABLE gold.dim_date (
 
 CREATE TABLE gold.dim_device (
     "device_id" TEXT,
-    "user_id" TEXT,
+    "user_id" TEXT NOT NULL,
     "device_type" TEXT,
     "os" TEXT,
     "first_seen_at" TIMESTAMPTZ,
@@ -54,8 +54,8 @@ CREATE TABLE gold.dim_user (
 );
 
 CREATE TABLE gold.fact_balance_snapshot (
-    "account_id" TEXT,
-    "date_key" INTEGER,
+    "account_id" TEXT NOT NULL,
+    "date_key" INTEGER NOT NULL,
     "snapshot_date" DATE,
     "closing_balance" DOUBLE PRECISION,
     PRIMARY KEY ("account_id", "snapshot_date")
@@ -63,9 +63,9 @@ CREATE TABLE gold.fact_balance_snapshot (
 
 CREATE TABLE gold.fact_login_events (
     "login_id" TEXT,
-    "user_id" TEXT,
-    "device_id" TEXT,
-    "date_key" INTEGER,
+    "user_id" TEXT NOT NULL,
+    "device_id" TEXT NOT NULL,
+    "date_key" INTEGER NOT NULL,
     "is_success" BOOLEAN,
     "login_ts" TIMESTAMPTZ,
     "event_date" DATE,
@@ -74,12 +74,12 @@ CREATE TABLE gold.fact_login_events (
 
 CREATE TABLE gold.fact_transactions (
     "transaction_id" TEXT,
-    "user_id" TEXT,
-    "account_id" TEXT,
+    "user_id" TEXT NOT NULL,
+    "account_id" TEXT NOT NULL,
     "merchant_id" TEXT,
-    "device_id" TEXT,
+    "device_id" TEXT NOT NULL,
     "counterparty_account_id" TEXT,
-    "date_key" INTEGER,
+    "date_key" INTEGER NOT NULL,
     "type" TEXT,
     "status" TEXT,
     "channel" TEXT,
@@ -94,7 +94,7 @@ CREATE TABLE gold.fact_transactions (
 );
 
 CREATE TABLE gold.feat_user_90d (
-    "user_id" TEXT,
+    "user_id" TEXT NOT NULL,
     "f_user_total_transactions_90d" BIGINT,
     "f_user_avg_transaction_amount_90d" DOUBLE PRECISION,
     "f_user_failed_transaction_rate_90d" DOUBLE PRECISION,
@@ -105,7 +105,7 @@ CREATE TABLE gold.feat_user_90d (
 );
 
 CREATE TABLE gold.obt_transaction_enriched (
-    "transaction_id" TEXT,
+    "transaction_id" TEXT NOT NULL,
     "user_id" TEXT,
     "kyc_verified" BOOLEAN,
     "user_created_at" TIMESTAMPTZ,
@@ -141,7 +141,7 @@ CREATE TABLE gold.obt_transaction_enriched (
 );
 
 CREATE TABLE gold.opt_merchant_performance (
-    "merchant_id" TEXT,
+    "merchant_id" TEXT NOT NULL,
     "merchant_name" TEXT,
     "category" TEXT,
     "transaction_count" BIGINT,
@@ -154,7 +154,7 @@ CREATE TABLE gold.opt_merchant_performance (
 );
 
 CREATE TABLE features.feat_account_behavior (
-    "account_id" TEXT,
+    "account_id" TEXT NOT NULL,
     "event_timestamp" TIMESTAMPTZ,
     "account_tx_count_5m" BIGINT,
     "account_tx_count_1h" BIGINT,
@@ -170,7 +170,7 @@ CREATE TABLE features.feat_account_behavior (
 );
 
 CREATE TABLE features.feat_device_behavior (
-    "device_id" TEXT,
+    "device_id" TEXT NOT NULL,
     "event_timestamp" TIMESTAMPTZ,
     "device_age_seconds" DOUBLE PRECISION,
     "device_tx_count_1h" BIGINT,
@@ -181,7 +181,7 @@ CREATE TABLE features.feat_device_behavior (
 );
 
 CREATE TABLE features.feat_merchant_behavior (
-    "merchant_id" TEXT,
+    "merchant_id" TEXT NOT NULL,
     "event_timestamp" TIMESTAMPTZ,
     "merchant_tx_count_10m" BIGINT,
     "merchant_tx_count_1h" BIGINT,
@@ -194,7 +194,7 @@ CREATE TABLE features.feat_merchant_behavior (
 );
 
 CREATE TABLE features.feat_user_behavior (
-    "user_id" TEXT,
+    "user_id" TEXT NOT NULL,
     "event_timestamp" TIMESTAMPTZ,
     "user_tx_count_5m" BIGINT,
     "user_tx_count_1h" BIGINT,

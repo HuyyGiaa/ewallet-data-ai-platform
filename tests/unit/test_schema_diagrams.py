@@ -13,7 +13,13 @@ import yaml
 
 from ops.schema.export_observed_schemas import export_zone, parse_delta_metadata
 from ops.schema.render_schema_diagrams import (
+    effective_document,
     RELATIONSHIPS,
+    Evidence,
+    cloud_reference_checks,
+    edge_semantics,
+    load_evidence,
+    validator_edges,
     SQL_TYPES,
     column_changes,
     gold_role,
@@ -137,8 +143,9 @@ class RenderingTest(unittest.TestCase):
     def test_dbml_carries_composite_keys_and_references(self):
         text = render_dbml(("gold", "features"), self.observed, self.document)
         self.assertIn("(account_id, snapshot_date) [pk]", text)
-        self.assertIn("Ref: gold.fact_transactions.user_id > gold.dim_user.user_id", text)
-        self.assertIn("Ref: features.feat_user_behavior.user_id > gold.dim_user.user_id", text)
+        self.assertIn("Ref fk_fact_transactions_user_id: gold.fact_transactions.user_id > gold.dim_user.user_id", text)
+        self.assertIn("Ref fk_feat_user_behavior_user_id: features.feat_user_behavior.user_id > gold.dim_user.user_id",
+                      text)
 
     def test_the_erd_sql_says_it_is_logical(self):
         text = render_erd_sql(("gold", "features"), self.observed, self.document)
@@ -195,5 +202,263 @@ class DeltaMetadataTest(unittest.TestCase):
         self.assertEqual("run", result["run_id"])
 
 
+
+class PendingObservationTest(unittest.TestCase):
+    """dim_merchant_scd2 is drawn only once an observed schema contains it."""
+
+    SCD2_COLUMNS = [("merchant_sk", "string"), ("merchant_id", "string"), ("merchant_name", "string"),
+                    ("category", "string"), ("valid_from_ts", "timestamp"), ("valid_to_ts", "timestamp"),
+                    ("is_current", "boolean")]
+
+    def observed_with_scd2(self):
+        observed, document = inputs()
+        observed = copy.deepcopy(observed)
+        observed["zones"]["gold"]["tables"]["dim_merchant_scd2"] = {
+            "columns": [{"name": name, "nullable": True, "type": kind} for name, kind in self.SCD2_COLUMNS],
+            "partition_columns": [],
+        }
+        return observed, document
+
+    def test_the_current_observed_schema_draws_no_pending_table(self):
+        observed, document = inputs()
+        merged = effective_document(observed, document)
+        self.assertNotIn("pending_observation", merged)
+        self.assertNotIn("dim_merchant_scd2", merged["keys"]["gold"])
+        self.assertNotIn("dim_merchant_scd2", render_all(observed, document)["gold.dbml"])
+
+    def test_an_observed_scd2_table_is_drawn_many_to_one_and_required(self):
+        observed, document = self.observed_with_scd2()
+        gold = render_all(observed, document)["gold.dbml"]
+        self.assertIn("Table gold.dim_merchant_scd2", gold)
+        self.assertIn("Ref fk_dim_merchant_scd2_merchant_id: "
+                      "gold.dim_merchant_scd2.merchant_id > gold.dim_merchant.merchant_id", gold)
+        self.assertIn("validated by rule dim_merchant_scd2.merchant_id_exists_in_dim_merchant", gold)
+        self.assertEqual(21, len(dbml_refs(gold)))
+
+    def test_pending_keys_match_the_cloud_summary_extension_keys(self):
+        from ops.gcp.summarize_spark_output import EXTENSION_GOLD_PRIMARY_KEYS
+
+        _, document = inputs()
+        pending = document["pending_observation"]["keys"]["gold"]
+        self.assertEqual({key: list(value) for key, value in EXTENSION_GOLD_PRIMARY_KEYS.items()}, pending)
+
 if __name__ == "__main__":
     unittest.main()
+
+
+REFS = re.compile(r"^Ref fk_(\w+): (\S+) (>\?|>|-\?|-) (\S+)$", re.MULTILINE)
+
+
+def dbml_refs(text):
+    return {name: (left, operator, right) for name, left, operator, right in REFS.findall(text)}
+
+
+class DbmlSemanticsTest(unittest.TestCase):
+    """The DBML says what the contract says, in DBML's own operator semantics."""
+
+    def setUp(self):
+        self.observed, self.document = inputs()
+        self.silver = render_dbml(("silver",), self.observed, self.document)
+        self.gold = render_dbml(("gold", "features"), self.observed, self.document)
+
+    def test_silver_has_eight_tables_and_eleven_references(self):
+        self.assertEqual(8, len(re.findall(r"^Table silver\.", self.silver, re.MULTILINE)))
+        self.assertEqual(11, len(dbml_refs(self.silver)))
+
+    def test_gold_has_fifteen_tables_and_twenty_references(self):
+        self.assertEqual(15, len(re.findall(r"^Table (gold|features)\.", self.gold, re.MULTILINE)))
+        self.assertEqual(20, len(dbml_refs(self.gold)))
+
+    def test_required_references_are_not_null_many_to_one(self):
+        refs = dbml_refs(self.silver)
+        self.assertEqual(("silver.accounts.user_id", ">", "silver.users.user_id"), refs["accounts_user_id"])
+        self.assertIn("  user_id string [not null, note:", self.silver)
+        refs = dbml_refs(self.gold)
+        self.assertEqual(("gold.fact_transactions.user_id", ">", "gold.dim_user.user_id"),
+                         refs["fact_transactions_user_id"])
+
+    def test_conditional_merchant_and_counterparty_stay_optional(self):
+        for text, zone, table, parent in ((self.silver, "silver", "transactions", ("merchants", "accounts")),
+                                          (self.gold, "gold", "fact_transactions", ("dim_merchant", "dim_account"))):
+            refs = dbml_refs(text)
+            self.assertEqual(">?", refs[f"{table}_merchant_id"][1])
+            self.assertEqual(">?", refs[f"{table}_counterparty_account_id"][1])
+            self.assertEqual(f"{zone}.{parent[0]}.merchant_id", refs[f"{table}_merchant_id"][2])
+            self.assertEqual(f"{zone}.{parent[1]}.account_id", refs[f"{table}_counterparty_account_id"][2])
+            self.assertIn("  merchant_id string [null, note:", text)
+            self.assertIn("  counterparty_account_id string [null, note:", text)
+
+    def test_one_to_one_edges_put_the_parent_first(self):
+        refs = dbml_refs(self.gold)
+        self.assertEqual(("gold.dim_user.user_id", "-", "gold.feat_user_90d.user_id"), refs["feat_user_90d_user_id"])
+        self.assertEqual(("gold.dim_merchant.merchant_id", "-", "gold.opt_merchant_performance.merchant_id"),
+                         refs["opt_merchant_performance_merchant_id"])
+        self.assertEqual(("gold.fact_transactions.transaction_id", "-", "gold.obt_transaction_enriched.transaction_id"),
+                         refs["obt_transaction_enriched_transaction_id"])
+        self.assertEqual(("silver.transactions.transaction_id", "-", "silver.fraud_labels.transaction_id"),
+                         dbml_refs(self.silver)["fraud_labels_transaction_id"])
+
+    def test_a_unique_child_without_complete_coverage_is_optional_one_to_one(self):
+        document = copy.deepcopy(self.document)
+        for item in document["relationships"]["gold"]:
+            if item["table"] == "feat_user_90d":
+                del item["coverage"]
+        refs = dbml_refs(render_dbml(("gold", "features"), self.observed, document))
+        self.assertEqual("-?", refs["feat_user_90d_user_id"][1])
+
+    def test_composite_keys_stay_composite_and_their_fk_column_many(self):
+        self.assertIn("(account_id, snapshot_date) [pk]", self.gold)
+        self.assertIn("(user_id, event_timestamp) [pk]", self.gold)
+        self.assertEqual(">", dbml_refs(self.gold)["fact_balance_snapshot_account_id"][1])
+        self.assertEqual(">", dbml_refs(self.gold)["feat_user_behavior_user_id"][1])
+        self.assertEqual(">", dbml_refs(self.silver)["balance_snapshots_account_id"][1])
+
+    def test_physical_nullability_is_stated_and_not_changed(self):
+        for zone in ("silver", "gold", "features"):
+            for table in self.observed["zones"][zone]["tables"].values():
+                self.assertTrue(all(column["nullable"] for column in table["columns"]))
+        self.assertIn("every Delta column is physically nullable", self.gold)
+        self.assertIn("not physical constraints", self.silver)
+
+    def test_builder_only_edges_are_never_called_validated(self):
+        refs = [line for line in self.gold.splitlines() if line.startswith("// obt_transaction_enriched")]
+        self.assertEqual(1, len(refs))
+        self.assertIn("builder_only", refs[0])
+        self.assertNotIn("validated by", refs[0])
+        fraud = [line for line in self.silver.splitlines() if line.startswith("// fraud_labels")]
+        self.assertIn("builder_only", fraud[0])
+        self.assertIn("rule fraud_labels.transaction_fk exists but is not counted as validation", fraud[0])
+
+    def test_dbml_is_deterministic(self):
+        self.assertEqual(self.gold, render_dbml(("gold", "features"), self.observed, self.document))
+
+
+class EdgeSemanticsTest(unittest.TestCase):
+    def setUp(self):
+        self.observed, self.document = inputs()
+
+    def semantics(self, table, column):
+        item = next(item for item in load_relationships(self.document)
+                    if item.table == table and item.column == column)
+        return edge_semantics(item, self.document)
+
+    def test_cardinality_comes_from_keys(self):
+        self.assertEqual("many-to-one", self.semantics("fact_transactions", "user_id").cardinality)
+        self.assertEqual("one-to-one", self.semantics("feat_user_90d", "user_id").cardinality)
+        self.assertEqual("one-to-one", self.semantics("fraud_labels", "transaction_id").cardinality)
+        self.assertTrue(self.semantics("fact_transactions", "merchant_id").parent_optional)
+        self.assertFalse(self.semantics("opt_merchant_performance", "merchant_id").child_optional)
+
+    def test_fraud_labels_grain_is_one_row_per_transaction(self):
+        self.assertEqual(["transaction_id"], self.document["keys"]["silver"]["fraud_labels"])
+        source = (ROOT / "data_platform/quality/validate_silver.py").read_text(encoding="utf-8")
+        self.assertIn('validate_unique_key(df, "fraud_labels", ["transaction_id"])', source)
+
+    def test_complete_coverage_matches_the_builders(self):
+        complete = {(item.table, item.target_table) for item in load_relationships(self.document)
+                    if item.coverage == "complete"}
+        self.assertEqual({("fraud_labels", "transactions"), ("obt_transaction_enriched", "fact_transactions"),
+                          ("feat_user_90d", "dim_user"), ("opt_merchant_performance", "dim_merchant")}, complete)
+        analytics = (ROOT / "data_platform/processing/spark/gold/analytics_builder.py").read_text(encoding="utf-8")
+        self.assertRegex(analytics, r"dim_merchant_df\s*\.join\(\s*merchant_metrics,\s*on=\"merchant_id\",\s*how=\"left\"")
+        obt = (ROOT / "data_platform/processing/spark/gold/obt_builder.py").read_text(encoding="utf-8")
+        self.assertRegex(obt, r"return \(\s*fact_transactions_df\s*\.join\(")
+        # Every join of the fact rows onto a uniquely keyed dimension is a left join,
+        # so the OBT keeps exactly one row per fact row.
+        chain = obt.split("return (", 1)[1].split(".select(", 1)[0]
+        self.assertEqual(5, chain.count(".join("))
+        self.assertEqual(5, chain.count('how="left"'))
+
+    def test_invalid_contracts_are_rejected(self):
+        cases = []
+        document = copy.deepcopy(self.document)
+        document["relationships"]["gold"][0]["coverage"] = "complete"  # many-to-one
+        cases.append(document)
+        document = copy.deepcopy(self.document)
+        for item in document["relationships"]["gold"]:
+            if item["table"] == "feat_user_90d":
+                item["nullable"] = True  # a key column
+        cases.append(document)
+        document = copy.deepcopy(self.document)
+        document["relationships"]["gold"][0]["references"] = "dim_user.full_name"  # not the parent key
+        cases.append(document)
+        for document in cases:
+            with self.subTest():
+                self.assertTrue(validate_relationships(self.observed, document))
+                with self.assertRaises(ValueError):
+                    render_all(self.observed, document)
+
+
+class CheckEvidenceTest(unittest.TestCase):
+    def test_cloud_run_checks_only_the_five_fact_transaction_references(self):
+        source = (ROOT / "ops/gcp/summarize_spark_output.py").read_text(encoding="utf-8")
+        self.assertEqual({("fact_transactions", key, dimension, key) for dimension, key in (
+            ("dim_user", "user_id"), ("dim_account", "account_id"), ("dim_merchant", "merchant_id"),
+            ("dim_device", "device_id"), ("dim_date", "date_key"))}, set(cloud_reference_checks(source)))
+
+    def test_every_validated_edge_has_a_validator_rule_and_builder_only_edges_are_known(self):
+        evidence = load_evidence(ROOT)
+        _, document = inputs()
+        for item in load_relationships(document):
+            key = (item.table, item.column, item.target_table, item.target_column)
+            with self.subTest(key):
+                if item.enforcement == "validated":
+                    self.assertIn(key, evidence.validators)
+        builder_only = {(item.table, item.target_table) for item in load_relationships(document)
+                        if item.enforcement == "builder_only"}
+        self.assertEqual({("fraud_labels", "transactions"), ("obt_transaction_enriched", "fact_transactions")},
+                         builder_only)
+
+    def test_validators_check_no_edge_outside_the_contract(self):
+        _, document = inputs()
+        pending = {"relationships": document["pending_observation"]["relationships"]}
+        contract = {(item.table, item.column, item.target_table, item.target_column)
+                    for item in [*load_relationships(document), *load_relationships(pending)]}
+        self.assertLessEqual(set(load_evidence(ROOT).validators), contract)
+
+    def test_the_fraud_label_check_runs_only_behind_its_flag(self):
+        source = (ROOT / "data_platform/quality/validate_silver.py").read_text(encoding="utf-8")
+        self.assertIn(("fraud_labels", "transaction_id", "transactions", "transaction_id"), validator_edges(source))
+        self.assertIn("if include_fraud_labels:\n            all_results.extend(\n"
+                      "                validate_exact_transaction_coverage(", source)
+
+    def test_empty_evidence_marks_nothing_validated_by_rule(self):
+        observed, document = inputs()
+        text = render_dbml(("silver",), observed, document, Evidence())
+        self.assertNotIn("validated by rule", text)
+        self.assertNotIn("; checked on the 100GB", text)
+
+
+class OfficialParserTest(unittest.TestCase):
+    """Parse the committed DBML with the official @dbml/core parser, when available.
+
+    Set DBML_CORE_DIR to a directory holding node_modules/@dbml/core (pinned 10.3.1
+    in the validation run); the test is skipped otherwise, never faked.
+    """
+
+    def test_committed_dbml_parses_with_expected_cardinalities(self):
+        import os
+        import shutil
+        import subprocess
+
+        core = os.environ.get("DBML_CORE_DIR")
+        if not core or not shutil.which("node"):
+            self.skipTest("DBML_CORE_DIR or node not available")
+        script = (
+            "const fs=require('fs');const core=require(process.argv[1]+'/node_modules/@dbml/core');"
+            "const out={};for(const f of process.argv.slice(2)){const db=core.Parser.parse(fs.readFileSync(f,'utf8'),'dbmlv2');"
+            "out[f]=db.schemas.flatMap(s=>s.refs).map(r=>r.endpoints.map(e=>e.tableName+'.'+e.fieldNames.join(',')+'='+e.relation).join(' '));}"
+            "console.log(JSON.stringify(out));"
+        )
+        files = [str(GENERATED / "silver.dbml"), str(GENERATED / "gold.dbml")]
+        result = subprocess.run(["node", "-e", script, core, *files], capture_output=True, text=True, timeout=60,
+                                check=True)
+        refs = json.loads(result.stdout)
+        silver, gold = refs[files[0]], refs[files[1]]
+        self.assertEqual(11, len(silver))
+        self.assertEqual(20, len(gold))
+        self.assertIn("transactions.merchant_id=* merchants.merchant_id=0..1", silver)
+        self.assertIn("transactions.transaction_id=1 fraud_labels.transaction_id=1", silver)
+        self.assertIn("dim_user.user_id=1 feat_user_90d.user_id=1", gold)
+        self.assertIn("fact_transactions.counterparty_account_id=* dim_account.account_id=0..1", gold)
+        self.assertIn("fact_transactions.user_id=* dim_user.user_id=1", gold)

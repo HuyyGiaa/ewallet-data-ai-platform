@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
+
+from data_platform.processing.spark.gold.features.temporal import created_column
 
 
 logger = logging.getLogger(__name__)
@@ -15,12 +17,17 @@ def build_feat_user_90d(
     dim_user_df: DataFrame,
     *,
     reference_timestamp=None,
+    materialized_at: datetime | None = None,
 ) -> DataFrame:
     """
     Build user features over the latest 90-day window.
 
     Grain:
         1 row / user.
+
+    ``event_timestamp`` is the reference (business) time of the window.
+    ``created`` is the materialization time. ``created_timestamp`` is the legacy
+    name of the same value, kept for existing readers of this table.
     """
 
     if reference_timestamp is None:
@@ -126,6 +133,10 @@ def build_feat_user_90d(
         )
         .withColumn(
             "created_timestamp",
-            F.current_timestamp(),
+            created_column(materialized_at),
+        )
+        .withColumn(
+            "created",
+            F.col("created_timestamp"),
         )
     )

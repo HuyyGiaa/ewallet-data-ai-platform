@@ -41,18 +41,35 @@ OFFLINE_TABLES = (
 )
 SILVER_TABLES = OFFLINE_TABLES
 FRAUD_LABEL_TABLE = "fraud_labels"
+# Optional source extension (synthetic merchant snapshots) and the SCD Type 2
+# dimension built from it. Datasets without the extension, including
+# canonical-100gb-v1, keep the legacy inventories below unchanged.
+MERCHANT_HISTORY_TABLE = "merchant_history"
+MERCHANT_SCD2_TABLE = "dim_merchant_scd2"
 
 
-def offline_tables(include_fraud_labels: bool = False) -> tuple[str, ...]:
+def offline_tables(
+    include_fraud_labels: bool = False,
+    include_merchant_history: bool = False,
+) -> tuple[str, ...]:
+    tables = OFFLINE_TABLES
     if include_fraud_labels:
-        return OFFLINE_TABLES + (FRAUD_LABEL_TABLE,)
-    return OFFLINE_TABLES
+        tables += (FRAUD_LABEL_TABLE,)
+    if include_merchant_history:
+        tables += (MERCHANT_HISTORY_TABLE,)
+    return tables
 
 
-def silver_tables(include_fraud_labels: bool = False) -> tuple[str, ...]:
+def silver_tables(
+    include_fraud_labels: bool = False,
+    include_merchant_history: bool = False,
+) -> tuple[str, ...]:
+    tables = SILVER_TABLES
     if include_fraud_labels:
-        return SILVER_TABLES + (FRAUD_LABEL_TABLE,)
-    return SILVER_TABLES
+        tables += (FRAUD_LABEL_TABLE,)
+    if include_merchant_history:
+        tables += (MERCHANT_HISTORY_TABLE,)
+    return tables
 
 
 CORE_GOLD_TABLES = (
@@ -68,6 +85,16 @@ CORE_GOLD_TABLES = (
     "feat_user_90d",
     "opt_merchant_performance",
 )
+
+
+
+def core_gold_tables(include_merchant_scd2: bool = False) -> tuple[str, ...]:
+    """Core Gold outputs of DP2; the SCD2 merchant dimension is appended when built."""
+
+    if include_merchant_scd2:
+        return CORE_GOLD_TABLES + (MERCHANT_SCD2_TABLE,)
+    return CORE_GOLD_TABLES
+
 
 HISTORICAL_FEATURE_TABLES = (
     "feat_user_behavior",

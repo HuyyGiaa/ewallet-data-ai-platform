@@ -8,10 +8,11 @@ import re
 import shlex
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.dataset_identity import isolated_data_bucket, refuse_misplaced_dataset
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
     method2_runtime_properties,
@@ -28,6 +29,7 @@ from ops.gcp.dataproc_batch_properties import (
 )
 from data_platform.config.spark_profiles import (
     require_benchmark_pair,
+    require_campaign_lineage,
     require_profile_binding,
     validate_git_sha,
 )
@@ -101,6 +103,22 @@ def load_cloud_runtime(outputs: Mapping[str, Any]) -> CloudRuntime:
     )
 
 
+def execution_record_uri(data_bucket: str, run_id: str, batch_id: str) -> str:
+    """Where a campaign job records its Spark identity at startup."""
+
+    return f"gs://{data_bucket}/lakehouse/runs/{run_id}/evidence/spark_execution-{batch_id}.json"
+
+
+def apply_dataset_bucket(runtime: CloudRuntime, dataset_version: str) -> CloudRuntime:
+    """Use the dataset's dedicated bucket instead of the canonical Terraform output.
+
+    Only isolated datasets change bucket. Canonical runs keep the Terraform value.
+    """
+
+    bucket = isolated_data_bucket(dataset_version)
+    return runtime if bucket is None else replace(runtime, data_bucket=bucket)
+
+
 def _validate_id(value: str, name: str) -> str:
     if not _SAFE_ID.fullmatch(value):
         raise ValueError(f"{name} is not a safe GCP identifier")
@@ -127,9 +145,11 @@ def build_submission_command(
     benchmark_id: str | None = None,
     git_sha: str | None = None,
     pair_manifest: Mapping[str, object] | None = None,
+    campaign: bool = False,
 ) -> tuple[str, ...]:
     run_id = _validate_id(run_id, "run_id")
     dataset_version = _validate_id(dataset_version, "dataset_version")
+    refuse_misplaced_dataset(dataset_version, runtime.data_bucket)
     ttl = _validate_ttl(ttl)
     execution_profile = resolve_submission_profile(
         spark_profile=spark_profile,
@@ -161,7 +181,17 @@ def build_submission_command(
     bronze_root = (
         f"gs://{runtime.data_bucket}/lakehouse/runs/{run_id}/bronze"
     )
-    if benchmark_id is not None:
+    if campaign and (benchmark_id is None or pair_manifest is not None):
+        raise ValueError("campaign submissions need a benchmark ID and no pair manifest")
+    if campaign:
+        require_campaign_lineage(
+            run_id,
+            benchmark_id=str(benchmark_id),
+            profile=str(spark_profile),
+            stage="bronze",
+            upstream={},
+        )
+    elif benchmark_id is not None:
         if pair_manifest is None:
             raise ValueError("benchmark submissions require --pair-manifest")
         validate_pair_member(
@@ -184,7 +214,7 @@ def build_submission_command(
             stage="dp1-bronze",
         )
     )
-    if benchmark_id is not None:
+    if benchmark_id is not None and not campaign:
         property_items.extend(
             f"{key}={value}"
             for key, value in method2_runtime_properties(
@@ -207,6 +237,10 @@ def build_submission_command(
                 f"--spark-profile={spark_profile}",
                 f"--git-sha={git_sha}",
             )
+        )
+    if campaign:
+        application_args.append(
+            f"--execution-record-uri={execution_record_uri(runtime.data_bucket, run_id, run_id)}"
         )
     labels = "component=source-bronze,phase=r4"
     if benchmark_id is not None:
@@ -294,6 +328,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--benchmark-id")
     parser.add_argument("--git-sha")
     parser.add_argument("--pair-manifest", type=Path)
+    parser.add_argument(
+        "--campaign",
+        action="store_true",
+        help="DP1-DP3 campaign lineage: upstream runs of the same profile, no pair manifest.",
+    )
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -304,7 +343,9 @@ def main(
     runner: Callable[..., Any] = subprocess.run,
 ) -> int:
     args = parse_args(argv)
-    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    runtime = apply_dataset_bucket(
+        load_cloud_runtime(_load_outputs(args.terraform_output_json, runner)), args.dataset_version
+    )
     jar_paths = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
     if args.execute:
@@ -325,6 +366,7 @@ def main(
             if args.pair_manifest is not None
             else None
         ),
+        campaign=args.campaign,
         archive_path=archive,
         jar_paths=jar_paths,
     )
@@ -332,7 +374,7 @@ def main(
         print("DRY RUN — no Dataproc batch was submitted")
         if args.spark_profile:
             print("\n".join(profile_summary(args.spark_profile, stage="dp1-bronze")))
-        if args.benchmark_id:
+        if args.benchmark_id and not args.campaign:
             print(f"BENCHMARK_ID: {args.benchmark_id}")
             print(
                 "PAIR_MANIFEST_DIGEST: "

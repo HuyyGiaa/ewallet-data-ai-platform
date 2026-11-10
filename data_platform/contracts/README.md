@@ -1,7 +1,8 @@
 # Data Contracts
 
-This directory contains versioned contracts for nine high-value datasets on
-the transaction and fraud-label paths:
+This directory contains versioned contracts for eleven datasets: nine on the
+transaction and fraud-label paths, and two for the SCD Type 2 merchant
+dimension (schema design Phase B):
 
 - `silver.transactions`
 - `silver.fraud_labels`
@@ -12,12 +13,22 @@ the transaction and fraud-label paths:
 - `gold.feat_account_behavior`
 - `gold.feat_device_behavior`
 - `gold.feat_merchant_behavior`
+- `silver.merchant_history` (source extension; synthetic snapshots)
+- `gold.dim_merchant_scd2`
 
 The YAML files describe stable dataset interfaces: schema, grain, logical
 keys, required and optional fields, verified relationships, and quality
 rules. They are declarative specifications. The executable enforcement
 remains in `data_platform.quality.validate_silver` and
 `data_platform.quality.validate_gold`.
+
+`silver.merchant_history` and `gold.dim_merchant_scd2` exist only for datasets
+that carry the `merchant_history` source extension (see
+`data_platform/config/dataset_identity.py`); `canonical-100gb-v1` does not. Their
+persisted-data enforcement runs with `validate_silver --include-merchant-history`
+and `validate_gold --scope core-gold --include-merchant-scd2`. The five `feat_`
+contracts declare `event_timestamp` (business time) and `created` (materialization
+time); `validate_gold --scope features` enforces them on DP3 outputs.
 
 The fraud-label contract is part of the canonical Phase 2 lakehouse. Static
 YAML validation always includes it, while persisted-data enforcement runs with

@@ -1,0 +1,42 @@
+contract_version: 1
+dataset: silver.merchant_history
+layer: silver
+description: Synthetic full merchant snapshots that feed the SCD Type 2 merchant dimension.
+storage_layer: silver
+storage_table: merchant_history
+availability: >-
+  Source extension. Present only for datasets generated with
+  data_platform/generation/config/settings_merchant_history.yaml and registered with
+  merchant_history=True in data_platform/config/dataset_identity.py (rehearsal-5gb-v1).
+  canonical-100gb-v1 was published without it and has no merchant history.
+provenance: >-
+  Synthetic, produced by data_platform.generation.src.offline.merchant_history and declared
+  in the source dataset manifest under source_extensions.merchant_history. Not observed
+  real-world merchant history.
+grain: One row per merchant_id and snapshot_ts.
+logical_key: [merchant_id, snapshot_ts]
+upstream: [source.merchant_history, bronze.merchant_history]
+enforced_by: [data_platform.quality.validate_silver --include-merchant-history]
+columns:
+  - {name: snapshot_id, type: string, nullable: false}
+  - {name: merchant_id, type: string, nullable: false}
+  - {name: merchant_name, type: string, nullable: true}
+  - {name: category, type: string, nullable: true}
+  - {name: snapshot_ts, type: timestamp, nullable: false}
+  - {name: history_source, type: string, nullable: false}
+semantics:
+  snapshot_schedule: Every merchant has a full snapshot at generation.temporal.start_timestamp and every snapshot_interval_days after it, up to the end timestamp.
+  changes: A configured share of merchants change name and/or category once or twice; other snapshots repeat the previous state.
+  latest_state: The latest snapshot of each merchant equals silver.merchants.
+  snapshot_id: UUIDv5 of merchant_id and snapshot_ts, so the same snapshot always has the same identity.
+  cleaning: Exact duplicate rows are dropped; conflicting states for one merchant_id and snapshot_ts are kept so the SCD2 builder rejects them.
+quality_rules:
+  - {expectation: Columns and types match this contract., validator_rule: merchant_history.schema}
+  - {expectation: One state per merchant and snapshot time., validator_rule: "merchant_history.unique_key(merchant_id,snapshot_ts)"}
+  - {expectation: Every row is labelled synthetic., validator_rule: merchant_history.synthetic_provenance}
+  - {expectation: Every merchant has history and its latest snapshot equals merchants., validator_rule: merchant_history.latest_snapshot_equals_merchants}
+foreign_keys:
+  - columns: [merchant_id]
+    references: silver.merchants.merchant_id
+    nullable: false
+    validator_rule: merchant_history.latest_snapshot_equals_merchants

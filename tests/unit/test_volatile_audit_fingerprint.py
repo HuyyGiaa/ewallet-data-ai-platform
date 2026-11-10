@@ -42,7 +42,8 @@ class VolatileAuditFingerprintTest(unittest.TestCase):
             return _table_summary(frame, stage=stage, table=table, table_path="unused")
 
     def test_gold_feat_user_90d_created_timestamp_is_declared_volatile(self) -> None:
-        self.assertEqual(("created_timestamp",),
+        # created (Phase B) is the same write time under its rubric name.
+        self.assertEqual(("created_timestamp", "created"),
                          VOLATILE_AUDIT_COLUMNS[("dp2-gold", "feat_user_90d")])
 
     def test_runs_differing_only_in_write_time_are_equivalent(self) -> None:

@@ -98,3 +98,27 @@ ALL_FEATURE_REFS = tuple(
     for view_name, spec in FEATURE_SPECS.items()
     for feature in spec["features"]
 )
+
+
+# Write-time audit metadata that Gold feature tables may carry after the
+# entity, event time and features. It is not a model feature, so the Feast
+# snapshot keeps the established schema without it.
+FEATURE_AUDIT_COLUMNS = ("created",)
+
+
+def feast_export_columns(
+    table_name: str,
+    source_columns: list[str],
+    expected_columns: list[str],
+) -> tuple[str, ...]:
+    """Return the audit columns to drop from a Gold feature table, or refuse it.
+
+    Accepts the legacy schema (nothing to drop) and the schema with the trailing
+    ``created`` audit column. Anything else is a schema mismatch.
+    """
+
+    if source_columns == expected_columns:
+        return ()
+    if source_columns == [*expected_columns, *FEATURE_AUDIT_COLUMNS]:
+        return FEATURE_AUDIT_COLUMNS
+    raise ValueError(f"{table_name} schema mismatch: {source_columns}")

@@ -30,6 +30,7 @@ HANDOFFS = (
     "bronze-to-silver",
     "silver-to-gold",
     "gold-to-features",
+    "stage-to-validation",
 )
 
 

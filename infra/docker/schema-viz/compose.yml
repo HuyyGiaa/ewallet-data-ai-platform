@@ -1,0 +1,40 @@
+# Task-owned, read-only Trino for the EDAI-1 schema visualization (rubric rows 34, 37, 38).
+#
+# Reads the canonical cloud Delta/Parquet datasets on GCS with the owner's
+# Application Default Credentials. It is separate from infra/docker/compose.query.yml
+# (the local MinIO Trino on :8081); it uses its own project name, container, port
+# and metastore volume, so starting or removing it never touches another stack.
+#
+#   docker compose -f infra/docker/schema-viz/compose.yml up -d
+#   docker compose -f infra/docker/schema-viz/compose.yml down -v   # also drops the local metastore
+#
+# The metastore is a file metastore inside the named volume. It stores only table
+# registrations; nothing is written to GCS. Write protection is enforced by
+# access-control rules (rules.json), not by IAM: the ADC identity itself can write.
+name: edai1-schema-viz
+
+services:
+  trino:
+    image: trinodb/trino@sha256:db58cc93e593a2706553745f276bb119c9810e69918be56ecde088ba7ccb0534
+    container_name: edai1-schema-viz-trino
+    ports:
+      - "127.0.0.1:8091:8080"
+    mem_limit: 4g
+    cpus: 2.0
+    volumes:
+      - ./catalog:/etc/trino/catalog:ro
+      - ./access-control.properties:/etc/trino/access-control.properties:ro
+      - ./rules.json:/etc/trino/schema-viz-rules.json:ro
+      - ${EDAI1_GCP_ADC_FILE:?set EDAI1_GCP_ADC_FILE to an Application Default Credentials JSON}:/var/run/gcp/adc.json:ro
+      # /home/trino is the only image path owned by the trino user, so Docker seeds
+      # the named volume with that ownership and the file metastore is writable.
+      - metastore:/home/trino
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/lib/trino/bin/health-check"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+    restart: "no"
+
+volumes:
+  metastore:

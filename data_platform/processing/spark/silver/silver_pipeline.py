@@ -15,17 +15,20 @@ from data_platform.config import (
     load_runtime_config,
     load_runtime_config_file,
 )
+from data_platform.config.dataset_identity import require_same_bucket
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import (
     create_spark_session,
 )
 from data_platform.processing.spark.common.persistence import persisted
+from data_platform.quality.reporting import execution_record as execution_record_from_args, write_execution_record
 from data_platform.processing.spark.silver.cleaners import (
     clean_accounts,
     clean_balance_snapshots,
     clean_devices,
     clean_fraud_labels,
     clean_login_events,
+    clean_merchant_history,
     clean_merchants,
     clean_users,
 )
@@ -90,10 +93,16 @@ PIPELINES = [
 ]
 
 
-def selected_pipelines(include_fraud_labels: bool = False):
+def selected_pipelines(
+    include_fraud_labels: bool = False,
+    include_merchant_history: bool = False,
+):
+    pipelines = list(PIPELINES)
     if include_fraud_labels:
-        return PIPELINES + [("fraud_labels", clean_fraud_labels, None)]
-    return list(PIPELINES)
+        pipelines.append(("fraud_labels", clean_fraud_labels, None))
+    if include_merchant_history:
+        pipelines.append(("merchant_history", clean_merchant_history, None))
+    return pipelines
 
 
 def apply_run_scoped_storage(
@@ -113,6 +122,7 @@ def apply_run_scoped_storage(
     if "/lakehouse/runs/" not in silver_root or not silver_root.endswith("/silver"):
         raise ValueError("Silver root must be a run-scoped Silver path")
 
+    require_same_bucket(bronze_root, silver_root)
     storage = replace(
         config.storage,
         bronze_root=bronze_root,
@@ -125,6 +135,8 @@ def run_silver_pipeline(
     optimized: bool = True,
     include_fraud_labels: bool = False,
     runtime_config: RuntimeConfig | None = None,
+    include_merchant_history: bool = False,
+    execution_record: dict | None = None,
 ) -> None:
     spark = None
     config = runtime_config or load_runtime_config()
@@ -136,6 +148,8 @@ def run_silver_pipeline(
             optimized=optimized,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
 
         logger.info(
             "========================================="
@@ -160,8 +174,9 @@ def run_silver_pipeline(
             time.perf_counter()
         )
 
+        logger.info("Merchant history enabled: %s", include_merchant_history)
         for (table_name, cleaner, partition_columns,) in selected_pipelines(
-            include_fraud_labels
+            include_fraud_labels, include_merchant_history
         ):
             logger.info("")
             logger.info(
@@ -241,6 +256,15 @@ def parse_args(argv: list[str] | None = None):
     )
 
     parser.add_argument(
+        "--include-merchant-history",
+        action="store_true",
+        help=(
+            "Require Bronze merchant_history (synthetic snapshots for the SCD2 "
+            "merchant dimension) and write Silver merchant_history."
+        ),
+    )
+
+    parser.add_argument(
         "--mode",
         choices=[
             "baseline",
@@ -253,6 +277,7 @@ def parse_args(argv: list[str] | None = None):
         ),
     )
 
+    parser.add_argument("--execution-record-uri")
     parser.add_argument("--bronze-root")
     parser.add_argument("--silver-root")
     parser.add_argument("--dataset-version")
@@ -325,7 +350,9 @@ def main(argv: list[str] | None = None) -> int:
                 silver_root=args.silver_root,
             )
             actual_table_count = len(
-                selected_pipelines(args.include_fraud_labels)
+                selected_pipelines(
+                    args.include_fraud_labels, args.include_merchant_history
+                )
             )
             if args.expected_table_count != actual_table_count:
                 raise ValueError(
@@ -346,6 +373,8 @@ def main(argv: list[str] | None = None) -> int:
             ),
             include_fraud_labels=args.include_fraud_labels,
             runtime_config=config,
+            include_merchant_history=args.include_merchant_history,
+            execution_record=execution_record_from_args(args, "dp2-silver"),
         )
         return 0
 

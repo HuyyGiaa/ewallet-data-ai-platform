@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
@@ -9,6 +11,7 @@ from .temporal import (
     historical_sum,
     historical_window,
     shared_snapshots,
+    with_created,
     with_event_time,
 )
 
@@ -16,6 +19,8 @@ from .temporal import (
 def build_feat_device_behavior(
     transactions_df: DataFrame,
     devices_df: DataFrame,
+    *,
+    materialized_at: datetime | None = None,
 ) -> DataFrame:
     events = with_event_time(transactions_df)
     window_1h = historical_window("device_id", 60 * 60)
@@ -31,7 +36,7 @@ def build_feat_device_behavior(
     )
     snapshots = shared_snapshots(features, "device_id")
 
-    return (
+    return with_created(
         snapshots
         .join(devices_df.select("device_id", "first_seen_at"), "device_id", "left")
         .withColumn(
@@ -50,5 +55,6 @@ def build_feat_device_behavior(
             "device_tx_count_24h",
             "device_amount_sum_24h",
             "device_failed_rate_24h",
-        )
+        ),
+        materialized_at,
     )

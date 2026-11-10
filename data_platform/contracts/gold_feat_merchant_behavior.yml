@@ -19,10 +19,15 @@ columns:
   - {name: merchant_unique_users_1h, type: long, nullable: false}
   - {name: merchant_amount_sum_1h, type: double, nullable: false}
   - {name: merchant_avg_amount_24h, type: double, nullable: true}
+  - {name: created, type: timestamp, nullable: false}
 temporal_semantics:
   window: "[T-window, T)"
   same_timestamp: Same-merchant peers share one snapshot and do not observe each other.
   ordering: No transaction_id, ingested_at, or row-order tie breaker.
+audit_columns:
+  event_timestamp: Business time. The transaction time the snapshot describes; the PIT join key used by Feast.
+  created: Materialization time. One timezone-aware UTC instant per DP3 run from the run clock, shared by the four historical feature tables and recorded in the Delta commit userMetadata (ewallet_materialized_at); not a model feature.
+  created_ordering: No row-level comparison with event_timestamp. created may be earlier than (replay or backfill of future-dated synthetic events), equal to, or later than event_timestamp.
 point_in_time_contract:
   current_transaction_excluded: true
   future_transactions_excluded: true
@@ -31,5 +36,9 @@ null_semantics:
   count_and_sum_without_history: 0
   average_without_denominator: null
 quality_rules:
+  - {expectation: event_timestamp and created are non-null timestamps., validator_rule: feat_merchant_behavior.timestamp_columns_not_null}
+  - {expectation: One materialization instant per table and run., validator_rule: feat_merchant_behavior.created_single_materialization}
+  - {expectation: Every created equals the materialization clock recorded in the Delta commit userMetadata., validator_rule: feat_merchant_behavior.created_matches_materialization_clock}
+  - {expectation: "A sampled recomputation of the 1-hour count with [T-1h, T) bounds equals the persisted value.", validator_rule: feat_merchant_behavior.pit_merchant_tx_count_1h_matches_recomputation}
   - {expectation: Entity and timestamp are required and the logical key is unique., validator_rule: feat_merchant_behavior.unique_key(merchant_id,event_timestamp)}
   - {expectation: Counts sums and distinct-user counts are non-negative and monotonic., validator_rule: feat_merchant_behavior.monotonic_windows}

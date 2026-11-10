@@ -11,8 +11,17 @@ from pathlib import PurePosixPath
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
-from pyspark.sql import DataFrame, SparkSession, functions as F
+try:
+    from pyspark.sql import DataFrame, SparkSession, functions as F
+except ImportError:  # the manifest contract is also used where pyspark is absent
+    DataFrame = SparkSession = F = None
+
+from data_platform.config.dataset_identity import (
+    APPROVED_DATASETS,
+    dataset_has_merchant_history,
+)
 from data_platform.config.spark_profiles import validate_git_sha
+from data_platform.quality.reporting import write_execution_record
 
 
 PHYSICAL_TABLES = (
@@ -37,6 +46,45 @@ BRONZE_TABLES = (
     "fraud_labels",
 )
 CANONICAL_MINIMUM_BYTES = 100_000_000_000
+# Optional source extension: synthetic merchant snapshots for the SCD2 merchant
+# dimension. A manifest carries it only when it declares it under
+# ``source_extensions``; canonical-100gb-v1 does not.
+MERCHANT_HISTORY_TABLE = "merchant_history"
+EXTENDED_PHYSICAL_TABLES = PHYSICAL_TABLES + (MERCHANT_HISTORY_TABLE,)
+_COUNT_WORDS = {9: "nine", 10: "ten"}
+
+
+def manifest_physical_tables(value: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return the physical tables a manifest declares: legacy nine, or plus history."""
+
+    extensions = value.get("source_extensions", {})
+    if not isinstance(extensions, Mapping):
+        raise ValueError("source_extensions must be an object")
+    unknown = set(extensions) - {MERCHANT_HISTORY_TABLE}
+    if unknown:
+        raise ValueError(f"unknown source extensions: {sorted(unknown)}")
+    if MERCHANT_HISTORY_TABLE not in extensions:
+        return PHYSICAL_TABLES
+    declaration = extensions[MERCHANT_HISTORY_TABLE]
+    if not isinstance(declaration, Mapping) or declaration.get("provenance") != "synthetic":
+        raise ValueError("merchant_history must declare synthetic provenance")
+    return EXTENDED_PHYSICAL_TABLES
+
+
+def manifest_bronze_tables(value: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return the Bronze tables one manifest produces."""
+
+    if MERCHANT_HISTORY_TABLE in manifest_physical_tables(value):
+        return BRONZE_TABLES + (MERCHANT_HISTORY_TABLE,)
+    return BRONZE_TABLES
+
+
+def expected_merchant_history(dataset_version: str) -> bool | None:
+    """Registry expectation for an approved dataset; None leaves it to the manifest."""
+
+    if dataset_version in APPROVED_DATASETS:
+        return dataset_has_merchant_history(dataset_version)
+    return None
 
 
 def _dataset_root(manifest_uri: str) -> str:
@@ -49,20 +97,34 @@ def _dataset_root(manifest_uri: str) -> str:
 
 
 def validate_source_manifest(
-    value: Mapping[str, Any], *, expected_dataset_version: str
+    value: Mapping[str, Any],
+    *,
+    expected_dataset_version: str,
+    merchant_history: bool | None = None,
 ) -> dict[str, Any]:
     if value.get("status") != "COMPLETE":
         raise ValueError("source dataset manifest must have COMPLETE status")
     if value.get("dataset_version") != expected_dataset_version:
         raise ValueError("source dataset version does not match submission")
+    physical_tables = manifest_physical_tables(value)
+    if merchant_history is not None and merchant_history != (
+        MERCHANT_HISTORY_TABLE in physical_tables
+    ):
+        raise ValueError(
+            f"{expected_dataset_version} must "
+            f"{'' if merchant_history else 'not '}carry the merchant_history extension"
+        )
     tables = value.get("tables")
-    if not isinstance(tables, Mapping) or set(tables) != set(PHYSICAL_TABLES):
-        raise ValueError("source physical table inventory is not exactly nine tables")
+    if not isinstance(tables, Mapping) or set(tables) != set(physical_tables):
+        raise ValueError(
+            "source physical table inventory is not exactly "
+            f"{_COUNT_WORDS[len(physical_tables)]} tables"
+        )
     if int(value.get("shard_count", 0)) <= 0:
         raise ValueError("source shard_count must be positive")
 
     total_bytes = 0
-    for table in PHYSICAL_TABLES:
+    for table in physical_tables:
         metadata = tables[table]
         if not isinstance(metadata, Mapping):
             raise ValueError(f"source table metadata must be an object: {table}")
@@ -107,7 +169,7 @@ def source_file_uris(
     manifest: Mapping[str, Any],
     table: str,
 ) -> tuple[str, ...]:
-    if table not in PHYSICAL_TABLES:
+    if table not in manifest_physical_tables(manifest):
         raise ValueError(f"unknown physical source table: {table}")
     root = _dataset_root(manifest_uri)
     result: list[str] = []
@@ -142,7 +204,7 @@ def _expected_object_metadata(
     *, prefix: str, manifest: Mapping[str, Any]
 ) -> dict[str, Mapping[str, Any]]:
     expected: dict[str, Mapping[str, Any]] = {}
-    for table in PHYSICAL_TABLES:
+    for table in manifest_physical_tables(manifest):
         for item in manifest["tables"][table]["files"]:
             name = f"{prefix}/{item['path']}"
             if name in expected:
@@ -273,11 +335,15 @@ def run_ingestion(
     benchmark_id: str | None = None,
     spark_profile: str | None = None,
     git_sha: str | None = None,
+    execution_record_uri: str | None = None,
 ) -> dict[str, Any]:
     manifest = validate_source_manifest(
         _download_json(source_manifest_uri),
         expected_dataset_version=dataset_version,
+        merchant_history=expected_merchant_history(dataset_version),
     )
+    physical_tables = manifest_physical_tables(manifest)
+    bronze_tables = manifest_bronze_tables(manifest)
     source_inventory = _verify_gcs_objects(source_manifest_uri, manifest)
     started_at = datetime.now(timezone.utc)
     started = time.monotonic()
@@ -287,16 +353,19 @@ def run_ingestion(
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")
+    if execution_record_uri:
+        write_execution_record(spark, execution_record_uri, stage="dp1-bronze", run_id=run_id,
+                               dataset_version=dataset_version)
 
     physical = {
         table: spark.read.parquet(
             *source_file_uris(source_manifest_uri, manifest, table)
         )
-        for table in PHYSICAL_TABLES
+        for table in physical_tables
     }
     logical: dict[str, DataFrame] = {
         table: physical[table]
-        for table in BRONZE_TABLES
+        for table in bronze_tables
         if table != "transactions"
     }
     logical["transactions"] = combine_transaction_versions(
@@ -304,7 +373,7 @@ def run_ingestion(
     )
 
     metrics: dict[str, Any] = {}
-    for table in BRONZE_TABLES:
+    for table in bronze_tables:
         dataframe = logical[table]
         expected_rows = (
             int(manifest["physical_transactions"])
@@ -385,8 +454,10 @@ def run_ingestion(
         "bronze_root": bronze_root.rstrip("/"),
         "source_total_bytes": int(manifest["total_bytes"]),
         "source_file_count": sum(
-            len(manifest["tables"][table]["files"]) for table in PHYSICAL_TABLES
+            len(manifest["tables"][table]["files"]) for table in physical_tables
         ),
+        "bronze_tables": list(bronze_tables),
+        "source_extensions": sorted(manifest.get("source_extensions", {})),
         "source_inventory": source_inventory,
         "logical_transactions": int(transaction_summary["logical_rows"]),
         "physical_transactions": int(transaction_summary["physical_rows"]),
@@ -417,6 +488,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--benchmark-id")
     parser.add_argument("--spark-profile", choices=("baseline", "optimized"))
     parser.add_argument("--git-sha")
+    parser.add_argument("--execution-record-uri")
     args = parser.parse_args(argv)
     if len(
         [value for value in (args.benchmark_id, args.spark_profile, args.git_sha) if value]
@@ -439,6 +511,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         benchmark_id=args.benchmark_id,
         spark_profile=args.spark_profile,
         git_sha=args.git_sha,
+        execution_record_uri=args.execution_record_uri,
     )
     return 0
 

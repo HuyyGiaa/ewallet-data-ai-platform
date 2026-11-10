@@ -36,6 +36,7 @@ def write_gold(
     partition_columns: list[str] | None = None,
     *,
     storage: StorageConfig,
+    user_metadata: str | None = None,
 ) -> dict[str, object]:
     path = storage.table_uri("gold", table_name)
     logger.info("[%s] Writing Gold: %s", table_name, path)
@@ -63,6 +64,9 @@ def write_gold(
         .option("mergeSchema", "true")
         .option("maxRecordsPerFile", str(layout.max_records_per_file))
     )
+    if user_metadata is not None:
+        # Recorded in the Delta commit info (DESCRIBE HISTORY ... userMetadata).
+        writer = writer.option("userMetadata", user_metadata)
     if partition_columns:
         writer = writer.partitionBy(*partition_columns)
     writer.save(path)
@@ -76,6 +80,7 @@ def process_gold_table(
     partition_columns: list[str] | None = None,
     *,
     storage: StorageConfig,
+    user_metadata: str | None = None,
 ) -> dict[str, object]:
     started_at = time.perf_counter()
     evidence = write_gold(
@@ -83,6 +88,7 @@ def process_gold_table(
         table_name=table_name,
         partition_columns=partition_columns,
         storage=storage,
+        user_metadata=user_metadata,
     )
     logger.info(
         "[%s] Runtime: %.2f seconds",

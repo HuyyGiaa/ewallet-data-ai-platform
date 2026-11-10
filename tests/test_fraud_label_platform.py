@@ -1,4 +1,9 @@
-"""Focused F2 tests using only fraud_dev and temporary local Delta tables."""
+"""Focused F2 tests using only fraud_dev and temporary local Delta tables.
+
+The fraud_dev source is generated into the test's temporary directory from the
+committed profile (config/settings_fraud_dev.yaml, fixed seed), so the tests do
+not depend on gitignored generator output in the checkout.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +20,7 @@ import yaml
 from deltalake import DeltaTable, write_deltalake
 from pyspark.sql import SparkSession
 
+from data_platform.generation.src.offline.offline_generator import write_offline_datasets
 from data_platform.processing.spark.silver.cleaners import clean_fraud_labels
 from data_platform.processing.spark.silver.silver_pipeline import selected_pipelines
 from data_platform.processing.spark.silver.transactions import clean_transactions
@@ -48,7 +54,20 @@ from data_platform.storage.scripts.init_storage import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-FRAUD_DEV = PROJECT_ROOT / "data_platform" / "generation" / "output" / "fraud_dev"
+FRAUD_DEV_CONFIG = PROJECT_ROOT / "data_platform" / "generation" / "config" / "settings_fraud_dev.yaml"
+
+
+def generate_fraud_dev(target: Path) -> Path:
+    """Write the deterministic fraud_dev source (about 2,400 transactions)."""
+
+    from data_platform.generation.src.offline.offline_generator import (
+        generate_offline_datasets,
+        load_config,
+    )
+
+    datasets, _ = generate_offline_datasets(load_config(FRAUD_DEV_CONFIG))
+    write_offline_datasets(datasets, target)
+    return target
 
 
 class FraudLabelPlatformIntegrationTest(unittest.TestCase):
@@ -60,22 +79,23 @@ class FraudLabelPlatformIntegrationTest(unittest.TestCase):
 
         cls.temporary = tempfile.TemporaryDirectory()
         cls.root = Path(cls.temporary.name)
+        cls.fraud_dev = generate_fraud_dev(cls.root / "fraud_dev")
         cls.bronze_transactions_path = cls.root / "bronze" / "transactions"
         cls.bronze_labels_path = cls.root / "bronze" / "fraud_labels"
         cls.silver_transactions_path = cls.root / "silver" / "transactions"
         cls.silver_labels_path = cls.root / "silver" / "fraud_labels"
 
         v1 = normalize_dataframe(
-            pd.read_parquet(FRAUD_DEV / "transactions_v1.parquet"),
+            pd.read_parquet(cls.fraud_dev / "transactions_v1.parquet"),
             "transactions",
             allowed_missing_columns=("channel",),
         )
         v2 = normalize_dataframe(
-            pd.read_parquet(FRAUD_DEV / "transactions_v2.parquet"),
+            pd.read_parquet(cls.fraud_dev / "transactions_v2.parquet"),
             "transactions",
         )
         labels = normalize_dataframe(
-            pd.read_parquet(FRAUD_DEV / "fraud_labels.parquet"),
+            pd.read_parquet(cls.fraud_dev / "fraud_labels.parquet"),
             "fraud_labels",
         )
 
@@ -174,15 +194,15 @@ class FraudLabelPlatformIntegrationTest(unittest.TestCase):
     def test_v1_v2_local_delta_schema_evolution_is_unchanged(self):
         self.assertNotIn(
             "channel",
-            pd.read_parquet(FRAUD_DEV / "transactions_v1.parquet").columns,
+            pd.read_parquet(self.fraud_dev / "transactions_v1.parquet").columns,
         )
         self.assertIn(
             "channel",
-            pd.read_parquet(FRAUD_DEV / "transactions_v2.parquet").columns,
+            pd.read_parquet(self.fraud_dev / "transactions_v2.parquet").columns,
         )
         self.assertIn("channel", self.bronze_transactions.columns)
         self.assertEqual(
-            len(pd.read_parquet(FRAUD_DEV / "transactions_v1.parquet")),
+            len(pd.read_parquet(self.fraud_dev / "transactions_v1.parquet")),
             int(self.bronze_transactions["channel"].isna().sum()),
         )
         self.assertGreater(

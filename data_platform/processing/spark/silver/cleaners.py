@@ -123,3 +123,25 @@ def clean_fraud_labels(df: DataFrame) -> DataFrame:
         F.col("label").cast("integer").alias("label"),
         F.col("fraud_type").cast("string").alias("fraud_type"),
     )
+
+
+def clean_merchant_history(df: DataFrame) -> DataFrame:
+    """Type the synthetic merchant snapshots and drop exact duplicate rows.
+
+    Rows without a merchant or snapshot time cannot be placed in history and are
+    dropped, as the other Silver cleaners do for missing keys. Conflicting states
+    for one merchant and snapshot time are kept so the SCD2 builder rejects them
+    instead of Silver silently choosing one.
+    """
+    return (
+        df.select(
+            F.col("snapshot_id").cast("string").alias("snapshot_id"),
+            F.col("merchant_id").cast("string").alias("merchant_id"),
+            F.col("merchant_name").cast("string").alias("merchant_name"),
+            F.col("category").cast("string").alias("category"),
+            F.col("snapshot_ts").cast("timestamp").alias("snapshot_ts"),
+            F.col("history_source").cast("string").alias("history_source"),
+        )
+        .filter(F.col("merchant_id").isNotNull() & F.col("snapshot_ts").isNotNull())
+        .dropDuplicates()
+    )

@@ -1,7 +1,9 @@
 """Render the actual deployed Source→Bronze→Silver→Gold table inventory.
 
-This deliberately reports table-level topology from the canonical inventories;
-it does not claim that proposed SCD2 or feature-created columns are deployed.
+This deliberately reports table-level topology from the canonical inventories.
+The merchant_history source extension and the SCD2 merchant dimension are listed
+separately under ``extended``: they exist in code for datasets that carry the
+extension, but no cloud run has materialized them yet.
 """
 
 from __future__ import annotations
@@ -12,6 +14,8 @@ from pathlib import Path
 
 from data_platform.storage.scripts.config import (
     GOLD_TABLES,
+    MERCHANT_HISTORY_TABLE,
+    MERCHANT_SCD2_TABLE,
     HISTORICAL_FEATURE_TABLES,
     offline_tables,
     silver_tables,
@@ -54,9 +58,31 @@ def build_inventory() -> dict[str, object]:
         },
         "edges": edges,
         "not_deployed": [
-            "SCD2 valid_from_ts/valid_to_ts/is_current contract (Spark owner)",
-            "feature created timestamp contract (Spark owner)",
+            "gold.dim_merchant_scd2 (valid_from_ts/valid_to_ts/is_current): implemented and "
+            "locally tested; not yet materialized by a cloud run",
+            "feature created timestamp on the five feat_ tables: implemented and locally "
+            "tested; not yet materialized by a cloud run",
         ],
+        "extended": {
+            "applies_to": "datasets registered with merchant_history=True (rehearsal-5gb-v1)",
+            "zones": {
+                "source": [*source, MERCHANT_HISTORY_TABLE],
+                "bronze": [*bronze, MERCHANT_HISTORY_TABLE],
+                "silver": [*silver, MERCHANT_HISTORY_TABLE],
+                "gold": [*gold, MERCHANT_SCD2_TABLE],
+            },
+            "counts": {
+                "source": len(source) + 1,
+                "bronze": len(bronze) + 1,
+                "silver": len(silver) + 1,
+                "gold": len(gold) + 1,
+            },
+            "edges": [
+                {"from": f"source.{MERCHANT_HISTORY_TABLE}", "to": f"bronze.{MERCHANT_HISTORY_TABLE}"},
+                {"from": f"bronze.{MERCHANT_HISTORY_TABLE}", "to": f"silver.{MERCHANT_HISTORY_TABLE}"},
+                {"from": f"silver.{MERCHANT_HISTORY_TABLE}", "to": f"gold.{MERCHANT_SCD2_TABLE}"},
+            ],
+        },
     }
 
 

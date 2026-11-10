@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pyspark.sql import SparkSession
 
@@ -62,9 +62,11 @@ class HistoricalFraudFeatureTest(unittest.TestCase):
         self.assertEqual(4, len(rows))
 
     def test_future_does_not_affect_prior_snapshot(self):
-        all_rows = build_feat_user_behavior(self.transactions())
+        # One fixed materialization clock, so only feature values can differ.
+        clock = datetime(2026, 11, 9, tzinfo=timezone.utc)
+        all_rows = build_feat_user_behavior(self.transactions(), materialized_at=clock)
         prior_rows = build_feat_user_behavior(
-            self.transactions().filter("transaction_id <> 't4'")
+            self.transactions().filter("transaction_id <> 't4'"), materialized_at=clock
         )
         key = datetime(2026, 1, 1, 12, 0, 0)
         self.assertEqual(

@@ -86,11 +86,11 @@ The Dataproc Serverless read-back of the same A/B is in the owner evidence root,
 | 31 | 2 | DP2 validation | PARTIAL | same | Silver checks PASS | RUNTIME_EVIDENCE_MISSING (Gold assertion NOT_EXECUTED) |
 | 32 | 2 | DP3 lineage | COMPLETE (historical) | same | Silver/Gold → 4 feature datasets | — |
 | 33 | 2 | DP3 validation | COMPLETE (historical) | same | assertion run events | — |
-| 34 | 2 | Visualize tables on all zones | PARTIAL | [ALL_ZONES_SCHEMA](schema/ALL_ZONES_SCHEMA.md) (zone visuals added in N13), [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) | DataHub lineage per zone (HISTORICAL_UI ×4); table roles explained | SCREENSHOT_MISSING (within-zone relationship view) |
+| 34 | 2 | Visualize tables on all zones | PARTIAL | [ALL_ZONES_SCHEMA](schema/ALL_ZONES_SCHEMA.md) (zone visuals added in N13), [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) | DataHub lineage per zone (HISTORICAL_UI ×4); 40-table inventory read back through Trino from the cloud runs (TRINO_METADATA_VERIFIED) | OWNER_SCREENSHOT_PENDING (DBeaver E01–E04) |
 | 35 | 2 | Dim with SCD2 | PARTIAL | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) | LOCAL FIXTURE images only | IMPLEMENTATION_MISSING in submission tree (note 1) |
 | 36 | 2 | `feat_` tables with `event_timestamp` + `created` | PARTIAL | same | `event_timestamp` present; `created` only in uncommitted work | IMPLEMENTATION_MISSING in submission tree (note 1) |
-| 37 | 2 | Dim/fact relationships (DBeaver-like export) | PARTIAL | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) | relationship tables in text | SCREENSHOT_MISSING (ER export) |
-| 38 | 2 | Naming convention | PARTIAL | same | zone-qualified names | DOCUMENTATION_MISSING (explicit `raw_`/`stg_` mapping or accepted "similar") |
+| 37 | 2 | Dim/fact relationships (DBeaver-like export) | PARTIAL | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md), [GOLD_ERD](schema/generated/GOLD_ERD.md) | 13 logical edges with cardinality; DBeaver virtual-key specification | OWNER_SCREENSHOT_PENDING (DBeaver ER diagram E05/E06) |
+| 38 | 2 | Naming convention | PARTIAL | same | zone-qualified names; explicit `raw_`/`stg_` equivalence (§8); catalog listing | OWNER_SCREENSHOT_PENDING (E07); assessor acceptance of "similar" |
 | 39 | 10 | Novel idea 1 | COMPLETE | [01_DETERMINISTIC_SHARDING](novel_ideas/01_DETERMINISTIC_SHARDING.md) | runtime + business E2E | Assessor acceptance |
 | 40 | 10 | Novel idea 2 | COMPLETE | [02_PIT_LEAKAGE_PREVENTION](novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) | runtime + business E2E | Assessor acceptance |
 

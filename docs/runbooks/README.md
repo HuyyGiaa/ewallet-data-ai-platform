@@ -14,6 +14,7 @@ components are indexed in [EDAI-1](../edai1/README.md) and [EDAI-2](../edai2/REA
 | DP2 Method 2 | [Single-DAG DP2 runbook](edai1/cloud/dp2_method2_single_dag_runbook.md) | Silver/Gold baseline and optimized orchestration | Airflow 3, frozen manifests, quota/cost gates | Bounded, approval-gated procedure |
 | Storage optimization | [Cloud storage optimization](edai1/cloud/storage_optimization.md) | Storage A/B planning/validation | Immutable inputs and isolated outputs | Bounded, approval-gated procedure |
 | Terraform foundation | [GCP foundation](../cloud/terraform_gcp_foundation.md) | Terraform plan/apply/cleanup workflow | Remote state, GCP auth, explicit mutation approval | Bounded, approval-gated procedure |
+| Schema visualization | [DBeaver and Trino](edai1/SCHEMA_VISUALIZATION_DBEAVER.md) | Read-only Trino over the canonical GCS runs; DBeaver zone views and Gold ERD | Docker, ADC with bucket read access, DBeaver | Owner captures screenshots E01–E08 |
 | DataHub | [Assertion reproduction](DATAHUB_ASSERTIONS_REPRODUCIBILITY.md) | Metadata/assertion publication and readback | DataHub GMS and exact cloud-derived URNs | Historical campaign context is retained in the legacy archive |
 
 The bounded Silver, Gold and historical-feature procedures live under

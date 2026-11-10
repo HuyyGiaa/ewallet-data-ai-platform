@@ -3,13 +3,31 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from dataclasses import dataclass
+from dataclasses import replace
+from pathlib import Path
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from data_platform.config import RuntimeConfig, StorageConfig, load_runtime_config
+from data_platform.config import (
+    RuntimeConfig,
+    StorageConfig,
+    load_runtime_config,
+    load_runtime_config_file,
+)
 from data_platform.processing.spark.common.spark_session import create_spark_session
+from data_platform.config.dataset_identity import require_same_bucket
+from data_platform.quality.reporting import (
+    add_cloud_arguments,
+    build_report,
+    cloud_environ,
+    execution_record,
+    report_context,
+    write_execution_record,
+    write_report,
+)
+from data_platform.quality.results import ValidationResult
+from data_platform.quality.scd2_quality import merchant_history_results
 
 
 FRAUD_TYPES = (
@@ -29,12 +47,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ValidationResult:
-    rule_name: str
-    passed: bool
-    actual_value: int | float | str
-    expected: str
+# ValidationResult is shared with the Phase B rule modules (quality.results).
 
 
 def read_silver(
@@ -733,6 +746,10 @@ def log_results(results: list[ValidationResult],) -> bool:
 def run_validation(
     include_fraud_labels: bool = False,
     runtime_config: RuntimeConfig | None = None,
+    include_merchant_history: bool = False,
+    report_uri: str | None = None,
+    report_details: dict | None = None,
+    execution_record: dict | None = None,
 ) -> None:
     spark = None
     config = runtime_config or load_runtime_config()
@@ -744,6 +761,8 @@ def run_validation(
             optimized=True,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
 
         validators = [
             (
@@ -888,9 +907,20 @@ def run_validation(
                 )
             )
 
+        if include_merchant_history:
+            all_results.extend(
+                merchant_history_results(
+                    read_silver(spark, "merchant_history", storage=config.storage),
+                    tables["merchants"],
+                )
+            )
+
         passed = log_results(
             all_results
         )
+        if report_uri is not None:
+            write_report(spark, report_uri, build_report("silver", all_results, context=report_details))
+            logger.info("Report written: %s", report_uri)
 
         if not passed:
             raise RuntimeError(
@@ -910,6 +940,26 @@ def run_validation(
             )
 
 
+def apply_explicit_roots(
+    config: RuntimeConfig,
+    *,
+    bronze_root: str | None,
+    silver_root: str | None,
+) -> RuntimeConfig:
+    """Bind validation to explicit run roots; required on gcp so no default root is read."""
+
+    if config.environment != "gcp" and bronze_root is None and silver_root is None:
+        return config
+    for flag, uri, zone in (("--bronze-root", bronze_root, "bronze"), ("--silver-root", silver_root, "silver")):
+        if not uri or not uri.startswith("gs://") or "/lakehouse/runs/" not in uri or not uri.rstrip("/").endswith(f"/{zone}"):
+            raise ValueError(f"{flag} must be a run-scoped gs://.../lakehouse/runs/<run>/{zone} root")
+    require_same_bucket(bronze_root, silver_root)
+    return replace(
+        config,
+        storage=replace(config.storage, bronze_root=bronze_root.rstrip("/"), silver_root=silver_root.rstrip("/")),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate persisted Silver Delta data.")
     parser.add_argument(
@@ -923,12 +973,34 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Require and validate Silver fraud_labels in transitional fraud mode.",
     )
+    parser.add_argument(
+        "--include-merchant-history",
+        action="store_true",
+        help="Validate Silver merchant_history against merchants.",
+    )
+    parser.add_argument("--bronze-root", help="Run-scoped Bronze root (required on gcp).")
+    parser.add_argument("--silver-root", help="Run-scoped Silver root (required on gcp).")
+    parser.add_argument("--runtime-config-file", type=Path)
+    add_cloud_arguments(parser)
     args = parser.parse_args(argv)
     try:
-        config = load_runtime_config(args.environment)
+        environ = cloud_environ(args)
+        if args.runtime_config_file is not None:
+            config = load_runtime_config_file(args.runtime_config_file, args.environment, environ=environ)
+        else:
+            config = load_runtime_config(args.environment, environ=environ)
+        config = apply_explicit_roots(config, bronze_root=args.bronze_root, silver_root=args.silver_root)
         run_validation(
             include_fraud_labels=args.include_fraud_labels,
             runtime_config=config,
+            include_merchant_history=args.include_merchant_history,
+            report_uri=args.report_uri,
+            report_details=report_context(
+                args,
+                bronze_root=config.storage.bronze_root,
+                silver_root=config.storage.silver_root,
+            ),
+            execution_record=execution_record(args, "silver-validation"),
         )
         return 0
 

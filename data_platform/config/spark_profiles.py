@@ -265,6 +265,27 @@ def quota_requirements(
     }
 
 
+def require_campaign_lineage(
+    run_id: str,
+    *,
+    benchmark_id: str,
+    profile: str,
+    stage: str,
+    upstream: dict[str, str] | None = None,
+) -> str:
+    """Bind one campaign stage and its upstream runs to the same benchmark and profile.
+
+    The DP1-DP3 campaign runs one profile end to end, so unlike Method 2 each stage
+    reads only upstream runs of its own profile. ``upstream`` maps a stage alias
+    (bronze, silver, gold) to the run ID the stage reads.
+    """
+
+    bound = require_profile_binding(run_id, benchmark_id=benchmark_id, profile=profile, stage=stage)
+    for upstream_stage, upstream_run_id in (upstream or {}).items():
+        require_profile_binding(upstream_run_id, benchmark_id=benchmark_id, profile=profile, stage=upstream_stage)
+    return bound
+
+
 def validate_benchmark_id(value: str) -> str:
     if not _BENCHMARK_ID.fullmatch(value):
         raise ValueError("benchmark_id must match ab-YYYYMMDDhhmmss")

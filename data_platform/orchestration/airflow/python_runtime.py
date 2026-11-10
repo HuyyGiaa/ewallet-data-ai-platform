@@ -29,6 +29,9 @@ LLM_AGENT_MODULES = (
 # Stdlib-only Feast Online orchestration; kept out of the validation above for
 # the same reason, so a Feast change cannot stop DP1-DP3 DAGs from parsing.
 FEAST_ONLINE_MODULES = ("ops.mlops.feast_incremental",)
+# The DP1-DP3 campaign entry point; validated by the campaign DAG's own tests so
+# a change there cannot stop the existing DP1-DP3 DAGs from parsing.
+CAMPAIGN_MODULES = ("ops.gcp.campaign_task",)
 
 
 @lru_cache(maxsize=None)
@@ -83,7 +86,7 @@ def python_task_environment(repository_root: str | Path) -> dict[str, str]:
 def python_module_command(module: str) -> str:
     """Build a fail-fast shell prefix for running a validated Python module."""
 
-    if module not in REQUIRED_GCP_MODULES + LLM_AGENT_MODULES + FEAST_ONLINE_MODULES:
+    if module not in REQUIRED_GCP_MODULES + LLM_AGENT_MODULES + FEAST_ONLINE_MODULES + CAMPAIGN_MODULES:
         raise ValueError(f"Python module is not in the Airflow allowlist: {module}")
     return (
         f'"${{{PYTHON_ENV_VAR}:?ERROR: {PYTHON_ENV_VAR} is not configured}}" '

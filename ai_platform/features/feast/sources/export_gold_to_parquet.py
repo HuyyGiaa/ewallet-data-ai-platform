@@ -28,7 +28,7 @@ from ai_platform.features.feast.repository import (
     build_export_manifest,
     join_data_root,
 )
-from ai_platform.features.feast.schema import FEATURE_SPECS
+from ai_platform.features.feast.schema import FEATURE_SPECS, feast_export_columns
 from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.storage.scripts.config import (
     deltalake_storage_options,
@@ -196,12 +196,16 @@ def export_gold_snapshots(
         source = gold_source_uri(runtime_config, table_name)
         target = join_data_root(root, table_name)
         delta_table = DeltaTable(source, storage_options=storage_options)
-        snapshot = delta_table.to_pyarrow_dataset()
-        if snapshot.schema.names != expected_columns:
-            raise ValueError(
-                f"{table_name} schema mismatch: {snapshot.schema.names}"
-            )
-        timestamp_type = str(snapshot.schema.field("event_timestamp").type)
+        source_snapshot = delta_table.to_pyarrow_dataset()
+        dropped_audit_columns = feast_export_columns(
+            table_name, source_snapshot.schema.names, expected_columns
+        )
+        snapshot = (
+            source_snapshot.scanner(columns=expected_columns)
+            if dropped_audit_columns
+            else source_snapshot
+        )
+        timestamp_type = str(source_snapshot.schema.field("event_timestamp").type)
         if timestamp_type != "timestamp[us, tz=UTC]":
             raise TypeError(
                 f"{table_name}.event_timestamp is {timestamp_type}, expected "
@@ -232,6 +236,8 @@ def export_gold_snapshots(
             "output_rows": output_rows,
             "event_timestamp_type": output_timestamp_type,
         }
+        if dropped_audit_columns:
+            tables[view_name]["excluded_audit_columns"] = list(dropped_audit_columns)
         print(f"PASS | export {table_name} | rows={output_rows}")
 
     manifest = build_export_manifest(

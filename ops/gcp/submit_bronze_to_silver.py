@@ -10,6 +10,10 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from data_platform.config.dataset_identity import (
+    dataset_has_merchant_history,
+    refuse_misplaced_dataset,
+)
 from data_platform.config.spark_benchmark import (
     load_pair_manifest,
     method2_runtime_properties,
@@ -27,6 +31,7 @@ from ops.gcp.dataproc_batch_properties import (
 )
 from data_platform.config.spark_profiles import (
     require_benchmark_pair,
+    require_campaign_lineage,
     require_profile_binding,
     validate_git_sha,
 )
@@ -41,6 +46,8 @@ from ops.gcp.submit_source_to_bronze import (
     REPOSITORY_ROOT,
     _validate_id,
     _validate_ttl,
+    apply_dataset_bucket,
+    execution_record_uri,
     load_cloud_runtime,
 )
 from ops.gcp.submit_silver_to_gold import assert_batch_id_absent
@@ -122,8 +129,10 @@ def build_submission_command(
     benchmark_id: str | None = None,
     git_sha: str | None = None,
     pair_manifest: Mapping[str, object] | None = None,
+    campaign: bool = False,
 ) -> tuple[str, ...]:
     dataset_version = _validate_id(dataset_version, "dataset_version")
+    refuse_misplaced_dataset(dataset_version, runtime.data_bucket)
     run_id = _validate_id(run_id, "run_id")
     ttl = _validate_ttl(ttl)
     execution_profile = resolve_submission_profile(
@@ -154,7 +163,17 @@ def build_submission_command(
         source_bronze_run_id=source_bronze_run_id,
         run_id=run_id,
     )
-    if benchmark_id is not None:
+    if campaign and (benchmark_id is None or pair_manifest is not None):
+        raise ValueError("campaign submissions need a benchmark ID and no pair manifest")
+    if campaign:
+        require_campaign_lineage(
+            run_id,
+            benchmark_id=str(benchmark_id),
+            profile=str(spark_profile),
+            stage="silver",
+            upstream={"bronze": source_bronze_run_id},
+        )
+    elif benchmark_id is not None:
         if pair_manifest is None:
             raise ValueError("benchmark submissions require --pair-manifest")
         validate_pair_member(
@@ -168,7 +187,10 @@ def build_submission_command(
             output_run_id=run_id,
             output_root=silver_root,
         )
-    tables = silver_tables(include_fraud_labels=True)
+    merchant_history = dataset_has_merchant_history(dataset_version)
+    tables = silver_tables(
+        include_fraud_labels=True, include_merchant_history=merchant_history
+    )
     jars = tuple(jar_paths or dependency_jar_paths())
     property_items = list(
         build_dataproc_batch_properties(
@@ -178,7 +200,7 @@ def build_submission_command(
             stage="dp2-silver",
         )
     )
-    if benchmark_id is not None:
+    if benchmark_id is not None and not campaign:
         property_items.extend(
             f"{key}={value}"
             for key, value in method2_runtime_properties(
@@ -214,9 +236,11 @@ def build_submission_command(
         f"--labels={labels}",
         f"--properties={properties}",
         "--",
+        *((f"--execution-record-uri={execution_record_uri(runtime.data_bucket, run_id, run_id)}",) if campaign else ()),
         "--environment=gcp",
         f"--mode={spark_profile or 'optimized'}",
         "--include-fraud-labels",
+        *(("--include-merchant-history",) if merchant_history else ()),
         f"--expected-table-count={len(tables)}",
         f"--dataset-version={dataset_version}",
         f"--source-bronze-run-id={source_bronze_run_id}",
@@ -267,6 +291,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--benchmark-id")
     parser.add_argument("--git-sha")
     parser.add_argument("--pair-manifest", type=Path)
+    parser.add_argument(
+        "--campaign",
+        action="store_true",
+        help="DP1-DP3 campaign lineage: upstream runs of the same profile, no pair manifest.",
+    )
     parser.add_argument("--execute", action="store_true")
     return parser.parse_args(argv)
 
@@ -284,7 +313,10 @@ def _print_plan(
         source_bronze_run_id=source_bronze_run_id,
         run_id=run_id,
     )
-    table_names = silver_tables(include_fraud_labels=True)
+    table_names = silver_tables(
+        include_fraud_labels=True,
+        include_merchant_history=dataset_has_merchant_history(dataset_version),
+    )
     print(f"Dataset version: {dataset_version}")
     print(f"Source Bronze run: {source_bronze_run_id}")
     print(f"Bronze input root: {bronze_root}")
@@ -304,7 +336,9 @@ def main(
     runner: Callable[..., Any] = subprocess.run,
 ) -> int:
     args = parse_args(argv)
-    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    runtime = apply_dataset_bucket(
+        load_cloud_runtime(_load_outputs(args.terraform_output_json, runner)), args.dataset_version
+    )
     jar_paths = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
     if args.execute:
@@ -327,6 +361,7 @@ def main(
             if args.pair_manifest is not None
             else None
         ),
+        campaign=args.campaign,
         archive_path=archive,
         jar_paths=jar_paths,
     )
@@ -334,7 +369,7 @@ def main(
         print("DRY RUN — no Dataproc batch was submitted")
         if args.spark_profile:
             print("\n".join(profile_summary(args.spark_profile, stage="dp2-silver")))
-        if args.benchmark_id:
+        if args.benchmark_id and not args.campaign:
             print(f"BENCHMARK_ID: {args.benchmark_id}")
             print(
                 "PAIR_MANIFEST_DIGEST: "

@@ -6,9 +6,9 @@ Delta declares no primary or foreign keys. **PK** and **FK** below are logical: 
 
 | Zone | Run | Tables | Columns |
 |---|---|---:|---:|
-| Bronze | `ab-20261029174838-baseline-bronze-r261029174838` | 8 | 45 |
-| Silver | `ab-20261031035745-baseline-silver-r261031035745` | 8 | 47 |
-| Gold core | `ab-20261031035745-baseline-gold-r261031035746` | 11 | 103 |
+| Bronze | `ab-20261025134342-optimized-bronze-r261025174525` | 8 | 45 |
+| Silver | `ab-20261025134342-optimized-silver-r261025181923` | 8 | 47 |
+| Gold core | `ab-20261025134342-optimized-gold-r261025181923` | 11 | 103 |
 | Gold features | `ab-20261025134342-optimized-feat-r261026025955` | 4 | 39 |
 
 | Artifact | Use |
@@ -16,6 +16,11 @@ Delta declares no primary or foreign keys. **PK** and **FK** below are logical: 
 | [bronze.mmd](bronze.mmd), [silver.mmd](silver.mmd), [gold.mmd](gold.mmd), [features.mmd](features.mmd) | Mermaid ER diagrams |
 | [silver.dbml](silver.dbml), [gold.dbml](gold.dbml) | Import at dbdiagram.io |
 | [gold_erd_import.sql](gold_erd_import.sql) | Load into a scratch PostgreSQL database, then reverse engineer in DBeaver |
+| [ZONE_COLUMNS.md](ZONE_COLUMNS.md) | Every table of every zone with its columns |
+| [GOLD_ERD.md](GOLD_ERD.md) | Gold dimension-fact ERD: grain, cardinality, DBeaver virtual keys |
+| [trino_register_tables.sql](trino_register_tables.sql) | Register the observed runs in the task-owned Trino (local metastore only) |
+| [trino_metadata_queries.sql](trino_metadata_queries.sql) | Read-only metadata queries for evidence E01-E08 |
+| [trino_provenance_queries.sql](trino_provenance_queries.sql) | Print the GCS location of one table per zone (E08) |
 | [observed_schemas.json](observed_schemas.json) | Source of these diagrams |
 
 ## Zone-to-zone column changes
@@ -57,38 +62,38 @@ Source to Bronze is one to one by table name; its column mapping is checked by `
 
 ## Logical relationships
 
-`validated` means a validator rule checks the relationship on real rows. `builder_only` means it follows from the transformation.
+`validated` means a rule in `validate_silver.py` or `validate_gold.py` checks the relationship; those validators run in the local canonical rebuilds. `builder_only` means it follows from the transformation. The last column says whether the 100GB cloud run re-checks it (`ops/gcp/summarize_spark_output.py`).
 
-| Zone | From | To | Nullable | Enforcement |
-|---|---|---|---|---|
-| silver | `accounts.user_id` | `users.user_id` | no | validated |
-| silver | `devices.user_id` | `users.user_id` | no | validated |
-| silver | `transactions.user_id` | `users.user_id` | no | validated |
-| silver | `transactions.account_id` | `accounts.account_id` | no | validated |
-| silver | `transactions.device_id` | `devices.device_id` | no | validated |
-| silver | `transactions.merchant_id` | `merchants.merchant_id` | yes | validated |
-| silver | `transactions.counterparty_account_id` | `accounts.account_id` | yes | validated |
-| silver | `login_events.user_id` | `users.user_id` | no | validated |
-| silver | `login_events.device_id` | `devices.device_id` | no | validated |
-| silver | `balance_snapshots.account_id` | `accounts.account_id` | no | validated |
-| silver | `fraud_labels.transaction_id` | `transactions.transaction_id` | no | builder_only |
-| gold | `dim_account.user_id` | `dim_user.user_id` | no | validated |
-| gold | `dim_device.user_id` | `dim_user.user_id` | no | validated |
-| gold | `fact_transactions.user_id` | `dim_user.user_id` | no | validated |
-| gold | `fact_transactions.account_id` | `dim_account.account_id` | no | validated |
-| gold | `fact_transactions.device_id` | `dim_device.device_id` | no | validated |
-| gold | `fact_transactions.merchant_id` | `dim_merchant.merchant_id` | yes | validated |
-| gold | `fact_transactions.counterparty_account_id` | `dim_account.account_id` | yes | validated |
-| gold | `fact_transactions.date_key` | `dim_date.date_key` | no | validated |
-| gold | `fact_login_events.user_id` | `dim_user.user_id` | no | validated |
-| gold | `fact_login_events.device_id` | `dim_device.device_id` | no | validated |
-| gold | `fact_login_events.date_key` | `dim_date.date_key` | no | validated |
-| gold | `fact_balance_snapshot.account_id` | `dim_account.account_id` | no | validated |
-| gold | `fact_balance_snapshot.date_key` | `dim_date.date_key` | no | validated |
-| gold | `obt_transaction_enriched.transaction_id` | `fact_transactions.transaction_id` | no | builder_only |
-| gold | `feat_user_90d.user_id` | `dim_user.user_id` | no | validated |
-| gold | `opt_merchant_performance.merchant_id` | `dim_merchant.merchant_id` | no | validated |
-| features | `feat_user_behavior.user_id` | `dim_user.user_id` | no | validated |
-| features | `feat_account_behavior.account_id` | `dim_account.account_id` | no | validated |
-| features | `feat_device_behavior.device_id` | `dim_device.device_id` | no | validated |
-| features | `feat_merchant_behavior.merchant_id` | `dim_merchant.merchant_id` | no | validated |
+| Zone | From | To | Cardinality | Nullable | Enforcement | 100GB cloud check |
+|---|---|---|---|---|---|---|
+| silver | `accounts.user_id` | `users.user_id` | many-to-one | no | validated | no |
+| silver | `devices.user_id` | `users.user_id` | many-to-one | no | validated | no |
+| silver | `transactions.user_id` | `users.user_id` | many-to-one | no | validated | no |
+| silver | `transactions.account_id` | `accounts.account_id` | many-to-one | no | validated | no |
+| silver | `transactions.device_id` | `devices.device_id` | many-to-one | no | validated | no |
+| silver | `transactions.merchant_id` | `merchants.merchant_id` | many-to-one | yes | validated | no |
+| silver | `transactions.counterparty_account_id` | `accounts.account_id` | many-to-one | yes | validated | no |
+| silver | `login_events.user_id` | `users.user_id` | many-to-one | no | validated | no |
+| silver | `login_events.device_id` | `devices.device_id` | many-to-one | no | validated | no |
+| silver | `balance_snapshots.account_id` | `accounts.account_id` | many-to-one | no | validated | no |
+| silver | `fraud_labels.transaction_id` | `transactions.transaction_id` | one-to-one (complete) | no | builder_only | no |
+| gold | `dim_account.user_id` | `dim_user.user_id` | many-to-one | no | validated | no |
+| gold | `dim_device.user_id` | `dim_user.user_id` | many-to-one | no | validated | no |
+| gold | `fact_transactions.user_id` | `dim_user.user_id` | many-to-one | no | validated | yes |
+| gold | `fact_transactions.account_id` | `dim_account.account_id` | many-to-one | no | validated | yes |
+| gold | `fact_transactions.device_id` | `dim_device.device_id` | many-to-one | no | validated | yes |
+| gold | `fact_transactions.merchant_id` | `dim_merchant.merchant_id` | many-to-one | yes | validated | yes |
+| gold | `fact_transactions.counterparty_account_id` | `dim_account.account_id` | many-to-one | yes | validated | no |
+| gold | `fact_transactions.date_key` | `dim_date.date_key` | many-to-one | no | validated | yes |
+| gold | `fact_login_events.user_id` | `dim_user.user_id` | many-to-one | no | validated | no |
+| gold | `fact_login_events.device_id` | `dim_device.device_id` | many-to-one | no | validated | no |
+| gold | `fact_login_events.date_key` | `dim_date.date_key` | many-to-one | no | validated | no |
+| gold | `fact_balance_snapshot.account_id` | `dim_account.account_id` | many-to-one | no | validated | no |
+| gold | `fact_balance_snapshot.date_key` | `dim_date.date_key` | many-to-one | no | validated | no |
+| gold | `obt_transaction_enriched.transaction_id` | `fact_transactions.transaction_id` | one-to-one (complete) | no | builder_only | no |
+| gold | `feat_user_90d.user_id` | `dim_user.user_id` | one-to-one (complete) | no | validated | no |
+| gold | `opt_merchant_performance.merchant_id` | `dim_merchant.merchant_id` | one-to-one (complete) | no | validated | no |
+| features | `feat_user_behavior.user_id` | `dim_user.user_id` | many-to-one | no | validated | no |
+| features | `feat_account_behavior.account_id` | `dim_account.account_id` | many-to-one | no | validated | no |
+| features | `feat_device_behavior.device_id` | `dim_device.device_id` | many-to-one | no | validated | no |
+| features | `feat_merchant_behavior.merchant_id` | `dim_merchant.merchant_id` | many-to-one | no | validated | no |

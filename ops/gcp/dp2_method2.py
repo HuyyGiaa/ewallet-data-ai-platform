@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from data_platform.config.dataset_identity import CANONICAL_100GB, require_dataset_bucket
 from data_platform.config.spark_benchmark import (
     WINNER_SCHEMA, load_pair_manifest, pair_member, winner_artifact_digest,
 )
@@ -89,7 +90,8 @@ def _sha256(path: Path) -> str:
 
 def _winner(path: Path, *, stage: str, benchmark: str, bucket: str,
             expected_git_sha: str | None = None,
-            expected_file_sha256: str | None = None) -> dict[str, Any]:
+            expected_file_sha256: str | None = None,
+            dataset_version: str = CANONICAL_100GB) -> dict[str, Any]:
     if expected_file_sha256 is not None:
         if not re.fullmatch(r"[0-9a-f]{64}", expected_file_sha256):
             raise ValueError("Expected winner SHA-256 is invalid")
@@ -97,7 +99,7 @@ def _winner(path: Path, *, stage: str, benchmark: str, bucket: str,
             raise ValueError("Winner file SHA-256 mismatch")
     data = _json(path)
     required = {"schema_version": WINNER_SCHEMA, "stage": stage,
-                "benchmark_id": benchmark, "dataset_version": "canonical-100gb-v1"}
+                "benchmark_id": benchmark, "dataset_version": dataset_version}
     for key, value in required.items():
         if data.get(key) != value:
             raise ValueError(f"Wrong winner {key}: {data.get(key)!r}")
@@ -135,6 +137,7 @@ def _bronze_winner(args: argparse.Namespace) -> dict[str, Any]:
         benchmark=source_benchmark,
         bucket=args.data_bucket,
         expected_file_sha256=source_sha256,
+        dataset_version=args.dataset_version,
     )
 
 
@@ -176,7 +179,7 @@ def _require_pair(args: argparse.Namespace, stage: str) -> tuple[dict[str, Any],
     else:
         source = _winner(_winner_path(args.root, "silver"), stage="dp2-silver",
                          benchmark=args.benchmark_id, bucket=args.data_bucket,
-                         expected_git_sha=args.git_sha)
+                         expected_git_sha=args.git_sha, dataset_version=args.dataset_version)
     if upstream != [source["selected_output_run_id"]]:
         raise ValueError("Pair upstream does not match selected immutable winner")
     member = pair_member(manifest, args.profile)
@@ -507,7 +510,7 @@ def _action(args: argparse.Namespace) -> None:
         else:
             source = _winner(_winner_path(args.root, "silver"), stage="dp2-silver",
                              benchmark=args.benchmark_id, bucket=args.data_bucket,
-                             expected_git_sha=args.git_sha)
+                             expected_git_sha=args.git_sha, dataset_version=args.dataset_version)
             _create_pair(args, "gold", source["selected_output_run_id"])
         return
 
@@ -727,7 +730,7 @@ def _action(args: argparse.Namespace) -> None:
                 "--output", str(_winner_path(args.root, stage)))
         _winner(_winner_path(args.root, stage), stage=STAGES[stage],
                 benchmark=args.benchmark_id, bucket=args.data_bucket,
-                expected_git_sha=args.git_sha)
+                expected_git_sha=args.git_sha, dataset_version=args.dataset_version)
         print(f"DP2 {stage.upper()} Method 2 winner confirmed")
     else:
         raise ValueError(f"Unknown action {args.action}")
@@ -744,7 +747,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--bronze-source-benchmark-id", required=True)
     parser.add_argument("--bronze-winner-sha256", required=True)
     parser.add_argument("--benchmark-id", required=True)
-    parser.add_argument("--dataset-version", default="canonical-100gb-v1")
+    parser.add_argument("--dataset-version", default=CANONICAL_100GB)
     parser.add_argument("--git-sha", required=True)
     parser.add_argument("--data-bucket", required=True)
     parser.add_argument("--project", required=True)
@@ -762,8 +765,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--stage", choices=STAGES)
     parser.add_argument("--profile", choices=PROFILES)
     args = parser.parse_args(argv)
-    if args.dataset_version != "canonical-100gb-v1":
-        raise ValueError("DP2 must use canonical-100gb-v1")
+    # An approved campaign dataset only; a rehearsal never in the canonical bucket.
+    require_dataset_bucket(args.dataset_version, args.data_bucket)
     if args.action not in ("approve", "prepare-silver", "prepare-gold") and not (
             args.stage and args.profile or args.action == "finalize" and args.stage):
         raise ValueError("Stage/profile required (finalize needs stage only)")

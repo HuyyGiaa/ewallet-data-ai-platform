@@ -9,7 +9,12 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from .generator import PHYSICAL_TABLES
+from data_platform.generation.src.offline.merchant_history import (
+    HISTORY_SOURCE,
+    MERCHANT_HISTORY_TABLE,
+)
+
+from .generator import LEGACY_PHYSICAL_TABLES, PHYSICAL_TABLES
 from .models import ShardFileMetadata, ShardManifest, ShardPlan
 from .storage import ObjectStore, file_md5_base64
 
@@ -20,6 +25,20 @@ class ObjectConflictError(RuntimeError):
 
 class IncompleteDatasetError(RuntimeError):
     """The final dataset marker cannot be written because shards are missing."""
+
+
+# Written to the dataset manifest only when the extension is present, so a
+# legacy nine-table manifest stays byte-identical to what was published.
+MERCHANT_HISTORY_EXTENSION = {
+    "table": MERCHANT_HISTORY_TABLE,
+    "provenance": HISTORY_SOURCE,
+    "generator": "data_platform.generation.src.offline.merchant_history",
+    "semantics": (
+        "Synthetic full merchant snapshots on a fixed schedule from the first "
+        "transaction instant; the last snapshot equals merchants. Not observed "
+        "real-world merchant history."
+    ),
+}
 
 
 def _json_text(value: dict[str, Any]) -> str:
@@ -34,10 +53,15 @@ class DatasetPublisher:
         store: ObjectStore,
         dataset_root: str,
         plan: ShardPlan,
+        physical_tables: tuple[str, ...] = PHYSICAL_TABLES,
     ) -> None:
+        allowed = (LEGACY_PHYSICAL_TABLES, LEGACY_PHYSICAL_TABLES + (MERCHANT_HISTORY_TABLE,))
+        if tuple(physical_tables) not in allowed:
+            raise ValueError(f"unsupported physical table contract: {physical_tables}")
         self.store = store
         self.dataset_root = dataset_root.rstrip("/")
         self.plan = plan
+        self.physical_tables = tuple(physical_tables)
 
     @property
     def plan_uri(self) -> str:
@@ -82,9 +106,10 @@ class DatasetPublisher:
         if manifest.shard_id != shard_id:
             raise ObjectConflictError("shard ID conflicts with manifest path")
         tables = tuple(item.table for item in manifest.files)
-        if tables != PHYSICAL_TABLES:
+        if tables != self.physical_tables:
             raise ObjectConflictError(
-                f"shard physical tables changed: expected {PHYSICAL_TABLES}, got {tables}"
+                "shard physical tables changed: "
+                f"expected {self.physical_tables}, got {tables}"
             )
 
     def completed_shard(self, shard_id: int) -> ShardManifest | None:
@@ -215,7 +240,7 @@ class DatasetPublisher:
             )
 
         tables: dict[str, dict[str, Any]] = {}
-        for table in PHYSICAL_TABLES:
+        for table in self.physical_tables:
             table_files = [
                 (shard.shard_id, next(item for item in shard.files if item.table == table))
                 for shard in shards
@@ -272,6 +297,10 @@ class DatasetPublisher:
             ),
             "tables": tables,
         }
+        if MERCHANT_HISTORY_TABLE in self.physical_tables:
+            dataset_manifest["source_extensions"] = {
+                MERCHANT_HISTORY_TABLE: dict(MERCHANT_HISTORY_EXTENSION)
+            }
 
         if self.store.exists(self.dataset_manifest_uri):
             actual = json.loads(self.store.read_text(self.dataset_manifest_uri))

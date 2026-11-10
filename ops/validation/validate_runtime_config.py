@@ -58,6 +58,9 @@ _ALLOWLIST = {
     },
     # Container-internal JobManager healthcheck of the local Flink benchmark.
     "infra/docker/flink-benchmark/compose.yml": {"localhost:8081"},
+    # Container-internal home of the image's `trino` user, which holds the local
+    # metastore volume of the schema-visualization Trino; not a developer path.
+    "infra/docker/schema-viz/compose.yml": {"developer absolute path"},
 }
 
 _LOCAL_PROFILE_ENVIRONMENT = {

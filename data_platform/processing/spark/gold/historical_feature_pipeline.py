@@ -8,6 +8,7 @@ import os
 import sys
 import time
 from dataclasses import replace
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from data_platform.config import (
     load_runtime_config,
     load_runtime_config_file,
 )
+from data_platform.config.dataset_identity import require_same_bucket
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.processing.spark.common.spark_session import create_spark_session
 from data_platform.processing.spark.common.persistence import persisted
@@ -30,9 +32,14 @@ from data_platform.processing.spark.gold.features import (
     build_feat_merchant_behavior,
     build_feat_user_behavior,
 )
+from data_platform.processing.spark.gold.materialization import (
+    materialization_metadata,
+    require_utc,
+)
 from data_platform.processing.spark.gold.features.validation import (
     validate_feature_columns,
 )
+from data_platform.quality.reporting import execution_record as execution_record_from_args, write_execution_record
 from data_platform.storage.scripts.config import HISTORICAL_FEATURE_TABLES
 
 
@@ -74,6 +81,7 @@ def apply_run_scoped_storage(
         or not feature_gold_root.endswith("/gold")
     ):
         raise ValueError("Feature Gold root must be a run-scoped Gold path")
+    require_same_bucket(silver_root, feature_gold_root)
     return replace(
         config,
         storage=replace(
@@ -84,13 +92,19 @@ def apply_run_scoped_storage(
     )
 
 
-def feature_definitions(transactions_df, devices_df):
+def feature_definitions(transactions_df, devices_df, *, materialized_at=None):
+    """Return (table, DataFrame, required columns) for the four DP3 tables.
+
+    ``materialized_at`` is the single UTC instant written to ``created`` in all
+    four tables; ``event_timestamp`` stays the transaction time.
+    """
+    stamp = {"materialized_at": materialized_at}
     return (
         (
             "feat_user_behavior",
-            build_feat_user_behavior(transactions_df),
+            build_feat_user_behavior(transactions_df, **stamp),
             (
-                "user_id", "event_timestamp", "user_tx_count_5m",
+                "user_id", "event_timestamp", "created", "user_tx_count_5m",
                 "user_tx_count_1h", "user_tx_count_24h",
                 "user_amount_sum_1h", "user_amount_observation_count_30d",
                 "user_avg_amount_30d", "user_std_amount_30d",
@@ -99,9 +113,9 @@ def feature_definitions(transactions_df, devices_df):
         ),
         (
             "feat_account_behavior",
-            build_feat_account_behavior(transactions_df),
+            build_feat_account_behavior(transactions_df, **stamp),
             (
-                "account_id", "event_timestamp", "account_tx_count_5m",
+                "account_id", "event_timestamp", "created", "account_tx_count_5m",
                 "account_tx_count_1h", "account_tx_count_24h",
                 "account_amount_sum_1h", "account_amount_sum_24h",
                 "account_amount_observation_count_30d",
@@ -111,18 +125,18 @@ def feature_definitions(transactions_df, devices_df):
         ),
         (
             "feat_device_behavior",
-            build_feat_device_behavior(transactions_df, devices_df),
+            build_feat_device_behavior(transactions_df, devices_df, **stamp),
             (
-                "device_id", "event_timestamp", "device_age_seconds",
+                "device_id", "event_timestamp", "created", "device_age_seconds",
                 "device_tx_count_1h", "device_tx_count_24h",
                 "device_amount_sum_24h", "device_failed_rate_24h",
             ),
         ),
         (
             "feat_merchant_behavior",
-            build_feat_merchant_behavior(transactions_df),
+            build_feat_merchant_behavior(transactions_df, **stamp),
             (
-                "merchant_id", "event_timestamp", "merchant_tx_count_10m",
+                "merchant_id", "event_timestamp", "created", "merchant_tx_count_10m",
                 "merchant_tx_count_1h", "merchant_tx_count_24h",
                 "merchant_unique_users_10m", "merchant_unique_users_1h",
                 "merchant_amount_sum_1h", "merchant_avg_amount_24h",
@@ -146,7 +160,11 @@ def project_feature_transactions(transactions_df):
 def run_historical_feature_pipeline(
     optimized: bool = True,
     runtime_config: RuntimeConfig | None = None,
+    materialized_at: datetime | None = None,
+    execution_record: dict | None = None,
 ) -> None:
+    materialized_at = require_utc(materialized_at or datetime.now(timezone.utc))
+    clock_metadata = materialization_metadata(materialized_at)
     spark = None
     config = runtime_config or load_runtime_config()
     persist = partial(process_gold_table, storage=config.storage)
@@ -157,6 +175,8 @@ def run_historical_feature_pipeline(
             optimized=optimized,
             runtime_config=config,
         )
+        if execution_record is not None:
+            write_execution_record(spark, **execution_record)
         started_at = time.perf_counter()
         transactions_df = read_silver(
             spark, "transactions", storage=config.storage
@@ -166,11 +186,14 @@ def run_historical_feature_pipeline(
             project_feature_transactions(transactions_df),
             StorageLevel.DISK_ONLY,
         ) as projected_transactions_df:
+            logger.info("Materialized at (UTC): %s", materialized_at.isoformat())
             for table_name, feature_df, required_columns in feature_definitions(
-                projected_transactions_df, devices_df
+                projected_transactions_df,
+                devices_df,
+                materialized_at=materialized_at,
             ):
                 validate_feature_columns(feature_df, table_name, required_columns)
-                persist(table_name, feature_df)
+                persist(table_name, feature_df, user_metadata=clock_metadata)
         logger.info(
             "DP3 historical features completed in %.2f seconds",
             time.perf_counter() - started_at,
@@ -192,6 +215,7 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--mode", choices=["baseline", "optimized"], default="optimized"
     )
+    parser.add_argument("--execution-record-uri")
     parser.add_argument("--silver-root")
     parser.add_argument("--source-core-gold-root")
     parser.add_argument("--feature-gold-root")
@@ -271,7 +295,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"pipeline defines {len(HISTORICAL_FEATURE_TABLES)}"
             )
         run_historical_feature_pipeline(
-            optimized=args.mode == "optimized", runtime_config=config
+            optimized=args.mode == "optimized",
+            runtime_config=config,
+            execution_record=execution_record_from_args(args, "dp3-features"),
         )
         return 0
     except Exception:

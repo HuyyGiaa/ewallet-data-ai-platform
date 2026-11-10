@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
@@ -11,11 +13,16 @@ from .temporal import (
     historical_sum,
     historical_window,
     shared_snapshots,
+    with_created,
     with_event_time,
 )
 
 
-def build_feat_account_behavior(transactions_df: DataFrame) -> DataFrame:
+def build_feat_account_behavior(
+    transactions_df: DataFrame,
+    *,
+    materialized_at: datetime | None = None,
+) -> DataFrame:
     events = with_event_time(transactions_df)
     window_5m = historical_window("account_id", 5 * 60)
     window_1h = historical_window("account_id", 60 * 60)
@@ -43,4 +50,4 @@ def build_feat_account_behavior(transactions_df: DataFrame) -> DataFrame:
             / F.lit(MICROSECONDS_PER_SECOND)
         ).cast("double").alias("account_seconds_since_last_tx"),
     )
-    return shared_snapshots(features, "account_id")
+    return with_created(shared_snapshots(features, "account_id"), materialized_at)

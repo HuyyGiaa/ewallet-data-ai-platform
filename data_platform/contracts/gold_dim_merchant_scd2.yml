@@ -1,0 +1,48 @@
+contract_version: 1
+dataset: gold.dim_merchant_scd2
+layer: gold
+description: SCD Type 2 merchant dimension; one row per merchant attribute version.
+storage_layer: gold
+storage_table: dim_merchant_scd2
+availability: >-
+  Built by DP2 core Gold with --include-merchant-scd2, only for datasets that carry
+  silver.merchant_history. gold.dim_merchant stays the one-row-per-merchant current
+  dimension that fact, OBT, feature and analytics joins use.
+grain: One row per merchant version.
+logical_key: [merchant_id, valid_from_ts]
+surrogate_key: >-
+  merchant_sk = SHA-256 of merchant_id and the valid_from_ts epoch microseconds.
+  Deterministic, so a rebuild from the same snapshots gives the same keys.
+upstream: [silver.merchant_history]
+enforced_by: [data_platform.quality.validate_gold --scope core-gold --include-merchant-scd2]
+columns:
+  - {name: merchant_sk, type: string, nullable: false}
+  - {name: merchant_id, type: string, nullable: false}
+  - {name: merchant_name, type: string, nullable: true}
+  - {name: category, type: string, nullable: true}
+  - {name: valid_from_ts, type: timestamp, nullable: false}
+  - {name: valid_to_ts, type: timestamp, nullable: true}
+  - {name: is_current, type: boolean, nullable: false}
+semantics:
+  validity: Half-open interval [valid_from_ts, valid_to_ts) in UTC.
+  current_version: valid_to_ts IS NULL and is_current = true; exactly one per merchant.
+  change_detection: A version opens when merchant_name or category differs (null-safe) from the previous snapshot; unchanged and duplicate snapshots collapse.
+  conflicts: Two different states for one merchant_id and snapshot_ts fail the build.
+  as_of_lookup: "valid_from_ts <= t AND (valid_to_ts IS NULL OR t < valid_to_ts); at t = a boundary the new version is selected."
+  idempotence: The table is a pure function of the snapshot set.
+quality_rules:
+  - {expectation: Columns and types match this contract., validator_rule: dim_merchant_scd2.schema}
+  - {expectation: "merchant_sk, merchant_id, valid_from_ts and is_current are non-null.", validator_rule: dim_merchant_scd2.required_columns_not_null}
+  - {expectation: One version per merchant and start., validator_rule: "dim_merchant_scd2.unique_key(merchant_id,valid_from_ts)"}
+  - {expectation: valid_to_ts is after valid_from_ts when set., validator_rule: dim_merchant_scd2.valid_to_after_valid_from}
+  - {expectation: is_current agrees with an open valid_to_ts., validator_rule: dim_merchant_scd2.current_flag_matches_open_end}
+  - {expectation: Exactly one current version per merchant., validator_rule: dim_merchant_scd2.one_current_version_per_merchant}
+  - {expectation: Intervals are contiguous and never overlap., validator_rule: dim_merchant_scd2.contiguous_non_overlapping_intervals}
+  - {expectation: Consecutive versions differ in a tracked attribute., validator_rule: dim_merchant_scd2.no_redundant_versions}
+  - {expectation: The current version equals gold.dim_merchant for every merchant., validator_rule: dim_merchant_scd2.current_version_equals_dim_merchant}
+  - {expectation: Every transaction with a merchant resolves to exactly one version as of its time., validator_rule: dim_merchant_scd2.transactions_resolve_to_one_version}
+foreign_keys:
+  - columns: [merchant_id]
+    references: gold.dim_merchant.merchant_id
+    nullable: false
+    validator_rule: dim_merchant_scd2.merchants_exist_in_dim_merchant
