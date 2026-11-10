@@ -1,0 +1,49 @@
+{
+ "modelconfig": {
+  "name": "ewallet-global-llm",
+  "model": "ewallet-fraud-llm",
+  "base_url": "http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1",
+  "secret": {
+   "name": "agentgateway-client-key",
+   "key": "api-key"
+  },
+  "accepted": true
+ },
+ "agents": {
+  "drift-specialist": {
+   "type": "Declarative",
+   "mechanism": "native ModelConfig reference",
+   "modelConfig": "ewallet-global-llm",
+   "passed": true
+  },
+  "feature-rag-specialist": {
+   "type": "BYO",
+   "mechanism": "configuration bridge (env rendered from the ModelConfig values)",
+   "effective": {
+    "model": "ewallet-fraud-llm",
+    "base_url": "http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1",
+    "secret": {
+     "name": "agentgateway-client-key",
+     "key": "api-key"
+    }
+   },
+   "passed": true,
+   "ready_replicas": 2
+  },
+  "fraud-coordinator": {
+   "type": "BYO",
+   "mechanism": "configuration bridge (env rendered from the ModelConfig values)",
+   "effective": {
+    "model": "ewallet-fraud-llm",
+    "base_url": "http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1",
+    "secret": {
+     "name": "agentgateway-client-key",
+     "key": "api-key"
+    }
+   },
+   "passed": true,
+   "ready_replicas": 2
+  }
+ },
+ "all_passed": true
+}

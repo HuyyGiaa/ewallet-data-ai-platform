@@ -48,7 +48,7 @@ The global GPU limit of 0 overrides the regional limits. Read again on 2026-11-0
 
 agentgateway v1.7.0 supports weighted routing. The chart adds a client-facing name, `ewallet-llm-ab`, beside the unchanged `ewallet-fraud-llm` route. Each response carries `x-ewallet-backend`, and the body carries the model vLLM really served. Without `modelExperiments.enabled`, the chart renders byte for byte as before.
 
-Production BYO agents read `EWALLET_LLM_MODEL` and do not use `ModelConfig`, so a change to `ModelConfig` would not move their traffic.
+Production BYO agents read `EWALLET_LLM_MODEL` and do not use `ModelConfig`, so a change to `ModelConfig` would not move their traffic. (With `modelConfig.byoResolver` on they read the CR at startup, but the A/B variants are still set per variant: [GLOBAL_MODELCONFIG.md](GLOBAL_MODELCONFIG.md).)
 
 The split is per request, so a conversation can reach both models. Sticky per-conversation assignment is what the [Agent A/B](../agents/AGENT_AB.md) adds.
 

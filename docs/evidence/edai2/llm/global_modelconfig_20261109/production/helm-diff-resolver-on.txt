@@ -1,0 +1,158 @@
+### ('Agent', 'ewallet-agents', 'feature-rag-specialist')
+--- 
++++ 
+@@ -46,6 +46,10 @@
+         value: 'true'
+-      - name: EWALLET_LLM_BASE_URL
+-        value: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+-      - name: EWALLET_LLM_MODEL
+-        value: ewallet-fraud-llm
++      - name: EWALLET_LLM_CONFIG_SOURCE
++        value: modelconfig
++      - name: EWALLET_LLM_MODELCONFIG_NAME
++        value: ewallet-global-llm
++      - name: EWALLET_LLM_API_KEY_SECRET_REF
++        value: agentgateway-client-key/api-key
++      - name: EWALLET_KUBE_API_TOKEN_DIR
++        value: /var/run/secrets/ewallet/kube-api
+       - name: EWALLET_LLM_TIMEOUT_SECONDS
+@@ -85,2 +89,24 @@
+       serviceAccountName: feature-rag-specialist
++      volumeMounts:
++      - mountPath: /var/run/secrets/ewallet/kube-api
++        name: kube-api-modelconfig
++        readOnly: true
++      volumes:
++      - name: kube-api-modelconfig
++        projected:
++          defaultMode: 292
++          sources:
++          - serviceAccountToken:
++              expirationSeconds: 3600
++              path: token
++          - configMap:
++              items:
++              - key: ca.crt
++                path: ca.crt
++              name: kube-root-ca.crt
++          - downwardAPI:
++              items:
++              - fieldRef:
++                  fieldPath: metadata.namespace
++                path: namespace
+   description: Fraud Investigation / Evidence specialist
+### ('Agent', 'ewallet-agents', 'fraud-coordinator')
+--- 
++++ 
+@@ -44,6 +44,10 @@
+         value: 'true'
+-      - name: EWALLET_LLM_BASE_URL
+-        value: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+-      - name: EWALLET_LLM_MODEL
+-        value: ewallet-fraud-llm
++      - name: EWALLET_LLM_CONFIG_SOURCE
++        value: modelconfig
++      - name: EWALLET_LLM_MODELCONFIG_NAME
++        value: ewallet-global-llm
++      - name: EWALLET_LLM_API_KEY_SECRET_REF
++        value: agentgateway-client-key/api-key
++      - name: EWALLET_KUBE_API_TOKEN_DIR
++        value: /var/run/secrets/ewallet/kube-api
+       - name: EWALLET_LLM_TIMEOUT_SECONDS
+@@ -97,2 +101,24 @@
+       serviceAccountName: fraud-coordinator
++      volumeMounts:
++      - mountPath: /var/run/secrets/ewallet/kube-api
++        name: kube-api-modelconfig
++        readOnly: true
++      volumes:
++      - name: kube-api-modelconfig
++        projected:
++          defaultMode: 292
++          sources:
++          - serviceAccountToken:
++              expirationSeconds: 3600
++              path: token
++          - configMap:
++              items:
++              - key: ca.crt
++                path: ca.crt
++              name: kube-root-ca.crt
++          - downwardAPI:
++              items:
++              - fieldRef:
++                  fieldPath: metadata.namespace
++                path: namespace
+   description: Fraud Investigation Coordinator
+### ADDED ('NetworkPolicy', 'ewallet-agents', 'allow-byo-modelconfig-to-kube-apiserver')
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+  name: allow-byo-modelconfig-to-kube-apiserver
+  namespace: ewallet-agents
+spec:
+  egress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 34.118.224.1/32
+    - ipBlock:
+        cidr: 10.20.0.8/32
+  podSelector:
+    matchExpressions:
+    - key: ewallet.io/agent
+      operator: In
+      values:
+      - feature-rag-specialist
+      - fraud-coordinator
+  policyTypes:
+  - Egress
+
+### ADDED ('Role', 'ewallet-agents', 'ewallet-global-llm-reader')
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+  name: ewallet-global-llm-reader
+  namespace: ewallet-agents
+rules:
+- apiGroups:
+  - kagent.dev
+  resourceNames:
+  - ewallet-global-llm
+  resources:
+  - modelconfigs
+  verbs:
+  - get
+
+### ADDED ('RoleBinding', 'ewallet-agents', 'ewallet-global-llm-reader')
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+  name: ewallet-global-llm-reader
+  namespace: ewallet-agents
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ewallet-global-llm-reader
+subjects:
+- kind: ServiceAccount
+  name: feature-rag-specialist
+  namespace: ewallet-agents
+- kind: ServiceAccount
+  name: fraud-coordinator
+  namespace: ewallet-agents
+

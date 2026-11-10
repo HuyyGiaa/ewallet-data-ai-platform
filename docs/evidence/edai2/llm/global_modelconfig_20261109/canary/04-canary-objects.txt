@@ -1,0 +1,18 @@
+NAME                                     TYPE   RUNTIME   READY   ACCEPTED
+agent.kagent.dev/mc-canary-coordinator   BYO              True    True
+agent.kagent.dev/mc-canary-feature-rag   BYO              True    True
+agent.kagent.dev/mc-canary-unbound       BYO              False   True
+
+NAME                                    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                                                                                                     SELECTOR
+deployment.apps/mc-canary-coordinator   1/1     1            1           14m   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff   app=kagent,kagent=mc-canary-coordinator
+deployment.apps/mc-canary-feature-rag   1/1     1            1           14m   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff   app=kagent,kagent=mc-canary-feature-rag
+deployment.apps/mc-canary-unbound       0/1     1            0           14m   kagent       asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff   app=kagent,kagent=mc-canary-unbound
+
+NAME                                         READY   STATUS    RESTARTS      AGE   IP             NODE                                     NOMINATED NODE   READINESS GATES
+pod/mc-canary-coordinator-6b897bfc9c-bbb2v   1/1     Running   0             49s   10.216.1.63    gke-ewallet-dev-cpu-pool-58daed59-h874   <none>           <none>
+pod/mc-canary-feature-rag-dbdb6fbc7-w4x2g    1/1     Running   0             49s   10.216.0.116   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>           <none>
+pod/mc-canary-unbound-6cdc455b58-rfkkk       0/1     Error     2 (26s ago)   49s   10.216.0.117   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>           <none>
+NAME                                     READY   STATUS    RESTARTS      AGE   IP             NODE                                     NOMINATED NODE   READINESS GATES
+mc-canary-coordinator-6b897bfc9c-bbb2v   1/1     Running   0             50s   10.216.1.63    gke-ewallet-dev-cpu-pool-58daed59-h874   <none>           <none>
+mc-canary-feature-rag-dbdb6fbc7-w4x2g    1/1     Running   0             50s   10.216.0.116   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>           <none>
+mc-canary-unbound-6cdc455b58-rfkkk       0/1     Error     2 (27s ago)   50s   10.216.0.117   gke-ewallet-dev-cpu-pool-58daed59-jt0h   <none>           <none>

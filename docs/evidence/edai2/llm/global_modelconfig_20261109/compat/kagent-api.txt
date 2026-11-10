@@ -1,0 +1,43 @@
+# kagent ['kagent-0.10.3', 'kagent-crds-0.10.3']
+v1alpha2 spec: ['allowedNamespaces', 'byo', 'declarative', 'description', 'documentationUrl', 'iconUrl', 'provider', 'sandbox', 'skills', 'type', 'version']
+spec.declarative has modelConfig: True
+spec.byo: ['deployment']
+spec.byo.deployment: ['affinity', 'annotations', 'args', 'cmd', 'deploymentAnnotations', 'env', 'envFrom', 'extraContainers', 'image', 'imagePullPolicy', 'imagePullSecrets', 'labels', 'nodeSelector', 'podSecurityContext', 'replicas', 'resources', 'securityContext', 'serviceAccountConfig', 'serviceAccountName', 'tolerations', 'volumeMounts', 'volumes', 'workingDir']
+NAME                     TYPE          RUNTIME   READY   ACCEPTED
+drift-specialist         Declarative   go        True    True
+feature-rag-specialist   BYO                     True    True
+fraud-coordinator        BYO                     True    True
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  annotations:
+    meta.helm.sh/release-name: llm-agent
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2026-11-01T17:35:05Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+  name: ewallet-global-llm
+  namespace: ewallet-agents
+  resourceVersion: "1793554505356463008"
+  uid: 663305be-f4ce-49f2-ac7e-af91c22bd162
+spec:
+  apiKeySecret: agentgateway-client-key
+  apiKeySecretKey: api-key
+  model: ewallet-fraud-llm
+  openAI:
+    apiFormat: chatCompletions
+    baseUrl: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+    timeout: 200
+  provider: OpenAI
+status:
+  conditions:
+  - lastTransitionTime: "2026-11-01T17:35:05Z"
+    message: Model configuration accepted
+    reason: ModelConfigReconciled
+    status: "True"
+    type: Accepted
+  observedGeneration: 1
+  secretHash: d177646b21f0915f1af4de5c1ac67b26ab55a89b50f9e853aae8c58c64e3e4cf

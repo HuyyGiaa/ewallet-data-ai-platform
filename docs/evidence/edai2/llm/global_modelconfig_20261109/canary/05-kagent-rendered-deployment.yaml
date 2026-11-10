@@ -1,0 +1,208 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"kagent.dev/v1alpha2","kind":"Agent","metadata":{"annotations":{},"labels":{"ewallet.io/canary":"modelconfig-resolver"},"name":"mc-canary-coordinator","namespace":"kagent-pilot"},"spec":{"byo":{"deployment":{"annotations":{"ewallet.io/canary-of":"fraud-coordinator"},"args":["/canary/canary_resolver.py"],"cmd":"python","env":[{"name":"EWALLET_NL_INTAKE_ENABLED","value":"true"},{"name":"EWALLET_LLM_CONFIG_SOURCE","value":"modelconfig"},{"name":"EWALLET_LLM_MODELCONFIG_NAME","value":"ewallet-global-llm"},{"name":"EWALLET_LLM_API_KEY_SECRET_REF","value":"agentgateway-client-key/api-key"},{"name":"EWALLET_KUBE_API_TOKEN_DIR","value":"/var/run/secrets/ewallet/kube-api"},{"name":"EWALLET_LLM_TIMEOUT_SECONDS","value":"190"},{"name":"EWALLET_LLM_API_KEY","valueFrom":{"secretKeyRef":{"key":"api-key","name":"agentgateway-client-key"}}},{"name":"CANARY_DENIED_EGRESS","value":"34.118.227.59:8080"}],"image":"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff","imagePullPolicy":"IfNotPresent","labels":{"ewallet.io/agent":"fraud-coordinator","ewallet.io/canary":"modelconfig-resolver"},"podSecurityContext":{"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}},"replicas":1,"resources":{"limits":{"cpu":"200m","memory":"192Mi"},"requests":{"cpu":"20m","memory":"64Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"serviceAccountName":"fraud-coordinator","volumeMounts":[{"mountPath":"/var/run/secrets/ewallet/kube-api","name":"kube-api-modelconfig","readOnly":true},{"mountPath":"/canary","name":"canary-code","readOnly":true}],"volumes":[{"name":"kube-api-modelconfig","projected":{"defaultMode":292,"sources":[{"serviceAccountToken":{"expirationSeconds":3600,"path":"token"}},{"configMap":{"items":[{"key":"ca.crt","path":"ca.crt"}],"name":"kube-root-ca.crt"}},{"downwardAPI":{"items":[{"fieldRef":{"fieldPath":"metadata.namespace"},"path":"namespace"}]}}]}},{"configMap":{"defaultMode":292,"name":"mc-canary-code"},"name":"canary-code"}]}},"description":"ModelConfig resolver canary (temporary)","type":"BYO"}}
+  creationTimestamp: "2026-11-08T17:58:12Z"
+  generation: 1
+  labels:
+    app: kagent
+    app.kubernetes.io/managed-by: kagent
+    app.kubernetes.io/name: mc-canary-coordinator
+    app.kubernetes.io/part-of: kagent
+    ewallet.io/agent: fraud-coordinator
+    ewallet.io/canary: modelconfig-resolver
+    kagent: mc-canary-coordinator
+  name: mc-canary-coordinator
+  namespace: kagent-pilot
+  ownerReferences:
+  - apiVersion: kagent.dev/v1alpha2
+    blockOwnerDeletion: true
+    controller: true
+    kind: Agent
+    name: mc-canary-coordinator
+    uid: 0626e086-942a-43bf-897a-055a77781988
+  resourceVersion: "1794161509341055008"
+  uid: aee3d231-9064-439f-9055-20ecbed0e346
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: kagent
+      kagent: mc-canary-coordinator
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        ewallet.io/canary-of: fraud-coordinator
+        kagent.dev/config-hash: "12909122765787787521"
+      labels:
+        app: kagent
+        app.kubernetes.io/managed-by: kagent
+        app.kubernetes.io/name: mc-canary-coordinator
+        app.kubernetes.io/part-of: kagent
+        ewallet.io/agent: fraud-coordinator
+        ewallet.io/canary: modelconfig-resolver
+        kagent: mc-canary-coordinator
+    spec:
+      containers:
+      - args:
+        - /canary/canary_resolver.py
+        command:
+        - python
+        env:
+        - name: EWALLET_NL_INTAKE_ENABLED
+          value: "true"
+        - name: EWALLET_LLM_CONFIG_SOURCE
+          value: modelconfig
+        - name: EWALLET_LLM_MODELCONFIG_NAME
+          value: ewallet-global-llm
+        - name: EWALLET_LLM_API_KEY_SECRET_REF
+          value: agentgateway-client-key/api-key
+        - name: EWALLET_KUBE_API_TOKEN_DIR
+          value: /var/run/secrets/ewallet/kube-api
+        - name: EWALLET_LLM_TIMEOUT_SECONDS
+          value: "190"
+        - name: EWALLET_LLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: api-key
+              name: agentgateway-client-key
+        - name: CANARY_DENIED_EGRESS
+          value: 34.118.227.59:8080
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: otel-collector.ewallet-agents.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+          value: grpc
+        - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+          value: "15000"
+        - name: OTEL_LOGGING_ENABLED
+          value: "false"
+        - name: OTEL_TRACING_ENABLED
+          value: "true"
+        - name: KAGENT_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: KAGENT_NAME
+          value: mc-canary-coordinator
+        - name: KAGENT_URL
+          value: http://kagent-controller.kagent:8083
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+        imagePullPolicy: IfNotPresent
+        name: kagent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /.well-known/agent-card.json
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 15
+        resources:
+          limits:
+            cpu: 200m
+            memory: 192Mi
+          requests:
+            cpu: 20m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /config
+          name: config
+        - mountPath: /var/run/secrets/ewallet/kube-api
+          name: kube-api-modelconfig
+          readOnly: true
+        - mountPath: /canary
+          name: canary-code
+          readOnly: true
+        - mountPath: /var/run/secrets/tokens
+          name: kagent-token
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: fraud-coordinator
+      serviceAccountName: fraud-coordinator
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: config
+        secret:
+          defaultMode: 420
+          secretName: mc-canary-coordinator
+      - name: kube-api-modelconfig
+        projected:
+          defaultMode: 292
+          sources:
+          - serviceAccountToken:
+              expirationSeconds: 3600
+              path: token
+          - configMap:
+              items:
+              - key: ca.crt
+                path: ca.crt
+              name: kube-root-ca.crt
+          - downwardAPI:
+              items:
+              - fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+                path: namespace
+      - configMap:
+          defaultMode: 292
+          name: mc-canary-code
+        name: canary-code
+      - name: kagent-token
+        projected:
+          defaultMode: 420
+          sources:
+          - serviceAccountToken:
+              audience: kagent
+              expirationSeconds: 3600
+              path: kagent-token
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-11-08T18:11:49Z"
+    lastUpdateTime: "2026-11-08T18:11:49Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-11-08T17:58:12Z"
+    lastUpdateTime: "2026-11-08T18:11:49Z"
+    message: ReplicaSet "mc-canary-coordinator-6b897bfc9c" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1
+  terminatingReplicas: 0
+  updatedReplicas: 1

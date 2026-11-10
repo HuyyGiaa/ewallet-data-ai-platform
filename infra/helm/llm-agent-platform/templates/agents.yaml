@@ -219,8 +219,8 @@ spec:
         - name: EWALLET_LLM_API_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ $.Values.agentgateway.clientKeySecret.name }}
-              key: {{ $.Values.agentgateway.clientKeySecret.key }}
+              name: {{ $.Values.modelConfig.apiKeySecret.name }}
+              key: {{ $.Values.modelConfig.apiKeySecret.key }}
         {{- end }}
         {{- with dig "byo" "mcpMaxAttempts" "" $spec }}
         # Unset keeps the client default; 1 turns retry off on the same image.

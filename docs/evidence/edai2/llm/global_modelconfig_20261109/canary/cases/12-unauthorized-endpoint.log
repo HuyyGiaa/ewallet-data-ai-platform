@@ -1,0 +1,4 @@
+# pod mc-canary-coordinator-6b897bfc9c-6khf4 (expect fail) 2026-11-08T18:18:30Z
+NAME                                     READY   RESTARTS   STATE
+mc-canary-coordinator-6b897bfc9c-6khf4   false   1          Error
+{"event": "modelconfig.failed", "code": "modelconfig_endpoint_unauthorized", "message": "modelconfig_endpoint_unauthorized: LLM base URL must be the approved in-cluster agentgateway route", "denied_egress_probe": "blocked (TimeoutError)"}
