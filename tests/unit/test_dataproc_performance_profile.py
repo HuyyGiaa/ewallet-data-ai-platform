@@ -77,9 +77,9 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
     def test_four_candidate_profiles_and_baselines_resolve_authoritatively(self) -> None:
         expected = {
             "dp1-bronze": (True, 200, "performance"),
-            "dp2-silver": (False, 304, None),
+            "dp2-silver": (True, 200, None),
             "dp2-gold": (True, 400, None),
-            "dp3-features": (False, 200, None),
+            "dp3-features": (True, 200, None),
         }
         for stage in SPARK_STAGES:
             baseline = resolve_stage_profile(stage, "baseline")
@@ -129,8 +129,10 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
         )
         silver = spark_options(config, stage="dp2-silver", optimized=True)
         gold = spark_options(config, stage="dp2-gold", optimized=True)
-        self.assertEqual("304", silver["spark.sql.shuffle.partitions"])
-        self.assertEqual("false", silver["spark.sql.adaptive.enabled"])
+        self.assertEqual("200", silver["spark.sql.shuffle.partitions"])
+        self.assertEqual("true", silver["spark.sql.adaptive.enabled"])
+        self.assertEqual("true", silver["spark.sql.adaptive.coalescePartitions.enabled"])
+        self.assertEqual("67108864", silver["spark.sql.adaptive.advisoryPartitionSizeInBytes"])
         self.assertEqual("400", gold["spark.sql.shuffle.partitions"])
         self.assertEqual("true", gold["spark.sql.adaptive.enabled"])
         self.assertEqual("false", gold["spark.sql.adaptive.skewJoin.enabled"])
@@ -196,7 +198,7 @@ class DataprocPerformanceProfileTest(unittest.TestCase):
             ("dp1-bronze", "baseline"): "200",
             ("dp1-bronze", "optimized"): "200",
             ("dp2-silver", "baseline"): "200",
-            ("dp2-silver", "optimized"): "304",
+            ("dp2-silver", "optimized"): "200",
             ("dp2-gold", "baseline"): "200",
             ("dp2-gold", "optimized"): "400",
             ("dp3-features", "baseline"): "200",

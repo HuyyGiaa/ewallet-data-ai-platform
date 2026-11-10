@@ -8,8 +8,12 @@ from urllib.parse import unquote, urlsplit
 
 from data_platform.config import RuntimeConfig, load_runtime_config
 from data_platform.config.spark_profiles import (
+    ADAPTIVE_ADVISORY_SIZE_PROPERTY,
+    ADAPTIVE_COALESCE_PROPERTY,
+    ADAPTIVE_PARALLELISM_FIRST_PROPERTY,
     BASELINE_SPARK_PROFILE,
     OPTIMIZED_SPARK_PROFILE,
+    PROFILE_SQL_PROPERTY_KEYS,
     resolve_stage_profile,
 )
 
@@ -31,7 +35,16 @@ def spark_options(
     stage: str,
     optimized: bool,
 ) -> dict[str, str]:
-    """Build Spark properties without importing or starting PySpark."""
+    """Build Spark properties without importing or starting PySpark.
+
+    The stage profile is the single authority for its SQL settings
+    (``SparkExecutionProfile.sql_properties``), the same values Dataproc receives
+    as ``--properties``. Builder options override submitted SQL properties for the
+    session, so every profile-controlled key is set from the profile here, and a
+    controlled key the profile leaves unset is removed rather than inherited from
+    the environment file. Only the shuffle count keeps its per-environment value
+    outside GCP, as before.
+    """
 
     profile = resolve_stage_profile(
         stage,
@@ -40,20 +53,12 @@ def spark_options(
     options = dict(_DELTA_OPTIONS)
     options.update(config.spark.configurations)
     options.update(config.storage.options)
-    options.update(
-        {
-            "spark.sql.shuffle.partitions": str(
-                profile.shuffle_partitions
-                if config.environment == "gcp"
-                else config.spark.shuffle_partitions
-            ),
-            "spark.eventLog.dir": config.spark.event_log_uri,
-            "spark.sql.adaptive.enabled": str(profile.adaptive_enabled).lower(),
-            "spark.sql.adaptive.skewJoin.enabled": str(
-                profile.skew_join_enabled
-            ).lower(),
-        }
-    )
+    for key in PROFILE_SQL_PROPERTY_KEYS:
+        options.pop(key, None)
+    options.update(profile.sql_properties())
+    if config.environment != "gcp":
+        options["spark.sql.shuffle.partitions"] = str(config.spark.shuffle_partitions)
+    options["spark.eventLog.dir"] = config.spark.event_log_uri
     return options
 
 
@@ -140,4 +145,10 @@ def create_spark_session(
         "[SPARK] Shuffle     : "
         f"{spark.conf.get('spark.sql.shuffle.partitions')}"
     )
+    for label, key in (
+        ("Coalesce   ", ADAPTIVE_COALESCE_PROPERTY),
+        ("Par. first ", ADAPTIVE_PARALLELISM_FIRST_PROPERTY),
+        ("Advisory   ", ADAPTIVE_ADVISORY_SIZE_PROPERTY),
+    ):
+        print(f"[SPARK] {label}: {spark.conf.get(key, 'spark-default')}")
     return spark

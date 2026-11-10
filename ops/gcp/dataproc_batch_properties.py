@@ -73,7 +73,12 @@ def build_dataproc_batch_properties(
 def validate_managed_spark_properties(properties: tuple[str, ...] | list[str]) -> None:
     """Reject properties proven unsupported by Managed Spark submission."""
 
-    keys = {item.partition("=")[0] for item in properties}
+    names = [item.partition("=")[0] for item in properties]
+    duplicates = sorted({key for key in names if names.count(key) > 1})
+    if duplicates:
+        # Dataproc keeps one value per key; a duplicate would hide which one won.
+        raise ValueError("duplicate Dataproc batch properties: " + ", ".join(duplicates))
+    keys = set(names)
     unsupported = sorted(keys & UNSUPPORTED_MANAGED_SPARK_PROPERTIES)
     if unsupported:
         raise ValueError(
@@ -115,6 +120,13 @@ def resolve_submission_profile(
     return spark_profile
 
 
+def _optional(value: object) -> str:
+    """Render an optional profile setting; ``spark-default`` means not set."""
+    if value is None:
+        return "spark-default"
+    return str(value).lower() if isinstance(value, bool) else str(value)
+
+
 def profile_summary(profile: str, *, stage: str) -> tuple[str, ...]:
     resolved = resolve_stage_profile(stage, profile)
     lines = [
@@ -124,6 +136,12 @@ def profile_summary(profile: str, *, stage: str) -> tuple[str, ...]:
         f"AQE: {str(resolved.adaptive_enabled).lower()}",
         f"SKEW_JOIN: {str(resolved.skew_join_enabled).lower()}",
         f"SHUFFLE_PARTITIONS: {resolved.shuffle_partitions}",
+        "COALESCE_PARTITIONS: "
+        + _optional(resolved.coalesce_partitions_enabled),
+        "COALESCE_PARALLELISM_FIRST: "
+        + _optional(resolved.coalesce_parallelism_first),
+        "ADVISORY_PARTITION_SIZE_BYTES: "
+        + _optional(resolved.advisory_partition_size_bytes),
         "DYNAMIC_ALLOCATION: true",
         f"INITIAL_EXECUTORS: {resolved.initial_executors}",
         f"MAX_EXECUTORS: {resolved.max_executors}",

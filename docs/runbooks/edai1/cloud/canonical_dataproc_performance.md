@@ -24,13 +24,17 @@ one driver plus seven executors: 32 vCPU and about 3,200 GB disk.
 
 ## Provisional profiles
 
-| Stage | Profile | AQE | skewJoin | Shuffle | Allocation profile |
-|---|---|---:|---:|---:|---|
-| every stage | baseline | false | false | 200 | unset |
-| DP1 Bronze | candidate (`optimized`) | true | false | 200 | performance |
-| DP2 Silver | candidate (`optimized`) | false | false | 304 | unset |
-| DP2 Gold | candidate (`optimized`) | true | false | 400 | unset |
-| DP3 Features | candidate (`optimized`) | false | false | 200 | unset |
+| Stage | Profile | AQE | skewJoin | Shuffle | AQE coalescing | Allocation profile |
+|---|---|---:|---:|---:|---|---|
+| every stage | baseline | false | false | 200 | Spark default (unset) | unset |
+| DP1 Bronze | candidate (`optimized`) | true | false | 200 | Spark default (unset) | performance |
+| DP2 Silver | candidate (`optimized`) | true | false | 200 | on, parallelismFirst=false, advisory 64 MiB | unset |
+| DP2 Gold | candidate (`optimized`) | true | false | 400 | Spark default (unset) | unset |
+| DP3 Features | candidate (`optimized`) | true | false | 200 | on, parallelismFirst=false, advisory 64 MiB | unset |
+
+Silver and DP3 candidates were revised on 2026-11-11 (previously Silver: AQE off,
+304 partitions; DP3: AQE off, 200 partitions). Rationale and the metrics that
+will test them: [Spark optimisation §7](../../../edai1/spark/OPTIMIZATION_MATRIX.md#7-2026-11-11--revised-5gb-rehearsal-spark-profiles).
 
 `optimized` is retained only as the candidate identity in immutable run IDs and
 evidence. The authoritative runtime lookup is `(stage, profile)` and unknown

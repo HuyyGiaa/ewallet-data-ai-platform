@@ -121,7 +121,10 @@ class SparkMethod2ContractTest(unittest.TestCase):
             candidate_output_root=f"gs://bucket/lakehouse/runs/{candidate}/silver",
         )
         self.assertEqual(["selected-bronze"], manifest["upstream_run_ids"])
-        self.assertEqual(304, int(manifest["runs"][1]["spark_properties"]["spark.sql.shuffle.partitions"]))
+        candidate = manifest["runs"][1]["spark_properties"]
+        self.assertEqual(200, int(candidate["spark.sql.shuffle.partitions"]))
+        self.assertEqual("true", candidate["spark.sql.adaptive.enabled"])
+        self.assertEqual("67108864", candidate["spark.sql.adaptive.advisoryPartitionSizeInBytes"])
 
     def test_winner_rejects_incomplete_or_unequal_evidence(self) -> None:
         pair = manifest()

@@ -68,7 +68,7 @@ Skew is handled through Spark configuration, not query rewrites:
 - **AQE skew-join handling** (`spark.sql.adaptive.skewJoin.enabled`) splits oversized join partitions.
 - **The shuffle partition count** sets the initial parallelism.
 
-Profiles are defined in [`common/spark_session.py`](../../../data_platform/processing/spark/common/spark_session.py) and applied per batch.
+Profiles are defined per stage in [`config/spark_profiles.py`](../../../data_platform/config/spark_profiles.py) and applied both to the Dataproc batch properties and to the SparkSession ([`common/spark_session.py`](../../../data_platform/processing/spark/common/spark_session.py)). The current profiles are in [§7](#7-2026-11-11--revised-5gb-rehearsal-spark-profiles).
 
 A dedicated benchmark ([`benchmark/merchant_skew_benchmark.py`](../../../data_platform/processing/spark/benchmark/merchant_skew_benchmark.py)) first profiles the real merchant distribution, then runs the same merchant-keyed workload with AQE and skew-join off and on.
 
@@ -212,3 +212,66 @@ Raw artefacts:
 | Docker image size | 381,961,667 B | 44,171,603 B (−88.44 %) | [Docker](../docker/DOCKER_OPTIMIZATION.md) |
 | Delta compaction (local 500k) | 2,188 files, 0.219 s query | 151 files, 0.108 s | [Storage](../storage/STORAGE_OPTIMIZATION.md) |
 | PostgreSQL index | median 65.8 ms | 19.9 ms (−69.7 %), inserts +78 % | [Storage](../storage/STORAGE_OPTIMIZATION.md) |
+
+## 7. 2026-11-11 — Revised 5GB rehearsal Spark profiles
+
+Sections 3 to 5 are historical 100GB results (`canonical-100gb-v1`) and are unchanged. This section records the configuration revision made before the `rehearsal-5gb-v1` campaign (`edai1_data_pipeline_campaign`). **No measurement in this section comes from the new pipeline**: the revised profiles have not run on Dataproc yet. They are tuning candidates, not verified winners.
+
+### 7.1 Configuration matrix
+
+All profiles share the resource contract of §3 (4-core driver and executors, 9,600 MB heap, 3,840 MB overhead, dynamic allocation 2 / 6 / 7, ratio 0.3, 192 MB broadcast threshold, 300 s idle timeout). Only Silver and DP3 optimised changed.
+
+| Stage | Profile | AQE | Shuffle partitions | Skew join | Coalescing | Parallelism first | Advisory size | Allocation profile |
+|---|---|---|---:|---|---|---|---|---|
+| DP1 Bronze | baseline | off | 200 | off | Spark default | Spark default | Spark default | unset |
+| DP1 Bronze | optimised (unchanged) | on | 200 | off | Spark default | Spark default | Spark default | `performance` |
+| DP2 Silver | baseline | off | 200 | off | Spark default | Spark default | Spark default | unset |
+| DP2 Silver | optimised (**revised**) | on | 200 | off | **on** | **false** | **64 MiB** | unset |
+| DP2 Gold | baseline | off | 200 | off | Spark default | Spark default | Spark default | unset |
+| DP2 Gold | optimised (unchanged) | on | 400 | off | Spark default | Spark default | Spark default | unset |
+| DP3 features | baseline | off | 200 | off | Spark default | Spark default | Spark default | unset |
+| DP3 features | optimised (**revised**) | on | 200 | off | **on** | **false** | **64 MiB** | unset |
+
+"Spark default" means the property is not set, so the batch is byte-for-byte what it was before this revision. With AQE off, the coalescing settings have no effect.
+
+| Stage | Previous optimised | Revised optimised |
+|---|---|---|
+| DP2 Silver | AQE off, 304 partitions | AQE on, 200 partitions, coalescing toward 64 MiB, parallelism-first off |
+| DP3 features | AQE off, 200 partitions (identical to the baseline). The 100GB run of §4.5 used AQE, skew join, 400 partitions and `performance` | AQE on, 200 partitions, coalescing toward 64 MiB, parallelism-first off |
+
+### 7.2 Rationale
+
+1. **Silver at 304 partitions showed no stable gain.** In §4.3 the extra partitions added 22.9 % more tasks without reducing spill (187.2 → 188.0 GB) or output files (763). An earlier campaign reversed the ordering (3,495.7 s baseline against 2,630.6 s optimised). The difference is within run-to-run variance, so 304 is neither shown slower in general nor shown better.
+2. **The old DP3 combination is not reused.** The §4.5 run changed four settings at once (AQE, skew join, 400 partitions, `performance`) and read different upstream runs from its baseline. Its +66 % runtime cannot be attributed to any one setting, AQE included. Repeating it would add no information.
+3. **Why AQE coalescing for Silver.** Silver's shuffles are per-table `dropDuplicates`, the `row_number()` window over `transaction_id` that keeps the latest ingestion, the quality `countDistinct("transaction_id")`, and the writer's repartition to `WriteLayout(target_tasks=128, max_records_per_file=2_500_000)`. Keys are near-uniform (transaction and entity IDs), and the small reference tables produce many small shuffle partitions at 200. Coalescing merges contiguous small partitions toward 64 MiB after each shuffle is measured, which removes task overhead without raising the initial partition count. File layout is set by the writer policy, so neither 304 nor coalescing changes output files.
+4. **Why AQE coalescing for DP3.** The same single change is tested on DP3: AQE with coalescing, keeping 200 partitions, skew join off, no `performance` profile and no new resources. That makes the DP3 comparison a one-variable experiment, unlike §4.5.
+5. **Gold is preserved.** Gold optimised (AQE, 400 partitions) gave the only clear gain (−23.11 % runtime, −33.95 % spill), but its baseline hit a `FetchFailedException` and the exact-equality gate failed on floating-point sums. The campaign comparator now applies a bounded tolerance (relative 1e-12, absolute 1e-9) that is unit-tested but not yet cloud-verified, so Gold is re-measured unchanged in the 5GB rehearsal.
+6. **DP1 is unchanged.** DP1 is read–transform–write with no spill (§4.2); its configuration is part of the campaign as is.
+7. **Candidates, not winners.** The 64 MiB advisory size equals Spark's default; the change that matters is `parallelismFirst=false`, which makes coalescing honour the advisory size instead of keeping at least the cluster's default parallelism. On 5 GB this may coalesce a shuffle into fewer partitions than the 24–28 executor cores, which would leave cores idle in CPU-heavy stages. Whether coalescing helps or hurts is exactly what the rehearsal measures.
+
+**What configuration cannot fix in DP3.** DP3's merchant features are range windows `Window.partitionBy("merchant_id").orderBy(event time).rangeBetween(...)` with `collect_set("user_id")` over 10-minute and 1-hour ranges (`features/merchant_features.py`, `features/temporal.py`). Every row of one merchant lands in one window partition and one task. The Source profile shows the top 5 % of merchants carry 79.07 % of traffic, with a max/median ratio of 79; those are Source counts, not measured DP3 task skew. AQE skew-join handling splits oversized *join* partitions, so it does nothing for a window partition. Neither the initial partition count nor coalescing can split one merchant's window. If the rehearsal shows a few long tasks keyed by large merchants, the remedy is algorithmic (for example pre-aggregating per merchant and time bucket before the window), which is outside this revision.
+
+### 7.3 How the profile reaches Spark
+
+`data_platform/config/spark_profiles.py` is the single definition. `SparkExecutionProfile.sql_properties()` feeds both:
+
+- the Dataproc batch `--properties` (`ops/gcp/dataproc_batch_properties.py`, used by `submit_bronze_to_silver.py` and `submit_historical_features.py`), which now also rejects duplicate keys at the submission boundary;
+- the SparkSession builder (`spark_options`). Builder settings override submitted SQL properties for the session, so every profile-controlled key is set from the profile, and a controlled key the profile leaves unset is removed rather than inherited from the environment file.
+
+Each submitter prints the profile summary (`profile_summary`), which now includes `COALESCE_PARTITIONS`, `COALESCE_PARALLELISM_FIRST` and `ADVISORY_PARTITION_SIZE_BYTES`. The driver log prints the effective values. Locally on Spark 3.5.3 (the Spark line of Dataproc runtime 2.2), the revised properties were accepted, read back unchanged, and produced a coalesced `AQEShuffleRead` on a test aggregation. Dataproc itself has not run them yet.
+
+### 7.4 Evidence the rehearsal must capture
+
+For each Silver and DP3 batch, baseline and optimised:
+
+| Check | Where | Supports the hypothesis when |
+|---|---|---|
+| Profile actually applied | Spark UI → Environment: `spark.sql.adaptive.enabled`, `spark.sql.shuffle.partitions`, `spark.sql.adaptive.coalescePartitions.*`, `spark.sql.adaptive.advisoryPartitionSizeInBytes` | optimised shows the revised values and baseline shows none of the coalescing keys |
+| Coalescing happened | Spark UI → SQL → plan: `AQEShuffleRead coalesced`, partitions before and after | shuffle stages run fewer tasks than 200 in optimised |
+| Overhead removed | Stages: task count, task duration p50 / p95 / max | fewer tasks without a longer p95 |
+| Cores not starved | Executors tab: active tasks against 24–28 cores; stage duration | coalesced stages still keep the cores busy |
+| Spill | Stages: memory and disk spill | spill does not grow |
+| Merchant skew (DP3) | Window stages: max task duration and input against the median | reported as an observation; configuration is not expected to change it |
+| End-to-end | `application_runtime_seconds` from the event log (`ops/gcp/spark_stage_report.py`), DCU-hours | lower runtime and DCU with semantically equivalent outputs (`compare_campaign_outputs.py`) |
+
+**Historical event logs.** The 100GB event logs are still in `gs://ewallet-data-ai-platform-hg26-data/spark-events/` (44 objects listed read-only on 2026-11-11). They were not downloaded or re-analysed for this revision, so the reasoning above relies on the recorded measurements of §4. Task-level distributions for the historical Silver and DP3 runs remain unmeasured.

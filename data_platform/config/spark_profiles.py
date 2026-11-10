@@ -96,8 +96,33 @@ _PROFILE_IDENTITIES = {
 }
 
 
+ADAPTIVE_COALESCE_PROPERTY = "spark.sql.adaptive.coalescePartitions.enabled"
+ADAPTIVE_PARALLELISM_FIRST_PROPERTY = (
+    "spark.sql.adaptive.coalescePartitions.parallelismFirst"
+)
+ADAPTIVE_ADVISORY_SIZE_PROPERTY = "spark.sql.adaptive.advisoryPartitionSizeInBytes"
+#: SQL properties a stage profile may set; SparkSession and Dataproc both derive
+#: them from :meth:`SparkExecutionProfile.sql_properties`.
+PROFILE_SQL_PROPERTY_KEYS = (
+    "spark.sql.shuffle.partitions",
+    "spark.sql.adaptive.enabled",
+    "spark.sql.adaptive.skewJoin.enabled",
+    ADAPTIVE_COALESCE_PROPERTY,
+    ADAPTIVE_PARALLELISM_FIRST_PROPERTY,
+    ADAPTIVE_ADVISORY_SIZE_PROPERTY,
+)
+
+
 @dataclass(frozen=True)
 class SparkExecutionProfile:
+    """One stage's Spark execution contract.
+
+    The three optional AQE coalescing settings are emitted only when set, so a
+    profile that leaves them ``None`` produces exactly the properties it did
+    before they existed. They require ``adaptive_enabled``; parallelism-first and
+    the advisory size also require coalescing to be enabled.
+    """
+
     stage: str
     name: str
     adaptive_enabled: bool
@@ -105,6 +130,41 @@ class SparkExecutionProfile:
     shuffle_partitions: int
     dynamic_allocation_profile: str | None = None
     resources: SparkResourceContract = COMMON_RESOURCE_CONTRACT
+    coalesce_partitions_enabled: bool | None = None
+    coalesce_parallelism_first: bool | None = None
+    advisory_partition_size_bytes: int | None = None
+
+    def __post_init__(self) -> None:
+        if (isinstance(self.shuffle_partitions, bool)
+                or not isinstance(self.shuffle_partitions, int)
+                or self.shuffle_partitions <= 0):
+            raise ValueError("shuffle_partitions must be a positive integer")
+        size = self.advisory_partition_size_bytes
+        if size is not None and (
+            isinstance(size, bool) or not isinstance(size, int) or size <= 0
+        ):
+            raise ValueError("advisory_partition_size_bytes must be a positive integer")
+        for name in ("coalesce_partitions_enabled", "coalesce_parallelism_first"):
+            value = getattr(self, name)
+            if value is not None and not isinstance(value, bool):
+                raise ValueError(f"{name} must be a boolean or None")
+        coalescing_settings = (
+            self.coalesce_partitions_enabled,
+            self.coalesce_parallelism_first,
+            self.advisory_partition_size_bytes,
+        )
+        if not self.adaptive_enabled and any(v is not None for v in coalescing_settings):
+            raise ValueError("AQE coalescing settings require adaptive_enabled=True")
+        if self.skew_join_enabled and not self.adaptive_enabled:
+            raise ValueError("skew join optimization requires adaptive_enabled=True")
+        if self.coalesce_partitions_enabled is not True and (
+            self.coalesce_parallelism_first is not None
+            or self.advisory_partition_size_bytes is not None
+        ):
+            raise ValueError(
+                "parallelism-first and advisory partition size require "
+                "coalesce_partitions_enabled=True"
+            )
 
     @property
     def stage_profile(self) -> str:
@@ -118,14 +178,33 @@ class SparkExecutionProfile:
     def max_executors(self) -> int:
         return self.resources.max_executors
 
+    def sql_properties(self) -> dict[str, str]:
+        """The profile's SQL settings, in emission order; unset options are absent."""
+
+        properties = {
+            "spark.sql.shuffle.partitions": str(self.shuffle_partitions),
+            "spark.sql.adaptive.enabled": str(self.adaptive_enabled).lower(),
+            "spark.sql.adaptive.skewJoin.enabled": str(self.skew_join_enabled).lower(),
+        }
+        if self.coalesce_partitions_enabled is not None:
+            properties[ADAPTIVE_COALESCE_PROPERTY] = str(
+                self.coalesce_partitions_enabled
+            ).lower()
+        if self.coalesce_parallelism_first is not None:
+            properties[ADAPTIVE_PARALLELISM_FIRST_PROPERTY] = str(
+                self.coalesce_parallelism_first
+            ).lower()
+        if self.advisory_partition_size_bytes is not None:
+            properties[ADAPTIVE_ADVISORY_SIZE_PROPERTY] = str(
+                self.advisory_partition_size_bytes
+            )
+        return properties
+
     @property
     def spark_properties(self) -> tuple[str, ...]:
         properties = [
             *self.resources.spark_properties,
-            f"spark.sql.shuffle.partitions={self.shuffle_partitions}",
-            f"spark.sql.adaptive.enabled={str(self.adaptive_enabled).lower()}",
-            "spark.sql.adaptive.skewJoin.enabled="
-            f"{str(self.skew_join_enabled).lower()}",
+            *(f"{key}={value}" for key, value in self.sql_properties().items()),
         ]
         if self.dynamic_allocation_profile is not None:
             properties.append(
@@ -142,6 +221,9 @@ class SparkExecutionProfile:
             "adaptive_enabled": self.adaptive_enabled,
             "skew_join_enabled": self.skew_join_enabled,
             "shuffle_partitions": self.shuffle_partitions,
+            "coalesce_partitions_enabled": self.coalesce_partitions_enabled,
+            "coalesce_parallelism_first": self.coalesce_parallelism_first,
+            "advisory_partition_size_bytes": self.advisory_partition_size_bytes,
             "dynamic_allocation_profile": self.dynamic_allocation_profile,
             "resources": asdict(self.resources),
             "spark_properties": dict(
@@ -157,7 +239,13 @@ def _profile(
     adaptive: bool,
     shuffle: int,
     allocation_profile: str | None = None,
+    advisory_partition_size_bytes: int | None = None,
 ) -> SparkExecutionProfile:
+    """Build a profile. An advisory size selects size-driven AQE coalescing:
+    coalescing on and parallelism-first off, so partitions are merged toward the
+    advisory size instead of being kept at the cluster's default parallelism."""
+
+    coalescing = advisory_partition_size_bytes is not None
     return SparkExecutionProfile(
         stage=stage,
         name=name,
@@ -165,7 +253,15 @@ def _profile(
         skew_join_enabled=False,
         shuffle_partitions=shuffle,
         dynamic_allocation_profile=allocation_profile,
+        coalesce_partitions_enabled=True if coalescing else None,
+        coalesce_parallelism_first=False if coalescing else None,
+        advisory_partition_size_bytes=advisory_partition_size_bytes,
     )
+
+
+#: 64 MiB. Revised 2026-11-11 for the 5GB rehearsal; a tuning candidate, not a
+#: verified winner (docs/edai1/spark/OPTIMIZATION_MATRIX.md).
+REHEARSAL_ADVISORY_PARTITION_SIZE_BYTES = 64 * 1024 * 1024
 
 
 _STAGE_PROFILES = {
@@ -184,13 +280,21 @@ _STAGE_PROFILES.update(
             allocation_profile="performance",
         ),
         (SILVER_STAGE, OPTIMIZED_SPARK_PROFILE): _profile(
-            SILVER_STAGE, OPTIMIZED_SPARK_PROFILE, adaptive=False, shuffle=304
+            SILVER_STAGE,
+            OPTIMIZED_SPARK_PROFILE,
+            adaptive=True,
+            shuffle=200,
+            advisory_partition_size_bytes=REHEARSAL_ADVISORY_PARTITION_SIZE_BYTES,
         ),
         (GOLD_STAGE, OPTIMIZED_SPARK_PROFILE): _profile(
             GOLD_STAGE, OPTIMIZED_SPARK_PROFILE, adaptive=True, shuffle=400
         ),
         (FEATURES_STAGE, OPTIMIZED_SPARK_PROFILE): _profile(
-            FEATURES_STAGE, OPTIMIZED_SPARK_PROFILE, adaptive=False, shuffle=200
+            FEATURES_STAGE,
+            OPTIMIZED_SPARK_PROFILE,
+            adaptive=True,
+            shuffle=200,
+            advisory_partition_size_bytes=REHEARSAL_ADVISORY_PARTITION_SIZE_BYTES,
         ),
     }
 )
