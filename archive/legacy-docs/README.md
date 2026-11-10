@@ -205,3 +205,18 @@ non-Markdown support files moved with their historical migration package.
 | `docs/llm_agent/mcp_gateway.md` | `docs/runbooks/edai2/llm_agent/mcp_gateway.md` | A — current runbook/reference | Operational or evidence-reproduction guidance moved under the canonical runbooks hierarchy. |
 | `docs/llm_agent/rag_runbook.md` | `docs/runbooks/edai2/llm_agent/rag_runbook.md` | A — current runbook/reference | Operational or evidence-reproduction guidance moved under the canonical runbooks hierarchy. |
 | `docs/llm_agent/registry_keda_prompts.md` | `docs/runbooks/edai2/llm_agent/registry_keda_prompts.md` | A — current runbook/reference | Operational or evidence-reproduction guidance moved under the canonical runbooks hierarchy. |
+
+## Later relocations (2026-11-10, LLM documentation consolidation)
+
+These files were created after the 241-file baseline above, so they are not part of its counts.
+
+| Old path | New path | Classification | Reason |
+|---|---|---|---|
+| `docs/edai2/llm/GLOBAL_MODELCONFIG.md` | `archive/legacy-docs/docs/edai2/llm/GLOBAL_MODELCONFIG.md` | C — duplicate | Merged into `docs/edai2/llm/LLM_PLATFORM.md` §5. |
+| `docs/edai2/llm/BENCHMARK_METHODOLOGY.md` | `archive/legacy-docs/docs/edai2/llm/BENCHMARK_METHODOLOGY.md` | C — duplicate | Merged into `docs/edai2/llm/BENCHMARK_RESULTS.md` §2. |
+| `docs/edai2/llm/EXP_V1_V2_SAFETY_AUDIT.md` | `archive/legacy-docs/docs/edai2/llm/EXP_V1_V2_SAFETY_AUDIT.md` | B — historical/superseded | Pre-run audit; its lasting findings are in `BENCHMARK_RESULTS.md` §2.5. |
+| `docs/edai2/llm/BENCHMARK_REPLAY.md` | `archive/legacy-docs/docs/edai2/llm/BENCHMARK_REPLAY.md` | B — historical/superseded | Preparation and replay record. |
+| `docs/edai2/llm/vllm_cpu_o1_benchmark.md` | `archive/legacy-docs/docs/edai2/llm/vllm_cpu_o1_benchmark.md` | B — historical/superseded | Historical O1 experiment log; summarised in `BENCHMARK_RESULTS.md` §6. |
+| `docs/edai2/llm/llmd_g2_routing_benchmark.md` | `archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md` | B — historical/superseded | Historical G2 experiment log; summarised in `BENCHMARK_RESULTS.md` §6. |
+| `docs/edai2/llm/BENCHMARK_EVIDENCE_MATRIX.md` | `docs/rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md` | D — internal tracking/evidence | Supporting evidence crosswalk, not a primary report. |
+| `docs/edai2/llm/LLM_AB_DESIGN.md` | `docs/edai2/platform/LLM_AB_DESIGN.md` | A — current technical documentation | A/B documentation kept apart from the LLM platform reports. |

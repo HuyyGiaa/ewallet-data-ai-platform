@@ -49,7 +49,7 @@ Neither the plan binary nor any credentials are stored. The runbook is [`docs/cl
 | Operator access to UIs (Grafana, kagent, Agent Registry, Jenkins, Kubeflow, MLflow) | `kubectl port-forward` from an authorized network; nothing is exposed through a public load balancer. See the [UI runbook](../../runbooks/edai2/UI_REPLAY.md) |
 | Workload identity to GCP | Workload Identity: pods use Kubernetes service accounts mapped to GCP service accounts, so no key files exist |
 | CI/CD | The Jenkins service account may write only to its target namespace ([CI/CD §4.4](../cicd/CICD.md#44-least-privilege)) |
-| LLM, MCP and A2A traffic | agentgateway with client keys, per-agent tool authorization and rate limits ([LLM Platform §3.2](../llm/LLM_PLATFORM.md#32-agentgateway), [Agents §7](../agents/AGENTS_REGISTRY_GATEWAYS.md#7-mcp-gateway-and-a2a-gateway-security)) |
+| LLM, MCP and A2A traffic | agentgateway with client keys, per-agent tool authorization and rate limits ([LLM Platform §3.2](../llm/LLM_PLATFORM.md#4-agentgateway), [Agents §7](../agents/AGENTS_REGISTRY_GATEWAYS.md#7-mcp-gateway-and-a2a-gateway-security)) |
 
 ## 3. In-cluster network security
 
@@ -91,5 +91,5 @@ See [Testing §3.4](../testing/TESTING.md#34-chart-and-security-contracts).
 - **External gateway.** No NGINX (or other) ingress publishes the UIs or the Fraud API. There is therefore no domain, HTTPS certificate, basic authentication or edge rate limiting. All UI access goes through authorized port-forwards. An ingress with per-route authentication, rate limits and cert-manager certificates is future work.
 - **Centralised secrets.** Vault is implemented and validated locally but not deployed. See [Vault](VAULT.md).
 - **Configuration management.** No Ansible playbooks exist. The only VM-oriented module (`jenkins_vm`) is unused, because Jenkins runs on GKE.
-- **A/B experimentation.** Model, agent and LLM A/B are implemented and tested locally. None has run on GKE. See [ML](../mlops/ML_AB_DESIGN.md), [Agent](../agents/AGENT_AB.md) and [LLM](../llm/LLM_AB_DESIGN.md).
+- **A/B experimentation.** Model, agent and LLM A/B are implemented and tested locally. None has run on GKE. See [ML](../mlops/ML_AB_DESIGN.md), [Agent](../agents/AGENT_AB.md) and [LLM](LLM_AB_DESIGN.md).
 - **Evidence.** The Terraform run is documented by its recorded plan and apply results. No terminal or console screenshot of it was kept.

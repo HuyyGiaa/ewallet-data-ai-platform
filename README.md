@@ -383,7 +383,7 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 | Area | Report |
 |---|---|
 | Overview | [EDAI-2 index](docs/edai2/README.md) |
-| LLM serving, gateway, ModelConfig, benchmarks | [LLM Inference Platform](docs/edai2/llm/LLM_PLATFORM.md) |
+| LLM serving, gateway, ModelConfig, benchmarks | [LLM Inference Platform](docs/edai2/llm/LLM_PLATFORM.md), [LLM Benchmark Results](docs/edai2/llm/BENCHMARK_RESULTS.md) |
 | Feature store, training, registry, serving | [ML Pipeline and Serving](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
 | Agents, MCP tools, registry, gateways | [Agents and Gateways](docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md) |
 | RAG | [RAG Knowledge Pipeline](docs/edai2/rag/RAG_PIPELINE.md) |

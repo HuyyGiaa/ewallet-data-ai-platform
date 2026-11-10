@@ -1,5 +1,7 @@
 # LLM A/B test and GPU plan
 
+> **Status (2026-11-10).** This A/B design is kept for rubric row 53. Its local CPU results below are valid. The GPU stages were never run on GKE, and the GPU benchmarking direction has been discontinued: the GPU sections record the earlier plan, not active work. The served model and the official benchmarks are in [LLM_PLATFORM.md](../llm/LLM_PLATFORM.md) and [BENCHMARK_RESULTS.md](../llm/BENCHMARK_RESULTS.md).
+
 This page covers the comparison of Qwen3-0.6B and Qwen3-1.7B (EDAI-2 row 53). Routing and serving are tested locally with both real models. **Nothing has run on GKE or on a GPU.** The GPU quota blocks every GPU stage.
 
 | Status | State |
@@ -48,7 +50,7 @@ The global GPU limit of 0 overrides the regional limits. Read again on 2026-11-0
 
 agentgateway v1.7.0 supports weighted routing. The chart adds a client-facing name, `ewallet-llm-ab`, beside the unchanged `ewallet-fraud-llm` route. Each response carries `x-ewallet-backend`, and the body carries the model vLLM really served. Without `modelExperiments.enabled`, the chart renders byte for byte as before.
 
-Production BYO agents read `EWALLET_LLM_MODEL` and do not use `ModelConfig`, so a change to `ModelConfig` would not move their traffic. (With `modelConfig.byoResolver` on they read the CR at startup, but the A/B variants are still set per variant: [GLOBAL_MODELCONFIG.md](GLOBAL_MODELCONFIG.md).)
+Production BYO agents read `EWALLET_LLM_MODEL` and do not use `ModelConfig`, so a change to `ModelConfig` would not move their traffic. (With `modelConfig.byoResolver` on they read the CR at startup, but the A/B variants are still set per variant: [LLM_PLATFORM §5](../llm/LLM_PLATFORM.md#5-global-modelconfig-and-byo-resolver).)
 
 The split is per request, so a conversation can reach both models. Sticky per-conversation assignment is what the [Agent A/B](../agents/AGENT_AB.md) adds.
 

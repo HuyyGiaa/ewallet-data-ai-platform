@@ -21,7 +21,7 @@ Run one heavy package at a time.
 | [P5](#p5-isolated-mcp-failover) | EXP-C5-MCP | no new nodes | None |
 | [P6](#p6-sandbox) | EXP-C5-SANDBOX | no new nodes | None until S1 |
 
-GPU work (EXP-V3) stays blocked until the owner's quota request succeeds. See the [LLM A/B design](../../../edai2/llm/LLM_AB_DESIGN.md).
+GPU work (EXP-V3) stays blocked until the owner's quota request succeeds. See the [LLM A/B design](../../../edai2/platform/LLM_AB_DESIGN.md).
 
 Costs use Singapore list prices read on 2026-11-05: about $0.18 per e2-standard-4 node-hour with disk and IP. Durations are estimates from historical run times plus an assumed 8–9 minutes of vLLM startup per run.
 
@@ -71,7 +71,7 @@ The namespace quota is 2 CPU and 6 GiB, and jobs run one at a time.
 
 ## P2: EXP-V1 thread binding
 
-Read the [safety audit](../../../edai2/llm/EXP_V1_V2_SAFETY_AUDIT.md) first.
+Read the session safety controls in [BENCHMARK_RESULTS §2.5](../../../edai2/llm/BENCHMARK_RESULTS.md#25-observability-and-safety-of-the-sessions) first (the original pre-run [safety audit](../../../../archive/legacy-docs/docs/edai2/llm/EXP_V1_V2_SAFETY_AUDIT.md) is archived).
 
 **Creates** `bench-pool` (1 e2-standard-4, tainted) and namespace `ewallet-bench`, and removes both. About 2.4 hours, stopping at 240 minutes.
 

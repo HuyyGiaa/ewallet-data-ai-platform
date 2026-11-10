@@ -18,7 +18,7 @@
 
 | Row | Pts | Class | Existing evidence | Missing proof | Recommended action | Priority |
 |---:|---:|---|---|---|---|---|
-| 5 | 1 | CLOSED 2026-11-10 | Owner policy screenshots POL-1 to POL-7 and raw probes | — | See [BENCHMARK_RESULTS §4](llm/BENCHMARK_RESULTS.md#4-gateway-security-and-policy) | — |
+| 5 | 1 | CLOSED 2026-11-10 | Owner policy screenshots POL-1 to POL-7 and raw probes | — | See [BENCHMARK_RESULTS §5](llm/BENCHMARK_RESULTS.md#5-agentgateway-security-and-policy-evidence) | — |
 | 9 | 2 | SCREENSHOT_MISSING | DagRun `rag_fraud_policy_ingestion/manual__2026-11-02T04:47:47…` 6/6 success; publication `b85ae796…` | Airflow Grid/Graph image of that run | Start the existing local Airflow (`rag_runbook.md` §3) and capture the preserved run, if its metadata DB still holds it. Otherwise one bounded re-run (owner approval) | P1 |
 | 10 | 2 | SCREENSHOT_MISSING | DataHub GMS read-back: 25 records, 5 assertion runs | DataHub UI lineage/assertion image | Start the persisted DataHub Quickstart alone (RAM budget: check `free -g`, one stack at a time) and capture the RAG dataset lineage and assertions | P1 |
 | 29 | 2 | CLOSED 2026-11-08 | Owner screenshots 29_01–05 and raw run at `281db72`; rerun green at HEAD | — | See [Row 29](testing/ROW_29_EQUIVALENCE_BOUNDARY.md) | — |

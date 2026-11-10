@@ -51,4 +51,4 @@ These results are real but say nothing about GKE:
 
 ## Preserved for later
 
-The approval packages are in the [runbook](../../runbooks/edai2/llm_agent/C_AGENT_PLATFORM_RUNBOOK.md). The next batch is C6 + C7: Vault, ML Model A/B, Agent Configuration A/B and LLM Model A/B. Its inputs are the [LLM A/B design](../llm/LLM_AB_DESIGN.md), the [ML A/B design](../mlops/ML_AB_DESIGN.md) and the comparison tooling in `ops/experiments`.
+The approval packages are in the [runbook](../../runbooks/edai2/llm_agent/C_AGENT_PLATFORM_RUNBOOK.md). The next batch is C6 + C7: Vault, ML Model A/B, Agent Configuration A/B and LLM Model A/B. Its inputs are the [LLM A/B design](LLM_AB_DESIGN.md), the [ML A/B design](../mlops/ML_AB_DESIGN.md) and the comparison tooling in `ops/experiments`.

@@ -10,7 +10,7 @@ did not select it (see [§8](#8-evaluator-errata)).
 | Branch | `codex/llm-o1-vllm-cpu-optimization` (on top of G1 `dedea5e`) |
 | Runtime commit (attempt 4) | `a194189d142bb0dfe98ea8882ce19f0b6f037f97` |
 | Report generator commit | `84c34487f9efdfbe67262db028c96b77fea799e1` |
-| Authoritative evidence | [`o1_20261101T052939Z`](../../evidence/llm_agent/o1_20261101T052939Z) |
+| Authoritative evidence | [`o1_20261101T052939Z`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z) |
 | Evaluator output (preserved) | `selected: NO_GAIN`, `baseline_valid: false` |
 | Owner decision | C1 (`VLLM_CPU_OMP_THREADS_BIND=0-1`) selected for G2 |
 
@@ -42,7 +42,7 @@ Headline (attempt 4, concurrency 4, versus baseline B0'):
 1. **RQ1 (C1).** Does binding the vLLM CPU worker's OpenMP threads to both
    requested cores raise throughput and lower latency? In G1, `auto` bound
    inference to a single core
-   ([O1 runbook](../../llm_agent/o1_runbook.md#experiments-same-resources-23-cpu-610-gib-kv-2-gib-1-active-backend)).
+   ([O1 runbook](../../../../../docs/llm_agent/o1_runbook.md#experiments-same-resources-23-cpu-610-gib-kv-2-gib-1-active-backend)).
 2. **RQ2 (C2).** Does a smaller prefill chunk (`--max-num-batched-tokens 512`)
    improve TTFT under mixed short/long concurrent load?
 3. **RQ3 (C3, ablation).** How much does prefix caching contribute on CPU?
@@ -66,9 +66,9 @@ Headline (attempt 4, concurrency 4, versus baseline B0'):
 | Gateway budget (benchmark only) | `o1/benchmark-gateway.yaml`: token rate 400 000/h (production: 24 000/h); request rate 12/s unchanged |
 
 The exact image digests are in
-[`image-digests.json`](../../evidence/llm_agent/o1_20261101T052939Z/image-digests.json).
+[`image-digests.json`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/image-digests.json).
 The node budget check is in
-[`capacity.json`](../../evidence/llm_agent/o1_20261101T052939Z/capacity.json)
+[`capacity.json`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/capacity.json)
 (verdict `FITS_SAFE_BUDGET`).
 
 ## 4. Methodology
@@ -128,7 +128,7 @@ budget).
 ## 6. Results
 
 All numbers come from attempt 4
-([`comparison.md`](../../evidence/llm_agent/o1_20261101T052939Z/o1/comparison.md),
+([`comparison.md`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/o1/comparison.md),
 raw rows in `o1/<config>/raw_requests.jsonl`). Tokens/s is the total across the
 level. "Per CPU" divides by the 2 requested CPUs.
 
@@ -182,19 +182,19 @@ returned HTTP 429.
 
 MLOps was healthy before, during and after the run: 24 pods, with
 `fraud-serving/fraud-detector` Ready
-([before](../../evidence/llm_agent/o1_20261101T052939Z/mlops-health-before.json),
-[during](../../evidence/llm_agent/o1_20261101T052939Z/mlops-health-during.json),
-[after](../../evidence/llm_agent/o1_20261101T052939Z/mlops-health-after.json)).
+([before](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/mlops-health-before.json),
+[during](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/mlops-health-during.json),
+[after](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/mlops-health-after.json)).
 
 ### 6.5 G1 gates (run on the final redeploy, i.e. **B0'**, not C1)
 
 | Gate | Result | Evidence |
 |---|---|---|
-| NetworkPolicy, 6 probes | 6/6 denied as expected | [`ops/netpol-verify.tsv`](../../evidence/llm_agent/o1_20261101T052939Z/ops/netpol-verify.tsv) |
-| Client auth (wrong / missing / backend key) | 401 / 401 / 401, on both the direct and the gateway path | [`ops/smoke-gateway-auth.txt`](../../evidence/llm_agent/o1_20261101T052939Z/ops/smoke-gateway-auth.txt), [`ops/smoke-direct-auth.txt`](../../evidence/llm_agent/o1_20261101T052939Z/ops/smoke-direct-auth.txt) |
+| NetworkPolicy, 6 probes | 6/6 denied as expected | [`ops/netpol-verify.tsv`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/ops/netpol-verify.tsv) |
+| Client auth (wrong / missing / backend key) | 401 / 401 / 401, on both the direct and the gateway path | [`ops/smoke-gateway-auth.txt`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/ops/smoke-gateway-auth.txt), [`ops/smoke-direct-auth.txt`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/ops/smoke-direct-auth.txt) |
 | Smoke: stream, non-stream, tool call | PASS on direct and gateway | `ops/smoke-*-stream.json`, `ops/smoke-*-non-stream.json` |
-| Failover | attempt 1: 503 from primary; attempt 2: 200 from fallback. Fallback `vllm:request_success_total` went 1 → 6 | [`ops/failover/eviction.txt`](../../evidence/llm_agent/o1_20261101T052939Z/ops/failover/eviction.txt), [`fallback-metric.txt`](../../evidence/llm_agent/o1_20261101T052939Z/ops/failover/fallback-metric.txt) |
-| Cleanup | release uninstalled; pool back to the 2 MLOps nodes | [`cleanup.txt`](../../evidence/llm_agent/o1_20261101T052939Z/cleanup.txt) |
+| Failover | attempt 1: 503 from primary; attempt 2: 200 from fallback. Fallback `vllm:request_success_total` went 1 → 6 | [`ops/failover/eviction.txt`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/ops/failover/eviction.txt), [`fallback-metric.txt`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/ops/failover/fallback-metric.txt) |
+| Cleanup | release uninstalled; pool back to the 2 MLOps nodes | [`cleanup.txt`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/cleanup.txt) |
 
 ## 7. Analysis
 
@@ -338,13 +338,13 @@ attempt 1 nodes (`…-8wnf`, `…-mfgh`) were gone by then.
 
 | Attempt | Directory | Runner commit | Window (UTC) | Exit | Outcome | Files | Tree hash |
 |---|---|---|---|---|---|---|---|
-| 1 | [`o1_20261101T025115Z`](../../evidence/llm_agent/o1_20261101T025115Z) | `7c40617` | 02:51–03:46 | 1 | Port-forward leaked through a function wrapper (`$!` was a subshell). C1 requests hit deleted B0' pods | 54 | `435030ad…4535a` |
-| 2 | [`o1_20261101T034723Z`](../../evidence/llm_agent/o1_20261101T034723Z) | `a08f64b` | 03:47–04:30 | 143 | `wait` on a killed port-forward returned 143 under `set -e` | 43 | `ce6ad5d5…58bbc` |
-| 3 | [`o1_20261101T043036Z`](../../evidence/llm_agent/o1_20261101T043036Z) | `2d1eb68` | 04:30–05:29 | 130 | Stopped by the operator: the production token budget (24 000/h) was exhausted by B0', and every C1 request got 429 | 60 | `8efa6355…4a851` |
-| **4** | [`o1_20261101T052939Z`](../../evidence/llm_agent/o1_20261101T052939Z) | `a194189` | 05:29–08:46 | 0 | **Complete.** 144 requests, 0 × 429, evaluator `NO_GAIN` (§8) | 127 | `9597bfc0…10c0e` |
+| 1 | [`o1_20261101T025115Z`](../../../../../docs/evidence/llm_agent/o1_20261101T025115Z) | `7c40617` | 02:51–03:46 | 1 | Port-forward leaked through a function wrapper (`$!` was a subshell). C1 requests hit deleted B0' pods | 54 | `435030ad…4535a` |
+| 2 | [`o1_20261101T034723Z`](../../../../../docs/evidence/llm_agent/o1_20261101T034723Z) | `a08f64b` | 03:47–04:30 | 143 | `wait` on a killed port-forward returned 143 under `set -e` | 43 | `ce6ad5d5…58bbc` |
+| 3 | [`o1_20261101T043036Z`](../../../../../docs/evidence/llm_agent/o1_20261101T043036Z) | `2d1eb68` | 04:30–05:29 | 130 | Stopped by the operator: the production token budget (24 000/h) was exhausted by B0', and every C1 request got 429 | 60 | `8efa6355…4a851` |
+| **4** | [`o1_20261101T052939Z`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z) | `a194189` | 05:29–08:46 | 0 | **Complete.** 144 requests, 0 × 429, evaluator `NO_GAIN` (§8) | 127 | `9597bfc0…10c0e` |
 
 **Attempt 4 integrity.**
-- [`MANIFEST.sha256`](../../evidence/llm_agent/o1_20261101T052939Z/MANIFEST.sha256)
+- [`MANIFEST.sha256`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/MANIFEST.sha256)
   covers 126 files and verifies OK. The manifest's own sha256 is `926edb30…c694`.
 - The sha256 of `o1/comparison.json` is
   `d1d27f4444f79fe186a762d4f4504ee68c97a1a69db21cf33f4db6eb57606c42`.
@@ -359,8 +359,8 @@ To check:
 
 | Path (under `o1_20261101T052939Z/`) | Contents |
 |---|---|
-| [`O1_REPORT.md`](../../evidence/llm_agent/o1_20261101T052939Z/O1_REPORT.md) | generated by `o1_report.py` |
-| [`o1/comparison.json`](../../evidence/llm_agent/o1_20261101T052939Z/o1/comparison.json), [`selected.txt`](../../evidence/llm_agent/o1_20261101T052939Z/selected.txt) | original evaluator output (`NO_GAIN`) |
+| [`O1_REPORT.md`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/O1_REPORT.md) | generated by `o1_report.py` |
+| [`o1/comparison.json`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/o1/comparison.json), [`selected.txt`](../../../../../docs/evidence/llm_agent/o1_20261101T052939Z/selected.txt) | original evaluator output (`NO_GAIN`) |
 | `o1/<config>/raw_requests.jsonl`, `summary.json`, `window.json`, `workload.json` | per-request rows, per-level summaries, guard window, workload fingerprint |
 | `o1/<config>/deploy/` | `helm upgrade` output, history, rollout, workloads |
 | `state/resources.jsonl` | guard samples |
@@ -375,7 +375,7 @@ To check:
 - No file in the evidence is larger than 1 MB.
 
 **Reproduce:**
-- **Run:** see the [O1 runbook](../../llm_agent/o1_runbook.md). Check out
+- **Run:** see the [O1 runbook](../../../../../docs/llm_agent/o1_runbook.md). Check out
   `a194189`, then run `scripts/llm_agent/o1_experiment.sh <evidence-dir>`.
   This needs `O1_APPROVED=yes` and owner approval for the two temporary nodes.
 - **Re-render the report offline:**

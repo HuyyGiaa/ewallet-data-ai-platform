@@ -16,7 +16,8 @@ The overall architecture, with numbered data and investigation flows, is in the 
 
 | Topic | Report |
 |---|---|
-| LLM serving, agentgateway, global ModelConfig, performance experiments | [LLM Inference Platform](llm/LLM_PLATFORM.md) |
+| LLM serving, agentgateway, global ModelConfig and BYO resolver | [LLM Inference Platform](llm/LLM_PLATFORM.md) |
+| LLM benchmarks EXP-V1 / EXP-V2 and gateway policy evidence | [LLM Benchmark Results](llm/BENCHMARK_RESULTS.md) |
 | Feast, Kubeflow Pipelines, MLflow, KServe, Fraud API | [Feature Store, Training Pipeline, Registry and Serving](mlops/ML_PIPELINE_SERVING.md) |
 | Coordinator and specialist agents, MCP tools, Agent Registry, MCP/A2A gateways, scaling, sandbox pilot | [Agents, MCP Tools, Registry and Gateways](agents/AGENTS_REGISTRY_GATEWAYS.md) |
 | RAG ingestion, retrieval and governance | [RAG Knowledge Pipeline](rag/RAG_PIPELINE.md) |
@@ -31,8 +32,7 @@ The overall architecture, with numbered data and investigation flows, is in the 
 **Detailed experiment records:**
 
 - [Official EXP-V1 / EXP-V2 benchmark results](llm/BENCHMARK_RESULTS.md);
-- [vLLM serving-parameter benchmark](llm/vllm_cpu_o1_benchmark.md);
-- [llm-d routing benchmark](llm/llmd_g2_routing_benchmark.md).
+- historical O1 and G2 experiment logs, archived: [vLLM serving-parameter benchmark](../../archive/legacy-docs/docs/edai2/llm/vllm_cpu_o1_benchmark.md) and [llm-d routing benchmark](../../archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md).
 
 ## Evidence
 

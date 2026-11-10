@@ -110,7 +110,7 @@ Agents never call MCP servers or each other directly. This centralises authoriza
 
 ## 4. Deployment and configuration
 
-**Model configuration.** Declarative agents reference the shared `ewallet-global-llm` ModelConfig; BYO agents receive the same model and gateway client key through environment variables; a resolver that reads the CR is integrated but not deployed. See [GLOBAL_MODELCONFIG.md](../llm/GLOBAL_MODELCONFIG.md).
+**Model configuration.** Declarative agents reference the shared `ewallet-global-llm` ModelConfig; BYO agents receive the same model and gateway client key through environment variables; a resolver that reads the CR is integrated but not deployed. See [LLM_PLATFORM §5](../llm/LLM_PLATFORM.md#5-global-modelconfig-and-byo-resolver).
 
 | Concern | File |
 |---|---|

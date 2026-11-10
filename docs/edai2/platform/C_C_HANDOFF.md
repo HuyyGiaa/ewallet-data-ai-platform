@@ -21,7 +21,7 @@ Branch: `feature/c-vault-ab-testing`, based on `46f86b3`. Local commits only; no
 | Vault | [VAULT.md](VAULT.md) |
 | ML A/B | [ML_AB_DESIGN.md](../mlops/ML_AB_DESIGN.md) |
 | Agent A/B | [AGENT_AB.md](../agents/AGENT_AB.md) |
-| LLM A/B | [LLM_AB_DESIGN.md](../llm/LLM_AB_DESIGN.md) |
+| LLM A/B | [LLM_AB_DESIGN.md](LLM_AB_DESIGN.md) |
 | Row 32 | [ROW_32_LOCUST_PLAN.md](../testing/ROW_32_LOCUST_PLAN.md) |
 | Approvals | [C_C_APPROVAL_PACKAGES.md](../../runbooks/edai2/C_C_APPROVAL_PACKAGES.md) |
 

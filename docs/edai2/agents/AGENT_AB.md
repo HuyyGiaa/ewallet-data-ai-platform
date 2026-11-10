@@ -14,7 +14,7 @@ This page describes the A/B test between two model configurations of the Fraud C
 
 | Agent | Runtime | Uses an LLM? | How its model is set |
 |---|---|---|---|
-| Fraud Coordinator | BYO | **Yes, one tool-selection call** | `EWALLET_LLM_MODEL` rendered by Helm; with `modelConfig.byoResolver` on, read from the `ModelConfig` CR at startup ([GLOBAL_MODELCONFIG.md](../llm/GLOBAL_MODELCONFIG.md)) |
+| Fraud Coordinator | BYO | **Yes, one tool-selection call** | `EWALLET_LLM_MODEL` rendered by Helm; with `modelConfig.byoResolver` on, read from the `ModelConfig` CR at startup ([LLM_PLATFORM §5](../llm/LLM_PLATFORM.md#5-global-modelconfig-and-byo-resolver)) |
 | Feature-RAG Specialist | BYO | No: deterministic MCP calls | Not applicable |
 | Drift Specialist | Declarative | Yes | `ModelConfig`, fixed per Agent |
 

@@ -8,11 +8,11 @@ This runbook is for the owner's own benchmark and screenshot session, the eviden
 
 Nothing here generates screenshots, and nothing touches production.
 
-- Methodology and why one run per arm is used: [BENCHMARK_METHODOLOGY.md](../../edai2/llm/BENCHMARK_METHODOLOGY.md#single-run-comparison-selected-for-the-edai-2-submission).
-- Which screenshot backs which rubric row: [BENCHMARK_EVIDENCE_MATRIX.md](../../edai2/llm/BENCHMARK_EVIDENCE_MATRIX.md).
-- Design and validation history: [BENCHMARK_REPLAY.md](../../edai2/llm/BENCHMARK_REPLAY.md).
+- Methodology and why one run per arm is used: [BENCHMARK_RESULTS §2](../../edai2/llm/BENCHMARK_RESULTS.md#2-experimental-environment-and-methodology).
+- Which screenshot backs which rubric row: [EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md).
+- Design, GKE validation history and measured stage durations (archived record): [BENCHMARK_REPLAY.md](../../../archive/legacy-docs/docs/edai2/llm/BENCHMARK_REPLAY.md).
 
-Status: the owner ran this procedure on 2026-11-09/10 (`SINGLE_RUN_RESULTS=COMPLETE`, `OWNER_SCREENSHOTS=INTEGRATED`): [results](../../edai2/llm/BENCHMARK_RESULTS.md), [evidence matrix](../../edai2/llm/BENCHMARK_EVIDENCE_MATRIX.md). The steps below stay as the replay procedure. As executed, some screens were combined or captured with equivalent commands; the matrix records what each file shows.
+Status: the owner ran this procedure on 2026-11-09/10 (`SINGLE_RUN_RESULTS=COMPLETE`, `OWNER_SCREENSHOTS=INTEGRATED`): [results](../../edai2/llm/BENCHMARK_RESULTS.md), [evidence matrix](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md). The steps below stay as the replay procedure. As executed, some screens were combined or captured with equivalent commands; the matrix records what each file shows.
 
 ## 0. Overview
 
@@ -275,7 +275,7 @@ until [ -d $CAMPAIGN/exp-v2 ]; do sleep 5; done; python3 -m ops.experiments.prog
 - In the rehearsal, B2 spread the burst over both pods and returned no 503.
 - The measured workload never has more than 8 requests in flight.
 
-**Failover: NOT_EXECUTED.** The benchmark stack has no fallback backend, on purpose: a fallback would hide failed requests. Failover was shown in G1 ([BENCHMARK_REPLAY.md §6](../../edai2/llm/BENCHMARK_REPLAY.md#6-gateway-policy-evidence)).
+**Failover: NOT_EXECUTED.** The benchmark stack has no fallback backend, on purpose: a fallback would hide failed requests. Failover was shown in G1 ([LLM_PLATFORM §6](../../edai2/llm/LLM_PLATFORM.md#6-runtime-verification)).
 
 ## 8. Watching Grafana and Prometheus
 
@@ -294,7 +294,7 @@ ev_cleanup $CAMPAIGN/exp-v1; ev_cleanup $CAMPAIGN/exp-v2
 ```
 
 1. Both comparisons must say `single-run True <verdict>`. Any `OBSERVED_*` or `NO_CLEAR_OBSERVED_CHANGE` is a valid result. `INVALID` means the pair is not comparable; read `validity_problems`.
-2. Check every row of [BENCHMARK_EVIDENCE_MATRIX.md](../../edai2/llm/BENCHMARK_EVIDENCE_MATRIX.md): each REQUIRED screenshot exists and shows what its row requires.
+2. Check every row of [BENCHMARK_EVIDENCE_MATRIX.md](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md): each REQUIRED screenshot exists and shows what its row requires.
 3. Take numbers only from `comparison/metrics.json`. Describe them as observed differences of one run per arm.
 4. Commit the campaign directory yourself. Do not run `tmux kill-server` before both `runner exit` lines are written.
 
@@ -342,6 +342,6 @@ EXP_APPROVED=yes EXP_RUNS=3 EXP_CAPTURE_MODE=unattended EXP_MAX_MINUTES=215 \
   scripts/experiments/vllm_bench.sh exp-v1 session <dir>
 ```
 
-The chain is described in [BENCHMARK_REPLAY.md](../../edai2/llm/BENCHMARK_REPLAY.md) and the [rehearsal README](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
+The chain is described in [BENCHMARK_REPLAY.md](../../../archive/legacy-docs/docs/edai2/llm/BENCHMARK_REPLAY.md) and the [rehearsal README](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
 
 **Smoke test:** `EXP_PROFILE=smoke`. **Cleanup drill:** `scripts/experiments/vllm_bench.sh exp-v1 drill <dir>`.

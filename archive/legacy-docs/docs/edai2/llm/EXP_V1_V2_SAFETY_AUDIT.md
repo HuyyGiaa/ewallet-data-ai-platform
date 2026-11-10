@@ -64,7 +64,7 @@ Point 8's gap is closed. Two cleanup paths no longer depend on the session's own
 
 The time limit is now wall-clock time, so a resumed laptop stops at once. The limit is at most 215 min, so 10 min setup + limit + 15 min teardown fits the owner's 4-hour window. The session refuses to start when the worst-case cost exceeds USD 5. Cleanup also proves that no `gke-ewallet-dev-bench-pool-*` VM or disk remains.
 
-**Drill on GKE** ([evidence](../../evidence/edai2/llm/benchmark_reproduction_20261109/safety/drill/)), one node, one idle pod with local storage, watchdog deadline 20:49:26Z:
+**Drill on GKE** ([evidence](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/safety/drill)), one node, one idle pod with local storage, watchdog deadline 20:49:26Z:
 
 | Time (UTC) | Deployments | Watchdog CronJob | Bench nodes |
 |---|---|---|---|

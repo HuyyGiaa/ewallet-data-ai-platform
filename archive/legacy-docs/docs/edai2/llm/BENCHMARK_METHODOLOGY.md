@@ -4,10 +4,10 @@ This page defines how EDAI-2 compares a baseline with an optimization, and the e
 
 **Selected for the EDAI-2 submission: the single-run methodology** (`EXP_PROFILE=single`, [§ Single-run comparison](#single-run-comparison-selected-for-the-edai-2-submission)). The owner runs it personally and captures the screenshots.
 
-`SINGLE_RUN_RESULTS=COMPLETE` · `OWNER_SCREENSHOTS=INTEGRATED`. Results: [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md).
+`SINGLE_RUN_RESULTS=COMPLETE` · `OWNER_SCREENSHOTS=INTEGRATED`. Results: [BENCHMARK_RESULTS.md](../../../../../docs/edai2/llm/BENCHMARK_RESULTS.md).
 
 **Earlier results, kept as engineering evidence:**
-- **Multi-run formal rehearsal**, 2026-11-09, 3 runs per arm: [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
+- **Multi-run formal rehearsal**, 2026-11-09, 3 runs per arm: [benchmark_rehearsal_20261109](../../../../../docs/evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
 - **O1 and G2**, `HISTORICAL`: one run per configuration each.
 
 These earlier results are not reused as the single-run results.
@@ -16,8 +16,8 @@ These earlier results are not reused as the single-run results.
 
 | `EXP_PROFILE` | Runs per arm | Levels (V1 / V2) | Order | Comparator | Use |
 |---|---|---|---|---|---|
-| `single` | exactly 1 | 1,2,4 / 1,2,4,8 (full) | baseline, then optimized | [`single_run.py`](../../../ops/experiments/single_run.py): observed differences | **EDAI-2 submission** |
-| `formal` (default) | `EXP_RUNS`, default 3 (2–5) | 1,2,4 / 1,2,4,8 (full) | AB, BA, AB | [`compare.py`](../../../ops/experiments/compare.py): rules below | the 2026-11-09 rehearsal |
+| `single` | exactly 1 | 1,2,4 / 1,2,4,8 (full) | baseline, then optimized | [`single_run.py`](../../../../../ops/experiments/single_run.py): observed differences | **EDAI-2 submission** |
+| `formal` (default) | `EXP_RUNS`, default 3 (2–5) | 1,2,4 / 1,2,4,8 (full) | AB, BA, AB | [`compare.py`](../../../../../ops/experiments/compare.py): rules below | the 2026-11-09 rehearsal |
 | `smoke` | exactly 1 | 1 / 1,4 (reduced) | baseline, then optimized | `compare.py`, which returns `INCONCLUSIVE` | workflow check, never a result |
 
 All three profiles use the same image, model, workload, request counts, gateway policy (160 s timeout), fresh pods per run, observability, policy probe, watchdog and cleanup. Only the number of runs, the levels (smoke) and the comparator differ.
@@ -31,7 +31,7 @@ The profile is recorded in three places, so single-run and multi-run evidence ca
 
 ## Rules (multi-run comparison)
 
-Every multi-run comparison (`formal`, `smoke`) follows these rules, enforced in [`ops/experiments/compare.py`](../../../ops/experiments/compare.py).
+Every multi-run comparison (`formal`, `smoke`) follows these rules, enforced in [`ops/experiments/compare.py`](../../../../../ops/experiments/compare.py).
 
 | Rule | Effect |
 |---|---|
@@ -57,7 +57,7 @@ In the reports, a positive improvement always means better, whichever way the me
 - no significance test;
 - no claim of a stable improvement.
 
-**Rules**, enforced in [`ops/experiments/single_run.py`](../../../ops/experiments/single_run.py). Execution validity and the observed outcome are reported separately.
+**Rules**, enforced in [`ops/experiments/single_run.py`](../../../../../ops/experiments/single_run.py). Execution validity and the observed outcome are reported separately.
 
 | Rule | Effect |
 |---|---|
@@ -87,7 +87,7 @@ In the reports, a positive improvement always means better, whichever way the me
 
 ## Fairness measures
 
-- **One difference.** Both arms render from one template and one arm table in [`render_bench.py`](../../../scripts/experiments/render_bench.py). The `plan` step prints the difference.
+- **One difference.** Both arms render from one template and one arm table in [`render_bench.py`](../../../../../scripts/experiments/render_bench.py). The `plan` step prints the difference.
 - **Alternating order.** Multi-run sessions go A B, B A, A B, so slow drift does not favour an arm. A single-run session is A then B, so drift between the two runs cannot be separated from the effect. This is one of its stated limits.
 - **Clean start.** vLLM and the gateway restart before each run, which clears the prefix cache and refills the token budget.
 - **Same workload.** Both arms use the pinned `o1-workload-v1`, and its SHA-256 is a control. Cold and warm-up requests are reported separately from measured ones.
@@ -133,7 +133,7 @@ Both arms use two `0-1` replicas, one per node. Concurrency is 1, 2, 4 and 8. EP
 
 ### EXP-V3A and EXP-V3B
 
-See the [LLM A/B design](LLM_AB_DESIGN.md). Both need GPU quota.
+See the [LLM A/B design](../../../../../docs/edai2/platform/LLM_AB_DESIGN.md). Both need GPU quota.
 
 ### Agent experiments
 

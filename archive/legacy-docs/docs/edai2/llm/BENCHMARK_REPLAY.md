@@ -2,7 +2,7 @@
 
 This page describes how the O1 and G2 CPU benchmarks are reproduced on GKE so that the owner can capture genuine screenshots of the runs and of agentgateway policy enforcement. It covers what was added to the existing framework, what was validated on GKE on 2026-11-09, and what is still pending.
 
-Owner procedure: [BENCHMARK_EVIDENCE_RUNBOOK.md](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md). Comparison rules: [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md).
+Owner procedure: [BENCHMARK_EVIDENCE_RUNBOOK.md](../../../../../docs/runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md). Comparison rules: [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md).
 
 ## 1. What is what
 
@@ -14,8 +14,8 @@ Keep these apart when reading any number:
 | Historical G2 (llm-d routing) | [llmd_g2_routing_benchmark.md](llmd_g2_routing_benchmark.md), evidence `g2_20261101T124444Z` | Frozen. `MIXED`. The original `comparison.json` showed 0 EPP decisions (parser issue); `comparison.recomputed.json` shows 53 and changes no performance result |
 | This replay's implementation | `scripts/experiments/vllm_bench.sh` and the `ops/experiments` modules listed in §3 | Tested locally (§7) |
 | This replay's GKE validation | [§8](#8-gke-validation-2026-11-09), evidence `benchmark_reproduction_20261109/` | Smoke and drill only. These are not benchmark results |
-| Multi-run formal rehearsal (3 runs per arm) | [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) | Done 2026-11-09. Historical engineering evidence; not the submission result |
-| Owner's single-run evidence session (`EXP_PROFILE=single`) | [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md), [`owner_single_run_20261109`](../../evidence/edai2/llm/owner_single_run_20261109/README.md) | **Done 2026-11-09/10.** The EDAI-2 submission result: EXP-V1 `OBSERVED_IMPROVEMENT`, EXP-V2 `OBSERVED_MIXED` |
+| Multi-run formal rehearsal (3 runs per arm) | [benchmark_rehearsal_20261109](../../../../../docs/evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) | Done 2026-11-09. Historical engineering evidence; not the submission result |
+| Owner's single-run evidence session (`EXP_PROFILE=single`) | [BENCHMARK_RESULTS.md](../../../../../docs/edai2/llm/BENCHMARK_RESULTS.md), [`owner_single_run_20261109`](../../../../../docs/evidence/edai2/llm/owner_single_run_20261109/README.md) | **Done 2026-11-09/10.** The EDAI-2 submission result: EXP-V1 `OBSERVED_IMPROVEMENT`, EXP-V2 `OBSERVED_MIXED` |
 | Production LLM deployment | `llm-agent` Helm release (revision 42) | Not touched by any of this |
 | Benchmark deployment | namespace `ewallet-bench`, node pool `bench-pool` | Temporary. Created and deleted per session; never a production promotion |
 
@@ -126,7 +126,7 @@ The benchmark gateway configures exactly these policies, and the probe tests eac
 - per-route timeouts;
 - the `x-ewallet-backend` response header.
 
-**Failover is NOT_EXECUTED here, on purpose.** The benchmark stack has no fallback backend, so a failed request stays failed and cannot flatter an arm. Failover was demonstrated in G1; see [LLM_PLATFORM.md §4](LLM_PLATFORM.md#4-runtime-verification). This benchmark does not test production failover.
+**Failover is NOT_EXECUTED here, on purpose.** The benchmark stack has no fallback backend, so a failed request stays failed and cannot flatter an arm. Failover was demonstrated in G1; see [LLM_PLATFORM.md §4](../../../../../docs/edai2/llm/LLM_PLATFORM.md#6-runtime-verification). This benchmark does not test production failover.
 
 ## 7. Local validation
 
@@ -155,15 +155,15 @@ Additional checks:
 
 ## 8. GKE validation (2026-11-09)
 
-Evidence: [`benchmark_reproduction_20261109/`](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md). Window 20:44Z–23:35Z (171 of 240 minutes), about 4.9 node-hours, estimated USD 0.88 at list price (not a billing readback). No GPU, no production change.
+Evidence: [`benchmark_reproduction_20261109/`](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/README.md). Window 20:44Z–23:35Z (171 of 240 minutes), about 4.9 node-hours, estimated USD 0.88 at list price (not a billing readback). No GPU, no production change.
 
 | Session | Nodes | Result |
 |---|---|---|
-| [Cleanup drill](../../evidence/edai2/llm/benchmark_reproduction_20261109/safety/drill/) | 1 | **PASS.** Watchdog deadline 20:49:26; Deployments and CronJob gone 20:51:30; node removed by the autoscaler 21:08:05. The laptop only watched. RBAC read-back: yes in `ewallet-bench` only |
-| [EXP-V2 smoke, attempt 1](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt1/) | 2 | Failed on DNS egress (§3), found by this run. Cleanup confirmed |
-| [EXP-V2 smoke, attempt 2](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt2/) | 2 | Interactive checkpoint answered over stdin; baseline passed. The optimized client got 404 on `/metrics/metrics` (§3). Cleanup confirmed |
-| [EXP-V2 smoke, attempt 3](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke/) | 2 | Both arms passed. Comparison `INCONCLUSIVE` (1 run per arm, by design) |
-| [EXP-V1 smoke](../../evidence/edai2/llm/benchmark_reproduction_20261109/exp-v1-smoke/) (2026-11-09, source `fe07f1bb`) | 1 | Both arms passed, interactive, 3 checkpoints. Baseline `auto` 11/12: `long-1` hit the 160 s gateway timeout, as in O1 B0'. The run was kept and counted (see below). Optimized `0-1` 12/12. Tool calls 2/2 per arm. Comparison `INCONCLUSIVE` by design |
+| [Cleanup drill](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/safety/drill) | 1 | **PASS.** Watchdog deadline 20:49:26; Deployments and CronJob gone 20:51:30; node removed by the autoscaler 21:08:05. The laptop only watched. RBAC read-back: yes in `ewallet-bench` only |
+| [EXP-V2 smoke, attempt 1](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt1) | 2 | Failed on DNS egress (§3), found by this run. Cleanup confirmed |
+| [EXP-V2 smoke, attempt 2](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke-attempt2) | 2 | Interactive checkpoint answered over stdin; baseline passed. The optimized client got 404 on `/metrics/metrics` (§3). Cleanup confirmed |
+| [EXP-V2 smoke, attempt 3](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/exp-v2-smoke) | 2 | Both arms passed. Comparison `INCONCLUSIVE` (1 run per arm, by design) |
+| [EXP-V1 smoke](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/exp-v1-smoke) (2026-11-09, source `fe07f1bb`) | 1 | Both arms passed, interactive, 3 checkpoints. Baseline `auto` 11/12: `long-1` hit the 160 s gateway timeout, as in O1 B0'. The run was kept and counted (see below). Optimized `0-1` 12/12. Tool calls 2/2 per arm. Comparison `INCONCLUSIVE` by design |
 
 What attempt 3 verified, per arm:
 
@@ -188,7 +188,7 @@ Policy probe details (the instructor's request):
 | route | 3 × 200, `x-ewallet-backend: primary` | 3 × 200, `x-ewallet-backend: llm-d`, EPP `llm_d_epp_request_total` +3 |
 | 16 concurrent requests against 12/s | 12 × 200, 4 × 429 `rate limit exceeded` (`x-ratelimit-limit: 12`) | 8 × 200, 4 × 429, 4 × 503 |
 
-The four 503s in the llm-d burst came from behind the gateway: its log shows `endpoint=llmd-router-epp…:8081` and 25–77 ms. Most likely, they are vLLM's own admission control, not EPP saturation. The full analysis is in [analysis/llmd-503](../../evidence/edai2/llm/benchmark_reproduction_20261109/analysis/llmd-503/README.md).
+The four 503s in the llm-d burst came from behind the gateway: its log shows `endpoint=llmd-router-epp…:8081` and 25–77 ms. Most likely, they are vLLM's own admission control, not EPP saturation. The full analysis is in [analysis/llmd-503](../../../../../docs/evidence/edai2/llm/benchmark_reproduction_20261109/analysis/llmd-503/README.md).
 
 - **vLLM cap.** The pods run `--max-num-queued-reqs 8`. In vLLM 0.32.0, from the pinned image, that caps a pod's in-flight requests and answers the next one with 503.
 - **Why one pod filled up.** The burst repeats one prompt, and the EPP's prefix-cache scorer (weight 3) sends identical prompts to the same pod.
@@ -243,7 +243,7 @@ The two experiments therefore run as **two bounded sessions, one after the other
 
 ### Formal rehearsal (2026-11-09)
 
-Both formal sessions ran once, unattended, with 3 runs per arm, every level and no failed request. See the [rehearsal README](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
+Both formal sessions ran once, unattended, with 3 runs per arm, every level and no failed request. See the [rehearsal README](../../../../../docs/evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
 
 | Session | Duration | Verdict |
 |---|---|---|
@@ -255,6 +255,6 @@ Both formal sessions ran once, unattended, with 3 runs per arm, every level and 
 
 ## 9. Status
 
-1. **Owner single-run evidence session: done.** The owner ran EXP-V1 on 2026-11-09 and EXP-V2 on 2026-11-10, interactively in `tmux`, and captured the screenshots. Results are in [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md), and the claim-by-claim mapping is in [BENCHMARK_EVIDENCE_MATRIX.md](BENCHMARK_EVIDENCE_MATRIX.md).
+1. **Owner single-run evidence session: done.** The owner ran EXP-V1 on 2026-11-09 and EXP-V2 on 2026-11-10, interactively in `tmux`, and captured the screenshots. Results are in [BENCHMARK_RESULTS.md](../../../../../docs/edai2/llm/BENCHMARK_RESULTS.md), and the claim-by-claim mapping is in [BENCHMARK_EVIDENCE_MATRIX.md](../../../../../docs/rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md).
 2. **Numbers.** Reports take them from that session's `comparison/metrics.json` (`methodology: single-run`, `OBSERVED_*` verdicts) and describe them as observed differences of one pair of runs. The historical O1 and G2 figures and the multi-run rehearsal figures keep their labels.
 3. **Not planned.** Persisting the torch.compile cache across runs would shorten each start, but it gives warm starts after a cold run 01. It was rejected for this methodology (see the table above).

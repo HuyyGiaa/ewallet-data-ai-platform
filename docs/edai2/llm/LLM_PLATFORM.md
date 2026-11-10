@@ -1,235 +1,307 @@
 # LLM Inference Platform
 
-This report describes the platform that serves the custom LLM used by the fraud-investigation agents:
+This is the canonical report for the platform that serves the custom LLM of the fraud-investigation agents:
 
-- vLLM on CPU nodes in GKE;
-- agentgateway in front of vLLM;
-- one global kagent ModelConfig that holds the shared model settings ([§3.3](#33-global-modelconfig)).
+- **CPU vLLM** on GKE, serving a pinned Qwen3-0.6B;
+- **agentgateway** in front of vLLM, which authenticates clients, enforces budgets and routes to the backends;
+- one **Global ModelConfig**, `ewallet-global-llm`, that holds the shared model settings, and a **BYO ModelConfig Resolver** that lets BYO agents read it.
 
-It also reports the two optimisation experiments that shaped the current serving configuration.
+The two serving optimizations, EXP-V1 and EXP-V2, are reported in [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md).
 
-## 1. Overview and motivation
+| Rubric row | Section |
+|---|---|
+| 3 — Deploy the LLM inference platform | [§2](#2-architecture), [§3](#3-vllm-inference-platform), [§6](#6-runtime-verification) |
+| 4 — Custom model | [§3](#3-vllm-inference-platform) |
+| 5 — agentgateway with security and policy | [§4](#4-agentgateway); policy probes in [BENCHMARK_RESULTS §5](BENCHMARK_RESULTS.md#5-agentgateway-security-and-policy-evidence) |
+| 7 — Global ModelConfig | [§5](#5-global-modelconfig-and-byo-resolver) |
+| 50 — LLM telemetry | [§7](#7-observability), canonical in [OBSERVABILITY §6](../observability/OBSERVABILITY.md#6-llm-telemetry) |
 
-The agents use the LLM for a narrow task: understand an analyst's question and select a tool with its arguments (see [Agents](../agents/AGENTS_REGISTRY_GATEWAYS.md)). This task does not need a large model, so the platform serves **Qwen3-0.6B** on CPU nodes. Three reasons drove that choice:
+## 1. Overview
+
+The agents use the LLM for a narrow task: understand an analyst's question, then choose a tool and its arguments (see [Agents](../agents/AGENTS_REGISTRY_GATEWAYS.md)). That task does not need a large model, so the platform serves **Qwen3-0.6B on CPU nodes**. Three constraints drove this choice:
 
 - the GKE project has no GPU quota;
 - the same nodes also run the MLOps workloads;
 - tool calling with a small model is accurate enough when every argument is validated against the analyst's text.
 
-**Design goals:**
+**Design goals.**
 
-- **One entry point.** Agents never talk to vLLM directly. agentgateway authenticates clients, enforces rate and token budgets, applies timeouts, and fails over between backends.
-- **One model configuration.** A single ModelConfig defines the model, endpoint and credential reference. Declarative agents reference it; BYO agents get the same model name and client key from the same Helm values ([§3.3](#33-global-modelconfig)).
-- **Reproducible serving.** The model weights are baked into a digest-pinned image, so a pod never downloads weights at start-up.
+- **One entry point.** Agents never call vLLM directly. agentgateway authenticates them, enforces request and token budgets, applies nested timeouts and fails over between backends.
+- **One model configuration.** A single ModelConfig defines the model, the endpoint and the credential reference ([§5](#5-global-modelconfig-and-byo-resolver)).
+- **Reproducible serving.** The model weights are baked into a digest-pinned image, so a pod never downloads weights at start-up and needs no Internet egress.
 
 ## 2. Architecture
 
-```text
- (1) chat / A2A task                  (2) OpenAI-compatible request
-kagent agents ───────────────▶ ModelConfig ewallet-global-llm ─────────────▶ agentgateway :3000 (llm listener)
-(coordinator, specialists)       (provider OpenAI, baseUrl = agentgateway)       │ (3) apiKey strict, rate limit, timeouts
-                                                                                  ▼
-                                                     virtual model ewallet-fraud-llm (failover)
-                                                     (4a) vllm-primary :8000 ──┐   (4b) vllm-fallback :8000
-                                                                               ▼
-                                                                   Qwen3-0.6B on vLLM 0.32 CPU
+```mermaid
+flowchart LR
+  subgraph NS[Namespace ewallet-agents]
+    D["Declarative Agent<br/>drift-specialist"]
+    B["BYO Agents<br/>fraud-coordinator<br/>feature-rag-specialist"]
+    MC[["ModelConfig<br/>ewallet-global-llm"]]
+    S[("Secret<br/>agentgateway-client-key")]
+    G["agentgateway Service :3000<br/>entry :4000, apiKey strict"]
+    L["LLM listener<br/>virtual model ewallet-fraud-llm<br/>rate and token limits, timeouts"]
+    P["vllm-primary :8000<br/>Qwen3-0.6B as ewallet-fraud-llm-v1"]
+    F["vllm-fallback :8000<br/>scaled to 0 replicas"]
+  end
+  O["Observability<br/>Prometheus, Grafana, Tempo"]
+  D -. "spec.declarative.modelConfig" .-> MC
+  MC -. "apiKeySecret" .-> S
+  B -. "Helm env + secretKeyRef (deployed)" .-> S
+  B -. "resolver GET at startup (source only, flag off)" .-> MC
+  D -- "OpenAI request + client key" --> G
+  B -- "OpenAI request + client key" --> G
+  G --> L
+  L -- "priority 0, vLLM key" --> P
+  L -. "priority 1, failover" .-> F
+  L -. "metrics, spans" .-> O
+  P -. "vLLM metrics" .-> O
 ```
 
-**Deployable units:**
+**How to read it.** Solid arrows are runtime network requests; the generated tokens stream back along the same path. Dashed arrows are configuration references, the failover path, or telemetry. The ModelConfig is configuration, not a network hop: at runtime every agent calls agentgateway, which calls vLLM.
 
-- `vllm-primary` and `vllm-fallback` are Deployments;
-- `agentgateway` is a Deployment;
-- the ModelConfig is a kagent resource.
+**Deployable units** (Helm chart [`infra/helm/llm-agent-platform`](../../../infra/helm/llm-agent-platform/Chart.yaml)):
 
-Arrows follow the request; the generated tokens stream back along the same path.
+| Unit | Kind | Runtime state |
+|---|---|---|
+| `vllm-primary` | Deployment | 1/1 Running |
+| `vllm-fallback` | Deployment | Deployed, scaled to 0 replicas to save CPU on the shared nodes |
+| `agentgateway` | Deployment | Running |
+| `ewallet-global-llm` | kagent `ModelConfig` | Deployed |
+| Agents | kagent `Agent` (1 Declarative, 2 BYO) | Running |
 
-## 3. Implementation
+The chart also has an optional llm-d route (`llmd.mode`). It is off in the deployed configuration; llm-d was used only as the benchmark arm of EXP-V2.
 
-### 3.1 Model server
+## 3. vLLM inference platform
+
+### 3.1 Model and serving
 
 | Item | Value |
 |---|---|
-| Model | `Qwen/Qwen3-0.6B`, revision `c1899de2…`, bfloat16; vLLM serves it as `ewallet-fraud-llm-v1`, and agentgateway exposes it as the virtual model `ewallet-fraud-llm` |
-| Image | vLLM 0.32.0 CPU image, with the model baked into `vllm-cpu-model@sha256:f695b23e…` |
-| Resources per pod | requests 2 CPU / 6 GiB; limits 3 CPU / 10 GiB; KV cache 2 GiB; `max-model-len 4096` |
-| Scheduling | primary `max-num-seqs 4`; fallback `max-num-seqs 2` |
-| Tool calling | `--tool-call-parser hermes`; `--reasoning-parser qwen3`; thinking disabled |
-| Readiness | A warm-up request shaped like a real tool call is sent before the pod reports ready, so the first user request does not pay the cold compile and prefill cost |
+| Model | `Qwen/Qwen3-0.6B`, revision `c1899de289a04d12100db370d81485cdf75e47ca`, bfloat16 |
+| Names | vLLM serves it as `ewallet-fraud-llm-v1`; agentgateway exposes it as the virtual model `ewallet-fraud-llm` |
+| Image | vLLM 0.32.0 CPU, with the model baked into `vllm-cpu-model@sha256:f695b23e…` ([`infra/docker/vllm-cpu-model`](../../../infra/docker/vllm-cpu-model)) |
+| API | OpenAI-compatible Chat Completions (`/v1/chat/completions`), streaming and non-streaming |
+| Tool calling | `--tool-call-parser hermes`, `--reasoning-parser qwen3`, thinking disabled |
+| Readiness | A warm-up request shaped like a real tool call runs before the pod reports Ready, so the first user request does not pay the cold compile and prefill cost |
 
-Source:
+### 3.2 CPU deployment parameters
 
-- [`templates/vllm.yaml`](../../../infra/helm/llm-agent-platform/templates/vllm.yaml);
-- values [`values-gke-cpu.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu.yaml) and [`values-gke-cpu-g1.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu-g1.yaml).
-
-### 3.2 agentgateway
-
-The gateway is configured in [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml).
-
-| Policy | Setting | Reason |
+| Parameter | Value | Reason |
 |---|---|---|
-| Client authentication | `apiKey: mode: strict` with a dedicated client key | Clients cannot reach the model without their own key, and the vLLM key never leaves the gateway |
-| Backend authentication | a separate `apiKey` for vLLM | vLLM rejects any caller other than the gateway |
-| Rate limits | two `localRateLimit` buckets per model: requests and tokens | Bounds both request rate and token spend on a 2-core server |
-| Timeouts | nested budgets. The chart refuses to render unless `modelConfig.timeoutSeconds > requestTimeout > llmRequestTimeout > backendRequestTimeout ≥ responseIdleTimeout` | Each layer gives up after the one beneath it, so a slow generation is never cut by an outer hop while still running inside |
-| Retry | 502/503 only, at most one attempt. The chart refuses any 500/504 retry | A timed-out CPU generation is never replayed |
-| Failover | virtual model `ewallet-fraud-llm` with primary → fallback; a backend is evicted after 2 consecutive failures | Keeps serving if one vLLM pod is lost |
-| Observability | response header `x-ewallet-backend`; OpenTelemetry spans | Shows which backend served a request; gateway hops appear in traces |
+| Resources per pod | requests 2 CPU / 6 GiB, limits 3 CPU / 10 GiB | One vLLM pod per e2-standard-4 node, leaving room for MLOps |
+| KV cache | `VLLM_CPU_KVCACHE_SPACE` 2 GiB | A 4 GiB cache was OOMKilled at the 8 GiB limit; 2 GiB still holds about 18k tokens (4 sequences × 4096) |
+| Context | `--max-model-len 4096` | Fits the agent prompts (about 700 tokens with the tool schema) |
+| Concurrency | primary `--max-num-seqs 4`, `--max-num-queued-reqs 8`; fallback 2 and 4 | Bounds latency on 2 cores; extra requests get a fast 503 instead of an unbounded queue |
+| Prefix caching | on | Disabling it made every request pay a full prefill (about 87 s for 800 tokens against 4.4 s warm) in the historical O1 benchmark |
+| OpenMP threads | `OMP_NUM_THREADS=2`; `VLLM_CPU_OMP_THREADS_BIND` from `vllm.cpuThreadsBind` | Chart default `auto`. EXP-V1 measured `0-1`; see below |
+| Rollout | `maxSurge 0`, `maxUnavailable 1` | A surge pod would need 2 more free CPUs, which the node budget does not have |
 
-### 3.3 Global ModelConfig
+**Thread binding.** The chart exposes the binding as one value, `vllm.cpuThreadsBind` ([`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml), default `auto`), and the `0-1` setting as the overlay [`o1/c1-thread-bind.yaml`](../../../infra/helm/llm-agent-platform/o1/c1-thread-bind.yaml). EXP-V1 observed about 53–55 % more output tokens/s with `0-1` on the same pod budget ([BENCHMARK_RESULTS §3](BENCHMARK_RESULTS.md#3-exp-v1--cpu-thread-binding)). The GKE values file does not set the binding, and the recorded evidence does not show a promotion of `0-1` into the production release, so this report does not claim that production runs with `0-1`.
 
-One kagent `ModelConfig`, `ewallet-agents/ewallet-global-llm`, defines the model `ewallet-fraud-llm`, the agentgateway endpoint, the gateway client-key Secret reference and the timeout. It is configuration, not a network hop: at runtime agents call agentgateway, which routes to CPU vLLM.
+Source: [`templates/vllm.yaml`](../../../infra/helm/llm-agent-platform/templates/vllm.yaml), [`values-gke-cpu.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu.yaml), [`values-gke-cpu-g1.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu-g1.yaml).
 
-| Agent | How it gets the configuration today |
-|---|---|
-| `drift-specialist` (Declarative) | Native reference, `spec.declarative.modelConfig` |
-| `fraud-coordinator`, `feature-rag-specialist` (BYO) | Helm environment variables from the same values. A resolver that reads the CR is integrated in source but **not deployed** |
+## 4. agentgateway
 
-Configuration, resolver design, source links and status: **[GLOBAL_MODELCONFIG.md](GLOBAL_MODELCONFIG.md)**.
+The gateway is configured by [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) and the `agentgateway` block of the values.
 
-## 4. Runtime verification
+### 4.1 Request path
 
-**Deployment readback.**
+1. The agent sends an OpenAI-format request with its client key to the `agentgateway` Service on port 3000, which targets the `entry` port 4000.
+2. The entry route enforces `apiKey: mode: strict`, then forwards to the in-process LLM listener on `127.0.0.1:3000`.
+3. The listener applies the rate and token limits and the timeouts, and resolves the virtual model `ewallet-fraud-llm` to its backends: primary at priority 0, fallback at priority 1.
+4. The gateway replaces the client key with the vLLM backend key and calls vLLM, which serves `ewallet-fraud-llm-v1`.
 
-- `vllm-primary` runs 1/1 behind agentgateway.
-- `vllm-fallback` is deployed but currently scaled to zero replicas to save CPU on the shared nodes.
+### 4.2 Policies
+
+| Policy | Configuration | Reason |
+|---|---|---|
+| Client authentication | `apiKey: mode: strict` with a dedicated client key (Secret `agentgateway-client-key`) | No client reaches the model without its own key |
+| Backend authentication | a separate key for vLLM, held only by the gateway | vLLM rejects every caller except the gateway, and the backend key is refused if a client presents it |
+| Request rate | `localRateLimit`: 12 requests per 1 s | Protects a 2-core server from bursts; excess requests get 429 |
+| Token budget | `localRateLimit` on tokens: 24,000 per 1 h in production | Bounds token spend per client. Benchmarks used raised budgets (150,000 or 400,000 per hour) |
+| Timeouts | GKE: route `requestTimeout` 180 s > LLM `llmRequestTimeout` 170 s > `backendRequestTimeout` 160 s ≥ `responseIdleTimeout` 160 s; ModelConfig 200 s outermost | Each layer gives up after the one below it. The chart refuses to render if the nesting is broken |
+| Retry | 502/503 only, at most one attempt; the chart refuses any 500/504 retry | A timed-out CPU generation is never replayed |
+| Failover | virtual model with primary → fallback; a backend is evicted after 2 consecutive failures | Keeps serving if one vLLM pod is lost |
+| Routing header | `x-ewallet-backend` (`primary`, `fallback`, or `llm-d` in EXP-V2) | Shows which backend served each response |
+| Tracing | OpenTelemetry spans for gateway hops | Gateway hops appear inside agent traces |
+
+**Configured versus available.** Failover is configured and was demonstrated on the cluster (§6). In the current deployment the fallback is scaled to zero, so failover is **not available** until it is scaled up; with the primary down, requests fail.
+
+## 5. Global ModelConfig and BYO Resolver
+
+### 5.1 The ModelConfig
+
+One kagent `ModelConfig`, `ewallet-agents/ewallet-global-llm`, is the single configuration of the e-wallet LLM route:
+
+```yaml
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata: {name: ewallet-global-llm, namespace: ewallet-agents}
+spec:
+  provider: OpenAI                      # OpenAI-compatible Chat Completions
+  model: ewallet-fraud-llm              # agentgateway's virtual model, not a vLLM name
+  openAI:
+    apiFormat: chatCompletions
+    baseUrl: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+    timeout: 200                        # outermost timeout budget
+  apiKeySecret: agentgateway-client-key # gateway client key, never the vLLM backend key
+  apiKeySecretKey: api-key
+```
+
+| Field (chart value) | Value | What it does |
+|---|---|---|
+| `metadata.name` (`modelConfig.name`) | `ewallet-global-llm` | The one name agents reference |
+| `metadata.namespace` (`namespace.name`) | `ewallet-agents` | A ModelConfig is namespaced, so "global" means shared by every agent of the platform namespace, not cluster-wide |
+| `spec.provider` | `OpenAI` | agentgateway and vLLM speak the OpenAI API, so kagent uses its OpenAI client. No OpenAI service is involved |
+| `spec.model` | `ewallet-fraud-llm` | The gateway's virtual model, so agents depend neither on a backend nor on the served name |
+| `spec.openAI.baseUrl` | agentgateway Service, port 3000 | Every request goes through the gateway, never directly to vLLM |
+| `spec.apiKeySecret`, `apiKeySecretKey` | `agentgateway-client-key`, `api-key` | A reference to the gateway client key. The chart stores only the reference; agents never hold the vLLM key |
+| `spec.openAI.timeout` | 200 s on GKE (35 s chart default) | The outermost budget; the chart refuses to render unless it exceeds the gateway timeouts |
+
+Changing the model or the route is a change of this one object.
+
+### 5.2 How each agent gets the configuration
+
+| Agent | kagent type | Deployed today |
+|---|---|---|
+| `drift-specialist` | Declarative | Native reference `spec.declarative.modelConfig: ewallet-global-llm`; kagent resolves it |
+| `fraud-coordinator` | BYO | Helm environment variables (`EWALLET_LLM_MODEL`, `EWALLET_LLM_BASE_URL`) and a `secretKeyRef`, rendered from the same values as the ModelConfig |
+| `feature-rag-specialist` | BYO | Same as the Coordinator |
+
+**Why BYO agents need more.** In the installed CRD (`kagent-crds-0.10.3`, [kagent-api.txt](../../evidence/edai2/llm/global_modelconfig_20261109/compat/kagent-api.txt)), `spec.byo` has only `deployment`, so a BYO Agent cannot reference a ModelConfig and kagent injects none. The BYO agents run their own A2A runtime and call the gateway themselves. With the Helm bridge the values match the ModelConfig, but editing the CR changes nothing for the BYO agents: the Helm values are their real source.
+
+**So, today, only the Declarative `drift-specialist` resolves the ModelConfig CR directly.** The two BYO agents use the Helm environment configuration.
+
+### 5.3 The BYO ModelConfig Resolver
+
+The resolver closes that gap without a new controller and without changing kagent 0.10.3. It is [`ai_platform/llm_agent/model_config.py`](../../../ai_platform/llm_agent/model_config.py), called from `planner_from_env()` in [`nl_intake.py`](../../../ai_platform/llm_agent/nl_intake.py), which both BYO executors already use to build their LLM client. With `EWALLET_LLM_CONFIG_SOURCE=modelconfig`, at startup the agent:
+
+1. refuses a second authority: `EWALLET_LLM_BASE_URL` or `EWALLET_LLM_MODEL` in the environment stops the agent;
+2. requires the gateway client key (`EWALLET_LLM_API_KEY`, a kubelet-resolved Secret reference);
+3. sends `GET /apis/kagent.dev/v1alpha2/namespaces/<own namespace>/modelconfigs/ewallet-global-llm` with a projected ServiceAccount token, over TLS verified against the cluster CA. It retries 3 times on 5xx, 429 or connection errors, and never on 401, 403 or 404;
+4. validates the object and **fails closed**:
+
+   | Check | Failure code |
+   |---|---|
+   | `kagent.dev/v1alpha2` ModelConfig, the requested name and namespace, not being deleted | `modelconfig_invalid` |
+   | `provider == OpenAI` | `modelconfig_provider_unsupported` |
+   | `model` is a logical name; `apiFormat` is `chatCompletions` | `modelconfig_invalid` |
+   | `baseUrl` is exactly the agentgateway URL | `modelconfig_endpoint_unauthorized` |
+   | `timeout` between 1 and 200 s | `modelconfig_invalid` |
+   | `apiKeySecret`/`apiKeySecretKey` equal the Secret mounted in the pod | `modelconfig_secret_mismatch` |
+   | `Accepted=True` at the current generation | `modelconfig_not_accepted` |
+   | RBAC or token rejected; object absent; API unreachable | `modelconfig_forbidden`, `modelconfig_not_found`, `modelconfig_unavailable` |
+
+5. builds the planner from the CR: model and base URL from it, and a timeout of `min(agent deadline, CR timeout)`, so the CR is the ceiling;
+6. logs one JSON line, `modelconfig.resolved`, with the CR's uid, generation, model, URL, timeout and Secret *names*, never a value.
+
+Any failure raises at startup, so the pod never becomes Ready and a rolling update stops with the previous pods still serving. The default `EWALLET_LLM_CONFIG_SOURCE=env` keeps the Helm behaviour.
+
+**Why the Secret is not read from the API.** The pod gets the key the usual way (`secretKeyRef`), so no Secret-read permission exists. The resolver only proves that the CR still names that Secret: a CR that points to another Secret stops the agent instead of running with a key the CR no longer authorises.
+
+**Propagation.** The resolver reads once at startup; there is no watch. After editing the CR, restart the BYO Deployments (`kubectl -n ewallet-agents rollout restart deploy/fraud-coordinator deploy/feature-rag-specialist`). A CR that fails validation leaves the new pods un-Ready and the old ones serving.
+
+### 5.4 Least-privilege access
+
+[`templates/modelconfig-rbac.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml) renders only with `modelConfig.byoResolver.enabled=true`:
+
+- **Role** `ewallet-global-llm-reader`: `get` on `modelconfigs.kagent.dev` with `resourceNames: [ewallet-global-llm]`. No `list`, `watch`, `update`, Secrets or other kinds.
+- **RoleBinding**: only the ServiceAccounts of BYO agents with natural-language intake on (today the two above).
+- **NetworkPolicy** `allow-byo-modelconfig-to-kube-apiserver`: egress from those pods to the API server on 443 only; the chart refuses to render without the API server CIDRs.
+- **Token**: a projected volume per BYO pod (API-server audience, 3600 s, cluster CA, namespace); the ServiceAccounts keep `automountServiceAccountToken: false`.
+
+The RBAC matrix was read on GKE with `kubectl auth can-i --as` ([06-rbac-can-i.txt](../../evidence/edai2/llm/global_modelconfig_20261109/canary/06-rbac-can-i.txt)): the bound ServiceAccounts answer `yes` only to `get modelconfigs/ewallet-global-llm`, and an unbound ServiceAccount gets `no` everywhere.
+
+### 5.5 Status and rollout
+
+| Component | Status | Record |
+|---|---|---|
+| Global ModelConfig CR | **Deployed** (read back 2026-11-08) | [`00-production-modelconfig.json`](../../evidence/edai2/llm/global_modelconfig_20261109/canary/00-production-modelconfig.json) |
+| `drift-specialist` native reference | **Deployed and verified** | [`drift-native-reference.txt`](../../evidence/edai2/llm/global_modelconfig_20261109/production/drift-native-reference.txt) |
+| BYO resolver source and chart switch | Integrated in `main`; feature flag `modelConfig.byoResolver.enabled`, **off by default** | §9 |
+| BYO resolver tests | Verified locally (21 resolver tests, 6 chart tests) | §6 |
+| Resolver in a BYO pod with the chart's RBAC, token and egress policy | Verified in an isolated GKE canary, since deleted | §6 |
+| BYO resolver in production | **Not deployed** | [`verify-current-production.json`](../../evidence/edai2/llm/global_modelconfig_20261109/production/verify-current-production.json) |
+| Production BYO configuration | Helm environment variables | same |
+
+Promotion is two owner-run steps in the [Global ModelConfig runbook](../../runbooks/edai2/GLOBAL_MODELCONFIG_RUNBOOK.md): first the BYO images built from this source, with the flag off (behaviour unchanged); then `helm upgrade` with `modelConfig.byoResolver.enabled=true` and the API server CIDRs, a diff of exactly five objects ([helm-diff-resolver-on.txt](../../evidence/edai2/llm/global_modelconfig_20261109/production/helm-diff-resolver-on.txt)).
+
+## 6. Runtime verification
+
+Each claim is labelled with the kind of evidence behind it.
+
+| Evidence kind | What was verified | Record |
+|---|---|---|
+| **Production runtime** | `vllm-primary` 1/1 behind agentgateway; `vllm-fallback` deployed at 0 replicas | Deployment readback |
+| **Production runtime** | The Declarative drift agent answers through `ewallet-global-llm` and agentgateway (screenshot below) | session `01a1a419` |
+| **Production runtime** | Gateway spans inside a real agent trace (screenshot below) | trace `f341b410…` |
+| **Production runtime** | With the resolver flag off, the chart renders the deployed manifest exactly; `llm-agent` stayed at revision 42 during the ModelConfig work | [before.txt](../../evidence/edai2/llm/global_modelconfig_20261109/production/before.txt), [after.txt](../../evidence/edai2/llm/global_modelconfig_20261109/production/after.txt) |
+| **Historical runtime (G1, 2026-10-31)** | Streaming and non-streaming tool calls through the gateway (`x-ewallet-backend: primary`); wrong key, missing key and backend key as client key each rejected with 401; with the primary at zero, the fallback served (`vllm:request_success_total` 1 → 6) | [`g1_20261031T231145Z/`](../../evidence/llm_agent/g1_20261031T231145Z) |
+| **Isolated canary (GKE `kagent-pilot`, 2026-11-08, deleted)** | Resolver in BYO pods with the chart's RBAC and egress: resolved and Ready. Unbound ServiceAccount: `modelconfig_forbidden`. Other egress blocked. CR model change: picked up after restart. `baseUrl` to vLLM: `modelconfig_endpoint_unauthorized`. Other Secret: `modelconfig_secret_mismatch`. CR deleted: `modelconfig_not_found`; restored: Ready | [canary](../../evidence/edai2/llm/global_modelconfig_20261109/canary/), built by [`infra/k8s/modelconfig-canary/`](../../../infra/k8s/modelconfig-canary/) |
+| **Operator-side runtime check (2026-11-08)** | Live production CR → resolver → Coordinator planner → agentgateway → CPU vLLM, run from the laptop with the operator's token and a port-forward (not from a production pod): 4/4 business cases chose `investigate_transaction` with grounded arguments, the off-topic case was refused, backend `primary`, p50 60 s / p95 83 s | [summary.json](../../evidence/edai2/llm/global_modelconfig_20261109/runtime/summary.json), [`modelconfig_runtime_check.py`](../../../scripts/llm_agent/modelconfig_runtime_check.py) |
+| **Benchmark gateway (2026-11-09/10)** | Strict authentication, 429 rate limiting, timeouts and the routing header on the temporary benchmark gateway | [BENCHMARK_RESULTS §5](BENCHMARK_RESULTS.md#5-agentgateway-security-and-policy-evidence) |
+| **Local tests** | [`test_global_modelconfig_resolver.py`](../../../tests/llm_agent/test_global_modelconfig_resolver.py) (21): resolution, every rejection code, retries, no credential in the log. [`test_global_modelconfig_chart.py`](../../../tests/llm_agent/test_global_modelconfig_chart.py) (6): flag off renders the Helm bridge; flag on adds exactly Role, RoleBinding and NetworkPolicy | — |
+| **Source only** | The BYO resolver path in production pods | Not deployed (§5.5) |
 
 ![Drift agent answering through the global ModelConfig](../../evidence/edai2/screenshots/llm/01_kagent_drift_chat_modelconfig.png)
 
-*A kagent conversation with the Declarative drift agent (session `01a1a419`). The header shows provider `OpenAI` and model `ewallet-fraud-llm`: the answer was generated by the deployed Qwen3-0.6B, through ModelConfig `ewallet-global-llm` and agentgateway.*
-
-**Gateway verification.** The gateway was tested on the cluster against both backends. The artefacts are in [`docs/evidence/llm_agent/g1_20261031T231145Z/`](../../evidence/llm_agent/g1_20261031T231145Z).
-
-| Check | Result |
-|---|---|
-| Tool calls through the gateway | Streaming and non-streaming requests returned valid `feature_lookup` tool calls, served by `x-ewallet-backend: primary` |
-| Authentication | A wrong key, a missing key, and the backend key used as a client key were each rejected with 401 |
-| Failover | With the primary scaled to zero, requests were served by the fallback; the fallback's `vllm:request_success_total` rose from 1 to 6 |
+*A kagent conversation with the Declarative drift agent (session `01a1a419`). The header shows provider `OpenAI` and model `ewallet-fraud-llm`: the answer was generated by the deployed Qwen3-0.6B through ModelConfig `ewallet-global-llm` and agentgateway.*
 
 ![LLM gateway spans](../../evidence/edai2/screenshots/llm/05_tempo_llm_gateway_spans.png)
 
 *Tempo spans of the LLM gateway (route `internal/llm`) inside a real agent trace (`f341b410…`): the agent's planning call passes through agentgateway to vLLM.*
 
-## 5. Performance and optimisation
+## 7. Observability
 
-### 5.1 Baseline
-
-The first deployment was measured through agentgateway: 8 streamed requests, concurrency 1, up to 128 output tokens.
-
-| Metric | Value |
-|---|---|
-| TTFT p50 / p95 | 3.48 s / 3.69 s |
-| Inter-token latency, mean | 206 ms |
-| End-to-end p50 / p95 | 11.7 s / 12.0 s |
-| Output throughput | 3.48 tokens/s |
-| vLLM CPU (two pods) | 1.51 cores mean |
-| Errors | 0 % |
-
-### 5.2 Experiment 1: serving parameters
-
-**Problem.** Under concurrent load the server used much less CPU than it was given. Mean usage was about 1.66 cores for two requested cores. At concurrency 4 the output rate was only 3.6 tokens/s.
-
-**Hypothesis.** With `VLLM_CPU_OMP_THREADS_BIND=auto`, the worker effectively computed on one core.
-
-**Method.**
-
-- Three candidate configurations were compared with the baseline. Each changed **exactly one** parameter.
-- Every configuration ran on the same two dedicated nodes, with the same resources and the same fixed workload:
-  - 3 cold-prefix requests;
-  - 2 warm-up requests;
-  - 12 measured requests at each of concurrency 1, 2 and 4 (short chats, long ~1.6k-token prompts, repeated and unique 600-token prefixes, streamed tool calls).
-- A guard process watched the MLOps workloads on the other nodes throughout.
-
-| Configuration | Single change |
-|---|---|
-| Baseline | `VLLM_CPU_OMP_THREADS_BIND=auto`, prefix caching on |
-| Thread binding | `VLLM_CPU_OMP_THREADS_BIND=0-1` |
-| Smaller prefill batches | `--max-num-batched-tokens 512` |
-| No prefix cache | `--no-enable-prefix-caching` |
-
-**Results at concurrency 4**, relative to the baseline:
-
-| Configuration | Output tokens/s | TTFT p50 | End-to-end p95 | Errors |
-|---|---|---|---|---|
-| **Thread binding** | **+51.4 %** (3.62 → 5.48) | **−37.4 %** (12.9 s → 8.1 s) | **−34.7 %** | 0 / 36 |
-| Smaller prefill batches | −0.5 % | +23.8 % | +0.2 % | 1 / 36 |
-| No prefix cache | −100 % (all requests timed out) | n/a | n/a | 22 / 36 |
-
-**Interpretation.**
-
-- **Thread binding** raised mean vLLM CPU from about 1.66 to 2.65 cores, which confirms the hypothesis. A cold 800-token prefill halved, from 84.8 s to 43.8 s. The cost is mild CPU throttling (4.5 % of CFS periods), because the pod now uses its 3-core limit.
-- **Smaller prefill batches** add scheduling steps but free no compute on a single effective core, so nothing improves.
-- **Removing the prefix cache** makes every request pay a full prefill (about 87 s for 800 tokens, against 4.4 s with a warm cache). Prefix caching is essential on CPU.
-- MLOps workloads were unaffected in every run.
-
-The automated selection script reported "no gain", because one baseline request timed out and its rule disqualifies all candidates whenever the baseline has an error. The thread-binding configuration met every recorded qualification criterion and was selected after manual review. The evaluator output is preserved unchanged with the raw results.
-
-**Raw data:**
-
-- [`o1_20261101T052939Z/o1/comparison.md`](../../evidence/llm_agent/o1_20261101T052939Z/o1/comparison.md) and per-request `raw_requests.jsonl`;
-- full experiment record: [vllm_cpu_o1_benchmark.md](vllm_cpu_o1_benchmark.md).
-
-### 5.3 Experiment 2: cache-aware routing with two replicas
-
-**Question.** With two replicas, a plain Kubernetes Service balances per connection. The question was whether routing each request with the llm-d Endpoint Picker (EPP), which scores pods by queue depth, KV-cache use and prefix-cache locality, improves throughput.
-
-**Method.**
-
-- Two thread-bound replicas, the same gateway and the same workload. The workload was extended to concurrency 8, with 12 requests per level.
-- Service routing ran first, then EPP routing, in one session.
-- Fairness checks (identical prompts, identical output token totals, valid tool calls) were fixed before the runs.
-
-| Concurrency | Throughput, Service → EPP | TTFT p50 | End-to-end p95 | Prefix-cache hit ratio |
-|---:|---|---|---|---|
-| 1 | 2.23 → 1.99 tok/s (−10.7 %) | +36.7 % | +11.5 % | 0.43 → 0.41 |
-| 2 | 5.94 → 5.26 tok/s (−11.5 %) | +27.9 % | −21.4 % | 0.66 → 0.89 |
-| 4 | 7.28 → 9.28 tok/s (**+27.5 %**) | **−33.9 %** | **−15.7 %** | 0.74 → 0.89 |
-| 8 | 6.77 → 9.87 tok/s (**+45.9 %**) | **−23.4 %** | **−27.3 %** | 0.87 → 0.89 |
-
-All 96 requests succeeded in both runs.
-
-**Interpretation.**
-
-- **Higher concurrency.** The EPP keeps requests that share a prompt prefix on the pod that already holds it. At concurrency 4 and 8 this cuts queueing and prefill work: mean vLLM queue time at concurrency 8 fell by 68 %.
-- **Lower concurrency.** At concurrency 1 and 2 the extra router hop and its decisions cost more than they save.
-- **Verdict.** The pre-registered verdict is *mixed*.
-- **Not in production.** The EPP was installed only for this experiment and is not part of the current deployment.
-
-**Raw data:**
-
-- [`g2_20261101T124444Z/g2/comparison.json`](../../evidence/llm_agent/g2_20261101T124444Z/g2/comparison.json);
-- full experiment record: [llmd_g2_routing_benchmark.md](llmd_g2_routing_benchmark.md).
-
-### 5.4 Official benchmark results (owner single-run campaign)
-
-O1 and G2 above are historical single runs. The results submitted for EDAI-2 come from matched sessions that the owner ran and captured personally on 2026-11-09/10, in a temporary `ewallet-bench` namespace on a dedicated node pool. Production was not touched. Each experiment had **one baseline and one optimized run**, at every concurrency level. The percentages are observed differences of one pair, with no confidence interval or significance test.
-
-| Experiment | Change | Execution | Observed outcome | Key figures (baseline → optimized) |
-|---|---|---|---|---|
-| EXP-V1 | `VLLM_CPU_OMP_THREADS_BIND` `auto` → `0-1` | `VALID` | `OBSERVED_IMPROVEMENT` | Output tokens/s at c=4: 3.54 → 5.48 (+54.5 %). E2E p95 at c=4: 154.7 s → 98.5 s. Mean vLLM CPU at c=4 rose from 1.64 to 2.58 cores. Failures: 1/36 → 0/36 |
-| EXP-V2 | Kubernetes Service → llm-d EPP, two replicas | `VALID` | `OBSERVED_MIXED` | E2E p95: 7.3 % higher at c=1, 47.5 % lower at c=2, 101.9 % higher at c=4, 71.5 % higher at c=8. Failures: 0/48 → 0/48 |
-
-Binding raised throughput on the same pod budget by using more of the CPU already allocated. llm-d improved one level and worsened two, and it remains outside the production deployment.
-
-Full analysis with screenshots: **[BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md)**. Evidence mapping: [BENCHMARK_EVIDENCE_MATRIX.md](BENCHMARK_EVIDENCE_MATRIX.md). Method: [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md). Procedure and validation history: [runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md), [BENCHMARK_REPLAY.md](BENCHMARK_REPLAY.md).
-
-Separate historical engineering evidence: the [3-run rehearsal](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) (EXP-V1 `IMPROVED`, EXP-V2 `NO_SIGNIFICANT_CHANGE`) and the [workflow smoke tests](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md).
-
-### 5.5 Production telemetry
-
-Under real agent traffic the deployed server reports:
+The LLM telemetry of the deployed platform is documented once, in [OBSERVABILITY §6](../observability/OBSERVABILITY.md#6-llm-telemetry): vLLM and agentgateway metrics on the Grafana `llm-runtime` dashboard (tokens per request, TTFT, generation round-trip time, PII screening) and gateway spans in Tempo. Under real agent traffic the deployed server reported:
 
 - 707 / 264 / 971 input / output / total tokens per request;
 - TTFT p50 / p95 of 5 s / 38 s;
-- end-to-end generation time p50 / p95 of 50 s / 114 s.
+- end-to-end generation p50 / p95 of 50 s / 114 s.
 
-These are longer than the benchmark figures, because agent prompts (about 700 tokens, including the tool schema) are much longer than the benchmark's short chats. See [Observability §6](../observability/OBSERVABILITY.md#6-llm-telemetry).
+These are longer than the benchmark figures because agent prompts, about 700 tokens with the tool schema, are much longer than the benchmark's short chats.
 
 ![Tokens per request](../../evidence/edai2/screenshots/llm/02_grafana_tokens_per_request.png)
 
 *Grafana `llm-runtime` dashboard: tokens per request, measured both by vLLM and by agentgateway.*
 
-## 6. Limitations
+## 8. Limitations
 
-- **CPU latency.** Serving on CPU gives first-token latencies of seconds and generations of tens of seconds. This is acceptable for an analyst assistant, but not for interactive chat at scale.
-- **Fallback.** The fallback replica is scaled to zero in the current deployment. Failover is configured and was demonstrated, but it is not available until the fallback is scaled up.
-- **Model versions.** Only one model version is served. Comparing model versions, or agent model configurations, side by side has not been done.
+- **CPU latency.** First tokens take seconds and generations tens of seconds. This suits an analyst assistant, not interactive chat at scale.
+- **Fallback scaled to zero.** Failover is configured and was demonstrated, but it is unavailable until the fallback is scaled up.
+- **BYO resolver not deployed.** Production BYO agents still use Helm environment variables. Once enabled, a ModelConfig change still needs a BYO restart (no watch, by design), and the approved endpoint is fixed in code, so moving the gateway is a code change.
+- **Thread binding.** The `0-1` binding observed in EXP-V1 is available through `vllm.cpuThreadsBind`, but its promotion into the production values is not recorded.
+- **One model version.** Only Qwen3-0.6B is served. The model A/B design is documented separately in [LLM A/B design](../platform/LLM_AB_DESIGN.md) and has not run on the cluster.
+
+## 9. Source references
+
+Repository paths are in the first column. Line ranges are pinned to the GitHub commit where they were verified.
+
+| File | Lines | What it configures |
+|---|---|---|
+| [`templates/vllm.yaml`](../../../infra/helm/llm-agent-platform/templates/vllm.yaml) | [L128–129](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/vllm.yaml#L128-L129) | vLLM Deployments, arguments and served model name; `VLLM_CPU_OMP_THREADS_BIND` from `vllm.cpuThreadsBind` |
+| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L200](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L200-L200) | Served name `ewallet-fraud-llm-v1`; chart defaults including `cpuThreadsBind: auto` and the request and token rates |
+| [`values-gke-cpu.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu.yaml) | [L64–65](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values-gke-cpu.yaml#L64-L65) | GKE profile: image source, resources, KV cache, gateway timeouts, ModelConfig timeout of 200 s |
+| [`o1/c1-thread-bind.yaml`](../../../infra/helm/llm-agent-platform/o1/c1-thread-bind.yaml) | — | The `0-1` thread-binding overlay |
+| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L6–12](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L6-L12) | Timeout nesting guard |
+| same | [L43–56](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L43-L56) | Entry route: strict client authentication, forward to the LLM listener |
+| same | [L101–110](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L101-L110) | Primary backend: vLLM URL and backend key |
+| same | [L157–167](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L157-L167) | Virtual model `ewallet-fraud-llm` and failover priorities |
+| same | [L264–272](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L264-L272) | Service port 3000 to the entry port |
+| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L279–281](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L279-L281) | Gateway client-key Secret reference |
+| [`templates/modelconfig.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig.yaml) | [L1–17](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/modelconfig.yaml#L1-L17) | The ModelConfig resource |
+| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L851–861](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L851-L861) | ModelConfig name, model, default timeout, Secret reference |
+| same | [L868–874](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/values.yaml#L868-L874) | `modelConfig.byoResolver`, `enabled: false` by default |
+| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L8–9](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L8-L9) | Agents cannot render without the ModelConfig |
+| same | [L183–207](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L183-L207) | BYO agents: endpoint, model and client key through environment variables |
+| same | [L190–205](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/agents.yaml#L190-L205) | Resolver flag on: resolver environment; off: the Helm bridge |
+| same | [L263–266](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L263-L266) | Declarative agents reference the ModelConfig |
+| [`templates/modelconfig-rbac.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml) | [L1–72](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml#L1-L72) | Role, RoleBinding and egress NetworkPolicy, rendered only with the flag on |
+| [`n11/values-n11-agents.yaml`](../../../infra/helm/llm-agent-platform/n11/values-n11-agents.yaml) | [L5–15](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/n11/values-n11-agents.yaml#L5-L15) | Enables natural-language intake for both BYO agents |
+| [`model_config.py`](../../../ai_platform/llm_agent/model_config.py) | [L40–42](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/model_config.py#L40-L42), [L109–258](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/model_config.py#L109-L258) | Approved endpoint; parsing, fetch and validation |
+| [`nl_intake.py`](../../../ai_platform/llm_agent/nl_intake.py) | [L329–341](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/nl_intake.py#L329-L341) | Selects the configuration source with `EWALLET_LLM_CONFIG_SOURCE` (default `env`) |
+
+Tests: [`test_global_modelconfig_resolver.py`](../../../tests/llm_agent/test_global_modelconfig_resolver.py), [`test_global_modelconfig_chart.py`](../../../tests/llm_agent/test_global_modelconfig_chart.py), [`test_r1_runtime_prep.py`](../../../tests/llm_agent/test_r1_runtime_prep.py).
+
+The earlier detailed ModelConfig report, with the full canary case list and the original test log, is archived as [GLOBAL_MODELCONFIG.md](../../../archive/legacy-docs/docs/edai2/llm/GLOBAL_MODELCONFIG.md).

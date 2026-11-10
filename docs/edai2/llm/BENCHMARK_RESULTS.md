@@ -1,44 +1,120 @@
-# Official LLM benchmark results (owner single-run campaign)
+# LLM Benchmark Results (EXP-V1 and EXP-V2)
 
-This report gives the official results of the two LLM inference benchmarks submitted for EDAI-2, and the gateway policy evidence captured with them. The owner ran both sessions on GKE on 2026-11-09/10 and captured every screenshot by hand during the sessions.
+This is the authoritative report of the two LLM serving benchmarks submitted for EDAI-2, and of the agentgateway policy evidence captured with them. The owner ran both sessions on GKE on 2026-11-09/10 and captured every screenshot by hand during the sessions. The platform that was benchmarked is described in [LLM_PLATFORM.md](LLM_PLATFORM.md).
+
+## 1. Executive Summary
 
 | Experiment | Question | Execution validity | Observed outcome |
 |---|---|---|---|
-| [EXP-V1](#2-exp-v1-vllm-cpu-thread-binding) | Does binding vLLM's OpenMP threads to CPUs 0-1 improve throughput over `auto`? | `VALID` | `OBSERVED_IMPROVEMENT` |
-| [EXP-V2](#3-exp-v2-kubernetes-service-versus-llm-d-epp) | Does llm-d EPP routing improve E2E p95 over a Kubernetes Service, with two replicas? | `VALID` | `OBSERVED_MIXED` |
+| [EXP-V1](#3-exp-v1--cpu-thread-binding) | Does binding vLLM's OpenMP threads to CPUs 0-1 improve throughput over `auto`? | `VALID` | `OBSERVED_IMPROVEMENT` |
+| [EXP-V2](#4-exp-v2--kubernetes-service-vs-llm-d-epp) | Does llm-d EPP routing improve E2E p95 over a Kubernetes Service, with two replicas? | `VALID` | `OBSERVED_MIXED` |
 
 **Status:** `SINGLE_RUN_RESULTS=COMPLETE`, `OWNER_SCREENSHOTS=INTEGRATED`.
 
-- Every number here comes from the campaign's raw artifacts (`comparison/metrics.json`, `summary.json`, `raw_requests.jsonl`). Screenshots prove what ran and what was on screen; they are not the source of the numbers.
-- Which screenshot backs which claim: [BENCHMARK_EVIDENCE_MATRIX.md](BENCHMARK_EVIDENCE_MATRIX.md). Method: [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md). Procedure: [runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md).
-- Campaign index and file provenance: [`owner_single_run_20261109`](../../evidence/edai2/llm/owner_single_run_20261109/README.md).
+- **EXP-V1.** With `0-1`, output tokens/s rose by 52.7 % at c=2 and 54.5 % at c=4 (3.543 → 5.475 tok/s), and E2E p95 at c=4 fell from 154.75 s to 98.51 s. The pod used more of the CPU it already had: mean vLLM CPU at c=4 rose from 1.64 to 2.58 cores, and tokens per core actually used hardly changed. Failures: 1/36 → 0/36.
+- **EXP-V2.** llm-d EPP routing had 47.5 % lower E2E p95 at c=2, but 101.9 % higher at c=4 and 71.5 % higher at c=8, and 7.3 % higher (within the threshold) at c=1. Failures: 0/48 in both arms. EPP routing did not show a general gain, and llm-d is not part of the production deployment.
+- **Each experiment is one baseline run and one optimized run.** The percentages are observed differences of one pair, with no confidence interval and no significance test.
 
-## 1. How to read these results
+Every number comes from the campaign's raw artifacts (`comparison/metrics.json`, `summary.json`, `raw_requests.jsonl`). Screenshots prove what ran and what was on screen; they are not the source of the numbers. Which screenshot backs which claim is listed in the [evidence matrix](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md).
 
-**One run per arm.** Each experiment ran one baseline and one optimized run. That means:
+## 2. Experimental Environment and Methodology
+
+### 2.1 Environment and isolation
+
+| Item | Value (both experiments) |
+|---|---|
+| Cluster | GKE `ewallet-dev`, `asia-southeast1-b` |
+| Namespace and nodes | Temporary namespace `ewallet-bench` on a dedicated tainted pool `bench-pool` of e2-standard-4 nodes: 1 node for EXP-V1, 2 for EXP-V2. Both were deleted after each session |
+| Image | `vllm-cpu-model@sha256:f695b23e…` (vLLM 0.32.0 CPU), the digest of the production image |
+| Model | Qwen3-0.6B at revision `c1899de2…`, baked into the image |
+| Gateway | agentgateway v1.7.0, one replica, no fallback backend |
+| Source | commit `263c1d1f`. `source_dirty` is `true` because each session writes its evidence inside the worktree |
+| Workload | `o1-workload-v1`, sha256 `c4816ca1…` |
+
+Production was not touched: `production-before.txt` equals `production-after.txt` in both sessions, and llm-d existed only in `ewallet-bench` during the campaign.
+
+### 2.2 Workload
+
+Each arm starts with fresh pods, then sends 3 cold-prefix requests and 2 warm-up requests, which are reported separately, then **12 measured requests at each concurrency level**: 2 short chats, 2 long prompts (about 1,617 input tokens, 128 output), 3 repeated-prefix and 2 unique-prefix requests (about 600 tokens), 2 streamed tool calls with a real tool schema, and 1 non-streamed chat. Levels are c=1, 2, 4 for EXP-V1 and c=1, 2, 4, 8 for EXP-V2, run in sequence on the same pods.
+
+### 2.3 Single-run methodology and reporting rules
+
+The runner supports three profiles. All use the same image, model, workload, request counts, gateway policy, fresh pods per run, observability, policy probe, watchdog and cleanup:
+
+| `EXP_PROFILE` | Runs per arm | Comparator | Use |
+|---|---|---|---|
+| `single` | exactly 1 | [`single_run.py`](../../../ops/experiments/single_run.py): observed differences | **The EDAI-2 submission (this report)** |
+| `formal` | 3 (2–5), order AB, BA, AB | [`compare.py`](../../../ops/experiments/compare.py): threshold plus run-to-run spread | The historical 3-run rehearsal (§6) |
+| `smoke` | 1, reduced levels | `compare.py`, always `INCONCLUSIVE` | Workflow check, never a result |
+
+The profile is recorded in the manifest (`settings.profile`, `settings.methodology`), in every checkpoint banner (`EXP-V1 SINGLE-RUN / BASELINE run 01`) and in the comparison, so single-run and multi-run evidence cannot be mixed up. The rubric asks for a benchmark and an optimization, not for repeated measurements, so the owner chose one run per arm at every level, which can be replayed and captured personally in one sitting.
+
+**What one pair cannot show:**
 
 - no confidence interval and no repetition-based variance estimate;
 - no statistical significance test;
 - no claim of a stable improvement, and no general claim that one routing path or binding always wins;
 - the arm order is fixed (baseline, then optimized), so drift between the two runs cannot be separated from the effect.
 
-A level counts as changed when the primary metric differs by at least 10 %. This is a fixed reporting rule, not a test. **In every table, a positive percentage means better**, whichever way the metric points, so a CPU row of −89.8 % means the optimized arm used more CPU.
+**Rules enforced by the single-run comparator.** Execution validity and the observed outcome are reported separately.
 
-**Execution validity** and **observed outcome** are separate. `VALID` means the pair is comparable: one run per arm, equal controls read from the live pods, every level measured, raw rows matching the summaries. A valid comparison does not require the optimized arm to win.
+| Rule | Effect |
+|---|---|
+| Exactly one run per arm, both with evidence | Otherwise `INVALID` (or `NOT_EXECUTED`) |
+| Every control matches, read from the live pods | Otherwise `INVALID`, with the differing controls listed |
+| Every level measured in both arms; raw rows match the summary | Otherwise `INVALID` |
+| Failed requests and timeouts stay in the counts | An arm with more failures at any level cannot be an observed improvement |
+| The primary metric changes by at least 10 % (the spec's `significant_percent`) | A fixed reporting rule, not a statistical test |
+| A baseline of 0, or a value missing in one arm | No percentage, with the reason |
 
-**Isolation.** Both sessions ran in the temporary namespace `ewallet-bench` on a dedicated tainted pool, `bench-pool`. llm-d existed only in that namespace during this campaign and is not part of the production LLM deployment (no llm-d router release appears in the recorded production state), and production was unchanged (`production-before.txt` equals `production-after.txt` in both sessions).
+| Observed outcome | Meaning |
+|---|---|
+| `OBSERVED_IMPROVEMENT` | Better by at least the threshold at one or more levels, worse at none, no extra failures |
+| `OBSERVED_REGRESSION` | Worse by at least the threshold, or extra failures, and better at no level |
+| `OBSERVED_MIXED` | Better at some levels, and worse at others or with extra failures |
+| `NO_CLEAR_OBSERVED_CHANGE` | Every level within the threshold |
 
-**Provenance of both sessions:** source commit `263c1d1f`; image `vllm-cpu-model@sha256:f695b23e…`; Qwen3-0.6B at revision `c1899de2…`; workload `o1-workload-v1`, sha256 `c4816ca1…`; agentgateway v1.7.0; e2-standard-4 nodes. `source_dirty` is `true` because each session writes its evidence inside the worktree.
+`VALID` means the pair is comparable; it does not require the optimized arm to win, and a run is not repeated because the optimized arm lost. **In every table, a positive percentage means better**, whichever way the metric points, so a CPU row of −89.8 % means the optimized arm used more CPU. Besides the primary metric, each level reports ITL p50, error and timeout rates, valid tool calls, tokens/s per allocated CPU and tokens/s per CPU core actually used (output tokens/s ÷ mean vLLM CPU cores). For EXP-V2 it also shows each arm's per-replica request share and the EPP counters, which are shown but not compared.
 
-**Earlier runs are separate.** The unattended [3-run rehearsal](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) and the frozen O1 and G2 benchmarks are historical engineering evidence. None of their numbers appear in the result tables below.
+### 2.4 Fairness measures
 
-## 2. EXP-V1: vLLM CPU thread binding
+- **One difference.** Both arms render from one template, [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl), and one arm table in [`render_bench.py`](../../../scripts/experiments/render_bench.py). The `plan` step prints the difference, and a test pins it.
+- **Clean start.** vLLM and the gateway restart before each run, which clears the prefix cache and refills the token budget.
+- **Same workload and machines.** The workload hash, the image digest, the model revision, the CPU and memory requests, the node type, `max_num_seqs`, the prefix cache, the token budget and `node_names` are controls. A node replaced mid-session invalidates the comparison.
+- **Provenance before traffic.** The running image digest and model revision must match the pins before the first request.
+- **No fallback.** The stack has one backend, so a failed request stays failed and cannot flatter an arm.
+- **Complete records.** The raw request count must match the summary, or the level is refused.
 
-### 2.1 Problem and motivation
+### 2.5 Observability and safety of the sessions
 
-The serving pods are given 2 CPU (limit 3), but earlier measurements showed the server using far less under load. In the historical [O1 benchmark](vllm_cpu_o1_benchmark.md) the `auto` setting used about 1.66 cores under concurrent load. vLLM's CPU worker runs inference on OpenMP threads, and `VLLM_CPU_OMP_THREADS_BIND` decides which CPUs those threads are pinned to. If the threads share a core, the pod pays for capacity that inference never uses. This experiment measures the effect of binding them explicitly.
+Each session brings its own Prometheus and Grafana inside `ewallet-bench`. Prometheus scrapes every vLLM pod, the gateway, the EPP (EXP-V2 only) and a pod-usage exporter every 5 s, with per-pod and per-run labels, so the two EXP-V2 replicas are two targets and a counter reset never mixes runs. The dashboard `EDAI-2 — LLM CPU Benchmark` has three groups: serving (tokens/s, TTFT and E2E, running and waiting requests, gateway status codes), resources (CPU and memory per container, queue time, prefix-cache hit ratio) and routing (per-replica completions and share, EPP endpoints, decisions, errors and scheduler latency). After each run every panel query is replayed against Prometheus for that window and recorded (`prometheus-readback.json`). The benchmark client stays the authoritative source: Grafana percentiles are bucket interpolations and can differ from the client's exact percentiles with 12 requests per level.
 
-### 2.2 Configuration
+The sessions were bounded so that a lost laptop could not leave resources billing:
+
+- `bench-pool` autoscales with a minimum of 0. An in-cluster CronJob watchdog, whose Role exists only in `ewallet-bench`, deletes the namespace's workloads at the time limit + 10 min, and a laptop timer runs the teardown at the limit + 20 min. A GKE drill showed the node removed about 16 minutes after it emptied, with no laptop action.
+- The time limit is wall-clock and at most 215 minutes; the session refuses to start if the worst-case cost exceeds USD 5 (estimates: USD 0.91 for EXP-V1, USD 1.82 for EXP-V2, from list prices).
+- Teardown deletes only resources carrying the session's ownership marks, and proves that the pool, the namespace and every `gke-ewallet-dev-bench-pool-*` VM and disk are gone. Helm releases and the `cpu-pool` size are compared before and after, and any difference fails the session.
+- Node auto-upgrade cannot be disabled on the cluster's release channel. A node replaced mid-session would change `node_names` and make the comparison `INVALID`: it wastes the session but cannot mislead.
+
+Running the stack on GKE before the campaign exposed defects that were fixed before any official run: Secrets carried a trailing newline, DNS egress missed NodeLocal DNSCache, API server egress needed the Service address, and the EPP metrics URL got `/metrics` twice.
+
+### 2.6 Differences from the historical O1 and G2 runs
+
+The benchmark stack reuses the O1/G2 vLLM settings, image, model and gateway timeouts, but differs in three ways, so its numbers should be compared only with each other:
+
+| Item | O1/G2 (2026-11-01) | EXP-V1/EXP-V2 |
+|---|---|---|
+| Gateway replicas | 2 | 1 |
+| vLLM fallback | Present | Absent |
+| Istio ambient | Enrolled | Not enrolled |
+
+## 3. EXP-V1 — CPU Thread Binding
+
+### 3.1 Problem and motivation
+
+The serving pods are given 2 CPU (limit 3), but earlier measurements showed the server using far less under load. In the historical [O1 benchmark](../../../archive/legacy-docs/docs/edai2/llm/vllm_cpu_o1_benchmark.md) the `auto` setting used about 1.66 cores under concurrent load. vLLM's CPU worker runs inference on OpenMP threads, and `VLLM_CPU_OMP_THREADS_BIND` decides which CPUs those threads are pinned to. If the threads share a core, the pod pays for capacity that inference never uses. This experiment measures the effect of binding them explicitly.
+
+### 3.2 Configuration
 
 | | Baseline B0 (`b0-prime`) | Optimized C1 (`c1-thread-bind`) |
 |---|---|---|
@@ -49,7 +125,7 @@ The serving pods are given 2 CPU (limit 3), but earlier measurements showed the 
 | vLLM args | `--max-num-seqs 4 --max-num-queued-reqs 8 --enable-prefix-caching --max-model-len 4096` | same |
 | Resources | requests 2 CPU / 6 Gi, limits 3 CPU / 10 Gi | same |
 | Replicas and route | 1, gateway → Service → vLLM | same |
-| Gateway | timeouts and limits of §4, token budget 400000/h | same |
+| Gateway | timeouts and limits of §5, token budget 400000/h | same |
 
 The `plan` step renders both arms from one template, [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) with [`render_bench.py`](../../../scripts/experiments/render_bench.py). Production uses the same variable in [`templates/vllm.yaml`](../../../infra/helm/llm-agent-platform/templates/vllm.yaml).
 
@@ -66,7 +142,7 @@ The `plan` step renders both arms from one template, [`vllm-bench.yaml.tmpl`](..
 *S1-07, optimized-01. The only difference from S1-02 is `VLLM_CPU_OMP_THREADS_BIND=0-1`. Raw: [`config/run-01.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/config/run-01.yaml).*
 
 
-### 2.3 Controls, workload and method
+### 3.3 Controls, workload and method
 
 Equal in both arms and verified by the comparator: workload hash, image digest, model revision, CPU and memory requests, node type, `max_num_seqs`, prefix cache, gateway token budget and the node itself (`bench-pool-f0979dec-x5ct`).
 
@@ -74,14 +150,14 @@ Each arm starts with fresh pods, then sends 3 cold-prefix and 2 warm-up requests
 
 ![S1-03 requests in flight](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-03_running.png)
 
-*S1-03, baseline-01, during c=1 (the capture stops there; later levels are in [`raw_requests.jsonl`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/raw_requests.jsonl)). The live view shows real requests, including the `long-1` request marked FAILED that §2.4 discusses, next to Grafana.*
+*S1-03, baseline-01, during c=1 (the capture stops there; later levels are in [`raw_requests.jsonl`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/raw_requests.jsonl)). The live view shows real requests, including the `long-1` request marked FAILED that §3.4 discusses, next to Grafana.*
 
 ![S1-04 baseline result](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-04_result.png)
 
 *S1-04, baseline-01. The checkpoint banner, labelled SINGLE-RUN, with the per-level results and the recorded failure. Raw: [`summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/summary.json).*
 
 
-### 2.4 Results
+### 3.4 Results
 
 Baseline → optimized, with the observed change. Source: [`comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/metrics.json).
 
@@ -135,7 +211,7 @@ Baseline → optimized, with the observed change. Source: [`comparison/metrics.j
 *S1-10, optimized-01. CPU sits between about 2 and 2.8 cores for most of the window, which is the trade-off discussed below.*
 
 
-### 2.5 Interpretation
+### 3.5 Interpretation
 
 **Observed.**
 
@@ -147,9 +223,9 @@ Baseline → optimized, with the observed change. Source: [`comparison/metrics.j
 
 **Possible explanation, not proven here.** The O1 report attributes the `auto` behaviour to inference effectively running on one core. This experiment did not record per-thread CPU affinity or CFS throttling, so it measures the effect and does not prove that mechanism.
 
-### 2.6 Limitations and conclusion
+### 3.6 Limitations and conclusion
 
-Beyond §1: 12 requests per level, so a p95 rests on very few values; the failed baseline request affects c=1; the optimized arm always ran second.
+Beyond the general limits of §2.3: 12 requests per level, so a p95 rests on very few values; the failed baseline request affects c=1; the optimized arm always ran second.
 
 ![S1-12 manifest](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/screenshots/S1-12_manifest.png)
 
@@ -162,13 +238,13 @@ Beyond §1: 12 requests per level, so a p95 rests on very few values; the failed
 
 **Conclusion.** Execution was `VALID` and the observed outcome is `OBSERVED_IMPROVEMENT` under the fixed 10 % rule. In this run, `0-1` produced about 53–55 % more output tokens/s at c=2 and c=4 on the same pod budget, with higher CPU use and no additional failures. It is one observed pair, not a proven or general improvement.
 
-## 3. EXP-V2: Kubernetes Service versus llm-d EPP
+## 4. EXP-V2 — Kubernetes Service vs llm-d EPP
 
-### 3.1 Problem and motivation
+### 4.1 Problem and motivation
 
 With two replicas, a Kubernetes Service balances connections without knowing which replica holds a request's prefix in cache or how long its queue is. On CPU a cache miss is expensive: in O1, a cold 800-token prefill took about 44–87 s against a few seconds when warm. llm-d's Endpoint Picker (EPP) scores replicas using queue, KV-cache and prefix-cache signals. The hypothesis was that this improves latency for shared-prefix traffic at higher concurrency without harming low concurrency.
 
-### 3.2 Architecture
+### 4.2 Architecture
 
 ```text
 B2 baseline
@@ -187,7 +263,7 @@ The client reaches the gateway through a laptop port-forward. In O2, Envoy carri
 
 **What changes between the arms:** only the gateway's `baseUrl` and the `x-ewallet-backend` response header (`primary` or `llm-d`), plus the router, which is installed for O2 only.
 
-**What stays the same:** two `0-1` replicas, one per node; image, model and vLLM arguments; 2 CPU / 6 Gi requests; gateway limits and timeouts; workload and request counts; the two nodes (`8c4e9b77-38kl` and `8c4e9b77-g4tk`). EPP scorers are the G2 values (`queue-scorer` 2, `kv-cache-utilization-scorer` 2, `prefix-cache-scorer` 3) from [`standalone-values-g2.yaml`](../../../infra/helm/llm-d/standalone-values-g2.yaml) and the chart defaults recorded in the [G2 report](llmd_g2_routing_benchmark.md); they were not tuned.
+**What stays the same:** two `0-1` replicas, one per node; image, model and vLLM arguments; 2 CPU / 6 Gi requests; gateway limits and timeouts; workload and request counts; the two nodes (`8c4e9b77-38kl` and `8c4e9b77-g4tk`). EPP scorers are the G2 values (`queue-scorer` 2, `kv-cache-utilization-scorer` 2, `prefix-cache-scorer` 3) from [`standalone-values-g2.yaml`](../../../infra/helm/llm-d/standalone-values-g2.yaml) and the chart defaults recorded in the [G2 report](../../../archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md); they were not tuned.
 
 ![S2-01 two replicas](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-01_pods_nodes.png)
 
@@ -202,9 +278,9 @@ The client reaches the gateway through a laptop port-forward. In O2, Envoy carri
 *S2-07, optimized-01. The gateway sends traffic to `llmd-router-epp:8081` and labels it `llm-d`. The router pod is 2/2 Running.*
 
 
-### 3.3 Workload and execution
+### 4.3 Workload and execution
 
-The workload and method are those of EXP-V1 (§2.3), at c=1, 2, 4 and 8: 12 measured requests per level per arm, so **48 baseline and 48 optimized benchmark requests, all 48 successful in each arm**. Levels run in sequence on the same pods, so the cache state at one level depends on the earlier levels. The primary metric is `e2e_p95_ms`. Client windows, including the cold and warm-up requests: B2 08:01:47–08:16:47Z, O2 08:48:01–09:03:22Z.
+The workload and method are those of EXP-V1 (§3.3), at c=1, 2, 4 and 8: 12 measured requests per level per arm, so **48 baseline and 48 optimized benchmark requests, all 48 successful in each arm**. Levels run in sequence on the same pods, so the cache state at one level depends on the earlier levels. The primary metric is `e2e_p95_ms`. Client windows, including the cold and warm-up requests: B2 08:01:47–08:16:47Z, O2 08:48:01–09:03:22Z.
 
 ![S2-03 B2 requests](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-03_running.png)
 
@@ -223,7 +299,7 @@ The workload and method are those of EXP-V1 (§2.3), at c=1, 2, 4 and 8: 12 meas
 *S2-09, optimized-01. Same banner for the llm-d route.*
 
 
-### 3.4 Results
+### 4.4 Results
 
 Baseline (B2) → optimized (O2), with the observed change; a positive percentage means O2 was better. Source: [`comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/metrics.json).
 
@@ -287,7 +363,7 @@ Better at one level and worse at two is `OBSERVED_MIXED`. Output tokens/s moves 
 *S2-11. Metric rows for c=4 and c=8, and the per-replica request share.*
 
 
-### 3.5 Request distribution and EPP evidence
+### 4.5 Request distribution and EPP evidence
 
 Per-pod values during each level, from the vLLM counters in [`B2 summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/raw/run-01/summary.json) and [`O2 summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/raw/run-01/summary.json):
 
@@ -351,9 +427,9 @@ Likewise, the Grafana share of 62.2 % / 37.8 % on S2-09 applies to the displayed
 *S2-05, baseline-01. Per-container CPU and memory, and per-pod queue time and prefix-cache hit ratio.*
 
 
-### 3.6 Limitations and conclusion
+### 4.6 Limitations and conclusion
 
-Beyond §1:
+Beyond the general limits of §2.3:
 
 - Levels are not independent, because the cache state carries over from one level to the next.
 - This run and the historical 3-run rehearsal disagree at c=4 and c=8. In the rehearsal the O2 medians were better and within the spread (`NO_SIGNIFICANT_CHANGE`). Here O2 was worse beyond the threshold. The official B2 p95 at c=4 (52.9 s) is inside the rehearsal's B2 range (48.1–102.9 s); the official O2 p95 (106.8 s) is above the rehearsal's O2 range (43.5–69.0 s). Variation of this size is a reason not to generalize from either result.
@@ -366,9 +442,9 @@ Beyond §1:
 
 **Conclusion.** Execution was `VALID` and the observed outcome is `OBSERVED_MIXED`. In this run EPP routing was better on E2E p95 at c=2, and worse at c=4 and c=8. It did not show a general gain over a Kubernetes Service, and the production inference path remains without llm-d.
 
-## 4. Gateway security and policy
+## 5. Agentgateway Security and Policy Evidence
 
-The policy evidence comes from the same benchmark gateway. agentgateway is configured by [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl); the recorded configuration is [`gateway-policy-config.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/gateway-policy-config.yaml). Keys are random per session, held in Secrets and removed from the recorded file by the runner. The production gateway's policies are described in [LLM_PLATFORM §3.2](LLM_PLATFORM.md#32-agentgateway).
+The policy evidence comes from the same benchmark gateway. agentgateway is configured by [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl); the recorded configuration is [`gateway-policy-config.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/gateway-policy-config.yaml). Keys are random per session, held in Secrets and removed from the recorded file by the runner. The production gateway's policies are described in [LLM_PLATFORM §4](LLM_PLATFORM.md#4-agentgateway).
 
 | Control | Recorded value | Why it is configured |
 |---|---|---|
@@ -431,18 +507,77 @@ agentgateway → client
 
 These happened in the policy probe, after the measured window. **The official O2 benchmark failure rate is 0/48, not 4/48.** The burst repeats one prompt, and the probe's 16 EPP-routed requests all went to `d4kww`, so that pod reached its queue cap. The later B2 burst shows that a 503 can also occur on the Service route; its cause was not recorded, so this report does not assign one.
 
-**Failover was not tested.** The benchmark stack has no fallback backend, on purpose, because a fallback would hide failed requests. Failover evidence is historical and separate (G1, [LLM_PLATFORM](LLM_PLATFORM.md)).
+**Failover was not tested.** The benchmark stack has no fallback backend, on purpose, because a fallback would hide failed requests. Failover evidence is historical and separate (G1, [LLM_PLATFORM §6](LLM_PLATFORM.md#6-runtime-verification)).
 
-## 5. EDAI-2 rubric alignment
+## 6. Comparative Analysis
 
-The live rubric sheet could not be read from this environment (HTTP 401). The wording below comes from the repository's workbook extract, [`edai_k11_workbook_extract.json`](../../rubric/edai_k11_workbook_extract.json).
+Four sets of measurements exist for these two questions. Only the first is the submission result; the others are context and their numbers are never mixed into the tables above.
+
+| Result set | Date | Runs per arm | EXP-V1 / O1 (thread binding) | EXP-V2 / G2 (llm-d EPP) |
+|---|---|---|---|---|
+| **Official owner single-run campaign** (this report) | 2026-11-09/10 | 1 | `OBSERVED_IMPROVEMENT`: +52.7 % / +54.5 % tok/s at c=2 / c=4 | `OBSERVED_MIXED`: E2E p95 better at c=2, worse at c=4 and c=8 |
+| Unattended formal rehearsal ([README](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md)) | 2026-11-09 | 3 (AB, BA, AB) | `IMPROVED`: +87 / +73 / +76 % tok/s at c=1/2/4, about −45 % TTFT p50 | `NO_SIGNIFICANT_CHANGE`: EPP medians better at c=4 and c=8, but within the run-to-run spread |
+| Historical O1 ([record](../../../archive/legacy-docs/docs/edai2/llm/vllm_cpu_o1_benchmark.md)) | 2026-11-01 | 1 | +51.4 % tok/s and −37.4 % TTFT p50 at c=4; the automated evaluator said `NO_GAIN` because of one baseline timeout, and the configuration was selected by owner review | — |
+| Historical G2 ([record](../../../archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md)) | 2026-11-01 | 1 | — | `MIXED`: +27.5 % and +45.9 % tok/s at c=4 and c=8; −10.7 % and −11.5 % at c=1 and c=2 |
+
+The O1 and G2 runs used a different stack (§2.6); the rehearsal used the same stack with three runs per arm and no owner screenshots.
+
+**Thread binding is consistent across every set.** O1, the rehearsal and the official run all show higher throughput with `0-1` at the same pod budget, and in each case the pod used more of its allocated CPU (§3.5). The direction is stable; the size varies (+51 % to +87 % depending on level and run), and none of these sets supports a statistical claim.
+
+**EPP routing is not consistent.** G2 and the rehearsal favoured the EPP at c=4 and c=8; the official run was worse there by more than the threshold. The official O2 p95 at c=4 lies above the rehearsal's whole O2 range (§4.6). The per-pod data of §4.5 points to placement: in the official run the EPP sent 96 % of the prompt tokens to one replica. The effect of cache-aware routing on this CPU deployment therefore depends on workload and placement, and is not established by any single result.
+
+**Benchmark failures and policy-probe failures are different things.** The only benchmark failure in the campaign is EXP-V1's baseline `long-1` (a gateway idle timeout, §3.4). The 503s of §5 happened in policy probes after the measured windows: they do not change any failure rate in §3 or §4.
+
+## 7. Limitations
+
+- **One run per arm.** No confidence interval, no significance test, fixed arm order; each verdict is an observation of one pair (§2.3).
+- **Few requests.** 12 requests per level, so a p95 rests on very few values and sits close to the maximum.
+- **EXP-V1 baseline timeout.** The failed `long-1` request is excluded from the baseline's c=1 latency percentiles but included in its throughput, so the +100.9 % at c=1 is inflated; c=2 and c=4 are the cleaner observations.
+- **EXP-V2 levels are not independent.** Cache state carries over from one level to the next, and the request distribution was uneven in both arms (one pod at c=1 and c=2 for B2; 96 % of prompt tokens on one pod for O2).
+- **Mechanism not proven.** Per-thread CPU affinity and CFS throttling were not recorded, so EXP-V1 measures the effect of binding, not the cause; the EPP's prefix-cache weight as the cause of the EXP-V2 imbalance is a hypothesis.
+- **Scope.** Results apply to this CPU deployment, model, image and synthetic workload. Tool-call validity is checked structurally only.
+- **Benchmark gateway, not production gateway.** The policy screenshots show the temporary benchmark gateway with raised token budgets; failover was not exercised in this campaign (§5).
+
+## 8. Conclusions
+
+- **EXP-V1 (`VALID / OBSERVED_IMPROVEMENT`).** On the same 2-CPU request and 3-CPU limit, binding the OpenMP threads to CPUs 0-1 produced about 53–55 % more output tokens/s at c=2 and c=4 and removed the baseline's one failure, at the cost of running closer to the CPU limit. The gain comes from using more of the allocated CPU, not from more work per core. The same direction appeared in O1 and in the rehearsal.
+- **EXP-V2 (`VALID / OBSERVED_MIXED`).** llm-d EPP routing was better on E2E p95 at c=2 and worse at c=4 and c=8, with no failures in either arm. It did not show a general gain over a Kubernetes Service on this deployment, and the production inference path stays without llm-d.
+- **Gateway policy.** The benchmark gateway enforced strict client authentication (401), the request rate limit (429), nested timeouts and backend attribution in every session.
+
+## 9. Evidence and Reproducibility
+
+**Where the evidence is.**
+
+| What | Location |
+|---|---|
+| Campaign index, file provenance | [`owner_single_run_20261109/README.md`](../../evidence/edai2/llm/owner_single_run_20261109/README.md) |
+| Claim-by-claim screenshot and raw-artifact mapping (`VERIFIED` / `PARTIAL` status per item) | [EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md) |
+| Screenshot provenance (source name, SHA-256, arm, limitation of every screenshot) | [`screenshot_provenance.json`](../../evidence/edai2/llm/owner_single_run_20261109/screenshot_provenance.json) |
+| Comparisons | [`exp-v1/comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/metrics.json), [`exp-v2/comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/metrics.json) |
+| Manifests | [`exp-v1/manifest.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/manifest.json), [`exp-v2/manifest.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/manifest.json) |
+| Validation smoke runs and cleanup drill (not results) | [`benchmark_reproduction_20261109/`](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md) |
+| Historical rehearsal (not results) | [`benchmark_rehearsal_20261109/`](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) |
+
+**Integrity check:**
+
+```bash
+(cd docs/evidence/edai2/llm/owner_single_run_20261109 && sha256sum -c --quiet sha256sums.txt)
+```
+
+**Reproduce.** The owner procedure, commands and screenshot checkpoints are in the [benchmark evidence runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md). The runner is [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) with `EXP_PROFILE=single`; the comparison is recomputed from the evidence directory with `ops.experiments.cli compare`, which selects the comparator from the session manifest.
+
+**Archived records** (historical, not current results): the earlier [methodology page](../../../archive/legacy-docs/docs/edai2/llm/BENCHMARK_METHODOLOGY.md), the [replay design and GKE validation record](../../../archive/legacy-docs/docs/edai2/llm/BENCHMARK_REPLAY.md) with measured stage durations, the pre-run [safety audit](../../../archive/legacy-docs/docs/edai2/llm/EXP_V1_V2_SAFETY_AUDIT.md), and the complete [O1](../../../archive/legacy-docs/docs/edai2/llm/vllm_cpu_o1_benchmark.md) and [G2](../../../archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md) experiment logs.
+
+### 9.1 EDAI-2 rubric alignment
+
+The wording comes from the repository's workbook extract, [`edai_k11_workbook_extract.json`](../../rubric/edai_k11_workbook_extract.json).
 
 | Row | Requirement | Implementation and configuration | Runtime evidence | Benchmark evidence | Gaps |
 |---|---|---|---|---|---|
-| 3 | Deploy LLM inference platform; document setup, benchmark and results | [LLM_PLATFORM](LLM_PLATFORM.md), Helm chart | Production deployment evidence in LLM_PLATFORM | §2, §3 | None for this row |
+| 3 | Deploy LLM inference platform; document setup, benchmark and results | [LLM_PLATFORM](LLM_PLATFORM.md), Helm chart | Production deployment evidence in [LLM_PLATFORM §6](LLM_PLATFORM.md#6-runtime-verification) | §3, §4 | None for this row |
 | 4 | Setup a custom LLM model | Qwen3-0.6B baked into a digest-pinned image | S1-01, S1-04: digest and model revision | Same model in both experiments | None |
-| 5 | agentgateway with suitable security and policy | §4 table, template and chart | POL-1 to POL-7 on the benchmark gateway | — | Screenshots show the temporary benchmark gateway; production policy evidence is G1 raw. Failover not exercised in this campaign |
-| 6 | Benchmark the model server and optimize | §2, §3, [methodology](BENCHMARK_METHODOLOGY.md) | S1-*, S2-* | `OBSERVED_IMPROVEMENT`, `OBSERVED_MIXED` | Single run per arm (§1) |
+| 5 | agentgateway with suitable security and policy | §5 table, template and chart; [LLM_PLATFORM §4](LLM_PLATFORM.md#4-agentgateway) | POL-1 to POL-7 on the benchmark gateway | — | Screenshots show the temporary benchmark gateway; production policy evidence is G1 raw. Failover not exercised in this campaign |
+| 6 | Benchmark the model server and optimize | §2 to §4 | S1-*, S2-* | `OBSERVED_IMPROVEMENT`, `OBSERVED_MIXED` | Single run per arm (§2.3) |
 | 50 | LLM telemetry | [OBSERVABILITY §6](../observability/OBSERVABILITY.md#6-llm-telemetry) | Production Grafana captures | See below | The benchmark alone does not cover this row |
 
 **Row 50 detail.**

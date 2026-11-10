@@ -85,7 +85,7 @@ this one object (plus a BYO restart, §4, once the resolver is on).
 
 ## 2. Why BYO agents need a resolver
 
-The installed CRD (`kagent-crds-0.10.3`, read live, [kagent-api.txt](../../evidence/edai2/llm/global_modelconfig_20261109/compat/kagent-api.txt)):
+The installed CRD (`kagent-crds-0.10.3`, read live, [kagent-api.txt](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/compat/kagent-api.txt)):
 
 - `spec.declarative` has `modelConfig`;
 - `spec.byo` has only `deployment` (image, env, volumes, ServiceAccount, …), so a BYO
@@ -102,8 +102,8 @@ The fix keeps kagent 0.10.3, keeps both agents BYO, and adds no controller.
 
 ## 3. The BYO resolver
 
-[`ai_platform/llm_agent/model_config.py`](../../../ai_platform/llm_agent/model_config.py),
-called from `planner_from_env()` in [`nl_intake.py`](../../../ai_platform/llm_agent/nl_intake.py),
+[`ai_platform/llm_agent/model_config.py`](../../../../../ai_platform/llm_agent/model_config.py),
+called from `planner_from_env()` in [`nl_intake.py`](../../../../../ai_platform/llm_agent/nl_intake.py),
 which both BYO executors already use to build their LLM client. With
 `EWALLET_LLM_CONFIG_SOURCE=modelconfig` the agent, at startup:
 
@@ -158,7 +158,7 @@ to generation 3, and the restarted pod resolved the new model.
 
 ## 5. Permissions and network
 
-[`templates/modelconfig-rbac.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml),
+[`templates/modelconfig-rbac.yaml`](../../../../../infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml),
 rendered only with `modelConfig.byoResolver.enabled=true`:
 
 - **Role** `ewallet-global-llm-reader`: `get` on `modelconfigs.kagent.dev`,
@@ -173,14 +173,14 @@ rendered only with `modelConfig.byoResolver.enabled=true`:
   `/var/run/secrets/ewallet/kube-api`. The ServiceAccounts keep
   `automountServiceAccountToken: false`.
 
-RBAC matrix read on GKE with `kubectl auth can-i --as` ([06-rbac-can-i.txt](../../evidence/edai2/llm/global_modelconfig_20261109/canary/06-rbac-can-i.txt)):
+RBAC matrix read on GKE with `kubectl auth can-i --as` ([06-rbac-can-i.txt](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/canary/06-rbac-can-i.txt)):
 both bound ServiceAccounts answer `yes` only to `get modelconfigs/ewallet-global-llm`;
 `get` of another ModelConfig, `list`, `watch`, `update`, `get/list secrets` and
 `get agents` are `no`; the unbound ServiceAccount gets `no` everywhere.
 
 ## 6. Verification
 
-Evidence: [`docs/evidence/edai2/llm/global_modelconfig_20261109/`](../../evidence/edai2/llm/global_modelconfig_20261109/README.md)
+Evidence: [`docs/evidence/edai2/llm/global_modelconfig_20261109/`](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/README.md)
 (runs between 2026-11-08 17:50Z and 18:30Z).
 
 ### 6.1 Tests
@@ -202,14 +202,14 @@ Evidence: [`docs/evidence/edai2/llm/global_modelconfig_20261109/`](../../evidenc
 
 ### 6.2 Isolated canary on GKE (namespace `kagent-pilot`)
 
-[`infra/k8s/modelconfig-canary/`](../../../infra/k8s/modelconfig-canary/) builds the canary
+[`infra/k8s/modelconfig-canary/`](../../../../../infra/k8s/modelconfig-canary) builds the canary
 from the chart itself: `helm template` with the production values and
 `namespace.name=kagent-pilot`, from which it takes the Role, RoleBinding, NetworkPolicy and
 the Coordinator Agent's deployment block; the ModelConfig is a copy of the live production
 spec. Three kagent BYO Agents run the deployed Coordinator image with `model_config.py`
 mounted (the image predates it) and perform only the startup resolution. kagent watches
 `kagent-pilot`, so the Accepted status is real. The namespace has no route to agentgateway;
-the canary makes no LLM call. Everything was deleted afterwards ([99-teardown.txt](../../evidence/edai2/llm/global_modelconfig_20261109/canary/99-teardown.txt)).
+the canary makes no LLM call. Everything was deleted afterwards ([99-teardown.txt](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/canary/99-teardown.txt)).
 
 | Case | Result |
 |---|---|
@@ -221,17 +221,17 @@ the canary makes no LLM call. Everything was deleted afterwards ([99-teardown.tx
 | CR `apiKeySecret` moved to another Secret | `modelconfig_secret_mismatch`, never Ready |
 | CR deleted | `modelconfig_not_found`, never Ready |
 | CR restored | resolved again (new uid), Ready |
-| kagent-rendered Deployment | carries the projected volume and mount from `spec.byo.deployment` ([05-kagent-rendered-deployment.yaml](../../evidence/edai2/llm/global_modelconfig_20261109/canary/05-kagent-rendered-deployment.yaml)) |
+| kagent-rendered Deployment | carries the projected volume and mount from `spec.byo.deployment` ([05-kagent-rendered-deployment.yaml](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/canary/05-kagent-rendered-deployment.yaml)) |
 
 ### 6.3 Live CR → resolver → Coordinator LLM call → agentgateway → CPU vLLM
 
-[`scripts/llm_agent/modelconfig_runtime_check.py`](../../../scripts/llm_agent/modelconfig_runtime_check.py)
+[`scripts/llm_agent/modelconfig_runtime_check.py`](../../../../../scripts/llm_agent/modelconfig_runtime_check.py)
 runs the Coordinator's `planner_from_env()` with the chart's resolver env against the
 **production** CR, then five cases of the fixed agent suite through the production `plan`
 path. The URL stays the approved in-cluster one; only the connection goes through a
 `kubectl port-forward` of `svc/agentgateway`. Locally the Kubernetes API token is the
 operator's GKE token instead of the projected ServiceAccount token.
-([summary.json](../../evidence/edai2/llm/global_modelconfig_20261109/runtime/summary.json))
+([summary.json](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/runtime/summary.json))
 
 | Result | Value |
 |---|---|
@@ -244,34 +244,34 @@ operator's GKE token instead of the projected ServiceAccount token.
 ### 6.4 Production unchanged
 
 `llm-agent` stayed at revision 42 and no pod in `ewallet-agents` restarted
-([before.txt](../../evidence/edai2/llm/global_modelconfig_20261109/production/before.txt) /
-[after.txt](../../evidence/edai2/llm/global_modelconfig_20261109/production/after.txt)). The
+([before.txt](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/production/before.txt) /
+[after.txt](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/production/after.txt)). The
 chart with `byoResolver` off renders the deployed manifest exactly (0 objects differ).
 
 ## 7. Status and production promotion
 
 | Component | Status | Record |
 |---|---|---|
-| Global ModelConfig CR | Previously deployed | [`00-production-modelconfig.json`](../../evidence/edai2/llm/global_modelconfig_20261109/canary/00-production-modelconfig.json), read 2026-11-08 |
-| Declarative Agent native reference | Previously verified | [`drift-native-reference.txt`](../../evidence/edai2/llm/global_modelconfig_20261109/production/drift-native-reference.txt) |
+| Global ModelConfig CR | Previously deployed | [`00-production-modelconfig.json`](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/canary/00-production-modelconfig.json), read 2026-11-08 |
+| Declarative Agent native reference | Previously verified | [`drift-native-reference.txt`](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/production/drift-native-reference.txt) |
 | BYO resolver source | Integrated in this branch; off by default | §9 |
 | BYO resolver local tests | Verified locally | §6.1 |
 | Resolver in a BYO pod with the chart's RBAC, token and egress policy | Verified 2026-11-08 in an isolated canary, since deleted | §6.2 |
 | Live CR → resolver → Coordinator planner → agentgateway → CPU vLLM | Verified 2026-11-08 from the laptop (operator token, port-forward), not from a production pod | §6.3 |
-| BYO resolver production deployment | **NOT DEPLOYED** | [`verify-current-production.json`](../../evidence/edai2/llm/global_modelconfig_20261109/production/verify-current-production.json) |
+| BYO resolver production deployment | **NOT DEPLOYED** | [`verify-current-production.json`](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/production/verify-current-production.json) |
 | Production BYO configuration | Existing Helm environment configuration | same |
 
 No live cluster check was made when this source was integrated. A Git merge does not change any of the above.
 
 Promotion is two owner-run steps
-([GLOBAL_MODELCONFIG_RUNBOOK.md](../../runbooks/edai2/GLOBAL_MODELCONFIG_RUNBOOK.md)):
+([GLOBAL_MODELCONFIG_RUNBOOK.md](../../../../../docs/runbooks/edai2/GLOBAL_MODELCONFIG_RUNBOOK.md)):
 
 1. **Images only**: build and push both BYO images from this commit and promote them with
    `scripts/ci/release_state.py` (it proves the change is image-only). With
    `byoResolver` off the new code runs the same env path, so behaviour is unchanged.
 2. **Configuration**: `helm upgrade` with `modelConfig.byoResolver.enabled=true` and the API
    server CIDRs. The diff is exactly five objects
-   ([helm-diff-resolver-on.txt](../../evidence/edai2/llm/global_modelconfig_20261109/production/helm-diff-resolver-on.txt)),
+   ([helm-diff-resolver-on.txt](../../../../../docs/evidence/edai2/llm/global_modelconfig_20261109/production/helm-diff-resolver-on.txt)),
    accepted by a server-side dry run. Rollback: `helm rollback llm-agent <revision of step 1>`.
 
 ## 8. Limits
@@ -288,25 +288,25 @@ Repository links are in the first column; line ranges are pinned to GitHub commi
 
 | File | Lines | What it configures |
 |---|---|---|
-| [`templates/modelconfig.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig.yaml) | [L1–17](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/modelconfig.yaml#L1-L17) | The ModelConfig resource |
-| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L868–874](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/values.yaml#L868-L874) | `modelConfig.byoResolver`, `enabled: false` by default |
-| [`templates/modelconfig-rbac.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml) | [L1–72](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml#L1-L72) | Role, RoleBinding and egress NetworkPolicy, rendered only with the flag on |
-| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L190–205](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/agents.yaml#L190-L205) | Flag on: resolver env. Flag off: the Helm environment bridge |
-| [`model_config.py`](../../../ai_platform/llm_agent/model_config.py) | [L40–42](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/model_config.py#L40-L42), [L109–258](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/model_config.py#L109-L258) | Approved endpoint; parsing, fetch and resolution |
-| [`nl_intake.py`](../../../ai_platform/llm_agent/nl_intake.py) | [L329–341](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/nl_intake.py#L329-L341) | Selects the source with `EWALLET_LLM_CONFIG_SOURCE` (default `env`) |
-| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L851–861](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L851-L861) | Name, model, default timeout, Secret reference |
-| [`values-gke-cpu.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu.yaml) | [L64–65](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values-gke-cpu.yaml#L64-L65) | GKE timeout of 200 s |
-| [`n11/values-n11-agents.yaml`](../../../infra/helm/llm-agent-platform/n11/values-n11-agents.yaml) | [L5–15](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/n11/values-n11-agents.yaml#L5-L15) | Enables LLM intake for both BYO agents |
-| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L263–266](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L263-L266) | Declarative agents reference the ModelConfig |
-| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L183–207](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L183-L207) | BYO agents: endpoint, model and client key through environment variables |
-| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L8–9](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L8-L9) | Agents cannot render without the ModelConfig |
-| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L6–12](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L6-L12) | Timeout nesting guard |
-| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L43–56](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L43-L56) | Entry route: strict client authentication, forward to the LLM listener |
-| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L101–110](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L101-L110) | Primary backend: vLLM URL and backend key |
-| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L157–167](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L157-L167) | Virtual model `ewallet-fraud-llm` and failover priorities |
-| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L264–272](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L264-L272) | Service port 3000 to the entry port |
-| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L279–281](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L279-L281) | Gateway client-key Secret reference |
-| [`templates/vllm.yaml`](../../../infra/helm/llm-agent-platform/templates/vllm.yaml) | [L128–129](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/vllm.yaml#L128-L129) | vLLM served model name |
-| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L200–200](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L200-L200) | Served name `ewallet-fraud-llm-v1` |
+| [`templates/modelconfig.yaml`](../../../../../infra/helm/llm-agent-platform/templates/modelconfig.yaml) | [L1–17](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/modelconfig.yaml#L1-L17) | The ModelConfig resource |
+| [`values.yaml`](../../../../../infra/helm/llm-agent-platform/values.yaml) | [L868–874](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/values.yaml#L868-L874) | `modelConfig.byoResolver`, `enabled: false` by default |
+| [`templates/modelconfig-rbac.yaml`](../../../../../infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml) | [L1–72](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml#L1-L72) | Role, RoleBinding and egress NetworkPolicy, rendered only with the flag on |
+| [`templates/agents.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L190–205](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/infra/helm/llm-agent-platform/templates/agents.yaml#L190-L205) | Flag on: resolver env. Flag off: the Helm environment bridge |
+| [`model_config.py`](../../../../../ai_platform/llm_agent/model_config.py) | [L40–42](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/model_config.py#L40-L42), [L109–258](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/model_config.py#L109-L258) | Approved endpoint; parsing, fetch and resolution |
+| [`nl_intake.py`](../../../../../ai_platform/llm_agent/nl_intake.py) | [L329–341](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/b95b160f3dbfb295bda483c5324873bb58505ae2/ai_platform/llm_agent/nl_intake.py#L329-L341) | Selects the source with `EWALLET_LLM_CONFIG_SOURCE` (default `env`) |
+| [`values.yaml`](../../../../../infra/helm/llm-agent-platform/values.yaml) | [L851–861](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L851-L861) | Name, model, default timeout, Secret reference |
+| [`values-gke-cpu.yaml`](../../../../../infra/helm/llm-agent-platform/values-gke-cpu.yaml) | [L64–65](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values-gke-cpu.yaml#L64-L65) | GKE timeout of 200 s |
+| [`n11/values-n11-agents.yaml`](../../../../../infra/helm/llm-agent-platform/n11/values-n11-agents.yaml) | [L5–15](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/n11/values-n11-agents.yaml#L5-L15) | Enables LLM intake for both BYO agents |
+| [`templates/agents.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L263–266](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L263-L266) | Declarative agents reference the ModelConfig |
+| [`templates/agents.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L183–207](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L183-L207) | BYO agents: endpoint, model and client key through environment variables |
+| [`templates/agents.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L8–9](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L8-L9) | Agents cannot render without the ModelConfig |
+| [`templates/agentgateway.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L6–12](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L6-L12) | Timeout nesting guard |
+| [`templates/agentgateway.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L43–56](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L43-L56) | Entry route: strict client authentication, forward to the LLM listener |
+| [`templates/agentgateway.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L101–110](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L101-L110) | Primary backend: vLLM URL and backend key |
+| [`templates/agentgateway.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L157–167](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L157-L167) | Virtual model `ewallet-fraud-llm` and failover priorities |
+| [`templates/agentgateway.yaml`](../../../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L264–272](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L264-L272) | Service port 3000 to the entry port |
+| [`values.yaml`](../../../../../infra/helm/llm-agent-platform/values.yaml) | [L279–281](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L279-L281) | Gateway client-key Secret reference |
+| [`templates/vllm.yaml`](../../../../../infra/helm/llm-agent-platform/templates/vllm.yaml) | [L128–129](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/vllm.yaml#L128-L129) | vLLM served model name |
+| [`values.yaml`](../../../../../infra/helm/llm-agent-platform/values.yaml) | [L200–200](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L200-L200) | Served name `ewallet-fraud-llm-v1` |
 
-Tests: [`test_global_modelconfig_resolver.py`](../../../tests/llm_agent/test_global_modelconfig_resolver.py), [`test_global_modelconfig_chart.py`](../../../tests/llm_agent/test_global_modelconfig_chart.py), [`test_r1_runtime_prep.py`](../../../tests/llm_agent/test_r1_runtime_prep.py).
+Tests: [`test_global_modelconfig_resolver.py`](../../../../../tests/llm_agent/test_global_modelconfig_resolver.py), [`test_global_modelconfig_chart.py`](../../../../../tests/llm_agent/test_global_modelconfig_chart.py), [`test_r1_runtime_prep.py`](../../../../../tests/llm_agent/test_r1_runtime_prep.py).

@@ -3,7 +3,7 @@
 | Item | Value |
 |---|---|
 | Status | Runtime complete, documentation closed. Verdict **`MIXED`**: not a gain, not a failure |
-| Accepted run | attempt 3, [`g2_20261101T124444Z`](../../evidence/llm_agent/g2_20261101T124444Z), exit 0 |
+| Accepted run | attempt 3, [`g2_20261101T124444Z`](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z), exit 0 |
 | Runtime source SHA | `0c89af3b08561e4f9e58b7cc80273457ab6e4d0f` (the code that produced every number below) |
 | Reporting commits | later commits on `codex/llm-g2-llmd-routing`; runner fixes, evidence and documentation only, see §13 |
 | Branch base | O1 `9b47546` + G1/MLOps checkpoint `e7dbbc2` (merge `d26b9d1`) |
@@ -45,13 +45,13 @@ O2  client ─► agentgateway ─► llmd-router-epp:8081 ─ Envoy ⇄ EPP (ex
 ```
 
 **Router.** llm-d-router v1.0.0 **standalone** chart. Its pins are in
-[`versions.env`](../../../infra/helm/llm-d/versions.env):
+[`versions.env`](../../../../../infra/helm/llm-d/versions.env):
 - chart OCI `sha256:c1d1af55…024c`;
 - EPP `…endpoint-picker:v1.0.0@sha256:024188e9…df2c`;
 - Envoy `distroless-v1.33.2@sha256:85500e28…e4e8`.
 
 Its values file is
-[`standalone-values-g2.yaml`](../../../infra/helm/llm-d/standalone-values-g2.yaml):
+[`standalone-values-g2.yaml`](../../../../../infra/helm/llm-d/standalone-values-g2.yaml):
 - the EPP finds the pods with
   `--endpoint-selector app.kubernetes.io/instance=primary,app.kubernetes.io/name=vllm`;
 - it scrapes vLLM `/metrics` every 50 ms (the default);
@@ -79,7 +79,7 @@ router→API server:443. The API server addresses were read back:
 | Nodes | 2 MLOps nodes untouched, plus **3 temporary e2-standard-4** labelled `ewallet.io/g2-llm=true` (2 primaries and the fallback). One vLLM pod per node, by CPU request |
 | Model | `Qwen/Qwen3-0.6B` @ `c1899de289a04d12100db370d81485cdf75e47ca`, baked into `vllm-cpu-model@sha256:f695b23e…d07c` |
 | C1 per pod | requests 2 CPU / 6 GiB, limits 3 CPU / 10 GiB, KV 2 GiB, `OMP_NUM_THREADS=2`, `VLLM_CPU_OMP_THREADS_BIND=0-1`, prefix caching on, max-model-len 4096, `max-num-seqs 4`, hermes tool parser, qwen3 reasoning parser, thinking off |
-| Gateway (session overlay [`g2/benchmark-gateway.yaml`](../../../infra/helm/llm-agent-platform/g2/benchmark-gateway.yaml), identical for B2 and O2) | 150 000 tokens/h (production 24 000/h), 12 requests/s, timeouts 180/170/160/160 s, passive eviction **300 s** (production 30 s) |
+| Gateway (session overlay [`g2/benchmark-gateway.yaml`](../../../../../infra/helm/llm-agent-platform/g2/benchmark-gateway.yaml), identical for B2 and O2) | 150 000 tokens/h (production 24 000/h), 12 requests/s, timeouts 180/170/160/160 s, passive eviction **300 s** (production 30 s) |
 | Workload | O1's `o1-workload-v1`, sha256 `c4816ca1…695f`, imported unchanged |
 | Workload contents | 3 cold-prefix requests, 2 warm-up requests, then **the same 12 prompts** at each level: 2 short, 2 long (~1 617 input tokens, 128 output), 3 repeated-prefix, 2 unique-prefix, 2 streamed tool calls, 1 non-streamed. Every level produced 713 output tokens in both runs |
 | Levels | 1, 2, 4, 8, in that order; B2 run first, then O2, in one campaign |
@@ -97,10 +97,10 @@ router→API server:443. The API server addresses were read back:
 ## 4. Fairness validation
 
 These criteria were fixed before the run, in
-[`g2_preflight.py`](../../../scripts/llm_agent/g2_preflight.py) and
-[`g2_compare.py`](../../../scripts/llm_agent/g2_compare.py). The live readback
-is in [b2](../../evidence/llm_agent/g2_20261101T124444Z/g2/b2/serving.json) and
-[o2](../../evidence/llm_agent/g2_20261101T124444Z/g2/o2/serving.json)
+[`g2_preflight.py`](../../../../../scripts/llm_agent/g2_preflight.py) and
+[`g2_compare.py`](../../../../../scripts/llm_agent/g2_compare.py). The live readback
+is in [b2](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z/g2/b2/serving.json) and
+[o2](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z/g2/o2/serving.json)
 `serving.json`.
 
 | Criterion | B2 | O2 | Result |
@@ -204,7 +204,7 @@ in both runs.
 - per-request EPP scorer values (not in the v=3 log);
 - confidence intervals, since there is one O2 run.
 
-### 5.5 Rule outcome per level ([comparison.json](../../evidence/llm_agent/g2_20261101T124444Z/g2/comparison.json), unmodified)
+### 5.5 Rule outcome per level ([comparison.json](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z/g2/comparison.json), unmodified)
 
 | Level | Gain rule | Regression triggers | Level result |
 |---|---|---|---|
@@ -323,14 +323,14 @@ precise reading:
   level 2 is worse in O2 (§6.2).
 
 The raw rows are in each run's `raw_requests.jsonl`. EPP decisions are in
-[comparison.recomputed.json](../../evidence/llm_agent/g2_20261101T124444Z/g2/comparison.recomputed.json)
-and [epp.log](../../evidence/llm_agent/g2_20261101T124444Z/g2/o2/epp.log).
+[comparison.recomputed.json](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z/g2/comparison.recomputed.json)
+and [epp.log](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z/g2/o2/epp.log).
 
 ## 8. Security and runtime verification
 
 | Gate (attempt 3) | B2 deployment | O2 deployment |
 |---|---|---|
-| NetworkPolicy allow/deny matrix | **6/6** ([tsv](../../evidence/llm_agent/g2_20261101T124444Z/ops/b2/netpol-verify.tsv)) | **9/9**, incl. no-bypass probes: unlabelled→router, other-namespace→router and router-label-with-wrong-SA→vLLM all denied ([tsv](../../evidence/llm_agent/g2_20261101T124444Z/ops/o2/netpol-verify.tsv)) |
+| NetworkPolicy allow/deny matrix | **6/6** ([tsv](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z/ops/b2/netpol-verify.tsv)) | **9/9**, incl. no-bypass probes: unlabelled→router, other-namespace→router and router-label-with-wrong-SA→vLLM all denied ([tsv](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z/ops/o2/netpol-verify.tsv)) |
 | Wrong / missing / backend API key | HTTP 401 on the direct and gateway paths | HTTP 401 through the llm-d path |
 | Real tool-call smoke (stream and non-stream, two turns) | PASS direct and gateway, `backend=primary` | PASS gateway, `backend=llm-d` |
 | Primary → fallback | 503 `primary`, then 200 `fallback`; fallback `request_success_total` 1 → 6 | 503 `llm-d`, 503 `primary`, then 200 `fallback`; 6 → 11 |
@@ -374,9 +374,9 @@ The scrape interval was not varied.
 
 | # | Run | SHA | Window (UTC) | Exit | Classification | Cause and correction |
 |---|---|---|---|---|---|---|
-| 1 | [`g2_20261101T095348Z`](../../evidence/llm_agent/g2_20261101T095348Z) | `191b13c` | 09:53–11:25 | 1 | setup failure; **B2 retained for variability only** | The router was installed before the llm-agent O2 release that carries its NetworkPolicies. In the default-deny namespace its kubelet probes on 9003 timed out and it crash-looped; `--atomic` removed it before its logs were saved. Fixed in `db43c96`: policies first, no `--atomic` for the router, diagnostics kept |
-| 2 | [`g2_20261101T113055Z`](../../evidence/llm_agent/g2_20261101T113055Z) | `db43c96` | 11:30–12:43 | 1 | gate failure; **B2 retained for variability only** | The router, O2 netpol, auth and smoke passed. During the O2 failover gate, llm-d and the direct primary were evicted at 12:25:03–06; 30 s later both were retried and the smoke's second turn got 503 at 12:25:36. Fixed in `0c89af3`: session eviction window 300 s, for B2 and O2 alike |
-| 3 | [`g2_20261101T124444Z`](../../evidence/llm_agent/g2_20261101T124444Z) | `0c89af3` | 12:44–14:07 | **0** | **accepted matched benchmark** | All gates passed, B2 and O2 measured, cleanup verified |
+| 1 | [`g2_20261101T095348Z`](../../../../../docs/evidence/llm_agent/g2_20261101T095348Z) | `191b13c` | 09:53–11:25 | 1 | setup failure; **B2 retained for variability only** | The router was installed before the llm-agent O2 release that carries its NetworkPolicies. In the default-deny namespace its kubelet probes on 9003 timed out and it crash-looped; `--atomic` removed it before its logs were saved. Fixed in `db43c96`: policies first, no `--atomic` for the router, diagnostics kept |
+| 2 | [`g2_20261101T113055Z`](../../../../../docs/evidence/llm_agent/g2_20261101T113055Z) | `db43c96` | 11:30–12:43 | 1 | gate failure; **B2 retained for variability only** | The router, O2 netpol, auth and smoke passed. During the O2 failover gate, llm-d and the direct primary were evicted at 12:25:03–06; 30 s later both were retried and the smoke's second turn got 503 at 12:25:36. Fixed in `0c89af3`: session eviction window 300 s, for B2 and O2 alike |
+| 3 | [`g2_20261101T124444Z`](../../../../../docs/evidence/llm_agent/g2_20261101T124444Z) | `0c89af3` | 12:44–14:07 | **0** | **accepted matched benchmark** | All gates passed, B2 and O2 measured, cleanup verified |
 
 - **Accepted measurements:** only attempt 3's B2 and O2 enter the verdict.
 - **Retained baselines:** B2 from attempts 1 and 2 is used only as
@@ -412,7 +412,7 @@ The scrape interval was not varied.
 
 ## 12. Reproducibility
 
-The runbook is [docs/llm_agent/g2_runbook.md](../../llm_agent/g2_runbook.md).
+The runbook is [docs/llm_agent/g2_runbook.md](../../../../../docs/llm_agent/g2_runbook.md).
 
 - **Offline:**
   - 28 G2 tests, including an end-to-end runner simulation with failure and

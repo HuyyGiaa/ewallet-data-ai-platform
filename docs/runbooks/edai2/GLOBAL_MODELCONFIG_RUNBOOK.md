@@ -1,6 +1,6 @@
 # Global ModelConfig: owner runbook
 
-Design and results: [GLOBAL_MODELCONFIG.md](../../edai2/llm/GLOBAL_MODELCONFIG.md).
+Design and results: [LLM_PLATFORM §5](../../edai2/llm/LLM_PLATFORM.md#5-global-modelconfig-and-byo-resolver); the earlier detailed report is archived as [GLOBAL_MODELCONFIG.md](../../../archive/legacy-docs/docs/edai2/llm/GLOBAL_MODELCONFIG.md).
 Screenshots are captured by the owner into
 `docs/evidence/edai2/screenshots/llm/modelconfig/<n>_<name>.png`; nothing in this runbook
 generates them.

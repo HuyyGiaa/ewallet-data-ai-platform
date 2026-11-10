@@ -1,6 +1,6 @@
 # G2 runbook: llm-d routing vs standard routing (two C1 replicas)
 
-Report: [docs/edai2/llm/llmd_g2_routing_benchmark.md](../edai2/llm/llmd_g2_routing_benchmark.md).
+Report: [docs/edai2/llm/llmd_g2_routing_benchmark.md](../../archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md).
 Design and compatibility decisions are in that report, §4–6.
 
 ## What runs
