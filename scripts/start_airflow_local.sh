@@ -6,16 +6,23 @@ REPOSITORY_ROOT=$(cd -- "${SCRIPT_DIR}/.." && pwd)
 export AIRFLOW_HOME="${REPOSITORY_ROOT}/data_platform/orchestration/airflow"
 export AIRFLOW__CORE__DAGS_FOLDER="${AIRFLOW_HOME}/dags"
 export AIRFLOW__CORE__EXECUTION_API_SERVER_URL="http://127.0.0.1:8084/execution/"
-readonly HEALTH_URL="http://127.0.0.1:8084/api/v2/monitor/health"
-readonly RUNTIME_DIR="${AIRFLOW_HOME}/logs/local-runtime"
+# DAG files and task commands import project modules (data_platform, ops):
+# every component needs the repository root on the import path.
+export PYTHONPATH="${REPOSITORY_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/start_airflow_local.sh [--status]
+Usage: ./scripts/start_airflow_local.sh [--status | --stop]
 
-With no option, reuse a healthy local Airflow 3 runtime or start its API
-server, scheduler, and DAG processor. --status is read-only. This helper never
-initializes or resets the metadata database.
+With no option, reuse a healthy local Airflow 3 runtime, or start the missing
+components one at a time (API server on 127.0.0.1:8084, then scheduler, then
+DAG processor), waiting for each to be healthy.
+  --status  read-only report of the three components and the health endpoint
+  --stop    SIGTERM to this runtime's own processes only (never force-killed)
+
+This helper never initializes, migrates or resets the metadata database, and
+never triggers a DAG. AIRFLOW_LOCAL_START_TIMEOUT sets the per-component wait
+in seconds (default 120). Runbook: docs/runbooks/edai1/airflow/AIRFLOW_LOCAL_RUNTIME.md
 EOF
 }
 
@@ -35,126 +42,26 @@ resolve_airflow() {
   export AIRFLOW_BIN
 }
 
-component_pids() {
-  local component=$1 env_file pid cmd
-  for env_file in /proc/[0-9]*/environ; do
-    pid=${env_file#/proc/}
-    pid=${pid%/environ}
-    cmd=$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)
-    case "${component}" in
-      api-server)
-        # Airflow 3's daemonized API worker may not retain AIRFLOW_HOME in
-        # /proc/<pid>/environ. Bind it to this runtime by its dedicated listen
-        # address instead; this also excludes any legacy API server on 8080.
-        [[ ${cmd} == *"airflow api-server"* || ${cmd} == *"airflow api_server"* ]] || continue
-        [[ ${cmd} == *"127.0.0.1"* && ${cmd} == *"8084"* ]] && echo "${pid}"
-        ;;
-      scheduler)
-        grep -zqx "AIRFLOW_HOME=${AIRFLOW_HOME}" "${env_file}" 2>/dev/null || continue
-        [[ ${cmd} == *"/airflow scheduler"* ]] && echo "${pid}"
-        ;;
-      dag-processor)
-        grep -zqx "AIRFLOW_HOME=${AIRFLOW_HOME}" "${env_file}" 2>/dev/null || continue
-        [[ ${cmd} == *"/airflow dag-processor"* ]] && echo "${pid}"
-        ;;
-    esac
-  done
-}
-
-runtime_status() {
-  local failed=0 component pids health
-  for component in api-server scheduler dag-processor; do
-    mapfile -t pids < <(component_pids "${component}")
-    if (( ${#pids[@]} == 1 )); then
-      printf '%-14s RUNNING pid=%s\n' "${component}" "${pids[0]}"
-    elif (( ${#pids[@]} == 0 )); then
-      printf '%-14s STOPPED\n' "${component}"
-      failed=1
-    else
-      printf '%-14s CONFLICT pids=%s\n' "${component}" "${pids[*]}"
-      failed=1
-    fi
-  done
-
-  health=$(curl --connect-timeout 2 --max-time 5 --fail --silent "${HEALTH_URL}" 2>/dev/null || true)
-  if [[ ${health} == *'"metadatabase":{"status":"healthy"}'* \
-        && ${health} == *'"scheduler":{"status":"healthy"'* \
-        && ${health} == *'"dag_processor":{"status":"healthy"'* ]]; then
-    echo "health         HEALTHY ${HEALTH_URL}"
-  else
-    echo "health         NOT_READY ${HEALTH_URL}"
-    failed=1
-  fi
-  return "${failed}"
-}
-
 case "${1:-}" in
-  -h|--help)
-    usage
-    exit 0
-    ;;
-  --status)
-    resolve_airflow
-    "${AIRFLOW_BIN}" version >/dev/null
-    runtime_status
-    exit $?
-    ;;
-  "") ;;
-  *)
-    usage >&2
-    exit 2
-    ;;
+  -h|--help) usage; exit 0 ;;
+  --status) action=status ;;
+  --stop) action=stop ;;
+  "") action=start ;;
+  *) usage >&2; exit 2 ;;
 esac
 
 resolve_airflow
-version=$("${AIRFLOW_BIN}" version)
-if [[ ! ${version} =~ ^3\. ]]; then
-  echo "ERROR: expected Airflow 3.x, found ${version}." >&2
-  exit 1
-fi
+# The runtime manager is standard-library Python; use the Airflow interpreter.
+PYTHON_BIN="$(dirname -- "${AIRFLOW_BIN}")/python"
+[[ -x ${PYTHON_BIN} ]] || PYTHON_BIN=python3
 
-if runtime_status; then
-  echo "Airflow local runtime is already healthy; reusing it."
-  exit 0
-fi
-
-mapfile -t existing < <(
-  component_pids api-server
-  component_pids scheduler
-  component_pids dag-processor
-)
-if (( ${#existing[@]} > 0 )) || ss -ltn 2>/dev/null | grep -qE ':[[:space:]]*8084\b|:8084\b'; then
-  echo "ERROR: partial/conflicting Airflow runtime detected; refusing to start duplicates." >&2
-  echo "Resolve the processes shown by --status, then retry. No process was killed." >&2
-  exit 1
-fi
-
-# Read-only readiness check: never create, migrate, or reset metadata state here.
-"${AIRFLOW_BIN}" db check
-mkdir -p "${RUNTIME_DIR}"
-
-"${AIRFLOW_BIN}" api-server --daemon --host 127.0.0.1 --port 8084 \
-  --pid "${RUNTIME_DIR}/api-server.pid" \
-  --stdout "${RUNTIME_DIR}/api-server.out" \
-  --stderr "${RUNTIME_DIR}/api-server.err"
-"${AIRFLOW_BIN}" scheduler --daemon \
-  --pid "${RUNTIME_DIR}/scheduler.pid" \
-  --stdout "${RUNTIME_DIR}/scheduler.out" \
-  --stderr "${RUNTIME_DIR}/scheduler.err"
-"${AIRFLOW_BIN}" dag-processor --daemon \
-  --pid "${RUNTIME_DIR}/dag-processor.pid" \
-  --stdout "${RUNTIME_DIR}/dag-processor.out" \
-  --stderr "${RUNTIME_DIR}/dag-processor.err"
-
-for _ in $(seq 1 30); do
-  if runtime_status >/dev/null 2>&1; then
-    runtime_status
-    echo "Airflow UI/API: http://127.0.0.1:8084"
-    exit 0
+if [[ ${action} == start ]]; then
+  version=$("${AIRFLOW_BIN}" version)
+  if [[ ! ${version} =~ ^3\. ]]; then
+    echo "ERROR: expected Airflow 3.x, found ${version}." >&2
+    exit 1
   fi
-  sleep 2
-done
+fi
 
-runtime_status || true
-echo "ERROR: Airflow did not become healthy within 60 seconds. Inspect ${RUNTIME_DIR}." >&2
-exit 1
+exec "${PYTHON_BIN}" "${SCRIPT_DIR}/airflow_local_runtime.py" "${action}" \
+  --airflow-home "${AIRFLOW_HOME}" --airflow-bin "${AIRFLOW_BIN}"

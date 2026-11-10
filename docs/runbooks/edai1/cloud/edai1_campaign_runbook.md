@@ -100,7 +100,8 @@ needs it as `source_manifest_sha256`.
 
 Prerequisites: Airflow runs from a clean checkout of the campaign commit, its Python
 has the project on `PYTHONPATH`, `gcloud` is authenticated, and the Dataproc quota is
-free. Loading this DAG into Airflow is an owner action.
+free. Loading this DAG into Airflow is an owner action. Start the local runtime with
+`./scripts/start_airflow_local.sh` ([local Airflow runtime](../airflow/AIRFLOW_LOCAL_RUNTIME.md)).
 
 Trigger `edai1_data_pipeline_campaign` with:
 
