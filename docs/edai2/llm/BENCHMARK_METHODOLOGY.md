@@ -4,13 +4,13 @@ This page defines how EDAI-2 compares a baseline with an optimization, and the e
 
 **Selected for the EDAI-2 submission: the single-run methodology** (`EXP_PROFILE=single`, [§ Single-run comparison](#single-run-comparison-selected-for-the-edai-2-submission)). The owner runs it personally and captures the screenshots.
 
-`SINGLE_RUN_RESULTS=PENDING` · `OWNER_SCREENSHOTS=PENDING`
+`SINGLE_RUN_RESULTS=COMPLETE` · `OWNER_SCREENSHOTS=INTEGRATED`. Results: [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md).
 
 **Earlier results, kept as engineering evidence:**
 - **Multi-run formal rehearsal**, 2026-11-09, 3 runs per arm: [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
 - **O1 and G2**, `HISTORICAL`: one run per configuration each.
 
-These results are not reused as the single-run results.
+These earlier results are not reused as the single-run results.
 
 ## Profiles
 

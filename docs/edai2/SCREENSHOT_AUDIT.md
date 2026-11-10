@@ -182,3 +182,7 @@ These are renders of the report file Locust wrote in the run, not of recorded te
 - **Classes:** REAL_TERMINAL (pytest, mutmut, source listings) and NATIVE_UI (the coverage.py HTML report in Firefox).
 - **Code:** they show the B1 commit `281db72`, not HEAD; the HEAD reruns are raw files only.
 - **Caveat:** 29_03 shows only part of the command line (documented in the row 29 document).
+
+## Addendum: owner benchmark campaign (2026-11-10)
+
+The owner's single-run campaign adds 35 genuine captures, embedded in [BENCHMARK_RESULTS.md](llm/BENCHMARK_RESULTS.md): 25 `REAL_TERMINAL`, 9 `NATIVE_UI` (Grafana) and 1 showing both side by side. All are byte-identical to the originals and decode as PNG; hashes and limitations are in [`screenshot_provenance.json`](../evidence/edai2/llm/owner_single_run_20261109/screenshot_provenance.json). They are not included in the totals above. Rows 5 and 6 now qualify on them; per-claim status is in the [evidence matrix](llm/BENCHMARK_EVIDENCE_MATRIX.md).

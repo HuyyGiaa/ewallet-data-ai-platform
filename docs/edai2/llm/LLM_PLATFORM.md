@@ -202,16 +202,20 @@ All 96 requests succeeded in both runs.
 - [`g2_20261101T124444Z/g2/comparison.json`](../../evidence/llm_agent/g2_20261101T124444Z/g2/comparison.json);
 - full experiment record: [llmd_g2_routing_benchmark.md](llmd_g2_routing_benchmark.md).
 
-### 5.4 Reproducing the benchmarks with screenshots
+### 5.4 Official benchmark results (owner single-run campaign)
 
-O1 and G2 above are historical single runs. To reproduce them for screenshot evidence, the matched EXP-V1 and EXP-V2 sessions run in a temporary `ewallet-bench` namespace on their own node pool. Each session has its own Prometheus and Grafana, an owner checkpoint after each run, an agentgateway policy probe, and an in-cluster cleanup watchdog.
+O1 and G2 above are historical single runs. The results submitted for EDAI-2 come from matched sessions that the owner ran and captured personally on 2026-11-09/10, in a temporary `ewallet-bench` namespace on a dedicated node pool. Production was not touched. Each experiment had **one baseline and one optimized run**, at every concurrency level. The percentages are observed differences of one pair, with no confidence interval or significance test.
 
-- On 2026-11-09 a cleanup drill and an EXP-V2 smoke test validated the workflow on GKE. Both routes, the EPP metrics, per-replica scraping and the policy probe were checked: 401 for missing, wrong and backend keys, and 429 above 12 requests/s.
-- These are smoke results, not benchmark results.
-- **Multi-run formal rehearsal (2026-11-09).** Both experiments ran with 3 runs per arm, unattended: EXP-V1 `IMPROVED`, EXP-V2 `NO_SIGNIFICANT_CHANGE`. This is historical engineering evidence: [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md).
-- **Submission methodology: single-run** (`EXP_PROFILE=single`). There is one run per arm, at every original level and with every original request. The comparison reports observed differences only, with no significance claim ([BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md#single-run-comparison-selected-for-the-edai-2-submission)). The owner runs it and captures the screenshots. `SINGLE_RUN_RESULTS=PENDING`, `OWNER_SCREENSHOTS=PENDING`.
+| Experiment | Change | Execution | Observed outcome | Key figures (baseline → optimized) |
+|---|---|---|---|---|
+| EXP-V1 | `VLLM_CPU_OMP_THREADS_BIND` `auto` → `0-1` | `VALID` | `OBSERVED_IMPROVEMENT` | Output tokens/s at c=4: 3.54 → 5.48 (+54.5 %). E2E p95 at c=4: 154.7 s → 98.5 s. Mean vLLM CPU at c=4 rose from 1.64 to 2.58 cores. Failures: 1/36 → 0/36 |
+| EXP-V2 | Kubernetes Service → llm-d EPP, two replicas | `VALID` | `OBSERVED_MIXED` | E2E p95: 7.3 % higher at c=1, 47.5 % lower at c=2, 101.9 % higher at c=4, 71.5 % higher at c=8. Failures: 0/48 → 0/48 |
 
-Details: [BENCHMARK_REPLAY.md](BENCHMARK_REPLAY.md). Runbook: [BENCHMARK_EVIDENCE_RUNBOOK.md](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md). Evidence: [`benchmark_reproduction_20261109`](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md).
+Binding raised throughput on the same pod budget by using more of the CPU already allocated. llm-d improved one level and worsened two, so it was not adopted on this evidence, and the production path still has no llm-d.
+
+Full analysis with screenshots: **[BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md)**. Evidence mapping: [BENCHMARK_EVIDENCE_MATRIX.md](BENCHMARK_EVIDENCE_MATRIX.md). Method: [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md). Procedure and validation history: [runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md), [BENCHMARK_REPLAY.md](BENCHMARK_REPLAY.md).
+
+Separate historical engineering evidence: the [3-run rehearsal](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) (EXP-V1 `IMPROVED`, EXP-V2 `NO_SIGNIFICANT_CHANGE`) and the [workflow smoke tests](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md).
 
 ### 5.5 Production telemetry
 

@@ -12,7 +12,7 @@ Nothing here generates screenshots, and nothing touches production.
 - Which screenshot backs which rubric row: [BENCHMARK_EVIDENCE_MATRIX.md](../../edai2/llm/BENCHMARK_EVIDENCE_MATRIX.md).
 - Design and validation history: [BENCHMARK_REPLAY.md](../../edai2/llm/BENCHMARK_REPLAY.md).
 
-Status: `SINGLE_RUN_RESULTS=PENDING`, `OWNER_SCREENSHOTS=PENDING`.
+Status: the owner ran this procedure on 2026-11-09/10 (`SINGLE_RUN_RESULTS=COMPLETE`, `OWNER_SCREENSHOTS=INTEGRATED`): [results](../../edai2/llm/BENCHMARK_RESULTS.md), [evidence matrix](../../edai2/llm/BENCHMARK_EVIDENCE_MATRIX.md). The steps below stay as the replay procedure. As executed, some screens were combined or captured with equivalent commands; the matrix records what each file shows.
 
 ## 0. Overview
 

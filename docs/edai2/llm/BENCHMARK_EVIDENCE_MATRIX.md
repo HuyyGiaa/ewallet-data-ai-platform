@@ -1,113 +1,111 @@
-# EXP-V1 / EXP-V2 evidence matrix (single-run submission)
+# EXP-V1 / EXP-V2 evidence matrix (owner single-run campaign)
 
-Use this file to check each screenshot before submission.
+Each row ties a claim to the screenshot that shows it, and to the raw artifact that verifies it independently. Results and analysis are in [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md). Commands to capture each screen are in the [runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md).
 
-**What each row gives:**
-- the screenshot ID and its kind;
-- the rubric row, the experiment and the arm;
-- when to capture it, and the command or page to capture;
-- what must be visible;
-- the raw artifact that verifies the screenshot independently;
-- the suggested file name;
-- its status.
+- **Campaign:** [`owner_single_run_20261109`](../../evidence/edai2/llm/owner_single_run_20261109/README.md), `EXP_PROFILE=single`, one run per arm, every level.
+- **Status:** `SINGLE_RUN_RESULTS=COMPLETE`, `OWNER_SCREENSHOTS=INTEGRATED`.
+- **Provenance:** [`screenshot_provenance.json`](../../evidence/edai2/llm/owner_single_run_20261109/screenshot_provenance.json) gives each screenshot's source name, SHA-256, experiment, arm and limitation. All are byte-identical to the owner's originals. Screens covering several IDs are one file, referenced several times.
 
-The commands are given in full in the [runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md), in the section listed for each table.
+**Status values:**
 
-**Methodology.** The submission uses the single-run methodology: `EXP_PROFILE=single`, one run per arm, every level ([methodology](BENCHMARK_METHODOLOGY.md#single-run-comparison-selected-for-the-edai-2-submission)).
-- Status: `SINGLE_RUN_RESULTS=PENDING`, `OWNER_SCREENSHOTS=PENDING`.
-- Every screenshot below is `PENDING` until the owner has captured it.
-- Only the owner captures screenshots. Nothing in this repository generates them.
-
-**Kinds:**
-- **REQUIRED:** needed to show a rubric requirement (deployment, model configuration, benchmark results, optimization, gateway security and policy, monitoring, llm-d routing).
-- **SUPPORTING:** diagnostic or technical detail, which can be left out of the submission.
-
-**Paths.** `O` = the owner's `$CAMPAIGN` (`docs/evidence/edai2/llm/owner_single_run_<date>`). `V1` = `O/exp-v1`, `V2` = `O/exp-v2`.
-
-**Rubric rows** (EDAI-2, [RUBRIC_EVIDENCE_INDEX.md](../RUBRIC_EVIDENCE_INDEX.md)):
-
-| Row | Requirement |
+| Status | Meaning |
 |---|---|
-| 3 | deploy the LLM inference platform |
-| 4 | custom model |
-| 5 | agentgateway security and policy |
-| 6 | benchmark and optimize |
-| 50 | LLM telemetry |
+| `VERIFIED` | The screenshot exists, was inspected, and shows the claim; the raw artifact agrees |
+| `PARTIAL` | The screenshot shows part of the claim; the rest is proven only by the raw artifact, or not at all, as stated |
+| `MISSING` | No screenshot was retained. Raw artifacts are listed where they exist |
+| `NOT_APPLICABLE` | The claim does not apply to this stack |
+
+A file existing is not enough for `VERIFIED`; every image was opened and compared with the raw artifacts.
+
+**Kinds:** `REQUIRED` shows a rubric requirement; `SUPPORTING` is diagnostic detail.
+
+**Rubric rows** ([index](../RUBRIC_EVIDENCE_INDEX.md)): 3 deploy the LLM platform; 4 custom model; 5 agentgateway security and policy; 6 benchmark and optimize; 50 LLM telemetry.
+
+## Summary
+
+| Kind | VERIFIED | PARTIAL | MISSING | NOT_APPLICABLE |
+|---|---:|---:|---:|---:|
+| REQUIRED | 21 | 5 | 0 | 0 |
+| SUPPORTING | 3 | 1 | 7 | 0 |
+| Failover row | 0 | 0 | 0 | 1 |
+
+No REQUIRED item is `MISSING`. The 5 `PARTIAL` REQUIRED items are S1-03, S1-09, S2-05, S2-13 and POL-3. Each is covered in full by raw artifacts, so no new GKE run is needed.
 
 ## Coverage of the rubric
 
-| Requirement | REQUIRED screenshots |
+| Requirement | REQUIRED evidence |
 |---|---|
 | Deployment (3) | S1-01, S1-02, S2-01, S1-12 |
-| Model configuration (3, 4) | S1-01 (image digest, model revision), S1-02 |
+| Model configuration (3, 4) | S1-01, S1-02, S1-04 |
 | Benchmark results (6) | S1-03, S1-04, S1-09, S2-04, S2-09 |
-| Optimization (6) | S1-07 against S1-02, S1-11, S2-07, S2-11 |
+| Optimization (6) | S1-02 against S1-07, S1-11, S2-02 against S2-07, S2-11 |
 | Gateway security and policy (5) | POL-1, POL-2, POL-3, POL-4, POL-5, POL-7 |
-| Monitoring (50) | S1-05, S1-10, S2-05, S2-09 |
-| llm-d routing (6) | S2-07, S2-08, S2-09, POL-5 (O2) |
+| Monitoring (50) | S1-05, S1-10, S2-05, S2-09; PII and total tokens only in [production telemetry](../observability/OBSERVABILITY.md#6-llm-telemetry) |
+| llm-d routing (6) | S2-07, S2-08, S2-09, POL-5 |
 | Cleanup and production safety | S1-14, S2-13 |
 
-## Preflight (runbook §2)
+## Preflight
 
-| ID | Kind | Rubric | Experiment / arm | When | Command | Must show | Raw artifact | File | Status |
+| ID | Kind | Rubric | Arm | Required claim | Screenshot | Raw artifact | Source or config | Status | Limitation |
 |---|---|---|---|---|---|---|---|---|---|
-| PRE-1 | SUPPORTING | 6 | both | before EXP-V1 | `vllm_bench.sh exp-v1 plan` / `exp-v2 plan` with `EXP_PROFILE=single` | `methodology=single-run`, `runs_per_arm=1`, full levels, `fits: true` | `V1/safety/cost-plan.json`, `V2/safety/cost-plan.json` | `O/screenshots/PRE-1_plan.png` | PENDING |
-| PRE-2 | SUPPORTING | 6 | both | before EXP-V1 | `cat /tmp/plan-v*/plan/arm-difference.diff` | one variable per experiment | `V1/setup.yaml`, `V2/setup.yaml` | `O/screenshots/PRE-2_arm_difference.png` | PENDING |
+| PRE-1 | SUPPORTING | 6 | both | Plan: single-run methodology, cost fits |  | [`exp-v1/safety/cost-plan.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/safety/cost-plan.json)<br>[`exp-v2/safety/cost-plan.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/safety/cost-plan.json) | [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | MISSING | No screenshot retained. Raw cost plans and the manifest settings show the same facts |
+| PRE-2 | SUPPORTING | 6 | both | Each experiment varies one thing |  | [`exp-v1/setup.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/setup.yaml)<br>[`exp-v2/setup.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/setup.yaml)<br>[`exp-v1/baseline/config/run-01.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/config/run-01.yaml)<br>[`exp-v1/optimized/config/run-01.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/config/run-01.yaml) | [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | MISSING | No screenshot retained. S1-02 against S1-07 and S2-02 against S2-07 show the difference |
 
-## EXP-V1: thread binding `auto` (B0) versus `0-1` (C1) (runbook §4)
+## EXP-V1: thread binding `auto` (B0) versus `0-1` (C1)
 
-| ID | Kind | Rubric | Arm | When | Command | Must show | Raw artifact | File | Status |
+Execution `VALID`, observed `OBSERVED_IMPROVEMENT`.
+
+| ID | Kind | Rubric | Arm | Required claim | Screenshot | Raw artifact | Source or config | Status | Limitation |
 |---|---|---|---|---|---|---|---|---|---|
-| S1-01 | REQUIRED | 3, 4 | B0 | checkpoint 1 | `ev_provenance V1/baseline/raw/run-01` | `bench-pool` node, `vllm-primary` Running, digest `f695b23e…`, revision `c1899de2…` | `V1/baseline/raw/run-01/controls.json` | `V1/baseline/screenshots/S1-01_pods_nodes.png` | PENDING |
-| S1-02 | REQUIRED | 3, 6 | B0 | checkpoint 1 | `ev_config; ev_route` | `THREADS_BIND=auto`, vLLM args, resources, route, 160 s timeout | `V1/baseline/config/run-01.yaml` | `V1/baseline/screenshots/S1-02_config.png` | PENDING |
-| S1-03 | REQUIRED | 6 | B0 | baseline window | progress view + Grafana | requests in flight at c=1, 2, 4 | `V1/baseline/raw/run-01/raw_requests.jsonl` | `V1/baseline/screenshots/S1-03_running.png` | PENDING |
-| S1-04 | REQUIRED | 6 | B0 | checkpoint 1 | runner banner | `SINGLE-RUN`, `c=1, 2, 4` lines | `V1/baseline/raw/run-01/summary.json` | `V1/baseline/screenshots/S1-04_result.png` | PENDING |
-| S1-05 | REQUIRED | 6, 50 | B0 | checkpoint 1 | Grafana link from the banner | tokens/s, TTFT, E2E, queue, admission rejections, CPU, memory for `baseline-01` | `V1/baseline/metrics/run-01/prometheus-readback.json` | `V1/baseline/screenshots/S1-05_grafana.png` | PENDING |
-| S1-06 | SUPPORTING | 50 | B0 | checkpoint 1 | `ev_targets` | all targets `up` | `prometheus-readback.json` → `targets` | `V1/baseline/screenshots/S1-06_targets.png` | PENDING |
-| S1-07 | REQUIRED | 6 | C1 | checkpoint 2 | `ev_config` | `THREADS_BIND=0-1`, rest as S1-02 | `V1/optimized/config/run-01.yaml` | `V1/optimized/screenshots/S1-07_config.png` | PENDING |
-| S1-08 | SUPPORTING | 6 | C1 | optimized window | progress view + Grafana | requests in flight | `V1/optimized/raw/run-01/raw_requests.jsonl` | `V1/optimized/screenshots/S1-08_running.png` | PENDING |
-| S1-09 | REQUIRED | 6 | C1 | checkpoint 2 | runner banner | `Thread binding: 0-1`, same node, `c=1, 2, 4` lines | `V1/optimized/raw/run-01/summary.json` | `V1/optimized/screenshots/S1-09_result.png` | PENDING |
-| S1-10 | REQUIRED | 6, 50 | C1 | checkpoint 2 | Grafana link from the banner | as S1-05 for `optimized-01` | `V1/optimized/metrics/run-01/prometheus-readback.json` | `V1/optimized/screenshots/S1-10_grafana.png` | PENDING |
-| S1-11 | REQUIRED | 6 | both | checkpoint 3 | comparison banner / `comparison.md` | `single-run`, `VALID`, observed outcome, failures, metrics per level | `V1/comparison/metrics.json`, `comparison.csv` | `V1/comparison/screenshots/S1-11_comparison.png` | PENDING |
-| S1-12 | REQUIRED | 3, 6 | both | checkpoint 3 | `json.tool V1/manifest.json` (filtered) | `profile: single`, `methodology: single-run`, `runs_per_arm: 1`, `source_sha`, digests | `V1/manifest.json` | `V1/comparison/screenshots/S1-12_manifest.png` | PENDING |
-| S1-13 | SUPPORTING | 50 | both | checkpoint 3 | Grafana, whole session | both runs | `V1/observability/metric-readback/` | `V1/comparison/screenshots/S1-13_grafana_session.png` | PENDING |
-| S1-14 | REQUIRED | 6 | — | after `runner exit 0` | `ev_cleanup V1` | cleanup confirmed, production unchanged | `V1/safety/cleanup.txt`, `production-*.txt` | `O/screenshots/S1-14_cleanup.png` | PENDING |
+| S1-01 | REQUIRED | 3, 4 | B0 | Node, pod, image digest and model revision of the measured deployment | [S1-01_pods_nodes.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-01_pods_nodes.png) | [`exp-v1/baseline/raw/run-01/controls.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/controls.json) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh)<br>[`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | VERIFIED |  |
+| S1-02 | REQUIRED | 3, 6 | B0 | `THREADS_BIND=auto`, vLLM args, resources, route, 160 s timeout | [S1-02_config.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-02_config.png) | [`exp-v1/baseline/config/run-01.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/config/run-01.yaml) | [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | VERIFIED |  |
+| S1-03 | REQUIRED | 6 | B0 | Requests really being processed | [S1-03_running.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-03_running.png) | [`exp-v1/baseline/raw/run-01/raw_requests.jsonl`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/raw_requests.jsonl) | [`o1_benchmark.py`](../../../scripts/llm_agent/o1_benchmark.py) | PARTIAL | Screen shows c=1 only; c=2 and c=4 are in the raw rows and on S1-05 |
+| S1-04 | REQUIRED | 6 | B0 | SINGLE-RUN banner with per-level results | [S1-04_result.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-04_result.png) | [`exp-v1/baseline/raw/run-01/summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/summary.json)<br>[`exp-v1/baseline/logs/run-01/checkpoint.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/logs/run-01/checkpoint.txt) | [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | VERIFIED |  |
+| S1-05 | REQUIRED | 6, 50 | B0 | Serving and resource telemetry for the run | [S1-05_grafana.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-05_grafana.png)<br>[S1-05_grafana_resources.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/S1-05_grafana_resources.png) | [`exp-v1/baseline/metrics/run-01/prometheus-readback.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/metrics/run-01/prometheus-readback.json) | [`bench_dashboard.py`](../../../ops/experiments/bench_dashboard.py) | VERIFIED | Range ends 60 s after the window; the rejection spike is the policy probe |
+| S1-06 | SUPPORTING | 50 | B0 | All scrape targets up |  | [`exp-v1/baseline/metrics/run-01/prometheus-readback.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/metrics/run-01/prometheus-readback.json) | [`bench_dashboard.py`](../../../ops/experiments/bench_dashboard.py) | MISSING | No screenshot. Readback lists 3/3 targets `up` |
+| S1-07 | REQUIRED | 6 | C1 | `THREADS_BIND=0-1`, all else as S1-02 | [S1-07_config.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/screenshots/S1-07_config.png) | [`exp-v1/optimized/config/run-01.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/config/run-01.yaml) | [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | VERIFIED |  |
+| S1-08 | SUPPORTING | 6 | C1 | Requests in flight |  | [`exp-v1/optimized/raw/run-01/raw_requests.jsonl`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/raw/run-01/raw_requests.jsonl) | [`o1_benchmark.py`](../../../scripts/llm_agent/o1_benchmark.py) | MISSING | No screenshot. Raw rows hold every request |
+| S1-09 | REQUIRED | 6 | C1 | Optimized per-level results | [S1-11_comparison_metrics.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/screenshots/S1-11_comparison_metrics.png) | [`exp-v1/optimized/raw/run-01/summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/raw/run-01/summary.json)<br>[`exp-v1/optimized/logs/run-01/checkpoint.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/logs/run-01/checkpoint.txt)<br>[`exp-v1.terminal.log`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1.terminal.log) | [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | PARTIAL | Dedicated banner not captured. Values are visible on S1-11; banner text is preserved in raw logs |
+| S1-10 | REQUIRED | 6, 50 | C1 | Serving and resource telemetry for the run | [S1-10_grafana.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/screenshots/S1-10_grafana.png)<br>[S1-10_grafana_resources.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/screenshots/S1-10_grafana_resources.png) | [`exp-v1/optimized/metrics/run-01/prometheus-readback.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/metrics/run-01/prometheus-readback.json) | [`bench_dashboard.py`](../../../ops/experiments/bench_dashboard.py) | VERIFIED | Range ends 60 s after the window; the rejection spike is the policy probe |
+| S1-11 | REQUIRED | 6 | both | `single-run`, `VALID`, `OBSERVED_IMPROVEMENT`, failures and all metrics | [S1-11_comparison.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/screenshots/S1-11_comparison.png)<br>[S1-11_comparison_metrics.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/screenshots/S1-11_comparison_metrics.png) | [`exp-v1/comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/metrics.json)<br>[`exp-v1/comparison/comparison.csv`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/comparison.csv) | [`single_run.py`](../../../ops/experiments/single_run.py) | VERIFIED | One run per arm: observed differences only |
+| S1-12 | REQUIRED | 3, 6 | both | `profile single`, one run per arm, source commit, image, deviations | [S1-12_manifest.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/screenshots/S1-12_manifest.png) | [`exp-v1/manifest.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/manifest.json) | [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | VERIFIED | `nodes` and `max_minutes` are not in the filtered view; they are in the file |
+| S1-13 | SUPPORTING | 50 | both | Whole session in Grafana |  | [`exp-v1/observability/metric-readback/baseline-run-01.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/observability/metric-readback/baseline-run-01.json)<br>[`exp-v1/observability/metric-readback/optimized-run-01.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/observability/metric-readback/optimized-run-01.json) | [`bench_dashboard.py`](../../../ops/experiments/bench_dashboard.py) | MISSING | No screenshot. Readbacks per run exist |
+| S1-14 | REQUIRED | 6 | — | Cleanup confirmed, production unchanged | [S1-14_cleanup.png](../../evidence/edai2/llm/owner_single_run_20261109/screenshots/S1-14_cleanup.png) | [`exp-v1/safety/cleanup.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/safety/cleanup.txt)<br>[`exp-v1/production-before.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/production-before.txt)<br>[`exp-v1/production-after.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/production-after.txt) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh) | VERIFIED |  |
 
-## EXP-V2: Kubernetes Service (B2) versus llm-d EPP (O2), 2 replicas (runbook §6)
+## EXP-V2: Kubernetes Service (B2) versus llm-d EPP (O2), 2 replicas
 
-| ID | Kind | Rubric | Arm | When | Command | Must show | Raw artifact | File | Status |
+Execution `VALID`, observed `OBSERVED_MIXED`.
+
+| ID | Kind | Rubric | Arm | Required claim | Screenshot | Raw artifact | Source or config | Status | Limitation |
 |---|---|---|---|---|---|---|---|---|---|
-| S2-01 | REQUIRED | 3, 6 | B2 | checkpoint 1 | `ev_provenance V2/baseline/raw/run-01` | 2 nodes, 2 pods (1 per node), digest, revision | `V2/baseline/raw/run-01/controls.json` | `V2/baseline/screenshots/S2-01_pods_nodes.png` | PENDING |
-| S2-02 | REQUIRED | 6 | B2 | checkpoint 1 | `ev_route; ev_config` | route via Service, `x-ewallet-backend: primary`, `0-1` | `V2/baseline/config/run-01.yaml` | `V2/baseline/screenshots/S2-02_route.png` | PENDING |
-| S2-03 | SUPPORTING | 6 | B2 | B2 window | progress view + Grafana | requests up to c=8 | `V2/baseline/raw/run-01/raw_requests.jsonl` | `V2/baseline/screenshots/S2-03_running.png` | PENDING |
-| S2-04 | REQUIRED | 6 | B2 | checkpoint 1 | runner banner | `SINGLE-RUN`, `c=1, 2, 4, 8` lines | `V2/baseline/raw/run-01/summary.json` | `V2/baseline/screenshots/S2-04_result.png` | PENDING |
-| S2-05 | REQUIRED | 6, 50 | B2 | checkpoint 1 | Grafana link from the banner | per-replica panels, latency, CPU | `V2/baseline/metrics/run-01/prometheus-readback.json` | `V2/baseline/screenshots/S2-05_grafana.png` | PENDING |
-| S2-06 | SUPPORTING | 6 | B2 | checkpoint 1 | `ev_replicas` | requests per pod | `summary.json` → `distribution` | `V2/baseline/screenshots/S2-06_replicas.png` | PENDING |
-| S2-07 | REQUIRED | 6 | O2 | checkpoint 2 | `ev_route; ev_k get pods -l app.kubernetes.io/name=llmd-router-epp -o wide` | route via `llmd-router-epp`, `x-ewallet-backend: llm-d`, router pod Running | `V2/optimized/config/run-01.yaml`, `logs/run-01/router.log` | `V2/optimized/screenshots/S2-07_route.png` | PENDING |
-| S2-08 | REQUIRED | 6 | O2 | checkpoint 2 | `ev_epp`; EPP log | 2 ready endpoints, decisions for both pods | `V2/optimized/raw/run-01/epp-metrics-*.txt`, `gateway-policy/optimized/epp.log` | `V2/optimized/screenshots/S2-08_epp.png` | PENDING |
-| S2-09 | REQUIRED | 6, 50 | O2 | checkpoint 2 | banner, Grafana link, `ev_replicas` | `c=1, 2, 4, 8` lines, both pods served, EPP panels | `V2/optimized/raw/run-01/summary.json`, `prometheus-readback.json` | `V2/optimized/screenshots/S2-09_result.png`, `S2-09_grafana.png` | PENDING |
-| S2-10 | SUPPORTING | 6 | O2 | O2 window | progress view + Grafana | `backend llm-d` rows | `V2/optimized/raw/run-01/raw_requests.jsonl` | `V2/optimized/screenshots/S2-10_running.png` | PENDING |
-| S2-11 | REQUIRED | 6 | both | checkpoint 3 | comparison banner / `comparison.md` | `single-run`, `VALID`, observed outcome (`e2e_p95_ms`), failures, per-replica shares | `V2/comparison/metrics.json` | `V2/comparison/screenshots/S2-11_comparison.png` | PENDING |
-| S2-12 | SUPPORTING | 3, 6 | both | checkpoint 3 | `json.tool V2/manifest.json` (filtered) | `profile: single`, `levels: 1,2,4,8`, `nodes: 2` | `V2/manifest.json` | `V2/comparison/screenshots/S2-12_manifest.png` | PENDING |
-| S2-13 | REQUIRED | 6 | — | after `runner exit 0` | `ev_cleanup V2` | cleanup confirmed, production unchanged | `V2/safety/cleanup.txt` | `O/screenshots/S2-13_cleanup.png` | PENDING |
+| S2-01 | REQUIRED | 3, 6 | B2 | Two nodes, two replicas (one per node), digest | [S2-01_pods_nodes.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-01_pods_nodes.png) | [`exp-v2/baseline/raw/run-01/controls.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/raw/run-01/controls.json) | [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | VERIFIED | Revision is on S2-04 and in controls.json |
+| S2-02 | REQUIRED | 6 | B2 | Route through the Service, `x-ewallet-backend: primary`, `0-1` | [S2-02_route.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-02_route.png) | [`exp-v2/baseline/config/run-01.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/config/run-01.yaml) | [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | VERIFIED |  |
+| S2-03 | SUPPORTING | 6 | B2 | Requests at all levels through `primary` | [S2-03_running.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-03_running.png) | [`exp-v2/baseline/raw/run-01/raw_requests.jsonl`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/raw/run-01/raw_requests.jsonl) | [`g2_benchmark.py`](../../../scripts/llm_agent/g2_benchmark.py) | VERIFIED |  |
+| S2-04 | REQUIRED | 6 | B2 | SINGLE-RUN banner, results at c=1, 2, 4, 8 | [S2-04_result.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-04_result.png) | [`exp-v2/baseline/raw/run-01/summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/raw/run-01/summary.json) | [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | VERIFIED |  |
+| S2-05 | REQUIRED | 6, 50 | B2 | Per-replica serving, latency and CPU telemetry | [S2-05_grafana.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-05_grafana.png)<br>[S2-05_grafana_resources.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/S2-05_grafana_resources.png) | [`exp-v2/baseline/metrics/run-01/prometheus-readback.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/metrics/run-01/prometheus-readback.json)<br>[`exp-v2/baseline/raw/run-01/summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/raw/run-01/summary.json) | [`bench_dashboard.py`](../../../ops/experiments/bench_dashboard.py) | PARTIAL | Request-share panels (section C) not captured; per-pod counts are in `summary.json` |
+| S2-06 | SUPPORTING | 6 | B2 | Per-pod completed requests |  | [`exp-v2/baseline/raw/run-01/summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/raw/run-01/summary.json) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh) | MISSING | No screenshot; `levels.*.distribution` holds the values |
+| S2-07 | REQUIRED | 6 | O2 | Route through `llmd-router-epp`, `llm-d`, router 2/2 Running | [S2-07_route.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/S2-07_route.png) | [`exp-v2/optimized/config/run-01.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/config/run-01.yaml)<br>[`exp-v2/optimized/logs/run-01/router.log`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/logs/run-01/router.log) | [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl)<br>[`standalone-values-g2.yaml`](../../../infra/helm/llm-d/standalone-values-g2.yaml) | VERIFIED |  |
+| S2-08 | REQUIRED | 6 | O2 | Two ready endpoints; decisions reached both replicas | [S2-08_epp.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/S2-08_epp.png) | [`exp-v2/optimized/raw/run-01/epp-metrics-after.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/raw/run-01/epp-metrics-after.txt)<br>[`exp-v2/gateway-policy/optimized/epp.log`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/optimized/epp.log) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh)<br>[`standalone-values-g2.yaml`](../../../infra/helm/llm-d/standalone-values-g2.yaml) | VERIFIED | Counters are cumulative: 49/20 is not the split of the 48 benchmark requests (32/16) |
+| S2-09 | REQUIRED | 6, 50 | O2 | Results, per-pod telemetry and EPP routing panels | [S2-09_result.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/S2-09_result.png)<br>[S2-09_grafana_serving.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/S2-09_grafana_serving.png)<br>[S2-09_grafana_resources.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/S2-09_grafana_resources.png)<br>[S2-09_grafana_routing.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/S2-09_grafana_routing.png) | [`exp-v2/optimized/raw/run-01/summary.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/raw/run-01/summary.json)<br>[`exp-v2/optimized/metrics/run-01/prometheus-readback.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/metrics/run-01/prometheus-readback.json) | [`bench_dashboard.py`](../../../ops/experiments/bench_dashboard.py)<br>[`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | VERIFIED | The 62.2/37.8 share covers the Prometheus range, including cold and warm-up requests |
+| S2-10 | SUPPORTING | 6 | O2 | Requests at all levels through `llm-d` | [S2-10_running.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/S2-10_running.png) | [`exp-v2/optimized/raw/run-01/raw_requests.jsonl`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/raw/run-01/raw_requests.jsonl) | [`g2_benchmark.py`](../../../scripts/llm_agent/g2_benchmark.py) | VERIFIED |  |
+| S2-11 | REQUIRED | 6 | both | `single-run`, `VALID`, `OBSERVED_MIXED` on `e2e_p95_ms`, failures, per-replica shares | [S2-11_verdict.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/screenshots/S2-11_verdict.png)<br>[S2-11_comparison_summary.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/screenshots/S2-11_comparison_summary.png)<br>[S2-11_comparison_details.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/screenshots/S2-11_comparison_details.png) | [`exp-v2/comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/metrics.json)<br>[`exp-v2/comparison/comparison.csv`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/comparison.csv) | [`single_run.py`](../../../ops/experiments/single_run.py) | VERIFIED | One run per arm: observed differences only |
+| S2-12 | SUPPORTING | 3, 6 | both | Manifest of EXP-V2 |  | [`exp-v2/manifest.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/manifest.json) | [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | MISSING | No screenshot; S2-04 and S2-09 show SINGLE-RUN, and the file holds the rest |
+| S2-13 | REQUIRED | 6 | — | Cleanup confirmed, production unchanged | [S2-13_cleanup.png](../../evidence/edai2/llm/owner_single_run_20261109/screenshots/S2-13_cleanup.png) | [`exp-v2/safety/cleanup.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/safety/cleanup.txt)<br>[`exp-v2/production-before.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/production-before.txt)<br>[`exp-v2/production-after.txt`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/production-after.txt) | [`vllm_bench.sh`](../../../scripts/experiments/vllm_bench.sh) | PARTIAL | Screen shows namespace absent and only `cpu-pool`. VM and disk counts and the production comparison are in the raw files |
 
-## Gateway policy (runbook §7, at the EXP-V2 checkpoints)
+## Gateway policy (at the EXP-V2 checkpoints)
 
-| ID | Kind | Rubric | Arm | When | Command | Must show | Raw artifact | File | Status |
+| ID | Kind | Rubric | Arm | Required claim | Screenshot | Raw artifact | Source or config | Status | Limitation |
 |---|---|---|---|---|---|---|---|---|---|
-| POL-1 | REQUIRED | 5 | B2 | checkpoint 1 | `ev_policy_valid` | `HTTP/1.1 200`, backend header, rate-limit headers | `V2/gateway-policy/baseline/results.json` `valid_client_key` | `V2/baseline/screenshots/POL-1_valid.png` | PENDING |
-| POL-2 | REQUIRED | 5 | B2 | checkpoint 1 | `ev_policy_missing` | 401 | `missing_key` | `V2/baseline/screenshots/POL-2_missing.png` | PENDING |
-| POL-3 | REQUIRED | 5 | B2 | checkpoint 1 | `ev_policy_wrong; ev_policy_backend_key` | 401 twice | `wrong_key`, `backend_key_as_client_key` | `V2/baseline/screenshots/POL-3_invalid.png` | PENDING |
-| POL-4 | REQUIRED | 5 | B2 | checkpoint 1 | `ev_policy_burst 16` | 200s and 429s | `rate_limit_burst`, `gateway.log` | `V2/baseline/screenshots/POL-4_rate_limit.png` | PENDING |
-| POL-5 | REQUIRED | 5, 6 | B2 and O2 | checkpoints 1 and 2 | `ev_policy_route` (+ `ev_epp` in O2) | `primary` / `llm-d` backend header; EPP requests +3 | `routing_backend_header` | `V2/<arm>/screenshots/POL-5_route.png` | PENDING |
-| POL-6 | SUPPORTING | 5 | O2 | checkpoint 2, if the burst returned 503 | `cat V2/gateway-policy/optimized/attribution.json; ev_replicas` | `ATTRIBUTED`, vLLM queue cap relayed by the EPP | `attribution.json`, `counters/*.prom` | `V2/optimized/screenshots/POL-6_admission.png` | PENDING |
-| POL-7 | REQUIRED | 5 | B2 | checkpoint 1 | `cat V2/gateway-policy/baseline/gateway-policy-config.yaml` | apiKey auth, 12/s rate limit, token budget, 160 s timeout | the same file | `V2/baseline/screenshots/POL-7_policy.png` | PENDING |
-| Failover | — | 5 | — | — | — | NOT_EXECUTED: there is no fallback in the benchmark stack, on purpose. G1 holds the failover evidence | — | — | not applicable |
-
-**Totals:** 36 IDs, plus the failover row. 26 are REQUIRED: 11 for EXP-V1, 9 for EXP-V2 and 6 for policy. POL-5 is captured once per arm.
+| POL-1 | REQUIRED | 5 | B2 | Valid key returns 200 with backend and rate-limit headers | [POL-1-3_authentication.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/POL-1-3_authentication.png) | [`exp-v2/gateway-policy/baseline/results.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/results.json) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh)<br>[`gateway_policy.py`](../../../ops/experiments/gateway_policy.py)<br>[`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | VERIFIED |  |
+| POL-2 | REQUIRED | 5 | B2 | Missing key returns 401 | [POL-1-3_authentication.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/POL-1-3_authentication.png) | [`exp-v2/gateway-policy/baseline/results.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/results.json) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh)<br>[`gateway_policy.py`](../../../ops/experiments/gateway_policy.py) | VERIFIED |  |
+| POL-3 | REQUIRED | 5 | B2 | Invalid key returns 401; the vLLM backend key is refused as a client key | [POL-1-3_authentication.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/POL-1-3_authentication.png) | [`exp-v2/gateway-policy/baseline/results.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/results.json) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh)<br>[`gateway_policy.py`](../../../ops/experiments/gateway_policy.py) | PARTIAL | Screen shows the invalid-key case only; `backend_key_as_client_key` (401) is in `results.json` |
+| POL-4 | REQUIRED | 5 | B2 | Burst above 12/s returns 200 and 429 | [POL-4-5_rate_limit_routing.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/POL-4-5_rate_limit_routing.png) | [`exp-v2/gateway-policy/baseline/results.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/results.json)<br>[`exp-v2/gateway-policy/baseline/gateway.log`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/gateway.log) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh)<br>[`gateway_policy.py`](../../../ops/experiments/gateway_policy.py) | VERIFIED | First burst: 12×200, 4×429 |
+| POL-4b | SUPPORTING | 5 | B2 | Later burst: 11×200, 4×429, 1×503 | [POL-4b_later_burst_503.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/POL-4b_later_burst_503.png) | [`exp-v2/gateway-policy/baseline/attribution.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/attribution.json) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh) | PARTIAL | The 503 is unattributed: no counters around this manual burst. The linked `attribution.json` is the earlier automatic probe (`NO_503`), kept for contrast |
+| POL-5 | REQUIRED | 5, 6 | B2 and O2 | `x-ewallet-backend` is `primary` on B2 and `llm-d` on O2 | [POL-4-5_rate_limit_routing.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/POL-4-5_rate_limit_routing.png)<br>[POL-5-6_optimized_routing_attribution.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/POL-5-6_optimized_routing_attribution.png) | [`exp-v2/gateway-policy/baseline/results.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/results.json)<br>[`exp-v2/gateway-policy/optimized/results.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/optimized/results.json) | [`owner_evidence.sh`](../../../scripts/experiments/owner_evidence.sh)<br>[`gateway_policy.py`](../../../ops/experiments/gateway_policy.py) | VERIFIED | The EPP +3 delta is in `results.json`, not on screen |
+| POL-6 | SUPPORTING | 5 | O2 | Probe 503s attributed to vLLM admission control, relayed by the EPP | [POL-5-6_optimized_routing_attribution.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/optimized/screenshots/POL-5-6_optimized_routing_attribution.png) | [`exp-v2/gateway-policy/optimized/attribution.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/optimized/attribution.json)<br>[`exp-v2/gateway-policy/optimized/counters`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/optimized/counters) | [`probe_attribution.py`](../../../ops/experiments/probe_attribution.py) | VERIFIED | Policy probe only. The official O2 benchmark failure rate is 0/48 |
+| POL-7 | REQUIRED | 5 | B2 | Strict auth, limits, token budget, timeouts | [POL-7_policy.png](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/baseline/screenshots/POL-7_policy.png) | [`exp-v2/gateway-policy/baseline/gateway-policy-config.yaml`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/gateway-policy/baseline/gateway-policy-config.yaml) | [`vllm-bench.yaml.tmpl`](../../../infra/kubernetes/experiments/vllm-bench.yaml.tmpl) | VERIFIED | Key values are removed by the runner. Shows the B2 route |
+| Failover | — | 5 | — | Not exercised on the benchmark stack |  | — | — | NOT_APPLICABLE | No fallback backend, on purpose. Failover evidence is historical and separate (G1) |
 
 ## Historical: multi-run rehearsal of 2026-11-09
 
-The unattended rehearsal ran with 3 runs per arm. EXP-V1 was `IMPROVED` and EXP-V2 was `NO_SIGNIFICANT_CHANGE`, and the same kinds of raw artifacts were written and passed the chain gate in both sessions. It shows what correct output looks like.
-
-It is kept as engineering evidence in [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md). It is not the submission result, and its numbers are not single-run results. The screenshot IDs of that period (`V1-xx`, `V2-xx`) are replaced by `S1-xx`, `S2-xx`.
+The unattended rehearsal (3 runs per arm; EXP-V1 `IMPROVED`, EXP-V2 `NO_SIGNIFICANT_CHANGE`) is engineering evidence in [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md). It is not the submission result, and it has no owner screenshots. The screenshot IDs of that period (`V1-xx`, `V2-xx`) are replaced by `S1-xx`, `S2-xx`.

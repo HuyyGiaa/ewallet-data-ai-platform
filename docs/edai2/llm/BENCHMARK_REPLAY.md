@@ -15,7 +15,7 @@ Keep these apart when reading any number:
 | This replay's implementation | `scripts/experiments/vllm_bench.sh` and the `ops/experiments` modules listed in §3 | Tested locally (§7) |
 | This replay's GKE validation | [§8](#8-gke-validation-2026-11-09), evidence `benchmark_reproduction_20261109/` | Smoke and drill only. These are not benchmark results |
 | Multi-run formal rehearsal (3 runs per arm) | [benchmark_rehearsal_20261109](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) | Done 2026-11-09. Historical engineering evidence; not the submission result |
-| Owner's single-run evidence session (`EXP_PROFILE=single`) | runbook | **Pending**: `SINGLE_RUN_RESULTS=PENDING`, `OWNER_SCREENSHOTS=PENDING`. This is the EDAI-2 submission result |
+| Owner's single-run evidence session (`EXP_PROFILE=single`) | [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md), [`owner_single_run_20261109`](../../evidence/edai2/llm/owner_single_run_20261109/README.md) | **Done 2026-11-09/10.** The EDAI-2 submission result: EXP-V1 `OBSERVED_IMPROVEMENT`, EXP-V2 `OBSERVED_MIXED` |
 | Production LLM deployment | `llm-agent` Helm release (revision 42) | Not touched by any of this |
 | Benchmark deployment | namespace `ewallet-bench`, node pool `bench-pool` | Temporary. Created and deleted per session; never a production promotion |
 
@@ -253,15 +253,8 @@ Both formal sessions ran once, unattended, with 3 runs per arm, every level and 
 - Both sessions were cleaned up and production was unchanged. The estimated cost of the whole campaign is about USD 1.8, from list prices and not a billing readback.
 - These are multi-run rehearsal numbers, not owner evidence. The submission uses the owner's single-run session instead (§9). These numbers stay as historical engineering evidence.
 
-## 9. Remaining work
+## 9. Status
 
-1. **Owner single-run evidence session** ([runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md)). The owner chose this methodology for the submission ([BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md#single-run-comparison-selected-for-the-edai-2-submission)).
-   - `EXP_PROFILE=single`: EXP-V1, then EXP-V2.
-   - Interactive, inside `tmux`, with one run per arm at every level.
-   - Screenshots at the printed paths.
-
-   The rehearsal timings give estimates of about 60 min for EXP-V1 and 60 min for EXP-V2, plus the time spent at checkpoints (runbook §0.1).
-2. **Fill in the results from that session's `comparison/metrics.json`** (`methodology: single-run`, `OBSERVED_*` verdicts). Write them up as observed differences between one pair of runs. Until then:
-   - `SINGLE_RUN_RESULTS=PENDING`;
-   - the historical O1 and G2 figures, and the multi-run rehearsal figures, keep their labels.
+1. **Owner single-run evidence session: done.** The owner ran EXP-V1 on 2026-11-09 and EXP-V2 on 2026-11-10, interactively in `tmux`, and captured the screenshots. Results are in [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md), and the claim-by-claim mapping is in [BENCHMARK_EVIDENCE_MATRIX.md](BENCHMARK_EVIDENCE_MATRIX.md).
+2. **Numbers.** Reports take them from that session's `comparison/metrics.json` (`methodology: single-run`, `OBSERVED_*` verdicts) and describe them as observed differences of one pair of runs. The historical O1 and G2 figures and the multi-run rehearsal figures keep their labels.
 3. **Not planned.** Persisting the torch.compile cache across runs would shorten each start, but it gives warm starts after a cold run 01. It was rejected for this methodology (see the table above).

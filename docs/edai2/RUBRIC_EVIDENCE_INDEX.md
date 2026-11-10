@@ -49,8 +49,8 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 |---:|---:|---|---|---|---|---|---|
 | 3 | 2 | Deploy LLM inference platform | Setup + benchmark + results | COMPLETE | [LLM_PLATFORM](llm/LLM_PLATFORM.md) | vllm-primary live at r41 (fallback scaled to 0; failover proven in G1 run 6); llm/01 native UI | — |
 | 4 | 2 | Custom LLM model | same | COMPLETE | [LLM_PLATFORM](llm/LLM_PLATFORM.md) | Qwen3-0.6B, served name `ewallet-fraud-llm`; llm/01 | — |
-| 5 | 1 | agentgateway security & policy | same | PARTIAL | [LLM_PLATFORM §3](llm/LLM_PLATFORM.md#32-agentgateway), [BENCHMARK_REPLAY §8](llm/BENCHMARK_REPLAY.md#8-gke-validation-2026-11-09) | apiKey strict 401 matrix, rate limits, timeouts, failover (G1 raw); GKE probe 2026-11-09: 401 missing/wrong/backend key, 429 above 12/s, llm-d route counted; formal rehearsal repeated all 4 arms, 503s attributed to the vLLM queue cap | SCREENSHOT_MISSING: OWNER_SCREENSHOTS=PENDING (owner single-run session, [runbook](../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md) §6) |
-| 6 | 2 | Benchmark & optimize | same | COMPLETE (historical) | [LLM_PLATFORM §6](llm/LLM_PLATFORM.md#5-performance-and-optimisation), [O1](llm/vllm_cpu_o1_benchmark.md), [G2](llm/llmd_g2_routing_benchmark.md), [replay](llm/BENCHMARK_REPLAY.md) | C1 +51.4 % tok/s, TTFT −37.4 % (historical); replay workflow GKE-validated 2026-11-09; multi-run rehearsal 2026-11-09 (3 runs per arm, historical engineering evidence): EXP-V1 `IMPROVED`, EXP-V2 `NO_SIGNIFICANT_CHANGE` ([rehearsal](../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md)); submission uses the single-run method (`EXP_PROFILE=single`, [methodology](llm/BENCHMARK_METHODOLOGY.md#single-run-comparison-selected-for-the-edai-2-submission)): SINGLE_RUN_RESULTS=PENDING | SCREENSHOT_MISSING: OWNER_SCREENSHOTS=PENDING (owner single-run session, [runbook](../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md)) |
+| 5 | 1 | agentgateway security & policy | same | COMPLETE | [LLM_PLATFORM §3](llm/LLM_PLATFORM.md#32-agentgateway), [BENCHMARK_RESULTS §4](llm/BENCHMARK_RESULTS.md#4-gateway-security-and-policy) | Owner captures 2026-11-10 on the benchmark gateway: 200, 401 missing/wrong key, 429 above 12/s, `primary`/`llm-d` routing, strict auth and limits config; production policies and failover in G1 raw (historical) | — |
+| 6 | 2 | Benchmark & optimize | same | COMPLETE | [BENCHMARK_RESULTS](llm/BENCHMARK_RESULTS.md), [LLM_PLATFORM §5](llm/LLM_PLATFORM.md#5-performance-and-optimisation), [matrix](llm/BENCHMARK_EVIDENCE_MATRIX.md) | Owner single-run campaign 2026-11-09/10 (one run per arm, all levels): EXP-V1 `OBSERVED_IMPROVEMENT`, EXP-V2 `OBSERVED_MIXED`, raw + owner screenshots; O1, G2 and the 3-run rehearsal are historical | Single run per arm: observed differences only |
 | 7 | 2 | One global ModelConfig | Link to config + explanation | COMPLETE | [LLM_PLATFORM §5](llm/LLM_PLATFORM.md#33-global-modelconfig) | `ewallet-global-llm`; llm/01 | — |
 | 8 | 2 | Agent registry deployed | Registry UI with agents + code link | COMPLETE | [AGENTS §3](agents/AGENTS_REGISTRY_GATEWAYS.md#5-agent-registry) | agents/01–05 (agentregistry v0.4.0) | Metadata wording (note) |
 | 9 | 2 | RAG pipeline text → chunk → embed → Feast | Airflow success image + DataHub lineage + code | PARTIAL | [RAG_PIPELINE](rag/RAG_PIPELINE.md) | DagRun `manual__2026-11-02T04:47:47` 6/6 success; publication `b85ae796…`; cicd/09; agents/08 | SCREENSHOT_MISSING |
@@ -94,7 +94,7 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | 47 | 1 | Computing telemetry | same | COMPLETE | [OBSERVABILITY §3](observability/OBSERVABILITY.md#3-compute-telemetry-cpu-memory-network-disk) | observability/47_* | — |
 | 48 | 1 | Logs | same | COMPLETE | [OBSERVABILITY §4](observability/OBSERVABILITY.md#4-logs) | observability/48_* (8 services) | — |
 | 49 | 1 | Traces | same | COMPLETE | [OBSERVABILITY §5](observability/OBSERVABILITY.md#5-distributed-traces) | trace `f341b410…`, 251 spans | — |
-| 50 | 2 | LLM telemetry (tokens, RTT, TTFT, PII) | same | COMPLETE | [OBSERVABILITY §6](observability/OBSERVABILITY.md#6-llm-telemetry) | 707/264/971; TTFT 5/38 s; PII 1 caught | — |
+| 50 | 2 | LLM telemetry (tokens, RTT, TTFT, PII) | same | COMPLETE | [OBSERVABILITY §6](observability/OBSERVABILITY.md#6-llm-telemetry) | 707/264/971; TTFT 5/38 s; PII 1 caught (production telemetry; the benchmark adds tokens, RTT and TTFT but no PII evidence, [BENCHMARK_RESULTS §5](llm/BENCHMARK_RESULTS.md#5-edai-2-rubric-alignment)) | — |
 | 51 | 2 | Agent telemetry (calls per agent, per tool, failures) | same | COMPLETE | [OBSERVABILITY §7](observability/OBSERVABILITY.md#7-agent-and-mcp-telemetry) | 6/6, 9/9; MCP 17/16/19; failures feature_lookup = 1 | — |
 | 52 | 1 | A/B agents with different model config | A/B implementation + dashboard | LOCAL_VALIDATED | [Agent A/B](agents/AGENT_AB.md) | Coordinator variants tested locally; not deployed | RUNTIME_EVIDENCE_MISSING (P9) |
 | 53 | 1 | A/B different LLM versions | same | LOCAL_VALIDATED | [LLM A/B](llm/LLM_AB_DESIGN.md) | Qwen3 routing tested locally; GPU quota 0; not deployed | RUNTIME_EVIDENCE_MISSING (P10) |
@@ -107,9 +107,9 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 
 | Bucket | Rows | Points |
 |---|---|---:|
-| Complete deliverables (including historical row 6) | 3, 4, 6, 7, 8, 13, 15, 17, 21, 23, 24, 26, 33, 46–51 (19 rows) | 32 |
+| Complete deliverables | 3, 4, 5, 6, 7, 8, 13, 15, 17, 21, 23, 24, 26, 33, 46–51 (20 rows) | 33 |
 | Complete, pending owner selection (novel ideas) | 56, 57 | 4 |
-| Missing only a screenshot or documentation | 5, 9, 10, 29, 44, 55 (6 rows) | 10 |
+| Missing only a screenshot or documentation | 9, 10, 29, 44, 55 (5 rows) | 9 |
 | Implemented at source or validated locally; owner-run or cloud evidence pending | 28, 30, 31, 32, 37–43, 52, 53, 54 (14 rows) | 23 |
 | Missing runtime evidence | 11, 12, 19, 25, 27, 34, 35, 36 (8 rows) | 16 |
 | Missing implementation (including partial rows whose remaining gap is implementation) | 14, 16, 18, 20, 22, 45 (6 rows) | 15 |
