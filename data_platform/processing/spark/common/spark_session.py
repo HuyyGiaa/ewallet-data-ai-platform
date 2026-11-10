@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit
@@ -121,9 +122,8 @@ def create_spark_session(
     if config.spark.master is not None:
         builder = builder.master(config.spark.master)
 
-    for key, value in spark_options(
-        config, stage=stage, optimized=optimized
-    ).items():
+    options = spark_options(config, stage=stage, optimized=optimized)
+    for key, value in options.items():
         builder = builder.config(key, value)
 
     spark = _get_or_create_spark(builder, config)
@@ -145,10 +145,33 @@ def create_spark_session(
         "[SPARK] Shuffle     : "
         f"{spark.conf.get('spark.sql.shuffle.partitions')}"
     )
-    for label, key in (
-        ("Coalesce   ", ADAPTIVE_COALESCE_PROPERTY),
-        ("Par. first ", ADAPTIVE_PARALLELISM_FIRST_PROPERTY),
-        ("Advisory   ", ADAPTIVE_ADVISORY_SIZE_PROPERTY),
-    ):
-        print(f"[SPARK] {label}: {spark.conf.get(key, 'spark-default')}")
+    for line in describe_optional_sql_properties(spark, options):
+        print(line)
     return spark
+
+
+OPTIONAL_LOGGED_PROPERTIES = (
+    ("Coalesce   ", ADAPTIVE_COALESCE_PROPERTY),
+    ("Par. first ", ADAPTIVE_PARALLELISM_FIRST_PROPERTY),
+    ("Advisory   ", ADAPTIVE_ADVISORY_SIZE_PROPERTY),
+)
+
+
+def describe_optional_sql_properties(
+    spark: SparkSession, configured: Mapping[str, str]
+) -> list[str]:
+    """Log lines for the AQE settings that only some stage profiles set.
+
+    ``spark.conf.get(key)`` without a fallback returns the effective value: the
+    configured one, or Spark's own default when the profile leaves the key unset.
+    A fallback must not be passed: for an unset typed SQL key, Spark 3.5 converts
+    the fallback with the key's type, so ``get(key, "spark-default")`` raised
+    ``IllegalArgumentException`` and stopped every session of a profile without
+    these keys. Reading never changes the session configuration.
+    """
+
+    return [
+        f"[SPARK] {label}: {spark.conf.get(key)} "
+        f"({'profile' if key in configured else 'Spark default'})"
+        for label, key in OPTIONAL_LOGGED_PROPERTIES
+    ]
