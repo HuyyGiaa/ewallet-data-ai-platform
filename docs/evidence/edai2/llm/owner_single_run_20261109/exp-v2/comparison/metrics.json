@@ -1,0 +1,805 @@
+{
+  "baseline": "k8s-service",
+  "distribution": {
+    "1": {
+      "baseline": {
+        "epp": null,
+        "pods_serving": 1,
+        "prefix_cache_hit_rate": 0.42744383727990287,
+        "requests_max_share": 1.0,
+        "requests_share": {
+          "vllm-primary-5bd87f4bfb-p78sl": 1.0,
+          "vllm-primary-5bd87f4bfb-prxhj": 0.0
+        }
+      },
+      "optimized": {
+        "epp": {
+          "llm_d_epp_ready_endpoints": 2.0,
+          "llm_d_epp_scheduler_attempts": 12.0
+        },
+        "pods_serving": 2,
+        "prefix_cache_hit_rate": 0.4080145719489982,
+        "requests_max_share": 0.6666666666666666,
+        "requests_share": {
+          "vllm-primary-6d5b8948f6-d4kww": 0.6666666666666666,
+          "vllm-primary-6d5b8948f6-xnftg": 0.3333333333333333
+        }
+      }
+    },
+    "2": {
+      "baseline": {
+        "epp": null,
+        "pods_serving": 1,
+        "prefix_cache_hit_rate": 0.4080145719489982,
+        "requests_max_share": 1.0,
+        "requests_share": {
+          "vllm-primary-5bd87f4bfb-p78sl": 0.0,
+          "vllm-primary-5bd87f4bfb-prxhj": 1.0
+        }
+      },
+      "optimized": {
+        "epp": {
+          "llm_d_epp_ready_endpoints": 2.0,
+          "llm_d_epp_scheduler_attempts": 12.0
+        },
+        "pods_serving": 2,
+        "prefix_cache_hit_rate": 0.8937462052216151,
+        "requests_max_share": 0.6666666666666666,
+        "requests_share": {
+          "vllm-primary-6d5b8948f6-d4kww": 0.6666666666666666,
+          "vllm-primary-6d5b8948f6-xnftg": 0.3333333333333333
+        }
+      }
+    },
+    "4": {
+      "baseline": {
+        "epp": null,
+        "pods_serving": 2,
+        "prefix_cache_hit_rate": 0.8937462052216151,
+        "requests_max_share": 0.5833333333333334,
+        "requests_share": {
+          "vllm-primary-5bd87f4bfb-p78sl": 0.5833333333333334,
+          "vllm-primary-5bd87f4bfb-prxhj": 0.4166666666666667
+        }
+      },
+      "optimized": {
+        "epp": {
+          "llm_d_epp_ready_endpoints": 2.0,
+          "llm_d_epp_scheduler_attempts": 12.0
+        },
+        "pods_serving": 2,
+        "prefix_cache_hit_rate": 0.8937462052216151,
+        "requests_max_share": 0.6666666666666666,
+        "requests_share": {
+          "vllm-primary-6d5b8948f6-d4kww": 0.6666666666666666,
+          "vllm-primary-6d5b8948f6-xnftg": 0.3333333333333333
+        }
+      }
+    },
+    "8": {
+      "baseline": {
+        "epp": null,
+        "pods_serving": 2,
+        "prefix_cache_hit_rate": 0.8937462052216151,
+        "requests_max_share": 0.5,
+        "requests_share": {
+          "vllm-primary-5bd87f4bfb-p78sl": 0.5,
+          "vllm-primary-5bd87f4bfb-prxhj": 0.5
+        }
+      },
+      "optimized": {
+        "epp": {
+          "llm_d_epp_ready_endpoints": 2.0,
+          "llm_d_epp_scheduler_attempts": 12.0
+        },
+        "pods_serving": 2,
+        "prefix_cache_hit_rate": 0.8937462052216151,
+        "requests_max_share": 0.6666666666666666,
+        "requests_share": {
+          "vllm-primary-6d5b8948f6-d4kww": 0.6666666666666666,
+          "vllm-primary-6d5b8948f6-xnftg": 0.3333333333333333
+        }
+      }
+    }
+  },
+  "experiment_id": "EXP-V2",
+  "failures": {
+    "1": {
+      "baseline": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      },
+      "optimized": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      }
+    },
+    "2": {
+      "baseline": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      },
+      "optimized": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      }
+    },
+    "4": {
+      "baseline": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      },
+      "optimized": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      }
+    },
+    "8": {
+      "baseline": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      },
+      "optimized": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      }
+    }
+  },
+  "interpretation": "One run per arm: the percentages are observed differences between two runs. There is no repetition, no confidence interval and no significance test, so this is not a statistically proven or stable improvement.",
+  "methodology": "single-run",
+  "optimized": "llmd-epp",
+  "primary_metric": "e2e_p95_ms",
+  "reasons": [
+    "e2e_p95_ms observed better by >= 10 % at 2",
+    "e2e_p95_ms observed worse by >= 10 % at 4, 8"
+  ],
+  "rows": [
+    {
+      "baseline": 5576.302496499693,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "ttft_p50_ms",
+      "note": null,
+      "observed_change_percent": -48.09767200906961,
+      "optimized": 8258.374181499676
+    },
+    {
+      "baseline": 60210.92129435001,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "ttft_p95_ms",
+      "note": null,
+      "observed_change_percent": -7.135088805895775,
+      "optimized": 64507.02399954989
+    },
+    {
+      "baseline": 12238.598809500218,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "e2e_p50_ms",
+      "note": null,
+      "observed_change_percent": -29.58046835549426,
+      "optimized": 15858.833657500327
+    },
+    {
+      "baseline": 75211.6113889004,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "e2e_p95_ms",
+      "note": null,
+      "observed_change_percent": -7.329833510937296,
+      "optimized": 80724.49728459996
+    },
+    {
+      "baseline": 2.1709888671180964,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "output_tokens_per_second",
+      "note": null,
+      "observed_change_percent": -9.514925924291543,
+      "optimized": 1.9644208845871933
+    },
+    {
+      "baseline": 0.03653838205528353,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "request_throughput",
+      "note": null,
+      "observed_change_percent": -9.514925924291543,
+      "optimized": 0.03306178206878867
+    },
+    {
+      "baseline": 141.58728936507984,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "tpot_ms",
+      "note": null,
+      "observed_change_percent": -14.23535827479915,
+      "optimized": 161.74274727777555
+    },
+    {
+      "baseline": 2.2015,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "cpu_cores_mean",
+      "note": null,
+      "observed_change_percent": -14.05427035679138,
+      "optimized": 2.510904761904762
+    },
+    {
+      "baseline": 12437.0,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "memory_mib_peak",
+      "note": null,
+      "observed_change_percent": -4.542896196832033,
+      "optimized": 13002.0
+    },
+    {
+      "baseline": 0.42744383727990287,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "prefix_cache_hit_ratio",
+      "note": null,
+      "observed_change_percent": -4.545454545454543,
+      "optimized": 0.4080145719489982
+    },
+    {
+      "baseline": 0.22185050001629256,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "queue_time_ms",
+      "note": null,
+      "observed_change_percent": -150.73611876606,
+      "optimized": 0.5562593332039493
+    },
+    {
+      "baseline": 149.97414099980233,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "itl_p50_ms",
+      "note": null,
+      "observed_change_percent": -6.5883914617742185,
+      "optimized": 159.85502450030253
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "error_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "timeout_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 2.0,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "tool_calls_valid",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 2.0
+    },
+    {
+      "baseline": 0.5427472167795241,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "tokens_per_second_per_allocated_cpu",
+      "note": null,
+      "observed_change_percent": -9.514925924291543,
+      "optimized": 0.49110522114679833
+    },
+    {
+      "baseline": 0.9861407527222787,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "tokens_per_second_per_used_cpu_core",
+      "note": null,
+      "observed_change_percent": -20.664895937129195,
+      "optimized": 0.7823557923785973
+    },
+    {
+      "baseline": 7896.002954999858,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "ttft_p50_ms",
+      "note": null,
+      "observed_change_percent": -23.63200903209718,
+      "optimized": 9761.987086500085
+    },
+    {
+      "baseline": 49174.21567335032,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "ttft_p95_ms",
+      "note": null,
+      "observed_change_percent": 63.66935116378037,
+      "optimized": 17865.311614250182
+    },
+    {
+      "baseline": 42560.5498230002,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "e2e_p50_ms",
+      "note": null,
+      "observed_change_percent": 53.19922195475041,
+      "optimized": 19918.66845750019
+    },
+    {
+      "baseline": 100745.64417925014,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "e2e_p95_ms",
+      "note": null,
+      "observed_change_percent": 47.49063968773025,
+      "optimized": 52900.893300999676
+    },
+    {
+      "baseline": 2.6097643393145105,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "output_tokens_per_second",
+      "note": null,
+      "observed_change_percent": 86.42082014397577,
+      "optimized": 4.865144085175121
+    },
+    {
+      "baseline": 0.0439231024849567,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "request_throughput",
+      "note": null,
+      "observed_change_percent": 86.42082014397576,
+      "optimized": 0.08188180788513527
+    },
+    {
+      "baseline": 318.28085091232526,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "tpot_ms",
+      "note": null,
+      "observed_change_percent": 18.283483311077834,
+      "optimized": 260.08802465341375
+    },
+    {
+      "baseline": 2.285823529411765,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "cpu_cores_mean",
+      "note": null,
+      "observed_change_percent": -7.1736277310275645,
+      "optimized": 2.4498
+    },
+    {
+      "baseline": 12397.0,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "memory_mib_peak",
+      "note": null,
+      "observed_change_percent": -4.864080019359522,
+      "optimized": 13000.0
+    },
+    {
+      "baseline": 0.4080145719489982,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "prefix_cache_hit_ratio",
+      "note": null,
+      "observed_change_percent": 119.04761904761904,
+      "optimized": 0.8937462052216151
+    },
+    {
+      "baseline": 0.02057925000068887,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "queue_time_ms",
+      "note": null,
+      "observed_change_percent": -2576.2722157038247,
+      "optimized": 0.5507567499686653
+    },
+    {
+      "baseline": 247.52021049971518,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "itl_p50_ms",
+      "note": null,
+      "observed_change_percent": 88.81468812413148,
+      "optimized": 27.68590750019939
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "error_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "timeout_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 2.0,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "tool_calls_valid",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 2.0
+    },
+    {
+      "baseline": 0.6524410848286276,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "tokens_per_second_per_allocated_cpu",
+      "note": null,
+      "observed_change_percent": 86.42082014397577,
+      "optimized": 1.2162860212937803
+    },
+    {
+      "baseline": 1.1417173310776572,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "tokens_per_second_per_used_cpu_core",
+      "note": null,
+      "observed_change_percent": 73.94281045691012,
+      "optimized": 1.9859352131501022
+    },
+    {
+      "baseline": 4738.406272500015,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "ttft_p50_ms",
+      "note": null,
+      "observed_change_percent": -42.41415925358796,
+      "optimized": 6748.161455000172
+    },
+    {
+      "baseline": 15942.403667250117,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "ttft_p95_ms",
+      "note": null,
+      "observed_change_percent": 19.035852143706375,
+      "optimized": 12907.631276999562
+    },
+    {
+      "baseline": 19113.287568500255,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "e2e_p50_ms",
+      "note": null,
+      "observed_change_percent": -60.491329623766994,
+      "optimized": 30675.169353500223
+    },
+    {
+      "baseline": 52897.232764799875,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "e2e_p95_ms",
+      "note": null,
+      "observed_change_percent": -101.85392272250033,
+      "optimized": 106775.13934740027
+    },
+    {
+      "baseline": 9.39986418381719,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "output_tokens_per_second",
+      "note": null,
+      "observed_change_percent": -37.107276862315274,
+      "optimized": 5.911830556446533
+    },
+    {
+      "baseline": 0.15820248275709156,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "request_throughput",
+      "note": null,
+      "observed_change_percent": -37.107276862315274,
+      "optimized": 0.09949784947736101
+    },
+    {
+      "baseline": 214.56250531585616,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "tpot_ms",
+      "note": null,
+      "observed_change_percent": -128.05168416911047,
+      "optimized": 489.31340696824714
+    },
+    {
+      "baseline": 4.337,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "cpu_cores_mean",
+      "note": null,
+      "observed_change_percent": 37.1570209822458,
+      "optimized": 2.7255
+    },
+    {
+      "baseline": 12367.0,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "memory_mib_peak",
+      "note": null,
+      "observed_change_percent": -5.110374383439799,
+      "optimized": 12999.0
+    },
+    {
+      "baseline": 0.8937462052216151,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "prefix_cache_hit_ratio",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.8937462052216151
+    },
+    {
+      "baseline": 0.39693675000762596,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "queue_time_ms",
+      "note": null,
+      "observed_change_percent": 94.69926044754699,
+      "optimized": 0.02104058330587577
+    },
+    {
+      "baseline": 190.59969950058075,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "itl_p50_ms",
+      "note": null,
+      "observed_change_percent": -159.22060307263993,
+      "optimized": 494.0736905000449
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "error_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "timeout_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 2.0,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "tool_calls_valid",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 2.0
+    },
+    {
+      "baseline": 2.3499660459542975,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "tokens_per_second_per_allocated_cpu",
+      "note": null,
+      "observed_change_percent": -37.107276862315274,
+      "optimized": 1.4779576391116334
+    },
+    {
+      "baseline": 2.1673655023788774,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "tokens_per_second_per_used_cpu_core",
+      "note": null,
+      "observed_change_percent": 0.07915620918680526,
+      "optimized": 2.169081106749783
+    },
+    {
+      "baseline": 12298.851291500341,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "ttft_p50_ms",
+      "note": null,
+      "observed_change_percent": -67.31307033707112,
+      "optimized": 20577.585711999745
+    },
+    {
+      "baseline": 25733.860985900126,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "ttft_p95_ms",
+      "note": null,
+      "observed_change_percent": -225.15849173020163,
+      "optimized": 83675.83424569965
+    },
+    {
+      "baseline": 37373.99870799982,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "e2e_p50_ms",
+      "note": null,
+      "observed_change_percent": -88.8944149770318,
+      "optimized": 70597.39621299968
+    },
+    {
+      "baseline": 63056.787036449896,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "e2e_p95_ms",
+      "note": null,
+      "observed_change_percent": -71.460864832524,
+      "optimized": 108117.71238829987
+    },
+    {
+      "baseline": 11.194119190929195,
+      "better_when": "higher",
+      "level": "8",
+      "metric": "output_tokens_per_second",
+      "note": null,
+      "observed_change_percent": -45.29252866496537,
+      "optimized": 6.1240195475872
+    },
+    {
+      "baseline": 0.18840032298899065,
+      "better_when": "higher",
+      "level": "8",
+      "metric": "request_throughput",
+      "note": null,
+      "observed_change_percent": -45.29252866496537,
+      "optimized": 0.10306905269431473
+    },
+    {
+      "baseline": 430.43685449606346,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "tpot_ms",
+      "note": null,
+      "observed_change_percent": -27.299993763332644,
+      "optimized": 547.946088928574
+    },
+    {
+      "baseline": 2.742,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "cpu_cores_mean",
+      "note": null,
+      "observed_change_percent": -24.338986141502545,
+      "optimized": 3.409375
+    },
+    {
+      "baseline": 12366.0,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "memory_mib_peak",
+      "note": null,
+      "observed_change_percent": -5.110787643538735,
+      "optimized": 12998.0
+    },
+    {
+      "baseline": 0.8937462052216151,
+      "better_when": "higher",
+      "level": "8",
+      "metric": "prefix_cache_hit_ratio",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.8937462052216151
+    },
+    {
+      "baseline": 2851.9448075833607,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "queue_time_ms",
+      "note": null,
+      "observed_change_percent": -572.13904144857,
+      "optimized": 19169.034492333063
+    },
+    {
+      "baseline": 324.3496969998887,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "itl_p50_ms",
+      "note": null,
+      "observed_change_percent": -58.459065556168746,
+      "optimized": 513.9614990002883
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "error_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "8",
+      "metric": "timeout_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 2.0,
+      "better_when": "higher",
+      "level": "8",
+      "metric": "tool_calls_valid",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 2.0
+    },
+    {
+      "baseline": 2.7985297977322987,
+      "better_when": "higher",
+      "level": "8",
+      "metric": "tokens_per_second_per_allocated_cpu",
+      "note": null,
+      "observed_change_percent": -45.29252866496537,
+      "optimized": 1.5310048868968
+    },
+    {
+      "baseline": 4.082465058690443,
+      "better_when": "higher",
+      "level": "8",
+      "metric": "tokens_per_second_per_used_cpu_core",
+      "note": null,
+      "observed_change_percent": -56.00135320970413,
+      "optimized": 1.7962293815104529
+    }
+  ],
+  "runs": {
+    "baseline": 1,
+    "optimized": 1
+  },
+  "schema": "ewallet-single-run-comparison-v1",
+  "statistical_inference": "none",
+  "threshold_percent": 10.0,
+  "valid": true,
+  "validity_problems": [],
+  "variable": "Routing path: Kubernetes Service versus llm-d EPP",
+  "verdict": "OBSERVED_MIXED"
+}

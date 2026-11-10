@@ -1,0 +1,609 @@
+{
+ "schema": "ewallet-owner-screenshot-provenance-v1",
+ "campaign": "owner_single_run_20261109",
+ "source_directory": "~/Pictures/Screenshots (owner's laptop; originals unchanged)",
+ "note": "Genuine owner captures made during the sessions. Files are byte-identical to the originals: no cropping, editing or re-encoding. One image may serve several evidence IDs; no image is duplicated.",
+ "count": 35,
+ "screenshots": [
+  {
+   "source_file": "S1-01_pods_nodes.png",
+   "destination": "exp-v1/baseline/screenshots/S1-01_pods_nodes.png",
+   "sha256": "52cc435d8c62dae56a7a4fe7604a457bd628f17fa42a17055a7777238f173801",
+   "experiment": "EXP-V1",
+   "arm": "baseline (B0)",
+   "evidence_ids": [
+    "S1-01"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T18:34:19Z",
+   "pixels": "2773x851",
+   "description": "ev_provenance: one bench-pool node, running pods, vLLM image digest, model revision, thread_bind=auto, 2 CPU / 6Gi",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-02_config.png",
+   "destination": "exp-v1/baseline/screenshots/S1-02_config.png",
+   "sha256": "c45594d360074427999cdeade3359aa8cec0999b6200942ee7a83bbb342134fe",
+   "experiment": "EXP-V1",
+   "arm": "baseline (B0)",
+   "evidence_ids": [
+    "S1-02"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T18:35:10Z",
+   "pixels": "2773x851",
+   "description": "ev_config and ev_route: VLLM_CPU_OMP_THREADS_BIND=auto, OMP_NUM_THREADS=2, vLLM args, resources, gateway route, timeouts and limits",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-03_running.png",
+   "destination": "exp-v1/baseline/screenshots/S1-03_running.png",
+   "sha256": "285944b8884238a24b36ce3e2c8104cc34e2c6abfd1cc741e5c4ff6cb9352d78",
+   "experiment": "EXP-V1",
+   "arm": "baseline (B0)",
+   "evidence_ids": [
+    "S1-03"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL+NATIVE_UI",
+   "file_saved_utc": "2026-11-09T18:14:55Z",
+   "pixels": "2773x1794",
+   "description": "Requests in flight: live progress beside Grafana during c=1; includes the long-1 request marked FAILED",
+   "limitation": "Captured during c=1 only; c=2 and c=4 rows are in raw_requests.jsonl",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-04_result.png",
+   "destination": "exp-v1/baseline/screenshots/S1-04_result.png",
+   "sha256": "5404e6bc1acdd5a21381278fad69db282a69f4683f3fa10f5af7355f7c8a09d5",
+   "experiment": "EXP-V1",
+   "arm": "baseline (B0)",
+   "evidence_ids": [
+    "S1-04"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T18:32:37Z",
+   "pixels": "2773x1794",
+   "description": "Checkpoint banner: SINGLE-RUN, thread binding auto, digest, window, per-level results, gateway policy PASS",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-05_grafana.png",
+   "destination": "exp-v1/baseline/screenshots/S1-05_grafana.png",
+   "sha256": "8df15f5dfd204ee84996d0c67663e33554751a7318714ea0e35f6461e271433a",
+   "experiment": "EXP-V1",
+   "arm": "baseline (B0)",
+   "evidence_ids": [
+    "S1-05"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-09T18:37:19Z",
+   "pixels": "2879x1799",
+   "description": "Grafana A. Serving performance for baseline-01, 18:06:40-18:25:57Z",
+   "limitation": "Range ends 60 s after the measured window (18:24:57Z); the admission-rejection spike at the right edge is the policy probe, not the benchmark",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-05_grafana_resources.png",
+   "destination": "exp-v1/baseline/screenshots/S1-05_grafana_resources.png",
+   "sha256": "01d904eab67d0e26fc52d4e7bc0cb2b9af5110c7df9cac5bdaaafeacf75b057a",
+   "experiment": "EXP-V1",
+   "arm": "baseline (B0)",
+   "evidence_ids": [
+    "S1-05"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-09T18:37:41Z",
+   "pixels": "2879x1799",
+   "description": "Grafana B. Resource utilization for baseline-01: CPU, memory, queue time, prefix-cache hit ratio",
+   "limitation": "Same 60 s tail as S1-05_grafana.png",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-07_config.png",
+   "destination": "exp-v1/optimized/screenshots/S1-07_config.png",
+   "sha256": "9267b9e91f1be95934be075091619488021832f2721486caab1e26a5be9895b5",
+   "experiment": "EXP-V1",
+   "arm": "optimized (C1)",
+   "evidence_ids": [
+    "S1-07"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T19:07:16Z",
+   "pixels": "2773x851",
+   "description": "ev_config and ev_route: VLLM_CPU_OMP_THREADS_BIND=0-1; everything else as in S1-02",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-10_grafana.png",
+   "destination": "exp-v1/optimized/screenshots/S1-10_grafana.png",
+   "sha256": "264158974c98cb1076a9405f8a117ed06b33d6c3244e14cff1c407e37da66585",
+   "experiment": "EXP-V1",
+   "arm": "optimized (C1)",
+   "evidence_ids": [
+    "S1-10"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-09T19:08:29Z",
+   "pixels": "2879x1799",
+   "description": "Grafana A. Serving performance for optimized-01, 18:53:57-19:06:17Z",
+   "limitation": "Range ends 60 s after the measured window (19:05:17Z); the admission-rejection spike at the right edge is the policy probe",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-10_grafana_resources.png",
+   "destination": "exp-v1/optimized/screenshots/S1-10_grafana_resources.png",
+   "sha256": "6f5015030999a48ee037513cc460bfd8830f619a7a6a0889fdb06f278a1bb4d5",
+   "experiment": "EXP-V1",
+   "arm": "optimized (C1)",
+   "evidence_ids": [
+    "S1-10"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-09T19:08:41Z",
+   "pixels": "2879x1799",
+   "description": "Grafana B. Resource utilization for optimized-01",
+   "limitation": "Same 60 s tail as S1-10_grafana.png",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-11_comparison.png",
+   "destination": "exp-v1/comparison/screenshots/S1-11_comparison.png",
+   "sha256": "da46538d2e80d8acc4aa2722d2d9873e875043d2e4c0e58cb44367eb56de8d1a",
+   "experiment": "EXP-V1",
+   "arm": "both",
+   "evidence_ids": [
+    "S1-11"
+   ],
+   "run_identity": "baseline-01 vs optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T19:12:58Z",
+   "pixels": "2879x1799",
+   "description": "comparison.md top: methodology, execution validity VALID, OBSERVED_IMPROVEMENT, failure table, metric rows up to c=4 e2e_p50",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-11_comparison_metrics.png",
+   "destination": "exp-v1/comparison/screenshots/S1-11_comparison_metrics.png",
+   "sha256": "50957d6ea7ea12c0fef9837c2c8d2174c42b2298506cbdc4ca00f3f584a05337",
+   "experiment": "EXP-V1",
+   "arm": "both",
+   "evidence_ids": [
+    "S1-11",
+    "S1-09"
+   ],
+   "run_identity": "baseline-01 vs optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T19:11:25Z",
+   "pixels": "2879x1799",
+   "description": "comparison.md failure table and complete metric rows for c=1, 2, 4; carries the optimized per-level values",
+   "limitation": "Stands in for the absent S1-09 banner only for the numbers, not for the banner itself",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-12_manifest.png",
+   "destination": "exp-v1/comparison/screenshots/S1-12_manifest.png",
+   "sha256": "0a555bc06ec2a08c61a9f42bef8090513376549d2e37e36013bfdd2e3c9bffa8",
+   "experiment": "EXP-V1",
+   "arm": "both",
+   "evidence_ids": [
+    "S1-12"
+   ],
+   "run_identity": "session",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T19:16:40Z",
+   "pixels": "2773x731",
+   "description": "manifest fields: levels, methodology single-run, profile single, runs_per_arm 1, image, source_sha, and the one recorded deviation",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S1-14_cleanup.png",
+   "destination": "screenshots/S1-14_cleanup.png",
+   "sha256": "273a4ca248fc388cb079a4079370d01add571c2ecf102450f4733e9410de3bfb",
+   "experiment": "EXP-V1",
+   "arm": "both",
+   "evidence_ids": [
+    "S1-14"
+   ],
+   "run_identity": "session",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-09T19:21:38Z",
+   "pixels": "2773x461",
+   "description": "ev_cleanup: session end status=0, pool and namespace absent, only cpu-pool, 0 bench VMs and disks, NotFound, production unchanged, 0 timers",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-01_pods_nodes.png",
+   "destination": "exp-v2/baseline/screenshots/S2-01_pods_nodes.png",
+   "sha256": "2598324e166809afca1a7b54ff6a9daaede281a74a0826802357b83434e9d7f5",
+   "experiment": "EXP-V2",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "S2-01"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:20:33Z",
+   "pixels": "2769x1029",
+   "description": "Two bench-pool nodes, two vllm-primary pods one per node, image digest",
+   "limitation": "Model revision is not on this screen; it is on S2-04 and in controls.json",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-02_route.png",
+   "destination": "exp-v2/baseline/screenshots/S2-02_route.png",
+   "sha256": "2fb982f2a279e47395e9af37b81205b79f81baa2bc01d2ea391054cda52a0a9f",
+   "experiment": "EXP-V2",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "S2-02"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:21:42Z",
+   "pixels": "2769x1061",
+   "description": "ev_route and ev_config: baseUrl vllm-primary Service :8000, x-ewallet-backend primary, 0-1 binding, replicas=2",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-03_running.png",
+   "destination": "exp-v2/baseline/screenshots/S2-03_running.png",
+   "sha256": "0519f8ef12ab8ec7394a0a4cbcae6bf60fb9036c2ab7b0a19c24846711e6a51f",
+   "experiment": "EXP-V2",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "S2-03"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:16:51Z",
+   "pixels": "2879x1799",
+   "description": "Live progress listing every B2 request at c=1, 2, 4, 8 with backend primary",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-04_result.png",
+   "destination": "exp-v2/baseline/screenshots/S2-04_result.png",
+   "sha256": "a4e40ebd39384b4551ff0fb862f6ab1ed7436dde9a9095d0bc71df638b4e11c2",
+   "experiment": "EXP-V2",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "S2-04"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:18:53Z",
+   "pixels": "2879x1799",
+   "description": "Checkpoint banner: SINGLE-RUN, 0-1 binding, replicas 2, Kubernetes Service, per-level results",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-05_grafana.png",
+   "destination": "exp-v2/baseline/screenshots/S2-05_grafana.png",
+   "sha256": "8b580e8ad9d29fb249549110bad02be2276b508994fa5bac97ce0333ba469e39",
+   "experiment": "EXP-V2",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "S2-05"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-10T08:24:01Z",
+   "pixels": "2879x1799",
+   "description": "Grafana A. Serving performance for baseline-01 with per-pod series, 08:01:47-08:17:47Z",
+   "limitation": "Section C. Routing (request-share panels) was not captured for B2",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-05_grafana_resources.png",
+   "destination": "exp-v2/baseline/screenshots/S2-05_grafana_resources.png",
+   "sha256": "4e075d95c82448802d79702901394f5b09f628db4d7068ba3f78e40015265826",
+   "experiment": "EXP-V2",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "S2-05"
+   ],
+   "run_identity": "baseline-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-10T08:24:15Z",
+   "pixels": "2879x1799",
+   "description": "Grafana B. Resource utilization for baseline-01, per pod",
+   "limitation": "Section C. Routing cut off at the bottom",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-07_route.png",
+   "destination": "exp-v2/optimized/screenshots/S2-07_route.png",
+   "sha256": "b280774ef8ffc25a431379c8f983a75b3782af731a7cd5d757a77f5f74af23bb",
+   "experiment": "EXP-V2",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "S2-07"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:09:36Z",
+   "pixels": "2769x1061",
+   "description": "ev_route: baseUrl llmd-router-epp :8081, x-ewallet-backend llm-d; router Deployment 1/1, pod 2/2 Running",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-08_epp.png",
+   "destination": "exp-v2/optimized/screenshots/S2-08_epp.png",
+   "sha256": "42dfd91b9101c4956e222487b74da0632415c91cd415428be4486e086daf35b2",
+   "experiment": "EXP-V2",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "S2-08"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:10:37Z",
+   "pixels": "2769x1631",
+   "description": "ev_epp: 2 ready endpoints, cumulative scheduler attempts 49/20, ModelServerError 4; EPP decisions and logs naming both pod IPs",
+   "limitation": "Counters are cumulative since router start (cold, warm-up, benchmark and probes); the log tail is mostly the policy-probe burst",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-09_result.png",
+   "destination": "exp-v2/optimized/screenshots/S2-09_result.png",
+   "sha256": "a0022457f65364ac677b0f4183a86b0ba46e50579c178635e9d30ba53bba0b54",
+   "experiment": "EXP-V2",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "S2-09"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:05:29Z",
+   "pixels": "2879x1799",
+   "description": "Checkpoint banner: SINGLE-RUN, llm-d EPP, per-level results, probe attribution",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-09_grafana_serving.png",
+   "destination": "exp-v2/optimized/screenshots/S2-09_grafana_serving.png",
+   "sha256": "c3dd9dbb98f9f5b1ae95b0608b7f899ffa9423a71ec0a7ca5e1535fac22c8fb5",
+   "experiment": "EXP-V2",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "S2-09"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-10T09:12:18Z",
+   "pixels": "2879x1799",
+   "description": "Grafana A. Serving performance for optimized-01 with per-pod series, 08:48:01-09:04:22Z",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-09_grafana_resources.png",
+   "destination": "exp-v2/optimized/screenshots/S2-09_grafana_resources.png",
+   "sha256": "fc3312dc7fdb6a2f33cb5f15af2760a83428e57cf1e5b53f139ca3705337c901",
+   "experiment": "EXP-V2",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "S2-09"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-10T09:12:40Z",
+   "pixels": "2879x1799",
+   "description": "Grafana B. Resource utilization for optimized-01, including envoy-proxy and epp containers",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-09_grafana_routing.png",
+   "destination": "exp-v2/optimized/screenshots/S2-09_grafana_routing.png",
+   "sha256": "2fa5f854e34440071281824989188fddb4bf3acf6ff64d08297886f0d83f9c95",
+   "experiment": "EXP-V2",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "S2-09"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "NATIVE_UI",
+   "file_saved_utc": "2026-11-10T09:13:02Z",
+   "pixels": "2879x1799",
+   "description": "Grafana C. Routing: per-replica completed requests, share 37.8 % / 62.2 %, 2 ready endpoints, scheduler decisions, scheduler latency p95",
+   "limitation": "The share covers the displayed Prometheus range, which includes cold and warm-up requests; the 48 benchmark requests split 32/16 per vLLM counters. Bar labels are truncated",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-10_running.png",
+   "destination": "exp-v2/optimized/screenshots/S2-10_running.png",
+   "sha256": "838e1423fcf4e7540a14ff9177a6136136b4a1d86b14f51b4cdc6250d7b45be2",
+   "experiment": "EXP-V2",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "S2-10"
+   ],
+   "run_identity": "optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:03:41Z",
+   "pixels": "2879x1799",
+   "description": "Live progress listing every O2 request at c=1, 2, 4, 8 with backend llm-d",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-11_comparison_summary.png",
+   "destination": "exp-v2/comparison/screenshots/S2-11_comparison_summary.png",
+   "sha256": "9eb6acc1407539c1c21a8b4f9911c0abc8287a33bd5270fca8fb5d0de20e9a5c",
+   "experiment": "EXP-V2",
+   "arm": "both",
+   "evidence_ids": [
+    "S2-11"
+   ],
+   "run_identity": "baseline-01 vs optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:16:53Z",
+   "pixels": "2879x1799",
+   "description": "comparison.md failure table and metric rows for c=1, 2 and part of c=4",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-11_comparison_details.png",
+   "destination": "exp-v2/comparison/screenshots/S2-11_comparison_details.png",
+   "sha256": "afec73c743c70cd8bee31bce62dc969eb256f9e7cb58e956fefbcc1dfc552f34",
+   "experiment": "EXP-V2",
+   "arm": "both",
+   "evidence_ids": [
+    "S2-11"
+   ],
+   "run_identity": "baseline-01 vs optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:15:48Z",
+   "pixels": "2879x1799",
+   "description": "comparison.md rows for c=4 and c=8 and the per-replica request share table",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-11_verdict.png",
+   "destination": "exp-v2/comparison/screenshots/S2-11_verdict.png",
+   "sha256": "9401a378d93cc1d9e05d686a54e0f96af5c1306947351eec960ee538729b2200",
+   "experiment": "EXP-V2",
+   "arm": "both",
+   "evidence_ids": [
+    "S2-11"
+   ],
+   "run_identity": "baseline-01 vs optimized-01",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:18:00Z",
+   "pixels": "2769x1331",
+   "description": "comparison.md head: single-run, VALID, OBSERVED_MIXED, reasons, failure table",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "S2-13_cleanup.png",
+   "destination": "screenshots/S2-13_cleanup.png",
+   "sha256": "89c11fed55b6c7be1a8fb0418306ded6dc32a94856161953ac4fcc23c74dbabd",
+   "experiment": "EXP-V2",
+   "arm": "both",
+   "evidence_ids": [
+    "S2-13"
+   ],
+   "run_identity": "session",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:23:35Z",
+   "pixels": "2769x1149",
+   "description": "Namespace absent, only cpu-pool, five production nodes Ready",
+   "limitation": "Does not show the VM and disk counts or the production comparison; those are in safety/cleanup.txt and production-*.txt",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "POL-1-3_authentication.png",
+   "destination": "exp-v2/baseline/screenshots/POL-1-3_authentication.png",
+   "sha256": "8eb06216f977ed1d791e118c9d7b45ce7409978f4a7a67dcd6d0aa7935fe1d9a",
+   "experiment": "EXP-V2 gateway policy",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "POL-1",
+    "POL-2",
+    "POL-3"
+   ],
+   "run_identity": "baseline-01 checkpoint",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:25:54Z",
+   "pixels": "2769x851",
+   "description": "Valid key 200 with rate-limit and backend headers; missing key 401; invalid key 401",
+   "limitation": "The backend-key-as-client-key case is not on this screen; it is in gateway-policy/baseline/results.json",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "POL-4-5_rate_limit_routing.png",
+   "destination": "exp-v2/baseline/screenshots/POL-4-5_rate_limit_routing.png",
+   "sha256": "0c90de9dfdf18d303413499b731889f710ed8fc02b651ec273f43a5c78f466d7",
+   "experiment": "EXP-V2 gateway policy",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "POL-4",
+    "POL-5"
+   ],
+   "run_identity": "baseline-01 checkpoint",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:28:13Z",
+   "pixels": "2769x459",
+   "description": "Burst of 16 at 08:27:48Z: 12x200, 4x429; three requests with x-ewallet-backend primary",
+   "limitation": "Also shows 'ev_policy_config: command not found': a helper that does not exist; POL-7 used cat instead",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "Screenshot From 2026-11-10 15-30-18.png",
+   "destination": "exp-v2/baseline/screenshots/POL-4b_later_burst_503.png",
+   "sha256": "7481eefef5473ab7ccabbdbf7ef577a251c28d4a739f1d2f429d8364a548f01a",
+   "experiment": "EXP-V2 gateway policy",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "POL-4b"
+   ],
+   "run_identity": "baseline-01 checkpoint",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:30:18Z",
+   "pixels": "2879x1799",
+   "description": "Second owner-triggered burst at 08:29:50Z: 11x200, 4x429, 1x503; routing still primary; gateway config",
+   "limitation": "The single 503 is UNATTRIBUTED: no counter snapshot exists around this manual burst",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "POL-5-6_optimized_routing_attribution.png",
+   "destination": "exp-v2/optimized/screenshots/POL-5-6_optimized_routing_attribution.png",
+   "sha256": "a50b9c4188a03ced65789f51aca2ed58e7fe4f74a67a5196b42c73fffccc7b08",
+   "experiment": "EXP-V2 gateway policy",
+   "arm": "optimized (O2)",
+   "evidence_ids": [
+    "POL-5",
+    "POL-6"
+   ],
+   "run_identity": "optimized-01 checkpoint",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T09:14:45Z",
+   "pixels": "2879x1799",
+   "description": "Three requests with x-ewallet-backend llm-d; attribution.json of the automatic O2 probe: 4 HTTP 503, ModelServerError 4, max_num_queued_reqs 4, ATTRIBUTED",
+   "limitation": "",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  },
+  {
+   "source_file": "POL-7_policy.png",
+   "destination": "exp-v2/baseline/screenshots/POL-7_policy.png",
+   "sha256": "3676d86555f3a0a94dbdd25a62be13758fd0434b886a6b121d9290faec8fcedc",
+   "experiment": "EXP-V2 gateway policy",
+   "arm": "baseline (B2)",
+   "evidence_ids": [
+    "POL-7"
+   ],
+   "run_identity": "baseline-01 checkpoint",
+   "capture_class": "REAL_TERMINAL",
+   "file_saved_utc": "2026-11-10T08:31:35Z",
+   "pixels": "2769x1271",
+   "description": "gateway-policy-config.yaml as recorded: strict auth (key values removed by the runner), timeouts, request and token limits, backend header",
+   "limitation": "Shows the B2 route; the O2 file differs in baseUrl and backend header",
+   "verification": "source and copy SHA-256 equal; PNG chunks and CRC valid; content inspected against raw artifacts"
+  }
+ ]
+}
