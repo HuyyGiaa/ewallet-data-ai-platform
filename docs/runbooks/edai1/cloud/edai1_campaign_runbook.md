@@ -53,6 +53,19 @@ outputs are not changed; the submitters switch bucket from the registry.
    Re-running after an interruption resumes: verified shards are skipped and conflicting
    objects stop the publication. Allow about 1.5 hours with 2 workers.
 
+**Status:** the bucket was provisioned and `rehearsal-5gb-v1` was published and verified on 2026-11-10
+(manifest SHA-256 `ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80`). Do not publish it again.
+
+**Fresh checkouts:** the Terraform outputs file is not in the repository. Produce one where Terraform is
+initialized, as shown above, keep it out of Git, and pass its absolute path as `terraform_output_json`.
+
+**Broken IPv6:** on a network that black-holes IPv6, each `gcloud` connection can stall about 12 seconds
+before falling back to IPv4 (check with `curl -6 -m 20 https://storage.googleapis.com/`). Airflow tasks
+make few calls, so this only slows them and no workaround is required. For bulk GCS work such as a
+re-publication, prefer IPv4 for that process only: put a `sitecustomize.py` that wraps
+`socket.getaddrinfo` to map `AF_UNSPEC` to `AF_INET` in a private directory, and set
+`PYTHONPATH=<that directory> CLOUDSDK_PYTHON_SITEPACKAGES=1` on the command. Do not change system networking.
+
 ## Part 1 — Verify the Source dataset
 
 ```bash
@@ -72,9 +85,14 @@ needs it as `source_manifest_sha256`.
   python -m data_platform.generation.src.sharded.profile_manifest --plan plan.json \
     --manifest dataset_manifest.json --output profile.json
   ```
-- **Merchant skew and cardinality:** that tool reports them as `PENDING_COLUMN_SCAN`
-  on purpose. They need a column scan; run it in Trino on the Bronze or Silver run
-  (`GROUP BY merchant_id`, `count(DISTINCT ...)`).
+- **Merchant skew and cardinality:** that tool reports them as `PENDING_COLUMN_SCAN` on purpose. The exact
+  read-only scan of `rehearsal-5gb-v1` is:
+  ```bash
+  uv run --locked --project data_platform/generation python -m ops.gcp.profile_rehearsal_5gb \
+    --output tmp/edai1-5gb-evidence/column_profile.json
+  ```
+  It needs Application Default Credentials and several GiB of RAM, and it is limited to this dataset. It is
+  not a 100 GB profiler; use Trino for a column scan there.
 - **Merchant history:** `merchant_history` rows in the manifest (`tables`), and in Trino
   `SELECT merchant_id, count(*)` on Silver `merchant_history`.
 
