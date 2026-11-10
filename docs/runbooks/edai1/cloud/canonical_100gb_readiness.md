@@ -1,5 +1,7 @@
 # Canonical 100 GB cloud data readiness
 
+> **Historical (retired 2026-11-11).** The DAG versions and `scripts/run_dp*.sh` launchers this runbook uses were archived in [`archive/legacy-orchestration/`](../../../../archive/legacy-orchestration/README.md) and no longer run. The current workflow is three independent DAGs driven by `scripts/edai1/*.sh`: see the [EDAI-1 DP1–DP3 pipeline runbook](edai1_campaign_runbook.md).
+
 The canonical source gate and DP1 Source-to-Bronze run have passed. The
 authoritative source dataset is `canonical-100gb-v1`; the successful DP1
 lineage binds Bronze run `canonical-bronze-20261025-084645`. The remaining

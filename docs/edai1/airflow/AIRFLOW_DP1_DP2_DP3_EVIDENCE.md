@@ -1,14 +1,16 @@
 # Airflow Pipelines: DP1, DP2 and DP3
 
+> **2026-11-11:** this page describes the DAG versions that produced the historical 100GB evidence; their source is archived in [`archive/legacy-orchestration/dags/`](../../../archive/legacy-orchestration/README.md). The same three DAG IDs now run the handoff-based Baseline/Optimized workflow of the [EDAI-1 DP1–DP3 pipeline runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md), which has not run on Dataproc yet.
+
 ## 1. Overview
 
 Three Airflow DAGs orchestrate the batch lakehouse:
 
 | DAG | Pipeline | Stages |
 |---|---|---|
-| [`dp1_source_to_bronze`](../../../data_platform/orchestration/airflow/dags/dp1_source_to_bronze.py) | DP1: raw source → Bronze | **ingest:** quota wait, Dataproc submit; **validate:** source manifest, exact Bronze Delta set |
-| [`dp2_bronze_to_curated`](../../../data_platform/orchestration/airflow/dags/dp2_bronze_to_curated.py) | DP2: Bronze → Silver → Gold | **ingest:** Silver and Gold baseline/optimised transforms; **validate:** physical checks, semantic scans, winner gates |
-| [`dp3_historical_features`](../../../data_platform/orchestration/airflow/dags/dp3_historical_features.py) | DP3: Silver + Gold → offline feature tables | **ingest:** upstream verification, quota wait, Dataproc submit; **validate:** four-table feature Delta check |
+| [`dp1_source_to_bronze`](../../../archive/legacy-orchestration/dags/dp1_source_to_bronze.py) | DP1: raw source → Bronze | **ingest:** quota wait, Dataproc submit; **validate:** source manifest, exact Bronze Delta set |
+| [`dp2_bronze_to_curated`](../../../archive/legacy-orchestration/dags/dp2_bronze_to_curated.py) | DP2: Bronze → Silver → Gold | **ingest:** Silver and Gold baseline/optimised transforms; **validate:** physical checks, semantic scans, winner gates |
+| [`dp3_historical_features`](../../../archive/legacy-orchestration/dags/dp3_historical_features.py) | DP3: Silver + Gold → offline feature tables | **ingest:** upstream verification, quota wait, Dataproc submit; **validate:** four-table feature Delta check |
 
 Airflow is the control plane; the Spark work runs on Dataproc Serverless, and every output is written to an immutable, run-scoped GCS prefix. All three DAGs are triggered manually (`schedule=None`), disable catch-up and allow one active run. The shared task runtime is [`python_runtime.py`](../../../data_platform/orchestration/airflow/python_runtime.py).
 

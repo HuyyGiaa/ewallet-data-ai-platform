@@ -80,9 +80,17 @@ def validated_run_id(scope: str, runs: ValidationRuns) -> str:
 
 
 def validation_batch_id(run_id: str, attempt: int) -> str:
+    """``v<attempt>-<run ID without its "ab-" prefix>``.
+
+    A campaign run ID is up to 48 characters, so suffixing it (``<run>-v1``) exceeded
+    the 50-character batch contract for Optimized Bronze and Silver. Replacing the
+    constant ``ab-`` prefix keeps every validation batch ID within the contract,
+    unique per run and attempt, and still readable.
+    """
+
     if attempt < 1:
         raise ValueError("attempt must be positive")
-    batch_id = f"{run_id}-v{attempt}"
+    batch_id = f"v{attempt}-{run_id.removeprefix('ab-')}"
     if len(batch_id) > MAX_BATCH_ID_LENGTH:
         raise ValueError("validation batch ID exceeds the 50-character contract; use new run IDs")
     return batch_id

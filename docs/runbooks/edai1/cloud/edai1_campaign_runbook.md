@@ -1,14 +1,28 @@
-# EDAI-1 DP1–DP3 campaign runbook
+# EDAI-1 DP1–DP3 pipeline runbook
 
-Audience: the project owner, operating the 5GB rehearsal.
+Audience: the project owner, operating the 5GB rehearsal from a terminal.
 
-The workflow is the DAG `edai1_data_pipeline_campaign`. One DagRun carries one Spark
-profile from the immutable Source dataset through Bronze, Silver, Core Gold and DP3
-features. Every stage is followed by a physical Delta check and a semantic validator.
-There is no winner selection and no promotion. Baseline and Optimized are two
-separate DagRuns that read the same Source.
+EDAI-1 runs as **three independent Airflow DAGs**. Each DagRun is one pipeline and one
+Spark profile, and the DAGs hand over through immutable manifests on GCS:
 
-Nothing in this runbook has been run on Dataproc yet.
+| DAG | Pipeline | Reads | Publishes after physical **and** semantic validation |
+|---|---|---|---|
+| `dp1_source_to_bronze` | Source → Bronze | the immutable Source manifest | `dp1_handoff.json` |
+| `dp2_bronze_to_curated` | Bronze → Silver → Core Gold | a verified `dp1_handoff.json` | `dp2_handoff.json` |
+| `dp3_historical_features` | Silver + Core Gold → historical features | a verified `dp2_handoff.json` | `dp3_completion.json`, `campaign_manifest.json` |
+
+**Why three DAGs:** each stage can be triggered, observed, recovered and evidenced on its own,
+and a downstream DAG cannot start paid work until its upstream DAG has proved success in a
+durable manifest, not in the Airflow UI. There is no winner selection and no promotion:
+Baseline and Optimized are separate chains that read the same Source and never each
+other's intermediates. A complete A/B campaign is six DagRuns.
+
+The integrated DAG `edai1_data_pipeline_campaign` (all stages in one DagRun) is retired. Its
+source is kept in [`archive/legacy-orchestration/`](../../../../archive/legacy-orchestration/README.md);
+its interrupted DagRun (benchmark `ab-20261111033139`, abandoned) stays in the Airflow
+metadata untouched.
+
+**Nothing in the three-DAG workflow has run on Dataproc yet.**
 
 ## Part 0 — Provision and publish (owner action)
 
@@ -96,95 +110,209 @@ needs it as `source_manifest_sha256`.
 - **Merchant history:** `merchant_history` rows in the manifest (`tables`), and in Trino
   `SELECT merchant_id, count(*)` on Silver `merchant_history`.
 
-## Part 3 — Baseline
+## Part 3 — Architecture
 
-Prerequisites: Airflow runs from a clean checkout of the campaign commit, its Python
-has the project on `PYTHONPATH`, `gcloud` is authenticated, and the Dataproc quota is
-free. Loading this DAG into Airflow is an owner action. Start the local runtime with
-`./scripts/start_airflow_local.sh` ([local Airflow runtime](../airflow/AIRFLOW_LOCAL_RUNTIME.md)).
+### Task graphs
 
-Trigger `edai1_data_pipeline_campaign` with:
+Every task runs `python -m ops.gcp.campaign_task <action>` (shared runner) with its
+parameters in the environment; the graphs come from
+[`edai1_pipeline.py`](../../../../data_platform/orchestration/airflow/edai1_pipeline.py). All
+three DAGs are `schedule=None`, one active run, one task at a time, and every task needs the
+exact approval token.
 
-| Parameter | Value |
-|---|---|
-| `dataset_version` | `rehearsal-5gb-v1` |
-| `benchmark_id` | `ab-YYYYMMDDhhmmss`, new for this comparison |
-| `spark_profile` | `baseline` |
-| `git_sha` | full HEAD of the Airflow checkout (the tree must be clean) |
-| `source_manifest_sha256` | from Part 1 |
-| `bronze_run_id` | `<benchmark_id>-baseline-bronze-rYYMMDDhhmmss` |
-| `silver_run_id` | `<benchmark_id>-baseline-silver-rYYMMDDhhmmss` |
-| `gold_run_id` | `<benchmark_id>-baseline-gold-rYYMMDDhhmmss` |
-| `feature_run_id` | `<benchmark_id>-baseline-feat-rYYMMDDhhmmss` |
-| `project_id`, `region` | the project and `asia-southeast1` |
-| `data_bucket` | `ewallet-data-ai-platform-hg26-rehearsal-5gb-data` (the default; any other value is refused) |
-| `dataproc_ttl` | `8h` |
-| `terraform_output_json` | empty to use `terraform output`, or an absolute path to a saved copy |
-| `execution_approval` | `EXECUTE-PAID-DATAPROC:<benchmark_id>:baseline:rehearsal-5gb-v1:<first 12 of git_sha>` |
+```text
+dp1_source_to_bronze
+  preflight.verify_identity_and_absence -> preflight.verify_source_dataset
+  -> bronze.wait_quota -> bronze.submit_transformation -> bronze.physical_validation
+  -> bronze.semantic_validation -> finalize.publish_dp1_handoff
 
-Any other approval value makes every task refuse to run. Tasks run one at a time.
+dp2_bronze_to_curated
+  preflight.verify_identity_and_absence -> preflight.verify_dp1_handoff -> preflight.verify_bronze_inputs
+  -> silver.wait_quota -> silver.submit_transformation -> silver.physical_validation -> silver.semantic_validation
+  -> gold.wait_quota -> gold.submit_transformation -> gold.physical_validation -> gold.semantic_validation
+  -> finalize.publish_dp2_handoff
 
-## Part 4 — Optimized
-
-After reviewing the Baseline outputs and evidence, trigger a second DagRun with
-`spark_profile=optimized`, the same `benchmark_id`, the same `source_manifest_sha256`,
-new `-optimized-` run IDs and its own approval token. It reads only its own upstream
-outputs.
-
-With `B=ewallet-data-ai-platform-hg26-rehearsal-5gb-data`:
-
-**Comparison afterwards** (read-only; run with spark-submit or as a Dataproc batch, after
-approval). It takes the two finished campaign manifests:
-```bash
-python -m ops.gcp.compare_campaign_outputs \
-  --baseline-manifest-uri gs://$B/lakehouse/campaigns/<benchmark_id>/baseline/campaign_manifest.json \
-  --optimized-manifest-uri gs://$B/lakehouse/campaigns/<benchmark_id>/optimized/campaign_manifest.json \
-  --report-uri gs://$B/lakehouse/campaigns/<benchmark_id>/comparison.json
+dp3_historical_features
+  preflight.verify_identity_and_absence -> preflight.verify_dp2_handoff -> preflight.verify_silver_gold_inputs
+  -> features.wait_quota -> features.submit_transformation -> features.physical_validation
+  -> features.semantic_validation -> finalize.publish_dp3_completion
 ```
-The report's verdict is `SEMANTIC_EQUIVALENT`, `SEMANTIC_MISMATCH` or `COMPARISON_INCOMPLETE`.
-Only `created` (five feature tables) and `created_timestamp` (`feat_user_90d`) are excluded;
-each run's validators check those against its own recorded clock. Performance comes from
+
+| Task | Checks | Paid | Retries |
+|---|---|---|---|
+| `verify_identity_and_absence` | clean checkout at `git_sha`, Terraform deployment = DagRun, bucket isolation, **this pipeline's** output prefixes, batch IDs and manifest absent | no | 0 |
+| `verify_source_dataset` (DP1) | Source manifest SHA-256, plan, registry pins, every object | no | 2 |
+| `verify_dp1_handoff` / `verify_dp2_handoff` | the upstream manifest (and its own upstream chain), identity, run IDs, batch states, and the upstream validation reports re-read | no | 2 |
+| `verify_*_inputs` | exact Delta table inventory of the upstream runs | no | 2 |
+| `wait_quota` | Dataproc CPU/disk quota for the initial allocation (28 vCPU) | no | 0 |
+| `submit_transformation` | the existing submitter; refuses an existing output prefix | **yes** | 0 |
+| `physical_validation` | exact Delta table inventory and `_delta_log` | no | 2 |
+| `semantic_validation` | the existing validator on Dataproc; requires a PASS report for this run | **yes** | 0 |
+| `publish_*` | collects provenance again, requires every batch `SUCCEEDED` and every report PASS, then writes the manifest once | no | 2 |
+
+DP2 and DP3 check the upstream handoff again immediately before each paid submission, and Gold
+is refused unless Silver's validation report of the same DagRun is PASS.
+
+### Handoff contract
+
+All manifests are under `gs://<bucket>/lakehouse/campaigns/<benchmark_id>/<profile>/`:
+
+| Object | Written by | Content |
+|---|---|---|
+| `dp1_handoff.json` | DP1 `finalize` | schema `edai1-pipeline-handoff-v1`, `status: SUCCESS`, benchmark, dataset, profile, Git SHA, Source SHA, bucket, project, region, producing DAG and DagRun, Bronze run ID, output root, Dataproc batch, Spark application, event log, Spark UI endpoint, validation report and status, Source summary |
+| `dp2_handoff.json` | DP2 `finalize` | the same identity, Silver and Gold records, and `upstream`: the DP1 handoff URI, its SHA-256 and DagRun |
+| `dp3_completion.json` | DP3 `finalize` | the same identity, the features record, `upstream` = the DP2 handoff, and the campaign manifest URI and SHA-256 |
+| `campaign_manifest.json` | DP3 `finalize` | schema `edai1-pipeline-campaign-v2`, all four stages, the Source re-verified: the input of `compare_campaign_outputs.py` |
+
+Rules: a manifest is published only after every stage of its pipeline passed both validations;
+it is written once (`--if-generation-match=0`); a retry may only find identical content (apart
+from the timestamp) and any other existing content is a conflict that fails the task. A consumer
+refuses a missing, unreadable or inconsistent manifest, a different benchmark, dataset, Source
+SHA, Git SHA, profile, bucket or run ID, a non-PASS validation or non-`SUCCEEDED` batch, an
+upstream report that no longer passes, and a DP2 handoff whose recorded DP1 SHA-256 differs from
+the DP1 handoff now on GCS. There is no fallback to the canonical 100GB outputs.
+
+### Approval
+
+Each DagRun needs `execution_approval` =
+`EXECUTE-PAID-DATAPROC:<DP1|DP2|DP3>:<benchmark_id>:<profile>:<dataset_version>:<first 12 of git_sha>`.
+A token for one pipeline or profile is refused by every other one. The scripts below compute it
+and add it only for `--execute --confirm-paid`; prepared files always hold `NOT_APPROVED`.
+
+### Spark configuration (unchanged)
+
+[`spark_profiles.py`](../../../../data_platform/config/spark_profiles.py) is not changed by this
+workflow. Resources for every stage and profile: driver/executor 4 cores, 9600m memory, 3840m
+overhead, dynamic allocation 2/6/7.
+
+| Stage | Baseline | Optimized |
+|---|---|---|
+| DP1 Bronze | AQE off, 200 partitions | AQE on, 200, allocation profile `performance` |
+| DP2 Silver | AQE off, 200 | AQE on, 200, coalescing on, `parallelismFirst=false`, advisory 64 MiB |
+| DP2 Gold | AQE off, 200 | AQE on, 400 |
+| DP3 Features | AQE off, 200 | AQE on, 200, coalescing on, `parallelismFirst=false`, advisory 64 MiB |
+
+Skew join is off everywhere. `run_dpN.sh` prints the resolved values for its stages.
+
+## Part 4 — Execute the six DagRuns
+
+**Before any paid run, free the Dataproc quota.** The first gate needs 28 vCPU of the
+`CPUS_ALL_REGIONS` quota (32). During the abandoned 2026-11-11 attempt, `dp1_bronze.wait_quota`
+saw 20 vCPU in use and only 12 free for nine minutes, consistent with the 5-node GKE lab being
+awake. Check with `python3 ops/gcp/cloud_lab.py status` and put the lab to sleep
+(`plan-sleep`, then `sleep` with its approval) before DP1.
+
+All commands run from the primary checkout on `main`; the benchmark is pinned to the Git SHA at
+preparation, so do not commit to `main` until all six DagRuns have finished (a later DagRun of a
+moved checkout refuses to start).
+
+```bash
+# 1. Airflow (API server, scheduler, DAG processor on 127.0.0.1:8084)
+./scripts/start_airflow_local.sh
+
+# 2. Plan the benchmark: new benchmark ID, 8 run IDs, 6 DagRun configurations, Source verified (read-only)
+bash scripts/edai1/prepare_campaign.sh \
+  --terraform-output-json /abs/path/terraform-outputs.json   # or omit to run `terraform output -json`
+B=ab-YYYYMMDDhhmmss   # printed by prepare
+
+# 3. DP1 Baseline: dry run (read-only checks), then execute
+bash scripts/edai1/run_dp1.sh --benchmark-id "$B" --profile baseline
+bash scripts/edai1/run_dp1.sh --benchmark-id "$B" --profile baseline --execute --confirm-paid
+bash scripts/edai1/status_campaign.sh --benchmark-id "$B"          # repeat while it runs
+
+# 4. Verify the DP1 handoff
+bash scripts/edai1/verify_handoffs.sh --benchmark-id "$B" --profile baseline
+
+# 5. DP2 Baseline (refuses without a verified DP1 handoff)
+bash scripts/edai1/run_dp2.sh --benchmark-id "$B" --profile baseline
+bash scripts/edai1/run_dp2.sh --benchmark-id "$B" --profile baseline --execute --confirm-paid
+
+# 6. Verify the DP2 handoff
+bash scripts/edai1/verify_handoffs.sh --benchmark-id "$B" --profile baseline
+
+# 7. DP3 Baseline (refuses without a verified DP2 handoff)
+bash scripts/edai1/run_dp3.sh --benchmark-id "$B" --profile baseline
+bash scripts/edai1/run_dp3.sh --benchmark-id "$B" --profile baseline --execute --confirm-paid
+bash scripts/edai1/verify_handoffs.sh --benchmark-id "$B" --profile baseline
+
+# 8. Repeat 3-7 with --profile optimized
+
+# 9. Final state of all six DagRuns, with batch IDs, Spark application IDs and Spark UI links
+bash scripts/edai1/status_campaign.sh --benchmark-id "$B" --dataproc
+```
+
+Script reference (all have `--help`; exit 0 = ready/done, 1 = refused or not ready, 2 = usage):
+
+| Script | Purpose | Changes |
+|---|---|---|
+| `prepare_campaign.sh` | Requires `main` and a clean tree; pins Git SHA, Source SHA (default: the published `ac2dfb0e…`) and the Terraform outputs (copied); writes `tmp/edai1-campaign/<B>/campaign.json` and `{baseline,optimized}/{dp1,dp2,dp3}.json` (mode 600, Git-ignored) | local files only |
+| `run_dp1.sh`, `run_dp2.sh`, `run_dp3.sh` | Dry run: Git at the pinned SHA, DAG registered, DagRun ID unused and no active run, upstream handoff verified, own output prefix, batch ID and handoff absent (read-only `gcloud`); `--offline` skips the `gcloud` reads | with `--execute --confirm-paid` only: `airflow dags unpause` and `airflow dags trigger` of that one DAG |
+| `status_campaign.sh` | Airflow state and current task of the six planned DagRuns, handoff state, and from each published handoff the batch, Spark application, Spark UI and event log; `UNKNOWN`/`NOT_AVAILABLE` when a value cannot be read | none |
+| `verify_handoffs.sh` | DP1 → DP2 → DP3 for one profile, with the same checks as the DAGs | none |
+
+DagRun IDs are `<B>-<profile>-dp1|dp2|dp3`; the Airflow link is
+`http://127.0.0.1:8084/dags/<dag_id>/runs/<dagrun id>`.
+
+### Semantic comparison (separate approval)
+
+After both `dp3_completion.json` exist (read-only; run with spark-submit or as a Dataproc batch):
+```bash
+B=ab-YYYYMMDDhhmmss; D=ewallet-data-ai-platform-hg26-rehearsal-5gb-data
+python -m ops.gcp.compare_campaign_outputs \
+  --baseline-manifest-uri gs://$D/lakehouse/campaigns/$B/baseline/campaign_manifest.json \
+  --optimized-manifest-uri gs://$D/lakehouse/campaigns/$B/optimized/campaign_manifest.json \
+  --report-uri gs://$D/lakehouse/campaigns/$B/comparison.json
+```
+The verdict is `SEMANTIC_EQUIVALENT`, `SEMANTIC_MISMATCH` or `COMPARISON_INCOMPLETE`. Only
+`created` (five feature tables) and `created_timestamp` (`feat_user_90d`) are excluded; each
+run's validators check those against its own recorded clock. Performance comes from
 `python -m ops.gcp.spark_stage_report` on the event logs.
 
-## Part 5 — Evidence checkpoints
+## Part 5 — Evidence
 
-| Where | What |
+Capture only what shows the rubric; the manifests already hold the identifiers.
+
+| Screenshot | Where |
 |---|---|
-| Airflow | DagRun graph; each group's task logs; `preflight` output |
-| Dataproc | `gcloud dataproc batches describe <id>`: state, runtime, times. Transformation batch = the run ID; validator batch = `<run>-v<attempt>` |
-| Spark UI | Link from the batch; event logs in `gs://<bucket>/spark-events/` |
-| Validation | `gs://<bucket>/lakehouse/runs/<run>/evidence/validation-<scope>-a<attempt>.json` |
-| Bronze | `gs://<bucket>/lakehouse/runs/<bronze run>/evidence/source_to_bronze.json` (has the Spark application ID) |
-| Campaign | `gs://<bucket>/lakehouse/campaigns/<benchmark_id>/<profile>/campaign_manifest.json` |
-| GCS | `runs/<run>/{bronze,silver,gold}/`, `_delta_log` |
+| DP1, DP2, DP3 Graph views, all green | Airflow → DAG → the DagRun → Graph (DP2 shows the `silver` and `gold` groups) |
+| One semantic validation log per DAG | the `semantic_validation` task log: `PASS: validation <scope> batch=… report=…` |
+| Six completed DagRuns | Airflow → DAG runs list, or `status_campaign.sh` |
+| Spark UI of DP2 Silver, DP2 Gold, DP3 Features (both profiles) | link from `status_campaign.sh` (`spark_ui=`) or the Dataproc batch page; jobs/stages, SQL plan with `AQEShuffleRead` for Optimized, stage task-time and spill |
 
-**Finding each Spark application:** every transformation and validator writes
-`runs/<run>/evidence/spark_execution-<batch>.json` at startup (real application ID and event-log
-directory), and the campaign keeps `execution_provenance-<batch>.json` beside it, also for failed
-batches. The manifest repeats this per stage. To see all stages at any time, read-only:
-```bash
-python -m ops.gcp.spark_provenance --dataset-version rehearsal-5gb-v1 --benchmark-id <id> \
-  --spark-profile baseline --git-sha <sha> --source-manifest-sha256 <sha256> \
-  --bronze-run-id <id> --silver-run-id <id> --gold-run-id <id> --features-run-id <id> \
-  --project-id ewallet-data-ai-platform-hg26 --region asia-southeast1 --data-bucket "$B"
+Navigation from a DAG to its data:
+```text
+Airflow DAG run -> task log of submit_transformation (Dataproc batch ID = the run ID)
+  -> Dataproc batch (gcloud dataproc batches describe <run id> --region asia-southeast1)
+  -> Spark UI (batch page) or event log gs://<bucket>/spark-events/<application id>
+  -> Delta output gs://<bucket>/lakehouse/runs/<run>/<zone>/
+  -> validation report gs://<bucket>/lakehouse/runs/<run>/evidence/validation-<scope>-a<n>.json (PASS)
 ```
-A field is null when Dataproc or the job did not provide it. The event log is
-`gs://$B/spark-events/<application id>` (listed only when it exists); `history_server_uri` comes
-from the batch's own endpoints and is null if Dataproc gives none.
+Validator batches are named `v<attempt>-<run ID without "ab-">` (at most 50 characters).
+Every transformation and validator writes `runs/<run>/evidence/spark_execution-<batch>.json` at
+startup (Spark application ID, event-log directory); the runner keeps
+`execution_provenance-<batch>.json` beside it, also for failed batches. The Serverless Spark UI
+may not stay available after a batch ends, so capture it during or right after the run, or from
+the event logs.
 
-The Serverless Spark UI may not stay available after a batch ends, so capture it
-during or right after the run, or from the event logs.
+### Historical evidence
+
+The 100GB results under `docs/evidence/` were produced by the earlier DAG designs (Method-2
+single DAG, then the integrated campaign) and stay as they are. The three-DAG workflow has not
+yet produced evidence; do not present the historical runs as three-DAG runs.
 
 ## Part 6 — Recovery
 
-The output prefixes are immutable, so a stage is never re-run over its own output.
+Output prefixes and manifests are immutable, so nothing is ever re-run over its own output.
 
-- **Failed before any output** (quota, preflight, source gate): fix the cause and clear
-  the failed task.
-- **Failed validator:** read its report. If the data is at fault, the campaign stops
-  there. If the batch failed for an infrastructure reason, clear the task: the Airflow
-  try number gives a new batch ID and report (`-v2`, `-a2`, up to 9 attempts).
-- **Failed or partial transformation:** clearing the task is refused, because the
-  output prefix exists. Trigger a new DagRun with new run IDs and a new approval token.
-  Old outputs stay in place; do not delete them as routine recovery.
-- **Mismatch at the source gate:** stop and investigate. Do not publish over the dataset.
+- **Failed before any paid job** (preflight, handoff check, quota): fix the cause and clear the
+  failed task. Nothing was created.
+- **Failed validator:** read its report. If the data is at fault, the pipeline stops there and no
+  handoff is published. If the batch failed for an infrastructure reason, clear the
+  `semantic_validation` task: the Airflow try number gives a new batch and report (`v2-…`, `-a2`).
+- **Failed publication:** it retries twice automatically; clearing it again is safe (write-once,
+  identical content).
+- **Failed or partial transformation:** clearing the task is refused because the output prefix
+  exists. Prepare a **new benchmark** and start again from DP1, so every stage of both profiles
+  shares one benchmark. Keep the failed outputs and their provenance; do not delete them as
+  routine recovery.
+- **Source mismatch:** stop and investigate. Do not publish over the dataset.

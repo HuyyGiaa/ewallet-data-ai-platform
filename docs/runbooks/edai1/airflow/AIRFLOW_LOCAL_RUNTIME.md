@@ -88,7 +88,7 @@ Check DAG parsing after a start (read-only):
 ```bash
 export AIRFLOW_HOME=$PWD/data_platform/orchestration/airflow PYTHONPATH=$PWD
 ~/miniconda3/envs/airflow/bin/airflow dags list-import-errors
-~/miniconda3/envs/airflow/bin/airflow dags list | grep edai1_data_pipeline_campaign
+~/miniconda3/envs/airflow/bin/airflow dags list | grep -E 'dp1_source_to_bronze|dp2_bronze_to_curated|dp3_historical_features'
 ```
 
 ## Tests

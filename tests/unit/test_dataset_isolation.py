@@ -164,11 +164,11 @@ class Dp2DatasetTest(unittest.TestCase):
             keywords = {item.arg: ast.unparse(item.value) for item in call.keywords}
             self.assertEqual("args.dataset_version", keywords.get("dataset_version"))
 
-    def test_the_dp2_dag_lists_both_identities_and_defaults_to_canonical(self):
-        source = (ROOT / "data_platform/orchestration/airflow/dags/dp2_bronze_to_curated.py").read_text(encoding="utf-8")
-        self.assertIn('Param("canonical-100gb-v1", type="string",\n'
-                      '                                 enum=["canonical-100gb-v1", "rehearsal-5gb-v1"])', source)
-        self.assertIn('"approval": Param("NOT_APPROVED"', source)
+    def test_the_pipeline_dags_default_to_the_rehearsal_identity_and_never_execute(self):
+        source = (ROOT / "data_platform/orchestration/airflow/edai1_pipeline.py").read_text(encoding="utf-8")
+        self.assertIn('"dataset_version": Param(REHEARSAL_5GB,', source)
+        self.assertIn('"data_bucket": Param(REHEARSAL_DATA_BUCKET,', source)
+        self.assertIn('"execution_approval": Param(NOT_APPROVED,', source)
 
     def test_historical_recovery_stays_bound_to_the_canonical_run(self):
         source = (ROOT / "ops/gcp/recover_dp2_method2.py").read_text(encoding="utf-8")

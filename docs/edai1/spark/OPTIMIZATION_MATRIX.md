@@ -215,7 +215,7 @@ Raw artefacts:
 
 ## 7. 2026-11-11 — Revised 5GB rehearsal Spark profiles
 
-Sections 3 to 5 are historical 100GB results (`canonical-100gb-v1`) and are unchanged. This section records the configuration revision made before the `rehearsal-5gb-v1` campaign (`edai1_data_pipeline_campaign`). **No measurement in this section comes from the new pipeline**: the revised profiles have not run on Dataproc yet. They are tuning candidates, not verified winners.
+Sections 3 to 5 are historical 100GB results (`canonical-100gb-v1`) and are unchanged. This section records the configuration revision made before the `rehearsal-5gb-v1` campaign (the DP1–DP3 pipeline DAGs, [runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md)). **No measurement in this section comes from the new pipeline**: the revised profiles have not run on Dataproc yet. They are tuning candidates, not verified winners.
 
 ### 7.1 Configuration matrix
 

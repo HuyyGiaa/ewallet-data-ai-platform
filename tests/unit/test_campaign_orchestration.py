@@ -1,16 +1,15 @@
-"""Campaign tasks: parameters, approval, command construction and fail-closed gates.
+"""Pipeline tasks: parameters, approval, command construction and fail-closed gates.
 
 No test reaches gcloud: a recording runner stands in for every subprocess call.
+Handoff contracts between the three DAGs are in test_campaign_handoffs.py.
 """
 
 from __future__ import annotations
 
 import json
 import subprocess
-import tempfile
 import unittest
 from dataclasses import replace
-from pathlib import Path
 from unittest.mock import patch
 
 from data_platform.config.dataset_identity import (
@@ -18,192 +17,55 @@ from data_platform.config.dataset_identity import (
     CANONICAL_100GB,
     CANONICAL_DATA_BUCKET,
     REHEARSAL_5GB,
-    REHEARSAL_DATA_BUCKET,
 )
-from ops.gcp import (
-    campaign_task,
-    submit_bronze_to_silver,
-    submit_historical_features,
-    submit_silver_to_gold,
-    submit_source_to_bronze,
-    submit_stage_validation,
-    wait_for_dataproc_quota,
+from ops.gcp import campaign_task, submit_bronze_to_silver, submit_source_to_bronze, submit_stage_validation
+from ops.gcp.campaign_task import PIPELINES, CampaignError, actions_for, parse_parameters, run_action
+from tests.unit.campaign_fakes import (
+    BENCH,
+    BUCKET,
+    SHA,
+    RecordingRunner,
+    TerraformFixture,
+    finished_batches,
+    producer,
+    run_id,
+    terraform_outputs,
+    values,
 )
-from ops.gcp.campaign_task import CampaignError, parse_parameters, run_action
-
-
-BUCKET = REHEARSAL_DATA_BUCKET
-SHA = "a" * 40
-BENCH = "ab-20261110000000"
-ATTEMPT_SUFFIX = {"bronze": "r261110000000", "silver": "r261110000001", "gold": "r261110000002", "feat": "r261110000003"}
-
-
-def run_id(profile: str, stage: str, benchmark: str = BENCH) -> str:
-    return f"{benchmark}-{profile}-{stage}-{ATTEMPT_SUFFIX[stage]}"
-
-
-def values(profile: str = "baseline", **overrides: str) -> dict[str, str]:
-    result = {
-        "dataset_version": REHEARSAL_5GB, "benchmark_id": BENCH, "spark_profile": profile, "git_sha": SHA,
-        "source_manifest_sha256": "b" * 64,
-        "bronze_run_id": run_id(profile, "bronze"), "silver_run_id": run_id(profile, "silver"),
-        "gold_run_id": run_id(profile, "gold"), "feature_run_id": run_id(profile, "feat"),
-        "project_id": "ewallet-data-ai-platform-hg26", "region": "asia-southeast1", "data_bucket": BUCKET,
-        "dataproc_ttl": "8h", "terraform_output_json": "", "execution_approval": "",
-    }
-    result.update(overrides)
-    if "execution_approval" not in overrides:
-        result["execution_approval"] = campaign_task.expected_approval(result)
-    return result
-
-
-def terraform_outputs(bucket: str = CANONICAL_DATA_BUCKET, project: str = "ewallet-data-ai-platform-hg26") -> dict[str, dict[str, object]]:
-    return {
-        "project_id": {"value": project},
-        "region": {"value": "asia-southeast1"},
-        "data_bucket_name": {"value": bucket},
-        "temporary_bucket_name": {"value": "temp-bucket"},
-        "service_account_emails": {"value": {"spark": "spark@example.com"}},
-        "dataproc_batch_runtime": {"value": {
-            "project_id": project, "region": "asia-southeast1",
-            "staging_bucket": "temp-bucket", "service_account_email": "spark@example.com",
-            "execution_mode": "serverless-batch", "performance_tier": "standard", "subnet": "subnet-1",
-        }},
-    }
-
-
-class RecordingRunner:
-    """Answers the gcloud/git calls the campaign makes; everything else is an error."""
-
-    def __init__(self, *, git_sha: str = SHA, dirty: str = "", existing_prefixes=(), existing_batches=(),
-                 report_status: str = "PASS", submit_fails: bool = False, tables: set[str] | None = None,
-                 batch_state: str = "SUCCEEDED", bucket_exists: bool = True) -> None:
-        self.calls: list[list[str]] = []
-        self.git_sha, self.dirty = git_sha, dirty
-        self.existing_prefixes, self.existing_batches = tuple(existing_prefixes), set(existing_batches)
-        self.report_status, self.submit_fails, self.tables = report_status, submit_fails, tables
-        self.batch_state = batch_state
-        self.bucket_exists = bucket_exists
-        self.written: list[str] = []
-        self.bodies: dict[str, str] = {}
-
-    @staticmethod
-    def _done(returncode: int = 0, stdout: str = "", stderr: str = ""):
-        return subprocess.CompletedProcess([], returncode, stdout, stderr)
-
-    def __call__(self, command, **kwargs):
-        command = [str(item) for item in command]
-        self.calls.append(command)
-        if command[:2] == ["git", "rev-parse"]:
-            return self._done(stdout=self.git_sha + "\n")
-        if command[:2] == ["git", "status"]:
-            return self._done(stdout=self.dirty)
-        if command[:4] == ["gcloud", "dataproc", "batches", "describe"]:
-            batch = command[4]
-            if batch in self.existing_batches:
-                return self._done(stdout=json.dumps({
-                    "state": self.batch_state, "uuid": batch, "createTime": "2026-11-10T00:00:00Z",
-                    "stateTime": "2026-11-10T00:10:00Z",
-                    "labels": {"benchmark_id": BENCH, "spark_profile": batch.split("-")[2], "git_sha": SHA},
-                }))
-            return self._done(1, stderr="NOT_FOUND: batch")
-        if command[:4] == ["gcloud", "dataproc", "batches", "submit"]:
-            batch = next(item.split("=", 1)[1] for item in command if item.startswith("--batch="))
-            self.existing_batches.add(batch)
-            if self.submit_fails:
-                if kwargs.get("check"):
-                    raise subprocess.CalledProcessError(1, command)
-                return self._done(1, stderr="batch failed")
-            return self._done()
-        if command[:4] == ["gcloud", "storage", "buckets", "describe"]:
-            if not self.bucket_exists:
-                return self._done(1, stderr="not found: 404")
-            return self._done(stdout=json.dumps({
-                "location": "ASIA-SOUTHEAST1", "uniform_bucket_level_access": True,
-                "public_access_prevention": "enforced", "versioning_enabled": True}))
-        if command[:4] == ["gcloud", "storage", "buckets", "get-iam-policy"]:
-            return self._done(stdout=json.dumps({"bindings": [
-                {"role": "roles/storage.objectUser", "members": ["serviceAccount:spark@example.com"]}]}))
-        if command[:3] == ["gcloud", "storage", "cat"]:
-            if "spark_execution-" in command[3]:
-                run = command[3].split("/runs/", 1)[1].split("/", 1)[0]
-                return self._done(stdout=json.dumps({
-                    "run_id": run, "dataset_version": REHEARSAL_5GB, "spark_application_id": "app-1",
-                    "spark_event_log_dir": f"gs://{BUCKET}/spark-events"}))
-            return self._done(stdout=json.dumps(self.report(command[3])))
-        if command[:3] == ["gcloud", "storage", "ls"]:
-            return self.listing(command[3])
-        if command[:3] == ["gcloud", "storage", "cp"]:
-            self.written.append(command[4])
-            self.bodies[command[4]] = Path(command[3]).read_text(encoding="utf-8")
-            return self._done()
-        raise AssertionError(f"unexpected command: {command}")
-
-    def report(self, uri: str) -> dict[str, object]:
-        scope = uri.rsplit("validation-", 1)[1].rsplit("-a", 1)[0]
-        run = uri.split("/runs/", 1)[1].split("/", 1)[0]
-        return {"scope": scope, "run_id": run, "dataset_version": REHEARSAL_5GB, "status": self.report_status,
-                "failed_rules": ["x"] if self.report_status != "PASS" else [],
-                "results": [{"rule_name": "x", "passed": self.report_status == "PASS"}]}
-
-    def listing(self, uri: str):
-        if "/spark-events/" in uri:
-            return self._done(stdout=uri.rstrip("*") + "\n")
-        if uri.endswith("/_delta_log/*.json"):
-            return self._done(stdout=uri.replace("*.json", "0.json") + "\n")
-        if uri.endswith("-a*.json"):
-            return self._done(stdout=uri.replace("*.json", "1.json") + "\n")
-        if uri.endswith("/**"):
-            if any(prefix in uri for prefix in self.existing_prefixes):
-                return self._done(stdout=uri + "x\n")
-            return self._done(1, stderr="ERROR: One or more URLs matched no objects.")
-        if uri.endswith(".json"):  # a report that must be absent
-            return self._done(1, stderr="ERROR: One or more URLs matched no objects.")
-        # A run root: return the expected table directories unless told otherwise.
-        return self._done(stdout="\n".join(f"{uri}{table}/" for table in sorted(self.tables or set())))
-
-
-class TerraformFixture(unittest.TestCase):
-    def setUp(self):
-        directory = tempfile.TemporaryDirectory()
-        self.addCleanup(directory.cleanup)
-        self.outputs = Path(directory.name) / "terraform.json"
-        self.outputs.write_text(json.dumps(terraform_outputs()), encoding="utf-8")
-        for module in (submit_source_to_bronze, submit_bronze_to_silver, submit_silver_to_gold,
-                       submit_historical_features, submit_stage_validation):
-            for name, value in (("ensure_delta_dependencies", lambda: ()), ("build_python_archive", lambda *a: Path("job.zip"))):
-                patcher = patch.object(module, name, value)
-                patcher.start()
-                self.addCleanup(patcher.stop)
-        quota = patch.object(wait_for_dataproc_quota, "main", return_value=0)
-        self.quota = quota.start()
-        self.addCleanup(quota.stop)
-
-    def params(self, profile: str = "baseline", **overrides: str):
-        return parse_parameters(values(profile, terraform_output_json=str(self.outputs), **overrides))
-
-    def submits(self, runner: RecordingRunner) -> list[list[str]]:
-        return [call for call in runner.calls if call[:4] == ["gcloud", "dataproc", "batches", "submit"]]
 
 
 class ParameterTest(unittest.TestCase):
-    def assert_refused(self, message: str, **overrides: str) -> None:
+    def assert_refused(self, message: str, pipeline: str = "dp3", **overrides: str) -> None:
         with self.assertRaisesRegex(CampaignError, message):
-            parse_parameters(values(**overrides))
+            parse_parameters(values(pipeline=pipeline, **overrides), pipeline=pipeline)
 
-    def test_valid_parameters_for_both_profiles(self):
-        for profile in ("baseline", "optimized"):
-            with self.subTest(profile):
-                params = parse_parameters(values(profile))
-                self.assertEqual(profile, params.spark_profile)
-                self.assertEqual(f"gs://{BUCKET}/lakehouse/runs/{params.silver_run_id}/silver",
-                                 params.run_root("silver"))
+    def test_valid_parameters_for_every_pipeline_and_profile(self):
+        for pipeline in PIPELINES:
+            for profile in ("baseline", "optimized"):
+                with self.subTest(pipeline=pipeline, profile=profile):
+                    params = parse_parameters(values(profile, pipeline), pipeline=pipeline)
+                    self.assertEqual(profile, params.spark_profile)
+                    for stage in PIPELINES[pipeline].stages:
+                        self.assertIn(f"-{profile}-", params.stage_run_id(stage))
+        params = parse_parameters(values(pipeline="dp2"), pipeline="dp2")
+        self.assertEqual(f"gs://{BUCKET}/lakehouse/runs/{params.silver_run_id}/silver", params.run_root("silver"))
+        self.assertIsNone(params.feature_run_id)
+
+    def test_each_pipeline_accepts_only_its_own_run_parameters(self):
+        self.assertEqual(("bronze_run_id",), PIPELINES["dp1"].run_parameters)
+        self.assertEqual(("bronze_run_id", "silver_run_id", "gold_run_id"), PIPELINES["dp2"].run_parameters)
+        supplied = values(pipeline="dp1")
+        supplied["silver_run_id"] = run_id("baseline", "silver")
+        with self.assertRaisesRegex(CampaignError, "do not belong to DP1"):
+            parse_parameters(supplied, pipeline="dp1")
+        with self.assertRaisesRegex(CampaignError, "pipeline must be one of"):
+            parse_parameters(values(), pipeline="dp4")
 
     def test_a_future_registered_dataset_version_is_accepted(self):
         future = "final-100gb-v2"
         identity = replace(APPROVED_DATASETS[REHEARSAL_5GB], version=future)
         with patch.dict(APPROVED_DATASETS, {future: identity}):
-            parse_parameters(values(dataset_version=future))
+            parse_parameters(values(dataset_version=future), pipeline="dp3")
 
     def test_invalid_profile_sha_and_dataset(self):
         self.assert_refused("spark_profile", spark_profile="fast")
@@ -215,12 +77,13 @@ class ParameterTest(unittest.TestCase):
         self.assert_refused("", silver_run_id=run_id("baseline", "gold"))
         self.assert_refused("", gold_run_id=run_id("baseline", "gold", "ab-20261110000001"))
         self.assert_refused("", feature_run_id="not-a-run")
+        self.assert_refused("", pipeline="dp2", bronze_run_id=run_id("optimized", "bronze"))
 
     def test_a_rehearsal_in_the_canonical_bucket_is_refused(self):
         self.assert_refused("must use bucket", data_bucket=CANONICAL_DATA_BUCKET)
 
     def test_canonical_dataset_runs_only_in_its_contract(self):
-        parse_parameters(values(dataset_version=CANONICAL_100GB, data_bucket=CANONICAL_DATA_BUCKET))
+        parse_parameters(values(dataset_version=CANONICAL_100GB, data_bucket=CANONICAL_DATA_BUCKET), pipeline="dp3")
 
     def test_unsafe_strings_are_refused(self):
         for name, value in (("data_bucket", "b;rm -rf /"), ("project_id", "p$(id)"), ("region", "asia`x`"),
@@ -232,14 +95,14 @@ class ParameterTest(unittest.TestCase):
         self.assert_refused("dataproc_ttl", dataproc_ttl="1h")
 
     def test_missing_parameter_is_refused(self):
-        supplied = values()
+        supplied = values(pipeline="dp2")
         del supplied["bronze_run_id"]
-        with self.assertRaisesRegex(CampaignError, "missing campaign parameters"):
-            parse_parameters(supplied)
+        with self.assertRaisesRegex(CampaignError, "missing DP2 parameters"):
+            parse_parameters(supplied, pipeline="dp2")
 
     def test_only_the_exact_approval_token_is_accepted(self):
         token = values()["execution_approval"]
-        self.assertTrue(token.startswith("EXECUTE-PAID-DATAPROC:"))
+        self.assertTrue(token.startswith("EXECUTE-PAID-DATAPROC:DP3:"))
         for bad in ("NOT_APPROVED", "", "I_APPROVE_DP2_PAID_JOBS", token + "x", token.replace("baseline", "optimized")):
             with self.subTest(bad):
                 self.assert_refused("approval", execution_approval=bad)
@@ -247,30 +110,81 @@ class ParameterTest(unittest.TestCase):
     def test_approval_for_one_profile_does_not_cover_the_other(self):
         baseline_token = values("baseline")["execution_approval"]
         with self.assertRaisesRegex(CampaignError, "approval"):
-            parse_parameters(values("optimized", execution_approval=baseline_token))
+            parse_parameters(values("optimized", execution_approval=baseline_token), pipeline="dp3")
+
+    def test_approval_for_one_pipeline_does_not_cover_another(self):
+        dp1_token = values(pipeline="dp1")["execution_approval"]
+        self.assertIn(":DP1:", dp1_token)
+        with self.assertRaisesRegex(CampaignError, "approval"):
+            parse_parameters(values(pipeline="dp2", execution_approval=dp1_token), pipeline="dp2")
+
+    def test_read_only_tooling_can_parse_without_approval(self):
+        parse_parameters(values(execution_approval="NOT_APPROVED"), pipeline="dp3", require_approval=False)
 
     def test_environment_parameters_and_attempt(self):
-        environ = {f"EDAI1_CAMPAIGN_{k.upper()}": v for k, v in values().items()}
-        self.assertEqual("baseline", campaign_task.parameters_from_environment(environ).spark_profile)
+        environ = {f"EDAI1_CAMPAIGN_{k.upper()}": v for k, v in values(pipeline="dp2").items()}
+        with self.assertRaisesRegex(CampaignError, "pipeline"):
+            campaign_task.parameters_from_environment(environ)
+        environ["EDAI1_CAMPAIGN_PIPELINE"] = "dp2"
+        params = campaign_task.parameters_from_environment(environ)
+        self.assertEqual(("baseline", "dp2"), (params.spark_profile, params.pipeline))
         with self.assertRaises(CampaignError):
             campaign_task.attempt_from_environment({})
         self.assertEqual(3, campaign_task.attempt_from_environment({"EDAI1_CAMPAIGN_ATTEMPT": "3"}))
 
     def test_unapproved_task_exits_nonzero_without_calling_anything(self):
-        environ = {f"EDAI1_CAMPAIGN_{k.upper()}": v for k, v in values(execution_approval="NOT_APPROVED").items()}
-        environ["EDAI1_CAMPAIGN_ATTEMPT"] = "1"
-        runner = RecordingRunner()
-        for action in campaign_task.ACTIONS:
-            with self.subTest(action):
-                self.assertEqual(1, campaign_task.main([action], environ=environ, runner=runner))
-        self.assertEqual([], runner.calls)
+        for pipeline in PIPELINES:
+            environ = {f"EDAI1_CAMPAIGN_{k.upper()}": v
+                       for k, v in values(pipeline=pipeline, execution_approval="NOT_APPROVED").items()}
+            environ.update(EDAI1_CAMPAIGN_ATTEMPT="1", EDAI1_CAMPAIGN_PIPELINE=pipeline)
+            runner = RecordingRunner()
+            for action in actions_for(pipeline):
+                with self.subTest(pipeline=pipeline, action=action):
+                    self.assertEqual(1, campaign_task.main([action], environ=environ, runner=runner))
+            self.assertEqual([], runner.calls)
+
+    def test_publication_requires_the_dagrun_identity_of_its_own_dag(self):
+        params = parse_parameters(values(pipeline="dp1"), pipeline="dp1")
+        with self.assertRaisesRegex(CampaignError, "publishing DAG"):
+            campaign_task.producer_from_environment(params, {"EDAI1_CAMPAIGN_DAG_ID": "dp2_bronze_to_curated",
+                                                             "EDAI1_CAMPAIGN_DAG_RUN_ID": "x"})
+        with self.assertRaisesRegex(CampaignError, "DagRun ID"):
+            campaign_task.producer_from_environment(params, {"EDAI1_CAMPAIGN_DAG_ID": "dp1_source_to_bronze",
+                                                             "EDAI1_CAMPAIGN_DAG_RUN_ID": "a b"})
+
+
+class PipelineActionTest(unittest.TestCase):
+    def test_actions_are_scoped_to_their_pipeline(self):
+        self.assertEqual(
+            ("preflight", "verify-source", "quota-bronze", "submit-bronze", "physical-bronze", "validate-bronze",
+             "publish-handoff"), actions_for("dp1"))
+        self.assertEqual(
+            ("preflight", "verify-upstream-handoff", "verify-upstream-inputs",
+             "quota-silver", "submit-silver", "physical-silver", "validate-silver",
+             "quota-gold", "submit-gold", "physical-gold", "validate-gold", "publish-handoff"), actions_for("dp2"))
+        self.assertEqual(
+            ("preflight", "verify-upstream-handoff", "verify-upstream-inputs", "quota-features", "submit-features",
+             "physical-features", "validate-features", "publish-handoff"), actions_for("dp3"))
+        for pipeline, foreign in (("dp1", "submit-silver"), ("dp2", "submit-bronze"), ("dp2", "submit-features"),
+                                  ("dp3", "submit-gold"), ("dp1", "verify-upstream-handoff")):
+            with self.subTest(pipeline=pipeline, action=foreign), self.assertRaisesRegex(CampaignError, "not part of"):
+                run_action(foreign, parse_parameters(values(pipeline=pipeline), pipeline=pipeline),
+                           attempt=1, runner=RecordingRunner())
+
+    def test_the_runner_has_no_winner_selection(self):
+        text = (campaign_task.REPOSITORY_ROOT / "ops/gcp/campaign_task.py").read_text(encoding="utf-8").lower()
+        for forbidden in ("pair_manifest", "dp2_method2", "select_stage_winner", "_winner", "winner_"):
+            self.assertNotIn(forbidden, text)
 
 
 class SubmissionCommandTest(TerraformFixture):
     def run_submit(self, stage: str, profile: str = "baseline") -> list[str]:
-        runner = RecordingRunner()
-        run_action(f"submit-{stage}", self.params(profile), attempt=1, runner=runner)
-        submits = self.submits(runner)
+        runner = self.completed_runner(profile, upto={"bronze": "dp1", "silver": "dp1", "gold": "dp1",
+                                                      "features": "dp2"}[stage])
+        runner.existing_batches -= {run_id(profile, {"features": "feat"}.get(stage, stage))}
+        before = len(self.submits(runner))
+        run_action(f"submit-{stage}", self.stage_params(stage, profile), attempt=1, runner=runner)
+        submits = self.submits(runner)[before:]
         self.assertEqual(1, len(submits))
         return submits[0]
 
@@ -318,24 +232,25 @@ class SubmissionCommandTest(TerraformFixture):
             "features": ("validate_gold.py", ["--scope=features", "--pit-sample-modulus=1000"],
                          ["--silver-root=", "--gold-root=", "--feature-gold-root="]),
         }
-        for stage, (script, flags, roots) in expected.items():
-            with self.subTest(stage):
-                runner = RecordingRunner()
-                run_action(f"validate-{stage}", self.params(), attempt=2, runner=runner)
-                command = self.submits(runner)[0]
-                self.assertTrue(command[5].endswith(script))
-                for flag in flags:
-                    self.assertIn(flag, command)
-                for root in roots:
-                    value = next(item for item in command if item.startswith(root))
-                    self.assertIn("/lakehouse/runs/ab-", value)
-                self.assertIn("--environment=gcp", command)
-                batch = next(item for item in command if item.startswith("--batch="))
-                self.assertTrue(batch.endswith("-v2"))
-                self.assertLessEqual(len(batch.split("=", 1)[1]), 50)
-                report = next(item for item in command if item.startswith("--report-uri="))
-                self.assertIn("/evidence/validation-", report)
-                self.assertTrue(report.endswith("-a2.json"))
+        for profile in ("baseline", "optimized"):
+            for stage, (script, flags, roots) in expected.items():
+                with self.subTest(profile=profile, stage=stage):
+                    runner = RecordingRunner()
+                    run_action(f"validate-{stage}", self.stage_params(stage, profile), attempt=2, runner=runner)
+                    command = self.submits(runner)[0]
+                    self.assertTrue(command[5].endswith(script))
+                    for flag in flags:
+                        self.assertIn(flag, command)
+                    for root in roots:
+                        value = next(item for item in command if item.startswith(root))
+                        self.assertIn(f"/lakehouse/runs/ab-20261110000000-{profile}-", value)
+                    self.assertIn("--environment=gcp", command)
+                    batch = next(item for item in command if item.startswith("--batch=")).split("=", 1)[1]
+                    self.assertTrue(batch.startswith("v2-"))
+                    self.assertLessEqual(len(batch), 50)
+                    report = next(item for item in command if item.startswith("--report-uri="))
+                    self.assertIn("/evidence/validation-", report)
+                    self.assertTrue(report.endswith("-a2.json"))
 
     def test_a_campaign_submission_rejects_a_pair_manifest_and_cross_profile_upstream(self):
         runtime = submit_source_to_bronze.apply_dataset_bucket(
@@ -353,21 +268,45 @@ class SubmissionCommandTest(TerraformFixture):
 
 class FailClosedTest(TerraformFixture):
     def test_preflight_passes_with_clean_identity_and_absent_outputs(self):
-        run_action("preflight", self.params(), attempt=1, runner=RecordingRunner())
+        for pipeline in PIPELINES:
+            with self.subTest(pipeline):
+                run_action("preflight", self.params(pipeline=pipeline), attempt=1, runner=RecordingRunner())
 
     def test_preflight_refuses_wrong_or_dirty_code(self):
-        with self.assertRaises(ValueError):
-            run_action("preflight", self.params(), attempt=1, runner=RecordingRunner(git_sha="b" * 40))
-        with self.assertRaises(ValueError):
-            run_action("preflight", self.params(), attempt=1, runner=RecordingRunner(dirty=" M file\n"))
+        for pipeline in PIPELINES:
+            with self.subTest(pipeline):
+                with self.assertRaises(ValueError):
+                    run_action("preflight", self.params(pipeline=pipeline), attempt=1,
+                               runner=RecordingRunner(git_sha="b" * 40))
+                with self.assertRaises(ValueError):
+                    run_action("preflight", self.params(pipeline=pipeline), attempt=1,
+                               runner=RecordingRunner(dirty=" M file\n"))
 
-    def test_preflight_refuses_existing_outputs_or_batches(self):
-        with self.assertRaisesRegex(ValueError, "immutable"):
-            run_action("preflight", self.params(), attempt=1,
-                       runner=RecordingRunner(existing_prefixes=[run_id("baseline", "gold")]))
-        with self.assertRaises(ValueError):
-            run_action("preflight", self.params(), attempt=1,
-                       runner=RecordingRunner(existing_batches=[run_id("baseline", "silver")]))
+    def test_preflight_refuses_its_own_existing_outputs_or_batches(self):
+        cases = (("dp1", "bronze"), ("dp2", "silver"), ("dp2", "gold"), ("dp3", "feat"))
+        for pipeline, alias in cases:
+            with self.subTest(pipeline=pipeline, stage=alias):
+                with self.assertRaisesRegex(ValueError, "immutable"):
+                    run_action("preflight", self.params(pipeline=pipeline), attempt=1,
+                               runner=RecordingRunner(existing_prefixes=[run_id("baseline", alias)]))
+                with self.assertRaises(ValueError):
+                    run_action("preflight", self.params(pipeline=pipeline), attempt=1,
+                               runner=RecordingRunner(existing_batches=[run_id("baseline", alias)]))
+
+    def test_preflight_accepts_existing_valid_upstream_outputs(self):
+        """DP2 is not rejected because Bronze exists; DP3 is not rejected because Silver/Gold exist."""
+        upstream = {"dp2": ["bronze"], "dp3": ["bronze", "silver", "gold"]}
+        for pipeline, aliases in upstream.items():
+            with self.subTest(pipeline):
+                runner = RecordingRunner(existing_prefixes=[run_id("baseline", alias) for alias in aliases],
+                                         existing_batches=[run_id("baseline", alias) for alias in aliases])
+                run_action("preflight", self.params(pipeline=pipeline), attempt=1, runner=runner)
+
+    def test_preflight_refuses_an_already_published_handoff(self):
+        runner = self.completed_runner(upto="dp1")
+        with self.assertRaisesRegex(CampaignError, "already exists and is immutable"):
+            run_action("preflight", self.params(pipeline="dp1"), attempt=1,
+                       runner=RecordingRunner(objects=runner.objects))
 
     def test_preflight_refuses_a_deployment_other_than_the_dagrun(self):
         self.outputs.write_text(json.dumps(terraform_outputs(project="other-project-id")), encoding="utf-8")
@@ -381,28 +320,44 @@ class FailClosedTest(TerraformFixture):
     def test_quota_failure_stops_the_stage(self):
         self.quota.return_value = 1
         with self.assertRaisesRegex(CampaignError, "quota"):
-            run_action("quota-silver", self.params(), attempt=1, runner=RecordingRunner())
+            run_action("quota-silver", self.params(pipeline="dp2"), attempt=1, runner=RecordingRunner())
+
+    def test_quota_names_the_predecessor_batch_of_the_same_profile(self):
+        run_action("quota-gold", self.params("optimized", "dp2"), attempt=1, runner=RecordingRunner())
+        arguments = self.quota.call_args.args[0]
+        self.assertEqual(run_id("optimized", "silver"), arguments[arguments.index("--predecessor-batch-id") + 1])
+        self.assertEqual("silver-to-gold", arguments[arguments.index("--handoff") + 1])
 
     def test_transformation_refuses_an_existing_output_prefix(self):
         runner = RecordingRunner(existing_prefixes=[run_id("baseline", "bronze")])
         with self.assertRaisesRegex(ValueError, "immutable"):
-            run_action("submit-bronze", self.params(), attempt=1, runner=runner)
+            run_action("submit-bronze", self.params(pipeline="dp1"), attempt=1, runner=runner)
         self.assertEqual([], self.submits(runner))
 
     def test_dataproc_submission_failure_propagates(self):
         for stage in ("bronze", "silver", "gold", "features"):
             with self.subTest(stage), self.assertRaises(subprocess.CalledProcessError):
-                run_action(f"submit-{stage}", self.params(), attempt=1, runner=RecordingRunner(submit_fails=True))
+                runner = self.completed_runner(upto="dp2")
+                runner.existing_batches.clear()
+                runner.submit_fails = True
+                run_action(f"submit-{stage}", self.stage_params(stage), attempt=1, runner=runner)
 
     def test_validation_batch_failure_propagates(self):
         for stage in ("bronze", "silver", "gold", "features"):
             with self.subTest(stage), self.assertRaises(subprocess.CalledProcessError):
-                run_action(f"validate-{stage}", self.params(), attempt=1, runner=RecordingRunner(submit_fails=True))
+                run_action(f"validate-{stage}", self.stage_params(stage), attempt=1, runner=RecordingRunner(submit_fails=True))
 
     def test_a_failing_report_fails_the_task_even_if_the_batch_succeeded(self):
         for stage in ("bronze", "silver", "gold", "features"):
             with self.subTest(stage), self.assertRaisesRegex(ValueError, "failed"):
-                run_action(f"validate-{stage}", self.params(), attempt=1, runner=RecordingRunner(report_status="FAIL"))
+                run_action(f"validate-{stage}", self.stage_params(stage), attempt=1,
+                           runner=RecordingRunner(report_status="FAIL"))
+
+    def test_gold_never_starts_before_silver_validation_passed(self):
+        runner = self.completed_runner(upto="dp1", failing_scopes={"silver"})
+        with self.assertRaisesRegex(ValueError, "failed"):
+            run_action("submit-gold", self.params(pipeline="dp2"), attempt=1, runner=runner)
+        self.assertFalse([call for call in self.submits(runner) if "-gold-" in " ".join(call)])
 
     def test_a_report_for_another_run_is_refused(self):
         report = {"scope": "silver", "run_id": "other", "dataset_version": REHEARSAL_5GB, "status": "PASS", "results": [1]}
@@ -418,7 +373,7 @@ class FailClosedTest(TerraformFixture):
         batch = submit_stage_validation.validation_batch_id(run_id("baseline", "gold"), 1)
         runner = RecordingRunner(existing_batches=[batch])
         with self.assertRaises(ValueError):
-            run_action("validate-gold", self.params(), attempt=1, runner=runner)
+            run_action("validate-gold", self.params(pipeline="dp2"), attempt=1, runner=runner)
         self.assertEqual([], self.submits(runner))
         self.assertRaises(ValueError, submit_stage_validation.validation_batch_id, "x", 0)
 
@@ -426,37 +381,63 @@ class FailClosedTest(TerraformFixture):
         gold = {"dim_user", "dim_account", "dim_merchant", "dim_device", "dim_date", "fact_transactions",
                 "fact_login_events", "fact_balance_snapshot", "obt_transaction_enriched", "feat_user_90d",
                 "opt_merchant_performance", "dim_merchant_scd2"}
-        run_action("physical-gold", self.params(), attempt=1, runner=RecordingRunner(tables=gold))
+        run_action("physical-gold", self.params(pipeline="dp2"), attempt=1, runner=RecordingRunner(tables=gold))
         for tables in (gold - {"dim_merchant_scd2"}, gold | {"dim_extra"}):
             with self.subTest(len(tables)), self.assertRaisesRegex(ValueError, "mismatch"):
-                run_action("physical-gold", self.params(), attempt=1, runner=RecordingRunner(tables=tables))
+                run_action("physical-gold", self.params(pipeline="dp2"), attempt=1, runner=RecordingRunner(tables=tables))
 
-    def test_finalize_requires_every_batch_to_have_succeeded(self):
-        params = self.params()
-        batches = [run_id("baseline", s) for s in ("bronze", "silver", "gold", "feat")]
-        batches += [f"{item}-v1" for item in batches]
-        report = {"status": "PASS", "manifest_uri": "m", "manifest_sha256": "s", "plan_digest": "p", "physical_bytes": 1}
-        with patch.object(campaign_task, "verify_source_dataset", return_value=report):
-            runner = RecordingRunner(existing_batches=batches)
-            run_action("finalize", params, attempt=1, runner=runner)
-            self.assertEqual([f"gs://{BUCKET}/lakehouse/campaigns/{BENCH}/baseline/campaign_manifest.json"], runner.written)
-            with self.assertRaisesRegex(CampaignError, "SUCCEEDED"):
-                run_action("finalize", params, attempt=1, runner=RecordingRunner(existing_batches=batches, batch_state="FAILED"))
-            with self.assertRaisesRegex(ValueError, "failed"):
-                run_action("finalize", params, attempt=1, runner=RecordingRunner(existing_batches=batches, report_status="FAIL"))
+    def test_a_failed_transformation_keeps_a_provenance_record(self):
+        runner = self.completed_runner(upto="dp1")
+        runner.existing_batches.discard(run_id("baseline", "gold"))
+        runner.submit_fails = True
+        written = len(runner.written)
+        with self.assertRaises(subprocess.CalledProcessError):
+            run_action("submit-gold", self.params(pipeline="dp2"), attempt=1, runner=runner)
+        run = run_id("baseline", "gold")
+        uri = f"gs://{BUCKET}/lakehouse/runs/{run}/evidence/execution_provenance-{run}.json"
+        self.assertEqual([uri], runner.written[written:])
+        self.assertEqual("transformation", json.loads(runner.bodies[uri])["kind"])
 
-    def finalize_manifest(self, runner, params=None):
-        report = {"status": "PASS", "manifest_uri": "m", "manifest_sha256": "b" * 64, "plan_digest": "p", "physical_bytes": 1}
-        with patch.object(campaign_task, "verify_source_dataset", return_value=report):
-            run_action("finalize", params or self.params(), attempt=1, runner=runner)
-        return json.loads(runner.bodies[runner.written[-1]])
+    def test_a_submission_that_never_started_leaves_no_record(self):
+        runner = RecordingRunner(existing_prefixes=[run_id("baseline", "bronze")])
+        with self.assertRaisesRegex(ValueError, "immutable"):
+            run_action("submit-bronze", self.params(pipeline="dp1"), attempt=1, runner=runner)
+        self.assertEqual([], runner.written)
 
-    def test_the_manifest_records_execution_metadata_for_every_stage(self):
-        batches = [run_id("baseline", s) for s in ("bronze", "silver", "gold", "feat")]
-        batches += [f"{item}-v1" for item in batches]
-        manifest = self.finalize_manifest(RecordingRunner(existing_batches=batches))
+    def test_a_validator_batch_failure_keeps_its_attempt_record(self):
+        runner = RecordingRunner(submit_fails=True)
+        with self.assertRaises(subprocess.CalledProcessError):
+            run_action("validate-silver", self.params(pipeline="dp2"), attempt=1, runner=runner)
+        run = run_id("baseline", "silver")
+        batch = submit_stage_validation.validation_batch_id(run, 1)
+        self.assertEqual([f"gs://{BUCKET}/lakehouse/runs/{run}/evidence/execution_provenance-{batch}.json"], runner.written)
+
+    def test_every_stage_submits_with_the_rehearsal_bucket_and_execution_record(self):
+        for action in ("submit-bronze", "submit-silver", "submit-gold", "submit-features",
+                       "validate-bronze", "validate-silver", "validate-gold", "validate-features"):
+            with self.subTest(action):
+                stage = action.split("-", 1)[1]
+                runner = self.completed_runner(upto="dp2") if action.startswith("submit") else RecordingRunner()
+                if action.startswith("submit"):
+                    runner.existing_batches.clear()
+                before = len(self.submits(runner))
+                run_action(action, self.stage_params(stage), attempt=1, runner=runner)
+                command = " ".join(self.submits(runner)[before])
+                self.assertIn(f"spark.eventLog.dir=gs://{BUCKET}/spark-events", command)
+                self.assertIn(f"--execution-record-uri=gs://{BUCKET}/lakehouse/runs/", command)
+                self.assertNotIn(CANONICAL_DATA_BUCKET, command)
+
+
+class CampaignManifestTest(TerraformFixture):
+    def test_dp3_publishes_a_complete_comparator_compatible_manifest(self):
+        runner = self.completed_runner(upto="dp3")
+        params = self.params(pipeline="dp3")
+        manifest = json.loads(runner.objects[campaign_task.campaign_manifest_uri(params)])
         self.assertEqual("edai1-pipeline-campaign-v2", manifest["schema_version"])
+        self.assertEqual("COMPLETE", manifest["status"])
         self.assertEqual(BUCKET, manifest["storage"]["data_bucket"])
+        self.assertEqual(["source", "bronze", "silver", "gold", "features"], manifest["lineage"])
+        self.assertEqual({"dp1", "dp2"}, set(manifest["handoffs"]))
         for stage, alias in (("bronze", "bronze"), ("silver", "silver"), ("gold", "gold"), ("features", "feat")):
             with self.subTest(stage):
                 entry = manifest["stages"][stage]
@@ -466,45 +447,37 @@ class FailClosedTest(TerraformFixture):
                 self.assertEqual("transformation", execution["kind"])
                 self.assertEqual(f"gs://{BUCKET}/spark-events/app-1", execution["spark_event_log_uri"])
                 self.assertEqual("validation", entry["validation"]["execution_metadata"]["kind"])
+                self.assertEqual("PASS", entry["validation"]["status"])
                 self.assertEqual("PASS", entry["validation"]["execution_metadata"]["validation_status"])
 
-    def test_a_failed_transformation_keeps_a_provenance_record(self):
-        runner = RecordingRunner(submit_fails=True)
-        with self.assertRaises(subprocess.CalledProcessError):
-            run_action("submit-gold", self.params(), attempt=1, runner=runner)
-        run = run_id("baseline", "gold")
-        uri = f"gs://{BUCKET}/lakehouse/runs/{run}/evidence/execution_provenance-{run}.json"
-        self.assertEqual([uri], runner.written)
-        self.assertEqual("transformation", json.loads(runner.bodies[uri])["kind"])
+    def test_the_comparator_accepts_two_completed_profiles(self):
+        from ops.gcp.compare_campaign_outputs import manifest_problems
+        manifests = {}
+        for profile in ("baseline", "optimized"):
+            runner = self.completed_runner(profile, upto="dp3")
+            manifests[profile] = json.loads(runner.objects[campaign_task.campaign_manifest_uri(self.params(profile))])
+        self.assertEqual([], manifest_problems(manifests["baseline"], manifests["optimized"]))
+        self.assertNotEqual(manifests["baseline"]["stages"]["silver"]["output_root"],
+                            manifests["optimized"]["stages"]["silver"]["output_root"])
 
-    def test_a_submission_that_never_started_leaves_no_record(self):
-        runner = RecordingRunner(existing_prefixes=[run_id("baseline", "bronze")])
-        with self.assertRaisesRegex(ValueError, "immutable"):
-            run_action("submit-bronze", self.params(), attempt=1, runner=runner)
-        self.assertEqual([], runner.written)
+    def test_dp3_publication_requires_every_batch_to_have_succeeded(self):
+        runner = self.completed_runner(upto="dp2")
+        runner.batch_state = "FAILED"
+        with self.assertRaisesRegex(CampaignError, "SUCCEEDED|refused"):
+            run_action("publish-handoff", self.params(), attempt=1, runner=runner, producer=producer("dp3"))
+        self.assertNotIn(campaign_task.campaign_manifest_uri(self.params()), runner.objects)
 
-    def test_a_validator_batch_failure_keeps_its_attempt_record(self):
-        runner = RecordingRunner(submit_fails=True)
-        with self.assertRaises(subprocess.CalledProcessError):
-            run_action("validate-silver", self.params(), attempt=1, runner=runner)
-        run = run_id("baseline", "silver")
-        self.assertEqual([f"gs://{BUCKET}/lakehouse/runs/{run}/evidence/execution_provenance-{run}-v1.json"], runner.written)
-
-    def test_every_stage_submits_with_the_rehearsal_bucket_and_execution_record(self):
-        for action in ("submit-bronze", "submit-silver", "submit-gold", "submit-features",
-                       "validate-bronze", "validate-silver", "validate-gold", "validate-features"):
-            with self.subTest(action):
-                runner = RecordingRunner()
-                run_action(action, self.params(), attempt=1, runner=runner)
-                command = " ".join(self.submits(runner)[0])
-                self.assertIn(f"spark.eventLog.dir=gs://{BUCKET}/spark-events", command)
-                self.assertIn(f"--execution-record-uri=gs://{BUCKET}/lakehouse/runs/", command)
-                self.assertNotIn(CANONICAL_DATA_BUCKET, command)
-
-    def test_a_transformation_never_targets_the_canonical_lakehouse(self):
-        runner = RecordingRunner()
-        run_action("submit-gold", self.params(), attempt=1, runner=runner)
-        self.assertNotIn(CANONICAL_DATA_BUCKET, " ".join(self.submits(runner)[0]))
+    def test_no_handoff_is_published_after_a_failed_validation(self):
+        for pipeline, scope in (("dp1", "bronze"), ("dp2", "core-gold"), ("dp3", "features")):
+            with self.subTest(pipeline):
+                upstream = {"dp1": None, "dp2": "dp1", "dp3": "dp2"}[pipeline]
+                runner = self.completed_runner(upto=upstream) if upstream else RecordingRunner(
+                    existing_batches=finished_batches("baseline"))
+                runner.failing_scopes = {scope}
+                with self.assertRaisesRegex(ValueError, "failed"):
+                    run_action("publish-handoff", self.params(pipeline=pipeline), attempt=1, runner=runner,
+                               producer=producer(pipeline))
+                self.assertNotIn(campaign_task.handoff_uri(self.params(pipeline=pipeline), pipeline), runner.objects)
 
 
 if __name__ == "__main__":

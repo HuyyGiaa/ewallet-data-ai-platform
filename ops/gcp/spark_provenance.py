@@ -95,7 +95,8 @@ def _check_identity(context: ExecutionContext, batch_id: str, batch: Mapping[str
     if context.kind == "transformation":
         mapped = batch_id == context.run_id
     else:
-        mapped = re.fullmatch(re.escape(context.run_id) + r"-v[1-9]", batch_id) is not None
+        # submit_stage_validation.validation_batch_id: v<attempt>-<run ID without "ab-">
+        mapped = re.fullmatch(r"v[1-9][0-9]{0,3}-" + re.escape(context.run_id.removeprefix("ab-")), batch_id) is not None
     if not mapped:
         raise ProvenanceError(f"batch {batch_id} does not map to run {context.run_id}")
     if batch is not None:
@@ -173,15 +174,27 @@ def campaign_id(benchmark_id: str, spark_profile: str) -> str:
     return f"{benchmark_id}-{spark_profile}"
 
 
+# (run key, zone) pairs per stage. Only the requested stage's runs are needed, so a
+# pipeline DagRun that knows only its own and its upstream run IDs can use these.
+_TRANSFORMATION_INPUTS = {
+    "silver": (("bronze", "bronze"),),
+    "gold": (("silver", "silver"),),
+    "features": (("silver", "silver"), ("gold", "gold")),
+}
+_VALIDATION_INPUTS = {
+    "bronze": (("bronze", "bronze"),),
+    "silver": (("bronze", "bronze"), ("silver", "silver")),
+    "gold": (("silver", "silver"), ("gold", "gold")),
+    "features": (("silver", "silver"), ("gold", "gold"), ("features", "gold")),
+}
+
+
 def stage_inputs(context, stage: str, runs: Mapping[str, str]) -> tuple[str, ...]:
     """Roots a transformation of ``stage`` reads."""
 
-    return {
-        "bronze": (f"{context.source_root}/_control/dataset_manifest.json",),
-        "silver": (context.run_root(runs["bronze"], "bronze"),),
-        "gold": (context.run_root(runs["silver"], "silver"),),
-        "features": (context.run_root(runs["silver"], "silver"), context.run_root(runs["gold"], "gold")),
-    }[stage]
+    if stage == "bronze":
+        return (f"{context.source_root}/_control/dataset_manifest.json",)
+    return tuple(context.run_root(runs[key], zone) for key, zone in _TRANSFORMATION_INPUTS[stage])
 
 
 def stage_output(context, stage: str, runs: Mapping[str, str]) -> str:
@@ -192,13 +205,7 @@ def stage_output(context, stage: str, runs: Mapping[str, str]) -> str:
 def validation_inputs(context, stage: str, runs: Mapping[str, str]) -> tuple[str, ...]:
     """Roots the stage validator reads."""
 
-    return {
-        "bronze": (context.run_root(runs["bronze"], "bronze"),),
-        "silver": (context.run_root(runs["bronze"], "bronze"), context.run_root(runs["silver"], "silver")),
-        "gold": (context.run_root(runs["silver"], "silver"), context.run_root(runs["gold"], "gold")),
-        "features": (context.run_root(runs["silver"], "silver"), context.run_root(runs["gold"], "gold"),
-                     context.run_root(runs["features"], "gold")),
-    }[stage]
+    return tuple(context.run_root(runs[key], zone) for key, zone in _VALIDATION_INPUTS[stage])
 
 
 def collect_campaign(args: argparse.Namespace, runner: Callable[..., Any]) -> dict[str, Any]:

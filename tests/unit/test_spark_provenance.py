@@ -9,6 +9,7 @@ import unittest
 
 from data_platform.config.dataset_identity import CANONICAL_DATA_BUCKET, REHEARSAL_5GB, REHEARSAL_DATA_BUCKET, resolve_storage_context
 from ops.gcp import spark_provenance as sp
+from ops.gcp.submit_stage_validation import validation_batch_id
 
 
 BUCKET = REHEARSAL_DATA_BUCKET
@@ -99,7 +100,7 @@ class CollectExecutionTest(unittest.TestCase):
 
     def test_a_validator_attempt_has_its_report(self):
         run_id = RUNS["silver"]
-        batch_id = f"{run_id}-v2"
+        batch_id = validation_batch_id(run_id, 2)
         report = f"gs://{BUCKET}/lakehouse/runs/{run_id}/evidence/validation-silver-a2.json"
         ctx = context("silver", "validation", output_roots=(), input_roots=sp.validation_inputs(STORAGE, "silver", RUNS))
         fake = Dataproc({batch_id: batch()}, {record_uri(run_id, batch_id): record(run_id), report: {"status": "PASS"}})
@@ -163,6 +164,24 @@ class CollectExecutionTest(unittest.TestCase):
             self.collect(context(), Dataproc({"other": batch()}), batch_id="other")
         with self.assertRaisesRegex(sp.ProvenanceError, "does not map"):
             self.collect(context(kind="validation"), Dataproc(), batch_id=f"{run_id}-x1")
+        with self.assertRaisesRegex(sp.ProvenanceError, "does not map"):  # the retired suffix form
+            self.collect(context(kind="validation"), Dataproc(), batch_id=f"{run_id}-v1")
+        with self.assertRaisesRegex(sp.ProvenanceError, "does not map"):  # another run's validator
+            self.collect(context(kind="validation"), Dataproc(), batch_id=validation_batch_id(RUNS["silver"], 1))
+
+    def test_every_campaign_validation_batch_fits_the_50_character_contract(self):
+        """Optimized Bronze/Silver run IDs are 48 characters; '<run>-v1' was 51 and refused."""
+        for profile in ("baseline", "optimized"):
+            for alias in ("bronze", "silver", "gold", "feat"):
+                run_id = f"ab-20261111120000-{profile}-{alias}-r261111120000"
+                for attempt in (1, 9, 10, 999):
+                    with self.subTest(run_id=run_id, attempt=attempt):
+                        batch_id = validation_batch_id(run_id, attempt)
+                        self.assertLessEqual(len(batch_id), 50)
+                        self.assertRegex(batch_id, r"^[a-z][a-z0-9-]{2,48}[a-z0-9]$")
+                        self.assertEqual(f"v{attempt}-20261111120000-{profile}-{alias}-r261111120000", batch_id)
+        with self.assertRaisesRegex(ValueError, "50-character"):  # fails closed, never truncates
+            validation_batch_id("ab-20261111120000-optimized-silver-r261111120000", 9999)
 
     def test_repeated_collection_is_identical(self):
         run_id = RUNS["gold"]
@@ -179,8 +198,8 @@ class CollectExecutionTest(unittest.TestCase):
 class CollectCampaignTest(unittest.TestCase):
     def test_all_stages_and_every_validator_attempt_are_collected(self):
         batches = {run_id: batch() for run_id in RUNS.values()}
-        batches[f"{RUNS['silver']}-v1"] = batch("FAILED")
-        batches[f"{RUNS['silver']}-v2"] = batch()
+        batches[validation_batch_id(RUNS["silver"], 1)] = batch("FAILED")
+        batches[validation_batch_id(RUNS["silver"], 2)] = batch()
         args = argparse.Namespace(
             dataset_version=REHEARSAL_5GB, benchmark_id=BENCH, spark_profile="baseline", git_sha=SHA,
             source_manifest_sha256="b" * 64, bronze_run_id=RUNS["bronze"], silver_run_id=RUNS["silver"],

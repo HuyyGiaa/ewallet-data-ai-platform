@@ -1,5 +1,7 @@
 # Canonical stage-specific Spark benchmark runbook
 
+> **Historical (retired 2026-11-11).** The DAG versions and `scripts/run_dp*.sh` launchers this runbook uses were archived in [`archive/legacy-orchestration/`](../../../../archive/legacy-orchestration/README.md) and no longer run. The current workflow is three independent DAGs driven by `scripts/edai1/*.sh`: see the [EDAI-1 DP1–DP3 pipeline runbook](edai1_campaign_runbook.md).
+
 This runbook prepares a later full-scale comparison on `canonical-100gb-v1`
 (100,156,470,260 source bytes; 369,600,000 logical transactions). No run in
 this source-only milestone is a new performance result. Final DP1/DP2/DP3

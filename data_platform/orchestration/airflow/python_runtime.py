@@ -29,8 +29,9 @@ LLM_AGENT_MODULES = (
 # Stdlib-only Feast Online orchestration; kept out of the validation above for
 # the same reason, so a Feast change cannot stop DP1-DP3 DAGs from parsing.
 FEAST_ONLINE_MODULES = ("ops.mlops.feast_incremental",)
-# The DP1-DP3 campaign entry point; validated by the campaign DAG's own tests so
-# a change there cannot stop the existing DP1-DP3 DAGs from parsing.
+# The single entry point of the three EDAI-1 pipeline DAGs (dp1_source_to_bronze,
+# dp2_bronze_to_curated, dp3_historical_features); its import is checked by the
+# pipeline DAG tests.
 CAMPAIGN_MODULES = ("ops.gcp.campaign_task",)
 
 
