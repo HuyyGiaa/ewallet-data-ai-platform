@@ -26,7 +26,7 @@ A level counts as changed when the primary metric differs by at least 10 %. This
 
 **Execution validity** and **observed outcome** are separate. `VALID` means the pair is comparable: one run per arm, equal controls read from the live pods, every level measured, raw rows matching the summaries. A valid comparison does not require the optimized arm to win.
 
-**Isolation.** Both sessions ran in the temporary namespace `ewallet-bench` on a dedicated tainted pool, `bench-pool`. llm-d was never part of the production inference path, and production was unchanged (`production-before.txt` equals `production-after.txt` in both sessions).
+**Isolation.** Both sessions ran in the temporary namespace `ewallet-bench` on a dedicated tainted pool, `bench-pool`. llm-d existed only in that namespace during this campaign and is not part of the production LLM deployment (no llm-d router release appears in the recorded production state), and production was unchanged (`production-before.txt` equals `production-after.txt` in both sessions).
 
 **Provenance of both sessions:** source commit `263c1d1f`; image `vllm-cpu-model@sha256:f695b23e…`; Qwen3-0.6B at revision `c1899de2…`; workload `o1-workload-v1`, sha256 `c4816ca1…`; agentgateway v1.7.0; e2-standard-4 nodes. `source_dirty` is `true` because each session writes its evidence inside the worktree.
 
@@ -103,7 +103,7 @@ Baseline → optimized, with the observed change. Source: [`comparison/metrics.j
 | c=2 | 0/12 | 0/12 | 2 → 2 |
 | c=4 | 0/12 | 0/12 | 2 → 2 |
 
-**One baseline request failed, and it matters at c=1.** `long-1` returned HTTP 200, then ended after 161.4 s with no tokens. That matches the gateway's 160 s `backendRequestTimeout`, so it counts as failed and stays in the comparison (the manifest records it as a deviation). Three details affect how to read c=1:
+**One baseline request failed, and it matters at c=1.** `long-1` returned HTTP 200, then ended after 161.4 s with no tokens. The gateway logged `response body failed: response idle timeout` after 160013 ms ([`gateway.log`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/logs/run-01/gateway.log)), which is the 160 s `responseIdleTimeout`. The request counts as failed and stays in the comparison (the manifest records it as a deviation). Three details affect how to read c=1:
 
 - `timeout_rate` is 0 because the client only flags its own 220 s socket timeout ([`o1_benchmark.py`](../../../scripts/llm_agent/o1_benchmark.py)). A gateway-side cut-off appears as a failure, not a timeout.
 - Latency percentiles use successful requests only, so the baseline's c=1 percentiles exclude that 161 s request.
