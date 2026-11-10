@@ -4,7 +4,7 @@ This report describes the platform that serves the custom LLM used by the fraud-
 
 - vLLM on CPU nodes in GKE;
 - agentgateway in front of vLLM;
-- one global kagent ModelConfig through which every agent reaches the model.
+- one global kagent ModelConfig that holds the shared model settings ([§3.3](#33-global-modelconfig)).
 
 It also reports the two optimisation experiments that shaped the current serving configuration.
 
@@ -19,7 +19,7 @@ The agents use the LLM for a narrow task: understand an analyst's question and s
 **Design goals:**
 
 - **One entry point.** Agents never talk to vLLM directly. agentgateway authenticates clients, enforces rate and token budgets, applies timeouts, and fails over between backends.
-- **One model configuration.** All agents reference a single ModelConfig, so the model or endpoint can change in one place.
+- **One model configuration.** A single ModelConfig defines the model, endpoint and credential reference. Declarative agents reference it; BYO agents get the same model name and client key from the same Helm values ([§3.3](#33-global-modelconfig)).
 - **Reproducible serving.** The model weights are baked into a digest-pinned image, so a pod never downloads weights at start-up.
 
 ## 2. Architecture
@@ -77,17 +77,14 @@ The gateway is configured in [`templates/agentgateway.yaml`](../../../infra/helm
 
 ### 3.3 Global ModelConfig
 
-[`templates/modelconfig.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig.yaml) renders one `kagent.dev/v1alpha2 ModelConfig`, named `ewallet-global-llm`:
+One kagent `ModelConfig`, `ewallet-agents/ewallet-global-llm`, defines the model `ewallet-fraud-llm`, the agentgateway endpoint, the gateway client-key Secret reference and the timeout. It is configuration, not a network hop: at runtime agents call agentgateway, which routes to CPU vLLM.
 
-| Field | Value | Effect |
-|---|---|---|
-| `provider` | `OpenAI` | kagent uses the OpenAI Chat Completions API |
-| `model` | `ewallet-fraud-llm` | the gateway's virtual model, which maps to the versioned vLLM model |
-| `openAI.baseUrl` | `http://agentgateway.<ns>.svc.cluster.local:3000/v1` | every request goes through the gateway |
-| `apiKeySecret` / `apiKeySecretKey` | the gateway client key | the key agentgateway checks |
-| `timeout` | outermost timeout budget | aligned with the gateway timeouts |
+| Agent | How it gets the configuration today |
+|---|---|
+| `drift-specialist` (Declarative) | Native reference, `spec.declarative.modelConfig` |
+| `fraud-coordinator`, `feature-rag-specialist` (BYO) | Helm environment variables from the same values. A resolver that reads the CR is integrated in source but **not deployed** |
 
-The Declarative drift agent references this ModelConfig directly. The BYO agents read the same endpoint and client key from their deployment configuration.
+Configuration, resolver design, source links and status: **[GLOBAL_MODELCONFIG.md](GLOBAL_MODELCONFIG.md)**.
 
 ## 4. Runtime verification
 
@@ -202,7 +199,22 @@ All 96 requests succeeded in both runs.
 - [`g2_20261101T124444Z/g2/comparison.json`](../../evidence/llm_agent/g2_20261101T124444Z/g2/comparison.json);
 - full experiment record: [llmd_g2_routing_benchmark.md](llmd_g2_routing_benchmark.md).
 
-### 5.4 Production telemetry
+### 5.4 Official benchmark results (owner single-run campaign)
+
+O1 and G2 above are historical single runs. The results submitted for EDAI-2 come from matched sessions that the owner ran and captured personally on 2026-11-09/10, in a temporary `ewallet-bench` namespace on a dedicated node pool. Production was not touched. Each experiment had **one baseline and one optimized run**, at every concurrency level. The percentages are observed differences of one pair, with no confidence interval or significance test.
+
+| Experiment | Change | Execution | Observed outcome | Key figures (baseline → optimized) |
+|---|---|---|---|---|
+| EXP-V1 | `VLLM_CPU_OMP_THREADS_BIND` `auto` → `0-1` | `VALID` | `OBSERVED_IMPROVEMENT` | Output tokens/s at c=4: 3.54 → 5.48 (+54.5 %). E2E p95 at c=4: 154.7 s → 98.5 s. Mean vLLM CPU at c=4 rose from 1.64 to 2.58 cores. Failures: 1/36 → 0/36 |
+| EXP-V2 | Kubernetes Service → llm-d EPP, two replicas | `VALID` | `OBSERVED_MIXED` | E2E p95: 7.3 % higher at c=1, 47.5 % lower at c=2, 101.9 % higher at c=4, 71.5 % higher at c=8. Failures: 0/48 → 0/48 |
+
+Binding raised throughput on the same pod budget by using more of the CPU already allocated. llm-d improved one level and worsened two, and it remains outside the production deployment.
+
+Full analysis with screenshots: **[BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md)**. Evidence mapping: [BENCHMARK_EVIDENCE_MATRIX.md](BENCHMARK_EVIDENCE_MATRIX.md). Method: [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md). Procedure and validation history: [runbook](../../runbooks/edai2/BENCHMARK_EVIDENCE_RUNBOOK.md), [BENCHMARK_REPLAY.md](BENCHMARK_REPLAY.md).
+
+Separate historical engineering evidence: the [3-run rehearsal](../../evidence/edai2/llm/benchmark_rehearsal_20261109/README.md) (EXP-V1 `IMPROVED`, EXP-V2 `NO_SIGNIFICANT_CHANGE`) and the [workflow smoke tests](../../evidence/edai2/llm/benchmark_reproduction_20261109/README.md).
+
+### 5.5 Production telemetry
 
 Under real agent traffic the deployed server reports:
 

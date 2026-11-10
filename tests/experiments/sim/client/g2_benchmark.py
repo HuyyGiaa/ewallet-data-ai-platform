@@ -11,6 +11,10 @@ parser.add_argument("--output", type=Path, required=True)
 args = parser.parse_args()
 state = Path(os.environ["SIM_STATE"])
 assert os.environ["EWALLET_GATEWAY_KEY"], "client key missing"
+# The real client appends /metrics (scripts/llm_agent/g2_benchmark.py url_scraper), so a URL
+# that already ends in /metrics is a 404 on GKE (EXP-V2 smoke attempt 2, 2026-11-09).
+if args.epp_metrics and args.epp_metrics.rstrip("/").endswith("/metrics"):
+    sys.exit("epp-metrics must be the base URL: the client appends /metrics")
 (state / "clients.log").open("a").write(f"{args.config} {args.output.parent.parent.parent.name}/{args.output.name}\n")
 count = sum(1 for _ in (state / "clients.log").open())
 if str(count) == os.environ.get("SIM_FAIL_RUN"):

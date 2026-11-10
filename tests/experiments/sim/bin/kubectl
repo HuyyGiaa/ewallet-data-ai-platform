@@ -14,6 +14,7 @@ if "-n" in args:
 text = " ".join(args)
 ns = state / "namespace"
 if args[0] == "port-forward":
+    (state / "pf.pids").open("a").write(f"{os.getpid()}\n")
     time.sleep(600)
 elif args[0] == "apply":
     data = sys.stdin.read() if args[-1] == "-" else Path(args[-1]).read_text()
@@ -21,8 +22,37 @@ elif args[0] == "apply":
         ns.write_text("true")
     if args[-1] != "-":
         (state / "applied.log").open("a").write(args[-1] + "\n")
-        (state / "current.yaml").write_text(data)
+        if "name: vllm-primary" in data:
+            (state / "current.yaml").write_text(data)
+    for marker in ("bench-watchdog", "bench-prometheus", "drill-idle"):
+        if f"name: {marker}" in data:
+            (state / marker).write_text("applied")
     print("applied")
+elif args[0] == "auth":
+    # Real RBAC is checked on GKE; here only the decision path matters.
+    allowed = os.environ.get("SIM_WATCHDOG_RBAC") == "broad" or (
+        "-n ewallet-bench" in " ".join(argv) and ("delete deployments" in text or "cronjobs/bench-watchdog" in text))
+    print("yes" if allowed else "no")
+    sys.exit(0 if allowed else 1)
+elif args[0] == "create":
+    value = sys.stdin.read()
+    (state / "secrets.log").open("a").write(f"{args[3]} newline={value.endswith(chr(10))}\n")
+    print("ok")
+elif text.startswith("get secret"):
+    print("c2ltdWxhdGVk", end="")
+elif text.startswith("get deployments") or text.startswith("get cronjob") or text.startswith("get nodes -l ewallet.io/bench=true -o name"):
+    # Drill: the watchdog empties the namespace, then the autoscaler removes the node.
+    polls = state / "drill-polls"
+    count = int(polls.read_text()) if polls.exists() else 0
+    if text.startswith("get nodes"):
+        polls.write_text(str(count + 1))
+    stuck = os.environ.get("SIM_DRILL_STUCK")
+    if text.startswith("get deployments") and (stuck or count < 1):
+        print("deployment.apps/drill-idle")
+    elif text.startswith("get cronjob") and (stuck or count < 1):
+        print("cronjob.batch/bench-watchdog")
+    elif text.startswith("get nodes") and (stuck or count < 2):
+        print("node/bench-a")
 elif text.startswith("get namespace"):
     if os.environ.get("SIM_API_DOWN") and (state / "cleanup-started").exists():
         sys.exit(1)
@@ -31,6 +61,10 @@ elif text.startswith("get namespace"):
         print(f"ewallet-bench={mark}", end="")
 elif text.startswith("delete namespace"):
     ns.unlink(missing_ok=True)
+elif text.startswith("get service kube-dns"):
+    print("10.0.0.10", end="")
+elif text.startswith("get service kubernetes"):
+    print("10.0.0.1", end="")
 elif text.startswith("get endpoints"):
     print("10.0.0.2" if "addresses" in text else "443", end="")
 elif text.startswith("get configmap"):
@@ -54,9 +88,7 @@ elif text.startswith("get pods"):
     print(json.dumps({"items": [pod]}))
 elif args[0] == "top":
     print("vllm-primary-a vllm 1500m 6200Mi\nagentgateway-x agentgateway 5m 20Mi")
-elif args[0] in {"create", "rollout", "logs"}:
-    if args[0] == "create":
-        sys.stdin.read()
+elif args[0] in {"rollout", "logs"} or text.startswith("get jobs"):
     print("ok")
 else:
     sys.stderr.write(f"fake kubectl: unsupported: {text}\n"); sys.exit(1)

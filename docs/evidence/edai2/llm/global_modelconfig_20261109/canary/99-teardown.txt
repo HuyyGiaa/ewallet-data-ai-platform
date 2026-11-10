@@ -1,0 +1,15 @@
+agent.kagent.dev "mc-canary-coordinator" deleted from kagent-pilot namespace
+agent.kagent.dev "mc-canary-feature-rag" deleted from kagent-pilot namespace
+agent.kagent.dev "mc-canary-unbound" deleted from kagent-pilot namespace
+modelconfig.kagent.dev "ewallet-global-llm" deleted from kagent-pilot namespace
+networkpolicy.networking.k8s.io "allow-byo-modelconfig-to-kube-apiserver" deleted from kagent-pilot namespace
+rolebinding.rbac.authorization.k8s.io "ewallet-global-llm-reader" deleted from kagent-pilot namespace
+role.rbac.authorization.k8s.io "ewallet-global-llm-reader" deleted from kagent-pilot namespace
+configmap "mc-canary-code" deleted from kagent-pilot namespace
+secret "agentgateway-client-key" deleted from kagent-pilot namespace
+secret "mc-canary-other-key" deleted from kagent-pilot namespace
+serviceaccount "feature-rag-specialist" deleted from kagent-pilot namespace
+serviceaccount "fraud-coordinator" deleted from kagent-pilot namespace
+NAME                                         READY   STATUS        RESTARTS   AGE
+pod/mc-canary-coordinator-6b897bfc9c-z7j5c   1/1     Terminating   0          56s
+pod/mc-canary-feature-rag-dbdb6fbc7-w4x2g    1/1     Terminating   0          8m57s

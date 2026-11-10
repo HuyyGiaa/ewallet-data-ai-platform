@@ -1,0 +1,5 @@
+# pod mc-canary-coordinator-6b897bfc9c-9xmkz (expect ready) 2026-11-08T18:17:49Z
+NAME                                     READY   RESTARTS   STATE
+mc-canary-coordinator-6b897bfc9c-9xmkz   true    0          <none>
+{"api_key_secret": "agentgateway-client-key", "api_key_secret_key": "api-key", "base_url": "http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1", "event": "modelconfig.resolved", "generation": 2, "model": "ewallet-fraud-llm-canary-v2", "name": "ewallet-global-llm", "namespace": "kagent-pilot", "provider": "OpenAI", "resource_version": "1794161827153503009", "timeout_seconds": 200.0, "uid": "a6b93273-4c5d-4e80-9d43-02e02954c8ec"}
+{"event": "canary.ready", "denied_egress_probe": "blocked (TimeoutError)"}

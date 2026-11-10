@@ -1,0 +1,384 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ewallet-global-llm-reader
+  namespace: kagent-pilot
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+    ewallet.io/canary: modelconfig-resolver
+rules:
+- apiGroups:
+  - kagent.dev
+  resources:
+  - modelconfigs
+  resourceNames:
+  - ewallet-global-llm
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ewallet-global-llm-reader
+  namespace: kagent-pilot
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+    ewallet.io/canary: modelconfig-resolver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ewallet-global-llm-reader
+subjects:
+- kind: ServiceAccount
+  name: feature-rag-specialist
+  namespace: kagent-pilot
+- kind: ServiceAccount
+  name: fraud-coordinator
+  namespace: kagent-pilot
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-byo-modelconfig-to-kube-apiserver
+  namespace: kagent-pilot
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+    ewallet.io/canary: modelconfig-resolver
+spec:
+  podSelector:
+    matchExpressions:
+    - key: ewallet.io/agent
+      operator: In
+      values:
+      - feature-rag-specialist
+      - fraud-coordinator
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 34.118.224.1/32
+    - ipBlock:
+        cidr: 10.20.0.8/32
+    ports:
+    - protocol: TCP
+      port: 443
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: ewallet-global-llm
+  namespace: kagent-pilot
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+    ewallet.io/canary: modelconfig-resolver
+spec:
+  apiKeySecret: agentgateway-client-key
+  apiKeySecretKey: api-key
+  model: ewallet-fraud-llm
+  openAI:
+    apiFormat: chatCompletions
+    baseUrl: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+    timeout: 200
+  provider: OpenAI
+---
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: false
+metadata:
+  name: feature-rag-specialist
+  namespace: kagent-pilot
+  labels:
+    ewallet.io/canary: modelconfig-resolver
+---
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: false
+metadata:
+  name: fraud-coordinator
+  namespace: kagent-pilot
+  labels:
+    ewallet.io/canary: modelconfig-resolver
+---
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: false
+metadata:
+  name: mc-canary-unbound
+  namespace: kagent-pilot
+  labels:
+    ewallet.io/canary: modelconfig-resolver
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: mc-canary-coordinator
+  namespace: kagent-pilot
+  labels:
+    ewallet.io/canary: modelconfig-resolver
+spec:
+  type: BYO
+  description: ModelConfig resolver canary (temporary)
+  byo:
+    deployment:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+      imagePullPolicy: IfNotPresent
+      serviceAccountName: fraud-coordinator
+      labels:
+        ewallet.io/agent: fraud-coordinator
+        ewallet.io/canary: modelconfig-resolver
+      annotations:
+        ewallet.io/canary-of: fraud-coordinator
+      env:
+      - name: EWALLET_NL_INTAKE_ENABLED
+        value: 'true'
+      - name: EWALLET_LLM_CONFIG_SOURCE
+        value: modelconfig
+      - name: EWALLET_LLM_MODELCONFIG_NAME
+        value: ewallet-global-llm
+      - name: EWALLET_LLM_API_KEY_SECRET_REF
+        value: agentgateway-client-key/api-key
+      - name: EWALLET_KUBE_API_TOKEN_DIR
+        value: /var/run/secrets/ewallet/kube-api
+      - name: EWALLET_LLM_TIMEOUT_SECONDS
+        value: '190'
+      - name: EWALLET_LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: agentgateway-client-key
+            key: api-key
+      - name: CANARY_DENIED_EGRESS
+        value: 34.118.227.59:8080
+      volumes:
+      - name: kube-api-modelconfig
+        projected:
+          defaultMode: 292
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+          - configMap:
+              name: kube-root-ca.crt
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - downwardAPI:
+              items:
+              - path: namespace
+                fieldRef:
+                  fieldPath: metadata.namespace
+      - name: canary-code
+        configMap:
+          name: mc-canary-code
+          defaultMode: 292
+      volumeMounts:
+      - name: kube-api-modelconfig
+        mountPath: /var/run/secrets/ewallet/kube-api
+        readOnly: true
+      - name: canary-code
+        mountPath: /canary
+        readOnly: true
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 192Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      replicas: 1
+      cmd: python
+      args:
+      - /canary/canary_resolver.py
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: mc-canary-feature-rag
+  namespace: kagent-pilot
+  labels:
+    ewallet.io/canary: modelconfig-resolver
+spec:
+  type: BYO
+  description: ModelConfig resolver canary (temporary)
+  byo:
+    deployment:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+      imagePullPolicy: IfNotPresent
+      serviceAccountName: feature-rag-specialist
+      labels:
+        ewallet.io/agent: feature-rag-specialist
+        ewallet.io/canary: modelconfig-resolver
+      annotations:
+        ewallet.io/canary-of: fraud-coordinator
+      env:
+      - name: EWALLET_NL_INTAKE_ENABLED
+        value: 'true'
+      - name: EWALLET_LLM_CONFIG_SOURCE
+        value: modelconfig
+      - name: EWALLET_LLM_MODELCONFIG_NAME
+        value: ewallet-global-llm
+      - name: EWALLET_LLM_API_KEY_SECRET_REF
+        value: agentgateway-client-key/api-key
+      - name: EWALLET_KUBE_API_TOKEN_DIR
+        value: /var/run/secrets/ewallet/kube-api
+      - name: EWALLET_LLM_TIMEOUT_SECONDS
+        value: '190'
+      - name: EWALLET_LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: agentgateway-client-key
+            key: api-key
+      - name: CANARY_DENIED_EGRESS
+        value: 34.118.227.59:8080
+      volumes:
+      - name: kube-api-modelconfig
+        projected:
+          defaultMode: 292
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+          - configMap:
+              name: kube-root-ca.crt
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - downwardAPI:
+              items:
+              - path: namespace
+                fieldRef:
+                  fieldPath: metadata.namespace
+      - name: canary-code
+        configMap:
+          name: mc-canary-code
+          defaultMode: 292
+      volumeMounts:
+      - name: kube-api-modelconfig
+        mountPath: /var/run/secrets/ewallet/kube-api
+        readOnly: true
+      - name: canary-code
+        mountPath: /canary
+        readOnly: true
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 192Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      replicas: 1
+      cmd: python
+      args:
+      - /canary/canary_resolver.py
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: mc-canary-unbound
+  namespace: kagent-pilot
+  labels:
+    ewallet.io/canary: modelconfig-resolver
+spec:
+  type: BYO
+  description: ModelConfig resolver canary (temporary)
+  byo:
+    deployment:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+      imagePullPolicy: IfNotPresent
+      serviceAccountName: mc-canary-unbound
+      labels:
+        ewallet.io/agent: fraud-coordinator
+        ewallet.io/canary: modelconfig-resolver
+      annotations:
+        ewallet.io/canary-of: fraud-coordinator
+      env:
+      - name: EWALLET_NL_INTAKE_ENABLED
+        value: 'true'
+      - name: EWALLET_LLM_CONFIG_SOURCE
+        value: modelconfig
+      - name: EWALLET_LLM_MODELCONFIG_NAME
+        value: ewallet-global-llm
+      - name: EWALLET_LLM_API_KEY_SECRET_REF
+        value: agentgateway-client-key/api-key
+      - name: EWALLET_KUBE_API_TOKEN_DIR
+        value: /var/run/secrets/ewallet/kube-api
+      - name: EWALLET_LLM_TIMEOUT_SECONDS
+        value: '190'
+      - name: EWALLET_LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: agentgateway-client-key
+            key: api-key
+      - name: CANARY_DENIED_EGRESS
+        value: 34.118.227.59:8080
+      volumes:
+      - name: kube-api-modelconfig
+        projected:
+          defaultMode: 292
+          sources:
+          - serviceAccountToken:
+              path: token
+              expirationSeconds: 3600
+          - configMap:
+              name: kube-root-ca.crt
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - downwardAPI:
+              items:
+              - path: namespace
+                fieldRef:
+                  fieldPath: metadata.namespace
+      - name: canary-code
+        configMap:
+          name: mc-canary-code
+          defaultMode: 292
+      volumeMounts:
+      - name: kube-api-modelconfig
+        mountPath: /var/run/secrets/ewallet/kube-api
+        readOnly: true
+      - name: canary-code
+        mountPath: /canary
+        readOnly: true
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 192Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      replicas: 1
+      cmd: python
+      args:
+      - /canary/canary_resolver.py

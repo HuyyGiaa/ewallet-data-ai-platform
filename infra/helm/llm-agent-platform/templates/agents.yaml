@@ -179,14 +179,29 @@ spec:
         {{- end }}
         # The LLM only selects the single approved tool and extracts its
         # arguments; the agent grounds them in the analyst text and runs its
-        # unchanged deterministic path. Same client key and agentgateway
-        # entry (port 4000 behind Service port 3000) as the ModelConfig.
+        # unchanged deterministic path. kagent 0.10.3 BYO agents have no
+        # modelConfig field. byoResolver on: the agent reads the global
+        # ModelConfig CR at startup (ai_platform/llm_agent/model_config.py) and
+        # takes model, base URL and timeout ceiling from it; only the Secret
+        # reference is rendered here, and the resolver checks the CR names the
+        # same one. byoResolver off: the legacy bridge renders the values.
         - name: EWALLET_NL_INTAKE_ENABLED
           value: "true"
+        {{- if $.Values.modelConfig.byoResolver.enabled }}
+        - name: EWALLET_LLM_CONFIG_SOURCE
+          value: modelconfig
+        - name: EWALLET_LLM_MODELCONFIG_NAME
+          value: {{ $.Values.modelConfig.name | quote }}
+        - name: EWALLET_LLM_API_KEY_SECRET_REF
+          value: {{ printf "%s/%s" $.Values.modelConfig.apiKeySecret.name $.Values.modelConfig.apiKeySecret.key | quote }}
+        - name: EWALLET_KUBE_API_TOKEN_DIR
+          value: {{ include "llm-agent-platform.kubeApiTokenDir" $ | quote }}
+        {{- else }}
         - name: EWALLET_LLM_BASE_URL
-          value: "http://agentgateway.{{ $.Values.namespace.name }}.svc.cluster.local:3000/v1"
+          value: {{ include "llm-agent-platform.modelConfigBaseUrl" $ | quote }}
         - name: EWALLET_LLM_MODEL
           value: {{ $.Values.modelConfig.model | quote }}
+        {{- end }}
         - name: EWALLET_LLM_TIMEOUT_SECONDS
           value: {{ index $nl "timeoutSeconds" | default 190 | quote }}
         {{- $ab := index $byo "abExperiment" | default dict }}
@@ -204,8 +219,8 @@ spec:
         - name: EWALLET_LLM_API_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ $.Values.agentgateway.clientKeySecret.name }}
-              key: {{ $.Values.agentgateway.clientKeySecret.key }}
+              name: {{ $.Values.modelConfig.apiKeySecret.name }}
+              key: {{ $.Values.modelConfig.apiKeySecret.key }}
         {{- end }}
         {{- with dig "byo" "mcpMaxAttempts" "" $spec }}
         # Unset keeps the client default; 1 turns retry off on the same image.
@@ -247,6 +262,30 @@ spec:
               name: {{ $authName }}
               key: {{ $authKey }}
         {{- end }}
+      {{- if and (index $nl "enabled") $.Values.modelConfig.byoResolver.enabled }}
+      # Kubernetes API credentials for the ModelConfig GET only: a short-lived
+      # projected token (the ServiceAccount keeps automountServiceAccountToken
+      # false), the cluster CA and the pod namespace, read once at startup.
+      volumes:
+        - name: kube-api-modelconfig
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: {{ int $.Values.modelConfig.byoResolver.tokenExpirationSeconds }}
+              - configMap:
+                  name: kube-root-ca.crt
+                  items: [{key: ca.crt, path: ca.crt}]
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef: {fieldPath: metadata.namespace}
+      volumeMounts:
+        - name: kube-api-modelconfig
+          mountPath: {{ include "llm-agent-platform.kubeApiTokenDir" $ }}
+          readOnly: true
+      {{- end }}
       {{- with $.Values.llmPlacement.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

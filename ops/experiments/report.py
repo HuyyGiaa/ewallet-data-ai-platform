@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from ops.experiments import single_run
 from ops.experiments.spec import ExperimentSpec
 
 
@@ -68,12 +69,15 @@ def render_checklist(spec: ExperimentSpec) -> str:
 
 
 def write_comparison(report: Mapping[str, Any], directory: Path) -> None:
-    """Write ``comparison/`` and ``verdict.md`` for one experiment."""
+    """Write ``comparison/`` and ``verdict.md`` for one experiment (multi-run or single-run report)."""
 
+    single = report.get("methodology") == single_run.METHODOLOGY
+    to_csv, to_markdown = (single_run.render_csv, single_run.render_markdown) if single else (render_csv, render_markdown)
     target = directory / "comparison"
     target.mkdir(parents=True, exist_ok=True)
     (target / "metrics.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    (target / "comparison.csv").write_text(render_csv(report), encoding="utf-8")
-    (target / "comparison.md").write_text(render_markdown(report), encoding="utf-8")
-    verdict = "\n".join([f"# Verdict: {report['verdict']}", "", *[f"- {item}" for item in report["reasons"]]])
+    (target / "comparison.csv").write_text(to_csv(report), encoding="utf-8")
+    (target / "comparison.md").write_text(to_markdown(report), encoding="utf-8")
+    title = f"# Verdict: {report['verdict']}" + (" (single-run, observed; not a statistical result)" if single else "")
+    verdict = "\n".join([title, "", *[f"- {item}" for item in report["reasons"]]])
     (directory / "verdict.md").write_text(verdict + "\n", encoding="utf-8")

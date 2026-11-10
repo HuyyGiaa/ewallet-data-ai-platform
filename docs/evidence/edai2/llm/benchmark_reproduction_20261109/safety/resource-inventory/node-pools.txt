@@ -1,0 +1,2 @@
+NAME      MACHINE_TYPE   INITIAL_NODE_COUNT  ENABLED  STATUS
+cpu-pool  e2-standard-4  5                            RUNNING

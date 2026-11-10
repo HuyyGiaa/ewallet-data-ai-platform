@@ -859,6 +859,19 @@ modelConfig:
   apiKeySecret:
     name: agentgateway-client-key
     key: api-key
+  # kagent 0.10.3 BYO agents have no modelConfig field. On: each BYO agent with
+  # naturalLanguageIntake reads this ModelConfig CR at startup (get on this one
+  # name, templates/modelconfig-rbac.yaml) and takes model, base URL and timeout
+  # ceiling from it; a missing, rejected or inconsistent CR stops the agent.
+  # Off: the legacy bridge renders the same values as env. Needs an agent image
+  # that contains ai_platform/llm_agent/model_config.py.
+  byoResolver:
+    enabled: false
+    # kubernetes Service ClusterIP and API-server endpoint IPs, /32 each.
+    apiServer:
+      cidrs: []
+      ports: [443]
+    tokenExpirationSeconds: 3600
 
 # N12 (edai-2 row 48): Kubernetes-API pod-log forwarder (Grafana Alloy) for
 # workloads that cannot export OTLP logs. Off by default; see

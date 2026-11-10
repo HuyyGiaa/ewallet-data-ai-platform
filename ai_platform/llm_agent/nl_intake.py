@@ -20,7 +20,6 @@ import math
 import os
 import re
 from typing import Literal
-from urllib.parse import urlparse
 
 import httpx
 from opentelemetry import propagate, trace
@@ -29,18 +28,25 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from ai_platform.inference.schemas import FraudPredictionRequest
 from ai_platform.llm_agent.agent_ab import AgentExperiment, ExperimentPlanner
 from ai_platform.llm_agent.business_request import G3BusinessRequest
+from ai_platform.llm_agent.model_config import (
+    APPROVED_LLM_BASE_URL,
+    APPROVED_LLM_HOST,
+    APPROVED_LLM_PORT,
+    MAX_LLM_TIMEOUT_SECONDS,
+    ModelConfigError,
+    ResolvedModelConfig,
+    log_resolution,
+    resolve_from_env,
+    validate_base_url as _validate_base_url,
+)
 from ai_platform.llm_agent.prompt_safety import ScreenResult, screen_prompt
 
 
-APPROVED_LLM_HOST = "agentgateway.ewallet-agents.svc.cluster.local"
-APPROVED_LLM_PORT = 3000
-APPROVED_LLM_BASE_URL = f"http://{APPROVED_LLM_HOST}:{APPROVED_LLM_PORT}/v1"
 DEFAULT_LLM_MODEL = "ewallet-fraud-llm"
 TOOL_NAME = "investigate_transaction"
 INTAKE_REVISION = "nl-intake/v1"
 MAX_PROMPT_CHARS = 2_000
 MAX_LLM_RESPONSE_BYTES = 65_536
-MAX_LLM_TIMEOUT_SECONDS = 200.0
 # Projection and policy query of the accepted N10-E1 business request; the LLM
 # never chooses which features or which knowledge query are executed.
 DEFAULT_FEATURE_NAMES = (
@@ -164,21 +170,6 @@ def is_typed_wire_text(text: str) -> bool:
     """The established two-line protocol keeps its exact deterministic path."""
 
     return text.startswith("CALL_AGENT=")
-
-
-def _validate_base_url(value: str) -> None:
-    parsed = urlparse(value)
-    if (
-        parsed.scheme != "http"
-        or parsed.hostname != APPROVED_LLM_HOST
-        or parsed.port != APPROVED_LLM_PORT
-        or parsed.path != "/v1"
-        or parsed.query
-        or parsed.fragment
-        or parsed.username
-        or parsed.password
-    ):
-        raise ValueError("LLM base URL must be the approved in-cluster agentgateway route")
 
 
 def _environment_key() -> str:
@@ -305,8 +296,15 @@ def planner_from_env() -> OpenAIToolPlanner | ExperimentPlanner | None:
 
     if os.getenv("EWALLET_NL_INTAKE_ENABLED", "false").lower() != "true":
         return None
-    base_url = os.getenv("EWALLET_LLM_BASE_URL", APPROVED_LLM_BASE_URL).strip()
     timeout_seconds = float(os.getenv("EWALLET_LLM_TIMEOUT_SECONDS", "190"))
+    resolved = model_config_from_env()
+    if resolved is None:
+        base_url = os.getenv("EWALLET_LLM_BASE_URL", APPROVED_LLM_BASE_URL).strip()
+        model = os.getenv("EWALLET_LLM_MODEL", DEFAULT_LLM_MODEL).strip()
+    else:
+        base_url, model = resolved.base_url, resolved.model
+        # The ModelConfig timeout is the ceiling; the agent's own deadline may be shorter.
+        timeout_seconds = min(timeout_seconds, resolved.timeout_seconds)
     raw_experiment = os.getenv("EWALLET_AGENT_AB_CONFIG", "").strip()
     if raw_experiment:
         experiment = AgentExperiment.from_json(raw_experiment)
@@ -324,11 +322,32 @@ def planner_from_env() -> OpenAIToolPlanner | ExperimentPlanner | None:
                 for variant in experiment.variants
             },
         )
-    return OpenAIToolPlanner(
-        base_url=base_url,
-        model=os.getenv("EWALLET_LLM_MODEL", DEFAULT_LLM_MODEL).strip(),
-        timeout_seconds=timeout_seconds,
-    )
+    return OpenAIToolPlanner(base_url=base_url, model=model, timeout_seconds=timeout_seconds)
+
+
+def model_config_from_env() -> ResolvedModelConfig | None:
+    """``EWALLET_LLM_CONFIG_SOURCE=modelconfig``: the global ModelConfig CR is the only authority.
+
+    The default ``env`` source keeps the Helm-rendered values (local profiles, tests). With
+    ``modelconfig`` the base URL and model come only from the CR, so a leftover
+    ``EWALLET_LLM_BASE_URL`` or ``EWALLET_LLM_MODEL`` is a second authority and stops the
+    agent, as does a missing gateway client key. Any error raises ModelConfigError at startup.
+    """
+
+    source = os.getenv("EWALLET_LLM_CONFIG_SOURCE", "env").strip()
+    if source == "env":
+        return None
+    if source != "modelconfig":
+        raise ModelConfigError("modelconfig_misconfigured", "EWALLET_LLM_CONFIG_SOURCE must be env or modelconfig")
+    duplicated = [name for name in ("EWALLET_LLM_BASE_URL", "EWALLET_LLM_MODEL") if os.getenv(name)]
+    if duplicated:
+        raise ModelConfigError("modelconfig_misconfigured",
+                               f"{', '.join(duplicated)} must not be set when the ModelConfig is the source")
+    if not _environment_key():
+        raise ModelConfigError("llm_credential_unavailable", "EWALLET_LLM_API_KEY is not mounted")
+    resolved = resolve_from_env()
+    log_resolution(resolved)
+    return resolved
 
 
 def labelled_identifiers(text: str) -> dict[str, str]:

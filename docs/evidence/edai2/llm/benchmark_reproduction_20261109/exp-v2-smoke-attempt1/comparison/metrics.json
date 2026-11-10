@@ -1,0 +1,16 @@
+{
+  "baseline": "k8s-service",
+  "experiment_id": "EXP-V2",
+  "failures": {},
+  "optimized": "llmd-epp",
+  "reasons": [
+    "both arms need evidence"
+  ],
+  "rows": [],
+  "runs": {
+    "baseline": 1,
+    "optimized": 0
+  },
+  "variable": "Routing path: Kubernetes Service versus llm-d EPP",
+  "verdict": "NOT_EXECUTED"
+}

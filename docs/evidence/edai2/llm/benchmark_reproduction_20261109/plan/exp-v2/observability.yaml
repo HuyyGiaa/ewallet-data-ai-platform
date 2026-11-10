@@ -1,0 +1,1306 @@
+# Isolated Prometheus and Grafana for EXP-V1 / EXP-V2. Both live in ewallet-bench on the
+# benchmark pool and are reached only through local port-forwards (ClusterIP Services, no
+# Ingress, no LoadBalancer). Production Prometheus is not changed.
+#
+# Prometheus discovers pods in ewallet-bench only (a Role, no ClusterRole) and keeps one
+# target per pod, so two vLLM replicas are scraped separately rather than through a
+# Service. CPU and memory come from metrics.k8s.io through a sidecar exporter
+# (ops/experiments/pod_usage_exporter.py), because a kubelet/cAdvisor scrape would need a
+# cluster-wide permission. Rendered by scripts/experiments/render_bench.py --stack observability.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: bench-prometheus, namespace: ewallet-bench}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: bench-prometheus, namespace: ewallet-bench}
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [metrics.k8s.io]
+    resources: [pods]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: bench-prometheus, namespace: ewallet-bench}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: bench-prometheus}
+subjects:
+  - {kind: ServiceAccount, name: bench-prometheus, namespace: ewallet-bench}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-prometheus-apiserver, namespace: ewallet-bench}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: bench-prometheus}
+  policyTypes: [Egress]
+  egress:
+    - to: [{ipBlock: {cidr: 192.0.2.1/32}}]
+      ports:
+        - {protocol: TCP, port: 443}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: bench-prometheus-config, namespace: ewallet-bench}
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 5s
+      scrape_timeout: 4s
+      evaluation_interval: 15s
+    scrape_configs:
+      - job_name: vllm
+        kubernetes_sd_configs: [{role: pod, namespaces: {names: [ewallet-bench]}}]
+        relabel_configs:
+          - action: keep
+            source_labels: [__meta_kubernetes_pod_phase, __meta_kubernetes_pod_label_app_kubernetes_io_name, __meta_kubernetes_pod_container_port_number]
+            regex: Running;vllm;8000
+          - {source_labels: [__meta_kubernetes_pod_name], target_label: pod}
+          - {source_labels: [__meta_kubernetes_pod_node_name], target_label: node}
+          - {source_labels: [__meta_kubernetes_pod_annotation_ewallet_io_run_id], target_label: run_id}
+          - {source_labels: [__meta_kubernetes_pod_annotation_ewallet_io_run_id], regex: '([a-z]+)-.*', target_label: arm, replacement: '$1'}
+          - {target_label: experiment, replacement: exp-v2}
+      - job_name: agentgateway
+        kubernetes_sd_configs: [{role: pod, namespaces: {names: [ewallet-bench]}}]
+        relabel_configs:
+          - action: keep
+            source_labels: [__meta_kubernetes_pod_phase, __meta_kubernetes_pod_label_app_kubernetes_io_name, __meta_kubernetes_pod_container_port_number]
+            regex: Running;agentgateway;15020
+          - {source_labels: [__meta_kubernetes_pod_name], target_label: pod}
+          - {source_labels: [__meta_kubernetes_pod_node_name], target_label: node}
+          - {source_labels: [__meta_kubernetes_pod_annotation_ewallet_io_run_id], target_label: run_id}
+          - {source_labels: [__meta_kubernetes_pod_annotation_ewallet_io_run_id], regex: '([a-z]+)-.*', target_label: arm, replacement: '$1'}
+          - {target_label: experiment, replacement: exp-v2}
+      - job_name: epp
+        kubernetes_sd_configs: [{role: pod, namespaces: {names: [ewallet-bench]}}]
+        relabel_configs:
+          - action: keep
+            source_labels: [__meta_kubernetes_pod_phase, __meta_kubernetes_pod_label_llm_d_router_standalone, __meta_kubernetes_pod_container_port_number]
+            regex: Running;llmd-router-epp;9090
+          - {source_labels: [__meta_kubernetes_pod_name], target_label: pod}
+          - {source_labels: [__meta_kubernetes_pod_node_name], target_label: node}
+          - {target_label: experiment, replacement: exp-v2}
+      - job_name: pod-usage
+        static_configs: [{targets: ['127.0.0.1:9101']}]
+        relabel_configs:
+          - {target_label: experiment, replacement: exp-v2}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: bench-exporter-code, namespace: ewallet-bench}
+data:
+  pod_usage_exporter.py: |
+    """Expose ewallet-bench pod CPU and memory usage to Prometheus (stdlib only).
+    
+    Runs as a sidecar of the benchmark Prometheus. It polls the Kubernetes resource metrics
+    API (``metrics.k8s.io``, the same metrics-server data as ``kubectl top``) for its own
+    namespace and serves the latest sample on ``/metrics``.
+    
+    Why not cAdvisor: scraping the kubelet needs ``nodes/metrics``, a cluster-wide permission
+    the benchmark is not allowed to add. ``pods.metrics.k8s.io`` is namespaced, so a Role in
+    ``ewallet-bench`` is enough.
+    
+    These are metrics-server samples (usage averaged over its own window, typically 15-30 s),
+    not requested CPU. A failed poll keeps the previous values out of ``/metrics`` and raises
+    ``bench_pod_usage_poll_errors_total``, so a gap shows as missing data, never as zero.
+    """
+    
+    from __future__ import annotations
+    
+    import json
+    import os
+    import ssl
+    import threading
+    import time
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from pathlib import Path
+    from typing import Any, Callable
+    from urllib.request import Request, urlopen
+    
+    SA_DIR = Path(os.environ.get("SA_DIR", "/var/run/secrets/kubernetes.io/serviceaccount"))
+    
+    
+    def cpu_cores(value: str) -> float:
+        """Convert a Kubernetes CPU quantity (n, u, m or cores) to cores."""
+    
+        for suffix, scale in (("n", 1e-9), ("u", 1e-6), ("m", 1e-3)):
+            if value.endswith(suffix):
+                return float(value[:-1]) * scale
+        return float(value)
+    
+    
+    def memory_bytes(value: str) -> float:
+        """Convert a Kubernetes memory quantity to bytes."""
+    
+        units = {"Ki": 1024, "Mi": 1024 ** 2, "Gi": 1024 ** 3, "Ti": 1024 ** 4, "k": 1e3, "M": 1e6, "G": 1e9}
+        for suffix, scale in units.items():
+            if value.endswith(suffix):
+                return float(value[: -len(suffix)]) * scale
+        return float(value)
+    
+    
+    def _escape(value: str) -> str:
+        return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+    
+    
+    def render(listing: dict[str, Any] | None, errors: int, last_success: float | None) -> str:
+        """Render one Prometheus text exposition from a PodMetricsList."""
+    
+        lines = ["# HELP bench_pod_container_cpu_cores CPU usage from metrics.k8s.io (cores).",
+                 "# TYPE bench_pod_container_cpu_cores gauge",
+                 "# HELP bench_pod_container_memory_working_set_bytes Memory working set from metrics.k8s.io.",
+                 "# TYPE bench_pod_container_memory_working_set_bytes gauge",
+                 "# HELP bench_pod_usage_window_seconds metrics-server averaging window of the sample.",
+                 "# TYPE bench_pod_usage_window_seconds gauge"]
+        for item in (listing or {}).get("items", []):
+            pod = _escape(item["metadata"]["name"])
+            window = item.get("window", "0s").rstrip("s") or "0"
+            lines.append(f'bench_pod_usage_window_seconds{{pod="{pod}"}} {float(window)}')
+            for container in item.get("containers", []):
+                labels = f'pod="{pod}",container="{_escape(container["name"])}"'
+                usage = container.get("usage", {})
+                if "cpu" in usage:
+                    lines.append(f"bench_pod_container_cpu_cores{{{labels}}} {cpu_cores(usage['cpu'])}")
+                if "memory" in usage:
+                    lines.append(f"bench_pod_container_memory_working_set_bytes{{{labels}}} {memory_bytes(usage['memory'])}")
+        lines += ["# TYPE bench_pod_usage_poll_errors_total counter", f"bench_pod_usage_poll_errors_total {errors}"]
+        if last_success is not None:
+            lines += ["# TYPE bench_pod_usage_last_success_timestamp_seconds gauge",
+                      f"bench_pod_usage_last_success_timestamp_seconds {last_success}"]
+        return "\n".join(lines) + "\n"
+    
+    
+    class Poller:
+        """Keeps the latest listing; only a successful poll replaces it."""
+    
+        def __init__(self, fetch: Callable[[], dict[str, Any]]) -> None:
+            self.fetch = fetch
+            self.listing: dict[str, Any] | None = None
+            self.errors = 0
+            self.last_success: float | None = None
+            self.lock = threading.Lock()
+    
+        def poll(self) -> None:
+            try:
+                listing = self.fetch()
+            except Exception:  # noqa: BLE001 - every failure is counted, none is fatal
+                with self.lock:
+                    self.errors += 1
+                    self.listing = None
+                return
+            with self.lock:
+                self.listing, self.last_success = listing, time.time()
+    
+        def text(self) -> str:
+            with self.lock:
+                return render(self.listing, self.errors, self.last_success)
+    
+    
+    def fetcher(namespace: str) -> Callable[[], dict[str, Any]]:
+        """Return a function that lists PodMetrics in the namespace with a verified TLS session."""
+    
+        host, port = os.environ["KUBERNETES_SERVICE_HOST"], os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        context = ssl.create_default_context(cafile=str(SA_DIR / "ca.crt"))
+        url = f"https://{host}:{port}/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods"
+    
+        def fetch() -> dict[str, Any]:
+            token = (SA_DIR / "token").read_text(encoding="utf-8").strip()      # re-read: projected tokens rotate
+            request = Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+            with urlopen(request, timeout=10, context=context) as response:  # noqa: S310 (in-cluster API)
+                return json.load(response)
+    
+        return fetch
+    
+    
+    def main() -> int:
+        """Poll every POLL_SECONDS and serve /metrics on PORT."""
+    
+        namespace = os.environ.get("NAMESPACE") or (SA_DIR / "namespace").read_text(encoding="utf-8").strip()
+        poller = Poller(fetcher(namespace))
+        interval = float(os.environ.get("POLL_SECONDS", "10"))
+    
+        def loop() -> None:
+            while True:
+                poller.poll()
+                time.sleep(interval)
+    
+        threading.Thread(target=loop, daemon=True).start()
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 - http.server API
+                body = poller.text().encode() if self.path == "/metrics" else b"ok\n"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; version=0.0.4")
+                self.end_headers()
+                self.wfile.write(body)
+    
+            def log_message(self, *args: object) -> None:
+                return
+    
+        # Loopback only: Prometheus is in the same pod, nothing else needs this port.
+        ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("PORT", "9101"))), Handler).serve_forever()
+        return 0
+    
+    
+    if __name__ == "__main__":
+        raise SystemExit(main())
+---
+apiVersion: v1
+kind: Service
+metadata: {name: bench-prometheus, namespace: ewallet-bench}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: bench-prometheus}
+  ports:
+    - {name: http, port: 9090, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bench-prometheus
+  namespace: ewallet-bench
+  labels: {app.kubernetes.io/name: bench-prometheus}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: bench-prometheus}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: bench-prometheus}
+    spec:
+      serviceAccountName: bench-prometheus
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      nodeSelector: {ewallet.io/bench: "true"}
+      tolerations:
+        - {key: ewallet.io/bench, operator: Equal, value: "true", effect: NoSchedule}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: prometheus
+          image: docker.io/prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545
+          imagePullPolicy: IfNotPresent
+          args: [--config.file=/etc/prometheus/prometheus.yaml, --storage.tsdb.path=/prometheus,
+                 --storage.tsdb.retention.time=12h]
+          ports:
+            - {name: http, containerPort: 9090}
+          readinessProbe:
+            httpGet: {path: /-/ready, port: http}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 768Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: config, mountPath: /etc/prometheus, readOnly: true}
+            - {name: data, mountPath: /prometheus}
+        - name: pod-usage-exporter
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+          imagePullPolicy: IfNotPresent
+          command: [python3, /code/pod_usage_exporter.py]
+          env:
+            - name: NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - {name: POLL_SECONDS, value: "10"}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 100m, memory: 96Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: exporter, mountPath: /code, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: bench-prometheus-config}
+        - name: exporter
+          configMap: {name: bench-exporter-code}
+        - name: data
+          emptyDir: {sizeLimit: 2Gi}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: bench-grafana, namespace: ewallet-bench}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: bench-grafana-provisioning, namespace: ewallet-bench}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - {name: bench-prometheus, uid: bench-prom, type: prometheus, access: proxy, isDefault: true,
+         url: "http://bench-prometheus.ewallet-bench.svc.cluster.local:9090", jsonData: {timeInterval: 5s}}
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - {name: ewallet-bench, folder: EDAI-2 Benchmark, type: file, disableDeletion: true,
+         allowUiUpdates: false, options: {path: /var/lib/grafana/dashboards}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: bench-grafana-dashboards, namespace: ewallet-bench}
+data:
+  llm-cpu-benchmark.json: |
+    {
+     "uid": "edai2-llm-cpu-bench",
+     "title": "EDAI-2 — LLM CPU Benchmark (EXP-V1 / EXP-V2)",
+     "schemaVersion": 39,
+     "version": 1,
+     "editable": false,
+     "tags": [
+      "edai2",
+      "benchmark",
+      "ewallet-bench"
+     ],
+     "timezone": "utc",
+     "refresh": "10s",
+     "time": {
+      "from": "now-30m",
+      "to": "now"
+     },
+     "templating": {
+      "list": [
+       {
+        "name": "run_id",
+        "label": "run (arm-run)",
+        "type": "query",
+        "datasource": {
+         "type": "prometheus",
+         "uid": "bench-prom"
+        },
+        "query": {
+         "query": "label_values(vllm:num_requests_running, run_id)",
+         "refId": "run_id"
+        },
+        "definition": "label_values(vllm:num_requests_running, run_id)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+         "selected": true,
+         "text": "All",
+         "value": "$__all"
+        }
+       }
+      ]
+     },
+     "panels": [
+      {
+       "id": 1,
+       "type": "text",
+       "title": "About these panels",
+       "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+       },
+       "options": {
+        "mode": "markdown",
+        "content": "Namespace **ewallet-bench** only (temporary benchmark stack, not production). `run_id` = arm-run, e.g. `baseline-01`. Server-side percentiles are histogram estimates; the benchmark client's raw records (`raw/run-NN/summary.json`) are authoritative. CPU/memory come from metrics-server via `metrics.k8s.io`. EPP panels have data only in the EXP-V2 optimized (llm-d) arm."
+       }
+      },
+      {
+       "id": 2,
+       "type": "row",
+       "title": "A. Serving performance",
+       "collapsed": false,
+       "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 3
+       }
+      },
+      {
+       "id": 3,
+       "type": "timeseries",
+       "title": "Output tokens/s per vLLM pod",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 4
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod, run_id) (rate(vllm:generation_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+         "legendFormat": "{{pod}} {{run_id}}"
+        }
+       ]
+      },
+      {
+       "id": 4,
+       "type": "timeseries",
+       "title": "Prompt tokens/s per vLLM pod",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 4
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod, run_id) (rate(vllm:prompt_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+         "legendFormat": "{{pod}} {{run_id}}"
+        }
+       ]
+      },
+      {
+       "id": 5,
+       "type": "timeseries",
+       "title": "TTFT p50 / p95 (vLLM histogram)",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 4
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "s",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+         "legendFormat": "p50 {{run_id}}"
+        },
+        {
+         "refId": "B",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+         "legendFormat": "p95 {{run_id}}"
+        }
+       ]
+      },
+      {
+       "id": 6,
+       "type": "timeseries",
+       "title": "End-to-end latency p50 / p95 (vLLM histogram)",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 12
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "s",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+         "legendFormat": "p50 {{run_id}}"
+        },
+        {
+         "refId": "B",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+         "legendFormat": "p95 {{run_id}}"
+        }
+       ]
+      },
+      {
+       "id": 7,
+       "type": "timeseries",
+       "title": "Running and waiting requests per pod",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 12
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod) (vllm:num_requests_running{job=\"vllm\",run_id=~\"$run_id\"})",
+         "legendFormat": "running {{pod}}"
+        },
+        {
+         "refId": "B",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod) (vllm:num_requests_waiting{job=\"vllm\",run_id=~\"$run_id\"})",
+         "legendFormat": "waiting {{pod}}"
+        }
+       ]
+      },
+      {
+       "id": 8,
+       "type": "timeseries",
+       "title": "Gateway responses by HTTP status",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 12
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "reqps",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (status) (rate(agentgateway_requests_total{job=\"agentgateway\"}[1m]))",
+         "legendFormat": "{{status}}"
+        }
+       ]
+      },
+      {
+       "id": 9,
+       "type": "row",
+       "title": "B. Resource utilization",
+       "collapsed": false,
+       "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+       }
+      },
+      {
+       "id": 10,
+       "type": "timeseries",
+       "title": "CPU usage per container (metrics-server)",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 21
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod, container) (bench_pod_container_cpu_cores{job=\"pod-usage\"})",
+         "legendFormat": "{{pod}}/{{container}}"
+        }
+       ]
+      },
+      {
+       "id": 11,
+       "type": "timeseries",
+       "title": "Memory working set per container (metrics-server)",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 21
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "bytes",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod, container) (bench_pod_container_memory_working_set_bytes{job=\"pod-usage\"})",
+         "legendFormat": "{{pod}}/{{container}}"
+        }
+       ]
+      },
+      {
+       "id": 12,
+       "type": "timeseries",
+       "title": "Mean queue time per vLLM pod",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 21
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "s",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod) (rate(vllm:request_queue_time_seconds_sum{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:request_queue_time_seconds_count{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+         "legendFormat": "{{pod}}"
+        }
+       ]
+      },
+      {
+       "id": 13,
+       "type": "timeseries",
+       "title": "Prefix-cache hit ratio per vLLM pod",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 29
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "percentunit",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod) (rate(vllm:prefix_cache_hits_total{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:prefix_cache_queries_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+         "legendFormat": "{{pod}}"
+        }
+       ]
+      },
+      {
+       "id": 14,
+       "type": "row",
+       "title": "C. Routing",
+       "collapsed": false,
+       "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+       }
+      },
+      {
+       "id": 15,
+       "type": "timeseries",
+       "title": "Completed requests per replica",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 38
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "reqps",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod) (rate(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+         "legendFormat": "{{pod}}"
+        }
+       ]
+      },
+      {
+       "id": 16,
+       "type": "bargauge",
+       "title": "Share of completed requests per replica (selected range)",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 38
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "percentunit",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal"
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (pod) (increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range])) / ignoring(pod) group_left sum(increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range]))",
+         "legendFormat": "{{pod}}",
+         "instant": true
+        }
+       ]
+      },
+      {
+       "id": 17,
+       "type": "timeseries",
+       "title": "llm-d EPP ready endpoints",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 38
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "max(llm_d_epp_ready_endpoints{job=\"epp\"})",
+         "legendFormat": "ready"
+        }
+       ]
+      },
+      {
+       "id": 18,
+       "type": "timeseries",
+       "title": "llm-d EPP scheduling decisions per endpoint",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 46
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (endpoint_name, status) (rate(llm_d_epp_scheduler_attempts_total{job=\"epp\"}[1m]))",
+         "legendFormat": "{{endpoint_name}} {{status}}"
+        }
+       ]
+      },
+      {
+       "id": 19,
+       "type": "timeseries",
+       "title": "llm-d EPP errors and metric-poll errors",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 46
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum by (error_code) (rate(llm_d_epp_request_error_total{job=\"epp\"}[1m]))",
+         "legendFormat": "request {{error_code}}"
+        },
+        {
+         "refId": "B",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "sum(rate(llm_d_epp_datalayer_poll_errors_total{job=\"epp\"}[1m]))",
+         "legendFormat": "metric poll"
+        }
+       ]
+      },
+      {
+       "id": 20,
+       "type": "timeseries",
+       "title": "llm-d EPP scheduler latency p95",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 46
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "s",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "histogram_quantile(0.95, sum by (le) (rate(llm_d_epp_scheduler_e2e_duration_seconds_bucket{job=\"epp\"}[1m])))",
+         "legendFormat": "p95"
+        }
+       ]
+      },
+      {
+       "id": 21,
+       "type": "timeseries",
+       "title": "Scrape health per target",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "bench-prom"
+       },
+       "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 54
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "noValue": "no data: series absent"
+        },
+        "overrides": []
+       },
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "bottom",
+         "calcs": [
+          "mean",
+          "max"
+         ]
+        }
+       },
+       "targets": [
+        {
+         "refId": "A",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "up",
+         "legendFormat": "{{job}} {{pod}}"
+        },
+        {
+         "refId": "B",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "bench-prom"
+         },
+         "expr": "time() - bench_pod_usage_last_success_timestamp_seconds{job=\"pod-usage\"}",
+         "legendFormat": "pod-usage age (s)"
+        }
+       ]
+      }
+     ]
+    }
+---
+apiVersion: v1
+kind: Service
+metadata: {name: bench-grafana, namespace: ewallet-bench}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: bench-grafana}
+  ports:
+    - {name: http, port: 3000, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bench-grafana
+  namespace: ewallet-bench
+  labels: {app.kubernetes.io/name: bench-grafana}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: bench-grafana}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: bench-grafana}
+    spec:
+      serviceAccountName: bench-grafana
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector: {ewallet.io/bench: "true"}
+      tolerations:
+        - {key: ewallet.io/bench, operator: Equal, value: "true", effect: NoSchedule}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: grafana
+          image: docker.io/grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8
+          imagePullPolicy: IfNotPresent
+          env:
+            # Read-only viewing through the local port-forward; the admin password is a
+            # random Secret that nothing prints.
+            - {name: GF_AUTH_ANONYMOUS_ENABLED, value: "true"}
+            - {name: GF_AUTH_ANONYMOUS_ORG_ROLE, value: Viewer}
+            - {name: GF_SECURITY_ADMIN_USER, value: admin}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: bench-grafana-admin, key: password}}
+            - {name: GF_PLUGINS_PREINSTALL_DISABLED, value: "true"}
+            - {name: GF_ANALYTICS_REPORTING_ENABLED, value: "false"}
+            - {name: GF_ANALYTICS_CHECK_FOR_UPDATES, value: "false"}
+            - {name: GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES, value: "false"}
+            - {name: GF_NEWS_NEWS_FEED_ENABLED, value: "false"}
+            - {name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH, value: /var/lib/grafana/dashboards/llm-cpu-benchmark.json}
+            - {name: GF_PATHS_DATA, value: /tmp/grafana-data}
+            - {name: GF_PATHS_LOGS, value: /tmp/grafana-logs}
+            - {name: GF_PATHS_PLUGINS, value: /tmp/grafana-plugins}
+          ports:
+            - {name: http, containerPort: 3000}
+          readinessProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 300m, memory: 384Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: provisioning, mountPath: /etc/grafana/provisioning/datasources/datasources.yaml, subPath: datasources.yaml, readOnly: true}
+            - {name: provisioning, mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml, subPath: dashboards.yaml, readOnly: true}
+            - {name: dashboards, mountPath: /var/lib/grafana/dashboards, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: provisioning
+          configMap: {name: bench-grafana-provisioning}
+        - name: dashboards
+          configMap: {name: bench-grafana-dashboards}
+        - name: tmp
+          emptyDir: {sizeLimit: 512Mi}

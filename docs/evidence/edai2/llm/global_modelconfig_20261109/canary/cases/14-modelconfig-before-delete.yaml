@@ -1,0 +1,34 @@
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"kagent.dev/v1alpha2","kind":"ModelConfig","metadata":{"annotations":{},"labels":{"app.kubernetes.io/part-of":"ewallet-llm-agent","app.kubernetes.io/version":"llm-agent-v1","ewallet.io/canary":"modelconfig-resolver"},"name":"ewallet-global-llm","namespace":"kagent-pilot"},"spec":{"apiKeySecret":"agentgateway-client-key","apiKeySecretKey":"api-key","model":"ewallet-fraud-llm","openAI":{"apiFormat":"chatCompletions","baseUrl":"http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1","timeout":200},"provider":"OpenAI"}}
+  creationTimestamp: "2026-11-08T18:15:31Z"
+  generation: 4
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    app.kubernetes.io/version: llm-agent-v1
+    ewallet.io/canary: modelconfig-resolver
+  name: ewallet-global-llm
+  namespace: kagent-pilot
+  resourceVersion: "1794161920036879009"
+  uid: a6b93273-4c5d-4e80-9d43-02e02954c8ec
+spec:
+  apiKeySecret: mc-canary-other-key
+  apiKeySecretKey: api-key
+  model: ewallet-fraud-llm-canary-v2
+  openAI:
+    apiFormat: chatCompletions
+    baseUrl: http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1
+    timeout: 200
+  provider: OpenAI
+status:
+  conditions:
+  - lastTransitionTime: "2026-11-08T18:15:31Z"
+    message: Model configuration accepted
+    reason: ModelConfigReconciled
+    status: "True"
+    type: Accepted
+  observedGeneration: 4
+  secretHash: b78d8200343485c6c7f7dd308e9fcd6a9fc2a39fda5a2549c295caa4c5266790

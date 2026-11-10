@@ -1,0 +1,1 @@
+{"event": "modelconfig.failed", "code": "modelconfig_forbidden", "message": "modelconfig_forbidden: Kubernetes API returned HTTP 403 (RBAC or token)", "denied_egress_probe": "blocked (TimeoutError)"}

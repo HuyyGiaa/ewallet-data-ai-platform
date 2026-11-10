@@ -1,0 +1,15 @@
+{
+  "ceiling_usd": 5.0,
+  "ceiling_window_minutes": 240,
+  "fits": true,
+  "host_loss_billable_minutes": 125,
+  "machine_type": "e2-standard-4",
+  "margin": 1.25,
+  "max_minutes": 90,
+  "node_hour_usd": 0.1778,
+  "nodes": 1,
+  "price_source": "asia-southeast1 list prices read 2026-11-09; estimate, not a billing readback",
+  "problems": [],
+  "session_window_minutes": 115,
+  "worst_case_usd": 0.46
+}

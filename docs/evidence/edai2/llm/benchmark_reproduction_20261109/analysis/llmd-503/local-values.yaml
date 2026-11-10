@@ -1,0 +1,4 @@
+router:
+  epp:
+    affinity: null
+    tolerations: []

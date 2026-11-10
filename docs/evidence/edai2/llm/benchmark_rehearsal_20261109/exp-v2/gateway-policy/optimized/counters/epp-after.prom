@@ -1,0 +1,2 @@
+llm_d_epp_request_error_total{error_code="ModelServerError",fairness_id="default-flow",model_name="ewallet-fraud-llm-v1",priority="0",target_model_name="ewallet-fraud-llm-v1"} 4
+llm_d_epp_request_total{fairness_id="default-flow",model_name="ewallet-fraud-llm-v1",priority="0",target_model_name="ewallet-fraud-llm-v1"} 69

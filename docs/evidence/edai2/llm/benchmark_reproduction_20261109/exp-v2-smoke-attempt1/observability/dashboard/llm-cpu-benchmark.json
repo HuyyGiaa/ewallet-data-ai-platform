@@ -1,0 +1,869 @@
+{
+ "uid": "edai2-llm-cpu-bench",
+ "title": "EDAI-2 — LLM CPU Benchmark (EXP-V1 / EXP-V2)",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": false,
+ "tags": [
+  "edai2",
+  "benchmark",
+  "ewallet-bench"
+ ],
+ "timezone": "utc",
+ "refresh": "10s",
+ "time": {
+  "from": "now-30m",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "run_id",
+    "label": "run (arm-run)",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "bench-prom"
+    },
+    "query": {
+     "query": "label_values(vllm:num_requests_running, run_id)",
+     "refId": "run_id"
+    },
+    "definition": "label_values(vllm:num_requests_running, run_id)",
+    "refresh": 2,
+    "multi": true,
+    "includeAll": true,
+    "allValue": ".*",
+    "current": {
+     "selected": true,
+     "text": "All",
+     "value": "$__all"
+    }
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "text",
+   "title": "About these panels",
+   "gridPos": {
+    "h": 3,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "options": {
+    "mode": "markdown",
+    "content": "Namespace **ewallet-bench** only (temporary benchmark stack, not production). `run_id` = arm-run, e.g. `baseline-01`. Server-side percentiles are histogram estimates; the benchmark client's raw records (`raw/run-NN/summary.json`) are authoritative. CPU/memory come from metrics-server via `metrics.k8s.io`. EPP panels have data only in the EXP-V2 optimized (llm-d) arm."
+   }
+  },
+  {
+   "id": 2,
+   "type": "row",
+   "title": "A. Serving performance",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 3
+   }
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Output tokens/s per vLLM pod",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod, run_id) (rate(vllm:generation_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+     "legendFormat": "{{pod}} {{run_id}}"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "timeseries",
+   "title": "Prompt tokens/s per vLLM pod",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod, run_id) (rate(vllm:prompt_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+     "legendFormat": "{{pod}} {{run_id}}"
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "timeseries",
+   "title": "TTFT p50 / p95 (vLLM histogram)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 4
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+     "legendFormat": "p50 {{run_id}}"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+     "legendFormat": "p95 {{run_id}}"
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "type": "timeseries",
+   "title": "End-to-end latency p50 / p95 (vLLM histogram)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 12
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+     "legendFormat": "p50 {{run_id}}"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+     "legendFormat": "p95 {{run_id}}"
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "type": "timeseries",
+   "title": "Running and waiting requests per pod",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 12
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod) (vllm:num_requests_running{job=\"vllm\",run_id=~\"$run_id\"})",
+     "legendFormat": "running {{pod}}"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod) (vllm:num_requests_waiting{job=\"vllm\",run_id=~\"$run_id\"})",
+     "legendFormat": "waiting {{pod}}"
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "type": "timeseries",
+   "title": "Gateway responses by HTTP status",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 12
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (status) (rate(agentgateway_requests_total{job=\"agentgateway\"}[1m]))",
+     "legendFormat": "{{status}}"
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "type": "row",
+   "title": "B. Resource utilization",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 20
+   }
+  },
+  {
+   "id": 10,
+   "type": "timeseries",
+   "title": "CPU usage per container (metrics-server)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 21
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod, container) (bench_pod_container_cpu_cores{job=\"pod-usage\"})",
+     "legendFormat": "{{pod}}/{{container}}"
+    }
+   ]
+  },
+  {
+   "id": 11,
+   "type": "timeseries",
+   "title": "Memory working set per container (metrics-server)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 21
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod, container) (bench_pod_container_memory_working_set_bytes{job=\"pod-usage\"})",
+     "legendFormat": "{{pod}}/{{container}}"
+    }
+   ]
+  },
+  {
+   "id": 12,
+   "type": "timeseries",
+   "title": "Mean queue time per vLLM pod",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 21
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod) (rate(vllm:request_queue_time_seconds_sum{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:request_queue_time_seconds_count{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+     "legendFormat": "{{pod}}"
+    }
+   ]
+  },
+  {
+   "id": 13,
+   "type": "timeseries",
+   "title": "Prefix-cache hit ratio per vLLM pod",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 29
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod) (rate(vllm:prefix_cache_hits_total{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:prefix_cache_queries_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+     "legendFormat": "{{pod}}"
+    }
+   ]
+  },
+  {
+   "id": 14,
+   "type": "row",
+   "title": "C. Routing",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 37
+   }
+  },
+  {
+   "id": 15,
+   "type": "timeseries",
+   "title": "Completed requests per replica",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 38
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod) (rate(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+     "legendFormat": "{{pod}}"
+    }
+   ]
+  },
+  {
+   "id": 16,
+   "type": "bargauge",
+   "title": "Share of completed requests per replica (selected range)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 38
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "displayMode": "basic",
+    "orientation": "horizontal"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (pod) (increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range])) / ignoring(pod) group_left sum(increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range]))",
+     "legendFormat": "{{pod}}",
+     "instant": true
+    }
+   ]
+  },
+  {
+   "id": 17,
+   "type": "timeseries",
+   "title": "llm-d EPP ready endpoints",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 38
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "max(llm_d_epp_ready_endpoints{job=\"epp\"})",
+     "legendFormat": "ready"
+    }
+   ]
+  },
+  {
+   "id": 18,
+   "type": "timeseries",
+   "title": "llm-d EPP scheduling decisions per endpoint",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 46
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (endpoint_name, status) (rate(llm_d_epp_scheduler_attempts_total{job=\"epp\"}[1m]))",
+     "legendFormat": "{{endpoint_name}} {{status}}"
+    }
+   ]
+  },
+  {
+   "id": 19,
+   "type": "timeseries",
+   "title": "llm-d EPP errors and metric-poll errors",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 46
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum by (error_code) (rate(llm_d_epp_request_error_total{job=\"epp\"}[1m]))",
+     "legendFormat": "request {{error_code}}"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "sum(rate(llm_d_epp_datalayer_poll_errors_total{job=\"epp\"}[1m]))",
+     "legendFormat": "metric poll"
+    }
+   ]
+  },
+  {
+   "id": 20,
+   "type": "timeseries",
+   "title": "llm-d EPP scheduler latency p95",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 46
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(llm_d_epp_scheduler_e2e_duration_seconds_bucket{job=\"epp\"}[1m])))",
+     "legendFormat": "p95"
+    }
+   ]
+  },
+  {
+   "id": 21,
+   "type": "timeseries",
+   "title": "Scrape health per target",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "bench-prom"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 54
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "noValue": "no data: series absent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "up",
+     "legendFormat": "{{job}} {{pod}}"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "bench-prom"
+     },
+     "expr": "time() - bench_pod_usage_last_success_timestamp_seconds{job=\"pod-usage\"}",
+     "legendFormat": "pod-usage age (s)"
+    }
+   ]
+  }
+ ]
+}

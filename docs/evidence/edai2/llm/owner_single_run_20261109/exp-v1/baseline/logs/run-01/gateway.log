@@ -1,0 +1,236 @@
+2026-11-09T17:47:46.432777Z	info	agentgateway_app::commands::run	version: {
+  "version": "1.7.0",
+  "git_revision": "26f5aebe99a36a037fe54f8080a608aca5547e15",
+  "rust_version": "1.99.0",
+  "build_profile": "release",
+  "build_target": "x86_64-unknown-linux-gnu",
+  "crypto_backend": "aws-lc-rs",
+  "crypto_fips": false
+}	
+2026-11-09T17:47:46.433155Z	info	agentgateway_app::commands::run	running with config: ipv6Enabled: true
+network: ''
+selfIdentity: null
+terminationMaxDeadline: 5s
+terminationMinDeadline: 0s
+numWorkerThreads: 1
+adminAddr:
+  Localhost:
+  - false
+  - 15000
+statsAddr:
+  SocketAddr: '[::]:15020'
+histograms: classic
+readinessAddr:
+  SocketAddr: '[::]:15021'
+selfAddr:
+  gateway: default
+  namespace: default
+hbone:
+  windowSize: 4194304
+  connectionWindowSize: 16777216
+  frameSize: 1048576
+  poolMaxStreamsPerConn: 100
+  poolUnusedReleaseTimeout:
+    secs: 300
+    nanos: 0
+xds:
+  address: null
+  auth: none
+  caCert: Default
+  headers: []
+  namespace: default
+  gateway: default
+  localConfig: /config/config.yaml
+ca: null
+spiffe: null
+tracing: null
+metrics:
+  metric_fields:
+    add: {}
+  excluded_metrics: []
+logging:
+  filter: null
+  fields:
+    remove: []
+    add: {}
+  level: ''
+  format: text
+  database: null
+database: null
+storage:
+  mode: file
+sensitiveHeaders: []
+dns:
+  resolverCfg:
+    domain: null
+    search:
+    - ewallet-bench.svc.cluster.local
+    - svc.cluster.local
+    - cluster.local
+    - asia-southeast1-b.c.ewallet-data-ai-platform-hg26.internal
+    - c.ewallet-data-ai-platform-hg26.internal
+    - google.internal
+    name_servers:
+    - ip: 34.118.224.10
+      trust_negative_responses: true
+      connections:
+      - port: 53
+        protocol:
+          type: udp
+        bind_addr: null
+      - port: 53
+        protocol:
+          type: tcp
+        bind_addr: null
+  resolverOpts:
+    ndots: 5
+    timeout: 5
+    attempts: 2
+    edns0: false
+    ip_strategy: Ipv4thenIpv6
+    cache_size: 8192
+    use_hosts_file: Auto
+    positive_min_ttl: null
+    negative_min_ttl: null
+    positive_max_ttl: null
+    negative_max_ttl: null
+    num_concurrent_reqs: 2
+    max_active_requests: 32
+    preserve_intermediates: true
+    try_tcp_on_error: false
+    server_ordering_strategy: QueryStatistics
+    recursion_desired: true
+    avoid_local_udp_ports: []
+    os_port_selection: false
+    case_randomization: false
+    trust_anchor: null
+    allow_answers: []
+    deny_answers: []
+    edns_payload_len: 1232
+proxyMetadata:
+  instanceIp: null
+  podName: ''
+  podNamespace: ''
+  nodeName: ''
+  role: '~'
+  nodeId: agentgateway~1.1.1.1~.~.svc.cluster.local
+threadingMode: multithreaded
+sessionEncoder: base64
+oidcCookieEncoder: null
+backend:
+  keepalives:
+    enabled: true
+    time: 3m0s
+    interval: 3m0s
+    retries: 9
+  connectTimeout: 11s
+  poolIdleTimeout: 1m30s
+  poolMaxSize: null
+  h2KeepaliveInterval: 0s
+  h2KeepaliveTimeout: 5s
+  allowDynamicLoopback: false
+callouts: {}
+mcp:
+  sessionTtl: 30m0s
+dynamicCaCertCache:
+  ttl: 5m0s
+  capacity: 256
+modelCatalog:
+  sources: []
+	
+2026-11-09T17:47:46.671398Z	warn	config	failed to write generated session key	err=failed to write to file `/config/config.yaml`: Read-only file system (os error 30) path=/config/config.yaml
+2026-11-09T17:47:46.671454Z	warn	config	no session key configured; MCP session IDs are not encrypted. Set SESSION_KEY or config.session.key	
+2026-11-09T17:47:46.672664Z	info	management::hyper_helpers	listener established	address=[::]:15021 component="readiness"
+2026-11-09T17:47:46.737234Z	info	state_manager	loaded config from File("/config/config.yaml")	
+2026-11-09T17:47:46.738406Z	info	state_manager	Watching config file: /config/config.yaml	
+2026-11-09T17:47:46.739181Z	info	agent_core::readiness	Task 'state manager' complete (307.017181ms), still awaiting 1 tasks	
+2026-11-09T17:47:46.739405Z	info	app	serving UI at http://localhost:15000/ui	
+2026-11-09T17:47:46.739465Z	info	agent_core::readiness	Task 'agentgateway' complete (307.300937ms), marking server ready	
+2026-11-09T17:47:46.739476Z	info	management::hyper_helpers	listener established	address=127.0.0.1:15000 component="admin"
+2026-11-09T17:47:46.739518Z	info	management::hyper_helpers	listener established	address=[::]:15020 component="stats"
+2026-11-09T17:47:46.739577Z	info	proxy::gateway	started bind	bind="bind/3000"
+2026-11-09T17:47:46.739629Z	info	proxy::gateway	started bind	bind="bind/4000"
+2026-11-09T18:08:12.683812Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=808 gen_ai.usage.output_tokens=32 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=85.077271761 agw.ai.time_per_output_token=0.216459981 gen_ai.request.temperature=0 gen_ai.request.max_tokens=32 duration=92003ms
+2026-11-09T18:08:12.684276Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:53786 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=92030ms
+2026-11-09T18:08:24.171657Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=807 gen_ai.usage.output_tokens=32 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=4.358118724 agw.ai.time_per_output_token=0.214644737 gen_ai.request.temperature=0 gen_ai.request.max_tokens=32 duration=11226ms
+2026-11-09T18:08:24.171765Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:32844 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=11227ms
+2026-11-09T18:08:35.415023Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=805 gen_ai.usage.output_tokens=32 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=4.201351293 agw.ai.time_per_output_token=0.212178206 gen_ai.request.temperature=0 gen_ai.request.max_tokens=32 duration=10991ms
+2026-11-09T18:08:35.415159Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:55066 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=10991ms
+2026-11-09T18:08:39.811978Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=15 gen_ai.usage.output_tokens=10 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=1.604540919 agw.ai.time_per_output_token=0.179622579 gen_ai.request.temperature=0 gen_ai.request.max_tokens=16 duration=3400ms
+2026-11-09T18:08:39.812114Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:49396 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=3401ms
+2026-11-09T18:09:02.233967Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=173 gen_ai.usage.output_tokens=23 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=17.481531662 agw.ai.time_per_output_token=0.200410507 gen_ai.request.temperature=0 gen_ai.request.max_tokens=32 duration=22090ms
+2026-11-09T18:09:02.234261Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:49406 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=22091ms
+2026-11-09T18:09:09.837364Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=22 gen_ai.usage.output_tokens=23 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=2.431904309 agw.ai.time_per_output_token=0.196935505 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=6961ms
+2026-11-09T18:09:09.837461Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:57162 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=6961ms
+2026-11-09T18:09:22.296425Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=19 gen_ai.usage.output_tokens=52 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=2.021958921 agw.ai.time_per_output_token=0.194896587 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=12156ms
+2026-11-09T18:09:22.296723Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:50506 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=12157ms
+2026-11-09T18:12:02.655651Z	error	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:44148 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.request.temperature=0 gen_ai.request.max_tokens=128 error="response body failed: response idle timeout" duration=160013ms
+2026-11-09T18:12:02.656072Z	warn	proxy::gateway	proxy error: error from user's Body stream	connection.id=229 src.addr=127.0.0.1:44148
+2026-11-09T18:12:02.658441Z	error	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:40676 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http error="response body failed: error reading a body from connection" duration=160017ms
+2026-11-09T18:12:02.659325Z	warn	proxy::gateway	proxy error: error from user's Body stream	connection.id=268 src.addr=127.0.0.1:40676
+2026-11-09T18:13:08.276628Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=1616 gen_ai.usage.output_tokens=128 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=32.452377903 agw.ai.time_per_output_token=0.247714898 gen_ai.request.temperature=0 gen_ai.request.max_tokens=128 duration=64159ms
+2026-11-09T18:13:08.276801Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:47954 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=64160ms
+2026-11-09T18:14:22.303535Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=584 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=60.372131192 agw.ai.time_per_output_token=0.209304421 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=73767ms
+2026-11-09T18:14:22.303677Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:38562 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=73768ms
+2026-11-09T18:14:43.652049Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=583 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=7.623177759 agw.ai.time_per_output_token=0.210341131 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=21085ms
+2026-11-09T18:14:43.652228Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:45764 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=21085ms
+2026-11-09T18:14:57.299527Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=581 gen_ai.usage.output_tokens=29 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=7.402982489 agw.ai.time_per_output_token=0.204058618 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=13320ms
+2026-11-09T18:14:57.301574Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:59438 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=13322ms
+2026-11-09T18:16:14.990435Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=596 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=63.945788157 agw.ai.time_per_output_token=0.21008371 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=77391ms
+2026-11-09T18:16:14.990572Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:43996 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=77391ms
+2026-11-09T18:17:30.353908Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=596 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=61.480059886 agw.ai.time_per_output_token=0.211850997 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=75038ms
+2026-11-09T18:17:30.354388Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:57814 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=75039ms
+2026-11-09T18:17:41.018726Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=177 gen_ai.usage.output_tokens=27 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=5.071581955 agw.ai.time_per_output_token=0.195140268 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=10340ms
+2026-11-09T18:17:41.018903Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:60058 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=10341ms
+2026-11-09T18:17:51.673282Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=177 gen_ai.usage.output_tokens=27 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=5.029397566 agw.ai.time_per_output_token=0.198216316 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=10381ms
+2026-11-09T18:17:51.673396Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:54770 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=10381ms
+2026-11-09T18:18:02.651435Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=20 gen_ai.usage.output_tokens=43 gen_ai.usage.reasoning_tokens=0 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=10669ms
+2026-11-09T18:18:02.651688Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:54958 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=10669ms
+2026-11-09T18:18:15.272664Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=22 gen_ai.usage.output_tokens=23 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=2.382046739 agw.ai.time_per_output_token=0.404917897 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=11695ms
+2026-11-09T18:18:15.274667Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:35976 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=11697ms
+2026-11-09T18:18:35.614408Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=19 gen_ai.usage.output_tokens=52 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=4.552017187 agw.ai.time_per_output_token=0.528536996 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=32035ms
+2026-11-09T18:18:35.614966Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:35970 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=32037ms
+2026-11-09T18:19:26.200565Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=1617 gen_ai.usage.output_tokens=128 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=9.961629556 agw.ai.time_per_output_token=0.473416694 gen_ai.request.temperature=0 gen_ai.request.max_tokens=128 duration=70558ms
+2026-11-09T18:19:26.200714Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:58448 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=70559ms
+2026-11-09T18:19:45.104529Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=1616 gen_ai.usage.output_tokens=128 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=9.813702003 agw.ai.time_per_output_token=0.464191101 gen_ai.request.temperature=0 gen_ai.request.max_tokens=128 duration=69230ms
+2026-11-09T18:19:45.105279Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:44838 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=69231ms
+2026-11-09T18:20:06.184823Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=584 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=8.232035874 agw.ai.time_per_output_token=0.492095396 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=39726ms
+2026-11-09T18:20:06.184999Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:53024 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=39726ms
+2026-11-09T18:20:23.611264Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=583 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=7.849711816 agw.ai.time_per_output_token=0.473745415 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=38169ms
+2026-11-09T18:20:23.611437Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:45730 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=38170ms
+2026-11-09T18:20:24.040550Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=581 gen_ai.usage.output_tokens=29 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=7.755525667 agw.ai.time_per_output_token=0.339599815 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=17603ms
+2026-11-09T18:20:24.041346Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:41196 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=17605ms
+2026-11-09T18:21:05.667099Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=596 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=9.168921687 agw.ai.time_per_output_token=0.509894314 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=41802ms
+2026-11-09T18:21:05.667205Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:42582 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=41802ms
+2026-11-09T18:21:05.884175Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=596 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=17.821511592 agw.ai.time_per_output_token=0.37107026 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=41570ms
+2026-11-09T18:21:05.884358Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:42586 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=41570ms
+2026-11-09T18:21:24.934869Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=177 gen_ai.usage.output_tokens=27 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=5.176941333 agw.ai.time_per_output_token=0.512470187 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=19013ms
+2026-11-09T18:21:24.935683Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:51212 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=19014ms
+2026-11-09T18:21:25.129269Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=177 gen_ai.usage.output_tokens=27 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=10.23582333 agw.ai.time_per_output_token=0.324529364 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=18998ms
+2026-11-09T18:21:25.130043Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:51218 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=18999ms
+2026-11-09T18:21:35.615277Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=20 gen_ai.usage.output_tokens=43 gen_ai.usage.reasoning_tokens=0 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=10331ms
+2026-11-09T18:21:35.615488Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:35312 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=10331ms
+2026-11-09T18:22:15.094062Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=22 gen_ai.usage.output_tokens=23 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=2.31362594 agw.ai.time_per_output_token=1.575333299 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=38546ms
+2026-11-09T18:22:15.095466Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:52398 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=38548ms
+2026-11-09T18:22:43.816183Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:38920 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=19 gen_ai.usage.output_tokens=52 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=23.985513652 agw.ai.time_per_output_token=0.832279307 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=67264ms
+2026-11-09T18:22:43.817045Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:52410 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=67265ms
+2026-11-09T18:23:16.371103Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=584 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=8.534191543 agw.ai.time_per_output_token=0.820061333 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=61018ms
+2026-11-09T18:23:16.371218Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:60888 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=61018ms
+2026-11-09T18:23:44.966382Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:38920 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=583 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=8.32705157 agw.ai.time_per_output_token=0.820335555 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=60828ms
+2026-11-09T18:23:44.966561Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:49728 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=60829ms
+2026-11-09T18:23:44.968945Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=581 gen_ai.usage.output_tokens=29 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=8.133141091 agw.ai.time_per_output_token=0.694607888 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=28276ms
+2026-11-09T18:23:44.969439Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:55598 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=28277ms
+2026-11-09T18:24:11.038801Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=1616 gen_ai.usage.output_tokens=128 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=23.986730058 agw.ai.time_per_output_token=1.019548016 gen_ai.request.temperature=0 gen_ai.request.max_tokens=128 duration=154488ms
+2026-11-09T18:24:11.038920Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:52406 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=154489ms
+2026-11-09T18:24:11.042012Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:38922 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=1617 gen_ai.usage.output_tokens=128 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=23.940675929 agw.ai.time_per_output_token=1.019563871 gen_ai.request.temperature=0 gen_ai.request.max_tokens=128 duration=154444ms
+2026-11-09T18:24:11.042219Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:52408 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=154445ms
+2026-11-09T18:24:38.947213Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:38922 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=177 gen_ai.usage.output_tokens=27 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=10.549875310000001 agw.ai.time_per_output_token=0.633584615 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=27656ms
+2026-11-09T18:24:38.947373Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:56266 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=27657ms
+2026-11-09T18:24:38.950474Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=177 gen_ai.usage.output_tokens=27 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=10.546571827 agw.ai.time_per_output_token=0.633681087 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=27655ms
+2026-11-09T18:24:38.950580Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:56282 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=27656ms
+2026-11-09T18:24:53.865517Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:50114 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=596 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=19.065380722 agw.ai.time_per_output_token=0.774611181 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=68640ms
+2026-11-09T18:24:53.867412Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:43278 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=68642ms
+2026-11-09T18:24:53.868430Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:38920 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=596 gen_ai.usage.output_tokens=64 gen_ai.usage.reasoning_tokens=0 agw.ai.time_to_first_token=19.066407043 agw.ai.time_per_output_token=0.774593419 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=68640ms
+2026-11-09T18:24:53.868819Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:43282 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=68641ms
+2026-11-09T18:24:57.407120Z	info	request gateway=default/default listener=llm route=internal/llm:request endpoint=vllm-primary.ewallet-bench.svc.cluster.local:8000 src.addr=127.0.0.1:47276 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=llm gen_ai.operation.name=chat gen_ai.provider.name=custom gen_ai.request.model=ewallet-fraud-llm-v1 gen_ai.response.model=ewallet-fraud-llm-v1 agw.ai.original_model=ewallet-fraud-llm gen_ai.usage.input_tokens=20 gen_ai.usage.output_tokens=43 gen_ai.usage.reasoning_tokens=0 gen_ai.request.temperature=0 gen_ai.request.max_tokens=64 duration=18174ms
+2026-11-09T18:24:57.408436Z	info	request gateway=default/default listener=default route=default/route0 endpoint=127.0.0.1:3000 src.addr=127.0.0.1:44864 http.method=POST http.host=127.0.0.1 http.path=/v1/chat/completions http.version=HTTP/1.1 http.status=200 protocol=http duration=18176ms

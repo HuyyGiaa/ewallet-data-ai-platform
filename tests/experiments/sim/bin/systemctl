@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Fake systemctl: records the timer being stopped."""
+import os, sys
+from pathlib import Path
+state = Path(os.environ["SIM_STATE"])
+(state / "calls.log").open("a").write("systemctl " + " ".join(sys.argv[1:]) + "\n")
+if "stop" in sys.argv:
+    (state / "laptop-timer").unlink(missing_ok=True)

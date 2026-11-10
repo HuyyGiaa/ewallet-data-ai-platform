@@ -1,0 +1,480 @@
+{
+  "baseline": "b0-prime",
+  "distribution": {},
+  "experiment_id": "EXP-V1",
+  "failures": {
+    "1": {
+      "baseline": {
+        "error_rate": 0.08333333333333333,
+        "failed": 1,
+        "requests": 12,
+        "succeeded": 11,
+        "timeout_rate": 0.0
+      },
+      "optimized": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      }
+    },
+    "2": {
+      "baseline": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      },
+      "optimized": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      }
+    },
+    "4": {
+      "baseline": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      },
+      "optimized": {
+        "error_rate": 0.0,
+        "failed": 0,
+        "requests": 12,
+        "succeeded": 12,
+        "timeout_rate": 0.0
+      }
+    }
+  },
+  "interpretation": "One run per arm: the percentages are observed differences between two runs. There is no repetition, no confidence interval and no significance test, so this is not a statistically proven or stable improvement.",
+  "methodology": "single-run",
+  "optimized": "c1-thread-bind",
+  "primary_metric": "output_tokens_per_second",
+  "reasons": [
+    "output_tokens_per_second observed better by >= 10 % at 1, 2, 4"
+  ],
+  "rows": [
+    {
+      "baseline": 7874.145155001315,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "ttft_p50_ms",
+      "note": null,
+      "observed_change_percent": 36.23712811775918,
+      "optimized": 5020.781087005162
+    },
+    {
+      "baseline": 63021.49281349557,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "ttft_p95_ms",
+      "note": null,
+      "observed_change_percent": 1.0990519373036933,
+      "optimized": 62328.85387581114
+    },
+    {
+      "baseline": 13617.900208992069,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "e2e_p50_ms",
+      "note": null,
+      "observed_change_percent": 18.02582081903376,
+      "optimized": 11163.161918004334
+    },
+    {
+      "baseline": 76544.06171099254,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "e2e_p95_ms",
+      "note": null,
+      "observed_change_percent": -0.3607184313699962,
+      "optimized": 76820.17024970331
+    },
+    {
+      "baseline": 1.0832770772601765,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "output_tokens_per_second",
+      "note": null,
+      "observed_change_percent": 100.85927664471292,
+      "optimized": 2.1758625014427784
+    },
+    {
+      "baseline": 0.0222210682514908,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "request_throughput",
+      "note": null,
+      "observed_change_percent": 64.80038827090752,
+      "optimized": 0.0366204067564002
+    },
+    {
+      "baseline": 211.28733861902248,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "tpot_ms",
+      "note": null,
+      "observed_change_percent": 32.14565725535734,
+      "optimized": 143.36763492258524
+    },
+    {
+      "baseline": 1.2009117647058825,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "cpu_cores_mean",
+      "note": null,
+      "observed_change_percent": -89.7932943106953,
+      "optimized": 2.27925
+    },
+    {
+      "baseline": 6469.0,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "memory_mib_peak",
+      "note": null,
+      "observed_change_percent": -2.473334363889318,
+      "optimized": 6629.0
+    },
+    {
+      "baseline": 205.25150599132758,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "itl_p50_ms",
+      "note": null,
+      "observed_change_percent": 22.261807420704557,
+      "optimized": 159.55881099944236
+    },
+    {
+      "baseline": 0.08333333333333333,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "error_rate",
+      "note": null,
+      "observed_change_percent": 99.99999999999999,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "1",
+      "metric": "timeout_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 2.0,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "tool_calls_valid",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 2.0
+    },
+    {
+      "baseline": 0.5416385386300883,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "tokens_per_second_per_allocated_cpu",
+      "note": null,
+      "observed_change_percent": 100.85927664471292,
+      "optimized": 1.0879312507213892
+    },
+    {
+      "baseline": 0.9020455199932894,
+      "better_when": "higher",
+      "level": "1",
+      "metric": "tokens_per_second_per_used_cpu_core",
+      "note": null,
+      "observed_change_percent": 5.83054442160763,
+      "optimized": 0.9546396847396197
+    },
+    {
+      "baseline": 9746.848681497795,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "ttft_p50_ms",
+      "note": null,
+      "observed_change_percent": 43.77056033598014,
+      "optimized": 5480.5983985061175
+    },
+    {
+      "baseline": 15515.050962000529,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "ttft_p95_ms",
+      "note": null,
+      "observed_change_percent": 42.207160771143755,
+      "optimized": 8966.58845874408
+    },
+    {
+      "baseline": 35365.69223750121,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "e2e_p50_ms",
+      "note": null,
+      "observed_change_percent": 35.31420148977371,
+      "optimized": 22876.580422496772
+    },
+    {
+      "baseline": 70132.7787793518,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "e2e_p95_ms",
+      "note": null,
+      "observed_change_percent": 33.65204001955516,
+      "optimized": 46531.66799769824
+    },
+    {
+      "baseline": 3.3573274885386155,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "output_tokens_per_second",
+      "note": null,
+      "observed_change_percent": 52.706971395907935,
+      "optimized": 5.126873127589618
+    },
+    {
+      "baseline": 0.05650481046628806,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "request_throughput",
+      "note": null,
+      "observed_change_percent": 52.70697139590792,
+      "optimized": 0.08628678475606649
+    },
+    {
+      "baseline": 448.3978623320139,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "tpot_ms",
+      "note": null,
+      "observed_change_percent": 32.83026918980738,
+      "optimized": 301.18763708707183
+    },
+    {
+      "baseline": 1.7092307692307693,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "cpu_cores_mean",
+      "note": null,
+      "observed_change_percent": -54.49444944494449,
+      "optimized": 2.6406666666666667
+    },
+    {
+      "baseline": 6458.0,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "memory_mib_peak",
+      "note": null,
+      "observed_change_percent": -2.5859399194797152,
+      "optimized": 6625.0
+    },
+    {
+      "baseline": 397.79748199362075,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "itl_p50_ms",
+      "note": null,
+      "observed_change_percent": 31.939275195702436,
+      "optimized": 270.7438494981034
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "error_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "2",
+      "metric": "timeout_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 2.0,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "tool_calls_valid",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 2.0
+    },
+    {
+      "baseline": 1.6786637442693078,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "tokens_per_second_per_allocated_cpu",
+      "note": null,
+      "observed_change_percent": 52.706971395907935,
+      "optimized": 2.563436563794809
+    },
+    {
+      "baseline": 1.9642330040954996,
+      "better_when": "higher",
+      "level": "2",
+      "metric": "tokens_per_second_per_used_cpu_core",
+      "note": null,
+      "observed_change_percent": -1.156985286823234,
+      "optimized": 1.9415071172391887
+    },
+    {
+      "baseline": 17297.307604996604,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "ttft_p50_ms",
+      "note": null,
+      "observed_change_percent": 42.166285785910745,
+      "optimized": 10003.675447005662
+    },
+    {
+      "baseline": 24244.18347680039,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "ttft_p95_ms",
+      "note": null,
+      "observed_change_percent": 44.58374490418084,
+      "optimized": 13435.218561402144
+    },
+    {
+      "baseline": 61220.39307950763,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "e2e_p50_ms",
+      "note": null,
+      "observed_change_percent": 33.17294463730368,
+      "optimized": 40911.78597650287
+    },
+    {
+      "baseline": 154745.7030067504,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "e2e_p95_ms",
+      "note": null,
+      "observed_change_percent": 36.34006079015134,
+      "optimized": 98511.02046395026
+    },
+    {
+      "baseline": 3.543380772698526,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "output_tokens_per_second",
+      "note": null,
+      "observed_change_percent": 54.501032678481984,
+      "optimized": 5.474559885549997
+    },
+    {
+      "baseline": 0.059636142037001835,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "request_throughput",
+      "note": null,
+      "observed_change_percent": 54.50103267848199,
+      "optimized": 0.09213845529677414
+    },
+    {
+      "baseline": 810.5143761746899,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "tpot_ms",
+      "note": null,
+      "observed_change_percent": 32.767574048762285,
+      "optimized": 544.9284777857847
+    },
+    {
+      "baseline": 1.6393846153846154,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "cpu_cores_mean",
+      "note": null,
+      "observed_change_percent": -57.62012012012012,
+      "optimized": 2.584
+    },
+    {
+      "baseline": 6459.0,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "memory_mib_peak",
+      "note": null,
+      "observed_change_percent": -2.5700572844093514,
+      "optimized": 6625.0
+    },
+    {
+      "baseline": 709.1233024984831,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "itl_p50_ms",
+      "note": null,
+      "observed_change_percent": 27.93701332412166,
+      "optimized": 511.01543099503033
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "error_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 0.0,
+      "better_when": "lower",
+      "level": "4",
+      "metric": "timeout_rate",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 0.0
+    },
+    {
+      "baseline": 2.0,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "tool_calls_valid",
+      "note": null,
+      "observed_change_percent": 0.0,
+      "optimized": 2.0
+    },
+    {
+      "baseline": 1.771690386349263,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "tokens_per_second_per_allocated_cpu",
+      "note": null,
+      "observed_change_percent": 54.501032678481984,
+      "optimized": 2.7372799427749985
+    },
+    {
+      "baseline": 2.161409067430595,
+      "better_when": "higher",
+      "level": "4",
+      "metric": "tokens_per_second_per_used_cpu_core",
+      "note": null,
+      "observed_change_percent": -1.9788637638780677,
+      "optimized": 2.118637726606036
+    }
+  ],
+  "runs": {
+    "baseline": 1,
+    "optimized": 1
+  },
+  "schema": "ewallet-single-run-comparison-v1",
+  "statistical_inference": "none",
+  "threshold_percent": 10.0,
+  "valid": true,
+  "validity_problems": [],
+  "variable": "VLLM_CPU_OMP_THREADS_BIND: auto versus 0-1",
+  "verdict": "OBSERVED_IMPROVEMENT"
+}

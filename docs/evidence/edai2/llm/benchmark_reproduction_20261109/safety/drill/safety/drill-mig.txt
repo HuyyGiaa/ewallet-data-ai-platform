@@ -1,0 +1,1 @@
+gke-ewallet-dev-bench-pool-d4252923-grp	0

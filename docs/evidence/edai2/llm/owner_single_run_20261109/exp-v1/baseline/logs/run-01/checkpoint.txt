@@ -1,0 +1,38 @@
+================================================================
+EXP-V1 SINGLE-RUN / BASELINE run 01 — OWNER EVIDENCE CHECKPOINT
+================================================================
+
+Experiment:     EXP-V1
+Model:          Qwen/Qwen3-0.6B @ c1899de289a04d12100db370d81485cdf75e47ca
+Arm:            baseline (b0-prime)
+Thread binding: auto   replicas: 1
+Route:          Service -> vLLM
+Image digest:   sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+Nodes:          gke-ewallet-dev-bench-pool-f0979dec-x5ct
+Namespace:      ewallet-bench (temporary benchmark stack, not production)
+Run ID:         baseline-01
+Window (UTC):   2026-11-09T18:06:40Z -> 2026-11-09T18:24:57Z
+
+Benchmark completed (client summary, authoritative):
+  workload o1-workload-v1 sha256 c4816ca1f1dc...
+  c=1  out tok/s 1.1 | TTFT p50 7874 ms | E2E p95 76544 ms | errors 0.083 | n=12
+  c=2  out tok/s 3.4 | TTFT p50 9747 ms | E2E p95 70133 ms | errors 0.000 | n=12
+  c=4  out tok/s 3.5 | TTFT p50 17297 ms | E2E p95 154746 ms | errors 0.000 | n=12
+
+Raw output:     /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01
+Prometheus:     http://127.0.0.1:13090   (readback: 18/23 queries with data)
+Grafana:        http://127.0.0.1:13030/d/edai2-llm-cpu-bench/?orgId=1&from=1794247600000&to=1794248757000&var-run_id=baseline-01
+Gateway policy: PASS  (/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/gateway-policy/baseline/results.json)
+
+Capture now (save PNGs under the path below):
+  screenshots -> /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/baseline-01-<name>.png
+  1 deployment configuration:
+      kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get deploy vllm-primary -o jsonpath='{.spec.template.spec.containers[0].env}'; echo
+      kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get configmap agentgateway-llm-config -o jsonpath='{.data.config\.yaml}' | grep -E 'baseUrl|x-ewallet-backend|maxTokens'
+  2 benchmark terminal result: this screen, or  cat /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/summary.json
+  3 Grafana panels for the same window: the link above
+  4 pods and nodes:   kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get pods -o wide; kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev get nodes -l ewallet.io/bench=true -o wide
+
+No credentials are shown here. Type CONTINUE to proceed or ABORT to stop and clean up.
+This checkpoint waits at most 20 min, then stops the session and cleans up.
+================================================================

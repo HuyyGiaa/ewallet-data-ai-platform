@@ -1,0 +1,54 @@
+{
+  "resolved_modelconfig": {
+    "event": "modelconfig.resolved",
+    "name": "ewallet-global-llm",
+    "namespace": "ewallet-agents",
+    "uid": "663305be-f4ce-49f2-ac7e-af91c22bd162",
+    "generation": 1,
+    "resource_version": "1793554505356463008",
+    "provider": "OpenAI",
+    "model": "ewallet-fraud-llm",
+    "base_url": "http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1",
+    "timeout_seconds": 200.0,
+    "api_key_secret": "agentgateway-client-key",
+    "api_key_secret_key": "api-key"
+  },
+  "planner": {
+    "url": "http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1/chat/completions",
+    "model": "ewallet-fraud-llm",
+    "timeout_seconds": 190.0
+  },
+  "suite_sha256": "e5f8aea971ec927e0e8006a536af826a4104ef01545673ff566af7fe54d3209a",
+  "cases": [
+    "business-00",
+    "business-01",
+    "business-02",
+    "business-03",
+    "off-topic-00"
+  ],
+  "result": {
+    "cases": 5,
+    "task_success_rate": 1.0,
+    "correct_tool_rate": 1.0,
+    "invalid_tool_calls": 0,
+    "invalid_arguments": 0,
+    "llm_errors": 0,
+    "tool_calls": 4,
+    "latency_p50_seconds": 60.3562,
+    "latency_p95_seconds": 82.5034,
+    "prompt_tokens": 2663,
+    "completion_tokens": 1060,
+    "served_models": {
+      "ewallet-fraud-llm-v1": 4,
+      "none": 1
+    },
+    "backends": {
+      "primary": 4,
+      "none": 1
+    },
+    "failure_codes": {
+      "none": 4,
+      "unsupported_request": 1
+    }
+  }
+}

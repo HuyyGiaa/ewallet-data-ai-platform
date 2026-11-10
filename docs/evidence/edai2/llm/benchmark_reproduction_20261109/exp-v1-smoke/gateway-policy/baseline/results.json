@@ -1,0 +1,79 @@
+{
+  "at": "2026-11-09T06:53:34.161939+00:00",
+  "cases": [
+    {
+      "backend": "primary",
+      "case": "valid_client_key",
+      "expected": "200",
+      "passed": true,
+      "policy": "auth",
+      "status": 200
+    },
+    {
+      "backend": null,
+      "body": "authentication failed",
+      "case": "missing_key",
+      "expected": "401 or 403",
+      "passed": true,
+      "policy": "auth",
+      "status": 401
+    },
+    {
+      "backend": null,
+      "body": "authentication failed",
+      "case": "wrong_key",
+      "expected": "401 or 403",
+      "passed": true,
+      "policy": "auth",
+      "status": 401
+    },
+    {
+      "backend": null,
+      "body": "authentication failed",
+      "case": "backend_key_as_client_key",
+      "expected": "401 or 403",
+      "passed": true,
+      "policy": "auth",
+      "status": 401
+    },
+    {
+      "backends": [
+        "primary"
+      ],
+      "case": "routing_backend_header",
+      "expected": "primary",
+      "passed": true,
+      "policy": "routing",
+      "statuses": [
+        200,
+        200,
+        200
+      ]
+    },
+    {
+      "burst": 16,
+      "case": "rate_limit_burst",
+      "example_429": {
+        "body": "rate limit exceeded",
+        "headers": {
+          "content-type": "text/plain",
+          "retry-after": "1",
+          "x-ratelimit-limit": "12",
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": "0"
+        }
+      },
+      "expected": "16 concurrent: some 200 and some 429",
+      "passed": true,
+      "policy": "localRateLimit 12 requests/s per model",
+      "status_counts": {
+        "200": 8,
+        "429": 4,
+        "503": 4
+      }
+    }
+  ],
+  "expect_backend": "primary",
+  "schema": "ewallet-bench-gateway-policy-v1",
+  "verdict": "PASS"
+}

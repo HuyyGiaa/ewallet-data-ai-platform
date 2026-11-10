@@ -1,0 +1,271 @@
+# Deadline watchdog for ewallet-bench (ops/experiments/bench_watchdog.py). It runs inside
+# the cluster, so it still acts when the operator's laptop sleeps or dies: at the deadline it
+# deletes the namespace's workloads and its own CronJob, and the autoscaled bench-pool then
+# drops to zero nodes. Its Role exists only in ewallet-bench, so it cannot reach anything
+# else. Rendered by scripts/experiments/render_bench.py --stack watchdog.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: bench-watchdog, namespace: ewallet-bench}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: bench-watchdog, namespace: ewallet-bench}
+rules:
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets]
+    verbs: [list, delete]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [list, delete]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    resourceNames: [bench-watchdog]
+    verbs: [delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: bench-watchdog, namespace: ewallet-bench}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: bench-watchdog}
+subjects:
+  - {kind: ServiceAccount, name: bench-watchdog, namespace: ewallet-bench}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-watchdog-apiserver, namespace: ewallet-bench}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: bench-watchdog}
+  policyTypes: [Egress]
+  egress:
+    - to: [{ipBlock: {cidr: 10.20.0.8/32}}, {ipBlock: {cidr: 34.118.224.1/32}}]
+      ports:
+        - {protocol: TCP, port: 443}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: bench-watchdog-code, namespace: ewallet-bench}
+data:
+  watchdog.py: |
+    """In-cluster deadline watchdog for the ewallet-bench benchmark stack (stdlib only).
+    
+    A CronJob in ``ewallet-bench`` runs this every few minutes. It needs nothing from the
+    operator's laptop, so it still acts when the laptop sleeps, crashes or loses its session.
+    
+    Before the deadline it only reports. At the deadline (``MODE=enforce``) it deletes every
+    Deployment, StatefulSet and Job in its own namespace, then deletes its own CronJob so no
+    further pod can ask the autoscaler for a node. ``bench-pool`` autoscales down to zero once
+    its nodes are empty, so compute billing stops without any cloud IAM permission.
+    
+    Reach is limited by RBAC, not by this code: the ServiceAccount has a Role in
+    ``ewallet-bench`` only, so it cannot read or delete anything elsewhere. The namespace and
+    the empty node pool stay until ``vllm_bench.sh down`` runs; neither bills compute.
+    
+    Every run prints exactly one JSON line, which ``kubectl logs`` keeps as evidence.
+    
+    Environment:
+        DEADLINE_UTC   ISO-8601 UTC deadline, for example 2026-11-09T04:00:00Z
+        MODE           enforce | dry-run
+        CRONJOB_NAME   this watchdog's own CronJob (deleted last)
+    """
+    
+    from __future__ import annotations
+    
+    import json
+    import os
+    import ssl
+    import sys
+    from datetime import datetime, timezone
+    from pathlib import Path
+    from typing import Any, Callable
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+    
+    SA_DIR = Path(os.environ.get("SA_DIR", "/var/run/secrets/kubernetes.io/serviceaccount"))
+    # (API prefix, resource) pairs the watchdog removes, in this order.
+    WORKLOADS = (("apis/apps/v1", "deployments"), ("apis/apps/v1", "statefulsets"), ("apis/batch/v1", "jobs"))
+    
+    Call = Callable[[str, str], tuple[int, dict[str, Any]]]
+    
+    
+    def parse_deadline(value: str) -> datetime:
+        """Parse the deadline; an empty or malformed value is an error, never 'no deadline'."""
+    
+        if not value:
+            raise ValueError("DEADLINE_UTC is empty")
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("DEADLINE_UTC must carry a UTC offset")
+        return parsed.astimezone(timezone.utc)
+    
+    
+    def api_caller(host: str, port: str, token: str, ca_file: Path) -> Call:
+        """Return a function that calls the Kubernetes API with TLS verification."""
+    
+        context = ssl.create_default_context(cafile=str(ca_file))
+    
+        def call(method: str, path: str) -> tuple[int, dict[str, Any]]:
+            orphan = path.endswith("?orphan")
+            path = path.removesuffix("?orphan")
+            policy = "Orphan" if orphan else "Background"
+            body = f'{{"propagationPolicy":"{policy}"}}'.encode() if method == "DELETE" else None
+            request = Request(f"https://{host}:{port}/{path}", data=body, method=method,
+                              headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
+                                       "Content-Type": "application/json"})
+            try:
+                with urlopen(request, timeout=20, context=context) as response:  # noqa: S310 (in-cluster API)
+                    text = response.read().decode()
+                    return response.status, json.loads(text) if text else {}
+            except HTTPError as error:
+                return error.code, {}
+            except (URLError, TimeoutError, OSError) as error:
+                return 0, {"error": type(error).__name__}
+    
+        return call
+    
+    
+    def own_job(item: dict[str, Any], cronjob: str) -> bool:
+        """True for the Job that is running this watchdog; deleting it would stop the cleanup."""
+    
+        owners = item.get("metadata", {}).get("ownerReferences", [])
+        return any(owner.get("kind") == "CronJob" and owner.get("name") == cronjob for owner in owners)
+    
+    
+    def enforce(call: Call, namespace: str, cronjob: str) -> dict[str, Any]:
+        """Delete the namespace's workloads, then this CronJob, and read back what remains."""
+    
+        deleted, errors = [], []
+        for prefix, resource in WORKLOADS:
+            status, listing = call("GET", f"{prefix}/namespaces/{namespace}/{resource}")
+            if status != 200:
+                errors.append(f"list {resource}: {status}")
+                continue
+            for item in listing.get("items", []):
+                name = item["metadata"]["name"]
+                if resource == "jobs" and own_job(item, cronjob):
+                    continue
+                code, _ = call("DELETE", f"{prefix}/namespaces/{namespace}/{resource}/{name}")
+                if code in (200, 202, 404):
+                    deleted.append(f"{resource}/{name}")
+                else:
+                    errors.append(f"delete {resource}/{name}: {code}")
+        # Orphan: the Job running this code, and its log, outlive the CronJob as evidence. A
+        # finished pod does not keep a node alive, and ttlSecondsAfterFinished removes it later.
+        code, _ = call("DELETE", f"apis/batch/v1/namespaces/{namespace}/cronjobs/{cronjob}?orphan")
+        if code in (200, 202, 404):
+            deleted.append(f"cronjobs/{cronjob}")
+        else:
+            errors.append(f"delete cronjobs/{cronjob}: {code}")
+        remaining = []
+        for prefix, resource in WORKLOADS[:2]:
+            status, listing = call("GET", f"{prefix}/namespaces/{namespace}/{resource}")
+            if status != 200:
+                errors.append(f"read back {resource}: {status}")
+                continue
+            remaining += [f"{resource}/{item['metadata']['name']}" for item in listing.get("items", [])
+                          if not item["metadata"].get("deletionTimestamp")]
+        return {"deleted": deleted, "remaining": remaining, "errors": errors}
+    
+    
+    def run(environ: dict[str, str], call: Call, now: datetime) -> tuple[int, dict[str, Any]]:
+        """Decide and act once; returns the exit code and the JSON report."""
+    
+        namespace = environ.get("NAMESPACE") or (SA_DIR / "namespace").read_text(encoding="utf-8").strip()
+        cronjob = environ.get("CRONJOB_NAME", "bench-watchdog")
+        mode = environ.get("MODE", "dry-run")
+        report: dict[str, Any] = {"ts": now.isoformat(), "namespace": namespace, "mode": mode}
+        if mode not in ("enforce", "dry-run"):
+            return 2, {**report, "event": "watchdog.misconfigured", "reason": f"unknown MODE {mode}"}
+        try:
+            deadline = parse_deadline(environ.get("DEADLINE_UTC", ""))
+        except ValueError as error:
+            # A watchdog that cannot read its deadline must not idle silently: it enforces.
+            if mode != "enforce":
+                return 2, {**report, "event": "watchdog.misconfigured", "reason": str(error)}
+            report["reason"] = f"{error}; enforcing"
+            deadline = now
+        report["deadline"] = deadline.isoformat()
+        if now < deadline:
+            return 0, {**report, "event": "watchdog.idle", "seconds_left": int((deadline - now).total_seconds())}
+        if mode == "dry-run":
+            return 0, {**report, "event": "watchdog.would_enforce"}
+        result = enforce(call, namespace, cronjob)
+        report.update(result, event="watchdog.enforced")
+        return (1 if result["errors"] or result["remaining"] else 0), report
+    
+    
+    def main() -> int:
+        """Entry point inside the CronJob pod."""
+    
+        token = (SA_DIR / "token").read_text(encoding="utf-8").strip()
+        call = api_caller(os.environ["KUBERNETES_SERVICE_HOST"], os.environ.get("KUBERNETES_SERVICE_PORT", "443"),
+                          token, SA_DIR / "ca.crt")
+        code, report = run(dict(os.environ), call, datetime.now(timezone.utc))
+        print(json.dumps(report, sort_keys=True))
+        return code
+    
+    
+    if __name__ == "__main__":
+        sys.exit(main())
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: bench-watchdog-target, namespace: ewallet-bench}
+data:
+  DEADLINE_UTC: "2026-11-08T22:45:04Z"
+  MODE: enforce
+  CRONJOB_NAME: bench-watchdog
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: bench-watchdog, namespace: ewallet-bench, labels: {app.kubernetes.io/name: bench-watchdog}}
+spec:
+  schedule: "*/3 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 150
+      ttlSecondsAfterFinished: 1800
+      template:
+        metadata:
+          labels: {app.kubernetes.io/name: bench-watchdog}
+          # A finished watchdog pod must never keep a node alive.
+          annotations: {cluster-autoscaler.kubernetes.io/safe-to-evict: "true"}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: bench-watchdog
+          automountServiceAccountToken: true
+          enableServiceLinks: false
+          nodeSelector: {ewallet.io/bench: "true"}
+          tolerations:
+            - {key: ewallet.io/bench, operator: Equal, value: "true", effect: NoSchedule}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: watchdog
+              image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+              imagePullPolicy: IfNotPresent
+              command: [python3, /code/watchdog.py]
+              envFrom: [{configMapRef: {name: bench-watchdog-target}}]
+              env:
+                - name: NAMESPACE
+                  valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {cpu: 100m, memory: 96Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - {name: code, mountPath: /code, readOnly: true}
+          volumes:
+            - name: code
+              configMap: {name: bench-watchdog-code}

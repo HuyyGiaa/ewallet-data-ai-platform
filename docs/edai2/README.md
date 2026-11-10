@@ -30,6 +30,7 @@ The overall architecture, with numbered data and investigation flows, is in the 
 
 **Detailed experiment records:**
 
+- [Official EXP-V1 / EXP-V2 benchmark results](llm/BENCHMARK_RESULTS.md);
 - [vLLM serving-parameter benchmark](llm/vllm_cpu_o1_benchmark.md);
 - [llm-d routing benchmark](llm/llmd_g2_routing_benchmark.md).
 

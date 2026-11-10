@@ -1,0 +1,1 @@
+pool and namespace confirmed absent; no bench VMs or disks

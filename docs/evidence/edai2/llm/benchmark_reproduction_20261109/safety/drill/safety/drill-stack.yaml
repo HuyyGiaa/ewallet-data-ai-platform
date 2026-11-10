@@ -1,0 +1,109 @@
+# Benchmark stack for EXP-V1 and EXP-V2. It lives in its own namespace, on its own tainted
+# node pool, and shares nothing with the production release, so a run cannot touch it.
+#
+# vLLM settings are the ones O1 ran with (commit a194189). The stack has no fallback model:
+# a failed request stays failed instead of being answered by another backend.
+# Rendered by scripts/experiments/render_bench.py.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-bench
+  labels:
+    ewallet.io/experiment: "true"
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+# GKE adds three Istio ConfigMaps to every new namespace; the count leaves room for them.
+# The budget covers the serving stack plus the isolated Prometheus, Grafana and watchdog
+# (bench-observability.yaml.tmpl, bench-watchdog.yaml.tmpl).
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: bench-budget, namespace: ewallet-bench}
+spec:
+  hard:
+    requests.cpu: "5"
+    requests.memory: 16Gi
+    limits.cpu: "12"
+    limits.memory: 28Gi
+    pods: "10"
+    configmaps: "20"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny, namespace: ewallet-bench}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-same-namespace, namespace: ewallet-bench}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{podSelector: {}}]
+  egress:
+    - to: [{podSelector: {}}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-dns, namespace: ewallet-bench}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# The Endpoint Picker watches pods; only it reaches the API server.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-epp-apiserver, namespace: ewallet-bench}
+spec:
+  podSelector:
+    matchLabels: {llm-d-router-standalone: llmd-router-epp}
+  policyTypes: [Egress]
+  egress:
+    - to: [{ipBlock: {cidr: 10.20.0.8/32}}, {ipBlock: {cidr: 34.118.224.1/32}}]
+      ports:
+        - {protocol: TCP, port: 443}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drill-idle
+  namespace: ewallet-bench
+  labels: {app.kubernetes.io/name: drill-idle}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: drill-idle}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: drill-idle}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector: {ewallet.io/bench: "true"}
+      tolerations:
+        - {key: ewallet.io/bench, operator: Equal, value: "true", effect: NoSchedule}
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: idle
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:483dd943290c02fdd4d0d3e9e38b4182dae76a01581e6e5e191ca977b7498aff
+          command: [python3, -c, "import time; time.sleep(86400)"]
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 50m, memory: 64Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          # Local storage, like vLLM: by itself it would keep the autoscaler from removing the node.
+          volumeMounts:
+            - {name: scratch, mountPath: /scratch}
+      volumes:
+        - name: scratch
+          emptyDir: {sizeLimit: 16Mi}

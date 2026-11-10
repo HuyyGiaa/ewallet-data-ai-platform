@@ -1,0 +1,470 @@
+{
+  "dashboard_uid": "edai2-llm-cpu-bench",
+  "grafana": {
+    "dashboard": {
+      "panels": 18,
+      "status": "OK",
+      "title": "EDAI-2 \u2014 LLM CPU Benchmark (EXP-V1 / EXP-V2)",
+      "uid": "edai2-llm-cpu-bench"
+    },
+    "datasource_up": {
+      "series": 3,
+      "status": "OK"
+    },
+    "health": {
+      "database": "ok",
+      "status": "OK",
+      "version": "12.3.0"
+    }
+  },
+  "panels": [
+    {
+      "expr": "sum by (pod, run_id) (rate(vllm:generation_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s",
+          "run_id": "optimized-01"
+        }
+      ],
+      "legend": "{{pod}} {{run_id}}",
+      "mode": "range",
+      "panel": "Output tokens/s per vLLM pod",
+      "points": 36,
+      "query": "sum by (pod, run_id) (rate(vllm:generation_tokens_total{job=\"vllm\",run_id=~\"optimized-01\"}[1m]))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod, run_id) (rate(vllm:prompt_tokens_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s",
+          "run_id": "optimized-01"
+        }
+      ],
+      "legend": "{{pod}} {{run_id}}",
+      "mode": "range",
+      "panel": "Prompt tokens/s per vLLM pod",
+      "points": 36,
+      "query": "sum by (pod, run_id) (rate(vllm:prompt_tokens_total{job=\"vllm\",run_id=~\"optimized-01\"}[1m]))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "run_id": "optimized-01"
+        }
+      ],
+      "legend": "p50 {{run_id}}",
+      "mode": "range",
+      "panel": "TTFT p50 / p95 (vLLM histogram)",
+      "points": 36,
+      "query": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"optimized-01\"}[1m])))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "run_id": "optimized-01"
+        }
+      ],
+      "legend": "p95 {{run_id}}",
+      "mode": "range",
+      "panel": "TTFT p50 / p95 (vLLM histogram)",
+      "points": 36,
+      "query": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:time_to_first_token_seconds_bucket{job=\"vllm\",run_id=~\"optimized-01\"}[1m])))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "run_id": "optimized-01"
+        }
+      ],
+      "legend": "p50 {{run_id}}",
+      "mode": "range",
+      "panel": "End-to-end latency p50 / p95 (vLLM histogram)",
+      "points": 36,
+      "query": "histogram_quantile(0.50, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"optimized-01\"}[1m])))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"$run_id\"}[1m])))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "run_id": "optimized-01"
+        }
+      ],
+      "legend": "p95 {{run_id}}",
+      "mode": "range",
+      "panel": "End-to-end latency p50 / p95 (vLLM histogram)",
+      "points": 36,
+      "query": "histogram_quantile(0.95, sum by (le, run_id) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"vllm\",run_id=~\"optimized-01\"}[1m])))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod) (vllm:num_requests_running{job=\"vllm\",run_id=~\"$run_id\"})",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "running {{pod}}",
+      "mode": "range",
+      "panel": "Running and waiting requests per pod",
+      "points": 36,
+      "query": "sum by (pod) (vllm:num_requests_running{job=\"vllm\",run_id=~\"optimized-01\"})",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod) (vllm:num_requests_waiting{job=\"vllm\",run_id=~\"$run_id\"})",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "waiting {{pod}}",
+      "mode": "range",
+      "panel": "Running and waiting requests per pod",
+      "points": 36,
+      "query": "sum by (pod) (vllm:num_requests_waiting{job=\"vllm\",run_id=~\"optimized-01\"})",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (status) (rate(agentgateway_requests_total{job=\"agentgateway\"}[1m]))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "status": "200"
+        }
+      ],
+      "legend": "{{status}}",
+      "mode": "range",
+      "panel": "Gateway responses by HTTP status",
+      "points": 32,
+      "query": "sum by (status) (rate(agentgateway_requests_total{job=\"agentgateway\"}[1m]))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod, reason) (increase(vllm:admission_rejections_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+      "group": "A. Serving performance",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        },
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "{{pod}} {{reason}}",
+      "mode": "range",
+      "panel": "vLLM admission rejections per pod (queue cap, HTTP 503)",
+      "points": 72,
+      "query": "sum by (pod, reason) (increase(vllm:admission_rejections_total{job=\"vllm\",run_id=~\"optimized-01\"}[1m]))",
+      "series": 2,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod, container) (bench_pod_container_cpu_cores{job=\"pod-usage\"})",
+      "group": "B. Resource utilization",
+      "labels": [
+        {
+          "container": "agentgateway",
+          "pod": "agentgateway-5cc84d649-8dbph"
+        },
+        {
+          "container": "grafana",
+          "pod": "bench-grafana-7dbdc8f96c-hn7nw"
+        },
+        {
+          "container": "pod-usage-exporter",
+          "pod": "bench-prometheus-dc565d85b-nnnr9"
+        },
+        {
+          "container": "prometheus",
+          "pod": "bench-prometheus-dc565d85b-nnnr9"
+        },
+        {
+          "container": "vllm",
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "{{pod}}/{{container}}",
+      "mode": "range",
+      "panel": "CPU usage per container (metrics-server)",
+      "points": 180,
+      "query": "sum by (pod, container) (bench_pod_container_cpu_cores{job=\"pod-usage\"})",
+      "series": 5,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod, container) (bench_pod_container_memory_working_set_bytes{job=\"pod-usage\"})",
+      "group": "B. Resource utilization",
+      "labels": [
+        {
+          "container": "agentgateway",
+          "pod": "agentgateway-5cc84d649-8dbph"
+        },
+        {
+          "container": "grafana",
+          "pod": "bench-grafana-7dbdc8f96c-hn7nw"
+        },
+        {
+          "container": "pod-usage-exporter",
+          "pod": "bench-prometheus-dc565d85b-nnnr9"
+        },
+        {
+          "container": "prometheus",
+          "pod": "bench-prometheus-dc565d85b-nnnr9"
+        },
+        {
+          "container": "vllm",
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "{{pod}}/{{container}}",
+      "mode": "range",
+      "panel": "Memory working set per container (metrics-server)",
+      "points": 180,
+      "query": "sum by (pod, container) (bench_pod_container_memory_working_set_bytes{job=\"pod-usage\"})",
+      "series": 5,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod) (rate(vllm:request_queue_time_seconds_sum{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:request_queue_time_seconds_count{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+      "group": "B. Resource utilization",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "{{pod}}",
+      "mode": "range",
+      "panel": "Mean queue time per vLLM pod",
+      "points": 36,
+      "query": "sum by (pod) (rate(vllm:request_queue_time_seconds_sum{job=\"vllm\",run_id=~\"optimized-01\"}[1m])) / sum by (pod) (rate(vllm:request_queue_time_seconds_count{job=\"vllm\",run_id=~\"optimized-01\"}[1m]))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod) (rate(vllm:prefix_cache_hits_total{job=\"vllm\",run_id=~\"$run_id\"}[1m])) / sum by (pod) (rate(vllm:prefix_cache_queries_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+      "group": "B. Resource utilization",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "{{pod}}",
+      "mode": "range",
+      "panel": "Prefix-cache hit ratio per vLLM pod",
+      "points": 36,
+      "query": "sum by (pod) (rate(vllm:prefix_cache_hits_total{job=\"vllm\",run_id=~\"optimized-01\"}[1m])) / sum by (pod) (rate(vllm:prefix_cache_queries_total{job=\"vllm\",run_id=~\"optimized-01\"}[1m]))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod) (rate(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[1m]))",
+      "group": "C. Routing",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "{{pod}}",
+      "mode": "range",
+      "panel": "Completed requests per replica",
+      "points": 36,
+      "query": "sum by (pod) (rate(vllm:request_success_total{job=\"vllm\",run_id=~\"optimized-01\"}[1m]))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "sum by (pod) (increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range])) / ignoring(pod) group_left sum(increase(vllm:request_success_total{job=\"vllm\",run_id=~\"$run_id\"}[$__range]))",
+      "group": "C. Routing",
+      "labels": [
+        {
+          "pod": "vllm-primary-6d5b8948f6-nns5s"
+        }
+      ],
+      "legend": "{{pod}}",
+      "mode": "instant",
+      "panel": "Share of completed requests per replica (selected range)",
+      "points": 1,
+      "query": "sum by (pod) (increase(vllm:request_success_total{job=\"vllm\",run_id=~\"optimized-01\"}[526s])) / ignoring(pod) group_left sum(increase(vllm:request_success_total{job=\"vllm\",run_id=~\"optimized-01\"}[526s]))",
+      "series": 1,
+      "status": "DATA"
+    },
+    {
+      "expr": "max(llm_d_epp_ready_endpoints{job=\"epp\"})",
+      "group": "C. Routing",
+      "labels": [],
+      "legend": "ready",
+      "mode": "range",
+      "panel": "llm-d EPP ready endpoints",
+      "points": 0,
+      "query": "max(llm_d_epp_ready_endpoints{job=\"epp\"})",
+      "series": 0,
+      "status": "EMPTY"
+    },
+    {
+      "expr": "sum by (endpoint_name, status) (rate(llm_d_epp_scheduler_attempts_total{job=\"epp\"}[1m]))",
+      "group": "C. Routing",
+      "labels": [],
+      "legend": "{{endpoint_name}} {{status}}",
+      "mode": "range",
+      "panel": "llm-d EPP scheduling decisions per endpoint",
+      "points": 0,
+      "query": "sum by (endpoint_name, status) (rate(llm_d_epp_scheduler_attempts_total{job=\"epp\"}[1m]))",
+      "series": 0,
+      "status": "EMPTY"
+    },
+    {
+      "expr": "sum by (error_code) (rate(llm_d_epp_request_error_total{job=\"epp\"}[1m]))",
+      "group": "C. Routing",
+      "labels": [],
+      "legend": "request {{error_code}}",
+      "mode": "range",
+      "panel": "llm-d EPP errors and metric-poll errors",
+      "points": 0,
+      "query": "sum by (error_code) (rate(llm_d_epp_request_error_total{job=\"epp\"}[1m]))",
+      "series": 0,
+      "status": "EMPTY"
+    },
+    {
+      "expr": "sum(rate(llm_d_epp_datalayer_poll_errors_total{job=\"epp\"}[1m]))",
+      "group": "C. Routing",
+      "labels": [],
+      "legend": "metric poll",
+      "mode": "range",
+      "panel": "llm-d EPP errors and metric-poll errors",
+      "points": 0,
+      "query": "sum(rate(llm_d_epp_datalayer_poll_errors_total{job=\"epp\"}[1m]))",
+      "series": 0,
+      "status": "EMPTY"
+    },
+    {
+      "expr": "histogram_quantile(0.95, sum by (le) (rate(llm_d_epp_scheduler_e2e_duration_seconds_bucket{job=\"epp\"}[1m])))",
+      "group": "C. Routing",
+      "labels": [],
+      "legend": "p95",
+      "mode": "range",
+      "panel": "llm-d EPP scheduler latency p95",
+      "points": 0,
+      "query": "histogram_quantile(0.95, sum by (le) (rate(llm_d_epp_scheduler_e2e_duration_seconds_bucket{job=\"epp\"}[1m])))",
+      "series": 0,
+      "status": "EMPTY"
+    },
+    {
+      "expr": "up",
+      "group": "C. Routing",
+      "labels": [
+        {
+          "arm": "optimized",
+          "job": "agentgateway",
+          "pod": "agentgateway-5cc84d649-8dbph",
+          "run_id": "optimized-01"
+        },
+        {
+          "arm": "optimized",
+          "job": "vllm",
+          "pod": "vllm-primary-6d5b8948f6-nns5s",
+          "run_id": "optimized-01"
+        },
+        {
+          "job": "pod-usage"
+        }
+      ],
+      "legend": "{{job}} {{pod}}",
+      "mode": "range",
+      "panel": "Scrape health per target",
+      "points": 108,
+      "query": "up",
+      "series": 3,
+      "status": "DATA"
+    },
+    {
+      "expr": "time() - bench_pod_usage_last_success_timestamp_seconds{job=\"pod-usage\"}",
+      "group": "C. Routing",
+      "labels": [
+        {
+          "job": "pod-usage"
+        }
+      ],
+      "legend": "pod-usage age (s)",
+      "mode": "range",
+      "panel": "Scrape health per target",
+      "points": 36,
+      "query": "time() - bench_pod_usage_last_success_timestamp_seconds{job=\"pod-usage\"}",
+      "series": 1,
+      "status": "DATA"
+    }
+  ],
+  "run_id": "optimized-01",
+  "schema": "ewallet-bench-prometheus-readback-v1",
+  "summary": {
+    "empty": [
+      "llm-d EPP ready endpoints / ready",
+      "llm-d EPP scheduling decisions per endpoint / {{endpoint_name}} {{status}}",
+      "llm-d EPP errors and metric-poll errors / request {{error_code}}",
+      "llm-d EPP errors and metric-poll errors / metric poll",
+      "llm-d EPP scheduler latency p95 / p95"
+    ],
+    "queries": 23,
+    "with_data": 18
+  },
+  "targets": [
+    {
+      "health": "up",
+      "job": "agentgateway",
+      "last_error": "",
+      "last_scrape": "2026-11-09T08:43:35.20368709Z",
+      "node": "gke-ewallet-dev-bench-pool-63717134-c3g7",
+      "pod": "agentgateway-5cc84d649-8dbph",
+      "run_id": "optimized-01",
+      "scrape_url": "http://10.216.3.19:15020/metrics"
+    },
+    {
+      "health": "up",
+      "job": "pod-usage",
+      "last_error": "",
+      "last_scrape": "2026-11-09T08:43:37.096541869Z",
+      "node": null,
+      "pod": null,
+      "run_id": null,
+      "scrape_url": "http://127.0.0.1:9101/metrics"
+    },
+    {
+      "health": "up",
+      "job": "vllm",
+      "last_error": "",
+      "last_scrape": "2026-11-09T08:43:38.185153397Z",
+      "node": "gke-ewallet-dev-bench-pool-63717134-c3g7",
+      "pod": "vllm-primary-6d5b8948f6-nns5s",
+      "run_id": "optimized-01",
+      "scrape_url": "http://10.216.3.20:8000/metrics"
+    }
+  ],
+  "window": {
+    "end": "2026-11-09T08:43:13Z",
+    "start": "2026-11-09T08:34:27Z"
+  }
+}

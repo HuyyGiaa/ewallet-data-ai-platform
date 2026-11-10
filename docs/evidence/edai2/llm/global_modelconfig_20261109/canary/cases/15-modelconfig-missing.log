@@ -1,0 +1,4 @@
+# pod mc-canary-coordinator-6b897bfc9c-j2xdw (expect fail) 2026-11-08T18:19:24Z
+NAME                                     READY   RESTARTS   STATE
+mc-canary-coordinator-6b897bfc9c-j2xdw   false   1          Error
+{"event": "modelconfig.failed", "code": "modelconfig_not_found", "message": "modelconfig_not_found: ModelConfig kagent-pilot/ewallet-global-llm does not exist", "denied_egress_probe": "blocked (TimeoutError)"}

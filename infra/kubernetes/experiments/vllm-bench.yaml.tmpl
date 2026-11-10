@@ -14,6 +14,8 @@ metadata:
     pod-security.kubernetes.io/warn: restricted
 ---
 # GKE adds three Istio ConfigMaps to every new namespace; the count leaves room for them.
+# The budget covers the serving stack plus the isolated Prometheus, Grafana and watchdog
+# (bench-observability.yaml.tmpl, bench-watchdog.yaml.tmpl).
 apiVersion: v1
 kind: ResourceQuota
 metadata: {name: bench-budget, namespace: ewallet-bench}
@@ -21,10 +23,10 @@ spec:
   hard:
     requests.cpu: "5"
     requests.memory: 16Gi
-    limits.cpu: "10"
-    limits.memory: 24Gi
-    pods: "8"
-    configmaps: "12"
+    limits.cpu: "12"
+    limits.memory: 28Gi
+    pods: "10"
+    configmaps: "20"
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -44,6 +46,9 @@ spec:
   egress:
     - to: [{podSelector: {}}]
 ---
+# GKE runs NodeLocal DNSCache: queries go to its link-local listener or to the kube-dns
+# ClusterIP, which node-local-dns also answers, and never reach a kube-dns pod. Without
+# those two addresses every lookup is dropped (G1 run 3; EXP-V2 smoke 2026-11-09).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: {name: allow-dns, namespace: ewallet-bench}
@@ -54,6 +59,9 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+        __DNS_PEERS__
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
@@ -67,7 +75,7 @@ spec:
     matchLabels: {llm-d-router-standalone: llmd-router-epp}
   policyTypes: [Egress]
   egress:
-    - to: [{ipBlock: {cidr: __API_SERVER_CIDR__}}]
+    - to: __API_SERVER_PEERS__
       ports:
         - {protocol: TCP, port: __API_SERVER_PORT__}
 ---
@@ -171,6 +179,9 @@ spec:
               valueFrom: {secretKeyRef: {name: agentgateway-client-key, key: api-key}}
           ports:
             - {name: entry, containerPort: 4000}
+            # Prometheus metrics (agentgateway default stats listener); scraped per pod by
+            # the benchmark Prometheus only.
+            - {name: metrics, containerPort: 15020}
           readinessProbe:
             tcpSocket: {port: entry}
             periodSeconds: 5

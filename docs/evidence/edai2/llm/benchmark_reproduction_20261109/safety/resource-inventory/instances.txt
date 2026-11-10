@@ -1,0 +1,6 @@
+NAME                                    STATUS   MACHINE_TYPE
+gke-ewallet-dev-cpu-pool-58daed59-cbl0  RUNNING  e2-standard-4
+gke-ewallet-dev-cpu-pool-58daed59-h874  RUNNING  e2-standard-4
+gke-ewallet-dev-cpu-pool-58daed59-jt0h  RUNNING  e2-standard-4
+gke-ewallet-dev-cpu-pool-58daed59-wcka  RUNNING  e2-standard-4
+gke-ewallet-dev-cpu-pool-58daed59-zm4y  RUNNING  e2-standard-4
