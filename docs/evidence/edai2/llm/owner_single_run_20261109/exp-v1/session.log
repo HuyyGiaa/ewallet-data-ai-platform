@@ -1,0 +1,208 @@
+2026-11-09T17:45:00Z start exp-v1 session profile=single methodology=single-run source=263c1d1f19cd0be5007503f7bfc6eff089a908df runs=1 capture=interactive
+2026-11-09T17:45:00Z time limit 2026-11-09T21:20:00Z; watchdog deadline 2026-11-09T21:30:00Z
+2026-11-09T17:45:00Z creating bench-pool with 1 node(s), autoscaling 0-1
+Creating node pool bench-pool...
+.............................................................................................................................................................................................................................................................................................................................................................................................done.
+Created [https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/clusters/ewallet-dev/nodePools/bench-pool].
+NAME        MACHINE_TYPE   DISK_SIZE_GB  NODE_VERSION
+bench-pool  e2-standard-4  50            1.36.4-gke.2377000
+serviceaccount/bench-watchdog created
+role.rbac.authorization.k8s.io/bench-watchdog created
+rolebinding.rbac.authorization.k8s.io/bench-watchdog created
+networkpolicy.networking.k8s.io/allow-watchdog-apiserver created
+configmap/bench-watchdog-code created
+configmap/bench-watchdog-target created
+cronjob.batch/bench-watchdog created
+2026-11-09T17:46:39Z watchdog armed for 2026-11-09T21:30:00Z (in-cluster, RBAC limited to ewallet-bench)
+Running timer as unit: ewallet-bench-down-20261109T174639.timer
+Will run service as unit: ewallet-bench-down-20261109T174639.service
+2026-11-09T17:46:39Z laptop timer ewallet-bench-down-20261109T174639 runs down at 2026-11-09 21:40:00 UTC (journalctl --user -u ewallet-bench-down-20261109T174639)
+serviceaccount/bench-prometheus created
+role.rbac.authorization.k8s.io/bench-prometheus created
+rolebinding.rbac.authorization.k8s.io/bench-prometheus created
+networkpolicy.networking.k8s.io/allow-prometheus-apiserver created
+configmap/bench-prometheus-config created
+configmap/bench-exporter-code created
+service/bench-prometheus created
+deployment.apps/bench-prometheus created
+serviceaccount/bench-grafana created
+configmap/bench-grafana-provisioning created
+configmap/bench-grafana-dashboards created
+service/bench-grafana created
+deployment.apps/bench-grafana created
+Waiting for deployment "bench-prometheus" rollout to finish: 0 of 1 updated replicas are available...
+deployment "bench-prometheus" successfully rolled out
+Waiting for deployment "bench-grafana" rollout to finish: 0 of 1 updated replicas are available...
+deployment "bench-grafana" successfully rolled out
+2026-11-09T17:47:26Z observability ready: Grafana http://127.0.0.1:13030  Prometheus http://127.0.0.1:13090
+2026-11-09T17:47:26Z run 01 baseline (b0-prime, route: Service -> vLLM)
+2026-11-09T18:06:35Z run 01 baseline ready: thread_bind=auto replicas=1 nodes=gke-ewallet-dev-bench-pool-f0979dec-x5ct digest=sha256:f695b23efa81
+2026-11-09T18:06:40Z run 01 baseline measuring (levels 1,2,4); live view in another terminal: python -m ops.experiments.progress /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1
+2026-11-09T18:24:59Z run 01 baseline: measured; 1 of 36 requests failed and stay in the comparison
+2026-11-09T18:25:47Z gateway policy probe (baseline): PASS
+2026-11-09T18:25:50Z gateway policy probe (baseline): probe 503s: 4 -> ATTRIBUTED: vLLM admission control (max_num_queued_reqs) on vllm-primary-fdcc967bf-czw6k
+================================================================
+EXP-V1 SINGLE-RUN / BASELINE run 01 — OWNER EVIDENCE CHECKPOINT
+================================================================
+
+Experiment:     EXP-V1
+Model:          Qwen/Qwen3-0.6B @ c1899de289a04d12100db370d81485cdf75e47ca
+Arm:            baseline (b0-prime)
+Thread binding: auto   replicas: 1
+Route:          Service -> vLLM
+Image digest:   sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+Nodes:          gke-ewallet-dev-bench-pool-f0979dec-x5ct
+Namespace:      ewallet-bench (temporary benchmark stack, not production)
+Run ID:         baseline-01
+Window (UTC):   2026-11-09T18:06:40Z -> 2026-11-09T18:24:57Z
+
+Benchmark completed (client summary, authoritative):
+  workload o1-workload-v1 sha256 c4816ca1f1dc...
+  c=1  out tok/s 1.1 | TTFT p50 7874 ms | E2E p95 76544 ms | errors 0.083 | n=12
+  c=2  out tok/s 3.4 | TTFT p50 9747 ms | E2E p95 70133 ms | errors 0.000 | n=12
+  c=4  out tok/s 3.5 | TTFT p50 17297 ms | E2E p95 154746 ms | errors 0.000 | n=12
+
+Raw output:     /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01
+Prometheus:     http://127.0.0.1:13090   (readback: 18/23 queries with data)
+Grafana:        http://127.0.0.1:13030/d/edai2-llm-cpu-bench/?orgId=1&from=1794247600000&to=1794248757000&var-run_id=baseline-01
+Gateway policy: PASS  (/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/gateway-policy/baseline/results.json)
+
+Capture now (save PNGs under the path below):
+  screenshots -> /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/screenshots/baseline-01-<name>.png
+  1 deployment configuration:
+      kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get deploy vllm-primary -o jsonpath='{.spec.template.spec.containers[0].env}'; echo
+      kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get configmap agentgateway-llm-config -o jsonpath='{.data.config\.yaml}' | grep -E 'baseUrl|x-ewallet-backend|maxTokens'
+  2 benchmark terminal result: this screen, or  cat /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/baseline/raw/run-01/summary.json
+  3 Grafana panels for the same window: the link above
+  4 pods and nodes:   kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get pods -o wide; kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev get nodes -l ewallet.io/bench=true -o wide
+
+No credentials are shown here. Type CONTINUE to proceed or ABORT to stop and clean up.
+This checkpoint waits at most 20 min, then stops the session and cleans up.
+================================================================
+2026-11-09T18:39:12Z checkpoint: owner typed CONTINUE
+2026-11-09T18:39:12Z run 01 optimized (c1-thread-bind, route: Service -> vLLM)
+2026-11-09T18:53:52Z run 01 optimized ready: thread_bind=0-1 replicas=1 nodes=gke-ewallet-dev-bench-pool-f0979dec-x5ct digest=sha256:f695b23efa81
+2026-11-09T18:53:57Z run 01 optimized measuring (levels 1,2,4); live view in another terminal: python -m ops.experiments.progress /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1
+2026-11-09T19:05:59Z gateway policy probe (optimized): PASS
+2026-11-09T19:06:01Z gateway policy probe (optimized): probe 503s: 4 -> ATTRIBUTED: vLLM admission control (max_num_queued_reqs) on vllm-primary-6d5b8948f6-zlvwz
+================================================================
+EXP-V1 SINGLE-RUN / OPTIMIZED run 01 — OWNER EVIDENCE CHECKPOINT
+================================================================
+
+Experiment:     EXP-V1
+Model:          Qwen/Qwen3-0.6B @ c1899de289a04d12100db370d81485cdf75e47ca
+Arm:            optimized (c1-thread-bind)
+Thread binding: 0-1   replicas: 1
+Route:          Service -> vLLM
+Image digest:   sha256:f695b23efa8145ae5cb57a1873863879927ab4805e70e5eee1a71a2063edd07c
+Nodes:          gke-ewallet-dev-bench-pool-f0979dec-x5ct
+Namespace:      ewallet-bench (temporary benchmark stack, not production)
+Run ID:         optimized-01
+Window (UTC):   2026-11-09T18:53:57Z -> 2026-11-09T19:05:17Z
+
+Benchmark completed (client summary, authoritative):
+  workload o1-workload-v1 sha256 c4816ca1f1dc...
+  c=1  out tok/s 2.2 | TTFT p50 5021 ms | E2E p95 76820 ms | errors 0.000 | n=12
+  c=2  out tok/s 5.1 | TTFT p50 5481 ms | E2E p95 46532 ms | errors 0.000 | n=12
+  c=4  out tok/s 5.5 | TTFT p50 10004 ms | E2E p95 98511 ms | errors 0.000 | n=12
+
+Raw output:     /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/raw/run-01
+Prometheus:     http://127.0.0.1:13090   (readback: 18/23 queries with data)
+Grafana:        http://127.0.0.1:13030/d/edai2-llm-cpu-bench/?orgId=1&from=1794250437000&to=1794251177000&var-run_id=optimized-01
+Gateway policy: PASS  (/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/gateway-policy/optimized/results.json)
+
+Capture now (save PNGs under the path below):
+  screenshots -> /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/screenshots/optimized-01-<name>.png
+  1 deployment configuration:
+      kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get deploy vllm-primary -o jsonpath='{.spec.template.spec.containers[0].env}'; echo
+      kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get configmap agentgateway-llm-config -o jsonpath='{.data.config\.yaml}' | grep -E 'baseUrl|x-ewallet-backend|maxTokens'
+  2 benchmark terminal result: this screen, or  cat /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/optimized/raw/run-01/summary.json
+  3 Grafana panels for the same window: the link above
+  4 pods and nodes:   kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-bench get pods -o wide; kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev get nodes -l ewallet.io/bench=true -o wide
+
+No credentials are shown here. Type CONTINUE to proceed or ABORT to stop and clean up.
+This checkpoint waits at most 20 min, then stops the session and cleans up.
+================================================================
+2026-11-09T19:09:24Z checkpoint: owner typed CONTINUE
+2026-11-09T19:09:24Z all runs complete
+================================================================
+EXP-V1 (SINGLE-RUN) — COMPARISON CHECKPOINT
+================================================================
+
+# EXP-V1 SINGLE-RUN comparison: b0-prime vs c1-thread-bind
+
+**Methodology:** `single-run` (EXP_PROFILE=single): 1 baseline run, 1 optimized run. One run per arm: the percentages are observed differences between two runs. There is no repetition, no confidence interval and no significance test, so this is not a statistically proven or stable improvement.
+
+**Execution validity:** VALID
+
+**Observed outcome:** `OBSERVED_IMPROVEMENT`
+- output_tokens_per_second observed better by >= 10 % at 1, 2, 4
+
+Primary metric: `output_tokens_per_second`. A level counts as changed when the observed difference is at least 10 % (a fixed reporting rule, not a statistical test). Variable: VLLM_CPU_OMP_THREADS_BIND: auto versus 0-1. Positive change means better.
+
+| Level | Baseline failed | Optimized failed | Baseline timeout rate | Optimized timeout rate |
+|---|---:|---:|---:|---:|
+| 1 | 1/12 | 0/12 | 0.000 | 0.000 |
+| 2 | 0/12 | 0/12 | 0.000 | 0.000 |
+| 4 | 0/12 | 0/12 | 0.000 | 0.000 |
+
+| Level | Metric | Better when | Baseline | Optimized | Observed change |
+|---|---|---|---:|---:|---:|
+| 1 | ttft_p50_ms | lower | 7,874.145 | 5,020.781 | +36.2% |
+| 1 | ttft_p95_ms | lower | 63,021.493 | 62,328.854 | +1.1% |
+| 1 | e2e_p50_ms | lower | 13,617.900 | 11,163.162 | +18.0% |
+| 1 | e2e_p95_ms | lower | 76,544.062 | 76,820.170 | -0.4% |
+| 1 | output_tokens_per_second | higher | 1.083 | 2.176 | +100.9% |
+| 1 | request_throughput | higher | 0.022 | 0.037 | +64.8% |
+| 1 | tpot_ms | lower | 211.287 | 143.368 | +32.1% |
+| 1 | cpu_cores_mean | lower | 1.201 | 2.279 | -89.8% |
+| 1 | memory_mib_peak | lower | 6,469.000 | 6,629.000 | -2.5% |
+| 1 | itl_p50_ms | lower | 205.252 | 159.559 | +22.3% |
+| 1 | error_rate | lower | 0.083 | 0.000 | +100.0% |
+| 1 | timeout_rate | lower | 0.000 | 0.000 | +0.0% |
+| 1 | tool_calls_valid | higher | 2.000 | 2.000 | +0.0% |
+| 1 | tokens_per_second_per_allocated_cpu | higher | 0.542 | 1.088 | +100.9% |
+| 1 | tokens_per_second_per_used_cpu_core | higher | 0.902 | 0.955 | +5.8% |
+| 2 | ttft_p50_ms | lower | 9,746.849 | 5,480.598 | +43.8% |
+| 2 | ttft_p95_ms | lower | 15,515.051 | 8,966.588 | +42.2% |
+| 2 | e2e_p50_ms | lower | 35,365.692 | 22,876.580 | +35.3% |
+| 2 | e2e_p95_ms | lower | 70,132.779 | 46,531.668 | +33.7% |
+| 2 | output_tokens_per_second | higher | 3.357 | 5.127 | +52.7% |
+| 2 | request_throughput | higher | 0.057 | 0.086 | +52.7% |
+| 2 | tpot_ms | lower | 448.398 | 301.188 | +32.8% |
+| 2 | cpu_cores_mean | lower | 1.709 | 2.641 | -54.5% |
+| 2 | memory_mib_peak | lower | 6,458.000 | 6,625.000 | -2.6% |
+| 2 | itl_p50_ms | lower | 397.797 | 270.744 | +31.9% |
+| 2 | error_rate | lower | 0.000 | 0.000 | +0.0% |
+| 2 | timeout_rate | lower | 0.000 | 0.000 | +0.0% |
+| 2 | tool_calls_valid | higher | 2.000 | 2.000 | +0.0% |
+| 2 | tokens_per_second_per_allocated_cpu | higher | 1.679 | 2.563 | +52.7% |
+| 2 | tokens_per_second_per_used_cpu_core | higher | 1.964 | 1.942 | -1.2% |
+| 4 | ttft_p50_ms | lower | 17,297.308 | 10,003.675 | +42.2% |
+| 4 | ttft_p95_ms | lower | 24,244.183 | 13,435.219 | +44.6% |
+| 4 | e2e_p50_ms | lower | 61,220.393 | 40,911.786 | +33.2% |
+| 4 | e2e_p95_ms | lower | 154,745.703 | 98,511.020 | +36.3% |
+| 4 | output_tokens_per_second | higher | 3.543 | 5.475 | +54.5% |
+| 4 | request_throughput | higher | 0.060 | 0.092 | +54.5% |
+| 4 | tpot_ms | lower | 810.514 | 544.928 | +32.8% |
+| 4 | cpu_cores_mean | lower | 1.639 | 2.584 | -57.6% |
+| 4 | memory_mib_peak | lower | 6,459.000 | 6,625.000 | -2.6% |
+| 4 | itl_p50_ms | lower | 709.123 | 511.015 | +27.9% |
+| 4 | error_rate | lower | 0.000 | 0.000 | +0.0% |
+| 4 | timeout_rate | lower | 0.000 | 0.000 | +0.0% |
+| 4 | tool_calls_valid | higher | 2.000 | 2.000 | +0.0% |
+| 4 | tokens_per_second_per_allocated_cpu | higher | 1.772 | 2.737 | +54.5% |
+| 4 | tokens_per_second_per_used_cpu_core | higher | 2.161 | 2.119 | -2.0% |
+
+Capture: comparison above (/home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/comparison.md), manifest.json, and the Grafana dashboard over the whole session:
+  http://127.0.0.1:13030/d/edai2-llm-cpu-bench/?orgId=1&from=1794246300000&to=now
+  screenshots -> /home/huyy-giaa/Develop/ewallet-data-ai-platform/.worktrees/claude-benchmark-evidence-replay/docs/evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/screenshots/<name>.png
+Type CONTINUE to clean up now (or wait up to 20 min).
+2026-11-09T19:18:51Z checkpoint: owner typed CONTINUE
+2026-11-09T19:18:54Z cleanup (status 0)
+namespace "ewallet-bench" deleted
+Deleting node pool bench-pool...
+...............................................................................................................................................................................................................................................................done.
+Deleted [https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/clusters/ewallet-dev/nodePools/bench-pool].
+2026-11-09T19:20:46Z laptop timer ewallet-bench-down-20261109T174639 disarmed
+2026-11-09T19:20:54Z session end status=0

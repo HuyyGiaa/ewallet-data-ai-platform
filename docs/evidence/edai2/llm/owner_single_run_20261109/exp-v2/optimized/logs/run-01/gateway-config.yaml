@@ -1,0 +1,44 @@
+gateways:
+  default:
+    port: 4000
+routes:
+  - policies:
+      apiKey:
+        mode: strict
+        keys:
+          - key: "$GATEWAY_CLIENT_KEY"
+      timeout:
+        requestTimeout: 180s
+    backends:
+      - host: 127.0.0.1:3000
+llm:
+  port: 3000
+  policies:
+    timeout:
+      requestTimeout: 170s
+      backendRequestTimeout: 160s
+      responseIdleTimeout: 160s
+    localRateLimit:
+      - maxTokens: 12
+        tokensPerFill: 12
+        fillInterval: 1s
+        type: requests
+        key: llm.requestModel
+      - maxTokens: 150000
+        tokensPerFill: 150000
+        fillInterval: 1h
+        type: tokens
+        key: llm.requestModel
+  models:
+    - name: ewallet-fraud-llm
+      provider:
+        custom:
+          formats:
+            - type: completions
+      params:
+        model: ewallet-fraud-llm-v1
+        baseUrl: http://llmd-router-epp.ewallet-bench.svc.cluster.local:8081/v1
+        apiKey: "$VLLM_API_KEY"
+      responseHeaders:
+        set:
+          x-ewallet-backend: llm-d

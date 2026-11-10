@@ -1,0 +1,7 @@
+Release "llmd-router" does not exist. Installing it now.
+NAME: llmd-router
+LAST DEPLOYED: Tue Nov 10 15:32:58 2026
+NAMESPACE: ewallet-bench
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None

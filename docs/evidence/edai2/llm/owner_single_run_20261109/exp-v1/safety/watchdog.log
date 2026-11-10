@@ -1,0 +1,3 @@
+[pod/bench-watchdog-29904192-t95s5/watchdog] {"deadline": "2026-11-09T21:30:00+00:00", "event": "watchdog.idle", "mode": "enforce", "namespace": "ewallet-bench", "seconds_left": 8272, "ts": "2026-11-09T19:12:07.394356+00:00"}
+[pod/bench-watchdog-29904195-gzfk4/watchdog] {"deadline": "2026-11-09T21:30:00+00:00", "event": "watchdog.idle", "mode": "enforce", "namespace": "ewallet-bench", "seconds_left": 8092, "ts": "2026-11-09T19:15:07.345423+00:00"}
+[pod/bench-watchdog-29904198-bfvrd/watchdog] {"deadline": "2026-11-09T21:30:00+00:00", "event": "watchdog.idle", "mode": "enforce", "namespace": "ewallet-bench", "seconds_left": 7912, "ts": "2026-11-09T19:18:07.558622+00:00"}

@@ -1,0 +1,12 @@
+NAME                               READY   STATUS      RESTARTS   AGE     IP            NODE                                       NOMINATED NODE   READINESS GATES
+agentgateway-6f76c69fb7-vx665      1/1     Running     0          31m     10.216.3.6    gke-ewallet-dev-bench-pool-8c4e9b77-38kl   <none>           <none>
+bench-grafana-7dbdc8f96c-cjb4x     1/1     Running     0          31m     10.216.6.6    gke-ewallet-dev-bench-pool-8c4e9b77-g4tk   <none>           <none>
+bench-prometheus-dc565d85b-wb678   2/2     Running     0          31m     10.216.3.5    gke-ewallet-dev-bench-pool-8c4e9b77-38kl   <none>           <none>
+bench-watchdog-29904969-nwqxd      0/1     Completed   0          7m52s   10.216.6.15   gke-ewallet-dev-bench-pool-8c4e9b77-g4tk   <none>           <none>
+bench-watchdog-29904972-jjbc7      0/1     Completed   0          4m52s   10.216.6.16   gke-ewallet-dev-bench-pool-8c4e9b77-g4tk   <none>           <none>
+bench-watchdog-29904975-q82sv      0/1     Completed   0          112s    10.216.6.17   gke-ewallet-dev-bench-pool-8c4e9b77-g4tk   <none>           <none>
+vllm-primary-5bd87f4bfb-p78sl      1/1     Running     0          31m     10.216.3.7    gke-ewallet-dev-bench-pool-8c4e9b77-38kl   <none>           <none>
+vllm-primary-5bd87f4bfb-prxhj      1/1     Running     0          31m     10.216.6.7    gke-ewallet-dev-bench-pool-8c4e9b77-g4tk   <none>           <none>
+NAME                                       STATUS   ROLES    AGE   VERSION               INTERNAL-IP    EXTERNAL-IP     OS-IMAGE                             KERNEL-VERSION      CONTAINER-RUNTIME
+gke-ewallet-dev-bench-pool-8c4e9b77-38kl   Ready    <none>   32m   v1.36.4-gke.2377000   10.20.15.217   136.85.14.138   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7
+gke-ewallet-dev-bench-pool-8c4e9b77-g4tk   Ready    <none>   33m   v1.36.4-gke.2377000   10.20.15.218   34.126.168.78   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7

@@ -1,0 +1,7 @@
+valid_client_key             status=200 passed=True
+missing_key                  status=401 passed=True
+wrong_key                    status=401 passed=True
+backend_key_as_client_key    status=401 passed=True
+routing_backend_header       status=None passed=True
+rate_limit_burst             status={'200': 13, '429': 3} passed=True
+gateway policy verdict: PASS
