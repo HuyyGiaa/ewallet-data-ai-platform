@@ -4,7 +4,7 @@ This report describes the platform that serves the custom LLM used by the fraud-
 
 - vLLM on CPU nodes in GKE;
 - agentgateway in front of vLLM;
-- one global kagent ModelConfig through which every agent reaches the model.
+- one global kagent ModelConfig that holds the shared model settings ([§3.3](#33-global-modelconfig)).
 
 It also reports the two optimisation experiments that shaped the current serving configuration.
 
@@ -19,7 +19,7 @@ The agents use the LLM for a narrow task: understand an analyst's question and s
 **Design goals:**
 
 - **One entry point.** Agents never talk to vLLM directly. agentgateway authenticates clients, enforces rate and token budgets, applies timeouts, and fails over between backends.
-- **One model configuration.** All agents reference a single ModelConfig, so the model or endpoint can change in one place.
+- **One model configuration.** A single ModelConfig defines the model, endpoint and credential reference. Declarative agents reference it; BYO agents get the same model name and client key from the same Helm values ([§3.3](#33-global-modelconfig)).
 - **Reproducible serving.** The model weights are baked into a digest-pinned image, so a pod never downloads weights at start-up.
 
 ## 2. Architecture
@@ -77,17 +77,94 @@ The gateway is configured in [`templates/agentgateway.yaml`](../../../infra/helm
 
 ### 3.3 Global ModelConfig
 
-[`templates/modelconfig.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig.yaml) renders one `kagent.dev/v1alpha2 ModelConfig`, named `ewallet-global-llm`:
+**Purpose.** One kagent `ModelConfig` resource, `ewallet-global-llm`, holds the model name, endpoint, credential reference and timeout, so these settings are defined once instead of once per agent. It is deployed by the `llm-agent` Helm release in namespace `ewallet-agents`. An agent reuses it by naming it, and changing the Helm values changes every agent that references it.
 
-| Field | Value | Effect |
+**A ModelConfig is configuration, not a network hop.** kagent reads it to build the agent's model client. At runtime the agent calls agentgateway directly.
+
+```mermaid
+flowchart LR
+  subgraph K8s[Namespace ewallet-agents]
+    D["Declarative Agent<br/>drift-specialist"]
+    B["BYO Agents<br/>fraud-coordinator<br/>feature-rag-specialist"]
+    MC[["ModelConfig<br/>ewallet-global-llm"]]
+    S[("Secret<br/>agentgateway-client-key")]
+    G["agentgateway<br/>Service :3000 → entry :4000<br/>apiKey strict"]
+    L["LLM listener :3000<br/>virtual model ewallet-fraud-llm"]
+    P["vllm-primary :8000<br/>ewallet-fraud-llm-v1"]
+    F["vllm-fallback :8000"]
+  end
+  D -. "spec.declarative.modelConfig" .-> MC
+  MC -. "apiKeySecret" .-> S
+  B -. "env from Helm values, secretKeyRef" .-> S
+  D -- "OpenAI request + client key" --> G
+  B -- "OpenAI request + client key" --> G
+  G --> L
+  L -- "priority 0, vLLM key" --> P
+  L -. "priority 1, failover" .-> F
+```
+
+Dashed arrows are configuration references or the failover path; solid arrows are requests. The chart also has an optional llm-d route, which is off in the deployed configuration ([§5.3](#53-experiment-2-cache-aware-routing-with-two-replicas)).
+
+**What is configured.**
+
+| Field (source) | Value | What it does and why |
 |---|---|---|
-| `provider` | `OpenAI` | kagent uses the OpenAI Chat Completions API |
-| `model` | `ewallet-fraud-llm` | the gateway's virtual model, which maps to the versioned vLLM model |
-| `openAI.baseUrl` | `http://agentgateway.<ns>.svc.cluster.local:3000/v1` | every request goes through the gateway |
-| `apiKeySecret` / `apiKeySecretKey` | the gateway client key | the key agentgateway checks |
-| `timeout` | outermost timeout budget | aligned with the gateway timeouts |
+| `metadata.name` | `ewallet-global-llm` (`modelConfig.name`) | The single name agents reference |
+| `metadata.namespace` | `ewallet-agents` (`namespace.name`) | A ModelConfig is namespaced, so "global" means shared by the agents of this platform namespace, not cluster-wide |
+| `spec.provider` | `OpenAI` | agentgateway and vLLM expose the OpenAI Chat Completions API, so kagent uses its OpenAI client. No OpenAI service is involved |
+| `spec.model` | `ewallet-fraud-llm` | The gateway's **virtual** model. Agents do not depend on a backend or on the served name `ewallet-fraud-llm-v1` |
+| `spec.openAI.baseUrl` | `http://agentgateway.<ns>.svc.cluster.local:3000/v1` | Sends every request through the gateway, never directly to vLLM |
+| `spec.apiKeySecret`, `spec.apiKeySecretKey` | `agentgateway-client-key`, `api-key` | Names the Secret that holds the **gateway client key**. The chart stores only this reference; agents never hold the vLLM key |
+| `spec.openAI.timeout` | 200 s on GKE (`values-gke-cpu.yaml`), 35 s chart default | The outermost budget. The chart refuses to render unless it is above the gateway's timeouts |
+| Agent `spec.declarative.modelConfig` | `ewallet-global-llm` | The reference that reuses this configuration |
 
-The Declarative drift agent references this ModelConfig directly. The BYO agents read the same endpoint and client key from their deployment configuration.
+**How the request reaches the model.**
+
+1. The agent sends an OpenAI-format request with the client key to the `agentgateway` Service on port 3000, which targets the `entry` port (4000).
+2. The entry route enforces `apiKey: mode: strict`, then forwards to the in-process LLM listener on `127.0.0.1:3000`.
+3. The listener applies rate limits, token budgets and timeouts, and resolves `ewallet-fraud-llm` to its backends: primary at priority 0, fallback at priority 1.
+4. The gateway replaces the client key with `$VLLM_API_KEY` and calls vLLM, which serves `ewallet-fraud-llm-v1`.
+
+**How each agent uses it.** Reuse is direct for Declarative agents only.
+
+| Agent | Type | Model configuration |
+|---|---|---|
+| `drift-specialist` | Declarative | References `ewallet-global-llm` through `spec.declarative.modelConfig` |
+| `fraud-coordinator`, `feature-rag-specialist` | BYO | They do not read the CR. When `naturalLanguageIntake` is enabled (the N11 overlay enables it for both), Helm injects `EWALLET_LLM_BASE_URL`, `EWALLET_LLM_API_KEY` (same Secret) and `EWALLET_LLM_MODEL`, the last taken from the same `modelConfig.model` value. The endpoint is written separately in the template |
+
+**Source code.** Repository links are in the first column; the second gives commit-pinned GitHub line ranges.
+
+| File | Lines | What it configures |
+|---|---|---|
+| [`templates/modelconfig.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig.yaml) | [L1–17](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/modelconfig.yaml#L1-L17) | The ModelConfig resource |
+| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L851–861](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L851-L861) | Name, model, default timeout, Secret reference |
+| [`values-gke-cpu.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu.yaml) | [L64–65](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values-gke-cpu.yaml#L64-L65) | GKE timeout of 200 s |
+| [`n11/values-n11-agents.yaml`](../../../infra/helm/llm-agent-platform/n11/values-n11-agents.yaml) | [L5–15](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/n11/values-n11-agents.yaml#L5-L15) | Enables LLM intake for both BYO agents |
+| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L263–266](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L263-L266) | Declarative agents reference the ModelConfig |
+| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L183–207](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L183-L207) | BYO agents: endpoint, model and client key through environment variables |
+| [`templates/agents.yaml`](../../../infra/helm/llm-agent-platform/templates/agents.yaml) | [L8–9](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agents.yaml#L8-L9) | Agents cannot render without the ModelConfig |
+| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L6–12](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L6-L12) | Timeout nesting guard |
+| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L43–56](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L43-L56) | Entry route: strict client authentication, forward to the LLM listener |
+| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L101–110](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L101-L110) | Primary backend: vLLM URL and backend key |
+| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L157–167](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L157-L167) | Virtual model `ewallet-fraud-llm` and failover priorities |
+| [`templates/agentgateway.yaml`](../../../infra/helm/llm-agent-platform/templates/agentgateway.yaml) | [L264–272](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/agentgateway.yaml#L264-L272) | Service port 3000 to the entry port |
+| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L279–281](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L279-L281) | Gateway client-key Secret reference |
+| [`templates/vllm.yaml`](../../../infra/helm/llm-agent-platform/templates/vllm.yaml) | [L128–129](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/templates/vllm.yaml#L128-L129) | vLLM served model name |
+| [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml) | [L200–200](https://github.com/HuyyGiaa/ewallet-data-ai-platform/blob/22018233adb172767a267a9bf76ad295d17ac6cf/infra/helm/llm-agent-platform/values.yaml#L200-L200) | Served name `ewallet-fraud-llm-v1` |
+
+The contract is checked offline by [`test_r1_runtime_prep.py`](../../../tests/llm_agent/test_r1_runtime_prep.py), from ModelConfig through the gateway to the served model.
+
+**Implementation status.** No live cluster check was made when this section was written. The records below are from earlier runs.
+
+| Item | Status | Record |
+|---|---|---|
+| Resource, gateway and agent references | Declared in Git | Files above |
+| ModelConfig deployed with these fields | Verified 2026-11-02 | [`live-manifest.yaml`](../../evidence/llm_agent/edai2_integration_20261102/observability/live-manifest.yaml) |
+| `drift-specialist` references it, Accepted and Ready | Verified 2026-11-02 | [`agents.json`](../../evidence/llm_agent/agent_platform_runtime_20261102T104744Z/preflight/agents.json) |
+| Declarative agent answered through it | Verified 2026-11-04 | [§4](#4-runtime-verification), session `01a1a419` |
+| Gateway authentication and failover | Verified 2026-10-31 | [G1 evidence](../../evidence/llm_agent/g1_20261031T231145Z) |
+| BYO agents read the CR at startup | **Not implemented on this branch or deployed** | BYO agents use the Helm environment bridge above. A resolver exists only on the unmerged branch `feature/global-modelconfig-integration` |
+| Failover available today | **Not currently available** | `vllm-fallback` is scaled to zero ([§4](#4-runtime-verification)) |
 
 ## 4. Runtime verification
 
