@@ -296,8 +296,42 @@ def build_report(
     return report
 
 
+def _precise_online_timestamps(store, view: str, entities: Sequence[str]) -> list[datetime | None]:
+    """Full-precision Online event timestamps, read through Feast's own online store.
+
+    ``OnlineResponse.to_dict(include_event_timestamps=True)`` returns whole seconds
+    although Feast's Redis store keeps the protobuf nanoseconds. The direct Offline
+    comparison needs the stored microseconds, so they are read with the provider's
+    ``online_read`` (the call ``get_online_features`` itself is built on), not from
+    raw Redis keys.
+    """
+
+    from feast.protos.feast.types.EntityKey_pb2 import EntityKey
+    from feast.protos.feast.types.Value_pb2 import Value
+
+    spec = FEATURE_SPECS[view]
+    entity_keys = [
+        EntityKey(join_keys=[spec["entity_key"]], entity_values=[Value(string_val=str(entity))])
+        for entity in entities
+    ]
+    rows = store._get_provider().online_read(
+        config=store.config,
+        table=store.get_feature_view(view),
+        entity_keys=entity_keys,
+        requested_features=list(spec["features"]),
+    )
+    if len(rows) != len(entity_keys):
+        raise ValueError(f"Feast online_read returned {len(rows)} rows for {len(entity_keys)} keys")
+    return [None if timestamp is None else _online_time(timestamp) for timestamp, _ in rows]
+
+
 def online_rows_from_feast(store, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], dict[str, object]]:
-    """Read current online rows for ``(view, entity)`` keys through Feast."""
+    """Read current online rows for ``(view, entity)`` keys through Feast.
+
+    Values come from ``get_online_features``. ``__ts`` is the full-precision event
+    timestamp from :func:`_precise_online_timestamps`; it must fall in the same whole
+    second that ``get_online_features`` reports, or the read fails closed.
+    """
 
     rows: dict[tuple[str, str], dict[str, object]] = {}
     by_view: dict[str, list[str]] = {}
@@ -310,11 +344,20 @@ def online_rows_from_feast(store, keys: Iterable[tuple[str, str]]) -> dict[tuple
             entity_rows=[{spec["entity_key"]: entity} for entity in entities],
             full_feature_names=True,
         ).to_dict(include_event_timestamps=True)
+        precise = _precise_online_timestamps(store, view, entities)
         for index, entity in enumerate(entities):
             row: dict[str, object] = {
                 feature: result[f"{view}__{feature}"][index] for feature in spec["features"]
             }
-            row["__ts"] = result[f"{view}__{spec['features'][0]}__ts"][index] or None
+            whole = result[f"{view}__{spec['features'][0]}__ts"][index] or None
+            exact = precise[index]
+            if (whole is None) != (exact is None) or (
+                exact is not None and int(_online_time(whole).timestamp()) != int(exact.timestamp())
+            ):
+                raise ValueError(
+                    f"Feast online timestamps disagree for {view}/{entity}: {whole} vs {exact}"
+                )
+            row["__ts"] = exact
             rows[(view, entity)] = row
     return rows
 
