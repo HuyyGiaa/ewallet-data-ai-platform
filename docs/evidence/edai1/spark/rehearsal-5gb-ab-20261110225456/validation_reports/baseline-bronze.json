@@ -1,0 +1,337 @@
+{
+  "bronze_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-bronze-r261110225456/bronze",
+  "dataset_version": "rehearsal-5gb-v1",
+  "failed_rules": [],
+  "generated_at": "2026-11-10T23:05:27.779982+00:00",
+  "passed_rules": 54,
+  "results": [
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "users.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "users.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "users.compatible_types"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "users.persisted_data_scan"
+    },
+    {
+      "actual_value": "2325000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "users.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "accounts.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "accounts.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "accounts.compatible_types"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "accounts.persisted_data_scan"
+    },
+    {
+      "actual_value": "3137729",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "accounts.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "merchants.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "merchants.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "merchants.compatible_types"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "merchants.persisted_data_scan"
+    },
+    {
+      "actual_value": "55800",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "merchants.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "devices.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "devices.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "devices.compatible_types"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "devices.persisted_data_scan"
+    },
+    {
+      "actual_value": "2662450",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "devices.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "transactions.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "transactions.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "transactions.compatible_types"
+    },
+    {
+      "actual_value": "string",
+      "expected": "channel exists with a string-compatible type",
+      "passed": true,
+      "rule_name": "transactions.channel_schema"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "transactions.persisted_data_scan"
+    },
+    {
+      "actual_value": "18972000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "transactions.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "balance_snapshots.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "balance_snapshots.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "balance_snapshots.compatible_types"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "balance_snapshots.persisted_data_scan"
+    },
+    {
+      "actual_value": "18106858",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "balance_snapshots.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "login_events.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "login_events.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "login_events.compatible_types"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "login_events.persisted_data_scan"
+    },
+    {
+      "actual_value": "18586786",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "login_events.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "fraud_labels.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "fraud_labels.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "fraud_labels.compatible_types"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows with NULL transaction_id or label",
+      "passed": true,
+      "rule_name": "fraud_labels.required_values_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 labels outside {0,1}",
+      "passed": true,
+      "rule_name": "fraud_labels.valid_label_domain"
+    },
+    {
+      "actual_value": "0",
+      "expected": "label=0 has NULL fraud_type and label=1 has non-NULL fraud_type",
+      "passed": true,
+      "rule_name": "fraud_labels.conditional_fraud_type"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 fraud types outside the controlled domain",
+      "passed": true,
+      "rule_name": "fraud_labels.valid_fraud_type_domain"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate transaction_id groups",
+      "passed": true,
+      "rule_name": "fraud_labels.unique_transaction_id"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "fraud_labels.persisted_data_scan"
+    },
+    {
+      "actual_value": "18600000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "fraud_labels.non_empty"
+    },
+    {
+      "actual_value": "readable",
+      "expected": "persisted Delta table is readable",
+      "passed": true,
+      "rule_name": "merchant_history.delta_readable"
+    },
+    {
+      "actual_value": "all required columns present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "merchant_history.required_columns"
+    },
+    {
+      "actual_value": "all configured types compatible",
+      "expected": "all configured columns have compatible data types",
+      "passed": true,
+      "rule_name": "merchant_history.compatible_types"
+    },
+    {
+      "actual_value": "scan completed",
+      "expected": "persisted Delta data can be scanned",
+      "passed": true,
+      "rule_name": "merchant_history.persisted_data_scan"
+    },
+    {
+      "actual_value": "334800",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "merchant_history.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 label IDs absent from distinct Bronze transactions",
+      "passed": true,
+      "rule_name": "fraud_labels.transaction_fk"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 distinct Bronze transaction IDs without labels",
+      "passed": true,
+      "rule_name": "fraud_labels.complete_transaction_coverage"
+    },
+    {
+      "actual_value": "labels=18600000,distinct_transactions=18600000",
+      "expected": "fraud label rows equal distinct Bronze transaction IDs",
+      "passed": true,
+      "rule_name": "fraud_labels.population_matches_distinct_transactions"
+    }
+  ],
+  "run_id": "ab-20261110225456-baseline-bronze-r261110225456",
+  "schema_version": "campaign-validation-report-v1",
+  "scope": "bronze",
+  "status": "PASS"
+}

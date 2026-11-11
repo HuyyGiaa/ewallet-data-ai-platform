@@ -1,0 +1,63 @@
+{
+  "baseline_application_id": "app-20261110235331137-0549",
+  "input_identity": "ab-20261110225456/rehearsal-5gb-v1/ac2dfb0e",
+  "metrics": {
+    "disk_spill_bytes": {
+      "baseline": 0,
+      "change_percent": null,
+      "optimized": 0
+    },
+    "executor_core_seconds": {
+      "baseline": 7718.9,
+      "change_percent": 5.53,
+      "optimized": 8146.1
+    },
+    "executor_utilization": {
+      "baseline": 0.3703,
+      "change_percent": 0.46,
+      "optimized": 0.372
+    },
+    "failed_task_count": {
+      "baseline": 0,
+      "change_percent": null,
+      "optimized": 0
+    },
+    "input_bytes": {
+      "baseline": 20305223690,
+      "change_percent": -0.1,
+      "optimized": 20285921873
+    },
+    "memory_spill_bytes": {
+      "baseline": 0,
+      "change_percent": null,
+      "optimized": 0
+    },
+    "runtime_seconds": {
+      "baseline": 332.571,
+      "change_percent": 6.3,
+      "optimized": 353.524
+    },
+    "shuffle_read_bytes": {
+      "baseline": 4495946676,
+      "change_percent": -0.0,
+      "optimized": 4495940204
+    },
+    "shuffle_write_bytes": {
+      "baseline": 4495946676,
+      "change_percent": -0.0,
+      "optimized": 4495940204
+    },
+    "skewed_stages": {
+      "baseline": 0,
+      "change_percent": null,
+      "optimized": 0
+    },
+    "task_count": {
+      "baseline": 9040,
+      "change_percent": 0.0,
+      "optimized": 9040
+    }
+  },
+  "optimized_application_id": "app-20261111081445073-0840",
+  "schema_version": "spark-stage-comparison-v1"
+}

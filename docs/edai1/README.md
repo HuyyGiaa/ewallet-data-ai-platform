@@ -45,7 +45,7 @@ flowchart LR
 |---|---|
 | Containers and Compose | [Docker Optimisation](docker/DOCKER_OPTIMIZATION.md) |
 | Data generation | [Data Generation and Simulation](data_generator/DATA_GENERATION_AND_SIMULATION.md) |
-| Spark batch processing | [Spark Optimisation](spark/OPTIMIZATION_MATRIX.md) |
+| Spark batch processing | [Spark Optimisation](spark/OPTIMIZATION_MATRIX.md) (100GB, historical) and [5GB Rehearsal Benchmark](spark/REHEARSAL_5GB_BENCHMARK.md) (three-DAG run `ab-20261110225456`) |
 | Stream processing | [Flink Streaming](streaming/FLINK_STREAMING.md) |
 | Orchestration | [Airflow Pipelines DP1, DP2, DP3](airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) |
 | Storage | [Lakehouse and Warehouse Storage Optimisation](storage/STORAGE_OPTIMIZATION.md) |

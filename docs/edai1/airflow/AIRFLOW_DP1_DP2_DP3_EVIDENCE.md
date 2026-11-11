@@ -1,6 +1,6 @@
 # Airflow Pipelines: DP1, DP2 and DP3
 
-> **2026-11-11:** this page describes the DAG versions that produced the historical 100GB evidence; their source is archived in [`archive/legacy-orchestration/dags/`](../../../archive/legacy-orchestration/README.md). The same three DAG IDs now run the handoff-based Baseline/Optimized workflow of the [EDAI-1 DP1–DP3 pipeline runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md), which has not run on Dataproc yet.
+> **2026-11-11:** this page describes the DAG versions that produced the historical 100GB evidence; their source is archived in [`archive/legacy-orchestration/dags/`](../../../archive/legacy-orchestration/README.md). The same three DAG IDs now run the handoff-based Baseline/Optimized workflow of the [EDAI-1 DP1–DP3 pipeline runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md). Its first complete Dataproc run, the 5GB rehearsal `ab-20261110225456`, is documented in [§10](#10-three-dag-run-on-the-5gb-rehearsal-ab-20261110225456).
 
 ## 1. Overview
 
@@ -171,6 +171,60 @@ Task logs of the earlier October 25–26 runs (36 logs over seven runs: 35 succe
 - **DP3.** The DP3 screenshots belong to an earlier configuration; the newer optimised configuration has not been run. The point-in-time validation of DP3 output runs as a separate job, not as a DAG task.
 - **Configuration.** The DAGs use validated parameters and the worker's Google identity rather than Airflow Connections and Variables.
 - **Gold row-level assertion.** The DataHub Gold row-level assertion is defined but has not been executed.
+
+These limitations describe the historical runs. The DP2 gate and the DP3 point-in-time validation are addressed by the three-DAG run in §10.
+
+## 10. Three-DAG run on the 5GB rehearsal `ab-20261110225456`
+
+On 2026-11-10/11 the current DAGs ([`dp1_source_to_bronze.py`](../../../data_platform/orchestration/airflow/dags/dp1_source_to_bronze.py), [`dp2_bronze_to_curated.py`](../../../data_platform/orchestration/airflow/dags/dp2_bronze_to_curated.py), [`dp3_historical_features.py`](../../../data_platform/orchestration/airflow/dags/dp3_historical_features.py)) ran once with the Baseline profile and once with the Optimised profile:
+
+- dataset `rehearsal-5gb-v1`;
+- Git `aae22b08`;
+- Airflow 3 on `127.0.0.1:8084`.
+
+All 6 DagRuns succeeded, and all 51 task instances succeeded on try 1 (Airflow metadata). The benchmark analysis is in the [5GB Rehearsal Benchmark](../spark/REHEARSAL_5GB_BENCHMARK.md).
+
+**What each component does.** Every pipeline has the same shape: preflight → stage group(s) → finalize.
+
+| Task | Stage | What it does |
+|---|---|---|
+| `preflight.verify_identity_and_absence` | validate | Checks the run parameters (benchmark, profile, dataset, Git SHA, approval token) and that no output prefix or batch for this run exists yet |
+| `preflight.verify_source_dataset` (DP1) | validate | Re-reads the Source manifest and checks its SHA-256 and shard inventory |
+| `preflight.verify_dp1_handoff`, `verify_bronze_inputs` (DP2); `verify_dp2_handoff`, `verify_silver_gold_inputs` (DP3) | validate | Reads the upstream handoff, compares its identity with this run, re-checks the validation reports it names, and checks the input Delta tables exist |
+| `<stage>.wait_quota` | ingest | Waits until regional CPU quota allows the 28 vCPU a batch starts with |
+| `<stage>.submit_transformation` | ingest | Submits the Dataproc Serverless batch, named by its run ID, and records its Spark application and event log |
+| `<stage>.physical_validation` | validate | Checks the exact expected Delta table set exists at the run's output prefix |
+| `<stage>.semantic_validation` | validate | Runs the validator batch (`v<attempt>-<run>`), which writes a JSON report; the task fails unless it reads `PASS` |
+| `finalize.publish_dp1_handoff` / `publish_dp2_handoff` / `publish_dp3_completion` | — | Writes the immutable handoff, and in DP3 also the `campaign_manifest.json` that the semantic comparison reads |
+
+DP2 has a `silver` group and a `gold` group; DP1 has `bronze` and DP3 has `features`. Times in the screenshots are local (+07:00).
+
+| Pipeline | Baseline | Optimised |
+|---|---|---|
+| DP1 | ![DP1 baseline](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/01_dp1_baseline_airflow_success.png) | ![DP1 optimised](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/02_dp1_optimized_airflow_success.png) |
+| DP2 | ![DP2 baseline](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/03_dp2_baseline_airflow_success.png) | ![DP2 optimised](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/04_dp2_optimized_airflow_dag_success.png) |
+| DP3 | ![DP3 baseline](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/05_dp3_baseline_airflow_success.png) | ![DP3 optimised](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/06_dp3_optimized_airflow_success.png) |
+
+*Graph view and task list of each DagRun.*
+
+| DagRun | State | Duration |
+|---|---|---|
+| `ab-20261110225456-baseline-dp1` | Success | 00:09:23 |
+| `ab-20261110225456-optimized-dp1` | Success | 00:11:33 |
+| `ab-20261110225456-baseline-dp2` | Success | 00:28:28 |
+| `ab-20261110225456-optimized-dp2` | Success | 00:32:11 |
+| `ab-20261110225456-baseline-dp3` | Success | 00:10:36 |
+| `ab-20261110225456-optimized-dp3` | Success | 00:13:51 |
+
+*Each duration matches the Airflow metadata (563.9, 693.4, 1,708.9, 1,931.7, 636.4 and 831.2 s). In the DP3 Baseline capture, the task list had not yet refreshed `finalize.publish_dp3_completion`, which still shows Running. The header shows Success, and the metadata records the task as `success` (48.2 s, try 1).*
+
+The semantic-validation logs of each stage are shown, with what they verified, in the benchmark report §7.
+
+**Validation inside the DAG.** Every stage's semantic validator is a DAG task, and a handoff is published only after its report reads `PASS`. In particular:
+
+- DP2's Gold gate (93 rules) and DP3's point-in-time recomputation now run inside the DagRun.
+- Both profiles passed: Bronze 54, Silver 60, Gold 93 and features 53 rules.
+- The configuration still uses validated DAG parameters and the worker's Google identity, not Airflow Connections and Variables (§6).
 
 ## Appendix: screenshot integrity
 

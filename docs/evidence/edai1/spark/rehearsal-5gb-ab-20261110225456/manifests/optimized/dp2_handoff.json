@@ -1,0 +1,245 @@
+{
+  "benchmark_id": "ab-20261110225456",
+  "completed_at": "2026-11-11T08:21:13.149070+00:00",
+  "data_bucket": "ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+  "dataset_version": "rehearsal-5gb-v1",
+  "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+  "pipeline": "dp2",
+  "producer": {
+    "dag_id": "dp2_bronze_to_curated",
+    "dag_run_id": "ab-20261110225456-optimized-dp2"
+  },
+  "project_id": "ewallet-data-ai-platform-hg26",
+  "region": "asia-southeast1",
+  "run_ids": {
+    "gold": "ab-20261110225456-optimized-gold-r261110225458",
+    "silver": "ab-20261110225456-optimized-silver-r261110225457"
+  },
+  "schema_version": "edai1-pipeline-handoff-v1",
+  "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+  "spark_profile": "optimized",
+  "stages": {
+    "gold": {
+      "execution_metadata": {
+        "campaign_id": "ab-20261110225456-optimized",
+        "dataproc_batch_found": true,
+        "dataproc_batch_id": "ab-20261110225456-optimized-gold-r261110225458",
+        "dataproc_batch_state": "SUCCEEDED",
+        "dataproc_endpoints": {},
+        "dataset_version": "rehearsal-5gb-v1",
+        "driver_output_uri": "gs://ewallet-data-ai-platform-hg26-temp/google-cloud-dataproc-metainfo/b57ad605-4b10-4a51-80e3-299ab610989b/jobs/srvls-batch-58523134-933b-4337-9d84-2449740f5b24/driveroutput",
+        "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+        "history_server_uri": null,
+        "input_roots": [
+          "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver"
+        ],
+        "job_duration_seconds": 357.107204,
+        "job_end_timestamp": "2026-11-11T08:12:18.521754Z",
+        "job_start_timestamp": "2026-11-11T08:06:21.414550Z",
+        "kind": "transformation",
+        "output_roots": [
+          "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold"
+        ],
+        "project_id": "ewallet-data-ai-platform-hg26",
+        "region": "asia-southeast1",
+        "runtime_version": "2.2.90",
+        "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+        "spark_application_id": "app-20261111080642050-0186",
+        "spark_event_log_dir": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events",
+        "spark_event_log_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events/app-20261111080642050-0186.zstd",
+        "spark_execution_record_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/evidence/spark_execution-ab-20261110225456-optimized-gold-r261110225458.json",
+        "spark_profile": "optimized",
+        "stage_name": "gold",
+        "validation_report_uri": null,
+        "validation_status": null
+      },
+      "output_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold",
+      "run_id": "ab-20261110225456-optimized-gold-r261110225458",
+      "validation": {
+        "attempts": [
+          {
+            "campaign_id": "ab-20261110225456-optimized",
+            "dataproc_batch_found": true,
+            "dataproc_batch_id": "v1-20261110225456-optimized-gold-r261110225458",
+            "dataproc_batch_state": "SUCCEEDED",
+            "dataproc_endpoints": {},
+            "dataset_version": "rehearsal-5gb-v1",
+            "driver_output_uri": "gs://ewallet-data-ai-platform-hg26-temp/google-cloud-dataproc-metainfo/f1ff3317-2f4c-4844-90c5-959b652f52be/jobs/srvls-batch-d58ece9b-6da6-495f-bfbf-f1ca54a12288/driveroutput",
+            "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+            "history_server_uri": null,
+            "input_roots": [
+              "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver",
+              "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold"
+            ],
+            "job_duration_seconds": 374.81922,
+            "job_end_timestamp": "2026-11-11T08:20:40.698540Z",
+            "job_start_timestamp": "2026-11-11T08:14:25.879320Z",
+            "kind": "validation",
+            "output_roots": [],
+            "project_id": "ewallet-data-ai-platform-hg26",
+            "region": "asia-southeast1",
+            "runtime_version": "2.2.90",
+            "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+            "spark_application_id": "app-20261111081445073-0840",
+            "spark_event_log_dir": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events",
+            "spark_event_log_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events/app-20261111081445073-0840.zstd",
+            "spark_execution_record_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/evidence/spark_execution-v1-20261110225456-optimized-gold-r261110225458.json",
+            "spark_profile": "optimized",
+            "stage_name": "gold",
+            "validation_report_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/evidence/validation-core-gold-a1.json",
+            "validation_status": "PASS"
+          }
+        ],
+        "execution_metadata": {
+          "campaign_id": "ab-20261110225456-optimized",
+          "dataproc_batch_found": true,
+          "dataproc_batch_id": "v1-20261110225456-optimized-gold-r261110225458",
+          "dataproc_batch_state": "SUCCEEDED",
+          "dataproc_endpoints": {},
+          "dataset_version": "rehearsal-5gb-v1",
+          "driver_output_uri": "gs://ewallet-data-ai-platform-hg26-temp/google-cloud-dataproc-metainfo/f1ff3317-2f4c-4844-90c5-959b652f52be/jobs/srvls-batch-d58ece9b-6da6-495f-bfbf-f1ca54a12288/driveroutput",
+          "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+          "history_server_uri": null,
+          "input_roots": [
+            "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver",
+            "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold"
+          ],
+          "job_duration_seconds": 374.81922,
+          "job_end_timestamp": "2026-11-11T08:20:40.698540Z",
+          "job_start_timestamp": "2026-11-11T08:14:25.879320Z",
+          "kind": "validation",
+          "output_roots": [],
+          "project_id": "ewallet-data-ai-platform-hg26",
+          "region": "asia-southeast1",
+          "runtime_version": "2.2.90",
+          "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+          "spark_application_id": "app-20261111081445073-0840",
+          "spark_event_log_dir": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events",
+          "spark_event_log_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events/app-20261111081445073-0840.zstd",
+          "spark_execution_record_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/evidence/spark_execution-v1-20261110225456-optimized-gold-r261110225458.json",
+          "spark_profile": "optimized",
+          "stage_name": "gold",
+          "validation_report_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/evidence/validation-core-gold-a1.json",
+          "validation_status": "PASS"
+        },
+        "report_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/evidence/validation-core-gold-a1.json",
+        "status": "PASS"
+      }
+    },
+    "silver": {
+      "execution_metadata": {
+        "campaign_id": "ab-20261110225456-optimized",
+        "dataproc_batch_found": true,
+        "dataproc_batch_id": "ab-20261110225456-optimized-silver-r261110225457",
+        "dataproc_batch_state": "SUCCEEDED",
+        "dataproc_endpoints": {},
+        "dataset_version": "rehearsal-5gb-v1",
+        "driver_output_uri": "gs://ewallet-data-ai-platform-hg26-temp/google-cloud-dataproc-metainfo/511b16ae-666c-420f-b86c-1974925064b5/jobs/srvls-batch-5d2c676c-0080-4914-b71f-1259f2168549/driveroutput",
+        "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+        "history_server_uri": null,
+        "input_roots": [
+          "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze"
+        ],
+        "job_duration_seconds": 314.796618,
+        "job_end_timestamp": "2026-11-11T07:56:00.629229Z",
+        "job_start_timestamp": "2026-11-11T07:50:45.832611Z",
+        "kind": "transformation",
+        "output_roots": [
+          "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver"
+        ],
+        "project_id": "ewallet-data-ai-platform-hg26",
+        "region": "asia-southeast1",
+        "runtime_version": "2.2.90",
+        "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+        "spark_application_id": "app-20261111075108016-0209",
+        "spark_event_log_dir": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events",
+        "spark_event_log_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events/app-20261111075108016-0209.zstd",
+        "spark_execution_record_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/evidence/spark_execution-ab-20261110225456-optimized-silver-r261110225457.json",
+        "spark_profile": "optimized",
+        "stage_name": "silver",
+        "validation_report_uri": null,
+        "validation_status": null
+      },
+      "output_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver",
+      "run_id": "ab-20261110225456-optimized-silver-r261110225457",
+      "validation": {
+        "attempts": [
+          {
+            "campaign_id": "ab-20261110225456-optimized",
+            "dataproc_batch_found": true,
+            "dataproc_batch_id": "v1-20261110225456-optimized-silver-r261110225457",
+            "dataproc_batch_state": "SUCCEEDED",
+            "dataproc_endpoints": {},
+            "dataset_version": "rehearsal-5gb-v1",
+            "driver_output_uri": "gs://ewallet-data-ai-platform-hg26-temp/google-cloud-dataproc-metainfo/84744816-f67e-43b0-a305-fd075a097577/jobs/srvls-batch-f9bde4ae-ba37-49db-a6ec-e33e1d382bce/driveroutput",
+            "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+            "history_server_uri": null,
+            "input_roots": [
+              "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze",
+              "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver"
+            ],
+            "job_duration_seconds": 366.192521,
+            "job_end_timestamp": "2026-11-11T08:04:13.443632Z",
+            "job_start_timestamp": "2026-11-11T07:58:07.251111Z",
+            "kind": "validation",
+            "output_roots": [],
+            "project_id": "ewallet-data-ai-platform-hg26",
+            "region": "asia-southeast1",
+            "runtime_version": "2.2.90",
+            "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+            "spark_application_id": "app-20261111075829246-0605",
+            "spark_event_log_dir": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events",
+            "spark_event_log_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events/app-20261111075829246-0605.zstd",
+            "spark_execution_record_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/evidence/spark_execution-v1-20261110225456-optimized-silver-r261110225457.json",
+            "spark_profile": "optimized",
+            "stage_name": "silver",
+            "validation_report_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/evidence/validation-silver-a1.json",
+            "validation_status": "PASS"
+          }
+        ],
+        "execution_metadata": {
+          "campaign_id": "ab-20261110225456-optimized",
+          "dataproc_batch_found": true,
+          "dataproc_batch_id": "v1-20261110225456-optimized-silver-r261110225457",
+          "dataproc_batch_state": "SUCCEEDED",
+          "dataproc_endpoints": {},
+          "dataset_version": "rehearsal-5gb-v1",
+          "driver_output_uri": "gs://ewallet-data-ai-platform-hg26-temp/google-cloud-dataproc-metainfo/84744816-f67e-43b0-a305-fd075a097577/jobs/srvls-batch-f9bde4ae-ba37-49db-a6ec-e33e1d382bce/driveroutput",
+          "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+          "history_server_uri": null,
+          "input_roots": [
+            "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze",
+            "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver"
+          ],
+          "job_duration_seconds": 366.192521,
+          "job_end_timestamp": "2026-11-11T08:04:13.443632Z",
+          "job_start_timestamp": "2026-11-11T07:58:07.251111Z",
+          "kind": "validation",
+          "output_roots": [],
+          "project_id": "ewallet-data-ai-platform-hg26",
+          "region": "asia-southeast1",
+          "runtime_version": "2.2.90",
+          "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+          "spark_application_id": "app-20261111075829246-0605",
+          "spark_event_log_dir": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events",
+          "spark_event_log_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/spark-events/app-20261111075829246-0605.zstd",
+          "spark_execution_record_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/evidence/spark_execution-v1-20261110225456-optimized-silver-r261110225457.json",
+          "spark_profile": "optimized",
+          "stage_name": "silver",
+          "validation_report_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/evidence/validation-silver-a1.json",
+          "validation_status": "PASS"
+        },
+        "report_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/evidence/validation-silver-a1.json",
+        "status": "PASS"
+      }
+    }
+  },
+  "status": "SUCCESS",
+  "upstream": {
+    "dag_id": "dp1_source_to_bronze",
+    "dag_run_id": "ab-20261110225456-optimized-dp1",
+    "pipeline": "dp1",
+    "sha256": "4fed46b08592a7b75c40b8b7b0be1d2035d612772d6878131db972269f7f4f50",
+    "uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/campaigns/ab-20261110225456/optimized/dp1_handoff.json"
+  }
+}

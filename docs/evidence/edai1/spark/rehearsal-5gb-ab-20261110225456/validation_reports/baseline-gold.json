@@ -1,0 +1,573 @@
+{
+  "dataset_version": "rehearsal-5gb-v1",
+  "failed_rules": [],
+  "feature_gold_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-gold-r261110225458/gold",
+  "generated_at": "2026-11-10T23:59:00.518286+00:00",
+  "gold_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-gold-r261110225458/gold",
+  "passed_rules": 93,
+  "results": [
+    {
+      "actual_value": "2325000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "dim_user.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "dim_user.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "dim_user.unique_key(user_id)"
+    },
+    {
+      "actual_value": "3137729",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "dim_account.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "dim_account.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "dim_account.unique_key(account_id)"
+    },
+    {
+      "actual_value": "55800",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "dim_merchant.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "dim_merchant.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "dim_merchant.unique_key(merchant_id)"
+    },
+    {
+      "actual_value": "2662450",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "dim_device.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "dim_device.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "dim_device.unique_key(device_id)"
+    },
+    {
+      "actual_value": "151",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "dim_date.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "dim_date.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "dim_date.unique_key(date_key)"
+    },
+    {
+      "actual_value": "18600000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "fact_transactions.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "fact_transactions.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "fact_transactions.unique_key(transaction_id)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows missing conditionally required values",
+      "passed": true,
+      "rule_name": "fact_transactions.merchant_id_required_for_payment"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows missing conditionally required values",
+      "passed": true,
+      "rule_name": "fact_transactions.counterparty_account_id_required_for_transfer"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "fact_transactions.non_negative_metrics"
+    },
+    {
+      "actual_value": "18586786",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "fact_login_events.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "fact_login_events.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "fact_login_events.unique_key(login_id)"
+    },
+    {
+      "actual_value": "18106858",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "fact_balance_snapshot.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "fact_balance_snapshot.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "fact_balance_snapshot.unique_key(account_id,snapshot_date)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "fact_balance_snapshot.non_negative_metrics"
+    },
+    {
+      "actual_value": "18600000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "obt_transaction_enriched.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "obt_transaction_enriched.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "obt_transaction_enriched.unique_key(transaction_id)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows missing conditionally required values",
+      "passed": true,
+      "rule_name": "obt_transaction_enriched.merchant_attributes_present_when_referenced"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "obt_transaction_enriched.non_negative_metrics"
+    },
+    {
+      "actual_value": "2325000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "feat_user_90d.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "feat_user_90d.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "feat_user_90d.unique_key(user_id)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "feat_user_90d.non_negative_metrics"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 invalid rate rows",
+      "passed": true,
+      "rule_name": "feat_user_90d.failed_transaction_rate_between_0_and_1"
+    },
+    {
+      "actual_value": "55800",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "opt_merchant_performance.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "opt_merchant_performance.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "opt_merchant_performance.unique_key(merchant_id)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "opt_merchant_performance.non_negative_metrics"
+    },
+    {
+      "actual_value": "2325000 vs 2325000",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.users_count_equals_dim_user_count"
+    },
+    {
+      "actual_value": "3137729 vs 3137729",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.accounts_count_equals_dim_account_count"
+    },
+    {
+      "actual_value": "55800 vs 55800",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.merchants_count_equals_dim_merchant_count"
+    },
+    {
+      "actual_value": "2662450 vs 2662450",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.devices_count_equals_dim_device_count"
+    },
+    {
+      "actual_value": "18600000 vs 18600000",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.transactions_count_equals_fact_transactions_count"
+    },
+    {
+      "actual_value": "18586786 vs 18586786",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.login_events_count_equals_fact_login_events_count"
+    },
+    {
+      "actual_value": "18106858 vs 18106858",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.balance_snapshots_count_equals_fact_balance_snapshot_count"
+    },
+    {
+      "actual_value": "18600000 vs 18600000",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "fact_transactions_count_equals_obt_transaction_enriched_count"
+    },
+    {
+      "actual_value": "2325000 vs 2325000",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "dim_user_count_equals_feat_user_90d_count"
+    },
+    {
+      "actual_value": "55800 vs 55800",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "dim_merchant_count_equals_opt_merchant_performance_count"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "dim_account.user_id_exists_in_dim_user"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "dim_device.user_id_exists_in_dim_user"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_transactions.user_id_exists_in_dim_user"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_transactions.account_id_exists_in_dim_account"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_transactions.device_id_exists_in_dim_device"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_transactions.merchant_id_exists_in_dim_merchant"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_transactions.counterparty_account_id_exists_in_dim_account"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_transactions.date_key_exists_in_dim_date"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_login_events.user_id_exists_in_dim_user"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_login_events.device_id_exists_in_dim_device"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_login_events.date_key_exists_in_dim_date"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_balance_snapshot.account_id_exists_in_dim_account"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "fact_balance_snapshot.date_key_exists_in_dim_date"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "feat_user_90d.user_id_exists_in_dim_user"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "opt_merchant_performance.merchant_id_exists_in_dim_merchant"
+    },
+    {
+      "actual_value": "event_timestamp:timestamp,created:timestamp",
+      "expected": "event_timestamp timestamp, created timestamp",
+      "passed": true,
+      "rule_name": "feat_user_90d.timestamp_columns_typed"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null event_timestamp or created",
+      "passed": true,
+      "rule_name": "feat_user_90d.timestamp_columns_not_null"
+    },
+    {
+      "actual_value": "1",
+      "expected": "1 distinct created value per table",
+      "passed": true,
+      "rule_name": "feat_user_90d.created_single_materialization"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every created equals the recorded clock 2026-11-10T23:45:34.469475+00:00",
+      "passed": true,
+      "rule_name": "feat_user_90d.created_matches_materialization_clock"
+    },
+    {
+      "actual_value": "0",
+      "expected": "created equals the legacy created_timestamp",
+      "passed": true,
+      "rule_name": "feat_user_90d.created_matches_created_timestamp"
+    },
+    {
+      "actual_value": "ok",
+      "expected": "columns snapshot_id string, merchant_id string, merchant_name string, category string, snapshot_ts timestamp, history_source string",
+      "passed": true,
+      "rule_name": "merchant_history.schema"
+    },
+    {
+      "actual_value": "checked",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "merchant_history.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null snapshot_id, merchant_id or snapshot_ts",
+      "passed": true,
+      "rule_name": "merchant_history.required_columns_not_null"
+    },
+    {
+      "actual_value": "checked",
+      "expected": "snapshot_id is unique",
+      "passed": true,
+      "rule_name": "merchant_history.unique_key(snapshot_id)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "one state per merchant and snapshot time",
+      "passed": true,
+      "rule_name": "merchant_history.unique_key(merchant_id,snapshot_ts)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every row has history_source = synthetic",
+      "passed": true,
+      "rule_name": "merchant_history.synthetic_provenance"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every merchant has history and its latest snapshot equals merchants",
+      "passed": true,
+      "rule_name": "merchant_history.latest_snapshot_equals_merchants"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.merchant_id_exists_in_dim_merchant"
+    },
+    {
+      "actual_value": "ok",
+      "expected": "columns merchant_sk string, merchant_id string, merchant_name string, category string, valid_from_ts timestamp, valid_to_ts timestamp, is_current boolean",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.schema"
+    },
+    {
+      "actual_value": "checked",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null merchant_sk, merchant_id, valid_from_ts or is_current",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "one version per merchant and start",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.unique_key(merchant_id,valid_from_ts)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "merchant_sk is unique",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.unique_key(merchant_sk)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "valid_to_ts > valid_from_ts when set",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.valid_to_after_valid_from"
+    },
+    {
+      "actual_value": "0",
+      "expected": "is_current = (valid_to_ts IS NULL)",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.current_flag_matches_open_end"
+    },
+    {
+      "actual_value": "0",
+      "expected": "exactly one current version per merchant",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.one_current_version_per_merchant"
+    },
+    {
+      "actual_value": "0",
+      "expected": "each valid_to_ts equals the next version's valid_from_ts; the last is open",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.contiguous_non_overlapping_intervals"
+    },
+    {
+      "actual_value": "0",
+      "expected": "consecutive versions differ in a tracked attribute",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.no_redundant_versions"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every SCD2 merchant exists in dim_merchant",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.merchants_exist_in_dim_merchant"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every dim_merchant row has a current version with the same attributes",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.current_version_equals_dim_merchant"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every transaction with a merchant matches exactly one version in [valid_from_ts, valid_to_ts)",
+      "passed": true,
+      "rule_name": "dim_merchant_scd2.transactions_resolve_to_one_version"
+    }
+  ],
+  "run_id": "ab-20261110225456-baseline-gold-r261110225458",
+  "schema_version": "campaign-validation-report-v1",
+  "scope": "core-gold",
+  "silver_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-silver-r261110225457/silver",
+  "status": "PASS"
+}

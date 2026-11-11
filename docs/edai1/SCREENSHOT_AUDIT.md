@@ -85,6 +85,22 @@ Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a
 | Partial | 4 | 11, 13, 34, 36 |
 | Missing or not qualifying | 6 | 12, 14, 25, 31, 35, 37 |
 
+## 5GB rehearsal additions (2026-11-11)
+
+The audit adds 21 `NATIVE_UI` images of benchmark `ab-20261110225456`, captured by the owner during and right after the runs. Each was opened and read, and its run, batch, application or stage was cross-checked against the Airflow metadata, Dataproc and the event logs. Per-image purpose, verified reference and SHA-256 are in the [screenshot manifest](../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/MANIFEST.md).
+
+| Images | Shows | Rows |
+|---|---|---|
+| 6 Airflow DagRun views (DP1–DP3 × Baseline/Optimised) | Graph and task list, all Success | 15, 22–27 |
+| 4 `semantic_validation` task logs | Rule-level PASS lines and summaries: Bronze 54, Silver, Gold 93 incl. SCD2, features 53 incl. PIT | 23, 25, 27, 35, 36 |
+| 4 Spark Environment views | AQE on/off, shuffle partitions, advisory size, runtime versions | 11 |
+| 3 SQL physical plans | Silver dedup window, Gold date repartition, DP3 point-in-time window | 11, 13, 14, 40 |
+| 4 Spark stage views | Source listing (186 paths), DP3 200 against 23 coalesced tasks, Gold write-layout skew | 11, 12 |
+
+The row-11 verdict above ("no DP2/DP3 Spark UI") is superseded: DP2 and DP3 Spark UI now exist for both profiles. Row 12 stays PARTIAL. The images diagnose skew, but no method is shown to improve it.
+
+The owner's comparison-submission terminal capture was not integrated, because it also shows unrelated editor content.
+
 ## Per-image classification
 
 | Image | Renders | Class | Source / identity | Rows | Embedded in |

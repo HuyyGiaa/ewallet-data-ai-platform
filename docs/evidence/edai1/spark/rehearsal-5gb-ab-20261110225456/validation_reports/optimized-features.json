@@ -1,0 +1,333 @@
+{
+  "dataset_version": "rehearsal-5gb-v1",
+  "failed_rules": [],
+  "feature_gold_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold",
+  "generated_at": "2026-11-11T08:52:45.542328+00:00",
+  "gold_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold",
+  "passed_rules": 53,
+  "results": [
+    {
+      "actual_value": "18599553",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "feat_user_behavior.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "feat_user_behavior.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "feat_user_behavior.unique_key(user_id,event_timestamp)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "feat_user_behavior.non_negative_metrics"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 non-null rates outside [0, 1]",
+      "passed": true,
+      "rule_name": "feat_user_behavior.valid_rate_ranges"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows with smaller-window count above larger-window count",
+      "passed": true,
+      "rule_name": "feat_user_behavior.monotonic_windows"
+    },
+    {
+      "actual_value": "18599553",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "feat_account_behavior.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "feat_account_behavior.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "feat_account_behavior.unique_key(account_id,event_timestamp)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "feat_account_behavior.non_negative_metrics"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 non-null rates outside [0, 1]",
+      "passed": true,
+      "rule_name": "feat_account_behavior.valid_rate_ranges"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows with smaller-window count above larger-window count",
+      "passed": true,
+      "rule_name": "feat_account_behavior.monotonic_windows"
+    },
+    {
+      "actual_value": "18599560",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "feat_device_behavior.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "feat_device_behavior.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "feat_device_behavior.unique_key(device_id,event_timestamp)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "feat_device_behavior.non_negative_metrics"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 non-null rates outside [0, 1]",
+      "passed": true,
+      "rule_name": "feat_device_behavior.valid_rate_ranges"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows with smaller-window count above larger-window count",
+      "passed": true,
+      "rule_name": "feat_device_behavior.monotonic_windows"
+    },
+    {
+      "actual_value": "7439478",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.unique_key(merchant_id,event_timestamp)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative metric rows",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.non_negative_metrics"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 non-null rates outside [0, 1]",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.valid_rate_ranges"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows with smaller-window count above larger-window count",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.monotonic_windows"
+    },
+    {
+      "actual_value": "18599553 vs 18599553",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.transactions_user_timestamp_population_equals_feat_user_behavior"
+    },
+    {
+      "actual_value": "18599553 vs 18599553",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.transactions_account_timestamp_population_equals_feat_account_behavior"
+    },
+    {
+      "actual_value": "18599560 vs 18599560",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.transactions_device_timestamp_population_equals_feat_device_behavior"
+    },
+    {
+      "actual_value": "7439478 vs 7439478",
+      "expected": "row counts must be equal",
+      "passed": true,
+      "rule_name": "silver.payment_merchant_timestamp_population_equals_feat_merchant_behavior"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "feat_user_behavior.user_id_exists_in_dim_user"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "feat_account_behavior.account_id_exists_in_dim_account"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "feat_device_behavior.device_id_exists_in_dim_device"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.merchant_id_exists_in_dim_merchant"
+    },
+    {
+      "actual_value": "event_timestamp:timestamp,created:timestamp",
+      "expected": "event_timestamp timestamp, created timestamp",
+      "passed": true,
+      "rule_name": "feat_user_behavior.timestamp_columns_typed"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null event_timestamp or created",
+      "passed": true,
+      "rule_name": "feat_user_behavior.timestamp_columns_not_null"
+    },
+    {
+      "actual_value": "1",
+      "expected": "1 distinct created value per table",
+      "passed": true,
+      "rule_name": "feat_user_behavior.created_single_materialization"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every created equals the recorded clock 2026-11-11T08:42:26.668824+00:00",
+      "passed": true,
+      "rule_name": "feat_user_behavior.created_matches_materialization_clock"
+    },
+    {
+      "actual_value": "event_timestamp:timestamp,created:timestamp",
+      "expected": "event_timestamp timestamp, created timestamp",
+      "passed": true,
+      "rule_name": "feat_account_behavior.timestamp_columns_typed"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null event_timestamp or created",
+      "passed": true,
+      "rule_name": "feat_account_behavior.timestamp_columns_not_null"
+    },
+    {
+      "actual_value": "1",
+      "expected": "1 distinct created value per table",
+      "passed": true,
+      "rule_name": "feat_account_behavior.created_single_materialization"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every created equals the recorded clock 2026-11-11T08:42:26.668824+00:00",
+      "passed": true,
+      "rule_name": "feat_account_behavior.created_matches_materialization_clock"
+    },
+    {
+      "actual_value": "event_timestamp:timestamp,created:timestamp",
+      "expected": "event_timestamp timestamp, created timestamp",
+      "passed": true,
+      "rule_name": "feat_device_behavior.timestamp_columns_typed"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null event_timestamp or created",
+      "passed": true,
+      "rule_name": "feat_device_behavior.timestamp_columns_not_null"
+    },
+    {
+      "actual_value": "1",
+      "expected": "1 distinct created value per table",
+      "passed": true,
+      "rule_name": "feat_device_behavior.created_single_materialization"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every created equals the recorded clock 2026-11-11T08:42:26.668824+00:00",
+      "passed": true,
+      "rule_name": "feat_device_behavior.created_matches_materialization_clock"
+    },
+    {
+      "actual_value": "event_timestamp:timestamp,created:timestamp",
+      "expected": "event_timestamp timestamp, created timestamp",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.timestamp_columns_typed"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null event_timestamp or created",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.timestamp_columns_not_null"
+    },
+    {
+      "actual_value": "1",
+      "expected": "1 distinct created value per table",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.created_single_materialization"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every created equals the recorded clock 2026-11-11T08:42:26.668824+00:00",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.created_matches_materialization_clock"
+    },
+    {
+      "actual_value": "1",
+      "expected": "one created value across feat_account_behavior, feat_device_behavior, feat_merchant_behavior, feat_user_behavior",
+      "passed": true,
+      "rule_name": "dp3_features.created_shared_by_run"
+    },
+    {
+      "actual_value": "mismatches=0,sampled_rows=18217",
+      "expected": "recomputed [T-3600s, T) count equals the persisted value on a 1/1000 entity sample",
+      "passed": true,
+      "rule_name": "feat_user_behavior.pit_user_tx_count_1h_matches_recomputation"
+    },
+    {
+      "actual_value": "mismatches=0,sampled_rows=18873",
+      "expected": "recomputed [T-3600s, T) count equals the persisted value on a 1/1000 entity sample",
+      "passed": true,
+      "rule_name": "feat_account_behavior.pit_account_tx_count_1h_matches_recomputation"
+    },
+    {
+      "actual_value": "mismatches=0,sampled_rows=18048",
+      "expected": "recomputed [T-3600s, T) count equals the persisted value on a 1/1000 entity sample",
+      "passed": true,
+      "rule_name": "feat_device_behavior.pit_device_tx_count_1h_matches_recomputation"
+    },
+    {
+      "actual_value": "mismatches=0,sampled_rows=10376",
+      "expected": "recomputed [T-3600s, T) count equals the persisted value on a 1/1000 entity sample",
+      "passed": true,
+      "rule_name": "feat_merchant_behavior.pit_merchant_tx_count_1h_matches_recomputation"
+    }
+  ],
+  "run_id": "ab-20261110225456-optimized-feat-r261110225459",
+  "schema_version": "campaign-validation-report-v1",
+  "scope": "features",
+  "silver_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver",
+  "status": "PASS"
+}

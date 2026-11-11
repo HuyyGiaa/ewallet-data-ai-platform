@@ -1,0 +1,433 @@
+{
+  "benchmark_id": "ab-20261110225456",
+  "dag_runs": [
+    {
+      "dag_id": "dp1_source_to_bronze",
+      "duration_seconds": 563.9,
+      "end_date": "2026-11-10 23:06:07.624041",
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "start_date": "2026-11-10 22:56:43.696644",
+      "state": "success"
+    },
+    {
+      "dag_id": "dp2_bronze_to_curated",
+      "duration_seconds": 1708.9,
+      "end_date": "2026-11-10 23:59:45.888433",
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "start_date": "2026-11-10 23:31:17.015331",
+      "state": "success"
+    },
+    {
+      "dag_id": "dp3_historical_features",
+      "duration_seconds": 636.4,
+      "end_date": "2026-11-11 00:14:47.257077",
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "start_date": "2026-11-11 00:04:10.835725",
+      "state": "success"
+    },
+    {
+      "dag_id": "dp1_source_to_bronze",
+      "duration_seconds": 693.4,
+      "end_date": "2026-11-11 07:21:23.158054",
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "start_date": "2026-11-11 07:09:49.799054",
+      "state": "success"
+    },
+    {
+      "dag_id": "dp2_bronze_to_curated",
+      "duration_seconds": 1931.7,
+      "end_date": "2026-11-11 08:21:15.629557",
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "start_date": "2026-11-11 07:49:03.935471",
+      "state": "success"
+    },
+    {
+      "dag_id": "dp3_historical_features",
+      "duration_seconds": 831.2,
+      "end_date": "2026-11-11 08:53:56.244726",
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "start_date": "2026-11-11 08:40:05.051538",
+      "state": "success"
+    }
+  ],
+  "task_instances": [
+    {
+      "duration_seconds": 6.3,
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "state": "success",
+      "task_id": "preflight.verify_identity_and_absence",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 6.6,
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "state": "success",
+      "task_id": "preflight.verify_source_dataset",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 2.6,
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "state": "success",
+      "task_id": "bronze.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 261.2,
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "state": "success",
+      "task_id": "bronze.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 7.8,
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "state": "success",
+      "task_id": "bronze.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 257.4,
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "state": "success",
+      "task_id": "bronze.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 17.7,
+      "run_id": "ab-20261110225456-baseline-dp1",
+      "state": "success",
+      "task_id": "finalize.publish_dp1_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 4.5,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "preflight.verify_identity_and_absence",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 2.7,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "preflight.verify_dp1_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 6.6,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "preflight.verify_bronze_inputs",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 2.6,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "silver.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 278.3,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "silver.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 7.1,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "silver.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 423.5,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "silver.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 46.4,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "gold.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 416.0,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "gold.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 8.9,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "gold.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 479.1,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "gold.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 24.9,
+      "run_id": "ab-20261110225456-baseline-dp2",
+      "state": "success",
+      "task_id": "finalize.publish_dp2_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 4.4,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "preflight.verify_identity_and_absence",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 7.0,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "preflight.verify_dp2_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 17.4,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "preflight.verify_silver_gold_inputs",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 2.8,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "features.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 267.2,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "features.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 3.8,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "features.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 281.2,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "features.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 48.2,
+      "run_id": "ab-20261110225456-baseline-dp3",
+      "state": "success",
+      "task_id": "finalize.publish_dp3_completion",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 3.7,
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "state": "success",
+      "task_id": "preflight.verify_identity_and_absence",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 6.7,
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "state": "success",
+      "task_id": "preflight.verify_source_dataset",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 2.3,
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "state": "success",
+      "task_id": "bronze.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 339.9,
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "state": "success",
+      "task_id": "bronze.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 8.2,
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "state": "success",
+      "task_id": "bronze.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 311.8,
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "state": "success",
+      "task_id": "bronze.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 16.2,
+      "run_id": "ab-20261110225456-optimized-dp1",
+      "state": "success",
+      "task_id": "finalize.publish_dp1_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 4.9,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "preflight.verify_identity_and_absence",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 3.3,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "preflight.verify_dp1_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 7.2,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "preflight.verify_bronze_inputs",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 2.7,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "silver.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 409.9,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "silver.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 6.9,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "silver.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 493.3,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "silver.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 20.4,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "gold.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 455.1,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "gold.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 10.3,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "gold.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 490.2,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "gold.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 20.1,
+      "run_id": "ab-20261110225456-optimized-dp2",
+      "state": "success",
+      "task_id": "finalize.publish_dp2_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 4.7,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "preflight.verify_identity_and_absence",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 8.1,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "preflight.verify_dp2_handoff",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 18.0,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "preflight.verify_silver_gold_inputs",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 4.2,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "features.wait_quota",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 319.1,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "features.submit_transformation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 4.1,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "features.physical_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 420.8,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "features.semantic_validation",
+      "try_number": 1
+    },
+    {
+      "duration_seconds": 49.0,
+      "run_id": "ab-20261110225456-optimized-dp3",
+      "state": "success",
+      "task_id": "finalize.publish_dp3_completion",
+      "try_number": 1
+    }
+  ]
+}

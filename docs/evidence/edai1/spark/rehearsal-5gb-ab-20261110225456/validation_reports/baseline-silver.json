@@ -1,0 +1,374 @@
+{
+  "bronze_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-bronze-r261110225456/bronze",
+  "dataset_version": "rehearsal-5gb-v1",
+  "failed_rules": [],
+  "generated_at": "2026-11-10T23:43:10.785254+00:00",
+  "passed_rules": 60,
+  "results": [
+    {
+      "actual_value": "2325000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "users.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "users.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "users.duplicate_key"
+    },
+    {
+      "actual_value": "3137729",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "accounts.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "accounts.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "accounts.duplicate_key"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 invalid account_type/currency rows",
+      "passed": true,
+      "rule_name": "accounts.valid_domain"
+    },
+    {
+      "actual_value": "55800",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "merchants.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "merchants.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "merchants.duplicate_key"
+    },
+    {
+      "actual_value": "2662450",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "devices.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "devices.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "devices.duplicate_key"
+    },
+    {
+      "actual_value": "18600000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "transactions.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "transactions.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "transactions.duplicate_key"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL channel rows",
+      "passed": true,
+      "rule_name": "transactions.channel_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 invalid transaction channel rows",
+      "passed": true,
+      "rule_name": "transactions.valid_channel"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 non-VND transaction rows",
+      "passed": true,
+      "rule_name": "transactions.valid_currency"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows missing conditionally required values",
+      "passed": true,
+      "rule_name": "transactions.merchant_id_required_for_payment"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows missing conditionally required values",
+      "passed": true,
+      "rule_name": "transactions.counterparty_account_id_required_for_transfer"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 rows with amount <= 0",
+      "passed": true,
+      "rule_name": "transactions.valid_amount"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative balance rows",
+      "passed": true,
+      "rule_name": "transactions.valid_balance"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 invalid transaction types",
+      "passed": true,
+      "rule_name": "transactions.valid_type"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 invalid transaction status rows",
+      "passed": true,
+      "rule_name": "transactions.valid_status"
+    },
+    {
+      "actual_value": "18106858",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "balance_snapshots.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "balance_snapshots.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "balance_snapshots.duplicate_key"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 negative closing_balance rows",
+      "passed": true,
+      "rule_name": "balance_snapshots.valid_balance"
+    },
+    {
+      "actual_value": "18586786",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "login_events.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "login_events.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "login_events.duplicate_key"
+    },
+    {
+      "actual_value": "all present",
+      "expected": "all required columns present",
+      "passed": true,
+      "rule_name": "fraud_labels.required_columns"
+    },
+    {
+      "actual_value": "18600000",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "fraud_labels.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 NULL required rows",
+      "passed": true,
+      "rule_name": "fraud_labels.required_columns_not_null"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 duplicate key groups",
+      "passed": true,
+      "rule_name": "fraud_labels.duplicate_key"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 labels outside {0,1}",
+      "passed": true,
+      "rule_name": "fraud_labels.valid_label_domain"
+    },
+    {
+      "actual_value": "0",
+      "expected": "label=0 has NULL fraud_type and label=1 has non-NULL fraud_type",
+      "passed": true,
+      "rule_name": "fraud_labels.conditional_fraud_type"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 fraud types outside the controlled domain",
+      "passed": true,
+      "rule_name": "fraud_labels.valid_fraud_type_domain"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "accounts.user_id_exists_in_users"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "devices.user_id_exists_in_users"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "transactions.user_id_exists_in_users"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "transactions.account_id_exists_in_accounts"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "transactions.device_id_exists_in_devices"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "transactions.merchant_id_exists_in_merchants"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "transactions.counterparty_account_id_exists_in_accounts"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "balance_snapshots.account_id_exists_in_accounts"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "login_events.user_id_exists_in_users"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan keys",
+      "passed": true,
+      "rule_name": "login_events.device_id_exists_in_devices"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 orphan label transaction IDs",
+      "passed": true,
+      "rule_name": "fraud_labels.transaction_fk"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 transactions without labels",
+      "passed": true,
+      "rule_name": "fraud_labels.complete_transaction_coverage"
+    },
+    {
+      "actual_value": "labels=18600000,transactions=18600000",
+      "expected": "fraud label rows equal Silver transaction rows",
+      "passed": true,
+      "rule_name": "fraud_labels.population_matches_transactions"
+    },
+    {
+      "actual_value": "bronze=18600000,silver=18600000",
+      "expected": "Bronze and Silver fraud label row counts are equal",
+      "passed": true,
+      "rule_name": "fraud_labels.bronze_silver_population"
+    },
+    {
+      "actual_value": "ok",
+      "expected": "columns snapshot_id string, merchant_id string, merchant_name string, category string, snapshot_ts timestamp, history_source string",
+      "passed": true,
+      "rule_name": "merchant_history.schema"
+    },
+    {
+      "actual_value": "checked",
+      "expected": "row_count > 0",
+      "passed": true,
+      "rule_name": "merchant_history.non_empty"
+    },
+    {
+      "actual_value": "0",
+      "expected": "0 null snapshot_id, merchant_id or snapshot_ts",
+      "passed": true,
+      "rule_name": "merchant_history.required_columns_not_null"
+    },
+    {
+      "actual_value": "checked",
+      "expected": "snapshot_id is unique",
+      "passed": true,
+      "rule_name": "merchant_history.unique_key(snapshot_id)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "one state per merchant and snapshot time",
+      "passed": true,
+      "rule_name": "merchant_history.unique_key(merchant_id,snapshot_ts)"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every row has history_source = synthetic",
+      "passed": true,
+      "rule_name": "merchant_history.synthetic_provenance"
+    },
+    {
+      "actual_value": "0",
+      "expected": "every merchant has history and its latest snapshot equals merchants",
+      "passed": true,
+      "rule_name": "merchant_history.latest_snapshot_equals_merchants"
+    }
+  ],
+  "run_id": "ab-20261110225456-baseline-silver-r261110225457",
+  "schema_version": "campaign-validation-report-v1",
+  "scope": "silver",
+  "silver_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-silver-r261110225457/silver",
+  "status": "PASS"
+}

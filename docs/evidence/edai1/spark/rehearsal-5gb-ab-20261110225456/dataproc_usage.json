@@ -1,0 +1,256 @@
+[
+  {
+    "batch_id": "ab-20261110225456-baseline-bronze-r261110225456",
+    "create_time": "2026-11-10T22:57:06.764766Z",
+    "dcu_hours": 1.39,
+    "milli_dcu_seconds": 5004650,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 506800,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-10T23:01:12.241847Z"
+  },
+  {
+    "batch_id": "ab-20261110225456-baseline-feat-r261110225459",
+    "create_time": "2026-11-11T00:04:53.314269Z",
+    "dcu_hours": 1.418,
+    "milli_dcu_seconds": 5103400,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 516800,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T00:08:53.730413Z"
+  },
+  {
+    "batch_id": "ab-20261110225456-baseline-gold-r261110225458",
+    "create_time": "2026-11-10T23:44:24.302870Z",
+    "dcu_hours": 2.483,
+    "milli_dcu_seconds": 8938850,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 905200,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-10T23:50:53.479195Z"
+  },
+  {
+    "batch_id": "ab-20261110225456-baseline-silver-r261110225457",
+    "create_time": "2026-11-10T23:31:42.665299Z",
+    "dcu_hours": 1.626,
+    "milli_dcu_seconds": 5853900,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 592800,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-10T23:36:02.782514Z"
+  },
+  {
+    "batch_id": "ab-20261110225456-optimized-bronze-r261110225456",
+    "create_time": "2026-11-11T07:10:10.216847Z",
+    "dcu_hours": 1.849,
+    "milli_dcu_seconds": 6655750,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 674000,
+    "sql_properties": {
+      "spark.dynamicAllocation.profile": "performance",
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T07:15:27.276067Z"
+  },
+  {
+    "batch_id": "ab-20261110225456-optimized-feat-r261110225459",
+    "create_time": "2026-11-11T08:40:52.200762Z",
+    "dcu_hours": 1.68,
+    "milli_dcu_seconds": 6047450,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 612400,
+    "sql_properties": {
+      "spark.sql.adaptive.advisoryPartitionSizeInBytes": "67108864",
+      "spark.sql.adaptive.coalescePartitions.enabled": "true",
+      "spark.sql.adaptive.coalescePartitions.parallelismFirst": "false",
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T08:45:47.736076Z"
+  },
+  {
+    "batch_id": "ab-20261110225456-optimized-gold-r261110225458",
+    "create_time": "2026-11-11T08:05:06.492987Z",
+    "dcu_hours": 2.533,
+    "milli_dcu_seconds": 9120550,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 923600,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "400"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T08:12:18.521754Z"
+  },
+  {
+    "batch_id": "ab-20261110225456-optimized-silver-r261110225457",
+    "create_time": "2026-11-11T07:49:30.815632Z",
+    "dcu_hours": 2.18,
+    "milli_dcu_seconds": 7848650,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 794800,
+    "sql_properties": {
+      "spark.sql.adaptive.advisoryPartitionSizeInBytes": "67108864",
+      "spark.sql.adaptive.coalescePartitions.enabled": "true",
+      "spark.sql.adaptive.coalescePartitions.parallelismFirst": "false",
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T07:56:00.629229Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-baseline-bronze-r261110225456",
+    "create_time": "2026-11-10T23:01:57.227964Z",
+    "dcu_hours": 1.051,
+    "milli_dcu_seconds": 3784100,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 383200,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-10T23:05:31.879628Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-baseline-feat-r261110225459",
+    "create_time": "2026-11-11T00:09:41.311510Z",
+    "dcu_hours": 1.494,
+    "milli_dcu_seconds": 5379900,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 544800,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T00:13:45.961123Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-baseline-gold-r261110225458",
+    "create_time": "2026-11-10T23:52:10.881034Z",
+    "dcu_hours": 2.681,
+    "milli_dcu_seconds": 9649850,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 977200,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-10T23:59:04.766194Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-baseline-silver-r261110225457",
+    "create_time": "2026-11-10T23:36:47.053786Z",
+    "dcu_hours": 2.527,
+    "milli_dcu_seconds": 9096850,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 921200,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "false",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-10T23:43:15.096164Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-optimized-bronze-r261110225456",
+    "create_time": "2026-11-11T07:16:21.168841Z",
+    "dcu_hours": 1.429,
+    "milli_dcu_seconds": 5142900,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 520800,
+    "sql_properties": {
+      "spark.dynamicAllocation.profile": "performance",
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T07:20:49.068870Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-optimized-feat-r261110225459",
+    "create_time": "2026-11-11T08:46:30.848490Z",
+    "dcu_hours": 2.328,
+    "milli_dcu_seconds": 8381900,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 848800,
+    "sql_properties": {
+      "spark.sql.adaptive.advisoryPartitionSizeInBytes": "67108864",
+      "spark.sql.adaptive.coalescePartitions.enabled": "true",
+      "spark.sql.adaptive.coalescePartitions.parallelismFirst": "false",
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T08:52:50.328579Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-optimized-gold-r261110225458",
+    "create_time": "2026-11-11T08:13:11.751962Z",
+    "dcu_hours": 2.86,
+    "milli_dcu_seconds": 10297650,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 1042800,
+    "sql_properties": {
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "400"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T08:20:40.698540Z"
+  },
+  {
+    "batch_id": "v1-20261110225456-optimized-silver-r261110225457",
+    "create_time": "2026-11-11T07:56:46.955753Z",
+    "dcu_hours": 2.787,
+    "milli_dcu_seconds": 10033000,
+    "runtime_version": "2.2.90",
+    "shuffle_storage_gb_seconds": 1016000,
+    "sql_properties": {
+      "spark.sql.adaptive.advisoryPartitionSizeInBytes": "67108864",
+      "spark.sql.adaptive.coalescePartitions.enabled": "true",
+      "spark.sql.adaptive.coalescePartitions.parallelismFirst": "false",
+      "spark.sql.adaptive.enabled": "true",
+      "spark.sql.adaptive.skewJoin.enabled": "false",
+      "spark.sql.shuffle.partitions": "200"
+    },
+    "state": "SUCCEEDED",
+    "state_time": "2026-11-11T08:04:13.443632Z"
+  }
+]
