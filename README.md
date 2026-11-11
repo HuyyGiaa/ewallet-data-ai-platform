@@ -108,12 +108,13 @@ logic, and runtime claims are tied to preserved reports and evidence.
 | KServe inference | **HTTP 200 fraud predictions** | Baked model version 1 in a digest-pinned image; [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
 | PIT leakage validation | **310/310, zero mismatches** | 10 cases × 31 features, labels excluded; [PIT report](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
 
-The Spark experiments also produced important negative results. DP1 Bronze was
-10.05% slower and DP2 Silver was 31.62% slower under the tested optimized
-profiles. DP2 Gold showed a shorter runtime, but its final semantic-equivalence
-gate failed for three double aggregates, so no optimized winner was selected.
-See the [Spark Optimisation report](docs/edai1/spark/OPTIMIZATION_MATRIX.md) for run
-IDs, source versions, correctness decisions and limitations.
+The DP1–DP3 batch pipelines ran end to end on Dataproc under Airflow for the
+5 GB campaign `ab-20261110225456`, once per Spark profile. All validations passed,
+and the Baseline and Optimised outputs are semantically equivalent across all 34
+tables. The Optimised profile was not faster in this single trial: application
+runtime rose 6.7–47.7 % per stage, within the run-to-run variation measured on
+unchanged validators, while AQE cut Gold shuffle by 20.5 %. See
+[Batch Processing and Orchestration](docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md).
 
 ---
 
@@ -161,18 +162,18 @@ The data layer starts with immutable offline shards and controlled stream events
 ### DP1 — Bronze
 
 DP1 reads an immutable source manifest and Parquet datasets from GCS, submits a source-to-Bronze
-Spark job, and verifies the exact eight-table Delta output. Bronze remains source-shaped: it
+Spark job, and verifies the exact nine-table Delta output. Bronze remains source-shaped: it
 preserves raw business records while adding the ingestion information required to trace the run and
 reconcile transaction V1/V2 physical files.
 
 ### DP2 — Silver and Core Gold
 
 DP2 normalizes types, cleans records, handles additive schema evolution, deduplicates transaction
-identities, and validates the eight Silver tables. It then builds the separate Core Gold boundary:
+identities, and validates the nine Silver tables. It then builds the separate Core Gold boundary:
 dimensions, facts, analytical aggregates, and the denormalized transaction OBT. Core Gold business
-tables are not the four historical behavior-feature tables computed by DP3. The preserved Method 2
-campaign produced both variants, but its final Gold semantic-equivalence gate failed; the shorter
-observed Gold runtime was therefore not accepted as an optimization winner.
+tables are not the four historical behavior-feature tables computed by DP3. In the 5 GB campaign
+both Spark profiles passed the 93-rule Gold validation (including the SCD Type 2 merchant
+dimension), and their outputs were semantically equivalent.
 
 ### DP3 — Historical Features
 
@@ -370,9 +371,8 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 | Overview | [EDAI-1 index](docs/edai1/README.md) |
 | Containers | [Docker Optimisation](docs/edai1/docker/DOCKER_OPTIMIZATION.md) |
 | Data generation | [Data Generation and Simulation](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
-| Batch processing | [Spark Optimisation](docs/edai1/spark/OPTIMIZATION_MATRIX.md) |
+| Batch Processing & Orchestration — DP1/DP2/DP3 | [Batch Processing and Orchestration](docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md) |
 | Stream processing | [Flink Streaming](docs/edai1/streaming/FLINK_STREAMING.md) |
-| Orchestration | [Airflow Pipelines DP1–DP3](docs/edai1/airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) |
 | Storage | [Lakehouse and Warehouse Storage Optimisation](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
 | Governance | [DataHub Lineage and Data Quality](docs/edai1/datahub/DATAHUB_GOVERNANCE.md) |
 | Data model | [Schema Design](docs/edai1/schema/SCHEMA_DESIGN.md) |
