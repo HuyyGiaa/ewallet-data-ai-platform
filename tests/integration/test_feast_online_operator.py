@@ -9,7 +9,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 
@@ -50,6 +50,151 @@ def _write_offline(root: Path) -> None:
         frame.to_parquet(target / "part-0.parquet", index=False)
 
 
+class RedisTargetParsingTest(unittest.TestCase):
+    def test_invalid_port_and_database_are_refused_before_connecting(self) -> None:
+        for connection in ("redis:0,db=1", "redis:6379,db=-1"):
+            with self.subTest(connection=connection), self.assertRaises(RuntimeError):
+                online_operator._redis_connection_parts(connection)
+
+    def test_production_store_cannot_be_claimed_for_verification(self) -> None:
+        environment = {
+            **self.verification_environment(),
+            "EWALLET_EXECUTION_POLICY": "production",
+            "EWALLET_ONLINE_STORE_ID": "canonical-online",
+            "EWALLET_REDIS_SECRET_NAME": "feast-online-redis",
+        }
+        client = Mock()
+        client.info.return_value = {"run_id": "server-1"}
+        with patch.dict(os.environ, environment, clear=True), patch.object(
+            online_operator, "_redis_client", return_value=client
+        ):
+            with self.assertRaisesRegex(RuntimeError, "approved verification binding"):
+                online_operator.claim_online_store(
+                    "redis.feature-store.svc.cluster.local:6379,db=0"
+                )
+
+    def verification_environment(self) -> dict[str, str]:
+        return {
+            "EWALLET_EXECUTION_POLICY": "verification",
+            "EWALLET_ONLINE_STORE_ID": "canonical-verify",
+            "EWALLET_REDIS_SECRET_NAME": "feast-online-redis-verify",
+            "EWALLET_REDIS_CAMPAIGN_ID": "online-1",
+            "EWALLET_DATASET_VERSION": "canonical-100gb-v1",
+            "EWALLET_FEAST_REGISTRY": "gs://bucket/features/registries/canonical-100gb-v1/online/online-1/registry.db",
+            "EWALLET_FEATURE_RUN_ID": "feature-run-1",
+            "EWALLET_SNAPSHOT_ID": "snapshot-1",
+            "EWALLET_ESTIMATED_REDIS_BYTES": "100",
+        }
+
+    def test_missing_execution_policy_fails_closed(self) -> None:
+        environment = self.verification_environment()
+        environment.pop("EWALLET_EXECUTION_POLICY")
+        client = Mock()
+        client.info.return_value = {"run_id": "server-1"}
+        with patch.dict(os.environ, environment, clear=True), patch.object(
+            online_operator, "_redis_client", return_value=client
+        ):
+            with self.assertRaisesRegex(RuntimeError, "execution policy"):
+                online_operator._expected_ownership(
+                    "redis.feature-store.svc.cluster.local:6379,db=1"
+                )
+
+    def test_verification_policy_cannot_bypass_checks_with_production_name(self) -> None:
+        environment = {
+            **self.verification_environment(),
+            "EWALLET_ONLINE_STORE_ID": "canonical-online",
+            "EWALLET_REDIS_SECRET_NAME": "feast-online-redis",
+            "EWALLET_DATASET_VERSION": "canonical-100gb-v1",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "verification.*production|production.*verification"):
+                online_operator.require_online_store_ownership(
+                    "redis.feature-store.svc.cluster.local:6379,db=0"
+                )
+
+    def test_production_policy_validates_physical_target_and_preserves_authorized_use(self) -> None:
+        environment = {
+            **self.verification_environment(),
+            "EWALLET_EXECUTION_POLICY": "production",
+            "EWALLET_ONLINE_STORE_ID": "canonical-online",
+            "EWALLET_REDIS_SECRET_NAME": "feast-online-redis",
+        }
+        client = Mock()
+        client.info.return_value = {"run_id": "server-1"}
+        with patch.dict(os.environ, environment, clear=True), patch.object(
+            online_operator, "_redis_client", return_value=client
+        ):
+            online_operator.require_online_store_ownership(
+                "redis.feature-store.svc.cluster.local:6379,db=0"
+            )
+            with self.assertRaisesRegex(RuntimeError, "approved binding"):
+                online_operator.require_online_store_ownership(
+                    "redis.feature-store.svc.cluster.local:6379,db=1"
+                )
+
+    def test_direct_operator_refuses_a_wrong_physical_verification_target(self) -> None:
+        client = Mock()
+        client.info.return_value = {"run_id": "server-1"}
+        with patch.dict(os.environ, self.verification_environment()), patch.object(
+            online_operator, "_redis_client", return_value=client
+        ):
+            with self.assertRaisesRegex(RuntimeError, "approved binding"):
+                online_operator._expected_ownership(
+                    "redis.feature-store.svc.cluster.local:6379,db=0"
+                )
+
+    def test_direct_operator_enforces_current_capacity(self) -> None:
+        evidence = {
+            "used_memory_bytes": 950,
+            "maxmemory_bytes": 1000,
+            "maxmemory_policy": "noeviction",
+        }
+        with patch.dict(os.environ, self.verification_environment()), patch.object(
+            online_operator, "online_store_evidence", return_value=evidence
+        ), patch.object(online_operator, "_redis_client") as client:
+            client.return_value.info.return_value = {"run_id": "server-1"}
+            with self.assertRaisesRegex(RuntimeError, "headroom"):
+                online_operator.require_online_store_capacity(
+                    "redis.feature-store.svc.cluster.local:6379,db=1"
+                )
+
+    def test_cloud_registry_mirror_preserves_canonical_redis_ownership(self) -> None:
+        environment = {
+            **self.verification_environment(),
+            "EWALLET_REDIS_CONNECTION_STRING": (
+                "redis.feature-store.svc.cluster.local:6379,db=1"
+            ),
+            "EWALLET_FEAST_OFFLINE_DATA_ROOT": "gs://bucket/features/offline",
+        }
+        client = Mock()
+        client.eval.return_value = "CLAIMED"
+
+        def mirror_registry():
+            os.environ["EWALLET_FEAST_REGISTRY"] = "/tmp/feast-registry/registry.db"
+            return Mock(generation=0)
+
+        authorized = (
+            "verification",
+            client,
+            {"requires_campaign_ownership": True},
+            "sha256:target",
+        )
+        with patch.dict(os.environ, environment, clear=True), patch.object(
+            online_operator, "mirror_from_environment", side_effect=mirror_registry
+        ), patch.object(
+            online_operator, "_authorized_target", return_value=authorized
+        ), patch.object(
+            online_operator, "online_store_evidence", return_value={}
+        ), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(0, online_operator.main(["claim"]))
+
+        owner = json.loads(client.eval.call_args.args[3])
+        self.assertEqual(
+            "gs://bucket/features/registries/canonical-100gb-v1/online/online-1/registry.db",
+            owner["registry_uri"],
+        )
+
+
 @unittest.skipUnless(REDIS_URL, "requires a disposable Redis (EWALLET_TEST_REDIS_URL)")
 class FeastOnlineOperatorTest(unittest.TestCase):
     def run_command(self, *argv: str) -> dict:
@@ -72,9 +217,32 @@ class FeastOnlineOperatorTest(unittest.TestCase):
                 "EWALLET_FEAST_REGISTRY": str(root / "registry" / "registry.db"),
                 "EWALLET_FEAST_OFFLINE_DATA_ROOT": str(root / "offline"),
                 "EWALLET_REDIS_CONNECTION_STRING": host_port,
+                "EWALLET_EXECUTION_POLICY": "verification",
+                "EWALLET_ONLINE_STORE_ID": "canonical-verify",
+                "EWALLET_REDIS_SECRET_NAME": "feast-online-redis-verify",
+                "EWALLET_REDIS_CAMPAIGN_ID": "local-integration",
+                "EWALLET_DATASET_VERSION": "canonical-100gb-v1",
+                "EWALLET_FEATURE_RUN_ID": "local-feature-run",
+                "EWALLET_SNAPSHOT_ID": "local-snapshot",
+                "EWALLET_ESTIMATED_REDIS_BYTES": "1000000",
             }
-            with patch.dict(os.environ, environment):
+            client = online_operator._redis_client(host_port)
+            server_run_id = str(client.info("server")["run_id"])
+            fingerprint = online_operator.target_fingerprint(
+                "127.0.0.1", int(host_port.rsplit(":", 1)[1]), 0, server_run_id
+            )
+            authorized = (
+                "verification",
+                client,
+                {"requires_campaign_ownership": True},
+                fingerprint,
+            )
+            with patch.dict(os.environ, environment), patch.object(
+                online_operator, "_authorized_target", return_value=authorized
+            ):
                 (root / "registry").mkdir()
+                claim = self.run_command("claim")
+                self.assertEqual("CLAIMED", claim["claim_status"])
                 applied = self.run_command("apply")
                 self.assertEqual(sorted(FEATURE_SPECS), applied["feature_views"])
                 with self.assertRaises(FileExistsError):

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import hashlib
 from pathlib import Path
 
 from ai_platform.features.feast.materialization_plan import (
@@ -30,15 +31,19 @@ from tests.unit.test_feast_incremental_plan import SOURCE_MAX, T00, T22, T23, pa
 
 
 ENVIRONMENT = {
-    "C1_DATA_BUCKET": "bucket-name",
+    "C1_DATA_BUCKET": "ewallet-data-ai-platform-hg26-data",
     "C1_DATASET_VERSION": "canonical-100gb-v1",
     "C1_FEATURE_RUN_ID": "ab-1-optimized-feat-r1",
     "C1_FEAST_SNAPSHOT_ID": "snapshot-1",
     "C1_ONLINE_REGISTRY_ID": "online-1",
+    "C1_ONLINE_STORE_ID": "canonical-online",
+    "C1_EXECUTION_POLICY": "production",
+    "C1_ESTIMATED_REDIS_BYTES": "10000",
     "C1_TARGET_END": "2026-05-31T23:00:00Z",
     "C1_RUN_ID": "manual__2026-11-06T00:00:00+00:00",
     "FEAST_ONLINE_IMAGE": "registry/image@sha256:abc",
     "FEAST_ONLINE_GIT_SHA": "a" * 40,
+    "FEAST_REDIS_SECRET": "feast-online-redis",
 }
 
 
@@ -67,6 +72,24 @@ class FakeReader:
         return self.payload
 
 
+class FakeDataHubPublisher:
+    def __init__(self, fail: bool = False):
+        self.fail = fail
+        self.calls = []
+
+    def publish(self, context, provenance):
+        self.calls.append((context.run_id, provenance["provenance_digest"], context.execute))
+        if self.fail:
+            raise StageError("DataHub semantic readback failed")
+        return {
+            "status": "PASS" if context.execute else "DRY_RUN",
+            "published_urns": ["urn:li:dataJob:test"],
+            "aspect_results": [{"aspect": "dataJobInfo", "readback": "MATCH"}],
+            "semantic_readback": {"verified": 1, "mismatches": 0},
+            "verification_status": "PASS" if context.execute else "DRY_RUN",
+        }
+
+
 class FakeCluster:
     """Simulate the operator: state, incremental and parity Jobs."""
 
@@ -79,8 +102,24 @@ class FakeCluster:
         self.rendered = []
 
     def _state(self):
+        database = 0 if self.context.request.online_store_id == "canonical-online" else 1
+        run_id = "redis-server-run-1"
+        material = f"redis.feature-store.svc.cluster.local:6379/{database}:{run_id}"
+        fingerprint = "sha256:" + hashlib.sha256(material.encode()).hexdigest()
         return {
             "generation": 1,
+            "online_store": {
+                "logical_id": self.context.request.online_store_id,
+                "secret_name": self.context.request.redis_secret,
+                "host": "redis.feature-store.svc.cluster.local",
+                "port": 6379,
+                "db": database,
+                "server_run_id": run_id,
+                "target_fingerprint": fingerprint,
+                "used_memory_bytes": 100_000,
+                "maxmemory_bytes": 1_000_000,
+                "maxmemory_policy": "noeviction",
+            },
             "views": [
                 {
                     "view": name,
@@ -128,21 +167,42 @@ class WorkflowCase(unittest.TestCase):
         execute = {"C1_MODE": "execute", "C1_APPROVAL": base.expected_approval}
         return context_from_environment({**values, **execute, **environment})
 
-    def run_all(self, cluster, stages=STAGES, context=None):
-        return [run_stage(stage, context or self.context, cluster, self.reader) for stage in stages]
+    def run_all(self, cluster, stages=STAGES, context=None, publisher=None):
+        publisher = publisher or FakeDataHubPublisher()
+        return [
+            run_stage(stage, context or self.context, cluster, self.reader, publisher)
+            for stage in stages
+        ]
 
 
 class ExecuteWorkflowTest(WorkflowCase):
     def test_a_new_window_runs_every_stage_in_order(self):
         cluster = FakeCluster(self.context)
         results = self.run_all(cluster)
-        self.assertEqual(["PASS"] * 7, [item["status"] for item in results])
+        self.assertEqual(["PASS"] * 8, [item["status"] for item in results])
         self.assertEqual(
             ["state", "materialize-incremental", "state", "parity"],
             [call[1][0] for call in cluster.calls],
         )
-        self.assertEqual("NEW_WINDOW", results[-1]["outcome"])
-        self.assertEqual(6, len(results[-1]["artifacts"]))
+        self.assertEqual("NEW_WINDOW", results[-2]["outcome"])
+        self.assertEqual(6, len(results[-2]["artifacts"]))
+        self.assertEqual("PASS", results[-1]["verification_status"])
+
+    def test_datahub_stage_consumes_provenance_and_is_retry_safe(self):
+        publisher = FakeDataHubPublisher()
+        cluster = FakeCluster(self.context)
+        self.run_all(cluster, STAGES[:-1], publisher=publisher)
+        first = run_stage("datahub", self.context, cluster, self.reader, publisher)
+        second = run_stage("datahub", self.context, cluster, self.reader, publisher)
+        self.assertEqual(first, second)
+        self.assertEqual(1, len(publisher.calls))
+
+    def test_datahub_failure_writes_no_success_artifact(self):
+        cluster = FakeCluster(self.context)
+        self.run_all(cluster, STAGES[:-1])
+        with self.assertRaisesRegex(StageError, "readback"):
+            run_stage("datahub", self.context, cluster, self.reader, FakeDataHubPublisher(True))
+        self.assertFalse((self.context.run_dir / ARTIFACTS["datahub"]).exists())
 
     def test_materialization_uses_the_requested_end(self):
         cluster = FakeCluster(self.context)
@@ -150,21 +210,63 @@ class ExecuteWorkflowTest(WorkflowCase):
         self.assertIn(("materialize-incremental", "--end", "2026-05-31T23:00:00+00:00"),
                       [call[1] for call in cluster.calls])
 
+    def test_window_records_verified_redis_target_and_capacity(self):
+        results = self.run_all(FakeCluster(self.context), ("config", "source", "window"))
+        preflight = results[-1]["online_store_preflight"]
+        self.assertTrue(preflight["target_fingerprint"].startswith("sha256:"))
+        self.assertEqual(890_000, preflight["headroom_after_estimate_bytes"])
+
+    def test_window_fails_when_the_resolved_database_differs(self):
+        cluster = FakeCluster(self.context)
+        cluster._state = lambda: {
+            **FakeCluster(self.context)._state(),
+            "online_store": {**FakeCluster(self.context)._state()["online_store"], "db": 1},
+        }
+        self.run_all(cluster, ("config", "source"))
+        with self.assertRaisesRegex(StageError, "database"):
+            run_stage("window", self.context, cluster, self.reader)
+
+    def test_window_fails_when_the_resolved_host_differs(self):
+        cluster = FakeCluster(self.context)
+        cluster._state = lambda: {
+            **FakeCluster(self.context)._state(),
+            "online_store": {
+                **FakeCluster(self.context)._state()["online_store"],
+                "host": "unapproved-redis.example",
+            },
+        }
+        self.run_all(cluster, ("config", "source"))
+        with self.assertRaisesRegex(StageError, "host or port"):
+            run_stage("window", self.context, cluster, self.reader)
+
+    def test_window_fails_when_estimated_load_exceeds_memory(self):
+        context = self.make_context(C1_ESTIMATED_REDIS_BYTES="950000")
+        self.reader = FakeReader(manifest(context))
+        self.run_all(FakeCluster(context), ("config", "source"), context=context)
+        with self.assertRaisesRegex(StageError, "memory"):
+            run_stage("window", context, FakeCluster(context), self.reader)
+
     def test_a_finished_window_skips_the_job_and_still_verifies_readback(self):
         cluster = FakeCluster(self.context, end=T23)
-        results = self.run_all(cluster)
+        publisher = FakeDataHubPublisher()
+        results = self.run_all(cluster, publisher=publisher)
         self.assertEqual("SKIPPED", results[3]["status"])
         self.assertEqual("PASS", results[5]["status"])
-        self.assertEqual("COMPLETED", results[-1]["outcome"])
+        self.assertEqual("COMPLETED", results[-2]["outcome"])
+        self.assertEqual("SKIPPED", results[-1]["verification_status"])
+        self.assertEqual([], publisher.calls)
         self.assertNotIn("materialize-incremental", [call[1][0] for call in cluster.calls])
 
     def test_no_new_data_is_recorded_without_claiming_a_load(self):
         context = self.make_context(C1_TARGET_END="2026-06-01T01:00:00Z")
         self.reader = FakeReader(manifest(context))
         cluster = FakeCluster(context, end=T00)
-        results = self.run_all(cluster, context=context)
-        self.assertEqual("NO_NEW_DATA", results[-1]["outcome"])
+        publisher = FakeDataHubPublisher()
+        results = self.run_all(cluster, context=context, publisher=publisher)
+        self.assertEqual("NO_NEW_DATA", results[-2]["outcome"])
         self.assertEqual(["SKIPPED"] * 3, [item["status"] for item in results[3:6]])
+        self.assertEqual("SKIPPED", results[-1]["verification_status"])
+        self.assertEqual([], publisher.calls)
         self.assertEqual(["state"], [call[1][0] for call in cluster.calls])
 
     def test_a_never_materialized_registry_stops_before_any_write(self):
@@ -242,10 +344,10 @@ class ExecuteWorkflowTest(WorkflowCase):
     def test_the_provenance_digest_matches_the_record(self):
         from ai_platform.features.feast.materialization_plan import provenance_digest
 
-        record = self.run_all(FakeCluster(self.context))[-1]
+        record = self.run_all(FakeCluster(self.context))[-2]
         stored = json.loads((self.context.run_dir / ARTIFACTS["provenance"]).read_text())
         subset = {key: stored[key] for key in (
-            "schema_version", "status", "outcome", "request", "manifest_sha256",
+            "schema_version", "status", "outcome", "window_decision", "request", "manifest_sha256",
             "operator_image", "git_sha", "airflow", "artifacts")}
         self.assertEqual(record["provenance_digest"], provenance_digest(subset))
 
@@ -263,7 +365,8 @@ class ApprovalTest(WorkflowCase):
         self.assertEqual([], cluster.calls)
         self.assertEqual(2, len(cluster.rendered))
         self.assertEqual(context.expected_approval, results[0]["approval_token_for_this_window"])
-        self.assertEqual("DRY_RUN", results[-1]["outcome"])
+        self.assertEqual("DRY_RUN", results[-2]["outcome"])
+        self.assertEqual("DRY_RUN", results[-1]["verification_status"])
 
 
 class ManifestValidationTest(WorkflowCase):
@@ -304,6 +407,9 @@ class ManifestValidationTest(WorkflowCase):
 
 
 class ConfigurationTest(unittest.TestCase):
+    def test_datahub_artifact_has_owner_directive_name(self):
+        self.assertEqual("08-datahub-lineage.json", ARTIFACTS["datahub"])
+
     def test_required_values_are_enforced(self):
         for name in ENVIRONMENT:
             if name.startswith("C1_"):
@@ -315,6 +421,38 @@ class ConfigurationTest(unittest.TestCase):
     def test_an_unknown_mode_is_rejected(self):
         with self.assertRaises(StageError):
             context_from_environment({**ENVIRONMENT, "C1_EVIDENCE_ROOT": "/tmp/x", "C1_MODE": "run"})
+
+    def test_verification_policy_rejects_the_production_online_store(self):
+        with self.assertRaisesRegex(WindowError, "verification.*production|production.*verification"):
+            context_from_environment({
+                **ENVIRONMENT,
+                "C1_EVIDENCE_ROOT": "/tmp/x",
+                "C1_EXECUTION_POLICY": "verification",
+            })
+
+    def test_missing_or_unknown_execution_policy_fails_closed(self):
+        missing = {**ENVIRONMENT, "C1_EVIDENCE_ROOT": "/tmp/x"}
+        missing.pop("C1_EXECUTION_POLICY")
+        for values in (missing, {**missing, "C1_EXECUTION_POLICY": "owner-selected"}):
+            with self.subTest(policy=values.get("C1_EXECUTION_POLICY")):
+                expected = StageError if values.get("C1_EXECUTION_POLICY") is None else WindowError
+                with self.assertRaisesRegex(expected, "execution policy|C1_EXECUTION_POLICY"):
+                    context_from_environment(values)
+
+    def test_explicit_production_and_isolated_verification_policies_are_preserved(self):
+        production = context_from_environment({
+            **ENVIRONMENT,
+            "C1_EVIDENCE_ROOT": "/tmp/x",
+        })
+        verification = context_from_environment({
+            **ENVIRONMENT,
+            "C1_EVIDENCE_ROOT": "/tmp/x",
+            "C1_EXECUTION_POLICY": "verification",
+            "C1_ONLINE_STORE_ID": "canonical-verify",
+            "FEAST_REDIS_SECRET": "feast-online-redis-verify",
+        })
+        self.assertEqual("production", production.execution_policy)
+        self.assertEqual("verification", verification.execution_policy)
 
     def test_the_run_id_cannot_escape_the_evidence_root(self):
         context = context_from_environment(

@@ -1,6 +1,9 @@
 # Fraud API (Block B): Feast Online lookup -> 41-feature assembly -> KServe V2.
 FROM python:3.10.22-slim-bookworm@sha256:db6ee5170ebce0f4d165af242e8e77addc08bd9ffc37e8b1815752cf027aa4f8
 
+ARG SOURCE_SHA
+LABEL org.opencontainers.image.revision="${SOURCE_SHA}"
+
 COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /bin/
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

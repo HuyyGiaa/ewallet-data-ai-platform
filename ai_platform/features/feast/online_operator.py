@@ -30,6 +30,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 
 import pandas as pd
 import pyarrow.parquet as parquet
@@ -43,11 +44,215 @@ from ai_platform.features.feast.retrieval.bounded_dask import (
     build_time_window_plan,
 )
 from ai_platform.features.feast.schema import FEATURE_SPECS
+from ai_platform.features.feast.redis_isolation import (
+    RedisIsolationError,
+    claim as claim_redis,
+    owner_record,
+    read_owner,
+    target_fingerprint,
+)
 
 
 ONLINE_REPO = Path(__file__).resolve().parent / "online_repo"
 MISSING_ENTITY_PROBE = "__parity_missing_entity__"
 FOOTER_READ_WORKERS = 16
+
+
+def _redis_connection_parts(connection_string: str) -> tuple[str, int, int, dict[str, Any]]:
+    """Parse Feast's comma-delimited Redis setting without returning credentials."""
+
+    segments = connection_string.removeprefix("redis://").split(",")
+    host_port = segments[0]
+    if ":" not in host_port:
+        raise RuntimeError("Redis connection must include host:port")
+    host, raw_port = host_port.rsplit(":", 1)
+    if not host:
+        raise RuntimeError("Redis connection host is empty")
+    try:
+        port = int(raw_port)
+    except ValueError as error:
+        raise RuntimeError("Redis connection port is invalid") from error
+    if not 1 <= port <= 65535:
+        raise RuntimeError("Redis connection port is invalid")
+    options: dict[str, Any] = {}
+    for segment in segments[1:]:
+        if "=" not in segment:
+            raise RuntimeError("Redis connection option is invalid")
+        name, raw_value = segment.split("=", 1)
+        if name in options:
+            raise RuntimeError(f"duplicate Redis connection option: {name}")
+        try:
+            options[name] = json.loads(raw_value)
+        except json.JSONDecodeError:
+            options[name] = raw_value
+    try:
+        database = int(options.get("db", 0))
+    except (TypeError, ValueError) as error:
+        raise RuntimeError("Redis database is invalid") from error
+    if database < 0:
+        raise RuntimeError("Redis database is invalid")
+    return host, port, database, options
+
+
+def _redis_client(connection_string: str):
+    from redis import Redis
+
+    host, port, database, options = _redis_connection_parts(connection_string)
+    return Redis(
+        host=host,
+        port=port,
+        db=database,
+        password=options.get("password"),
+        username=options.get("username"),
+        socket_connect_timeout=5,
+        socket_timeout=5,
+        decode_responses=True,
+    )
+
+
+def online_store_evidence(connection_string: str) -> dict[str, object]:
+    """Read sanitized Redis identity and capacity for the materialization preflight."""
+
+    host, port, database, options = _redis_connection_parts(connection_string)
+    client = _redis_client(connection_string)
+    memory = client.info("memory")
+    server = client.info("server")
+    fingerprint = target_fingerprint(host, port, database, str(server.get("run_id", "")))
+    ownership = read_owner(client)
+    return {
+        "logical_id": os.environ["EWALLET_ONLINE_STORE_ID"],
+        "secret_name": os.environ["EWALLET_REDIS_SECRET_NAME"],
+        "host": host,
+        "port": port,
+        "db": database,
+        "server_run_id": server.get("run_id"),
+        "target_fingerprint": fingerprint,
+        "used_memory_bytes": int(memory["used_memory"]),
+        "maxmemory_bytes": int(memory["maxmemory"]),
+        "maxmemory_policy": str(memory["maxmemory_policy"]),
+        "ownership": ownership,
+        "isolation_status": "OWNED" if ownership else "UNCLAIMED",
+    }
+
+
+def _authorized_target(connection_string: str) -> tuple[str, object, dict[str, object], str]:
+    """Resolve policy plus physical target, failing closed before any write."""
+
+    required = (
+        "EWALLET_EXECUTION_POLICY",
+        "EWALLET_ONLINE_STORE_ID",
+        "EWALLET_REDIS_SECRET_NAME",
+        "EWALLET_DATASET_VERSION",
+    )
+    missing = [name for name in required if not os.environ.get(name)]
+    if missing:
+        raise RedisIsolationError(
+            f"Online Store execution policy requires {', '.join(missing)}"
+        )
+    from ai_platform.features.feast.materialization_plan import (
+        ONLINE_STORE_BINDINGS,
+        WindowError,
+        validate_execution_policy,
+    )
+
+    policy = os.environ["EWALLET_EXECUTION_POLICY"]
+    store_id = os.environ["EWALLET_ONLINE_STORE_ID"]
+    try:
+        validate_execution_policy(policy, store_id)
+    except WindowError as error:
+        raise RedisIsolationError(str(error)) from error
+    binding = ONLINE_STORE_BINDINGS[store_id]
+    host, port, database, _ = _redis_connection_parts(connection_string)
+    if (
+        os.environ["EWALLET_REDIS_SECRET_NAME"] != binding["redis_secret"]
+        or host != binding["redis_host"]
+        or port != binding["redis_port"]
+        or database != binding["redis_db"]
+        or os.environ["EWALLET_DATASET_VERSION"] not in binding["dataset_versions"]
+    ):
+        raise RedisIsolationError("Online Store target differs from the approved binding")
+    client = _redis_client(connection_string)
+    server = client.info("server")
+    run_id = str(server.get("run_id", ""))
+    if not run_id:
+        raise RedisIsolationError("Redis server identity is missing")
+    fingerprint = target_fingerprint(host, port, database, run_id)
+    return policy, client, binding, fingerprint
+
+
+def _expected_ownership(
+    connection_string: str, registry_uri: str | None = None
+) -> tuple[object, dict[str, str]]:
+    required = (
+        "EWALLET_REDIS_CAMPAIGN_ID",
+        "EWALLET_DATASET_VERSION",
+        "EWALLET_FEAST_REGISTRY",
+        "EWALLET_ONLINE_STORE_ID",
+        "EWALLET_REDIS_SECRET_NAME",
+        "EWALLET_FEATURE_RUN_ID",
+        "EWALLET_SNAPSHOT_ID",
+    )
+    missing = [name for name in required if not os.environ.get(name)]
+    if missing:
+        raise RedisIsolationError(f"Redis campaign ownership requires {', '.join(missing)}")
+    policy, client, binding, fingerprint = _authorized_target(connection_string)
+    if policy != "verification" or not binding["requires_campaign_ownership"]:
+        raise RedisIsolationError("Online Store is not an approved verification binding")
+    expected = owner_record(
+        os.environ["EWALLET_REDIS_CAMPAIGN_ID"],
+        os.environ["EWALLET_DATASET_VERSION"],
+        registry_uri if registry_uri is not None else os.environ["EWALLET_FEAST_REGISTRY"],
+        os.environ["EWALLET_ONLINE_STORE_ID"],
+        fingerprint,
+        os.environ["EWALLET_FEATURE_RUN_ID"],
+        os.environ["EWALLET_SNAPSHOT_ID"],
+    )
+    return client, expected
+
+
+def claim_online_store(
+    connection_string: str, registry_uri: str | None = None
+) -> dict[str, object]:
+    """Claim an empty verification database for exactly one campaign."""
+
+    client, expected = _expected_ownership(connection_string, registry_uri)
+    status = claim_redis(client, expected)
+    return {"claim_status": status, **online_store_evidence(connection_string)}
+
+
+def require_online_store_ownership(
+    connection_string: str, registry_uri: str | None = None
+) -> None:
+    """Fail closed unless the current verification store has the exact owner marker."""
+
+    policy, _client, _binding, _fingerprint = _authorized_target(connection_string)
+    if policy == "production":
+        return
+    client, expected = _expected_ownership(connection_string, registry_uri)
+    if read_owner(client) != expected:
+        raise RedisIsolationError("verification Redis is not owned by this campaign")
+
+
+def require_online_store_capacity(connection_string: str) -> None:
+    """Require a current no-eviction target with 10% headroom after the estimate."""
+
+    policy, _client, _binding, _fingerprint = _authorized_target(connection_string)
+    if policy == "production":
+        return
+    raw_estimate = os.environ.get("EWALLET_ESTIMATED_REDIS_BYTES", "")
+    try:
+        estimate = int(raw_estimate)
+    except ValueError as error:
+        raise RedisIsolationError("EWALLET_ESTIMATED_REDIS_BYTES must be positive") from error
+    if estimate <= 0:
+        raise RedisIsolationError("EWALLET_ESTIMATED_REDIS_BYTES must be positive")
+    evidence = online_store_evidence(connection_string)
+    used = int(evidence["used_memory_bytes"])
+    maximum = int(evidence["maxmemory_bytes"])
+    if evidence["maxmemory_policy"] != "noeviction" or maximum <= 0:
+        raise RedisIsolationError("verification Redis must have bounded noeviction capacity")
+    if maximum - used - estimate < int(maximum * 0.10):
+        raise RedisIsolationError("verification Redis estimate would leave less than 10% headroom")
 
 
 def _timestamp(value: str) -> datetime:
@@ -190,7 +395,12 @@ def state(store: FeatureStore) -> dict[str, object]:
                 **source_event_time_range(path),
             }
         )
-    return {"views": views}
+    return {
+        "online_store": online_store_evidence(
+            os.environ["EWALLET_REDIS_CONNECTION_STRING"]
+        ),
+        "views": views,
+    }
 
 
 def materialize_incremental(store: FeatureStore, end: datetime) -> dict[str, object]:
@@ -343,6 +553,7 @@ def parity(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("claim")
     commands.add_parser("apply")
     window = commands.add_parser("materialize")
     window.add_argument("--start", type=_timestamp, required=True)
@@ -361,20 +572,33 @@ def main(argv: list[str] | None = None) -> int:
     generation_before = mirror.generation if mirror else None
     if args.command == "apply" and mirror is not None and mirror.generation != 0:
         raise FileExistsError(f"online registry already exists: {registry_uri}")
-    store = get_online_store()
+    connection_string = os.environ["EWALLET_REDIS_CONNECTION_STRING"]
     started = datetime.now(timezone.utc)
-    if args.command == "apply":
+    if args.command == "claim":
+        result = claim_online_store(connection_string, registry_uri)
+    else:
+        store = get_online_store()
+    if args.command == "claim":
+        pass
+    elif args.command == "apply":
+        require_online_store_ownership(connection_string, registry_uri)
         result = apply(store)
     elif args.command == "materialize":
+        require_online_store_ownership(connection_string, registry_uri)
+        require_online_store_capacity(connection_string)
         result = materialize(store, args.start, args.end)
     elif args.command == "materialize-incremental":
+        require_online_store_ownership(connection_string, registry_uri)
+        require_online_store_capacity(connection_string)
         result = materialize_incremental(store, args.end)
     elif args.command == "state":
+        require_online_store_ownership(connection_string, registry_uri)
         result = state(store)
     else:
+        require_online_store_ownership(connection_string, registry_uri)
         result = parity(store, args.cutover, args.sample_window_start, args.sample_size)
     generation_after = generation_before
-    if mirror is not None and args.command not in {"parity", "state"}:
+    if mirror is not None and args.command not in {"claim", "parity", "state"}:
         generation_after = mirror.push()
     evidence = {
         "schema_version": "feast-online-operation-evidence-v1",

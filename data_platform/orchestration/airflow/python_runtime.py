@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from functools import lru_cache
@@ -33,6 +34,34 @@ FEAST_ONLINE_MODULES = ("ops.mlops.feast_incremental",)
 # dp2_bronze_to_curated, dp3_historical_features); its import is checked by the
 # pipeline DAG tests.
 CAMPAIGN_MODULES = ("ops.gcp.campaign_task",)
+DATAHUB_UV_ENV_VAR = "EWALLET_DATAHUB_UV"
+DATAHUB_PROJECT = Path("data_platform/metadata/datahub")
+
+
+def resolve_datahub_uv(repository_root: str | Path, environment: dict[str, str]) -> str:
+    """Resolve ``uv`` and prove the dedicated DataHub lock is usable."""
+
+    configured = environment.get(DATAHUB_UV_ENV_VAR, "").strip()
+    candidate = configured or shutil.which("uv")
+    if not candidate:
+        raise RuntimeError(
+            f"{DATAHUB_UV_ENV_VAR} must name the uv executable for the DataHub task"
+        )
+    executable = Path(candidate).expanduser().resolve()
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        raise RuntimeError(f"invalid {DATAHUB_UV_ENV_VAR}: {executable}")
+    root = Path(repository_root).resolve()
+    check = subprocess.run(
+        [str(executable), "lock", "--check", "--project", str(root / DATAHUB_PROJECT)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if check.returncode != 0:
+        detail = check.stderr.strip() or check.stdout.strip()
+        raise RuntimeError(f"DataHub uv.lock check failed: {detail}")
+    return str(executable)
 
 
 @lru_cache(maxsize=None)

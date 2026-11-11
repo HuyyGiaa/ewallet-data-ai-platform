@@ -96,10 +96,11 @@ cmd_replay() {
   cd "$ROOT"
   export PYTHONPATH="$ROOT" PYTHONDONTWRITEBYTECODE=1
   export EWALLET_FEAST_REGISTRY="$run/registry.db"
-  export EWALLET_FEAST_OFFLINE_DATA_ROOT="$run/offline-unused"
+  local offline_root="file://$run/offline-features"
+  export EWALLET_FEAST_OFFLINE_DATA_ROOT="$run/offline-features/campaigns/$ns/runs/$ns/offline"
   export EWALLET_REDIS_CONNECTION_STRING="$REDIS_CONNECTION"
-  echo "== rewind both sink groups to the start of their topics =="
-  for group in "ewallet-block-a-history-v1.$ns" "ewallet-block-a-feast-online-v1.$ns"; do
+  echo "== rewind all sink groups to the start of their topics =="
+  for group in "ewallet-block-a-history-v1.$ns" "ewallet-block-a-feast-offline-v1.$ns" "ewallet-block-a-feast-online-v1.$ns"; do
     "${COMPOSE[@]}" exec -T redpanda rpk group seek "$group" --to start \
       --brokers localhost:29092 | tee -a "$run/replay-seek.log"
   done
@@ -108,13 +109,18 @@ cmd_replay() {
     --bootstrap-servers "$BOOTSTRAP_HOST" --namespace "$ns" --run-id "$ns" \
     --history-root "file://$run/history" --batch-size 7 --flush-interval-seconds 5 \
     --max-idle-seconds 20 | tee "$run/replay-history.log"
+  "$SINKS_PYTHON" -W ignore -m data_platform.streaming.sinks.offline_features \
+    --bootstrap-servers "$BOOTSTRAP_HOST" --namespace "$ns" --campaign-id "$ns" \
+    --run-id "$ns" --offline-root "$offline_root" --max-idle-seconds 20 \
+    | tee "$run/replay-offline.log"
   "$SINKS_PYTHON" -W ignore -m data_platform.streaming.feast.service \
     --bootstrap-servers "$BOOTSTRAP_HOST" --namespace "$ns" \
     --feast-repo ai_platform/features/feast/online_repo --max-idle-seconds 20 | tee "$run/replay-feast.log"
   echo "== validate after replay =="
   "$SINKS_PYTHON" -W ignore -m data_platform.streaming.verification.cli validate \
     --bootstrap-servers "$BOOTSTRAP_HOST" --namespace "$ns" --manifest "$run/manifest.json" \
-    --history-root "file://$run/history" --run-id "$ns" \
+    --history-root "file://$run/history" --offline-feature-root "$EWALLET_FEAST_OFFLINE_DATA_ROOT" \
+    --campaign-id "$ns" --run-id "$ns" \
     --feast-repo ai_platform/features/feast/online_repo --report "$run/consistency-report-after-replay.json"
 }
 
@@ -129,7 +135,8 @@ cmd_run() {
   cd "$ROOT"
   export PYTHONPATH="$ROOT" PYTHONDONTWRITEBYTECODE=1
   export EWALLET_FEAST_REGISTRY="$run/registry.db"
-  export EWALLET_FEAST_OFFLINE_DATA_ROOT="$run/offline-unused"
+  local offline_root="file://$run/offline-features"
+  export EWALLET_FEAST_OFFLINE_DATA_ROOT="$run/offline-features/campaigns/$ns/runs/$ns/offline"
   export EWALLET_REDIS_CONNECTION_STRING="$REDIS_CONNECTION"
   export EWALLET_GIT_SHA
   EWALLET_GIT_SHA="$(git -C "$ROOT" rev-parse HEAD)"
@@ -173,7 +180,12 @@ PY
     --feast-repo ai_platform/features/feast/online_repo \
     >"$run/feast-service.log" 2>&1 &
   local feast_pid=$!
-  trap 'kill "$history_pid" "$feast_pid" 2>/dev/null || true' EXIT
+  "$SINKS_PYTHON" -W ignore -m data_platform.streaming.sinks.offline_features \
+    --bootstrap-servers "$BOOTSTRAP_HOST" --namespace "$ns" --campaign-id "$ns" \
+    --run-id "$ns" --offline-root "$offline_root" \
+    >"$run/offline-feature-service.log" 2>&1 &
+  local offline_pid=$!
+  trap 'kill "$history_pid" "$offline_pid" "$feast_pid" 2>/dev/null || true' EXIT
 
   echo "== publish scenario phases =="
   mv "$run/manifest.json" "$run/manifest.topics.json"
@@ -191,8 +203,9 @@ PY
 
   echo "== let timers fire, then stop the sinks with SIGTERM =="
   sleep "$SETTLE_SECONDS"
-  kill -TERM "$history_pid" "$feast_pid"
+  kill -TERM "$history_pid" "$offline_pid" "$feast_pid"
   wait "$history_pid" || die "history sink failed; see $run/history-service.log"
+  wait "$offline_pid" || die "offline feature sink failed; see $run/offline-feature-service.log"
   wait "$feast_pid" || die "Feast sink failed; see $run/feast-service.log"
   trap - EXIT
   collect_flink_evidence "$job" "$run"
@@ -200,7 +213,8 @@ PY
   echo "== validate offline history against Feast online =="
   "$SINKS_PYTHON" -W ignore -m data_platform.streaming.verification.cli validate \
     --bootstrap-servers "$BOOTSTRAP_HOST" --namespace "$ns" --manifest "$run/manifest.json" \
-    --history-root "file://$run/history" --run-id "$ns" \
+    --history-root "file://$run/history" --offline-feature-root "$EWALLET_FEAST_OFFLINE_DATA_ROOT" \
+    --campaign-id "$ns" --run-id "$ns" \
     --feast-repo ai_platform/features/feast/online_repo --report "$run/consistency-report.json"
   curl -fsS -X PATCH "$FLINK_URL/jobs/$job?mode=cancel" >/dev/null || true
 }

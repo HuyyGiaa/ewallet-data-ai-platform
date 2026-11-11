@@ -26,6 +26,13 @@ FEAST_PARAM_SCHEMAS: dict[str, dict[str, Any]] = {
     "feature_run_id": {"default": "REQUIRED-feature-run-id", "type": "string", "pattern": _ID},
     "feast_snapshot_id": {"default": "REQUIRED-feast-snapshot-id", "type": "string", "pattern": _ID},
     "online_registry_id": {"default": "REQUIRED-online-registry-id", "type": "string", "pattern": _ID},
+    "online_store_id": {
+        "default": "canonical-verify",
+        "type": "string",
+        "enum": ["canonical-online", "canonical-verify", "rehearsal-online"],
+    },
+    # Zero is deliberately invalid at runtime: the owner must supply an estimate.
+    "estimated_redis_bytes": {"default": 0, "type": "integer", "minimum": 0},
     "target_end": {"default": "2026-05-31T23:00:00Z", "type": "string", "pattern": _INSTANT},
     "streaming_cutover": {
         "default": "",
@@ -36,7 +43,7 @@ FEAST_PARAM_SCHEMAS: dict[str, dict[str, Any]] = {
     "sample_size": {"default": 5, "type": "integer", "minimum": 1, "maximum": 50},
     "expected_manifest_sha256": {"default": "", "type": "string", "pattern": r"^(?:[0-9a-f]{64})?(?![\s\S])"},
     "feast_online_image": {"default": "", "type": "string"},
-    "feast_redis_secret": {"default": "feast-online-redis", "type": "string", "pattern": r"^[a-z0-9-]{1,63}(?![\s\S])"},
+    "feast_redis_secret": {"default": "feast-online-redis-verify", "type": "string", "pattern": r"^[a-z0-9-]{1,63}(?![\s\S])"},
     "git_sha": {"default": "", "type": "string", "pattern": r"^(?:[0-9a-f]{40})?(?![\s\S])"},
 }
 
@@ -48,6 +55,8 @@ FEAST_PARAM_ENV = {
     "feature_run_id": "C1_FEATURE_RUN_ID",
     "feast_snapshot_id": "C1_FEAST_SNAPSHOT_ID",
     "online_registry_id": "C1_ONLINE_REGISTRY_ID",
+    "online_store_id": "C1_ONLINE_STORE_ID",
+    "estimated_redis_bytes": "C1_ESTIMATED_REDIS_BYTES",
     "target_end": "C1_TARGET_END",
     "streaming_cutover": "C1_STREAMING_CUTOVER",
     "max_window_hours": "C1_MAX_WINDOW_HOURS",
@@ -66,6 +75,9 @@ def feast_task_environment() -> dict[str, str]:
         "C1_RUN_ID": "{{ run_id }}",
         "C1_ATTEMPT": "{{ ti.try_number }}",
         "C1_AIRFLOW_DAG_ID": "{{ dag.dag_id }}",
+        # Row 11 is an evidence workflow. This boundary is intentionally not a
+        # caller-controlled Airflow parameter.
+        "C1_EXECUTION_POLICY": "verification",
         "C1_EVIDENCE_ROOT": os.environ.get("EWALLET_C1_EVIDENCE_ROOT", DEFAULT_EVIDENCE_ROOT),
         **{env: f"{{{{ params.{name} }}}}" for name, env in FEAST_PARAM_ENV.items()},
     }

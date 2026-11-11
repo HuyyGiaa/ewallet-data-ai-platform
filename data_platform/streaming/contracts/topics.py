@@ -33,6 +33,7 @@ CONSUMER_GROUPS = {
     "history": "ewallet-block-a-history-v1",
     "reconciliation": "ewallet-block-a-late-reconciliation-v1",
     "feast": "ewallet-block-a-feast-online-v1",
+    "offline": "ewallet-block-a-feast-offline-v1",
 }
 
 

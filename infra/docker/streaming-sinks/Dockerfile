@@ -3,6 +3,9 @@
 # never enter the TaskManager environment. Build context: repository root.
 FROM python:3.10-slim-bookworm@sha256:5be5aaecb962a41567bc8041f1e9e3432cb085b037fe057f9a562630b2e4b370
 
+ARG SOURCE_SHA
+LABEL org.opencontainers.image.revision="${SOURCE_SHA}"
+
 COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /usr/local/bin/uv
 
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
@@ -21,10 +24,7 @@ ENV PATH=/opt/venv/bin:$PATH \
 WORKDIR /opt/ewallet
 COPY ai_platform/__init__.py ai_platform/__init__.py
 COPY ai_platform/features/__init__.py ai_platform/features/__init__.py
-COPY ai_platform/features/feast/__init__.py ai_platform/features/feast/schema.py \
-     ai_platform/features/feast/repository.py ai_platform/features/feast/registry_mirror.py \
-     ai_platform/features/feast/
-COPY ai_platform/features/feast/online_repo ai_platform/features/feast/online_repo
+COPY ai_platform/features/feast ai_platform/features/feast
 COPY data_platform/__init__.py data_platform/__init__.py
 COPY data_platform/config data_platform/config
 COPY data_platform/generation/__init__.py data_platform/generation/__init__.py

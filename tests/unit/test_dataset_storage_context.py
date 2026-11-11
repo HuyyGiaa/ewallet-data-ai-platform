@@ -21,6 +21,7 @@ from data_platform.config.dataset_identity import (
     refuse_misplaced_dataset,
     require_same_bucket,
     resolve_storage_context,
+    validate_feature_store_storage,
 )
 from ops.gcp import generate_source_dataset, rehearsal_storage, submit_stage_validation
 from ops.gcp.dataproc_batch_properties import build_dataproc_batch_properties
@@ -43,6 +44,87 @@ ENV = {"GCP_PROJECT_ID": "ewallet-data-ai-platform-hg26", "DATAHUB_GMS_URL": "ht
 
 
 class StorageContextTest(unittest.TestCase):
+    def test_feature_store_storage_is_bound_to_dataset_campaign_and_run(self):
+        bucket = CANONICAL_DATA_BUCKET
+        result = validate_feature_store_storage(
+            dataset_version=CANONICAL_100GB,
+            offline_feature_root=f"gs://{bucket}/streaming-features",
+            feast_offline_data_root=(
+                f"gs://{bucket}/streaming-features/campaigns/verify-campaign-1/"
+                "runs/verify-campaign-1/offline"
+            ),
+            history_root=f"gs://{bucket}/streaming-history/verify-campaign-1",
+            online_registry_uri=(
+                f"gs://{bucket}/features/registries/{CANONICAL_100GB}/online/registry-1/registry.db"
+            ),
+            campaign_id="verify-campaign-1",
+            run_id="verify-campaign-1",
+        )
+        self.assertEqual(bucket, result.data_bucket)
+
+    def test_feature_store_storage_rejects_cross_bucket_and_wrong_nesting(self):
+        canonical = CANONICAL_DATA_BUCKET
+        rehearsal = REHEARSAL_DATA_BUCKET
+        valid = {
+            "dataset_version": REHEARSAL_5GB,
+            "offline_feature_root": f"gs://{rehearsal}/streaming-features",
+            "feast_offline_data_root": (
+                f"gs://{rehearsal}/streaming-features/campaigns/verify-rehearsal/"
+                "runs/verify-rehearsal/offline"
+            ),
+            "history_root": f"gs://{rehearsal}/streaming-history/verify-rehearsal",
+            "online_registry_uri": (
+                f"gs://{rehearsal}/features/registries/{REHEARSAL_5GB}/online/registry-1/registry.db"
+            ),
+            "campaign_id": "verify-rehearsal",
+            "run_id": "verify-rehearsal",
+        }
+        for field in (
+            "offline_feature_root",
+            "feast_offline_data_root",
+            "history_root",
+            "online_registry_uri",
+        ):
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "must use bucket"):
+                validate_feature_store_storage(
+                    **{**valid, field: valid[field].replace(rehearsal, canonical, 1)}
+                )
+        with self.assertRaisesRegex(ValueError, "exact campaign/run path"):
+            validate_feature_store_storage(
+                **{**valid, "feast_offline_data_root": valid["feast_offline_data_root"].replace(
+                    "/runs/verify-rehearsal/", "/runs/other/"
+                )}
+            )
+
+    def test_feature_store_storage_rejects_malformed_ambiguous_and_missing_identity(self):
+        bucket = CANONICAL_DATA_BUCKET
+        valid = {
+            "dataset_version": CANONICAL_100GB,
+            "offline_feature_root": f"gs://{bucket}/streaming-features",
+            "feast_offline_data_root": (
+                f"gs://{bucket}/streaming-features/campaigns/verify-campaign/"
+                "runs/verify-campaign/offline"
+            ),
+            "history_root": f"gs://{bucket}/streaming-history/verify-campaign",
+            "online_registry_uri": (
+                f"gs://{bucket}/features/registries/{CANONICAL_100GB}/online/r/registry.db"
+            ),
+            "campaign_id": "verify-campaign",
+            "run_id": "verify-campaign",
+        }
+        cases = (
+            ("dataset_version", ""),
+            ("offline_feature_root", "gs:///streaming-features"),
+            ("offline_feature_root", "gs://bucket:443/streaming-features"),
+            ("offline_feature_root", "gs://bad bucket/streaming-features"),
+            ("history_root", f"gs://{bucket}/streaming-history/../escape"),
+            ("online_registry_uri", f"gs://{bucket}/features/registries/%2e%2e/online/r/registry.db"),
+            ("feast_offline_data_root", f"gs://{bucket}//streaming-features/campaigns/verify-campaign/runs/verify-campaign/offline"),
+        )
+        for field, value in cases:
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                validate_feature_store_storage(**{**valid, field: value})
+
     def test_each_dataset_resolves_its_own_bucket(self):
         self.assertEqual(CANONICAL_DATA_BUCKET, resolve_storage_context(CANONICAL_100GB).data_bucket)
         self.assertEqual(REHEARSAL_DATA_BUCKET, resolve_storage_context(REHEARSAL_5GB).data_bucket)

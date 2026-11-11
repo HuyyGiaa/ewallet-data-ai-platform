@@ -18,6 +18,7 @@ spec:
         app.kubernetes.io/name: feast-online-operator
         app.kubernetes.io/component: ${STEP_NAME}
         app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}
     spec:
       serviceAccountName: training
       restartPolicy: Never
@@ -34,7 +35,17 @@ spec:
           env:
             - {name: EWALLET_FEAST_REGISTRY, value: "${ONLINE_REGISTRY_URI}"}
             - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "${FEAST_OFFLINE_DATA_ROOT}"}
+            - {name: EWALLET_OFFLINE_FEATURE_ROOT, value: "${OFFLINE_FEATURE_ROOT}"}
+            - {name: EWALLET_HISTORY_ROOT, value: "${HISTORY_ROOT}"}
             - {name: EWALLET_GIT_SHA, value: "${GIT_SHA}"}
+            - {name: EWALLET_ONLINE_STORE_ID, value: "${ONLINE_STORE_ID}"}
+            - {name: EWALLET_EXECUTION_POLICY, value: "verification"}
+            - {name: EWALLET_REDIS_CAMPAIGN_ID, value: "${BLOCK_A_NAMESPACE}"}
+            - {name: EWALLET_DATASET_VERSION, value: "${DATASET_VERSION}"}
+            - {name: EWALLET_FEATURE_RUN_ID, value: "${FEATURE_RUN_ID}"}
+            - {name: EWALLET_SNAPSHOT_ID, value: "${FEAST_SNAPSHOT_ID}"}
+            - {name: EWALLET_REDIS_SECRET_NAME, value: "${FEAST_REDIS_SECRET}"}
+            - {name: EWALLET_ESTIMATED_REDIS_BYTES, value: "${BLOCK_A_ESTIMATED_REDIS_BYTES}"}
             - {name: HOME, value: /tmp}
             - name: EWALLET_REDIS_CONNECTION_STRING
               valueFrom:

@@ -26,6 +26,7 @@ ORDER = (
     "verify_job_completion",
     "verify_online_readback",
     "record_run_provenance",
+    "publish_datahub_lineage",
 )
 
 
@@ -76,6 +77,16 @@ class FeastParamsTest(unittest.TestCase):
 
     def test_the_retry_number_reaches_the_task(self):
         self.assertEqual("{{ ti.try_number }}", feast_task_environment()["C1_ATTEMPT"])
+
+    def test_execution_policy_is_fixed_to_isolated_verification(self):
+        environment = feast_task_environment()
+        self.assertEqual("verification", environment["C1_EXECUTION_POLICY"])
+        self.assertNotIn("execution_policy", FEAST_PARAM_SCHEMAS)
+        self.assertEqual("canonical-verify", FEAST_PARAM_SCHEMAS["online_store_id"]["default"])
+        self.assertEqual(
+            "feast-online-redis-verify",
+            FEAST_PARAM_SCHEMAS["feast_redis_secret"]["default"],
+        )
 
     def test_identifier_patterns_reject_shell_text(self):
         pattern = FEAST_PARAM_SCHEMAS["feature_run_id"]["pattern"]

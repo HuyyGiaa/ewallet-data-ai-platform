@@ -8,9 +8,18 @@ Every section marks commands **READ-ONLY** or **MUTATING**. Run nothing marked M
 matching experiment in [section 7](#7-cloud-approval-package) is approved. A step's result counts
 as evidence only when it ran against the real component named in that step.
 
+> **Rows 11–12 Step 2 update (2026-11-11):** Sections 2 and 3 below preserve the
+> earlier C1/C2 campaign record; their seven-task, accepted-event-only commands
+> are superseded and must not be executed for new evidence. Use the single
+> current [Feature Store evidence procedure](../../edai2/mlops/references/mlops_serving_runbook.md#3-feature-store-evidence-run-rows-11-and-12),
+> which covers the eight-task DataHub stage, approved Redis target/capacity
+> checks, immutable Offline Parquet writer, genuine Feast historical query and
+> FS11/FS12 evidence IDs. In particular, do not create/delete Redis Secrets or
+> flush DB 1 from this historical procedure.
+
 ## 1. Shared setup
 
-**READ-ONLY.** Run from the repository root on `feature/c-data-platform-completion`.
+**READ-ONLY.** Run from the repository root on the reviewed `main` commit.
 
 ```bash
 export PATH="$HOME/miniconda3/envs/fintech/bin:$PATH"
@@ -228,16 +237,28 @@ export FLINK_IMAGE=<digest from E2>
 export SINKS_IMAGE=<digest from E2>
 export REGISTRY_ID=online-c2-20261107
 export ONLINE_REGISTRY_URI=gs://$BUCKET/features/registries/$DATASET/online/$REGISTRY_ID/registry.db
-export HISTORY_ROOT=gs://$BUCKET/streaming-history/c2-20261107
+export OFFLINE_FEATURE_ROOT=gs://$BUCKET/streaming-features
+export BLOCK_A_NAMESPACE=verify-gke-1
+export HISTORY_ROOT=gs://$BUCKET/streaming-history/$BLOCK_A_NAMESPACE
+export FEAST_OFFLINE_DATA_ROOT="$OFFLINE_FEATURE_ROOT/campaigns/$BLOCK_A_NAMESPACE/runs/$BLOCK_A_NAMESPACE/offline"
 export FEAST_REDIS_SECRET=feast-online-redis-verify
+export DATASET_VERSION="$DATASET"
+export ONLINE_STORE_ID=canonical-verify # rehearsal-online for rehearsal-5gb-v1
+export FEATURE_RUN_ID=<accepted-feature-run>
+export FEAST_SNAPSHOT_ID=<accepted snapshot>
+export BLOCK_A_ESTIMATED_REDIS_BYTES=<reviewed positive estimate>
 
-scripts/streaming/block_a_cloud.sh render > /tmp/block-a.yaml        # READ-ONLY
+scripts/streaming/block_a_cloud.sh render "$BLOCK_A_NAMESPACE" > /tmp/block-a.yaml  # READ-ONLY
 kubectl --context "$KUBE_CONTEXT" apply --dry-run=server -f /tmp/block-a.yaml  # READ-ONLY
 
-scripts/mlops/feast_online_job.sh c2-apply-20261107 --execute -- apply
-scripts/streaming/block_a_cloud.sh deploy --execute
-scripts/streaming/block_a_cloud.sh run verify-gke-1 --execute
-scripts/streaming/block_a_cloud.sh collect verify-gke-1 --execute
+scripts/streaming/block_a_cloud.sh preflight "$BLOCK_A_NAMESPACE" \
+  --execute --approve-redis-claim
+FEAST_ONLINE_IMAGE="$SINKS_IMAGE" REDIS_CAMPAIGN_ID="$BLOCK_A_NAMESPACE" \
+  SNAPSHOT_ID="$FEAST_SNAPSHOT_ID" ESTIMATED_REDIS_BYTES="$BLOCK_A_ESTIMATED_REDIS_BYTES" \
+  scripts/mlops/feast_online_job.sh c2-apply-20261107 --execute -- apply
+scripts/streaming/block_a_cloud.sh deploy "$BLOCK_A_NAMESPACE" --execute
+scripts/streaming/block_a_cloud.sh run "$BLOCK_A_NAMESPACE" --execute
+scripts/streaming/block_a_cloud.sh collect "$BLOCK_A_NAMESPACE" --execute
 ```
 
 Open the Flink UI, then read its metrics. **READ-ONLY.**
@@ -277,10 +298,11 @@ slightly. A `PASS` with fewer than 100 features should be investigated.
 **MUTATING.** The stack is labelled, and its storage disappears with it.
 
 ```bash
-scripts/streaming/block_a_cloud.sh cleanup --execute
+scripts/streaming/block_a_cloud.sh cleanup "$BLOCK_A_NAMESPACE" --execute
 ```
 
-Clear `db=1` as in 2.6. Keep `$HISTORY_ROOT`, which is immutable evidence.
+Do not clear DB 1 automatically. Keep its owner marker and all Redis/GCS/registry
+evidence; use a separately approved dedicated target for another campaign.
 
 ### 3.6 Evidence
 

@@ -2,6 +2,7 @@
 # Run one Feast Online operator command as a bounded Kubernetes Job.
 #
 #   FEAST_ONLINE_IMAGE=...@sha256:... ONLINE_REGISTRY_URI=gs://.../registry.db \
+#   ONLINE_STORE_ID=canonical-online EXECUTION_POLICY=production \
 #   scripts/mlops/feast_online_job.sh <run-id> [--execute] -- <operator args>
 #
 # Dry-run prints the rendered Job. --execute applies it with the explicit
@@ -26,11 +27,37 @@ done
 require_env FEAST_ONLINE_IMAGE
 require_env ONLINE_REGISTRY_URI
 require_env FEAST_OFFLINE_DATA_ROOT
-[[ "${FEAST_ONLINE_IMAGE}" == *@sha256:* ]] || die "FEAST_ONLINE_IMAGE must be pinned by digest"
+require_env ONLINE_STORE_ID
+require_env EXECUTION_POLICY
+require_env REDIS_CAMPAIGN_ID
+require_env DATASET_VERSION
+require_env FEATURE_RUN_ID
+require_env SNAPSHOT_ID
+require_digest_pinned_images FEAST_ONLINE_IMAGE
 KUBE_CONTEXT="${KUBE_CONTEXT:-gke_${EXPECTED_PROJECT_ID}_asia-southeast1-b_ewallet-dev}"
 GIT_SHA="${FEAST_ONLINE_GIT_SHA:-$(git -C "${REPO_ROOT}" rev-parse HEAD)}"
 REDIS_SECRET="${FEAST_REDIS_SECRET:-feast-online-redis}"
 [[ "${REDIS_SECRET}" =~ ^[a-z0-9-]{1,63}$ ]] || die "invalid Redis secret name: ${REDIS_SECRET}"
+case "${ONLINE_STORE_ID}" in
+  canonical-online)
+    [[ "${EXECUTION_POLICY}" == production ]] \
+      || die "verification execution policy cannot use canonical-online"
+    [[ "${REDIS_SECRET}" == feast-online-redis ]] \
+      || die "canonical-online must use feast-online-redis"
+    ;;
+  canonical-verify|rehearsal-online)
+    [[ "${EXECUTION_POLICY}" == verification ]] \
+      || die "production execution policy cannot use a verification Online Store"
+    [[ "${REDIS_SECRET}" == feast-online-redis-verify ]] \
+      || die "${ONLINE_STORE_ID} must use feast-online-redis-verify"
+    ;;
+  *) die "unsupported ONLINE_STORE_ID: ${ONLINE_STORE_ID}" ;;
+esac
+if [[ "${ONLINE_STORE_ID}" != canonical-online ]]; then
+  require_env ESTIMATED_REDIS_BYTES
+  [[ "${ESTIMATED_REDIS_BYTES}" =~ ^[1-9][0-9]*$ ]] \
+    || die "ESTIMATED_REDIS_BYTES must be a positive integer"
+fi
 WINDOW_LABEL=""
 if [[ -n "${FEAST_WINDOW_ID:-}" ]]; then
   [[ "${FEAST_WINDOW_ID}" =~ ^[0-9a-f]{12}$ ]] || die "invalid window id: ${FEAST_WINDOW_ID}"
@@ -81,6 +108,22 @@ ${args_yaml}          env:
               value: "${FEAST_OFFLINE_DATA_ROOT}"
             - name: EWALLET_GIT_SHA
               value: "${GIT_SHA}"
+            - name: EWALLET_ONLINE_STORE_ID
+              value: "${ONLINE_STORE_ID:?ONLINE_STORE_ID is required}"
+            - name: EWALLET_EXECUTION_POLICY
+              value: "${EXECUTION_POLICY}"
+            - name: EWALLET_REDIS_CAMPAIGN_ID
+              value: "${REDIS_CAMPAIGN_ID}"
+            - name: EWALLET_DATASET_VERSION
+              value: "${DATASET_VERSION}"
+            - name: EWALLET_FEATURE_RUN_ID
+              value: "${FEATURE_RUN_ID}"
+            - name: EWALLET_SNAPSHOT_ID
+              value: "${SNAPSHOT_ID}"
+            - name: EWALLET_ESTIMATED_REDIS_BYTES
+              value: "${ESTIMATED_REDIS_BYTES:-0}"
+            - name: EWALLET_REDIS_SECRET_NAME
+              value: "${REDIS_SECRET}"
             - name: HOME
               value: /tmp
             - name: EWALLET_REDIS_CONNECTION_STRING

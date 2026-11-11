@@ -27,12 +27,48 @@ from typing import Mapping, Sequence
 
 from ai_platform.features.feast.cloud_boundary import _validate_id
 from ai_platform.features.feast.schema import FEATURE_SPECS
+from ai_platform.features.feast.redis_isolation import owner_record, target_fingerprint
+from data_platform.config.dataset_identity import (
+    CANONICAL_100GB,
+    REHEARSAL_5GB,
+    resolve_storage_context,
+)
 
 
 PLAN_SCHEMA = "feast-incremental-plan-v1"
 PROVENANCE_SCHEMA = "feast-incremental-provenance-v1"
 DEFAULT_MAX_WINDOW = timedelta(hours=6)
 _JOB_NAME_LIMIT = 50
+_REDIS_MINIMUM_FREE_RATIO = 0.10
+EXECUTION_POLICIES = frozenset({"production", "verification"})
+
+
+ONLINE_STORE_BINDINGS = {
+    "canonical-online": {
+        "redis_secret": "feast-online-redis",
+        "redis_host": "redis.feature-store.svc.cluster.local",
+        "redis_port": 6379,
+        "redis_db": 0,
+        "dataset_versions": frozenset({CANONICAL_100GB}),
+        "requires_campaign_ownership": False,
+    },
+    "canonical-verify": {
+        "redis_secret": "feast-online-redis-verify",
+        "redis_host": "redis.feature-store.svc.cluster.local",
+        "redis_port": 6379,
+        "redis_db": 1,
+        "dataset_versions": frozenset({CANONICAL_100GB}),
+        "requires_campaign_ownership": True,
+    },
+    "rehearsal-online": {
+        "redis_secret": "feast-online-redis-verify",
+        "redis_host": "redis.feature-store.svc.cluster.local",
+        "redis_port": 6379,
+        "redis_db": 1,
+        "dataset_versions": frozenset({REHEARSAL_5GB}),
+        "requires_campaign_ownership": True,
+    },
+}
 
 
 class WindowState(str, Enum):
@@ -94,6 +130,10 @@ class MaterializationRequest:
         feature_run_id: DP3 run that produced the feature tables.
         feast_snapshot_id: Offline snapshot exported from that run.
         online_registry_id: Online registry that tracks the window.
+        online_store_id: Approved logical Redis target binding.
+        execution_policy: Explicit ``production`` or ``verification`` intent.
+        redis_secret: Kubernetes Secret that resolves the Redis connection.
+        estimated_redis_bytes: Owner-reviewed upper bound for this load.
         target_end: Inclusive end of the requested window.
         streaming_cutover: First instant owned by Flink, when streaming is live.
         max_window: Largest window one run may load.
@@ -104,6 +144,10 @@ class MaterializationRequest:
     feature_run_id: str
     feast_snapshot_id: str
     online_registry_id: str
+    online_store_id: str
+    execution_policy: str
+    redis_secret: str
+    estimated_redis_bytes: int
     target_end: datetime
     streaming_cutover: datetime | None = None
     max_window: timedelta = DEFAULT_MAX_WINDOW
@@ -116,11 +160,33 @@ class MaterializationRequest:
             "feature_run_id",
             "feast_snapshot_id",
             "online_registry_id",
+            "online_store_id",
         ):
             try:
                 _validate_id(getattr(self, field), field)
             except ValueError as error:
                 raise WindowError(str(error)) from error
+        try:
+            resolve_storage_context(self.dataset_version, self.bucket)
+        except ValueError as error:
+            raise WindowError(str(error)) from error
+        binding = ONLINE_STORE_BINDINGS.get(self.online_store_id)
+        if binding is None:
+            raise WindowError(
+                f"online_store_id must be one of {sorted(ONLINE_STORE_BINDINGS)}"
+            )
+        if self.redis_secret != binding["redis_secret"]:
+            raise WindowError(
+                f"{self.online_store_id} must use Redis secret {binding['redis_secret']}"
+            )
+        validate_execution_policy(self.execution_policy, self.online_store_id)
+        if self.dataset_version not in binding["dataset_versions"]:
+            raise WindowError(
+                f"{self.dataset_version} cannot use {self.online_store_id}; "
+                "rehearsal and canonical Online Stores are separate bindings"
+            )
+        if self.estimated_redis_bytes <= 0:
+            raise WindowError("estimated_redis_bytes must be positive")
         object.__setattr__(self, "target_end", _utc(self.target_end, "target_end"))
         if self.streaming_cutover is not None:
             cutover = _utc(self.streaming_cutover, "streaming_cutover")
@@ -154,9 +220,12 @@ class MaterializationRequest:
     def window_id(self) -> str:
         """Stable identity shared by every attempt at this target."""
 
-        material = "\0".join(
-            (self.registry_uri, self.snapshot_root, self.target_end.isoformat())
-        )
+        material = "\0".join((
+            self.registry_uri,
+            self.snapshot_root,
+            self.online_store_id,
+            self.target_end.isoformat(),
+        ))
         return hashlib.sha256(material.encode("utf-8")).hexdigest()[:12]
 
     def as_dict(self) -> dict[str, object]:
@@ -170,6 +239,10 @@ class MaterializationRequest:
             "feature_run_id": self.feature_run_id,
             "feast_snapshot_id": self.feast_snapshot_id,
             "online_registry_id": self.online_registry_id,
+            "online_store_id": self.online_store_id,
+            "execution_policy": self.execution_policy,
+            "redis_secret": self.redis_secret,
+            "estimated_redis_bytes": self.estimated_redis_bytes,
             "snapshot_root": self.snapshot_root,
             "registry_uri": self.registry_uri,
             "target_end": self.target_end.isoformat(),
@@ -178,6 +251,83 @@ class MaterializationRequest:
             ),
             "max_window_seconds": int(self.max_window.total_seconds()),
         }
+
+
+def validate_execution_policy(policy: str, online_store_id: str) -> None:
+    """Bind explicit production or verification intent to one store class."""
+
+    if policy not in EXECUTION_POLICIES:
+        raise WindowError(
+            f"execution policy must be one of {sorted(EXECUTION_POLICIES)}"
+        )
+    binding = ONLINE_STORE_BINDINGS.get(online_store_id)
+    if binding is None:
+        raise WindowError("execution policy cannot resolve the Online Store binding")
+    isolated = bool(binding["requires_campaign_ownership"])
+    if policy == "verification" and not isolated:
+        raise WindowError("verification execution policy cannot use the production Online Store")
+    if policy == "production" and isolated:
+        raise WindowError("production execution policy cannot use a verification Online Store")
+
+
+def verify_online_store(
+    request: MaterializationRequest, evidence: Mapping[str, object]
+) -> dict[str, object]:
+    """Verify the resolved Redis target and capacity without exposing credentials."""
+
+    binding = ONLINE_STORE_BINDINGS[request.online_store_id]
+    if evidence.get("logical_id") != request.online_store_id:
+        raise WindowError("resolved Online Store logical identity differs from the request")
+    if evidence.get("secret_name") != request.redis_secret:
+        raise WindowError("resolved Online Store secret differs from the approved binding")
+    if int(evidence.get("db", -1)) != int(binding["redis_db"]):
+        raise WindowError("resolved Redis database differs from the approved binding")
+    if (
+        evidence.get("host") != binding["redis_host"]
+        or int(evidence.get("port", 0)) != int(binding["redis_port"])
+    ):
+        raise WindowError("resolved Redis host or port differs from the approved binding")
+    actual_fingerprint = target_fingerprint(
+        str(evidence.get("host", "")),
+        int(evidence.get("port", 0)),
+        int(evidence.get("db", -1)),
+        str(evidence.get("server_run_id", "")),
+    )
+    if evidence.get("target_fingerprint") != actual_fingerprint:
+        raise WindowError("resolved Redis target fingerprint is incorrect")
+    if binding["requires_campaign_ownership"]:
+        expected_owner = owner_record(
+            request.online_registry_id,
+            request.dataset_version,
+            request.registry_uri,
+            request.online_store_id,
+            actual_fingerprint,
+            request.feature_run_id,
+            request.feast_snapshot_id,
+        )
+        if evidence.get("isolation_status") not in {"CLAIMED", "OWNED"}:
+            raise WindowError("verification Redis isolation is not established")
+        if evidence.get("ownership") != expected_owner:
+            raise WindowError("verification Redis ownership differs from the campaign")
+    if evidence.get("maxmemory_policy") != "noeviction":
+        raise WindowError("Redis maxmemory policy must be noeviction")
+    used = int(evidence.get("used_memory_bytes", -1))
+    maximum = int(evidence.get("maxmemory_bytes", 0))
+    if used < 0 or maximum <= 0 or used > maximum:
+        raise WindowError("Redis memory evidence is invalid")
+    headroom = maximum - used - request.estimated_redis_bytes
+    if headroom < int(maximum * _REDIS_MINIMUM_FREE_RATIO):
+        raise WindowError(
+            "Redis memory preflight failed: estimated load would leave less than 10% headroom; "
+            "use a separately approved Redis instance"
+        )
+    return {
+        **dict(evidence),
+        "estimated_impact_bytes": request.estimated_redis_bytes,
+        "headroom_after_estimate_bytes": headroom,
+        "minimum_free_ratio": _REDIS_MINIMUM_FREE_RATIO,
+        "status": "PASS",
+    }
 
 
 @dataclass(frozen=True)

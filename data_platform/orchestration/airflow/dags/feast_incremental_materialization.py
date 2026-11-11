@@ -36,6 +36,7 @@ TASKS = (
     ("verify_job_completion", "completion", 1, timedelta(minutes=20)),
     ("verify_online_readback", "readback", 1, timedelta(minutes=70)),
     ("record_run_provenance", "provenance", 0, timedelta(minutes=2)),
+    ("publish_datahub_lineage", "datahub", 1, timedelta(minutes=10)),
 )
 
 

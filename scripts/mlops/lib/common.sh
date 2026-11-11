@@ -47,6 +47,27 @@ require_env() {
   [[ -n "${!name:-}" ]] || die "required environment variable is unset: ${name}"
 }
 
+require_digest_pinned_images() {
+  local name image
+  for name in "$@"; do
+    image="${!name:-}"
+    [[ -n "${image}" && "${image}" =~ ^.+@sha256:[0-9a-f]{64}$ ]] \
+      || die "${name} must be independently pinned as name@sha256:<64 lowercase hex>"
+  done
+}
+
+require_matching_source_shas() {
+  local expected="$1" name actual
+  shift
+  [[ "${expected}" =~ ^[0-9a-f]{40}$ ]] \
+    || die "approved source SHA must be 40 lowercase hex characters"
+  for name in "$@"; do
+    actual="${!name:-}"
+    [[ "${actual}" == "${expected}" ]] \
+      || die "${name} does not match the approved source SHA"
+  done
+}
+
 parse_execute_flag() {
   EXECUTE=0
   while (($#)); do

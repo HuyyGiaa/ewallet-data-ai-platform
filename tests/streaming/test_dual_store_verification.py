@@ -6,13 +6,18 @@ correct; it does not show that a deployed Flink job wrote to either store.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
+import os
 import shutil
 import tempfile
 import unittest
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from ai_platform.features.feast.schema import FEATURE_SPECS
 from data_platform.streaming.config.settings import (
@@ -45,8 +50,12 @@ from data_platform.streaming.verification.consistency import (
     build_report,
     check_dispositions,
     compare_online_state,
+    compare_persisted_offline_online,
     expected_online_state,
     parse_history,
+    report_digest,
+    validate_report_contract,
+    validate_offline_identity,
 )
 from data_platform.streaming.verification.scenario import (
     DEFAULT_START,
@@ -97,7 +106,11 @@ def history_from(scenario, repeat=()):
 def online_copy(expected):
     """Build Feast-shaped rows that exactly match the expected state."""
     return {
-        key: {**snapshot.values, "__ts": int(snapshot.feature_timestamp.timestamp())}
+        key: {
+            **snapshot.values,
+            "__ts": int(snapshot.feature_timestamp.timestamp()),
+            "__pit_status": "PIT_VALUES_VERIFIED",
+        }
         for key, snapshot in expected.items()
     }
 
@@ -313,6 +326,7 @@ class ConsistencyTest(unittest.TestCase):
         online[key]["user_tx_count_24h"] += 1
         report = self.report(online)
         self.assertEqual("FAIL", report["status"])
+        self.assertEqual("FAIL", report["source_event_verification"]["status"])
         self.assertEqual(1, report["comparison"]["counts"]["MISMATCH"])
 
     def test_a_missing_row_fails(self):
@@ -357,6 +371,177 @@ class ConsistencyTest(unittest.TestCase):
         report = self.report()
         self.assertTrue(report["report_digest"].startswith("sha256:"))
         self.assertEqual("r", report["identity"]["run_id"])
+
+    def test_direct_persisted_offline_online_comparison_is_non_vacuous(self):
+        online = online_copy(self.expected)
+        offline = online_copy(self.expected)
+        result = compare_persisted_offline_online(offline, online)
+        self.assertEqual("PASS", result["status"])
+        self.assertGreater(result["comparisons"], 0)
+        self.assertEqual(0, result["mismatch_count"])
+
+    def test_direct_comparison_detects_value_timestamp_and_identity_drift(self):
+        online = online_copy(self.expected)
+        offline = online_copy(self.expected)
+        key = next(iter(offline))
+        feature = FEATURE_SPECS[key[0]]["features"][0]
+        offline[key][feature] = -999
+        offline[key]["__ts"] = datetime.fromtimestamp(
+            offline[key]["__ts"] + 1, tz=UTC
+        )
+        result = compare_persisted_offline_online(offline, online)
+        self.assertEqual("FAIL", result["status"])
+        self.assertGreaterEqual(result["mismatch_count"], 2)
+        offline.pop(key)
+        self.assertEqual(
+            "FAIL",
+            compare_persisted_offline_online(offline, online)["status"],
+        )
+
+    def test_direct_comparison_preserves_microsecond_timestamp_precision(self):
+        online = online_copy(self.expected)
+        offline = online_copy(self.expected)
+        key = next(iter(offline))
+        base = datetime.fromtimestamp(offline[key]["__ts"], tz=UTC)
+        offline[key]["__ts"] = base.replace(microsecond=900)
+        online[key]["__ts"] = base.replace(microsecond=100)
+        result = compare_persisted_offline_online(offline, online)
+        self.assertEqual("FAIL", result["status"])
+        self.assertEqual("TIMESTAMP_MISMATCH", result["failures"][0]["status"])
+
+    def test_newer_online_state_is_explicitly_superseded_not_value_compared(self):
+        online = online_copy(self.expected)
+        offline = online_copy(self.expected)
+        key = next(iter(offline))
+        offline[key]["__ts"] = datetime.fromtimestamp(offline[key]["__ts"], tz=UTC)
+        online[key]["__ts"] += 1
+        feature_count = len(FEATURE_SPECS[key[0]]["features"])
+        result = compare_persisted_offline_online(offline, online)
+        self.assertEqual("FAIL", result["status"])
+        self.assertEqual("ONLINE_NEWER_THAN_OFFLINE_CUTOVER", result["failures"][0]["status"])
+        self.assertEqual(sum(len(FEATURE_SPECS[view]["features"]) for view, _ in offline) - feature_count,
+                         result["comparisons"])
+
+    def test_pit_row_must_be_bound_to_the_exact_persisted_row(self):
+        for status in ("OLDER_ROW_SELECTED", "AMBIGUOUS_IDENTICAL_VALUES", "NOT_VERIFIED"):
+            online = online_copy(self.expected)
+            offline = online_copy(self.expected)
+            key = next(iter(offline))
+            offline[key]["__pit_status"] = status
+            result = compare_persisted_offline_online(offline, online)
+            with self.subTest(status=status):
+                self.assertEqual("FAIL", result["status"])
+                self.assertEqual(status, result["failures"][0]["status"])
+
+    def test_report_requires_both_new_offline_gates_when_supplied(self):
+        comparison = compare_online_state(self.expected, online_copy(self.expected))
+        base = dict(
+            manifest=self.manifest,
+            records=self.records,
+            repeats=self.repeats,
+            expected=self.expected,
+            comparison=comparison,
+            disposition_problems=[],
+            identity={"run_id": "r", "campaign_id": "c"},
+        )
+        passed = build_report(
+            **base,
+            offline_verification={"status": "PASS", "rows_retrieved": len(self.expected)},
+            direct_comparison={"status": "PASS", "comparisons": 1, "mismatch_count": 0},
+        )
+        self.assertEqual("PASS", passed["status"])
+        for name in ("offline_verification", "direct_comparison"):
+            values = {
+                "offline_verification": {"status": "PASS", "rows_retrieved": len(self.expected)},
+                "direct_comparison": {"status": "PASS", "comparisons": 1, "mismatch_count": 0},
+            }
+            values[name]["status"] = "FAIL"
+            with self.subTest(name=name):
+                self.assertEqual("FAIL", build_report(**base, **values)["status"])
+
+    def test_machine_report_contract_rejects_failures_and_vacuous_results(self):
+        comparison = compare_online_state(self.expected, online_copy(self.expected))
+        report = build_report(
+            self.manifest,
+            self.records,
+            self.repeats,
+            self.expected,
+            comparison,
+            [],
+            {"run_id": "r", "campaign_id": "c"},
+            offline_verification={"status": "PASS", "rows_retrieved": len(self.expected)},
+            direct_comparison={"status": "PASS", "comparisons": 5, "mismatch_count": 0},
+        )
+        validate_report_contract(report)
+        cases = (
+            {**report, "status": "FAIL"},
+            {**report, "features_compared": 0},
+            {**report, "direct_offline_online_comparison": {
+                **report["direct_offline_online_comparison"], "comparisons": 0
+            }},
+            {**report, "direct_offline_online_comparison": {
+                **report["direct_offline_online_comparison"], "mismatch_count": 1
+            }},
+            {key: value for key, value in report.items() if key != "offline_verification"},
+        )
+        for invalid in cases:
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_report_contract(invalid)
+
+    def test_report_digest_verifies_content_not_only_its_shape(self):
+        report = self._passing_report_for_contract()
+        validate_report_contract(report)
+        self.assertEqual(report["report_digest"], report_digest(report))
+
+        tampered = (
+            {**report, "report_digest": "sha256:" + "a" * 64},
+            {**report, "features_compared": report["features_compared"] + 1},
+            {**report, "status": "FAIL"},
+            {**report, "comparison": {**report["comparison"], "timestamp_mismatches": 1}},
+            {**report, "direct_offline_online_comparison": {
+                **report["direct_offline_online_comparison"], "mismatch_count": 1,
+            }},
+            {key: value for key, value in report.items() if key != "report_digest"},
+            {**report, "report_digest": "md5:" + "a" * 64},
+            {**report, "report_digest": "sha256:" + "a" * 63},
+            {**report, "report_digest": "sha256:" + "g" * 64},
+        )
+        for invalid in tampered:
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_report_contract(invalid)
+
+    def test_report_digest_survives_json_round_trip_and_field_reordering(self):
+        report = self._passing_report_for_contract()
+        loaded = json.loads(json.dumps(report, sort_keys=False))
+        validate_report_contract(loaded)
+        reordered = dict(reversed(list(loaded.items())))
+        validate_report_contract(reordered)
+
+        semantic_failure = {**report, "status": "FAIL"}
+        semantic_failure["report_digest"] = report_digest(semantic_failure)
+        with self.assertRaises(ValueError):
+            validate_report_contract(semantic_failure)
+
+    def _passing_report_for_contract(self):
+        comparison = compare_online_state(self.expected, online_copy(self.expected))
+        return build_report(
+            self.manifest,
+            self.records,
+            self.repeats,
+            self.expected,
+            comparison,
+            [],
+            {"run_id": "r", "campaign_id": "c"},
+            offline_verification={"status": "PASS", "rows_retrieved": len(self.expected)},
+            direct_comparison={"status": "PASS", "comparisons": 5, "mismatch_count": 0},
+        )
+
+    def test_offline_root_must_name_the_same_campaign_and_run(self):
+        root = "gs://bucket/streaming/campaigns/campaign-1/runs/run-1/offline"
+        validate_offline_identity(root, "campaign-1", "run-1")
+        for campaign, run in (("other", "run-1"), ("campaign-1", "other")):
+            with self.subTest(campaign=campaign, run=run), self.assertRaises(ValueError):
+                validate_offline_identity(root, campaign, run)
 
 
 class ParityNullTest(unittest.TestCase):
@@ -561,6 +746,178 @@ class OnlineServiceTest(unittest.TestCase):
         stamp = "2026-06-01T00:00:00.137000+00:00"
         update = parse_update(update_payload(feature_timestamp=stamp))
         self.assertEqual(137000, update.feature_timestamp.microsecond)
+
+    def test_local_runner_accepts_only_its_loopback_campaign_paths(self):
+        from data_platform.streaming.feast import service
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "verify-local-1"
+            offline = run / "offline-features/campaigns/verify-local-1/runs/verify-local-1/offline"
+            environment = {
+                "EWALLET_FEAST_REGISTRY": str(run / "registry.db"),
+                "EWALLET_FEAST_OFFLINE_DATA_ROOT": str(offline),
+                "EWALLET_REDIS_CONNECTION_STRING": "127.0.0.1:16399,db=5",
+            }
+            consumer = Mock()
+            producer = Mock()
+            with patch.dict(os.environ, environment, clear=True), patch(
+                "ai_platform.features.feast.registry_mirror.mirror_from_environment",
+                return_value=None,
+            ), patch(
+                "ai_platform.features.feast.online_operator.require_online_store_ownership",
+                side_effect=AssertionError("cloud ownership check used for local runner"),
+            ), patch(
+                "ai_platform.features.feast.online_operator.require_online_store_capacity",
+                side_effect=AssertionError("cloud capacity check used for local runner"),
+            ), patch("confluent_kafka.Consumer", return_value=consumer), patch(
+                "confluent_kafka.Producer", return_value=producer
+            ), patch("feast.FeatureStore"), patch.object(
+                service, "FeastPushWriter"
+            ), patch.object(
+                service, "run_online_writer", return_value={"written": 0, "dead_lettered": 0}
+            ), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(
+                    0,
+                    service.main(
+                        [
+                            "--bootstrap-servers", "localhost:19092",
+                            "--namespace", "verify-local-1",
+                            "--feast-repo", "ai_platform/features/feast/online_repo",
+                            "--max-idle-seconds", "0",
+                        ]
+                    ),
+                )
+
+    def test_local_service_refuses_remote_redis_and_cross_campaign_paths(self):
+        from data_platform.streaming.feast.service import _require_local_boundary
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "verify-local-1"
+            registry = str(run / "registry.db")
+            offline = str(
+                run / "offline-features/campaigns/verify-local-1/runs/verify-local-1/offline"
+            )
+            with self.assertRaisesRegex(ValueError, "loopback"):
+                _require_local_boundary(
+                    "redis.example.internal:6379,db=5",
+                    registry,
+                    offline,
+                    "verify-local-1",
+                )
+            with self.assertRaisesRegex(ValueError, "namespace"):
+                _require_local_boundary(
+                    "127.0.0.1:16399,db=5",
+                    registry,
+                    str(run / "offline-features/campaigns/other/runs/other/offline"),
+                    "verify-local-1",
+                )
+            escaped = str(run / "offline-features/other/other/offline")
+            with self.assertRaisesRegex(ValueError, "invalid namespace"):
+                _require_local_boundary(
+                    "127.0.0.1:16399,db=5", registry, escaped, "../other"
+                )
+
+
+class LocalValidationBoundaryTest(unittest.TestCase):
+    def test_local_runner_validates_file_campaign_paths_without_cloud_storage(self):
+        from data_platform.streaming.verification import cli
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "verify-local-1"
+            offline = run / "offline-features/campaigns/verify-local-1/runs/verify-local-1/offline"
+            history = run / "history"
+            manifest = run / "manifest.json"
+            report = run / "consistency-report.json"
+            run.mkdir()
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "namespace": "verify-local-1",
+                        "expected": {
+                            "on_time": [],
+                            "late_accepted": [],
+                            "too_late": [],
+                            "closing": [],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            environment = {
+                "EWALLET_FEAST_REGISTRY": str(run / "registry.db"),
+                "EWALLET_FEAST_OFFLINE_DATA_ROOT": str(offline),
+                "EWALLET_GIT_SHA": "test-sha",
+            }
+            args = SimpleNamespace(
+                bootstrap_servers="localhost:19092",
+                namespace="verify-local-1",
+                manifest=manifest,
+                history_root=f"file://{history}",
+                offline_feature_root=str(offline),
+                campaign_id="verify-local-1",
+                run_id="verify-local-1",
+                feast_repo="ai_platform/features/feast/online_repo",
+                report=report,
+            )
+            store = Mock()
+            store.get_feature_view.side_effect = lambda view, **_kwargs: SimpleNamespace(
+                batch_source=SimpleNamespace(path=f"{offline}/{FEATURE_SPECS[view]['table']}")
+            )
+            passing_report = {
+                "status": "PASS",
+                "features_compared": 0,
+                "entities_compared": 0,
+                "history_transactions": 0,
+                "history_repeats_dropped": 0,
+                "offline_verification": {"status": "PASS"},
+                "direct_offline_online_comparison": {"status": "PASS"},
+            }
+            with patch.dict(os.environ, environment, clear=True), patch(
+                "feast.FeatureStore", return_value=store
+            ), patch.object(cli, "read_history", return_value=iter(())), patch.object(
+                cli, "parse_history", return_value=([], 0)
+            ), patch.object(cli, "expected_online_state", return_value={}), patch.object(
+                cli, "validate_offline_identity"
+            ), patch.object(cli, "online_rows_from_feast", return_value={}), patch.object(
+                cli, "offline_rows_from_feast", return_value={}
+            ), patch.object(cli, "build_report", return_value=passing_report), patch(
+                "ai_platform.features.feast.registry_mirror.mirror_from_environment",
+                return_value=None,
+            ), contextlib.redirect_stdout(io.StringIO()):
+                try:
+                    result = cli.validate(args)
+                except ValueError as error:
+                    self.fail(f"local verification was routed through cloud storage: {error}")
+                self.assertEqual(0, result)
+
+            self.assertEqual("PASS", json.loads(report.read_text())["status"])
+
+    def test_local_validator_refuses_non_file_history_and_sibling_offline_root(self):
+        from data_platform.config.dataset_identity import validate_local_feature_store_storage
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "verify-local-1"
+            arguments = {
+                "feast_offline_data_root": str(
+                    run
+                    / "offline-features/campaigns/verify-local-1/runs/verify-local-1/offline"
+                ),
+                "history_root": f"file://{run}/history",
+                "online_registry_uri": str(run / "registry.db"),
+                "campaign_id": "verify-local-1",
+                "run_id": "verify-local-1",
+            }
+            with self.assertRaisesRegex(ValueError, "file-only"):
+                validate_local_feature_store_storage(
+                    **{**arguments, "history_root": "gs://bucket/streaming-history"}
+                )
+            with self.assertRaisesRegex(ValueError, "campaign/run"):
+                validate_local_feature_store_storage(
+                    **{
+                        **arguments,
+                        "feast_offline_data_root": str(run.parent / "other/offline"),
+                    }
+                )
 
 
 class ExpectedStateOrderingTest(unittest.TestCase):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 from ai_platform.features.feast.cloud_boundary import CloudFeastTrainingBoundary
@@ -22,8 +23,10 @@ from ai_platform.features.feast.materialization_plan import (
     resolve_materialize_job,
     verify_completion,
     verify_readback,
+    verify_online_store,
 )
 from ai_platform.features.feast.schema import FEATURE_SPECS
+from ai_platform.features.feast.redis_isolation import RedisIsolationError, claim
 
 
 UTC = timezone.utc
@@ -35,11 +38,15 @@ SOURCE_MAX = datetime(2026, 5, 31, 23, 59, 58, 617000, tzinfo=UTC)
 
 def request(**overrides) -> MaterializationRequest:
     values = dict(
-        bucket="bucket-name",
+        bucket="ewallet-data-ai-platform-hg26-data",
         dataset_version="canonical-100gb-v1",
         feature_run_id="ab-1-optimized-feat-r1",
         feast_snapshot_id="snapshot-1",
         online_registry_id="online-1",
+        online_store_id="canonical-online",
+        execution_policy="production",
+        redis_secret="feast-online-redis",
+        estimated_redis_bytes=10_000,
         target_end=T23,
     )
     return MaterializationRequest(**{**values, **overrides})
@@ -84,7 +91,7 @@ def parity(start=T22, end=T23, **overrides):
 class RequestContractTest(unittest.TestCase):
     def test_paths_match_the_existing_cloud_boundary(self):
         boundary = CloudFeastTrainingBoundary(
-            bucket="bucket-name",
+            bucket="ewallet-data-ai-platform-hg26-data",
             dataset_version="canonical-100gb-v1",
             silver_run_id="ab-1-optimized-silver-r1",
             feature_run_id="ab-1-optimized-feat-r1",
@@ -127,9 +134,137 @@ class RequestContractTest(unittest.TestCase):
         self.assertNotEqual(request().window_id, request(feast_snapshot_id="snapshot-2").window_id)
         self.assertNotEqual(request().window_id, request(target_end=T00).window_id)
 
+    def test_window_identity_changes_with_the_online_store(self):
+        self.assertNotEqual(
+            request().window_id,
+            request(
+                online_store_id="canonical-verify",
+                execution_policy="verification",
+                redis_secret="feast-online-redis-verify",
+            ).window_id,
+        )
+
+    def test_registered_dataset_must_use_its_registered_bucket(self):
+        with self.assertRaisesRegex(WindowError, "must use bucket"):
+            request(bucket="bucket-name")
+        rehearsal = request(
+            bucket="ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+            dataset_version="rehearsal-5gb-v1",
+            online_store_id="rehearsal-online",
+            execution_policy="verification",
+            redis_secret="feast-online-redis-verify",
+        )
+        self.assertEqual("rehearsal-5gb-v1", rehearsal.dataset_version)
+
+    def test_rehearsal_refuses_the_production_store_binding(self):
+        with self.assertRaisesRegex(WindowError, "rehearsal"):
+            request(
+                bucket="ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+                dataset_version="rehearsal-5gb-v1",
+            )
+
+    def test_store_binding_refuses_an_unapproved_secret(self):
+        with self.assertRaisesRegex(WindowError, "secret"):
+            request(redis_secret="some-other-secret")
+
+    def test_redis_impact_estimate_must_be_positive(self):
+        with self.assertRaisesRegex(WindowError, "estimated_redis_bytes"):
+            request(estimated_redis_bytes=0)
+
     def test_max_window_must_be_positive(self):
         with self.assertRaises(WindowError):
             request(max_window=timedelta(0))
+
+
+class RedisIsolationTest(unittest.TestCase):
+    def verification_request(self, **overrides):
+        return request(
+            online_store_id="canonical-verify",
+            execution_policy="verification",
+            redis_secret="feast-online-redis-verify",
+            **overrides,
+        )
+
+    def evidence(self, plan=None, **overrides):
+        plan = plan or self.verification_request()
+        run_id = "redis-server-run-1"
+        target = "redis.feature-store.svc.cluster.local:6379/1:" + run_id
+        fingerprint = "sha256:" + hashlib.sha256(target.encode()).hexdigest()
+        values = {
+            "logical_id": plan.online_store_id,
+            "secret_name": plan.redis_secret,
+            "host": "redis.feature-store.svc.cluster.local",
+            "port": 6379,
+            "db": 1,
+            "server_run_id": run_id,
+            "target_fingerprint": fingerprint,
+            "used_memory_bytes": 1000,
+            "maxmemory_bytes": 1_000_000,
+            "maxmemory_policy": "noeviction",
+            "ownership": {
+                "schema_version": "ewallet-redis-campaign-owner-v1",
+                "campaign_id": plan.online_registry_id,
+                "dataset_version": plan.dataset_version,
+                "registry_uri": plan.registry_uri,
+                "online_store_id": plan.online_store_id,
+                "target_fingerprint": fingerprint,
+                "source_run_id": plan.feature_run_id,
+                "snapshot_id": plan.feast_snapshot_id,
+            },
+            "isolation_status": "OWNED",
+        }
+        return {**values, **overrides}
+
+    def test_valid_isolated_verification_target_passes(self):
+        self.assertEqual("PASS", verify_online_store(
+            self.verification_request(), self.evidence()
+        )["status"])
+
+    def test_incorrect_target_fingerprint_is_rejected(self):
+        with self.assertRaisesRegex(WindowError, "fingerprint"):
+            verify_online_store(self.verification_request(), self.evidence(target_fingerprint="sha256:bad"))
+
+    def test_wrong_logical_store_identity_is_rejected(self):
+        with self.assertRaisesRegex(WindowError, "logical identity"):
+            verify_online_store(
+                self.verification_request(), self.evidence(logical_id="rehearsal-online")
+            )
+
+    def test_missing_or_conflicting_ownership_is_rejected(self):
+        plan = self.verification_request()
+        for evidence in (
+            self.evidence(plan, ownership=None),
+            self.evidence(plan, isolation_status="CONFLICT"),
+            self.evidence(plan, ownership={**self.evidence(plan)["ownership"], "campaign_id": "other"}),
+            self.evidence(plan, ownership={**self.evidence(plan)["ownership"], "registry_uri": request(online_registry_id="online-2").registry_uri}),
+        ):
+            with self.subTest(evidence=evidence), self.assertRaisesRegex(WindowError, "ownership|isolation"):
+                verify_online_store(plan, evidence)
+
+    def test_capacity_failure_is_rejected(self):
+        with self.assertRaisesRegex(WindowError, "headroom"):
+            verify_online_store(
+                self.verification_request(estimated_redis_bytes=900_000), self.evidence()
+            )
+
+    def test_atomic_claim_accepts_only_new_or_identical_ownership(self):
+        class Client:
+            def __init__(self, result):
+                self.result = result
+
+            def eval(self, script, keys, key, encoded):
+                self.call = (script, keys, key, encoded)
+                return self.result
+
+        owner = self.evidence()["ownership"]
+        for status in ("CLAIMED", b"OWNED"):
+            with self.subTest(status=status):
+                client = Client(status)
+                self.assertIn(claim(client, owner), {"CLAIMED", "OWNED"})
+                self.assertIn("DBSIZE", client.call[0])
+        for status in ("CONFLICT", "AMBIGUOUS_NONEMPTY"):
+            with self.subTest(status=status), self.assertRaisesRegex(RedisIsolationError, status):
+                claim(Client(status), owner)
 
 
 class WindowDecisionTest(unittest.TestCase):

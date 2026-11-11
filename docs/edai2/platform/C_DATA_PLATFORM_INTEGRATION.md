@@ -31,13 +31,13 @@ them, so they are ordered by event time rather than separated by key.
 | Question | Answer |
 |---|---|
 | Who owns a feature key? | All 31 features are `HYBRID`. Batch owns event time before the cutover, and Flink owns it from the cutover on |
-| Who writes historical feature rows? | DP3 only, into the immutable snapshot. Flink writes **events**, not feature rows |
+| Who writes historical feature rows? | DP3 writes immutable batch snapshots. The streaming offline writer consumes Flink's complete FeatureView-update topic and writes create-only, campaign/run-scoped Parquet rows; Flink itself still does not write GCS |
 | Who writes real-time online values? | The Feast writer, through `FeatureStore.push(..., PushMode.ONLINE)` |
 | Who else may write Redis? | Only `FeatureStore.materialize`. No component writes raw Redis keys |
 | Are FeatureViews shared? | Yes. `online_repo/feature_definitions.py` binds each view to a `PushSource` whose batch source is the snapshot |
 | What is the conflict rule? | Newest event timestamp wins, per entity and view, at nanosecond precision. An equal timestamp keeps the stored row |
 | What stops old history replacing new state? | Feast's Redis store skips a row that is not newer. Proven against real Redis in `tests/integration/test_feast_online_local.py` |
-| Is the offline store immutable? | The snapshot is immutable by run. Streaming history is append-only, addressed by run, partition and offset |
+| Is the offline store immutable? | Batch snapshots are immutable by run. Streaming feature rows use deterministic logical-row objects and create-only offset manifests; identical replay is reused and conflicting replay fails |
 | How are late events handled? | Within allowed lateness they enter state. Beyond it they stay in history, go to the late topic, and never change online state |
 
 ### Why the guard is not enough alone
@@ -60,6 +60,7 @@ These are the guarantees the code provides. End-to-end exactly-once is not claim
 | Redpanda to Flink state | Exactly-once through checkpoints | Restored in the savepoint run |
 | Flink to Kafka sinks | At-least-once (`sink.delivery-guarantee`) | Downstream must tolerate repeats |
 | History writer | At-least-once; commit after the object exists | Readers deduplicate by `transaction_id` |
+| Offline feature writer | At-least-once consumer with create-only logical-row and offset objects; offset commits after both exist | Identical replay is idempotent; a conflicting logical row is not acknowledged |
 | Feast writer | At-least-once; commit after the push | Repeats are ignored by the timestamp guard |
 | Materialization | Repeatable; the registry advances only after every view finished | A failed job can rerun the same window |
 
@@ -102,7 +103,8 @@ one stage per task, and `feast_incremental_materialization.py` is the DAG.
 retry and DLQ routing, the history writer and the Feast writer.
 
 **Added:** `ISOLATED_VERIFICATION` mode, a deterministic scenario, an independent consistency
-validator, bounded and signal-safe sinks, a locked sink image, and GKE manifests.
+validator, bounded and signal-safe sinks, a locked sink image, GKE manifests, and a separate
+offline feature writer that persists complete FeatureView updates as Feast-compatible Parquet.
 
 ### Findings
 
@@ -137,9 +139,14 @@ validator, bounded and signal-safe sinks, a locked sink image, and GKE manifests
 
 ### What the offline side is
 
-Flink's offline output is the accepted-event history, not a feature table. Consistency therefore
-means: replaying that history through the reference state yields exactly what Feast returns. The
-validator has no access to Flink state, so a match is independent evidence.
+There are now two independent offline records. The accepted-event history remains the source-event
+audit path, and replaying it through the reference state must still reproduce Feast Online. The
+new offline writer separately consumes complete FeatureView updates and persists one canonical
+Parquet schema per view, with provenance in sidecar offset manifests so it does not leak into model
+features. The validator both preserves the source-event recomputation check and performs a genuine
+Feast `get_historical_features` query over the persisted Parquet, followed by a direct entity,
+timestamp and feature-value comparison with Feast Online. File existence or a pandas read is not
+accepted as proof. This source implementation has not yet been exercised on GKE/GCS.
 
 ## 6. C3: Gold equivalence
 
@@ -198,8 +205,9 @@ These runs used real software on one machine: Redpanda, Flink 1.19, Feast 0.66, 
 
 | Check | Result |
 |---|---|
-| Dual-store scenario | PASS: 189 of 189 features match, 0 timestamp mismatches, every disposition as expected |
-| Replay of both sink topics | PASS: 16 repeated history records dropped, 45 repeated Redis writes changed nothing |
+| Earlier dual-store scenario | PASS: 189 of 189 source-derived features match, 0 timestamp mismatches, every disposition as expected |
+| Earlier replay of two sink topics | PASS: 16 repeated history records dropped, 45 repeated Redis writes changed nothing |
+| New persisted Offline writer | Unit/integration PASS: deterministic create/reuse/conflict behavior and real Feast historical retrieval across all four views; cloud runtime pending |
 | Stop with savepoint, then restore | PASS: 196 of 196 features match. The restored job caught the replayed event and fired 47 updates from restored state |
 | Real Feast operator and Redis | 17 tests pass, including an old window against newer streaming state |
 | Gold on real outputs | `TOLERANCE_EQUIVALENT`, 0 rows over tolerance |

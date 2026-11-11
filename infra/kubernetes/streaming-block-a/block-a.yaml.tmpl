@@ -10,7 +10,7 @@ kind: Service
 metadata:
   name: block-a-redpanda
   namespace: ml-platform
-  labels: {app.kubernetes.io/part-of: ewallet-block-a}
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}}
 spec:
   clusterIP: None
   selector: {app.kubernetes.io/name: block-a-redpanda}
@@ -22,7 +22,7 @@ kind: Deployment
 metadata:
   name: block-a-redpanda
   namespace: ml-platform
-  labels: {app.kubernetes.io/part-of: ewallet-block-a}
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}}
 spec:
   replicas: 1
   selector:
@@ -32,6 +32,7 @@ spec:
       labels:
         app.kubernetes.io/name: block-a-redpanda
         app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}
     spec:
       containers:
         - name: redpanda
@@ -66,7 +67,7 @@ kind: ConfigMap
 metadata:
   name: block-a-flink
   namespace: ml-platform
-  labels: {app.kubernetes.io/part-of: ewallet-block-a}
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}}
 data:
   FLINK_PROPERTIES: |
     jobmanager.rpc.address: block-a-flink-jobmanager
@@ -83,7 +84,7 @@ kind: Service
 metadata:
   name: block-a-flink-jobmanager
   namespace: ml-platform
-  labels: {app.kubernetes.io/part-of: ewallet-block-a}
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}}
 spec:
   selector: {app.kubernetes.io/name: block-a-flink-jobmanager}
   ports:
@@ -96,7 +97,7 @@ kind: Deployment
 metadata:
   name: block-a-flink-jobmanager
   namespace: ml-platform
-  labels: {app.kubernetes.io/part-of: ewallet-block-a}
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}}
 spec:
   replicas: 1
   selector:
@@ -106,6 +107,7 @@ spec:
       labels:
         app.kubernetes.io/name: block-a-flink-jobmanager
         app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}
     spec:
       containers:
         - name: jobmanager
@@ -127,7 +129,7 @@ kind: Deployment
 metadata:
   name: block-a-flink-taskmanager
   namespace: ml-platform
-  labels: {app.kubernetes.io/part-of: ewallet-block-a}
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}}
 spec:
   replicas: 1
   selector:
@@ -137,6 +139,7 @@ spec:
       labels:
         app.kubernetes.io/name: block-a-flink-taskmanager
         app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: ${BLOCK_A_NAMESPACE}
     spec:
       containers:
         - name: taskmanager

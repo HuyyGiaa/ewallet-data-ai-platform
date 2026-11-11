@@ -25,6 +25,9 @@ change, not a runtime parameter.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import argparse
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 
 CANONICAL_100GB = "canonical-100gb-v1"
@@ -180,3 +183,150 @@ def require_same_bucket(*uris: str) -> str:
     if len(buckets) != 1:
         raise ValueError(f"run roots must share one bucket, got {sorted(buckets)}")
     return buckets.pop()
+
+
+def _gcs_location(uri: str, name: str) -> tuple[str, str]:
+    """Return a strict GCS bucket/path pair with no alternate normalization."""
+
+    if not uri or "%" in uri or "\\" in uri:
+        raise ValueError(f"{name} must be an unambiguous GCS URI")
+    parsed = urlsplit(uri)
+    if (
+        parsed.scheme != "gs"
+        or not parsed.netloc
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port is not None
+        or parsed.query
+        or parsed.fragment
+        or not parsed.path.startswith("/")
+    ):
+        raise ValueError(f"{name} must be an unambiguous GCS URI")
+    decoded = unquote(parsed.path)
+    segments = decoded.split("/")[1:]
+    if not segments or any(segment in {"", ".", ".."} for segment in segments):
+        raise ValueError(f"{name} must be a normalized GCS URI")
+    return parsed.netloc, "/".join(segments)
+
+
+def _storage_identifier(value: str, name: str) -> str:
+    if (
+        not value
+        or len(value) > 80
+        or any(not (character.isalnum() or character in "-_.") for character in value)
+    ):
+        raise ValueError(f"invalid {name}")
+    return value
+
+
+def validate_feature_store_storage(
+    *,
+    dataset_version: str,
+    offline_feature_root: str,
+    feast_offline_data_root: str,
+    history_root: str,
+    online_registry_uri: str,
+    campaign_id: str,
+    run_id: str,
+) -> DatasetStorageContext:
+    """Bind every Feature Store location to one approved dataset and campaign."""
+
+    context = resolve_storage_context(dataset_version)
+    campaign = _storage_identifier(campaign_id, "campaign_id")
+    run = _storage_identifier(run_id, "run_id")
+    locations = {
+        "OFFLINE_FEATURE_ROOT": _gcs_location(offline_feature_root, "OFFLINE_FEATURE_ROOT"),
+        "FEAST_OFFLINE_DATA_ROOT": _gcs_location(
+            feast_offline_data_root, "FEAST_OFFLINE_DATA_ROOT"
+        ),
+        "HISTORY_ROOT": _gcs_location(history_root, "HISTORY_ROOT"),
+        "ONLINE_REGISTRY_URI": _gcs_location(online_registry_uri, "ONLINE_REGISTRY_URI"),
+    }
+    for name, (bucket, _) in locations.items():
+        if bucket != context.data_bucket:
+            raise ValueError(
+                f"{name} for {dataset_version} must use bucket {context.data_bucket}, not {bucket}"
+            )
+    offline_path = locations["OFFLINE_FEATURE_ROOT"][1]
+    if offline_path != "streaming-features":
+        raise ValueError("OFFLINE_FEATURE_ROOT must be the dataset streaming-features root")
+    expected_offline = f"{offline_path}/campaigns/{campaign}/runs/{run}/offline"
+    if locations["FEAST_OFFLINE_DATA_ROOT"][1] != expected_offline:
+        raise ValueError("FEAST_OFFLINE_DATA_ROOT must be the exact campaign/run path")
+    if locations["HISTORY_ROOT"][1] != f"streaming-history/{campaign}":
+        raise ValueError("HISTORY_ROOT must be the exact campaign history path")
+    registry_segments = locations["ONLINE_REGISTRY_URI"][1].split("/")
+    if (
+        len(registry_segments) != 6
+        or registry_segments[:3] != ["features", "registries", dataset_version]
+        or registry_segments[3] != "online"
+        or registry_segments[5] != "registry.db"
+    ):
+        raise ValueError("ONLINE_REGISTRY_URI must be the dataset online registry path")
+    _storage_identifier(registry_segments[4], "online_registry_id")
+    return context
+
+
+def validate_local_feature_store_storage(
+    *,
+    feast_offline_data_root: str,
+    history_root: str,
+    online_registry_uri: str,
+    campaign_id: str,
+    run_id: str,
+) -> Path:
+    """Bind the local runner to one file-only campaign directory."""
+
+    campaign = _storage_identifier(campaign_id, "campaign_id")
+    run = _storage_identifier(run_id, "run_id")
+    registry = Path(online_registry_uri)
+    offline = Path(feast_offline_data_root)
+    parsed_history = urlsplit(history_root)
+    if (
+        not registry.is_absolute()
+        or registry.name != "registry.db"
+        or not offline.is_absolute()
+        or parsed_history.scheme != "file"
+        or parsed_history.netloc
+        or parsed_history.query
+        or parsed_history.fragment
+        or not parsed_history.path.startswith("/")
+    ):
+        raise ValueError("local verification requires absolute file-only storage paths")
+    root = registry.parent.resolve()
+    expected_offline = (
+        root / "offline-features" / "campaigns" / campaign / "runs" / run / "offline"
+    )
+    if offline.resolve() != expected_offline:
+        raise ValueError("local offline Feature Store path differs from the campaign/run path")
+    if Path(unquote(parsed_history.path)).resolve() != root / "history":
+        raise ValueError("local history path differs from the campaign directory")
+    return root
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate approved dataset storage bindings")
+    command = parser.add_subparsers(dest="command", required=True)
+    feature_store = command.add_parser("validate-feature-store")
+    feature_store.add_argument("--dataset-version", required=True)
+    feature_store.add_argument("--offline-feature-root", required=True)
+    feature_store.add_argument("--feast-offline-data-root", required=True)
+    feature_store.add_argument("--history-root", required=True)
+    feature_store.add_argument("--online-registry-uri", required=True)
+    feature_store.add_argument("--campaign-id", required=True)
+    feature_store.add_argument("--run-id", required=True)
+    args = parser.parse_args(argv)
+    validate_feature_store_storage(
+        dataset_version=args.dataset_version,
+        offline_feature_root=args.offline_feature_root,
+        feast_offline_data_root=args.feast_offline_data_root,
+        history_root=args.history_root,
+        online_registry_uri=args.online_registry_uri,
+        campaign_id=args.campaign_id,
+        run_id=args.run_id,
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

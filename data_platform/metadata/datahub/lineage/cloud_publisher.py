@@ -141,7 +141,14 @@ class DataHubSdkAdapter:
                 "env": str(value.env),
             }
         if aspect == "dataJobInfo":
-            return {key: getattr(value, key) for key in ("name", "type", "flowUrn")}
+            result = {
+                "name": value.name,
+                "type": str(value.type),
+                "flowUrn": value.flowUrn,
+            }
+            if value.customProperties:
+                result["customProperties"] = dict(value.customProperties)
+            return result
         if aspect == "upstreamLineage":
             return {
                 "upstreams": sorted(

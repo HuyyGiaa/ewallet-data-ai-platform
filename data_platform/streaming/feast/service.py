@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
+from pathlib import Path
 from typing import Callable
 
 from data_platform.streaming.contracts.topics import consumer_group, topic_name
@@ -75,6 +78,34 @@ def run_online_writer(
     return {"written": written, "dead_lettered": rejected}
 
 
+def _require_local_boundary(
+    connection_string: str, registry_uri: str, offline_root: str, namespace: str | None
+) -> None:
+    """Confine the legacy local runner to loopback and its campaign directory."""
+
+    from ai_platform.features.feast.online_operator import _redis_connection_parts
+
+    host, _port, _database, _options = _redis_connection_parts(connection_string)
+    if host not in {"127.0.0.1", "localhost"}:
+        raise ValueError("local verification only accepts a loopback Redis")
+    if not namespace or re.fullmatch(r"verify-[a-z0-9][a-z0-9-]{0,46}", namespace) is None:
+        raise ValueError("invalid namespace for local verification")
+    registry = Path(registry_uri)
+    if not registry.is_absolute() or registry.name != "registry.db":
+        raise ValueError("local verification requires an absolute run-scoped registry")
+    expected = (
+        registry.parent
+        / "offline-features"
+        / "campaigns"
+        / namespace
+        / "runs"
+        / namespace
+        / "offline"
+    ).resolve()
+    if not Path(offline_root).is_absolute() or Path(offline_root).resolve() != expected:
+        raise ValueError("local offline Feature Store path differs from the namespace")
+
+
 def main(argv=None) -> int:
     """Run the Feast writer as a service or a bounded verification step."""
 
@@ -88,8 +119,24 @@ def main(argv=None) -> int:
     from feast import FeatureStore
 
     from ai_platform.features.feast.registry_mirror import mirror_from_environment
+    from ai_platform.features.feast.online_operator import (
+        require_online_store_capacity,
+        require_online_store_ownership,
+    )
 
+    registry_uri = os.environ.get("EWALLET_FEAST_REGISTRY", "")
+    connection_string = os.environ["EWALLET_REDIS_CONNECTION_STRING"]
     mirror_from_environment()
+    if registry_uri.startswith("gs://"):
+        require_online_store_ownership(connection_string, registry_uri)
+        require_online_store_capacity(connection_string)
+    else:
+        _require_local_boundary(
+            connection_string,
+            registry_uri,
+            os.environ.get("EWALLET_FEAST_OFFLINE_DATA_ROOT", ""),
+            args.namespace,
+        )
     consumer = Consumer({
         "bootstrap.servers": args.bootstrap_servers,
         "group.id": consumer_group("feast", args.namespace),

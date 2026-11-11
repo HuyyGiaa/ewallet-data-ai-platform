@@ -11,6 +11,9 @@
 # by [tool.uv] build-constraint-dependencies, so --no-build cannot be used.
 FROM flink:1.19.1-scala_2.12-java11@sha256:ab8afa8fc74fb7138499be1ead80a4057669785efc7c43cc6944aa22a50c0339
 
+ARG SOURCE_SHA
+LABEL org.opencontainers.image.revision="${SOURCE_SHA}"
+
 COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /usr/local/bin/uv
 
 RUN apt-get update \

@@ -43,16 +43,31 @@ from ai_platform.features.feast.materialization_plan import (
     provenance_digest,
     resolve_materialize_job,
     verify_completion,
+    verify_online_store,
     verify_readback,
 )
 from ai_platform.features.feast.schema import FEATURE_SPECS
+from data_platform.orchestration.airflow.python_runtime import (
+    DATAHUB_PROJECT,
+    resolve_datahub_uv,
+)
 
 
 LOGGER = logging.getLogger("ewallet.feast_incremental")
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 JOB_SCRIPT = REPOSITORY_ROOT / "scripts/mlops/feast_online_job.sh"
-STAGES = ("config", "source", "window", "materialize", "completion", "readback", "provenance")
+STAGES = (
+    "config",
+    "source",
+    "window",
+    "materialize",
+    "completion",
+    "readback",
+    "provenance",
+    "datahub",
+)
 ARTIFACTS = {stage: f"{index:02d}-{stage}.json" for index, stage in enumerate(STAGES, 1)}
+ARTIFACTS["datahub"] = "08-datahub-lineage.json"
 PASS, SKIPPED, DRY_RUN = "PASS", "SKIPPED", "DRY_RUN"
 
 
@@ -65,6 +80,7 @@ class RunContext:
     """Everything one stage needs, read once from the environment."""
 
     request: MaterializationRequest
+    execution_policy: str
     run_dir: Path
     run_id: str
     execute: bool
@@ -108,6 +124,61 @@ class SnapshotReader(Protocol):
         """Return the bytes of one object."""
 
 
+class DataHubPublisher(Protocol):
+    """Locked subprocess boundary for DataHub publication."""
+
+    def publish(
+        self, context: RunContext, provenance: Mapping[str, object]
+    ) -> dict[str, object]:
+        """Render or publish the current-run lineage and return verified evidence."""
+
+
+class UvDataHubPublisher:
+    """Invoke the dedicated DataHub project without modifying Airflow's Conda env."""
+
+    def publish(
+        self, context: RunContext, provenance: Mapping[str, object]
+    ) -> dict[str, object]:
+        uv = resolve_datahub_uv(REPOSITORY_ROOT, dict(os.environ))
+        command = [
+            uv,
+            "run",
+            "--locked",
+            "--project",
+            str(REPOSITORY_ROOT / DATAHUB_PROJECT),
+            "python",
+            "-m",
+            "data_platform.metadata.datahub.lineage.feast_materialization",
+            "--provenance",
+            str(context.run_dir / ARTIFACTS["provenance"]),
+        ]
+        if context.execute:
+            gms_url = os.environ.get("DATAHUB_GMS_URL", "").strip()
+            if not gms_url:
+                raise StageError("DATAHUB_GMS_URL is required for execute mode")
+            command.extend(("--publish", "--gms-url", gms_url))
+        result = subprocess.run(
+            command,
+            cwd=REPOSITORY_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise StageError(
+                "DataHub lineage subprocess failed: "
+                + (result.stderr.strip() or result.stdout.strip())[-1200:]
+            )
+        try:
+            payload = json.loads(result.stdout.strip().splitlines()[-1])
+        except (IndexError, json.JSONDecodeError) as error:
+            raise StageError("DataHub lineage subprocess returned no JSON evidence") from error
+        expected = "PASS" if context.execute else "DRY_RUN"
+        if payload.get("verification_status") != expected:
+            raise StageError("DataHub lineage subprocess did not verify the requested mode")
+        return payload
+
+
 class GsutilReader:
     """Read one object with the ambient gcloud credentials."""
 
@@ -135,6 +206,13 @@ class KubectlFeastCluster:
             "ONLINE_REGISTRY_URI": request.registry_uri,
             "FEAST_OFFLINE_DATA_ROOT": request.snapshot_root,
             "FEAST_WINDOW_ID": window_id,
+            "ONLINE_STORE_ID": request.online_store_id,
+            "EXECUTION_POLICY": self.context.execution_policy,
+            "REDIS_CAMPAIGN_ID": request.online_registry_id,
+            "DATASET_VERSION": request.dataset_version,
+            "FEATURE_RUN_ID": request.feature_run_id,
+            "SNAPSHOT_ID": request.feast_snapshot_id,
+            "ESTIMATED_REDIS_BYTES": str(request.estimated_redis_bytes),
         }
 
     def list_window_jobs(self, window_id: str) -> Sequence[ExistingJob]:
@@ -221,6 +299,10 @@ def context_from_environment(environment: Mapping[str, str]) -> RunContext:
         feature_run_id=required("C1_FEATURE_RUN_ID"),
         feast_snapshot_id=required("C1_FEAST_SNAPSHOT_ID"),
         online_registry_id=required("C1_ONLINE_REGISTRY_ID"),
+        online_store_id=required("C1_ONLINE_STORE_ID"),
+        execution_policy=required("C1_EXECUTION_POLICY"),
+        redis_secret=required("FEAST_REDIS_SECRET"),
+        estimated_redis_bytes=int(required("C1_ESTIMATED_REDIS_BYTES")),
         target_end=parse_utc(required("C1_TARGET_END"), "target_end"),
         streaming_cutover=parse_utc(cutover, "streaming_cutover") if cutover else None,
         max_window=timedelta(hours=float(environment.get("C1_MAX_WINDOW_HOURS", "6"))),
@@ -233,6 +315,7 @@ def context_from_environment(environment: Mapping[str, str]) -> RunContext:
     safe_run_id = "".join(char if char.isalnum() or char in "-_." else "_" for char in run_id)
     return RunContext(
         request=request,
+        execution_policy=request.execution_policy,
         run_dir=root / safe_run_id,
         run_id=run_id,
         execute=mode == "execute",
@@ -384,6 +467,10 @@ def stage_window(context: RunContext, cluster: FeastCluster, _reader: SnapshotRe
         return _write(context, "window", {"status": DRY_RUN, "state_job_manifest": manifest})
     _require_execution(context)
     evidence = _state_job(context, cluster, "pre")
+    try:
+        preflight = verify_online_store(context.request, evidence.get("online_store", {}))
+    except (TypeError, ValueError, WindowError) as error:
+        raise StageError(str(error)) from error
     decision = decide_window(context.request, _views(evidence))
     return _write(
         context,
@@ -392,6 +479,7 @@ def stage_window(context: RunContext, cluster: FeastCluster, _reader: SnapshotRe
             "status": PASS,
             "decision": decision.as_dict(),
             "state_evidence": evidence,
+            "online_store_preflight": preflight,
             "registry_generation": evidence.get("registry_generation_after"),
         },
     )
@@ -462,18 +550,21 @@ def stage_provenance(context: RunContext, _cluster: FeastCluster, _reader: Snaps
     """Record the run identity and a digest of every stage artifact."""
 
     artifacts = {}
-    for stage in STAGES[:-1]:
+    for stage in STAGES[: STAGES.index("provenance")]:
         path = context.run_dir / ARTIFACTS[stage]
         if not path.is_file():
             raise StageError(f"cannot record provenance without stage {stage}")
         artifacts[ARTIFACTS[stage]] = hashlib.sha256(path.read_bytes()).hexdigest()
     outcome = "DRY_RUN"
+    decision = None
     if context.execute:
-        outcome = str(_load(context, "window")["decision"]["state"])
+        decision = _load(context, "window")["decision"]
+        outcome = str(decision["state"])
     record: dict[str, object] = {
         "schema_version": PROVENANCE_SCHEMA,
         "status": PASS,
         "outcome": outcome,
+        "window_decision": decision,
         "request": context.request.as_dict(),
         "manifest_sha256": _load(context, "source")["manifest_sha256"],
         "operator_image": context.environment.get("FEAST_ONLINE_IMAGE"),
@@ -488,6 +579,41 @@ def stage_provenance(context: RunContext, _cluster: FeastCluster, _reader: Snaps
     return _write(context, "provenance", record)
 
 
+def stage_datahub(
+    context: RunContext,
+    _cluster: FeastCluster,
+    _reader: SnapshotReader,
+    publisher: DataHubPublisher,
+) -> dict[str, object]:
+    """Publish the genuine materialization lineage and verify every aspect."""
+
+    provenance = _load(context, "provenance")
+    if context.execute and provenance.get("outcome") in {
+        WindowState.COMPLETED.value,
+        WindowState.NO_NEW_DATA.value,
+    }:
+        return _write(
+            context,
+            "datahub",
+            {
+                "status": SKIPPED,
+                "verification_status": SKIPPED,
+                "reason": (
+                    f"{provenance['outcome']} produced no new materialization lineage"
+                ),
+                "dag_run_id": provenance["airflow"]["run_id"],
+                "dataset_version": provenance["request"]["dataset_version"],
+                "snapshot_id": provenance["request"]["feast_snapshot_id"],
+                "online_store_id": provenance["request"]["online_store_id"],
+                "published_urns": [],
+                "aspect_results": [],
+                "semantic_readback": {"verified": 0, "mismatches": 0},
+            },
+        )
+    result = publisher.publish(context, provenance)
+    return _write(context, "datahub", result)
+
+
 _RUNNERS = {
     "config": stage_config,
     "source": stage_source,
@@ -500,7 +626,11 @@ _RUNNERS = {
 
 
 def run_stage(
-    stage: str, context: RunContext, cluster: FeastCluster, reader: SnapshotReader
+    stage: str,
+    context: RunContext,
+    cluster: FeastCluster,
+    reader: SnapshotReader,
+    datahub_publisher: DataHubPublisher | None = None,
 ) -> dict[str, object]:
     """Run one stage, or return its artifact when an earlier attempt finished it.
 
@@ -518,6 +648,13 @@ def run_stage(
     if finished is not None:
         LOGGER.info(json.dumps({"event": "stage_reused", "stage": stage, "run_id": context.run_id}))
         return finished
+    if stage == "datahub":
+        return stage_datahub(
+            context,
+            cluster,
+            reader,
+            datahub_publisher or UvDataHubPublisher(),
+        )
     return _RUNNERS[stage](context, cluster, reader)
 
 
