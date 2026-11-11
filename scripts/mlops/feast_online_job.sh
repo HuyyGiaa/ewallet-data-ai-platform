@@ -51,6 +51,12 @@ case "${ONLINE_STORE_ID}" in
     [[ "${REDIS_SECRET}" == feast-online-redis-verify ]] \
       || die "${ONLINE_STORE_ID} must use feast-online-redis-verify"
     ;;
+  rehearsal-stream)
+    [[ "${EXECUTION_POLICY}" == verification ]] \
+      || die "production execution policy cannot use a verification Online Store"
+    [[ "${REDIS_SECRET}" == feast-online-redis-stream ]] \
+      || die "rehearsal-stream must use feast-online-redis-stream"
+    ;;
   *) die "unsupported ONLINE_STORE_ID: ${ONLINE_STORE_ID}" ;;
 esac
 if [[ "${ONLINE_STORE_ID}" != canonical-online ]]; then

@@ -39,6 +39,30 @@ JOB_RESOURCES=(
 )
 
 kube() { kubectl --context "${KUBE_CONTEXT}" -n ml-platform "$@"; }
+# redis_cli <db> <args...>: authenticate with the password already inside the Redis
+# pod (requirepass), so no credential crosses this machine or reaches a log.
+redis_cli() {
+  local database="$1"
+  shift
+  kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -c redis -- \
+    sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" exec redis-cli --no-auth-warning -n "$0" "$@"' "${database}" "$@"
+}
+# The Secret name and approved Redis databases come from the Python binding table.
+binding_field() {
+  python3 -m ai_platform.features.feast.materialization_plan "${ONLINE_STORE_ID}" \
+    | awk -v field="$1" '{print $field}'
+}
+secret_database() {
+  local connection database
+  connection="$(kube get secret "${FEAST_REDIS_SECRET}" -o jsonpath='{.data.connection_string}' | base64 -d)"
+  [[ "${connection#redis://}" == redis.feature-store.svc.cluster.local:6379,* ]] \
+    || die "verification Secret points to an unapproved Redis host or port"
+  database="$(tr ',' '\n' <<<"${connection}" | awk -F= '$1 == "db" {print $2}')"
+  [[ "${database}" =~ ^[0-9]+$ ]] || die "verification Secret must select a Redis database"
+  [[ ",$(binding_field 2)," == *",${database},"* ]] \
+    || die "Redis DB ${database} is outside the ${ONLINE_STORE_ID} binding"
+  printf '%s' "${database}"
+}
 apply_stdin() { kubectl --context "${KUBE_CONTEXT}" apply -f -; }
 
 require_inputs() {
@@ -58,12 +82,12 @@ require_inputs() {
   [[ "${DATASET_VERSION}" =~ ^[a-z0-9][a-z0-9._-]{2,79}$ ]] || die "invalid DATASET_VERSION"
   [[ "${FEATURE_RUN_ID}" =~ ^[a-z0-9][a-z0-9._-]{2,79}$ ]] || die "invalid FEATURE_RUN_ID"
   [[ "${FEAST_SNAPSHOT_ID}" =~ ^[a-z0-9][a-z0-9._-]{2,79}$ ]] || die "invalid FEAST_SNAPSHOT_ID"
-  [[ "${FEAST_REDIS_SECRET}" == feast-online-redis-verify ]] \
-    || die "FEAST_REDIS_SECRET must be feast-online-redis-verify"
   case "${DATASET_VERSION}:${ONLINE_STORE_ID}" in
-    canonical-100gb-v1:canonical-verify|rehearsal-5gb-v1:rehearsal-online) ;;
+    canonical-100gb-v1:canonical-verify|rehearsal-5gb-v1:rehearsal-stream) ;;
     *) die "dataset and verification Online Store binding are incompatible" ;;
   esac
+  [[ "${FEAST_REDIS_SECRET}" == "$(binding_field 1)" ]] \
+    || die "FEAST_REDIS_SECRET must be $(binding_field 1) for ${ONLINE_STORE_ID}"
 }
 
 require_namespace() {
@@ -195,7 +219,7 @@ preflight_artifact() { printf '%s/%s.preflight' "${PREFLIGHT_ROOT}" "$1"; }
 require_preflight() {
   local namespace="$1" artifact fingerprint created now expected_resource_version current_resource_version
   local info server maxmemory used policy projected run_id current_target_fingerprint
-  local current_owner current_owner_sha256 expected_owner_sha256
+  local current_owner current_owner_sha256 expected_owner_sha256 database
   artifact="$(preflight_artifact "${namespace}")"
   [[ -f "${artifact}" ]] || die "missing successful preflight for ${namespace}"
   fingerprint="$(configuration_fingerprint "${namespace}")"
@@ -211,8 +235,10 @@ require_preflight() {
   current_resource_version="$(kube get secret "${FEAST_REDIS_SECRET}" -o jsonpath='{.metadata.resourceVersion}')"
   [[ -n "${expected_resource_version}" && "${current_resource_version}" == "${expected_resource_version}" ]] \
     || die "Redis Secret changed after preflight"
-  info="$(kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -- redis-cli INFO memory)"
-  server="$(kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -- redis-cli INFO server)"
+  database="$(secret_database)"
+  grep -Fxq "redis_db=${database}" "${artifact}" || die "Redis database changed after preflight"
+  info="$(redis_cli "${database}" INFO memory)"
+  server="$(redis_cli "${database}" INFO server)"
   maxmemory="$(awk -F: '$1 == "maxmemory" {gsub("\r", "", $2); print $2}' <<<"${info}")"
   used="$(awk -F: '$1 == "used_memory" {gsub("\r", "", $2); print $2}' <<<"${info}")"
   policy="$(awk -F: '$1 == "maxmemory_policy" {gsub("\r", "", $2); print $2}' <<<"${info}")"
@@ -222,10 +248,10 @@ require_preflight() {
   [[ "${policy}" == noeviction ]] || die "current Redis maxmemory-policy is not noeviction"
   projected=$((used + BLOCK_A_ESTIMATED_REDIS_BYTES))
   ((projected * 10 <= maxmemory * 9)) || die "current projected Redis use exceeds the 90% safety ceiling"
-  current_target_fingerprint="sha256:$(printf '%s' "redis.feature-store.svc.cluster.local:6379/1:${run_id}" | sha256sum | awk '{print $1}')"
+  current_target_fingerprint="sha256:$(printf '%s' "redis.feature-store.svc.cluster.local:6379/${database}:${run_id}" | sha256sum | awk '{print $1}')"
   grep -Fxq "target_fingerprint=${current_target_fingerprint}" "${artifact}" \
     || die "physical Redis target changed after preflight"
-  current_owner="$(kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -- redis-cli -n 1 GET __ewallet_feature_store_campaign_owner_v1__)"
+  current_owner="$(redis_cli "${database}" GET __ewallet_feature_store_campaign_owner_v1__)"
   current_owner_sha256="$(printf '%s' "${current_owner}" | sha256sum | awk '{print $1}')"
   expected_owner_sha256="$(awk -F= '$1 == "redis_owner_sha256" {print $2}' "${artifact}")"
   [[ -n "${current_owner}" && "${current_owner_sha256}" == "${expected_owner_sha256}" ]] \
@@ -254,21 +280,18 @@ cmd_preflight() {
     || die "BLOCK_A_ESTIMATED_REDIS_BYTES must be a positive integer"
   if ((!EXECUTE)); then
     print_command kubectl --context "${KUBE_CONTEXT}" -n ml-platform get secret "${FEAST_REDIS_SECRET}" -o name
-    print_command kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -- redis-cli INFO memory
+    print_command kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -c redis -- redis-cli INFO memory
     echo "  assert the verification Secret exists, points to a non-production Redis DB, maxmemory-policy=noeviction, and projected use stays below 90%"
     return
   fi
   ((APPROVE_REDIS_CLAIM)) \
     || die "preflight --execute mutates Redis ownership; explicit --approve-redis-claim is required"
-  local info server maxmemory used policy projected connection run_id target_fingerprint owner claim_status resource_version
-  connection="$(kube get secret "${FEAST_REDIS_SECRET}" -o jsonpath='{.data.connection_string}' | base64 -d)"
-  [[ "${connection#redis://}" == redis.feature-store.svc.cluster.local:6379,* ]] \
-    || die "verification Secret points to an unapproved Redis host or port"
-  [[ ",${connection}," == *,db=1,* ]] || die "verification Secret must select Redis DB 1"
+  local info server maxmemory used policy projected run_id target_fingerprint owner claim_status resource_version database
+  database="$(secret_database)"
   resource_version="$(kube get secret "${FEAST_REDIS_SECRET}" -o jsonpath='{.metadata.resourceVersion}')"
   [[ -n "${resource_version}" ]] || die "verification Secret has no resource version"
-  info="$(kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -- redis-cli INFO memory)"
-  server="$(kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -- redis-cli INFO server)"
+  info="$(redis_cli "${database}" INFO memory)"
+  server="$(redis_cli "${database}" INFO server)"
   maxmemory="$(awk -F: '$1 == "maxmemory" {gsub("\\r", "", $2); print $2}' <<<"${info}")"
   used="$(awk -F: '$1 == "used_memory" {gsub("\\r", "", $2); print $2}' <<<"${info}")"
   policy="$(awk -F: '$1 == "maxmemory_policy" {gsub("\\r", "", $2); print $2}' <<<"${info}")"
@@ -278,21 +301,21 @@ cmd_preflight() {
   ((projected * 10 <= maxmemory * 9)) || die "projected Redis use exceeds the 90% safety ceiling"
   run_id="$(awk -F: '$1 == "run_id" {gsub("\r", "", $2); print $2}' <<<"${server}")"
   [[ -n "${run_id}" ]] || die "could not identify the Redis server run"
-  target_fingerprint="sha256:$(printf '%s' "redis.feature-store.svc.cluster.local:6379/1:${run_id}" | sha256sum | awk '{print $1}')"
+  target_fingerprint="sha256:$(printf '%s' "redis.feature-store.svc.cluster.local:6379/${database}:${run_id}" | sha256sum | awk '{print $1}')"
   owner="{\"campaign_id\":\"${namespace}\",\"dataset_version\":\"${DATASET_VERSION}\",\"online_store_id\":\"${ONLINE_STORE_ID}\",\"registry_uri\":\"${ONLINE_REGISTRY_URI}\",\"schema_version\":\"ewallet-redis-campaign-owner-v1\",\"snapshot_id\":\"${FEAST_SNAPSHOT_ID}\",\"source_run_id\":\"${FEATURE_RUN_ID}\",\"target_fingerprint\":\"${target_fingerprint}\"}"
-  claim_status="$(kubectl --context "${KUBE_CONTEXT}" -n feature-store exec statefulset/redis -- redis-cli -n 1 EVAL "local c=redis.call('GET',KEYS[1]); if c then if c==ARGV[1] then return 'OWNED' else return 'CONFLICT' end end; if redis.call('DBSIZE')~=0 then return 'AMBIGUOUS_NONEMPTY' end; redis.call('SET',KEYS[1],ARGV[1]); return 'CLAIMED'" 1 __ewallet_feature_store_campaign_owner_v1__ "${owner}")"
+  claim_status="$(redis_cli "${database}" EVAL "local c=redis.call('GET',KEYS[1]); if c then if c==ARGV[1] then return 'OWNED' else return 'CONFLICT' end end; if redis.call('DBSIZE')~=0 then return 'AMBIGUOUS_NONEMPTY' end; redis.call('SET',KEYS[1],ARGV[1]); return 'CLAIMED'" 1 __ewallet_feature_store_campaign_owner_v1__ "${owner}")"
   [[ "${claim_status}" == CLAIMED || "${claim_status}" == OWNED ]] \
     || die "verification Redis ownership failed: ${claim_status}"
   mkdir -p "${PREFLIGHT_ROOT}"
   local artifact temporary
   artifact="$(preflight_artifact "${namespace}")"
   temporary="$(mktemp "${PREFLIGHT_ROOT}/.${namespace}.XXXXXX")"
-  printf 'status=PASS\nnamespace=%s\nconfiguration_fingerprint=%s\ntarget_fingerprint=%s\nredis_secret_resource_version=%s\nredis_owner_sha256=%s\ncreated_epoch=%s\n' \
-    "${namespace}" "$(configuration_fingerprint "${namespace}")" "${target_fingerprint}" \
+  printf 'status=PASS\nnamespace=%s\nconfiguration_fingerprint=%s\ntarget_fingerprint=%s\nredis_db=%s\nredis_secret_resource_version=%s\nredis_owner_sha256=%s\ncreated_epoch=%s\n' \
+    "${namespace}" "$(configuration_fingerprint "${namespace}")" "${target_fingerprint}" "${database}" \
     "${resource_version}" "$(printf '%s' "${owner}" | sha256sum | awk '{print $1}')" \
     "$(date +%s)" >"${temporary}"
   mv "${temporary}" "${artifact}"
-  echo "preflight=PASS namespace=${namespace} target_fingerprint=${target_fingerprint} artifact=${artifact}"
+  echo "preflight=PASS namespace=${namespace} redis_db=${database} claim=${claim_status} target_fingerprint=${target_fingerprint} artifact=${artifact}"
 }
 
 cmd_deploy() {
