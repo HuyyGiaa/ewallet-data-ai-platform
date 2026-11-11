@@ -255,15 +255,22 @@ DagRun IDs are `<B>-<profile>-dp1|dp2|dp3`; the Airflow link is
 
 ### Semantic comparison (separate approval)
 
-After both `dp3_completion.json` exist (read-only; run with spark-submit or as a Dataproc batch):
+After both `dp3_completion.json` exist. The comparator needs distributed Spark with Delta and the
+GCS connector, so it runs as one Dataproc batch in the campaign environment (runtime 2.2, pinned
+Delta JARs, repository archive, common resource contract, no Baseline/Optimized SQL profile). It
+reads the two `campaign_manifest.json` files and the outputs they name, and writes only
+`campaigns/<B>/comparison.json`. Without `--execute` it prints the command and calls nothing:
 ```bash
-B=ab-YYYYMMDDhhmmss; D=ewallet-data-ai-platform-hg26-rehearsal-5gb-data
-python -m ops.gcp.compare_campaign_outputs \
-  --baseline-manifest-uri gs://$D/lakehouse/campaigns/$B/baseline/campaign_manifest.json \
-  --optimized-manifest-uri gs://$D/lakehouse/campaigns/$B/optimized/campaign_manifest.json \
-  --report-uri gs://$D/lakehouse/campaigns/$B/comparison.json
+B=ab-YYYYMMDDhhmmss; SHA=<the benchmark's pinned Git SHA>
+python -m ops.gcp.submit_campaign_comparison --benchmark-id $B --dataset-version rehearsal-5gb-v1 \
+  --git-sha $SHA --terraform-output-json tmp/edai1-campaign/$B/terraform-outputs.json   # dry run
+# paid, after approval (batch c1-<B without ab->, TTL 2h, at most 8 four-core processes):
+python -m ops.gcp.submit_campaign_comparison ... --execute
 ```
-The verdict is `SEMANTIC_EQUIVALENT`, `SEMANTIC_MISMATCH` or `COMPARISON_INCOMPLETE`. Only
+`--execute` first re-checks, read-only, that both manifests are comparable and pinned to `$SHA`,
+that the comparison code equals that commit, and that the batch and report do not exist. GKE
+must be asleep (the batch starts with 28 vCPU). If a batch fails before writing the report,
+retry with `--attempt 2`; a written report is final. The verdict is `SEMANTIC_EQUIVALENT`, `SEMANTIC_MISMATCH` or `COMPARISON_INCOMPLETE`. Only
 `created` (five feature tables) and `created_timestamp` (`feat_user_90d`) are excluded; each
 run's validators check those against its own recorded clock. Performance comes from
 `python -m ops.gcp.spark_stage_report` on the event logs.
