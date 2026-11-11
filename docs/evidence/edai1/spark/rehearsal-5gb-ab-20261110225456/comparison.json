@@ -1,0 +1,821 @@
+{
+  "baseline_run_ids": {
+    "bronze": "ab-20261110225456-baseline-bronze-r261110225456",
+    "features": "ab-20261110225456-baseline-feat-r261110225459",
+    "gold": "ab-20261110225456-baseline-gold-r261110225458",
+    "silver": "ab-20261110225456-baseline-silver-r261110225457"
+  },
+  "benchmark_id": "ab-20261110225456",
+  "dataset_version": "rehearsal-5gb-v1",
+  "float_policy": {
+    "abs_tol": 1e-09,
+    "rel_tol": 1e-12
+  },
+  "optimized_run_ids": {
+    "bronze": "ab-20261110225456-optimized-bronze-r261110225456",
+    "features": "ab-20261110225456-optimized-feat-r261110225459",
+    "gold": "ab-20261110225456-optimized-gold-r261110225458",
+    "silver": "ab-20261110225456-optimized-silver-r261110225457"
+  },
+  "problems": [],
+  "schema_version": "campaign-comparison-v2",
+  "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+  "stages": [
+    {
+      "baseline_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-bronze-r261110225456/bronze",
+      "optimized_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze",
+      "stage": "dp1-bronze",
+      "tables": [
+        {
+          "compared_columns": [
+            "account_id",
+            "user_id",
+            "account_type",
+            "currency",
+            "created_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 3137729,
+            "optimized": 3137729
+          },
+          "table": "accounts"
+        },
+        {
+          "compared_columns": [
+            "account_id",
+            "snapshot_date",
+            "closing_balance"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 18106858,
+            "optimized": 18106858
+          },
+          "table": "balance_snapshots"
+        },
+        {
+          "compared_columns": [
+            "device_id",
+            "user_id",
+            "device_type",
+            "os",
+            "first_seen_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 2662450,
+            "optimized": 2662450
+          },
+          "table": "devices"
+        },
+        {
+          "compared_columns": [
+            "transaction_id",
+            "label",
+            "fraud_type"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 18600000,
+            "optimized": 18600000
+          },
+          "table": "fraud_labels"
+        },
+        {
+          "compared_columns": [
+            "login_id",
+            "user_id",
+            "device_id",
+            "login_ts",
+            "is_success"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 18586786,
+            "optimized": 18586786
+          },
+          "table": "login_events"
+        },
+        {
+          "compared_columns": [
+            "snapshot_id",
+            "merchant_id",
+            "merchant_name",
+            "category",
+            "snapshot_ts",
+            "history_source"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 334800,
+            "optimized": 334800
+          },
+          "table": "merchant_history"
+        },
+        {
+          "compared_columns": [
+            "merchant_id",
+            "merchant_name",
+            "category"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 55800,
+            "optimized": 55800
+          },
+          "table": "merchants"
+        },
+        {
+          "compared_columns": [
+            "transaction_id",
+            "account_id",
+            "user_id",
+            "device_id",
+            "type",
+            "amount",
+            "currency",
+            "status",
+            "old_balance",
+            "new_balance",
+            "merchant_id",
+            "counterparty_account_id",
+            "timestamp",
+            "ingested_at",
+            "channel"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 18972000,
+            "optimized": 18972000
+          },
+          "table": "transactions"
+        },
+        {
+          "compared_columns": [
+            "user_id",
+            "full_name",
+            "email",
+            "phone",
+            "kyc_verified",
+            "created_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [],
+          "passed": true,
+          "rows": {
+            "baseline": 2325000,
+            "optimized": 2325000
+          },
+          "table": "users"
+        }
+      ],
+      "verdict": "SEMANTIC_EQUIVALENT"
+    },
+    {
+      "baseline_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-silver-r261110225457/silver",
+      "optimized_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver",
+      "stage": "dp2-silver",
+      "tables": [
+        {
+          "compared_columns": [
+            "account_id",
+            "user_id",
+            "account_type",
+            "currency",
+            "created_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "account_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 3137729,
+            "optimized": 3137729
+          },
+          "table": "accounts"
+        },
+        {
+          "compared_columns": [
+            "account_id",
+            "snapshot_date",
+            "closing_balance"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "account_id",
+            "snapshot_date"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18106858,
+            "optimized": 18106858
+          },
+          "table": "balance_snapshots"
+        },
+        {
+          "compared_columns": [
+            "device_id",
+            "user_id",
+            "device_type",
+            "os",
+            "first_seen_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "device_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 2662450,
+            "optimized": 2662450
+          },
+          "table": "devices"
+        },
+        {
+          "compared_columns": [
+            "transaction_id",
+            "label",
+            "fraud_type"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "transaction_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18600000,
+            "optimized": 18600000
+          },
+          "table": "fraud_labels"
+        },
+        {
+          "compared_columns": [
+            "login_id",
+            "user_id",
+            "device_id",
+            "login_ts",
+            "is_success",
+            "login_date"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "login_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18586786,
+            "optimized": 18586786
+          },
+          "table": "login_events"
+        },
+        {
+          "compared_columns": [
+            "snapshot_id",
+            "merchant_id",
+            "merchant_name",
+            "category",
+            "snapshot_ts",
+            "history_source"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "merchant_id",
+            "snapshot_ts"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 334800,
+            "optimized": 334800
+          },
+          "table": "merchant_history"
+        },
+        {
+          "compared_columns": [
+            "merchant_id",
+            "merchant_name",
+            "category"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "merchant_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 55800,
+            "optimized": 55800
+          },
+          "table": "merchants"
+        },
+        {
+          "compared_columns": [
+            "transaction_id",
+            "account_id",
+            "user_id",
+            "device_id",
+            "type",
+            "amount",
+            "currency",
+            "status",
+            "old_balance",
+            "new_balance",
+            "merchant_id",
+            "counterparty_account_id",
+            "timestamp",
+            "ingested_at",
+            "channel",
+            "event_date"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "transaction_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18600000,
+            "optimized": 18600000
+          },
+          "table": "transactions"
+        },
+        {
+          "compared_columns": [
+            "user_id",
+            "full_name",
+            "email",
+            "phone",
+            "kyc_verified",
+            "created_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "user_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 2325000,
+            "optimized": 2325000
+          },
+          "table": "users"
+        }
+      ],
+      "verdict": "SEMANTIC_EQUIVALENT"
+    },
+    {
+      "baseline_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-gold-r261110225458/gold",
+      "optimized_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold",
+      "stage": "dp2-gold",
+      "tables": [
+        {
+          "compared_columns": [
+            "account_id",
+            "user_id",
+            "account_type",
+            "currency",
+            "created_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "account_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 3137729,
+            "optimized": 3137729
+          },
+          "table": "dim_account"
+        },
+        {
+          "compared_columns": [
+            "date_key",
+            "calendar_date",
+            "day",
+            "month",
+            "quarter",
+            "year",
+            "day_of_week",
+            "is_weekend"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "date_key"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 151,
+            "optimized": 151
+          },
+          "table": "dim_date"
+        },
+        {
+          "compared_columns": [
+            "device_id",
+            "user_id",
+            "device_type",
+            "os",
+            "first_seen_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "device_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 2662450,
+            "optimized": 2662450
+          },
+          "table": "dim_device"
+        },
+        {
+          "compared_columns": [
+            "merchant_id",
+            "merchant_name",
+            "category"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "merchant_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 55800,
+            "optimized": 55800
+          },
+          "table": "dim_merchant"
+        },
+        {
+          "compared_columns": [
+            "merchant_sk",
+            "merchant_id",
+            "merchant_name",
+            "category",
+            "valid_from_ts",
+            "valid_to_ts",
+            "is_current"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "merchant_id",
+            "valid_from_ts"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 78294,
+            "optimized": 78294
+          },
+          "table": "dim_merchant_scd2"
+        },
+        {
+          "compared_columns": [
+            "user_id",
+            "full_name",
+            "email",
+            "phone",
+            "kyc_verified",
+            "created_at"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "user_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 2325000,
+            "optimized": 2325000
+          },
+          "table": "dim_user"
+        },
+        {
+          "compared_columns": [
+            "account_id",
+            "date_key",
+            "snapshot_date",
+            "closing_balance"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "account_id",
+            "snapshot_date"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18106858,
+            "optimized": 18106858
+          },
+          "table": "fact_balance_snapshot"
+        },
+        {
+          "compared_columns": [
+            "login_id",
+            "user_id",
+            "device_id",
+            "date_key",
+            "is_success",
+            "login_ts",
+            "event_date"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "login_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18586786,
+            "optimized": 18586786
+          },
+          "table": "fact_login_events"
+        },
+        {
+          "compared_columns": [
+            "transaction_id",
+            "user_id",
+            "account_id",
+            "merchant_id",
+            "device_id",
+            "counterparty_account_id",
+            "date_key",
+            "type",
+            "status",
+            "channel",
+            "currency",
+            "amount",
+            "old_balance",
+            "new_balance",
+            "timestamp",
+            "ingested_at",
+            "event_date"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "transaction_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18600000,
+            "optimized": 18600000
+          },
+          "table": "fact_transactions"
+        },
+        {
+          "compared_columns": [
+            "user_id",
+            "f_user_total_transactions_90d",
+            "f_user_avg_transaction_amount_90d",
+            "f_user_failed_transaction_rate_90d",
+            "f_user_distinct_merchants_90d",
+            "event_timestamp"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [
+            "created_timestamp",
+            "created"
+          ],
+          "keys": [
+            "user_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 2325000,
+            "optimized": 2325000
+          },
+          "table": "feat_user_90d"
+        },
+        {
+          "compared_columns": [
+            "transaction_id",
+            "user_id",
+            "kyc_verified",
+            "user_created_at",
+            "account_id",
+            "account_type",
+            "account_currency",
+            "account_created_at",
+            "device_id",
+            "device_type",
+            "os",
+            "first_seen_at",
+            "merchant_id",
+            "merchant_name",
+            "merchant_category",
+            "date_key",
+            "day_of_week",
+            "month",
+            "quarter",
+            "year",
+            "is_weekend",
+            "type",
+            "status",
+            "channel",
+            "currency",
+            "amount",
+            "old_balance",
+            "new_balance",
+            "counterparty_account_id",
+            "timestamp",
+            "ingested_at",
+            "event_date"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "transaction_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18600000,
+            "optimized": 18600000
+          },
+          "table": "obt_transaction_enriched"
+        },
+        {
+          "compared_columns": [
+            "merchant_id",
+            "merchant_name",
+            "category",
+            "transaction_count",
+            "total_amount",
+            "avg_amount",
+            "success_count",
+            "failed_count",
+            "distinct_users"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [],
+          "keys": [
+            "merchant_id"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 55800,
+            "optimized": 55800
+          },
+          "table": "opt_merchant_performance"
+        }
+      ],
+      "verdict": "SEMANTIC_EQUIVALENT"
+    },
+    {
+      "baseline_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-baseline-feat-r261110225459/gold",
+      "optimized_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold",
+      "stage": "dp3-features",
+      "tables": [
+        {
+          "compared_columns": [
+            "account_id",
+            "event_timestamp",
+            "account_tx_count_5m",
+            "account_tx_count_1h",
+            "account_tx_count_24h",
+            "account_amount_sum_1h",
+            "account_amount_sum_24h",
+            "account_amount_observation_count_30d",
+            "account_avg_amount_30d",
+            "account_std_amount_30d",
+            "account_failed_rate_24h",
+            "account_seconds_since_last_tx"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [
+            "created"
+          ],
+          "keys": [
+            "account_id",
+            "event_timestamp"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18599553,
+            "optimized": 18599553
+          },
+          "table": "feat_account_behavior"
+        },
+        {
+          "compared_columns": [
+            "device_id",
+            "event_timestamp",
+            "device_age_seconds",
+            "device_tx_count_1h",
+            "device_tx_count_24h",
+            "device_amount_sum_24h",
+            "device_failed_rate_24h"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [
+            "created"
+          ],
+          "keys": [
+            "device_id",
+            "event_timestamp"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18599560,
+            "optimized": 18599560
+          },
+          "table": "feat_device_behavior"
+        },
+        {
+          "compared_columns": [
+            "merchant_id",
+            "event_timestamp",
+            "merchant_tx_count_10m",
+            "merchant_tx_count_1h",
+            "merchant_tx_count_24h",
+            "merchant_unique_users_10m",
+            "merchant_unique_users_1h",
+            "merchant_amount_sum_1h",
+            "merchant_avg_amount_24h"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [
+            "created"
+          ],
+          "keys": [
+            "merchant_id",
+            "event_timestamp"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 7439478,
+            "optimized": 7439478
+          },
+          "table": "feat_merchant_behavior"
+        },
+        {
+          "compared_columns": [
+            "user_id",
+            "event_timestamp",
+            "user_tx_count_5m",
+            "user_tx_count_1h",
+            "user_tx_count_24h",
+            "user_amount_sum_1h",
+            "user_amount_observation_count_30d",
+            "user_avg_amount_30d",
+            "user_std_amount_30d",
+            "user_failed_rate_24h",
+            "user_distinct_merchants_24h"
+          ],
+          "differences": {},
+          "excluded_audit_columns": [
+            "created"
+          ],
+          "keys": [
+            "user_id",
+            "event_timestamp"
+          ],
+          "passed": true,
+          "rows": {
+            "baseline": 18599553,
+            "optimized": 18599553
+          },
+          "table": "feat_user_behavior"
+        }
+      ],
+      "verdict": "SEMANTIC_EQUIVALENT"
+    }
+  ],
+  "verdict": "SEMANTIC_EQUIVALENT"
+}

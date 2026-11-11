@@ -36,7 +36,7 @@ one driver plus seven executors: 32 vCPU and about 3,200 GB disk.
 
 Silver and DP3 candidates were revised on 2026-11-11 (previously Silver: AQE off,
 304 partitions; DP3: AQE off, 200 partitions). Rationale and the metrics that
-will test them: [Spark optimisation §7](../../../edai1/spark/OPTIMIZATION_MATRIX.md#7-2026-11-11--revised-5gb-rehearsal-spark-profiles).
+will test them: archived [Spark optimisation §7](../../../../archive/legacy-docs/docs/edai1/spark/OPTIMIZATION_MATRIX.md#7-2026-11-11--revised-5gb-rehearsal-spark-profiles); measured results: [Batch Processing and Orchestration](../../../edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md).
 
 `optimized` is retained only as the candidate identity in immutable run IDs and
 evidence. The authoritative runtime lookup is `(stage, profile)` and unknown

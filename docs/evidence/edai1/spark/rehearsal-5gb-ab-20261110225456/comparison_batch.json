@@ -1,0 +1,17 @@
+{
+  "batch_id": "c1-20261110225456",
+  "create_time": "2026-11-11T10:15:09.890739Z",
+  "dcu_hours": 7.197,
+  "labels": {
+    "benchmark_id": "ab-20261110225456",
+    "component": "campaign-comparison",
+    "dataset_version": "rehearsal-5gb-v1",
+    "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c"
+  },
+  "milli_dcu_seconds": 25908050,
+  "report_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/campaigns/ab-20261110225456/comparison.json",
+  "runtime_version": "2.2.90",
+  "shuffle_storage_gb_seconds": 2623600,
+  "state": "SUCCEEDED",
+  "state_time": "2026-11-11T10:31:52.745922Z"
+}

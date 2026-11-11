@@ -45,9 +45,8 @@ flowchart LR
 |---|---|
 | Containers and Compose | [Docker Optimisation](docker/DOCKER_OPTIMIZATION.md) |
 | Data generation | [Data Generation and Simulation](data_generator/DATA_GENERATION_AND_SIMULATION.md) |
-| Spark batch processing | [Spark Optimisation](spark/OPTIMIZATION_MATRIX.md) (100GB, historical) and [5GB Rehearsal Benchmark](spark/REHEARSAL_5GB_BENCHMARK.md) (three-DAG run `ab-20261110225456`) |
+| **Batch Processing & Orchestration — DP1/DP2/DP3** | [Batch Processing and Orchestration](BATCH_PROCESSING_AND_ORCHESTRATION.md): Spark DP1–DP3, the three Airflow DAGs and the 5GB Baseline/Optimised campaign `ab-20261110225456` |
 | Stream processing | [Flink Streaming](streaming/FLINK_STREAMING.md) |
-| Orchestration | [Airflow Pipelines DP1, DP2, DP3](airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) |
 | Storage | [Lakehouse and Warehouse Storage Optimisation](storage/STORAGE_OPTIMIZATION.md) |
 | Governance | [DataHub Lineage and Data Quality](datahub/DATAHUB_GOVERNANCE.md) |
 | Data model | [Schema Design](schema/SCHEMA_DESIGN.md) and [All-Zones Schema](schema/ALL_ZONES_SCHEMA.md) |
@@ -60,10 +59,8 @@ flowchart LR
 |---|---|---|
 | Docker | Image size 381,961,667 → 44,171,603 bytes (**−88.44 %**), identical smoke-test output | A multi-stage build with a minimal runtime image |
 | Dataset | **100,156,470,260 bytes** in 3,696 shards: 369.6 M logical transactions plus a controlled 2 % duplicate rate | A deterministic, resumable publication with a final manifest |
-| Spark DP1 (Bronze) | 845.4 s baseline vs 930.4 s with AQE and skew settings (+10.05 %) | Outputs equivalent. The optimisation did not pay off for this ingest, so the baseline was kept |
-| Spark DP2 (Silver) | 2,656.6 s vs 3,496.5 s (+31.62 %) | Outputs equivalent; baseline kept |
-| Spark DP2 (Gold) | 7,810.3 s vs 6,005.5 s (−23.11 %) | Faster, but the equivalence check found differences in three floating-point aggregates, so the optimised Gold job was not adopted |
-| Spark DP3 (features) | 1,073.9 s vs 1,787.1 s (+66.41 %) | Baseline kept |
+| DP1–DP3 on Dataproc, 5GB (`ab-20261110225456`) | 6 DagRuns and 16 batches succeeded; 260 validation rules per profile passed; Baseline and Optimised outputs `SEMANTIC_EQUIVALENT` across all 34 tables | The pipeline is correct and traceable end to end |
+| Spark Baseline vs Optimised, 5GB | Application runtime 165.1/197.9/314.9/160.2 s → 213.8/292.3/335.8/196.7 s (DP1/Silver/Gold/DP3); Gold shuffle −20.5 % | Not faster in one trial. The validator control varied 6–54 %, so the runtime differences are not attributable; plan-level AQE effects are |
 | Flink (100 events/s, 120 s) | Both profiles accepted 12,000 unique events out of 12,180 raw arrivals; the optimised profile lowered p95 latency from 10.9 s to 7.3 s | Deduplication and late-event routing behave identically in both profiles |
 | PostgreSQL warehouse | Median query latency 65.8 → 19.9 ms (**−69.7 %**) with a partial covering index; inserts became 78 % slower | The classic read/write trade-off of an index |
 | Point-in-time validation | 10 cases × 31 features = 310/310 values equal to an independent oracle; labels excluded from Feast | Training features cannot see the future |
@@ -74,8 +71,7 @@ Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../ev
 
 | Folder | Content |
 |---|---|
-| `airflow/` | Airflow run views of DP1, DP2 and DP3 |
-| `spark/` | Spark UI environment and stage views of DP1 |
+| `spark/rehearsal-5gb-ab-20261110225456/` | DP1–DP3 campaign: manifests, validation and comparison reports, Spark metrics, Airflow and Spark UI screenshots |
 | `streaming/` | Flink Dashboard captures |
 | `datahub/` | DataHub lineage and assertion captures |
 | `storage/` | DBeaver/Trino captures, benchmark output and the PostgreSQL benchmark artifact |
@@ -88,11 +84,10 @@ missing original UI/terminal captures explicitly.
 
 ## Limitations
 
-- **DP2.** The pipeline's final Gold equivalence gate failed, as described in the Airflow and Spark reports. A corrected validator exists, but it has not been re-run in the cloud.
-- **DP3 configuration.** The DP3 measurements belong to an earlier configuration. The newer optimised configuration has not been run.
+- **DP1–DP3 performance.** One Baseline and one Optimised trial on 5 GB, run 8 hours apart. Runtime differences are within run-to-run variation, and the rehearsal does not show which configuration performs best on larger data.
 - **Streaming.** The Flink measurements come from a local cluster. The newer streaming implementation, which writes to the feature store, has not been run end to end.
-- **Skew measurement.** The merchant skew was measured on a 500k-row sample, not on the full 100 GB dataset.
-- **SCD2 and feature timestamps.** These are verified with local fixtures only. They have not been materialised in a cloud run.
+- **Skew.** The 5GB run diagnoses write-layout skew in the Spark UI, but no method is shown to improve it over the Baseline.
+- **SCD2 and feature timestamps.** These are materialised and validated on the 5GB cloud run. Their schema documentation still shows local-fixture screenshots.
 
 ## Internal tracking
 

@@ -1,5 +1,7 @@
 # Spark Batch Processing and Optimisation
 
+> **Archived 2026-11-11 — not part of the submission.** This report covered historical 100GB Spark experiments and the pre-rehearsal profile revision. DP1–DP3 are now documented only in [Batch Processing and Orchestration — DP1/DP2/DP3](../../../../../docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md), from the 5GB campaign. Kept unchanged below for audit; it was moved from `docs/edai1/spark/OPTIMIZATION_MATRIX.md`.
+
 This report describes:
 
 - the Spark batch pipelines DP1, DP2 and DP3;
@@ -10,7 +12,7 @@ Orchestration of these jobs is covered in [Airflow Pipelines](../airflow/AIRFLOW
 
 ## 1. Problem definition
 
-The batch platform processes `canonical-100gb-v1`: 369.6 million logical transactions in 3,696 shards (see [Data Generation](../data_generator/DATA_GENERATION_AND_SIMULATION.md)).
+The batch platform processes `canonical-100gb-v1`: 369.6 million logical transactions in 3,696 shards (see [Data Generation](../../../../../docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md)).
 
 | Pipeline | Input → output | Main work |
 |---|---|---|
@@ -29,7 +31,7 @@ The data carries three deliberate problems:
 
 ### 2.1 Schema evolution
 
-DP1 aligns the two versions *explicitly* rather than relying on a permissive merge. V1 receives a typed null `channel`, and the union is strict ([`source_to_bronze.py`](../../../data_platform/ingestion/spark/source_to_bronze.py)):
+DP1 aligns the two versions *explicitly* rather than relying on a permissive merge. V1 receives a typed null `channel`, and the union is strict ([`source_to_bronze.py`](../../../../../data_platform/ingestion/spark/source_to_bronze.py)):
 
 ```python
 def combine_transaction_versions(v1: DataFrame, v2: DataFrame) -> DataFrame:
@@ -39,9 +41,9 @@ def combine_transaction_versions(v1: DataFrame, v2: DataFrame) -> DataFrame:
 
 `allowMissingColumns=False` makes any *unexpected* schema difference fail the job instead of silently producing nulls.
 
-Silver then gives downstream consumers one stable domain ([`silver/transactions.py`](../../../data_platform/processing/spark/silver/transactions.py)). A missing historical channel becomes `UNKNOWN`, and present values are trimmed and lower-cased.
+Silver then gives downstream consumers one stable domain ([`silver/transactions.py`](../../../../../data_platform/processing/spark/silver/transactions.py)). A missing historical channel becomes `UNKNOWN`, and present values are trimmed and lower-cased.
 
-![V1 and V2 rows in Bronze](../../evidence/storage/08_schema_evolution_500k.png)
+![V1 and V2 rows in Bronze](../../../../../docs/evidence/storage/08_schema_evolution_500k.png)
 
 *DBeaver/Trino query over the Bronze transactions (local 500k-user dataset). 899,818 V1 rows, all with a null `channel`, and 3,180,182 V2 rows, all with a populated `channel`, in one unified table.*
 
@@ -56,7 +58,7 @@ df = (df.withColumn("_row_number", F.row_number().over(window_spec))
         .drop("_row_number"))
 ```
 
-The other Silver entities use `dropDuplicates` on their business keys ([`silver/cleaners.py`](../../../data_platform/processing/spark/silver/cleaners.py)).
+The other Silver entities use `dropDuplicates` on their business keys ([`silver/cleaners.py`](../../../../../data_platform/processing/spark/silver/cleaners.py)).
 
 On the 4-million-transaction validation dataset, Silver removed exactly the 80,000 injected duplicates, and no label was duplicated.
 
@@ -68,11 +70,11 @@ Skew is handled through Spark configuration, not query rewrites:
 - **AQE skew-join handling** (`spark.sql.adaptive.skewJoin.enabled`) splits oversized join partitions.
 - **The shuffle partition count** sets the initial parallelism.
 
-Profiles are defined per stage in [`config/spark_profiles.py`](../../../data_platform/config/spark_profiles.py) and applied both to the Dataproc batch properties and to the SparkSession ([`common/spark_session.py`](../../../data_platform/processing/spark/common/spark_session.py)). The current profiles are in [§7](#7-2026-11-11--revised-5gb-rehearsal-spark-profiles).
+Profiles are defined per stage in [`config/spark_profiles.py`](../../../../../data_platform/config/spark_profiles.py) and applied both to the Dataproc batch properties and to the SparkSession ([`common/spark_session.py`](../../../../../data_platform/processing/spark/common/spark_session.py)). The current profiles are in [§7](#7-2026-11-11--revised-5gb-rehearsal-spark-profiles).
 
-A dedicated benchmark ([`benchmark/merchant_skew_benchmark.py`](../../../data_platform/processing/spark/benchmark/merchant_skew_benchmark.py)) first profiles the real merchant distribution, then runs the same merchant-keyed workload with AQE and skew-join off and on.
+A dedicated benchmark ([`benchmark/merchant_skew_benchmark.py`](../../../../../data_platform/processing/spark/benchmark/merchant_skew_benchmark.py)) first profiles the real merchant distribution, then runs the same merchant-keyed workload with AQE and skew-join off and on.
 
-![Merchant skew profile](../../evidence/spark/01_merchant_skew_profile_500k.png)
+![Merchant skew profile](../../../../../docs/evidence/spark/01_merchant_skew_profile_500k.png)
 
 *The profile mode on the local 500k-user dataset:*
 
@@ -129,15 +131,15 @@ Benchmark `ab-20261029174838` ran from commit `62f17ba6…`.
 
 DP1 is essentially a read–transform–write job over many files, and it had **no spill** in either variant. AQE therefore had little to re-optimise. The extra cost most plausibly comes from AQE planning and the larger allocation profile, but the retained metrics cannot isolate the cause. The baseline was kept after the outputs were shown to be equivalent.
 
-![DP1 baseline Spark environment](../../evidence/edai1/spark/01_dp1_baseline_spark_environment.png)
+![DP1 baseline Spark environment](../../../../../docs/evidence/edai1/spark/01_dp1_baseline_spark_environment.png)
 
 *Spark UI, Environment tab of the baseline batch: `spark.sql.adaptive.enabled=false`, `spark.sql.shuffle.partitions=200`.*
 
-![DP1 optimised Spark environment](../../evidence/edai1/spark/02_dp1_optimized_spark_environment.png)
+![DP1 optimised Spark environment](../../../../../docs/evidence/edai1/spark/02_dp1_optimized_spark_environment.png)
 
 *The optimised batch: `spark.sql.adaptive.enabled=true`. The Environment tab confirms which settings were actually in effect for each run.*
 
-![DP1 optimised stages](../../evidence/edai1/spark/03_dp1_optimized_spark_stages.png)
+![DP1 optimised stages](../../../../../docs/evidence/edai1/spark/03_dp1_optimized_spark_stages.png)
 
 *Spark UI, Stages tab of the optimised batch: 81 completed stages, 40 skipped (their shuffle output was reused), 0 failed.*
 
@@ -209,13 +211,13 @@ Raw artefacts:
 
 | Optimisation | Baseline | Optimised | Report |
 |---|---:|---:|---|
-| Docker image size | 381,961,667 B | 44,171,603 B (−88.44 %) | [Docker](../docker/DOCKER_OPTIMIZATION.md) |
-| Delta compaction (local 500k) | 2,188 files, 0.219 s query | 151 files, 0.108 s | [Storage](../storage/STORAGE_OPTIMIZATION.md) |
-| PostgreSQL index | median 65.8 ms | 19.9 ms (−69.7 %), inserts +78 % | [Storage](../storage/STORAGE_OPTIMIZATION.md) |
+| Docker image size | 381,961,667 B | 44,171,603 B (−88.44 %) | [Docker](../../../../../docs/edai1/docker/DOCKER_OPTIMIZATION.md) |
+| Delta compaction (local 500k) | 2,188 files, 0.219 s query | 151 files, 0.108 s | [Storage](../../../../../docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
+| PostgreSQL index | median 65.8 ms | 19.9 ms (−69.7 %), inserts +78 % | [Storage](../../../../../docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
 
 ## 7. 2026-11-11 — Revised 5GB rehearsal Spark profiles
 
-Sections 3 to 5 are historical 100GB results (`canonical-100gb-v1`) and are unchanged. This section records the configuration revision made before the `rehearsal-5gb-v1` campaign (the DP1–DP3 pipeline DAGs, [runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md)). **No measurement in this section comes from the new pipeline.** The profiles were first measured in benchmark `ab-20261110225456`; see the [5GB Rehearsal Benchmark](REHEARSAL_5GB_BENCHMARK.md). That single trial per profile did not show a speed-up attributable to them, so they remain tuning candidates, not verified winners.
+Sections 3 to 5 are historical 100GB results (`canonical-100gb-v1`) and are unchanged. This section records the configuration revision made before the `rehearsal-5gb-v1` campaign (the DP1–DP3 pipeline DAGs, [runbook](../../../../../docs/runbooks/edai1/cloud/edai1_campaign_runbook.md)). **No measurement in this section comes from the new pipeline.** The profiles were first measured in benchmark `ab-20261110225456`; see the [5GB Rehearsal Benchmark](REHEARSAL_5GB_BENCHMARK.md). That single trial per profile did not show a speed-up attributable to them, so they remain tuning candidates, not verified winners.
 
 ### 7.1 Configuration matrix
 

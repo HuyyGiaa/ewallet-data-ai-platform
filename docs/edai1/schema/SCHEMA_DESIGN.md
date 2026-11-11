@@ -155,7 +155,7 @@ Four focused tests passed with Spark 4.1.1:
 
 The screenshots above come from the earlier prototype fixture.
 
-**Status.** Implemented in the DP2 core Gold path and tested locally: 27 unit tests (builder, as-of lookup, corrupted inputs) and a local Spark/Delta run of generator → Bronze → Silver → Gold with the real validators. No cloud run has produced `dim_merchant_scd2` yet; rubric row 35 still needs the owner's 5GB/100GB runs. See [PHASE_B_SCD2_FEATURE_TIMESTAMPS.md](PHASE_B_SCD2_FEATURE_TIMESTAMPS.md).
+**Status.** Implemented in the DP2 core Gold path and tested locally: 27 unit tests (builder, as-of lookup, corrupted inputs) and a local Spark/Delta run of generator → Bronze → Silver → Gold with the real validators. The 5GB cloud campaign `ab-20261110225456` produced `dim_merchant_scd2` (78,294 versions) and passed its 13 SCD2 rules in both profiles ([Batch Processing and Orchestration §C.5](../BATCH_PROCESSING_AND_ORCHESTRATION.md)). See [PHASE_B_SCD2_FEATURE_TIMESTAMPS.md](PHASE_B_SCD2_FEATURE_TIMESTAMPS.md).
 
 ## 6. Feature materialisation timestamp
 
@@ -192,7 +192,7 @@ Existing outputs are not rewritten, and no `created` value is inferred from even
 
 The screenshots above come from the earlier prototype fixture.
 
-**Status.** Implemented in the DP2 and DP3 builders and tested locally (unit tests, corrupted-input tests and the local Spark/Delta run). No cloud feature output contains `created` yet; rubric row 36 still needs the owner's 5GB/100GB runs.
+**Status.** Implemented in the DP2 and DP3 builders and tested locally (unit tests, corrupted-input tests and the local Spark/Delta run). The 5GB cloud campaign `ab-20261110225456` materialised `created` on all feature tables and passed the timestamp rules ([Batch Processing and Orchestration §D.3](../BATCH_PROCESSING_AND_ORCHESTRATION.md)).
 
 ## 7. Dimension–fact relationships
 
@@ -299,7 +299,7 @@ The model is a **star schema with three fact tables sharing conformed dimensions
 
 No dimension was added or split to make the schema look like a snowflake. One gap: the fact's `user_id` and the account's `user_id` are both copied from Silver, and no validator checks that they agree. The fact builder is a pure projection of `silver.transactions`.
 
-The dimensions are current-state (full refresh). The Type 2 merchant dimension of §5 is a prototype outside the pipeline.
+The dimensions are current-state (full refresh). The Type 2 merchant dimension of §5 is built alongside them in DP2 (`dim_merchant_scd2`).
 
 ## 8. Naming conventions
 

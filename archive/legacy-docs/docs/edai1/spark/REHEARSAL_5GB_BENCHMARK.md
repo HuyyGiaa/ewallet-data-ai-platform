@@ -1,13 +1,15 @@
 # 5GB Rehearsal Benchmark `ab-20261110225456`: Baseline vs Optimised
 
+> **Archived 2026-11-11 — not part of the submission.** This report covered the first write-up of the 5GB rehearsal `ab-20261110225456`. DP1–DP3 are now documented only in [Batch Processing and Orchestration — DP1/DP2/DP3](../../../../../docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md), from the 5GB campaign. Kept unchanged below for audit; it was moved from `docs/edai1/spark/REHEARSAL_5GB_BENCHMARK.md`.
+
 This report covers the first complete Dataproc run of the three-DAG pipeline (DP1 → DP2 → DP3): one Baseline campaign and one Optimised campaign over the 5 GB rehearsal dataset.
 
 The rehearsal was meant to prove **correctness, execution, orchestration and provenance** before the 100 GB run, and to take a first look at performance. It was not meant to choose the best Spark configuration.
 
 - **Historical 100 GB results:** [Spark Optimisation](OPTIMIZATION_MATRIX.md).
 - **Orchestration:** [Airflow Pipelines](../airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) §10.
-- **Operating procedure:** the [runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md).
-- **Evidence:** in [`rehearsal-5gb-ab-20261110225456/`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/README.md).
+- **Operating procedure:** the [runbook](../../../../../docs/runbooks/edai1/cloud/edai1_campaign_runbook.md).
+- **Evidence:** in [`rehearsal-5gb-ab-20261110225456/`](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/README.md).
 
 ## 1. Executive summary
 
@@ -107,7 +109,7 @@ The next DAG refuses to start unless all of these match.
 
 Skew join is off everywhere. The validators use their own fixed session (AQE on) in both campaigns.
 
-![Silver Baseline environment](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/13_dp2_silver_baseline_spark_environment_01.png)
+![Silver Baseline environment](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/13_dp2_silver_baseline_spark_environment_01.png)
 
 *DP2 Silver Baseline, Spark Environment, application `app-20261110233243555-0298` (identified by `spark.app.startTime` 1794353561142):*
 
@@ -115,13 +117,13 @@ Skew join is off everywhere. The validators use their own fixed session (AQE on)
 - *`spark.sql.adaptive.enabled=false`, `spark.sql.shuffle.partitions=200`;*
 - *same driver memory and allocation ratio as the Optimised run.*
 
-![Silver Optimised environment](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/14_dp2_silver_optimized_environment_01.png)
+![Silver Optimised environment](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/14_dp2_silver_optimized_environment_01.png)
 
 *DP2 Silver Optimised, `app-20261111075108016-0209`: `adaptive.enabled=true`, `advisoryPartitionSizeInBytes=67108864`, still 200 partitions. Only the AQE settings differ from the Baseline.*
 
-![Gold Optimised environment](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/15_dp2_gold_optimized_spark_environment_aqe_shuffle.png)
+![Gold Optimised environment](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/15_dp2_gold_optimized_spark_environment_aqe_shuffle.png)
 
-*DP2 Gold Optimised, `spark.app.id` `app-20261111080642050-0186`: AQE on with 400 shuffle partitions. The DP1 Optimised equivalent (AQE on, 200 partitions) is [screenshot 12](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/12_dp1_optimized_spark_environment_01.png).*
+*DP2 Gold Optimised, `spark.app.id` `app-20261111080642050-0186`: AQE on with 400 shuffle partitions. The DP1 Optimised equivalent (AQE on, 200 partitions) is [screenshot 12](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/12_dp1_optimized_spark_environment_01.png).*
 
 ## 5. Baseline vs Optimised comparison
 
@@ -216,11 +218,11 @@ Silver is the only stage whose slowdown clearly exceeds its own control: +47.7 %
 
 **6.3 Coalescing to 64 MiB with `parallelismFirst=false` reduces parallelism at 5 GB.** Each run starts with 24 cores. In Optimised DP3, 4 of the 8 shuffle stages reading over 256 MiB ran with only 9, 17, 17 and 23 tasks, taking 61.4 s of stage time. Silver had 5 such stages, at 12–16 tasks.
 
-![DP3 Baseline stage 8](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/19_dp3_baseline_stage08_shuffle_read_write.png)
+![DP3 Baseline stage 8](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/19_dp3_baseline_stage08_shuffle_read_write.png)
 
 *DP3 Baseline (`app-20261111000612449-0263`), stage 8: 200 tasks, median 1.09 s, median shuffle read 1.38 MiB. These are many small partitions, each mostly scheduling overhead.*
 
-![DP3 Optimised stage 13](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/20_dp3_optimized_stage13_metrics.png)
+![DP3 Optimised stage 13](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/20_dp3_optimized_stage13_metrics.png)
 
 *The equivalent shuffle in DP3 Optimised (`app-20261111084230605-0566`), stage 13: AQE merged it into 23 tasks of about 10–12 MiB, median 14.87 s. Overhead disappears, but 23 tasks cannot fill 24–28 cores, and each task now runs about 15 s. Stage wall time was about the same (19.3 s against 18.5 s).*
 
@@ -240,15 +242,15 @@ This is why "input bytes" rise 16–31 %. GCS reads did not grow. The extra job 
 
 AQE neither coalesces nor splits a repartition with an explicit partition count, and skew join only applies to joins. So this skew is unchanged by either profile.
 
-![Silver dedup plan](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/16_dp2_silver_baseline_physical_plan_dedup.png)
+![Silver dedup plan](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/16_dp2_silver_baseline_physical_plan_dedup.png)
 
-*DP2 Silver Baseline, SQL plan of the transactions write (the same `RepartitionByExpression [event_date], 128` appears in the Gold write plan, [screenshot 17](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/17_dp2_gold_baseline_physical_plan_fact_transactions.png)):*
+*DP2 Silver Baseline, SQL plan of the transactions write (the same `RepartitionByExpression [event_date], 128` appears in the Gold write plan, [screenshot 17](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/17_dp2_gold_baseline_physical_plan_fact_transactions.png)):*
 
 - *`Window row_number()` partitioned by `transaction_id` and ordered by `ingested_at DESC`, then `Filter (_row_number = 1)`: the deduplication of §7.2;*
 - *the Silver domain filters (type, status, channel incl. `UNKNOWN`, currency);*
 - *`RepartitionByExpression [event_date], 128` before the Delta write.*
 
-![Gold Optimised stage 173](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/21_dp2_gold_optimized_stage_173_shuffle_read.png)
+![Gold Optimised stage 173](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/21_dp2_gold_optimized_stage_173_shuffle_read.png)
 
 *DP2 Gold Optimised (`app-20261111080642050-0186`), stage 173, a 160-task date-repartitioned write: median task 4.41 s, maximum 27.25 s, matching the event log (4,436.5 ms and 27,253 ms). The Baseline equivalent, stage 125, has median 4.3 s and maximum 20.1 s.*
 
@@ -258,20 +260,20 @@ AQE neither coalesces nor splits a repartition with an explicit partition count,
 
 The validators are Spark batches that run as the `semantic_validation` task of each stage. Each writes `validation-<scope>-a1.json`, and the DAG fails unless the report says `PASS` with no failed rule.
 
-All 8 reports are copied in [`validation_reports/`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/validation_reports/). Every rule's observed value is identical between the two profiles.
+All 8 reports are copied in [`validation_reports/`](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/validation_reports). Every rule's observed value is identical between the two profiles.
 
 ### 7.1 Source and Bronze (54 rules)
 
 | What was verified | How | Observed |
 |---|---|---|
-| Source integrity | DP1 preflight re-reads the Source manifest and checks its SHA-256 and shard inventory before any paid job | 186 shards, SHA-256 `ac2dfb0e…` in both campaigns; the Bronze job lists the 186 paths ([screenshot 11](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/11_dp1_baseline_spark_stages_overview.png)) |
+| Source integrity | DP1 preflight re-reads the Source manifest and checks its SHA-256 and shard inventory before any paid job | 186 shards, SHA-256 `ac2dfb0e…` in both campaigns; the Bronze job lists the 186 paths ([screenshot 11](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/11_dp1_baseline_spark_stages_overview.png)) |
 | All 9 Bronze tables are readable Delta with the required columns and compatible types | `delta_readable`, `required_columns`, `compatible_types`, `persisted_data_scan`, `non_empty` per table | 45 PASS |
 | Schema evolution | `transactions.channel_schema`: the unified table has `channel` as a string after V1 (no column) and V2 are unioned | PASS |
 | Fraud labels are consistent | Labels in {0,1}; `fraud_type` present only when label = 1; no duplicate `transaction_id`; every label refers to a Bronze transaction and every distinct transaction has one label | 0 violations; 18,600,000 labels = 18,600,000 distinct transactions |
 
 Why it matters: Bronze is the replayable copy of the Source. A schema or label defect caught here never reaches Silver.
 
-![Bronze validation log](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/07_dp1_baseline_semantic_validation_pass.png)
+![Bronze validation log](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/07_dp1_baseline_semantic_validation_pass.png)
 
 *Airflow, `bronze.semantic_validation` of DagRun `ab-20261110225456-baseline-dp1`:*
 
@@ -293,7 +295,7 @@ Why it matters: Bronze is the replayable copy of the Source. A schema or label d
 
 Why it matters: Silver is the deduplicated, typed domain that Gold and the features read. Orphan keys or duplicates here would silently distort every aggregate downstream.
 
-![Silver validation log](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/08_dp2_silver_baseline_semantic_validation_pass.png)
+![Silver validation log](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/08_dp2_silver_baseline_semantic_validation_pass.png)
 
 *Airflow, `silver.semantic_validation` of `ab-20261110225456-baseline-dp2`. It shows the orphan-key rules (`actual=0`), the fraud-label population (`labels=18600000, transactions=18600000`), the merchant-history rules and `Silver Data Quality validation PASSED`.*
 
@@ -319,7 +321,7 @@ The 13 SCD Type 2 rules check:
 
 Why it matters: the SCD Type 2 rules prove the dimension can answer "which merchant attributes were true when this transaction happened" without gaps or double matches. The SCD implementation is `data_platform/processing/spark/gold/scd2.py` (commit `356b2123`).
 
-![Gold validation log](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/09_dp2_gold_optimized_semantic_validation_pass.png)
+![Gold validation log](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/09_dp2_gold_optimized_semantic_validation_pass.png)
 
 *Airflow, `gold.semantic_validation` of `ab-20261110225456-optimized-dp2`. It shows the merchant-history rules and the 13 `dim_merchant_scd2` rules, then `Validation summary: 93 PASS | 0 FAIL` and the batch `v1-20261110225456-optimized-gold-r261110225458`.*
 
@@ -335,11 +337,11 @@ Why it matters: the SCD Type 2 rules prove the dimension can answer "which merch
 
 Why it matters: a feature computed with data from at or after its own `event_timestamp` leaks the future into training. The recomputation proves the stored values use only strictly earlier events. The plan below shows how the window enforces this.
 
-![DP3 window plan](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/18_dp3_baseline_physical_plan_historical_window.png)
+![DP3 window plan](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/18_dp3_baseline_physical_plan_historical_window.png)
 
 *DP3 Baseline, SQL plan of an account-feature write. The window is `RangeFrame(-300000000, -1)` in microseconds over `_event_micros`: the 5 minutes ending 1 µs before the current event. The current and later events are excluded. Below it are `Deduplicate [account_id, event_timestamp]` and `Repartition 64`.*
 
-![DP3 validation log](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/10_dp3_optimized_semantic_validation_pass.png)
+![DP3 validation log](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/10_dp3_optimized_semantic_validation_pass.png)
 
 *Airflow, `features.semantic_validation` of `ab-20261110225456-optimized-dp3`. It shows the `created` and `timestamp_columns` rules, `dp3_features.created_shared_by_run`, the four `pit_*_matches_recomputation` rules, then `53 PASS | 0 FAIL`.*
 
@@ -373,9 +375,9 @@ Matching schemas, equal row counts and passing per-run validators are **necessar
 | AQE plan facts, coalescing, executor start | `derived_metrics.json` (`tools/derive_metrics.py`) |
 | Dataproc usage and applied properties; Airflow durations | `dataproc_usage.json`, `airflow_dagruns.json` |
 | Event logs (in GCS; checksums only) | `EVENT_LOGS.sha256` |
-| 21 genuine screenshots with purpose, verified reference and SHA-256 | [`screenshots/MANIFEST.md`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/MANIFEST.md) |
+| 21 genuine screenshots with purpose, verified reference and SHA-256 | [`screenshots/MANIFEST.md`](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/MANIFEST.md) |
 
-All paths are relative to [`docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/README.md), and checksums are in `SHA256SUMS`.
+All paths are relative to [`docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/`](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/README.md), and checksums are in `SHA256SUMS`.
 
 ## 9. Limitations and lessons learned
 

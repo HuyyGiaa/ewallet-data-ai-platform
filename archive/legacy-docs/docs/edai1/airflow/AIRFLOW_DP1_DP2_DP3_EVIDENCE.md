@@ -1,6 +1,8 @@
 # Airflow Pipelines: DP1, DP2 and DP3
 
-> **2026-11-11:** this page describes the DAG versions that produced the historical 100GB evidence; their source is archived in [`archive/legacy-orchestration/dags/`](../../../archive/legacy-orchestration/README.md). The same three DAG IDs now run the handoff-based Baseline/Optimized workflow of the [EDAI-1 DP1–DP3 pipeline runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md). Its first complete Dataproc run, the 5GB rehearsal `ab-20261110225456`, is documented in [§10](#10-three-dag-run-on-the-5gb-rehearsal-ab-20261110225456).
+> **Archived 2026-11-11 — not part of the submission.** This report covered the historical DAG versions and their 100GB runs, plus a first description of the 5GB rehearsal. DP1–DP3 are now documented only in [Batch Processing and Orchestration — DP1/DP2/DP3](../../../../../docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md), from the 5GB campaign. Kept unchanged below for audit; it was moved from `docs/edai1/airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md`.
+
+> **2026-11-11:** this page describes the DAG versions that produced the historical 100GB evidence; their source is archived in [`archive/legacy-orchestration/dags/`](../../../../legacy-orchestration/README.md). The same three DAG IDs now run the handoff-based Baseline/Optimized workflow of the [EDAI-1 DP1–DP3 pipeline runbook](../../../../../docs/runbooks/edai1/cloud/edai1_campaign_runbook.md). Its first complete Dataproc run, the 5GB rehearsal `ab-20261110225456`, is documented in [§10](#10-three-dag-run-on-the-5gb-rehearsal-ab-20261110225456).
 
 ## 1. Overview
 
@@ -8,11 +10,11 @@ Three Airflow DAGs orchestrate the batch lakehouse:
 
 | DAG | Pipeline | Stages |
 |---|---|---|
-| [`dp1_source_to_bronze`](../../../archive/legacy-orchestration/dags/dp1_source_to_bronze.py) | DP1: raw source → Bronze | **ingest:** quota wait, Dataproc submit; **validate:** source manifest, exact Bronze Delta set |
-| [`dp2_bronze_to_curated`](../../../archive/legacy-orchestration/dags/dp2_bronze_to_curated.py) | DP2: Bronze → Silver → Gold | **ingest:** Silver and Gold baseline/optimised transforms; **validate:** physical checks, semantic scans, winner gates |
-| [`dp3_historical_features`](../../../archive/legacy-orchestration/dags/dp3_historical_features.py) | DP3: Silver + Gold → offline feature tables | **ingest:** upstream verification, quota wait, Dataproc submit; **validate:** four-table feature Delta check |
+| [`dp1_source_to_bronze`](../../../../legacy-orchestration/dags/dp1_source_to_bronze.py) | DP1: raw source → Bronze | **ingest:** quota wait, Dataproc submit; **validate:** source manifest, exact Bronze Delta set |
+| [`dp2_bronze_to_curated`](../../../../legacy-orchestration/dags/dp2_bronze_to_curated.py) | DP2: Bronze → Silver → Gold | **ingest:** Silver and Gold baseline/optimised transforms; **validate:** physical checks, semantic scans, winner gates |
+| [`dp3_historical_features`](../../../../legacy-orchestration/dags/dp3_historical_features.py) | DP3: Silver + Gold → offline feature tables | **ingest:** upstream verification, quota wait, Dataproc submit; **validate:** four-table feature Delta check |
 
-Airflow is the control plane; the Spark work runs on Dataproc Serverless, and every output is written to an immutable, run-scoped GCS prefix. All three DAGs are triggered manually (`schedule=None`), disable catch-up and allow one active run. The shared task runtime is [`python_runtime.py`](../../../data_platform/orchestration/airflow/python_runtime.py).
+Airflow is the control plane; the Spark work runs on Dataproc Serverless, and every output is written to an immutable, run-scoped GCS prefix. All three DAGs are triggered manually (`schedule=None`), disable catch-up and allow one active run. The shared task runtime is [`python_runtime.py`](../../../../../data_platform/orchestration/airflow/python_runtime.py).
 
 ## 2. Architecture and overall dataflow
 
@@ -143,25 +145,25 @@ No secret values are stored in DAG code or parameters.
 
 ### DP1: Source to Bronze
 
-![DP1 baseline run](../../evidence/edai1/n13_curated/01_dp1_baseline_airflow_run_success_20261030.png)
+![DP1 baseline run](../../../../../docs/evidence/edai1/n13_curated/01_dp1_baseline_airflow_run_success_20261030.png)
 
 *Airflow, DAG `dp1_source_to_bronze`, run `ab-20261029174838-baseline-dp1-r261029174838`: manual run from 14:10:45 to 14:28:04 (+07:00), status Success. The four tasks `verify_source_manifest → wait_bronze_quota → submit_bronze_dataproc` (16 min 39 s) `→ verify_bronze_delta` all succeeded. Earlier red and orange cells in the grid are previous attempts of the same DAG.*
 
-![DP1 optimised run](../../evidence/edai1/airflow/01_dp1_optimized_run_success_20261030.png)
+![DP1 optimised run](../../../../../docs/evidence/edai1/airflow/01_dp1_optimized_run_success_20261030.png)
 
 *The optimised run of the same campaign (`ab-20261029174838-optimized-dp1-r261029174838`, commit `62f17ba6…`): 14:57:06 to 15:15:57, Success. The Dataproc submit took 18 min 10 s. The optimised profile was slower than the baseline, so the baseline was kept (see [Spark Optimisation](../spark/OPTIMIZATION_MATRIX.md)).*
 
 ### DP2: Bronze to Silver and Gold
 
-![DP2 run](../../evidence/edai1/airflow/02_dp2_method2_run_failed_20261031.png)
+![DP2 run](../../../../../docs/evidence/edai1/airflow/02_dp2_method2_run_failed_20261031.png)
 
-*Airflow, DAG `dp2_bronze_to_curated`, run `dp2-method2-ab-20261031035745` (commit `e58a5006…`), from 10:58:37 to 17:54:21 (+07:00). All Silver and Gold transformations and their physical validations completed, and 24 of 25 tasks succeeded. The final `validate_and_select_gold_winner` task failed on exact floating-point fingerprints (§4), so the run is marked Failed and no optimised Gold output was promoted. Evidence: [DP2 run record](../../evidence/dp2_method2_ab-20261031035745/README.md).*
+*Airflow, DAG `dp2_bronze_to_curated`, run `dp2-method2-ab-20261031035745` (commit `e58a5006…`), from 10:58:37 to 17:54:21 (+07:00). All Silver and Gold transformations and their physical validations completed, and 24 of 25 tasks succeeded. The final `validate_and_select_gold_winner` task failed on exact floating-point fingerprints (§4), so the run is marked Failed and no optimised Gold output was promoted. Evidence: [DP2 run record](../../../../../docs/evidence/dp2_method2_ab-20261031035745/README.md).*
 
 ### DP3: offline features
 
-![DP3 run](../../evidence/edai1/airflow/03_dp3_historical_optimized_run_success_20261026.png)
+![DP3 run](../../../../../docs/evidence/edai1/airflow/03_dp3_historical_optimized_run_success_20261026.png)
 
-*Airflow, DAG `dp3_historical_features`, run `ab-20261025134342-optimized-dp3-r261026025955` (commit `bbae48c`), from 09:59:59 to 10:32:23 (+07:00): Success. The two upstream validators run in parallel, followed by the quota wait, the Dataproc submission and the feature-table validation. The earlier failed attempt is still visible in the grid. Evidence: [DP3 run record](../../evidence/dp3_historical_features_ab-20261025134342/README.md).*
+*Airflow, DAG `dp3_historical_features`, run `ab-20261025134342-optimized-dp3-r261026025955` (commit `bbae48c`), from 09:59:59 to 10:32:23 (+07:00): Success. The two upstream validators run in parallel, followed by the quota wait, the Dataproc submission and the feature-table validation. The earlier failed attempt is still visible in the grid. Evidence: [DP3 run record](../../../../../docs/evidence/dp3_historical_features_ab-20261025134342/README.md).*
 
 Task logs of the earlier October 25–26 runs (36 logs over seven runs: 35 successful and the one failed DP3 submission) are preserved with the evidence (`airflow_dp1_dp2_dp3_evidence.json`, SHA-256 `1f548b6c…`).
 
@@ -176,7 +178,7 @@ These limitations describe the historical runs. The DP2 gate and the DP3 point-i
 
 ## 10. Three-DAG run on the 5GB rehearsal `ab-20261110225456`
 
-On 2026-11-10/11 the current DAGs ([`dp1_source_to_bronze.py`](../../../data_platform/orchestration/airflow/dags/dp1_source_to_bronze.py), [`dp2_bronze_to_curated.py`](../../../data_platform/orchestration/airflow/dags/dp2_bronze_to_curated.py), [`dp3_historical_features.py`](../../../data_platform/orchestration/airflow/dags/dp3_historical_features.py)) ran once with the Baseline profile and once with the Optimised profile:
+On 2026-11-10/11 the current DAGs ([`dp1_source_to_bronze.py`](../../../../../data_platform/orchestration/airflow/dags/dp1_source_to_bronze.py), [`dp2_bronze_to_curated.py`](../../../../../data_platform/orchestration/airflow/dags/dp2_bronze_to_curated.py), [`dp3_historical_features.py`](../../../../../data_platform/orchestration/airflow/dags/dp3_historical_features.py)) ran once with the Baseline profile and once with the Optimised profile:
 
 - dataset `rehearsal-5gb-v1`;
 - Git `aae22b08`;
@@ -201,9 +203,9 @@ DP2 has a `silver` group and a `gold` group; DP1 has `bronze` and DP3 has `featu
 
 | Pipeline | Baseline | Optimised |
 |---|---|---|
-| DP1 | ![DP1 baseline](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/01_dp1_baseline_airflow_success.png) | ![DP1 optimised](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/02_dp1_optimized_airflow_success.png) |
-| DP2 | ![DP2 baseline](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/03_dp2_baseline_airflow_success.png) | ![DP2 optimised](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/04_dp2_optimized_airflow_dag_success.png) |
-| DP3 | ![DP3 baseline](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/05_dp3_baseline_airflow_success.png) | ![DP3 optimised](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/06_dp3_optimized_airflow_success.png) |
+| DP1 | ![DP1 baseline](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/01_dp1_baseline_airflow_success.png) | ![DP1 optimised](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/02_dp1_optimized_airflow_success.png) |
+| DP2 | ![DP2 baseline](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/03_dp2_baseline_airflow_success.png) | ![DP2 optimised](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/04_dp2_optimized_airflow_dag_success.png) |
+| DP3 | ![DP3 baseline](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/05_dp3_baseline_airflow_success.png) | ![DP3 optimised](../../../../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/06_dp3_optimized_airflow_success.png) |
 
 *Graph view and task list of each DagRun.*
 
@@ -230,7 +232,7 @@ The semantic-validation logs of each stage are shown, with what they verified, i
 
 | File | Original | SHA-256 |
 |---|---|---|
-| `n13_curated/01_dp1_baseline_airflow_run_success_20261030.png` | DP1 baseline capture, campaign `ab-20261029174838` | see [`PROVENANCE.json`](../../evidence/edai1/n13_curated/PROVENANCE.json) |
+| `n13_curated/01_dp1_baseline_airflow_run_success_20261030.png` | DP1 baseline capture, campaign `ab-20261029174838` | see [`PROVENANCE.json`](../../../../../docs/evidence/edai1/n13_curated/PROVENANCE.json) |
 | `airflow/01_dp1_optimized_run_success_20261030.png` | DP1 optimised capture, campaign `ab-20261029174838` | `37b7fcc7c55a9b496aeb8e83379051808663ea8fabea4881f63f47c73d42d2ff` |
 | `airflow/02_dp2_method2_run_failed_20261031.png` | `dp2_method2_ab-20261031035745/screenshots/03_dp2_run_details.png` | `d833d752f966d199ee6dc63c0ae731357b49bb35f5808fb3c5063fd6dc77fc04` |
 | `airflow/03_dp3_historical_optimized_run_success_20261026.png` | `dp3_historical_features_ab-20261025134342/screenshots/03_dp3_optimized_run.png` | `b5d91e49de662c67b86bc46f08b92d44029257a891fa833ebb919f950118bbbd` |

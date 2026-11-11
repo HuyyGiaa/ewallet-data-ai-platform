@@ -37,20 +37,20 @@ No EDAI-1 benchmark was rerun during N15. The three new images display preserved
 
 | Row | Deliverable needs | Qualifying images (class) | Verdict |
 |---:|---|---|---|
-| 11 | Spark UI per optimization step + Airflow integration | DP1 baseline/optimized Spark Environment + Stages (HISTORICAL_UI ×3); DP1 Airflow runs (HISTORICAL_UI ×2) | **PARTIAL**: no DP2/DP3 Spark UI |
-| 12 | Spark UI showing the skew problem and its fix | Merchant skew profile (REAL_TERMINAL, local 500k); Spark Environment shows only AQE settings | **MISSING**: no Spark UI skew diagnosis (task-time skew) |
-| 13 | Spark UI / result for schema evolution | DBeaver query of V1/V2 rows (HISTORICAL_UI); source V1/V2 (REAL_TERMINAL) | **PARTIAL**: result shown, no Spark UI |
-| 14 | Spark UI for the other offline problem (duplicates) | — | **MISSING** |
-| 15 | Airflow integration | DP1 ×2, DP2, DP3 Airflow runs (HISTORICAL_UI) | **QUALIFIES** |
+| 11 | Spark UI per optimization step + Airflow integration | 5GB: Spark Environment (DP1, Silver ×2, Gold), SQL plans (Silver, Gold, DP3), stage metrics (DP1, DP3 ×2, Gold) and 6 DagRuns (NATIVE_UI) | **QUALIFIES** |
+| 12 | Spark UI showing the skew problem and its fix | 5GB Gold stage 173 task metrics (NATIVE_UI, both profiles show the skew) | **PARTIAL**: problem diagnosed; no measured fix |
+| 13 | Spark UI / result for schema evolution | 5GB Silver plan with the `UNKNOWN` channel mapping (NATIVE_UI); V1/V2 rules PASS in the validation logs | **PARTIAL**: no measured V1/V2 split |
+| 14 | Spark UI for the other offline problem (duplicates) | 5GB Silver plan with the `row_number()` dedup; Silver validation log (NATIVE_UI) | **QUALIFIES** |
+| 15 | Airflow integration | 6 DagRuns of the 5GB campaign, DP1–DP3 × both profiles (NATIVE_UI) | **QUALIFIES** |
 | 16 | Flink UI showing problems (baseline) | Flink topology, resources, backpressure, watermark (HISTORICAL_UI, `22c0c7f`) | **QUALIFIES** |
 | 17 | Late-arrival handling | Watermark views (HISTORICAL_UI); `LATE` output (REAL_TERMINAL) | **QUALIFIES** (historical source) |
 | 18 | Other streaming problem | Backpressure baseline vs optimized (HISTORICAL_UI); dedup 12,180 → 12,000 and burst (REAL_TERMINAL) | **QUALIFIES** |
-| 22 | Airflow image of DP1, ingest | DP1 optimized and baseline runs, 4/4 Success (HISTORICAL_UI) | **QUALIFIES** |
-| 23 | DP1 validate | Same images; `verify_source_manifest` and `verify_bronze_delta` Success | **QUALIFIES** |
-| 24 | DP2 ingest | DP2 Method-2 run: Silver/Gold transform tasks succeeded, run FAILED (HISTORICAL_UI) | **QUALIFIES** for the ingest stage (failure visible) |
-| 25 | DP2 validate | Same image shows the final Gold gate **FAILED** | **NOT QUALIFYING** (shows failure) |
-| 26 | DP3 ingest | DP3 replacement run, 5/5 Success (HISTORICAL_UI) | **QUALIFIES** |
-| 27 | DP3 validate | Same image; physical validation tasks Success | **QUALIFIES** (screenshot); the row is PARTIAL because PIT validation is not an Airflow task |
+| 22 | Airflow image of DP1, ingest | 5GB DP1 DagRuns, both profiles, all Success (NATIVE_UI) | **QUALIFIES** |
+| 23 | DP1 validate | Same DagRuns plus the `bronze.semantic_validation` log (54 PASS) | **QUALIFIES** |
+| 24 | DP2 ingest | 5GB DP2 DagRuns, `silver` and `gold` groups all Success (NATIVE_UI) | **QUALIFIES** |
+| 25 | DP2 validate | Silver and Gold `semantic_validation` logs (Gold 93 PASS) | **QUALIFIES** |
+| 26 | DP3 ingest | 5GB DP3 DagRuns, both profiles (NATIVE_UI); Baseline task list shows a refresh lag on the publish task | **QUALIFIES** |
+| 27 | DP3 validate | `features.semantic_validation` log with the PIT recomputation rules (53 PASS) | **QUALIFIES** |
 | 28 | DataHub: DP1 tables + producing pipeline | DP1 Source → Bronze lineage (HISTORICAL_UI) | **QUALIFIES** |
 | 29 | DataHub: DP1 validation | Result-bound assertion "Passing" (HISTORICAL_UI, JPG) | **QUALIFIES** |
 | 30 | DataHub: DP2 lineage | Bronze → Silver, DataFlow/DataJobs, Silver → Gold (HISTORICAL_UI) | **QUALIFIES** |
@@ -58,8 +58,8 @@ No EDAI-1 benchmark was rerun during N15. The three new images display preserved
 | 32 | DataHub: DP3 lineage | DP3 feature lineage (HISTORICAL_UI) | **QUALIFIES** |
 | 33 | DataHub: DP3 validation | Feature metadata-contract assertions list/detail/logic (HISTORICAL_UI) | **QUALIFIES** for schema/physical validation; PIT results are machine-readable only |
 | 34 | Tables and relationships on each zone | DataHub lineage per zone, now embedded in [ALL_ZONES_SCHEMA.md](schema/ALL_ZONES_SCHEMA.md) (HISTORICAL_UI) | **PARTIAL**: cross-zone lineage shown; no within-zone relationship diagram |
-| 35 | SCD2 dimension | LOCAL FIXTURE terminal only (REAL_TERMINAL, fixture); source not in the submission tree | **NOT QUALIFYING** |
-| 36 | `feat_` with `event_timestamp` + `created` | LOCAL FIXTURE terminal; DataHub feature schema shows `event_timestamp` only | **PARTIAL** |
+| 35 | SCD2 dimension | Gold validation log with the 13 `dim_merchant_scd2` rules on the 5GB cloud output (NATIVE_UI); schema-doc images are still local fixtures | **QUALIFIES** for runtime proof; a table view is deferred to the schema task |
+| 36 | `feat_` with `event_timestamp` + `created` | DP3 validation log with the `timestamp_columns_typed` and `created_*` rules (NATIVE_UI) | **QUALIFIES** for runtime proof |
 | 37 | Dim ↔ fact relationships (DBeaver-like export) | — | **MISSING** |
 | 38 | Naming convention | DataHub images show zone-qualified names and Gold prefixes (HISTORICAL_UI) | **QUALIFIES** (screenshot); the naming itself is a semantic gap |
 
@@ -97,7 +97,7 @@ The audit adds 21 `NATIVE_UI` images of benchmark `ab-20261110225456`, captured 
 | 3 SQL physical plans | Silver dedup window, Gold date repartition, DP3 point-in-time window | 11, 13, 14, 40 |
 | 4 Spark stage views | Source listing (186 paths), DP3 200 against 23 coalesced tasks, Gold write-layout skew | 11, 12 |
 
-The row-11 verdict above ("no DP2/DP3 Spark UI") is superseded: DP2 and DP3 Spark UI now exist for both profiles. Row 12 stays PARTIAL. The images diagnose skew, but no method is shown to improve it.
+The row-11 verdict above ("no DP2/DP3 Spark UI") is superseded: Spark UI now exists for every pipeline and both profiles, embedded in [BATCH_PROCESSING_AND_ORCHESTRATION.md](BATCH_PROCESSING_AND_ORCHESTRATION.md). The historical Airflow and DP1 Spark images listed below are cited only by archived reports. Row 12 stays PARTIAL. The images diagnose skew, but no method is shown to improve it.
 
 The owner's comparison-submission terminal capture was not integrated, because it also shows unrelated editor content.
 
@@ -105,9 +105,9 @@ The owner's comparison-submission terminal capture was not integrated, because i
 
 | Image | Renders | Class | Source / identity | Rows | Embedded in |
 |---|---|---|---|---|---|
-| [01_dp1_optimized_run_success_20261030.png](../evidence/edai1/airflow/01_dp1_optimized_run_success_20261030.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,22,23 | AIRFLOW_DP1_DP2_DP3_EVIDENCE.md |
-| [02_dp2_method2_run_failed_20261031.png](../evidence/edai1/airflow/02_dp2_method2_run_failed_20261031.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,24,25 | AIRFLOW_DP1_DP2_DP3_EVIDENCE.md |
-| [03_dp3_historical_optimized_run_success_20261026.png](../evidence/edai1/airflow/03_dp3_historical_optimized_run_success_20261026.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,26,27 | AIRFLOW_DP1_DP2_DP3_EVIDENCE.md |
+| [01_dp1_optimized_run_success_20261030.png](../evidence/edai1/airflow/01_dp1_optimized_run_success_20261030.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,22,23 | archived `AIRFLOW_DP1_DP2_DP3_EVIDENCE.md` (not in submission) |
+| [02_dp2_method2_run_failed_20261031.png](../evidence/edai1/airflow/02_dp2_method2_run_failed_20261031.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,24,25 | archived `AIRFLOW_DP1_DP2_DP3_EVIDENCE.md` (not in submission) |
+| [03_dp3_historical_optimized_run_success_20261026.png](../evidence/edai1/airflow/03_dp3_historical_optimized_run_success_20261026.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,26,27 | archived `AIRFLOW_DP1_DP2_DP3_EVIDENCE.md` (not in submission) |
 | [dp1_bronze_result_bound_published_20261031.jpg](../evidence/edai1/datahub/dp1_bronze_result_bound_published_20261031.jpg) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 29 | datahub/DATAHUB_GOVERNANCE.md |
 | [dp1_source_bronze_historical_20261025.png](../evidence/edai1/datahub/dp1_source_bronze_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 28,34 | ALL_ZONES_SCHEMA.md, datahub/DATAHUB_GOVERNANCE.md |
 | [dp2_bronze_silver_historical_20261025.png](../evidence/edai1/datahub/dp2_bronze_silver_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30,34 | ALL_ZONES_SCHEMA.md, datahub/DATAHUB_GOVERNANCE.md |
@@ -128,9 +128,9 @@ The owner's comparison-submission terminal capture was not integrated, because i
 | [01_schema_evolution_source_500k.png](../evidence/edai1/novel_ideas/01_schema_evolution_source_500k.png) | yes | REAL_TERMINAL | historical local terminal | 6,13 | data_generator/DATA_GENERATION_AND_SIMULATION.md, novel_ideas/01_DETERMINISTIC_SHARDING.md |
 | [02_pit_cloud_run_success.png](../evidence/edai1/novel_ideas/02_pit_cloud_run_success.png) | yes | HISTORICAL_UI | Google Cloud Run / Logging, 2026-10-31 | 40 | novel_ideas/02_PIT_LEAKAGE_PREVENTION.md |
 | [03_pit_cloud_logging_310_pass.png](../evidence/edai1/novel_ideas/03_pit_cloud_logging_310_pass.png) | yes | HISTORICAL_UI | Google Cloud Run / Logging, 2026-10-31 | 40 | novel_ideas/02_PIT_LEAKAGE_PREVENTION.md |
-| [01_dp1_baseline_spark_environment.png](../evidence/edai1/spark/01_dp1_baseline_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | OPTIMIZATION_MATRIX.md |
-| [02_dp1_optimized_spark_environment.png](../evidence/edai1/spark/02_dp1_optimized_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | OPTIMIZATION_MATRIX.md |
-| [03_dp1_optimized_spark_stages.png](../evidence/edai1/spark/03_dp1_optimized_spark_stages.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | OPTIMIZATION_MATRIX.md |
+| [01_dp1_baseline_spark_environment.png](../evidence/edai1/spark/01_dp1_baseline_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
+| [02_dp1_optimized_spark_environment.png](../evidence/edai1/spark/02_dp1_optimized_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
+| [03_dp1_optimized_spark_stages.png](../evidence/edai1/spark/03_dp1_optimized_spark_stages.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
 | [01_layout_before_500k.png](../evidence/edai1/storage/01_layout_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
 | [02_benchmark_before_500k.png](../evidence/edai1/storage/02_benchmark_before_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | storage/STORAGE_OPTIMIZATION.md |
 | [03_partition_pruning_before_500k.png](../evidence/edai1/storage/03_partition_pruning_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
@@ -158,6 +158,6 @@ The owner's comparison-submission terminal capture was not integrated, because i
 | [dp2_dataflow_jobs_historical_20261025.png](../evidence/images/datahub/lineage/dp2_dataflow_jobs_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30 | DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md |
 | [dp2_silver_gold_historical_20261025.png](../evidence/images/datahub/lineage/dp2_silver_gold_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30,34 | DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md |
 | [dp3_historical_features_historical_20261026.png](../evidence/images/datahub/lineage/dp3_historical_features_historical_20261026.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 32,34 | DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md |
-| [01_merchant_skew_profile_500k.png](../evidence/spark/01_merchant_skew_profile_500k.png) | yes | REAL_TERMINAL | historical local terminal | 5,12 | OPTIMIZATION_MATRIX.md, data_generator/DATA_GENERATION_AND_SIMULATION.md |
+| [01_merchant_skew_profile_500k.png](../evidence/spark/01_merchant_skew_profile_500k.png) | yes | REAL_TERMINAL | historical local terminal | 5,12 | data_generator/DATA_GENERATION_AND_SIMULATION.md; archived `OPTIMIZATION_MATRIX.md` |
 | [07_schema_evolution_source_500k.png](../evidence/storage/07_schema_evolution_source_500k.png) | yes | REAL_TERMINAL | historical local terminal | 6,13 | SCHEMA_DESIGN.md |
-| [08_schema_evolution_500k.png](../evidence/storage/08_schema_evolution_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 6,13 | OPTIMIZATION_MATRIX.md, SCHEMA_DESIGN.md |
+| [08_schema_evolution_500k.png](../evidence/storage/08_schema_evolution_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 6,13 | SCHEMA_DESIGN.md; archived `OPTIMIZATION_MATRIX.md` |
