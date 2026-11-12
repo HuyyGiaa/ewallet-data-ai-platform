@@ -1,11 +1,33 @@
+# EDAI-1 Docker Compose profile (rubric row 3): one-shot, hardened run of the
+# optimized campaign verifier image against the committed 5GB campaign evidence.
+#
+#   docker compose -p edai1-dk5gb -f infra/docker/compose.edai1.yml --profile edai1 config
+#   docker compose -p edai1-dk5gb -f infra/docker/compose.edai1.yml --profile edai1 build
+#   docker compose -p edai1-dk5gb -f infra/docker/compose.edai1.yml --profile edai1 run --rm campaign-verifier
+#
+# Inputs are bind-mounted read-only; the container has no network, no capabilities,
+# a read-only root filesystem and fixed resource limits. It exits after one run.
 services:
-  datahub-lineage-publisher:
-    image: edai1/datahub-lineage-publisher:compose-v5
+  campaign-verifier:
+    image: edai1/campaign-verifier:compose
     build:
       context: ../..
-      dockerfile: images/datahub-publisher/Dockerfile
-      target: optimized
-    command: ["--output", "/tmp/lineage-plan.json"]
+      dockerfile: images/edai1-campaign-verifier/Dockerfile.optimized
+      target: runtime
+    command:
+      - --spec
+      - /input/workload.json
+      - --evidence-dir
+      - /input/evidence
+    volumes:
+      - type: bind
+        source: ../../docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456
+        target: /input/evidence
+        read_only: true
+      - type: bind
+        source: ../../images/edai1-campaign-verifier/workload-5gb.json
+        target: /input/workload.json
+        read_only: true
     user: "65532:65532"
     read_only: true
     tmpfs:

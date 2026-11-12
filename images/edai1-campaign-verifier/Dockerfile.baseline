@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1.7
+# BASELINE: the conventional first working Dockerfile.
+#   - single stage on the full Debian Bookworm Python image (compiler toolchain included);
+#   - the whole repository build context is copied (minus the root .dockerignore);
+#   - runs as root.
+# BASE_IMAGE is a build argument only so the A/B harness can build the slim-base
+# control variant; the published baseline uses the default below.
+ARG BASE_IMAGE=python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343
+FROM ${BASE_IMAGE}
+WORKDIR /app
+COPY . /app
+ENV PYTHONPATH=/app
+ENTRYPOINT ["python", "-m", "ops.edai1_verifier"]

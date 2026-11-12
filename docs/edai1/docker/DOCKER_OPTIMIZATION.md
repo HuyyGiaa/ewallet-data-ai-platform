@@ -1,125 +1,140 @@
-# Docker and Docker Compose Optimisation
+# Docker and Docker Compose Optimization
 
-## 1. Problem and approach
+This report covers EDAI-1 rubric rows 3 (Docker and Docker Compose, 2 points) and 4 (Dockerfile optimization, 3 points). The workload is tied to the 5GB campaign `ab-20261110225456` (`rehearsal-5gb-v1`). The owner runs the official experiment and captures DK01–DK05 with [DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md](../../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md), Stage 1.
 
-The platform's jobs and services are packaged as container images. Large images slow every pull, scan and deployment, and they widen the attack surface. The image-size reduction is demonstrated with a **matched A/B experiment**:
+The October image experiment (88.44 %, DataHub lineage-plan workload) is historical. It is not reused here.
 
-- the same application;
-- the same functional contract;
-- two Dockerfile targets: a conventional single-stage *baseline*, and an *optimised* multi-stage image.
+## 1. Requirement → implementation
 
-Both are measured and functionally compared.
+| Row | Requirement | Implementation | Evidence | Status |
+|---:|---|---|---|---|
+| 3 | Docker and Docker Compose | Hardened one-shot Compose service [`infra/docker/compose.edai1.yml`](../../../infra/docker/compose.edai1.yml) running the optimized image on read-only inputs | DK05 | SOURCE_IMPLEMENTED, LOCAL_RUNTIME_VERIFIED, OWNER_SCREENSHOT_PENDING |
+| 4 | Dockerfile optimization with Before/After proof | [`Dockerfile.baseline`](../../../images/edai1-campaign-verifier/Dockerfile.baseline) against [`Dockerfile.optimized`](../../../images/edai1-campaign-verifier/Dockerfile.optimized), measured by [`ops/docker_ab`](../../../ops/docker_ab/) as a 2×2 matrix | DK01–DK04 | SOURCE_IMPLEMENTED, LOCAL_RUNTIME_VERIFIED, OWNER_SCREENSHOT_PENDING |
 
-The application chosen for the experiment is the deterministic DataHub lineage-plan publisher ([`cloud_lineage.py`](../../../data_platform/metadata/datahub/lineage/cloud_lineage.py)). It is small and has no third-party dependencies. It produces a fixed output (3 flows, 4 jobs, 32 datasets), so the two images can be compared byte for byte.
+LOCAL_RUNTIME_VERIFIED means all four images were built, run and compared on this Docker host during implementation, and the Compose service completed with exit code 0. The official numbers are the owner's run, recorded in §5.
 
-```mermaid
-flowchart LR
-    S["cloud_lineage.py"] -->|"(1) build target"| B["Docker build"]
-    B -->|"(2) validated script only"| I["Optimised runtime image"]
-    I -->|"(3) one-shot service"| C["Compose run"]
-    C -->|"(4) output"| O["/tmp/lineage-plan.json"]
-    C -->|"(5) smoke check"| V["SHA-256 and counts"]
-```
+## 2. Workload
 
-**Source:**
+Both images run the same application: [`ops/edai1_verifier`](../../../ops/edai1_verifier/), a deterministic verifier of the committed campaign evidence. It uses the standard library only. It checks:
 
-- [multi-stage Dockerfile](../../../images/datahub-publisher/Dockerfile);
-- [Compose profile](../../../infra/docker/compose.edai1.yml);
-- [publisher](../../../data_platform/metadata/datahub/lineage/cloud_lineage.py).
+- the checksum chain of the four campaign documents of each profile (`dp3_completion` → `campaign_manifest` → `dp1`/`dp2` handoffs);
+- the identity of every document: benchmark, profile, dataset version, source Spark Git SHA and source manifest SHA-256;
+- every stage's transformation batch `SUCCEEDED` and validation `PASS`;
+- the eight validation reports: bound to their run, `PASS`, and 260 rules per profile;
+- the semantic comparison: `SEMANTIC_EQUIVALENT`, with 9 / 9 / 12 / 4 tables per stage;
+- the Airflow record: 6 DagRuns and 54 task instances, all successful.
 
-## 2. Baseline
+The expectations live in one file, [`workload-5gb.json`](../../../images/edai1-campaign-verifier/workload-5gb.json). The evidence folder and that file are bind-mounted read-only at run time, so no data is baked into an image and every variant reads byte-identical inputs. The verifier prints one summary line holding the SHA-256 of its canonical report. The report contains no timestamp, host name or absolute path. That SHA-256 is the functional fingerprint compared across images.
 
-The baseline target uses the full `python:3.13.9-bookworm` image, pinned by digest. It copies the application and runs as root. This is the typical "first working Dockerfile".
+## 3. Baseline and optimized Dockerfiles (DK01)
 
-## 3. Optimisation techniques
-
-| Technique | Implementation | Effect |
+| Aspect | Baseline (`Dockerfile.baseline`) | Optimized (`Dockerfile.optimized`) |
 |---|---|---|
-| Slim runtime base | The build and runtime stages use `python:3.13.9-slim-bookworm` (digest-pinned) | Removes the compiler toolchain and general-purpose packages |
-| Multi-stage build with validation | The `build` stage compiles and executes the script, and asserts the expected `(flows, jobs, datasets)` counts. Only the validated script is copied into the runtime stage | No build workspace or compiler artefacts in the final image; a broken script fails the build |
-| Minimal payload | The runtime stage contains only the application file | Fewer and smaller layers |
-| Non-root user | UID/GID `65532:65532` is created explicitly; files are copied with matching ownership | The container never runs as root |
-| Reproducible inputs | Dockerfile syntax 1.7; both base images pinned by digest | A mutable tag cannot silently change the result |
+| Stages | 1 | 2: `build` and `runtime` |
+| Base image | `python:3.13.9-bookworm`, with the compiler toolchain, `git` and `curl` | `python:3.13.9-slim-bookworm` (both digest-pinned) |
+| Build context | Whole repository, minus the root `.dockerignore` | Only `ops/edai1_verifier/`, via `Dockerfile.optimized.dockerignore` |
+| Payload | `COPY . /app` | The compiled package only, copied from `build` |
+| Build-time checks | None | `compileall`, an import of every module, and `--help` must succeed or the build fails |
+| Runtime user | root | UID/GID `65532`. The application files are root-owned and read-only |
 
-The publisher has no third-party Python packages, so this experiment does not need a dependency lockfile. Other images in the repository install their dependencies from `uv.lock`.
+The multi-stage build alone does not shrink a pure-Python image much. What it buys is a validated, minimal payload copied into a runtime stage that holds nothing else. Most of the size difference comes from the base image. Because of that, the experiment measures the two factors separately instead of crediting the total to the multi-stage build.
 
-## 4. Docker Compose runtime hardening
+## 4. Experiment design
 
-The `edai1` Compose profile builds the optimised target and runs it as a one-shot job. The service is hardened as follows:
+[`python3 -m ops.docker_ab`](../../../ops/docker_ab/__main__.py) builds four images on one host. The control variants change exactly one factor:
 
-| Area | Setting |
-|---|---|
-| User | Fixed UID/GID `65532:65532` |
-| Filesystem | Read-only root filesystem; a 16 MiB `/tmp` tmpfs mounted `nosuid,nodev,noexec` |
-| Network and privileges | No network; all Linux capabilities dropped; `no-new-privileges` |
-| Resource limits | 64 PIDs, 128 MiB of memory, 0.5 CPU |
-| Lifecycle | No restart policy; a single `--output /tmp/lineage-plan.json` run |
+| Variant | Packaging | Base | Role |
+|---|---|---|---|
+| `baseline` | single-stage, full context | full Bookworm | baseline |
+| `baseline-slim` | single-stage, full context | slim Bookworm | control: base-image effect |
+| `optimized-full` | multi-stage, minimal payload | full Bookworm | control: packaging effect |
+| `optimized` | multi-stage, minimal payload | slim Bookworm | optimized |
 
-With Compose 5.1.3, the build used the intended target and the run exited with code 0. No container was left behind afterwards.
+**Fairness.**
+- Every variant uses the same source, inputs, host and architecture.
+- Base images are pulled by digest before any build, so build times exclude downloads.
+- Every build uses `--no-cache --pull=false`.
+- Each image runs the verifier five times with no network, a read-only root filesystem and all capabilities dropped. Every run must PASS with one fingerprint.
+- The result records the Docker engine, Buildx and Compose versions, base-image digests and IDs, the tool Git SHA and the source Spark Git SHA.
+
+**Measured per variant:**
+- build success and duration;
+- content size (`docker image inspect .Size`);
+- unpacked disk usage as `docker image ls` reports it;
+- total and added layers, and bytes added by the Dockerfile;
+- run status, duration (median of five) and fingerprint;
+- runtime UID/GID;
+- whether the application files are writable by the runtime user;
+- which of `gcc`, `make`, `git`, `curl` and `apt-get` the image ships.
+
+**Size metric.** This host uses Docker 29 with the containerd image store. On that store `.Size` is the compressed content of the image's layers, which is what a registry pull transfers. `docker image ls` reports the larger unpacked disk usage. The report names both, and the attribution uses content bytes, which are exact.
+
+**Attribution.**
+- Base-image effect = size difference between the two bases at equal packaging.
+- Packaging effect = size difference between the two packagings at equal base.
+- Each effect is measured at both levels of the other factor, and their difference (the interaction) is reported.
 
 ## 5. Results
 
-Both variants were built from the same source (commit `561910ee…`) and run with the same arguments.
+**OFFICIAL RESULTS: PENDING the owner run** (Stage 1 of the runbook). The values below are filled from `result.json` of that run.
 
-| Metric | Baseline | Optimised | Change |
-|---|---:|---:|---:|
-| Uncompressed image size | 381,961,667 B | 44,171,603 B | **−337,790,064 B (−88.44 %)** |
-| Compressed export | 379,952,566 B | 43,804,253 B | −88.47 % |
-| Application layers | 9 | 7 | −2 |
-| Runtime user | UID 0 (root) | UID/GID 65532 | non-root |
-| Smoke output SHA-256 | `037cf219…f356` | identical | same behaviour |
-| Flows / jobs / datasets | 3 / 4 / 32 | 3 / 4 / 32 | identical |
+| Variant | Content bytes | Disk usage | Layers | Added bytes | Build s | Run s (median) | UID | Verdict | Report SHA-256 |
+|---|---:|---|---:|---:|---:|---:|---|---|---|
+| baseline | PENDING | | | | | | | | |
+| baseline-slim | PENDING | | | | | | | | |
+| optimized-full | PENDING | | | | | | | | |
+| optimized | PENDING | | | | | | | | |
 
-The authoritative result is the preserved [Docker A/B JSON](../../evidence/edai1/docker/raw/docker_datahub_publisher_ab.json)
-(SHA-256 `44590137932dc159fcd984ce947e6bc69bc5fa7e28ed37e8de0ace5a073dda89`).
-The excerpt below is raw historical evidence, not a screenshot and not a new execution:
+| Attribution | Bytes | Share of baseline → optimized |
+|---|---:|---:|
+| Base-image effect (full context / minimal payload) | PENDING | |
+| Packaging effect (full base / slim base) | PENDING | |
+| Total | PENDING | |
 
-```json
-{
-  "started_at": "2026-10-29T08:56:58.252922+00:00",
-  "finished_at": "2026-10-29T08:57:16.710838+00:00",
-  "scope": "local Docker build; existing containers were not modified",
-  "functional_equivalence": true,
-  "variants": {
-    "baseline": {"size_bytes": 381961667, "layer_count": 9},
-    "optimized": {"size_bytes": 44171603, "layer_count": 7}
-  }
-}
+> **DK01 — Dockerfiles before/after.** OWNER_SCREENSHOT_PENDING. Shows both files side by side, with the stage count, the base, `COPY . /app` against the `COPY --from=build` payload, and the user.
+>
+> **DK02 — builds.** OWNER_SCREENSHOT_PENDING. Shows the tail of each `build_<variant>.log` with the final image line.
+>
+> **DK03 — image inspection.** OWNER_SCREENSHOT_PENDING. Shows `summary.txt` (generated from `docker image inspect`) next to `docker image ls edai1/campaign-verifier`.
+>
+> **DK04 — functional equivalence.** OWNER_SCREENSHOT_PENDING. Shows one run of `baseline` and one of `optimized` on the same mounts, printing the same `report_sha256`.
+>
+> **DK05 — Compose.** OWNER_SCREENSHOT_PENDING. Shows `docker compose … config` (hardening visible), `run --rm campaign-verifier` with `"verdict": "PASS"`, exit code 0, and an empty `docker ps -a` for the project.
+
+## 6. Docker Compose hardening (row 3)
+
+| Area | Setting |
+|---|---|
+| Inputs | Evidence folder and workload spec bind-mounted `read_only: true` |
+| User | `65532:65532` |
+| Filesystem | `read_only: true`, plus a 16 MiB `/tmp` tmpfs with `nosuid,nodev,noexec` |
+| Network and privileges | `network_mode: none`, `cap_drop: [ALL]`, `no-new-privileges` |
+| Resources | 64 PIDs, 128 MiB of memory, 0.5 CPU |
+| Lifecycle | `restart: "no"`. A one-shot `run --rm`, after which the project must have no containers left |
+
+## 7. Explanation and trade-offs
+
+- **Where the bytes go.** The full Bookworm image carries a C toolchain and general-purpose system packages that a pure-Python job never uses. The full-context payload adds the repository source tree. The matrix reports each separately.
+- **Security.** The optimized image runs as non-root, and its code is not writable by the runtime user. It ships no compiler, `git` or `curl`. `apt-get` remains, because it is part of the slim Debian base.
+- **Cost of the optimization.** Two stages are more to maintain, and a dependency the verifier might need later would have to be installed deliberately. The full image would already have it.
+- **Run time.** The verifier reads about 1 MB of JSON. Container start-up dominates its run time, so no run-time improvement is expected or claimed. The measurement reports what it observes.
+
+## 8. Limitations
+
+- **Single host.** One host and one architecture (amd64). Content sizes depend on the base-image digests, which are pinned.
+- **Single image.** The experiment covers this one representative image, not every image in the repository.
+- **Historical image.** `images/datahub-publisher`, the October experiment's image, is kept unchanged because the `datahub` CI component builds it. It is not part of this result.
+
+## 9. Reproduction and code references
+
+```bash
+python3 -m ops.docker_ab --run-id <new id> --output-dir <new directory>
 ```
 
-Compose evidence is retained as original text: [resolved configuration](../../evidence/edai1/docker/raw/compose_config.txt),
-[build log](../../evidence/edai1/docker/raw/compose_build.txt),
-[run log](../../evidence/edai1/docker/raw/compose_run.txt),
-[exit code](../../evidence/edai1/docker/raw/compose_run.exit_code),
-[image inspection](../../evidence/edai1/docker/raw/image_inspect.json), and
-[post-run container list](../../evidence/edai1/docker/raw/residual_containers.txt).
-This is historical output from the recorded Compose run, not evidence that Compose is currently running.
-
-```text
-service: datahub-lineage-publisher
-target: optimized
-user: 65532:65532
-read_only: true
-network_mode: none
-compose run exit code: 0
-post-run container list: no containers
-```
-
-### N15 genuine terminal captures
-
-![Docker image A/B historical evidence in a real Ubuntu terminal](../../evidence/edai1/docker/03_docker_image_ab_historical_terminal.png)
-
-*Genuine Ubuntu terminal capture displaying the preserved Docker A/B JSON: functional equivalence passed and the recorded image-size reduction is 88.44%. This is `GENUINE_HISTORICAL_EVIDENCE_VIEW`; N15 did not rebuild either image.*
-
-![Docker Compose configuration and historical run evidence in a real Ubuntu terminal](../../evidence/edai1/docker/04_docker_compose_historical_terminal.png)
-
-*Genuine Ubuntu terminal capture displaying the preserved Compose configuration, run output and exit code 0. This is `GENUINE_HISTORICAL_EVIDENCE_VIEW`; it does not claim that Compose was rerun during N15.*
-
-The raw JSON and logs above remain authoritative. The captures are complementary evidence and have distinct names from the synthetic historical PNGs preserved by N14.
-
-## 6. Discussion and limitations
-
-- **Where the reduction comes from.** Almost the whole reduction comes from the base image: the full Bookworm image carries a compiler toolchain and system packages that a pure-Python job never uses. The multi-stage build makes the slim runtime safe, because the script is executed and validated in the build stage before it is copied.
-- **Scope of the measurement.** Only image size is measured. The recorded run did not separate pull, build and start-up times, so no start-up improvement is claimed.
-- **Scope of the experiment.** The experiment covers one representative image, not every image in the repository.
-- **Later build.** A later Compose build of the same target produced an image of 44,172,764 bytes, 1,161 bytes larger. The difference is a rebuild artefact. The matched comparison above uses the images built in the same experiment.
+| Concern | File |
+|---|---|
+| Workload | `ops/edai1_verifier/` (`spec.py`, `checks.py`, `report.py`, `__main__.py`) |
+| Images | `images/edai1-campaign-verifier/` |
+| Harness | `ops/docker_ab/` (`variants.py`, `docker_cli.py`, `measure.py`, `report.py`, `__main__.py`) |
+| Compose | `infra/docker/compose.edai1.yml` |
+| Tests | `tests/unit/test_edai1_verifier.py`, `tests/unit/test_docker_ab.py` |

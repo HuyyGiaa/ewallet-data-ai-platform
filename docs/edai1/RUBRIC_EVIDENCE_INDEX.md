@@ -42,8 +42,8 @@ The campaign does **not** change:
 
 | Row | Pts | Requirement | Status | Document | Key evidence | Gap |
 |---:|---:|---|---|---|---|---|
-| 3 | 2 | Docker & Docker Compose | COMPLETE (historical) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) | digest-pinned Dockerfile, hardened Compose, preserved raw records + N15 genuine terminal view | Benchmark/run remains historical; N15 did not rerun Compose |
-| 4 | 3 | Optimize Dockerfile (multi-stage) | COMPLETE (historical) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) | 88.44 % size reduction, matched smoke hash + N15 genuine terminal view | Measurement remains historical; N15 did not rebuild |
+| 3 | 2 | Docker & Docker Compose | PENDING_OWNER (5GB) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) §6 | Hardened one-shot Compose service running the optimized campaign-verifier image on read-only 5GB evidence; ran locally with exit 0 (LOCAL_RUNTIME_VERIFIED) | OWNER_SCREENSHOT_PENDING (DK05) |
+| 4 | 3 | Optimize Dockerfile (multi-stage) | PENDING_OWNER (5GB) | [DOCKER_OPTIMIZATION](docker/DOCKER_OPTIMIZATION.md) §3–5 | Baseline vs optimized Dockerfiles plus base-image × packaging control matrix; identical 45-check report fingerprint across all four variants (LOCAL_RUNTIME_VERIFIED). The October 88.44 % result is historical | OWNER_SCREENSHOT_PENDING (DK01–DK04); official sizes pending |
 | 5 | 2 | Simulate skew (≥ 100 GB) | PARTIAL | [DATA_GENERATION](data_generator/DATA_GENERATION_AND_SIMULATION.md) | volume, schema and duplicate proof | RUNTIME_EVIDENCE_MISSING (full-column skew/cardinality scan of 100 GB) |
 | 6 | 2 | Schema evolution | COMPLETE (historical) | same | V1/V2 fingerprints | — |
 | 7 | 2 | Another offline problem (duplicates) | COMPLETE (historical) | same | 369.6 M logical / 376.99 M physical rows | — |
@@ -59,8 +59,8 @@ The campaign does **not** change:
 | 17 | 3 | Late arrival handling | PARTIAL | same | watermarks, allowed lateness | RUNTIME_EVIDENCE_MISSING |
 | 18 | 3 | Other streaming problem | COMPLETE (historical) | [FLINK_STREAMING](streaming/FLINK_STREAMING.md) | dedup 12,180 → 12,000 at `22c0c7f`; backpressure UI baseline vs optimized | Latest source not run; failed 500 EPS run stays visible (note 3) |
 | 19 | 2 | Window processing | COMPLETE | [FLINK_STREAMING §Row 19](streaming/FLINK_STREAMING.md#31-window-processing-in-code) | verbatim watermark + tumbling-window + allowed-lateness code with explanation (added in N13) | — (the deliverable is code + explanation) |
-| 20 | 3 | Lakehouse optimization | COMPLETE (historical) | [STORAGE_OPTIMIZATION](storage/STORAGE_OPTIMIZATION.md) | partition pruning, compaction, 7 images | — |
-| 21 | 3 | Warehouse optimization (indexing) | COMPLETE (historical) | same, [WAREHOUSE_INDEX_BENCHMARK](../../archive/legacy-docs/docs/edai1/WAREHOUSE_INDEX_BENCHMARK.md) | matched PostgreSQL 16 A/B in preserved JSON/log + N15 genuine terminal view | Benchmark remains historical; N15 did not rerun it |
+| 20 | 3 | Lakehouse optimization | PENDING_OWNER (5GB) | [STORAGE_OPTIMIZATION](storage/STORAGE_OPTIMIZATION.md) Part A | 5GB layout METADATA_VERIFIED (one ~24 MiB file per daily partition); isolated three-arm compaction/Z-order/pruning job verified on Spark 3.5.3 + Delta 3.2.0 locally | OWNER_CLOUD_EXECUTION_REQUIRED (one Dataproc batch); ST01–ST09 |
+| 21 | 3 | Warehouse optimization (indexing) | PENDING_OWNER (5GB) | [STORAGE_OPTIMIZATION](storage/STORAGE_OPTIMIZATION.md) Part B | PostgreSQL 16 index benchmark on 3,816,574 real Gold rows (31 partitions); before/after, interleaved, write-cost and equivalence experiments ran locally (LOCAL_RUNTIME_VERIFIED) | OWNER_SCREENSHOT_PENDING (WH01–WH06, DBeaver) |
 | 22 | 2 | DP1 ingest | COMPLETE (5GB) | [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §B.4, §E | `bronze.wait_quota` → `submit_transformation` Success in both DagRuns; Airflow screenshots 01–02 | — |
 | 23 | 2 | DP1 validate | COMPLETE (5GB) | [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §B.3 | Source manifest check, `physical_validation`, `semantic_validation` (54 rules) PASS | — |
 | 24 | 2 | DP2 ingest | COMPLETE (5GB) | [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §C.6, §E | `silver` and `gold` transformations Success in both DagRuns; screenshots 03–04 | — |
@@ -87,7 +87,8 @@ These are evidence-coverage buckets, not a predicted grade.
 
 | Bucket | Rows | Points |
 |---|---|---:|
-| Complete deliverables (historical or 5GB campaign) | 3, 4, 6–11, 14, 15, 18–30, 32, 33, 35, 36, 39, 40 (29 rows) | 79 |
+| Complete deliverables (historical or 5GB campaign) | 6–11, 14, 15, 18, 19, 22–30, 32, 33, 35, 36, 39, 40 (25 rows) | 68 |
+| 5GB rerun prepared; owner run or screenshots pending | 3, 4, 20, 21 (4 rows) | 11 |
 | Missing only a screenshot or documentation | 34, 37, 38 (3 rows) | 6 |
 | Missing runtime evidence | 5, 12, 13, 16, 17, 31 (6 rows) | 15 |
 | Missing implementation (in the submission tree) | none | 0 |
@@ -95,7 +96,7 @@ These are evidence-coverage buckets, not a predicted grade.
 
 ## Reconciliation with the external N13 inventory (quality gate, 2026-11-04)
 
-**Inventory:** the owner's N13 evidence inventory (`FINAL_EVIDENCE_INVENTORY.md`, `FINAL_RUBRIC_STATUS.md`; external, 2026-11-04) reports EDAI-1 secured coverage 73/100. This index does not adopt it blindly. The two agree on rows 3, 4, 6–8, 15–17, 20, 21, 25, 27–30, 32, 33, 35, 36, 39 and 40.
+**Inventory:** the owner's N13 evidence inventory (`FINAL_EVIDENCE_INVENTORY.md`, `FINAL_RUBRIC_STATUS.md`; external, 2026-11-04) reports EDAI-1 secured coverage 73/100. This index does not adopt it blindly. The two agree on rows 6–8, 15–17, 25, 27–30, 32, 33, 35, 36, 39 and 40.
 
 | Row | N13 inventory | This index | Decision and evidence |
 |---:|---|---|---|
@@ -110,4 +111,4 @@ These are evidence-coverage buckets, not a predicted grade.
 | 37 | HISTORICAL_PASS | PARTIAL | DataHub lineage is not a dimension ↔ fact relationship export. No ERD exists |
 | 38 | HISTORICAL_PASS | PARTIAL | Bronze/Silver have no `raw_`/`stg_` prefix ([SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) naming table). Acceptance as "similar" is the assessor's call. [ALL_ZONES_SCHEMA](schema/ALL_ZONES_SCHEMA.md) wrongly claimed a `stg_` prefix; corrected in N13 |
 
-**Coverage:** 79/100 points in complete rows. Row 13 moved from "missing documentation" to "missing runtime evidence", because its explanation now exists but the V1/V2 split on the 5GB run was not measured.
+**Coverage:** 68/100 points in complete rows (2026-11-12: rows 3, 4, 20 and 21 moved from historical results to the 5GB rerun, pending the owner run). Row 13 moved from "missing documentation" to "missing runtime evidence", because its explanation now exists but the V1/V2 split on the 5GB run was not measured.

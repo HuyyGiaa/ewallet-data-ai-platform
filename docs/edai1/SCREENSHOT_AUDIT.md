@@ -64,8 +64,8 @@ No EDAI-1 benchmark was rerun during N15. The three new images display preserved
 | 38 | Naming convention | DataHub images show zone-qualified names and Gold prefixes (HISTORICAL_UI) | **QUALIFIES** (screenshot); the naming itself is a semantic gap |
 
 Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a specific UI. Their images are supporting evidence:
-- Docker: raw historical JSON/log/Compose transcripts plus two N15 genuine terminal views.
-- Storage: DBeaver HISTORICAL_UI ×4 and benchmark REAL_TERMINAL ×2.
+- Docker: the October images and transcripts are historical; the 5GB rerun's DK01–DK05 are pending (owner run).
+- Storage: the 500k-fixture and synthetic-PostgreSQL images are historical; the 5GB rerun's ST01–ST09 and WH01–WH06 are pending (owner run).
 - Warehouse: raw historical JSON/log plus an N15 genuine terminal view; there is still no database UI capture.
 
 ## N15 additions
@@ -131,12 +131,12 @@ The owner's comparison-submission terminal capture was not integrated, because i
 | [01_dp1_baseline_spark_environment.png](../evidence/edai1/spark/01_dp1_baseline_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
 | [02_dp1_optimized_spark_environment.png](../evidence/edai1/spark/02_dp1_optimized_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
 | [03_dp1_optimized_spark_stages.png](../evidence/edai1/spark/03_dp1_optimized_spark_stages.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
-| [01_layout_before_500k.png](../evidence/edai1/storage/01_layout_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [02_benchmark_before_500k.png](../evidence/edai1/storage/02_benchmark_before_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [03_partition_pruning_before_500k.png](../evidence/edai1/storage/03_partition_pruning_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [04_layout_after_500k.png](../evidence/edai1/storage/04_layout_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [05_partition_pruning_after_500k.png](../evidence/edai1/storage/05_partition_pruning_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [06_benchmark_after_500k.png](../evidence/edai1/storage/06_benchmark_after_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | storage/STORAGE_OPTIMIZATION.md |
+| [01_layout_before_500k.png](../evidence/edai1/storage/01_layout_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [02_benchmark_before_500k.png](../evidence/edai1/storage/02_benchmark_before_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [03_partition_pruning_before_500k.png](../evidence/edai1/storage/03_partition_pruning_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [04_layout_after_500k.png](../evidence/edai1/storage/04_layout_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [05_partition_pruning_after_500k.png](../evidence/edai1/storage/05_partition_pruning_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [06_benchmark_after_500k.png](../evidence/edai1/storage/06_benchmark_after_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
 | [03_flink_100eps_baseline_job.png](../evidence/edai1/streaming/03_flink_100eps_baseline_job.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |
 | [04_flink_100eps_baseline_resources.png](../evidence/edai1/streaming/04_flink_100eps_baseline_resources.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |
 | [05_flink_100eps_baseline_backpressure.png](../evidence/edai1/streaming/05_flink_100eps_baseline_backpressure.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |

@@ -1,0 +1,16 @@
+{
+  "benchmark_id": "ab-20261110225456",
+  "dataset_version": "rehearsal-5gb-v1",
+  "source_git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+  "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+  "rules_per_profile": 260,
+  "compared_tables": 34,
+  "dag_runs": 6,
+  "task_instances": 54,
+  "tables_per_stage": {
+    "dp1-bronze": 9,
+    "dp2-silver": 9,
+    "dp2-gold": 12,
+    "dp3-features": 4
+  }
+}
