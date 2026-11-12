@@ -361,6 +361,13 @@ class SafetyAndComparisonTests(unittest.TestCase):
         table = plan["tables"][0]
         self.assertEqual(plan["schema_version"], 2)
         self.assertEqual(plan["source_campaign"]["run_ids"]["dp2-gold"], GOLD_RUN)
+        two_tables = build_plan(benchmark_id="storage-5gb-test", binding=binding(), tool_git_sha="8" * 40,
+                                data_bucket=BUCKET, layouts=(gold_layout(), gold_layout(
+                                    table="obt_transaction_enriched",
+                                    uri=f"gs://{BUCKET}/lakehouse/runs/{GOLD_RUN}/gold/obt_transaction_enriched")),
+                                parameters={"dp2-gold.fact_transactions": PARAMETERS,
+                                            "dp2-gold.obt_transaction_enriched": PARAMETERS})
+        self.assertEqual(two_tables["source_run_ids"], [GOLD_RUN])
         self.assertEqual(plan["source_spark_git_sha"], SOURCE_SHA)
         self.assertNotEqual(plan["git_sha"], plan["source_spark_git_sha"])
         for arm in ("baseline", "compacted", "optimized"):

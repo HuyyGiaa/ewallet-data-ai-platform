@@ -307,7 +307,7 @@ def build_plan(*, benchmark_id: str, binding: CampaignBinding, tool_git_sha: str
         "git_sha": tool_git_sha,
         "source_spark_git_sha": binding.source_spark_git_sha,
         "source_campaign": binding.to_dict(),
-        "source_run_ids": sorted(binding.run_ids[str(table["stage"])] for table in tables),
+        "source_run_ids": sorted({binding.run_ids[str(table["stage"])] for table in tables}),
         "spark_benchmark_id": binding.benchmark_id,
         "benchmark_root": root,
         "created_at": datetime.now(timezone.utc).isoformat(),
