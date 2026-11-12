@@ -287,7 +287,9 @@ infra/docker/schema-viz/run_sql.sh registrar "$OUT/storage-trino/storage_registe
 
 In DBeaver, connect to *Trino*: host `localhost`, port `8091`, user `viewer`, no password. Open `$OUT/storage-trino/storage_queries.sql` and run each labelled block.
 
-**Time zone (ST09 `stats_only`).** The Spark job runs in UTC, but DBeaver sends the desktop zone (+07:00) to Trino. Generate `storage_queries.sql` with a tool commit that writes `TIMESTAMP '… UTC'` literals; otherwise, run `SET TIME ZONE 'UTC';` in the DBeaver session first. The 2026-11-13 capture predates this fix: its `stats_only` plan shows `Asia/Ho_Chi_Minh` bounds and 860,298 output rows instead of 860,389.
+**Time zone (ST09).** The Spark job runs in UTC, but DBeaver sends the desktop zone (+07:00) to Trino. The generator writes `TIMESTAMP '… UTC'` literals and formats days `AT TIME ZONE 'UTC'`, so no session setting is needed. Do not save DBeaver edits into the generated file; regenerate it instead. The first capture (2026-11-13, 01:46–02:16) predates this fix: its `stats_only` plan shows `Asia/Ho_Chi_Minh` bounds and 860,298 output rows instead of 860,389.
+
+**ST09 blocks.** For each table and each side (`pruned`, `stats_only`, `full_scan`), run `-- ST09 result: <side>` (one row: `row_count`, `total_amount`, `average_amount`), then `-- ST09 partition pruning: <side>` (`EXPLAIN ANALYZE`). The three results must be identical: 860,389 · 894,991,837,952.66 · 1,040,217.666605.
 
 | ID | Screen | Must be visible | Caption (suggested) |
 |---|---|---|---|

@@ -1,5 +1,7 @@
 # Cloud Silver bounded pilot
 
+> **Historical (superseded by the 5GB implementation, 2026-11-13).** This records a bounded Silver run of the retired `r4-pilot-1gb-v1` pilot on the former data bucket. It is kept for provenance and is not part of the current EDAI-1 workflow: use the [EDAI-1 DP1–DP3 pipeline runbook](edai1_campaign_runbook.md) for the `rehearsal-5gb-v1` campaign `ab-20261110225456`.
+
 Stage 1A runs the existing Silver transformations against the verified R4
 Bronze pilot. It does not change Silver business logic and it does not claim a
 100 GB or performance result.

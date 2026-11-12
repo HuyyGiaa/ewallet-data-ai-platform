@@ -1,5 +1,7 @@
 # Core Gold bounded cloud pilot
 
+> **Historical (superseded by the 5GB implementation, 2026-11-13).** This records a bounded core Gold run of the retired `r4-pilot-1gb-v1` pilot. It is kept for provenance and is not part of the current EDAI-1 workflow: use the [EDAI-1 DP1–DP3 pipeline runbook](edai1_campaign_runbook.md) for the `rehearsal-5gb-v1` campaign `ab-20261110225456`.
+
 This evidence records the bounded DP2 core Gold run for dataset version
 `r4-pilot-1gb-v1`. It is not the canonical 100 GB run.
 

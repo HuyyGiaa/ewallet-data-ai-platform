@@ -13,7 +13,7 @@ Procedure for the isolated Delta layout benchmark (compaction, Z-order and parti
 | Credentials | `gcloud` ADC for the project. Terraform output (read-only) for the service account, subnet and buckets. |
 | Python | `ai_platform/features/feast` uv environment (`deltalake`, `pyarrow`), kept outside the checkout. |
 
-**100GB.** The same commands apply to `canonical-100gb-v1` once a verified campaign evidence folder and workload spec exist for it. Neither exists today, so a 100GB run is blocked on that campaign, not on this tool. At 100GB, expect a Z-order arm to rewrite the whole selected table (about 20× the 5GB bytes). Check the Dataproc DCU quota and sleep the GKE lab before submitting.
+The current campaign is the 5GB rehearsal below. The tool has no built-in dataset: a larger campaign uses the same commands with its own verified evidence folder, workload spec and bucket. The Z-order arm rewrites each selected table in full, so cost grows with the table size. Check the Dataproc DCU quota and sleep the GKE lab before submitting.
 
 ## 1. Environment
 
@@ -105,7 +105,13 @@ infra/docker/schema-viz/run_sql.sh registrar "$OUT/storage-trino/storage_registe
 docker compose -f infra/docker/schema-viz/compose.yml stop
 ```
 
-**Time zone.** The Spark job runs in UTC. Trino interprets a zone-less timestamp literal in the client session zone, and DBeaver sends the desktop zone. The generated SQL therefore uses `TIMESTAMP '… UTC'` and `format_datetime("timestamp" AT TIME ZONE 'UTC', …)`. Do not edit these into zone-less literals. For ad-hoc queries, run `SET TIME ZONE 'UTC';` first. The 2026-11-13 capture without this fix read a window shifted by seven hours (860,298 rows instead of 860,389).
+`storage_queries.sql` is the one query script per benchmark. It is generated, not edited by hand: regenerate it with the command above instead of saving changes from DBeaver. Its blocks are:
+- ST01 `$history` of the three arms;
+- ST02/ST04 file layout per arm, plus the ST04 file locations of the baseline and Z-order arms;
+- ST05/ST07 `EXPLAIN ANALYZE` of the merchant lookup and the date range on each arm;
+- ST09, per table: for each of `pruned`, `stats_only` and `full_scan`, the plain aggregate (`-- ST09 result:`), then its `EXPLAIN ANALYZE` (`-- ST09 partition pruning:`).
+
+**Time zone.** `event_date` is the UTC day of `timestamp` (verified on all 18,600,000 rows of both Gold tables), and the Spark job refuses a non-UTC session. Trino reads `timestamp` as `timestamp(3) with time zone` and interprets a zone-less literal in the client session zone, which DBeaver sets to the desktop zone. The generated SQL therefore writes `TIMESTAMP '… UTC'` and `format_datetime("timestamp" AT TIME ZONE 'UTC', …)`, so every ST09 side returns the same rows in any session zone. `tests/integration/test_storage_trino_timezone.py` checks this in Trino under UTC and UTC+7. For ad-hoc queries, write zoned literals or run `SET TIME ZONE 'UTC';` first.
 
 ## 6. Evidence retention
 
