@@ -430,6 +430,50 @@ class SafetyAndComparisonTests(unittest.TestCase):
         self.assertIn("format_datetime(\"timestamp\" AT TIME ZONE 'UTC', 'yyyy-MM-dd')", sql)
         self.assertNotRegex(sql, r"TIMESTAMP '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'")
 
+    def test_trino_script_is_deterministic_and_covers_both_gold_tables_once(self) -> None:
+        from ops.gcp.storage_benchmark_report import query_sql
+
+        plan = {"tables": [
+            {"table": name, "uri": f"gs://b/{name}", "delta_version": 0, "workload_parameters": PARAMETERS}
+            for name in ("fact_transactions", "obt_transaction_enriched")]}
+        first, second = query_sql(plan), query_sql(plan)
+        self.assertEqual(first, second)
+        for name in ("fact_transactions", "obt_transaction_enriched"):
+            block = first.split(f"-- ===== {name} ")[1].split("-- ===== ")[0]
+            for side in ("pruned", "stats_only", "full_scan"):
+                self.assertEqual(block.count(f"-- ST09 partition pruning: {side}\n"), 1, (name, side))
+                self.assertEqual(block.count(f"-- ST09 result: {side}\n"), 1, (name, side))
+                result = block.split(f"-- ST09 result: {side}\n")[1].splitlines()[0]
+                explain = block.split(f"-- ST09 partition pruning: {side}\n")[1].splitlines()[0]
+                self.assertEqual(explain, f"EXPLAIN ANALYZE {result}")
+            st09 = block.split("-- ST09 result: pruned")[1]
+            self.assertEqual(st09.count(f"FROM delta.storage_bench.{name}_baseline WHERE"), 6)
+            self.assertIn("UNION ALL SELECT 'optimized' AS arm", block)
+        # The pruned side keeps the partition predicate; the controls never mention it.
+        stats = next(line for line in first.splitlines() if "\"timestamp\" >= TIMESTAMP" in line)
+        full = next(line for line in first.splitlines() if "format_datetime" in line)
+        for line in (stats, full):
+            self.assertNotIn("event_date", line.split("WHERE", 1)[1])
+
+    def test_job_refuses_a_non_utc_session(self) -> None:
+        from ops.gcp.storage_benchmark_job import require_utc_session
+
+        class Conf:
+            def __init__(self, zone):
+                self.zone = zone
+
+            def get(self, key):
+                assert key == "spark.sql.session.timeZone"
+                return self.zone
+
+        class Spark:
+            def __init__(self, zone):
+                self.conf = Conf(zone)
+
+        require_utc_session(Spark("UTC"))
+        with self.assertRaisesRegex(ValueError, "must be UTC"):
+            require_utc_session(Spark("Asia/Ho_Chi_Minh"))
+
     def test_three_arm_workload_is_measured_with_equal_query_results(self) -> None:
         class Reader:
             def format(self, _):

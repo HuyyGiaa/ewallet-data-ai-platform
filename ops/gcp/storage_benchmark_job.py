@@ -99,6 +99,20 @@ def effective_conf(spark: Any, key: str) -> str:
         return f"<unset: {type(exc).__name__}>"
 
 
+def require_utc_session(spark: Any) -> None:
+    """Refuse to measure unless the Spark session time zone is UTC.
+
+    ``event_date`` is the UTC calendar day of ``timestamp`` in the campaign tables. The
+    ``stats_only`` literal ``TIMESTAMP 'yyyy-MM-dd 00:00:00'`` and ``date_format`` are
+    evaluated in the session zone, so any other zone shifts their window away from the
+    partition window. The result-equality check would then fail late; this fails first.
+    """
+
+    zone = effective_conf(spark, "spark.sql.session.timeZone")
+    if zone not in ("UTC", "Etc/UTC", "Z", "+00:00"):
+        raise ValueError(f"spark.sql.session.timeZone must be UTC for the storage benchmark, got {zone!r}")
+
+
 def _safe_delta_uri(uri: str) -> str:
     if not uri.startswith("gs://") or "`" in uri or ";" in uri:
         raise ValueError(f"unsafe Delta URI: {uri}")
@@ -592,6 +606,7 @@ def execute_plan(
     spark = SparkSession.builder.appName("edai1-storage-layout-ab").getOrCreate()
     if not spark.version.startswith(SUPPORTED_SPARK_PREFIX):
         raise ValueError(f"Spark {spark.version} is outside the Delta 3.2 compatible line {SUPPORTED_SPARK_PREFIX}x")
+    require_utc_session(spark)
     spark.conf.set("spark.databricks.delta.optimize.repartition.enabled", "true")
     started_at = datetime.now(timezone.utc)
     evidence: dict[str, Any] = {

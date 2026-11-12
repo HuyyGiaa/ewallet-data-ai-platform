@@ -63,7 +63,9 @@ def _trino(sql: str) -> str:
 def query_sql(plan: Mapping[str, Any]) -> str:
     """Read-only queries for the ST screenshots, one block per table."""
 
-    lines = ["-- Run as user `viewer` in the schema-viz Trino. Read-only."]
+    lines = ["-- Run as user `viewer` in the schema-viz Trino. Read-only.",
+             "-- Every timestamp literal and formatted day is pinned to UTC, so the results do not",
+             "-- depend on the client session time zone (DBeaver sends the desktop zone)."]
     for table in plan["tables"]:
         name = str(table["table"])
         params = table["workload_parameters"]
@@ -76,6 +78,10 @@ def query_sql(plan: Mapping[str, Any]) -> str:
                       f'SELECT count(DISTINCT "$path") AS files, round(avg("$file_size") / 1048576.0, 2) AS avg_file_mib, '
                       f'min("$file_size") AS min_file_bytes, max("$file_size") AS max_file_bytes, '
                       f'count(DISTINCT event_date) AS partitions FROM {_relation(name, arm)};']
+        lines += ["-- ST04 file locations: the baseline clone references the source run's files, "
+                  "the Z-order arm's files are new objects under the benchmark root",
+                  " UNION ALL ".join(f"SELECT '{arm}' AS arm, MIN(\"$path\") AS first_file, MAX(\"$path\") AS last_file "
+                                     f"FROM {_relation(name, arm)}" for arm in ("baseline", "optimized")) + ";"]
         for screenshot, query in (("ST05/ST07", {"class": "date_entity_lookup"}),
                                   ("ST05/ST07", {"class": "date_range"})):
             for arm in ARMS:
@@ -87,7 +93,9 @@ def query_sql(plan: Mapping[str, Any]) -> str:
                           ("full_scan", "date_range_full_scan")):
             sql = _trino(_query_sql(table, {"class": cls}, relation="baseline_table")).replace(
                 "FROM baseline_table", f"FROM {_relation(name, 'baseline')}")
-            lines += [f"-- ST09 partition pruning: {side}", f"EXPLAIN ANALYZE {sql};"]
+            # The business result first (equal on all three sides), then the plan statistics.
+            lines += [f"-- ST09 result: {side}", f"{sql};",
+                      f"-- ST09 partition pruning: {side}", f"EXPLAIN ANALYZE {sql};"]
     return "\n".join(lines) + "\n"
 
 
