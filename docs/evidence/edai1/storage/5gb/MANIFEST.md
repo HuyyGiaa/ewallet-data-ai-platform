@@ -110,7 +110,7 @@ Large data stays out of Git: the 351 MB warehouse Parquet snapshot, the Delta ta
 | [lakehouse/raw/storage-execute.txt](lakehouse/raw/storage-execute.txt) | 8,917 | `59042daf5ce618d7` |
 | [lakehouse/raw/storage-register.txt](lakehouse/raw/storage-register.txt) | 1,968 | `00d6f8cd5d259fdd` |
 | [lakehouse/raw/storage-summary.txt](lakehouse/raw/storage-summary.txt) | 2,660 | `e4b1ef8401c05dfb` |
-| [lakehouse/raw/trino/storage_queries.sql](lakehouse/raw/trino/storage_queries.sql) | 10,319 | `9fff09399f49cd8b` |
+| [lakehouse/raw/trino/storage_queries.sql](lakehouse/raw/trino/storage_queries.sql) | 13,391 | `ed5b48123ff7d01b` |
 | [lakehouse/raw/trino/storage_register.sql](lakehouse/raw/trino/storage_register.sql) | 1,868 | `1c0b1556fd62b1e4` |
 | [warehouse/raw/before.json](warehouse/raw/before.json) | 11,161 | `a89c5a911e0e4231` |
 | [warehouse/raw/dbeaver_session.sql](warehouse/raw/dbeaver_session.sql) | 3,758 | `5c17bd49178738db` |
@@ -153,3 +153,12 @@ Large data stays out of Git: the 351 MB warehouse Parquet snapshot, the Delta ta
 | `Screenshot From 2026-11-13 01-04-24.png` | Query script opened, nothing executed |
 | `Screenshot From 2026-11-13 01-34-33.png` | Repeat of ST05 baseline merchant lookup (01:28 run); the earlier capture is kept |
 | `IAC_TF01_terraform_backend_init.png, TF02_terraform_managed_resources.png, TF03_terraform_modules_gke_code.png` | Terraform workstream, not this task |
+
+## Superseded artifacts
+
+Kept by checksum only, so that each benchmark has one active query script.
+
+| Artifact | SHA-256 | Produced by | Why superseded |
+|---|---|---|---|
+| `lakehouse/raw/trino/storage_queries.sql` | `9fff09399f49cd8bf24de56cfd391acfb077e407d68a5c17dcf53cadaac25282` | ops.gcp.storage_benchmark_report trino-sql at tool commit f9be2776 | The script the 2026-11-13 ST01-ST09 captures ran. Its ST09 stats_only literal had no time zone, so DBeaver's +07:00 session shifted that window (860,298 rows instead of 860,389). Superseded by the UTC-pinned regeneration; the old content stays in Git history at commit ac80dcad. |
+| `~/ewallet-evidence/edai1-docker-storage-20261112t142522/storage-trino/storage_queries.sql (owner working copy)` | `a32f466765d4a8091d4f0f1618be350baa3b9b087100995688988d57b636b03d` | the script above, edited and saved in DBeaver by the owner | Overwritten in place on 2026-11-13 by the regeneration before it was copied; not recoverable. Its only known addition, the baseline-vs-optimized file-path query visible in ST04_fact_baseline_vs_optimized_file_paths.png, is now part of the generator. |

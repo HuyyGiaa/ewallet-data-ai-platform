@@ -751,8 +751,8 @@
     },
     {
       "path": "lakehouse/raw/trino/storage_queries.sql",
-      "sha256": "9fff09399f49cd8bf24de56cfd391acfb077e407d68a5c17dcf53cadaac25282",
-      "bytes": 10319
+      "sha256": "ed5b48123ff7d01b03d345bc5b656977c9bcca9d5ed5931ac3b97062f52fd780",
+      "bytes": 13391
     },
     {
       "path": "lakehouse/raw/trino/storage_register.sql",
@@ -940,6 +940,22 @@
       "area": "lakehouse",
       "source_filename": "IAC_TF01_terraform_backend_init.png, TF02_terraform_managed_resources.png, TF03_terraform_modules_gke_code.png",
       "reason": "Terraform workstream, not this task"
+    }
+  ],
+  "superseded_artifacts": [
+    {
+      "area": "lakehouse",
+      "path": "lakehouse/raw/trino/storage_queries.sql",
+      "sha256": "9fff09399f49cd8bf24de56cfd391acfb077e407d68a5c17dcf53cadaac25282",
+      "generated_by": "ops.gcp.storage_benchmark_report trino-sql at tool commit f9be2776",
+      "reason": "The script the 2026-11-13 ST01-ST09 captures ran. Its ST09 stats_only literal had no time zone, so DBeaver's +07:00 session shifted that window (860,298 rows instead of 860,389). Superseded by the UTC-pinned regeneration; the old content stays in Git history at commit ac80dcad."
+    },
+    {
+      "area": "lakehouse",
+      "path": "~/ewallet-evidence/edai1-docker-storage-20261112t142522/storage-trino/storage_queries.sql (owner working copy)",
+      "sha256": "a32f466765d4a8091d4f0f1618be350baa3b9b087100995688988d57b636b03d",
+      "generated_by": "the script above, edited and saved in DBeaver by the owner",
+      "reason": "Overwritten in place on 2026-11-13 by the regeneration before it was copied; not recoverable. Its only known addition, the baseline-vs-optimized file-path query visible in ST04_fact_baseline_vs_optimized_file_paths.png, is now part of the generator."
     }
   ]
 }
