@@ -414,7 +414,7 @@
       "path": "lakehouse/screenshots/ST09_fact_pruned_overview.png",
       "source_filename": "ST09_fact_transactions_pruned_overview.png",
       "checkpoint": "ST09",
-      "visible": "Trino overview, partition filter, Execution 1.99 s",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino overview, partition filter, Execution 1.99 s",
       "sha256": "e2ea69de2c53929f225d4fd0e763eaa1eab07c3885a02fbc4e609e5a90062006",
       "bytes": 839607,
       "area": "lakehouse"
@@ -423,7 +423,7 @@
       "path": "lakehouse/screenshots/ST09_fact_pruned_scan.png",
       "source_filename": "ST09_fact_transactions_pruned_physical_input.png",
       "checkpoint": "ST09",
-      "visible": "Trino scan: PARTITION_KEY [2026-05-25, 2026-05-31], 860,389 rows, 5.69 MB, 7 splits",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino scan: PARTITION_KEY [2026-05-25, 2026-05-31], 860,389 rows, 5.69 MB, 7 splits",
       "sha256": "752b8af2bca7a64f5a935268c74db592bc29457db52e90f8f37c22b1717e3d49",
       "bytes": 843512,
       "area": "lakehouse"
@@ -432,7 +432,7 @@
       "path": "lakehouse/screenshots/ST09_fact_stats_only_overview.png",
       "source_filename": "ST09_fact_transactions_stats_only_overview.png",
       "checkpoint": "ST09",
-      "visible": "Trino overview, timestamp range, Execution 4.36 s",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino overview, timestamp range, Execution 4.36 s",
       "sha256": "6d422417b67e18adcc59f57e2ea37492ddb018940911ad10ac050b4ebd406d9d",
       "bytes": 842046,
       "area": "lakehouse"
@@ -441,7 +441,7 @@
       "path": "lakehouse/screenshots/ST09_fact_stats_only_scan_session_tz_0700.png",
       "source_filename": "ST09_fact_transactions_stats_only_physical_input.png",
       "checkpoint": "ST09",
-      "visible": "Trino scan: 983,526 rows, 15.31 MB, 8 splits, output 860,298; filter in Asia/Ho_Chi_Minh (session-zone caveat)",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino scan: 983,526 rows, 15.31 MB, 8 splits, output 860,298; filter in Asia/Ho_Chi_Minh (session-zone caveat)",
       "sha256": "f957b49d243963715b96ec7e80ec74146153c0e16ac8e3689ed1137254148d5a",
       "bytes": 877877,
       "area": "lakehouse"
@@ -450,7 +450,7 @@
       "path": "lakehouse/screenshots/ST09_fact_full_scan_overview.png",
       "source_filename": "ST09_fact_transactions_full_scan_overview.png",
       "checkpoint": "ST09",
-      "visible": "Trino overview, format_datetime filter, Execution 35.38 s",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino overview, format_datetime filter, Execution 35.38 s",
       "sha256": "226a4096696efd75dc6535869f628d4678ac5f1ef7eb35a4d38685675d03090e",
       "bytes": 858861,
       "area": "lakehouse"
@@ -459,7 +459,7 @@
       "path": "lakehouse/screenshots/ST09_fact_full_scan_scan.png",
       "source_filename": "ST09_fact_transactions_full_scan_physical_input.png",
       "checkpoint": "ST09",
-      "visible": "Trino scan: 18,600,000 rows, 178.81 MB, 151 splits",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino scan: 18,600,000 rows, 178.81 MB, 151 splits",
       "sha256": "0338a496bc65dbe739feeb97798f5e21cfce0b1f45ab679a1205e7e34d8a190d",
       "bytes": 898056,
       "area": "lakehouse"
@@ -468,7 +468,7 @@
       "path": "lakehouse/screenshots/ST09_obt_pruned_overview.png",
       "source_filename": "ST09_obt_pruned_overview.png",
       "checkpoint": "ST09",
-      "visible": "Trino overview, obt partition filter, Execution 2.21 s",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino overview, obt partition filter, Execution 2.21 s",
       "sha256": "f0bd5fc0bbbca7f141d3ed766cc65daf5b1a10ea1aeeee38a90536dc0a728c53",
       "bytes": 844535,
       "area": "lakehouse"
@@ -477,7 +477,7 @@
       "path": "lakehouse/screenshots/ST09_obt_pruned_scan.png",
       "source_filename": "ST09_obt_pruned_scan.png",
       "checkpoint": "ST09",
-      "visible": "Trino scan, obt partition filter, 7 splits",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino scan, obt partition filter, 7 splits",
       "sha256": "e4549052e385f53ccec7b11ac26d98ae1d4dd7b2d9061a71e20075dbcba30fcc",
       "bytes": 849054,
       "area": "lakehouse"
@@ -486,7 +486,7 @@
       "path": "lakehouse/screenshots/ST09_obt_stats_only_overview.png",
       "source_filename": "ST09_obt_stats_only_overview.png",
       "checkpoint": "ST09",
-      "visible": "Trino overview, obt timestamp range, Execution 3.51 s",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino overview, obt timestamp range, Execution 3.51 s",
       "sha256": "cce101f2582d9a04c19a17a378ef064355d2431bd6302577aa32c66c078f940d",
       "bytes": 855334,
       "area": "lakehouse"
@@ -495,7 +495,7 @@
       "path": "lakehouse/screenshots/ST09_obt_stats_only_scan_session_tz_0700.png",
       "source_filename": "ST09_obt_stats_only_scan.png",
       "checkpoint": "ST09",
-      "visible": "Trino scan, obt timestamp range (session-zone caveat)",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino scan, obt timestamp range (session-zone caveat)",
       "sha256": "78c61e8ac645a4dae4025301ac977bfbceaab8b6148b31238549c8ec6bc98694",
       "bytes": 886549,
       "area": "lakehouse"
@@ -504,7 +504,7 @@
       "path": "lakehouse/screenshots/ST09_obt_full_scan_overview.png",
       "source_filename": "ST09_obt_full_scan_overview.png",
       "checkpoint": "ST09",
-      "visible": "Trino overview, obt format_datetime filter, Execution 50.02 s",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino overview, obt format_datetime filter, Execution 50.02 s",
       "sha256": "21bbbe4af5cd8b3cac1536e5ac6d3cc3bd060aad3a99e845f0b73dbfda3a2277",
       "bytes": 848889,
       "area": "lakehouse"
@@ -513,7 +513,7 @@
       "path": "lakehouse/screenshots/ST09_obt_full_scan_scan.png",
       "source_filename": "ST09_obt_full_scan_scan.png",
       "checkpoint": "ST09",
-      "visible": "Trino scan, obt full scan, 151 splits",
+      "visible": "SUPERSEDED (first run with the pre-fix script; not evidence for the corrected comparison). Trino scan, obt full scan, 151 splits",
       "sha256": "eedeece7f1e11e94bfcd1ddfbcfcb6c32ed21a00c26f808fd5b0246835a56240",
       "bytes": 889805,
       "area": "lakehouse"
@@ -661,6 +661,186 @@
       "sha256": "6c514db3ed43d0da7c35f632b6247d0b8e4bbe850e55301b2a8480b4e24e9844",
       "bytes": 839099,
       "area": "warehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_utc_canonical_script_fact_blocks.png",
+      "source_filename": "Screenshot From 2026-11-13 03-32-10.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver: regenerated storage_queries.sql (sha256 ed5b4812) open on the fact_transactions ST09 blocks: each side's result query followed by its EXPLAIN ANALYZE, UTC literals",
+      "sha256": "6e277d19e18bf146060897f4f534fd74e9f40501137db59e6664fafae4c6f8fa",
+      "bytes": 1462413,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_utc_canonical_script_obt_blocks.png",
+      "source_filename": "Screenshot From 2026-11-13 03-32-25.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver: the same script on the obt_transaction_enriched ST09 blocks",
+      "sha256": "af7d93c01b09111ede64222c03ff9e5b72e699e49c923f8e9fd1f5db0679be29",
+      "bytes": 1464411,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_pruned_result_utc.png",
+      "source_filename": "ST09_fact_transactions_pruned_result_utc.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver/Trino, corrected UTC SQL, fact_transactions pruned result: 860,389 rows, total 894,991,837,952.66, average 1,040,217.666605",
+      "sha256": "20e7e38c71c1508ac759b6eeb6cfa624255d5e801b9a6003c8ad4efd1b401059",
+      "bytes": 402412,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_pruned_overview_utc.png",
+      "source_filename": "ST09_fact_transactions_pruned_overview_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino EXPLAIN ANALYZE overview, fact_transactions pruned (UTC SQL): Execution 3.08 s",
+      "sha256": "4cf41b1e568ba2455a9f00895f6787f720f066019e54644303108b2be4b95922",
+      "bytes": 755532,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_pruned_physical_input_utc.png",
+      "source_filename": "ST09_fact_transactions_pruned_physical_input_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, fact_transactions pruned (UTC SQL): PARTITION_KEY [[2026-05-25, 2026-05-31]], 860,389 input rows, physical input 5.69 MB, 7 splits",
+      "sha256": "e9ec4b559d9432e141850fa7a161e58f861c14c5632b1a5583f1819d89394245",
+      "bytes": 753596,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_stats_only_result_utc.png",
+      "source_filename": "ST09_fact_transactions_stats_only_result_utc.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver/Trino, corrected UTC SQL, fact_transactions stats_only result: 860,389 rows, total 894,991,837,952.66, average 1,040,217.666605",
+      "sha256": "ee64bb847c78a4580d2633b0f5ef77155f8cb8865240f9f3c51552443897680b",
+      "bytes": 372568,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_stats_only_overview_utc.png",
+      "source_filename": "ST09_fact_transactions_stats_only_overview_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino EXPLAIN ANALYZE overview, fact_transactions stats_only (UTC SQL): Execution 4.93 s",
+      "sha256": "4cc1feb7ef95723fc50ccb7e8580491e765f56cee89c22bb4d63859613b598b8",
+      "bytes": 753961,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_stats_only_physical_input_utc.png",
+      "source_filename": "ST09_fact_transactions_stats_only_physical_input_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, fact_transactions stats_only (UTC SQL): ScanFilterProject on the UTC timestamp range, no PARTITION_KEY, 860,389 input rows, 13.39 MB, 7 splits",
+      "sha256": "483b2860fd1648ab016de2c0bef293b7dcd091c0671a329d33b7f7c19d646283",
+      "bytes": 787193,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_full_scan_result_utc.png",
+      "source_filename": "ST09_fact_transactions_full_scan_result_utc.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver/Trino, corrected UTC SQL, fact_transactions full_scan result: 860,389 rows, total 894,991,837,952.66, average 1,040,217.666605",
+      "sha256": "ea4ba1273511a400d9b68ec67e831936579b0617c7fd6fee5525127e642a3dd6",
+      "bytes": 373087,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_full_scan_overview_utc.png",
+      "source_filename": "ST09_fact_transactions_full_scan_overview_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino EXPLAIN ANALYZE overview, fact_transactions full_scan (UTC SQL): Execution 29.36 s",
+      "sha256": "b9f3f3cddad6a6f73f32baa9b74e1921899497cd9eff4f4093406d2157bd32b5",
+      "bytes": 769479,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_transactions_full_scan_physical_input_utc.png",
+      "source_filename": "ST09_fact_transactions_full_scan_physical_input_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, fact_transactions full_scan (UTC SQL): format_datetime(at_timezone(timestamp, UTC)) filter, 18,600,000 input rows, 95.37 % filtered, 178.81 MB, 151 splits",
+      "sha256": "8f7eb6e59a729ce69f002db5bb9230d7b7d1768f186be48aaf94f13160f39407",
+      "bytes": 806052,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_pruned_result_utc.png",
+      "source_filename": "ST09_obt_pruned_result_utc.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver/Trino, corrected UTC SQL, obt_transaction_enriched pruned result: 860,389 rows, total 894,991,837,952.66, average 1,040,217.666605",
+      "sha256": "6d93b7909a7aed4da2bb4e4ca4d543d9938a2a813d7fa108972e68525c345253",
+      "bytes": 348965,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_pruned_overview_utc.png",
+      "source_filename": "ST09_obt_pruned_overview_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino EXPLAIN ANALYZE overview, obt_transaction_enriched pruned (UTC SQL): Execution 3.24 s",
+      "sha256": "6352a15c06acfb5ca3ca425f2974876ee068d0d918f8d83ae07efa384b9d4754",
+      "bytes": 760291,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_pruned_scan_utc.png",
+      "source_filename": "ST09_obt_pruned_scan_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, obt_transaction_enriched pruned (UTC SQL): PARTITION_KEY [[2026-05-25, 2026-05-31]], 860,389 input rows, 5.69 MB, 7 splits",
+      "sha256": "05da5db48321384fd713bc428601989845e2735eb265241a5e5b16ff64dc46a5",
+      "bytes": 759453,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_stats_only_result_utc.png",
+      "source_filename": "ST09_obt_stats_only_result_utc.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver/Trino, corrected UTC SQL, obt_transaction_enriched stats_only result: 860,389 rows, total 894,991,837,952.66, average 1,040,217.666605",
+      "sha256": "bb9e2c3615d42436f620e265dbc346d941b6dd40f72266a0cce46a6061df054c",
+      "bytes": 349400,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_stats_only_overview_utc.png",
+      "source_filename": "ST09_obt_stats_only_overview_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino EXPLAIN ANALYZE overview, obt_transaction_enriched stats_only (UTC SQL): Execution 4.59 s",
+      "sha256": "dd8af15e616f2024caa94fee689b412c3649a1b4685409aadd1408841ecc2a43",
+      "bytes": 772054,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_stats_only_scan_utc.png",
+      "source_filename": "ST09_obt_stats_only_scan_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, obt_transaction_enriched stats_only (UTC SQL): UTC timestamp range, no PARTITION_KEY, 860,389 input rows, 13.39 MB, 7 splits",
+      "sha256": "e9e9e236ae63f05f52b0cd576ef2c28e1e9b57c3c808f14710e408cf67fed849",
+      "bytes": 800696,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_full_scan_result_utc.png",
+      "source_filename": "ST09_obt_full_scan_result_utc.png",
+      "checkpoint": "ST09",
+      "visible": "DBeaver/Trino, corrected UTC SQL, obt_transaction_enriched full_scan result: 860,389 rows, total 894,991,837,952.66, average 1,040,217.666605",
+      "sha256": "944dd5813f1e34dd5cc8ea71c0487aef66518bb4e1e194944e80f72d8a82a5c0",
+      "bytes": 356271,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_full_scan_overview_utc.png",
+      "source_filename": "ST09_obt_full_scan_overview_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino EXPLAIN ANALYZE overview, obt_transaction_enriched full_scan (UTC SQL): Execution 45.85 s",
+      "sha256": "5c5a936ec6834257bd6acbe433d58525ad49951a02745ef41cb8a4cc94bd1971",
+      "bytes": 783225,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_full_scan_scan_utc.png",
+      "source_filename": "ST09_obt_full_scan_scan_utc.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, obt_transaction_enriched full_scan (UTC SQL): UTC formatted-day filter, 18,600,000 input rows, 95.37 % filtered, 178.77 MB, 151 splits",
+      "sha256": "46b4861248d232d1df60e54712cfc14332ceffb795be700dbe69895a5a82ac72",
+      "bytes": 812248,
+      "area": "lakehouse"
     }
   ],
   "raw_artifacts": [
@@ -940,6 +1120,11 @@
       "area": "lakehouse",
       "source_filename": "IAC_TF01_terraform_backend_init.png, TF02_terraform_managed_resources.png, TF03_terraform_modules_gke_code.png",
       "reason": "Terraform workstream, not this task"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 03-21-57.png, Screenshot From 2026-11-13 03-25-16.png, FS11-03_incremental_materialization_readback.png, FS11-00B_feast_offline_snapshot_gcs.png, FS11-00C_feast_snapshot_manifest_validation.png, FS11-00D_feast_historical_retrieval.png",
+      "reason": "Saved between the two ST09 capture sessions; Feature Store row 11 workstream (ewallet-feature-store-runtime), not this task"
     }
   ],
   "superseded_artifacts": [
