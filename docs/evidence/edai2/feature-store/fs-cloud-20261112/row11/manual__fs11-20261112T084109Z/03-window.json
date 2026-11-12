@@ -1,0 +1,116 @@
+{
+  "decision": {
+    "end": "2026-05-31T23:00:00+00:00",
+    "pending_views": [
+      "account_behavior",
+      "device_behavior",
+      "merchant_behavior",
+      "user_behavior"
+    ],
+    "reason": "new window",
+    "start": "2026-05-31T18:00:00+00:00",
+    "state": "NEW_WINDOW"
+  },
+  "online_store_preflight": {
+    "db": 2,
+    "estimated_impact_bytes": 120000000,
+    "headroom_after_estimate_bytes": 612197600,
+    "host": "redis.feature-store.svc.cluster.local",
+    "isolation_status": "OWNED",
+    "logical_id": "rehearsal-online",
+    "maxmemory_bytes": 805306368,
+    "maxmemory_policy": "noeviction",
+    "minimum_free_ratio": 0.1,
+    "ownership": {
+      "campaign_id": "fs11-r5gb-20261112",
+      "dataset_version": "rehearsal-5gb-v1",
+      "online_store_id": "rehearsal-online",
+      "registry_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/fs11-r5gb-20261112/registry.db",
+      "schema_version": "ewallet-redis-campaign-owner-v1",
+      "snapshot_id": "feast-r5gb-20261111-214544",
+      "source_run_id": "ab-20261110225456-optimized-feat-r261110225459",
+      "target_fingerprint": "sha256:ea0fb057c15c16dfb257efb50c0648681e6d960b72f270a1c0dfc28f54276b9b"
+    },
+    "port": 6379,
+    "secret_name": "feast-online-redis-rehearsal",
+    "server_run_id": "d7e90c58e1d4772f832e495320ab85a109009d4e",
+    "status": "PASS",
+    "target_fingerprint": "sha256:ea0fb057c15c16dfb257efb50c0648681e6d960b72f270a1c0dfc28f54276b9b",
+    "used_memory_bytes": 73108768
+  },
+  "recorded_at": "2026-11-12T08:41:40.501998+00:00",
+  "registry_generation": 1794472043803171,
+  "run_fingerprint": "07ca28e92882104a1e7fe9e3f736941dd3f801bc94ee808038cf0e3de317c3bd",
+  "run_id": "manual__fs11-20261112T084109Z",
+  "stage": "window",
+  "state_evidence": {
+    "command": "state",
+    "finished_at": "2026-11-12T08:41:32.951488+00:00",
+    "git_sha": "e913224f04d7e21251b6b6b8278662a6dd473814",
+    "offline_data_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544",
+    "online_store": {
+      "db": 2,
+      "host": "redis.feature-store.svc.cluster.local",
+      "isolation_status": "OWNED",
+      "logical_id": "rehearsal-online",
+      "maxmemory_bytes": 805306368,
+      "maxmemory_policy": "noeviction",
+      "ownership": {
+        "campaign_id": "fs11-r5gb-20261112",
+        "dataset_version": "rehearsal-5gb-v1",
+        "online_store_id": "rehearsal-online",
+        "registry_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/fs11-r5gb-20261112/registry.db",
+        "schema_version": "ewallet-redis-campaign-owner-v1",
+        "snapshot_id": "feast-r5gb-20261111-214544",
+        "source_run_id": "ab-20261110225456-optimized-feat-r261110225459",
+        "target_fingerprint": "sha256:ea0fb057c15c16dfb257efb50c0648681e6d960b72f270a1c0dfc28f54276b9b"
+      },
+      "port": 6379,
+      "secret_name": "feast-online-redis-rehearsal",
+      "server_run_id": "d7e90c58e1d4772f832e495320ab85a109009d4e",
+      "target_fingerprint": "sha256:ea0fb057c15c16dfb257efb50c0648681e6d960b72f270a1c0dfc28f54276b9b",
+      "used_memory_bytes": 73108768
+    },
+    "registry": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/fs11-r5gb-20261112/registry.db",
+    "registry_generation_after": 1794472043803171,
+    "registry_generation_before": 1794472043803171,
+    "schema_version": "feast-online-operation-evidence-v1",
+    "started_at": "2026-11-12T08:41:26.163618+00:00",
+    "views": [
+      {
+        "materialized_end": "2026-05-31T18:00:00+00:00",
+        "source_files": 19,
+        "source_max_event_timestamp": "2026-05-31T23:59:58.182351+00:00",
+        "source_min_event_timestamp": "2026-01-01T00:00:01.468763+00:00",
+        "source_path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_user_behavior",
+        "view": "user_behavior"
+      },
+      {
+        "materialized_end": "2026-05-31T18:00:00+00:00",
+        "source_files": 19,
+        "source_max_event_timestamp": "2026-05-31T23:59:58.182351+00:00",
+        "source_min_event_timestamp": "2026-01-01T00:00:01.468763+00:00",
+        "source_path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_account_behavior",
+        "view": "account_behavior"
+      },
+      {
+        "materialized_end": "2026-05-31T18:00:00+00:00",
+        "source_files": 19,
+        "source_max_event_timestamp": "2026-05-31T23:59:58.182351+00:00",
+        "source_min_event_timestamp": "2026-01-01T00:00:01.468763+00:00",
+        "source_path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_device_behavior",
+        "view": "device_behavior"
+      },
+      {
+        "materialized_end": "2026-05-31T18:00:00+00:00",
+        "source_files": 8,
+        "source_max_event_timestamp": "2026-05-31T23:59:46.792521+00:00",
+        "source_min_event_timestamp": "2026-01-01T00:00:01.468763+00:00",
+        "source_path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_merchant_behavior",
+        "view": "merchant_behavior"
+      }
+    ]
+  },
+  "status": "PASS",
+  "window_id": "ff31f721d1f8"
+}

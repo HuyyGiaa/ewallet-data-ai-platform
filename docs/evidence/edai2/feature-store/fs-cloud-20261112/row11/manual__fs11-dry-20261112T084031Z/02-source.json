@@ -1,0 +1,16 @@
+{
+  "manifest_sha256": "3aa7e2f2b017d7375eaa506974562929c0983077edfa3825a2babb9a81ed2bca",
+  "manifest_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/_control/export_manifest.json",
+  "recorded_at": "2026-11-12T08:40:41.907623+00:00",
+  "rows": {
+    "account_behavior": 18599553,
+    "device_behavior": 18599560,
+    "merchant_behavior": 7439478,
+    "user_behavior": 18599553
+  },
+  "run_fingerprint": "07ca28e92882104a1e7fe9e3f736941dd3f801bc94ee808038cf0e3de317c3bd",
+  "run_id": "manual__fs11-dry-20261112T084031Z",
+  "stage": "source",
+  "status": "PASS",
+  "window_id": "ff31f721d1f8"
+}

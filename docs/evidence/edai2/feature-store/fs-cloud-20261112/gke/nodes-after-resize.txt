@@ -1,0 +1,6 @@
+NAME                                     STATUS   ROLES    AGE   VERSION
+gke-ewallet-dev-cpu-pool-58daed59-28fx   Ready    <none>   27s   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-4lbk   Ready    <none>   26s   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-743x   Ready    <none>   27s   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-bhsg   Ready    <none>   28s   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-dd8h   Ready    <none>   27s   v1.36.4-gke.2377000

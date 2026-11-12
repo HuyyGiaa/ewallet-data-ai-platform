@@ -1,0 +1,9 @@
+{
+  "public_access_prevention": "enforced",
+  "soft_delete_policy": {
+    "effectiveTime": "2026-11-10T03:53:56.134000+00:00",
+    "retentionDurationSeconds": "604800"
+  },
+  "uniform_bucket_level_access": true,
+  "versioning_enabled": true
+}

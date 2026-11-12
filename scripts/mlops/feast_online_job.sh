@@ -162,7 +162,9 @@ if ((!EXECUTE)); then
   exit 0
 fi
 
-printf '%s\n' "${manifest}" | kubectl --context "${KUBE_CONTEXT}" apply -f -
+# kubectl's "job.batch/... created" goes to stderr: stdout carries only the
+# operator's JSON evidence line, so `| tee <file>.json` stays valid JSON.
+printf '%s\n' "${manifest}" | kubectl --context "${KUBE_CONTEXT}" apply -f - >&2
 # Poll succeeded/failed counts: newer Kubernetes reports both
 # SuccessCriteriaMet and Complete, which breaks a jsonpath condition wait.
 deadline=$((SECONDS + 3700))

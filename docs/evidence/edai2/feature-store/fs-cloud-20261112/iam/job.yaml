@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata: {name: fs-iam-probe-20261112082013, labels: {app.kubernetes.io/part-of: ewallet-fs-verify}}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata: {labels: {app.kubernetes.io/part-of: ewallet-fs-verify}}
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector: {iam.gke.io/gke-metadata-server-enabled: "true"}
+      containers:
+      - name: probe
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/feast-online@sha256:30b233924c57e8faf5ada20000b6f70f1dfd42078a00f627110e18dfebccf3c5
+        command: [python, /probe/probe.py]
+        env: [{name: PROBE_ID, value: fs-iam-probe-20261112082013}]
+        resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: 500m, memory: 512Mi}}
+        volumeMounts: [{name: probe, mountPath: /probe}]
+      volumes: [{name: probe, configMap: {name: fs-iam-probe-20261112082013}}]

@@ -6,125 +6,107 @@ command uses explicit project, zone, namespace and kube context
 
 ## OWNER_START_HERE — rows 11 and 12 rerun (rehearsal-5gb-v1)
 
-Prepared 2026-11-12 on branch `feature/edai2-feature-store-runtime`. What ran
-before this handoff, with raw files in
-[`docs/evidence/edai2/feature-store/fs-20261112/`](../../../evidence/edai2/feature-store/fs-20261112/README.md):
+Every command below ran on 2026-11-12 against GKE and GCS. Raw evidence is in
+[`fs-cloud-20261112/`](../../../evidence/edai2/feature-store/fs-cloud-20261112/README.md)
+(cloud run) and [`fs-20261112/`](../../../evidence/edai2/feature-store/fs-20261112/README.md)
+(snapshot export, historical retrieval, local Row 12).
 
-| Already done | Result |
+| Verified run | Result |
 |---|---|
-| Phase A export of the real DP3 5 GB Gold features | snapshot `feast-r5gb-20261111-214544`, 63,238,144 rows, 31 features, manifest SHA-256 `3aa7e2f2…2bca`, independent verification PASS |
-| Genuine `get_historical_features()` on that snapshot | PASS, 155 comparisons, 0 mismatches, 0 ambiguous |
-| Row 11 dry-run DagRun on an isolated Airflow 3.3.1 | `success`, 8/8 tasks, rendered Job manifests, DataHub `DRY_RUN` |
-| Row 12 on the local stack (real Redpanda, Flink, writers, Feast, Redis) | PASS, 24 entities, 189 comparisons, 0 mismatches, digest VALID; replay PASS and idempotent |
+| Row 11 execute DagRun `manual__fs11-20261112T084109Z` (registry `fs11-r5gb-20261112`, Redis DB 2) | `success` 8/8; `NEW_WINDOW` 18:00→23:00; generation `1794472043803171 → 1794473045394725`; readback 155 comparisons, 0 mismatches; DataHub `PASS`, 7 aspects `MATCH` |
+| Row 12 GKE campaign `verify-fs12-20261112084123` (Redis DB 8) | Flink job `156d3b7e290903464de231b8d5a6f202`; 26 entities, 203 features, 0 mismatches; offline `PIT_VALUES_VERIFIED` 26/26; `check-report` PASS |
 
-Not done, because GKE could not be reached from the agent: the Row 11
-execute-mode DagRun, Redis materialization, DataHub publication and the Row 12
-GKE run. Rows 11 and 12 stay open until you run the steps below and capture
-the screenshots yourself.
+Two ways to capture the screenshots:
 
-### Step 0 — two owner approvals (blockers found 2026-11-12)
+- **A. Screenshots of the verified 2026-11-12 runs.** Use this for FS11-00B…04
+  and FS12-02…05. GKE stays asleep. Start the local Airflow and DataHub (Step 3a)
+  and open the views listed in Step 6.
+- **B. Full rerun.** FS12-01 needs a live Flink Dashboard, so it always needs at
+  least a Row 12 rerun (Steps 1, 2, 4, 5 and 7).
 
-1. **GCS read for the Feature Store Jobs.** The Jobs run as KSA
-   `ml-platform/training` → GSA `ewallet-training`, which has no role on the
-   rehearsal bucket (only `ewallet-spark` has `roles/storage.objectUser`). Add
-   the same role it already has on the canonical bucket:
+### Step 0 — access and IAM (already in place)
 
-   ```bash
-   gcloud storage buckets add-iam-policy-binding gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data \
-     --member=serviceAccount:ewallet-training@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com \
-     --role=roles/storage.objectUser
-   gcloud storage buckets get-iam-policy gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data \
-     --format=json | grep -A3 objectUser          # expect ewallet-spark and ewallet-training
-   ```
+- **Control plane.** No authorized-network change is needed. The cluster's
+  DNS-based endpoint authenticates with IAM. Use a separate kubeconfig so
+  `~/.kube/config` is not touched:
 
-2. **GKE control-plane access from this machine.** The control plane accepts
-   only the `/32` CIDRs in Terraform (`infra/terraform/gcp/modules/gke`). From
-   an unlisted IP every `kubectl` call times out. Check, then either add the IP
-   through Terraform (no drift) or temporarily with `gcloud` (Terraform drift
-   until you revert it or add it to the variable):
+  ```bash
+  export KUBECONFIG=$HOME/.cache/ewallet-fs-cloud/kubeconfig
+  gcloud container clusters get-credentials ewallet-dev --zone asia-southeast1-b \
+    --project ewallet-data-ai-platform-hg26 --dns-endpoint
+  export KUBE_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+  kubectl --context "$KUBE_CONTEXT" get namespaces >/dev/null && echo GKE_OK
+  ```
 
-   ```bash
-   MYIP=$(curl -s https://api.ipify.org); echo "$MYIP"
-   gcloud container clusters describe ewallet-dev --zone asia-southeast1-b \
-     --format='value(masterAuthorizedNetworksConfig.cidrBlocks[].cidrBlock)'
-   # Temporary path; keep the existing CIDRs in the list:
-   gcloud container clusters update ewallet-dev --zone asia-southeast1-b \
-     --enable-master-authorized-networks \
-     --master-authorized-networks "<existing,comma,separated>,$MYIP/32"
-   timeout 30 kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev get ns >/dev/null && echo GKE_OK
-   ```
+- **GCS.** GSA `ewallet-training` has three conditional bindings on the
+  rehearsal bucket. All three expire at `2026-11-27T00:00:00Z`.
+  - `objectViewer` on `features/`, `streaming-features/` and `streaming-history/`.
+  - `objectUser` on registries `…/online/fs11-*` and `…/online/verify-fs12-*`.
+    Feast overwrites `registry.db` with a generation check, which needs delete.
+  - `objectCreator` on `streaming-features/campaigns/verify-fs12-*`,
+    `streaming-history/verify-fs12-*` and `features/_iam-probe/`.
+
+  New IDs must keep the `fs11-` and `verify-fs12-` prefixes. Check:
+
+  ```bash
+  gcloud storage buckets get-iam-policy gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data \
+    --format=json | python3 -c 'import json,sys;[print(b["role"],b.get("condition",{}).get("title")) for b in json.load(sys.stdin)["bindings"]]'
+  ```
 
 ### Step 1 — checkout, wake, images
 
+Waking needs 5 nodes. All 73 shared workloads keep `replicas=1` while asleep
+and request about 9.1 CPU together. Row 12 adds about 2.3 CPU. With fewer
+nodes the verification Jobs stay Pending. Do not use `wake-minimal`: it scales
+other Deployments to 0.
+
 ```bash
 cd ~/Develop/ewallet-feature-store-runtime
-git switch feature/edai2-feature-store-runtime && git pull --ff-only
-test -z "$(git status --short)"
+git switch feature/edai2-feature-store-runtime && git pull --ff-only && test -z "$(git status --short)"
 export APPROVED_SHA="$(git rev-parse HEAD)" GIT_SHA="$(git rev-parse HEAD)"
-export KUBE_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
 export IMAGE_REPO=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform
-export RUN_TAG="$(date -u +%Y%m%d)"
-export EV="$HOME/ewallet-evidence/fs-owner-$RUN_TAG"; mkdir -p "$EV"
-free -g; df -h /                                   # need >= 6 GiB RAM and >= 5 GiB disk free
-
-# Wake Redis plus room for the Jobs and Flink (2 nodes, about $0.46/h).
-# wake-minimal first scales application Deployments outside the profile to 0;
-# wake-full (4 nodes) is the alternative that restores everything.
-M=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z
-python3 ops/gcp/cloud_lab.py status | tee "$EV/gke-before.txt"
-python3 ops/gcp/cloud_lab.py wake-minimal --profile feature-store-verify --nodes 2 --manifest $M
-CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-minimal --profile feature-store-verify \
-  --nodes 2 --manifest $M --execute --confirm-cluster ewallet-dev
+export EV="$HOME/ewallet-evidence/fs-owner-$(date -u +%Y%m%d)"; mkdir -p "$EV"
+python3 ops/gcp/cloud_lab.py --kubeconfig "$KUBECONFIG" status | tee "$EV/gke-before.txt"
+gcloud container clusters resize ewallet-dev --node-pool cpu-pool --num-nodes 5 \
+  --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26 --quiet      # about $1/h
 kubectl --context "$KUBE_CONTEXT" -n feature-store rollout status statefulset/redis --timeout=600s
-```
-
-Images: the three tags `$IMAGE_REPO/{feast-online,streaming-sinks,flink-block-a}:$APPROVED_SHA`
-were built and pushed from the branch head on 2026-11-12. Check that they exist
-for your `APPROVED_SHA`. If any `describe` fails, run section 3.1.1 (build, probe, push).
-Then resolve digests:
-
-```bash
 for n in feast-online streaming-sinks flink-block-a; do
   gcloud artifacts docker images describe "$IMAGE_REPO/$n:$APPROVED_SHA" \
     --format='value(image_summary.fully_qualified_digest)'
-done | tee "$EV/IMAGES.txt"
-export FEATURE_IMAGE="$(sed -n 1p "$EV/IMAGES.txt")" SINKS_IMAGE="$(sed -n 2p "$EV/IMAGES.txt")" \
-       FLINK_IMAGE="$(sed -n 3p "$EV/IMAGES.txt")"
+done | tee "$EV/IMAGES.txt"          # all three must resolve; otherwise build them (section 3.1.1)
+export FEATURE_IMAGE="$(sed -n 1p "$EV/IMAGES.txt")" SINKS_IMAGE="$(sed -n 2p "$EV/IMAGES.txt")" FLINK_IMAGE="$(sed -n 3p "$EV/IMAGES.txt")"
 export FEATURE_IMAGE_SOURCE_SHA=$APPROVED_SHA SINKS_IMAGE_SOURCE_SHA=$APPROVED_SHA FLINK_IMAGE_SOURCE_SHA=$APPROVED_SHA
 ```
 
-### Step 2 — pick empty Redis DBs and create two new Secrets
+### Step 2 — Redis: scan, then point the two verification Secrets at empty DBs
 
-Read-only scan. Production is DB 0, `canonical-verify` is DB 1. Row 11 takes
-the first DB in 2–7 with `DBSIZE` 0, Row 12 the first in 8–15. Never flush.
-
-```bash
-for db in $(seq 0 15); do
-  printf 'db %s size ' "$db"
-  kubectl --context "$KUBE_CONTEXT" -n feature-store exec statefulset/redis -c redis -- \
-    sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" exec redis-cli --no-auth-warning -n "$0" DBSIZE' "$db"
-done | tee "$EV/redis-db-scan.txt"
-export ROW11_DB=<first empty in 2-7> ROW12_DB=<first empty in 8-15>
-```
-
-Create the Secrets from the production connection string without printing it.
-These are new objects. If one already exists, inspect its `db=` and reuse it
-only when that DB is empty or owned by this campaign; never overwrite it:
+DB 0 is production (173,382 keys), DB 1 is `canonical-verify`/RAG canary,
+DB 2 is owned by `fs11-r5gb-20261112` and DB 8 by `verify-fs12-20261112084123`.
+A new campaign needs an empty DB: Row 11 the next free one in 3–7, Row 12 in 9–15.
 
 ```bash
+R() { kubectl --context "$KUBE_CONTEXT" -n feature-store exec statefulset/redis -c redis -- \
+      sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" exec redis-cli --no-auth-warning -n "$0" "$@"' "$@"; }
+for db in $(seq 0 15); do echo "db $db size $(R $db DBSIZE) owner $(R $db EXISTS __ewallet_feature_store_campaign_owner_v1__)"; done | tee "$EV/redis-db-scan.txt"
+R 0 INFO memory | grep -E '^used_memory:|^maxmemory:'
+export ROW11_DB=3 ROW12_DB=9      # only if the scan shows size 0 for both
+# The two Secrets carry app.kubernetes.io/part-of=ewallet-fs-verify and are
+# verification-only. Repoint them without printing the connection string.
 for pair in "feast-online-redis-rehearsal:$ROW11_DB" "feast-online-redis-stream:$ROW12_DB"; do
   name=${pair%%:*} db=${pair#*:}
-  kubectl --context "$KUBE_CONTEXT" -n ml-platform get secret "$name" >/dev/null 2>&1 && { echo "$name exists"; continue; }
   kubectl --context "$KUBE_CONTEXT" -n ml-platform get secret feast-online-redis -o jsonpath='{.data.connection_string}' \
     | base64 -d | sed -E 's/,db=[0-9]+//; s/$/,db='"$db"'/' \
-    | kubectl --context "$KUBE_CONTEXT" -n ml-platform create secret generic "$name" --from-file=connection_string=/dev/stdin
+    | kubectl --context "$KUBE_CONTEXT" -n ml-platform create secret generic "$name" \
+        --from-file=connection_string=/dev/stdin --dry-run=client -o yaml \
+    | kubectl --context "$KUBE_CONTEXT" -n ml-platform apply -f -
+  kubectl --context "$KUBE_CONTEXT" -n ml-platform label secret "$name" app.kubernetes.io/part-of=ewallet-fs-verify --overwrite
 done
 ```
 
-### Step 3 — Row 11 (FS11-00A … FS11-04)
+### Step 3 — Row 11
 
 ```bash
-export FS11_ID="fs11-r5gb-$RUN_TAG"
+export FS11_ID="fs11-r5gb-$(date -u +%Y%m%d%H%M)"       # new registry; must start with fs11-
 export B=ewallet-data-ai-platform-hg26-rehearsal-5gb-data
 export DATASET_VERSION=rehearsal-5gb-v1 FEATURE_RUN_ID=ab-20261110225456-optimized-feat-r261110225459
 export SNAPSHOT_ID=feast-r5gb-20261111-214544
@@ -133,38 +115,33 @@ export FEAST_OFFLINE_DATA_ROOT="gs://$B/features/offline/snapshots/$DATASET_VERS
 export ONLINE_REGISTRY_URI="gs://$B/features/registries/$DATASET_VERSION/online/$FS11_ID/registry.db"
 export FEAST_ONLINE_IMAGE="$FEATURE_IMAGE" ONLINE_STORE_ID=rehearsal-online EXECUTION_POLICY=verification
 export FEAST_REDIS_SECRET=feast-online-redis-rehearsal REDIS_CAMPAIGN_ID="$FS11_ID"
-export ESTIMATED_REDIS_BYTES=120000000          # base 66,802 + incremental 141,896 entities x 512 B, rounded up
-export EWALLET_C1_EVIDENCE_ROOT="$EV/row11"; mkdir -p "$EWALLET_C1_EVIDENCE_ROOT/bootstrap"
-J=scripts/mlops/feast_online_job.sh; O="$EWALLET_C1_EVIDENCE_ROOT/bootstrap"
-$J "fs11-claim-$(date -u +%H%M%S)"  --execute -- claim  | tee "$O/01-redis-claim.json"     # FS11-00A
-$J "fs11-apply-$(date -u +%H%M%S)"  --execute -- apply  | tee "$O/02-apply.json"           # FS11-00B
+export ESTIMATED_REDIS_BYTES=120000000      # 66,802 + 141,896 entities x 512 B; real run used 61 MB
+export EWALLET_C1_EVIDENCE_ROOT="$EV/row11" O="$EV/row11/bootstrap"; mkdir -p "$O"
+J=scripts/mlops/feast_online_job.sh
+$J "fs11-claim-$(date -u +%H%M%S)"  --execute -- claim  | tee "$O/01-redis-claim.json"
+$J "fs11-apply-$(date -u +%H%M%S)"  --execute -- apply  | tee "$O/02-apply.json"
 $J "fs11-state0-$(date -u +%H%M%S)" --execute -- state  | tee "$O/03-state-before.json"
 $J "fs11-base-$(date -u +%H%M%S)"   --execute -- materialize \
    --start 2026-05-31T12:00:00+00:00 --end 2026-05-31T18:00:00+00:00 | tee "$O/04-base-materialize.json"
-$J "fs11-state1-$(date -u +%H%M%S)" --execute -- state  | tee "$O/05-state-after.json"     # FS11-00C
+$J "fs11-state1-$(date -u +%H%M%S)" --execute -- state  | tee "$O/05-state-after.json"
 $J "fs11-base-read-$(date -u +%H%M%S)" --execute -- parity --cutover 2026-05-31T18:00:00+00:00 \
-   --sample-window-start 2026-05-31T12:00:00+00:00 --sample-size 5 | tee "$O/06-base-readback.json"  # FS11-00D
+   --sample-window-start 2026-05-31T12:00:00+00:00 --sample-size 5 | tee "$O/06-base-readback.json"
 ```
 
-Stop unless: claim `CLAIMED`/`OWNED`; apply lists 4 views; every view's
-`materialized_end` in `05` is `2026-05-31T18:00:00+00:00`; `06` is `PASS`
-with comparisons > 0.
+Stop unless the claim is `CLAIMED`, apply lists four views, all four
+`materialized_end` in `05` are `2026-05-31T18:00:00+00:00` and `06` is `PASS`
+(2026-11-12: 155 comparisons, 0 mismatches; the base load took about 3 minutes).
 
-DataHub (GMS on 18080, UI on 9002) and the isolated Airflow (UI
-http://127.0.0.1:8094; its own `AIRFLOW_HOME` and a DAG folder holding only
-this DAG; the 8084 Airflow is not touched). Its tasks inherit this shell's
-`EWALLET_C1_EVIDENCE_ROOT`, `KUBE_CONTEXT` and `DATAHUB_*`, so export them
-before `start`:
+**3a — DataHub and the isolated Airflow.** About 5 GiB RAM for DataHub. Check
+`free -g` first. The Airflow tasks inherit this shell's `KUBECONFIG`,
+`KUBE_CONTEXT`, `EWALLET_C1_EVIDENCE_ROOT` and `DATAHUB_GMS_URL`.
 
 ```bash
 DATAHUB_PYTHON="$HOME/miniconda3/envs/datahub/bin/python" DATAHUB_PULL_IMAGES=false DATAHUB_MAPPED_GMS_PORT=18080 \
   ./data_platform/metadata/datahub/runtime/start_datahub.sh start
-curl -fsS http://127.0.0.1:18080/health
-export DATAHUB_GMS_URL=http://127.0.0.1:18080   # plus DATAHUB_GMS_TOKEN only if GMS needs one
+curl -fsS http://127.0.0.1:18080/health && export DATAHUB_GMS_URL=http://127.0.0.1:18080
 A=scripts/mlops/fs11_isolated_airflow.sh
-$A start
-$A airflow dags list-import-errors; $A airflow tasks list feast_incremental_materialization
-$A airflow dags unpause feast_incremental_materialization
+$A start && $A airflow dags unpause feast_incremental_materialization       # UI http://127.0.0.1:8094
 python3 - "$EV/fs11-dry.json" <<'PY'
 import json, os, sys
 json.dump({"mode": "dry_run", "approval": "", "data_bucket": os.environ["B"],
@@ -176,30 +153,21 @@ json.dump({"mode": "dry_run", "approval": "", "data_bucket": os.environ["B"],
   "feast_redis_secret": "feast-online-redis-rehearsal", "git_sha": os.environ["APPROVED_SHA"]},
   open(sys.argv[1], "x"), indent=2)
 PY
+wait_run() { until s=$($A airflow dags state feast_incremental_materialization "$1" 2>/dev/null | tail -1 | cut -c1-7); [[ $s == success || $s == failed ]]; do sleep 20; done; echo "$1 $s"; }
 export FS11_DRY="manual__fs11-dry-$(date -u +%Y%m%dT%H%M%SZ)"
 $A airflow dags trigger feast_incremental_materialization --run-id "$FS11_DRY" --conf "$(tr -d '\n' < "$EV/fs11-dry.json")"
-$A airflow dags state feast_incremental_materialization "$FS11_DRY"        # repeat until success
-TOKEN=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["approval_token_for_this_window"])' \
-  "$EWALLET_C1_EVIDENCE_ROOT/$FS11_DRY/01-config.json"); echo "$TOKEN"
-python3 - "$EV/fs11-dry.json" "$EV/fs11-exec.json" "$TOKEN" <<'PY'
-import json, sys
-conf = json.load(open(sys.argv[1])); conf.update(mode="execute", approval=sys.argv[3])
-json.dump(conf, open(sys.argv[2], "x"), indent=2)
-PY
+wait_run "$FS11_DRY"
+TOKEN=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["approval_token_for_this_window"])' "$EWALLET_C1_EVIDENCE_ROOT/$FS11_DRY/01-config.json")
+python3 -c 'import json,sys;c=json.load(open(sys.argv[1]));c.update(mode="execute",approval=sys.argv[3]);json.dump(c,open(sys.argv[2],"x"),indent=2)' \
+  "$EV/fs11-dry.json" "$EV/fs11-exec.json" "$TOKEN"
 export FS11_RUN="manual__fs11-$(date -u +%Y%m%dT%H%M%SZ)"
 $A airflow dags trigger feast_incremental_materialization --run-id "$FS11_RUN" --conf "$(tr -d '\n' < "$EV/fs11-exec.json")"
-$A airflow dags state feast_incremental_materialization "$FS11_RUN"         # expect success, 8 green
-RUN_DIR="$EWALLET_C1_EVIDENCE_ROOT/$(printf '%s' "$FS11_RUN" | tr ':+' '___')"
-sha256sum "$RUN_DIR"/*.json > "$RUN_DIR/SHA256SUMS"; git rev-parse HEAD > "$RUN_DIR/GIT_SHA"
+wait_run "$FS11_RUN"                                  # about 15 minutes; expect success
+RUN_DIR="$EWALLET_C1_EVIDENCE_ROOT/$FS11_RUN"
+sha256sum "$RUN_DIR"/*.json > "$RUN_DIR/SHA256SUMS"; echo "$APPROVED_SHA" > "$RUN_DIR/GIT_SHA"
 ```
 
-Expected in `RUN_DIR`: `03-window.json` decision `NEW_WINDOW` from
-`2026-05-31T18:00:00+00:00` to `2026-05-31T23:00:00+00:00`; `05` all four
-`materialized_end` = target; `06-readback.json` comparisons > 0 and 0
-mismatches; `07-provenance.json` outcome `NEW_WINDOW` and the digest image;
-`08-datahub-lineage.json` `verification_status=PASS`.
-
-### Step 4 — Row 12 on GKE (FS12-01 … FS12-05)
+### Step 4 — Row 12 on GKE
 
 ```bash
 export BLOCK_A_NAMESPACE="verify-fs12-$(date -u +%Y%m%d%H%M%S)"
@@ -208,56 +176,61 @@ export FEAST_OFFLINE_DATA_ROOT="$OFFLINE_FEATURE_ROOT/campaigns/$BLOCK_A_NAMESPA
 export HISTORY_ROOT="gs://$B/streaming-history/$BLOCK_A_NAMESPACE"
 export ONLINE_REGISTRY_URI="gs://$B/features/registries/$DATASET_VERSION/online/$BLOCK_A_NAMESPACE/registry.db"
 export ONLINE_STORE_ID=rehearsal-stream FEAST_REDIS_SECRET=feast-online-redis-stream
-export FEAST_SNAPSHOT_ID=$SNAPSHOT_ID BLOCK_A_ESTIMATED_REDIS_BYTES=10000000
-export BLOCK_A_EVIDENCE_ROOT="$EV/row12"
+export FEAST_SNAPSHOT_ID=$SNAPSHOT_ID BLOCK_A_ESTIMATED_REDIS_BYTES=10000000 BLOCK_A_EVIDENCE_ROOT="$EV/row12"
+unset FEAST_ONLINE_IMAGE REDIS_CAMPAIGN_ID ESTIMATED_REDIS_BYTES
 S=scripts/streaming/block_a_cloud.sh
-$S preflight "$BLOCK_A_NAMESPACE" --execute --approve-redis-claim
+$S render "$BLOCK_A_NAMESPACE" > "$EV/row12-render.yaml"
+$S preflight "$BLOCK_A_NAMESPACE" --execute --approve-redis-claim          # expect preflight=PASS claim=CLAIMED
 FEAST_ONLINE_IMAGE="$SINKS_IMAGE" EXECUTION_POLICY=verification REDIS_CAMPAIGN_ID="$BLOCK_A_NAMESPACE" \
   SNAPSHOT_ID="$FEAST_SNAPSHOT_ID" ESTIMATED_REDIS_BYTES="$BLOCK_A_ESTIMATED_REDIS_BYTES" \
-  scripts/mlops/feast_online_job.sh "fs12-apply-$(date -u +%H%M%S)" --execute -- apply
+  scripts/mlops/feast_online_job.sh "fs12-apply-$(date -u +%H%M%S)" --execute -- apply | tee "$EV/row12-registry-apply.json"
 $S deploy "$BLOCK_A_NAMESPACE" --execute
 $S run "$BLOCK_A_NAMESPACE" --execute
-$S collect "$BLOCK_A_NAMESPACE" --execute
+$S collect "$BLOCK_A_NAMESPACE" --execute                                   # expect verification=PASS
 RUN_DIR="$BLOCK_A_EVIDENCE_ROOT/$BLOCK_A_NAMESPACE"
 PYTHONPATH=. infra/docker/streaming-sinks/.venv/bin/python -m data_platform.streaming.verification.cli \
   check-report --report "$RUN_DIR/consistency-report.json"
 kubectl --context "$KUBE_CONTEXT" -n ml-platform port-forward svc/block-a-flink-jobmanager 8081:8081   # FS12-01, then Ctrl-C
-$S cleanup "$BLOCK_A_NAMESPACE" --execute
 ```
 
-### Step 5 — screenshots (owner only; never generated)
+### Step 5 — Row 12 cleanup (after FS12-01)
 
-Take each one only after its raw file exists. Name the file `<ID>.png` and put
-it in `$EV/screenshots/`.
+```bash
+scripts/streaming/block_a_cloud.sh cleanup "$BLOCK_A_NAMESPACE" --execute   # deletes only this campaign's labelled objects
+```
 
-| ID | Where | Must be visible | Raw file | Invalid if | Caption |
+### Step 6 — screenshots (owner only; never generated)
+
+Put the files in `$EV/screenshots/<ID>.png`. Run IDs in brackets are from the
+2026-11-12 verification. After a rerun, use your own IDs.
+
+| ID | Command / UI | Must be visible | Raw artifact | PASS when | Caption |
 |---|---|---|---|---|---|
-| FS11-00A | terminal `python -m json.tool $O/01-redis-claim.json` | `CLAIMED`/`OWNED`, `db` = `$ROW11_DB`, campaign `$FS11_ID` | `bootstrap/01-redis-claim.json` | DB 0/1, other owner | Redis ownership claim for the Row 11 registry |
-| FS11-00B | terminal on `02-apply.json` | four views, registry URI with `$FS11_ID` | `bootstrap/02-apply.json` | other registry, <4 views | Fresh registry with four FeatureViews |
-| FS11-00C | terminal on `05-state-after.json` | four `materialized_end` = `18:00:00` | `bootstrap/05-state-after.json` | null or mixed ends | Base window recorded in the registry |
-| FS11-00D | terminal on `06-base-readback.json` | `PASS`, comparisons > 0, 0 mismatches | `bootstrap/06-base-readback.json` | zero comparisons | Base Redis readback |
-| FS11-01 | Airflow Grid http://127.0.0.1:8094, DagRun `$FS11_RUN` | 8 green tasks, run ID, `mode=execute` conf | `RUN_DIR/01`–`08` | dry-run run, a failed or retried-to-green task without logs | Execute-mode incremental DagRun `[18:00, 23:00)` |
-| FS11-02 | DataHub UI (port 9002), DataJob `materialize_window` | Lineage: Offline snapshot → job → four Online datasets with `$FS11_ID` | `08-datahub-lineage.json` | `DRY_RUN`, other registry ID | Materialization lineage in DataHub |
-| FS11-03 | terminal on `03-window.json` + `06-readback.json` | `NEW_WINDOW`, watermark 18:00 → 23:00, comparisons > 0, 0 mismatches | `03`, `05`, `06` | `COMPLETED`/`NO_NEW_DATA`, zero comparisons | Watermark advance and Redis readback |
-| FS11-04 | GitHub, file links at `$APPROVED_SHA` | DAG, operator, launcher at the SHA in `GIT_SHA` | `RUN_DIR/GIT_SHA`, `$EV/IMAGES.txt` | branch-name links, tag-only image | Row 11 code at the run commit |
-| FS12-01 | Flink UI http://127.0.0.1:8081 | job RUNNING/FINISHED, job ID as in `flink-jobs.json` | `RUN_DIR/flink-jobs.json` | local compose dashboard | Flink job for `$BLOCK_A_NAMESPACE` |
-| FS12-02 | GCS console under `$FEAST_OFFLINE_DATA_ROOT` + report `offline_verification` | Parquet + manifests; `PIT_VALUES_VERIFIED`, `rows_retrieved` > 0 | `consistency-report.json` | missing manifests, zero rows | Offline Parquet written by the stream and read by Feast |
-| FS12-03 | terminal on the report's Online section | Feast Online values + exact timestamps, campaign owner | `consistency-report.json` | `redis-cli` values only | Feast Online readback from Redis |
-| FS12-04 | terminal: `check-report` output + summary | `PASS`, `entities_compared` > 0, `features_compared` > 0, `mismatch_count` 0 | `consistency-report.json`, `consistency-report.log` | digest mismatch, zero comparisons | Offline/Online consistency PASS |
-| FS12-05 | GitHub links at `$APPROVED_SHA` + `IMAGES.txt` | Flink job, writers, validator at the SHA; digests | `RUN_DIR/GIT_SHA`, `$EV/IMAGES.txt` | mutable tag | Row 12 code and images at the run commit |
+| FS11-00B | `gcloud storage ls gs://$B/features/offline/snapshots/rehearsal-5gb-v1/$FEATURE_RUN_ID/feast-r5gb-20261111-214544/` | four `feat_*` folders and `_control/` | `fs-20261112/phase-a-export/export_manifest.json` | four tables listed | Feast Offline Parquet snapshot exported from DP3 Gold |
+| FS11-00C | terminal: `python -m json.tool …/phase-a-export/export_manifest.json` plus `independent_verification.txt` | rows per table (63,238,144 total), `event_timestamp` UTC, SHA `3aa7e2f2…` | `export_manifest.json`, `independent_verification.txt` | source rows = output rows; verification PASS | Snapshot manifest and independent validation |
+| FS11-00D | terminal on `…/phase-a-export/historical_retrieval.json` | `status PASS`, 155 comparisons, 0 mismatches | `historical_retrieval.json` | 0 mismatches, 0 ambiguous | Genuine Feast `get_historical_features()` on the snapshot |
+| FS11-01 | Airflow http://127.0.0.1:8094 → `feast_incremental_materialization` → Grid → run [`manual__fs11-20261112T084109Z`] | eight green tasks, run ID, conf `mode: execute` | `row11/<run>/01`–`08` | DagRun `success` | Execute-mode incremental materialization DagRun |
+| FS11-02 | DataHub http://localhost:9002 → search `materialize_window` → Lineage | snapshot GCS datasets → `materialize_window` → four `feast://rehearsal-online/…/[fs11-r5gb-20261112]/…` datasets; properties `NEW_WINDOW`, window 18:00–23:00 | `08-datahub-lineage.json`, `datahub-readback-graphql.json` | `verification_status PASS` | Materialization lineage in DataHub |
+| FS11-03 | terminal: `03-window.json`, `05-completion.json`, `06-readback.json` | `NEW_WINDOW`; four `materialized_end` 18:00 → 23:00; generation change; 155 comparisons, 0 mismatches | `row11/<run>/03`, `05`, `06` | all PASS | Registry watermark advance and Redis readback |
+| FS11-04 | GitHub at `$APPROVED_SHA`: DAG, `ops/mlops/feast_incremental.py`, `online_operator.py`; plus `IMAGES.txt` | commit SHA in URL; image digests | `GIT_SHA`, `IMAGES.txt`, `job-pod-imageids.txt` | runtime imageID = pinned digest | Row 11 code and image provenance |
+| FS12-01 | `kubectl … port-forward svc/block-a-flink-jobmanager 8081:8081` → http://127.0.0.1:8081 | job RUNNING with 4 tasks, job ID as in `flink-jobs.json` | `row12/<ns>/flink-jobs.json` | job ID matches | Flink job on GKE for `<ns>` |
+| FS12-02 | GCS console → `streaming-features/campaigns/<ns>/runs/<ns>/offline/` and `_provenance/` | Parquet per view, Kafka offset manifests | `gcs-offline-listing.txt`, `consistency-report.json` `offline_verification` | `PIT_VALUES_VERIFIED` = rows retrieved | Streaming Offline writer output in GCS |
+| FS12-03 | terminal on the report's `comparison` / `direct_offline_online_comparison` | Feast Online values with exact timestamps; Redis DB owner | `consistency-report.json`, `redis-after.txt` | entities > 0 | Feast Online writer and Redis readback |
+| FS12-04 | terminal: `check-report` and the report summary | `status PASS`, `entities_compared`, `features_compared`, `mismatch_count 0`, `report_digest` | `consistency-report.json`, `check-report.txt` | `check-report` PASS | Offline/Online consistency report PASS |
+| FS12-05 | GitHub at `$APPROVED_SHA`: Flink job, sinks, validator; plus `IMAGES.txt` | commit SHA; Flink/sinks digests | `GIT_SHA`, `pod-imageids.txt` | runtime imageID = pinned digest | Row 12 code and image provenance |
 
-### Step 6 — stop and sleep (GKE cost cleanup)
+### Step 7 — stop and sleep
 
 ```bash
 scripts/mlops/fs11_isolated_airflow.sh stop
 ./data_platform/metadata/datahub/runtime/start_datahub.sh stop
-CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev
-python3 ops/gcp/cloud_lab.py status | tee "$EV/gke-after.txt"          # expect cpu-pool 0 nodes
-# If you used the temporary gcloud authorized-network path, restore the old CIDR list.
+python3 ops/gcp/cloud_lab.py --kubeconfig "$KUBECONFIG" plan-sleep          # expect SAFE_TO_SLEEP
+CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py --kubeconfig "$KUBECONFIG" sleep --execute --confirm-cluster ewallet-dev
+kubectl --context "$KUBE_CONTEXT" get nodes                                  # expect: No resources found
 ```
 
-Keep Redis keys, registries, GCS objects, DataHub records and evidence. They
-are the run's proof. Never flush Redis.
+Keep Redis keys, registries, GCS objects, DataHub records and evidence. Never
+flush Redis. The IAM bindings expire by themselves on 2026-11-27.
 
 ## Python environments (uv, one lock per deployment boundary)
 

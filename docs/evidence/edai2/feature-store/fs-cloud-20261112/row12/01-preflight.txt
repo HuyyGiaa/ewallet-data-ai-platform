@@ -1,0 +1,1 @@
+preflight=PASS namespace=verify-fs12-20261112084123 redis_db=8 claim=CLAIMED target_fingerprint=sha256:e02f9fa7552bf9d28919f4916a4ef39967be28af1cba2dd9b6fa7e1414355772 artifact=/home/huyy-giaa/ewallet-evidence/fs-cloud-20261112/row12/preflight/verify-fs12-20261112084123.preflight

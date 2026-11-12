@@ -1,0 +1,119 @@
+{
+  "evidence": {
+    "command": "parity",
+    "comparisons": 155,
+    "cutover": "2026-05-31T23:00:00+00:00",
+    "finished_at": "2026-11-12T08:55:21.402416+00:00",
+    "git_sha": "e913224f04d7e21251b6b6b8278662a6dd473814",
+    "historical_features": 31,
+    "mismatch_count": 0,
+    "offline_data_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544",
+    "registry": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/fs11-r5gb-20261112/registry.db",
+    "registry_generation_after": 1794473045394725,
+    "registry_generation_before": 1794473045394725,
+    "schema_version": "feast-online-operation-evidence-v1",
+    "started_at": "2026-11-12T08:44:52.974772+00:00",
+    "status": "PASS",
+    "views": [
+      {
+        "entities": [
+          "29281942-c13b-406c-962c-b2f21c37fe47",
+          "db37bc2a-fca4-4c61-bacd-df06edf395d2",
+          "dd2c1462-6e58-4519-9e10-e41e090fcecc",
+          "e0091c6b-f5af-433b-a476-a29db19b1abd",
+          "f759a93a-e270-43f5-b983-294b389c3474"
+        ],
+        "entity_key": "user_id",
+        "features_per_entity": 9,
+        "mismatches": [],
+        "missing_entity_all_null": true,
+        "online_event_timestamps": [
+          "2026-05-31T21:59:20+00:00",
+          "2026-05-31T19:46:58+00:00",
+          "2026-05-31T20:12:30+00:00",
+          "2026-05-31T20:35:58+00:00",
+          "2026-05-31T20:53:45+00:00"
+        ],
+        "superseded_by_streaming": [],
+        "view": "user_behavior"
+      },
+      {
+        "entities": [
+          "735e2c28-2b8f-432e-86b2-9f9660906f49",
+          "9f3f125c-af3a-4bcc-a797-936856908871",
+          "f175ac05-27d4-46bd-8fa9-aafc53efc97c",
+          "ba9e188a-3875-4c78-a50a-01a3b48edce8",
+          "eecbfb09-43b4-475c-bdbf-63b8e84fc313"
+        ],
+        "entity_key": "account_id",
+        "features_per_entity": 10,
+        "mismatches": [],
+        "missing_entity_all_null": true,
+        "online_event_timestamps": [
+          "2026-05-31T20:05:03+00:00",
+          "2026-05-31T18:00:05+00:00",
+          "2026-05-31T18:18:51+00:00",
+          "2026-05-31T19:43:47+00:00",
+          "2026-05-31T20:24:50+00:00"
+        ],
+        "superseded_by_streaming": [],
+        "view": "account_behavior"
+      },
+      {
+        "entities": [
+          "f6f81173-53f3-4750-a3d3-223b6d60af4e",
+          "778b95fe-5929-4af5-872e-2b4d34891990",
+          "1489843a-3b44-44f4-b5d7-6d3fc8a8c4a4",
+          "c301fecb-a429-4e26-be32-84bc8f042de1",
+          "9f790cb5-046d-4a60-b5cb-a256a6d2fca2"
+        ],
+        "entity_key": "device_id",
+        "features_per_entity": 5,
+        "mismatches": [],
+        "missing_entity_all_null": true,
+        "online_event_timestamps": [
+          "2026-05-31T19:34:25+00:00",
+          "2026-05-31T20:55:30+00:00",
+          "2026-05-31T20:19:55+00:00",
+          "2026-05-31T19:47:02+00:00",
+          "2026-05-31T19:57:09+00:00"
+        ],
+        "superseded_by_streaming": [],
+        "view": "device_behavior"
+      },
+      {
+        "entities": [
+          "df6a63ab-6ded-4fb9-9a17-3dfef7355778",
+          "e2632539-b373-461e-8cf4-d3d51be30c2b",
+          "313f086b-4ff4-410f-90cf-eb41ae48eef9",
+          "df758ce0-a7f0-44b7-a3a7-ca97c37d65b5",
+          "4848fc89-ed96-419b-b540-015013b8790f"
+        ],
+        "entity_key": "merchant_id",
+        "features_per_entity": 7,
+        "mismatches": [],
+        "missing_entity_all_null": true,
+        "online_event_timestamps": [
+          "2026-05-31T19:17:31+00:00",
+          "2026-05-31T20:59:09+00:00",
+          "2026-05-31T19:26:06+00:00",
+          "2026-05-31T20:42:01+00:00",
+          "2026-05-31T21:21:12+00:00"
+        ],
+        "superseded_by_streaming": [],
+        "view": "merchant_behavior"
+      }
+    ]
+  },
+  "recorded_at": "2026-11-12T08:55:26.568756+00:00",
+  "run_fingerprint": "07ca28e92882104a1e7fe9e3f736941dd3f801bc94ee808038cf0e3de317c3bd",
+  "run_id": "manual__fs11-20261112T084109Z",
+  "stage": "readback",
+  "status": "PASS",
+  "summary": {
+    "comparisons": 155,
+    "entities_checked": 20,
+    "entities_superseded_by_streaming": 0
+  },
+  "window_id": "ff31f721d1f8"
+}
