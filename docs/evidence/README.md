@@ -17,12 +17,14 @@ existing locations remain authoritative until a later owner-approved Phase B1.
 | EDAI-2 | [EDAI-2 documentation and evidence links](../edai2/README.md) | Mixed historical/partial/current artifacts |
 | Rubric | [Rubric audit](../rubric/rubric_audit.md) | Point-in-time crosswalk |
 | Migration planning | `docs/migration/evidence/` | Phase B0 mapping only; not migrated |
+| EDAI-1 Docker (rows 3–4) | [docker/5gb/MANIFEST.md](edai1/docker/5gb/MANIFEST.md) | Owner run `20261112t142522`, SHA-256 verified; older files [historical](edai1/docker/README.md) |
+| EDAI-1 storage (rows 20–21) | [storage/5gb/MANIFEST.md](edai1/storage/5gb/MANIFEST.md) | Lakehouse `storage-5gb-20261112t142522` and PostgreSQL index benchmark, SHA-256 verified; older files [historical](edai1/storage/README.md) |
 | EDAI-2 testing runs | [edai2/testing/README.md](edai2/testing/README.md) | Rows 28–31 raw results with provenance |
 | EDAI-2 testing and KEDA screenshots | [testing](edai2/screenshots/testing/EVIDENCE_MANIFEST.md), [keda](edai2/screenshots/keda/EVIDENCE_MANIFEST.md) | Owner captures, SHA-256 verified |
 
 ## Approved future taxonomy
 
-- EDAI-1: `docs/evidence/edai1/{dp1,dp2,dp3,streaming,datahub}/`.
+- EDAI-1: `docs/evidence/edai1/{dp1,dp2,dp3,streaming,datahub,docker,storage}/`; a dataset-scoped run goes in a subfolder such as `docker/5gb/` with `MANIFEST.md` and `SHA256SUMS`.
 - DataHub: `docs/evidence/edai1/datahub/{lineage,assertions,datasets_schema}/{screenshots,api}/`.
 - EDAI-2: `docs/evidence/edai2/{mlops,llm,rag,agents,cicd,observability}/`.
 

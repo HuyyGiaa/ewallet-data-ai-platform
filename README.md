@@ -101,8 +101,9 @@ logic, and runtime claims are tied to preserved reports and evidence.
 | Canonical dataset | **100,156,470,260 bytes** across 3,696 shards | Immutable synthetic-data manifest; [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
 | Duplicate simulation | **2.00%** added rows | 7,392,000 controlled duplicates in the canonical population; [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
 | Flink acceptance p95 | **10,896 → 7,256 ms** | 100 events/s for 120 s, baseline vs optimised profile; [streaming report](docs/edai1/streaming/FLINK_STREAMING.md) |
-| Delta storage (5GB) | Compaction, Z-order and pruning benchmark prepared; results pending an owner-approved Dataproc run | Isolated clones of the 5GB Gold tables; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
-| PostgreSQL index (5GB) | Index benchmark on 3.8 M real Gold rows prepared; official results pending the owner run | Isolated PostgreSQL 16; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
+| Docker image (5GB verifier) | **396.9 → 44.2 MB** content (−88.87 %) | 95.8 % from the slim base, 4.2 % from multi-stage packaging; same 45-check fingerprint; [Docker report](docs/edai1/docker/DOCKER_OPTIMIZATION.md) |
+| Delta partition pruning (5GB) | **7 of 151 files, 3.0–3.3× faster** | Compaction was a no-op and Z-order was not adopted (no I/O reduction); isolated Dataproc clones; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
+| PostgreSQL index (5GB) | **174.073 → 0.108 ms** median | Covering B-tree on 3.8 M real Gold rows, +17 % WAL; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
 | Feast Offline/Online parity | **155/155 comparisons** | 31 features, zero mismatches; [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
 | Kubeflow training | **Successful six-stage pipeline** | Run `dc29f5cc-cc9e-49ae-b861-eacddd6269b5`; [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
 | KServe inference | **HTTP 200 fraud predictions** | Baked model version 1 in a digest-pinned image; [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |

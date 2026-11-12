@@ -20,13 +20,13 @@
 | 31 | 2 | RUNTIME_EVIDENCE_MISSING | Silver assertions PASS | A DP2 Gold assertion run event and its UI | Run the defined Gold assertion and capture the DataHub UI | P2 |
 | 16–17 | 5 | RUNTIME_EVIDENCE_MISSING | Historical local Flink A/B (`22c0c7f`, 11 images), watermark UI | A run of the latest Block A source `0466ba4` with an authoritative late-arrival metric artifact | Bounded Redpanda/Flink scenario (late, duplicate, window) with Flink UI capture; keep the historical failed 500 EPS run visible | P2 |
 
-## Docker and storage rerun on the 5GB campaign (2026-11-12, branch `feature/edai1-docker-storage-5gb`)
+## Closed by the 5GB Docker and storage runs (2026-11-13)
 
-| Row | Pts | Class | Prepared and verified | Missing proof | Action | Priority |
-|---:|---:|---|---|---|---|---|
-| 3, 4 | 5 | OWNER_SCREENSHOT_PENDING | Campaign-verifier images, 2×2 control matrix, hardened Compose; all ran locally with one shared report fingerprint | DK01–DK05 from the owner run | Stage 1 of [DOCKER_STORAGE_5GB_OWNER_EVIDENCE](../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md) | P1 |
-| 20 | 3 | OWNER_CLOUD_EXECUTION_REQUIRED | 5GB layout read from Delta logs; plan with data-derived predicates; job verified on Spark 3.5.3 + Delta 3.2.0 locally (clone safety, no-op detection, Z-order, pruning metrics) | One Dataproc batch; ST01–ST09 | Stages 3–4 of the runbook | P2 |
-| 21 | 3 | OWNER_SCREENSHOT_PENDING | PostgreSQL benchmark on 3,816,574 real Gold rows ran locally end to end | WH01–WH06 in DBeaver | Stage 2 of the runbook | P1 |
+| Row | Evidence that closed it | Residual note |
+|---|---|---|
+| 3, 4 | Owner run `20261112t142522`: 2×2 image matrix (−88.87 % content, 95.76 % base image / 4.24 % packaging), identical fingerprint, hardened Compose exit 0; DK01–DK05 ([report](docker/DOCKER_OPTIMIZATION.md)) | No run-time gain claimed |
+| 20 | Dataproc batch `storage-5gb-20261112t142522-storage` PASS: compaction NOT_NEEDED, Z-order DO_NOT_ADOPT, partition pruning 7/151 files; ST01–ST09 ([report](storage/STORAGE_OPTIMIZATION.md) Part A) | Trino `stats_only` capture taken in the +07:00 session zone; SQL fixed, not recaptured (P3) |
+| 21 | PostgreSQL 16.15 index benchmark on 3,816,574 real Gold rows: 174.073 → 0.108 ms, WAL +17 %, equivalence PASS; WH01–WH06 ([report](storage/STORAGE_OPTIMIZATION.md) Part B) | 31-day sample |
 
 ## Closed by the 5GB rehearsal `ab-20261110225456` (2026-11-11)
 

@@ -6,6 +6,8 @@ This runbook is for the owner, run on Ubuntu (bash). It collects the official ev
 
 Every experiment reads the 5GB campaign `ab-20261110225456` (`rehearsal-5gb-v1`, optimized profile).
 
+**Status (2026-11-13).** Stages 0–4 were run by the owner as `RUN_TS=20261112t142522` (lakehouse benchmark `storage-5gb-20261112t142522`). Stage 5 is done: the evidence is under [docs/evidence/edai1/docker/5gb/](../../evidence/edai1/docker/5gb/MANIFEST.md) and [docs/evidence/edai1/storage/5gb/](../../evidence/edai1/storage/5gb/MANIFEST.md). Use this runbook again only for a new, separately identified run. The dataset-independent Dataproc procedure is in [cloud/storage_optimization.md](cloud/storage_optimization.md).
+
 | Stage | What | Writes to | Paid | Approx. time |
 |---|---|---|---|---|
 | 0 | Preflight | nothing | no | 5 min |
@@ -81,7 +83,10 @@ docker image ls edai1/campaign-verifier
 | DK05 | 3 | Terminal: the Compose commands below | `read_only: true`, `network_mode: none`, `cap_drop: ALL` in `config`; `"verdict": "PASS"`; `exit=0`; empty `ps -a` | *Hardened one-shot Compose run of the optimized image on read-only campaign evidence.* |
 
 ```bash
-# DK04: one run of each image on identical read-only mounts
+# DK04: one run of each image on identical read-only mounts.
+# The guard stops a new shell without Stage 0 variables: with $SPEC empty, Docker mounts
+# the repository directory on /input/workload.json and both images report INVALID_SPEC.
+: "${REPO:?run Stage 0}" "${E:?run Stage 0}" "${SPEC:?run Stage 0}" "${RUN_TS:?run Stage 0}"
 for v in baseline optimized; do
   docker run --rm --network none --read-only --cap-drop ALL \
     --mount type=bind,source="$REPO/$E",target=/input/evidence,readonly \
@@ -282,6 +287,8 @@ infra/docker/schema-viz/run_sql.sh registrar "$OUT/storage-trino/storage_registe
 
 In DBeaver, connect to *Trino*: host `localhost`, port `8091`, user `viewer`, no password. Open `$OUT/storage-trino/storage_queries.sql` and run each labelled block.
 
+**Time zone (ST09 `stats_only`).** The Spark job runs in UTC, but DBeaver sends the desktop zone (+07:00) to Trino. Generate `storage_queries.sql` with a tool commit that writes `TIMESTAMP '… UTC'` literals; otherwise, run `SET TIME ZONE 'UTC';` in the DBeaver session first. The 2026-11-13 capture predates this fix: its `stats_only` plan shows `Asia/Ho_Chi_Minh` bounds and 860,298 output rows instead of 860,389.
+
 | ID | Screen | Must be visible | Caption (suggested) |
 |---|---|---|---|
 | ST01 | DBeaver, `$history` of the three arms | `CLONE` at version 0 with the source path and `sourceVersion 0`; then `OPTIMIZE` on `compacted`/`optimized` | *Three isolated shallow clones of the pinned 5GB Gold snapshot.* |
@@ -304,9 +311,11 @@ Hand over:
 - the screenshot file names in `~/Pictures/Screenshots/`, with the checkpoint ID of each;
 - the `$OUT` folder (it holds no secret except `wh-password`, which is never copied).
 
-Claude then does the following, never before the files exist:
-1. Checks each image against its checkpoint.
-2. Copies the originals unchanged to `docs/evidence/edai1/docker/5gb/` and `docs/evidence/edai1/storage/5gb/`, with SHA-256 equal to the originals, and adds a `MANIFEST.md` and `SHA256SUMS`.
-3. Copies `result.json`, `summary.txt`, the warehouse `provenance.json`, `report.json`, `dbeaver_session.sql`, the storage `plan.json`, `layout_before.json` and `evidence/` next to them.
-4. Fills the PENDING tables in both reports with those values.
+Integration then does the following, never before the files exist:
+1. Checks each image against its checkpoint, and excludes images showing other workstreams, assistant panels or credential material.
+2. Copies the originals unchanged to `docs/evidence/edai1/docker/5gb/` and `docs/evidence/edai1/storage/5gb/`, with SHA-256 equal to the originals, and adds `MANIFEST.md`, `MANIFEST.json` and `SHA256SUMS`.
+3. Copies `result.json`, `summary.txt`, the build and Compose logs, the warehouse `provenance.json`, `before.json`, `index.json`, `report.json`, `dbeaver_session.sql`, the storage `plan.json`, `layout_before.json`, `evidence/`, the dry-run, execute and register logs, and the Trino SQL next to them. Parquet snapshots, `pg-password` and Terraform outputs are not copied.
+4. Writes the results into both reports.
 5. Moves the rubric rows to OWNER_SCREENSHOT_CAPTURED only where the images support them.
+
+Verify an integrated folder with `sha256sum -c SHA256SUMS` from inside it.

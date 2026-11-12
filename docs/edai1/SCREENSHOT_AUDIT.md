@@ -64,9 +64,8 @@ No EDAI-1 benchmark was rerun during N15. The three new images display preserved
 | 38 | Naming convention | DataHub images show zone-qualified names and Gold prefixes (HISTORICAL_UI) | **QUALIFIES** (screenshot); the naming itself is a semantic gap |
 
 Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a specific UI. Their images are supporting evidence:
-- Docker: the October images and transcripts are historical; the 5GB rerun's DK01–DK05 are pending (owner run).
-- Storage: the 500k-fixture and synthetic-PostgreSQL images are historical; the 5GB rerun's ST01–ST09 and WH01–WH06 are pending (owner run).
-- Warehouse: raw historical JSON/log plus an N15 genuine terminal view; there is still no database UI capture.
+- Docker: the 5GB owner captures DK01–DK05 are integrated (see *Docker and storage owner captures* below). The October images and transcripts are historical.
+- Storage: the 5GB owner captures ST01–ST09 (Trino/DBeaver, Dataproc Spark UI) and WH01–WH06 (PostgreSQL in DBeaver) are integrated. The 500k-fixture and synthetic-PostgreSQL images are historical.
 
 ## N15 additions
 
@@ -84,6 +83,20 @@ Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a
 | Qualify | 15 | 15, 16, 17, 18, 22, 23, 24, 26, 27, 28, 29, 30, 32, 33, 38 |
 | Partial | 4 | 11, 13, 34, 36 |
 | Missing or not qualifying | 6 | 12, 14, 25, 31, 35, 37 |
+
+## Docker and storage owner captures (2026-11-13)
+
+The owner captured these images during the 5GB Docker run `20261112t142522`, the lakehouse batch `storage-5gb-20261112t142522` and the PostgreSQL benchmark. Each image was opened and read. Its values were cross-checked against the run's raw JSON: Docker `result.json`, lakehouse `comparison.json`/`partition_pruning.json`/`rewrite.json`, warehouse `report.json`. The originals were copied byte-for-byte, with SHA-256 checked before and after the copy. Per-image checkpoint, original file name, visible content and SHA-256 are in the manifests, together with the screenshots reviewed and not included (assistant panels, other workstreams, a placeholder password variable).
+
+| Set | Images | Class | Rows | Manifest |
+|---|---:|---|---|---|
+| Docker DK01–DK05 | 10 | REAL_TERMINAL, editor | 3, 4 | [docker/5gb](../evidence/edai1/docker/5gb/MANIFEST.md) |
+| Lakehouse ST01–ST09 | 57 | NATIVE_UI (Trino 483 via DBeaver; Dataproc Spark UI), REAL_TERMINAL | 20 | [storage/5gb](../evidence/edai1/storage/5gb/MANIFEST.md) |
+| Warehouse WH01–WH06 | 16 | NATIVE_UI (PostgreSQL 16.15 via DBeaver), REAL_TERMINAL | 21 | same |
+
+Two findings came out of the image audit:
+- **DK04a** is a genuine failed attempt: `$SPEC` was unset and both images refused the spec with `INVALID_SPEC`. It is kept and labelled as a failure. The runbook now guards the variables.
+- **The ST09 `stats_only` captures** ran with the DBeaver session zone +07:00. Their window differs from the Spark job's UTC window (860,298 instead of 860,389 rows). They are labelled `session_tz_0700`; the report uses the Spark result for that side.
 
 ## 5GB rehearsal additions (2026-11-11)
 
