@@ -10,7 +10,7 @@ Every experiment reads the 5GB campaign `ab-20261110225456` (`rehearsal-5gb-v1`,
 |---|---|---|---|---|
 | 0 | Preflight | nothing | no | 5 min |
 | 1 | Docker A/B and Compose (DK01–DK05) | local images `edai1/campaign-verifier:*` | no | 10 min |
-| 2 | PostgreSQL warehouse (WH01–WH06) | local volume `edai1-wh5gb-pgdata` | no (about 0.3 GB of GCS reads) | 30 min |
+| 2 | PostgreSQL warehouse (WH01–WH06) | local volume `edai1-wh5gb-evidence-pgdata` (official instance) | no (about 0.3 GB of GCS reads) | 30 min |
 | 3 | Lakehouse plan and dry run | local files only | no | 10 min |
 | 4 | Lakehouse benchmark (ST01–ST09) | `gs://…rehearsal-5gb-data/lakehouse/benchmarks/storage/<id>/` | **yes: one Dataproc batch** | 60–90 min |
 | 5 | Evidence integration (after the screenshots exist) | repository | no | — |
@@ -103,10 +103,62 @@ docker image rm $(docker image ls edai1/campaign-verifier --format '{{.Repositor
 
 ## Stage 2 — PostgreSQL warehouse (row 21)
 
+The official evidence uses its own PostgreSQL instance. The earlier verification
+instance (container `edai1-wh5gb-postgres`, volume `edai1-wh5gb-pgdata`, Compose
+project `edai1-wh5gb`) is kept as it is: never start, remove or prune it here.
+
+| | Earlier verification (kept) | Official evidence |
+|---|---|---|
+| Compose project | `edai1-wh5gb` | `edai1-wh5gb-official` |
+| Container | `edai1-wh5gb-postgres` | `edai1-wh5gb-evidence-postgres` |
+| Volume | `edai1-wh5gb-pgdata` | `edai1-wh5gb-evidence-pgdata` |
+| Port | `127.0.0.1:55432` | `127.0.0.1:55432` (same port, so only one runs at a time) |
+
+Both use the same Compose file, image digest and PostgreSQL settings. The
+official override changes only the container and volume names. The warehouse
+tooling sends all SQL (`load`, `before`, `index`, `after`) through
+`docker exec "$EDAI1_WH_CONTAINER" psql`. When the variable is unset it falls
+back to the earlier container, so export it in every shell used for this stage.
+
+**2.1 Select the official instance and its password.** PostgreSQL applies the
+password only when the volume is first initialised. The password is therefore
+created once, next to the override (mode 600), and reused on every later run.
+It is never printed.
+
 ```bash
-docker volume inspect edai1-wh5gb-pgdata >/dev/null 2>&1 && echo "volume exists: see the cleanup note" || echo "fresh volume"
-umask 077; openssl rand -hex 16 > "$OUT/wh-password"; export EDAI1_WH_PG_PASSWORD="$(cat "$OUT/wh-password")"
-docker compose -p edai1-wh5gb -f infra/docker/compose.warehouse-5gb.yml up -d --wait
+export WH_DIR="$HOME/ewallet-evidence/warehouse-5gb-official"
+WH_COMPOSE=(docker compose -p edai1-wh5gb-official
+            -f infra/docker/compose.warehouse-5gb.yml -f "$WH_DIR/compose.override.yml")   # a shell array: define it in every shell
+export EDAI1_WH_CONTAINER=edai1-wh5gb-evidence-postgres
+if [ ! -s "$WH_DIR/pg-password" ]; then
+  if docker volume inspect edai1-wh5gb-evidence-pgdata >/dev/null 2>&1; then
+    echo "STOP: the official volume exists but its password file is missing"   # do not delete; ask
+  else
+    (umask 077; openssl rand -hex 16 > "$WH_DIR/pg-password")
+  fi
+fi
+chmod 600 "$WH_DIR/pg-password"
+export EDAI1_WH_PG_PASSWORD="$(cat "$WH_DIR/pg-password")"
+```
+
+**2.2 Check isolation, then start only the official instance.**
+
+```bash
+docker ps --filter name='^edai1-wh5gb-postgres$' --format '{{.Names}} {{.Status}}'   # expect no output (earlier instance stopped)
+ss -ltn | grep ':55432 ' && echo "STOP: 55432 is in use" || echo "port 55432 free"
+"${WH_COMPOSE[@]}" config --format json | python3 -c 'import json,sys;c=json.load(sys.stdin);s=c["services"]["postgres"];print(c["name"], s["container_name"], [v["name"] for v in c["volumes"].values()])'
+#   expect: edai1-wh5gb-official edai1-wh5gb-evidence-postgres ['edai1-wh5gb-evidence-pgdata']
+"${WH_COMPOSE[@]}" up -d --wait
+docker ps --filter name='^edai1-wh5gb-evidence-postgres$' --format '{{.Names}} {{.Status}} {{.Ports}}'
+docker inspect edai1-wh5gb-evidence-postgres --format '{{range .Mounts}}{{.Name}}{{end}}'   # edai1-wh5gb-evidence-pgdata
+```
+
+**2.3 Extract, load and measure without the index.** `extract` reads only GCS
+and writes a local Parquet snapshot. The other commands print
+`warehouse target container: edai1-wh5gb-evidence-postgres` to stderr. Stop if
+any of them prints a different container.
+
+```bash
 $UV run --locked --project ai_platform/features/feast python -m data_platform.storage.warehouse extract \
   --campaign-evidence-dir "$E" --workload-spec "$SPEC" --days 31 --output-dir "$OUT/wh-snapshot"
 $UV run --locked --project ai_platform/features/feast python -m data_platform.storage.warehouse load \
@@ -119,16 +171,13 @@ python3 -m data_platform.storage.warehouse before --run-dir "$OUT/wh-run"
 - `load` prints `rows_loaded` equal to the snapshot rows;
 - `before` prints the no-index median and the path of `$OUT/wh-run/dbeaver_session.sql`.
 
-**Existing volume.** If the preflight printed `volume exists`, it may hold an earlier verification run. Removing it is owner-approved, and it removes only this benchmark's data:
-```bash
-docker compose -p edai1-wh5gb -f infra/docker/compose.warehouse-5gb.yml down -v
-```
-
-**DBeaver connection.**
+**2.4 DBeaver connection.** Keep the password out of every screenshot:
 1. *Database → New Database Connection → PostgreSQL*.
-2. Host `127.0.0.1`, port `55432`, database `warehouse`, user `warehouse`, password from `cat "$OUT/wh-password"`.
-3. *Test Connection*, then *Finish*.
-4. Open `$OUT/wh-run/dbeaver_session.sql` in the SQL editor (*File → Open File*). Run each block with Ctrl+Enter, in order.
+2. Set host `127.0.0.1`, port `55432`, database `warehouse` and user `warehouse`.
+3. For the password, copy it with `xclip -selection clipboard < "$WH_DIR/pg-password"` and paste it into the masked field. Do not `cat` the file in a terminal you will capture.
+4. Name the connection `edai1-wh5gb-official`. *Test Connection*, then *Finish*.
+5. Check that you are on the official instance: `SELECT inet_server_addr(), current_database(), pg_postmaster_start_time();`. The start time must match `docker inspect -f '{{.State.StartedAt}}' edai1-wh5gb-evidence-postgres` to within a few seconds.
+6. Open `$OUT/wh-run/dbeaver_session.sql` in the SQL editor (*File → Open File*). Run each block with Ctrl+Enter, in order.
 
 | ID | Block | Must be visible | PASS | Caption (suggested) |
 |---|---|---|---|---|
@@ -137,7 +186,9 @@ docker compose -p edai1-wh5gb -f infra/docker/compose.warehouse-5gb.yml down -v
 | WH03 | `-- WH03` | The `CREATE INDEX` statement and its execution time in the *Statistics* tab, then `pg_get_indexdef` and the size | Definition equals the design in `before.json` | *Covering B-tree on (merchant_id, event_date) INCLUDE (status, amount), designed from the measured selectivity.* |
 | WH04 | `-- WH04` | `Index Only Scan using idx_fact_transactions_merchant_date`; `Execution Time` | Index-only scan chosen | *After: an index-only scan answers the same query.* |
 
-After WH03 has run in DBeaver, record the index and finish the measurements from the terminal:
+**2.5 Indexed measurements.** Run these after WH03 has created the index in
+DBeaver, in the same shell (with `EDAI1_WH_CONTAINER` still exported):
+
 ```bash
 python3 -m data_platform.storage.warehouse index --run-dir "$OUT/wh-run" --already-created
 python3 -m data_platform.storage.warehouse after --run-dir "$OUT/wh-run"
@@ -151,10 +202,15 @@ python3 -m data_platform.storage.warehouse after --run-dir "$OUT/wh-run"
 **FAIL:**
 - **`index differs from the design`:** WH03 was edited. Drop the index (`DROP INDEX idx_fact_transactions_merchant_date;`) and rerun WH03 from the generated file.
 - **`indexing changed the table`:** stop and keep `$OUT/wh-run` for analysis.
+- **A command reports `warehouse target container: edai1-wh5gb-postgres`:** `EDAI1_WH_CONTAINER` is not exported in that shell. Export it (2.1) and rerun the command with a new `--run-dir`.
 
-**Stop the database** when done. The data is kept:
+**2.6 Stop only the official instance.** Its data is kept, and the earlier
+verification instance is not touched:
+
 ```bash
-docker compose -p edai1-wh5gb -f infra/docker/compose.warehouse-5gb.yml stop
+"${WH_COMPOSE[@]}" stop
+docker ps -a --filter name=edai1-wh5gb --format '{{.Names}} {{.Status}}'   # both instances Exited
+docker volume ls --filter name=edai1-wh5gb --format '{{.Name}}'           # both volumes still present
 ```
 
 ## Stage 3 — Lakehouse plan and dry run (row 20)

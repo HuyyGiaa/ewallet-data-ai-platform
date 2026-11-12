@@ -2,7 +2,7 @@
 
 All SQL runs through ``docker exec <container> psql`` on the container's local
 socket, so no database driver or host password is needed by the tooling. The
-container name is fixed to the benchmark's own container.
+container is ``$EDAI1_WH_CONTAINER`` when set, else the benchmark's default container.
 """
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import IO, Any, Callable, Sequence
 
-from . import CONTAINER, DATABASE, USER
+from . import DATABASE, USER, container_name
 
 Runner = Callable[..., subprocess.CompletedProcess]
 _TIMING = re.compile(r"^Time: ([0-9.]+) ms", re.MULTILINE)
@@ -27,7 +27,7 @@ class PostgresError(RuntimeError):
 class Psql:
     """Run SQL in the benchmark database."""
 
-    container: str = CONTAINER
+    container: str = field(default_factory=container_name)
     runner: Runner = subprocess.run
 
     def _args(self, *extra: str) -> list[str]:

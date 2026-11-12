@@ -14,7 +14,18 @@ Pipeline, one module per responsibility:
 No module generates rows: every benchmark row comes from the campaign's Gold table.
 """
 
-CONTAINER = "edai1-wh5gb-postgres"
+import os
+
+CONTAINER = "edai1-wh5gb-postgres"  # default; EDAI1_WH_CONTAINER selects another instance
+CONTAINER_ENV = "EDAI1_WH_CONTAINER"
+
+
+def container_name() -> str:
+    """Target PostgreSQL container: ``$EDAI1_WH_CONTAINER`` if set, else :data:`CONTAINER`."""
+
+    return os.environ.get(CONTAINER_ENV, "").strip() or CONTAINER
+
+
 DATABASE = "warehouse"
 USER = "warehouse"
 TABLE = "fact_transactions"

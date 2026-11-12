@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -92,6 +93,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps({"snapshot": provenance["snapshot"], "profile": provenance["profile"]}, indent=2))
         return 0
     psql = Psql()
+    print(f"warehouse target container: {psql.container}", file=sys.stderr)
     if args.command == "load":
         from .load import load as run_load
 
