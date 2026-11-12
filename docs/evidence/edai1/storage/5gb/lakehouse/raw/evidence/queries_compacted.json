@@ -1,0 +1,292 @@
+{
+  "tables": [
+    {
+      "table": "fact_transactions",
+      "queries": [
+        {
+          "name": "window_aggregation",
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM compacted_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31'",
+          "runtime_seconds": 0.7608746869999834,
+          "runtime_samples_seconds": [
+            0.7128327020000143,
+            0.8828510460000132,
+            0.7278631920000009,
+            0.7608746869999834,
+            0.8036537710000005
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75922 as decimal(38,2))), avg(cast(amount#75922 as decimal(38,6)))], output=[row_count#78385L, total_amount#78386, average_amount#78387])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=13229]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75922 as decimal(38,2))), partial_avg(cast(amount#75922 as decimal(38,6)))], output=[count#78508L, sum#78509, isEmpty#78510, sum#78511, count#78512L])\n            +- *(1) Project [amount#75922]\n               +- *(1) ColumnarToRow\n                  +- FileScan parquet [amount#75922,event_date#75927] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75927), (event_date#75927 >= 2026-05-25), (event_date#75927 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75922 as decimal(38,2))), avg(cast(amount#75922 as decimal(38,6)))], output=[row_count#78385L, total_amount#78386, average_amount#78387])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=13212]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75922 as decimal(38,2))), partial_avg(cast(amount#75922 as decimal(38,6)))], output=[count#78508L, sum#78509, isEmpty#78510, sum#78511, count#78512L])\n         +- Project [amount#75922]\n            +- FileScan parquet [amount#75922,event_date#75927] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75927), (event_date#75927 >= 2026-05-25), (event_date#75927 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 169756233,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        },
+        {
+          "name": "window_merchant_lookup",
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM compacted_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31' AND merchant_id = '00058dec-9436-4664-91e0-3e1d5829e22b'",
+          "runtime_seconds": 0.7117244739999933,
+          "runtime_samples_seconds": [
+            0.7013464119999924,
+            0.6972703419999959,
+            0.7148534279999978,
+            0.767276814999974,
+            0.7117244739999933
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 2,
+              "total_amount": "3783906.04",
+              "average_amount": "1891953.020000"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1891953.020000\", \"row_count\": 2, \"total_amount\": \"3783906.04\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75922 as decimal(38,2))), avg(cast(amount#75922 as decimal(38,6)))], output=[row_count#80481L, total_amount#80482, average_amount#80483])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=14450]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75922 as decimal(38,2))), partial_avg(cast(amount#75922 as decimal(38,6)))], output=[count#80575L, sum#80576, isEmpty#80577, sum#80578, count#80579L])\n            +- *(1) Project [amount#75922]\n               +- *(1) Filter (isnotnull(merchant_id#75914) AND (merchant_id#75914 = 00058dec-9436-4664-91e0-3e1d5829e22b))\n                  +- *(1) ColumnarToRow\n                     +- FileScan parquet [merchant_id#75914,amount#75922,event_date#75927] Batched: true, DataFilters: [isnotnull(merchant_id#75914), (merchant_id#75914 = 00058dec-9436-4664-91e0-3e1d5829e22b)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75927), (event_date#75927 >= 2026-05-25), (event_date#75927 <= 2026-05-31)], PushedFilters: [IsNotNull(merchant_id), EqualTo(merchant_id,00058dec-9436-4664-91e0-3e1d5829e22b)], ReadSchema: struct<merchant_id:string,amount:double>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75922 as decimal(38,2))), avg(cast(amount#75922 as decimal(38,6)))], output=[row_count#80481L, total_amount#80482, average_amount#80483])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=14429]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75922 as decimal(38,2))), partial_avg(cast(amount#75922 as decimal(38,6)))], output=[count#80575L, sum#80576, isEmpty#80577, sum#80578, count#80579L])\n         +- Project [amount#75922]\n            +- Filter (isnotnull(merchant_id#75914) AND (merchant_id#75914 = 00058dec-9436-4664-91e0-3e1d5829e22b))\n               +- FileScan parquet [merchant_id#75914,amount#75922,event_date#75927] Batched: true, DataFilters: [isnotnull(merchant_id#75914), (merchant_id#75914 = 00058dec-9436-4664-91e0-3e1d5829e22b)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75927), (event_date#75927 >= 2026-05-25), (event_date#75927 <= 2026-05-31)], PushedFilters: [IsNotNull(merchant_id), EqualTo(merchant_id,00058dec-9436-4664-91e0-3e1d5829e22b)], ReadSchema: struct<merchant_id:string,amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 169756233,
+                "partitions_read": 7,
+                "output_rows": 200000
+              }
+            ]
+          }
+        },
+        {
+          "name": "window_failed_by_channel",
+          "sql": "SELECT channel, COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount FROM compacted_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31' AND status = 'failed' GROUP BY channel ORDER BY channel",
+          "runtime_seconds": 0.7828391470000042,
+          "runtime_samples_seconds": [
+            0.7524780509999971,
+            0.7873839269999792,
+            0.8072052379999946,
+            0.7828391470000042,
+            0.7166429419999929
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "channel": "app",
+              "row_count": 20061,
+              "total_amount": "26734150033.27"
+            },
+            {
+              "channel": "atm",
+              "row_count": 4869,
+              "total_amount": "6494993044.26"
+            },
+            {
+              "channel": "web",
+              "row_count": 4833,
+              "total_amount": "6538968507.88"
+            }
+          ],
+          "result_json": "[{\"channel\": \"app\", \"row_count\": 20061, \"total_amount\": \"26734150033.27\"}, {\"channel\": \"atm\", \"row_count\": 4869, \"total_amount\": \"6494993044.26\"}, {\"channel\": \"web\", \"row_count\": 4833, \"total_amount\": \"6538968507.88\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(3) Sort [channel#75920 ASC NULLS FIRST], true, 0\n   +- AQEShuffleRead coalesced\n      +- ShuffleQueryStage 1\n         +- Exchange rangepartitioning(channel#75920 ASC NULLS FIRST, 400), ENSURE_REQUIREMENTS, [plan_id=16354]\n            +- *(2) HashAggregate(keys=[channel#75920], functions=[count(1), sum(cast(amount#75922 as decimal(38,2)))], output=[channel#75920, row_count#82317L, total_amount#82318])\n               +- AQEShuffleRead coalesced\n                  +- ShuffleQueryStage 0\n                     +- Exchange hashpartitioning(channel#75920, 400), ENSURE_REQUIREMENTS, [plan_id=16322]\n                        +- *(1) HashAggregate(keys=[channel#75920], functions=[partial_count(1), partial_sum(cast(amount#75922 as decimal(38,2)))], output=[channel#75920, count#82407L, sum#82408, isEmpty#82409])\n                           +- *(1) Project [channel#75920, amount#75922]\n                              +- *(1) Filter (isnotnull(status#75919) AND (status#75919 = failed))\n                                 +- *(1) ColumnarToRow\n                                    +- FileScan parquet [status#75919,channel#75920,amount#75922,event_date#75927] Batched: true, DataFilters: [isnotnull(status#75919), (status#75919 = failed)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75927), (event_date#75927 >= 2026-05-25), (event_date#75927 <= 2026-05-31)], PushedFilters: [IsNotNull(status), EqualTo(status,failed)], ReadSchema: struct<status:string,channel:string,amount:double>\n+- == Initial Plan ==\n   Sort [channel#75920 ASC NULLS FIRST], true, 0\n   +- Exchange rangepartitioning(channel#75920 ASC NULLS FIRST, 400), ENSURE_REQUIREMENTS, [plan_id=16296]\n      +- HashAggregate(keys=[channel#75920], functions=[count(1), sum(cast(amount#75922 as decimal(38,2)))], output=[channel#75920, row_count#82317L, total_amount#82318])\n         +- Exchange hashpartitioning(channel#75920, 400), ENSURE_REQUIREMENTS, [plan_id=16293]\n            +- HashAggregate(keys=[channel#75920], functions=[partial_count(1), partial_sum(cast(amount#75922 as decimal(38,2)))], output=[channel#75920, count#82407L, sum#82408, isEmpty#82409])\n               +- Project [channel#75920, amount#75922]\n                  +- Filter (isnotnull(status#75919) AND (status#75919 = failed))\n                     +- FileScan parquet [status#75919,channel#75920,amount#75922,event_date#75927] Batched: true, DataFilters: [isnotnull(status#75919), (status#75919 = failed)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75927), (event_date#75927 >= 2026-05-25), (event_date#75927 <= 2026-05-31)], PushedFilters: [IsNotNull(status), EqualTo(status,failed)], ReadSchema: struct<status:string,channel:string,amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 169756233,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "table": "obt_transaction_enriched",
+      "queries": [
+        {
+          "name": "window_aggregation",
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM compacted_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31'",
+          "runtime_seconds": 0.6680321619999745,
+          "runtime_samples_seconds": [
+            0.6688293820000126,
+            0.8049703600000271,
+            0.6313377629999763,
+            0.6307892519999996,
+            0.6680321619999745
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203271 as decimal(38,2))), avg(cast(amount#203271 as decimal(38,6)))], output=[row_count#205780L, total_amount#205781, average_amount#205782])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=32207]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203271 as decimal(38,2))), partial_avg(cast(amount#203271 as decimal(38,6)))], output=[count#205903L, sum#205904, isEmpty#205905, sum#205906, count#205907L])\n            +- *(1) Project [amount#203271]\n               +- *(1) ColumnarToRow\n                  +- FileScan parquet [amount#203271,event_date#203277] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203277), (event_date#203277 >= 2026-05-25), (event_date#203277 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203271 as decimal(38,2))), avg(cast(amount#203271 as decimal(38,6)))], output=[row_count#205780L, total_amount#205781, average_amount#205782])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=32190]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203271 as decimal(38,2))), partial_avg(cast(amount#203271 as decimal(38,6)))], output=[count#205903L, sum#205904, isEmpty#205905, sum#205906, count#205907L])\n         +- Project [amount#203271]\n            +- FileScan parquet [amount#203271,event_date#203277] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203277), (event_date#203277 >= 2026-05-25), (event_date#203277 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 197768225,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        },
+        {
+          "name": "window_merchant_lookup",
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM compacted_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31' AND merchant_id = '00058dec-9436-4664-91e0-3e1d5829e22b'",
+          "runtime_seconds": 0.8385830400000032,
+          "runtime_samples_seconds": [
+            0.8552219300000274,
+            0.7753051309999819,
+            0.8385830400000032,
+            0.8068114110000124,
+            0.8764169089999996
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 2,
+              "total_amount": "3783906.04",
+              "average_amount": "1891953.020000"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1891953.020000\", \"row_count\": 2, \"total_amount\": \"3783906.04\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203271 as decimal(38,2))), avg(cast(amount#203271 as decimal(38,6)))], output=[row_count#207876L, total_amount#207877, average_amount#207878])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=33412]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203271 as decimal(38,2))), partial_avg(cast(amount#203271 as decimal(38,6)))], output=[count#207970L, sum#207971, isEmpty#207972, sum#207973, count#207974L])\n            +- *(1) Project [amount#203271]\n               +- *(1) Filter (isnotnull(merchant_id#203258) AND (merchant_id#203258 = 00058dec-9436-4664-91e0-3e1d5829e22b))\n                  +- *(1) ColumnarToRow\n                     +- FileScan parquet [merchant_id#203258,amount#203271,event_date#203277] Batched: true, DataFilters: [isnotnull(merchant_id#203258), (merchant_id#203258 = 00058dec-9436-4664-91e0-3e1d5829e22b)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203277), (event_date#203277 >= 2026-05-25), (event_date#203277 <= 2026-05-31)], PushedFilters: [IsNotNull(merchant_id), EqualTo(merchant_id,00058dec-9436-4664-91e0-3e1d5829e22b)], ReadSchema: struct<merchant_id:string,amount:double>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203271 as decimal(38,2))), avg(cast(amount#203271 as decimal(38,6)))], output=[row_count#207876L, total_amount#207877, average_amount#207878])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=33391]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203271 as decimal(38,2))), partial_avg(cast(amount#203271 as decimal(38,6)))], output=[count#207970L, sum#207971, isEmpty#207972, sum#207973, count#207974L])\n         +- Project [amount#203271]\n            +- Filter (isnotnull(merchant_id#203258) AND (merchant_id#203258 = 00058dec-9436-4664-91e0-3e1d5829e22b))\n               +- FileScan parquet [merchant_id#203258,amount#203271,event_date#203277] Batched: true, DataFilters: [isnotnull(merchant_id#203258), (merchant_id#203258 = 00058dec-9436-4664-91e0-3e1d5829e22b)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203277), (event_date#203277 >= 2026-05-25), (event_date#203277 <= 2026-05-31)], PushedFilters: [IsNotNull(merchant_id), EqualTo(merchant_id,00058dec-9436-4664-91e0-3e1d5829e22b)], ReadSchema: struct<merchant_id:string,amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 197768225,
+                "partitions_read": 7,
+                "output_rows": 220000
+              }
+            ]
+          }
+        },
+        {
+          "name": "window_failed_by_channel",
+          "sql": "SELECT channel, COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount FROM compacted_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31' AND status = 'failed' GROUP BY channel ORDER BY channel",
+          "runtime_seconds": 0.9302573599999846,
+          "runtime_samples_seconds": [
+            0.9302573599999846,
+            0.965066228000012,
+            0.9383155389999729,
+            0.8703628590000108,
+            0.8826010989999986
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "channel": "app",
+              "row_count": 20061,
+              "total_amount": "26734150033.27"
+            },
+            {
+              "channel": "atm",
+              "row_count": 4869,
+              "total_amount": "6494993044.26"
+            },
+            {
+              "channel": "web",
+              "row_count": 4833,
+              "total_amount": "6538968507.88"
+            }
+          ],
+          "result_json": "[{\"channel\": \"app\", \"row_count\": 20061, \"total_amount\": \"26734150033.27\"}, {\"channel\": \"atm\", \"row_count\": 4869, \"total_amount\": \"6494993044.26\"}, {\"channel\": \"web\", \"row_count\": 4833, \"total_amount\": \"6538968507.88\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(3) Sort [channel#203269 ASC NULLS FIRST], true, 0\n   +- AQEShuffleRead coalesced\n      +- ShuffleQueryStage 1\n         +- Exchange rangepartitioning(channel#203269 ASC NULLS FIRST, 400), ENSURE_REQUIREMENTS, [plan_id=35298]\n            +- *(2) HashAggregate(keys=[channel#203269], functions=[count(1), sum(cast(amount#203271 as decimal(38,2)))], output=[channel#203269, row_count#209712L, total_amount#209713])\n               +- AQEShuffleRead coalesced\n                  +- ShuffleQueryStage 0\n                     +- Exchange hashpartitioning(channel#203269, 400), ENSURE_REQUIREMENTS, [plan_id=35266]\n                        +- *(1) HashAggregate(keys=[channel#203269], functions=[partial_count(1), partial_sum(cast(amount#203271 as decimal(38,2)))], output=[channel#203269, count#209802L, sum#209803, isEmpty#209804])\n                           +- *(1) Project [channel#203269, amount#203271]\n                              +- *(1) Filter (isnotnull(status#203268) AND (status#203268 = failed))\n                                 +- *(1) ColumnarToRow\n                                    +- FileScan parquet [status#203268,channel#203269,amount#203271,event_date#203277] Batched: true, DataFilters: [isnotnull(status#203268), (status#203268 = failed)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203277), (event_date#203277 >= 2026-05-25), (event_date#203277 <= 2026-05-31)], PushedFilters: [IsNotNull(status), EqualTo(status,failed)], ReadSchema: struct<status:string,channel:string,amount:double>\n+- == Initial Plan ==\n   Sort [channel#203269 ASC NULLS FIRST], true, 0\n   +- Exchange rangepartitioning(channel#203269 ASC NULLS FIRST, 400), ENSURE_REQUIREMENTS, [plan_id=35240]\n      +- HashAggregate(keys=[channel#203269], functions=[count(1), sum(cast(amount#203271 as decimal(38,2)))], output=[channel#203269, row_count#209712L, total_amount#209713])\n         +- Exchange hashpartitioning(channel#203269, 400), ENSURE_REQUIREMENTS, [plan_id=35237]\n            +- HashAggregate(keys=[channel#203269], functions=[partial_count(1), partial_sum(cast(amount#203271 as decimal(38,2)))], output=[channel#203269, count#209802L, sum#209803, isEmpty#209804])\n               +- Project [channel#203269, amount#203271]\n                  +- Filter (isnotnull(status#203268) AND (status#203268 = failed))\n                     +- FileScan parquet [status#203268,channel#203269,amount#203271,event_date#203277] Batched: true, DataFilters: [isnotnull(status#203268), (status#203268 = failed)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203277), (event_date#203277 >= 2026-05-25), (event_date#203277 <= 2026-05-31)], PushedFilters: [IsNotNull(status), EqualTo(status,failed)], ReadSchema: struct<status:string,channel:string,amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 197768225,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

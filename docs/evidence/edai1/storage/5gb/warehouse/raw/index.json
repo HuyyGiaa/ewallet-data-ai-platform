@@ -1,0 +1,28 @@
+{
+  "create_ms": null,
+  "created_by": "owner in DBeaver (duration shown in DBeaver's statistics tab)",
+  "definition": "CREATE INDEX idx_fact_transactions_merchant_date ON public.fact_transactions USING btree (merchant_id, event_date) INCLUDE (status, amount)",
+  "included_columns": [
+    "status",
+    "amount"
+  ],
+  "key_columns": [
+    "merchant_id",
+    "event_date"
+  ],
+  "name": "idx_fact_transactions_merchant_date",
+  "predicate": null,
+  "primary_key_size_bytes": 290963456,
+  "rationale": {
+    "partial_index_used": false,
+    "partial_predicate_excluded_share": 0.053939,
+    "query_rows_expected": 2,
+    "query_selectivity": 5.2e-07,
+    "rows_per_merchant_average": 68.62,
+    "rule": "partial predicate only if it excludes >= 20% of rows",
+    "success_share": 0.946061
+  },
+  "size_bytes": 245489664,
+  "sql": "CREATE INDEX idx_fact_transactions_merchant_date ON fact_transactions (merchant_id, event_date) INCLUDE (status, amount);",
+  "table_size_bytes": 966705152
+}

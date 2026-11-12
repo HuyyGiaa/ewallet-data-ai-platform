@@ -1,0 +1,785 @@
+{
+  "attribution": {
+    "base_image_effect_bytes": {
+      "with_full_context_packaging": 337791846,
+      "with_minimal_payload": 337791861
+    },
+    "interaction_bytes": -15,
+    "packaging_effect_bytes": {
+      "on_full_base": 14945414,
+      "on_slim_base": 14945429
+    },
+    "share_of_total_percent": {
+      "base_image_then_packaging": {
+        "base_image": 95.76,
+        "packaging": 4.24
+      },
+      "packaging_then_base_image": {
+        "base_image": 95.76,
+        "packaging": 4.24
+      }
+    },
+    "total_reduction_bytes": 352737275,
+    "total_reduction_percent": 88.87
+  },
+  "cache_policy": "base images pre-pulled by digest; every build uses --no-cache --pull=false",
+  "compose": {
+    "build_exit_code": 0,
+    "config_valid": true,
+    "project": "edai1-dk5gb",
+    "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+    "residual_containers": [],
+    "run_exit_code": 0,
+    "service": "campaign-verifier",
+    "verdict": "PASS"
+  },
+  "disk_free_gib_before": 16.4,
+  "docker": {
+    "architecture": "amd64",
+    "buildx": "github.com/docker/buildx v0.33.0 f7897eba028583e0071642db3c011e860444f8cf",
+    "client": "29.4.0",
+    "compose": "5.1.3",
+    "engine": "29.4.0",
+    "os": "linux"
+  },
+  "finished_at": "2026-11-12T14:26:16.044616+00:00",
+  "functional_equivalence": {
+    "equivalent": true,
+    "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+    "variants": 4
+  },
+  "run_id": "20261112t142522",
+  "schema_version": "edai1-docker-ab-v2",
+  "size_metric": "content_size_bytes = docker image inspect .Size (compressed layer content, containerd store)",
+  "started_at": "2026-11-12T14:25:28.221132+00:00",
+  "tool_git_sha": "e38744434e413ae7e1ebdf42206dd6a3b039f951",
+  "tracked_tree_clean": true,
+  "variants": {
+    "baseline": {
+      "build_args": {
+        "BASE_IMAGE": "python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343"
+      },
+      "build_seconds": 6.657,
+      "dockerfile": "images/edai1-campaign-verifier/Dockerfile.baseline",
+      "functional": {
+        "all_passed": true,
+        "deterministic": true,
+        "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+        "run_seconds": {
+          "maximum": 0.8285,
+          "median": 0.7612,
+          "minimum": 0.6847,
+          "samples": [
+            0.8285,
+            0.7521,
+            0.6847,
+            0.7612,
+            0.8079
+          ]
+        },
+        "runs": [
+          {
+            "exit_code": 0,
+            "seconds": 0.8285,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7521,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.6847,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7612,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.8079,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          }
+        ]
+      },
+      "image": {
+        "added_by_dockerfile_bytes": 14966107,
+        "added_layer_count": 2,
+        "architecture": "amd64",
+        "base_content_size_bytes": 381958717,
+        "base_image": "python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343",
+        "base_image_id": "sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343",
+        "base_repo_digests": [
+          "python@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343"
+        ],
+        "config_user": "",
+        "content_size_bytes": 396924824,
+        "disk_usage_reported": "1.52GB",
+        "entrypoint": [
+          "python",
+          "-m",
+          "ops.edai1_verifier"
+        ],
+        "history": [
+          {
+            "created_by": "ENTRYPOINT [\"python\" \"-m\" \"ops.edai1_verifier\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHONPATH=/app",
+            "size": "0B"
+          },
+          {
+            "created_by": "COPY . /app # buildkit",
+            "size": "33.7MB"
+          },
+          {
+            "created_by": "WORKDIR /app",
+            "size": "8.19kB"
+          },
+          {
+            "created_by": "CMD [\"python3\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  for src in idle3 pip3 pydoc3 python3 python3-config; do   dst=\"$(echo \"$src\" | tr -d 3)\";   [ -s \"/usr/local/bin/$src\" ];   [ ! -e \"/usr/local/bin/$dst\" ];   ln -svT \"$src\" \"/usr/local/bin/$dst\";  done # buildkit",
+            "size": "16.4kB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;   wget -O python.tar.xz \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz\";  echo \"$PYTHON_SHA256 *python.tar.xz\" | sha256sum -c -;  wget -O python.tar.xz.asc \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc\";  GNUPGHOME=\"$(mktemp -d)\"; export GNUPGHOME;  gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \"$GPG_KEY\";  gpg --batch --verify python.tar.xz.asc python.tar.xz;  gpgconf --kill all;  rm -rf \"$GNUPGHOME\" python.tar.xz.asc;  mkdir -p /usr/src/python;  tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz;  rm python.tar.xz;   cd /usr/src/python;  gnuArch=\"$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)\";  ./configure   --build=\"$gnuArch\"   --enable-loadable-sqlite-extensions   --enable-optimizations   --enable-option-checking=fatal   --enable-shared   $(test \"${gnuArch%%-*}\" != 'riscv64' && echo '--with-lto')   --with-ensurepip  ;  nproc=\"$(nproc)\";  EXTRA_CFLAGS=\"$(dpkg-buildflags --get CFLAGS)\";  LDFLAGS=\"$(dpkg-buildflags --get LDFLAGS)\";   arch=\"$(dpkg --print-architecture)\"; arch=\"${arch##*-}\";   case \"$arch\" in    amd64|arm64)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer\";     ;;    i386)     ;;    *)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer\";     ;;   esac;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:-}\"  ;  rm python;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:--Wl},-rpath='\\$\\$ORIGIN/../lib'\"   python  ;  make install;   bin=\"$(readlink -ve /usr/local/bin/python3)\";  dir=\"$(dirname \"$bin\")\";  mkdir -p \"/usr/share/gdb/auto-load/$dir\";  cp -vL Tools/gdb/libpython.py \"/usr/share/gdb/auto-load/$bin-gdb.py\";   cd /;  rm -rf /usr/src/python;   find /usr/local -depth   \\(    \\( -type d -a \\( -name test -o -name tests -o -name idle_test \\) \\)    -o \\( -type f -a \\( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \\) \\)   \\) -exec rm -rf '{}' +  ;   ldconfig;   export PYTHONDONTWRITEBYTECODE=1;  python3 --version;  pip3 --version # buildkit",
+            "size": "75.2MB"
+          },
+          {
+            "created_by": "ENV PYTHON_SHA256=ed5ef34cda36cfa2f3a340f07cac7e7814f91c7f3c411f6d3562323a866c5c66",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHON_VERSION=3.13.9",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   libbluetooth-dev   tk-dev   uuid-dev  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "19.7MB"
+          },
+          {
+            "created_by": "ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -ex;  apt-get update;  apt-get install -y --no-install-recommends   autoconf   automake   bzip2   default-libmysqlclient-dev   dpkg-dev   file   g++   gcc   imagemagick   libbz2-dev   libc6-dev   libcurl4-openssl-dev   libdb-dev   libevent-dev   libffi-dev   libgdbm-dev   libglib2.0-dev   libgmp-dev   libjpeg-dev   libkrb5-dev   liblzma-dev   libmagickcore-dev   libmagickwand-dev   libmaxminddb-dev   libncurses5-dev   libncursesw5-dev   libpng-dev   libpq-dev   libreadline-dev   libsqlite3-dev   libssl-dev   libtool   libwebp-dev   libxml2-dev   libxslt-dev   libyaml-dev   make   patch   unzip   xz-utils   zlib1g-dev  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "619MB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   git   mercurial   openssh-client   subversion     procps  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "194MB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   ca-certificates   curl   gnupg   netbase   sq   wget  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "52.2MB"
+          },
+          {
+            "created_by": "# debian.sh --arch 'amd64' out/ 'bookworm' '@1763337600'",
+            "size": "133MB"
+          }
+        ],
+        "image_id": "sha256:6609eec875a9c4bc2a9d940e196f7b5e8b9d94ead58c7722f3cb782b510066d0",
+        "layer_count": 9
+      },
+      "packaging": "single-stage-full-context",
+      "role": "baseline",
+      "security": {
+        "application_files_writable_by_runtime_user": true,
+        "runs_as_root": true,
+        "runtime_uid_gid": "0:0",
+        "shipped_tools": [
+          "apt-get",
+          "curl",
+          "gcc",
+          "git",
+          "make"
+        ]
+      },
+      "tag": "edai1/campaign-verifier:baseline-20261112t142522"
+    },
+    "baseline-slim": {
+      "build_args": {
+        "BASE_IMAGE": "python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894"
+      },
+      "build_seconds": 3.184,
+      "dockerfile": "images/edai1-campaign-verifier/Dockerfile.baseline",
+      "functional": {
+        "all_passed": true,
+        "deterministic": true,
+        "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+        "run_seconds": {
+          "maximum": 0.8683,
+          "median": 0.8102,
+          "minimum": 0.6943,
+          "samples": [
+            0.8683,
+            0.8348,
+            0.7988,
+            0.8102,
+            0.6943
+          ]
+        },
+        "runs": [
+          {
+            "exit_code": 0,
+            "seconds": 0.8683,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.8348,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7988,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.8102,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.6943,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          }
+        ]
+      },
+      "image": {
+        "added_by_dockerfile_bytes": 14966102,
+        "added_layer_count": 2,
+        "architecture": "amd64",
+        "base_content_size_bytes": 44166876,
+        "base_image": "python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894",
+        "base_image_id": "sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894",
+        "base_repo_digests": [
+          "python@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894"
+        ],
+        "config_user": "",
+        "content_size_bytes": 59132978,
+        "disk_usage_reported": "229MB",
+        "entrypoint": [
+          "python",
+          "-m",
+          "ops.edai1_verifier"
+        ],
+        "history": [
+          {
+            "created_by": "ENTRYPOINT [\"python\" \"-m\" \"ops.edai1_verifier\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHONPATH=/app",
+            "size": "0B"
+          },
+          {
+            "created_by": "COPY . /app # buildkit",
+            "size": "33.7MB"
+          },
+          {
+            "created_by": "WORKDIR /app",
+            "size": "8.19kB"
+          },
+          {
+            "created_by": "CMD [\"python3\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  for src in idle3 pip3 pydoc3 python3 python3-config; do   dst=\"$(echo \"$src\" | tr -d 3)\";   [ -s \"/usr/local/bin/$src\" ];   [ ! -e \"/usr/local/bin/$dst\" ];   ln -svT \"$src\" \"/usr/local/bin/$dst\";  done # buildkit",
+            "size": "16.4kB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;   savedAptMark=\"$(apt-mark showmanual)\";  apt-get update;  apt-get install -y --no-install-recommends   dpkg-dev   gcc   gnupg   libbluetooth-dev   libbz2-dev   libc6-dev   libdb-dev   libffi-dev   libgdbm-dev   liblzma-dev   libncursesw5-dev   libreadline-dev   libsqlite3-dev   libssl-dev   make   tk-dev   uuid-dev   wget   xz-utils   zlib1g-dev  ;   wget -O python.tar.xz \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz\";  echo \"$PYTHON_SHA256 *python.tar.xz\" | sha256sum -c -;  wget -O python.tar.xz.asc \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc\";  GNUPGHOME=\"$(mktemp -d)\"; export GNUPGHOME;  gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \"$GPG_KEY\";  gpg --batch --verify python.tar.xz.asc python.tar.xz;  gpgconf --kill all;  rm -rf \"$GNUPGHOME\" python.tar.xz.asc;  mkdir -p /usr/src/python;  tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz;  rm python.tar.xz;   cd /usr/src/python;  gnuArch=\"$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)\";  ./configure   --build=\"$gnuArch\"   --enable-loadable-sqlite-extensions   --enable-optimizations   --enable-option-checking=fatal   --enable-shared   $(test \"${gnuArch%%-*}\" != 'riscv64' && echo '--with-lto')   --with-ensurepip  ;  nproc=\"$(nproc)\";  EXTRA_CFLAGS=\"$(dpkg-buildflags --get CFLAGS)\";  LDFLAGS=\"$(dpkg-buildflags --get LDFLAGS)\";  LDFLAGS=\"${LDFLAGS:--Wl},--strip-all\";   arch=\"$(dpkg --print-architecture)\"; arch=\"${arch##*-}\";   case \"$arch\" in    amd64|arm64)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer\";     ;;    i386)     ;;    *)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer\";     ;;   esac;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:-}\"  ;  rm python;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:--Wl},-rpath='\\$\\$ORIGIN/../lib'\"   python  ;  make install;   cd /;  rm -rf /usr/src/python;   find /usr/local -depth   \\(    \\( -type d -a \\( -name test -o -name tests -o -name idle_test \\) \\)    -o \\( -type f -a \\( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \\) \\)   \\) -exec rm -rf '{}' +  ;   ldconfig;   apt-mark auto '.*' > /dev/null;  apt-mark manual $savedAptMark;  find /usr/local -type f -executable -not \\( -name '*tkinter*' \\) -exec ldd '{}' ';'   | awk '/=>/ { so = $(NF-1); if (index(so, \"/usr/local/\") == 1) { next }; gsub(\"^/(usr/)?\", \"\", so); printf \"*%s\\n\", so }'   | sort -u   | xargs -rt dpkg-query --search   | awk 'sub(\":$\", \"\", $1) { print $1 }'   | sort -u   | xargs -r apt-mark manual  ;  apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false;  rm -rf /var/lib/apt/lists/*;   export PYTHONDONTWRITEBYTECODE=1;  python3 --version;  pip3 --version # buildkit",
+            "size": "40.9MB"
+          },
+          {
+            "created_by": "ENV PYTHON_SHA256=ed5ef34cda36cfa2f3a340f07cac7e7814f91c7f3c411f6d3562323a866c5c66",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHON_VERSION=3.13.9",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   ca-certificates   netbase   tzdata  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "10.4MB"
+          },
+          {
+            "created_by": "ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "size": "0B"
+          },
+          {
+            "created_by": "# debian.sh --arch 'amd64' out/ 'bookworm' '@1763337600'",
+            "size": "85.2MB"
+          }
+        ],
+        "image_id": "sha256:c8717abc0c26dff2c9aa36122a73467c0d3734d29432d63d4a67a7fbc6a5dc59",
+        "layer_count": 6
+      },
+      "packaging": "single-stage-full-context",
+      "role": "control",
+      "security": {
+        "application_files_writable_by_runtime_user": true,
+        "runs_as_root": true,
+        "runtime_uid_gid": "0:0",
+        "shipped_tools": [
+          "apt-get"
+        ]
+      },
+      "tag": "edai1/campaign-verifier:baseline-slim-20261112t142522"
+    },
+    "optimized": {
+      "build_args": {
+        "BUILD_IMAGE": "python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894",
+        "RUNTIME_IMAGE": "python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894"
+      },
+      "build_seconds": 2.468,
+      "dockerfile": "images/edai1-campaign-verifier/Dockerfile.optimized",
+      "functional": {
+        "all_passed": true,
+        "deterministic": true,
+        "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+        "run_seconds": {
+          "maximum": 0.9194,
+          "median": 0.7574,
+          "minimum": 0.7066,
+          "samples": [
+            0.9194,
+            0.8516,
+            0.7574,
+            0.7326,
+            0.7066
+          ]
+        },
+        "runs": [
+          {
+            "exit_code": 0,
+            "seconds": 0.9194,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.8516,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7574,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7326,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7066,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          }
+        ]
+      },
+      "image": {
+        "added_by_dockerfile_bytes": 20673,
+        "added_layer_count": 3,
+        "architecture": "amd64",
+        "base_content_size_bytes": 44166876,
+        "base_image": "python:3.13.9-slim-bookworm@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894",
+        "base_image_id": "sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894",
+        "base_repo_digests": [
+          "python@sha256:8cdd496996889eef0a8a7921c152c0a4a9f18a26c7a5e7257d3c90b431891894"
+        ],
+        "config_user": "65532:65532",
+        "content_size_bytes": 44187549,
+        "disk_usage_reported": "181MB",
+        "entrypoint": [
+          "python",
+          "-m",
+          "edai1_verifier"
+        ],
+        "history": [
+          {
+            "created_by": "ENTRYPOINT [\"python\" \"-m\" \"edai1_verifier\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "USER 65532:65532",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1",
+            "size": "0B"
+          },
+          {
+            "created_by": "COPY --chown=0:0 /build/edai1_verifier /app/edai1_verifier # buildkit",
+            "size": "81.9kB"
+          },
+          {
+            "created_by": "WORKDIR /app",
+            "size": "8.19kB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c groupadd --system --gid 65532 verifier     && useradd --system --uid 65532 --gid 65532 --no-create-home --shell /usr/sbin/nologin verifier # buildkit",
+            "size": "41kB"
+          },
+          {
+            "created_by": "CMD [\"python3\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  for src in idle3 pip3 pydoc3 python3 python3-config; do   dst=\"$(echo \"$src\" | tr -d 3)\";   [ -s \"/usr/local/bin/$src\" ];   [ ! -e \"/usr/local/bin/$dst\" ];   ln -svT \"$src\" \"/usr/local/bin/$dst\";  done # buildkit",
+            "size": "16.4kB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;   savedAptMark=\"$(apt-mark showmanual)\";  apt-get update;  apt-get install -y --no-install-recommends   dpkg-dev   gcc   gnupg   libbluetooth-dev   libbz2-dev   libc6-dev   libdb-dev   libffi-dev   libgdbm-dev   liblzma-dev   libncursesw5-dev   libreadline-dev   libsqlite3-dev   libssl-dev   make   tk-dev   uuid-dev   wget   xz-utils   zlib1g-dev  ;   wget -O python.tar.xz \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz\";  echo \"$PYTHON_SHA256 *python.tar.xz\" | sha256sum -c -;  wget -O python.tar.xz.asc \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc\";  GNUPGHOME=\"$(mktemp -d)\"; export GNUPGHOME;  gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \"$GPG_KEY\";  gpg --batch --verify python.tar.xz.asc python.tar.xz;  gpgconf --kill all;  rm -rf \"$GNUPGHOME\" python.tar.xz.asc;  mkdir -p /usr/src/python;  tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz;  rm python.tar.xz;   cd /usr/src/python;  gnuArch=\"$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)\";  ./configure   --build=\"$gnuArch\"   --enable-loadable-sqlite-extensions   --enable-optimizations   --enable-option-checking=fatal   --enable-shared   $(test \"${gnuArch%%-*}\" != 'riscv64' && echo '--with-lto')   --with-ensurepip  ;  nproc=\"$(nproc)\";  EXTRA_CFLAGS=\"$(dpkg-buildflags --get CFLAGS)\";  LDFLAGS=\"$(dpkg-buildflags --get LDFLAGS)\";  LDFLAGS=\"${LDFLAGS:--Wl},--strip-all\";   arch=\"$(dpkg --print-architecture)\"; arch=\"${arch##*-}\";   case \"$arch\" in    amd64|arm64)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer\";     ;;    i386)     ;;    *)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer\";     ;;   esac;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:-}\"  ;  rm python;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:--Wl},-rpath='\\$\\$ORIGIN/../lib'\"   python  ;  make install;   cd /;  rm -rf /usr/src/python;   find /usr/local -depth   \\(    \\( -type d -a \\( -name test -o -name tests -o -name idle_test \\) \\)    -o \\( -type f -a \\( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \\) \\)   \\) -exec rm -rf '{}' +  ;   ldconfig;   apt-mark auto '.*' > /dev/null;  apt-mark manual $savedAptMark;  find /usr/local -type f -executable -not \\( -name '*tkinter*' \\) -exec ldd '{}' ';'   | awk '/=>/ { so = $(NF-1); if (index(so, \"/usr/local/\") == 1) { next }; gsub(\"^/(usr/)?\", \"\", so); printf \"*%s\\n\", so }'   | sort -u   | xargs -rt dpkg-query --search   | awk 'sub(\":$\", \"\", $1) { print $1 }'   | sort -u   | xargs -r apt-mark manual  ;  apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false;  rm -rf /var/lib/apt/lists/*;   export PYTHONDONTWRITEBYTECODE=1;  python3 --version;  pip3 --version # buildkit",
+            "size": "40.9MB"
+          },
+          {
+            "created_by": "ENV PYTHON_SHA256=ed5ef34cda36cfa2f3a340f07cac7e7814f91c7f3c411f6d3562323a866c5c66",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHON_VERSION=3.13.9",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   ca-certificates   netbase   tzdata  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "10.4MB"
+          },
+          {
+            "created_by": "ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "size": "0B"
+          },
+          {
+            "created_by": "# debian.sh --arch 'amd64' out/ 'bookworm' '@1763337600'",
+            "size": "85.2MB"
+          }
+        ],
+        "image_id": "sha256:1f639fc8b9d0ccb6fab5b21e6ff2f240369bf0fc01a95d1681c0536592877799",
+        "layer_count": 7
+      },
+      "packaging": "multi-stage-minimal-payload",
+      "role": "optimized",
+      "security": {
+        "application_files_writable_by_runtime_user": false,
+        "runs_as_root": false,
+        "runtime_uid_gid": "65532:65532",
+        "shipped_tools": [
+          "apt-get"
+        ]
+      },
+      "tag": "edai1/campaign-verifier:optimized-20261112t142522"
+    },
+    "optimized-full": {
+      "build_args": {
+        "BUILD_IMAGE": "python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343",
+        "RUNTIME_IMAGE": "python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343"
+      },
+      "build_seconds": 2.508,
+      "dockerfile": "images/edai1-campaign-verifier/Dockerfile.optimized",
+      "functional": {
+        "all_passed": true,
+        "deterministic": true,
+        "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+        "run_seconds": {
+          "maximum": 0.9517,
+          "median": 0.834,
+          "minimum": 0.7654,
+          "samples": [
+            0.834,
+            0.7999,
+            0.7654,
+            0.9517,
+            0.9039
+          ]
+        },
+        "runs": [
+          {
+            "exit_code": 0,
+            "seconds": 0.834,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7999,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.7654,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.9517,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          },
+          {
+            "exit_code": 0,
+            "seconds": 0.9039,
+            "stderr_tail": "",
+            "summary": {
+              "checks": 45,
+              "failed": 0,
+              "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b",
+              "verdict": "PASS"
+            }
+          }
+        ]
+      },
+      "image": {
+        "added_by_dockerfile_bytes": 20693,
+        "added_layer_count": 3,
+        "architecture": "amd64",
+        "base_content_size_bytes": 381958717,
+        "base_image": "python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343",
+        "base_image_id": "sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343",
+        "base_repo_digests": [
+          "python@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343"
+        ],
+        "config_user": "65532:65532",
+        "content_size_bytes": 381979410,
+        "disk_usage_reported": "1.47GB",
+        "entrypoint": [
+          "python",
+          "-m",
+          "edai1_verifier"
+        ],
+        "history": [
+          {
+            "created_by": "ENTRYPOINT [\"python\" \"-m\" \"edai1_verifier\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "USER 65532:65532",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1",
+            "size": "0B"
+          },
+          {
+            "created_by": "COPY --chown=0:0 /build/edai1_verifier /app/edai1_verifier # buildkit",
+            "size": "81.9kB"
+          },
+          {
+            "created_by": "WORKDIR /app",
+            "size": "8.19kB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c groupadd --system --gid 65532 verifier     && useradd --system --uid 65532 --gid 65532 --no-create-home --shell /usr/sbin/nologin verifier # buildkit",
+            "size": "41kB"
+          },
+          {
+            "created_by": "CMD [\"python3\"]",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  for src in idle3 pip3 pydoc3 python3 python3-config; do   dst=\"$(echo \"$src\" | tr -d 3)\";   [ -s \"/usr/local/bin/$src\" ];   [ ! -e \"/usr/local/bin/$dst\" ];   ln -svT \"$src\" \"/usr/local/bin/$dst\";  done # buildkit",
+            "size": "16.4kB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;   wget -O python.tar.xz \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz\";  echo \"$PYTHON_SHA256 *python.tar.xz\" | sha256sum -c -;  wget -O python.tar.xz.asc \"https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc\";  GNUPGHOME=\"$(mktemp -d)\"; export GNUPGHOME;  gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys \"$GPG_KEY\";  gpg --batch --verify python.tar.xz.asc python.tar.xz;  gpgconf --kill all;  rm -rf \"$GNUPGHOME\" python.tar.xz.asc;  mkdir -p /usr/src/python;  tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz;  rm python.tar.xz;   cd /usr/src/python;  gnuArch=\"$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)\";  ./configure   --build=\"$gnuArch\"   --enable-loadable-sqlite-extensions   --enable-optimizations   --enable-option-checking=fatal   --enable-shared   $(test \"${gnuArch%%-*}\" != 'riscv64' && echo '--with-lto')   --with-ensurepip  ;  nproc=\"$(nproc)\";  EXTRA_CFLAGS=\"$(dpkg-buildflags --get CFLAGS)\";  LDFLAGS=\"$(dpkg-buildflags --get LDFLAGS)\";   arch=\"$(dpkg --print-architecture)\"; arch=\"${arch##*-}\";   case \"$arch\" in    amd64|arm64)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer\";     ;;    i386)     ;;    *)     EXTRA_CFLAGS=\"${EXTRA_CFLAGS:-} -fno-omit-frame-pointer\";     ;;   esac;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:-}\"  ;  rm python;  make -j \"$nproc\"   \"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}\"   \"LDFLAGS=${LDFLAGS:--Wl},-rpath='\\$\\$ORIGIN/../lib'\"   python  ;  make install;   bin=\"$(readlink -ve /usr/local/bin/python3)\";  dir=\"$(dirname \"$bin\")\";  mkdir -p \"/usr/share/gdb/auto-load/$dir\";  cp -vL Tools/gdb/libpython.py \"/usr/share/gdb/auto-load/$bin-gdb.py\";   cd /;  rm -rf /usr/src/python;   find /usr/local -depth   \\(    \\( -type d -a \\( -name test -o -name tests -o -name idle_test \\) \\)    -o \\( -type f -a \\( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \\) \\)   \\) -exec rm -rf '{}' +  ;   ldconfig;   export PYTHONDONTWRITEBYTECODE=1;  python3 --version;  pip3 --version # buildkit",
+            "size": "75.2MB"
+          },
+          {
+            "created_by": "ENV PYTHON_SHA256=ed5ef34cda36cfa2f3a340f07cac7e7814f91c7f3c411f6d3562323a866c5c66",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV PYTHON_VERSION=3.13.9",
+            "size": "0B"
+          },
+          {
+            "created_by": "ENV GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   libbluetooth-dev   tk-dev   uuid-dev  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "19.7MB"
+          },
+          {
+            "created_by": "ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "size": "0B"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -ex;  apt-get update;  apt-get install -y --no-install-recommends   autoconf   automake   bzip2   default-libmysqlclient-dev   dpkg-dev   file   g++   gcc   imagemagick   libbz2-dev   libc6-dev   libcurl4-openssl-dev   libdb-dev   libevent-dev   libffi-dev   libgdbm-dev   libglib2.0-dev   libgmp-dev   libjpeg-dev   libkrb5-dev   liblzma-dev   libmagickcore-dev   libmagickwand-dev   libmaxminddb-dev   libncurses5-dev   libncursesw5-dev   libpng-dev   libpq-dev   libreadline-dev   libsqlite3-dev   libssl-dev   libtool   libwebp-dev   libxml2-dev   libxslt-dev   libyaml-dev   make   patch   unzip   xz-utils   zlib1g-dev  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "619MB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   git   mercurial   openssh-client   subversion     procps  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "194MB"
+          },
+          {
+            "created_by": "RUN /bin/sh -c set -eux;  apt-get update;  apt-get install -y --no-install-recommends   ca-certificates   curl   gnupg   netbase   sq   wget  ;  rm -rf /var/lib/apt/lists/* # buildkit",
+            "size": "52.2MB"
+          },
+          {
+            "created_by": "# debian.sh --arch 'amd64' out/ 'bookworm' '@1763337600'",
+            "size": "133MB"
+          }
+        ],
+        "image_id": "sha256:2c8c5b5f30f02c5ca6bdda453826f092ff24847bd5e5883fbec143b0fe955838",
+        "layer_count": 10
+      },
+      "packaging": "multi-stage-minimal-payload",
+      "role": "control",
+      "security": {
+        "application_files_writable_by_runtime_user": false,
+        "runs_as_root": false,
+        "runtime_uid_gid": "65532:65532",
+        "shipped_tools": [
+          "apt-get",
+          "curl",
+          "gcc",
+          "git",
+          "make"
+        ]
+      },
+      "tag": "edai1/campaign-verifier:optimized-full-20261112t142522"
+    }
+  },
+  "workload": {
+    "benchmark_id": "ab-20261110225456",
+    "dataset_version": "rehearsal-5gb-v1",
+    "evidence_dir": "docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456",
+    "repetitions_per_variant": 5,
+    "source_git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+    "spec_file": "images/edai1-campaign-verifier/workload-5gb.json"
+  }
+}

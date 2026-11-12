@@ -1,0 +1,6 @@
+$ docker compose -p edai1-dk5gb -f infra/docker/compose.edai1.yml --profile edai1 run --rm campaign-verifier
+{"checks": 45, "failed": 0, "report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b", "verdict": "PASS"}
+ Container edai1-dk5gb-campaign-verifier-run-3d36af6d3dd0 Creating 
+ Container edai1-dk5gb-campaign-verifier-run-3d36af6d3dd0 Created 
+
+[exit code 0]

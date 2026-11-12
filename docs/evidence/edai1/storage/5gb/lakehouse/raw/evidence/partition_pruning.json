@@ -1,0 +1,366 @@
+{
+  "tables": [
+    {
+      "table": "fact_transactions",
+      "sides": {
+        "pruned": {
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM baseline_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31'",
+          "runtime_seconds": 0.7343817779999995,
+          "runtime_samples_seconds": [
+            0.7470033270000158,
+            0.7751591149999513,
+            0.7343817779999995,
+            0.6909778649999794,
+            0.7010322309999992
+          ],
+          "position_in_rotation": [
+            0,
+            2,
+            1,
+            0,
+            2
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75888 as decimal(38,2))), avg(cast(amount#75888 as decimal(38,6)))], output=[row_count#84548L, total_amount#84549, average_amount#84550])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=17822]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75888 as decimal(38,2))), partial_avg(cast(amount#75888 as decimal(38,6)))], output=[count#84671L, sum#84672, isEmpty#84673, sum#84674, count#84675L])\n            +- *(1) Project [amount#75888]\n               +- *(1) ColumnarToRow\n                  +- FileScan parquet [amount#75888,event_date#75893] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75893), (event_date#75893 >= 2026-05-25), (event_date#75893 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75888 as decimal(38,2))), avg(cast(amount#75888 as decimal(38,6)))], output=[row_count#84548L, total_amount#84549, average_amount#84550])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=17805]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75888 as decimal(38,2))), partial_avg(cast(amount#75888 as decimal(38,6)))], output=[count#84671L, sum#84672, isEmpty#84673, sum#84674, count#84675L])\n         +- Project [amount#75888]\n            +- FileScan parquet [amount#75888,event_date#75893] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/fact_transactions], PartitionFilters: [isnotnull(event_date#75893), (event_date#75893 >= 2026-05-25), (event_date#75893 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 169756233,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        },
+        "stats_only": {
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM baseline_table WHERE timestamp >= TIMESTAMP '2026-05-25 00:00:00' AND timestamp < TIMESTAMP '2026-06-01 00:00:00'",
+          "runtime_seconds": 0.8123792099999605,
+          "runtime_samples_seconds": [
+            0.8484775819999868,
+            0.8144955420000315,
+            0.7757562849999999,
+            0.8123792099999605,
+            0.8115896760000396
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75888 as decimal(38,2))), avg(cast(amount#75888 as decimal(38,6)))], output=[row_count#84340L, total_amount#84341, average_amount#84342])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=17678]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75888 as decimal(38,2))), partial_avg(cast(amount#75888 as decimal(38,6)))], output=[count#84431L, sum#84432, isEmpty#84433, sum#84434, count#84435L])\n            +- *(1) Project [amount#75888]\n               +- *(1) Filter ((isnotnull(timestamp#75891) AND (timestamp#75891 >= 2026-05-25 00:00:00)) AND (timestamp#75891 < 2026-06-01 00:00:00))\n                  +- *(1) ColumnarToRow\n                     +- FileScan parquet [amount#75888,timestamp#75891,event_date#75893] Batched: true, DataFilters: [isnotnull(timestamp#75891), (timestamp#75891 >= 2026-05-25 00:00:00), (timestamp#75891 < 2026-06-01 00:00:00)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/fact_transactions], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp), GreaterThanOrEqual(timestamp,2026-05-25 00:00:00.0), LessThan(timestamp,2026-06-01 00:00:00.0)], ReadSchema: struct<amount:double,timestamp:timestamp>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75888 as decimal(38,2))), avg(cast(amount#75888 as decimal(38,6)))], output=[row_count#84340L, total_amount#84341, average_amount#84342])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=17657]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75888 as decimal(38,2))), partial_avg(cast(amount#75888 as decimal(38,6)))], output=[count#84431L, sum#84432, isEmpty#84433, sum#84434, count#84435L])\n         +- Project [amount#75888]\n            +- Filter ((isnotnull(timestamp#75891) AND (timestamp#75891 >= 2026-05-25 00:00:00)) AND (timestamp#75891 < 2026-06-01 00:00:00))\n               +- FileScan parquet [amount#75888,timestamp#75891,event_date#75893] Batched: true, DataFilters: [isnotnull(timestamp#75891), (timestamp#75891 >= 2026-05-25 00:00:00), (timestamp#75891 < 2026-06-01 00:00:00)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/fact_transactions], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp), GreaterThanOrEqual(timestamp,2026-05-25 00:00:00.0), LessThan(timestamp,2026-06-01 00:00:00.0)], ReadSchema: struct<amount:double,timestamp:timestamp>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 169756233,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        },
+        "full_scan": {
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM baseline_table WHERE date_format(timestamp, 'yyyy-MM-dd') BETWEEN '2026-05-25' AND '2026-05-31'",
+          "runtime_seconds": 2.2169471710000153,
+          "runtime_samples_seconds": [
+            2.899858910999967,
+            2.2044619280000006,
+            2.1841116029999625,
+            2.876741377999963,
+            2.2169471710000153
+          ],
+          "position_in_rotation": [
+            2,
+            1,
+            0,
+            2,
+            1
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75888 as decimal(38,2))), avg(cast(amount#75888 as decimal(38,6)))], output=[row_count#84444L, total_amount#84445, average_amount#84446])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=17743]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75888 as decimal(38,2))), partial_avg(cast(amount#75888 as decimal(38,6)))], output=[count#84535L, sum#84536, isEmpty#84537, sum#84538, count#84539L])\n            +- *(1) Project [amount#75888]\n               +- *(1) Filter ((isnotnull(timestamp#75891) AND (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) >= 2026-05-25)) AND (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) <= 2026-05-31))\n                  +- *(1) ColumnarToRow\n                     +- FileScan parquet [amount#75888,timestamp#75891,event_date#75893] Batched: true, DataFilters: [isnotnull(timestamp#75891), (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) >= 2026-05-25), (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) <= 2026-05-31)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/fact_transactions], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp)], ReadSchema: struct<amount:double,timestamp:timestamp>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#75888 as decimal(38,2))), avg(cast(amount#75888 as decimal(38,6)))], output=[row_count#84444L, total_amount#84445, average_amount#84446])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=17722]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#75888 as decimal(38,2))), partial_avg(cast(amount#75888 as decimal(38,6)))], output=[count#84535L, sum#84536, isEmpty#84537, sum#84538, count#84539L])\n         +- Project [amount#75888]\n            +- Filter ((isnotnull(timestamp#75891) AND (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) >= 2026-05-25)) AND (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) <= 2026-05-31))\n               +- FileScan parquet [amount#75888,timestamp#75891,event_date#75893] Batched: true, DataFilters: [isnotnull(timestamp#75891), (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) >= 2026-05-25), (date_format(timestamp#75891, yyyy-MM-dd, Some(UTC)) <= 2026-05-31)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/fact_transactions], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp)], ReadSchema: struct<amount:double,timestamp:timestamp>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 151,
+                "bytes_read": 3667633194,
+                "partitions_read": 151,
+                "output_rows": 18600000
+              }
+            ]
+          }
+        }
+      },
+      "comparisons": {
+        "full_scan_to_pruned": {
+          "before_median_seconds": 2.216947,
+          "after_median_seconds": 0.734382,
+          "runtime_change_percent": -66.874,
+          "before_range_seconds": [
+            2.184112,
+            2.899859
+          ],
+          "after_range_seconds": [
+            0.690978,
+            0.775159
+          ],
+          "ranges_separated": true,
+          "threshold_percent": 5.0,
+          "verdict": "IMPROVED"
+        },
+        "full_scan_to_stats_only": {
+          "before_median_seconds": 2.216947,
+          "after_median_seconds": 0.812379,
+          "runtime_change_percent": -63.356,
+          "before_range_seconds": [
+            2.184112,
+            2.899859
+          ],
+          "after_range_seconds": [
+            0.775756,
+            0.848478
+          ],
+          "ranges_separated": true,
+          "threshold_percent": 5.0,
+          "verdict": "IMPROVED"
+        },
+        "stats_only_to_pruned": {
+          "before_median_seconds": 0.812379,
+          "after_median_seconds": 0.734382,
+          "runtime_change_percent": -9.601,
+          "before_range_seconds": [
+            0.775756,
+            0.848478
+          ],
+          "after_range_seconds": [
+            0.690978,
+            0.775159
+          ],
+          "ranges_separated": true,
+          "threshold_percent": 5.0,
+          "verdict": "IMPROVED"
+        }
+      }
+    },
+    {
+      "table": "obt_transaction_enriched",
+      "sides": {
+        "pruned": {
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM baseline_table WHERE event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31'",
+          "runtime_seconds": 0.7275943710000092,
+          "runtime_samples_seconds": [
+            0.7264073709999934,
+            0.7275943710000092,
+            0.7112256799999841,
+            0.7428879010000173,
+            0.7914645000000178
+          ],
+          "position_in_rotation": [
+            0,
+            2,
+            1,
+            0,
+            2
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203207 as decimal(38,2))), avg(cast(amount#203207 as decimal(38,6)))], output=[row_count#211943L, total_amount#211944, average_amount#211945])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=36752]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203207 as decimal(38,2))), partial_avg(cast(amount#203207 as decimal(38,6)))], output=[count#212066L, sum#212067, isEmpty#212068, sum#212069, count#212070L])\n            +- *(1) Project [amount#203207]\n               +- *(1) ColumnarToRow\n                  +- FileScan parquet [amount#203207,event_date#203213] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203213), (event_date#203213 >= 2026-05-25), (event_date#203213 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203207 as decimal(38,2))), avg(cast(amount#203207 as decimal(38,6)))], output=[row_count#211943L, total_amount#211944, average_amount#211945])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=36735]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203207 as decimal(38,2))), partial_avg(cast(amount#203207 as decimal(38,6)))], output=[count#212066L, sum#212067, isEmpty#212068, sum#212069, count#212070L])\n         +- Project [amount#203207]\n            +- FileScan parquet [amount#203207,event_date#203213] Batched: true, DataFilters: [], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/obt_transaction_enriched], PartitionFilters: [isnotnull(event_date#203213), (event_date#203213 >= 2026-05-25), (event_date#203213 <= 2026-05-31)], PushedFilters: [], ReadSchema: struct<amount:double>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 197768225,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        },
+        "stats_only": {
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM baseline_table WHERE timestamp >= TIMESTAMP '2026-05-25 00:00:00' AND timestamp < TIMESTAMP '2026-06-01 00:00:00'",
+          "runtime_seconds": 1.0049296279999567,
+          "runtime_samples_seconds": [
+            1.0817246670000031,
+            1.0847114860000033,
+            0.9430603379999525,
+            0.9535317589999863,
+            1.0049296279999567
+          ],
+          "position_in_rotation": [
+            1,
+            0,
+            2,
+            1,
+            0
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203207 as decimal(38,2))), avg(cast(amount#203207 as decimal(38,6)))], output=[row_count#211735L, total_amount#211736, average_amount#211737])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=36609]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203207 as decimal(38,2))), partial_avg(cast(amount#203207 as decimal(38,6)))], output=[count#211826L, sum#211827, isEmpty#211828, sum#211829, count#211830L])\n            +- *(1) Project [amount#203207]\n               +- *(1) Filter ((isnotnull(timestamp#203211) AND (timestamp#203211 >= 2026-05-25 00:00:00)) AND (timestamp#203211 < 2026-06-01 00:00:00))\n                  +- *(1) ColumnarToRow\n                     +- FileScan parquet [amount#203207,timestamp#203211,event_date#203213] Batched: true, DataFilters: [isnotnull(timestamp#203211), (timestamp#203211 >= 2026-05-25 00:00:00), (timestamp#203211 < 2026-06-01 00:00:00)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/obt_transaction_enriched], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp), GreaterThanOrEqual(timestamp,2026-05-25 00:00:00.0), LessThan(timestamp,2026-06-01 00:00:00.0)], ReadSchema: struct<amount:double,timestamp:timestamp>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203207 as decimal(38,2))), avg(cast(amount#203207 as decimal(38,6)))], output=[row_count#211735L, total_amount#211736, average_amount#211737])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=36588]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203207 as decimal(38,2))), partial_avg(cast(amount#203207 as decimal(38,6)))], output=[count#211826L, sum#211827, isEmpty#211828, sum#211829, count#211830L])\n         +- Project [amount#203207]\n            +- Filter ((isnotnull(timestamp#203211) AND (timestamp#203211 >= 2026-05-25 00:00:00)) AND (timestamp#203211 < 2026-06-01 00:00:00))\n               +- FileScan parquet [amount#203207,timestamp#203211,event_date#203213] Batched: true, DataFilters: [isnotnull(timestamp#203211), (timestamp#203211 >= 2026-05-25 00:00:00), (timestamp#203211 < 2026-06-01 00:00:00)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/obt_transaction_enriched], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp), GreaterThanOrEqual(timestamp,2026-05-25 00:00:00.0), LessThan(timestamp,2026-06-01 00:00:00.0)], ReadSchema: struct<amount:double,timestamp:timestamp>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 7,
+                "bytes_read": 197768225,
+                "partitions_read": 7,
+                "output_rows": 860389
+              }
+            ]
+          }
+        },
+        "full_scan": {
+          "sql": "SELECT COUNT(*) AS row_count, SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount FROM baseline_table WHERE date_format(timestamp, 'yyyy-MM-dd') BETWEEN '2026-05-25' AND '2026-05-31'",
+          "runtime_seconds": 2.4354972309999994,
+          "runtime_samples_seconds": [
+            2.491711049999992,
+            2.2499145229999726,
+            2.4354972309999994,
+            2.458566630000007,
+            2.344346110999993
+          ],
+          "position_in_rotation": [
+            2,
+            1,
+            0,
+            2,
+            1
+          ],
+          "warmup_iterations": 1,
+          "measured_iterations": 5,
+          "measurement_order": "rotating",
+          "result": [
+            {
+              "row_count": 860389,
+              "total_amount": "894991837952.66",
+              "average_amount": "1040217.666605"
+            }
+          ],
+          "result_json": "[{\"average_amount\": \"1040217.666605\", \"row_count\": 860389, \"total_amount\": \"894991837952.66\"}]",
+          "physical_plan": "AdaptiveSparkPlan isFinalPlan=true\n+- == Final Plan ==\n   *(2) HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203207 as decimal(38,2))), avg(cast(amount#203207 as decimal(38,6)))], output=[row_count#211839L, total_amount#211840, average_amount#211841])\n   +- ShuffleQueryStage 0\n      +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=36673]\n         +- *(1) HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203207 as decimal(38,2))), partial_avg(cast(amount#203207 as decimal(38,6)))], output=[count#211930L, sum#211931, isEmpty#211932, sum#211933, count#211934L])\n            +- *(1) Project [amount#203207]\n               +- *(1) Filter ((isnotnull(timestamp#203211) AND (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) >= 2026-05-25)) AND (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) <= 2026-05-31))\n                  +- *(1) ColumnarToRow\n                     +- FileScan parquet [amount#203207,timestamp#203211,event_date#203213] Batched: true, DataFilters: [isnotnull(timestamp#203211), (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) >= 2026-05-25), (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) <= 2026-05-31)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/obt_transaction_enriched], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp)], ReadSchema: struct<amount:double,timestamp:timestamp>\n+- == Initial Plan ==\n   HashAggregate(keys=[], functions=[count(1), sum(cast(amount#203207 as decimal(38,2))), avg(cast(amount#203207 as decimal(38,6)))], output=[row_count#211839L, total_amount#211840, average_amount#211841])\n   +- Exchange SinglePartition, ENSURE_REQUIREMENTS, [plan_id=36652]\n      +- HashAggregate(keys=[], functions=[partial_count(1), partial_sum(cast(amount#203207 as decimal(38,2))), partial_avg(cast(amount#203207 as decimal(38,6)))], output=[count#211930L, sum#211931, isEmpty#211932, sum#211933, count#211934L])\n         +- Project [amount#203207]\n            +- Filter ((isnotnull(timestamp#203211) AND (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) >= 2026-05-25)) AND (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) <= 2026-05-31))\n               +- FileScan parquet [amount#203207,timestamp#203211,event_date#203213] Batched: true, DataFilters: [isnotnull(timestamp#203211), (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) >= 2026-05-25), (date_format(timestamp#203211, yyyy-MM-dd, Some(UTC)) <= 2026-05-31)], Format: Parquet, Location: PreparedDeltaFileIndex(1 paths)[gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/baseline/dp2-gold/obt_transaction_enriched], PartitionFilters: [], PushedFilters: [IsNotNull(timestamp)], ReadSchema: struct<amount:double,timestamp:timestamp>\n",
+          "scan_metrics": {
+            "available": true,
+            "scans": [
+              {
+                "node": "Scan parquet ",
+                "files_read": 151,
+                "bytes_read": 4271165936,
+                "partitions_read": 151,
+                "output_rows": 18600000
+              }
+            ]
+          }
+        }
+      },
+      "comparisons": {
+        "full_scan_to_pruned": {
+          "before_median_seconds": 2.435497,
+          "after_median_seconds": 0.727594,
+          "runtime_change_percent": -70.125,
+          "before_range_seconds": [
+            2.249915,
+            2.491711
+          ],
+          "after_range_seconds": [
+            0.711226,
+            0.791465
+          ],
+          "ranges_separated": true,
+          "threshold_percent": 5.0,
+          "verdict": "IMPROVED"
+        },
+        "full_scan_to_stats_only": {
+          "before_median_seconds": 2.435497,
+          "after_median_seconds": 1.00493,
+          "runtime_change_percent": -58.738,
+          "before_range_seconds": [
+            2.249915,
+            2.491711
+          ],
+          "after_range_seconds": [
+            0.94306,
+            1.084711
+          ],
+          "ranges_separated": true,
+          "threshold_percent": 5.0,
+          "verdict": "IMPROVED"
+        },
+        "stats_only_to_pruned": {
+          "before_median_seconds": 1.00493,
+          "after_median_seconds": 0.727594,
+          "runtime_change_percent": -27.597,
+          "before_range_seconds": [
+            0.94306,
+            1.084711
+          ],
+          "after_range_seconds": [
+            0.711226,
+            0.791465
+          ],
+          "ranges_separated": true,
+          "threshold_percent": 5.0,
+          "verdict": "IMPROVED"
+        }
+      }
+    }
+  ]
+}

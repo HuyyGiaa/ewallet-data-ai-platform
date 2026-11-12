@@ -1,0 +1,256 @@
+{
+  "tables": [
+    {
+      "table": "fact_transactions",
+      "compaction": {
+        "seconds": 4.899016947999996,
+        "metrics": [
+          {
+            "path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/fact_transactions",
+            "metrics": {
+              "numFilesAdded": 0,
+              "numFilesRemoved": 0,
+              "filesAdded": {
+                "min": null,
+                "max": null,
+                "avg": 0.0,
+                "totalFiles": 0,
+                "totalSize": 0
+              },
+              "filesRemoved": {
+                "min": null,
+                "max": null,
+                "avg": 0.0,
+                "totalFiles": 0,
+                "totalSize": 0
+              },
+              "partitionsOptimized": 0,
+              "zOrderStats": null,
+              "clusteringStats": null,
+              "numBatches": 0,
+              "totalConsideredFiles": 151,
+              "totalFilesSkipped": 151,
+              "preserveInsertionOrder": false,
+              "numFilesSkippedToReduceWriteAmplification": 0,
+              "numBytesSkippedToReduceWriteAmplification": 0,
+              "startTimeMs": 1794504665055,
+              "endTimeMs": 0,
+              "totalClusterParallelism": 24,
+              "totalScheduledTasks": 0,
+              "autoCompactParallelismStats": null,
+              "deletionVectorStats": null,
+              "numTableColumns": 17,
+              "numTableColumnsWithStats": 17
+            }
+          }
+        ],
+        "outcome": {
+          "files_added": 0,
+          "files_removed": 0,
+          "bytes_added": 0,
+          "bytes_removed": 0,
+          "partitions_optimized": 0,
+          "files_considered": 151,
+          "files_skipped": 151,
+          "no_op": true
+        }
+      },
+      "zorder": {
+        "seconds": 49.458626203999984,
+        "metrics": [
+          {
+            "path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/optimized/dp2-gold/fact_transactions",
+            "metrics": {
+              "numFilesAdded": 151,
+              "numFilesRemoved": 151,
+              "filesAdded": {
+                "min": 24117881,
+                "max": 24508097,
+                "avg": 24288961.549668875,
+                "totalFiles": 151,
+                "totalSize": 3667633194
+              },
+              "filesRemoved": {
+                "min": 24117881,
+                "max": 24508097,
+                "avg": 24288961.549668875,
+                "totalFiles": 151,
+                "totalSize": 3667633194
+              },
+              "partitionsOptimized": 151,
+              "zOrderStats": {
+                "strategyName": "all",
+                "inputCubeFiles": {
+                  "num": 0,
+                  "size": 0
+                },
+                "inputOtherFiles": {
+                  "num": 151,
+                  "size": 3667633194
+                },
+                "inputNumCubes": 0,
+                "mergedFiles": {
+                  "num": 151,
+                  "size": 3667633194
+                },
+                "numOutputCubes": 151,
+                "mergedNumCubes": null
+              },
+              "clusteringStats": null,
+              "numBatches": 151,
+              "totalConsideredFiles": 151,
+              "totalFilesSkipped": 0,
+              "preserveInsertionOrder": false,
+              "numFilesSkippedToReduceWriteAmplification": 0,
+              "numBytesSkippedToReduceWriteAmplification": 0,
+              "startTimeMs": 1794504714521,
+              "endTimeMs": 0,
+              "totalClusterParallelism": 24,
+              "totalScheduledTasks": 0,
+              "autoCompactParallelismStats": null,
+              "deletionVectorStats": null,
+              "numTableColumns": 17,
+              "numTableColumnsWithStats": 17
+            }
+          }
+        ],
+        "outcome": {
+          "files_added": 151,
+          "files_removed": 151,
+          "bytes_added": 3667633194,
+          "bytes_removed": 3667633194,
+          "partitions_optimized": 151,
+          "files_considered": 151,
+          "files_skipped": 0,
+          "no_op": false
+        }
+      }
+    },
+    {
+      "table": "obt_transaction_enriched",
+      "compaction": {
+        "seconds": 3.1699406310000313,
+        "metrics": [
+          {
+            "path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/compacted/dp2-gold/obt_transaction_enriched",
+            "metrics": {
+              "numFilesAdded": 0,
+              "numFilesRemoved": 0,
+              "filesAdded": {
+                "min": null,
+                "max": null,
+                "avg": 0.0,
+                "totalFiles": 0,
+                "totalSize": 0
+              },
+              "filesRemoved": {
+                "min": null,
+                "max": null,
+                "avg": 0.0,
+                "totalFiles": 0,
+                "totalSize": 0
+              },
+              "partitionsOptimized": 0,
+              "zOrderStats": null,
+              "clusteringStats": null,
+              "numBatches": 0,
+              "totalConsideredFiles": 151,
+              "totalFilesSkipped": 151,
+              "preserveInsertionOrder": false,
+              "numFilesSkippedToReduceWriteAmplification": 0,
+              "numBytesSkippedToReduceWriteAmplification": 0,
+              "startTimeMs": 1794504885128,
+              "endTimeMs": 0,
+              "totalClusterParallelism": 24,
+              "totalScheduledTasks": 0,
+              "autoCompactParallelismStats": null,
+              "deletionVectorStats": null,
+              "numTableColumns": 32,
+              "numTableColumnsWithStats": 32
+            }
+          }
+        ],
+        "outcome": {
+          "files_added": 0,
+          "files_removed": 0,
+          "bytes_added": 0,
+          "bytes_removed": 0,
+          "partitions_optimized": 0,
+          "files_considered": 151,
+          "files_skipped": 151,
+          "no_op": true
+        }
+      },
+      "zorder": {
+        "seconds": 55.19140186200002,
+        "metrics": [
+          {
+            "path": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/optimized/dp2-gold/obt_transaction_enriched",
+            "metrics": {
+              "numFilesAdded": 151,
+              "numFilesRemoved": 151,
+              "filesAdded": {
+                "min": 28090019,
+                "max": 28554997,
+                "avg": 28285867.125827815,
+                "totalFiles": 151,
+                "totalSize": 4271165936
+              },
+              "filesRemoved": {
+                "min": 28090019,
+                "max": 28554997,
+                "avg": 28285867.125827815,
+                "totalFiles": 151,
+                "totalSize": 4271165936
+              },
+              "partitionsOptimized": 151,
+              "zOrderStats": {
+                "strategyName": "all",
+                "inputCubeFiles": {
+                  "num": 0,
+                  "size": 0
+                },
+                "inputOtherFiles": {
+                  "num": 151,
+                  "size": 4271165936
+                },
+                "inputNumCubes": 0,
+                "mergedFiles": {
+                  "num": 151,
+                  "size": 4271165936
+                },
+                "numOutputCubes": 151,
+                "mergedNumCubes": null
+              },
+              "clusteringStats": null,
+              "numBatches": 151,
+              "totalConsideredFiles": 151,
+              "totalFilesSkipped": 0,
+              "preserveInsertionOrder": false,
+              "numFilesSkippedToReduceWriteAmplification": 0,
+              "numBytesSkippedToReduceWriteAmplification": 0,
+              "startTimeMs": 1794504940325,
+              "endTimeMs": 0,
+              "totalClusterParallelism": 24,
+              "totalScheduledTasks": 0,
+              "autoCompactParallelismStats": null,
+              "deletionVectorStats": null,
+              "numTableColumns": 32,
+              "numTableColumnsWithStats": 32
+            }
+          }
+        ],
+        "outcome": {
+          "files_added": 151,
+          "files_removed": 151,
+          "bytes_added": 4271165936,
+          "bytes_removed": 4271165936,
+          "partitions_optimized": 151,
+          "files_considered": 151,
+          "files_skipped": 0,
+          "no_op": false
+        }
+      }
+    }
+  ]
+}

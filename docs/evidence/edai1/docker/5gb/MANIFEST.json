@@ -1,0 +1,168 @@
+{
+  "title": "Docker A/B (rows 3-4)",
+  "run_id": "20261112t142522",
+  "captured_by": "owner",
+  "copied_from": "~/Pictures/Screenshots (originals unchanged; SHA-256 verified before and after copy)",
+  "raw_copied_from": "~/ewallet-evidence/edai1-docker-storage-20261112t142522",
+  "screenshots": [
+    {
+      "path": "screenshots/DK01_dockerfiles_baseline_vs_optimized.png",
+      "source_filename": "DK01_dockerfile_before_after.png",
+      "checkpoint": "DK01",
+      "visible": "Editor: Dockerfile.baseline vs Dockerfile.optimized",
+      "sha256": "d3162a29fc3a9978459921ab1fdc8d1798be811d4129a1db10aab6ee413735a0",
+      "bytes": 671645,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK02a_build_baseline.png",
+      "source_filename": "DK02a_baseline_build.png",
+      "checkpoint": "DK02",
+      "visible": "Terminal: baseline build log",
+      "sha256": "89e425d9b2112fae14d62609f03f467bc531b926aad113c832511702383b0000",
+      "bytes": 661476,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK02b_build_optimized.png",
+      "source_filename": "DK02b_optimized_build.png",
+      "checkpoint": "DK02",
+      "visible": "Terminal: optimized build log",
+      "sha256": "7c2bdcd09f643709ba0d58e28ff3c363743ba61dd9ba922153661edc42478153",
+      "bytes": 685286,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK02c_build_logs_tail_exit_code_0.png",
+      "source_filename": "Screenshot From 2026-11-12 21-29-12.png",
+      "checkpoint": "DK02",
+      "visible": "Terminal: tail of build_baseline.log and build_optimized.log, both [exit code 0]",
+      "sha256": "86599d2507e9866b5578988737c4624b955a4c1cdceebe4e1333a13544345b90",
+      "bytes": 412222,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK03_image_size_comparison.png",
+      "source_filename": "DK03_docker_image_size_comparison.png",
+      "checkpoint": "DK03",
+      "visible": "Terminal: summary.txt size table and attribution",
+      "sha256": "1f4d716eca9feda8f2413de0cd0948b58b3a835c6c53f2415fe9d56b3ef63dc9",
+      "bytes": 499585,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK04a_failed_attempt_spec_unset_invalid_spec.png",
+      "source_filename": "Screenshot From 2026-11-12 21-35-43.png",
+      "checkpoint": "DK04",
+      "visible": "Terminal: summary.txt, then a DK04 attempt with $SPEC unset -> INVALID_SPEC (kept as a genuine failed attempt)",
+      "sha256": "85f5a931def5166c1b5099673586f0f636cdf74b1909e73afc2ef5c924e57f09",
+      "bytes": 911582,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK04b_functional_equivalence_pass.png",
+      "source_filename": "DK04_functional_equivalence.png",
+      "checkpoint": "DK04",
+      "visible": "Terminal: baseline and optimized print the same report_sha256 and PASS",
+      "sha256": "27aca6846fdc3cb35b8e7af6103f8001bc09ca5774928f8525ce87a225034ad3",
+      "bytes": 244479,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK04c_rerun_pass_and_compose_config.png",
+      "source_filename": "Screenshot From 2026-11-12 21-38-25.png",
+      "checkpoint": "DK04/DK05",
+      "visible": "VS Code terminal: DK04 rerun PASS and docker compose config (hardening)",
+      "sha256": "6d120c9ccfd5cf40c60bdab7bedda21a4acfa0f7444ada43e33c51e037561ee8",
+      "bytes": 998234,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK05a_compose_config_and_run_exit_0.png",
+      "source_filename": "Screenshot From 2026-11-12 21-49-16.png",
+      "checkpoint": "DK05",
+      "visible": "VS Code terminal: compose config, run --rm campaign-verifier PASS, exit=0",
+      "sha256": "5b3acd4e5f41bb04b31ebfc851c1481e35101cf13955b63dadde84d89214ef1c",
+      "bytes": 1023974,
+      "area": "docker"
+    },
+    {
+      "path": "screenshots/DK05b_compose_runtime_no_residual_containers.png",
+      "source_filename": "DK05b_compose_runtime.png",
+      "checkpoint": "DK05",
+      "visible": "Terminal: compose runtime and empty ps -a",
+      "sha256": "ff1126f920241b1e72b434a1f640c26c34217f97c6055fc404183cd7db13dfcd",
+      "bytes": 191781,
+      "area": "docker"
+    }
+  ],
+  "raw_artifacts": [
+    {
+      "path": "raw/build_baseline-slim.log",
+      "sha256": "88e29f3ffb93c92f7fed05bbccfdd19509c5516a090499b7db76420cb5bfcd01",
+      "bytes": 2455
+    },
+    {
+      "path": "raw/build_baseline.log",
+      "sha256": "45212efbb117c70d5611e83fa7db5d4b0c4f22f775577e33804b7b4acb9a929e",
+      "bytes": 2808
+    },
+    {
+      "path": "raw/build_optimized-full.log",
+      "sha256": "a83c856fee8175887e14b9afba9f9b1b53ff31ea02ba763873f90d384201d400",
+      "bytes": 3456
+    },
+    {
+      "path": "raw/build_optimized.log",
+      "sha256": "892e12f8e8530aa87310185b773c07b17d64a98203c56c46fc0d37982af4ff6a",
+      "bytes": 3340
+    },
+    {
+      "path": "raw/compose_build.txt",
+      "sha256": "7f6b7a7caa6aa47aa92a484e3529c70eb2ebe7350d9925e925f1a3a38a08b161",
+      "bytes": 2845
+    },
+    {
+      "path": "raw/compose_config.txt",
+      "sha256": "0f638680a88deeab159b9703608d130efef18998f0e92613347e5bce806ef0cd",
+      "bytes": 1205
+    },
+    {
+      "path": "raw/compose_run.txt",
+      "sha256": "997e2485558ad25c9c661411b2c37faeca3a6a280f9045f8cc141c588b6d1855",
+      "bytes": 391
+    },
+    {
+      "path": "raw/docker_stdout.txt",
+      "sha256": "9d1901d12d0367d8b78fb2d88cd0229721ff8f8e7bd448ff47ae4883f2ca8e55",
+      "bytes": 2052
+    },
+    {
+      "path": "raw/result.json",
+      "sha256": "9522b091adc25a1ad03c82c337a7a6077191aa168c0fcc856549396a80d4caae",
+      "bytes": 38832
+    },
+    {
+      "path": "raw/summary.txt",
+      "sha256": "9d1901d12d0367d8b78fb2d88cd0229721ff8f8e7bd448ff47ae4883f2ca8e55",
+      "bytes": 2052
+    }
+  ],
+  "excluded_screenshots": [
+    {
+      "area": "docker",
+      "source_filename": "Screenshot From 2026-11-12 21-10-12.png",
+      "reason": "Shows the Claude Code panel and a different directive; Docker disk preflight only"
+    },
+    {
+      "area": "docker",
+      "source_filename": "Screenshot From 2026-11-12 21-12-27.png",
+      "reason": "Preflight: ADC check and a home-cache listing; no Docker result"
+    },
+    {
+      "area": "docker",
+      "source_filename": "Screenshot From 2026-11-12 21-50-08.png",
+      "reason": "Duplicate of DK05a plus an inspection of the earlier warehouse volume"
+    }
+  ]
+}

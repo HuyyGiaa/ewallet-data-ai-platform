@@ -1,0 +1,945 @@
+{
+  "title": "Lakehouse and warehouse (rows 20-21)",
+  "run_id": "20261112t142522",
+  "captured_by": "owner",
+  "copied_from": "~/Pictures/Screenshots (originals unchanged; SHA-256 verified before and after copy)",
+  "raw_copied_from": "~/ewallet-evidence/edai1-docker-storage-20261112t142522",
+  "screenshots": [
+    {
+      "path": "lakehouse/screenshots/ST00a_evidence_download_from_benchmark_root.png",
+      "source_filename": "Screenshot From 2026-11-13 00-42-39.png",
+      "checkpoint": "ST08",
+      "visible": "Terminal: gcloud storage cp of the job's evidence/ folder (11 files)",
+      "sha256": "1d6b65b874827eb76e4874400bf903300ab58d2aa89e70a3c3fa2691c5bbefd4",
+      "bytes": 787890,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST00b_trino_register_benchmark_arms.png",
+      "source_filename": "Screenshot From 2026-11-13 01-00-26.png",
+      "checkpoint": "ST01",
+      "visible": "Terminal: register_table of six arms in the schema-viz Trino",
+      "sha256": "196b0b913907363ea81993776faf731999482aac66d44a4a973f9e3b28080a06",
+      "bytes": 956952,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST00c_dbeaver_trino_viewer_connection.png",
+      "source_filename": "Screenshot From 2026-11-13 01-02-14.png",
+      "checkpoint": "ST01",
+      "visible": "DBeaver: Trino connection 127.0.0.1:8091/storage_bench, user viewer, no password",
+      "sha256": "723c84a2092a2a69e9d6058047f9222ea338c1c497099cae5ed52fcbb5385da6",
+      "bytes": 665190,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST01_fact_baseline_history_clone_v0.png",
+      "source_filename": "ST01_delta_baseline_clone.png",
+      "checkpoint": "ST01",
+      "visible": "DBeaver/Trino: fact_transactions_baseline$history = CLONE sourceVersion 0",
+      "sha256": "e70d906fbf8f1ab660ca1072a9f3008f77ea64ca865fc7afd89578c249c0816f",
+      "bytes": 942255,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST01_fact_compacted_history_clone_v0.png",
+      "source_filename": "Screenshot From 2026-11-13 01-07-38.png",
+      "checkpoint": "ST01",
+      "visible": "DBeaver/Trino: fact_transactions_compacted$history = CLONE only (no OPTIMIZE commit)",
+      "sha256": "9b1a07e7ef4c217d694682cb35a7859d04d033b7744a769b24f207f8414bd859",
+      "bytes": 958646,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST01_fact_optimized_history_clone_then_zorder.png",
+      "source_filename": "ST01_fact_transactions_zorder_history.png",
+      "checkpoint": "ST01",
+      "visible": "DBeaver/Trino: fact_transactions_optimized$history = CLONE v0, OPTIMIZE zOrderBy merchant_id v1",
+      "sha256": "6af920fc4803462c49224ceca5b6402d40b464b1eaf172d647290b5b01bcee5e",
+      "bytes": 978235,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST01_obt_baseline_history_clone_v0.png",
+      "source_filename": "ST01_obt_baseline_history.png",
+      "checkpoint": "ST01",
+      "visible": "DBeaver/Trino: obt baseline history = CLONE",
+      "sha256": "541771f60f8cbd4fc1cc7d6523b7c4d5e1650b5d4d872fcce4138e539a79e37f",
+      "bytes": 604397,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST01_obt_compacted_history_clone_v0.png",
+      "source_filename": "ST01_obt_compacted_history.png",
+      "checkpoint": "ST01",
+      "visible": "DBeaver/Trino: obt compacted history = CLONE only",
+      "sha256": "610484ce9d9ee97bbe5aab04c014461af1654f6eff023909e17c8dfc78c2f510",
+      "bytes": 606600,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST01_obt_optimized_history_clone_then_zorder.png",
+      "source_filename": "ST01_obt_optimized_zorder_history.png",
+      "checkpoint": "ST01",
+      "visible": "DBeaver/Trino: obt optimized history = CLONE, OPTIMIZE",
+      "sha256": "aecb7afa8127310c48611f0464fb65156bca740b61d352e8d7957b2042af93f8",
+      "bytes": 620701,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST02_fact_baseline_layout.png",
+      "source_filename": "ST02_baseline_file_layout.png",
+      "checkpoint": "ST02",
+      "visible": "DBeaver/Trino: 151 files, 23.16 MiB avg, 24,117,881-24,508,097 B, 151 partitions",
+      "sha256": "f6c5f0ea6f30be7b81c911c6f959a3d2aca85ada3ad1f20eb94d9345579f0a38",
+      "bytes": 782979,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST02_obt_baseline_layout.png",
+      "source_filename": "ST02_obt_baseline_file_layout.png",
+      "checkpoint": "ST02",
+      "visible": "DBeaver/Trino: 151 files, 26.98 MiB avg, 28,090,019-28,554,997 B, 151 partitions",
+      "sha256": "637c10366e8bdedaf976b634c4323bf46c046ea4a5f35959169cd3aa64363792",
+      "bytes": 829107,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST03a_spark_ui_sql_delta_operations.png",
+      "source_filename": "Screenshot From 2026-11-13 00-50-17.png",
+      "checkpoint": "ST03",
+      "visible": "Dataproc Spark UI (batch storage-5gb-20261112t142522-storage): SQL/DataFrame list, Delta snapshot and clone operations",
+      "sha256": "455ad51d956c8ba5b81d98aff140a4bf52560afa27ec9e160868a376f2675365",
+      "bytes": 711679,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST03b_spark_ui_sql_dataframe_1714_completed.png",
+      "source_filename": "Screenshot From 2026-11-13 00-52-24.png",
+      "checkpoint": "ST03",
+      "visible": "Dataproc Spark UI: app-20261112172914785-0221, 1714 completed queries, 0 failed",
+      "sha256": "ce84d6460a1b920b26db4d66511b4984f6990921ce24117bf913f7bb30e2276f",
+      "bytes": 682308,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST03c_spark_ui_compaction_optimize_query_52.png",
+      "source_filename": "Screenshot From 2026-11-13 00-54-57.png",
+      "checkpoint": "ST03",
+      "visible": "Dataproc Spark UI: query 52 Execute OptimizeTableCommand on the compacted arm, 4.62 s",
+      "sha256": "a96e13968151314da99c9fedcbace3e7ba2c36a8911c67d8e31e77d996bc524a",
+      "bytes": 308276,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST04_fact_compacted_layout_unchanged.png",
+      "source_filename": "ST04_compacted_file_layout.png",
+      "checkpoint": "ST04",
+      "visible": "DBeaver/Trino: compacted arm identical to baseline (151 files, 23.16 MiB)",
+      "sha256": "8ac43468f6e912ddbaf995c7c6134233f25b89440021498adf6aa43e83014e2c",
+      "bytes": 765772,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST04_fact_optimized_layout.png",
+      "source_filename": "ST04_optimized_file_layout.png",
+      "checkpoint": "ST04",
+      "visible": "DBeaver/Trino: Z-order arm 151 files, same sizes as baseline",
+      "sha256": "55ebd80df83b3f9761a1778193ca219c3c3fc8b603df3a20cbde60c81d3154a1",
+      "bytes": 769143,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST04_fact_baseline_vs_optimized_file_paths.png",
+      "source_filename": "ST04_baseline_vs_optimized_paths.png",
+      "checkpoint": "ST04",
+      "visible": "DBeaver/Trino: baseline files under runs/ab-... (shallow clone), optimized files under benchmarks/storage/... (rewritten)",
+      "sha256": "61ce1209f8dfe890bc81bf91c8cef33e96c392f4706aaf25800c40e9d1fa4213",
+      "bytes": 673281,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST04_obt_compacted_layout_unchanged.png",
+      "source_filename": "ST04_obt_compacted_file_layout.png",
+      "checkpoint": "ST04",
+      "visible": "DBeaver/Trino: obt compacted arm identical to baseline",
+      "sha256": "978f53e51f9b60d72752306b6756a7fb3c9742c53a4d61ef2f59061686f6aad9",
+      "bytes": 790683,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST04_obt_optimized_layout.png",
+      "source_filename": "ST04_obt_optimized_file_layout.png",
+      "checkpoint": "ST04",
+      "visible": "DBeaver/Trino: obt Z-order arm 151 files, same sizes as baseline",
+      "sha256": "9aaae275d68f34aa6cc67c24c5ada4e8d208f4b6953c236fa4ee7a77918e9de3",
+      "bytes": 774155,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_entity_lookup_baseline_overview.png",
+      "source_filename": "ST05_baseline_explain_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino EXPLAIN ANALYZE overview, merchant lookup, baseline",
+      "sha256": "a5dc400ff20d2c5521820bc13ab75810744f0da76456eb97dc8a2efce57ff932",
+      "bytes": 886426,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_entity_lookup_baseline_scan.png",
+      "source_filename": "ST05_baseline_explain_physical_input.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 669,508 rows, physical input 7.89 MB, 7 splits",
+      "sha256": "271aee4d715e1917581c0576efc588a70789f243c24f802310f9bbba596aeaab",
+      "bytes": 898806,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_entity_lookup_compacted_overview.png",
+      "source_filename": "ST05_compacted_explain_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino EXPLAIN ANALYZE overview, merchant lookup, compacted",
+      "sha256": "96a22ae31285d6af517beaca5116bfe9cdcc129a9ddc25b6353ee454fc7a73b3",
+      "bytes": 872016,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_entity_lookup_compacted_scan.png",
+      "source_filename": "ST05_compacted_explain_physical_input.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 669,508 rows, 7.89 MB, 7 splits",
+      "sha256": "4071442769fb3ff74400adb160410b10412ff54066a5a59fda1887c85d219676",
+      "bytes": 898682,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_date_range_baseline_overview.png",
+      "source_filename": "ST05_date_range_baseline_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino overview, date range, baseline, Execution 3.06 s",
+      "sha256": "c165391448a98c58444441aefdbcb92b3b81739fd878a9ce06b72f8bc69cb7e4",
+      "bytes": 852884,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_date_range_baseline_scan.png",
+      "source_filename": "ST05_date_range_baseline_scan.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 860,389 rows, 5.69 MB, 7 splits",
+      "sha256": "13aa0d7f20e3cc41e22b78f15d32697fe300bc1238f4c88e1538585221092abe",
+      "bytes": 855272,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_date_range_compacted_overview.png",
+      "source_filename": "ST05_date_range_compacted_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino overview, date range, compacted, Execution 2.39 s",
+      "sha256": "1b9f6400a796a244f6f198a394ddc23c0d081c2c95c2e71d18b713cff408bd09",
+      "bytes": 867715,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_fact_date_range_compacted_scan.png",
+      "source_filename": "ST05_date_range_compacted_scan.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 860,389 rows, 5.69 MB, 7 splits",
+      "sha256": "d9f1cdce2c4036ba4ff58a5b397d02460e19a047d8426b2c09f12558a7b33ab1",
+      "bytes": 868223,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_entity_lookup_baseline_overview.png",
+      "source_filename": "ST05_obt_entity_lookup_baseline_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino overview, obt merchant lookup, baseline, Execution 3.82 s",
+      "sha256": "f4c15f210915838ed8aba26648fdbad9a211f76f810b50be85d2e9e8cef691a9",
+      "bytes": 876670,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_entity_lookup_baseline_scan.png",
+      "source_filename": "ST05_obt_entity_lookup_baseline_scan.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 689,163 rows, 13.38 MB, 7 splits",
+      "sha256": "441acb53ecb927a1456ad12d33948e9e944336d823b61e517255c35888324d68",
+      "bytes": 887612,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_entity_lookup_compacted_overview.png",
+      "source_filename": "ST05_obt_entity_lookup_compacted_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino overview, obt merchant lookup, compacted, Execution 3.82 s",
+      "sha256": "e5e89f584f454bd5488bc396312cd9e76e25ffddb50b6eb3c0d97d1171d80158",
+      "bytes": 855150,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_entity_lookup_compacted_scan.png",
+      "source_filename": "ST05_obt_entity_lookup_compacted_scan.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 689,163 rows, 13.38 MB, 7 splits",
+      "sha256": "8a4c03e24fbe0cfd9140033e32931d26a33a5927919fa49912b7c334505b7885",
+      "bytes": 864608,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_date_range_baseline_overview.png",
+      "source_filename": "ST05_obt_date_range_baseline_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino overview, obt date range, baseline, Execution 2.17 s",
+      "sha256": "7ed1db899a8f0b9797f5a09029d6091bdf31b0201f3d1e93784285b70268d2d2",
+      "bytes": 870265,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_date_range_baseline_scan.png",
+      "source_filename": "ST05_obt_date_range_baseline_scan.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 860,389 rows, 5.69 MB, 7 splits",
+      "sha256": "56a98411a3d457cfa136d0f6ae66c875e70dffa73a8257e18348ff41c470cfb1",
+      "bytes": 869135,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_date_range_compacted_overview.png",
+      "source_filename": "ST05_obt_date_range_compacted_overview.png",
+      "checkpoint": "ST05",
+      "visible": "Trino overview, obt date range, compacted, Execution 2.46 s",
+      "sha256": "7a152a2d8470b010c866d0cd6952e475de2afe8c132f0eda1ea6052e21d9f85a",
+      "bytes": 852882,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST05_obt_date_range_compacted_scan.png",
+      "source_filename": "ST05_obt_date_range_compacted_scan.png",
+      "checkpoint": "ST05",
+      "visible": "Trino scan: 860,389 rows, 5.69 MB, 7 splits",
+      "sha256": "8923d822d29f67bc233901e2ae29960cfcbc5632b3810c7916d02da12866f6f2",
+      "bytes": 851954,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST06_spark_ui_optimize_queries_52_and_58.png",
+      "source_filename": "Screenshot From 2026-11-13 00-53-41.png",
+      "checkpoint": "ST06",
+      "visible": "Dataproc Spark UI: SQL list filtered on OPTIMIZE, queries 52 (compaction) and 58 (Z-order) via DeltaOptimizeBuilder",
+      "sha256": "c8eb251ee0e0734ca490d057a7a66d98a856ee4cbad2698e2ae55d748fb60ea6",
+      "bytes": 677506,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_fact_entity_lookup_optimized_overview.png",
+      "source_filename": "ST07_optimized_explain_overview.png",
+      "checkpoint": "ST07",
+      "visible": "Trino overview, merchant lookup, Z-order arm, Execution 3.26 s",
+      "sha256": "a33c3e15d664d14c628f192e9d304c9c1f597711b85eb3f12bc03893e88d5aee",
+      "bytes": 870793,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_fact_entity_lookup_optimized_scan.png",
+      "source_filename": "ST07_optimized_explain_physical_input.png",
+      "checkpoint": "ST07",
+      "visible": "Trino scan: 669,508 rows, 7.89 MB, 7 splits (same as baseline)",
+      "sha256": "86d370bb08d95c429f6438a36cbbc5d0d62eb60bb347ac5c3e044c21fa8b8dbc",
+      "bytes": 883447,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_fact_date_range_optimized_overview.png",
+      "source_filename": "ST07_date_range_optimized_overview.png",
+      "checkpoint": "ST07",
+      "visible": "Trino overview, date range, Z-order arm, Execution 2.50 s",
+      "sha256": "5f69a083e5d80b1010e0aa7455d0da7c69ab6f29d1ae6edf75863c0403bae972",
+      "bytes": 870588,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_fact_date_range_optimized_scan.png",
+      "source_filename": "ST07_date_range_optimized_scan.png",
+      "checkpoint": "ST07",
+      "visible": "Trino scan: 860,389 rows, 5.69 MB, 7 splits",
+      "sha256": "ed81ce38cd638c77703506c6155d17fd0ed117a0867ac68611351af541c5cccb",
+      "bytes": 870540,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_obt_entity_lookup_optimized_overview.png",
+      "source_filename": "ST07_obt_entity_lookup_optimized_overview.png",
+      "checkpoint": "ST07",
+      "visible": "Trino overview, obt merchant lookup, Z-order arm, Execution 3.53 s",
+      "sha256": "b0fb5b98063d499af006d133b8203a4c4052b437ce3c69e981383f5a8860c189",
+      "bytes": 872168,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_obt_entity_lookup_optimized_scan.png",
+      "source_filename": "ST07_obt_entity_lookup_optimized_scan.png",
+      "checkpoint": "ST07",
+      "visible": "Trino scan: 689,163 rows, 13.38 MB, 7 splits (same as baseline)",
+      "sha256": "99ff4ca9ef28a99488ba4aeddb25e1ce088b3d59dc4bae55da69ae9ced621dac",
+      "bytes": 886938,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_obt_date_range_optimized_overview.png",
+      "source_filename": "ST07_obt_date_range_optimized_overview.png",
+      "checkpoint": "ST07",
+      "visible": "Trino overview, obt date range, Z-order arm, Execution 2.29 s",
+      "sha256": "9521b634648d77de8e0670ed1f9fd43aac9c503df3c2269af1e84f113561431c",
+      "bytes": 877266,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST07_obt_date_range_optimized_scan.png",
+      "source_filename": "ST07_obt_date_range_optimized_scan.png",
+      "checkpoint": "ST07",
+      "visible": "Trino scan: 860,389 rows, 5.69 MB, 7 splits",
+      "sha256": "f2853ce79655e9203c357a925c004993a27dfd428a20a493b6623d8280c86057",
+      "bytes": 881910,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST08_benchmark_summary.png",
+      "source_filename": "Screenshot From 2026-11-13 00-45-41.png",
+      "checkpoint": "ST05/ST07/ST08",
+      "visible": "Terminal: storage_benchmark_report summary (rewrite, verdicts, pruning, recommendation)",
+      "sha256": "ab15b92645a18f9aa5be54e84272e836f997421db2966272e605f7450475cb7f",
+      "bytes": 826636,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_pruned_overview.png",
+      "source_filename": "ST09_fact_transactions_pruned_overview.png",
+      "checkpoint": "ST09",
+      "visible": "Trino overview, partition filter, Execution 1.99 s",
+      "sha256": "e2ea69de2c53929f225d4fd0e763eaa1eab07c3885a02fbc4e609e5a90062006",
+      "bytes": 839607,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_pruned_scan.png",
+      "source_filename": "ST09_fact_transactions_pruned_physical_input.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan: PARTITION_KEY [2026-05-25, 2026-05-31], 860,389 rows, 5.69 MB, 7 splits",
+      "sha256": "752b8af2bca7a64f5a935268c74db592bc29457db52e90f8f37c22b1717e3d49",
+      "bytes": 843512,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_stats_only_overview.png",
+      "source_filename": "ST09_fact_transactions_stats_only_overview.png",
+      "checkpoint": "ST09",
+      "visible": "Trino overview, timestamp range, Execution 4.36 s",
+      "sha256": "6d422417b67e18adcc59f57e2ea37492ddb018940911ad10ac050b4ebd406d9d",
+      "bytes": 842046,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_stats_only_scan_session_tz_0700.png",
+      "source_filename": "ST09_fact_transactions_stats_only_physical_input.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan: 983,526 rows, 15.31 MB, 8 splits, output 860,298; filter in Asia/Ho_Chi_Minh (session-zone caveat)",
+      "sha256": "f957b49d243963715b96ec7e80ec74146153c0e16ac8e3689ed1137254148d5a",
+      "bytes": 877877,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_full_scan_overview.png",
+      "source_filename": "ST09_fact_transactions_full_scan_overview.png",
+      "checkpoint": "ST09",
+      "visible": "Trino overview, format_datetime filter, Execution 35.38 s",
+      "sha256": "226a4096696efd75dc6535869f628d4678ac5f1ef7eb35a4d38685675d03090e",
+      "bytes": 858861,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_fact_full_scan_scan.png",
+      "source_filename": "ST09_fact_transactions_full_scan_physical_input.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan: 18,600,000 rows, 178.81 MB, 151 splits",
+      "sha256": "0338a496bc65dbe739feeb97798f5e21cfce0b1f45ab679a1205e7e34d8a190d",
+      "bytes": 898056,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_pruned_overview.png",
+      "source_filename": "ST09_obt_pruned_overview.png",
+      "checkpoint": "ST09",
+      "visible": "Trino overview, obt partition filter, Execution 2.21 s",
+      "sha256": "f0bd5fc0bbbca7f141d3ed766cc65daf5b1a10ea1aeeee38a90536dc0a728c53",
+      "bytes": 844535,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_pruned_scan.png",
+      "source_filename": "ST09_obt_pruned_scan.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, obt partition filter, 7 splits",
+      "sha256": "e4549052e385f53ccec7b11ac26d98ae1d4dd7b2d9061a71e20075dbcba30fcc",
+      "bytes": 849054,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_stats_only_overview.png",
+      "source_filename": "ST09_obt_stats_only_overview.png",
+      "checkpoint": "ST09",
+      "visible": "Trino overview, obt timestamp range, Execution 3.51 s",
+      "sha256": "cce101f2582d9a04c19a17a378ef064355d2431bd6302577aa32c66c078f940d",
+      "bytes": 855334,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_stats_only_scan_session_tz_0700.png",
+      "source_filename": "ST09_obt_stats_only_scan.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, obt timestamp range (session-zone caveat)",
+      "sha256": "78c61e8ac645a4dae4025301ac977bfbceaab8b6148b31238549c8ec6bc98694",
+      "bytes": 886549,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_full_scan_overview.png",
+      "source_filename": "ST09_obt_full_scan_overview.png",
+      "checkpoint": "ST09",
+      "visible": "Trino overview, obt format_datetime filter, Execution 50.02 s",
+      "sha256": "21bbbe4af5cd8b3cac1536e5ac6d3cc3bd060aad3a99e845f0b73dbfda3a2277",
+      "bytes": 848889,
+      "area": "lakehouse"
+    },
+    {
+      "path": "lakehouse/screenshots/ST09_obt_full_scan_scan.png",
+      "source_filename": "ST09_obt_full_scan_scan.png",
+      "checkpoint": "ST09",
+      "visible": "Trino scan, obt full scan, 151 splits",
+      "sha256": "eedeece7f1e11e94bfcd1ddfbcfcb6c32ed21a00c26f808fd5b0246835a56240",
+      "bytes": 889805,
+      "area": "lakehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH00_before_phase_terminal.png",
+      "source_filename": "Screenshot From 2026-11-12 22-32-19.png",
+      "checkpoint": "WH02",
+      "visible": "Terminal: warehouse before phase on edai1-wh5gb-evidence-postgres, median 174.073 ms",
+      "sha256": "c46ed39e89624fb2c48b7c0051f704e0656ccb9e2f0a7277e57dc2f261f33807",
+      "bytes": 159438,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH01_provenance_table.png",
+      "source_filename": "WH01a_warehouse_provenance.png",
+      "checkpoint": "WH01",
+      "visible": "DBeaver/PostgreSQL: benchmark_provenance (3,816,574 rows, snapshot SHA-256, source ab-20261110225456 v0)",
+      "sha256": "ea1599439270b703243822029a4bec0cf3a10ecd4fc4ddf8a1f12e89c78c1df8",
+      "bytes": 902331,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH01_table_schema.png",
+      "source_filename": "WH01a_warehouse_table_schema.png",
+      "checkpoint": "WH01",
+      "visible": "DBeaver: fact_transactions columns (12)",
+      "sha256": "5444320239ddac49b508c6349104fb66d944353f23ce64d72935aa9ad7bb8e07",
+      "bytes": 538515,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH01_row_count.png",
+      "source_filename": "WH01b_warehouse_row_count.png",
+      "checkpoint": "WH01",
+      "visible": "DBeaver: 3,816,574 rows, 2026-05-01..2026-05-31, 55,623 merchants",
+      "sha256": "42826a05491e814fd6fa422a8021667d67a007c8fe51ee6967815c591a5dc364",
+      "bytes": 749949,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH02_index_list_before.png",
+      "source_filename": "WH02a_before_index_list.png",
+      "checkpoint": "WH02",
+      "visible": "DBeaver: only fact_transactions_pkey",
+      "sha256": "24c636e3442b68574df48593e6a6f301c1267a877dbcb1576a41aa62bf329357",
+      "bytes": 767759,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH02_explain_before_parallel_seq_scan.png",
+      "source_filename": "WH02b_before_explain_analyze.png",
+      "checkpoint": "WH02",
+      "visible": "DBeaver: Parallel Seq Scan, Rows Removed by Filter 1,272,191, Execution 220.804 ms",
+      "sha256": "3390b3610b2c80f0f35f5eb8f8d943b7070c657baa0b5aa82efa94c9abbc2aa5",
+      "bytes": 862172,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH03_create_index_statistics.png",
+      "source_filename": "WH03a_create_index.png",
+      "checkpoint": "WH03",
+      "visible": "DBeaver Statistics: CREATE INDEX, 2.693 s",
+      "sha256": "4655d3f7397db9031918063cdce1d5bbc7e974085d54b13a282992907705e48f",
+      "bytes": 633849,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH03_vacuum_analyze.png",
+      "source_filename": "WH03b_vacuum_analyze.png",
+      "checkpoint": "WH03",
+      "visible": "DBeaver Statistics: VACUUM (ANALYZE), 0.363 s",
+      "sha256": "91837c8a69243367849b7995b9b2577ec1bc0c19cf5040a5fc6e4d126d6b48bd",
+      "bytes": 605720,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH03_index_definition_size.png",
+      "source_filename": "WH03c_index_definition_size.png",
+      "checkpoint": "WH03",
+      "visible": "DBeaver: pkey 277 MB, covering index 234 MB",
+      "sha256": "d69a857850f74f42ce0e370cc6f98bb38111a3f0f019b5e5199b014339458182",
+      "bytes": 824165,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH03_index_phase_terminal.png",
+      "source_filename": "Screenshot From 2026-11-12 23-22-56.png",
+      "checkpoint": "WH03",
+      "visible": "Terminal: index --already-created verifies the definition, 245,489,664 bytes",
+      "sha256": "4038b555d46bd1937ea3c4c1710bf2b2cf1f5fc45f7215f9bd0d8d4df5dfda4a",
+      "bytes": 169684,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH04_explain_after_index_only_scan.png",
+      "source_filename": "WH04_after_explain_analyze.png",
+      "checkpoint": "WH04",
+      "visible": "DBeaver: Index Only Scan, Heap Fetches 0, Execution 0.085 ms",
+      "sha256": "8e668bf38c8944cedb5e2aa406ce05282400e4d51e2a32218f67f631b83433b9",
+      "bytes": 828893,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH05_after_phase_terminal_summary.png",
+      "source_filename": "WH05a_warehouse_benchmark_runtime.png",
+      "checkpoint": "WH05",
+      "visible": "Terminal: after phase summary.txt",
+      "sha256": "7cb472173622ee3cfef46162b9bf4d95a77f58d8833bf10fa87fa843fa7a85bf",
+      "bytes": 371481,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH05_read_latency_comparison.png",
+      "source_filename": "WH05b_read_performance_comparison.png",
+      "checkpoint": "WH05",
+      "visible": "DBeaver: benchmark_runs read/interleaved medians and access paths",
+      "sha256": "382a90d9970c0b46b6fce26e954a2dfccd49d1bb6a50c74c236d22394c2b1562",
+      "bytes": 790528,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH06_write_overhead_wal.png",
+      "source_filename": "WH06a_write_overhead.png",
+      "checkpoint": "WH06",
+      "visible": "DBeaver: insert median 717.881 vs 895.781 ms, WAL 267 vs 312 MB",
+      "sha256": "f369bbf91d72d0fa5ececb91813e88fd73b9c66d5657810a8b42793bc1b9a694",
+      "bytes": 852224,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH06_twin_tables_equivalence.png",
+      "source_filename": "WH06b_semantic_equivalence.png",
+      "checkpoint": "WH06",
+      "visible": "DBeaver: 610,275 rows each side, same_rows true",
+      "sha256": "ed5ec8a524dcd814cafea53db4b3b2ab28541cb114b846f6cc61fb6fe46b54e3",
+      "bytes": 836075,
+      "area": "warehouse"
+    },
+    {
+      "path": "warehouse/screenshots/WH06_query_result_verification.png",
+      "source_filename": "WH06c_query_result_verification.png",
+      "checkpoint": "WH06",
+      "visible": "DBeaver: query result tx_count 2, total 3,783,906.04",
+      "sha256": "6c514db3ed43d0da7c35f632b6247d0b8e4bbe850e55301b2a8480b4e24e9844",
+      "bytes": 839099,
+      "area": "warehouse"
+    }
+  ],
+  "raw_artifacts": [
+    {
+      "path": "lakehouse/raw/evidence/comparison.csv",
+      "sha256": "b997132a302517694c70ce69cddea0ed62d532d1a167733cedfb44f889fcee5a",
+      "bytes": 3574
+    },
+    {
+      "path": "lakehouse/raw/evidence/comparison.json",
+      "sha256": "408e10259f58ed3c951275c19ffa6ef024a7d279d13673c3fce0624fff633c71",
+      "bytes": 305990
+    },
+    {
+      "path": "lakehouse/raw/evidence/equivalence.json",
+      "sha256": "321c322d6d92d5351395056347991af112e22256303b7c52f33b830fd439654e",
+      "bytes": 1024
+    },
+    {
+      "path": "lakehouse/raw/evidence/layout_baseline.json",
+      "sha256": "fad50332ed2a5207cea1dfb7d64bd0604cbad11a9ceac95f13db13d2c35ec09a",
+      "bytes": 67307
+    },
+    {
+      "path": "lakehouse/raw/evidence/layout_compacted.json",
+      "sha256": "1efb2f055871a70900e73517a33325e086fed3da9bc81df046678c58c5b540b3",
+      "bytes": 38602
+    },
+    {
+      "path": "lakehouse/raw/evidence/layout_optimized.json",
+      "sha256": "5124ad2af08f529f03b8454359aeb17a6a485638245874bad5bede15f397bf7b",
+      "bytes": 38602
+    },
+    {
+      "path": "lakehouse/raw/evidence/partition_pruning.json",
+      "sha256": "2a5da7c1a99fd54a812f926b76885ca0df0f3aa89a549c855cda996bf2b18239",
+      "bytes": 28092
+    },
+    {
+      "path": "lakehouse/raw/evidence/queries_baseline.json",
+      "sha256": "9556ef16e51535622b507b7b42644ea86b8f712da1b18a7705f39d4b5b8dcd4a",
+      "bytes": 26818
+    },
+    {
+      "path": "lakehouse/raw/evidence/queries_compacted.json",
+      "sha256": "a184c7bba258c156e2878587ec676dd0e9a9a7d448a37e6bfdcdb1579ea1a481",
+      "bytes": 26838
+    },
+    {
+      "path": "lakehouse/raw/evidence/queries_optimized.json",
+      "sha256": "afb84e2ee2bd20d182c37f70e43ca2c34932aa5ee8023926ca96f07a796d6076",
+      "bytes": 26834
+    },
+    {
+      "path": "lakehouse/raw/evidence/rewrite.json",
+      "sha256": "587ec4a133822385991ed53ee90a228a421de45cc3acb4fd4cfd0226a6b04baf",
+      "bytes": 8604
+    },
+    {
+      "path": "lakehouse/raw/layout_before.json",
+      "sha256": "31b5ef9df848faa4e4e881aa9e268aac5b85bd58fcbc2d8fd86ddd13e7e42110",
+      "bytes": 74295
+    },
+    {
+      "path": "lakehouse/raw/plan.json",
+      "sha256": "b30d1ecc8e8a9f3d6d569d0bb2d40c86921bd6b894432f42f92f1dac4c48b364",
+      "bytes": 84006
+    },
+    {
+      "path": "lakehouse/raw/storage-dry-run.txt",
+      "sha256": "3514e7a704e6d82fd47a0ee78ff88a3f89558f5c2ce43b919310795aebce4fb6",
+      "bytes": 6992
+    },
+    {
+      "path": "lakehouse/raw/storage-execute.txt",
+      "sha256": "59042daf5ce618d72f3cc037c74d9db5642670da063a7d3f32e5dd7661a3a0c5",
+      "bytes": 8917
+    },
+    {
+      "path": "lakehouse/raw/storage-register.txt",
+      "sha256": "00d6f8cd5d259fdda1cc9a8e2b3bc09ce2e06428abc6a1475609eb24a8567132",
+      "bytes": 1968
+    },
+    {
+      "path": "lakehouse/raw/storage-summary.txt",
+      "sha256": "e4b1ef8401c05dfb4f7b348cb2fbdfd1c73ea5ab30ef921a59acf6c382e24e90",
+      "bytes": 2660
+    },
+    {
+      "path": "lakehouse/raw/trino/storage_queries.sql",
+      "sha256": "9fff09399f49cd8bf24de56cfd391acfb077e407d68a5c17dcf53cadaac25282",
+      "bytes": 10319
+    },
+    {
+      "path": "lakehouse/raw/trino/storage_register.sql",
+      "sha256": "1c0b1556fd62b1e4aba2d75b884dd3b462171296db8b900a7710ecfdbfd7255e",
+      "bytes": 1868
+    },
+    {
+      "path": "warehouse/raw/before.json",
+      "sha256": "a89c5a911e0e4231d019237ce6186533930adf0287207f7e6086fd636d7bd394",
+      "bytes": 11161
+    },
+    {
+      "path": "warehouse/raw/dbeaver_session.sql",
+      "sha256": "5c17bd49178738db378fd6fa10a419c1accb51fc62f4e5a193ef13cc9f197aa5",
+      "bytes": 3758
+    },
+    {
+      "path": "warehouse/raw/index.json",
+      "sha256": "255cb9d91b0a67229034d5caefc01b080a5d53c6d4ebf62c353caea4d1cfd9d5",
+      "bytes": 990
+    },
+    {
+      "path": "warehouse/raw/provenance.json",
+      "sha256": "4d0bb9f97c21d5ea56a989b0cf93965b71f9433683173ca014872b182bf839a6",
+      "bytes": 10162
+    },
+    {
+      "path": "warehouse/raw/report.json",
+      "sha256": "967bfc152150f97e7f43991570083d647e35b95fea7af4e08e561310b31d4bc7",
+      "bytes": 32853
+    },
+    {
+      "path": "warehouse/raw/summary.txt",
+      "sha256": "76a451f8d23b4951d5c3a8adce18835baa7602ac37d1f7b896554fb76668ec77",
+      "bytes": 1022
+    }
+  ],
+  "excluded_screenshots": [
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 21-55-06.png",
+      "reason": "Instance setup; shows a placeholder EDAI1_WH_PG_PASSWORD value used only for config rendering; kept out of Git as a precaution"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 21-56-05.png",
+      "reason": "Same as 21-55-06"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 22-00-05.png",
+      "reason": "Same as 21-55-06"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 22-13-14.png",
+      "reason": "Same as 21-55-06; also a source listing"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 22-25-00.png",
+      "reason": "Shows the Claude Code panel"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 22-39-00.png",
+      "reason": "DBeaver driver-download dialog; no result"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 22-41-13.png",
+      "reason": "DBeaver connection list only"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 22-42-23.png",
+      "reason": "Duplicate of WH01_table_schema"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 22-46-41.png",
+      "reason": "Session script opened, nothing executed"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 23-08-39.png",
+      "reason": "Session script opened, nothing executed"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 23-10-28.png",
+      "reason": "Duplicate of WH01_provenance_table"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 23-20-55.png",
+      "reason": "Shows the Claude Code panel; failed 'after' before index.json existed (rerun succeeded)"
+    },
+    {
+      "area": "warehouse",
+      "source_filename": "Screenshot From 2026-11-12 23-39-34.png",
+      "reason": "Shows the Claude Code panel; same output as WH05_after_phase_terminal_summary"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-12 23-53-50.png",
+      "reason": "Shows the Claude Code panel"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-12 23-54-42.png",
+      "reason": "Shows the Claude Code panel; plan output is kept as raw/plan.json"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-12 23-58-53.png",
+      "reason": "Terraform workstream; Claude Code panel"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-00-04.png",
+      "reason": "Terraform workstream; Claude Code panel"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-02-14.png",
+      "reason": "Rubric spreadsheet (IaC rows); other workstream"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-05-00.png",
+      "reason": "Terraform init; Claude Code panel"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-10-22.png",
+      "reason": "Terraform GKE module source; other workstream"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-12-24.png",
+      "reason": "Terraform state listing; other workstream"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-15-43.png",
+      "reason": "Preflight (Delta jars); editor shows another workstream's files"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-23-20.png",
+      "reason": "Preflight (batch/cluster lists); editor shows another workstream's files"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-24-24.png",
+      "reason": "Same as 00-23-20"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-25-23.png",
+      "reason": "Same as 00-23-20"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-36-19.png",
+      "reason": "Batch submission; editor shows another workstream's files; raw/storage-execute.txt holds the same output"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 00-58-20.png",
+      "reason": "Duplicate of ST08_benchmark_summary plus Trino start-up"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 01-04-24.png",
+      "reason": "Query script opened, nothing executed"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "Screenshot From 2026-11-13 01-34-33.png",
+      "reason": "Repeat of ST05 baseline merchant lookup (01:28 run); the earlier capture is kept"
+    },
+    {
+      "area": "lakehouse",
+      "source_filename": "IAC_TF01_terraform_backend_init.png, TF02_terraform_managed_resources.png, TF03_terraform_modules_gke_code.png",
+      "reason": "Terraform workstream, not this task"
+    }
+  ]
+}

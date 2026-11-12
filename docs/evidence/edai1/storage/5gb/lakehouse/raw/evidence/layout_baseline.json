@@ -1,0 +1,2485 @@
+{
+  "tables": [
+    {
+      "table": "fact_transactions",
+      "delta_version": 0,
+      "file_count": 151,
+      "total_bytes": 3667633194,
+      "partition_columns": [
+        "event_date"
+      ],
+      "table_properties": {},
+      "file_size_bytes": {
+        "minimum": 24117881,
+        "median": 24291299,
+        "p95": 24400728,
+        "maximum": 24508097,
+        "average": 24288961
+      },
+      "very_small_file_count": 0,
+      "partition_count": 151,
+      "partitions": [
+        {
+          "partition": "event_date=2026-01-01",
+          "file_count": 1,
+          "bytes": 24254257,
+          "rows": 123067,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-02",
+          "file_count": 1,
+          "bytes": 24210542,
+          "rows": 122839,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-03",
+          "file_count": 1,
+          "bytes": 24227192,
+          "rows": 122915,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-04",
+          "file_count": 1,
+          "bytes": 24175638,
+          "rows": 122685,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-05",
+          "file_count": 1,
+          "bytes": 24379240,
+          "rows": 123706,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-06",
+          "file_count": 1,
+          "bytes": 24291452,
+          "rows": 123222,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-07",
+          "file_count": 1,
+          "bytes": 24190668,
+          "rows": 122739,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-08",
+          "file_count": 1,
+          "bytes": 24162232,
+          "rows": 122624,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-09",
+          "file_count": 1,
+          "bytes": 24272097,
+          "rows": 123137,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-10",
+          "file_count": 1,
+          "bytes": 24259161,
+          "rows": 123138,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-11",
+          "file_count": 1,
+          "bytes": 24224901,
+          "rows": 122984,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-12",
+          "file_count": 1,
+          "bytes": 24303891,
+          "rows": 123323,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-13",
+          "file_count": 1,
+          "bytes": 24368468,
+          "rows": 123666,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-14",
+          "file_count": 1,
+          "bytes": 24257364,
+          "rows": 123071,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-15",
+          "file_count": 1,
+          "bytes": 24316115,
+          "rows": 123460,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-16",
+          "file_count": 1,
+          "bytes": 24185908,
+          "rows": 122723,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-17",
+          "file_count": 1,
+          "bytes": 24280205,
+          "rows": 123239,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-18",
+          "file_count": 1,
+          "bytes": 24255448,
+          "rows": 123085,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-19",
+          "file_count": 1,
+          "bytes": 24308655,
+          "rows": 123396,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-20",
+          "file_count": 1,
+          "bytes": 24227197,
+          "rows": 122936,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-21",
+          "file_count": 1,
+          "bytes": 24293699,
+          "rows": 123286,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-22",
+          "file_count": 1,
+          "bytes": 24328572,
+          "rows": 123541,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-23",
+          "file_count": 1,
+          "bytes": 24228486,
+          "rows": 122952,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-24",
+          "file_count": 1,
+          "bytes": 24243792,
+          "rows": 123090,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-25",
+          "file_count": 1,
+          "bytes": 24297898,
+          "rows": 123314,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-26",
+          "file_count": 1,
+          "bytes": 24265639,
+          "rows": 123202,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-27",
+          "file_count": 1,
+          "bytes": 24374498,
+          "rows": 123695,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-28",
+          "file_count": 1,
+          "bytes": 24202533,
+          "rows": 122823,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-29",
+          "file_count": 1,
+          "bytes": 24376528,
+          "rows": 123732,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-30",
+          "file_count": 1,
+          "bytes": 24243334,
+          "rows": 123023,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-31",
+          "file_count": 1,
+          "bytes": 24258770,
+          "rows": 123091,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-01",
+          "file_count": 1,
+          "bytes": 24338860,
+          "rows": 123495,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-02",
+          "file_count": 1,
+          "bytes": 24403175,
+          "rows": 123803,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-03",
+          "file_count": 1,
+          "bytes": 24324634,
+          "rows": 123418,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-04",
+          "file_count": 1,
+          "bytes": 24230503,
+          "rows": 122970,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-05",
+          "file_count": 1,
+          "bytes": 24243423,
+          "rows": 122993,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-06",
+          "file_count": 1,
+          "bytes": 24373603,
+          "rows": 123667,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-07",
+          "file_count": 1,
+          "bytes": 24230208,
+          "rows": 122976,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-08",
+          "file_count": 1,
+          "bytes": 24290712,
+          "rows": 123356,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-09",
+          "file_count": 1,
+          "bytes": 24299568,
+          "rows": 123312,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-10",
+          "file_count": 1,
+          "bytes": 24164391,
+          "rows": 122550,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-11",
+          "file_count": 1,
+          "bytes": 24211657,
+          "rows": 122773,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-12",
+          "file_count": 1,
+          "bytes": 24301627,
+          "rows": 123346,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-13",
+          "file_count": 1,
+          "bytes": 24377807,
+          "rows": 123687,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-14",
+          "file_count": 1,
+          "bytes": 24271164,
+          "rows": 123231,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-15",
+          "file_count": 1,
+          "bytes": 24278465,
+          "rows": 123291,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-16",
+          "file_count": 1,
+          "bytes": 24279964,
+          "rows": 123216,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-17",
+          "file_count": 1,
+          "bytes": 24241044,
+          "rows": 122981,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-18",
+          "file_count": 1,
+          "bytes": 24229074,
+          "rows": 122944,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-19",
+          "file_count": 1,
+          "bytes": 24259598,
+          "rows": 123130,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-20",
+          "file_count": 1,
+          "bytes": 24296537,
+          "rows": 123227,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-21",
+          "file_count": 1,
+          "bytes": 24117881,
+          "rows": 122394,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-22",
+          "file_count": 1,
+          "bytes": 24190861,
+          "rows": 122755,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-23",
+          "file_count": 1,
+          "bytes": 24250903,
+          "rows": 123004,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-24",
+          "file_count": 1,
+          "bytes": 24228435,
+          "rows": 122957,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-25",
+          "file_count": 1,
+          "bytes": 24296850,
+          "rows": 123222,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-26",
+          "file_count": 1,
+          "bytes": 24393509,
+          "rows": 123756,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-27",
+          "file_count": 1,
+          "bytes": 24210015,
+          "rows": 122885,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-28",
+          "file_count": 1,
+          "bytes": 24260326,
+          "rows": 123219,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-01",
+          "file_count": 1,
+          "bytes": 24372605,
+          "rows": 123700,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-02",
+          "file_count": 1,
+          "bytes": 24304618,
+          "rows": 123321,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-03",
+          "file_count": 1,
+          "bytes": 24271424,
+          "rows": 123145,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-04",
+          "file_count": 1,
+          "bytes": 24239835,
+          "rows": 123025,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-05",
+          "file_count": 1,
+          "bytes": 24323379,
+          "rows": 123398,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-06",
+          "file_count": 1,
+          "bytes": 24272598,
+          "rows": 123140,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-07",
+          "file_count": 1,
+          "bytes": 24302079,
+          "rows": 123341,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-08",
+          "file_count": 1,
+          "bytes": 24273889,
+          "rows": 123232,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-09",
+          "file_count": 1,
+          "bytes": 24491924,
+          "rows": 124338,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-10",
+          "file_count": 1,
+          "bytes": 24252553,
+          "rows": 123071,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-11",
+          "file_count": 1,
+          "bytes": 24332369,
+          "rows": 123477,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-12",
+          "file_count": 1,
+          "bytes": 24227523,
+          "rows": 123015,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-13",
+          "file_count": 1,
+          "bytes": 24308095,
+          "rows": 123340,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-14",
+          "file_count": 1,
+          "bytes": 24311070,
+          "rows": 123368,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-15",
+          "file_count": 1,
+          "bytes": 24318675,
+          "rows": 123257,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-16",
+          "file_count": 1,
+          "bytes": 24508097,
+          "rows": 124207,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-17",
+          "file_count": 1,
+          "bytes": 24304975,
+          "rows": 123231,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-18",
+          "file_count": 1,
+          "bytes": 24286047,
+          "rows": 123050,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-19",
+          "file_count": 1,
+          "bytes": 24303471,
+          "rows": 123145,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-20",
+          "file_count": 1,
+          "bytes": 24255839,
+          "rows": 122882,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-21",
+          "file_count": 1,
+          "bytes": 24249211,
+          "rows": 122861,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-22",
+          "file_count": 1,
+          "bytes": 24325323,
+          "rows": 123245,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-23",
+          "file_count": 1,
+          "bytes": 24301794,
+          "rows": 123133,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-24",
+          "file_count": 1,
+          "bytes": 24369954,
+          "rows": 123420,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-25",
+          "file_count": 1,
+          "bytes": 24352989,
+          "rows": 123453,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-26",
+          "file_count": 1,
+          "bytes": 24268901,
+          "rows": 122980,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-27",
+          "file_count": 1,
+          "bytes": 24447813,
+          "rows": 123998,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-28",
+          "file_count": 1,
+          "bytes": 24217260,
+          "rows": 122726,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-29",
+          "file_count": 1,
+          "bytes": 24352661,
+          "rows": 123420,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-30",
+          "file_count": 1,
+          "bytes": 24218640,
+          "rows": 122737,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-31",
+          "file_count": 1,
+          "bytes": 24241532,
+          "rows": 122904,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-01",
+          "file_count": 1,
+          "bytes": 24337538,
+          "rows": 123440,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-02",
+          "file_count": 1,
+          "bytes": 24307255,
+          "rows": 123251,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-03",
+          "file_count": 1,
+          "bytes": 24306002,
+          "rows": 123171,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-04",
+          "file_count": 1,
+          "bytes": 24164226,
+          "rows": 122439,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-05",
+          "file_count": 1,
+          "bytes": 24279142,
+          "rows": 123076,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-06",
+          "file_count": 1,
+          "bytes": 24318672,
+          "rows": 123276,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-07",
+          "file_count": 1,
+          "bytes": 24399988,
+          "rows": 123653,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-08",
+          "file_count": 1,
+          "bytes": 24318928,
+          "rows": 123268,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-09",
+          "file_count": 1,
+          "bytes": 24280190,
+          "rows": 123030,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-10",
+          "file_count": 1,
+          "bytes": 24259397,
+          "rows": 122955,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-11",
+          "file_count": 1,
+          "bytes": 24242848,
+          "rows": 122859,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-12",
+          "file_count": 1,
+          "bytes": 24184310,
+          "rows": 122567,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-13",
+          "file_count": 1,
+          "bytes": 24415007,
+          "rows": 123777,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-14",
+          "file_count": 1,
+          "bytes": 24310338,
+          "rows": 123189,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-15",
+          "file_count": 1,
+          "bytes": 24163179,
+          "rows": 122414,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-16",
+          "file_count": 1,
+          "bytes": 24317377,
+          "rows": 123338,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-17",
+          "file_count": 1,
+          "bytes": 24193010,
+          "rows": 122626,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-18",
+          "file_count": 1,
+          "bytes": 24250719,
+          "rows": 122993,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-19",
+          "file_count": 1,
+          "bytes": 24275351,
+          "rows": 123073,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-20",
+          "file_count": 1,
+          "bytes": 24375891,
+          "rows": 123472,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-21",
+          "file_count": 1,
+          "bytes": 24288923,
+          "rows": 123099,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-22",
+          "file_count": 1,
+          "bytes": 24334279,
+          "rows": 123363,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-23",
+          "file_count": 1,
+          "bytes": 24342605,
+          "rows": 123380,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-24",
+          "file_count": 1,
+          "bytes": 24317702,
+          "rows": 123223,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-25",
+          "file_count": 1,
+          "bytes": 24342800,
+          "rows": 123427,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-26",
+          "file_count": 1,
+          "bytes": 24376586,
+          "rows": 123594,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-27",
+          "file_count": 1,
+          "bytes": 24300148,
+          "rows": 123195,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-28",
+          "file_count": 1,
+          "bytes": 24372889,
+          "rows": 123560,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-29",
+          "file_count": 1,
+          "bytes": 24365868,
+          "rows": 123551,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-30",
+          "file_count": 1,
+          "bytes": 24337917,
+          "rows": 123345,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-01",
+          "file_count": 1,
+          "bytes": 24370988,
+          "rows": 123530,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-02",
+          "file_count": 1,
+          "bytes": 24300472,
+          "rows": 123080,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-03",
+          "file_count": 1,
+          "bytes": 24280107,
+          "rows": 123014,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-04",
+          "file_count": 1,
+          "bytes": 24342717,
+          "rows": 123388,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-05",
+          "file_count": 1,
+          "bytes": 24311654,
+          "rows": 123215,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-06",
+          "file_count": 1,
+          "bytes": 24213714,
+          "rows": 122653,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-07",
+          "file_count": 1,
+          "bytes": 24334817,
+          "rows": 123331,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-08",
+          "file_count": 1,
+          "bytes": 24322884,
+          "rows": 123275,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-09",
+          "file_count": 1,
+          "bytes": 24176682,
+          "rows": 122509,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-10",
+          "file_count": 1,
+          "bytes": 24321736,
+          "rows": 123291,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-11",
+          "file_count": 1,
+          "bytes": 24316831,
+          "rows": 123232,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-12",
+          "file_count": 1,
+          "bytes": 24315787,
+          "rows": 123246,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-13",
+          "file_count": 1,
+          "bytes": 24275855,
+          "rows": 123047,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-14",
+          "file_count": 1,
+          "bytes": 24504881,
+          "rows": 124177,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-15",
+          "file_count": 1,
+          "bytes": 24311243,
+          "rows": 123239,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-16",
+          "file_count": 1,
+          "bytes": 24400728,
+          "rows": 123638,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-17",
+          "file_count": 1,
+          "bytes": 24150661,
+          "rows": 122378,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-18",
+          "file_count": 1,
+          "bytes": 24333570,
+          "rows": 123272,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-19",
+          "file_count": 1,
+          "bytes": 24402870,
+          "rows": 123673,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-20",
+          "file_count": 1,
+          "bytes": 24227402,
+          "rows": 122834,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-21",
+          "file_count": 1,
+          "bytes": 24214313,
+          "rows": 122769,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-22",
+          "file_count": 1,
+          "bytes": 24303660,
+          "rows": 123182,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-23",
+          "file_count": 1,
+          "bytes": 24291299,
+          "rows": 123075,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-24",
+          "file_count": 1,
+          "bytes": 24306688,
+          "rows": 123137,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-25",
+          "file_count": 1,
+          "bytes": 24339271,
+          "rows": 123383,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-26",
+          "file_count": 1,
+          "bytes": 24145852,
+          "rows": 122399,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-27",
+          "file_count": 1,
+          "bytes": 24267955,
+          "rows": 122996,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-28",
+          "file_count": 1,
+          "bytes": 24285921,
+          "rows": 123099,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-29",
+          "file_count": 1,
+          "bytes": 24230546,
+          "rows": 122805,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-30",
+          "file_count": 1,
+          "bytes": 24203672,
+          "rows": 122681,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-31",
+          "file_count": 1,
+          "bytes": 24283016,
+          "rows": 123026,
+          "row_count_complete": true
+        }
+      ],
+      "statistics_columns": [
+        "account_id",
+        "amount",
+        "channel",
+        "counterparty_account_id",
+        "currency",
+        "date_key",
+        "device_id",
+        "ingested_at",
+        "merchant_id",
+        "new_balance",
+        "old_balance",
+        "status",
+        "timestamp",
+        "transaction_id",
+        "type",
+        "user_id"
+      ],
+      "statistics_profiles": {
+        "account_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 56,
+          "distinct_file_maximums": 56
+        },
+        "amount": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 146,
+          "distinct_file_maximums": 151
+        },
+        "channel": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 2,
+          "distinct_file_maximums": 2
+        },
+        "counterparty_account_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 110,
+          "distinct_file_maximums": 108
+        },
+        "currency": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "date_key": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "device_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 49,
+          "distinct_file_maximums": 54
+        },
+        "ingested_at": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "merchant_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 8
+        },
+        "new_balance": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 2,
+          "distinct_file_maximums": 151
+        },
+        "old_balance": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 98,
+          "distinct_file_maximums": 151
+        },
+        "status": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "timestamp": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "transaction_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "type": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "user_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 46,
+          "distinct_file_maximums": 49
+        }
+      },
+      "inspection_mode": "delta_log_metadata_only"
+    },
+    {
+      "table": "obt_transaction_enriched",
+      "delta_version": 0,
+      "file_count": 151,
+      "total_bytes": 4271165936,
+      "partition_columns": [
+        "event_date"
+      ],
+      "table_properties": {},
+      "file_size_bytes": {
+        "minimum": 28090019,
+        "median": 28288353,
+        "p95": 28414219,
+        "maximum": 28554997,
+        "average": 28285867
+      },
+      "very_small_file_count": 0,
+      "partition_count": 151,
+      "partitions": [
+        {
+          "partition": "event_date=2026-01-01",
+          "file_count": 1,
+          "bytes": 28233143,
+          "rows": 123067,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-02",
+          "file_count": 1,
+          "bytes": 28196817,
+          "rows": 122839,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-03",
+          "file_count": 1,
+          "bytes": 28190666,
+          "rows": 122915,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-04",
+          "file_count": 1,
+          "bytes": 28190480,
+          "rows": 122685,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-05",
+          "file_count": 1,
+          "bytes": 28389749,
+          "rows": 123706,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-06",
+          "file_count": 1,
+          "bytes": 28247640,
+          "rows": 123222,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-07",
+          "file_count": 1,
+          "bytes": 28199085,
+          "rows": 122739,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-08",
+          "file_count": 1,
+          "bytes": 28173941,
+          "rows": 122624,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-09",
+          "file_count": 1,
+          "bytes": 28235996,
+          "rows": 123137,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-10",
+          "file_count": 1,
+          "bytes": 28273711,
+          "rows": 123138,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-11",
+          "file_count": 1,
+          "bytes": 28202540,
+          "rows": 122984,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-12",
+          "file_count": 1,
+          "bytes": 28285618,
+          "rows": 123323,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-13",
+          "file_count": 1,
+          "bytes": 28384826,
+          "rows": 123666,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-14",
+          "file_count": 1,
+          "bytes": 28216405,
+          "rows": 123071,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-15",
+          "file_count": 1,
+          "bytes": 28303305,
+          "rows": 123460,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-16",
+          "file_count": 1,
+          "bytes": 28176878,
+          "rows": 122723,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-17",
+          "file_count": 1,
+          "bytes": 28268964,
+          "rows": 123239,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-18",
+          "file_count": 1,
+          "bytes": 28249691,
+          "rows": 123085,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-19",
+          "file_count": 1,
+          "bytes": 28290490,
+          "rows": 123396,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-20",
+          "file_count": 1,
+          "bytes": 28220193,
+          "rows": 122936,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-21",
+          "file_count": 1,
+          "bytes": 28257123,
+          "rows": 123286,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-22",
+          "file_count": 1,
+          "bytes": 28332836,
+          "rows": 123541,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-23",
+          "file_count": 1,
+          "bytes": 28214369,
+          "rows": 122952,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-24",
+          "file_count": 1,
+          "bytes": 28270549,
+          "rows": 123090,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-25",
+          "file_count": 1,
+          "bytes": 28286835,
+          "rows": 123314,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-26",
+          "file_count": 1,
+          "bytes": 28272214,
+          "rows": 123202,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-27",
+          "file_count": 1,
+          "bytes": 28405784,
+          "rows": 123695,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-28",
+          "file_count": 1,
+          "bytes": 28176058,
+          "rows": 122823,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-29",
+          "file_count": 1,
+          "bytes": 28383808,
+          "rows": 123732,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-30",
+          "file_count": 1,
+          "bytes": 28226172,
+          "rows": 123023,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-01-31",
+          "file_count": 1,
+          "bytes": 28254871,
+          "rows": 123091,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-01",
+          "file_count": 1,
+          "bytes": 28339695,
+          "rows": 123495,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-02",
+          "file_count": 1,
+          "bytes": 28416147,
+          "rows": 123803,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-03",
+          "file_count": 1,
+          "bytes": 28309600,
+          "rows": 123418,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-04",
+          "file_count": 1,
+          "bytes": 28219429,
+          "rows": 122970,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-05",
+          "file_count": 1,
+          "bytes": 28232563,
+          "rows": 122993,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-06",
+          "file_count": 1,
+          "bytes": 28367436,
+          "rows": 123667,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-07",
+          "file_count": 1,
+          "bytes": 28249927,
+          "rows": 122976,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-08",
+          "file_count": 1,
+          "bytes": 28319869,
+          "rows": 123356,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-09",
+          "file_count": 1,
+          "bytes": 28306973,
+          "rows": 123312,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-10",
+          "file_count": 1,
+          "bytes": 28110263,
+          "rows": 122550,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-11",
+          "file_count": 1,
+          "bytes": 28188700,
+          "rows": 122773,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-12",
+          "file_count": 1,
+          "bytes": 28292009,
+          "rows": 123346,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-13",
+          "file_count": 1,
+          "bytes": 28372545,
+          "rows": 123687,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-14",
+          "file_count": 1,
+          "bytes": 28263830,
+          "rows": 123231,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-15",
+          "file_count": 1,
+          "bytes": 28295243,
+          "rows": 123291,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-16",
+          "file_count": 1,
+          "bytes": 28297409,
+          "rows": 123216,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-17",
+          "file_count": 1,
+          "bytes": 28213595,
+          "rows": 122981,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-18",
+          "file_count": 1,
+          "bytes": 28200943,
+          "rows": 122944,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-19",
+          "file_count": 1,
+          "bytes": 28249693,
+          "rows": 123130,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-20",
+          "file_count": 1,
+          "bytes": 28318187,
+          "rows": 123227,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-21",
+          "file_count": 1,
+          "bytes": 28090019,
+          "rows": 122394,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-22",
+          "file_count": 1,
+          "bytes": 28170761,
+          "rows": 122755,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-23",
+          "file_count": 1,
+          "bytes": 28216952,
+          "rows": 123004,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-24",
+          "file_count": 1,
+          "bytes": 28199019,
+          "rows": 122957,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-25",
+          "file_count": 1,
+          "bytes": 28306580,
+          "rows": 123222,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-26",
+          "file_count": 1,
+          "bytes": 28377795,
+          "rows": 123756,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-27",
+          "file_count": 1,
+          "bytes": 28185847,
+          "rows": 122885,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-02-28",
+          "file_count": 1,
+          "bytes": 28238716,
+          "rows": 123219,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-01",
+          "file_count": 1,
+          "bytes": 28361094,
+          "rows": 123700,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-02",
+          "file_count": 1,
+          "bytes": 28297077,
+          "rows": 123321,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-03",
+          "file_count": 1,
+          "bytes": 28276067,
+          "rows": 123145,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-04",
+          "file_count": 1,
+          "bytes": 28239363,
+          "rows": 123025,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-05",
+          "file_count": 1,
+          "bytes": 28305368,
+          "rows": 123398,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-06",
+          "file_count": 1,
+          "bytes": 28258071,
+          "rows": 123140,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-07",
+          "file_count": 1,
+          "bytes": 28293909,
+          "rows": 123341,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-08",
+          "file_count": 1,
+          "bytes": 28273558,
+          "rows": 123232,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-09",
+          "file_count": 1,
+          "bytes": 28525805,
+          "rows": 124338,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-10",
+          "file_count": 1,
+          "bytes": 28248054,
+          "rows": 123071,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-11",
+          "file_count": 1,
+          "bytes": 28322647,
+          "rows": 123477,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-12",
+          "file_count": 1,
+          "bytes": 28228794,
+          "rows": 123015,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-13",
+          "file_count": 1,
+          "bytes": 28319226,
+          "rows": 123340,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-14",
+          "file_count": 1,
+          "bytes": 28294625,
+          "rows": 123368,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-15",
+          "file_count": 1,
+          "bytes": 28305764,
+          "rows": 123257,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-16",
+          "file_count": 1,
+          "bytes": 28544120,
+          "rows": 124207,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-17",
+          "file_count": 1,
+          "bytes": 28302112,
+          "rows": 123231,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-18",
+          "file_count": 1,
+          "bytes": 28260365,
+          "rows": 123050,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-19",
+          "file_count": 1,
+          "bytes": 28320823,
+          "rows": 123145,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-20",
+          "file_count": 1,
+          "bytes": 28231712,
+          "rows": 122882,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-21",
+          "file_count": 1,
+          "bytes": 28238448,
+          "rows": 122861,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-22",
+          "file_count": 1,
+          "bytes": 28323632,
+          "rows": 123245,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-23",
+          "file_count": 1,
+          "bytes": 28266330,
+          "rows": 123133,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-24",
+          "file_count": 1,
+          "bytes": 28357242,
+          "rows": 123420,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-25",
+          "file_count": 1,
+          "bytes": 28340278,
+          "rows": 123453,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-26",
+          "file_count": 1,
+          "bytes": 28258857,
+          "rows": 122980,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-27",
+          "file_count": 1,
+          "bytes": 28495901,
+          "rows": 123998,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-28",
+          "file_count": 1,
+          "bytes": 28199786,
+          "rows": 122726,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-29",
+          "file_count": 1,
+          "bytes": 28329931,
+          "rows": 123420,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-30",
+          "file_count": 1,
+          "bytes": 28205885,
+          "rows": 122737,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-03-31",
+          "file_count": 1,
+          "bytes": 28255084,
+          "rows": 122904,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-01",
+          "file_count": 1,
+          "bytes": 28364790,
+          "rows": 123440,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-02",
+          "file_count": 1,
+          "bytes": 28300319,
+          "rows": 123251,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-03",
+          "file_count": 1,
+          "bytes": 28294897,
+          "rows": 123171,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-04",
+          "file_count": 1,
+          "bytes": 28151997,
+          "rows": 122439,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-05",
+          "file_count": 1,
+          "bytes": 28288353,
+          "rows": 123076,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-06",
+          "file_count": 1,
+          "bytes": 28356972,
+          "rows": 123276,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-07",
+          "file_count": 1,
+          "bytes": 28397158,
+          "rows": 123653,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-08",
+          "file_count": 1,
+          "bytes": 28335096,
+          "rows": 123268,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-09",
+          "file_count": 1,
+          "bytes": 28271595,
+          "rows": 123030,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-10",
+          "file_count": 1,
+          "bytes": 28242116,
+          "rows": 122955,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-11",
+          "file_count": 1,
+          "bytes": 28224373,
+          "rows": 122859,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-12",
+          "file_count": 1,
+          "bytes": 28178054,
+          "rows": 122567,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-13",
+          "file_count": 1,
+          "bytes": 28429051,
+          "rows": 123777,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-14",
+          "file_count": 1,
+          "bytes": 28290829,
+          "rows": 123189,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-15",
+          "file_count": 1,
+          "bytes": 28149853,
+          "rows": 122414,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-16",
+          "file_count": 1,
+          "bytes": 28324962,
+          "rows": 123338,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-17",
+          "file_count": 1,
+          "bytes": 28169842,
+          "rows": 122626,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-18",
+          "file_count": 1,
+          "bytes": 28249024,
+          "rows": 122993,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-19",
+          "file_count": 1,
+          "bytes": 28286426,
+          "rows": 123073,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-20",
+          "file_count": 1,
+          "bytes": 28386165,
+          "rows": 123472,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-21",
+          "file_count": 1,
+          "bytes": 28288792,
+          "rows": 123099,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-22",
+          "file_count": 1,
+          "bytes": 28339689,
+          "rows": 123363,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-23",
+          "file_count": 1,
+          "bytes": 28381624,
+          "rows": 123380,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-24",
+          "file_count": 1,
+          "bytes": 28311423,
+          "rows": 123223,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-25",
+          "file_count": 1,
+          "bytes": 28345610,
+          "rows": 123427,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-26",
+          "file_count": 1,
+          "bytes": 28412889,
+          "rows": 123594,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-27",
+          "file_count": 1,
+          "bytes": 28313787,
+          "rows": 123195,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-28",
+          "file_count": 1,
+          "bytes": 28397208,
+          "rows": 123560,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-29",
+          "file_count": 1,
+          "bytes": 28397737,
+          "rows": 123551,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-04-30",
+          "file_count": 1,
+          "bytes": 28330360,
+          "rows": 123345,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-01",
+          "file_count": 1,
+          "bytes": 28379494,
+          "rows": 123530,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-02",
+          "file_count": 1,
+          "bytes": 28310718,
+          "rows": 123080,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-03",
+          "file_count": 1,
+          "bytes": 28264407,
+          "rows": 123014,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-04",
+          "file_count": 1,
+          "bytes": 28343494,
+          "rows": 123388,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-05",
+          "file_count": 1,
+          "bytes": 28300434,
+          "rows": 123215,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-06",
+          "file_count": 1,
+          "bytes": 28254401,
+          "rows": 122653,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-07",
+          "file_count": 1,
+          "bytes": 28348385,
+          "rows": 123331,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-08",
+          "file_count": 1,
+          "bytes": 28325187,
+          "rows": 123275,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-09",
+          "file_count": 1,
+          "bytes": 28177470,
+          "rows": 122509,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-10",
+          "file_count": 1,
+          "bytes": 28301666,
+          "rows": 123291,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-11",
+          "file_count": 1,
+          "bytes": 28319781,
+          "rows": 123232,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-12",
+          "file_count": 1,
+          "bytes": 28334568,
+          "rows": 123246,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-13",
+          "file_count": 1,
+          "bytes": 28254518,
+          "rows": 123047,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-14",
+          "file_count": 1,
+          "bytes": 28554997,
+          "rows": 124177,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-15",
+          "file_count": 1,
+          "bytes": 28293700,
+          "rows": 123239,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-16",
+          "file_count": 1,
+          "bytes": 28414219,
+          "rows": 123638,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-17",
+          "file_count": 1,
+          "bytes": 28128023,
+          "rows": 122378,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-18",
+          "file_count": 1,
+          "bytes": 28345018,
+          "rows": 123272,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-19",
+          "file_count": 1,
+          "bytes": 28416529,
+          "rows": 123673,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-20",
+          "file_count": 1,
+          "bytes": 28204815,
+          "rows": 122834,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-21",
+          "file_count": 1,
+          "bytes": 28195560,
+          "rows": 122769,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-22",
+          "file_count": 1,
+          "bytes": 28302339,
+          "rows": 123182,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-23",
+          "file_count": 1,
+          "bytes": 28278321,
+          "rows": 123075,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-24",
+          "file_count": 1,
+          "bytes": 28298246,
+          "rows": 123137,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-25",
+          "file_count": 1,
+          "bytes": 28341213,
+          "rows": 123383,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-26",
+          "file_count": 1,
+          "bytes": 28133726,
+          "rows": 122399,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-27",
+          "file_count": 1,
+          "bytes": 28284212,
+          "rows": 122996,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-28",
+          "file_count": 1,
+          "bytes": 28288367,
+          "rows": 123099,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-29",
+          "file_count": 1,
+          "bytes": 28253211,
+          "rows": 122805,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-30",
+          "file_count": 1,
+          "bytes": 28202860,
+          "rows": 122681,
+          "row_count_complete": true
+        },
+        {
+          "partition": "event_date=2026-05-31",
+          "file_count": 1,
+          "bytes": 28264636,
+          "rows": 123026,
+          "row_count_complete": true
+        }
+      ],
+      "statistics_columns": [
+        "account_created_at",
+        "account_currency",
+        "account_id",
+        "account_type",
+        "amount",
+        "channel",
+        "counterparty_account_id",
+        "currency",
+        "date_key",
+        "day_of_week",
+        "device_id",
+        "device_type",
+        "first_seen_at",
+        "ingested_at",
+        "merchant_category",
+        "merchant_id",
+        "merchant_name",
+        "month",
+        "new_balance",
+        "old_balance",
+        "os",
+        "quarter",
+        "status",
+        "timestamp",
+        "transaction_id",
+        "type",
+        "user_created_at",
+        "user_id",
+        "year"
+      ],
+      "statistics_profiles": {
+        "account_created_at": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 49,
+          "distinct_file_maximums": 49
+        },
+        "account_currency": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "account_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 56,
+          "distinct_file_maximums": 56
+        },
+        "account_type": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "amount": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 146,
+          "distinct_file_maximums": 151
+        },
+        "channel": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 2,
+          "distinct_file_maximums": 2
+        },
+        "counterparty_account_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 110,
+          "distinct_file_maximums": 108
+        },
+        "currency": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "date_key": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "day_of_week": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 7,
+          "distinct_file_maximums": 7
+        },
+        "device_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 49,
+          "distinct_file_maximums": 54
+        },
+        "device_type": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "first_seen_at": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 49,
+          "distinct_file_maximums": 151
+        },
+        "ingested_at": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "merchant_category": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "merchant_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 8
+        },
+        "merchant_name": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 2,
+          "distinct_file_maximums": 2
+        },
+        "month": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 5,
+          "distinct_file_maximums": 5
+        },
+        "new_balance": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 2,
+          "distinct_file_maximums": 151
+        },
+        "old_balance": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 98,
+          "distinct_file_maximums": 151
+        },
+        "os": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "quarter": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 2,
+          "distinct_file_maximums": 2
+        },
+        "status": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "timestamp": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "transaction_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 151,
+          "distinct_file_maximums": 151
+        },
+        "type": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        },
+        "user_created_at": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 49,
+          "distinct_file_maximums": 49
+        },
+        "user_id": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 46,
+          "distinct_file_maximums": 49
+        },
+        "year": {
+          "files_with_min_max": 151,
+          "coverage_ratio": 1.0,
+          "distinct_file_minimums": 1,
+          "distinct_file_maximums": 1
+        }
+      },
+      "inspection_mode": "delta_log_metadata_only"
+    }
+  ]
+}
