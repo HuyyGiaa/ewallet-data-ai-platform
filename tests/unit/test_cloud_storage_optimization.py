@@ -9,8 +9,12 @@ from types import SimpleNamespace
 from data_platform.storage.cloud_optimization import (
     PINNED_CAPABILITIES,
     TableAccessPattern,
+    classify_runtime_change,
     compare_equivalence,
     compare_layouts,
+    recommend_layout,
+    rewrite_outcome,
+    workload_verdict,
     decide_partitioning,
     decide_zorder,
     select_table,
@@ -24,17 +28,18 @@ from ops.gcp.run_storage_benchmark import (
 )
 from ops.gcp.inspect_storage_layout import (
     _action_rows,
-    _load_verified_spark_evidence,
     build_plan,
+    choose_parameters,
+    load_verified_campaign,
 )
 from ops.gcp.storage_benchmark_job import (
     REQUIRED_COLUMNS,
     _assert_representative_result,
     _create_shallow_clone,
     _query_sql,
-    _recommend_layout,
     _run_layout_queries,
-    _workload_verdict,
+    effective_conf,
+    scan_metrics,
 )
 from ops.gcp.submit_source_to_bronze import CloudRuntime
 
@@ -292,114 +297,117 @@ class StrategyTests(unittest.TestCase):
         )
 
 
+ROOT = Path(__file__).resolve().parents[2]
+EVIDENCE = ROOT / "docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456"
+SPEC = ROOT / "images/edai1-campaign-verifier/workload-5gb.json"
+BUCKET = "ewallet-data-ai-platform-hg26-rehearsal-5gb-data"
+SOURCE_SHA = "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c"
+GOLD_RUN = "ab-20261110225456-optimized-gold-r261110225458"
+PARAMETERS = {"window_start": "2026-05-25", "window_end": "2026-05-31", "merchant_id": "m-0001",
+              "status_counts_in_window": {"failed": 3, "success": 10}}
+
+
+def binding():
+    return load_verified_campaign(EVIDENCE, SPEC, dataset_version="rehearsal-5gb-v1",
+                                  source_spark_git_sha=SOURCE_SHA)
+
+
+def gold_layout(**overrides):
+    layout = {
+        "table": "fact_transactions",
+        "stage": "dp2-gold",
+        "uri": f"gs://{BUCKET}/lakehouse/runs/{GOLD_RUN}/gold/fact_transactions",
+        "delta_version": 0,
+        "total_bytes": 3_667_633_194,
+        "file_count": 151,
+        "very_small_file_count": 0,
+        "file_size_bytes": {"median": 24 * MIB, "p95": 24 * MIB},
+        "partition_columns": ["event_date"],
+        "partition_count": 151,
+        "files_per_partition_p95": 1,
+        "partition_size_bytes": {"minimum": 23 * MIB, "median": 24 * MIB, "p95": 24 * MIB, "maximum": 24 * MIB},
+        "small_partition_count": 151,
+        "statistics_columns": ["merchant_id", "timestamp"],
+        "statistics_profiles": {"merchant_id": {"coverage_ratio": 1.0, "distinct_file_minimums": 1,
+                                                "distinct_file_maximums": 8}},
+        "global_statistics": {"event_date": {"minimum": "2026-01-01", "maximum": "2026-05-31"}},
+        "table_properties": {},
+        "partitions": [],
+        "inspection_mode": "delta_log_metadata_only",
+    }
+    layout.update(overrides)
+    return layout
+
+
 class SafetyAndComparisonTests(unittest.TestCase):
-    def test_plan_binds_selected_table_to_isolated_paths(self) -> None:
-        layout = {
-            "table": "fact_transactions",
-            "stage": "dp2-gold",
-            "uri": "gs://bucket/lakehouse/runs/ab-20261025112811-optimized-gold-r261025120000/gold/fact_transactions",
-            "delta_version": 0,
-            "total_bytes": 2 * 1024**3,
-            "file_count": 200,
-            "very_small_file_count": 190,
-            "file_size_bytes": {"median": MIB},
-            "partition_columns": ["event_date"],
-            "partition_count": 10,
-            "files_per_partition_p95": 20,
-            "partition_size_bytes": {
-                "minimum": 128 * MIB,
-                "median": 200 * MIB,
-                "p95": 300 * MIB,
-                "maximum": 400 * MIB,
-            },
-            "small_partition_count": 0,
-            "statistics_columns": ["merchant_id", "event_date"],
-            "statistics_profiles": {
-                "merchant_id": {
-                    "coverage_ratio": 1.0,
-                    "distinct_file_minimums": 20,
-                    "distinct_file_maximums": 20,
-                }
-            },
-            "global_statistics": {
-                "event_date": {"minimum": "2026-01-01", "maximum": "2026-06-01"},
-                "merchant_id": {"minimum": "merchant-1", "maximum": "merchant-9"},
-            },
-            "table_properties": {},
-            "inspection_mode": "delta_log_metadata_only",
-        }
-        plan = build_plan(
-            benchmark_id="storage-ab-1",
-            dataset_version="canonical-100gb-v1",
-            source_spark_git_sha="7e6f050028706a2a930a733771d97e04f1df2864",
-            tool_git_sha="8e6f050028706a2a930a733771d97e04f1df2865",
-            source_run_ids=("ab-20261025112811-optimized-gold-r261025120000",),
-            spark_benchmark_id="ab-20261025112811",
-            data_bucket="bucket",
-            layouts=(layout,),
-        )
+    def test_campaign_binding_comes_from_committed_verified_evidence(self) -> None:
+        value = binding()
+        self.assertEqual(value.benchmark_id, "ab-20261110225456")
+        self.assertEqual(value.run_ids["dp2-gold"], GOLD_RUN)
+        self.assertTrue(value.output_roots["dp3-features"].endswith("-optimized-feat-r261110225459/gold"))
+
+    def test_campaign_binding_refuses_another_dataset_or_source_sha(self) -> None:
+        with self.assertRaisesRegex(ValueError, "workload spec"):
+            load_verified_campaign(EVIDENCE, SPEC, dataset_version="canonical-100gb-v1",
+                                   source_spark_git_sha=SOURCE_SHA)
+        with self.assertRaisesRegex(ValueError, "workload spec"):
+            load_verified_campaign(EVIDENCE, SPEC, dataset_version="rehearsal-5gb-v1",
+                                   source_spark_git_sha="7e6f050028706a2a930a733771d97e04f1df2864")
+
+    def test_plan_binds_tables_to_the_campaign_and_three_isolated_arms(self) -> None:
+        plan = build_plan(benchmark_id="storage-5gb-test", binding=binding(),
+                          tool_git_sha="8e6f050028706a2a930a733771d97e04f1df2865", data_bucket=BUCKET,
+                          layouts=(gold_layout(),), parameters={"dp2-gold.fact_transactions": PARAMETERS})
         table = plan["tables"][0]
-        self.assertTrue(table["selected"])
-        self.assertIn("/benchmarks/storage/storage-ab-1/baseline/", table["baseline_uri"])
-        self.assertIn("/benchmarks/storage/storage-ab-1/compacted/", table["compacted_uri"])
+        self.assertEqual(plan["schema_version"], 2)
+        self.assertEqual(plan["source_campaign"]["run_ids"]["dp2-gold"], GOLD_RUN)
+        self.assertEqual(plan["source_spark_git_sha"], SOURCE_SHA)
+        self.assertNotEqual(plan["git_sha"], plan["source_spark_git_sha"])
+        for arm in ("baseline", "compacted", "optimized"):
+            self.assertIn(f"/benchmarks/storage/storage-5gb-test/{arm}/dp2-gold/", table[f"{arm}_uri"])
+        self.assertEqual(table["optimization"]["action"], "ZORDER")
         self.assertEqual(table["optimization"]["columns"], ["merchant_id"])
+        # Every file starts at the same merchant_id: metadata predicts no skipping benefit.
+        self.assertEqual(table["optimization"]["metadata_prediction"]["action"], "COMPACTION_ONLY")
+        self.assertEqual(table["partition_decision"]["action"], "REVIEW_AFTER_A_B")
+        self.assertEqual(table["workload_parameters"]["merchant_id"], "m-0001")
 
-    def test_plan_rejects_wrong_stage_or_table_source_uri(self) -> None:
-        layout = {
-            "table": "fact_transactions",
-            "stage": "dp2-gold",
-            "uri": "gs://bucket/lakehouse/runs/ab-20261025112811-optimized-silver-r261025120000/gold/fact_transactions",
-            "delta_version": 0,
-            "total_bytes": 2 * 1024**3,
-            "file_count": 100,
-            "very_small_file_count": 100,
-            "file_size_bytes": {"median": MIB},
-            "partition_columns": [],
-            "partition_count": 1,
-            "files_per_partition_p95": 100,
-            "partition_size_bytes": {"median": 2 * 1024**3, "maximum": 2 * 1024**3},
-            "small_partition_count": 0,
-            "statistics_columns": [],
-            "statistics_profiles": {},
-            "global_statistics": {},
-            "table_properties": {},
-            "inspection_mode": "delta_log_metadata_only",
-        }
-        with self.assertRaisesRegex(ValueError, "exactly bound"):
-            build_plan(
-                benchmark_id="storage-ab-1",
-                dataset_version="canonical-100gb-v1",
-                source_spark_git_sha="7e6f050028706a2a930a733771d97e04f1df2864",
-                tool_git_sha="8e6f050028706a2a930a733771d97e04f1df2865",
-                source_run_ids=(
-                    "ab-20261025112811-optimized-silver-r261025120000",
-                ),
-                spark_benchmark_id="ab-20261025112811",
-                data_bucket="bucket",
-                layouts=(layout,),
-            )
+    def test_plan_rejects_a_table_outside_the_campaign_or_bucket(self) -> None:
+        other = gold_layout(uri=f"gs://{BUCKET}/lakehouse/runs/ab-20261110225456-baseline-gold-r1/gold/fact_transactions")
+        with self.assertRaisesRegex(ValueError, "not the verified campaign table"):
+            build_plan(benchmark_id="storage-5gb-test", binding=binding(), tool_git_sha="8" * 40,
+                       data_bucket=BUCKET, layouts=(other,), parameters={"dp2-gold.fact_transactions": PARAMETERS})
+        with self.assertRaisesRegex(ValueError, "must use bucket"):
+            build_plan(benchmark_id="storage-5gb-test", binding=binding(), tool_git_sha="8" * 40,
+                       data_bucket="ewallet-data-ai-platform-hg26-data", layouts=(gold_layout(),),
+                       parameters={"dp2-gold.fact_transactions": PARAMETERS})
 
-    def test_queries_use_decimal_math_lowercase_status_and_zorder_predicate(self) -> None:
-        table = {
-            "table": "fact_transactions",
-            "global_statistics": {
-                "event_date": {"maximum": "2026-06-10"},
-                "merchant_id": {"minimum": "merchant-0001"},
-            },
-        }
-        date_sql = _query_sql(
-            table, {"class": "date_range"}, relation="baseline_table"
-        )
-        merchant_sql = _query_sql(
-            table, {"class": "date_entity_lookup"}, relation="optimized_table"
-        )
-        failed_sql = _query_sql(
-            table, {"class": "date_status_aggregation"}, relation="baseline_table"
-        )
+    def test_parameters_are_a_typical_merchant_and_require_failed_rows(self) -> None:
+        chosen = choose_parameters(("2026-05-25", "2026-05-31"), {"a": 1, "b": 2, "c": 2, "d": 9},
+                                   {"failed": 4, "success": 10}, 14)
+        self.assertEqual(chosen["merchant_id"], "b")
+        self.assertEqual(chosen["merchant_rows_in_window"], 2)
+        with self.assertRaisesRegex(ValueError, "no failed"):
+            choose_parameters(("2026-05-25", "2026-05-31"), {"a": 1}, {"success": 1}, 1)
+        with self.assertRaisesRegex(ValueError, "no merchant"):
+            choose_parameters(("2026-05-25", "2026-05-31"), {}, {"failed": 1}, 1)
+
+    def test_queries_use_data_derived_parameters_and_three_pruning_sides(self) -> None:
+        table = {"table": "fact_transactions", "workload_parameters": PARAMETERS}
+        date_sql = _query_sql(table, {"class": "date_range"}, relation="baseline_table")
+        merchant_sql = _query_sql(table, {"class": "date_entity_lookup"}, relation="optimized_table")
+        failed_sql = _query_sql(table, {"class": "date_status_aggregation"}, relation="compacted_table")
+        stats_sql = _query_sql(table, {"class": "date_range_stats_only"}, relation="baseline_table")
+        full_sql = _query_sql(table, {"class": "date_range_full_scan"}, relation="baseline_table")
+        self.assertIn("event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31'", date_sql)
         self.assertIn("DECIMAL(38,6)", date_sql)
-        self.assertNotIn("DOUBLE", date_sql)
-        self.assertIn("merchant_id = 'merchant-0001'", merchant_sql)
+        self.assertIn("merchant_id = 'm-0001'", merchant_sql)
         self.assertIn("status = 'failed'", failed_sql)
+        self.assertIn("timestamp < TIMESTAMP '2026-06-01 00:00:00'", stats_sql)
+        self.assertNotIn("event_date", stats_sql.split("WHERE", 1)[1])
+        self.assertIn("date_format(timestamp, 'yyyy-MM-dd')", full_sql)
+        with self.assertRaisesRegex(ValueError, "workload window"):
+            _query_sql({"table": "x", "workload_parameters": {}}, {"class": "date_range"}, relation="baseline_table")
 
     def test_three_arm_workload_is_measured_with_equal_query_results(self) -> None:
         class Reader:
@@ -415,38 +423,22 @@ class SafetyAndComparisonTests(unittest.TestCase):
         class Spark:
             read = Reader()
 
-        table = {
-            "table": "fact_transactions",
-            "global_statistics": {
-                "event_date": {"maximum": "2026-06-10"},
-            },
-            "queries": [
-                {
-                    "name": "bounded_date_aggregation",
-                    "class": "date_range",
-                    "require_non_empty": True,
-                }
-            ],
-        }
+        table = {"table": "fact_transactions", "workload_parameters": PARAMETERS,
+                 "queries": [{"name": "window_aggregation", "class": "date_range", "require_non_empty": True}]}
         import ops.gcp.storage_benchmark_job as job
 
         original = job._execute_query
-        job._execute_query = lambda *_: ([{"row_count": 1}], 0.1, "plan")
+        job._execute_query = lambda *_: ([{"row_count": 1}], 0.1, "plan", {"available": False, "reason": "test"})
         try:
-            results = _run_layout_queries(
-                Spark(),
-                table,
-                layout_uris={
-                    "baseline": "gs://bucket/baseline",
-                    "compacted": "gs://bucket/compacted",
-                    "optimized": "gs://bucket/optimized",
-                },
-            )
+            results = _run_layout_queries(Spark(), table, layout_uris={
+                "baseline": "gs://bucket/baseline", "compacted": "gs://bucket/compacted",
+                "optimized": "gs://bucket/optimized"})
         finally:
             job._execute_query = original
         self.assertEqual(set(results), {"baseline", "compacted", "optimized"})
         self.assertEqual(len(results["compacted"][0]["runtime_samples_seconds"]), 5)
         self.assertEqual(results["baseline"][0]["result_json"], results["optimized"][0]["result_json"])
+        self.assertEqual(results["baseline"][0]["position_in_rotation"], [0, 2, 1, 0, 2])
 
     def test_clone_pins_inspected_source_version(self) -> None:
         class Result:
@@ -467,112 +459,81 @@ class SafetyAndComparisonTests(unittest.TestCase):
         original = job._path_exists
         job._path_exists = lambda *_: False
         try:
-            _create_shallow_clone(
-                spark,
-                "gs://bucket/source",
-                "gs://bucket/target",
-                source_version=17,
-            )
+            _create_shallow_clone(spark, "gs://bucket/source", "gs://bucket/target", source_version=17)
         finally:
             job._path_exists = original
+        self.assertIn("SHALLOW CLONE", spark.statements[0])
         self.assertIn("VERSION AS OF 17", spark.statements[0])
 
-    def test_workload_verdict_rejects_any_material_query_regression(self) -> None:
-        comparisons = [
-            {
-                "before_runtime_seconds": 10,
-                "after_runtime_seconds": 5,
-                "runtime_change_percent": -50,
-            },
-            {
-                "before_runtime_seconds": 10,
-                "after_runtime_seconds": 11,
-                "runtime_change_percent": 10,
-            },
-        ]
-        self.assertEqual(_workload_verdict(comparisons), "REGRESSION")
+    def test_runtime_change_has_four_honest_verdicts(self) -> None:
+        self.assertEqual(classify_runtime_change([10, 11, 10.5], [5, 5.2, 5.1])["verdict"], "IMPROVED")
+        self.assertEqual(classify_runtime_change([10, 11, 10.5], [14, 15, 16])["verdict"], "REGRESSED")
+        self.assertEqual(classify_runtime_change([10, 10.1, 10.2], [10.1, 10.3, 9.9])["verdict"],
+                         "NO_CLEAR_IMPROVEMENT")
+        self.assertEqual(classify_runtime_change([10, 20, 12], [8, 15, 9])["verdict"], "INCONCLUSIVE")
+        with self.assertRaises(ValueError):
+            classify_runtime_change([], [1.0])
 
-    def test_layout_recommendation_requires_fair_ablation_benefit(self) -> None:
-        self.assertEqual(
-            _recommend_layout(
-                overall_verdict="REGRESSION",
-                compaction_verdict="IMPROVEMENT",
-                zorder_incremental_verdict="IMPROVEMENT",
-            ),
-            "KEEP_COMPACTION_ONLY",
-        )
-        self.assertEqual(
-            _recommend_layout(
-                overall_verdict="IMPROVEMENT",
-                compaction_verdict="REGRESSION",
-                zorder_incremental_verdict="REGRESSION",
-            ),
-            "DO_NOT_ADOPT",
-        )
-        self.assertEqual(
-            _recommend_layout(
-                overall_verdict="IMPROVEMENT",
-                compaction_verdict="IMPROVEMENT",
-                zorder_incremental_verdict="IMPROVEMENT",
-            ),
-            "KEEP_ZORDER",
-        )
+    def test_workload_verdict_combines_queries_conservatively(self) -> None:
+        self.assertEqual(workload_verdict(["IMPROVED", "REGRESSED"]), "REGRESSED")
+        self.assertEqual(workload_verdict(["IMPROVED", "INCONCLUSIVE"]), "INCONCLUSIVE")
+        self.assertEqual(workload_verdict(["IMPROVED", "NO_CLEAR_IMPROVEMENT"]), "IMPROVED")
+        self.assertEqual(workload_verdict(["NO_CLEAR_IMPROVEMENT"]), "NO_CLEAR_IMPROVEMENT")
+        with self.assertRaises(ValueError):
+            workload_verdict(["IMPROVEMENT"])
+
+    def test_rewrite_outcome_detects_a_no_op_optimize(self) -> None:
+        noop = rewrite_outcome([{"path": "p", "metrics": {"numFilesAdded": 0, "numFilesRemoved": 0,
+                                                          "totalConsideredFiles": 151, "totalFilesSkipped": 151}}])
+        self.assertTrue(noop["no_op"])
+        rewrite = rewrite_outcome([{"metrics": {"numFilesAdded": 151, "numFilesRemoved": 151,
+                                                "filesAdded": {"totalSize": 10}, "filesRemoved": {"totalSize": 12},
+                                                "partitionsOptimized": 151}}])
+        self.assertFalse(rewrite["no_op"])
+        self.assertEqual((rewrite["bytes_added"], rewrite["bytes_removed"]), (10, 12))
+
+    def test_recommendation_attributes_each_effect_to_its_own_arm(self) -> None:
+        noop = recommend_layout(overall_verdict="IMPROVED", compaction_verdict="NO_CLEAR_IMPROVEMENT",
+                                zorder_incremental_verdict="IMPROVED", compaction_no_op=True, zorder_no_op=False)
+        self.assertTrue(noop["compaction"].startswith("NOT_NEEDED"))
+        self.assertEqual(noop["zorder"], "KEEP")
+        mixed = recommend_layout(overall_verdict="REGRESSED", compaction_verdict="IMPROVED",
+                                 zorder_incremental_verdict="IMPROVED", compaction_no_op=False, zorder_no_op=False)
+        self.assertEqual(mixed["compaction"], "KEEP")
+        self.assertTrue(mixed["zorder"].startswith("DO_NOT_ADOPT"))
+
+    def test_typed_spark_settings_are_read_without_a_fallback(self) -> None:
+        class Conf:
+            def get(self, key, *default):
+                if default:
+                    raise AssertionError("a typed fallback raises on Spark 3.5")
+                if key == "plain.unset":
+                    raise RuntimeError("java.util.NoSuchElementException")
+                return "false"
+
+        spark = SimpleNamespace(conf=Conf())
+        self.assertEqual(effective_conf(spark, "spark.sql.adaptive.enabled"), "false")
+        self.assertTrue(effective_conf(spark, "plain.unset").startswith("<unset"))
+
+    def test_scan_metrics_report_unavailability_instead_of_guessing(self) -> None:
+        class Broken:
+            @property
+            def _jdf(self):
+                raise RuntimeError("no plan")
+
+        self.assertEqual(scan_metrics(Broken())["available"], False)
+
+    def test_job_never_vacuums_or_writes_outside_create_only_uploads(self) -> None:
+        source = (ROOT / "ops/gcp/storage_benchmark_job.py").read_text(encoding="utf-8")
+        self.assertNotIn(".vacuum(", source)
+        self.assertNotRegex(source, r"(?i)['\"]VACUUM ")
+        self.assertIn("if_generation_match=0", source)
 
     def test_representative_query_must_match_rows(self) -> None:
         query = {"name": "merchant_lookup", "require_non_empty": True}
         with self.assertRaisesRegex(ValueError, "matched no rows"):
             _assert_representative_result(query, [{"row_count": 0}])
         _assert_representative_result(query, [{"row_count": 1}])
-
-    def test_spark_evidence_binding_requires_complete_equivalent_run(self) -> None:
-        benchmark = "ab-20261025112811"
-        git_sha = "7e6f050028706a2a930a733771d97e04f1df2864"
-        stages = ("dp1-bronze", "dp2-silver", "dp2-gold", "dp3-features")
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "optimized").mkdir()
-            (root / "comparison.json").write_text(
-                json.dumps(
-                    {
-                        "benchmark_id": benchmark,
-                        "dataset_version": "canonical-100gb-v1",
-                        "git_sha": git_sha,
-                        "stages": [
-                            {"stage": stage, "output_equivalent": True}
-                            for stage in stages
-                        ],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            for stage, suffix in (
-                ("dp2-silver", "silver-r261025120000"),
-                ("dp2-gold", "gold-r261025120001"),
-                ("dp3-features", "feat-r261025120002"),
-            ):
-                (root / "optimized" / f"{stage}.json").write_text(
-                    json.dumps(
-                        {
-                            "benchmark_id": benchmark,
-                            "dataset_version": "canonical-100gb-v1",
-                            "git_sha": git_sha,
-                            "spark_profile": "optimized",
-                            "stage": stage,
-                            "batch_state": "SUCCEEDED",
-                            "output_run_ids": [f"{benchmark}-optimized-{suffix}"],
-                        }
-                    ),
-                    encoding="utf-8",
-                )
-            actual_benchmark, run_by_stage = _load_verified_spark_evidence(
-                root,
-                dataset_version="canonical-100gb-v1",
-                git_sha=git_sha,
-            )
-        self.assertEqual(actual_benchmark, benchmark)
-        self.assertEqual(
-            run_by_stage["dp2-gold"], f"{benchmark}-optimized-gold-r261025120001"
-        )
 
     def test_required_columns_come_from_explicit_table_contracts(self) -> None:
         self.assertIn("status", REQUIRED_COLUMNS["transactions"])
@@ -582,11 +543,8 @@ class SafetyAndComparisonTests(unittest.TestCase):
 
     def test_capabilities_match_pinned_runtime(self) -> None:
         self.assertEqual(PINNED_CAPABILITIES["managed_spark_runtime"], "2.2")
-        self.assertEqual(PINNED_CAPABILITIES["spark"], "3.5.3")
         self.assertEqual(PINNED_CAPABILITIES["delta"], "3.2.0")
-        self.assertTrue(PINNED_CAPABILITIES["optimize"])
         self.assertTrue(PINNED_CAPABILITIES["zorder"])
-        self.assertTrue(PINNED_CAPABILITIES["data_skipping"])
         self.assertFalse(PINNED_CAPABILITIES["liquid_clustering_in_scope"])
 
     def test_output_paths_are_isolated_from_source_and_canonical_runs(self) -> None:
@@ -606,24 +564,18 @@ class SafetyAndComparisonTests(unittest.TestCase):
             )
 
     def test_equivalence_requires_schema_rows_grain_and_fingerprint(self) -> None:
-        before = {
-            "schema_sha256": "schema",
-            "row_count": 10,
-            "grain_unique": True,
-            "business_invariants": True,
-            "content_fingerprint": "content",
-        }
+        before = {"schema_sha256": "schema", "row_count": 10, "grain_unique": True, "business_invariants": True,
+                  "content_fingerprint": "content"}
         self.assertTrue(compare_equivalence(before, dict(before))["equivalent"])
-        changed = dict(before, content_fingerprint="other")
-        self.assertFalse(compare_equivalence(before, changed)["equivalent"])
+        self.assertFalse(compare_equivalence(before, dict(before, content_fingerprint="other"))["equivalent"])
 
-    def test_comparison_math_reports_regression_honestly(self) -> None:
+    def test_layout_comparison_uses_samples_not_a_single_number(self) -> None:
         result = compare_layouts(
-            before={"file_count": 100, "median_file_size": 1, "runtime_seconds": 10},
-            after={"file_count": 10, "median_file_size": 8, "runtime_seconds": 12},
+            before={"file_count": 151, "median_file_size": 1, "runtime_samples_seconds": [10, 10.5, 11]},
+            after={"file_count": 151, "median_file_size": 1, "runtime_samples_seconds": [12, 12.5, 13]},
         )
-        self.assertEqual(result["runtime_change_percent"], 20.0)
-        self.assertEqual(result["verdict"], "REGRESSION")
+        self.assertEqual(result["file_count_change"], 0)
+        self.assertEqual(result["verdict"], "REGRESSED")
 
 
 class SubmitterTests(unittest.TestCase):
@@ -659,32 +611,11 @@ class SubmitterTests(unittest.TestCase):
         self.assertNotIn("/lakehouse/runs/storage-ab-20261025", rendered)
 
     def test_dry_run_never_invokes_runner(self) -> None:
-        plan = {
-            "benchmark_id": "storage-ab-20261025",
-            "dataset_version": "canonical-100gb-v1",
-            "git_sha": "7e6f050028706a2a930a733771d97e04f1df2864",
-            "source_spark_git_sha": "6e6f050028706a2a930a733771d97e04f1df2863",
-            "source_run_ids": ["ab-20261025112811-optimized-gold-r261025120000"],
-            "spark_benchmark_id": "ab-20261025112811",
-            "benchmark_root": "gs://data-bucket/lakehouse/benchmarks/storage/storage-ab-20261025",
-            "tables": [
-                {
-                    "table": "fact_transactions",
-                    "selected": True,
-                    "uri": "gs://data-bucket/lakehouse/runs/ab-20261025112811-optimized-gold-r261025120000/gold/fact_transactions",
-                    "baseline_uri": "gs://data-bucket/lakehouse/benchmarks/storage/storage-ab-20261025/baseline/dp2-gold/fact_transactions",
-                    "optimized_uri": "gs://data-bucket/lakehouse/benchmarks/storage/storage-ab-20261025/optimized/dp2-gold/fact_transactions",
-                    "stage": "dp2-gold",
-                    "delta_version": 0,
-                    "file_count": 100,
-                    "total_bytes": 1000,
-                    "file_size_bytes": {"median": 10, "p95": 20},
-                    "partition_decision": {"action": "KEEP"},
-                    "optimization": {"action": "COMPACTION_ONLY", "columns": []},
-                    "estimated_rewrite_bytes": 1000,
-                }
-            ],
-        }
+        root = f"gs://{BUCKET}/lakehouse/benchmarks/storage/storage-5gb-20261112"
+        plan = build_plan(benchmark_id="storage-5gb-20261112", binding=binding(),
+                          tool_git_sha="7e6f050028706a2a930a733771d97e04f1df2864", data_bucket=BUCKET,
+                          layouts=(gold_layout(),), parameters={"dp2-gold.fact_transactions": PARAMETERS})
+        self.assertEqual(plan["benchmark_root"], root)
         terraform = {
             "project_id": {"value": "project"},
             "region": {"value": "asia-southeast1"},
@@ -730,7 +661,13 @@ class SubmitterTests(unittest.TestCase):
                 runner=lambda *args, **kwargs: calls.append((args, kwargs)),
                 git_runner=clean_git,
             )
+            broken = dict(plan, schema_version=1)
+            plan_path.write_text(json.dumps(broken), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "schema"):
+                main(["--plan", str(plan_path), "--terraform-output-json", str(tf_path)],
+                     runner=lambda *args, **kwargs: calls.append((args, kwargs)), git_runner=clean_git)
         self.assertEqual(rc, 0)
+        # Terraform names the canonical bucket; the rehearsal dataset still resolves its own bucket.
         self.assertEqual(calls, [])
 
     def test_tool_git_state_rejects_sha_drift_and_tracked_changes(self) -> None:

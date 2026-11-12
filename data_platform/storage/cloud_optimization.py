@@ -370,7 +370,9 @@ def decide_zorder(
             and column in stats
             and column in equality
             and float(profile.get("coverage_ratio", 0.0)) >= 0.9
-            and max(
+            # Both bounds must vary: if every file starts (or ends) at the same
+            # value, each file spans the key space and no file can be skipped.
+            and min(
                 int(profile.get("distinct_file_minimums", 0)),
                 int(profile.get("distinct_file_maximums", 0)),
             )
@@ -387,7 +389,7 @@ def decide_zorder(
             "columns": [],
             "reason": (
                 "no non-partition equality predicate has >=90% min/max coverage "
-                "and at least eight distinct file-level bounds"
+                "and at least eight distinct file-level minimums and maximums"
             ),
             "evidence": {},
         }
@@ -470,17 +472,142 @@ def compare_equivalence(
     }
 
 
-def compare_layouts(
-    *, before: Mapping[str, float], after: Mapping[str, float]
+NOISE_THRESHOLD_PERCENT = 5.0
+VERDICTS = ("IMPROVED", "NO_CLEAR_IMPROVEMENT", "REGRESSED", "INCONCLUSIVE")
+
+
+def classify_runtime_change(
+    before_samples: Sequence[float],
+    after_samples: Sequence[float],
+    *,
+    threshold_percent: float = NOISE_THRESHOLD_PERCENT,
 ) -> dict[str, object]:
-    before_runtime = float(before["runtime_seconds"])
-    after_runtime = float(after["runtime_seconds"])
-    change = ((after_runtime - before_runtime) / before_runtime) * 100
+    """Classify a runtime change from repeated measurements, never from one number.
+
+    Rule (descriptive, not a significance test):
+
+    * ``NO_CLEAR_IMPROVEMENT`` - the medians differ by less than ``threshold_percent``;
+    * ``IMPROVED`` / ``REGRESSED`` - the medians differ by at least the threshold *and*
+      the two sample ranges do not overlap;
+    * ``INCONCLUSIVE`` - the medians differ by at least the threshold but the ranges
+      overlap, so run-to-run noise could explain the difference.
+
+    Raises:
+        ValueError: A side has no samples or a non-positive baseline median.
+    """
+
+    if not before_samples or not after_samples:
+        raise ValueError("both sides need at least one runtime sample")
+    before = float(median(before_samples))
+    after = float(median(after_samples))
+    if before <= 0:
+        raise ValueError("baseline median runtime must be positive")
+    change = (after - before) / before * 100
+    faster_separated = max(after_samples) < min(before_samples)
+    slower_separated = min(after_samples) > max(before_samples)
+    if abs(change) < threshold_percent:
+        verdict = "NO_CLEAR_IMPROVEMENT"
+    elif change < 0:
+        verdict = "IMPROVED" if faster_separated else "INCONCLUSIVE"
+    else:
+        verdict = "REGRESSED" if slower_separated else "INCONCLUSIVE"
     return {
-        "file_count_change": int(after["file_count"] - before["file_count"]),
+        "before_median_seconds": round(before, 6),
+        "after_median_seconds": round(after, 6),
+        "runtime_change_percent": round(change, 3),
+        "before_range_seconds": [round(min(before_samples), 6), round(max(before_samples), 6)],
+        "after_range_seconds": [round(min(after_samples), 6), round(max(after_samples), 6)],
+        "ranges_separated": faster_separated or slower_separated,
+        "threshold_percent": threshold_percent,
+        "verdict": verdict,
+    }
+
+
+def compare_layouts(
+    *, before: Mapping[str, Any], after: Mapping[str, Any]
+) -> dict[str, object]:
+    """Compare two layouts of one query: file metadata plus the classified runtime change."""
+
+    return {
+        "file_count_change": int(after["file_count"]) - int(before["file_count"]),
         "median_file_size_change": (
             float(after["median_file_size"]) - float(before["median_file_size"])
         ),
-        "runtime_change_percent": round(change, 3),
-        "verdict": "IMPROVEMENT" if change < 0 else "REGRESSION" if change > 0 else "NO_CHANGE",
+        **classify_runtime_change(
+            before["runtime_samples_seconds"], after["runtime_samples_seconds"]
+        ),
     }
+
+
+def workload_verdict(verdicts: Sequence[str]) -> str:
+    """Combine per-query verdicts of one comparison arm.
+
+    Any regression makes the arm ``REGRESSED``; any inconclusive query makes it
+    ``INCONCLUSIVE``; it is ``IMPROVED`` only when at least one query improved and
+    none regressed; otherwise ``NO_CLEAR_IMPROVEMENT``.
+    """
+
+    unknown = set(verdicts) - set(VERDICTS)
+    if not verdicts or unknown:
+        raise ValueError(f"invalid query verdicts: {sorted(unknown) or 'none'}")
+    if "REGRESSED" in verdicts:
+        return "REGRESSED"
+    if "INCONCLUSIVE" in verdicts:
+        return "INCONCLUSIVE"
+    if "IMPROVED" in verdicts:
+        return "IMPROVED"
+    return "NO_CLEAR_IMPROVEMENT"
+
+
+def rewrite_outcome(rows: Sequence[Mapping[str, Any]]) -> dict[str, object]:
+    """Summarize the rows ``DeltaTable.optimize().execute*()`` returns.
+
+    A rewrite that added and removed no file is reported as ``no_op``: the arm then
+    has the baseline layout, and no layout effect may be attributed to it.
+    """
+
+    added = removed = bytes_added = bytes_removed = partitions = considered = skipped = 0
+    for row in rows:
+        metrics = row.get("metrics") or {}
+        added += int(metrics.get("numFilesAdded") or 0)
+        removed += int(metrics.get("numFilesRemoved") or 0)
+        bytes_added += int((metrics.get("filesAdded") or {}).get("totalSize") or 0)
+        bytes_removed += int((metrics.get("filesRemoved") or {}).get("totalSize") or 0)
+        partitions += int(metrics.get("partitionsOptimized") or 0)
+        considered += int(metrics.get("totalConsideredFiles") or 0)
+        skipped += int(metrics.get("totalFilesSkipped") or 0)
+    return {
+        "files_added": added,
+        "files_removed": removed,
+        "bytes_added": bytes_added,
+        "bytes_removed": bytes_removed,
+        "partitions_optimized": partitions,
+        "files_considered": considered,
+        "files_skipped": skipped,
+        "no_op": added == 0 and removed == 0,
+    }
+
+
+def recommend_layout(
+    *,
+    overall_verdict: str,
+    compaction_verdict: str,
+    zorder_incremental_verdict: str,
+    compaction_no_op: bool,
+    zorder_no_op: bool,
+) -> dict[str, str]:
+    """Decide what to keep, attributing each effect only to the arm that caused it."""
+
+    if compaction_no_op:
+        compaction = "NOT_NEEDED: OPTIMIZE rewrote no file; the source layout is already compact"
+    elif compaction_verdict == "IMPROVED":
+        compaction = "KEEP"
+    else:
+        compaction = f"DO_NOT_ADOPT: {compaction_verdict}"
+    if zorder_no_op:
+        zorder = "NOT_EXERCISED: Z-order rewrote no file"
+    elif zorder_incremental_verdict == "IMPROVED" and overall_verdict == "IMPROVED":
+        zorder = "KEEP"
+    else:
+        zorder = f"DO_NOT_ADOPT: incremental {zorder_incremental_verdict}, overall {overall_verdict}"
+    return {"compaction": compaction, "zorder": zorder}
