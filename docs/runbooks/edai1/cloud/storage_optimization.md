@@ -18,7 +18,7 @@ The current campaign is the 5GB rehearsal below. The tool has no built-in datase
 ## 1. Environment
 
 ```bash
-cd "$REPO"                                   # checkout at the tool commit
+export REPO="$(git rev-parse --show-toplevel)"; cd "$REPO"   # run from the checkout at the tool commit
 git status --short                           # must print nothing for tracked files
 export TOOL_GIT_SHA="$(git rev-parse HEAD)"
 export UV_PROJECT_ENVIRONMENT="$HOME/.cache/ewallet-venvs/feast"

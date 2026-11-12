@@ -1,12 +1,12 @@
 # Lakehouse and Warehouse Storage Optimization
 
-**Scope.** EDAI-1 rubric rows 20 (lakehouse optimization: compaction, Z-order, partitioning) and 21 (data warehouse optimization).
+**Scope.** Physical storage optimization of the EDAI-1 platform: Delta Lake layout (compaction, Z-order, partition pruning) on GCS, and secondary indexing in a PostgreSQL serving warehouse.
 **Data.** Real Gold tables of the 5GB campaign `ab-20261110225456`: dataset `rehearsal-5gb-v1`, optimized Spark profile, source Spark commit `aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c`, Delta version 0.
 **Official runs, both executed by the owner on 2026-11-12/13:**
 - Lakehouse: benchmark `storage-5gb-20261112t142522`, Dataproc Serverless 2.2 batch `storage-5gb-20261112t142522-storage` in `asia-southeast1` (Spark 3.5.3, Delta 3.2.0, tool commit `f9be2776c3d617a7bfe32fdb0ff5c631d80080c5`), 17:29–17:37 UTC.
 - Warehouse: PostgreSQL 16.15 on 3,816,574 real Gold rows, same tool commit.
 
-**Evidence.** [docs/evidence/edai1/storage/5gb/](../../evidence/edai1/storage/5gb/MANIFEST.md): 73 owner screenshots (Trino/DBeaver, Dataproc Spark UI, PostgreSQL/DBeaver, terminal) and 25 raw artifacts, all under `SHA256SUMS`.
+**Evidence.** [docs/evidence/edai1/storage/5gb/](../../evidence/edai1/storage/5gb/MANIFEST.md): 93 owner screenshots and 25 raw artifacts, all under `SHA256SUMS`. The screenshots are 81 current captures (Trino/DBeaver, Dataproc Spark UI, PostgreSQL/DBeaver, terminal) and 12 superseded first-session ST09 captures (see A.7).
 
 ## 1. Summary
 
@@ -14,13 +14,37 @@
 |---|---|---|
 | Does the 5GB Gold layout need compaction? | **No.** OPTIMIZE considered 151 files per table, skipped 151 and rewrote none. | `rewrite.json`, `$history`, Trino layout |
 | Does Z-order on `merchant_id` help? | **Not adopted.** It rewrote 7.9 GB, but every query read the same files and bytes as before, and its runtime gain is no larger than the drift measured between two identical layouts. | Spark scan metrics, Trino physical input, A/A control |
-| Does partition pruning help? | **Yes, and it is the effective optimization in this layout.** Reading 7 of 151 daily partitions is 3.0–3.3× faster in Spark and 17.8–22.6× faster in single Trino runs, with identical results. | `partition_pruning.json`, ST09 |
+| Does partition pruning help? | **Yes, and it is the effective optimization in this layout.** Reading 7 of 151 daily partitions is 3.0–3.3× faster in Spark (five runs) and reads 5.69 MB instead of about 179 MB in Trino, with identical results. | `partition_pruning.json`, ST09 |
 | Is the warehouse index worth it? | **Yes for this query**: 174.073 ms → 0.108 ms median (Seq Scan → Index Only Scan), with +17 % WAL on inserts and a 234 MB index. | `report.json`, WH01–WH06 |
 | Did any optimization change results? | **No.** Every arm and every pruning side returned identical results, and all equivalence checks passed. | `equivalence.json`, `wh_d_semantics` |
 
 The lakehouse result is mostly negative, and it is reported that way. The campaign's writers already produce one ~24 MiB file per daily partition, so there is nothing to compact. Z-order cannot narrow a scan that is already one file per partition.
 
-## Part A — Lakehouse (row 20)
+## 2. Architecture
+
+```text
+ rehearsal-5gb-v1 source (GCS Parquet)
+        │  DP1–DP3 on Dataproc Serverless 2.2 (Spark 3.5.3, Delta 3.2.0), Airflow
+        ▼
+ GCS Delta Lake: Bronze → Silver → Gold, one run prefix per stage
+   Gold fact_transactions / obt_transaction_enriched: partitioned by event_date (UTC day),
+   one Parquet file (~24–28 MiB) per daily partition, 151 partitions, Delta version 0
+        │                                    │
+        │ read-only plan + SHALLOW CLONE     │ read-only extraction of 31 daily partitions
+        ▼                                    ▼
+ benchmark prefix (Dataproc batch)      local Parquet snapshot → PostgreSQL 16.15
+   baseline / compacted / optimized       (isolated Compose instance, 127.0.0.1:55432)
+   clones per table + evidence JSON        index experiment, DBeaver session
+        │
+        ▼
+ schema-viz Trino 483 (local, read-only Delta connector over GCS, own metastore)
+   → DBeaver: $history, $path/$file_size layout, EXPLAIN ANALYZE plans
+```
+
+- **Lakehouse.** The source tables are written by the campaign's DP2 Gold stage. The benchmark never writes them: it measures isolated shallow clones in a paid Dataproc batch, then reads the clones back through a local Trino that holds only a metastore registration.
+- **Warehouse.** The warehouse experiment copies real Gold rows into a dedicated PostgreSQL instance. Indexing and inserts there cannot affect any other database.
+
+## 3. Lakehouse (Part A)
 
 ### A.1 Problem and starting layout
 
@@ -160,28 +184,38 @@ All six sides returned the same row count, exact sum (894,991,837,952.66) and av
 
 The `stats_only` side shows that, with one day per file, Delta's per-file `timestamp` min/max statistics skip as many files as partition pruning does. It still costs more, because the predicate must be evaluated against file statistics and then row by row. Pruning on the partition column needs neither.
 
-**Trino, single runs** (ST09):
+**Trino, single runs (ST09, corrected UTC SQL, owner run 2026-11-13 03:34–03:47 +07:00).** The owner ran each side in DBeaver twice: once as the plain aggregate, once under `EXPLAIN ANALYZE`. The run used the regenerated canonical script (SHA-256 `ed5b4812…`, [fact blocks](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_utc_canonical_script_fact_blocks.png), [obt blocks](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_utc_canonical_script_obt_blocks.png)).
 
-| Table | Side | Splits | Input rows | Physical input | Execution |
-|---|---|---:|---:|---:|---:|
-| fact | pruned | 7 | 860,389 | 5.69 MB | 1.99 s |
-| fact | full_scan | 151 | 18,600,000 | 178.81 MB | 35.38 s (17.8×) |
-| obt | pruned | 7 | 860,389 | — | 2.21 s |
-| obt | full_scan | 151 | 18,600,000 | — | 50.02 s (22.6×) |
+| Table | Side | Result (rows · total · average) | Plan | Splits | Input rows | Physical input | Execution |
+|---|---|---|---|---:|---:|---:|---:|
+| fact | pruned | 860,389 · 894,991,837,952.66 · 1,040,217.666605 | `ScanProject`, `event_date:PARTITION_KEY :: [[2026-05-25, 2026-05-31]]` | 7 | 860,389 | 5.69 MB | 3.08 s |
+| fact | stats_only | identical | `ScanFilterProject` on the UTC `timestamp` range; no partition key | 7 | 860,389 | 13.39 MB | 4.93 s |
+| fact | full_scan | identical | `ScanFilterProject` on `format_datetime(at_timezone(timestamp, 'UTC'))` | 151 | 18,600,000 (95.37 % filtered) | 178.81 MB | 29.36 s |
+| obt | pruned | identical | partition key, as for fact | 7 | 860,389 | 5.69 MB | 3.24 s |
+| obt | stats_only | identical | UTC `timestamp` range; no partition key | 7 | 860,389 | 13.39 MB | 4.59 s |
+| obt | full_scan | identical | UTC formatted day | 151 | 18,600,000 (95.37 % filtered) | 178.77 MB | 45.85 s |
 
-![ST09 — pruned scan: PARTITION_KEY range, 7 splits](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_pruned_scan.png)
+![ST09 — corrected stats_only scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_stats_only_physical_input_utc.png)
 
-*ST09. With the partition filter, Trino lists `event_date:date:PARTITION_KEY :: [[2026-05-25, 2026-05-31]]` and reads 7 splits. Without it ([full scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_full_scan_scan.png)) it reads 151 splits and 18.6 million rows.*
+*ST09, `stats_only` on `fact_transactions`. The filter is the UTC range `'2026-05-25 00:00:00.000 UTC' <= timestamp < '2026-06-01 …UTC'`. Trino selected 7 splits from the files' `timestamp` statistics alone and read exactly the 860,389 window rows (Filtered 0.00 %). The other sides: [pruned](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_pruned_physical_input_utc.png), [full scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_full_scan_physical_input_utc.png); results: [pruned](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_pruned_result_utc.png), [stats_only](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_stats_only_result_utc.png), [full scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_full_scan_result_utc.png). Every image is listed in the [manifest](../../evidence/edai1/storage/5gb/MANIFEST.md).*
 
-**Caveat: the Trino `stats_only` capture is not comparable.** The Spark job runs with `spark.sql.session.timeZone=UTC`. In Trino, the Delta `timestamp` column is `timestamp(3) with time zone`, and a zone-less literal such as `TIMESTAMP '2026-05-25 00:00:00'` is interpreted in the client session zone. DBeaver sent the desktop zone, so the plan shows the bounds in `Asia/Ho_Chi_Minh` (+07:00). The window shifted by seven hours: 983,526 rows were read from 8 splits and 860,298 matched, instead of 860,389 ([capture](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_stats_only_scan_session_tz_0700.png)). The Spark result above is unaffected.
+**What the plans show.**
+- **Same rows, different access paths.** `event_date` is the UTC day of `timestamp` for all 18,600,000 rows of both tables, so the three predicates are logically equivalent. All six results agree in count, exact sum and average.
+- **The physical behaviour stays distinct:**
+  - The **partition predicate** is resolved from the Delta log's partition values before any file is opened. Only the 7 window files are scheduled, and only the `amount` column is read: 5.69 MB.
+  - The **`timestamp` range** is not a partition predicate. Trino pushes it into the scan, and the per-file min/max statistics exclude the other 144 files. This works because each file holds exactly one UTC day. The scan also reads the `timestamp` column to evaluate the filter row by row: 13.39 MB.
+  - The **formatted-day expression** cannot be pushed down. All 151 files are read, and 95.37 % of the 18.6 million rows are discarded after reading: about 179 MB.
+- **Scanned rows are not result rows.** Input rows count what the scan delivered; the result row is the final aggregate.
 
-The Trino SQL generator now writes explicit UTC literals (`TIMESTAMP '… UTC'`) and formats days `AT TIME ZONE 'UTC'`; a unit test covers it. A `stats_only` screenshot taken with the corrected SQL is not part of this evidence.
+The single-run times (3.1–3.2 s pruned, 4.6–4.9 s stats-only, 29.4–45.9 s full scan) only illustrate this ordering. They are not repeated measurements. The same full scans took 35.38 s and 50.02 s in the first session, and the pruned fact query 1.99 s. The repeated Spark medians above are the timing evidence. The two engines' byte metrics also differ: Spark reports the size of the files selected, while Trino reports the column bytes actually fetched.
+
+**Superseded first capture.** The first ST09 session (01:46–02:16) ran a script whose `stats_only` literal had no zone. DBeaver's +07:00 session moved that window to `[05-24T17:00Z, 05-31T17:00Z)`: 48,281 rows of 05-24 were added and 48,372 rows of 05-31 lost. That run read 8 files (983,526 rows) and matched 860,298. Its `pruned` and `full_scan` sides were not affected: partition values carry no time zone, and Delta `timestamp` values carry UTC. The capture is kept and marked superseded in the manifest. It is not evidence for the comparison above.
 
 ### A.8 Equivalence
 
-[`equivalence.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/equivalence.json) records `equivalent: true` with no differences for baseline → compacted and baseline → optimized on both tables. The method compares the schema hash, exact row count, grain and business invariants, and a partition-independent aggregate row fingerprint. Every query result also matched across arms, or the batch would have failed. The `$history` captures show that each clone starts from the pinned source version 0 ([ST01 set](../../evidence/edai1/storage/5gb/MANIFEST.md)).
+[`equivalence.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/equivalence.json) records `equivalent: true` with no differences for baseline → compacted and baseline → optimized on both tables. The method compares the schema hash, exact row count, grain and business invariants, and a partition-independent aggregate row fingerprint. Every query result also matched across arms, or the batch would have failed. The `$history` captures show that each clone starts from the pinned source version 0 ([ST01 set](../../evidence/edai1/storage/5gb/MANIFEST.md)). The `CLONE` commits display as 1970-01-01 because their Delta log entries record `commitInfo.timestamp` values only tens to hundreds of seconds after the epoch (102,123 ms for the fact Z-order clone). DBeaver renders that instant in the 1970 offset of Asia/Ho_Chi_Minh (+08:00). The value comes from the log, not from the time zone fix. The real timing is given by the batch (17:29–17:37 UTC) and by the `OPTIMIZE` commit at 2026-11-12 17:31:53 UTC.
 
-## Part B — Warehouse (row 21)
+## 4. Warehouse (Part B)
 
 ### B.1 Problem and data
 
@@ -254,7 +288,7 @@ In DBeaver, `CREATE INDEX` took 2.693 s and `VACUUM (ANALYZE)` 0.363 s ([WH03](.
 - The query returned `2 | 3783906.04 | 1891953.0200` with and without the index ([WH06](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_query_result_verification.png)).
 - Both twin tables hold the same 610,275 rows ([WH06](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_twin_tables_equivalence.png)).
 
-## 2. Engineering conclusions
+## 5. Engineering conclusions
 
 1. **Measure the layout before optimizing it.** The 5GB Gold tables are already one ~24 MiB file per daily partition. Compaction is unnecessary, and the job proves it with a no-op rather than assuming it.
 2. **Z-order is not adopted for these tables.** It is not cost-free (≈ 50 s and a full 3.7–4.3 GB rewrite per table), and it delivered no I/O reduction in Spark or Trino. Its runtime effect is within the drift measured by the A/A control. It would become worth re-testing if files grew to several per partition, or larger than one row group, so that file or row-group statistics could separate merchants.
@@ -262,21 +296,21 @@ In DBeaver, `CREATE INDEX` took 2.693 s and `VACUUM (ANALYZE)` 0.363 s ([WH03](.
 4. **A narrow covering index is the right warehouse optimization for selective serving reads.** Expect a moderate write and WAL cost (+17 % WAL here) and an index a quarter of the table's size.
 5. **Benchmarks need an A/A control.** Without the identical-layout `compacted` arm, the Z-order arm would have looked like a 13–22 % win.
 
-## 3. Trade-offs and limitations
+## 6. Trade-offs and limitations
 
 - **Single batch, single run each in Trino.** The Spark verdicts rest on five runs per arm in one batch, as a descriptive noise band, not a significance test. The Trino timings are single runs and are used only for scan statistics and illustration.
 - **Arm order.** Arms ran in a rotating order, but drift in the batch still favoured later arms (A/A control). A future design should repeat the baseline arm at the end, or randomize across separate batches.
 - **Two tables.** Only the two largest Gold tables were benchmarked. The other Gold and Silver tables have the same one-file-per-partition layout, but were not measured.
-- **Trino `stats_only` capture.** It used the DBeaver session zone (A.7). The SQL is fixed, but the corrected capture was not taken.
+- **Trino time zone.** The first ST09 capture used the DBeaver session zone for one predicate (A.7). It was rerun with UTC-pinned SQL; the first capture is kept only as superseded provenance.
 - **Warehouse sample.** 31 of 151 days (20 % of the rows), chosen to fit the laptop's disk. `--days 151` loads the full table.
 - **Hardware.** One laptop for PostgreSQL and one Dataproc Serverless batch. Other hardware changes the absolute numbers, not the access paths.
 - **Cost.** The batch's DCU usage was not exported into the evidence, so no cost figure is claimed.
 
-## 4. Historical results (superseded)
+## 7. Historical results (superseded)
 
 Earlier experiments used a local 500k-row Delta fixture and a synthetic 2M-row PostgreSQL table with a partial index on `'completed'`, a status value that does not exist in the campaign data. An even older local Delta run reported 2,188 → 151 files and 2.03×. None of these is a current result. Their files remain under [`docs/evidence/edai1/storage/`](../../evidence/edai1/storage/README.md) for provenance only.
 
-## 5. Reproduction
+## 8. Reproduction
 
 Commands are in the [owner evidence runbook](../../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md), Stages 2–4. The paid step is one Dataproc batch, gated by `--execute`, a clean tree and a matching tool commit. The general Dataproc storage procedure, including the 100GB notes, is in [cloud/storage_optimization.md](../../runbooks/edai1/cloud/storage_optimization.md).
 

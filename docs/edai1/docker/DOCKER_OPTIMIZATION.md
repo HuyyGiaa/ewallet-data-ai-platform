@@ -1,6 +1,6 @@
 # Docker and Docker Compose Optimization
 
-**Scope.** EDAI-1 rubric rows 3 (Docker and Docker Compose) and 4 (Dockerfile optimization).
+**Scope.** Container packaging of an EDAI-1 batch job: Dockerfile size and hardening, and its Docker Compose runtime.
 **Official run.** `20261112t142522`, executed by the owner on 2026-11-12 (14:25–14:26 UTC), tool commit `e3874443`, Docker Engine 29.4.0, Buildx 0.33.0, Compose 5.1.3, amd64.
 **Workload.** Verification of the 5GB campaign `ab-20261110225456` (`rehearsal-5gb-v1`, source Spark commit `aae22b08`).
 **Evidence.** [docs/evidence/edai1/docker/5gb/](../../evidence/edai1/docker/5gb/MANIFEST.md): 10 owner screenshots and the raw `result.json`, `summary.txt`, build logs and Compose logs, all under `SHA256SUMS`.
@@ -116,7 +116,7 @@ The two factors are additive to within 15 bytes. Changing the base removes the s
 
 The first manual attempt failed. The shell had no `$SPEC`, so Docker bind-mounted the repository directory onto `/input/workload.json`, and both images reported `INVALID_SPEC` ([DK04a](../../evidence/edai1/docker/5gb/screenshots/DK04a_failed_attempt_spec_unset_invalid_spec.png)). The images behaved correctly: they refused an unreadable spec instead of passing. The runbook now guards the variables (`: "${E:?}" "${SPEC:?}"`) before any `docker run`.
 
-## 7. Docker Compose (row 3)
+## 7. Docker Compose runtime
 
 [`infra/docker/compose.edai1.yml`](../../../infra/docker/compose.edai1.yml) runs the optimized image as a one-shot service, project `edai1-dk5gb`:
 

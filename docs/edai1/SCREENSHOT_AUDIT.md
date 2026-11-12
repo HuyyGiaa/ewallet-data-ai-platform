@@ -91,12 +91,12 @@ The owner captured these images during the 5GB Docker run `20261112t142522`, the
 | Set | Images | Class | Rows | Manifest |
 |---|---:|---|---|---|
 | Docker DK01–DK05 | 10 | REAL_TERMINAL, editor | 3, 4 | [docker/5gb](../evidence/edai1/docker/5gb/MANIFEST.md) |
-| Lakehouse ST01–ST09 | 57 | NATIVE_UI (Trino 483 via DBeaver; Dataproc Spark UI), REAL_TERMINAL | 20 | [storage/5gb](../evidence/edai1/storage/5gb/MANIFEST.md) |
+| Lakehouse ST01–ST09 | 77 (12 of them superseded) | NATIVE_UI (Trino 483 via DBeaver; Dataproc Spark UI), REAL_TERMINAL | 20 | [storage/5gb](../evidence/edai1/storage/5gb/MANIFEST.md) |
 | Warehouse WH01–WH06 | 16 | NATIVE_UI (PostgreSQL 16.15 via DBeaver), REAL_TERMINAL | 21 | same |
 
 Two findings came out of the image audit:
 - **DK04a** is a genuine failed attempt: `$SPEC` was unset and both images refused the spec with `INVALID_SPEC`. It is kept and labelled as a failure. The runbook now guards the variables.
-- **The ST09 `stats_only` captures** ran with the DBeaver session zone +07:00. Their window differs from the Spark job's UTC window (860,298 instead of 860,389 rows). They are labelled `session_tz_0700`; the report uses the Spark result for that side.
+- **The first ST09 session** (01:46–02:16) ran a script whose `stats_only` literal had no zone. Under DBeaver's +07:00 session, its window read 860,298 rows instead of 860,389. The generator was fixed, and the owner reran all six ST09 cases at 03:34–03:47 with the regenerated script. Those 18 captures, plus 2 captures of the script itself, replace the 12 first-session ST09 images, which stay in the manifest marked SUPERSEDED. The new captures show identical results on all three sides (860,389 · 894,991,837,952.66 · 1,040,217.666605) and distinct plans: partition key with 7 splits, file statistics with 7 splits, full scan with 151 splits.
 
 ## 5GB rehearsal additions (2026-11-11)
 

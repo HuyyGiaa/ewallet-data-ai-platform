@@ -25,12 +25,13 @@ Every experiment reads the 5GB campaign `ab-20261110225456` (`rehearsal-5gb-v1`,
 ## Stage 0 — Preflight (every shell)
 
 ```bash
-# Use the checkout that contains the commit under evaluation (the feature worktree before merge, main after).
-export REPO="$HOME/Develop/ewallet-edai1-docker-storage-5gb"
+# Run from the root of the checkout that holds the commit under evaluation (main after integration).
+# Tools: git, python3 (3.11+), uv, Docker Engine with Compose v2, gcloud (Stages 2-4), DBeaver (Stages 2 and 4).
+export REPO="$(git rev-parse --show-toplevel)"
 cd "$REPO"
-git status --short --branch                       # expect a clean tree on the branch or main
+git status --short --branch                       # expect a clean tracked tree
 export TOOL_GIT_SHA="$(git rev-parse HEAD)"
-export UV=/home/huyy-giaa/miniconda3/envs/fintech/bin/uv
+export UV="${UV:-$(command -v uv)}"; : "${UV:?install uv or set UV to its path}"
 export UV_PROJECT_ENVIRONMENT="$HOME/.cache/ewallet-venvs/feast"   # locked env, outside the checkout
 export PYTHONPATH="$REPO"
 export E=docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456
