@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -39,13 +40,24 @@ def registration_sql(plan: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+_ZONELESS_TIMESTAMP = re.compile(r"TIMESTAMP '(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'")
+
+
 def _trino(sql: str) -> str:
     """The job's Spark SQL in Trino syntax: Trino formats with ``format_datetime`` (Joda
-    patterns), and ``timestamp`` is quoted because it is also a type keyword."""
+    patterns), and ``timestamp`` is quoted because it is also a type keyword.
 
-    return sql.replace("date_format(timestamp, 'yyyy-MM-dd')", "format_datetime(\"timestamp\", 'yyyy-MM-dd')") \
-              .replace("timestamp >= TIMESTAMP", "\"timestamp\" >= TIMESTAMP") \
-              .replace("AND timestamp < TIMESTAMP", "AND \"timestamp\" < TIMESTAMP")
+    The job runs with ``spark.sql.session.timeZone=UTC``. Trino reads the Delta column as
+    ``timestamp(3) with time zone`` and interprets a zone-less literal in the client's
+    session zone (DBeaver sends the desktop zone, e.g. +07:00), which would shift the
+    window. Every literal and the formatted day are therefore pinned to UTC.
+    """
+
+    sql = sql.replace("date_format(timestamp, 'yyyy-MM-dd')",
+                      "format_datetime(\"timestamp\" AT TIME ZONE 'UTC', 'yyyy-MM-dd')") \
+             .replace("timestamp >= TIMESTAMP", "\"timestamp\" >= TIMESTAMP") \
+             .replace("AND timestamp < TIMESTAMP", "AND \"timestamp\" < TIMESTAMP")
+    return _ZONELESS_TIMESTAMP.sub(r"TIMESTAMP '\1 UTC'", sql)
 
 
 def query_sql(plan: Mapping[str, Any]) -> str:

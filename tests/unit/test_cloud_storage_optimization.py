@@ -416,6 +416,20 @@ class SafetyAndComparisonTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "workload window"):
             _query_sql({"table": "x", "workload_parameters": {}}, {"class": "date_range"}, relation="baseline_table")
 
+    def test_trino_queries_pin_the_window_to_utc(self) -> None:
+        # The Spark job runs in UTC; a zone-less Trino literal would follow the DBeaver
+        # session zone (+07:00 on the owner's desktop) and shift the stats-only window.
+        from ops.gcp.storage_benchmark_report import query_sql
+
+        plan = {"tables": [{"table": "fact_transactions", "uri": "gs://b/t", "delta_version": 0,
+                            "workload_parameters": PARAMETERS}]}
+        sql = query_sql(plan)
+        stats = next(line for line in sql.splitlines() if "\"timestamp\" >= TIMESTAMP" in line)
+        self.assertIn("\"timestamp\" >= TIMESTAMP '2026-05-25 00:00:00 UTC'", stats)
+        self.assertIn("\"timestamp\" < TIMESTAMP '2026-06-01 00:00:00 UTC'", stats)
+        self.assertIn("format_datetime(\"timestamp\" AT TIME ZONE 'UTC', 'yyyy-MM-dd')", sql)
+        self.assertNotRegex(sql, r"TIMESTAMP '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'")
+
     def test_three_arm_workload_is_measured_with_equal_query_results(self) -> None:
         class Reader:
             def format(self, _):
