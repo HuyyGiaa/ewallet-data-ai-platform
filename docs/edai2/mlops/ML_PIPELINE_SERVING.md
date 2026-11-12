@@ -90,6 +90,27 @@ Each command runs as a Kubernetes Job ([`scripts/mlops/feast_online_job.sh`](../
 
 *The parity job's result (`command: parity`): 155 comparisons, 31 historical features, `mismatch_count: 0`, source commit `a1e7df56…`.*
 
+### 3.3 Rows 11 and 12 on the 5 GB rehearsal (2026-11-12, pending owner run)
+
+This work runs on `rehearsal-5gb-v1`, from the DP3 output of campaign `ab-20261110225456` (profile `optimized`). Raw files are in [`docs/evidence/edai2/feature-store/fs-20261112/`](../../evidence/edai2/feature-store/fs-20261112/README.md). The owner procedure is [OWNER_START_HERE](references/mlops_serving_runbook.md#owner_start_here--rows-11-and-12-rerun-rehearsal-5gb-v1).
+
+| Step | Where it ran | Result |
+|---|---|---|
+| Export the four DP3 Gold tables to an immutable Feast snapshot | laptop → GCS | `feast-r5gb-20261111-214544`: 63,238,144 rows, 31 features, Delta version 0, UTC microsecond `event_timestamp`, `created` excluded; manifest SHA-256 `3aa7e2f2…2bca`; independent re-count PASS |
+| Genuine `FeatureStore.get_historical_features()` on that snapshot | laptop, reading GCS | PASS: 20 rows, 155 comparisons, 0 mismatches, 0 tied rows ([`snapshot_retrieval.py`](../../../ai_platform/features/feast/validation/snapshot_retrieval.py)) |
+| Row 11 dry-run DagRun `manual__fs11-dry-20261112T065621Z` | isolated Airflow 3.3.1 (own home and DB, port 8094) | `success`, 8/8 tasks; manifest digest checked, Job manifests rendered, DataHub records rendered, not published |
+| Row 12 local run `verify-fs12-local-20261112062709` | real Redpanda, Flink, writers, Feast and Redis in Docker | PASS: 24 entities, 189 direct comparisons, 0 mismatches, offline PIT 24/24, report digest VALID |
+| Row 12 replay of the same topics | same stack | PASS again; Offline Parquet files unchanged, 24 Redis keys unchanged, 16 history repeats dropped |
+
+Two fixes came from these runs:
+
+- Feast `get_online_features` reports whole seconds, so the direct comparison now reads the exact stored timestamp through the provider.
+- The GCS Delta reader now retries a broken response body.
+
+Rows 11 and 12 also each get their own Redis Secret and database range, separate from DB 0 (production) and DB 1 (`canonical-verify`).
+
+**Still open.** The Row 11 execute DagRun, Redis materialization, DataHub publication and the Row 12 GKE run have not happened. The GKE Jobs' service account cannot read the rehearsal bucket, and this machine's IP is not on the GKE control-plane allowlist. Both fixes need the owner's approval (OWNER_START_HERE, Step 0). The rows count only after the owner runs them and takes the screenshots.
+
 ## 4. Training pipeline (Kubeflow Pipelines)
 
 The pipeline is defined in [`ai_platform/ml/pipelines/pipeline.py`](../../../ai_platform/ml/pipelines/pipeline.py); its step implementations are in [`runtime.py`](../../../ai_platform/ml/pipelines/runtime.py). It is compiled into a versioned package ([`compiled/`](../../../ai_platform/ml/pipelines/compiled)) and submitted to a standalone Kubeflow Pipelines 2.17.3 installation.

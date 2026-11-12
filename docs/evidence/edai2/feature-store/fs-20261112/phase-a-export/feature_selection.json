@@ -1,0 +1,13 @@
+{
+  "dataset_version": "rehearsal-5gb-v1",
+  "evidence_digest": "sha256:db75b9c2a2b5112d729a38ac9a28aee8a3056b2a8a6eb9b5db440b2baf1f686d",
+  "schema_version": "feast-feature-selection-v1",
+  "selection_basis": "rehearsal-dp3-pass",
+  "source_evidence_digest": "sha256:a31023ae7450f539151c3baf0756414ce2a3b0c9d11ce06074bf11df32df320c",
+  "source_feature_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold",
+  "source_feature_run_id": "ab-20261110225456-optimized-feat-r261110225459",
+  "source_git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+  "source_silver_run_id": "ab-20261110225456-optimized-silver-r261110225457",
+  "spark_profile": "optimized",
+  "status": "PASS"
+}

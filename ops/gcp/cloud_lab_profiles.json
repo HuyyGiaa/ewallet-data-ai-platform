@@ -1,6 +1,9 @@
 {
   "_comment": "Workload allow-lists for on-demand GKE modes. Node counts are computed from recorded requests by cloud_lab.py; none of these profiles has been run yet.",
   "minimal": {
+    "feature-store-verify": [
+      "feature-store/redis"
+    ],
     "mcp-fallback": [
       "ewallet-mcp/feature-rag-mcp",
       "ewallet-mcp/drift-mcp",

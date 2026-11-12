@@ -1,0 +1,62 @@
+{
+  "job_id": "e8f4e1a231bbda60dd757c570a60bde4",
+  "vertices": {
+    "Source: redpanda-raw-and-retry -> Extract-Timestamp -> Timestamps/Watermarks -> ": {
+      "*anonymous_datastream_source$1*[1].currentOutputWatermark": -9.223372036854776e+18,
+      "*anonymous_datastream_source$4*[10].currentOutputWatermark": -9.223372036854776e+18,
+      "Calc[11].currentOutputWatermark": -9.223372036854776e+18,
+      "Calc[2].currentOutputWatermark": -9.223372036854776e+18,
+      "Extract-Timestamp.currentOutputWatermark": -9.223372036854776e+18,
+      "Filter__Filter___stream_key_by_map_operator.currentOutputWatermark": 1780277461506.0,
+      "Filter__Map__Map.currentOutputWatermark": 1780277461506.0,
+      "Filter__bootstrap-completion-gate.currentOutputWatermark": 1780277461506.0,
+      "Remove-Timestamp.currentOutputWatermark": 1780277461506.0,
+      "Sink__bootstrap_control_log[3].currentOutputWatermark": -9.223372036854776e+18,
+      "Source__redpanda-raw-and-retry.currentOutputWatermark": -9.223372036854776e+18,
+      "Timestamps/Watermarks.currentOutputWatermark": 1780277461506.0,
+      "canonical-parse-and-validate.currentOutputWatermark": 1780277461506.0,
+      "canonical-parse-and-validate.dlq_total": 1.0,
+      "dlq_invalid_sink[12]__Committer.currentOutputWatermark": -9.223372036854776e+18,
+      "dlq_invalid_sink[12]__Writer.currentOutputWatermark": -9.223372036854776e+18
+    },
+    "event-time-disposition -> (Filter, Map, Map -> *anonymous_datastream_source$2*[4": {
+      "*anonymous_datastream_source$2*[4].currentOutputWatermark": -9.223372036854776e+18,
+      "*anonymous_datastream_source$3*[7].currentOutputWatermark": -9.223372036854776e+18,
+      "Calc[5].currentOutputWatermark": -9.223372036854776e+18,
+      "Calc[8].currentOutputWatermark": -9.223372036854776e+18,
+      "Filter__Map__Map.currentOutputWatermark": 1780277461506.0,
+      "Filter__Map__Map.historical_records_total": 16.0,
+      "Filter__Map__Map.late_reconciliation_total": 1.0,
+      "Filter__entity-fan-out___stream_key_by_map_operator.currentOutputWatermark": 1780277461506.0,
+      "accepted_sink[6]__Committer.currentOutputWatermark": -9.223372036854776e+18,
+      "accepted_sink[6]__Writer.currentOutputWatermark": -9.223372036854776e+18,
+      "event-time-disposition.currentOutputWatermark": 1780277461506.0,
+      "event-time-disposition.late_accepted_total": 1.0,
+      "event-time-disposition.on_time_total": 14.0,
+      "event-time-disposition.too_late_total": 1.0,
+      "late_sink[9]__Committer.currentOutputWatermark": -9.223372036854776e+18,
+      "late_sink[9]__Writer.currentOutputWatermark": -9.223372036854776e+18
+    },
+    "managed-31-feature-state -> (Filter, Map -> *anonymous_datastream_source$5*[13] ": {
+      "*anonymous_datastream_source$5*[13].currentOutputWatermark": -9.223372036854776e+18,
+      "*anonymous_datastream_source$6*[16].currentOutputWatermark": -9.223372036854776e+18,
+      "*anonymous_datastream_source$7*[19].currentOutputWatermark": -9.223372036854776e+18,
+      "Calc[14].currentOutputWatermark": -9.223372036854776e+18,
+      "Calc[17].currentOutputWatermark": -9.223372036854776e+18,
+      "Calc[20].currentOutputWatermark": -9.223372036854776e+18,
+      "Filter__Map.currentOutputWatermark": 1780277461506.0,
+      "feature_dlq_sink[21]__Committer.currentOutputWatermark": -9.223372036854776e+18,
+      "feature_dlq_sink[21]__Writer.currentOutputWatermark": -9.223372036854776e+18,
+      "feature_online_sink[15]__Committer.currentOutputWatermark": -9.223372036854776e+18,
+      "feature_online_sink[15]__Writer.currentOutputWatermark": -9.223372036854776e+18,
+      "feature_retry_sink[18]__Committer.currentOutputWatermark": -9.223372036854776e+18,
+      "feature_retry_sink[18]__Writer.currentOutputWatermark": -9.223372036854776e+18,
+      "managed-31-feature-state.currentOutputWatermark": 1780277461506.0,
+      "managed-31-feature-state.online_updates_total": 45.0
+    },
+    "transaction-dedup, Filter, _stream_key_by_map_operator": {
+      "transaction-dedup__Filter___stream_key_by_map_operator.currentOutputWatermark": 1780277461506.0,
+      "transaction-dedup__Filter___stream_key_by_map_operator.duplicates_detected_total": 2.0
+    }
+  }
+}

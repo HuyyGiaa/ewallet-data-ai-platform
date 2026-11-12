@@ -46,8 +46,10 @@ EXECUTION_POLICIES = frozenset({"production", "verification"})
 # Verification stores share the Redis server with production DB 0 but never DB 0.
 # A verification store accepts any database of its own range: the campaign claim
 # still requires an empty database or this exact campaign's owner marker, so a
-# rerun takes the next empty database instead of flushing a used one.
-REHEARSAL_ONLINE_DBS = frozenset(range(1, 8))
+# rerun takes the next empty database instead of flushing a used one. Each store
+# has its own Secret and a disjoint range: DB 1 stays with canonical-verify (and
+# the RAG DB 1 canary), so a rehearsal never edits or claims that Secret or DB.
+REHEARSAL_ONLINE_DBS = frozenset(range(2, 8))
 REHEARSAL_STREAM_DBS = frozenset(range(8, 16))
 
 ONLINE_STORE_BINDINGS = {
@@ -69,7 +71,7 @@ ONLINE_STORE_BINDINGS = {
     },
     # Row 11: Offline snapshot -> Redis materialization.
     "rehearsal-online": {
-        "redis_secret": "feast-online-redis-verify",
+        "redis_secret": "feast-online-redis-rehearsal",
         "redis_host": "redis.feature-store.svc.cluster.local",
         "redis_port": 6379,
         "redis_dbs": REHEARSAL_ONLINE_DBS,

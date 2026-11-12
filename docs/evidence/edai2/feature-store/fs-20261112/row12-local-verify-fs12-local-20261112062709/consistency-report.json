@@ -1,0 +1,67 @@
+{
+  "comparison": {
+    "counts": {
+      "MATCH": 189,
+      "MISMATCH": 0,
+      "MISSING": 0,
+      "NOT_REALTIME_OWNED": 0,
+      "STALE": 0
+    },
+    "failures": [],
+    "timestamp_mismatches": 0
+  },
+  "direct_offline_online_comparison": {
+    "comparisons": 189,
+    "entities_compared": 24,
+    "failures": [],
+    "mismatch_count": 0,
+    "status": "PASS"
+  },
+  "disposition_problems": [],
+  "entities_compared": 24,
+  "feature_views": [
+    "account_behavior",
+    "device_behavior",
+    "merchant_behavior",
+    "user_behavior"
+  ],
+  "features_compared": 189,
+  "history_repeats_dropped": 0,
+  "history_transactions": 16,
+  "identity": {
+    "bootstrap_servers": "localhost:19092",
+    "campaign_id": "verify-fs12-local-20261112062709",
+    "feast_registry": "/home/huyy-giaa/ewallet-evidence/fs-20261112/row12-local/verify-fs12-local-20261112062709/registry.db",
+    "git_sha": "2f3a90ffb1a77efac551f011941985ab5b6202a9",
+    "history_root": "file:///home/huyy-giaa/ewallet-evidence/fs-20261112/row12-local/verify-fs12-local-20261112062709/history",
+    "offline_feature_root": "/home/huyy-giaa/ewallet-evidence/fs-20261112/row12-local/verify-fs12-local-20261112062709/offline-features/campaigns/verify-fs12-local-20261112062709/runs/verify-fs12-local-20261112062709/offline",
+    "run_id": "verify-fs12-local-20261112062709"
+  },
+  "manifest_payload_sha256": "d0c3bd91949905256bd376f27075af09980e07aba874b36b38463deff52a658f",
+  "namespace": "verify-fs12-local-20261112062709",
+  "offline_verification": {
+    "campaign_id": "verify-fs12-local-20261112062709",
+    "feature_views": [
+      "account_behavior",
+      "device_behavior",
+      "merchant_behavior",
+      "user_behavior"
+    ],
+    "historical_features": 31,
+    "offline_feature_root": "/home/huyy-giaa/ewallet-evidence/fs-20261112/row12-local/verify-fs12-local-20261112062709/offline-features/campaigns/verify-fs12-local-20261112062709/runs/verify-fs12-local-20261112062709/offline",
+    "pit_status_counts": {
+      "PIT_VALUES_VERIFIED": 24
+    },
+    "rows_retrieved": 24,
+    "run_id": "verify-fs12-local-20261112062709",
+    "status": "PASS"
+  },
+  "report_digest": "sha256:b9e6199864bdc322314c0f0f2686a562030acfb40fb65337a89f8ab74d6bd5a2",
+  "schema_version": "block-a-consistency-report-v2",
+  "source_event_verification": {
+    "comparisons": 189,
+    "status": "PASS",
+    "transactions": 16
+  },
+  "status": "PASS"
+}

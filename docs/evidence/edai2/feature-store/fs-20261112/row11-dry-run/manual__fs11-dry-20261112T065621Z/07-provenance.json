@@ -1,0 +1,45 @@
+{
+  "airflow": {
+    "dag_id": "feast_incremental_materialization",
+    "run_id": "manual__fs11-dry-20261112T065621Z"
+  },
+  "artifacts": {
+    "01-config.json": "8ec5b778fdc6de8b051865b2fb8194123a04196166e3550d2404c61d935f2976",
+    "02-source.json": "51c1cda28da859d07f7ca6355c4c1939adf5eddd85c57ad09c2e4558dcf01918",
+    "03-window.json": "0b4f853a86cd994a9a06fbedb2219b6b23932babf0585fb13aefc92c2824f634",
+    "04-materialize.json": "f67a87c75a71879a63ce32b4c9180f618aa991ac6026a310aa689a711e5f79c5",
+    "05-completion.json": "dafe5684a944824679b633e2e621780b6418abf1026125c4086d5d8bf2d547da",
+    "06-readback.json": "802a4262a669b9fffd20110437c0bd2aa7e50940cdf6b0190b1c0248e6081121"
+  },
+  "git_sha": "2f3a90ffb1a77efac551f011941985ab5b6202a9",
+  "manifest_sha256": "3aa7e2f2b017d7375eaa506974562929c0983077edfa3825a2babb9a81ed2bca",
+  "operator_image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/feast-online@sha256:af4967035ab379d916ed3b0d29bb8cdb25f00baff2c0a80b8dd87231ed95a0d6",
+  "outcome": "DRY_RUN",
+  "provenance_digest": "sha256:2f43d9dab53e4ffaebfb321e218ab6edaae6a3f81766f587a760d17d35e0a3e5",
+  "recorded_at": "2026-11-12T06:56:34.026630+00:00",
+  "request": {
+    "bucket": "ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+    "dataset_version": "rehearsal-5gb-v1",
+    "estimated_redis_bytes": 80000000,
+    "execution_policy": "verification",
+    "feast_snapshot_id": "feast-r5gb-20261111-214544",
+    "feature_run_id": "ab-20261110225456-optimized-feat-r261110225459",
+    "max_window_seconds": 21600,
+    "online_registry_id": "fs11-r5gb-20261112",
+    "online_store_id": "rehearsal-online",
+    "redis_secret": "feast-online-redis-verify",
+    "registry_uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/fs11-r5gb-20261112/registry.db",
+    "schema_version": "feast-incremental-plan-v1",
+    "snapshot_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544",
+    "streaming_cutover": null,
+    "target_end": "2026-05-31T23:00:00+00:00",
+    "window_id": "ff31f721d1f8"
+  },
+  "run_fingerprint": "7e2b0c875690633d068fed9e4974e0e9275e4d5e5d7eaf1aeb4026ff2de65d19",
+  "run_id": "manual__fs11-dry-20261112T065621Z",
+  "schema_version": "feast-incremental-provenance-v1",
+  "stage": "provenance",
+  "status": "PASS",
+  "window_decision": null,
+  "window_id": "ff31f721d1f8"
+}

@@ -45,11 +45,17 @@ case "${ONLINE_STORE_ID}" in
     [[ "${REDIS_SECRET}" == feast-online-redis ]] \
       || die "canonical-online must use feast-online-redis"
     ;;
-  canonical-verify|rehearsal-online)
+  canonical-verify)
     [[ "${EXECUTION_POLICY}" == verification ]] \
       || die "production execution policy cannot use a verification Online Store"
     [[ "${REDIS_SECRET}" == feast-online-redis-verify ]] \
-      || die "${ONLINE_STORE_ID} must use feast-online-redis-verify"
+      || die "canonical-verify must use feast-online-redis-verify"
+    ;;
+  rehearsal-online)
+    [[ "${EXECUTION_POLICY}" == verification ]] \
+      || die "production execution policy cannot use a verification Online Store"
+    [[ "${REDIS_SECRET}" == feast-online-redis-rehearsal ]] \
+      || die "rehearsal-online must use feast-online-redis-rehearsal"
     ;;
   rehearsal-stream)
     [[ "${EXECUTION_POLICY}" == verification ]] \

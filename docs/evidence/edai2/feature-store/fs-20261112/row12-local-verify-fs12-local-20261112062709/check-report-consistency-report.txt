@@ -1,0 +1,1 @@
+{"report": "/home/huyy-giaa/ewallet-evidence/fs-20261112/row12-local/verify-fs12-local-20261112062709/consistency-report.json", "status": "PASS"}

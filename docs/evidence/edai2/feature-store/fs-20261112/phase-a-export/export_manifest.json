@@ -1,0 +1,69 @@
+{
+  "exported_at": "2026-11-11T22:00:41.901866+00:00",
+  "environment": "gcp",
+  "dataset_version": "rehearsal-5gb-v1",
+  "source_format": "Delta Lake active snapshot",
+  "output_format": "Parquet",
+  "timestamp_precision": "microsecond",
+  "tables": {
+    "user_behavior": {
+      "source": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_user_behavior",
+      "delta_version": 0,
+      "target": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_user_behavior",
+      "entity_key": "user_id",
+      "source_rows": 18599553,
+      "output_rows": 18599553,
+      "event_timestamp_type": "timestamp[us, tz=UTC]",
+      "excluded_audit_columns": [
+        "created"
+      ]
+    },
+    "account_behavior": {
+      "source": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_account_behavior",
+      "delta_version": 0,
+      "target": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_account_behavior",
+      "entity_key": "account_id",
+      "source_rows": 18599553,
+      "output_rows": 18599553,
+      "event_timestamp_type": "timestamp[us, tz=UTC]",
+      "excluded_audit_columns": [
+        "created"
+      ]
+    },
+    "device_behavior": {
+      "source": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_device_behavior",
+      "delta_version": 0,
+      "target": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_device_behavior",
+      "entity_key": "device_id",
+      "source_rows": 18599560,
+      "output_rows": 18599560,
+      "event_timestamp_type": "timestamp[us, tz=UTC]",
+      "excluded_audit_columns": [
+        "created"
+      ]
+    },
+    "merchant_behavior": {
+      "source": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_merchant_behavior",
+      "delta_version": 0,
+      "target": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544/feat_merchant_behavior",
+      "entity_key": "merchant_id",
+      "source_rows": 7439478,
+      "output_rows": 7439478,
+      "event_timestamp_type": "timestamp[us, tz=UTC]",
+      "excluded_audit_columns": [
+        "created"
+      ]
+    }
+  },
+  "lineage": {
+    "source_feature_run_id": "ab-20261110225456-optimized-feat-r261110225459",
+    "snapshot_id": "feast-r5gb-20261111-214544",
+    "source_feature_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold",
+    "output_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544",
+    "source_silver_run_id": "ab-20261110225456-optimized-silver-r261110225457",
+    "source_git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+    "spark_profile": "optimized",
+    "feature_selection_digest": "sha256:db75b9c2a2b5112d729a38ac9a28aee8a3056b2a8a6eb9b5db440b2baf1f686d",
+    "source_evidence_digest": "sha256:a31023ae7450f539151c3baf0756414ce2a3b0c9d11ce06074bf11df32df320c"
+  }
+}

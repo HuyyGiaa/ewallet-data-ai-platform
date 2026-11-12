@@ -1,0 +1,15 @@
+{
+  "snapshot_id": "feast-r5gb-20261111-214544",
+  "snapshot_event_time_max_utc": "2026-05-31T23:59:58.182351Z",
+  "base_window": {"start": "2026-05-31T12:00:00Z", "end": "2026-05-31T18:00:00Z",
+    "rows": {"user_behavior": 21075, "account_behavior": 21075, "device_behavior": 21075, "merchant_behavior": 8484},
+    "entities": {"user_behavior": 20865, "account_behavior": 20874, "device_behavior": 20873, "merchant_behavior": 4190},
+    "estimated_redis_bytes": 40000000},
+  "incremental_window": {"start": "2026-05-31T18:00:00Z", "end": "2026-05-31T23:00:00Z",
+    "rows": {"user_behavior": 45709, "account_behavior": 45709, "device_behavior": 45709, "merchant_behavior": 18117},
+    "entities": {"user_behavior": 45185, "account_behavior": 45238, "device_behavior": 45220, "merchant_behavior": 6253},
+    "estimated_redis_bytes": 80000000},
+  "estimate_basis": "Counted from the snapshot Parquet (event_timestamp in [start,end)); 512 bytes per entity key, about 1.8x the 290 bytes/key measured with MEMORY USAGE on 24 real Feast keys in the local Row 12 run (Redis 7.4.2).",
+  "max_window_hours": 6,
+  "dry_run_approval_token": "approve-ff31f721d1f8"
+}
