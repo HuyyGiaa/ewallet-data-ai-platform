@@ -310,16 +310,46 @@ In DBeaver, `CREATE INDEX` took 2.693 s and `VACUUM (ANALYZE)` 0.363 s ([WH03](.
 
 Earlier experiments used a local 500k-row Delta fixture and a synthetic 2M-row PostgreSQL table with a partial index on `'completed'`, a status value that does not exist in the campaign data. An even older local Delta run reported 2,188 → 151 files and 2.03×. None of these is a current result. Their files remain under [`docs/evidence/edai1/storage/`](../../evidence/edai1/storage/README.md) for provenance only.
 
-## 8. Reproduction
+## 8. Traceability
 
-Commands are in the [owner evidence runbook](../../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md), Stages 2–4. The paid step is one Dataproc batch, gated by `--execute`, a clean tree and a matching tool commit. The general Dataproc storage procedure, including the 100GB notes, is in [cloud/storage_optimization.md](../../runbooks/edai1/cloud/storage_optimization.md).
+Each result links to the code that produced it, the machine-readable output of the official runs (lakehouse `storage-5gb-20261112t142522`, warehouse run of the same `RUN_TS`), and the owner's screenshots. All files are listed with their SHA-256 in [`SHA256SUMS`](../../evidence/edai1/storage/5gb/SHA256SUMS). The ST09 captures marked SUPERSEDED in the [manifest](../../evidence/edai1/storage/5gb/MANIFEST.md) are not cited.
+
+**Lakehouse (Part A):**
+
+| Result | Implementation | Execution artifact | Screenshot |
+|---|---|---|---|
+| Three arms per table, pinned to the planned version (shallow clones) | [`execute_plan`](../../../ops/gcp/storage_benchmark_job.py#L591-L726), [`_create_shallow_clone`](../../../ops/gcp/storage_benchmark_job.py#L145-L155) | [`plan.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/plan.json), [`storage-execute.txt`](../../evidence/edai1/storage/5gb/lakehouse/raw/storage-execute.txt) | [ST01](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST01_fact_optimized_history_clone_then_zorder.png), [ST03a](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST03a_spark_ui_sql_delta_operations.png) |
+| Compaction is a no-op: 151 files considered, 151 skipped, none rewritten | [`_optimize`](../../../ops/gcp/storage_benchmark_job.py#L581-L588) (`executeCompaction`), [`rewrite_outcome`](../../../data_platform/storage/cloud_optimization.py#L562-L588) | [`rewrite.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/rewrite.json), [`layout_compacted.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/layout_compacted.json) | [ST03c](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST03c_spark_ui_compaction_optimize_query_52.png), [ST04](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST04_fact_compacted_layout_unchanged.png) |
+| Z-order on `merchant_id` rewrote 7.9 GB with identical bytes read; DO_NOT_ADOPT | [`_optimize`](../../../ops/gcp/storage_benchmark_job.py#L581-L588) (`executeZOrderBy`), [`decide_zorder`](../../../data_platform/storage/cloud_optimization.py#L351-L405), [`recommend_layout`](../../../data_platform/storage/cloud_optimization.py#L591-L613) | [`layout_optimized.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/layout_optimized.json), [`queries_optimized.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/queries_optimized.json), [`comparison.csv`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/comparison.csv) | [ST04](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST04_fact_optimized_layout.png), [ST06](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST06_spark_ui_optimize_queries_52_and_58.png), [ST07](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST07_fact_entity_lookup_optimized_scan.png) |
+| Runtime changes within the A/A drift are not counted as gains | [`_measure`](../../../ops/gcp/storage_benchmark_job.py#L464-L503) (1 warm-up, 5 runs), [`classify_runtime_change`](../../../data_platform/storage/cloud_optimization.py#L479-L523) | [`queries_baseline.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/queries_baseline.json), [`queries_compacted.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/queries_compacted.json), [`comparison.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/comparison.json), [`storage-summary.txt`](../../evidence/edai1/storage/5gb/lakehouse/raw/storage-summary.txt) | [ST05](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST05_fact_date_range_baseline_scan.png), [ST08](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST08_benchmark_summary.png) |
+| Partition pruning reads 7 of 151 partitions: 3.0–3.3× faster in Spark; 5.69 MB vs about 179 MB in Trino | [`_run_partition_pruning`](../../../ops/gcp/storage_benchmark_job.py#L527-L550), [`decide_partitioning`](../../../data_platform/storage/cloud_optimization.py#L283-L348); Trino SQL [`query_sql`](../../../ops/gcp/storage_benchmark_report.py#L63-L99) with UTC pinning [`_trino`](../../../ops/gcp/storage_benchmark_report.py#L46-L60) and [`require_utc_session`](../../../ops/gcp/storage_benchmark_job.py#L102-L113) | [`partition_pruning.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/partition_pruning.json), [`storage_queries.sql`](../../evidence/edai1/storage/5gb/lakehouse/raw/trino/storage_queries.sql) | [ST09 pruned](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_pruned_physical_input_utc.png), [ST09 stats_only](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_stats_only_physical_input_utc.png), [ST09 full_scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_full_scan_physical_input_utc.png) |
+| No arm changed query results | equivalence check in [`execute_plan`](../../../ops/gcp/storage_benchmark_job.py#L591-L726) | [`equivalence.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/equivalence.json) | [ST09 results](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_pruned_result_utc.png) |
+
+**Warehouse (Part B):**
+
+| Result | Implementation | Execution artifact | Screenshot |
+|---|---|---|---|
+| Real Gold data loaded with provenance | [`load`](../../../data_platform/storage/warehouse/load.py#L59-L101) | [`provenance.json`](../../evidence/edai1/storage/5gb/warehouse/raw/provenance.json) | [WH01](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH01_provenance_table.png) |
+| Workload query and covering index design | [`query_sql`](../../../data_platform/storage/warehouse/workload.py#L72-L82), [`index_design`](../../../data_platform/storage/warehouse/workload.py#L85-L117), [`create_index`](../../../data_platform/storage/warehouse/benchmark.py#L119-L149) | [`index.json`](../../evidence/edai1/storage/5gb/warehouse/raw/index.json) | [WH03](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH03_index_definition_size.png) |
+| 174.073 ms → 0.108 ms median; Seq Scan → Index Only Scan | [`phase_before`](../../../data_platform/storage/warehouse/benchmark.py#L197-L218), [`phase_after`](../../../data_platform/storage/warehouse/benchmark.py#L221-L266), [`measure_query`](../../../data_platform/storage/warehouse/benchmark.py#L57-L69) | [`before.json`](../../evidence/edai1/storage/5gb/warehouse/raw/before.json), [`report.json`](../../evidence/edai1/storage/5gb/warehouse/raw/report.json) (`wh_a_read`), [`summary.txt`](../../evidence/edai1/storage/5gb/warehouse/raw/summary.txt) | [WH02](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH02_explain_before_parallel_seq_scan.png), [WH04](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH04_explain_after_index_only_scan.png), [WH05](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH05_read_latency_comparison.png) |
+| Write cost: +17 % WAL on inserts; insert time INCONCLUSIVE | [`write_cost`](../../../data_platform/storage/warehouse/benchmark.py#L152-L194) | [`report.json`](../../evidence/edai1/storage/5gb/warehouse/raw/report.json) (`wh_c_write`) | [WH06](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_write_overhead_wal.png) |
+| Same query result with and without the index | [`phase_after`](../../../data_platform/storage/warehouse/benchmark.py#L221-L266) | [`report.json`](../../evidence/edai1/storage/5gb/warehouse/raw/report.json) (`wh_d_semantics`), [`dbeaver_session.sql`](../../evidence/edai1/storage/5gb/warehouse/raw/dbeaver_session.sql) | [WH06](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_query_result_verification.png), [WH06 twins](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_twin_tables_equivalence.png) |
+
+**Tests:**
+- [`test_cloud_storage_optimization.py`](../../../tests/unit/test_cloud_storage_optimization.py): plan, verdicts, Trino SQL generation and UTC pinning;
+- [`test_storage_trino_timezone.py`](../../../tests/integration/test_storage_trino_timezone.py): ST09 predicates in Trino under UTC and UTC+7;
+- [`test_storage_benchmark_delta_local.py`](../../../tests/integration/test_storage_benchmark_delta_local.py): the job on local Delta;
+- [`test_warehouse_benchmark.py`](../../../tests/unit/test_warehouse_benchmark.py), [`test_warehouse_container.py`](../../../tests/unit/test_warehouse_container.py): the warehouse experiment.
+
+## 9. Reproduction
+
+Commands are in the [owner evidence runbook](../../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md), Stages 2–4. The paid step is one Dataproc batch, gated by `--execute`, a clean tree and a matching tool commit. The general Dataproc storage procedure, which applies to any dataset size, is in [cloud/storage_optimization.md](../../runbooks/edai1/cloud/storage_optimization.md).
 
 | Concern | Code |
 |---|---|
-| Layout planning, verdicts, rewrite outcome | `data_platform/storage/cloud_optimization.py` |
-| Plan (read-only) | `ops/gcp/inspect_storage_layout.py`, `scripts/inspect_storage_layout.sh` |
-| Submitter (dry-run by default) | `ops/gcp/run_storage_benchmark.py`, `scripts/run_storage_benchmark.sh` |
-| Dataproc job | `ops/gcp/storage_benchmark_job.py` |
-| Trino SQL and summary | `ops/gcp/storage_benchmark_report.py` |
-| Warehouse | `data_platform/storage/warehouse/` |
-| Tests | `tests/unit/test_cloud_storage_optimization.py`, `tests/unit/test_warehouse_benchmark.py`, `tests/integration/test_storage_benchmark_delta_local.py` |
+| Layout planning, verdicts, rewrite outcome | [`data_platform/storage/cloud_optimization.py`](../../../data_platform/storage/cloud_optimization.py) |
+| Plan (read-only) | [`ops/gcp/inspect_storage_layout.py`](../../../ops/gcp/inspect_storage_layout.py), [`scripts/inspect_storage_layout.sh`](../../../scripts/inspect_storage_layout.sh) |
+| Submitter (dry-run by default) | [`ops/gcp/run_storage_benchmark.py`](../../../ops/gcp/run_storage_benchmark.py), [`scripts/run_storage_benchmark.sh`](../../../scripts/run_storage_benchmark.sh) |
+| Dataproc job | [`ops/gcp/storage_benchmark_job.py`](../../../ops/gcp/storage_benchmark_job.py) |
+| Trino SQL and summary | [`ops/gcp/storage_benchmark_report.py`](../../../ops/gcp/storage_benchmark_report.py) |
+| Warehouse | [`data_platform/storage/warehouse/`](../../../data_platform/storage/warehouse/__main__.py) |

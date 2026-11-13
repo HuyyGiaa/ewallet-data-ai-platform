@@ -276,7 +276,7 @@ Hand over:
 - the screenshot file names in `~/Pictures/Screenshots/`, with the checkpoint ID of each;
 - the `$OUT` folder.
 
-Claude then does the following, never before the files exist:
+Evidence integration then does the following, never before the files exist:
 1. Opens each image and checks that it shows what its checkpoint requires.
 2. Copies the originals unchanged to `docs/evidence/edai1/datahub/rehearsal-5gb/` (DG) and `docs/evidence/edai1/schema/rehearsal-5gb/` (SC), naming each copy by its checkpoint ID.
 3. Records the SHA-256 of each copy equal to its original in a `MANIFEST.md` and `SHA256SUMS`.

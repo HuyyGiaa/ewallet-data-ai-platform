@@ -147,21 +147,21 @@ Large data stays out of Git: the 351 MB warehouse Parquet snapshot, the Delta ta
 | `Screenshot From 2026-11-12 21-56-05.png` | Same as 21-55-06 |
 | `Screenshot From 2026-11-12 22-00-05.png` | Same as 21-55-06 |
 | `Screenshot From 2026-11-12 22-13-14.png` | Same as 21-55-06; also a source listing |
-| `Screenshot From 2026-11-12 22-25-00.png` | Shows the Claude Code panel |
+| `Screenshot From 2026-11-12 22-25-00.png` | Shows the assistant chat panel |
 | `Screenshot From 2026-11-12 22-39-00.png` | DBeaver driver-download dialog; no result |
 | `Screenshot From 2026-11-12 22-41-13.png` | DBeaver connection list only |
 | `Screenshot From 2026-11-12 22-42-23.png` | Duplicate of WH01_table_schema |
 | `Screenshot From 2026-11-12 22-46-41.png` | Session script opened, nothing executed |
 | `Screenshot From 2026-11-12 23-08-39.png` | Session script opened, nothing executed |
 | `Screenshot From 2026-11-12 23-10-28.png` | Duplicate of WH01_provenance_table |
-| `Screenshot From 2026-11-12 23-20-55.png` | Shows the Claude Code panel; failed 'after' before index.json existed (rerun succeeded) |
-| `Screenshot From 2026-11-12 23-39-34.png` | Shows the Claude Code panel; same output as WH05_after_phase_terminal_summary |
-| `Screenshot From 2026-11-12 23-53-50.png` | Shows the Claude Code panel |
-| `Screenshot From 2026-11-12 23-54-42.png` | Shows the Claude Code panel; plan output is kept as raw/plan.json |
-| `Screenshot From 2026-11-12 23-58-53.png` | Terraform workstream; Claude Code panel |
-| `Screenshot From 2026-11-13 00-00-04.png` | Terraform workstream; Claude Code panel |
+| `Screenshot From 2026-11-12 23-20-55.png` | Shows the assistant chat panel; failed 'after' before index.json existed (rerun succeeded) |
+| `Screenshot From 2026-11-12 23-39-34.png` | Shows the assistant chat panel; same output as WH05_after_phase_terminal_summary |
+| `Screenshot From 2026-11-12 23-53-50.png` | Shows the assistant chat panel |
+| `Screenshot From 2026-11-12 23-54-42.png` | Shows the assistant chat panel; plan output is kept as raw/plan.json |
+| `Screenshot From 2026-11-12 23-58-53.png` | Terraform workstream; assistant chat panel |
+| `Screenshot From 2026-11-13 00-00-04.png` | Terraform workstream; assistant chat panel |
 | `Screenshot From 2026-11-13 00-02-14.png` | Rubric spreadsheet (IaC rows); other workstream |
-| `Screenshot From 2026-11-13 00-05-00.png` | Terraform init; Claude Code panel |
+| `Screenshot From 2026-11-13 00-05-00.png` | Terraform init; assistant chat panel |
 | `Screenshot From 2026-11-13 00-10-22.png` | Terraform GKE module source; other workstream |
 | `Screenshot From 2026-11-13 00-12-24.png` | Terraform state listing; other workstream |
 | `Screenshot From 2026-11-13 00-15-43.png` | Preflight (Delta jars); editor shows another workstream's files |

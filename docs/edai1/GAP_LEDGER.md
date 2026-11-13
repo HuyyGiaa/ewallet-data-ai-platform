@@ -11,10 +11,6 @@
 
 | Row | Pts | Class | Existing evidence | Missing proof | Recommended action | Priority |
 |---:|---:|---|---|---|---|---|
-| 28–33 | 12 | DATAHUB_PUBLICATION_PENDING | 5GB lineage plan (44 datasets, 8 DataJobs, 34 edges) and 263 assertion outcomes from the executed validation reports, implemented and tested offline ([DATAHUB_GOVERNANCE.md](datahub/DATAHUB_GOVERNANCE.md)) | DataHub publication with readback `MATCH`; DG01–DG08 screenshots | Stage 3 of [DATAHUB_SCHEMA_OWNER_EVIDENCE.md](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) | P1 (local DataHub only) |
-| 34, 37 | 4 | OWNER_METADATA_EXPORT_PENDING | Table/column/key inventory of all 34 Delta tables from the campaign comparison; campaign-bound exporter and dbdiagram.io renderer ([SCHEMA_DESIGN.md](schema/SCHEMA_DESIGN.md) §3–4) | Observed types (`observed_schemas.json`), generated DBML, SC01–SC04 | Stages 1, 2 and 4 of [DATAHUB_SCHEMA_OWNER_EVIDENCE.md](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) | P1 (read-only GCS) |
-| 35, 36 | 4 | SCREENSHOT_MISSING | `dim_merchant_scd2` 78,294 versions with 14 rules PASS; feature timestamp rules PASS on 5 tables (CLOUD_OUTPUT_VERIFIED) | SC05–SC07 from Trino | Stage 4 of [DATAHUB_SCHEMA_OWNER_EVIDENCE.md](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) | P1 |
-| 38 | 2 | SCREENSHOT_MISSING | Naming table and test ([SCHEMA_DESIGN.md](schema/SCHEMA_DESIGN.md) §7) | SC08; assessor acceptance of zone qualification as "similar" to prefixes | Stage 4 of [DATAHUB_SCHEMA_OWNER_EVIDENCE.md](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) | P1 |
 | 13 | 3 | RUNTIME_EVIDENCE_MISSING | Problem, code and explanation in [BATCH_PROCESSING_AND_ORCHESTRATION.md](BATCH_PROCESSING_AND_ORCHESTRATION.md) §B.2; Bronze `channel_schema` and Silver `channel_not_null`/`valid_channel` PASS on the 5GB run | The V1/V2 row split measured on the 5GB Bronze/Silver outputs | A read-only count of null/non-null `channel` by version on the stored 5GB Bronze run | P1 |
 | 5 | 2 | RUNTIME_EVIDENCE_MISSING | Volume, schema and duplicate proof | Skew and cardinality ratios computed over the full 100 GB | A bounded profiling job (approx. distinct per column) on the canonical dataset | P2 |
 | 12 | 3 | RUNTIME_EVIDENCE_MISSING | Skew mechanisms and a Spark UI diagnosis of write-layout skew (date repartition, max/median 4.3–6.7× in both profiles), [BATCH_PROCESSING_AND_ORCHESTRATION.md](BATCH_PROCESSING_AND_ORCHESTRATION.md) §C.3, §F.4 | A method measured to improve the skewed stages over the Baseline | A controlled experiment on the date-repartition and merchant-window stages, with repeated trials | P2 |
@@ -68,3 +64,12 @@ Rows 22–24 and 26 are now evidenced by the 5GB DagRuns ([BATCH_PROCESSING_AND_
 | Schema Design | SCD2 builder and `created` columns described as present in the source | They are prototypes verified on local fixtures; the code is not in the submitted tree |
 | DataHub | "Assertion modules not present at the canonical HEAD" | The modules are present in `data_platform/metadata/datahub/assertions/` |
 | All-Zones Schema (merged into Schema Design) | Silver uses a `stg_` prefix | Bronze and Silver use zone-qualified names without prefixes |
+
+## Closed by the 5GB governance and schema work (2026-11-13)
+
+| Row | Evidence that closed it | Residual note |
+|---|---|---|
+| 28–33 | DataHub publication of the verified 5GB campaign: 141 metadata records and 263 assertions (definitions and run events) read back `MATCH`, 0 skipped; DG01–DG08 ([report](datahub/DATAHUB_GOVERNANCE.md), [evidence](../evidence/edai1/datahub/rehearsal-5gb/MANIFEST.md)) | Lineage is published from the campaign record after the run, not emitted live; four leftover `submit_*_dataproc` DataJobs remain in the shared DataFlows |
+| 34, 37 | Campaign-bound observed schema; Silver (12 references) and Gold + features (21) DBML imported at dbdiagram.io; 44 tables registered in an isolated read-only Trino, all locations verified; SC01–SC04 ([report](schema/SCHEMA_DESIGN.md), [evidence](../evidence/edai1/schema/rehearsal-5gb/MANIFEST.md)) | References are logical; 32 of 33 are checked by validator rules |
+| 35, 36 | `dim_merchant_scd2` 78,294 versions (55,800 current, 22,494 historical, 14 rules PASS); feature `event_timestamp` and `created` typed `timestamp(3) with time zone`; SC05–SC07 | Synthetic merchant history |
+| 38 | 44 tables classified, 0 unclassified; SC08 | Assessor acceptance of zone qualification instead of Bronze/Silver prefixes |

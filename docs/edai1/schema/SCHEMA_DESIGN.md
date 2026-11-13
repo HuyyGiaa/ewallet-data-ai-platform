@@ -395,7 +395,7 @@ Instead, the 5GB tables are registered in a separate volume, `edai1-schema-viz_m
 | Naming convention | 44 classified (6 dim, 3 fact, 5 feat, 1 obt, 1 opt; 10/9/9 Source/Bronze/Silver), 0 unclassified | SC08 |
 | Read-only access | `viewer` denied `CREATE SCHEMA` and `register_table` | `runtime/12_viewer_readonly_probe.txt` |
 | Historical metastore preserved | 97/97 files with identical SHA-256; 6 `storage_bench` tables | `runtime/old_metastore_files_sha256_{before,after}.txt` |
-| Generated artifacts current | `render_schema_diagrams --check` exit 0 | §11 |
+| Generated artifacts current | `render_schema_diagrams --check` exit 0 | §12 |
 | Evidence | 9 screenshots (SC01–SC08, plus an SC08 detail) and 15 runtime files with SHA-256 | [MANIFEST](../../evidence/edai1/schema/rehearsal-5gb/MANIFEST.md) |
 
 ## 10. Evidence SC01–SC08
@@ -415,7 +415,27 @@ All screenshots were captured by the owner on 2026-11-13. SC02–SC04 come from 
 
 The files are byte copies of the originals, listed with their SHA-256 in the [evidence manifest](../../evidence/edai1/schema/rehearsal-5gb/MANIFEST.md). The manifest also lists the unnamed captures of the same session that were not used, with the reason for each.
 
-## 11. Reproducibility
+## 11. Traceability
+
+Each result links to the code that produced it, the execution artifact and the owner's screenshot. The evidence files are listed with their SHA-256 in [`SHA256SUMS`](../../evidence/edai1/schema/rehearsal-5gb/SHA256SUMS).
+
+| Result | Implementation | Execution artifact | Screenshot |
+|---|---|---|---|
+| Observed physical schema of the 44 tables, bound to the campaign | [`export_campaign`](../../../data_platform/schema/export_observed_schemas.py#L229-L249), [`delta_table_schema`](../../../data_platform/schema/export_observed_schemas.py#L101-L119), [`schema_inventory.py`](../../../data_platform/contracts/schema_inventory.py) | [`observed_schemas.json`](../../../data_platform/schema/generated/observed_schemas.json) (`provenance`) | [SC01](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC01_physical_schema_inventory_5gb.png) |
+| 44 tables registered read-only, every location in the 5GB campaign | [`render_trino_registration`](../../../data_platform/schema/render_schema_diagrams.py#L493-L523), [`run_sql.sh`](../../../infra/docker/schema-viz/run_sql.sh), [`rules.json`](../../../infra/docker/schema-viz/rules.json), [`compose.metastore-5gb.yml`](../../../infra/docker/schema-viz/compose.metastore-5gb.yml) | [`trino_register_tables.sql`](../../../data_platform/schema/generated/trino_register_tables.sql), [`08_register.txt`](../../evidence/edai1/schema/rehearsal-5gb/runtime/08_register.txt), [`11_metastore_locations_5gb.tsv`](../../evidence/edai1/schema/rehearsal-5gb/runtime/11_metastore_locations_5gb.tsv), [`09_verify_viewer.txt`](../../evidence/edai1/schema/rehearsal-5gb/runtime/09_verify_viewer.txt), [`12_viewer_readonly_probe.txt`](../../evidence/edai1/schema/rehearsal-5gb/runtime/12_viewer_readonly_probe.txt) | [SC01](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC01_physical_schema_inventory_5gb.png) |
+| Silver 12 and Gold + features 21 logical references, 32 validated | [`schema_relationships.yml`](../../../data_platform/contracts/relationships/schema_relationships.yml), [`validate_contract`](../../../data_platform/schema/render_schema_diagrams.py#L237-L295), [`render_dbml`](../../../data_platform/schema/render_schema_diagrams.py#L336-L421) | [`silver.dbml`](../../../data_platform/schema/generated/silver.dbml), [`gold.dbml`](../../../data_platform/schema/generated/gold.dbml), [`SCHEMA_INVENTORY.md`](../../../data_platform/schema/generated/SCHEMA_INVENTORY.md), [validation reports](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/validation_reports/) | [SC02](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC02_silver_erd_5gb.png), [SC03](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC03_gold_erd_5gb.png), [SC04](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC04_gold_fact_dimension_relationships.png) |
+| Diagrams cannot drift from contract, schema or results | [`require_current_snapshot`](../../../data_platform/schema/render_schema_diagrams.py#L193-L226), [`render_all`](../../../data_platform/schema/render_schema_diagrams.py#L594-L619), `--check` in [`main`](../../../data_platform/schema/render_schema_diagrams.py) | `render_schema_diagrams --check` (exit 0, §12) | — |
+| SCD2 dimension: 78,294 versions, 55,800 current, 22,494 historical | [`build_dim_merchant_scd2`](../../../data_platform/processing/spark/gold/dimension_builder.py#L53-L69) → [`build_scd2_from_snapshots`](../../../data_platform/processing/spark/gold/scd2.py#L92-L133), [`lookup_as_of`](../../../data_platform/processing/spark/gold/scd2.py#L155-L181) | [`09_verify_viewer.txt`](../../evidence/edai1/schema/rehearsal-5gb/runtime/09_verify_viewer.txt), [`comparison.json`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/comparison.json) | [SC05](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC05_scd2_physical_schema.png), [SC06](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC06_scd2_runtime_validation.png) |
+| 14 SCD2 rules PASS, 0 interval violations | [`merchant_scd2_results`](../../../data_platform/quality/scd2_quality.py#L97-L173), [`as_of_resolution_result`](../../../data_platform/quality/scd2_quality.py#L176-L198), [`gold_dim_merchant_scd2.yml`](../../../data_platform/contracts/gold_dim_merchant_scd2.yml) | [`optimized-gold.json`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/validation_reports/optimized-gold.json) | DataHub [DG06](../../evidence/edai1/datahub/rehearsal-5gb/screenshots/DG06_gold_scd2_non_overlapping_intervals_pass.png) |
+| `event_timestamp` and `created` on the DP3 tables, one `created` per run | [`with_created`](../../../data_platform/processing/spark/gold/features/temporal.py#L28-L30), [`historical_window`](../../../data_platform/processing/spark/gold/features/temporal.py#L42-L49), [`materialization.py`](../../../data_platform/processing/spark/gold/materialization.py) | [`optimized-features.json`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/validation_reports/optimized-features.json), [`observed_schemas.json`](../../../data_platform/schema/generated/observed_schemas.json) | [SC07](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC07_historical_feature_timestamp_schema.png) |
+| 44 tables classified, 0 unclassified | [`gold_role`](../../../data_platform/schema/render_schema_diagrams.py#L301-L304) and its test | [`trino_metadata_queries.sql`](../../../data_platform/schema/generated/trino_metadata_queries.sql) (SC08 block) | [SC08](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC08_schema_naming_conventions.png), [SC08 detail](../../evidence/edai1/schema/rehearsal-5gb/screenshots/SC08_schema_naming_conventions_detail.png) |
+| Historical metastore unchanged by the 5GB registration | [`compose.metastore-5gb.yml`](../../../infra/docker/schema-viz/compose.metastore-5gb.yml) | [`old_metastore_files_sha256_before.txt`](../../evidence/edai1/schema/rehearsal-5gb/runtime/old_metastore_files_sha256_before.txt), [`…_after.txt`](../../evidence/edai1/schema/rehearsal-5gb/runtime/old_metastore_files_sha256_after.txt) | — |
+
+**Tests:**
+- [`test_schema_diagrams.py`](../../../tests/unit/test_schema_diagrams.py): renderer refusals, DBML structure, committed artifacts current, read-only SQL, role prefixes, exporter on an in-memory GCS;
+- [`test_schema_inventory.py`](../../../tests/unit/test_schema_inventory.py): the zone inventory.
+
+## 12. Reproducibility
 
 **Identifiers.** Benchmark `ab-20261110225456`, profile `optimized`, dataset `rehearsal-5gb-v1`. The campaign documents and validation reports are in [`docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/`](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/).
 
@@ -447,7 +467,7 @@ To switch between the 5GB and historical metastores:
 
 **Evidence integrity.** Run `sha256sum -c SHA256SUMS` in `docs/evidence/edai1/schema/rehearsal-5gb/`.
 
-## 12. Limitations and conclusion
+## 13. Limitations and conclusion
 
 **Limitations:**
 - **Relationships are logical.** Delta Lake declares no primary or foreign key, and every observed column is physically nullable. The relationships hold for runs that pass the validators; a writer outside these builders could break them, and storage would not stop it.

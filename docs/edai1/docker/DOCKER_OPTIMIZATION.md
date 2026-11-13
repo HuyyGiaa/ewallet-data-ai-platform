@@ -154,7 +154,26 @@ Official result: `config_valid: true`, build exit 0, run exit 0, verdict PASS wi
 
 The October experiment (`images/datahub-publisher`, 88.44 %, DataHub lineage-plan workload) is superseded. Its image is still built by the `datahub` CI component and is unchanged. Its screenshots and raw files remain in [`docs/evidence/edai1/docker/`](../../evidence/edai1/docker/README.md) for provenance.
 
-## 11. Reproduction
+## 11. Traceability
+
+Each result links to the code that produced it, the machine-readable output of the official run `20261112t142522`, and the owner's screenshot. All raw files are listed with their SHA-256 in [`SHA256SUMS`](../../evidence/edai1/docker/5gb/SHA256SUMS).
+
+| Result | Implementation | Execution artifact | Screenshot |
+|---|---|---|---|
+| Baseline image: full Bookworm, whole repository, root | [`Dockerfile.baseline`](../../../images/edai1-campaign-verifier/Dockerfile.baseline#L8-L13) | [`build_baseline.log`](../../evidence/edai1/docker/5gb/raw/build_baseline.log) | [DK01](../../evidence/edai1/docker/5gb/screenshots/DK01_dockerfiles_baseline_vs_optimized.png), [DK02a](../../evidence/edai1/docker/5gb/screenshots/DK02a_build_baseline.png) |
+| Optimized image: validated build stage, slim non-root runtime | [`Dockerfile.optimized`](../../../images/edai1-campaign-verifier/Dockerfile.optimized#L9-L27) (`build` stage L12–L18, `runtime` stage L20–L27), [build-context allow-list](../../../images/edai1-campaign-verifier/Dockerfile.optimized.dockerignore) | [`build_optimized.log`](../../evidence/edai1/docker/5gb/raw/build_optimized.log) | [DK01](../../evidence/edai1/docker/5gb/screenshots/DK01_dockerfiles_baseline_vs_optimized.png), [DK02b](../../evidence/edai1/docker/5gb/screenshots/DK02b_build_optimized.png), [DK02c](../../evidence/edai1/docker/5gb/screenshots/DK02c_build_logs_tail_exit_code_0.png) |
+| Size −88.87 %; 95.76 % from the base image, 4.24 % from packaging | 2×2 variants [`variants.py`](../../../ops/docker_ab/variants.py); size measurement [`image_metadata`](../../../ops/docker_ab/measure.py#L17-L45); split [`attribution`](../../../ops/docker_ab/measure.py#L90-L118) | [`result.json`](../../evidence/edai1/docker/5gb/raw/result.json) (`variants`, `attribution`), [`summary.txt`](../../evidence/edai1/docker/5gb/raw/summary.txt), [`build_baseline-slim.log`](../../evidence/edai1/docker/5gb/raw/build_baseline-slim.log), [`build_optimized-full.log`](../../evidence/edai1/docker/5gb/raw/build_optimized-full.log) | [DK03](../../evidence/edai1/docker/5gb/screenshots/DK03_image_size_comparison.png) |
+| Same functional result in all four images (45 checks, report SHA-256 `8316b0a3…`) | Workload [`ops/edai1_verifier`](../../../ops/edai1_verifier/checks.py#L65-L105) with [`workload-5gb.json`](../../../images/edai1-campaign-verifier/workload-5gb.json); repeated runs [`functional_run`](../../../ops/docker_ab/measure.py#L48-L73) | [`result.json`](../../evidence/edai1/docker/5gb/raw/result.json) (`functional_equivalence`), [`docker_stdout.txt`](../../evidence/edai1/docker/5gb/raw/docker_stdout.txt) | [DK04b](../../evidence/edai1/docker/5gb/screenshots/DK04b_functional_equivalence_pass.png) |
+| Non-root user, fewer shipped tools | [`USER 65532:65532`](../../../images/edai1-campaign-verifier/Dockerfile.optimized#L26); inspection [`security_properties`](../../../ops/docker_ab/measure.py#L76-L87) | [`result.json`](../../evidence/edai1/docker/5gb/raw/result.json) (`variants.<name>.security`) | [DK01](../../evidence/edai1/docker/5gb/screenshots/DK01_dockerfiles_baseline_vs_optimized.png) (the `USER` line) |
+| No run-time change (median 0.761 s → 0.757 s) | [`functional_run`](../../../ops/docker_ab/measure.py#L48-L73) | [`result.json`](../../evidence/edai1/docker/5gb/raw/result.json) | — |
+| Hardened Compose one-shot run: valid config, exit 0, no residual containers | [`compose.edai1.yml`](../../../infra/docker/compose.edai1.yml#L10-L43) (read-only, `cap_drop: ALL`, `no-new-privileges`, 128 MiB); [`run_compose`](../../../ops/docker_ab/__main__.py#L43-L61) | [`compose_config.txt`](../../evidence/edai1/docker/5gb/raw/compose_config.txt), [`compose_build.txt`](../../evidence/edai1/docker/5gb/raw/compose_build.txt), [`compose_run.txt`](../../evidence/edai1/docker/5gb/raw/compose_run.txt) | [DK05a](../../evidence/edai1/docker/5gb/screenshots/DK05a_compose_config_and_run_exit_0.png), [DK05b](../../evidence/edai1/docker/5gb/screenshots/DK05b_compose_runtime_no_residual_containers.png) |
+| Invalid input is refused, not silently passed | [`ops/edai1_verifier/spec.py`](../../../ops/edai1_verifier/spec.py) | — | [DK04a](../../evidence/edai1/docker/5gb/screenshots/DK04a_failed_attempt_spec_unset_invalid_spec.png) |
+
+**Tests:**
+- [`test_docker_ab.py`](../../../tests/unit/test_docker_ab.py): variants, attribution and report;
+- [`test_edai1_verifier.py`](../../../tests/unit/test_edai1_verifier.py): checks of the workload.
+
+## 12. Reproduction
 
 Commands, expected output and failure handling are in the [owner evidence runbook](../../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md), Stage 1. In short:
 
@@ -164,8 +183,8 @@ python3 -m ops.docker_ab --run-id <new id> --output-dir <new directory>
 
 | Concern | Code |
 |---|---|
-| Workload | `ops/edai1_verifier/` |
-| Images | `images/edai1-campaign-verifier/` |
-| Harness | `ops/docker_ab/` |
-| Compose | `infra/docker/compose.edai1.yml` |
-| Tests | `tests/unit/test_edai1_verifier.py`, `tests/unit/test_docker_ab.py` |
+| Workload | [`ops/edai1_verifier/`](../../../ops/edai1_verifier/__main__.py) |
+| Images | [`images/edai1-campaign-verifier/`](../../../images/edai1-campaign-verifier/Dockerfile.optimized) |
+| Harness | [`ops/docker_ab/`](../../../ops/docker_ab/__main__.py), orchestration in [`benchmark`](../../../ops/docker_ab/__main__.py#L64-L119) |
+| Compose | [`infra/docker/compose.edai1.yml`](../../../infra/docker/compose.edai1.yml) |
+| Tests | [`test_edai1_verifier.py`](../../../tests/unit/test_edai1_verifier.py), [`test_docker_ab.py`](../../../tests/unit/test_docker_ab.py) |

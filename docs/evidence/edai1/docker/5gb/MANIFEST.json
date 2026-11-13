@@ -152,7 +152,7 @@
     {
       "area": "docker",
       "source_filename": "Screenshot From 2026-11-12 21-10-12.png",
-      "reason": "Shows the Claude Code panel and a different directive; Docker disk preflight only"
+      "reason": "Shows the assistant chat panel and a different directive; Docker disk preflight only"
     },
     {
       "area": "docker",

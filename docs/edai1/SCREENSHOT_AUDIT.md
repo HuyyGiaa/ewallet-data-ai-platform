@@ -23,6 +23,7 @@ Companion to [RUBRIC_EVIDENCE_INDEX.md](RUBRIC_EVIDENCE_INDEX.md).
 
 - **59 embedded image paths, 49 distinct image contents.** N15 adds three genuine Ubuntu terminal views of historical evidence.
 - **All files exist and decode.** 0 broken links.
+- **2026-11-13 recount:** the reports now embed 70 image paths (67 distinct contents), all present. The class table below covers the N15 set; the later 5GB sets are classified in their own sections: Docker and storage (10 embedded of 103 captures) and governance and schema (28 embedded, all captured).
 
 | Class | Paths |
 |---|---:|
@@ -51,17 +52,17 @@ No EDAI-1 benchmark was rerun during N15. The three new images display preserved
 | 25 | DP2 validate | Silver and Gold `semantic_validation` logs (Gold 93 PASS) | **QUALIFIES** |
 | 26 | DP3 ingest | 5GB DP3 DagRuns, both profiles (NATIVE_UI); Baseline task list shows a refresh lag on the publish task | **QUALIFIES** |
 | 27 | DP3 validate | `features.semantic_validation` log with the PIT recomputation rules (53 PASS) | **QUALIFIES** |
-| 28 | DataHub: DP1 tables + producing pipeline | Only the 100GB HISTORICAL_UI lineage, no longer the basis | **PENDING** DG01 (5GB) |
-| 29 | DataHub: DP1 validation | Only a 100GB HISTORICAL_UI assertion | **PENDING** DG02 |
-| 30 | DataHub: DP2 lineage | Only 100GB HISTORICAL_UI lineage | **PENDING** DG03, DG04 |
-| 31 | DataHub: DP2 validation | No DP2 assertion UI | **PENDING** DG05, DG06 |
-| 32 | DataHub: DP3 lineage | Only 100GB HISTORICAL_UI lineage | **PENDING** DG07 |
-| 33 | DataHub: DP3 validation | Only 100GB HISTORICAL_UI metadata-contract assertions | **PENDING** DG08 |
-| 34 | Tables on all zones | — | **PENDING** SC01–SC03 (5GB Trino inventory, dbdiagram.io ERDs) |
-| 35 | SCD2 dimension | Gold validation log with the `dim_merchant_scd2` rules on the 5GB output (NATIVE_UI) | **PENDING** SC05, SC06 (table schema and versions) |
-| 36 | `feat_` with `event_timestamp` + `created` | DP3 validation log with the timestamp rules (NATIVE_UI) | **PENDING** SC07 (physical columns) |
-| 37 | Dim ↔ fact relationships | — | **PENDING** SC02–SC04 (dbdiagram.io) |
-| 38 | Naming convention | — | **PENDING** SC08 |
+| 28 | DataHub: DP1 tables + producing pipeline | 5GB `dp1_source_to_bronze` lineage, 10 Source → 9 Bronze, and the DataJob's DagRun/batch properties (NATIVE_UI, DataHub 1.7) | **QUALIFIES** DG01 |
+| 29 | DataHub: DP1 validation | `bronze_zone.transactions` Quality tab, 6 assertions with run results, and a run detail (NATIVE_UI) | **QUALIFIES** DG02 |
+| 30 | DataHub: DP2 lineage | Bronze → Silver and Silver → Gold lineage; `dim_merchant_scd2` direct upstream; DataJob properties (NATIVE_UI) | **QUALIFIES** DG03, DG04 |
+| 31 | DataHub: DP2 validation | `silver_zone.transactions` 17 assertions with an FK run detail; `dim_merchant_scd2` 14 assertions with the interval rule run (NATIVE_UI) | **QUALIFIES** DG05, DG06 |
+| 32 | DataHub: DP3 lineage | `dp3_historical_features` lineage from 2 Silver tables to 4 feature tables, with DataFlow properties (NATIVE_UI) | **QUALIFIES** DG07 |
+| 33 | DataHub: DP3 validation | `feat_user_behavior` 14 assertions and the cross-table `created_shared_by_run` run detail (NATIVE_UI) | **QUALIFIES** DG08 |
+| 34 | Tables on all zones | 44-table inventory on the isolated 5GB Trino metastore via DBeaver (NATIVE_UI); Silver and Gold ERDs at dbdiagram.io | **QUALIFIES** SC01–SC03 |
+| 35 | SCD2 dimension | `DESCRIBE dim_merchant_scd2` and the version counts via DBeaver (NATIVE_UI); Gold validation log | **QUALIFIES** SC05, SC06 |
+| 36 | `feat_` with `event_timestamp` + `created` | `information_schema.columns` of the 4 DP3 tables via DBeaver (NATIVE_UI); DP3 validation log | **QUALIFIES** SC07 |
+| 37 | Dim ↔ fact relationships | Gold ERD and the `fact_transactions` references at dbdiagram.io, generated from the contract | **QUALIFIES** SC02–SC04 |
+| 38 | Naming convention | Zone and prefix classification of the 44 tables via DBeaver (NATIVE_UI) | **QUALIFIES** SC08 (assessor acceptance of zone qualification) |
 
 Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a specific UI. Their images are supporting evidence:
 - Docker: the 5GB owner captures DK01–DK05 are integrated (see *Docker and storage owner captures* below). The October images and transcripts are historical.
@@ -97,6 +98,22 @@ The owner captured these images during the 5GB Docker run `20261112t142522`, the
 Two findings came out of the image audit:
 - **DK04a** is a genuine failed attempt: `$SPEC` was unset and both images refused the spec with `INVALID_SPEC`. It is kept and labelled as a failure. The runbook now guards the variables.
 - **The first ST09 session** (01:46–02:16) ran a script whose `stats_only` literal had no zone. Under DBeaver's +07:00 session, its window read 860,298 rows instead of 860,389. The generator was fixed, and the owner reran all six ST09 cases at 03:34–03:47 with the regenerated script. Those 18 captures, plus 2 captures of the script itself, replace the 12 first-session ST09 images, which stay in the manifest marked SUPERSEDED. The new captures show identical results on all three sides (860,389 · 894,991,837,952.66 · 1,040,217.666605) and distinct plans: partition key with 7 splits, file statistics with 7 splits, full scan with 151 splits.
+
+## Governance and schema owner captures (2026-11-13)
+
+The owner captured these images from a local DataHub 1.7.0.1 after the 5GB publication, from DBeaver 26.1.3 on the isolated 5GB Trino metastore, and from dbdiagram.io. Each image was opened and read. Its values were cross-checked against the publication outputs (`04_lineage_publish.json`, `07_assertions_publish.json`), the validation reports and the Trino verification logs.
+
+| Set | Images | Class | Rows | Manifest |
+|---|---:|---|---|---|
+| DataHub DG01–DG08 | 19 | NATIVE_UI (DataHub UI) | 28–33 | [datahub/rehearsal-5gb](../evidence/edai1/datahub/rehearsal-5gb/MANIFEST.md) |
+| Schema SC01, SC05–SC08 | 6 | NATIVE_UI (Trino via DBeaver) | 34–36, 38 | [schema/rehearsal-5gb](../evidence/edai1/schema/rehearsal-5gb/MANIFEST.md) |
+| Schema SC02–SC04 | 3 | DERIVED_RENDER of generated DBML (dbdiagram.io) | 34, 37 | same |
+
+Findings:
+- **Leftover DataJobs.** The DataFlow lineage graphs also show `submit_*_dataproc` DataJobs from earlier publications. They carry no 5GB campaign properties; the captions say so.
+- **Cached navigator in SC01.** The DBeaver navigator in SC01 still lists a cached `storage_bench` node from the historical metastore. The query result is live, and the 5GB metastore has no such schema (Trino logs in the schema manifest).
+- **Unused captures.** 11 (DataHub) and 13 (schema) unnamed captures from the same sessions are drafts, diagnostics or other work. They are listed with reasons in the manifests and are not used.
+- **ERD class.** SC02–SC04 are renders of the generated DBML. They qualify for rows 34 and 37 because the DBML is generated from the observed physical schema and checked against it, and SC01 shows the same tables in Trino.
 
 ## 5GB rehearsal additions (2026-11-11)
 

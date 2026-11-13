@@ -40,6 +40,6 @@ Large data stays out of Git: the 351 MB warehouse Parquet snapshot, the Delta ta
 
 | Original file name | Reason |
 |---|---|
-| `Screenshot From 2026-11-12 21-10-12.png` | Shows the Claude Code panel and a different directive; Docker disk preflight only |
+| `Screenshot From 2026-11-12 21-10-12.png` | Shows the assistant chat panel and a different directive; Docker disk preflight only |
 | `Screenshot From 2026-11-12 21-12-27.png` | Preflight: ADC check and a home-cache listing; no Docker result |
 | `Screenshot From 2026-11-12 21-50-08.png` | Duplicate of DK05a plus an inspection of the earlier warehouse volume |
