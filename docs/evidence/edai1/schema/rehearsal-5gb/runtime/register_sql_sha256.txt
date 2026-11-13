@@ -1,0 +1,1 @@
+1626cfd4ceb92a9479dabe35b0772faa3a0988e6db34b9581c5a50d08fb99b83  docs/edai1/schema/generated/trino_register_tables.sql

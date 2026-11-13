@@ -1,0 +1,23 @@
+== lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchant_history
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchant_history/_delta_log/
+
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchant_history/_delta_log/:
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchant_history/_delta_log/
+data files: 24
+== lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchant_history
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchant_history/_delta_log/
+
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchant_history/_delta_log/:
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchant_history/_delta_log/
+data files: 16
+== lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2/_delta_log/
+
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2/_delta_log/:
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2/_delta_log/
+data files: 16
+== source/merchant_history
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchant_history/shard-00000.parquet
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchant_history/shard-00001.parquet
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchant_history/shard-00002.parquet
+gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchant_history/shard-00003.parquet

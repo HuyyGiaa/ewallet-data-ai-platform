@@ -1,0 +1,19 @@
+
+trino(viewer)> CREATE SCHEMA delta.zz_viewer_write_probe;
+Query 20261113_094249_00072_4sk73 failed: Access Denied: Cannot create schema delta.zz_viewer_write_probe
+
+
+trino(viewer)> CALL delta.system.register_table(schema_name => 'gold_zone', table_name => 'zz_viewer_probe', table_location => 'gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2');
+Query 20261113_094250_00073_4sk73 failed: Access Denied: Cannot execute procedure delta.system.register_table
+
+
+trino(viewer)> CREATE SCHEMA hive.zz_viewer_write_probe;
+Query 20261113_094252_00074_4sk73 failed: Access Denied: Cannot create schema hive.zz_viewer_write_probe
+
+
+-- after the probes: schemas and table count are unchanged
+"bronze_zone"
+"gold_zone"
+"information_schema"
+"silver_zone"
+"34"

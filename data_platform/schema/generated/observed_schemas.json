@@ -1,13 +1,31 @@
 {
-  "exported_at": "2026-11-08T17:06:58.582978+00:00",
-  "schema_version": "ewallet-observed-schemas-v1",
+  "provenance": {
+    "benchmark_id": "ab-20261110225456",
+    "campaign_manifest_sha256": "820994eff2bf80a1cf68513987baa0d597b267c58921f4360d77a9ddcde6197c",
+    "data_bucket": "ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+    "dataset_version": "rehearsal-5gb-v1",
+    "exported_at": "2026-11-11T19:38:42.501155+00:00",
+    "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+    "method": "Delta _delta_log metaData and Parquet footer byte-range reads; no data file read",
+    "run_ids": {
+      "bronze": "ab-20261110225456-optimized-bronze-r261110225456",
+      "features": "ab-20261110225456-optimized-feat-r261110225459",
+      "gold": "ab-20261110225456-optimized-gold-r261110225458",
+      "silver": "ab-20261110225456-optimized-silver-r261110225457"
+    },
+    "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+    "source_plan_digest": "422c15a169165158fcd7d432a7943d50812b5f3e55e7d0c6aec7c457371c6c83",
+    "spark_profile": "optimized"
+  },
+  "schema_version": "ewallet-observed-schemas-v2",
   "source": {
-    "dataset_version": "canonical-100gb-v1",
-    "plan_digest": "da043b9ad8a1121cad93fd5bca9633d036c7e2c9da3894cfd85b7d3af793046f",
-    "root": "gs://ewallet-data-ai-platform-hg26-data/source/canonical-100gb-v1",
+    "dataset_version": "rehearsal-5gb-v1",
+    "manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+    "plan_digest": "422c15a169165158fcd7d432a7943d50812b5f3e55e7d0c6aec7c457371c6c83",
+    "root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1",
     "tables": {
       "accounts": {
-        "bytes": 4640725780,
+        "bytes": 231246490,
         "columns": [
           {
             "name": "account_id",
@@ -35,13 +53,13 @@
             "type": "timestamp[us]"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "accounts",
-        "rows": 62370510,
-        "schema_sha256": "64f0e68fda7bb9345ec2bf9dca3691ff3e555043a5a2652369a7b6485e9a2d09"
+        "rows": 3137729,
+        "schema_sha256": "a7a3f6523c0c76a3dcb78f755548a43585b4afc5a02446f5cc49f65fe72ce69f"
       },
       "balance_snapshots": {
-        "bytes": 5926661622,
+        "bytes": 296593090,
         "columns": [
           {
             "name": "account_id",
@@ -59,13 +77,13 @@
             "type": "double"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "balance_snapshots",
-        "rows": 359769100,
-        "schema_sha256": "e1a1a7e9c0d09b1dd3522cf7cf04d2601959227f697406fb03baebc91dd37066"
+        "rows": 18106858,
+        "schema_sha256": "ee073f41c53227726805269a971dd7fcb8e3245209fb48896e47bb9debde4f7a"
       },
       "devices": {
-        "bytes": 4328753181,
+        "bytes": 215750364,
         "columns": [
           {
             "name": "device_id",
@@ -93,13 +111,13 @@
             "type": "timestamp[us]"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "devices",
-        "rows": 52918675,
-        "schema_sha256": "540a1b01befd669489860bf273c24e4fddb4097f937bdd43347f7e4523c9d3da"
+        "rows": 2662450,
+        "schema_sha256": "ed17838b2322cf19579ac3e227f4f94d209f4c9ff180bc867177584fdaf8057c"
       },
       "fraud_labels": {
-        "bytes": 13573668029,
+        "bytes": 676241332,
         "columns": [
           {
             "name": "transaction_id",
@@ -117,13 +135,13 @@
             "type": "string"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "fraud_labels",
-        "rows": 369600000,
-        "schema_sha256": "5e6e0b53a06ab5680cc3ce8be84c8bc0ccc22eae5380158db8d2e4d5b8e98aef"
+        "rows": 18600000,
+        "schema_sha256": "341ef72343b2cedf9d25a522c5ed67d7f2f55ef959e559fcf8503fc37a6f5b74"
       },
       "login_events": {
-        "bytes": 21450554837,
+        "bytes": 1069484214,
         "columns": [
           {
             "name": "login_id",
@@ -151,13 +169,52 @@
             "type": "bool"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "login_events",
-        "rows": 369609248,
-        "schema_sha256": "97cd27a670ee051fbdb1d97170f5a2b2b41ffa80bf1a75344ec042ae15084aed"
+        "rows": 18586786,
+        "schema_sha256": "660c8f503ca4a792f3bace82f34b48fb85a089584496fc7cad95067ab2707efc"
+      },
+      "merchant_history": {
+        "bytes": 16609979,
+        "columns": [
+          {
+            "name": "snapshot_id",
+            "nullable": true,
+            "type": "string"
+          },
+          {
+            "name": "merchant_id",
+            "nullable": true,
+            "type": "string"
+          },
+          {
+            "name": "merchant_name",
+            "nullable": true,
+            "type": "string"
+          },
+          {
+            "name": "category",
+            "nullable": true,
+            "type": "string"
+          },
+          {
+            "name": "snapshot_ts",
+            "nullable": true,
+            "type": "timestamp[us]"
+          },
+          {
+            "name": "history_source",
+            "nullable": true,
+            "type": "string"
+          }
+        ],
+        "files": 186,
+        "logical_table": "merchant_history",
+        "rows": 334800,
+        "schema_sha256": "d0f09f5c274534ab946e5760ff2f8fd6ebdd86eaaf31b5a9a7111eb9903f18d8"
       },
       "merchants": {
-        "bytes": 63526844,
+        "bytes": 3142251,
         "columns": [
           {
             "name": "merchant_id",
@@ -175,13 +232,13 @@
             "type": "string"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "merchants",
-        "rows": 1108800,
-        "schema_sha256": "e82912f0bfa36202647f771f36cf1bcc7489e33121763a8649ca57a5a2c428c5"
+        "rows": 55800,
+        "schema_sha256": "afcae128a1cd5cb482a92ab07e8aae5c74d773cf5e75fd5c183bf8f1c893b66b"
       },
       "transactions_v1": {
-        "bytes": 22735275158,
+        "bytes": 1134951500,
         "columns": [
           {
             "name": "transaction_id",
@@ -254,13 +311,13 @@
             "type": "timestamp[us]"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "transactions",
-        "rows": 182250817,
-        "schema_sha256": "75899a6d550880446fdb9a5524f7df7be3c61f4793f51165e729db46f91f6b76"
+        "rows": 9172910,
+        "schema_sha256": "36a682ce327df39f19adfebdf6dbeaada5ae1dfcc5adbc2be99c98dc859287c1"
       },
       "transactions_v2": {
-        "bytes": 24333983035,
+        "bytes": 1201875857,
         "columns": [
           {
             "name": "transaction_id",
@@ -338,13 +395,13 @@
             "type": "timestamp[us]"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "transactions",
-        "rows": 194741183,
-        "schema_sha256": "5a3e4259fb8d67dbdc156ba9e067dee3031412485d91580d8d9b7d5ea32969ca"
+        "rows": 9799090,
+        "schema_sha256": "997084fe44d0777d1a43d45557f0bb9026acc6efdbfceb6d66eae17814d6aa52"
       },
       "users": {
-        "bytes": 3103321774,
+        "bytes": 154713164,
         "columns": [
           {
             "name": "user_id",
@@ -377,17 +434,17 @@
             "type": "timestamp[us]"
           }
         ],
-        "files": 3696,
+        "files": 186,
         "logical_table": "users",
-        "rows": 46200000,
-        "schema_sha256": "7034ea48eea70801193040ba98208fe95a6492ab51611ff5bdb3dbccc2aee048"
+        "rows": 2325000,
+        "schema_sha256": "57cc0872ece13fe277a91f00befedeef328ace1d504d1891b483a9496b338414"
       }
     }
   },
   "zones": {
     "bronze": {
-      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261025134342-optimized-bronze-r261025174525/bronze",
-      "run_id": "ab-20261025134342-optimized-bronze-r261025174525",
+      "root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze",
+      "run_id": "ab-20261110225456-optimized-bronze-r261110225456",
       "tables": {
         "accounts": {
           "columns": [
@@ -417,6 +474,8 @@
               "type": "timestamp_ntz"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "balance_snapshots": {
@@ -437,6 +496,8 @@
               "type": "double"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "devices": {
@@ -467,6 +528,8 @@
               "type": "timestamp_ntz"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "fraud_labels": {
@@ -487,6 +550,8 @@
               "type": "string"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "login_events": {
@@ -517,6 +582,45 @@
               "type": "boolean"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
+          "partition_columns": []
+        },
+        "merchant_history": {
+          "columns": [
+            {
+              "name": "snapshot_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "snapshot_ts",
+              "nullable": true,
+              "type": "timestamp_ntz"
+            },
+            {
+              "name": "history_source",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "merchants": {
@@ -537,6 +641,8 @@
               "type": "string"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "transactions": {
@@ -617,6 +723,8 @@
               "type": "string"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "users": {
@@ -652,13 +760,15 @@
               "type": "timestamp_ntz"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         }
       }
     },
     "features": {
-      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261025134342-optimized-feat-r261026025955/gold",
-      "run_id": "ab-20261025134342-optimized-feat-r261026025955",
+      "root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold",
+      "run_id": "ab-20261110225456-optimized-feat-r261110225459",
       "tables": {
         "feat_account_behavior": {
           "columns": [
@@ -721,8 +831,15 @@
               "name": "account_seconds_since_last_tx",
               "nullable": true,
               "type": "double"
+            },
+            {
+              "name": "created",
+              "nullable": true,
+              "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "feat_device_behavior": {
@@ -761,8 +878,15 @@
               "name": "device_failed_rate_24h",
               "nullable": true,
               "type": "double"
+            },
+            {
+              "name": "created",
+              "nullable": true,
+              "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "feat_merchant_behavior": {
@@ -811,8 +935,15 @@
               "name": "merchant_avg_amount_24h",
               "nullable": true,
               "type": "double"
+            },
+            {
+              "name": "created",
+              "nullable": true,
+              "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "feat_user_behavior": {
@@ -871,15 +1002,22 @@
               "name": "user_distinct_merchants_24h",
               "nullable": true,
               "type": "long"
+            },
+            {
+              "name": "created",
+              "nullable": true,
+              "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         }
       }
     },
     "gold": {
-      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261025134342-optimized-gold-r261025181923/gold",
-      "run_id": "ab-20261025134342-optimized-gold-r261025181923",
+      "root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold",
+      "run_id": "ab-20261110225456-optimized-gold-r261110225458",
       "tables": {
         "dim_account": {
           "columns": [
@@ -909,6 +1047,8 @@
               "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "dim_date": {
@@ -954,6 +1094,8 @@
               "type": "boolean"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "dim_device": {
@@ -984,6 +1126,8 @@
               "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "dim_merchant": {
@@ -1004,6 +1148,50 @@
               "type": "string"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
+          "partition_columns": []
+        },
+        "dim_merchant_scd2": {
+          "columns": [
+            {
+              "name": "merchant_sk",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "valid_from_ts",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "valid_to_ts",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "is_current",
+              "nullable": true,
+              "type": "boolean"
+            }
+          ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "dim_user": {
@@ -1039,6 +1227,8 @@
               "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "fact_balance_snapshot": {
@@ -1064,6 +1254,8 @@
               "type": "double"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": [
             "snapshot_date"
           ]
@@ -1106,6 +1298,8 @@
               "type": "date"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": [
             "event_date"
           ]
@@ -1198,6 +1392,8 @@
               "type": "date"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": [
             "event_date"
           ]
@@ -1238,8 +1434,15 @@
               "name": "created_timestamp",
               "nullable": true,
               "type": "timestamp"
+            },
+            {
+              "name": "created",
+              "nullable": true,
+              "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "obt_transaction_enriched": {
@@ -1405,6 +1608,8 @@
               "type": "date"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": [
             "event_date"
           ]
@@ -1457,13 +1662,15 @@
               "type": "long"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         }
       }
     },
     "silver": {
-      "root": "gs://ewallet-data-ai-platform-hg26-data/lakehouse/runs/ab-20261025134342-optimized-silver-r261025181923/silver",
-      "run_id": "ab-20261025134342-optimized-silver-r261025181923",
+      "root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver",
+      "run_id": "ab-20261110225456-optimized-silver-r261110225457",
       "tables": {
         "accounts": {
           "columns": [
@@ -1493,6 +1700,8 @@
               "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "balance_snapshots": {
@@ -1513,6 +1722,8 @@
               "type": "double"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": [
             "snapshot_date"
           ]
@@ -1545,6 +1756,8 @@
               "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "fraud_labels": {
@@ -1565,6 +1778,8 @@
               "type": "string"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "login_events": {
@@ -1600,9 +1815,48 @@
               "type": "date"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": [
             "login_date"
           ]
+        },
+        "merchant_history": {
+          "columns": [
+            {
+              "name": "snapshot_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_id",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "merchant_name",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "nullable": true,
+              "type": "string"
+            },
+            {
+              "name": "snapshot_ts",
+              "nullable": true,
+              "type": "timestamp"
+            },
+            {
+              "name": "history_source",
+              "nullable": true,
+              "type": "string"
+            }
+          ],
+          "commit_count": 1,
+          "delta_version": 0,
+          "partition_columns": []
         },
         "merchants": {
           "columns": [
@@ -1622,6 +1876,8 @@
               "type": "string"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         },
         "transactions": {
@@ -1707,6 +1963,8 @@
               "type": "date"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": [
             "event_date"
           ]
@@ -1744,6 +2002,8 @@
               "type": "timestamp"
             }
           ],
+          "commit_count": 1,
+          "delta_version": 0,
           "partition_columns": []
         }
       }

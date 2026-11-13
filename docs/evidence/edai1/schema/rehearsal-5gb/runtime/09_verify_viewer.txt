@@ -1,0 +1,95 @@
+-- V1 inventory per zone (expected source_zone 10, bronze_zone 9, silver_zone 9, gold_zone 16)
+
+trino> SELECT table_schema, count(*) AS tables FROM (SELECT table_schema, table_name FROM delta.information_schema.tables UNION ALL SELECT table_schema, table_name FROM hive.information_schema.tables) WHERE table_schema <> 'information_schema' GROUP BY table_schema ORDER BY table_schema;
+ table_schema | tables 
+--------------+--------
+ bronze_zone  |      9 
+ gold_zone    |     16 
+ silver_zone  |      9 
+ source_zone  |     10 
+(4 rows)
+-- V2 total (expected 44)
+
+trino> SELECT count(*) AS total_tables FROM (SELECT table_name FROM delta.information_schema.tables WHERE table_schema <> 'information_schema' UNION ALL SELECT table_name FROM hive.information_schema.tables WHERE table_schema <> 'information_schema');
+ total_tables 
+--------------
+           44 
+(1 row)
+-- V3 the four previously missing tables are registered
+
+trino> SHOW TABLES FROM hive.source_zone LIKE 'merchant_history';
+      Table       
+------------------
+ merchant_history 
+(1 row)
+
+trino> SHOW TABLES FROM delta.bronze_zone LIKE 'merchant_history';
+      Table       
+------------------
+ merchant_history 
+(1 row)
+
+trino> SHOW TABLES FROM delta.silver_zone LIKE 'merchant_history';
+      Table       
+------------------
+ merchant_history 
+(1 row)
+
+trino> SHOW TABLES FROM delta.gold_zone LIKE 'dim_merchant_scd2';
+       Table       
+-------------------
+ dim_merchant_scd2 
+(1 row)
+-- V4 locations: see 10_provenance_registrar.txt (SHOW CREATE TABLE needs registrar) and 11_metastore_locations_5gb.tsv
+-- V5 readability of the SCD2 input and dimension
+
+trino> SELECT count(*) AS rows, count(DISTINCT merchant_id) AS merchants FROM delta.silver_zone.merchant_history;
+  rows  | merchants 
+--------+-----------
+ 334800 |     55800 
+(1 row)
+
+trino> SELECT count(*) AS versions, count(DISTINCT merchant_id) AS merchants, count_if(is_current) AS current_rows FROM delta.gold_zone.dim_merchant_scd2;
+ versions | merchants | current_rows 
+----------+-----------+--------------
+    78294 |     55800 |        55800 
+(1 row)
+
+trino> SELECT merchant_sk, merchant_id, valid_from_ts, valid_to_ts, is_current FROM delta.gold_zone.dim_merchant_scd2 ORDER BY merchant_id, valid_from_ts LIMIT 3;
+                           merchant_sk                            |             merchant_id              |        valid_from_ts        |         valid_to_ts         | is_current 
+------------------------------------------------------------------+--------------------------------------+-----------------------------+-----------------------------+------------
+ 431aa1b5ab58615307addd86afbe42d1f50c49810aeafbd8a8661316624937b2 | 00005453-8704-413f-90e2-acc969f87546 | 2026-01-01 00:00:00.000 UTC | 2026-04-01 00:00:00.000 UTC | false      
+ d99849a0d691c27db65d86a94be6e0226462e9fe2c8974f2d7dee92bebee1cee | 00005453-8704-413f-90e2-acc969f87546 | 2026-04-01 00:00:00.000 UTC | NULL                        | true       
+ 4fac914b9fdaa8e754c13f3464cdb3f1d475a6bc89b64a49c02ca12bbf0d0591 | 00019618-3d10-4ae9-bd37-1dc3aa57ee0c | 2026-01-01 00:00:00.000 UTC | NULL                        | true       
+(3 rows)
+-- V6 representative existing tables are readable, one per zone
+
+trino> SELECT count(*) AS rows FROM hive.source_zone.accounts;
+  rows   
+---------
+ 3137729 
+(1 row)
+
+trino> SELECT count(*) AS rows FROM delta.bronze_zone.transactions;
+   rows   
+----------
+ 18972000 
+(1 row)
+
+trino> SELECT count(*) AS rows FROM delta.silver_zone.transactions;
+   rows   
+----------
+ 18600000 
+(1 row)
+
+trino> SELECT count(*) AS rows FROM delta.gold_zone.fact_transactions;
+   rows   
+----------
+ 18600000 
+(1 row)
+
+trino> SELECT count(*) AS rows FROM delta.gold_zone.feat_user_behavior;
+   rows   
+----------
+ 18599553 
+(1 row)

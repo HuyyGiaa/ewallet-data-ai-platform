@@ -2,7 +2,7 @@
 # Run a generated SQL file statement by statement in the task-owned Trino and print
 # each statement before its result, so the output is reviewable evidence.
 #
-#   infra/docker/schema-viz/run_sql.sh viewer docs/edai1/schema/generated/trino_metadata_queries.sql
+#   infra/docker/schema-viz/run_sql.sh viewer data_platform/schema/generated/trino_metadata_queries.sql
 #
 # USER is `viewer` (read-only) for queries and `registrar` only for
 # trino_register_tables.sql. Statements are split on a semicolon at end of line,

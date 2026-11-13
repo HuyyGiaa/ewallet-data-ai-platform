@@ -1,19 +1,28 @@
-# Logical relationships between Silver and Gold tables.
+# Logical keys and relationships of the Silver, core Gold and historical-feature tables.
 #
-# These describe how the builders and validators join data. Delta files declare
-# none of them: there is no physical primary key or foreign key in this lakehouse.
-# A relationship is "validated" when a validator rule checks it on real rows, and
-# "builder_only" when it follows from the transformation alone.
+# Delta Lake declares no primary or foreign key, so none of this is a physical
+# constraint. It records how the builders join the data and which executed
+# validator rule checks each relationship on real rows. data_platform/schema/render_schema_diagrams.py
+# turns it into the dbdiagram.io DBML and refuses to render when an entry does not
+# match the observed schema or the campaign's validation reports.
 #
-# Each entry: table, column, references (table.column), nullable, enforcement and,
-# for a one-to-one edge, an optional `coverage`.
-#
-# * nullable: whether the referencing column may be NULL in the logical contract.
-#   Delta declares every column nullable; this field is the business rule.
-# * coverage: complete -- every parent row has exactly one child row, because the
-#   builder produces the child from the parent (a left join or a 1:1 projection).
-#   Only valid when the referencing column is the child's whole key.
-version: 1
+# keys:            the logical key (grain) of a table. A one-column key renders as `pk`;
+#                  a composite key renders as a composite `[pk]` index.
+# unique:          additional unique column sets, each checked by a validator rule.
+# relationships:   table.column -> referenced table.column, where the referenced
+#                  column is the parent's whole key.
+#   nullable:      the business rule for the referencing column (Delta declares every
+#                  column nullable). true = optional parent.
+#   enforcement:   validated    -> `rule` names the orphan check that must PASS in every
+#                                  supplied campaign validation report;
+#                  builder_only -> guaranteed by the builder; `rule` is not required.
+#   coverage:      complete -> every parent row has exactly one child row. Only valid when
+#                  the referencing column is the child's whole key. `coverage_rule`
+#                  names the executed population check behind it, when there is one.
+# temporal:        as-of joins that use a validity interval instead of a key. They are
+#                  documented on the tables, never drawn as a key-based Ref.
+# groups:          dbdiagram.io TableGroups, presentation only.
+version: 2
 keys:
   silver:
     users: [user_id]
@@ -23,15 +32,15 @@ keys:
     transactions: [transaction_id]
     login_events: [login_id]
     balance_snapshots: [account_id, snapshot_date]
-    # One label row per transaction: validate_silver checks transaction_id is unique
-    # and that labels and transactions cover each other exactly.
     fraud_labels: [transaction_id]
+    merchant_history: [snapshot_id]
   gold:
     dim_user: [user_id]
     dim_account: [account_id]
     dim_merchant: [merchant_id]
     dim_device: [device_id]
     dim_date: [date_key]
+    dim_merchant_scd2: [merchant_sk]
     fact_transactions: [transaction_id]
     fact_login_events: [login_id]
     fact_balance_snapshot: [account_id, snapshot_date]
@@ -43,50 +52,95 @@ keys:
     feat_account_behavior: [account_id, event_timestamp]
     feat_device_behavior: [device_id, event_timestamp]
     feat_merchant_behavior: [merchant_id, event_timestamp]
+key_rules:
+  silver:
+    merchant_history: "merchant_history.unique_key(snapshot_id)"
+  gold:
+    dim_merchant_scd2: "dim_merchant_scd2.unique_key(merchant_sk)"
+unique:
+  silver:
+    merchant_history:
+      - {columns: [merchant_id, snapshot_ts], rule: "merchant_history.unique_key(merchant_id,snapshot_ts)"}
+  gold:
+    dim_merchant_scd2:
+      - {columns: [merchant_id, valid_from_ts], rule: "dim_merchant_scd2.unique_key(merchant_id,valid_from_ts)"}
 relationships:
   silver:
-    - {table: accounts, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
-    - {table: devices, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
-    - {table: transactions, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
-    - {table: transactions, column: account_id, references: accounts.account_id, nullable: false, enforcement: validated}
-    - {table: transactions, column: device_id, references: devices.device_id, nullable: false, enforcement: validated}
-    - {table: transactions, column: merchant_id, references: merchants.merchant_id, nullable: true, enforcement: validated}
-    - {table: transactions, column: counterparty_account_id, references: accounts.account_id, nullable: true, enforcement: validated}
-    - {table: login_events, column: user_id, references: users.user_id, nullable: false, enforcement: validated}
-    - {table: login_events, column: device_id, references: devices.device_id, nullable: false, enforcement: validated}
-    - {table: balance_snapshots, column: account_id, references: accounts.account_id, nullable: false, enforcement: validated}
-    - {table: fraud_labels, column: transaction_id, references: transactions.transaction_id, nullable: false, enforcement: builder_only, coverage: complete}
+    - {table: accounts, column: user_id, references: users.user_id, nullable: false, enforcement: validated, rule: accounts.user_id_exists_in_users}
+    - {table: devices, column: user_id, references: users.user_id, nullable: false, enforcement: validated, rule: devices.user_id_exists_in_users}
+    - {table: transactions, column: user_id, references: users.user_id, nullable: false, enforcement: validated, rule: transactions.user_id_exists_in_users}
+    - {table: transactions, column: account_id, references: accounts.account_id, nullable: false, enforcement: validated, rule: transactions.account_id_exists_in_accounts}
+    - {table: transactions, column: device_id, references: devices.device_id, nullable: false, enforcement: validated, rule: transactions.device_id_exists_in_devices}
+    - {table: transactions, column: merchant_id, references: merchants.merchant_id, nullable: true, enforcement: validated, rule: transactions.merchant_id_exists_in_merchants}
+    - {table: transactions, column: counterparty_account_id, references: accounts.account_id, nullable: true, enforcement: validated, rule: transactions.counterparty_account_id_exists_in_accounts}
+    - {table: login_events, column: user_id, references: users.user_id, nullable: false, enforcement: validated, rule: login_events.user_id_exists_in_users}
+    - {table: login_events, column: device_id, references: devices.device_id, nullable: false, enforcement: validated, rule: login_events.device_id_exists_in_devices}
+    - {table: balance_snapshots, column: account_id, references: accounts.account_id, nullable: false, enforcement: validated, rule: balance_snapshots.account_id_exists_in_accounts}
+    - {table: fraud_labels, column: transaction_id, references: transactions.transaction_id, nullable: false, enforcement: validated, rule: fraud_labels.transaction_fk, coverage: complete, coverage_rule: fraud_labels.complete_transaction_coverage}
+    # The full outer join of latest_snapshot_equals_merchants fails on a history
+    # merchant absent from merchants as well as on a merchant without history.
+    - {table: merchant_history, column: merchant_id, references: merchants.merchant_id, nullable: false, enforcement: validated, rule: merchant_history.latest_snapshot_equals_merchants}
   gold:
-    - {table: dim_account, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
-    - {table: dim_device, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
-    - {table: fact_transactions, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
-    - {table: fact_transactions, column: account_id, references: dim_account.account_id, nullable: false, enforcement: validated}
-    - {table: fact_transactions, column: device_id, references: dim_device.device_id, nullable: false, enforcement: validated}
-    - {table: fact_transactions, column: merchant_id, references: dim_merchant.merchant_id, nullable: true, enforcement: validated}
-    - {table: fact_transactions, column: counterparty_account_id, references: dim_account.account_id, nullable: true, enforcement: validated}
-    - {table: fact_transactions, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
-    - {table: fact_login_events, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated}
-    - {table: fact_login_events, column: device_id, references: dim_device.device_id, nullable: false, enforcement: validated}
-    - {table: fact_login_events, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
-    - {table: fact_balance_snapshot, column: account_id, references: dim_account.account_id, nullable: false, enforcement: validated}
-    - {table: fact_balance_snapshot, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated}
-    - {table: obt_transaction_enriched, column: transaction_id, references: fact_transactions.transaction_id, nullable: false, enforcement: builder_only, coverage: complete}
-    - {table: feat_user_90d, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated, coverage: complete}
-    - {table: opt_merchant_performance, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated, coverage: complete}
+    - {table: dim_account, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated, rule: dim_account.user_id_exists_in_dim_user}
+    - {table: dim_device, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated, rule: dim_device.user_id_exists_in_dim_user}
+    - {table: dim_merchant_scd2, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated, rule: dim_merchant_scd2.merchant_id_exists_in_dim_merchant}
+    - {table: fact_transactions, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated, rule: fact_transactions.user_id_exists_in_dim_user}
+    - {table: fact_transactions, column: account_id, references: dim_account.account_id, nullable: false, enforcement: validated, rule: fact_transactions.account_id_exists_in_dim_account}
+    - {table: fact_transactions, column: device_id, references: dim_device.device_id, nullable: false, enforcement: validated, rule: fact_transactions.device_id_exists_in_dim_device}
+    - {table: fact_transactions, column: merchant_id, references: dim_merchant.merchant_id, nullable: true, enforcement: validated, rule: fact_transactions.merchant_id_exists_in_dim_merchant}
+    - {table: fact_transactions, column: counterparty_account_id, references: dim_account.account_id, nullable: true, enforcement: validated, rule: fact_transactions.counterparty_account_id_exists_in_dim_account}
+    - {table: fact_transactions, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated, rule: fact_transactions.date_key_exists_in_dim_date}
+    - {table: fact_login_events, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated, rule: fact_login_events.user_id_exists_in_dim_user}
+    - {table: fact_login_events, column: device_id, references: dim_device.device_id, nullable: false, enforcement: validated, rule: fact_login_events.device_id_exists_in_dim_device}
+    - {table: fact_login_events, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated, rule: fact_login_events.date_key_exists_in_dim_date}
+    - {table: fact_balance_snapshot, column: account_id, references: dim_account.account_id, nullable: false, enforcement: validated, rule: fact_balance_snapshot.account_id_exists_in_dim_account}
+    - {table: fact_balance_snapshot, column: date_key, references: dim_date.date_key, nullable: false, enforcement: validated, rule: fact_balance_snapshot.date_key_exists_in_dim_date}
+    # One OBT row per fact row: built from fact_transactions by left joins. The count
+    # equality rule supports the coverage; no orphan rule exists for this edge.
+    - {table: obt_transaction_enriched, column: transaction_id, references: fact_transactions.transaction_id, nullable: false, enforcement: builder_only, coverage: complete, coverage_rule: fact_transactions_count_equals_obt_transaction_enriched_count}
+    - {table: feat_user_90d, column: user_id, references: dim_user.user_id, nullable: false, enforcement: validated, rule: feat_user_90d.user_id_exists_in_dim_user, coverage: complete, coverage_rule: dim_user_count_equals_feat_user_90d_count}
+    - {table: opt_merchant_performance, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated, rule: opt_merchant_performance.merchant_id_exists_in_dim_merchant, coverage: complete, coverage_rule: dim_merchant_count_equals_opt_merchant_performance_count}
   features:
-    - {table: feat_user_behavior, column: user_id, references: gold.dim_user.user_id, nullable: false, enforcement: validated}
-    - {table: feat_account_behavior, column: account_id, references: gold.dim_account.account_id, nullable: false, enforcement: validated}
-    - {table: feat_device_behavior, column: device_id, references: gold.dim_device.device_id, nullable: false, enforcement: validated}
-    - {table: feat_merchant_behavior, column: merchant_id, references: gold.dim_merchant.merchant_id, nullable: false, enforcement: validated}
-# Tables that exist in code but have not been observed in a materialized run yet.
-# The diagram renderers merge an entry only once observed_schemas.json (refreshed
-# from a real Trino run) contains its tables, so nothing here is drawn as if it had
-# been observed. dim_merchant_scd2 is built only for datasets with the
-# merchant_history source extension.
-pending_observation:
-  keys:
-    gold:
-      dim_merchant_scd2: [merchant_id, valid_from_ts]
-  relationships:
-    gold:
-      - {table: dim_merchant_scd2, column: merchant_id, references: dim_merchant.merchant_id, nullable: false, enforcement: validated}
+    - {table: feat_user_behavior, column: user_id, references: gold.dim_user.user_id, nullable: false, enforcement: validated, rule: feat_user_behavior.user_id_exists_in_dim_user}
+    - {table: feat_account_behavior, column: account_id, references: gold.dim_account.account_id, nullable: false, enforcement: validated, rule: feat_account_behavior.account_id_exists_in_dim_account}
+    - {table: feat_device_behavior, column: device_id, references: gold.dim_device.device_id, nullable: false, enforcement: validated, rule: feat_device_behavior.device_id_exists_in_dim_device}
+    - {table: feat_merchant_behavior, column: merchant_id, references: gold.dim_merchant.merchant_id, nullable: false, enforcement: validated, rule: feat_merchant_behavior.merchant_id_exists_in_dim_merchant}
+temporal:
+  gold:
+    - table: fact_transactions
+      columns: [merchant_id, timestamp]
+      references: dim_merchant_scd2
+      interval: "merchant_id = merchant_id AND valid_from_ts <= timestamp AND (valid_to_ts IS NULL OR timestamp < valid_to_ts)"
+      rule: dim_merchant_scd2.transactions_resolve_to_one_version
+groups:
+  silver:
+    silver_master_data: [users, accounts, merchants, devices]
+    silver_events: [transactions, login_events, balance_snapshots]
+    silver_labels_and_history: [fraud_labels, merchant_history]
+  gold:
+    gold_dimensions: [dim_user, dim_account, dim_merchant, dim_merchant_scd2, dim_device, dim_date]
+    gold_facts: [fact_transactions, fact_login_events, fact_balance_snapshot]
+    gold_obt_and_aggregates: [obt_transaction_enriched, opt_merchant_performance]
+    gold_features: [feat_user_90d]
+  features:
+    historical_features: [feat_user_behavior, feat_account_behavior, feat_device_behavior, feat_merchant_behavior]
+# Column semantics shown as DBML column notes.
+column_notes:
+  gold:
+    dim_merchant_scd2:
+      merchant_sk: "Surrogate version key: SHA-256 of merchant_id and valid_from_ts epoch microseconds."
+      merchant_id: "Business key; several versions per merchant."
+      valid_from_ts: "Version start (inclusive), UTC."
+      valid_to_ts: "Version end (exclusive); NULL for the current version."
+      is_current: "TRUE exactly when valid_to_ts IS NULL; one current version per merchant."
+    feat_user_90d:
+      event_timestamp: "Feature event time: the reference time the 90-day window ends at."
+      created: "Materialization time of this DP2 run; one value per table."
+      created_timestamp: "Legacy name of the materialization time; validated equal to created."
+  features:
+    feat_user_behavior: &feature_notes
+      event_timestamp: "Event time of the transaction the point-in-time feature row describes."
+      created: "Materialization time of this DP3 run; shared by the four tables."
+    feat_account_behavior: *feature_notes
+    feat_device_behavior: *feature_notes
+    feat_merchant_behavior: *feature_notes

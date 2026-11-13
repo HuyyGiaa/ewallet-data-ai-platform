@@ -1,0 +1,359 @@
+{
+  "scope": "EDAI-1 Schema Design (rubric rows 34-38), checkpoints SC01-SC08",
+  "campaign": {
+    "benchmark_id": "ab-20261110225456",
+    "spark_profile": "optimized",
+    "dataset_version": "rehearsal-5gb-v1",
+    "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+    "data_bucket": "ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+    "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80"
+  },
+  "runtime": "schema-viz Trino (infra/docker/schema-viz) on the isolated metastore volume edai1-schema-viz_metastore_5gb; DBeaver 26.1.3; dbdiagram.io. Captured by the owner on 2026-11-13.",
+  "integrity": "Byte copies; each sha256 equals its source file. Verify with: sha256sum -c SHA256SUMS",
+  "screenshots": [
+    {
+      "path": "screenshots/SC01_physical_schema_inventory_5gb.png",
+      "checkpoint": "SC01",
+      "rubric_rows": [
+        34
+      ],
+      "context": "DBeaver 26.1.3 on the isolated 5GB Trino metastore",
+      "shows": "Per-zone table count over hive/delta information_schema: Source 10, Bronze 9, Silver 9, Gold + Features 16, TOTAL 44 (fetched 2026-11-13 17:34:54 +07:00). The navigator tree still shows a cached storage_bench node from the historical metastore; the 5GB metastore has no such schema (runtime/09_verify_viewer.txt).",
+      "sha256": "ee35681143ee2142558f146baf7f98abc1d57daecbe3f23a1fcdb87bc4d779a7",
+      "source_sha256": "ee35681143ee2142558f146baf7f98abc1d57daecbe3f23a1fcdb87bc4d779a7",
+      "bytes": 610384,
+      "width": 2774,
+      "height": 1739,
+      "source": "~/Pictures/Screenshots/SC01_physical_schema_inventory_5gb.png",
+      "source_mtime_utc": "2026-11-13T10:35:11Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC02_silver_erd_5gb.png",
+      "checkpoint": "SC02",
+      "rubric_rows": [
+        34,
+        37
+      ],
+      "context": "dbdiagram.io import of data_platform/schema/generated/silver.dbml",
+      "shows": "Silver logical ERD: 9 tables with their columns, logical keys, NOT NULL markers and the 12 references.",
+      "sha256": "42c82117836fb1f8d7a41b4d8df65f32c227db3378f3c44ebe73de5f4d1d8c82",
+      "source_sha256": "42c82117836fb1f8d7a41b4d8df65f32c227db3378f3c44ebe73de5f4d1d8c82",
+      "bytes": 150948,
+      "width": 1531,
+      "height": 1108,
+      "source": "~/Pictures/Screenshots/SC02_silver_erd_5gb.png",
+      "source_mtime_utc": "2026-11-13T08:34:48Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC03_gold_erd_5gb.png",
+      "checkpoint": "SC03",
+      "rubric_rows": [
+        34,
+        37
+      ],
+      "context": "dbdiagram.io import of data_platform/schema/generated/gold.dbml",
+      "shows": "Gold logical ERD: 12 core Gold tables and 4 historical feature tables with their references (21).",
+      "sha256": "fdf7949c35f8bc71c13de1c6bc7b46d1129b9bafd09164b9fd712db4ae23a854",
+      "source_sha256": "fdf7949c35f8bc71c13de1c6bc7b46d1129b9bafd09164b9fd712db4ae23a854",
+      "bytes": 450464,
+      "width": 2343,
+      "height": 2210,
+      "source": "~/Pictures/Screenshots/SC03_gold_erd_5gb.png",
+      "source_mtime_utc": "2026-11-13T08:35:46Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC04_gold_fact_dimension_relationships.png",
+      "checkpoint": "SC04",
+      "rubric_rows": [
+        37
+      ],
+      "context": "dbdiagram.io, gold.dbml with fact_transactions selected",
+      "shows": "fact_transactions and its highlighted many-to-one references to dim_user, dim_account (account_id and counterparty_account_id), dim_merchant, dim_device and dim_date, and the one-to-one reference from obt_transaction_enriched.",
+      "sha256": "6491a38cb0e5dbb05cc9016d1e518eaa7e2da04688e34c1144564dbe033e30a9",
+      "source_sha256": "6491a38cb0e5dbb05cc9016d1e518eaa7e2da04688e34c1144564dbe033e30a9",
+      "bytes": 336180,
+      "width": 1513,
+      "height": 1318,
+      "source": "~/Pictures/Screenshots/SC04_gold_fact_dimension_relationships.png",
+      "source_mtime_utc": "2026-11-13T08:39:24Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC05_scd2_physical_schema.png",
+      "checkpoint": "SC05",
+      "rubric_rows": [
+        35
+      ],
+      "context": "DBeaver, DESCRIBE delta.gold_zone.dim_merchant_scd2",
+      "shows": "Physical columns and Trino types of the SCD2 dimension: merchant_sk, merchant_id, merchant_name, category (varchar), valid_from_ts, valid_to_ts (timestamp(3) with time zone), is_current (boolean).",
+      "sha256": "548350fbb6c4e5e87f6a31e4ac363f1524c4fc9fc86246e72150b3aafd24c7ca",
+      "source_sha256": "548350fbb6c4e5e87f6a31e4ac363f1524c4fc9fc86246e72150b3aafd24c7ca",
+      "bytes": 493615,
+      "width": 2774,
+      "height": 1739,
+      "source": "~/Pictures/Screenshots/SC05_scd2_physical_schema.png",
+      "source_mtime_utc": "2026-11-13T10:36:35Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC06_scd2_runtime_validation.png",
+      "checkpoint": "SC06",
+      "rubric_rows": [
+        35
+      ],
+      "context": "DBeaver, aggregate query over delta.gold_zone.dim_merchant_scd2",
+      "shows": "78,294 versions, 55,800 merchants, 55,800 current versions, 22,494 historical versions, 55,800 current versions with valid_to_ts IS NULL (fetched 17:38:20 +07:00).",
+      "sha256": "2dba41d6b468c486831dd0d573894728bae5deae1f3f11c7f5ec982d36115b8d",
+      "source_sha256": "2dba41d6b468c486831dd0d573894728bae5deae1f3f11c7f5ec982d36115b8d",
+      "bytes": 532511,
+      "width": 2774,
+      "height": 1739,
+      "source": "~/Pictures/Screenshots/SC06_scd2_runtime_validation.png",
+      "source_mtime_utc": "2026-11-13T10:38:27Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC07_historical_feature_timestamp_schema.png",
+      "checkpoint": "SC07",
+      "rubric_rows": [
+        36
+      ],
+      "context": "DBeaver, delta.information_schema.columns",
+      "shows": "event_timestamp and created on the four DP3 feature tables, all 8 columns timestamp(3) with time zone.",
+      "sha256": "425bdd6d7a75a81257568005c0699e2c6dcb887e6ca743c98454b760b5d31e6b",
+      "source_sha256": "425bdd6d7a75a81257568005c0699e2c6dcb887e6ca743c98454b760b5d31e6b",
+      "bytes": 601038,
+      "width": 2774,
+      "height": 1739,
+      "source": "~/Pictures/Screenshots/SC07_historical_feature_timestamp_schema.png",
+      "source_mtime_utc": "2026-11-13T10:39:59Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC08_schema_naming_conventions.png",
+      "checkpoint": "SC08",
+      "rubric_rows": [
+        38
+      ],
+      "context": "DBeaver, prefix classification over the 44 registered tables",
+      "shows": "Result: TOTAL 44; Source 10, Bronze 9, Silver 9; gold_zone Dimension 6, Fact 3, Feature 5, OBT 1, Analytical Output 1; no Unclassified row (fetched 17:42:17 +07:00). Shows the inventory part of the query.",
+      "sha256": "1016fac0dbd7f9bbb16f5dd6156f9f91555bc7939eaaf3ffc61633dfc95d5290",
+      "source_sha256": "1016fac0dbd7f9bbb16f5dd6156f9f91555bc7939eaaf3ffc61633dfc95d5290",
+      "bytes": 638526,
+      "width": 2774,
+      "height": 1739,
+      "source": "~/Pictures/Screenshots/SC08_schema_naming_conventions.png",
+      "source_mtime_utc": "2026-11-13T10:42:29Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "screenshots/SC08_schema_naming_conventions_detail.png",
+      "checkpoint": "SC08",
+      "rubric_rows": [
+        38
+      ],
+      "context": "Same query, scrolled",
+      "shows": "The classification CASE (zone for Source/Bronze/Silver; dim_, fact_, feat_, obt_, opt_ prefixes for Gold; ELSE Unclassified) with the same 9-row result.",
+      "sha256": "2c59c9b7af7dbf85f93eeb47c2561a4f9dca6e61b267e07f6b69088c0c18751a",
+      "source_sha256": "2c59c9b7af7dbf85f93eeb47c2561a4f9dca6e61b267e07f6b69088c0c18751a",
+      "bytes": 651851,
+      "width": 2774,
+      "height": 1739,
+      "source": "~/Pictures/Screenshots/SC08_schema_naming_conventions_detail.png",
+      "source_mtime_utc": "2026-11-13T10:42:40Z",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    }
+  ],
+  "runtime_artifacts": [
+    {
+      "path": "runtime/08_register.txt",
+      "shows": "registrar run of trino_register_tables.sql into the empty 5GB metastore: 4 CREATE SCHEMA, 34 CALL register_table, 10 CREATE TABLE, exit 0",
+      "sha256": "d8c5b72c719703999d918ec39ffffd7260927970efea0f42c589d42124595a59",
+      "bytes": 13681,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/08_register.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/08_register_started_at.txt",
+      "shows": "UTC start time of the registration",
+      "sha256": "510b9788fdc5b4670fa4c165af509bc8d6882eb54a66d2f0f1a2e0cc56699bf8",
+      "bytes": 21,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/08_register_started_at.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/09_verify_viewer.txt",
+      "shows": "viewer verification: per-zone counts 10/9/9/16, total 44, the four previously missing tables, SCD2 and Silver merchant_history reads, one representative read per zone",
+      "sha256": "5c67f568d3fe536656b2017df997c02f6b486c8490df8869ddf67ceffc373782",
+      "bytes": 3774,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/09_verify_viewer.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/09a_verify_viewer_first_attempt.txt",
+      "shows": "first viewer verification run; stopped at SHOW CREATE TABLE (Access Denied for viewer, by design); kept unchanged",
+      "sha256": "4867b3d23929fb48677548af75be6545c8acfd504359176a03bcc14cdfd66150",
+      "bytes": 1908,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/09a_verify_viewer_first_attempt.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/10_provenance_registrar.txt",
+      "shows": "registrar SHOW CREATE TABLE of one table per zone, showing the 5GB GCS locations",
+      "sha256": "94ceabf379bacab195cf710294ff276df494b2f4cf3e970d2f608f9b27d88b09",
+      "bytes": 14015,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/10_provenance_registrar.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/11_metastore_locations_5gb.tsv",
+      "shows": "location of all 44 registrations read from the 5GB file metastore; equal to the generated registration SQL",
+      "sha256": "4d023fa2edf0796f638964dd2fb0942d583cd81ae996f55692ac34e893d8023c",
+      "bytes": 6954,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/11_metastore_locations_5gb.tsv",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/12_viewer_readonly_probe.txt",
+      "shows": "viewer denied CREATE SCHEMA (delta, hive) and CALL register_table; table count unchanged",
+      "sha256": "95300661aeab12fe9df5d59a10b99db9dd36989cc1cecb876b542190ba778f90",
+      "bytes": 838,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/12_viewer_readonly_probe.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/SWITCH_METASTORE.md",
+      "shows": "procedure used to switch between the 5GB and historical metastores (the override is now infra/docker/schema-viz/compose.metastore-5gb.yml)",
+      "sha256": "d0eb59f594ccc40ac5fccf7a65e5ad75f6f13bc0a693161eea66d44d63253301",
+      "bytes": 2952,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/SWITCH_METASTORE.md",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/old_metastore_files_sha256_after.txt",
+      "shows": "SHA-256 of the same 97 files after the 5GB registration, read through a read-only mount; identical",
+      "sha256": "2a068268ca88d8b084436b486815d32f40a0b27732153d4a4619a899020cb9a6",
+      "bytes": 12718,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/old_metastore_files_sha256_after.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/old_metastore_files_sha256_before.txt",
+      "shows": "SHA-256 of the 97 historical metastore files before the switch",
+      "sha256": "2a068268ca88d8b084436b486815d32f40a0b27732153d4a4619a899020cb9a6",
+      "bytes": 12718,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/old_metastore_files_sha256_before.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/old_metastore_inventory_before.tsv",
+      "shows": "historical metastore before the switch: 40 100GB tables plus 6 storage_bench tables",
+      "sha256": "7e12e78f43190af923ab606ad68b3edd7249047022cc7715a46d6f5c86920973",
+      "bytes": 1538,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/old_metastore_inventory_before.tsv",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/preflight/gcs_missing_locations.txt",
+      "shows": "preflight: read-only listing of the four previously missing 5GB locations (Delta logs and Parquet files present)",
+      "sha256": "321c239ff7e00d558c9c7fea14f8cec852d040fd10500ef04638305f84aeada4",
+      "bytes": 2185,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_preflight/gcs_missing_locations.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/preflight/metastore_delta_locations_before.tsv",
+      "shows": "preflight: the historical metastore's Delta registrations pointed to ab-20261025134342 (100GB)",
+      "sha256": "c9d3ed9c1781c153b1aabea3664692e81c9242997f98df00078d132c5a5fe45d",
+      "bytes": 5054,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_preflight/metastore_delta_locations_before.tsv",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/register_sql_sha256.txt",
+      "shows": "SHA-256 of trino_register_tables.sql as executed (before the generator moved; only its header comment differs from the current file)",
+      "sha256": "e0ad6f265e26d054dbf66d27da544554fb2b1761b2b7eda5b6e93fe98c84c49f",
+      "bytes": 120,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/register_sql_sha256.txt",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    },
+    {
+      "path": "runtime/verify_5gb_metastore.sql",
+      "shows": "the verification SQL executed for 09_verify_viewer.txt",
+      "sha256": "1293fc619a1205737d39dc891a5492e27a726f376c09e8d11a50257871eae60a",
+      "bytes": 1894,
+      "source": "~/ewallet-evidence/edai1-gov-schema-20261113T024024Z/schema_trino_5gb/verify_5gb_metastore.sql",
+      "campaign": "ab-20261110225456-optimized (rehearsal-5gb-v1)"
+    }
+  ],
+  "excluded": [
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-41-44.png",
+      "sha256": "18a1cfab5043fc2ee19ffd1c06386506e2c9eb16e9d704949379d74c2831c04d",
+      "reason": "terminal (VS Code) during the DataHub stop and the generator check; not a checkpoint"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-44-47.png",
+      "sha256": "ae385fc8320276c62e6ffa67aaa2b19d8702058b6d697662564cb4202e49ba58",
+      "reason": "Docker/Storage storage_queries.sql in DBeaver; another workstream"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-46-55.png",
+      "sha256": "4e9a63bfe3a614aa5cc4174c1acf53ec60cb9dd11b670296a7d4a8635c36e409",
+      "reason": "SHOW TABLES on the historical metastore (8 Silver tables) during the missing-table diagnosis"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-47-07.png",
+      "sha256": "f6ff61d22858823df9d90d912883d2b5946be3fac0e12a8a18607943c847b7f0",
+      "reason": "same diagnosis; SHOW CREATE TABLE denied for viewer"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-47-25.png",
+      "sha256": "885e009f369d4ff2ebcdfb4ace95600fca578b8d71842c30fa9019106766961b",
+      "reason": "same diagnosis on the historical metastore"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-49-07.png",
+      "sha256": "e6eebbeb353c4335f147f760945719ac750232937e9ff40b4d73fb73cfa70ad2",
+      "reason": "same diagnosis, Gold tables of the historical metastore"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-49-17.png",
+      "sha256": "eaf07625ad93a7f5120b232831763782f2e88a32e7f02b68007e0d75e62a8f30",
+      "reason": "same diagnosis, Source tables of the historical metastore"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-49-27.png",
+      "sha256": "c4fd089e30d606acd44698d5572abde8b6bf390e47f1342bda499773fb63f24c",
+      "reason": "terminal inspection of the registration SQL"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-49-46.png",
+      "sha256": "d2f8820b0b7053e00a2c9bc2001d14453ec389a4dfccb732b33df7848693e8c4",
+      "reason": "VS Code window with an assistant chat; not evidence"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-53-41.png",
+      "sha256": "cfc929e6edb8de123ed001cbe7fa7a890239c3dd74313b8e075f7aae3f579711",
+      "reason": "VS Code window with an assistant chat and an unrelated Feast terminal"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 15-54-59.png",
+      "sha256": "348920dd5e837cae1119b70fb4f14000cd51071dc74fa0cd1b782b99ed236aa2",
+      "reason": "VS Code window with an assistant chat and an unrelated Feast terminal"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 17-31-10.png",
+      "sha256": "188cedd3f367fc0b8525bee5ec868d74a3640a7800d2127d3cb016d9b0728ce8",
+      "reason": "draft SHOW TABLES on the 5GB metastore before SC01; superseded by SC01"
+    },
+    {
+      "source": "~/Pictures/Screenshots/Screenshot From 2026-11-13 17-31-18.png",
+      "sha256": "5f59a74794ca3c20dae46ae0e0531086cafe7c2a7d9a63de84403cccaa2c6704",
+      "reason": "draft SHOW TABLES on the 5GB metastore before SC01; superseded by SC01"
+    }
+  ]
+}

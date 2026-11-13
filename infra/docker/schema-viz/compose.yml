@@ -5,8 +5,11 @@
 # (the local MinIO Trino on :8081); it uses its own project name, container, port
 # and metastore volume, so starting or removing it never touches another stack.
 #
-#   docker compose -f infra/docker/schema-viz/compose.yml up -d
-#   docker compose -f infra/docker/schema-viz/compose.yml down -v   # also drops the local metastore
+#   docker compose -f infra/docker/schema-viz/compose.yml up -d     # historical metastore volume
+#   docker compose -f infra/docker/schema-viz/compose.yml \
+#     -f infra/docker/schema-viz/compose.metastore-5gb.yml up -d    # isolated 5GB metastore volume
+#   docker compose -f infra/docker/schema-viz/compose.yml stop
+# Do not use `down -v`: it deletes the metastore volume the command names.
 #
 # The metastore is a file metastore inside the named volume. It stores only table
 # registrations; nothing is written to GCS. Write protection is enforced by

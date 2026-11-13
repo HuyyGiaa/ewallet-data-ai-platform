@@ -1,0 +1,35 @@
+-- V1 inventory per zone (expected source_zone 10, bronze_zone 9, silver_zone 9, gold_zone 16)
+
+trino> SELECT table_schema, count(*) AS tables FROM (SELECT table_schema, table_name FROM delta.information_schema.tables UNION ALL SELECT table_schema, table_name FROM hive.information_schema.tables) WHERE table_schema <> 'information_schema' GROUP BY table_schema ORDER BY table_schema;
+ table_schema | tables 
+--------------+--------
+ bronze_zone  |      9 
+ gold_zone    |     16 
+ silver_zone  |      9 
+ source_zone  |     10 
+(4 rows)
+-- V2 total (expected 44)
+
+trino> SELECT count(*) AS total_tables FROM (SELECT table_name FROM delta.information_schema.tables WHERE table_schema <> 'information_schema' UNION ALL SELECT table_name FROM hive.information_schema.tables WHERE table_schema <> 'information_schema');
+ total_tables 
+--------------
+           44 
+(1 row)
+-- V3 the four previously missing tables are registered
+
+trino> SELECT table_catalog, table_schema, table_name FROM delta.information_schema.tables WHERE table_name IN ('merchant_history', 'dim_merchant_scd2') UNION ALL SELECT table_catalog, table_schema, table_name FROM hive.information_schema.tables WHERE table_name = 'merchant_history' ORDER BY 2;
+ table_catalog | table_schema |    table_name     
+---------------+--------------+-------------------
+ delta         | bronze_zone  | merchant_history  
+ delta         | bronze_zone  | merchant_history  
+ delta         | gold_zone    | dim_merchant_scd2 
+ delta         | gold_zone    | dim_merchant_scd2 
+ delta         | silver_zone  | merchant_history  
+ delta         | silver_zone  | merchant_history  
+ hive          | source_zone  | merchant_history  
+(7 rows)
+-- V4 locations of the four tables
+
+trino> SHOW CREATE TABLE hive.source_zone.merchant_history;
+Query 20261113_094106_00052_4sk73 failed: Access Denied: Cannot show create table for hive.source_zone.merchant_history
+

@@ -1,0 +1,11 @@
+# Compose override: run the schema-viz Trino on a separate metastore volume that
+# holds only the canonical 5GB campaign registrations (ab-20261110225456-optimized).
+# The default volume edai1-schema-viz_metastore (historical 100GB registrations and
+# the storage_bench schema) is not mounted and not changed while this is in use.
+services:
+  trino:
+    volumes:
+      - metastore_5gb:/home/trino
+volumes:
+  metastore_5gb:
+    name: edai1-schema-viz_metastore_5gb

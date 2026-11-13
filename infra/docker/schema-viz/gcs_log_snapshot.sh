@@ -4,7 +4,7 @@
 # top-level layout of each Delta table, and the Source control files.
 #
 #   infra/docker/schema-viz/gcs_log_snapshot.sh > before.txt
-#   ... register tables, run queries, use DBeaver ...
+#   ... register tables, run the read-only queries ...
 #   infra/docker/schema-viz/gcs_log_snapshot.sh > after.txt
 #   diff before.txt after.txt && echo "GCS unchanged"
 #
@@ -13,7 +13,7 @@
 # Runs only object listings; it never reads data files.
 set -euo pipefail
 
-observed=${1:-docs/edai1/schema/generated/observed_schemas.json}
+observed=${1:-data_platform/schema/generated/observed_schemas.json}
 mapfile -t roots < <(python3 -c '
 import json, sys
 document = json.load(open(sys.argv[1]))
