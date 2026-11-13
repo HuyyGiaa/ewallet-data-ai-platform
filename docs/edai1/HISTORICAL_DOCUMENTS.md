@@ -32,3 +32,12 @@ Current cloud operating procedures are under `docs/runbooks/edai1/cloud/`.
 Superseded campaign records from `docs/streaming/` are in the legacy archive.
 The small number of files left at compatibility paths are referenced by source,
 tests or deployment contracts and are listed in the relocation manifest.
+
+## Removed on 2026-11-11 (recoverable from git history)
+
+These files served only the historical 100GB schema and DataHub workflows. They were deleted, not archived, when Data Governance and Schema Design moved to the 5GB campaign. Recover any of them with `git show 835ce2b3:<path>`.
+
+| Removed | Replaced by |
+|---|---|
+| `docs/edai1/schema/ALL_ZONES_SCHEMA.md`, `PHASE_B_SCD2_FEATURE_TIMESTAMPS.md`, `generated/*` (100GB snapshot, Mermaid, DBeaver import SQL, `GOLD_ERD.md`), `schema/dbeaver/*` | [Schema Design](schema/SCHEMA_DESIGN.md) and the regenerated `schema/generated/` |
+| `docs/runbooks/edai1/SCHEMA_VISUALIZATION_DBEAVER.md`, `docs/runbooks/DATAHUB_ASSERTIONS_REPRODUCIBILITY.md` | [DATAHUB_SCHEMA_OWNER_EVIDENCE.md](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) |

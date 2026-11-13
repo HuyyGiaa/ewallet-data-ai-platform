@@ -202,10 +202,10 @@ DP1, DP2, and DP3 are separate manual-trigger Airflow DAGs (`schedule=None`), ea
 upstream evidence, immutable run identity, and validation boundary; they are not one automatically
 scheduled end-to-end DAG.
 
-DataHub records metadata, deterministic lineage, contracts, and preserved quality events. Verified
-read-back includes Silver checks and four PIT feature-group assertions. The defined Core Gold
-row-level assertion has no execution history, so physical Gold verification is not presented as
-proof that every DataHub assertion ran. See the [EDAI-1 documentation index](docs/edai1/README.md) for detailed inventories, run identities, and validation boundaries.
+DataHub lineage and assertions are built only from verified campaign evidence: the 5GB campaign's
+checksum-chained manifests give 44 datasets, 3 DataFlows, 8 DataJobs and 34 builder-derived edges,
+and its validation reports give 263 executed-rule assertions (Gold and SCD2 included). Publication is
+an owner step with exact readback, still pending, so no DataHub state is claimed yet. See the [EDAI-1 documentation index](docs/edai1/README.md) for detailed inventories, run identities, and validation boundaries.
 
 ---
 
@@ -374,7 +374,7 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 | Batch Processing & Orchestration — DP1/DP2/DP3 | [Batch Processing and Orchestration](docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md) |
 | Stream processing | [Flink Streaming](docs/edai1/streaming/FLINK_STREAMING.md) |
 | Storage | [Lakehouse and Warehouse Storage Optimisation](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
-| Governance | [DataHub Lineage and Data Quality](docs/edai1/datahub/DATAHUB_GOVERNANCE.md) |
+| Governance | [DataHub Governance](docs/edai1/datahub/DATAHUB_GOVERNANCE.md) |
 | Data model | [Schema Design](docs/edai1/schema/SCHEMA_DESIGN.md) |
 | Novel ideas | [Deterministic Sharded Generation](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md), [Point-in-Time Leakage Prevention](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
 

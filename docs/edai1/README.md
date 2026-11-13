@@ -19,7 +19,7 @@ flowchart LR
     B -->|"(3) DP2: normalise, deduplicate, validate"| S[("Silver Delta")]
     S -->|"(4) DP2: dimensions and facts"| G[("Gold Delta")]
     S -->|"(5) DP3: point-in-time features"| F[("Gold feature tables")]
-    G -->|"(5) DP3 inputs"| F
+    G -.->|"DP3 validation: foreign keys to dimensions"| F
     SG["Streaming generator"] -->|"(a) transaction events"| RP["Redpanda"]
     RP -->|"(b) event-time processing"| FL["Flink job"]
     FL -->|"(c) windowed features, late/duplicate outputs"| OUT["Feature and audit streams"]
@@ -48,8 +48,8 @@ flowchart LR
 | **Batch Processing & Orchestration — DP1/DP2/DP3** | [Batch Processing and Orchestration](BATCH_PROCESSING_AND_ORCHESTRATION.md): Spark DP1–DP3, the three Airflow DAGs and the 5GB Baseline/Optimised campaign `ab-20261110225456` |
 | Stream processing | [Flink Streaming](streaming/FLINK_STREAMING.md) |
 | Storage | [Lakehouse and Warehouse Storage Optimisation](storage/STORAGE_OPTIMIZATION.md) |
-| Governance | [DataHub Lineage and Data Quality](datahub/DATAHUB_GOVERNANCE.md) |
-| Data model | [Schema Design](schema/SCHEMA_DESIGN.md) and [All-Zones Schema](schema/ALL_ZONES_SCHEMA.md) |
+| **Data Governance — rows 28–33** | [DataHub Governance](datahub/DATAHUB_GOVERNANCE.md): DP1–DP3 lineage and executed-rule assertions of the 5GB campaign; owner publication runbook [DATAHUB_SCHEMA_OWNER_EVIDENCE](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) |
+| **Schema Design — rows 34–38** | [Schema Design](schema/SCHEMA_DESIGN.md): all-zone inventory, dbdiagram.io ERDs, SCD2, feature timestamps, naming |
 | Novel idea 1 | [Deterministic Sharded Generation](novel_ideas/01_DETERMINISTIC_SHARDING.md) |
 | Novel idea 2 | [Point-in-Time Leakage Prevention](novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
 
@@ -73,10 +73,10 @@ Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../ev
 |---|---|
 | `spark/rehearsal-5gb-ab-20261110225456/` | DP1–DP3 campaign: manifests, validation and comparison reports, Spark metrics, Airflow and Spark UI screenshots |
 | `streaming/` | Flink Dashboard captures |
-| `datahub/` | DataHub lineage and assertion captures |
+| `datahub/` | Historical 100GB DataHub captures (history only; the 5GB DG01–DG08 captures are pending) |
 | `storage/` | DBeaver/Trino captures, benchmark output and the PostgreSQL benchmark artifact |
 | `novel_ideas/` | Google Cloud Run and Cloud Logging captures of the point-in-time validation |
-| `dp2/`, `dp3/` | Clearly labelled local-fixture tests of SCD2 and feature timestamps |
+| `dp2/`, `dp3/` | Clearly labelled local-fixture tests of SCD2 and feature timestamps (not cited as runtime proof) |
 
 Programmatic terminal-like renders are not embedded in the final reports.
 Docker and PostgreSQL sections use preserved raw JSON/log excerpts and mark the
@@ -87,7 +87,8 @@ missing original UI/terminal captures explicitly.
 - **DP1–DP3 performance.** One Baseline and one Optimised trial on 5 GB, run 8 hours apart. Runtime differences are within run-to-run variation, and the rehearsal does not show which configuration performs best on larger data.
 - **Streaming.** The Flink measurements come from a local cluster. The newer streaming implementation, which writes to the feature store, has not been run end to end.
 - **Skew.** The 5GB run diagnoses write-layout skew in the Spark UI, but no method is shown to improve it over the Baseline.
-- **SCD2 and feature timestamps.** These are materialised and validated on the 5GB cloud run. Their schema documentation still shows local-fixture screenshots.
+- **SCD2 and feature timestamps.** These are materialised and validated on the 5GB cloud run; their Trino screenshots (SC05–SC07) are pending.
+- **Governance and schema runtime.** The 5GB DataHub publication, the observed-schema export and the dbdiagram.io ERDs are implemented and tested offline; the owner runs them with [DATAHUB_SCHEMA_OWNER_EVIDENCE](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md).
 
 ## Internal tracking
 

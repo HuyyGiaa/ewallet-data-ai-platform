@@ -347,33 +347,7 @@ the optimized output is a separate owner decision. This tool does not select a w
 
 ## 5. C3: schema diagrams
 
-**READ-ONLY.** Reads Delta logs only.
-
-```bash
-python -m ops.schema.export_observed_schemas --bucket "$BUCKET" \
-  --bronze-run-id ab-20261029174838-baseline-bronze-r261029174838 \
-  --silver-run-id ab-20261031035745-baseline-silver-r261031035745 \
-  --gold-run-id ab-20261031035745-baseline-gold-r261031035746 \
-  --feature-run-id ab-20261025134342-optimized-feat-r261026025955 \
-  --output docs/edai1/schema/generated/observed_schemas.json
-python -m ops.schema.render_schema_diagrams
-```
-
-The files are listed in [SCHEMA_DIAGRAMS.md](../../edai1/schema/generated/SCHEMA_DIAGRAMS.md).
-
-To get a DBeaver ER diagram, load the import file into a scratch database. **Local only.**
-
-```bash
-docker run -d --name erd-scratch -e POSTGRES_PASSWORD=scratch -p 127.0.0.1:15432:5432 postgres:16
-docker exec -i erd-scratch psql -U postgres < docs/edai1/schema/generated/gold_erd_import.sql
-# In DBeaver: connect to localhost:15432, open schema gold, then the ER Diagram tab.
-docker rm -f erd-scratch
-```
-
-`gold.dbml` can also be pasted into dbdiagram.io. Label any export as logical: the keys exist only
-in that scratch database, not in the Delta tables.
-
-**Screenshots:** `c3_02_erd_gold.png` and `c3_03_erd_features.png`.
+Superseded on 2026-11-11. The schema diagrams are produced only from the 5GB campaign `ab-20261110225456`: a campaign-bound, read-only export and dbdiagram.io DBML. Use Stages 1, 2 and 4 of [DATAHUB_SCHEMA_OWNER_EVIDENCE.md](../edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md). The earlier 100GB export, DBeaver import and `gold_erd_import.sql` were removed.
 
 ## 6. C3: Spark UI evidence
 

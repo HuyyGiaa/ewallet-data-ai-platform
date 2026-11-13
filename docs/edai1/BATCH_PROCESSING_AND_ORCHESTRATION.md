@@ -423,7 +423,7 @@ DP2 and DP3 refuse to start unless the upstream handoff exists and matches. `cam
 | `ab-20261110225456-optimized-dp2` | success | 1,931.7 s | [04](../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/04_dp2_optimized_airflow_dag_success.png) |
 | `ab-20261110225456-optimized-dp3` | success | 831.2 s | [06](../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/06_dp3_optimized_airflow_success.png) |
 
-All 51 task instances succeeded on try 1 (`evidence/airflow_dagruns.json`).
+All 54 task instances (7 + 12 + 8 per profile) succeeded on try 1 (`evidence/airflow_dagruns.json`).
 
 ## F. Experimental results and discussion
 

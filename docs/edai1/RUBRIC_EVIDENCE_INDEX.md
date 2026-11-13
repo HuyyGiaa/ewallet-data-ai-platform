@@ -67,17 +67,17 @@ The campaign does **not** change:
 | 25 | 2 | DP2 validate | COMPLETE (5GB) | [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §C.5 | Silver (60 rules) and Gold (93 rules, incl. SCD2) PASS in both DagRuns | — |
 | 26 | 2 | DP3 ingest | COMPLETE (5GB) | [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §D.4, §E | `features` transformation Success in both DagRuns; screenshots 05–06 | — |
 | 27 | 2 | DP3 validate | COMPLETE (5GB) | [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §D.3 | `features.semantic_validation` (53 rules) incl. point-in-time recomputation, 0 mismatches | — |
-| 28 | 2 | DP1 lineage | COMPLETE (historical) | [DATAHUB_GOVERNANCE](datahub/DATAHUB_GOVERNANCE.md) | DataFlow/DataJob → 8 Bronze datasets | — |
-| 29 | 2 | DP1 validation | COMPLETE (historical) | same | `mismatch_count=0`, Passed | — |
-| 30 | 2 | DP2 lineage | COMPLETE (historical) | same | Bronze → Silver → Gold, 3 images | — |
-| 31 | 2 | DP2 validation | PARTIAL | same | Silver checks PASS | RUNTIME_EVIDENCE_MISSING (Gold assertion NOT_EXECUTED) |
-| 32 | 2 | DP3 lineage | COMPLETE (historical) | same | Silver/Gold → 4 feature datasets | — |
-| 33 | 2 | DP3 validation | COMPLETE (historical) | same | assertion run events | — |
-| 34 | 2 | Visualize tables on all zones | PARTIAL | [ALL_ZONES_SCHEMA](schema/ALL_ZONES_SCHEMA.md) (zone visuals added in N13), [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) | DataHub lineage per zone (HISTORICAL_UI ×4); 40-table inventory read back through Trino from the cloud runs (TRINO_METADATA_VERIFIED) | OWNER_SCREENSHOT_PENDING (DBeaver E01–E04) |
-| 35 | 2 | Dim with SCD2 | COMPLETE (5GB) | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md), [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §C.5 | `scd2.py` committed (`356b2123`); cloud `dim_merchant_scd2` (78,294 versions, `valid_from_ts`/`valid_to_ts`/`is_current`) passed 13 SCD2 rules in both profiles | Schema documentation still shows local-fixture images (deferred) |
-| 36 | 2 | `feat_` tables with `event_timestamp` + `created` | COMPLETE (5GB) | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md), [BATCH_PROCESSING_AND_ORCHESTRATION](BATCH_PROCESSING_AND_ORCHESTRATION.md) §D.3 | All 4 DP3 tables and `feat_user_90d`: both columns typed `timestamp`, not null, `created` equals the recorded materialisation clock | — |
-| 37 | 2 | Dim/fact relationships (DBeaver-like export) | PARTIAL | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md), [GOLD_ERD](schema/generated/GOLD_ERD.md) | 13 logical edges with cardinality; DBeaver virtual-key specification | OWNER_SCREENSHOT_PENDING (DBeaver ER diagram E05/E06) |
-| 38 | 2 | Naming convention | PARTIAL | same | zone-qualified names; explicit `raw_`/`stg_` equivalence (§8); catalog listing | OWNER_SCREENSHOT_PENDING (E07); assessor acceptance of "similar" |
+| 28 | 2 | DP1 lineage | PENDING_OWNER (5GB) | [DATAHUB_GOVERNANCE](datahub/DATAHUB_GOVERNANCE.md) §3 | Lineage plan from the verified campaign: 10 Source → `bronze.submit_transformation` → 9 Bronze (SOURCE_IMPLEMENTED, OFFLINE_TESTED) | DATAHUB_PUBLICATION_PENDING, OWNER_SCREENSHOT_PENDING (DG01) |
+| 29 | 2 | DP1 validation | PENDING_OWNER (5GB) | [DATAHUB_GOVERNANCE](datahub/DATAHUB_GOVERNANCE.md) §4 | 54 executed Bronze rules PASS (CLOUD_OUTPUT_VERIFIED), mapped to 9 datasets | DATAHUB_PUBLICATION_PENDING (DG02) |
+| 30 | 2 | DP2 lineage | PENDING_OWNER (5GB) | [DATAHUB_GOVERNANCE](datahub/DATAHUB_GOVERNANCE.md) §3 | Bronze → Silver → core Gold; `dim_merchant_scd2` ← `silver.merchant_history` | DATAHUB_PUBLICATION_PENDING (DG03, DG04) |
+| 31 | 2 | DP2 validation | PENDING_OWNER (5GB) | [DATAHUB_GOVERNANCE](datahub/DATAHUB_GOVERNANCE.md) §4 | Silver 60 + Gold 93 executed rules PASS, incl. 14 on `dim_merchant_scd2` (CLOUD_OUTPUT_VERIFIED). The former Gold `NOT_EXECUTED` gap now has real results | DATAHUB_PUBLICATION_PENDING (DG05, DG06) |
+| 32 | 2 | DP3 lineage | PENDING_OWNER (5GB) | [DATAHUB_GOVERNANCE](datahub/DATAHUB_GOVERNANCE.md) §3 | `silver.transactions`, `silver.devices` → DP3 → 4 feature tables | DATAHUB_PUBLICATION_PENDING (DG07) |
+| 33 | 2 | DP3 validation | PENDING_OWNER (5GB) | [DATAHUB_GOVERNANCE](datahub/DATAHUB_GOVERNANCE.md) §4 | 53 executed rules incl. point-in-time recomputation PASS (56 outcomes) | DATAHUB_PUBLICATION_PENDING (DG08) |
+| 34 | 2 | Visualize tables on all zones | PENDING_OWNER (5GB) | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) §3 | 34 Delta tables with rows/columns/keys from the campaign comparison; campaign-bound export and DBML renderer (OFFLINE_TESTED) | OWNER_METADATA_EXPORT_PENDING; OWNER_SCREENSHOT_PENDING (SC01–SC03) |
+| 35 | 2 | Dim with SCD2 | PENDING_OWNER (5GB) | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) §5 | `dim_merchant_scd2`: 78,294 versions; 14 rules PASS in both profiles (CLOUD_OUTPUT_VERIFIED) | OWNER_SCREENSHOT_PENDING (SC05, SC06) |
+| 36 | 2 | `feat_` tables with `event_timestamp` + `created` | PENDING_OWNER (5GB) | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) §6 | All 5 feature tables: typed, non-null, single shared `created` (CLOUD_OUTPUT_VERIFIED) | OWNER_SCREENSHOT_PENDING (SC07) |
+| 37 | 2 | Dim/fact relationships | PENDING_OWNER (5GB) | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) §4 | 32 relationships each with a validator rule PASS in both profiles; dbdiagram.io DBML generator | OWNER_METADATA_EXPORT_PENDING; OWNER_SCREENSHOT_PENDING (SC02–SC04) |
+| 38 | 2 | Naming convention | PENDING_OWNER (5GB) | [SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) §7 | zone-qualified business names + Gold role prefixes, tested | OWNER_SCREENSHOT_PENDING (SC08); assessor acceptance of "similar" |
 | 39 | 10 | Novel idea 1 | COMPLETE | [01_DETERMINISTIC_SHARDING](novel_ideas/01_DETERMINISTIC_SHARDING.md) | runtime + business E2E | Assessor acceptance |
 | 40 | 10 | Novel idea 2 | COMPLETE | [02_PIT_LEAKAGE_PREVENTION](novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) | runtime + business E2E | Assessor acceptance |
 
@@ -87,15 +87,15 @@ These are evidence-coverage buckets, not a predicted grade.
 
 | Bucket | Rows | Points |
 |---|---|---:|
-| Complete deliverables (historical or 5GB campaign) | 3, 4, 6–11, 14, 15, 18–30, 32, 33, 35, 36, 39, 40 (29 rows) | 79 |
-| Missing only a screenshot or documentation | 34, 37, 38 (3 rows) | 6 |
-| Missing runtime evidence | 5, 12, 13, 16, 17, 31 (6 rows) | 15 |
+| Complete deliverables (historical or 5GB campaign) | 3, 4, 6–11, 14, 15, 18–27, 39, 40 (22 rows) | 65 |
+| 5GB code and cloud results ready; owner DataHub run, metadata export or screenshot pending | 28–38 (11 rows) | 22 |
+| Missing runtime evidence | 5, 12, 13, 16, 17 (5 rows) | 13 |
 | Missing implementation (in the submission tree) | none | 0 |
 | **Total** | 38 rows | **100** |
 
 ## Reconciliation with the external N13 inventory (quality gate, 2026-11-04)
 
-**Inventory:** the owner's N13 evidence inventory (`FINAL_EVIDENCE_INVENTORY.md`, `FINAL_RUBRIC_STATUS.md`; external, 2026-11-04) reports EDAI-1 secured coverage 73/100. This index does not adopt it blindly. The two agree on rows 3, 4, 6–8, 15–17, 20, 21, 25, 27–30, 32, 33, 35, 36, 39 and 40.
+**Inventory:** the owner's N13 evidence inventory (`FINAL_EVIDENCE_INVENTORY.md`, `FINAL_RUBRIC_STATUS.md`; external, 2026-11-04) reports EDAI-1 secured coverage 73/100. This index does not adopt it blindly. The two agree on rows 3, 4, 6–8, 15–17, 20, 21, 25, 27, 39 and 40.
 
 | Row | N13 inventory | This index | Decision and evidence |
 |---:|---|---|---|
@@ -105,9 +105,6 @@ These are evidence-coverage buckets, not a predicted grade.
 | 18 | HISTORICAL_PASS | COMPLETE (historical) | Agreed (changed in this pass) |
 | 19 | HISTORICAL_PASS | COMPLETE | Agreed after the code-and-explanation section was added in N13. Before that, the document had **no code snippet**, which is the literal deliverable |
 | 22, 23, 24, 26 | PARTIAL ("authoritative DagRun closure absent") | COMPLETE (5GB) | Superseded: six authoritative DagRuns of the 5GB campaign, each with Airflow screenshots and metadata durations |
-| 31 | HISTORICAL_PASS | PARTIAL | No DP2 assertion UI. The DP2 Gold assertion was `NOT_EXECUTED` ([EDAI1_RUBRIC_COVERAGE](../../archive/legacy-docs/docs/edai1/EDAI1_RUBRIC_COVERAGE.md)) |
-| 34 | HISTORICAL_PASS | PARTIAL | DataHub lineage shows tables across zones (now embedded), but not the relationships within a zone |
-| 37 | HISTORICAL_PASS | PARTIAL | DataHub lineage is not a dimension ↔ fact relationship export. No ERD exists |
-| 38 | HISTORICAL_PASS | PARTIAL | Bronze/Silver have no `raw_`/`stg_` prefix ([SCHEMA_DESIGN](schema/SCHEMA_DESIGN.md) naming table). Acceptance as "similar" is the assessor's call. [ALL_ZONES_SCHEMA](schema/ALL_ZONES_SCHEMA.md) wrongly claimed a `stg_` prefix; corrected in N13 |
+| 28–33 | HISTORICAL_PASS | PENDING_OWNER (5GB) | The October 100GB DataHub publication is no longer the basis (owner directive 2026-11-11). The 5GB lineage and 263 assertion outcomes are implemented and tested offline; publication and DG01–DG08 are owner steps |
 
-**Coverage:** 79/100 points in complete rows. Row 13 moved from "missing documentation" to "missing runtime evidence", because its explanation now exists but the V1/V2 split on the 5GB run was not measured.
+**Coverage:** 65/100 points in complete rows (2026-11-11: rows 28–38 moved to the 5GB basis and wait for the owner's DataHub run, metadata export and screenshots; rows 35–36 count once SC05–SC07 exist). Row 13 moved from "missing documentation" to "missing runtime evidence", because its explanation now exists but the V1/V2 split on the 5GB run was not measured.

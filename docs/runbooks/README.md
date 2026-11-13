@@ -14,8 +14,7 @@ components are indexed in [EDAI-1](../edai1/README.md) and [EDAI-2](../edai2/REA
 | DP2 Method 2 | [Single-DAG DP2 runbook](edai1/cloud/dp2_method2_single_dag_runbook.md) | Silver/Gold baseline and optimized orchestration | Airflow 3, frozen manifests, quota/cost gates | Bounded, approval-gated procedure |
 | Storage optimization | [Cloud storage optimization](edai1/cloud/storage_optimization.md) | Storage A/B planning/validation | Immutable inputs and isolated outputs | Bounded, approval-gated procedure |
 | Terraform foundation | [GCP foundation](../cloud/terraform_gcp_foundation.md) | Terraform plan/apply/cleanup workflow | Remote state, GCP auth, explicit mutation approval | Bounded, approval-gated procedure |
-| Schema visualization | [DBeaver and Trino](edai1/SCHEMA_VISUALIZATION_DBEAVER.md) | Read-only Trino over the canonical GCS runs; DBeaver zone views and Gold ERD | Docker, ADC with bucket read access, DBeaver | Owner captures screenshots E01–E08 |
-| DataHub | [Assertion reproduction](DATAHUB_ASSERTIONS_REPRODUCIBILITY.md) | Metadata/assertion publication and readback | DataHub GMS and exact cloud-derived URNs | Historical campaign context is retained in the legacy archive |
+| Data Governance and Schema Design | [Owner evidence runbook](edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) | 5GB metadata export (read-only GCS), DBML for dbdiagram.io, DataHub lineage and assertion publication with readback, read-only Trino schema queries | gsutil/ADC read access, local DataHub Quickstart, schema-viz Trino, dbdiagram.io | Owner-run; screenshots DG01–DG08, SC01–SC08 |
 
 The bounded Silver, Gold and historical-feature procedures live under
 `edai1/cloud/`. They remain approval-gated runbooks, not proof that a fresh run
@@ -38,7 +37,7 @@ has completed.
 | EDAI-2 UI evidence | [UI replay](edai2/UI_REPLAY.md) | Read-only port-forwards, runtime renders, Grafana panels | GKE access from an authorized network | Read-only access to the cloud UIs |
 | B1 testing quality | [B1 testing runbook](edai2/B1_TESTING_RUNBOOK.md) | Coverage, Hypothesis, mutmut and Locust runs and evidence capture | uv; local only, no cloud access | Final results come from the owner's runs |
 
-RAG ingestion: [RAG runbook](edai2/llm_agent/rag_runbook.md). DataHub assertions: [reproduction runbook](DATAHUB_ASSERTIONS_REPRODUCIBILITY.md).
+RAG ingestion: [RAG runbook](edai2/llm_agent/rag_runbook.md). DataHub and schema evidence: [owner evidence runbook](edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md).
 
 ## Operating rules
 

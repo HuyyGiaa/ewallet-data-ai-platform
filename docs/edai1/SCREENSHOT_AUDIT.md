@@ -51,17 +51,17 @@ No EDAI-1 benchmark was rerun during N15. The three new images display preserved
 | 25 | DP2 validate | Silver and Gold `semantic_validation` logs (Gold 93 PASS) | **QUALIFIES** |
 | 26 | DP3 ingest | 5GB DP3 DagRuns, both profiles (NATIVE_UI); Baseline task list shows a refresh lag on the publish task | **QUALIFIES** |
 | 27 | DP3 validate | `features.semantic_validation` log with the PIT recomputation rules (53 PASS) | **QUALIFIES** |
-| 28 | DataHub: DP1 tables + producing pipeline | DP1 Source → Bronze lineage (HISTORICAL_UI) | **QUALIFIES** |
-| 29 | DataHub: DP1 validation | Result-bound assertion "Passing" (HISTORICAL_UI, JPG) | **QUALIFIES** |
-| 30 | DataHub: DP2 lineage | Bronze → Silver, DataFlow/DataJobs, Silver → Gold (HISTORICAL_UI) | **QUALIFIES** |
-| 31 | DataHub: DP2 validation | No DP2 assertion UI | **MISSING** |
-| 32 | DataHub: DP3 lineage | DP3 feature lineage (HISTORICAL_UI) | **QUALIFIES** |
-| 33 | DataHub: DP3 validation | Feature metadata-contract assertions list/detail/logic (HISTORICAL_UI) | **QUALIFIES** for schema/physical validation; PIT results are machine-readable only |
-| 34 | Tables and relationships on each zone | DataHub lineage per zone, now embedded in [ALL_ZONES_SCHEMA.md](schema/ALL_ZONES_SCHEMA.md) (HISTORICAL_UI) | **PARTIAL**: cross-zone lineage shown; no within-zone relationship diagram |
-| 35 | SCD2 dimension | Gold validation log with the 13 `dim_merchant_scd2` rules on the 5GB cloud output (NATIVE_UI); schema-doc images are still local fixtures | **QUALIFIES** for runtime proof; a table view is deferred to the schema task |
-| 36 | `feat_` with `event_timestamp` + `created` | DP3 validation log with the `timestamp_columns_typed` and `created_*` rules (NATIVE_UI) | **QUALIFIES** for runtime proof |
-| 37 | Dim ↔ fact relationships (DBeaver-like export) | — | **MISSING** |
-| 38 | Naming convention | DataHub images show zone-qualified names and Gold prefixes (HISTORICAL_UI) | **QUALIFIES** (screenshot); the naming itself is a semantic gap |
+| 28 | DataHub: DP1 tables + producing pipeline | Only the 100GB HISTORICAL_UI lineage, no longer the basis | **PENDING** DG01 (5GB) |
+| 29 | DataHub: DP1 validation | Only a 100GB HISTORICAL_UI assertion | **PENDING** DG02 |
+| 30 | DataHub: DP2 lineage | Only 100GB HISTORICAL_UI lineage | **PENDING** DG03, DG04 |
+| 31 | DataHub: DP2 validation | No DP2 assertion UI | **PENDING** DG05, DG06 |
+| 32 | DataHub: DP3 lineage | Only 100GB HISTORICAL_UI lineage | **PENDING** DG07 |
+| 33 | DataHub: DP3 validation | Only 100GB HISTORICAL_UI metadata-contract assertions | **PENDING** DG08 |
+| 34 | Tables on all zones | — | **PENDING** SC01–SC03 (5GB Trino inventory, dbdiagram.io ERDs) |
+| 35 | SCD2 dimension | Gold validation log with the `dim_merchant_scd2` rules on the 5GB output (NATIVE_UI) | **PENDING** SC05, SC06 (table schema and versions) |
+| 36 | `feat_` with `event_timestamp` + `created` | DP3 validation log with the timestamp rules (NATIVE_UI) | **PENDING** SC07 (physical columns) |
+| 37 | Dim ↔ fact relationships | — | **PENDING** SC02–SC04 (dbdiagram.io) |
+| 38 | Naming convention | — | **PENDING** SC08 |
 
 Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a specific UI. Their images are supporting evidence:
 - Docker: raw historical JSON/log/Compose transcripts plus two N15 genuine terminal views.
@@ -108,22 +108,22 @@ The owner's comparison-submission terminal capture was not integrated, because i
 | [01_dp1_optimized_run_success_20261030.png](../evidence/edai1/airflow/01_dp1_optimized_run_success_20261030.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,22,23 | archived `AIRFLOW_DP1_DP2_DP3_EVIDENCE.md` (not in submission) |
 | [02_dp2_method2_run_failed_20261031.png](../evidence/edai1/airflow/02_dp2_method2_run_failed_20261031.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,24,25 | archived `AIRFLOW_DP1_DP2_DP3_EVIDENCE.md` (not in submission) |
 | [03_dp3_historical_optimized_run_success_20261026.png](../evidence/edai1/airflow/03_dp3_historical_optimized_run_success_20261026.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 15,26,27 | archived `AIRFLOW_DP1_DP2_DP3_EVIDENCE.md` (not in submission) |
-| [dp1_bronze_result_bound_published_20261031.jpg](../evidence/edai1/datahub/dp1_bronze_result_bound_published_20261031.jpg) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 29 | datahub/DATAHUB_GOVERNANCE.md |
-| [dp1_source_bronze_historical_20261025.png](../evidence/edai1/datahub/dp1_source_bronze_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 28,34 | ALL_ZONES_SCHEMA.md, datahub/DATAHUB_GOVERNANCE.md |
-| [dp2_bronze_silver_historical_20261025.png](../evidence/edai1/datahub/dp2_bronze_silver_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30,34 | ALL_ZONES_SCHEMA.md, datahub/DATAHUB_GOVERNANCE.md |
-| [dp2_dataflow_jobs_historical_20261025.png](../evidence/edai1/datahub/dp2_dataflow_jobs_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30 | datahub/DATAHUB_GOVERNANCE.md |
-| [dp2_silver_gold_historical_20261025.png](../evidence/edai1/datahub/dp2_silver_gold_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30,34 | ALL_ZONES_SCHEMA.md, datahub/DATAHUB_GOVERNANCE.md |
-| [dp3_historical_features_historical_20261026.png](../evidence/edai1/datahub/dp3_historical_features_historical_20261026.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 32,34 | ALL_ZONES_SCHEMA.md, datahub/DATAHUB_GOVERNANCE.md |
-| [feature_metadata_contract_detail_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_detail_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | datahub/DATAHUB_GOVERNANCE.md |
-| [feature_metadata_contract_list_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_list_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | datahub/DATAHUB_GOVERNANCE.md |
-| [feature_metadata_contract_logic_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_logic_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | datahub/DATAHUB_GOVERNANCE.md |
-| [01_scd2_input_snapshots.png](../evidence/edai1/dp2/01_scd2_input_snapshots.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | SCHEMA_DESIGN.md |
-| [02_scd2_version_history.png](../evidence/edai1/dp2/02_scd2_version_history.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | SCHEMA_DESIGN.md |
-| [03_scd2_historical_lookup.png](../evidence/edai1/dp2/03_scd2_historical_lookup.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | SCHEMA_DESIGN.md |
-| [01_feature_timestamp_schema_user_account.png](../evidence/edai1/dp3/01_feature_timestamp_schema_user_account.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | SCHEMA_DESIGN.md |
-| [02_feature_timestamp_schema_device_merchant.png](../evidence/edai1/dp3/02_feature_timestamp_schema_device_merchant.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | SCHEMA_DESIGN.md |
-| [03_feature_timestamp_validation.png](../evidence/edai1/dp3/03_feature_timestamp_validation.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | SCHEMA_DESIGN.md |
-| [04_feast_feature_inventory.png](../evidence/edai1/dp3/04_feast_feature_inventory.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | SCHEMA_DESIGN.md |
+| [dp1_bronze_result_bound_published_20261031.jpg](../evidence/edai1/datahub/dp1_bronze_result_bound_published_20261031.jpg) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 29 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [dp1_source_bronze_historical_20261025.png](../evidence/edai1/datahub/dp1_source_bronze_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 28,34 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [dp2_bronze_silver_historical_20261025.png](../evidence/edai1/datahub/dp2_bronze_silver_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30,34 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [dp2_dataflow_jobs_historical_20261025.png](../evidence/edai1/datahub/dp2_dataflow_jobs_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [dp2_silver_gold_historical_20261025.png](../evidence/edai1/datahub/dp2_silver_gold_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30,34 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [dp3_historical_features_historical_20261026.png](../evidence/edai1/datahub/dp3_historical_features_historical_20261026.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 32,34 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [feature_metadata_contract_detail_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_detail_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [feature_metadata_contract_list_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_list_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [feature_metadata_contract_logic_historical_20261029.png](../evidence/edai1/datahub/feature_metadata_contract_logic_historical_20261029.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 33 | not embedded: 100GB history, no longer cited for rows 28–34 |
+| [01_scd2_input_snapshots.png](../evidence/edai1/dp2/01_scd2_input_snapshots.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | not embedded (local fixture; 5GB SC05–SC07 pending) |
+| [02_scd2_version_history.png](../evidence/edai1/dp2/02_scd2_version_history.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | not embedded (local fixture; 5GB SC05–SC07 pending) |
+| [03_scd2_historical_lookup.png](../evidence/edai1/dp2/03_scd2_historical_lookup.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 35 | not embedded (local fixture; 5GB SC05–SC07 pending) |
+| [01_feature_timestamp_schema_user_account.png](../evidence/edai1/dp3/01_feature_timestamp_schema_user_account.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | not embedded (local fixture; 5GB SC05–SC07 pending) |
+| [02_feature_timestamp_schema_device_merchant.png](../evidence/edai1/dp3/02_feature_timestamp_schema_device_merchant.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | not embedded (local fixture; 5GB SC05–SC07 pending) |
+| [03_feature_timestamp_validation.png](../evidence/edai1/dp3/03_feature_timestamp_validation.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | not embedded (local fixture; 5GB SC05–SC07 pending) |
+| [04_feast_feature_inventory.png](../evidence/edai1/dp3/04_feast_feature_inventory.png) | yes | REAL_TERMINAL | LOCAL FIXTURE terminal (not production runtime) | 36 | not embedded (local fixture; 5GB SC05–SC07 pending) |
 | [01_dp1_baseline_airflow_run_success_20261030.png](../evidence/edai1/n13_curated/01_dp1_baseline_airflow_run_success_20261030.png) | yes | HISTORICAL_UI | Airflow 3 UI, 2026-10-26..31 runs | 11,15,22,23 | AIRFLOW_DP1_DP2_DP3_EVIDENCE.md, RUBRIC_EVIDENCE_INDEX.md |
 | [01_schema_evolution_source_500k.png](../evidence/edai1/novel_ideas/01_schema_evolution_source_500k.png) | yes | REAL_TERMINAL | historical local terminal | 6,13 | data_generator/DATA_GENERATION_AND_SIMULATION.md, novel_ideas/01_DETERMINISTIC_SHARDING.md |
 | [02_pit_cloud_run_success.png](../evidence/edai1/novel_ideas/02_pit_cloud_run_success.png) | yes | HISTORICAL_UI | Google Cloud Run / Logging, 2026-10-31 | 40 | novel_ideas/02_PIT_LEAKAGE_PREVENTION.md |
@@ -159,5 +159,5 @@ The owner's comparison-submission terminal capture was not integrated, because i
 | [dp2_silver_gold_historical_20261025.png](../evidence/images/datahub/lineage/dp2_silver_gold_historical_20261025.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 30,34 | DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md |
 | [dp3_historical_features_historical_20261026.png](../evidence/images/datahub/lineage/dp3_historical_features_historical_20261026.png) | yes | HISTORICAL_UI | DataHub UI, 2026-10-25..31 campaign | 32,34 | DATAHUB_LINEAGE_ASSERTIONS_EVIDENCE.md |
 | [01_merchant_skew_profile_500k.png](../evidence/spark/01_merchant_skew_profile_500k.png) | yes | REAL_TERMINAL | historical local terminal | 5,12 | data_generator/DATA_GENERATION_AND_SIMULATION.md; archived `OPTIMIZATION_MATRIX.md` |
-| [07_schema_evolution_source_500k.png](../evidence/storage/07_schema_evolution_source_500k.png) | yes | REAL_TERMINAL | historical local terminal | 6,13 | SCHEMA_DESIGN.md |
+| [07_schema_evolution_source_500k.png](../evidence/storage/07_schema_evolution_source_500k.png) | yes | REAL_TERMINAL | historical local terminal | 6,13 | not embedded since 2026-11-11 (local images; the 5GB report cites only campaign evidence) |
 | [08_schema_evolution_500k.png](../evidence/storage/08_schema_evolution_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 6,13 | SCHEMA_DESIGN.md; archived `OPTIMIZATION_MATRIX.md` |
