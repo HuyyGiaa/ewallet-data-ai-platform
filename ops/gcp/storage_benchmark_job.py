@@ -18,14 +18,18 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from statistics import median
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import unquote, urlsplit
 
 from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.storage.cloud_optimization import (
+    classify_runtime_change,
     compare_equivalence,
     compare_layouts,
+    recommend_layout,
+    rewrite_outcome,
     validate_benchmark_paths,
+    workload_verdict,
 )
 
 
@@ -80,6 +84,35 @@ REQUIRED_COLUMNS = {
 }
 
 
+def effective_conf(spark: Any, key: str) -> str:
+    """Effective value of one Spark setting, or an explicit unset marker.
+
+    No fallback is passed to ``spark.conf.get``: for an unset *typed* SQL key Spark
+    3.5 converts the fallback with the key's type and raises (the defect fixed in
+    ``aae22b08``). Without a fallback a SQL key returns Spark's default; a plain key
+    with no default raises, which is recorded rather than guessed.
+    """
+
+    try:
+        return str(spark.conf.get(key))
+    except Exception as exc:  # NoSuchElementException from the JVM for unset plain keys
+        return f"<unset: {type(exc).__name__}>"
+
+
+def require_utc_session(spark: Any) -> None:
+    """Refuse to measure unless the Spark session time zone is UTC.
+
+    ``event_date`` is the UTC calendar day of ``timestamp`` in the campaign tables. The
+    ``stats_only`` literal ``TIMESTAMP 'yyyy-MM-dd 00:00:00'`` and ``date_format`` are
+    evaluated in the session zone, so any other zone shifts their window away from the
+    partition window. The result-equality check would then fail late; this fails first.
+    """
+
+    zone = effective_conf(spark, "spark.sql.session.timeZone")
+    if zone not in ("UTC", "Etc/UTC", "Z", "+00:00"):
+        raise ValueError(f"spark.sql.session.timeZone must be UTC for the storage benchmark, got {zone!r}")
+
+
 def _safe_delta_uri(uri: str) -> str:
     if not uri.startswith("gs://") or "`" in uri or ";" in uri:
         raise ValueError(f"unsafe Delta URI: {uri}")
@@ -94,6 +127,19 @@ def _path_exists(spark: Any, uri: str) -> bool:
 
 QUERY_WARMUP_ITERATIONS = 1
 QUERY_MEASURED_ITERATIONS = 5
+SUPPORTED_SPARK_PREFIX = "3.5."
+RECORDED_PROPERTIES = (
+    "spark.sql.session.timeZone",
+    "spark.dynamicAllocation.enabled",
+    "spark.dynamicAllocation.initialExecutors",
+    "spark.dynamicAllocation.maxExecutors",
+    "spark.sql.shuffle.partitions",
+    "spark.sql.adaptive.enabled",
+    "spark.sql.adaptive.skewJoin.enabled",
+    "spark.databricks.delta.optimize.repartition.enabled",
+    "spark.databricks.delta.optimize.maxFileSize",
+    "spark.databricks.delta.optimize.minFileSize",
+)
 
 
 def _create_shallow_clone(
@@ -290,78 +336,117 @@ def _fingerprint(
     }
 
 
-def _date_range(layout: Mapping[str, Any]) -> tuple[str, str]:
-    values = (layout.get("global_statistics") or {}).get("event_date") or {}
-    maximum = values.get("maximum")
-    if maximum is None:
-        raise ValueError("event_date statistics are required for bounded queries")
-    end = date.fromisoformat(str(maximum)[:10])
-    return (str(end - timedelta(days=6)), str(end))
+def _window(table: Mapping[str, Any]) -> tuple[str, str]:
+    """Validated query window from the plan's data-derived parameters."""
+
+    params = table.get("workload_parameters") or {}
+    try:
+        start = date.fromisoformat(str(params["window_start"]))
+        end = date.fromisoformat(str(params["window_end"]))
+    except (KeyError, ValueError) as exc:
+        raise ValueError(f"{table.get('table')} lacks a valid workload window") from exc
+    if end < start:
+        raise ValueError("workload window ends before it starts")
+    return str(start), str(end)
 
 
 def _sql_literal(value: object) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
+RELATIONS = {"baseline_table", "compacted_table", "optimized_table"}
+
+
 def _query_sql(
     table: Mapping[str, Any], query: Mapping[str, Any], *, relation: str
 ) -> str:
-    if relation not in {"baseline_table", "compacted_table", "optimized_table"}:
+    """SQL of one workload query against one benchmark relation.
+
+    The two partition-pruning controls express the ``date_range`` window without the
+    partition column. Under the pinned UTC session ``event_date = to_date(timestamp)``,
+    so all three return identical rows (the job verifies this before comparing):
+
+    * ``date_range_stats_only`` - a ``timestamp`` range: no partition pruning, but Delta
+      can still skip files with its per-file ``timestamp`` min/max statistics;
+    * ``date_range_full_scan`` - the window on ``date_format(timestamp)``: neither
+      partition pruning nor statistics-based skipping can apply.
+    """
+
+    if relation not in RELATIONS:
         raise ValueError("unsupported benchmark relation")
-    table_name = str(table["table"])
+    start, end = _window(table)
+    window = f"event_date BETWEEN DATE '{start}' AND DATE '{end}'"
+    aggregate = (
+        "SELECT COUNT(*) AS row_count, "
+        "SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, "
+        "CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) AS average_amount "
+        f"FROM {relation} "
+    )
     query_class = str(query["class"])
     if query_class == "date_range":
-        start, end = _date_range(table)
-        return (
-            "SELECT COUNT(*) AS row_count, "
-            "SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount, "
-            "CAST(AVG(CAST(amount AS DECIMAL(38,6))) AS DECIMAL(38,6)) "
-            "AS average_amount "
-            f"FROM {relation} "
-            f"WHERE event_date BETWEEN DATE '{start}' AND DATE '{end}'"
-        )
+        return aggregate + f"WHERE {window}"
+    if query_class == "date_range_stats_only":
+        after_end = date.fromisoformat(end) + timedelta(days=1)
+        return aggregate + (f"WHERE timestamp >= TIMESTAMP '{start} 00:00:00' "
+                            f"AND timestamp < TIMESTAMP '{after_end} 00:00:00'")
+    if query_class == "date_range_full_scan":
+        return aggregate + f"WHERE date_format(timestamp, 'yyyy-MM-dd') BETWEEN '{start}' AND '{end}'"
     if query_class == "date_entity_lookup":
-        start, end = _date_range(table)
-        stats = (table.get("global_statistics") or {}).get("merchant_id") or {}
-        merchant_id = stats.get("minimum")
-        if merchant_id is None:
-            raise ValueError(f"{table_name}.merchant_id statistics are required")
-        return (
-            "SELECT COUNT(*) AS row_count, "
-            "SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount "
-            f"FROM {relation} "
-            f"WHERE event_date BETWEEN DATE '{start}' AND DATE '{end}' "
-            f"AND merchant_id = {_sql_literal(merchant_id)}"
-        )
+        merchant = (table.get("workload_parameters") or {}).get("merchant_id")
+        if not merchant:
+            raise ValueError(f"{table.get('table')} lacks a data-derived merchant_id")
+        return aggregate + f"WHERE {window} AND merchant_id = {_sql_literal(merchant)}"
     if query_class == "date_status_aggregation":
-        start, end = _date_range(table)
         return (
             "SELECT channel, COUNT(*) AS row_count, "
             "SUM(CAST(amount AS DECIMAL(38,2))) AS total_amount "
-            f"FROM {relation} "
-            f"WHERE event_date BETWEEN DATE '{start}' AND DATE '{end}' "
-            "AND status = 'failed' GROUP BY channel ORDER BY channel"
-        )
-    if query_class == "entity_time_range":
-        entity = str(query["predicate_columns"][0])
-        stats = (table.get("global_statistics") or {}).get(entity) or {}
-        value = stats.get("minimum")
-        if value is None:
-            raise ValueError(f"{table_name}.{entity} statistics are required")
-        return (
-            f"SELECT * FROM {relation} "
-            f"WHERE {entity} = {_sql_literal(value)} "
-            "ORDER BY event_timestamp LIMIT 1000"
+            f"FROM {relation} WHERE {window} AND status = 'failed' "
+            "GROUP BY channel ORDER BY channel"
         )
     raise ValueError(f"unsupported query class: {query_class}")
 
 
-def _execute_query(spark: Any, sql: str) -> tuple[list[dict[str, object]], float, str]:
+def scan_metrics(frame: Any) -> dict[str, object]:
+    """File-scan metrics of an executed query, read from Spark's own plan metrics.
+
+    Walks the executed plan (through adaptive and query-stage wrappers) and returns
+    files, bytes and partitions read per scan node. When the plan cannot be read the
+    result says so; no value is ever filled in.
+    """
+
+    try:
+        nodes = [frame._jdf.queryExecution().executedPlan()]
+        scans: list[dict[str, object]] = []
+        while nodes:
+            node = nodes.pop()
+            name = str(node.nodeName())
+            if name.startswith("AdaptiveSparkPlan"):
+                nodes.append(node.executedPlan())
+                continue
+            if "QueryStage" in name:
+                nodes.append(node.plan())
+                continue
+            if name.startswith("Scan "):
+                metrics = node.metrics()
+
+                def value(key: str) -> int | None:
+                    return int(metrics.apply(key).value()) if metrics.contains(key) else None
+
+                scans.append({"node": name, "files_read": value("numFiles"), "bytes_read": value("filesSize"),
+                              "partitions_read": value("numPartitions"), "output_rows": value("numOutputRows")})
+            children = node.children()
+            nodes.extend(children.apply(index) for index in range(children.size()))
+        return {"available": bool(scans), "scans": scans}
+    except Exception as exc:  # the plan API is internal; report, never guess
+        return {"available": False, "reason": f"{type(exc).__name__}: {exc}"[:300]}
+
+
+def _execute_query(spark: Any, sql: str) -> tuple[list[dict[str, object]], float, str, dict[str, object]]:
     started = time.perf_counter()
     frame = spark.sql(sql)
     rows = [row.asDict(recursive=True) for row in frame.collect()]
     elapsed = time.perf_counter() - started
-    return rows, elapsed, frame._jdf.queryExecution().executedPlan().toString()
+    return rows, elapsed, frame._jdf.queryExecution().executedPlan().toString(), scan_metrics(frame)
 
 
 def _assert_representative_result(
@@ -376,13 +461,55 @@ def _assert_representative_result(
         raise ValueError(f"representative query matched no rows: {query['name']}")
 
 
+def _measure(
+    spark: Any, sqls: Mapping[str, str], query: Mapping[str, Any]
+) -> dict[str, dict[str, object]]:
+    """Warm every side once, then measure with a rotating order; results must agree."""
+
+    sides = tuple(sqls)
+    for _ in range(QUERY_WARMUP_ITERATIONS):
+        for side in sides:
+            _execute_query(spark, sqls[side])
+    measured: dict[str, dict[str, Any]] = {side: {"samples": [], "orders": []} for side in sides}
+    for iteration in range(QUERY_MEASURED_ITERATIONS):
+        offset = iteration % len(sides)
+        order = sides[offset:] + sides[:offset]
+        for position, side in enumerate(order):
+            rows, elapsed, plan, scans = _execute_query(spark, sqls[side])
+            _assert_representative_result(query, rows)
+            serialized = json.dumps(rows, sort_keys=True, default=str)
+            if "result_json" in measured[side] and measured[side]["result_json"] != serialized:
+                raise ValueError(f"non-deterministic query result: {query['name']}")
+            measured[side].update(result=rows, result_json=serialized, physical_plan=plan, scan_metrics=scans)
+            measured[side]["samples"].append(elapsed)
+            measured[side]["orders"].append(position)
+    if any(measured[side]["result_json"] != measured[sides[0]]["result_json"] for side in sides[1:]):
+        raise ValueError(f"query result mismatch across sides: {query['name']}")
+    return {
+        side: {
+            "sql": sqls[side],
+            "runtime_seconds": median(values["samples"]),
+            "runtime_samples_seconds": values["samples"],
+            "position_in_rotation": values["orders"],
+            "warmup_iterations": QUERY_WARMUP_ITERATIONS,
+            "measured_iterations": QUERY_MEASURED_ITERATIONS,
+            "measurement_order": "rotating",
+            "result": values["result"],
+            "result_json": values["result_json"],
+            "physical_plan": values["physical_plan"],
+            "scan_metrics": values["scan_metrics"],
+        }
+        for side, values in measured.items()
+    }
+
+
 def _run_layout_queries(
     spark: Any,
     table: Mapping[str, Any],
     *,
     layout_uris: Mapping[str, str],
 ) -> dict[str, list[dict[str, object]]]:
-    """Warm every layout, then rotate execution order for five measurements."""
+    """Measure every workload query on every layout arm."""
 
     sides = tuple(layout_uris)
     if sides not in {("baseline", "optimized"), ("baseline", "compacted", "optimized")}:
@@ -391,59 +518,36 @@ def _run_layout_queries(
         spark.read.format("delta").load(uri).createOrReplaceTempView(f"{side}_table")
     results: dict[str, list[dict[str, object]]] = {side: [] for side in sides}
     for query in table["queries"]:
-        sqls = {
-            side: _query_sql(table, query, relation=f"{side}_table")
-            for side in sides
-        }
-        canonical_result: dict[str, str] = {}
-        physical_plans: dict[str, str] = {}
-        for _ in range(QUERY_WARMUP_ITERATIONS):
-            for side in sides:
-                _execute_query(spark, sqls[side])
-        samples: dict[str, list[float]] = {side: [] for side in sides}
-        rows_by_side: dict[str, list[dict[str, object]]] = {}
-        for iteration in range(QUERY_MEASURED_ITERATIONS):
-            offset = iteration % len(sides)
-            order = sides[offset:] + sides[:offset]
-            for side in order:
-                rows, elapsed, physical_plan = _execute_query(spark, sqls[side])
-                serialized = json.dumps(rows, sort_keys=True, default=str)
-                _assert_representative_result(query, rows)
-                if side in canonical_result and canonical_result[side] != serialized:
-                    raise ValueError(f"non-deterministic query result: {query['name']}")
-                canonical_result[side] = serialized
-                rows_by_side[side] = rows
-                physical_plans[side] = physical_plan
-                samples[side].append(elapsed)
-        if any(
-            canonical_result[side] != canonical_result["baseline"]
-            for side in sides[1:]
-        ):
-            raise ValueError(f"query result mismatch: {query['name']}")
-        for side in sides:
-            results[side].append(
-                {
-                    "name": query["name"],
-                    "sql": sqls[side],
-                    "runtime_seconds": median(samples[side]),
-                    "runtime_samples_seconds": samples[side],
-                    "warmup_iterations": QUERY_WARMUP_ITERATIONS,
-                    "measured_iterations": QUERY_MEASURED_ITERATIONS,
-                    "measurement_order": "rotating",
-                    "result": rows_by_side[side],
-                    "result_json": canonical_result[side],
-                    "physical_plan": physical_plans[side],
-                    "task_metrics": {
-                        "available": False,
-                        "reason": (
-                            "task/shuffle/spill/straggler metrics remain in Managed "
-                            "Spark event logs; no stable supported per-query API is "
-                            "guaranteed"
-                        ),
-                    },
-                }
-            )
+        sqls = {side: _query_sql(table, query, relation=f"{side}_table") for side in sides}
+        for side, value in _measure(spark, sqls, query).items():
+            results[side].append({"name": query["name"], **value})
     return results
+
+
+def _run_partition_pruning(spark: Any, table: Mapping[str, Any]) -> dict[str, object]:
+    """ST-D: one logical query with partition pruning, with statistics-only skipping and as a full scan.
+
+    All three run on the unchanged baseline arm, so the differences isolate how the
+    files to read are chosen from any layout rewrite.
+    """
+
+    query = {"name": "partition_pruning", "require_non_empty": True}
+    sqls = {
+        "pruned": _query_sql(table, {"class": "date_range"}, relation="baseline_table"),
+        "stats_only": _query_sql(table, {"class": "date_range_stats_only"}, relation="baseline_table"),
+        "full_scan": _query_sql(table, {"class": "date_range_full_scan"}, relation="baseline_table"),
+    }
+    measured = _measure(spark, sqls, query)
+    full = measured["full_scan"]["runtime_samples_seconds"]
+    return {
+        "sides": measured,
+        "comparisons": {
+            "full_scan_to_pruned": classify_runtime_change(full, measured["pruned"]["runtime_samples_seconds"]),
+            "full_scan_to_stats_only": classify_runtime_change(full, measured["stats_only"]["runtime_samples_seconds"]),
+            "stats_only_to_pruned": classify_runtime_change(measured["stats_only"]["runtime_samples_seconds"],
+                                                            measured["pruned"]["runtime_samples_seconds"]),
+        },
+    }
 
 
 def _compare_query_sets(
@@ -456,81 +560,32 @@ def _compare_query_sets(
 ) -> list[dict[str, object]]:
     comparisons: list[dict[str, object]] = []
     for left, right in zip(before_queries, after_queries, strict=True):
-        comparisons.append(
-            {
-                "comparison_arm": arm,
-                "query": left["name"],
-                **compare_layouts(
-                    before={
-                        "file_count": before_detail["file_count"],
+        comparisons.append({
+            "comparison_arm": arm,
+            "query": left["name"],
+            **compare_layouts(
+                before={"file_count": before_detail["file_count"],
                         "median_file_size": before_detail["file_size_bytes"]["median"],
-                        "runtime_seconds": left["runtime_seconds"],
-                    },
-                    after={
-                        "file_count": after_detail["file_count"],
-                        "median_file_size": after_detail["file_size_bytes"]["median"],
-                        "runtime_seconds": right["runtime_seconds"],
-                    },
-                ),
-                "before_runtime_seconds": left["runtime_seconds"],
-                "after_runtime_seconds": right["runtime_seconds"],
-                "before_scan_bytes": None,
-                "after_scan_bytes": None,
-                "scan_bytes_status": "unavailable_from_supported_query_api",
-                "output_equivalent": True,
-            }
-        )
+                        "runtime_samples_seconds": left["runtime_samples_seconds"]},
+                after={"file_count": after_detail["file_count"],
+                       "median_file_size": after_detail["file_size_bytes"]["median"],
+                       "runtime_samples_seconds": right["runtime_samples_seconds"]},
+            ),
+            "before_scan_metrics": left["scan_metrics"],
+            "after_scan_metrics": right["scan_metrics"],
+            "output_equivalent": left["result_json"] == right["result_json"],
+        })
     return comparisons
 
 
-def _workload_verdict(comparisons: Sequence[Mapping[str, Any]]) -> str:
-    before = sum(float(item["before_runtime_seconds"]) for item in comparisons)
-    after = sum(float(item["after_runtime_seconds"]) for item in comparisons)
-    if any(float(item["runtime_change_percent"]) > 5 for item in comparisons):
-        return "REGRESSION"
-    if after < before:
-        return "IMPROVEMENT"
-    if after > before:
-        return "REGRESSION"
-    return "NO_CHANGE"
+def _optimize(delta_table: Any, columns: Sequence[str] | None) -> dict[str, object]:
+    """Run bin-packing compaction (``columns`` None) or Z-order; return timing and metrics."""
 
-
-def _recommend_layout(
-    *,
-    overall_verdict: str,
-    compaction_verdict: str | None,
-    zorder_incremental_verdict: str | None,
-) -> str:
-    if (
-        overall_verdict == "IMPROVEMENT"
-        and zorder_incremental_verdict == "IMPROVEMENT"
-    ):
-        return "KEEP_ZORDER"
-    if compaction_verdict == "IMPROVEMENT":
-        return "KEEP_COMPACTION_ONLY"
-    if compaction_verdict is None and overall_verdict == "IMPROVEMENT":
-        return "KEEP_COMPACTION"
-    return "DO_NOT_ADOPT"
-
-
-def _upload_json(uri: str, value: object) -> None:
-    from google.cloud import storage
-
-    parsed = urlsplit(uri)
-    storage.Client().bucket(parsed.netloc).blob(parsed.path.lstrip("/")).upload_from_string(
-        json.dumps(value, indent=2, default=str) + "\n",
-        content_type="application/json",
-        if_generation_match=0,
-    )
-
-
-def _upload_text(uri: str, value: str, content_type: str) -> None:
-    from google.cloud import storage
-
-    parsed = urlsplit(uri)
-    storage.Client().bucket(parsed.netloc).blob(parsed.path.lstrip("/")).upload_from_string(
-        value, content_type=content_type, if_generation_match=0
-    )
+    started = time.perf_counter()
+    builder = delta_table.optimize()
+    frame = builder.executeZOrderBy(*columns) if columns else builder.executeCompaction()
+    rows = [row.asDict(recursive=True) for row in frame.collect()]
+    return {"seconds": time.perf_counter() - started, "metrics": rows, "outcome": rewrite_outcome(rows)}
 
 
 def execute_plan(
@@ -548,11 +603,10 @@ def execute_plan(
     if plan.get("dataset_version") != dataset_version or plan.get("git_sha") != git_sha:
         raise ValueError("dataset version/Git SHA differs from immutable plan")
     validate_git_sha(str(plan.get("source_spark_git_sha", "")))
-    spark = SparkSession.builder.appName("cloud-storage-layout-ab").getOrCreate()
-    if spark.version != "3.5.3":
-        raise ValueError(
-            f"Managed Spark runtime drifted from audited Spark 3.5.3: {spark.version}"
-        )
+    spark = SparkSession.builder.appName("edai1-storage-layout-ab").getOrCreate()
+    if not spark.version.startswith(SUPPORTED_SPARK_PREFIX):
+        raise ValueError(f"Spark {spark.version} is outside the Delta 3.2 compatible line {SUPPORTED_SPARK_PREFIX}x")
+    require_utc_session(spark)
     spark.conf.set("spark.databricks.delta.optimize.repartition.enabled", "true")
     started_at = datetime.now(timezone.utc)
     evidence: dict[str, Any] = {
@@ -560,24 +614,15 @@ def execute_plan(
         "dataset_version": dataset_version,
         "git_sha": git_sha,
         "source_spark_git_sha": plan["source_spark_git_sha"],
+        "source_campaign": plan.get("source_campaign"),
         "source_run_ids": plan["source_run_ids"],
         "managed_spark_runtime": "2.2",
         "spark_version": spark.version,
-        "dataproc_tier": "standard",
         "delta_version": "3.2.0",
-        "runtime_properties": {
-            key: spark.conf.get(key, "<unset>")
-            for key in (
-                "spark.dynamicAllocation.enabled",
-                "spark.dynamicAllocation.initialExecutors",
-                "spark.dynamicAllocation.maxExecutors",
-                "spark.dynamicAllocation.profile",
-                "spark.sql.shuffle.partitions",
-                "spark.sql.adaptive.enabled",
-                "spark.sql.adaptive.skewJoin.enabled",
-                "spark.databricks.delta.optimize.repartition.enabled",
-            )
-        },
+        "runtime_properties": {key: effective_conf(spark, key) for key in RECORDED_PROPERTIES},
+        "measurement": {"warmup_iterations": QUERY_WARMUP_ITERATIONS,
+                        "measured_iterations": QUERY_MEASURED_ITERATIONS,
+                        "order": "rotating per iteration", "verdict_rule": "classify_runtime_change"},
         "started_at": started_at.isoformat(),
         "tables": [],
     }
@@ -587,108 +632,37 @@ def execute_plan(
                 continue
             table_name = str(table["table"])
             source = str(table["uri"])
-            baseline = str(table["baseline_uri"])
-            compacted = (
-                str(table["compacted_uri"])
-                if table.get("compacted_uri") is not None
-                else None
-            )
-            optimized = str(table["optimized_uri"])
-            validate_benchmark_paths(
-                source_uri=source,
-                benchmark_root=benchmark_root,
-                baseline_uri=baseline,
-                optimized_uri=optimized,
-                compacted_uri=compacted,
-            )
+            baseline, compacted, optimized = (str(table[key]) for key in ("baseline_uri", "compacted_uri", "optimized_uri"))
+            validate_benchmark_paths(source_uri=source, benchmark_root=benchmark_root, baseline_uri=baseline,
+                                     optimized_uri=optimized, compacted_uri=compacted)
+            if table["optimization"]["action"] != "ZORDER":
+                raise ValueError("plan tables must carry the three-arm ZORDER ablation")
             source_version = int(table["delta_version"])
-            live_source = DeltaTable.forPath(spark, source)
-            live_version = int(live_source.history(1).first()["version"])
+            live_version = int(DeltaTable.forPath(spark, source).history(1).first()["version"])
             if live_version != source_version:
-                raise ValueError(
-                    f"source Delta version changed for {table['table']}: "
-                    f"planned={source_version}, live={live_version}"
-                )
-            _create_shallow_clone(
-                spark, source, baseline, source_version=source_version
-            )
-            _create_shallow_clone(
-                spark, source, optimized, source_version=source_version
-            )
-            if compacted is not None:
-                _create_shallow_clone(
-                    spark, source, compacted, source_version=source_version
-                )
-            before_delta = DeltaTable.forPath(spark, baseline)
+                raise ValueError(f"source Delta version changed for {table_name}: "
+                                 f"planned={source_version}, live={live_version}")
+            for target in (baseline, compacted, optimized):
+                _create_shallow_clone(spark, source, target, source_version=source_version)
+            before_fingerprint = _fingerprint(DeltaTable.forPath(spark, baseline).toDF(), table_name, GRAIN_KEYS[table_name])
+            compacted_delta = DeltaTable.forPath(spark, compacted)
             optimized_delta = DeltaTable.forPath(spark, optimized)
-            before_fingerprint = _fingerprint(
-                before_delta.toDF(), table_name, GRAIN_KEYS[table_name]
-            )
-            decision = table["optimization"]
-            rewrite_evidence: dict[str, Any] = {}
-            if decision["action"] == "ZORDER":
-                if compacted is None:
-                    raise ValueError("ZORDER plan requires an isolated compaction arm")
-                compacted_delta = DeltaTable.forPath(spark, compacted)
-                compact_started = time.perf_counter()
-                compact_metrics = [
-                    row.asDict(recursive=True)
-                    for row in compacted_delta.optimize().executeCompaction().collect()
-                ]
-                rewrite_evidence["compaction"] = {
-                    "seconds": time.perf_counter() - compact_started,
-                    "metrics": compact_metrics,
-                }
-                zorder_started = time.perf_counter()
-                zorder_metrics = [
-                    row.asDict(recursive=True)
-                    for row in optimized_delta.optimize().executeZOrderBy(
-                        *decision["columns"]
-                    ).collect()
-                ]
-                rewrite_evidence["zorder"] = {
-                    "seconds": time.perf_counter() - zorder_started,
-                    "metrics": zorder_metrics,
-                }
-            elif decision["action"] == "COMPACTION_ONLY":
-                rewrite_started = time.perf_counter()
-                metrics = [
-                    row.asDict(recursive=True)
-                    for row in optimized_delta.optimize().executeCompaction().collect()
-                ]
-                rewrite_evidence["compaction"] = {
-                    "seconds": time.perf_counter() - rewrite_started,
-                    "metrics": metrics,
-                }
-            else:
-                raise ValueError("selected table lacks a supported optimization")
-            layout_uris = {"baseline": baseline}
-            if compacted is not None:
-                layout_uris["compacted"] = compacted
-            layout_uris["optimized"] = optimized
-            query_results = _run_layout_queries(
-                spark, table, layout_uris=layout_uris
-            )
-            after_fingerprint = _fingerprint(
-                optimized_delta.toDF(), table_name, GRAIN_KEYS[table_name]
-            )
-            equivalence = compare_equivalence(before_fingerprint, after_fingerprint)
-            if not equivalence["equivalent"]:
-                raise ValueError(f"logical equivalence failed for {table['table']}")
-            compacted_equivalence = None
-            compacted_delta = None
-            if compacted is not None:
-                compacted_delta = DeltaTable.forPath(spark, compacted)
-                compacted_fingerprint = _fingerprint(
-                    compacted_delta.toDF(), table_name, GRAIN_KEYS[table_name]
-                )
-                compacted_equivalence = compare_equivalence(
-                    before_fingerprint, compacted_fingerprint
-                )
-                if not compacted_equivalence["equivalent"]:
-                    raise ValueError(
-                        f"compaction equivalence failed for {table['table']}"
-                    )
+            rewrite = {
+                "compaction": _optimize(compacted_delta, None),
+                "zorder": _optimize(optimized_delta, table["optimization"]["columns"]),
+            }
+            layout_uris = {"baseline": baseline, "compacted": compacted, "optimized": optimized}
+            query_results = _run_layout_queries(spark, table, layout_uris=layout_uris)
+            pruning = _run_partition_pruning(spark, table)
+            equivalence = {
+                "baseline_to_compacted": compare_equivalence(before_fingerprint, _fingerprint(
+                    compacted_delta.toDF(), table_name, GRAIN_KEYS[table_name])),
+                "baseline_to_optimized": compare_equivalence(before_fingerprint, _fingerprint(
+                    optimized_delta.toDF(), table_name, GRAIN_KEYS[table_name])),
+            }
+            for arm, result in equivalence.items():
+                if not result["equivalent"]:
+                    raise ValueError(f"logical equivalence failed for {table_name} ({arm})")
             before_detail = {
                 "delta_version": int(table["delta_version"]),
                 "file_count": int(table["file_count"]),
@@ -703,72 +677,48 @@ def execute_plan(
                 "statistics_profiles": dict(table["statistics_profiles"]),
                 "inspection_mode": table["inspection_mode"],
             }
+            compacted_detail = _layout_from_active_files(spark, compacted_delta)
             after_detail = _layout_from_active_files(spark, optimized_delta)
-            compacted_detail = (
-                _layout_from_active_files(spark, compacted_delta)
-                if compacted_delta is not None
-                else None
-            )
-            query_comparisons = _compare_query_sets(
-                query_results["baseline"],
-                query_results["optimized"],
-                before_detail=before_detail,
-                after_detail=after_detail,
-                arm="baseline_to_optimized",
-            )
-            ablation_comparisons: list[dict[str, object]] = []
-            compaction_comparisons: list[dict[str, object]] = []
-            compaction_verdict = None
-            zorder_incremental_verdict = None
-            if compacted_detail is not None:
-                compaction_comparisons = _compare_query_sets(
-                    query_results["baseline"],
-                    query_results["compacted"],
-                    before_detail=before_detail,
-                    after_detail=compacted_detail,
-                    arm="baseline_to_compaction",
-                )
-                compaction_verdict = _workload_verdict(compaction_comparisons)
-                ablation_comparisons = _compare_query_sets(
-                    query_results["compacted"],
-                    query_results["optimized"],
-                    before_detail=compacted_detail,
-                    after_detail=after_detail,
-                    arm="compaction_to_zorder",
-                )
-                zorder_incremental_verdict = _workload_verdict(ablation_comparisons)
-            workload_verdict = _workload_verdict(query_comparisons)
-            recommendation = _recommend_layout(
-                overall_verdict=workload_verdict,
-                compaction_verdict=compaction_verdict,
-                zorder_incremental_verdict=zorder_incremental_verdict,
-            )
-            evidence["tables"].append(
-                {
-                    "table": table["table"],
-                    "stage": table["stage"],
-                    "source_uri": source,
-                    "baseline_uri": baseline,
-                    "compacted_uri": compacted,
-                    "optimized_uri": optimized,
-                    "layout_before": before_detail,
-                    "layout_compacted": compacted_detail,
-                    "layout_after": after_detail,
-                    "queries_before": query_results["baseline"],
-                    "queries_compacted": query_results.get("compacted"),
-                    "queries_after": query_results["optimized"],
-                    "query_comparison": query_comparisons,
-                    "compaction_comparison": compaction_comparisons,
-                    "ablation_comparison": ablation_comparisons,
-                    "workload_verdict": workload_verdict,
-                    "compaction_verdict": compaction_verdict,
-                    "zorder_incremental_verdict": zorder_incremental_verdict,
-                    "recommendation": recommendation,
-                    "equivalence": equivalence,
-                    "compacted_equivalence": compacted_equivalence,
-                    "rewrite": rewrite_evidence,
-                }
-            )
+            arms = {
+                "baseline_to_compaction": _compare_query_sets(query_results["baseline"], query_results["compacted"],
+                                                              before_detail=before_detail, after_detail=compacted_detail,
+                                                              arm="baseline_to_compaction"),
+                "compaction_to_zorder": _compare_query_sets(query_results["compacted"], query_results["optimized"],
+                                                            before_detail=compacted_detail, after_detail=after_detail,
+                                                            arm="compaction_to_zorder"),
+                "baseline_to_optimized": _compare_query_sets(query_results["baseline"], query_results["optimized"],
+                                                             before_detail=before_detail, after_detail=after_detail,
+                                                             arm="baseline_to_optimized"),
+            }
+            verdicts = {arm: workload_verdict([item["verdict"] for item in items]) for arm, items in arms.items()}
+            evidence["tables"].append({
+                "table": table_name,
+                "stage": table["stage"],
+                "source_uri": source,
+                "source_delta_version": source_version,
+                "baseline_uri": baseline,
+                "compacted_uri": compacted,
+                "optimized_uri": optimized,
+                "workload_parameters": table.get("workload_parameters"),
+                "layout_before": before_detail,
+                "layout_compacted": compacted_detail,
+                "layout_after": after_detail,
+                "queries_before": query_results["baseline"],
+                "queries_compacted": query_results["compacted"],
+                "queries_after": query_results["optimized"],
+                "comparisons": arms,
+                "verdicts": verdicts,
+                "partition_pruning": pruning,
+                "recommendation": recommend_layout(
+                    overall_verdict=verdicts["baseline_to_optimized"],
+                    compaction_verdict=verdicts["baseline_to_compaction"],
+                    zorder_incremental_verdict=verdicts["compaction_to_zorder"],
+                    compaction_no_op=bool(rewrite["compaction"]["outcome"]["no_op"]),
+                    zorder_no_op=bool(rewrite["zorder"]["outcome"]["no_op"]),
+                ),
+                "equivalence": equivalence,
+                "rewrite": rewrite,
+            })
         evidence["completed_at"] = datetime.now(timezone.utc).isoformat()
         evidence["status"] = "PASS"
         return evidence
@@ -776,105 +726,89 @@ def execute_plan(
         spark.stop()
 
 
-def write_evidence(root: str, evidence: Mapping[str, Any]) -> None:
+Writer = Callable[[str, str, str], None]
+
+
+def gcs_writer(root: str) -> Writer:
+    """Create-only upload below ``root``; an existing object makes the upload fail."""
+
+    from google.cloud import storage
+
+    parsed = urlsplit(root)
+    bucket = storage.Client().bucket(parsed.netloc)
+    prefix = parsed.path.strip("/")
+
+    def write(name: str, text: str, content_type: str) -> None:
+        bucket.blob(f"{prefix}/{name}").upload_from_string(text, content_type=content_type, if_generation_match=0)
+
+    return write
+
+
+def local_writer(directory: Path) -> Writer:
+    """Create-only writer into a local directory (local verification runs)."""
+
+    def write(name: str, text: str, content_type: str) -> None:
+        path = directory / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8") as handle:
+            handle.write(text)
+
+    return write
+
+
+CSV_COLUMNS = (
+    "table", "comparison_arm", "query", "file_count_change", "median_file_size_change",
+    "before_median_seconds", "after_median_seconds", "runtime_change_percent",
+    "before_range_seconds", "after_range_seconds", "verdict", "output_equivalent",
+    "before_files_read", "after_files_read", "before_bytes_read", "after_bytes_read",
+)
+
+
+def _scan_total(metrics: Mapping[str, Any], key: str) -> int | None:
+    if not metrics.get("available"):
+        return None
+    values = [scan.get(key) for scan in metrics.get("scans", [])]
+    return None if any(value is None for value in values) else sum(int(value) for value in values)
+
+
+def write_evidence(evidence: Mapping[str, Any], writer: Writer) -> list[str]:
+    """Write the evidence documents under ``evidence/``; return the names written."""
+
+    def dump(name: str, value: object) -> None:
+        writer(f"evidence/{name}", json.dumps(value, indent=2, default=str) + "\n", "application/json")
+        written.append(name)
+
+    written: list[str] = []
     tables = list(evidence["tables"])
-    _upload_json(f"{root}/evidence/layout_before.json", {
-        "tables": [table["layout_before"] | {"table": table["table"]} for table in tables]
-    })
-    _upload_json(f"{root}/evidence/layout_after.json", {
-        "tables": [table["layout_after"] | {"table": table["table"]} for table in tables]
-    })
-    compacted_tables = [table for table in tables if table["layout_compacted"] is not None]
-    if compacted_tables:
-        _upload_json(f"{root}/evidence/layout_compacted.json", {
-            "tables": [
-                table["layout_compacted"] | {"table": table["table"]}
-                for table in compacted_tables
-            ]
-        })
-    _upload_json(f"{root}/evidence/queries_before.json", {
-        "tables": [{"table": table["table"], "queries": table["queries_before"]} for table in tables]
-    })
-    _upload_json(f"{root}/evidence/queries_after.json", {
-        "tables": [{"table": table["table"], "queries": table["queries_after"]} for table in tables]
-    })
-    if compacted_tables:
-        _upload_json(f"{root}/evidence/queries_compacted.json", {
-            "tables": [
-                {"table": table["table"], "queries": table["queries_compacted"]}
-                for table in compacted_tables
-            ]
-        })
-    _upload_json(f"{root}/evidence/equivalence.json", {
-        "tables": [
-            {
-                "table": table["table"],
-                "baseline_to_optimized": table["equivalence"],
-                "baseline_to_compacted": table["compacted_equivalence"],
-            }
-            for table in tables
-        ]
-    })
-    _upload_json(f"{root}/evidence/comparison.json", evidence)
+    for arm, key in (("baseline", "layout_before"), ("compacted", "layout_compacted"), ("optimized", "layout_after")):
+        dump(f"layout_{arm}.json", {"tables": [{"table": t["table"], **t[key]} for t in tables]})
+    for arm, key in (("baseline", "queries_before"), ("compacted", "queries_compacted"), ("optimized", "queries_after")):
+        dump(f"queries_{arm}.json", {"tables": [{"table": t["table"], "queries": t[key]} for t in tables]})
+    dump("rewrite.json", {"tables": [{"table": t["table"], **t["rewrite"]} for t in tables]})
+    dump("partition_pruning.json", {"tables": [{"table": t["table"], **t["partition_pruning"]} for t in tables]})
+    dump("equivalence.json", {"tables": [{"table": t["table"], **t["equivalence"]} for t in tables]})
+    dump("comparison.json", evidence)
     output = io.StringIO()
-    columns = [
-        "table", "comparison_arm", "query", "before_file_count", "after_file_count",
-        "before_median_file_size", "after_median_file_size",
-        "before_p95_file_size", "after_p95_file_size",
-        "before_scan_bytes", "after_scan_bytes",
-        "before_runtime_seconds", "after_runtime_seconds",
-        "runtime_change_percent", "verdict", "output_equivalent",
-        "workload_verdict", "compaction_verdict", "zorder_incremental_verdict",
-        "recommendation",
-        "rewrite_seconds",
-    ]
-    writer = csv.DictWriter(output, fieldnames=columns)
-    writer.writeheader()
+    csv_writer = csv.DictWriter(output, fieldnames=CSV_COLUMNS)
+    csv_writer.writeheader()
     for table in tables:
-        comparisons = (
-            table["query_comparison"]
-            + table["compaction_comparison"]
-            + table["ablation_comparison"]
-        )
-        for comparison in comparisons:
-            is_ablation = comparison["comparison_arm"] == "compaction_to_zorder"
-            is_compaction = comparison["comparison_arm"] == "baseline_to_compaction"
-            before_layout = (
-                table["layout_compacted"] if is_ablation else table["layout_before"]
-            )
-            after_layout = (
-                table["layout_compacted"] if is_compaction else table["layout_after"]
-            )
-            rewrite_seconds = sum(
-                float(operation["seconds"])
-                for operation in table["rewrite"].values()
-            )
-            writer.writerow(
-                {
-                    "table": table["table"],
-                    "comparison_arm": comparison["comparison_arm"],
-                    "query": comparison["query"],
-                    "before_file_count": before_layout["file_count"],
-                    "after_file_count": after_layout["file_count"],
-                    "before_median_file_size": before_layout["file_size_bytes"]["median"],
-                    "after_median_file_size": after_layout["file_size_bytes"]["median"],
-                    "before_p95_file_size": before_layout["file_size_bytes"]["p95"],
-                    "after_p95_file_size": after_layout["file_size_bytes"]["p95"],
-                    "before_scan_bytes": comparison["before_scan_bytes"],
-                    "after_scan_bytes": comparison["after_scan_bytes"],
-                    "before_runtime_seconds": comparison["before_runtime_seconds"],
-                    "after_runtime_seconds": comparison["after_runtime_seconds"],
-                    "runtime_change_percent": comparison["runtime_change_percent"],
-                    "verdict": comparison["verdict"],
-                    "output_equivalent": comparison["output_equivalent"],
-                    "workload_verdict": table["workload_verdict"],
-                    "compaction_verdict": table["compaction_verdict"],
-                    "zorder_incremental_verdict": table["zorder_incremental_verdict"],
-                    "recommendation": table["recommendation"],
-                    "rewrite_seconds": rewrite_seconds,
-                }
-            )
-    _upload_text(f"{root}/evidence/comparison.csv", output.getvalue(), "text/csv")
+        for arm, items in table["comparisons"].items():
+            for item in items:
+                csv_writer.writerow({
+                    "table": table["table"], "comparison_arm": arm, "query": item["query"],
+                    **{key: item[key] for key in ("file_count_change", "median_file_size_change",
+                                                  "before_median_seconds", "after_median_seconds",
+                                                  "runtime_change_percent", "verdict", "output_equivalent")},
+                    "before_range_seconds": json.dumps(item["before_range_seconds"]),
+                    "after_range_seconds": json.dumps(item["after_range_seconds"]),
+                    "before_files_read": _scan_total(item["before_scan_metrics"], "files_read"),
+                    "after_files_read": _scan_total(item["after_scan_metrics"], "files_read"),
+                    "before_bytes_read": _scan_total(item["before_scan_metrics"], "bytes_read"),
+                    "after_bytes_read": _scan_total(item["after_scan_metrics"], "bytes_read"),
+                })
+    writer("evidence/comparison.csv", output.getvalue(), "text/csv")
+    written.append("comparison.csv")
+    return written
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -890,13 +824,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     validate_git_sha(args.git_sha)
     plan = json.loads(args.plan.read_text(encoding="utf-8"))
-    evidence = execute_plan(
-        plan=plan,
-        benchmark_root=args.benchmark_root.rstrip("/"),
-        dataset_version=args.dataset_version,
-        git_sha=args.git_sha,
-    )
-    write_evidence(args.benchmark_root.rstrip("/"), evidence)
+    root = args.benchmark_root.rstrip("/")
+    evidence = execute_plan(plan=plan, benchmark_root=root, dataset_version=args.dataset_version,
+                            git_sha=args.git_sha)
+    write_evidence(evidence, gcs_writer(root))
     return 0
 
 

@@ -9,16 +9,18 @@ components are indexed in [EDAI-1](../edai1/README.md) and [EDAI-2](../edai2/REA
 | Component | Runbook | Executes | Prerequisites and runtime | Notes |
 |---|---|---|---|---|
 | Platform configuration | [Runtime configuration](edai1/cloud/configuration.md) | Profile loading and preflight | Local Python plus configured GCP/local services | Bounded, approval-gated procedure |
-| Source generation | [Cloud source generation](edai1/cloud/source_dataset_generation.md) | Bounded/canonical source planning and generation | GCS/GCP identity, manifest, cost gate | Bounded, approval-gated procedure |
+| EDAI-1 DP1–DP3 campaign (current) | [EDAI-1 pipeline runbook](edai1/cloud/edai1_campaign_runbook.md) | `rehearsal-5gb-v1` source generation, DP1–DP3 Airflow DAGs on Dataproc, validation, campaign comparison | GCP identity, the 5GB data bucket, Airflow 3, cost gates | Current workflow; campaign `ab-20261110225456` |
 | Dataproc compatibility | [Delta-on-GCS smoke](edai1/cloud/dataproc_delta_smoke.md) | Dry-run and bounded Managed Spark smoke | gcloud, Dataproc quota, isolated GCS prefix | Run record |
-| DP2 Method 2 | [Single-DAG DP2 runbook](edai1/cloud/dp2_method2_single_dag_runbook.md) | Silver/Gold baseline and optimized orchestration | Airflow 3, frozen manifests, quota/cost gates | Bounded, approval-gated procedure |
-| Storage optimization | [Cloud storage optimization](edai1/cloud/storage_optimization.md) | Storage A/B planning/validation | Immutable inputs and isolated outputs | Bounded, approval-gated procedure |
+| Docker, lakehouse and warehouse optimization | [Owner evidence runbook](edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md) | Docker A/B and Compose; PostgreSQL index benchmark on real 5GB Gold rows; isolated Delta compaction/Z-order/pruning benchmark | Docker, isolated PostgreSQL, schema-viz Trino, one owner-approved Dataproc batch | Run 2026-11-12/13 (`20261112t142522`); evidence integrated |
+| Lakehouse storage benchmark | [Cloud Delta storage optimization](edai1/cloud/storage_optimization.md) | Plan, dry run, paid batch, Trino verification and the canonical ST01–ST09 SQL | gcloud ADC, Dataproc quota, a verified campaign and its workload spec | Bounded, approval-gated procedure |
 | Terraform foundation | [GCP foundation](../cloud/terraform_gcp_foundation.md) | Terraform plan/apply/cleanup workflow | Remote state, GCP auth, explicit mutation approval | Bounded, approval-gated procedure |
 | Data Governance and Schema Design | [Owner evidence runbook](edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md) | 5GB metadata export (read-only GCS), DBML for dbdiagram.io, DataHub lineage and assertion publication with readback, read-only Trino schema queries | gsutil/ADC read access, local DataHub Quickstart, schema-viz Trino, dbdiagram.io | Owner-run; screenshots DG01–DG08, SC01–SC08 |
 
-The bounded Silver, Gold and historical-feature procedures live under
-`edai1/cloud/`. They remain approval-gated runbooks, not proof that a fresh run
-has completed.
+Superseded EDAI-1 procedures stay under `edai1/cloud/` for provenance, each marked
+*Historical* at the top: the 1 GB pilot runbooks (source generation, GCS layout,
+bounded Silver, core Gold and historical features), the `canonical-100gb-v1`
+readiness, performance and size-remediation runbooks, and the single-DAG DP2
+runbook. They are not part of the current 5GB workflow.
 
 ## EDAI-2
 

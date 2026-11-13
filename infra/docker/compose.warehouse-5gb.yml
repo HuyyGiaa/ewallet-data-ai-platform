@@ -1,0 +1,53 @@
+# Isolated PostgreSQL for the EDAI-1 warehouse index benchmark (rubric row 21).
+#
+# Holds only rows extracted from the 5GB campaign's Gold fact_transactions. It is
+# separate from every other PostgreSQL in the platform (MLflow, Feature Store,
+# applications): own project name, container, volume and a loopback-only port.
+#
+#   export EDAI1_WH_PG_PASSWORD=<generated, see the runbook>
+#   docker compose -p edai1-wh5gb -f infra/docker/compose.warehouse-5gb.yml up -d --wait
+#   docker compose -p edai1-wh5gb -f infra/docker/compose.warehouse-5gb.yml stop     # keeps the data
+#
+# The volume is never removed by the benchmark tooling; dropping it is an explicit
+# owner action documented in the runbook.
+name: edai1-wh5gb
+
+services:
+  postgres:
+    image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    container_name: edai1-wh5gb-postgres
+    environment:
+      POSTGRES_USER: warehouse
+      POSTGRES_DB: warehouse
+      POSTGRES_PASSWORD: ${EDAI1_WH_PG_PASSWORD:?set EDAI1_WH_PG_PASSWORD (see the runbook)}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=64MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_parallel_workers_per_gather=2
+      - -c
+      - jit=off
+      - -c
+      - track_io_timing=on
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 1g
+    mem_limit: 4g
+    cpus: 2.0
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warehouse -d warehouse"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: "no"
+
+volumes:
+  pgdata:
+    name: edai1-wh5gb-pgdata

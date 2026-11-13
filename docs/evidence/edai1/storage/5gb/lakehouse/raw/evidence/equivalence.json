@@ -1,0 +1,30 @@
+{
+  "tables": [
+    {
+      "table": "fact_transactions",
+      "baseline_to_compacted": {
+        "equivalent": true,
+        "differences": [],
+        "method": "schema hash, exact row count, grain/business invariants and partition-independent aggregate row fingerprint"
+      },
+      "baseline_to_optimized": {
+        "equivalent": true,
+        "differences": [],
+        "method": "schema hash, exact row count, grain/business invariants and partition-independent aggregate row fingerprint"
+      }
+    },
+    {
+      "table": "obt_transaction_enriched",
+      "baseline_to_compacted": {
+        "equivalent": true,
+        "differences": [],
+        "method": "schema hash, exact row count, grain/business invariants and partition-independent aggregate row fingerprint"
+      },
+      "baseline_to_optimized": {
+        "equivalent": true,
+        "differences": [],
+        "method": "schema hash, exact row count, grain/business invariants and partition-independent aggregate row fingerprint"
+      }
+    }
+  ]
+}

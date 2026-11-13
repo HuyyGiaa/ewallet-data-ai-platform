@@ -1,5 +1,7 @@
 # Canonical 100 GB size remediation
 
+> **Historical (superseded by the 5GB implementation, 2026-11-13).** This procedure repaired shards of the retired `canonical-100gb-v1` source. It is kept for provenance and is not part of the current EDAI-1 workflow: use the [EDAI-1 DP1–DP3 pipeline runbook](edai1_campaign_runbook.md) for the `rehearsal-5gb-v1` campaign `ab-20261110225456`.
+
 This runbook rewrites only `transactions_v2` shards `00000` through `00034`
 for `canonical-100gb-v1`. It reuses the other 33,229 verified Parquet objects.
 The approved rewrite is Parquet 2.6 with `compression=NONE`,

@@ -1,15 +1,35 @@
-"""Read Delta logs on GCS and build a metadata-first storage benchmark plan."""
+"""Inspect 5GB campaign Delta tables and write the immutable storage benchmark plan.
+
+Read-only. The plan is bound to one verified campaign profile:
+
+1. The committed campaign evidence must pass ``ops.edai1_verifier`` (checksum chain,
+   identity, 260 rules, semantic comparison) for the workload specification.
+2. Every table URI is derived from that profile's verified ``campaign_manifest.json``;
+   no URI is typed by hand.
+3. Each table's layout is summarized from Delta ``AddFile`` metadata (``deltalake``),
+   and its current Delta version is pinned in the plan.
+4. Query predicates come from the data: the last seven daily partitions, and inside
+   them a typical merchant (median per-merchant row count) and the ``failed`` status
+   with their exact row counts. Only the ``merchant_id`` and ``status`` columns of
+   those seven partition files are read.
+
+Outputs ``layout_before.json`` and ``plan.json``. Nothing is written to GCS.
+Run in the ``ai_platform/features/feast`` uv project, which locks ``deltalake``.
+"""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
-import re
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from statistics import median
 from typing import Any, Mapping, Sequence
 
-from data_platform.config.spark_profiles import parse_benchmark_run_id, validate_git_sha
+from data_platform.config.dataset_identity import resolve_storage_context
+from data_platform.config.spark_profiles import validate_git_sha
 from data_platform.storage.cloud_optimization import (
     ACCESS_PATTERNS,
     PINNED_CAPABILITIES,
@@ -20,343 +40,293 @@ from data_platform.storage.cloud_optimization import (
     summarize_layout,
     validate_benchmark_paths,
 )
+from ops.edai1_verifier.report import fingerprint, verify
+from ops.edai1_verifier.spec import load_spec
 
-
-SPARK_BENCHMARK_ID = re.compile(r"^ab-[0-9]{14}$")
-STAGE_EVIDENCE = {
-    "dp2-silver": "dp2-silver",
-    "dp2-gold": "dp2-gold",
-    "dp3-features": "dp3-features",
+PLAN_SCHEMA = 2
+PROFILE = "optimized"
+WINDOW_DAYS = 7
+# Benchmark stage -> (campaign stage, Delta zone folder)
+STAGES: Mapping[str, tuple[str, str]] = {
+    "dp2-silver": ("silver", "silver"),
+    "dp2-gold": ("gold", "gold"),
+    "dp3-features": ("features", "gold"),
 }
-RUN_STAGE = {
-    "dp2-silver": "silver",
-    "dp2-gold": "gold",
-    "dp3-features": "feat",
-}
-STAGE_LAYER = {
-    "dp2-silver": "silver",
-    "dp2-gold": "gold",
-    "dp3-features": "gold",
-}
+SUPPORTED_TABLES = {"dp2-gold": ("fact_transactions", "obt_transaction_enriched")}
 
 
-def parse_table_spec(value: str) -> tuple[str, str, str]:
+@dataclass(frozen=True)
+class CampaignBinding:
+    """The verified campaign profile the benchmark reads from."""
+
+    benchmark_id: str
+    dataset_version: str
+    source_spark_git_sha: str
+    campaign_manifest_sha256: str
+    verification_report_sha256: str
+    run_ids: Mapping[str, str]
+    output_roots: Mapping[str, str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "benchmark_id": self.benchmark_id,
+            "spark_profile": PROFILE,
+            "dataset_version": self.dataset_version,
+            "source_spark_git_sha": self.source_spark_git_sha,
+            "campaign_manifest_sha256": self.campaign_manifest_sha256,
+            "verification_report_sha256": self.verification_report_sha256,
+            "run_ids": dict(self.run_ids),
+        }
+
+
+def parse_table_spec(value: str) -> tuple[str, str]:
+    """``STAGE.TABLE``, for example ``dp2-gold.fact_transactions``."""
+
     try:
-        qualified, uri = value.split("=", 1)
-        stage, table = qualified.split(".", 1)
+        stage, table = value.split(".", 1)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            "table must be STAGE.TABLE=gs://..."
-        ) from exc
-    if stage not in {"dp2-silver", "dp2-gold", "dp3-features"}:
-        raise argparse.ArgumentTypeError("unsupported storage benchmark stage")
-    if not table.replace("_", "").isalnum() or not uri.startswith("gs://"):
-        raise argparse.ArgumentTypeError("unsafe table name or non-GCS URI")
-    return stage, table, uri.rstrip("/")
+        raise argparse.ArgumentTypeError("table must be STAGE.TABLE") from exc
+    if table not in SUPPORTED_TABLES.get(stage, ()):
+        raise argparse.ArgumentTypeError(f"unsupported benchmark table {value!r}; supported: {SUPPORTED_TABLES}")
+    return stage, table
 
 
-def _column(actions: Any, name: str) -> list[Any]:
-    return actions.column(name).to_pylist()
+def load_verified_campaign(evidence_dir: Path, spec_path: Path, *, dataset_version: str,
+                           source_spark_git_sha: str) -> CampaignBinding:
+    """Verify the committed campaign evidence and return the optimized profile's runs.
+
+    Raises:
+        ValueError: The evidence does not pass verification or does not match the
+            requested dataset version and source Spark Git SHA.
+    """
+
+    spec = load_spec(spec_path)
+    if spec.dataset_version != dataset_version or spec.source_git_sha != source_spark_git_sha:
+        raise ValueError("workload spec does not name the requested dataset version and source Spark Git SHA")
+    report = verify(evidence_dir, spec)
+    if report["verdict"] != "PASS":
+        raise ValueError(f"campaign evidence does not verify: {report['failed_checks'][:5]}")
+    manifest_path = evidence_dir / "manifests" / PROFILE / "campaign_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    stages = manifest["stages"]
+    return CampaignBinding(
+        benchmark_id=spec.benchmark_id,
+        dataset_version=spec.dataset_version,
+        source_spark_git_sha=spec.source_git_sha,
+        campaign_manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        verification_report_sha256=fingerprint(report),
+        run_ids={stage: str(stages[campaign]["run_id"]) for stage, (campaign, _) in STAGES.items()},
+        output_roots={stage: str(stages[campaign]["output_root"]).rstrip("/") for stage, (campaign, _) in STAGES.items()},
+    )
+
+
+def table_uri(binding: CampaignBinding, stage: str, table: str) -> str:
+    """Source URI of one table inside the verified run root."""
+
+    return f"{binding.output_roots[stage]}/{table}"
 
 
 def _action_rows(actions: Any) -> list[dict[str, object]]:
     """Normalize delta-rs flattened AddFile metadata into plain dictionaries."""
 
-    names = list(
-        getattr(actions, "column_names", None) or actions.schema.names
-    )
-    values = {name: _column(actions, name) for name in names}
+    names = list(getattr(actions, "column_names", None) or actions.schema.names)
+    values = {name: actions.column(name).to_pylist() for name in names}
     size_name = "size_bytes" if "size_bytes" in names else "size"
     if size_name not in names or "path" not in names:
         raise ValueError("Delta AddFile metadata lacks path/size columns")
-    count = len(values[size_name])
     rows: list[dict[str, object]] = []
-    for index in range(count):
-        partition_values = {
-            name.split(".", 1)[1]: values[name][index]
-            for name in names
-            if name.startswith("partition.") and values[name][index] is not None
-        }
-        min_values = {
-            name.split(".", 1)[1]: values[name][index]
-            for name in names
-            if name.startswith("min.") and values[name][index] is not None
-        }
-        max_values = {
-            name.split(".", 1)[1]: values[name][index]
-            for name in names
-            if name.startswith("max.") and values[name][index] is not None
-        }
-        rows.append(
-            {
-                "path": values["path"][index],
-                "size_bytes": values[size_name][index],
-                "num_records": (
-                    values["num_records"][index]
-                    if "num_records" in names
-                    else None
-                ),
-                "partition_values": partition_values,
-                "min_values": min_values,
-                "max_values": max_values,
-            }
-        )
+    for index in range(len(values[size_name])):
+        def prefixed(prefix: str) -> dict[str, object]:
+            return {name.split(".", 1)[1]: values[name][index] for name in names
+                    if name.startswith(prefix) and values[name][index] is not None}
+        rows.append({
+            "path": values["path"][index],
+            "size_bytes": values[size_name][index],
+            "num_records": values["num_records"][index] if "num_records" in names else None,
+            "partition_values": prefixed("partition."),
+            "min_values": prefixed("min."),
+            "max_values": prefixed("max."),
+        })
     return rows
 
 
 def inspect_delta_table(stage: str, table_name: str, uri: str) -> dict[str, object]:
-    # Lazy import keeps plan/parser tests independent of cloud/Delta libraries.
-    from deltalake import DeltaTable
+    """Summarize one table's active files from its Delta log (no data read)."""
+
+    from deltalake import DeltaTable  # lazy: plan tests need no Delta library
 
     table = DeltaTable(uri)
     metadata = table.metadata()
-    configuration = getattr(metadata, "configuration", None) or {}
     return summarize_layout(
         table=table_name,
         stage=stage,
         uri=uri,
         delta_version=table.version(),
         partition_columns=tuple(metadata.partition_columns),
-        properties=configuration,
+        properties=getattr(metadata, "configuration", None) or {},
         actions=_action_rows(table.get_add_actions(flatten=True)),
     )
 
 
-def _query_workload(table: str) -> list[dict[str, object]]:
-    if table in {"transactions", "fact_transactions", "obt_transaction_enriched"}:
-        return [
-            {
-                "name": "bounded_date_aggregation",
-                "class": "date_range",
-                "predicate_columns": ["event_date"],
-                "require_non_empty": True,
-                "description": "seven-day transaction count/sum/average",
-            },
-            {
-                "name": "bounded_merchant_lookup",
-                "class": "date_entity_lookup",
-                "predicate_columns": ["event_date", "merchant_id"],
-                "equality_predicate_columns": ["merchant_id"],
-                "require_non_empty": True,
-                "description": "seven-day lookup for one deterministic merchant",
-            },
-            {
-                "name": "bounded_failed_payment_aggregation",
-                "class": "date_status_aggregation",
-                "predicate_columns": ["event_date", "status"],
-                "equality_predicate_columns": ["status"],
-                "require_non_empty": True,
-                "description": "seven-day failed-payment analytics",
-            },
-        ]
-    entity = {
-        "feat_user_behavior": "user_id",
-        "feat_account_behavior": "account_id",
-        "feat_device_behavior": "device_id",
-        "feat_merchant_behavior": "merchant_id",
-    }.get(table)
-    if entity:
-        return [
-            {
-                "name": "bounded_entity_history",
-                "class": "entity_time_range",
-                "predicate_columns": [entity, "event_timestamp"],
-                "equality_predicate_columns": [entity],
-                "require_non_empty": True,
-                "description": "point-in-time feature history for one entity",
-            }
-        ]
-    return []
+def query_window(layout: Mapping[str, Any]) -> tuple[str, str]:
+    """The last ``WINDOW_DAYS`` daily partitions, from partition metadata only."""
+
+    bounds = (layout.get("global_statistics") or {}).get("event_date") or {}
+    if bounds.get("maximum") is None:
+        raise ValueError(f"{layout.get('table')} has no event_date partition bounds")
+    end = date.fromisoformat(str(bounds["maximum"])[:10])
+    return str(end - timedelta(days=WINDOW_DAYS - 1)), str(end)
 
 
-def _load_verified_spark_evidence(
-    root: Path,
-    *,
-    dataset_version: str,
-    git_sha: str,
-) -> tuple[str, dict[str, str]]:
-    """Bind storage inputs to one completed, equivalent optimized Spark A/B."""
+def choose_parameters(window: tuple[str, str], merchant_counts: Mapping[str, int],
+                      status_counts: Mapping[str, int], window_rows: int) -> dict[str, object]:
+    """Pick the workload predicates from observed counts (deterministic).
 
-    comparison = json.loads((root / "comparison.json").read_text(encoding="utf-8"))
-    benchmark_id = str(comparison.get("benchmark_id", ""))
-    if not SPARK_BENCHMARK_ID.fullmatch(benchmark_id):
-        raise ValueError("Spark comparison has an invalid benchmark_id")
-    if comparison.get("dataset_version") != dataset_version:
-        raise ValueError("Spark comparison dataset_version does not match")
-    if comparison.get("git_sha") != git_sha:
-        raise ValueError("Spark comparison Git SHA does not match")
-    rows = comparison.get("stages")
-    expected = {"dp1-bronze", "dp2-silver", "dp2-gold", "dp3-features"}
-    if (
-        not isinstance(rows, list)
-        or len(rows) != len(expected)
-        or {row.get("stage") for row in rows} != expected
-    ):
-        raise ValueError("Spark comparison is incomplete")
-    if any(row.get("output_equivalent") is not True for row in rows):
-        raise ValueError("Spark comparison has a failed equivalence gate")
+    The merchant is the one whose row count in the window is the median of all
+    per-merchant counts (smallest id among ties): a typical merchant, neither the
+    busiest nor an outlier.
 
-    run_by_stage: dict[str, str] = {}
-    for stage in STAGE_EVIDENCE.values():
-        evidence = json.loads(
-            (root / "optimized" / f"{stage}.json").read_text(encoding="utf-8")
-        )
-        if any(
-            (
-                evidence.get("benchmark_id") != benchmark_id,
-                evidence.get("dataset_version") != dataset_version,
-                evidence.get("git_sha") != git_sha,
-                evidence.get("spark_profile") != "optimized",
-                evidence.get("stage") != stage,
-                evidence.get("batch_state") != "SUCCEEDED",
-            )
-        ):
-            raise ValueError(f"optimized Spark evidence is invalid for {stage}")
-        outputs = evidence.get("output_run_ids")
-        if not isinstance(outputs, list) or len(outputs) != 1:
-            raise ValueError(f"optimized Spark evidence needs one output run for {stage}")
-        run_id = str(outputs[0])
-        parsed = parse_benchmark_run_id(run_id)
-        if any(
-            (
-                parsed["benchmark_id"] != benchmark_id,
-                parsed["spark_profile"] != "optimized",
-                parsed["stage"] != RUN_STAGE[stage],
-            )
-        ):
-            raise ValueError(f"optimized output run is misbound for {stage}")
-        run_by_stage[stage] = run_id
-    return benchmark_id, run_by_stage
+    Raises:
+        ValueError: The window has no merchant rows or no ``failed`` rows.
+    """
 
-
-def build_plan(
-    *,
-    benchmark_id: str,
-    dataset_version: str,
-    source_spark_git_sha: str,
-    tool_git_sha: str,
-    source_run_ids: Sequence[str],
-    spark_benchmark_id: str,
-    data_bucket: str,
-    layouts: Sequence[Mapping[str, Any]],
-) -> dict[str, object]:
-    if not SPARK_BENCHMARK_ID.fullmatch(spark_benchmark_id):
-        raise ValueError("invalid Spark benchmark ID")
-    parsed_runs: dict[str, str] = {}
-    for run_id in source_run_ids:
-        parsed = parse_benchmark_run_id(run_id)
-        if (
-            parsed["benchmark_id"] != spark_benchmark_id
-            or parsed["spark_profile"] != "optimized"
-        ):
-            raise ValueError("source runs do not share the verified Spark benchmark")
-        if parsed["stage"] in parsed_runs:
-            raise ValueError(f"duplicate optimized source stage: {parsed['stage']}")
-        parsed_runs[parsed["stage"]] = run_id
-    root = f"gs://{data_bucket}/lakehouse/benchmarks/storage/{benchmark_id}"
-    table_plans: list[dict[str, object]] = []
-    for layout in layouts:
-        table = str(layout["table"])
-        stage = str(layout["stage"])
-        source_uri = str(layout["uri"])
-        queries = _query_workload(table)
-        run_id = parsed_runs.get(RUN_STAGE[stage])
-        expected_uri = (
-            f"gs://{data_bucket}/lakehouse/runs/{run_id}/"
-            f"{STAGE_LAYER[stage]}/{table}"
-        )
-        if run_id is None or source_uri != expected_uri:
-            raise ValueError(
-                "table URI is not exactly bound to its approved source stage: "
-                f"expected={expected_uri}, actual={source_uri}"
-            )
-        access = ACCESS_PATTERNS.get(table, TableAccessPattern("none"))
-        selection = select_table(layout, query_importance=access.query_importance)
-        partition = decide_partitioning(
-            partition_columns=tuple(layout["partition_columns"]),
-            partition_count=int(layout["partition_count"]),
-            total_bytes=int(layout["total_bytes"]),
-            files_per_partition_p95=int(layout["files_per_partition_p95"]),
-            partition_size_bytes=layout.get("partition_size_bytes"),
-            small_partition_count=int(layout.get("small_partition_count", 0)),
-            access=access,
-        )
-        equality_columns = {
-            str(column)
-            for query in queries
-            for column in query.get("equality_predicate_columns", [])
-        }
-        zorder = decide_zorder(
-            access=access,
-            partition_columns=tuple(layout["partition_columns"]),
-            statistics_columns=tuple(layout["statistics_columns"]),
-            statistics_profiles=layout.get("statistics_profiles") or {},
-            equality_predicate_columns=tuple(sorted(equality_columns)),
-        )
-        baseline_uri = f"{root}/baseline/{stage}/{table}"
-        compacted_uri = (
-            f"{root}/compacted/{stage}/{table}"
-            if zorder["action"] == "ZORDER" and selection["selected"]
-            else None
-        )
-        optimized_uri = f"{root}/optimized/{stage}/{table}"
-        validate_benchmark_paths(
-            source_uri=source_uri,
-            benchmark_root=root,
-            baseline_uri=baseline_uri,
-            compacted_uri=compacted_uri,
-            optimized_uri=optimized_uri,
-        )
-        table_plans.append(
-            {
-                **layout,
-                **selection,
-                "query_importance": access.query_importance,
-                "partition_decision": partition,
-                "optimization": zorder if selection["selected"] else {
-                    "action": "NONE",
-                    "columns": [],
-                    "reason": "table was not evidence-selected",
-                },
-                "queries": queries,
-                "baseline_uri": baseline_uri,
-                "compacted_uri": compacted_uri,
-                "optimized_uri": optimized_uri,
-                "estimated_rewrite_bytes": (
-                    int(layout["total_bytes"]) if selection["selected"] else 0
-                ),
-            }
-        )
+    if not merchant_counts:
+        raise ValueError("the query window contains no merchant transactions")
+    if int(status_counts.get("failed", 0)) <= 0:
+        raise ValueError("the query window contains no failed transactions")
+    target = median(sorted(merchant_counts.values()))
+    merchant = min(merchant_counts, key=lambda key: (abs(merchant_counts[key] - target), key))
     return {
-        "schema_version": 1,
+        "window_start": window[0],
+        "window_end": window[1],
+        "window_rows": int(window_rows),
+        "merchant_id": merchant,
+        "merchant_rows_in_window": int(merchant_counts[merchant]),
+        "merchants_in_window": len(merchant_counts),
+        "merchant_selection": "median per-merchant row count in the window, smallest id on ties",
+        "status_counts_in_window": dict(sorted((str(k), int(v)) for k, v in status_counts.items())),
+        "failed_rows_in_window": int(status_counts["failed"]),
+    }
+
+
+def derive_parameters(uri: str, layout: Mapping[str, Any]) -> dict[str, object]:
+    """Read ``merchant_id`` and ``status`` of the window partitions and choose predicates."""
+
+    import pyarrow.compute as pc
+    from deltalake import DeltaTable
+
+    window = query_window(layout)
+    days = [str(date.fromisoformat(window[0]) + timedelta(days=offset)) for offset in range(WINDOW_DAYS)]
+    dataset = DeltaTable(uri, version=int(layout["delta_version"])).to_pyarrow_dataset(
+        partitions=[("event_date", "in", days)])
+    columns = dataset.to_table(columns=["merchant_id", "status"])
+    merchants = pc.value_counts(pc.drop_null(columns["merchant_id"])).to_pylist()
+    statuses = pc.value_counts(columns["status"]).to_pylist()
+    return {
+        **choose_parameters(window, {item["values"]: item["counts"] for item in merchants},
+                            {item["values"]: item["counts"] for item in statuses}, columns.num_rows),
+        "source_delta_version": int(layout["delta_version"]),
+        "derived_from": "merchant_id,status columns of the window partitions (read-only)",
+    }
+
+
+def query_workload(table: str) -> list[dict[str, object]]:
+    """Representative queries; ``partition_pruning`` pairs run on the baseline arm only."""
+
+    return [
+        {"name": "window_aggregation", "class": "date_range", "predicate_columns": ["event_date"],
+         "require_non_empty": True, "description": "seven-day count, sum and average"},
+        {"name": "window_merchant_lookup", "class": "date_entity_lookup",
+         "predicate_columns": ["event_date", "merchant_id"], "equality_predicate_columns": ["merchant_id"],
+         "require_non_empty": True, "description": "seven-day aggregate for one typical merchant"},
+        {"name": "window_failed_by_channel", "class": "date_status_aggregation",
+         "predicate_columns": ["event_date", "status"], "equality_predicate_columns": ["status"],
+         "require_non_empty": True, "description": "seven-day failed transactions per channel"},
+    ] if table in {"fact_transactions", "obt_transaction_enriched"} else []
+
+
+def build_plan(*, benchmark_id: str, binding: CampaignBinding, tool_git_sha: str, data_bucket: str,
+               layouts: Sequence[Mapping[str, Any]], parameters: Mapping[str, Mapping[str, Any]]) -> dict[str, object]:
+    """Assemble the immutable plan; every output path is validated against the source."""
+
+    resolve_storage_context(binding.dataset_version, data_bucket)
+    root = f"gs://{data_bucket}/lakehouse/benchmarks/storage/{benchmark_id}"
+    tables: list[dict[str, object]] = []
+    for layout in layouts:
+        table, stage, source_uri = str(layout["table"]), str(layout["stage"]), str(layout["uri"])
+        if source_uri != table_uri(binding, stage, table):
+            raise ValueError(f"{stage}.{table} is not the verified campaign table: {source_uri}")
+        access = ACCESS_PATTERNS.get(table, TableAccessPattern("none"))
+        queries = query_workload(table)
+        equality = sorted({str(column) for query in queries for column in query.get("equality_predicate_columns", [])})
+        prediction = decide_zorder(access=access, partition_columns=tuple(layout["partition_columns"]),
+                                   statistics_columns=tuple(layout["statistics_columns"]),
+                                   statistics_profiles=layout.get("statistics_profiles") or {},
+                                   equality_predicate_columns=equality)
+        zorder_columns = [column for column in access.zorder_candidates if column in equality][:1]
+        if not zorder_columns:
+            raise ValueError(f"{table} has no queried Z-order candidate")
+        baseline_uri, compacted_uri, optimized_uri = (f"{root}/{arm}/{stage}/{table}"
+                                                      for arm in ("baseline", "compacted", "optimized"))
+        validate_benchmark_paths(source_uri=source_uri, benchmark_root=root, baseline_uri=baseline_uri,
+                                 compacted_uri=compacted_uri, optimized_uri=optimized_uri)
+        tables.append({
+            **layout,
+            "selection": select_table(layout, query_importance=access.query_importance),
+            "selected": True,
+            "query_importance": access.query_importance,
+            "partition_decision": decide_partitioning(
+                partition_columns=tuple(layout["partition_columns"]), partition_count=int(layout["partition_count"]),
+                total_bytes=int(layout["total_bytes"]), files_per_partition_p95=int(layout["files_per_partition_p95"]),
+                partition_size_bytes=layout.get("partition_size_bytes"),
+                small_partition_count=int(layout.get("small_partition_count", 0)), access=access),
+            "optimization": {
+                "action": "ZORDER",
+                "columns": zorder_columns,
+                "reason": "every arm is exercised: compaction-only, then Z-order from the same snapshot",
+                "metadata_prediction": prediction,
+            },
+            "workload_parameters": dict(parameters[f"{stage}.{table}"]),
+            "queries": queries,
+            "partition_pruning": {
+                "query": "window_aggregation on the baseline arm",
+                "sides": {"pruned": "event_date BETWEEN window (partition filter)",
+                          "stats_only": "timestamp half-open range (Delta file statistics, no partition filter)",
+                          "full_scan": "date_format(timestamp) BETWEEN window (no pruning, no statistics skipping)"},
+            },
+            "baseline_uri": baseline_uri,
+            "compacted_uri": compacted_uri,
+            "optimized_uri": optimized_uri,
+            "estimated_rewrite_bytes": {"compacted_arm_maximum": int(layout["total_bytes"]),
+                                        "optimized_arm": int(layout["total_bytes"])},
+        })
+    return {
+        "schema_version": PLAN_SCHEMA,
         "benchmark_id": benchmark_id,
-        "dataset_version": dataset_version,
+        "dataset_version": binding.dataset_version,
         "git_sha": tool_git_sha,
-        "source_spark_git_sha": source_spark_git_sha,
-        "source_run_ids": list(source_run_ids),
-        "spark_benchmark_id": spark_benchmark_id,
+        "source_spark_git_sha": binding.source_spark_git_sha,
+        "source_campaign": binding.to_dict(),
+        "source_run_ids": sorted({binding.run_ids[str(table["stage"])] for table in tables}),
+        "spark_benchmark_id": binding.benchmark_id,
         "benchmark_root": root,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "capabilities": PINNED_CAPABILITIES,
-        "tables": table_plans,
-        "safety": {
-            "dry_run_default": True,
-            "canonical_mutation_allowed": False,
-            "spark_ab_mutation_allowed": False,
-            "vacuum_allowed": False,
-        },
+        "tables": tables,
+        "safety": {"dry_run_default": True, "canonical_mutation_allowed": False, "vacuum_allowed": False,
+                   "clone": "SHALLOW CLONE ... VERSION AS OF <pinned>; rewrites write only below benchmark_root"},
     }
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--benchmark-id", required=True)
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--benchmark-id", required=True, help="new storage benchmark id, e.g. storage-5gb-20261112a")
     parser.add_argument("--dataset-version", required=True)
     parser.add_argument("--source-spark-git-sha", required=True)
     parser.add_argument("--tool-git-sha", required=True)
-    parser.add_argument("--source-run-id", action="append", required=True)
-    parser.add_argument("--spark-evidence-root", type=Path, required=True)
     parser.add_argument("--data-bucket", required=True)
+    parser.add_argument("--campaign-evidence-dir", type=Path, required=True)
+    parser.add_argument("--workload-spec", type=Path, required=True)
     parser.add_argument("--table", type=parse_table_spec, action="append", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args(argv)
@@ -364,45 +334,29 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    validate_git_sha(args.source_spark_git_sha)
     validate_git_sha(args.tool_git_sha)
-    spark_benchmark_id, approved_runs = _load_verified_spark_evidence(
-        args.spark_evidence_root,
-        dataset_version=args.dataset_version,
-        git_sha=args.source_spark_git_sha,
-    )
-    supplied_runs = set(args.source_run_id)
-    if supplied_runs != set(approved_runs.values()):
-        raise ValueError("source run IDs differ from completed optimized Spark evidence")
-    layouts = [inspect_delta_table(*spec) for spec in args.table]
-    for layout in layouts:
-        stage = str(layout["stage"])
-        run_id = approved_runs[STAGE_EVIDENCE[stage]]
-        expected_uri = (
-            f"gs://{args.data_bucket}/lakehouse/runs/{run_id}/"
-            f"{STAGE_LAYER[stage]}/{layout['table']}"
-        )
-        if str(layout["uri"]) != expected_uri:
-            raise ValueError(f"{stage} table URI is bound to the wrong optimized run")
-    plan = build_plan(
-        benchmark_id=args.benchmark_id,
-        dataset_version=args.dataset_version,
-        source_spark_git_sha=args.source_spark_git_sha,
-        tool_git_sha=args.tool_git_sha,
-        source_run_ids=args.source_run_id,
-        spark_benchmark_id=spark_benchmark_id,
-        data_bucket=args.data_bucket,
-        layouts=layouts,
-    )
+    validate_git_sha(args.source_spark_git_sha)
+    if args.output_dir.exists() and any(args.output_dir.iterdir()):
+        raise ValueError(f"{args.output_dir} is not empty; plans are immutable")
+    binding = load_verified_campaign(args.campaign_evidence_dir, args.workload_spec,
+                                     dataset_version=args.dataset_version,
+                                     source_spark_git_sha=args.source_spark_git_sha)
+    layouts, parameters = [], {}
+    for stage, table in args.table:
+        uri = table_uri(binding, stage, table)
+        layout = inspect_delta_table(stage, table, uri)
+        layouts.append(layout)
+        parameters[f"{stage}.{table}"] = derive_parameters(uri, layout)
+    plan = build_plan(benchmark_id=args.benchmark_id, binding=binding, tool_git_sha=args.tool_git_sha,
+                      data_bucket=args.data_bucket, layouts=layouts, parameters=parameters)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "layout_before.json").write_text(
-        json.dumps({"tables": layouts}, indent=2, default=str) + "\n",
-        encoding="utf-8",
-    )
-    (args.output_dir / "plan.json").write_text(
-        json.dumps(plan, indent=2, default=str) + "\n", encoding="utf-8"
-    )
-    print(json.dumps(plan, indent=2, default=str))
+        json.dumps({"tables": layouts}, indent=2, default=str) + "\n", encoding="utf-8")
+    (args.output_dir / "plan.json").write_text(json.dumps(plan, indent=2, default=str) + "\n", encoding="utf-8")
+    for table in plan["tables"]:
+        print(json.dumps({"table": table["table"], "delta_version": table["delta_version"],
+                          "files": table["file_count"], "bytes": table["total_bytes"],
+                          "parameters": table["workload_parameters"]}, default=str))
     return 0
 
 

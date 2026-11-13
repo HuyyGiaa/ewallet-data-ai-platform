@@ -1,0 +1,19 @@
+table,comparison_arm,query,file_count_change,median_file_size_change,before_median_seconds,after_median_seconds,runtime_change_percent,before_range_seconds,after_range_seconds,verdict,output_equivalent,before_files_read,after_files_read,before_bytes_read,after_bytes_read
+fact_transactions,baseline_to_compaction,window_aggregation,0,0.0,0.797534,0.760875,-4.597,"[0.76135, 0.973148]","[0.712833, 0.882851]",NO_CLEAR_IMPROVEMENT,True,7,7,169756233,169756233
+fact_transactions,baseline_to_compaction,window_merchant_lookup,0,0.0,0.777805,0.711724,-8.496,"[0.770729, 0.838059]","[0.69727, 0.767277]",IMPROVED,True,7,7,169756233,169756233
+fact_transactions,baseline_to_compaction,window_failed_by_channel,0,0.0,0.849431,0.782839,-7.84,"[0.820226, 0.962897]","[0.716643, 0.807205]",IMPROVED,True,7,7,169756233,169756233
+fact_transactions,compaction_to_zorder,window_aggregation,0,0.0,0.760875,0.638907,-16.03,"[0.712833, 0.882851]","[0.605383, 0.724705]",INCONCLUSIVE,True,7,7,169756233,169756233
+fact_transactions,compaction_to_zorder,window_merchant_lookup,0,0.0,0.711724,0.621657,-12.655,"[0.69727, 0.767277]","[0.575601, 0.62463]",IMPROVED,True,7,7,169756233,169756233
+fact_transactions,compaction_to_zorder,window_failed_by_channel,0,0.0,0.782839,0.681293,-12.971,"[0.716643, 0.807205]","[0.628496, 0.719392]",INCONCLUSIVE,True,7,7,169756233,169756233
+fact_transactions,baseline_to_optimized,window_aggregation,0,0.0,0.797534,0.638907,-19.89,"[0.76135, 0.973148]","[0.605383, 0.724705]",IMPROVED,True,7,7,169756233,169756233
+fact_transactions,baseline_to_optimized,window_merchant_lookup,0,0.0,0.777805,0.621657,-20.075,"[0.770729, 0.838059]","[0.575601, 0.62463]",IMPROVED,True,7,7,169756233,169756233
+fact_transactions,baseline_to_optimized,window_failed_by_channel,0,0.0,0.849431,0.681293,-19.794,"[0.820226, 0.962897]","[0.628496, 0.719392]",IMPROVED,True,7,7,169756233,169756233
+obt_transaction_enriched,baseline_to_compaction,window_aggregation,0,0.0,0.734617,0.668032,-9.064,"[0.684565, 0.798125]","[0.630789, 0.80497]",INCONCLUSIVE,True,7,7,197768225,197768225
+obt_transaction_enriched,baseline_to_compaction,window_merchant_lookup,0,0.0,1.022539,0.838583,-17.99,"[0.965906, 1.055294]","[0.775305, 0.876417]",IMPROVED,True,7,7,197768225,197768225
+obt_transaction_enriched,baseline_to_compaction,window_failed_by_channel,0,0.0,1.082627,0.930257,-14.074,"[1.05646, 1.119458]","[0.870363, 0.965066]",IMPROVED,True,7,7,197768225,197768225
+obt_transaction_enriched,compaction_to_zorder,window_aggregation,0,0.0,0.668032,0.573655,-14.128,"[0.630789, 0.80497]","[0.552437, 0.666502]",INCONCLUSIVE,True,7,7,197768225,197768225
+obt_transaction_enriched,compaction_to_zorder,window_merchant_lookup,0,0.0,0.838583,0.664391,-20.772,"[0.775305, 0.876417]","[0.623017, 0.714523]",IMPROVED,True,7,7,197768225,197768225
+obt_transaction_enriched,compaction_to_zorder,window_failed_by_channel,0,0.0,0.930257,0.726537,-21.899,"[0.870363, 0.965066]","[0.707403, 0.836452]",IMPROVED,True,7,7,197768225,197768225
+obt_transaction_enriched,baseline_to_optimized,window_aggregation,0,0.0,0.734617,0.573655,-21.911,"[0.684565, 0.798125]","[0.552437, 0.666502]",IMPROVED,True,7,7,197768225,197768225
+obt_transaction_enriched,baseline_to_optimized,window_merchant_lookup,0,0.0,1.022539,0.664391,-35.025,"[0.965906, 1.055294]","[0.623017, 0.714523]",IMPROVED,True,7,7,197768225,197768225
+obt_transaction_enriched,baseline_to_optimized,window_failed_by_channel,0,0.0,1.082627,0.726537,-32.891,"[1.05646, 1.119458]","[0.707403, 0.836452]",IMPROVED,True,7,7,197768225,197768225

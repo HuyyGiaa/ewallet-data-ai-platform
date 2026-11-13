@@ -2,7 +2,9 @@ schema_version: 1
 images:
   datahub-lineage-publisher:
     owner: data-platform
-    purpose: Validate and render the DP1/DP2/DP3 DataHub operational-lineage plan.
+    purpose: >-
+      Historical: renders the 100GB DP1/DP2/DP3 lineage plan. Superseded as the Docker
+      A/B workload by edai1-campaign-verifier; kept because the datahub CI component builds it.
     build_context: .
     dockerfile: images/datahub-publisher/Dockerfile
     functional_contract:
@@ -22,3 +24,25 @@ images:
           - non-root runtime user
           - no package manager cache or compiler in runtime
           - identical Python version and application source
+  edai1-campaign-verifier:
+    owner: data-platform
+    purpose: >-
+      Verify the committed 5GB campaign evidence (checksum chain, identity, 260 rules per
+      profile, semantic comparison, Airflow record); the EDAI-1 Docker A/B workload.
+    build_context: .
+    dockerfiles:
+      baseline: images/edai1-campaign-verifier/Dockerfile.baseline
+      optimized: images/edai1-campaign-verifier/Dockerfile.optimized
+    functional_contract:
+      inputs_read_only:
+        - docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456 -> /input/evidence
+        - images/edai1-campaign-verifier/workload-5gb.json -> /input/workload.json
+      command: ["--spec", "/input/workload.json", "--evidence-dir", "/input/evidence"]
+      expected_verdict: PASS
+      equivalence: identical report_sha256 across every variant
+    benchmark: python3 -m ops.docker_ab
+    variants:
+      baseline: {packaging: single-stage-full-context, base: python:3.13.9-bookworm, user: root}
+      baseline-slim: {packaging: single-stage-full-context, base: python:3.13.9-slim-bookworm, role: control}
+      optimized-full: {packaging: multi-stage-minimal-payload, base: python:3.13.9-bookworm, role: control}
+      optimized: {packaging: multi-stage-minimal-payload, base: python:3.13.9-slim-bookworm, user: "65532:65532"}

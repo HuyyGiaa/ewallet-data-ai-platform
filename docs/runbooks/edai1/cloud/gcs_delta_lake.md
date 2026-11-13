@@ -1,5 +1,7 @@
 # GCS source and Delta Lake run layout
 
+> **Historical (superseded by the 5GB implementation, 2026-11-13).** It describes the GCS layout of the retired 1 GB pilot and 100 GB plans on the former data bucket. It is kept for provenance and is not part of the current EDAI-1 workflow: use the [EDAI-1 DP1–DP3 pipeline runbook](edai1_campaign_runbook.md) for the `rehearsal-5gb-v1` campaign `ab-20261110225456`.
+
 The active cloud pilot keeps source Parquet and Delta Lake outputs in GCS. It
 uses immutable dataset versions and run-specific output roots so a retry never
 overwrites evidence from an earlier run.

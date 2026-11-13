@@ -57,12 +57,12 @@ flowchart LR
 
 | Area | Result | Interpretation |
 |---|---|---|
-| Docker | Image size 381,961,667 → 44,171,603 bytes (**−88.44 %**), identical smoke-test output | A multi-stage build with a minimal runtime image |
+| Docker (5GB workload) | Campaign-verifier image 396.9 MB → 44.2 MB content (−88.87 %); 95.8 % of the reduction from the slim base, 4.2 % from multi-stage packaging; identical 45-check fingerprint in all four variants; non-root hardened Compose run exit 0 | No run-time gain is claimed (start-up dominated). The October 88.44 % result is historical |
 | Dataset | **100,156,470,260 bytes** in 3,696 shards: 369.6 M logical transactions plus a controlled 2 % duplicate rate | A deterministic, resumable publication with a final manifest |
 | DP1–DP3 on Dataproc, 5GB (`ab-20261110225456`) | 6 DagRuns and 16 batches succeeded; 260 validation rules per profile passed; Baseline and Optimised outputs `SEMANTIC_EQUIVALENT` across all 34 tables | The pipeline is correct and traceable end to end |
 | Spark Baseline vs Optimised, 5GB | Application runtime 165.1/197.9/314.9/160.2 s → 213.8/292.3/335.8/196.7 s (DP1/Silver/Gold/DP3); Gold shuffle −20.5 % | Not faster in one trial. The validator control varied 6–54 %, so the runtime differences are not attributable; plan-level AQE effects are |
 | Flink (100 events/s, 120 s) | Both profiles accepted 12,000 unique events out of 12,180 raw arrivals; the optimised profile lowered p95 latency from 10.9 s to 7.3 s | Deduplication and late-event routing behave identically in both profiles |
-| PostgreSQL warehouse | Median query latency 65.8 → 19.9 ms (**−69.7 %**) with a partial covering index; inserts became 78 % slower | The classic read/write trade-off of an index |
+| Storage (5GB) | Lakehouse (`storage-5gb-20261112t142522`): compaction a true no-op (one ~24 MiB file per daily partition); Z-order rewrote 7.9 GB but read the same files and bytes, so DO_NOT_ADOPT; partition pruning 7 of 151 files, 3.0–3.3× faster in Spark. Warehouse: covering index 174.073 → 0.108 ms median on 3.8 M real Gold rows, +17 % WAL | An identical-layout A/A arm showed 5–18 % drift, which bounds the Z-order effect. Earlier 500k-row and synthetic 2M-row results are historical |
 | Point-in-time validation | 10 cases × 31 features = 310/310 values equal to an independent oracle; labels excluded from Feast | Training features cannot see the future |
 
 ## Evidence
@@ -73,14 +73,13 @@ Screenshots and raw artifacts are organised under [`docs/evidence/edai1/`](../ev
 |---|---|
 | `spark/rehearsal-5gb-ab-20261110225456/` | DP1–DP3 campaign: manifests, validation and comparison reports, Spark metrics, Airflow and Spark UI screenshots |
 | `streaming/` | Flink Dashboard captures |
-| `datahub/` | Historical 100GB DataHub captures (history only; the 5GB DG01–DG08 captures are pending) |
-| `storage/` | DBeaver/Trino captures, benchmark output and the PostgreSQL benchmark artifact |
+| `datahub/rehearsal-5gb/`, `schema/rehearsal-5gb/` | Owner captures and publication or Trino artifacts of the 5GB governance and schema runs, with `MANIFEST.md` and `SHA256SUMS`; other files in `datahub/` and `schema/` are historical |
+| `datahub/` | DataHub lineage and assertion captures |
+| `docker/5gb/`, `storage/5gb/` | Owner captures and raw artifacts of the 5GB Docker, lakehouse and warehouse runs, with `MANIFEST.md` and `SHA256SUMS`; older files in `docker/` and `storage/` are historical ([docker](../evidence/edai1/docker/README.md), [storage](../evidence/edai1/storage/README.md)) |
 | `novel_ideas/` | Google Cloud Run and Cloud Logging captures of the point-in-time validation |
 | `dp2/`, `dp3/` | Clearly labelled local-fixture tests of SCD2 and feature timestamps (not cited as runtime proof) |
 
 Programmatic terminal-like renders are not embedded in the final reports.
-Docker and PostgreSQL sections use preserved raw JSON/log excerpts and mark the
-missing original UI/terminal captures explicitly.
 
 ## Limitations
 

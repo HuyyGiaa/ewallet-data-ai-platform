@@ -1,0 +1,15 @@
+EDAI-1 Docker A/B  run=20261112t142522  tool_git_sha=e38744434e41  docker=29.4.0  arch=amd64
+workload: images/edai1-campaign-verifier/workload-5gb.json on docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456 (campaign ab-20261110225456, source Spark aae22b08eee2)
+variant         role       packaging                    base                         content_bytes  content_MiB  disk_usage  layers  added_bytes  build_s  run_s  uid          verdict  report_sha256   
+--------------  ---------  ---------------------------  ---------------------------  -------------  -----------  ----------  ------  -----------  -------  -----  -----------  -------  ----------------
+baseline        baseline   single-stage-full-context    python:3.13.9-bookworm       396,924,824    378.5        1.52GB      9       14,966,107   6.7      0.76   0:0          PASS     8316b0a35efda98f
+baseline-slim   control    single-stage-full-context    python:3.13.9-slim-bookworm  59,132,978     56.4         229MB       6       14,966,102   3.2      0.81   0:0          PASS     8316b0a35efda98f
+optimized-full  control    multi-stage-minimal-payload  python:3.13.9-bookworm       381,979,410    364.3        1.47GB      10      20,693       2.5      0.83   65532:65532  PASS     8316b0a35efda98f
+optimized       optimized  multi-stage-minimal-payload  python:3.13.9-slim-bookworm  44,187,549     42.1         181MB       7       20,673       2.5      0.76   65532:65532  PASS     8316b0a35efda98f
+
+functional equivalence: PASS (one report SHA-256 across 4 variants: 8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b)
+sizes are compressed content (pull) bytes from docker image inspect; disk_usage is the unpacked size reported by docker image ls
+baseline -> optimized: 352,737,275 content bytes (88.87 %)
+  base image effect: {'with_full_context_packaging': 337791846, 'with_minimal_payload': 337791861}
+  packaging effect:  {'on_full_base': 14945414, 'on_slim_base': 14945429}
+compose: config=True build_exit=0 run_exit=0 verdict=PASS residual_containers=[]

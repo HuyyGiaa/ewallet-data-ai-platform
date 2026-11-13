@@ -1,344 +1,325 @@
-# Lakehouse and Warehouse Storage Optimisation
+# Lakehouse and Warehouse Storage Optimization
 
-## Scope
+**Scope.** Physical storage optimization of the EDAI-1 platform: Delta Lake layout (compaction, Z-order, partition pruning) on GCS, and secondary indexing in a PostgreSQL serving warehouse.
+**Data.** Real Gold tables of the 5GB campaign `ab-20261110225456`: dataset `rehearsal-5gb-v1`, optimized Spark profile, source Spark commit `aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c`, Delta version 0.
+**Official runs, both executed by the owner on 2026-11-12/13:**
+- Lakehouse: benchmark `storage-5gb-20261112t142522`, Dataproc Serverless 2.2 batch `storage-5gb-20261112t142522-storage` in `asia-southeast1` (Spark 3.5.3, Delta 3.2.0, tool commit `f9be2776c3d617a7bfe32fdb0ff5c631d80080c5`), 17:29–17:37 UTC.
+- Warehouse: PostgreSQL 16.15 on 3,816,574 real Gold rows, same tool commit.
 
-This report covers two storage optimisations, each measured in a controlled local experiment: Delta/Trino
-small-file compaction on a four-million-row Gold fixture and PostgreSQL
-Warehouse index optimization on an isolated two-million-row synthetic fixture.
-Neither experiment proves production cost-effectiveness or a deployed
-Gold-to-PostgreSQL pipeline.
+**Evidence.** [docs/evidence/edai1/storage/5gb/](../../evidence/edai1/storage/5gb/MANIFEST.md): 93 owner screenshots and 25 raw artifacts, all under `SHA256SUMS`. The screenshots are 81 current captures (Trino/DBeaver, Dataproc Spark UI, PostgreSQL/DBeaver, terminal) and 12 superseded first-session ST09 captures (see A.7).
 
-For the Delta/Trino experiment, the retained evidence provides the aggregate
-query result, five-run summary statistics, physical-layout counts and six
-captures. The exact analytical SQL beyond the documented date filter, Trino
-version, host/resource specification, warm-up and cache policy, individual
-timings, compaction duration, rewrite I/O and compute cost were not recovered.
-Those missing controls limit causal and economic conclusions; no values are
-reconstructed from screenshots.
+## 1. Summary
 
-## Before Optimization
+| Question | Answer | Basis |
+|---|---|---|
+| Does the 5GB Gold layout need compaction? | **No.** OPTIMIZE considered 151 files per table, skipped 151 and rewrote none. | `rewrite.json`, `$history`, Trino layout |
+| Does Z-order on `merchant_id` help? | **Not adopted.** It rewrote 7.9 GB, but every query read the same files and bytes as before, and its runtime gain is no larger than the drift measured between two identical layouts. | Spark scan metrics, Trino physical input, A/A control |
+| Does partition pruning help? | **Yes, and it is the effective optimization in this layout.** Reading 7 of 151 daily partitions is 3.0–3.3× faster in Spark (five runs) and reads 5.69 MB instead of about 179 MB in Trino, with identical results. | `partition_pruning.json`, ST09 |
+| Is the warehouse index worth it? | **Yes for this query**: 174.073 ms → 0.108 ms median (Seq Scan → Index Only Scan), with +17 % WAL on inserts and a 234 MB index. | `report.json`, WH01–WH06 |
+| Did any optimization change results? | **No.** Every arm and every pruning side returned identical results, and all equivalence checks passed. | `equivalence.json`, `wh_d_semantics` |
 
-### Physical Layout
+The lakehouse result is mostly negative, and it is reported that way. The campaign's writers already produce one ~24 MiB file per daily partition, so there is nothing to compact. Z-order cannot narrow a scan that is already one file per partition.
 
-The Gold `fact_transactions` table contains **4,000,000 rows** covering
-
-**151 daily partitions**.
-
-Before compaction:
-
-| Metric | Value |
-|---|---:|
-| Partitions | 151 |
-| Active files | 2,188 |
-| Active data size | 760.76 MiB |
-| Average file size | 0.35 MiB |
-
-Although the table is partitioned by `event_date`, each daily partition
-
-contains many small Parquet files. The table therefore exhibits a
-
-**small-file problem**.
-
-On average, each partition contains approximately **14 active files**.
-
-![Layout before compaction](../../evidence/edai1/storage/01_layout_before_500k.png)
-
-### Partition Pruning
-
-The benchmark query filters the following seven-day range:
-
-`2026-05-25` to `2026-05-31`
-
-Before compaction, this selects:
-
-- 7 of 151 partitions
-- 102 active files
-- 35.46 MiB of active data
-
-Partitioning by `event_date` therefore allows Trino to prune unrelated
-
-date partitions. However, the selected partitions still contain many
-
-small files.
-
-![Partition pruning before compaction](../../evidence/edai1/storage/03_partition_pruning_before_500k.png)
-
-### Query Benchmark Before Compaction
-
-The benchmark performs an analytical aggregation over the seven-day
-
-date range.
-
-Business result:
-
-- Transaction count: 186,481
-- Total amount: 187,325,603,425.00006
-- Average amount: 1,004,529.1661080756
-
-Performance over five measured runs:
-
-| Metric | Runtime |
-|---|---:|
-| Median | 0.2190 s |
-| Average | 0.2360 s |
-| Minimum | 0.2020 s |
-| Maximum | 0.3138 s |
-
-![Benchmark before compaction](../../evidence/edai1/storage/02_benchmark_before_500k.png)
-
-## Compaction
-
-The table was compacted using Trino:
-
-```sql
-ALTER TABLE delta.gold_zone.fact_transactions
-EXECUTE optimize(file_size_threshold => '16MB');
-```
-
-The goal of this operation is to rewrite many small Parquet files into
-
-fewer larger files without changing the logical transaction data.
-
-No `VACUUM` operation was performed because the experiment keeps Delta
-
-history available for debugging and evidence.
-
-## After Optimization
-
-### Physical Layout
-
-After compaction:
-
-| Metric | Value |
-|---|---:|
-| Partitions | 151 |
-| Active files | 151 |
-| Active data size | 404.12 MiB |
-| Average file size | 2.68 MiB |
-
-The table still contains **151 daily partitions**, but now contains only
-
-**151 active files**.
-
-This means the compacted layout contains approximately **one active
-
-Parquet file per daily partition**.
-
-![Layout after compaction](../../evidence/edai1/storage/04_layout_after_500k.png)
-
-### Partition Pruning After Compaction
-
-For the same seven-day query range:
-
-`2026-05-25` to `2026-05-31`
-
-Trino selects:
-
-- 7 of 151 partitions
-- 7 active files
-- 18.73 MiB of active data
-
-The partition pruning behavior remains unchanged, but compaction reduces
-
-the number of files inside the selected partitions from **102 to 7**.
-
-![Partition pruning after compaction](../../evidence/edai1/storage/05_partition_pruning_after_500k.png)
-
-### Query Benchmark After Compaction
-
-The same analytical workload was executed again after compaction.
-
-Performance over five measured runs:
-
-| Metric | Runtime |
-|---|---:|
-| Median | 0.1079 s |
-| Average | 0.1065 s |
-| Minimum | 0.1009 s |
-| Maximum | 0.1105 s |
-
-The transaction count remained **186,481**, confirming that the benchmark
-
-continued to process the same logical data.
-
-A very small difference in the aggregated floating-point amount was
-
-observed after the physical rewrite. This is caused by aggregation order
-
-when using floating-point `DOUBLE` values and does not indicate row loss.
-
-![Benchmark after compaction](../../evidence/edai1/storage/06_benchmark_after_500k.png)
-
-## Final Comparison
-
-| Metric | Before | After |
-|---|---:|---:|
-| Partitions | 151 | 151 |
-| Active files | 2,188 | 151 |
-| Active data size | 760.76 MiB | 404.12 MiB |
-| Average file size | 0.35 MiB | 2.68 MiB |
-| Files scanned for 7-day range | 102 | 7 |
-| Data size for 7-day range | 35.46 MiB | 18.73 MiB |
-| Median query runtime | 0.2190 s | 0.1079 s |
-| Average query runtime | 0.2360 s | 0.1065 s |
-
-Compaction reduced the number of active files from **2,188 to 151**,
-
-corresponding to an approximately **93.10% reduction**.
-
-For the seven-day benchmark range, the number of active files was reduced
-
-from **102 to 7**, while partition pruning continued to select only the
-
-seven relevant `event_date` partitions.
-
-The median analytical query latency decreased from **0.2190 seconds**
-
-to **0.1079 seconds**, corresponding to an approximately **50.73% runtime
-
-reduction** and a **2.03x speedup**.
-
-The average active file size increased from **0.35 MiB to 2.68 MiB**,
-
-showing that the physical layout became substantially less fragmented.
-
-The active Delta snapshot size decreased from **760.76 MiB to
-
-404.12 MiB**. Old files may still physically remain in object storage
-
-because Delta Lake preserves previous versions until a future `VACUUM`
-
-operation removes files that are no longer required.
-
-### Trade-off
-
-Compaction requires an additional rewrite operation and therefore
-
-consumes compute and I/O resources.
-
-It should be executed when the performance benefit of reducing small
-
-files outweighs the cost of rewriting data.
-
-In this experiment, the observed read-latency and fragmentation improvements
-show that compaction benefited this bounded query and table layout because the table
-
-had a severe small-file problem and the analytical benchmark improved
-
-from **0.2190 s to 0.1079 s median runtime**. Overall cost-effectiveness cannot
-be concluded because compaction duration, compute consumption and rewrite I/O
-cost were not measured in the retained evidence.
-
-No `VACUUM` operation was performed in order to preserve Delta history
-
-and debugging evidence.
-
-## PostgreSQL Warehouse Index Optimisation
-
-### Problem
-
-Analytical queries over `fact_transactions` filter by merchant and date and aggregate completed amounts. Without a suitable index, PostgreSQL scans the whole table for each query. The experiment measures how much a targeted index helps, and what it costs on writes.
-
-### Experimental setup
-
-The benchmark ran from `2026-10-29T14:20:01.705901Z` to
-`2026-10-29T14:20:13.592243Z` using implementation commit
-`cf3e86747409641aff7e483181239b2fff52e9d6`. It used the digest-recorded
-`postgres:16` image in a temporary, tmpfs-backed local container with no
-exposed port and no connection to the project MLflow or cloud databases. The
-artifact records the major PostgreSQL version and image digest, but not the
-server's exact minor-version string.
-
-The deterministic fixture contained 2,000,000 rows in
-`fact_transactions`:
-
-| Column | Type and role |
-|---|---|
-| `transaction_id` | `bigint`, primary key |
-| `event_date` | `date`, query date range |
-| `merchant_id` | `integer`, selective query key |
-| `account_id` | `integer` |
-| `status` | `text`, partial-index predicate |
-| `amount` | `numeric(14,2)`, aggregate and included column |
-
-Both variants used one warmup followed by seven measured
-`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` executions of the same query and
-unchanged data snapshot. The query filtered June 2026, merchant `42` and
-`status='completed'`, then calculated count, total amount and average amount.
-
-### Baseline and optimized configuration
-
-The baseline had no workload-specific secondary index and used a parallel
-sequential scan. The only read-path optimization was this 55 MB partial
-covering B-tree index:
-
-```sql
-CREATE INDEX idx_fact_transactions_merchant_date_completed
-ON public.fact_transactions USING btree (merchant_id, event_date)
-INCLUDE (amount)
-WHERE status = 'completed';
-```
-
-The optimized plan used a bitmap index scan followed by an exact bitmap heap
-scan. The representative baseline plan read 4,066 shared blocks and hit
-12,601; the optimized plan read zero shared blocks and hit 6,572. These are
-point-in-time buffer observations from the retained plans, not general storage
-guarantees.
-
-### Measured result and trade-off
-
-| Metric | Baseline | Indexed | Change |
-|---|---:|---:|---:|
-| Median query execution, 7 runs | 65.776 ms | 19.913 ms | 69.73% lower latency |
-| Query result | `7481\|18710674.36\|2501.09` | Same | Exact match |
-| Table signature | `2000000\|4999990000.00\|1\|2000000` | Same | Exact match |
-| Insert 100,000 rows | 112.277 ms | 200.012 ms | 78.14% overhead |
-
-The read improvement is calculated as
-`(65.776 - 19.913) / 65.776 × 100 = 69.73%`. The exact query result and table
-signature remained equal, so the faster plan did not change the observed
-business result. The 78.14% write overhead shows why this index is appropriate
-only when the measured read path justifies additional index maintenance.
-
-The authoritative record is the preserved [raw benchmark JSON](../../evidence/edai1/storage/artifacts/postgres_warehouse_index_ab_v2.json).
-The excerpt below is raw historical evidence, not a screenshot and not a new
-benchmark execution:
+## 2. Architecture
 
 ```text
-scope: isolated local PostgreSQL container; no cloud or MLflow database access
-started_at: 2026-10-29T14:20:01.705901+00:00
-finished_at: 2026-10-29T14:20:13.592243+00:00
-dataset rows: 2,000,000
-baseline execution_ms: 68.830, 65.762, 61.043, 65.776, 63.556, 68.597, 66.436
-indexed execution_ms: 24.401, 21.860, 22.608, 19.913, 17.936, 18.027, 18.042
-median: 65.776 ms -> 19.913 ms
-read improvement: 69.73%
-semantic equivalence: passed
-write trade-off: 112.277 ms -> 200.012 ms (78.14% overhead)
+ rehearsal-5gb-v1 source (GCS Parquet)
+        │  DP1–DP3 on Dataproc Serverless 2.2 (Spark 3.5.3, Delta 3.2.0), Airflow
+        ▼
+ GCS Delta Lake: Bronze → Silver → Gold, one run prefix per stage
+   Gold fact_transactions / obt_transaction_enriched: partitioned by event_date (UTC day),
+   one Parquet file (~24–28 MiB) per daily partition, 151 partitions, Delta version 0
+        │                                    │
+        │ read-only plan + SHALLOW CLONE     │ read-only extraction of 31 daily partitions
+        ▼                                    ▼
+ benchmark prefix (Dataproc batch)      local Parquet snapshot → PostgreSQL 16.15
+   baseline / compacted / optimized       (isolated Compose instance, 127.0.0.1:55432)
+   clones per table + evidence JSON        index experiment, DBeaver session
+        │
+        ▼
+ schema-viz Trino 483 (local, read-only Delta connector over GCS, own metastore)
+   → DBeaver: $history, $path/$file_size layout, EXPLAIN ANALYZE plans
 ```
 
-![PostgreSQL 2M-row benchmark historical evidence in a real Ubuntu terminal](../../evidence/edai1/storage/08_postgres_warehouse_index_ab_historical_terminal.png)
+- **Lakehouse.** The source tables are written by the campaign's DP2 Gold stage. The benchmark never writes them: it measures isolated shallow clones in a paid Dataproc batch, then reads the clones back through a local Trino that holds only a metastore registration.
+- **Warehouse.** The warehouse experiment copies real Gold rows into a dedicated PostgreSQL instance. Indexing and inserts there cannot affect any other database.
 
-*Genuine Ubuntu terminal capture displaying the preserved 2M-row benchmark JSON, including semantic equivalence, seven repeats and the recorded 69.73% median read improvement. This is `GENUINE_HISTORICAL_EVIDENCE_VIEW`; the benchmark was not rerun during N15.*
+## 3. Lakehouse (Part A)
 
-The raw JSON and log remain authoritative; this capture is complementary and does not replace them.
+### A.1 Problem and starting layout
 
-### Evidence and limitations
+Small files and unclustered data are the usual reasons to run `OPTIMIZE` and `ZORDER BY` on a Delta table. Before spending a paid batch on them, the inspector ([`ops/gcp/inspect_storage_layout.py`](../../../ops/gcp/inspect_storage_layout.py)) read the Delta logs of the two largest Gold tables read-only. The owner confirmed the layout in Trino:
 
-- [Benchmark runner](../../../data_platform/storage/scripts/warehouse_benchmark.py),
-  implementation commit `cf3e86747409641aff7e483181239b2fff52e9d6`.
-- [Raw v2 benchmark JSON](../../evidence/edai1/storage/artifacts/postgres_warehouse_index_ab_v2.json), SHA-256
-  `30858a9dda70f39989960e0baada108b926a5e4c849c9c487bd93ed29148a9bc`.
-- [Benchmark summary log](../../evidence/edai1/storage/artifacts/postgres_warehouse_benchmark_v2.log), SHA-256
-  `67b0c98c6defb319cc878d2be988a38d009c00f6e9d67f232c2ccf48afed63d7`.
-- The former programmatic render is retained only as historical source evidence
-  and is no longer embedded in submission-facing documentation.
-- Original immutable evidence root:
-  `/home/huyy-giaa/ewallet-evidence/edai1-final-evidence/warehouse/`.
-- The earlier retained run (`37.940 → 10.414 ms`, 72.55%, 122.25% write
-  overhead) is a separate experiment. Its values are not mixed with v2.
-- No authentic pgAdmin/DBeaver UI screenshot was found. The retained rendering
-  is presentation evidence derived from the raw v2 JSON.
-- The experiment used a synthetic local fixture and one selective aggregate
-  query. It does not select PostgreSQL as the production analytics warehouse,
-  authorize an index on a live table or prove performance for canonical data.
+| Table | Files | Bytes | File size min / avg / max | Partitions (`event_date`) | Files per partition |
+|---|---:|---:|---|---:|---:|
+| `fact_transactions` | 151 | 3,667,633,194 | 24,117,881 B / 23.16 MiB / 24,508,097 B | 151 | 1 |
+| `obt_transaction_enriched` | 151 | 4,271,165,936 | 28,090,019 B / 26.98 MiB / 28,554,997 B | 151 | 1 |
+
+![ST02 — baseline layout of fact_transactions](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST02_fact_baseline_layout.png)
+
+*ST02. Baseline layout in Trino: 151 files, 151 daily partitions, one file of about 23 MiB per partition ([obt](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST02_obt_baseline_layout.png)).*
+
+The DP2 writers repartition by `event_date` before writing, so the campaign has no small-file problem. The inspector predicted `COMPACTION_ONLY` with no worthwhile Z-order column: all 151 files share almost the full `merchant_id` range. The experiment still executed every arm, so the conclusion rests on measurements rather than on the prediction.
+
+### A.2 Experiment design
+
+**Arms.** Each table is cloned three times below `gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/benchmarks/storage/storage-5gb-20261112t142522/`, each as `SHALLOW CLONE … VERSION AS OF 0` of the pinned source:
+
+| Arm | Operation after the clone |
+|---|---|
+| `baseline` | none |
+| `compacted` | `OPTIMIZE` (bin-packing) |
+| `optimized` | `OPTIMIZE … ZORDER BY (merchant_id)` |
+
+The source tables were never written. No `VACUUM` runs; a unit test asserts this. Evidence objects are uploaded create-only.
+
+**Workload.** The parameters are derived from the data and recorded in [`plan.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/plan.json):
+
+| Parameter | Value |
+|---|---|
+| Window | `event_date` 2026-05-25 … 2026-05-31: 860,389 rows, 41,218 merchants |
+| Merchant | `00058dec-9436-4664-91e0-3e1d5829e22b`, the median-volume merchant in the window (2 rows) |
+| Status in the window | success 814,001 · failed 29,763 · pending 16,625 |
+
+| Query | Purpose |
+|---|---|
+| `window_aggregation` | count, exact sum and average over 7 days |
+| `window_merchant_lookup` | the same 7 days, one merchant (the Z-order target) |
+| `window_failed_by_channel` | 7 days, `status = 'failed'`, grouped by channel |
+| Pruning sides | `window_aggregation` filtered on the partition column (`pruned`), on a `timestamp` range (`stats_only`), or on `date_format(timestamp)` (`full_scan`) |
+
+**Measurement.**
+- One warm-up and five measured runs per query and arm, in rotating arm order.
+- Each run records its samples, physical plan and scan metrics (files, bytes, partitions read).
+- Every arm must match the baseline on schema hash, row count, grain and business invariants, and an order-independent content fingerprint. Otherwise the batch fails before writing evidence.
+
+**Verdict rule.** A descriptive noise band, not a significance test:
+- `NO_CLEAR_IMPROVEMENT` when the medians differ by less than 5 %;
+- `IMPROVED` / `REGRESSED` when they differ by at least 5 % and the sample ranges do not overlap;
+- `INCONCLUSIVE` otherwise.
+
+Three comparisons are kept apart: baseline → compaction, compaction → Z-order, and baseline → optimized. Z-order is credited only through its own incremental arm.
+
+### A.3 Execution
+
+The job ran about 8.6 minutes (17:29:17 → 17:37:51 UTC). Spark application `app-20261112172914785-0221` completed 1,714 SQL queries with 0 failures ([ST03b](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST03b_spark_ui_sql_dataframe_1714_completed.png)). The job status is `PASS`.
+
+![ST06 — the two OPTIMIZE commands in the Spark UI](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST06_spark_ui_optimize_queries_52_and_58.png)
+
+*ST03/ST06. Spark UI filtered on OPTIMIZE: query 52 is the compaction of the `compacted` arm ([details: OptimizeTableCommand, 4.62 s](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST03c_spark_ui_compaction_optimize_query_52.png)); query 58 is the Z-order of the `optimized` arm.*
+
+### A.4 Results: rewrites
+
+From [`rewrite.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/rewrite.json):
+
+| Table | Operation | Files considered / skipped | Removed → added | Bytes rewritten | Seconds |
+|---|---|---|---|---:|---:|
+| fact_transactions | compaction | 151 / 151 | 0 → 0 | 0 | 4.9 |
+| fact_transactions | Z-order | 151 / 0 | 151 → 151 | 3,667,633,194 | 49.5 |
+| obt_transaction_enriched | compaction | 151 / 151 | 0 → 0 | 0 | 3.2 |
+| obt_transaction_enriched | Z-order | 151 / 0 | 151 → 151 | 4,271,165,936 | 55.2 |
+
+**Compaction was a true no-op.** Delta skipped every single-file partition. The `compacted` clones' history holds only the `CLONE` commit ([ST01](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST01_fact_compacted_history_clone_v0.png)), and their Trino layout is identical to the baseline ([ST04](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST04_fact_compacted_layout_unchanged.png)). The job therefore reports `NOT_NEEDED` and claims no compaction gain.
+
+**Z-order rewrote everything and changed no file size.** The optimized clones record `OPTIMIZE` with `zOrderBy ["merchant_id"]` at version 1 ([ST01](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST01_fact_optimized_history_clone_then_zorder.png)). Their files are new objects under the benchmark root, while the baseline still references the campaign's files ([ST04](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST04_fact_baseline_vs_optimized_file_paths.png)). Yet every one of the 151 partitions of both tables kept a single file of exactly the same byte size as before (`layout_baseline.json` against `layout_optimized.json`; [Trino](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST04_fact_optimized_layout.png)). One file per partition stays one file per partition, so Z-order created no new file-skipping opportunity.
+
+### A.5 Results: query performance (Spark, five runs each)
+
+From [`comparison.csv`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/comparison.csv). Medians are in seconds, with the sample range in brackets.
+
+| Table | Query | baseline | compacted | optimized (Z-order) | Files / bytes read, every arm |
+|---|---|---|---|---|---|
+| fact | window_aggregation | 0.798 [0.761–0.973] | 0.761 [0.713–0.883] | 0.639 [0.605–0.725] | 7 / 169,756,233 |
+| fact | window_merchant_lookup | 0.778 [0.771–0.838] | 0.712 [0.697–0.767] | 0.622 [0.576–0.625] | 7 / 169,756,233 |
+| fact | window_failed_by_channel | 0.849 [0.820–0.963] | 0.783 [0.717–0.807] | 0.681 [0.628–0.719] | 7 / 169,756,233 |
+| obt | window_aggregation | 0.735 [0.685–0.798] | 0.668 [0.631–0.805] | 0.574 [0.552–0.667] | 7 / 197,768,225 |
+| obt | window_merchant_lookup | 1.023 [0.966–1.055] | 0.839 [0.775–0.876] | 0.664 [0.623–0.715] | 7 / 197,768,225 |
+| obt | window_failed_by_channel | 1.083 [1.056–1.119] | 0.930 [0.870–0.965] | 0.727 [0.707–0.836] | 7 / 197,768,225 |
+
+| Comparison | fact verdicts (agg / merchant / failed) | obt verdicts (agg / merchant / failed) |
+|---|---|---|
+| baseline → compaction | NO_CLEAR (−4.6 %) / IMPROVED (−8.5 %) / IMPROVED (−7.8 %) | INCONCLUSIVE (−9.1 %) / IMPROVED (−18.0 %) / IMPROVED (−14.1 %) |
+| compaction → Z-order | INCONCLUSIVE (−16.0 %) / IMPROVED (−12.7 %) / INCONCLUSIVE (−13.0 %) | INCONCLUSIVE (−14.1 %) / IMPROVED (−20.8 %) / IMPROVED (−21.9 %) |
+| baseline → optimized | IMPROVED (−19.9 %) / IMPROVED (−20.1 %) / IMPROVED (−19.8 %) | IMPROVED (−21.9 %) / IMPROVED (−35.0 %) / IMPROVED (−32.9 %) |
+
+**How to read these numbers.**
+
+1. **The baseline → compaction comparison is an A/A control.** The `compacted` arm reads the same data files as the baseline (the OPTIMIZE wrote nothing). Its scans read the same 7 files and the same bytes. Yet it measured 4.6–18.0 % faster, and four of six queries passed the `IMPROVED` rule. That difference cannot come from the layout. It shows that run-to-run and arm-to-arm drift in this batch is of the order of 5–18 %. The data cannot tell the cause apart: executor warm-up, dynamic allocation (6 → 7 executors), or GCS and OS caching.
+2. **The Z-order increment is of the same size as the A/A drift.** Compaction → Z-order measured −12.7 % to −21.9 %, with three of six queries `INCONCLUSIVE`. The Z-order arm also read the same 7 files and the same bytes as the other arms. The merchant lookup, the query Z-order targets, skipped no file. Every query became faster in the order baseline > compacted > optimized, including the queries Z-order cannot affect. That pattern fits drift better than a layout effect.
+3. **Baseline → optimized is `IMPROVED` everywhere, but it adds the drift to the Z-order increment.** The recommendation logic does not credit it to Z-order.
+
+The tool's recommendation, for both tables, is: `compaction: NOT_NEEDED`, `zorder: DO_NOT_ADOPT` (incremental INCONCLUSIVE, overall IMPROVED). This report agrees. Spending 50–55 s and 3.7–4.3 GB of rewrite per table per run for an effect indistinguishable from noise is not justified.
+
+### A.6 Results: Trino cross-check (single runs)
+
+The owner registered the six arms in the read-only schema-viz Trino 483 and ran `EXPLAIN ANALYZE` from DBeaver ([registration](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST00b_trino_register_benchmark_arms.png), [connection: user `viewer`, no password](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST00c_dbeaver_trino_viewer_connection.png)). Each figure is one run, so the execution times are illustrative only. The scan statistics, however, are deterministic.
+
+| Table | Query | Arm | Input rows | Physical input | Splits | Execution |
+|---|---|---|---:|---:|---:|---:|
+| fact | merchant lookup | baseline / compacted / optimized | 669,508 each | 7.89 MB each | 7 each | — / — / 3.26 s |
+| fact | date range | baseline / compacted / optimized | 860,389 each | 5.69 MB each | 7 each | 3.06 / 2.39 / 2.50 s |
+| obt | merchant lookup | baseline / compacted / optimized | 689,163 each | 13.38 MB each | 7 each | 3.82 / 3.82 / 3.53 s |
+| obt | date range | baseline / compacted / optimized | 860,389 each | 5.69 MB each | 7 each | 2.17 / 2.46 / 2.29 s |
+
+![ST07 — merchant lookup on the Z-order arm](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST07_fact_entity_lookup_optimized_scan.png)
+
+*ST07. Merchant lookup on the Z-order arm: 669,508 input rows, 7.89 MB physical input and 7 splits, identical to the [baseline](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST05_fact_entity_lookup_baseline_scan.png) and [compacted](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST05_fact_entity_lookup_compacted_scan.png) arms.*
+
+Trino confirms the Spark finding independently. Z-order did not reduce the data read for the merchant lookup by a single byte, and the execution times of the three arms move in no consistent direction. The two fact-table merchant-lookup overview captures do not show the Execution line legibly, so those two cells are left blank. All screenshots are listed in the [manifest](../../evidence/edai1/storage/5gb/MANIFEST.md).
+
+### A.7 Results: partition pruning
+
+**Spark, five runs each** ([`partition_pruning.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/partition_pruning.json), baseline arm):
+
+| Table | Side | Filter | Files read | Bytes read | Median s | Rows |
+|---|---|---|---:|---:|---:|---:|
+| fact | pruned | `event_date BETWEEN …` | 7 | 169,756,233 | 0.734 | 860,389 |
+| fact | stats_only | `timestamp` range (UTC) | 7 | 169,756,233 | 0.812 | 860,389 |
+| fact | full_scan | `date_format(timestamp, …)` | 151 | 3,667,633,194 | 2.217 | 860,389 |
+| obt | pruned | `event_date BETWEEN …` | 7 | 197,768,225 | 0.728 | 860,389 |
+| obt | stats_only | `timestamp` range (UTC) | 7 | 197,768,225 | 1.005 | 860,389 |
+| obt | full_scan | `date_format(timestamp, …)` | 151 | 4,271,165,936 | 2.435 | 860,389 |
+
+All six sides returned the same row count, exact sum (894,991,837,952.66) and average. Partition pruning reads 4.6 % of the bytes and runs 3.0× (fact) and 3.3× (obt) faster than the full scan.
+
+The `stats_only` side shows that, with one day per file, Delta's per-file `timestamp` min/max statistics skip as many files as partition pruning does. It still costs more, because the predicate must be evaluated against file statistics and then row by row. Pruning on the partition column needs neither.
+
+**Trino, single runs (ST09, corrected UTC SQL, owner run 2026-11-13 03:34–03:47 +07:00).** The owner ran each side in DBeaver twice: once as the plain aggregate, once under `EXPLAIN ANALYZE`. The run used the regenerated canonical script (SHA-256 `ed5b4812…`, [fact blocks](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_utc_canonical_script_fact_blocks.png), [obt blocks](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_utc_canonical_script_obt_blocks.png)).
+
+| Table | Side | Result (rows · total · average) | Plan | Splits | Input rows | Physical input | Execution |
+|---|---|---|---|---:|---:|---:|---:|
+| fact | pruned | 860,389 · 894,991,837,952.66 · 1,040,217.666605 | `ScanProject`, `event_date:PARTITION_KEY :: [[2026-05-25, 2026-05-31]]` | 7 | 860,389 | 5.69 MB | 3.08 s |
+| fact | stats_only | identical | `ScanFilterProject` on the UTC `timestamp` range; no partition key | 7 | 860,389 | 13.39 MB | 4.93 s |
+| fact | full_scan | identical | `ScanFilterProject` on `format_datetime(at_timezone(timestamp, 'UTC'))` | 151 | 18,600,000 (95.37 % filtered) | 178.81 MB | 29.36 s |
+| obt | pruned | identical | partition key, as for fact | 7 | 860,389 | 5.69 MB | 3.24 s |
+| obt | stats_only | identical | UTC `timestamp` range; no partition key | 7 | 860,389 | 13.39 MB | 4.59 s |
+| obt | full_scan | identical | UTC formatted day | 151 | 18,600,000 (95.37 % filtered) | 178.77 MB | 45.85 s |
+
+![ST09 — corrected stats_only scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_stats_only_physical_input_utc.png)
+
+*ST09, `stats_only` on `fact_transactions`. The filter is the UTC range `'2026-05-25 00:00:00.000 UTC' <= timestamp < '2026-06-01 …UTC'`. Trino selected 7 splits from the files' `timestamp` statistics alone and read exactly the 860,389 window rows (Filtered 0.00 %). The other sides: [pruned](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_pruned_physical_input_utc.png), [full scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_full_scan_physical_input_utc.png); results: [pruned](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_pruned_result_utc.png), [stats_only](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_stats_only_result_utc.png), [full scan](../../evidence/edai1/storage/5gb/lakehouse/screenshots/ST09_fact_transactions_full_scan_result_utc.png). Every image is listed in the [manifest](../../evidence/edai1/storage/5gb/MANIFEST.md).*
+
+**What the plans show.**
+- **Same rows, different access paths.** `event_date` is the UTC day of `timestamp` for all 18,600,000 rows of both tables, so the three predicates are logically equivalent. All six results agree in count, exact sum and average.
+- **The physical behaviour stays distinct:**
+  - The **partition predicate** is resolved from the Delta log's partition values before any file is opened. Only the 7 window files are scheduled, and only the `amount` column is read: 5.69 MB.
+  - The **`timestamp` range** is not a partition predicate. Trino pushes it into the scan, and the per-file min/max statistics exclude the other 144 files. This works because each file holds exactly one UTC day. The scan also reads the `timestamp` column to evaluate the filter row by row: 13.39 MB.
+  - The **formatted-day expression** cannot be pushed down. All 151 files are read, and 95.37 % of the 18.6 million rows are discarded after reading: about 179 MB.
+- **Scanned rows are not result rows.** Input rows count what the scan delivered; the result row is the final aggregate.
+
+The single-run times (3.1–3.2 s pruned, 4.6–4.9 s stats-only, 29.4–45.9 s full scan) only illustrate this ordering. They are not repeated measurements. The same full scans took 35.38 s and 50.02 s in the first session, and the pruned fact query 1.99 s. The repeated Spark medians above are the timing evidence. The two engines' byte metrics also differ: Spark reports the size of the files selected, while Trino reports the column bytes actually fetched.
+
+**Superseded first capture.** The first ST09 session (01:46–02:16) ran a script whose `stats_only` literal had no zone. DBeaver's +07:00 session moved that window to `[05-24T17:00Z, 05-31T17:00Z)`: 48,281 rows of 05-24 were added and 48,372 rows of 05-31 lost. That run read 8 files (983,526 rows) and matched 860,298. Its `pruned` and `full_scan` sides were not affected: partition values carry no time zone, and Delta `timestamp` values carry UTC. The capture is kept and marked superseded in the manifest. It is not evidence for the comparison above.
+
+### A.8 Equivalence
+
+[`equivalence.json`](../../evidence/edai1/storage/5gb/lakehouse/raw/evidence/equivalence.json) records `equivalent: true` with no differences for baseline → compacted and baseline → optimized on both tables. The method compares the schema hash, exact row count, grain and business invariants, and a partition-independent aggregate row fingerprint. Every query result also matched across arms, or the batch would have failed. The `$history` captures show that each clone starts from the pinned source version 0 ([ST01 set](../../evidence/edai1/storage/5gb/MANIFEST.md)). The `CLONE` commits display as 1970-01-01 because their Delta log entries record `commitInfo.timestamp` values only tens to hundreds of seconds after the epoch (102,123 ms for the fact Z-order clone). DBeaver renders that instant in the 1970 offset of Asia/Ho_Chi_Minh (+08:00). The value comes from the log, not from the time zone fix. The real timing is given by the batch (17:29–17:37 UTC) and by the `OPTIMIZE` commit at 2026-11-12 17:31:53 UTC.
+
+## 4. Warehouse (Part B)
+
+### B.1 Problem and data
+
+The serving question is: *what did one merchant take in successful payments over the last week?* In PostgreSQL, without a suitable index, that is a full table scan for two rows.
+
+The rows are the campaign's own Gold `fact_transactions`, not generated:
+- **Extraction.** [`warehouse/source.py`](../../../data_platform/storage/warehouse/source.py) pinned Delta version 0 and took the 31 most recent whole daily partitions (2026-05-01 … 2026-05-31), with no row sampling: 3,816,574 of 18,600,000 rows. The extracted count equals the Delta file statistics.
+- **Snapshot.** The rows were written once as a Parquet snapshot (SHA-256 `583c1f2d…a0bab6`).
+- **Loading.** The snapshot was loaded with `\copy`, then `VACUUM ANALYZE`. Its provenance is stored in a `benchmark_provenance` table ([WH01](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH01_provenance_table.png)).
+
+| Profile | Value |
+|---|---|
+| Rows / merchants | 3,816,574 / 55,623 |
+| Status | success 3,610,710 (94.6 %) · failed 132,152 · pending 73,712 |
+| Table size / primary-key index | 966,705,152 B / 290,963,456 B |
+
+The benchmark used its own PostgreSQL 16.15 instance: container `edai1-wh5gb-evidence-postgres`, volume `edai1-wh5gb-evidence-pgdata`, `127.0.0.1:55432`, 4 GiB memory limit. Each CLI phase printed its target container ([WH00](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH00_before_phase_terminal.png)). An earlier verification instance was left untouched.
+
+### B.2 Design
+
+The index follows from the data, by the rules in [`workload.py`](../../../data_platform/storage/warehouse/workload.py):
+- `merchant_id` leads, because it is an equality predicate on a high-cardinality column (query selectivity 5.2 × 10⁻⁷);
+- `event_date` follows, because it is a range predicate;
+- `status` and `amount` are `INCLUDE`d, so the query never visits the heap.
+
+A partial index on `status = 'success'` was rejected by rule. It would exclude only 5.4 % of rows, below the 20 % threshold.
+
+```sql
+CREATE INDEX idx_fact_transactions_merchant_date
+    ON fact_transactions (merchant_id, event_date) INCLUDE (status, amount);
+```
+
+### B.3 Methodology
+
+| Experiment | Procedure |
+|---|---|
+| WH-A read | 2 warm-ups + 11 `EXPLAIN (ANALYZE, BUFFERS)` runs without the index; the same with it. Then 10 interleaved pairs on the same warm table (index disabled via planner settings against enabled, alternating which runs first), because before and after differ in cache state. |
+| WH-B index | The owner created the index in DBeaver. The tool verified the catalog definition (`pg_get_indexdef`) against the design and recorded the size. |
+| WH-C write | Two empty twin tables (primary key only; primary key plus the index) received the same 8 deterministic batches of real rows (`abs(hashtext(transaction_id)) % 50`), in alternating order. Execution time and WAL bytes were recorded per batch. |
+| WH-D equivalence | Table signature before and after indexing (count, exact sum, key range, merchant count, MD5 of ordered keys); the query result with and without the index; the twin tables after the inserts. |
+
+### B.4 Results
+
+From [`report.json`](../../evidence/edai1/storage/5gb/warehouse/raw/report.json) and [`summary.txt`](../../evidence/edai1/storage/5gb/warehouse/raw/summary.txt):
+
+| Measure | Without index | With index | Verdict |
+|---|---|---|---|
+| WH-A median, 11 runs [range] | 174.073 ms [169.026–207.201] | 0.108 ms [0.102–0.151] | IMPROVED (−99.938 %) |
+| WH-A interleaved, 10 pairs | 188.977 ms [170.776–207.125] | 0.104 ms [0.066–0.126] | IMPROVED (−99.945 %) |
+| Access path | Parallel Seq Scan (2 workers + leader); 1,272,191 rows removed by filter per process; 115,296 blocks read | Index Only Scan; Heap Fetches 0; 6 blocks hit | — |
+| WH-C insert median per batch, 8 batches [range] | 717.881 ms [653.933–801.407] | 895.781 ms [726.352–950.602] | INCONCLUSIVE (+24.8 %, ranges overlap) |
+| WH-C WAL, 8 batches | 279,448,016 B | 327,038,736 B | +17.03 % |
+| Index size | — | 245,489,664 B (234 MB, 25 % of the table) | — |
+| WH-D semantic equivalence | — | — | PASS |
+
+![WH02 — before: parallel sequential scan](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH02_explain_before_parallel_seq_scan.png)
+
+*WH02. Before: the merchant/week query scans the whole table (Execution Time 220.804 ms in this DBeaver run).*
+
+![WH04 — after: index-only scan](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH04_explain_after_index_only_scan.png)
+
+*WH04. After: `Index Only Scan using idx_fact_transactions_merchant_date`, Heap Fetches 0, Execution Time 0.085 ms.*
+
+In DBeaver, `CREATE INDEX` took 2.693 s and `VACUUM (ANALYZE)` 0.363 s ([WH03](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH03_create_index_statistics.png)). The `benchmark_runs` table reproduces the medians above in [WH05](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH05_read_latency_comparison.png) and [WH06](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_write_overhead_wal.png).
+
+**Write cost.** The index made every one of the 8 paired batches slower, by 11–28 %. However, the pooled sample ranges overlap (801 ms against 726 ms), so the declared rule returns `INCONCLUSIVE`. The rule is not overridden after the fact. The WAL overhead, which is deterministic, is +17 %.
+
+**Equivalence.**
+- The table signature was identical before and after indexing: `3816574 | 3973816005050.78 | … | 55623 | 7de9d530…`.
+- The query returned `2 | 3783906.04 | 1891953.0200` with and without the index ([WH06](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_query_result_verification.png)).
+- Both twin tables hold the same 610,275 rows ([WH06](../../evidence/edai1/storage/5gb/warehouse/screenshots/WH06_twin_tables_equivalence.png)).
+
+## 5. Engineering conclusions
+
+1. **Measure the layout before optimizing it.** The 5GB Gold tables are already one ~24 MiB file per daily partition. Compaction is unnecessary, and the job proves it with a no-op rather than assuming it.
+2. **Z-order is not adopted for these tables.** It is not cost-free (≈ 50 s and a full 3.7–4.3 GB rewrite per table), and it delivered no I/O reduction in Spark or Trino. Its runtime effect is within the drift measured by the A/A control. It would become worth re-testing if files grew to several per partition, or larger than one row group, so that file or row-group statistics could separate merchants.
+3. **Partitioning by `event_date` is the effective lakehouse optimization.** It cuts reads to 7 of 151 files for a week's query, keeps identical results, and depends on queries filtering on `event_date`, not on a derived expression of `timestamp`.
+4. **A narrow covering index is the right warehouse optimization for selective serving reads.** Expect a moderate write and WAL cost (+17 % WAL here) and an index a quarter of the table's size.
+5. **Benchmarks need an A/A control.** Without the identical-layout `compacted` arm, the Z-order arm would have looked like a 13–22 % win.
+
+## 6. Trade-offs and limitations
+
+- **Single batch, single run each in Trino.** The Spark verdicts rest on five runs per arm in one batch, as a descriptive noise band, not a significance test. The Trino timings are single runs and are used only for scan statistics and illustration.
+- **Arm order.** Arms ran in a rotating order, but drift in the batch still favoured later arms (A/A control). A future design should repeat the baseline arm at the end, or randomize across separate batches.
+- **Two tables.** Only the two largest Gold tables were benchmarked. The other Gold and Silver tables have the same one-file-per-partition layout, but were not measured.
+- **Trino time zone.** The first ST09 capture used the DBeaver session zone for one predicate (A.7). It was rerun with UTC-pinned SQL; the first capture is kept only as superseded provenance.
+- **Warehouse sample.** 31 of 151 days (20 % of the rows), chosen to fit the laptop's disk. `--days 151` loads the full table.
+- **Hardware.** One laptop for PostgreSQL and one Dataproc Serverless batch. Other hardware changes the absolute numbers, not the access paths.
+- **Cost.** The batch's DCU usage was not exported into the evidence, so no cost figure is claimed.
+
+## 7. Historical results (superseded)
+
+Earlier experiments used a local 500k-row Delta fixture and a synthetic 2M-row PostgreSQL table with a partial index on `'completed'`, a status value that does not exist in the campaign data. An even older local Delta run reported 2,188 → 151 files and 2.03×. None of these is a current result. Their files remain under [`docs/evidence/edai1/storage/`](../../evidence/edai1/storage/README.md) for provenance only.
+
+## 8. Reproduction
+
+Commands are in the [owner evidence runbook](../../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md), Stages 2–4. The paid step is one Dataproc batch, gated by `--execute`, a clean tree and a matching tool commit. The general Dataproc storage procedure, including the 100GB notes, is in [cloud/storage_optimization.md](../../runbooks/edai1/cloud/storage_optimization.md).
+
+| Concern | Code |
+|---|---|
+| Layout planning, verdicts, rewrite outcome | `data_platform/storage/cloud_optimization.py` |
+| Plan (read-only) | `ops/gcp/inspect_storage_layout.py`, `scripts/inspect_storage_layout.sh` |
+| Submitter (dry-run by default) | `ops/gcp/run_storage_benchmark.py`, `scripts/run_storage_benchmark.sh` |
+| Dataproc job | `ops/gcp/storage_benchmark_job.py` |
+| Trino SQL and summary | `ops/gcp/storage_benchmark_report.py` |
+| Warehouse | `data_platform/storage/warehouse/` |
+| Tests | `tests/unit/test_cloud_storage_optimization.py`, `tests/unit/test_warehouse_benchmark.py`, `tests/integration/test_storage_benchmark_delta_local.py` |

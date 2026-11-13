@@ -1,0 +1,342 @@
+{
+  "design": {
+    "included_columns": [
+      "status",
+      "amount"
+    ],
+    "key_columns": [
+      "merchant_id",
+      "event_date"
+    ],
+    "name": "idx_fact_transactions_merchant_date",
+    "predicate": null,
+    "rationale": {
+      "partial_index_used": false,
+      "partial_predicate_excluded_share": 0.053939,
+      "query_rows_expected": 2,
+      "query_selectivity": 5.2e-07,
+      "rows_per_merchant_average": 68.62,
+      "rule": "partial predicate only if it excludes >= 20% of rows",
+      "success_share": 0.946061
+    },
+    "sql": "CREATE INDEX idx_fact_transactions_merchant_date ON fact_transactions (merchant_id, event_date) INCLUDE (status, amount);"
+  },
+  "parameters": {
+    "expected_rows": 2,
+    "merchant_id": "00058dec-9436-4664-91e0-3e1d5829e22b",
+    "status": "success",
+    "window_end": "2026-05-31",
+    "window_start": "2026-05-25"
+  },
+  "profile": {
+    "distinct_merchants": 55623,
+    "event_date_max": "2026-05-31",
+    "event_date_min": "2026-05-01",
+    "rows": 3816574,
+    "status_counts": {
+      "failed": 132152,
+      "pending": 73712,
+      "success": 3610710
+    }
+  },
+  "query": "SELECT count(*) AS tx_count, round(sum(amount::numeric), 2) AS total_amount, round(avg(amount::numeric), 4) AS avg_amount FROM fact_transactions WHERE merchant_id = '00058dec-9436-4664-91e0-3e1d5829e22b' AND event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31' AND status = 'success'",
+  "query_result_without_index": "2|3783906.04|1891953.0200",
+  "started_at": "2026-11-12T15:31:53.504920+00:00",
+  "table_signature_before": "3816574|3973816005050.78|00000a43-ecd0-4223-bbd8-f0244f061121|fffff2bf-1398-44ed-a023-f80c8fac1d28|55623|7de9d53030880fbdb07e9989d0b30e1a",
+  "without_index": {
+    "execution_ms": {
+      "maximum": 207.201,
+      "median": 174.073,
+      "minimum": 169.026,
+      "n": 11,
+      "q1": 170.483,
+      "q3": 194.011
+    },
+    "representative_plan": {
+      "Execution Time": 207.201,
+      "Plan": {
+        "Actual Loops": 1,
+        "Actual Rows": 1,
+        "Actual Startup Time": 205.442,
+        "Actual Total Time": 207.127,
+        "Async Capable": false,
+        "I/O Read Time": 180.894,
+        "I/O Write Time": 0.0,
+        "Local Dirtied Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Written Blocks": 0,
+        "Node Type": "Aggregate",
+        "Parallel Aware": false,
+        "Partial Mode": "Finalize",
+        "Plan Rows": 1,
+        "Plan Width": 72,
+        "Plans": [
+          {
+            "Actual Loops": 1,
+            "Actual Rows": 3,
+            "Actual Startup Time": 205.373,
+            "Actual Total Time": 207.118,
+            "Async Capable": false,
+            "I/O Read Time": 180.894,
+            "I/O Write Time": 0.0,
+            "Local Dirtied Blocks": 0,
+            "Local Hit Blocks": 0,
+            "Local Read Blocks": 0,
+            "Local Written Blocks": 0,
+            "Node Type": "Gather",
+            "Parallel Aware": false,
+            "Parent Relationship": "Outer",
+            "Plan Rows": 2,
+            "Plan Width": 72,
+            "Plans": [
+              {
+                "Actual Loops": 3,
+                "Actual Rows": 1,
+                "Actual Startup Time": 203.463,
+                "Actual Total Time": 203.464,
+                "Async Capable": false,
+                "I/O Read Time": 180.894,
+                "I/O Write Time": 0.0,
+                "Local Dirtied Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Written Blocks": 0,
+                "Node Type": "Aggregate",
+                "Parallel Aware": false,
+                "Parent Relationship": "Outer",
+                "Partial Mode": "Partial",
+                "Plan Rows": 1,
+                "Plan Width": 72,
+                "Plans": [
+                  {
+                    "Actual Loops": 3,
+                    "Actual Rows": 1,
+                    "Actual Startup Time": 183.812,
+                    "Actual Total Time": 203.45,
+                    "Alias": "fact_transactions",
+                    "Async Capable": false,
+                    "Filter": "((event_date >= '2026-05-25'::date) AND (event_date <= '2026-05-31'::date) AND (merchant_id = '00058dec-9436-4664-91e0-3e1d5829e22b'::text) AND (status = 'success'::text))",
+                    "I/O Read Time": 180.894,
+                    "I/O Write Time": 0.0,
+                    "Local Dirtied Blocks": 0,
+                    "Local Hit Blocks": 0,
+                    "Local Read Blocks": 0,
+                    "Local Written Blocks": 0,
+                    "Node Type": "Seq Scan",
+                    "Parallel Aware": true,
+                    "Parent Relationship": "Outer",
+                    "Plan Rows": 19,
+                    "Plan Width": 8,
+                    "Relation Name": "fact_transactions",
+                    "Rows Removed by Filter": 1272191,
+                    "Shared Dirtied Blocks": 0,
+                    "Shared Hit Blocks": 3200,
+                    "Shared Read Blocks": 114816,
+                    "Shared Written Blocks": 0,
+                    "Startup Cost": 0.0,
+                    "Temp I/O Read Time": 0.0,
+                    "Temp I/O Write Time": 0.0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0,
+                    "Total Cost": 149819.58,
+                    "Workers": []
+                  }
+                ],
+                "Shared Dirtied Blocks": 0,
+                "Shared Hit Blocks": 3200,
+                "Shared Read Blocks": 114816,
+                "Shared Written Blocks": 0,
+                "Startup Cost": 149819.72,
+                "Strategy": "Plain",
+                "Temp I/O Read Time": 0.0,
+                "Temp I/O Write Time": 0.0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Total Cost": 149819.73,
+                "Workers": []
+              }
+            ],
+            "Shared Dirtied Blocks": 0,
+            "Shared Hit Blocks": 3200,
+            "Shared Read Blocks": 114816,
+            "Shared Written Blocks": 0,
+            "Single Copy": false,
+            "Startup Cost": 150819.72,
+            "Temp I/O Read Time": 0.0,
+            "Temp I/O Write Time": 0.0,
+            "Temp Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Total Cost": 150819.93,
+            "Workers Launched": 2,
+            "Workers Planned": 2
+          }
+        ],
+        "Shared Dirtied Blocks": 0,
+        "Shared Hit Blocks": 3200,
+        "Shared Read Blocks": 114816,
+        "Shared Written Blocks": 0,
+        "Startup Cost": 150819.95,
+        "Strategy": "Plain",
+        "Temp I/O Read Time": 0.0,
+        "Temp I/O Write Time": 0.0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Total Cost": 150819.97
+      },
+      "Planning": {
+        "I/O Read Time": 0.0,
+        "I/O Write Time": 0.0,
+        "Local Dirtied Blocks": 0,
+        "Local Hit Blocks": 0,
+        "Local Read Blocks": 0,
+        "Local Written Blocks": 0,
+        "Shared Dirtied Blocks": 0,
+        "Shared Hit Blocks": 132,
+        "Shared Read Blocks": 0,
+        "Shared Written Blocks": 0,
+        "Temp I/O Read Time": 0.0,
+        "Temp I/O Write Time": 0.0,
+        "Temp Read Blocks": 0,
+        "Temp Written Blocks": 0
+      },
+      "Planning Time": 0.442,
+      "Triggers": []
+    },
+    "runs": [
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 172.931,
+        "heap_fetches": 0,
+        "planning_ms": 0.472,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 2720,
+        "shared_read_blocks": 115296
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 180.844,
+        "heap_fetches": 0,
+        "planning_ms": 0.43,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 2816,
+        "shared_read_blocks": 115200
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 187.41,
+        "heap_fetches": 0,
+        "planning_ms": 0.537,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 2912,
+        "shared_read_blocks": 115104
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 170.483,
+        "heap_fetches": 0,
+        "planning_ms": 0.413,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3008,
+        "shared_read_blocks": 115008
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 194.011,
+        "heap_fetches": 0,
+        "planning_ms": 0.417,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3104,
+        "shared_read_blocks": 114912
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 207.201,
+        "heap_fetches": 0,
+        "planning_ms": 0.442,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3200,
+        "shared_read_blocks": 114816
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 170.35,
+        "heap_fetches": 0,
+        "planning_ms": 0.474,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3296,
+        "shared_read_blocks": 114720
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 174.073,
+        "heap_fetches": 0,
+        "planning_ms": 0.283,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3392,
+        "shared_read_blocks": 114624
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 198.051,
+        "heap_fetches": 0,
+        "planning_ms": 0.267,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3488,
+        "shared_read_blocks": 114528
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 172.401,
+        "heap_fetches": 0,
+        "planning_ms": 0.487,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3584,
+        "shared_read_blocks": 114432
+      },
+      {
+        "access_paths": [
+          "Seq Scan:fact_transactions"
+        ],
+        "execution_ms": 169.026,
+        "heap_fetches": 0,
+        "planning_ms": 0.47,
+        "root_node": "Aggregate",
+        "rows_removed_by_filter": 1272191,
+        "shared_hit_blocks": 3680,
+        "shared_read_blocks": 114336
+      }
+    ],
+    "warmups": 2
+  }
+}

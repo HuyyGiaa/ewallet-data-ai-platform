@@ -1,0 +1,9 @@
+warehouse benchmark  postgres=16.15 (Debian 16.15-1.pgdg13+2)  rows=3,816,574
+query: SELECT count(*) AS tx_count, round(sum(amount::numeric), 2) AS total_amount, round(avg(amount::numeric), 4) AS avg_amount FROM fact_transactions WHERE merchant_id = '00058dec-9436-4664-91e0-3e1d5829e22b' AND event_date BETWEEN DATE '2026-05-25' AND DATE '2026-05-31' AND status = 'success'
+index: CREATE INDEX idx_fact_transactions_merchant_date ON public.fact_transactions USING btree (merchant_id, event_date) INCLUDE (status, amount)  size=245,489,664 B  created_by=owner in DBeaver (duration shown in DBeaver's statistics tab)
+WH-A without index: median 174.073 ms  (['Seq Scan:fact_transactions'])
+WH-A with index:    median 0.108 ms  (['Index Only Scan:idx_fact_transactions_merchant_date'])
+WH-A before/after verdict: IMPROVED (-99.938 %)
+WH-A interleaved verdict:  IMPROVED (-99.945 %)
+WH-C insert median: 717.8805 -> 895.7805 ms  verdict INCONCLUSIVE  WAL 279,448,016 -> 327,038,736 B (+17.03 %)
+WH-D semantic equivalence: PASS

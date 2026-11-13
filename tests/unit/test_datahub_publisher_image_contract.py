@@ -1,6 +1,6 @@
-from pathlib import Path
+"""Historical DataHub publisher image (100GB lineage plan); kept for the datahub CI component."""
 
-import yaml
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,15 +16,3 @@ def test_catalog_and_dockerfile_preserve_comparable_contract():
     assert "FROM ${OPTIMIZED_IMAGE} AS build" in dockerfile
     assert "USER 65532:65532" in dockerfile
     assert dockerfile.count("COPY data_platform/metadata/datahub/lineage/cloud_lineage.py") == 2
-
-
-def test_compose_runs_optimized_publisher_with_bounded_runtime():
-    compose = yaml.safe_load((ROOT / "infra/docker/compose.edai1.yml").read_text())
-    service = compose["services"]["datahub-lineage-publisher"]
-    assert service["build"]["target"] == "optimized"
-    assert service["user"] == "65532:65532"
-    assert service["read_only"] is True
-    assert service["network_mode"] == "none"
-    assert service["cap_drop"] == ["ALL"]
-    assert service["restart"] == "no"
-    assert service["command"] == ["--output", "/tmp/lineage-plan.json"]

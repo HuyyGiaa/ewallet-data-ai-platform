@@ -1,0 +1,60 @@
+$ docker build --no-cache --pull=false --progress=plain --file images/edai1-campaign-verifier/Dockerfile.optimized --tag edai1/campaign-verifier:optimized-full-20261112t142522 --build-arg BUILD_IMAGE=python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343 --build-arg RUNTIME_IMAGE=python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343 --target runtime /home/huyy-giaa/Develop/ewallet-edai1-docker-storage-5gb
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.optimized
+#1 transferring dockerfile: 2.01kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1.7
+#2 DONE 0.3s
+
+#3 docker-image://docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+#3 resolve docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343
+#4 DONE 0.0s
+
+#5 [build 1/4] FROM docker.io/library/python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343
+#5 resolve docker.io/library/python:3.13.9-bookworm@sha256:f7c7710623c1234f7ebdf4cbb9d1302dc67a552f7a3daa3e655e880df0b9c343 0.0s done
+#5 CACHED
+
+#6 [build 2/4] WORKDIR /build
+#6 CACHED
+
+#7 [internal] load build context
+#7 transferring context: 305B 0.0s done
+#7 DONE 0.1s
+
+#8 [build 3/4] COPY ops/edai1_verifier/ /build/edai1_verifier/
+#8 DONE 0.0s
+
+#9 [build 4/4] RUN python -m compileall -q /build/edai1_verifier     && python -c "import edai1_verifier.__main__, edai1_verifier.report, edai1_verifier.checks, edai1_verifier.spec"     && python -m edai1_verifier --help > /dev/null     && chmod -R a=rX,u-w /build/edai1_verifier
+#9 ...
+
+#10 [runtime 2/4] RUN groupadd --system --gid 65532 verifier     && useradd --system --uid 65532 --gid 65532 --no-create-home --shell /usr/sbin/nologin verifier
+#10 0.293 useradd warning: verifier's uid 65532 is greater than SYS_UID_MAX 999
+#10 DONE 0.3s
+
+#11 [runtime 3/4] WORKDIR /app
+#11 DONE 0.1s
+
+#9 [build 4/4] RUN python -m compileall -q /build/edai1_verifier     && python -c "import edai1_verifier.__main__, edai1_verifier.report, edai1_verifier.checks, edai1_verifier.spec"     && python -m edai1_verifier --help > /dev/null     && chmod -R a=rX,u-w /build/edai1_verifier
+#9 DONE 0.9s
+
+#12 [runtime 4/4] COPY --from=build --chown=0:0 /build/edai1_verifier /app/edai1_verifier
+#12 DONE 0.1s
+
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 0.2s done
+#13 exporting manifest sha256:e7ba50a284faa97a32009a1d801ea18bfd9078c619827c2e37e05c4759905976 0.0s done
+#13 exporting config sha256:52265417edf0f0ffa2c82843e3a42ec617f2ce1b1adbd63ee2441d2c8d448320 0.0s done
+#13 exporting attestation manifest sha256:19f7c4f28d1239538c32b12fb233f57ae6e3b9c75bf255d089013d6897a1be49 0.1s done
+#13 exporting manifest list sha256:2c8c5b5f30f02c5ca6bdda453826f092ff24847bd5e5883fbec143b0fe955838
+#13 exporting manifest list sha256:2c8c5b5f30f02c5ca6bdda453826f092ff24847bd5e5883fbec143b0fe955838 0.0s done
+#13 naming to docker.io/edai1/campaign-verifier:optimized-full-20261112t142522 done
+#13 unpacking to docker.io/edai1/campaign-verifier:optimized-full-20261112t142522 0.1s done
+#13 DONE 0.5s
+
+[exit code 0]

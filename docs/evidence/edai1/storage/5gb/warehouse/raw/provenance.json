@@ -1,0 +1,303 @@
+{
+  "profile": {
+    "distinct_merchants": 55623,
+    "event_date_max": "2026-05-31",
+    "event_date_min": "2026-05-01",
+    "rows": 3816574,
+    "rows_per_merchant_quantiles": {
+      "p0": 1,
+      "p100": 514,
+      "p50": 6,
+      "p90": 11,
+      "p99": 449
+    },
+    "rows_with_merchant": 1525003,
+    "status_counts": {
+      "failed": 132152,
+      "pending": 73712,
+      "success": 3610710
+    }
+  },
+  "sample": {
+    "days": 31,
+    "expected_rows": 3816574,
+    "files": [
+      {
+        "delta_num_records": 123530,
+        "event_date": "2026-05-01",
+        "path": "event_date=2026-05-01/part-00015-a52d06fa-121a-475f-b60b-b4eac4ecc366.c000.snappy.parquet",
+        "size_bytes": 24370988
+      },
+      {
+        "delta_num_records": 123080,
+        "event_date": "2026-05-02",
+        "path": "event_date=2026-05-02/part-00025-95e98459-1048-4ec2-8c85-083310ec32aa.c000.snappy.parquet",
+        "size_bytes": 24300472
+      },
+      {
+        "delta_num_records": 123014,
+        "event_date": "2026-05-03",
+        "path": "event_date=2026-05-03/part-00050-777bfc43-c0e6-442f-9a12-6c8f2041f81c.c000.snappy.parquet",
+        "size_bytes": 24280107
+      },
+      {
+        "delta_num_records": 123388,
+        "event_date": "2026-05-04",
+        "path": "event_date=2026-05-04/part-00059-8e612d5c-3a86-4daa-b9ea-30907fbc76ee.c000.snappy.parquet",
+        "size_bytes": 24342717
+      },
+      {
+        "delta_num_records": 123215,
+        "event_date": "2026-05-05",
+        "path": "event_date=2026-05-05/part-00048-97c1f3cd-e892-461d-b216-bed9d70178c3.c000.snappy.parquet",
+        "size_bytes": 24311654
+      },
+      {
+        "delta_num_records": 122653,
+        "event_date": "2026-05-06",
+        "path": "event_date=2026-05-06/part-00037-ea662030-b45d-4102-9d08-c5d8b6ad2518.c000.snappy.parquet",
+        "size_bytes": 24213714
+      },
+      {
+        "delta_num_records": 123331,
+        "event_date": "2026-05-07",
+        "path": "event_date=2026-05-07/part-00088-8d77aa03-5bb1-49a8-9878-970c29baec93.c000.snappy.parquet",
+        "size_bytes": 24334817
+      },
+      {
+        "delta_num_records": 123275,
+        "event_date": "2026-05-08",
+        "path": "event_date=2026-05-08/part-00047-4078a3f9-ee58-4d7e-9376-0d7b8b96f78e.c000.snappy.parquet",
+        "size_bytes": 24322884
+      },
+      {
+        "delta_num_records": 122509,
+        "event_date": "2026-05-09",
+        "path": "event_date=2026-05-09/part-00076-85af5559-27b7-4a34-8d24-640389bf63ad.c000.snappy.parquet",
+        "size_bytes": 24176682
+      },
+      {
+        "delta_num_records": 123291,
+        "event_date": "2026-05-10",
+        "path": "event_date=2026-05-10/part-00005-181a5ecb-ef45-4e14-92df-83e0f87d5803.c000.snappy.parquet",
+        "size_bytes": 24321736
+      },
+      {
+        "delta_num_records": 123232,
+        "event_date": "2026-05-11",
+        "path": "event_date=2026-05-11/part-00118-e2a5ce6d-7574-45f8-bb8e-e0a7f94b4e0c.c000.snappy.parquet",
+        "size_bytes": 24316831
+      },
+      {
+        "delta_num_records": 123246,
+        "event_date": "2026-05-12",
+        "path": "event_date=2026-05-12/part-00042-e90cbba7-5ae2-40d4-8ecd-202f65d69c2f.c000.snappy.parquet",
+        "size_bytes": 24315787
+      },
+      {
+        "delta_num_records": 123047,
+        "event_date": "2026-05-13",
+        "path": "event_date=2026-05-13/part-00080-ad7f2d4b-5d06-423a-bb79-346285196aa3.c000.snappy.parquet",
+        "size_bytes": 24275855
+      },
+      {
+        "delta_num_records": 124177,
+        "event_date": "2026-05-14",
+        "path": "event_date=2026-05-14/part-00065-2b4f23b1-1fab-489d-8b37-b59ed24e448c.c000.snappy.parquet",
+        "size_bytes": 24504881
+      },
+      {
+        "delta_num_records": 123239,
+        "event_date": "2026-05-15",
+        "path": "event_date=2026-05-15/part-00007-ea2b7816-c7bb-464e-a263-97cbe7f96259.c000.snappy.parquet",
+        "size_bytes": 24311243
+      },
+      {
+        "delta_num_records": 123638,
+        "event_date": "2026-05-16",
+        "path": "event_date=2026-05-16/part-00080-4a42b3ac-3128-42eb-805a-d0dbc5218ac1.c000.snappy.parquet",
+        "size_bytes": 24400728
+      },
+      {
+        "delta_num_records": 122378,
+        "event_date": "2026-05-17",
+        "path": "event_date=2026-05-17/part-00104-cfe789ca-4e35-47a9-b582-8d60692b06f2.c000.snappy.parquet",
+        "size_bytes": 24150661
+      },
+      {
+        "delta_num_records": 123272,
+        "event_date": "2026-05-18",
+        "path": "event_date=2026-05-18/part-00040-3d8a3e4d-3700-4887-876e-059e6571d137.c000.snappy.parquet",
+        "size_bytes": 24333570
+      },
+      {
+        "delta_num_records": 123673,
+        "event_date": "2026-05-19",
+        "path": "event_date=2026-05-19/part-00065-7552c9d2-4fea-4b4e-b487-6584b8c71167.c000.snappy.parquet",
+        "size_bytes": 24402870
+      },
+      {
+        "delta_num_records": 122834,
+        "event_date": "2026-05-20",
+        "path": "event_date=2026-05-20/part-00121-cd43a0da-3570-47fb-a5c5-eadbd3a7568b.c000.snappy.parquet",
+        "size_bytes": 24227402
+      },
+      {
+        "delta_num_records": 122769,
+        "event_date": "2026-05-21",
+        "path": "event_date=2026-05-21/part-00126-ffcf3fce-ca85-455f-838e-32ac287d9220.c000.snappy.parquet",
+        "size_bytes": 24214313
+      },
+      {
+        "delta_num_records": 123182,
+        "event_date": "2026-05-22",
+        "path": "event_date=2026-05-22/part-00092-92c79d06-290b-4234-96a8-3da8b06206f6.c000.snappy.parquet",
+        "size_bytes": 24303660
+      },
+      {
+        "delta_num_records": 123075,
+        "event_date": "2026-05-23",
+        "path": "event_date=2026-05-23/part-00033-f588fd22-43a2-4f0a-8793-78f3eeb0e3e6.c000.snappy.parquet",
+        "size_bytes": 24291299
+      },
+      {
+        "delta_num_records": 123137,
+        "event_date": "2026-05-24",
+        "path": "event_date=2026-05-24/part-00101-42396375-0740-4530-84f0-416afb5eff70.c000.snappy.parquet",
+        "size_bytes": 24306688
+      },
+      {
+        "delta_num_records": 123383,
+        "event_date": "2026-05-25",
+        "path": "event_date=2026-05-25/part-00017-dccaccdd-9b49-4cca-9fe4-6978d4d25e8a.c000.snappy.parquet",
+        "size_bytes": 24339271
+      },
+      {
+        "delta_num_records": 122399,
+        "event_date": "2026-05-26",
+        "path": "event_date=2026-05-26/part-00017-26dc9c1c-3b32-4f0e-b40c-0ca3739d6816.c000.snappy.parquet",
+        "size_bytes": 24145852
+      },
+      {
+        "delta_num_records": 122996,
+        "event_date": "2026-05-27",
+        "path": "event_date=2026-05-27/part-00088-03ab99d0-6a1d-4b36-886f-3a71379c7190.c000.snappy.parquet",
+        "size_bytes": 24267955
+      },
+      {
+        "delta_num_records": 123099,
+        "event_date": "2026-05-28",
+        "path": "event_date=2026-05-28/part-00013-f427a0d4-b110-4f10-b355-7f5eff4cbb6a.c000.snappy.parquet",
+        "size_bytes": 24285921
+      },
+      {
+        "delta_num_records": 122805,
+        "event_date": "2026-05-29",
+        "path": "event_date=2026-05-29/part-00116-2421d3c9-41df-4bcb-b762-190aa5919e36.c000.snappy.parquet",
+        "size_bytes": 24230546
+      },
+      {
+        "delta_num_records": 122681,
+        "event_date": "2026-05-30",
+        "path": "event_date=2026-05-30/part-00051-76c64247-0401-4369-a5f9-7ae719734f73.c000.snappy.parquet",
+        "size_bytes": 24203672
+      },
+      {
+        "delta_num_records": 123026,
+        "event_date": "2026-05-31",
+        "path": "event_date=2026-05-31/part-00008-537b37ea-a3aa-4246-8aca-1fa9af5c0719.c000.snappy.parquet",
+        "size_bytes": 24283016
+      }
+    ],
+    "method": "most recent 31 event_date partitions (whole partitions, no row sampling)",
+    "partitions": [
+      "2026-05-01",
+      "2026-05-02",
+      "2026-05-03",
+      "2026-05-04",
+      "2026-05-05",
+      "2026-05-06",
+      "2026-05-07",
+      "2026-05-08",
+      "2026-05-09",
+      "2026-05-10",
+      "2026-05-11",
+      "2026-05-12",
+      "2026-05-13",
+      "2026-05-14",
+      "2026-05-15",
+      "2026-05-16",
+      "2026-05-17",
+      "2026-05-18",
+      "2026-05-19",
+      "2026-05-20",
+      "2026-05-21",
+      "2026-05-22",
+      "2026-05-23",
+      "2026-05-24",
+      "2026-05-25",
+      "2026-05-26",
+      "2026-05-27",
+      "2026-05-28",
+      "2026-05-29",
+      "2026-05-30",
+      "2026-05-31"
+    ]
+  },
+  "snapshot": {
+    "arrow_schema": [
+      "transaction_id: string",
+      "user_id: string",
+      "account_id: string",
+      "merchant_id: string",
+      "device_id: string",
+      "type: string",
+      "status: string",
+      "channel: string",
+      "currency: string",
+      "amount: double",
+      "timestamp: timestamp[us, tz=UTC]",
+      "event_date: date32[day]"
+    ],
+    "bytes": 367357308,
+    "columns": [
+      "transaction_id",
+      "user_id",
+      "account_id",
+      "merchant_id",
+      "device_id",
+      "type",
+      "status",
+      "channel",
+      "currency",
+      "amount",
+      "timestamp",
+      "event_date"
+    ],
+    "file": "fact_transactions.parquet",
+    "rows": 3816574,
+    "sha256": "583c1f2df47fa12752da6473d9919e641c18dea12e97ed6c41fb43f152a0bab6",
+    "sort_order": [
+      "event_date",
+      "transaction_id"
+    ]
+  },
+  "source": {
+    "benchmark_id": "ab-20261110225456",
+    "campaign_manifest_sha256": "820994eff2bf80a1cf68513987baa0d597b267c58921f4360d77a9ddcde6197c",
+    "dataset_version": "rehearsal-5gb-v1",
+    "delta_version": 0,
+    "run_ids": {
+      "dp2-gold": "ab-20261110225456-optimized-gold-r261110225458",
+      "dp2-silver": "ab-20261110225456-optimized-silver-r261110225457",
+      "dp3-features": "ab-20261110225456-optimized-feat-r261110225459"
+    },
+    "source_spark_git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+    "spark_profile": "optimized",
+    "table": "gold.fact_transactions",
+    "table_partitions_total": 151,
+    "table_rows_total": 18600000,
+    "uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_transactions",
+    "verification_report_sha256": "8316b0a35efda98fb916027e26191922925a2b29859d34085890f51ae1b58e2b"
+  }
+}

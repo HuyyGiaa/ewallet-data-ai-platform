@@ -1,0 +1,7 @@
+# Build context of Dockerfile.optimized (BuildKit reads <Dockerfile>.dockerignore).
+# Everything is excluded except the verifier package; the campaign evidence and the
+# workload specification are mounted read-only at run time, never baked in.
+*
+!ops/edai1_verifier/
+ops/edai1_verifier/__pycache__
+**/*.pyc

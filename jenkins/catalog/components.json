@@ -274,6 +274,16 @@
       "deployment_target": "infra/kubernetes/cicd-runtime/agents",
       "deploy_handler": "scripts/ci/deploy/agents.sh",
       "release_artifact_selector": "images/g3-byo-coordinator"
+    },
+    "edai1-docker-storage": {
+      "maturity": "active",
+      "source_paths": ["ops/edai1_verifier", "ops/docker_ab", "images/edai1-campaign-verifier", "infra/docker/compose.edai1.yml", "infra/docker/compose.warehouse-5gb.yml", "data_platform/storage/cloud_optimization.py", "data_platform/storage/warehouse", "ops/gcp/inspect_storage_layout.py", "ops/gcp/run_storage_benchmark.py", "ops/gcp/storage_benchmark_job.py", "ops/gcp/storage_benchmark_report.py", "scripts/inspect_storage_layout.sh", "scripts/run_storage_benchmark.sh", "tests/unit/test_edai1_verifier.py", "tests/unit/test_docker_ab.py", "tests/unit/test_warehouse_benchmark.py", "tests/unit/test_cloud_storage_optimization.py", "tests/integration/test_storage_trino_timezone.py", "docs/runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md", "docs/runbooks/edai1/cloud/storage_optimization.md"],
+      "dependencies": [],
+      "python_projects": ["data_platform/generation", "ai_platform/features/feast"],
+      "commands": ["uv run --locked --project data_platform/generation python -m pytest -q tests/unit/test_edai1_verifier.py tests/unit/test_docker_ab.py tests/unit/test_warehouse_benchmark.py", "uv run --locked --project ai_platform/features/feast python -m unittest tests.unit.test_cloud_storage_optimization"],
+      "build_artifact": "images/edai1-campaign-verifier/Dockerfile.optimized",
+      "deployment_target": null,
+      "deploy_handler": null
     }
   }
 }

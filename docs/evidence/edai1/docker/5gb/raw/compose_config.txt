@@ -1,0 +1,40 @@
+$ docker compose -p edai1-dk5gb -f infra/docker/compose.edai1.yml --profile edai1 config
+name: edai1-dk5gb
+services:
+  campaign-verifier:
+    profiles:
+      - edai1
+    build:
+      context: /home/huyy-giaa/Develop/ewallet-edai1-docker-storage-5gb
+      dockerfile: images/edai1-campaign-verifier/Dockerfile.optimized
+      target: runtime
+    cap_drop:
+      - ALL
+    cpus: 0.5
+    command:
+      - --spec
+      - /input/workload.json
+      - --evidence-dir
+      - /input/evidence
+    image: edai1/campaign-verifier:compose
+    mem_limit: "134217728"
+    network_mode: none
+    pids_limit: 64
+    read_only: true
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777,nosuid,nodev,noexec
+    user: 65532:65532
+    volumes:
+      - type: bind
+        source: /home/huyy-giaa/Develop/ewallet-edai1-docker-storage-5gb/docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456
+        target: /input/evidence
+        read_only: true
+      - type: bind
+        source: /home/huyy-giaa/Develop/ewallet-edai1-docker-storage-5gb/images/edai1-campaign-verifier/workload-5gb.json
+        target: /input/workload.json
+        read_only: true
+
+[exit code 0]

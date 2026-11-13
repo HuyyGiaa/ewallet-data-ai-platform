@@ -64,9 +64,8 @@ No EDAI-1 benchmark was rerun during N15. The three new images display preserved
 | 38 | Naming convention | — | **PENDING** SC08 |
 
 Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a specific UI. Their images are supporting evidence:
-- Docker: raw historical JSON/log/Compose transcripts plus two N15 genuine terminal views.
-- Storage: DBeaver HISTORICAL_UI ×4 and benchmark REAL_TERMINAL ×2.
-- Warehouse: raw historical JSON/log plus an N15 genuine terminal view; there is still no database UI capture.
+- Docker: the 5GB owner captures DK01–DK05 are integrated (see *Docker and storage owner captures* below). The October images and transcripts are historical.
+- Storage: the 5GB owner captures ST01–ST09 (Trino/DBeaver, Dataproc Spark UI) and WH01–WH06 (PostgreSQL in DBeaver) are integrated. The 500k-fixture and synthetic-PostgreSQL images are historical.
 
 ## N15 additions
 
@@ -84,6 +83,20 @@ Rows 3–10, 19–21 and 39–40 need documentation, code or proof rather than a
 | Qualify | 15 | 15, 16, 17, 18, 22, 23, 24, 26, 27, 28, 29, 30, 32, 33, 38 |
 | Partial | 4 | 11, 13, 34, 36 |
 | Missing or not qualifying | 6 | 12, 14, 25, 31, 35, 37 |
+
+## Docker and storage owner captures (2026-11-13)
+
+The owner captured these images during the 5GB Docker run `20261112t142522`, the lakehouse batch `storage-5gb-20261112t142522` and the PostgreSQL benchmark. Each image was opened and read. Its values were cross-checked against the run's raw JSON: Docker `result.json`, lakehouse `comparison.json`/`partition_pruning.json`/`rewrite.json`, warehouse `report.json`. The originals were copied byte-for-byte, with SHA-256 checked before and after the copy. Per-image checkpoint, original file name, visible content and SHA-256 are in the manifests, together with the screenshots reviewed and not included (assistant panels, other workstreams, a placeholder password variable).
+
+| Set | Images | Class | Rows | Manifest |
+|---|---:|---|---|---|
+| Docker DK01–DK05 | 10 | REAL_TERMINAL, editor | 3, 4 | [docker/5gb](../evidence/edai1/docker/5gb/MANIFEST.md) |
+| Lakehouse ST01–ST09 | 77 (12 of them superseded) | NATIVE_UI (Trino 483 via DBeaver; Dataproc Spark UI), REAL_TERMINAL | 20 | [storage/5gb](../evidence/edai1/storage/5gb/MANIFEST.md) |
+| Warehouse WH01–WH06 | 16 | NATIVE_UI (PostgreSQL 16.15 via DBeaver), REAL_TERMINAL | 21 | same |
+
+Two findings came out of the image audit:
+- **DK04a** is a genuine failed attempt: `$SPEC` was unset and both images refused the spec with `INVALID_SPEC`. It is kept and labelled as a failure. The runbook now guards the variables.
+- **The first ST09 session** (01:46–02:16) ran a script whose `stats_only` literal had no zone. Under DBeaver's +07:00 session, its window read 860,298 rows instead of 860,389. The generator was fixed, and the owner reran all six ST09 cases at 03:34–03:47 with the regenerated script. Those 18 captures, plus 2 captures of the script itself, replace the 12 first-session ST09 images, which stay in the manifest marked SUPERSEDED. The new captures show identical results on all three sides (860,389 · 894,991,837,952.66 · 1,040,217.666605) and distinct plans: partition key with 7 splits, file statistics with 7 splits, full scan with 151 splits.
 
 ## 5GB rehearsal additions (2026-11-11)
 
@@ -131,12 +144,12 @@ The owner's comparison-submission terminal capture was not integrated, because i
 | [01_dp1_baseline_spark_environment.png](../evidence/edai1/spark/01_dp1_baseline_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
 | [02_dp1_optimized_spark_environment.png](../evidence/edai1/spark/02_dp1_optimized_spark_environment.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
 | [03_dp1_optimized_spark_stages.png](../evidence/edai1/spark/03_dp1_optimized_spark_stages.png) | yes | HISTORICAL_UI | Spark UI (Dataproc history), ab-20261029174838 | 11,12 | archived `OPTIMIZATION_MATRIX.md` (not in submission) |
-| [01_layout_before_500k.png](../evidence/edai1/storage/01_layout_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [02_benchmark_before_500k.png](../evidence/edai1/storage/02_benchmark_before_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [03_partition_pruning_before_500k.png](../evidence/edai1/storage/03_partition_pruning_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [04_layout_after_500k.png](../evidence/edai1/storage/04_layout_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [05_partition_pruning_after_500k.png](../evidence/edai1/storage/05_partition_pruning_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | storage/STORAGE_OPTIMIZATION.md |
-| [06_benchmark_after_500k.png](../evidence/edai1/storage/06_benchmark_after_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | storage/STORAGE_OPTIMIZATION.md |
+| [01_layout_before_500k.png](../evidence/edai1/storage/01_layout_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [02_benchmark_before_500k.png](../evidence/edai1/storage/02_benchmark_before_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [03_partition_pruning_before_500k.png](../evidence/edai1/storage/03_partition_pruning_before_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [04_layout_after_500k.png](../evidence/edai1/storage/04_layout_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [05_partition_pruning_after_500k.png](../evidence/edai1/storage/05_partition_pruning_after_500k.png) | yes | HISTORICAL_UI | DBeaver/Trino, local 500k dataset, 2026-08-25 | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
+| [06_benchmark_after_500k.png](../evidence/edai1/storage/06_benchmark_after_500k.png) | yes | REAL_TERMINAL | historical local terminal | 20 | not embedded since 2026-11-12 (historical; superseded by the 5GB rerun) |
 | [03_flink_100eps_baseline_job.png](../evidence/edai1/streaming/03_flink_100eps_baseline_job.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |
 | [04_flink_100eps_baseline_resources.png](../evidence/edai1/streaming/04_flink_100eps_baseline_resources.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |
 | [05_flink_100eps_baseline_backpressure.png](../evidence/edai1/streaming/05_flink_100eps_baseline_backpressure.png) | yes | HISTORICAL_UI | local Flink UI, source 22c0c7f | 16,17,18 | streaming/FLINK_STREAMING.md |

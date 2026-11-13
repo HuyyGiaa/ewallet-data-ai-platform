@@ -20,6 +20,14 @@
 | 12 | 3 | RUNTIME_EVIDENCE_MISSING | Skew mechanisms and a Spark UI diagnosis of write-layout skew (date repartition, max/median 4.3–6.7× in both profiles), [BATCH_PROCESSING_AND_ORCHESTRATION.md](BATCH_PROCESSING_AND_ORCHESTRATION.md) §C.3, §F.4 | A method measured to improve the skewed stages over the Baseline | A controlled experiment on the date-repartition and merchant-window stages, with repeated trials | P2 |
 | 16–17 | 5 | RUNTIME_EVIDENCE_MISSING | Historical local Flink A/B (`22c0c7f`, 11 images), watermark UI | A run of the latest Block A source `0466ba4` with an authoritative late-arrival metric artifact | Bounded Redpanda/Flink scenario (late, duplicate, window) with Flink UI capture; keep the historical failed 500 EPS run visible | P2 |
 
+## Closed by the 5GB Docker and storage runs (2026-11-13)
+
+| Row | Evidence that closed it | Residual note |
+|---|---|---|
+| 3, 4 | Owner run `20261112t142522`: 2×2 image matrix (−88.87 % content, 95.76 % base image / 4.24 % packaging), identical fingerprint, hardened Compose exit 0; DK01–DK05 ([report](docker/DOCKER_OPTIMIZATION.md)) | No run-time gain claimed |
+| 20 | Dataproc batch `storage-5gb-20261112t142522-storage` PASS: compaction NOT_NEEDED, Z-order DO_NOT_ADOPT, partition pruning 7/151 files; ST01–ST09 ([report](storage/STORAGE_OPTIMIZATION.md) Part A) | ST09 recaptured on 2026-11-13 with UTC-pinned SQL; the first capture is kept as superseded provenance |
+| 21 | PostgreSQL 16.15 index benchmark on 3,816,574 real Gold rows: 174.073 → 0.108 ms, WAL +17 %, equivalence PASS; WH01–WH06 ([report](storage/STORAGE_OPTIMIZATION.md) Part B) | 31-day sample |
+
 ## Closed by the 5GB rehearsal `ab-20261110225456` (2026-11-11)
 
 | Row | Evidence that closed it |

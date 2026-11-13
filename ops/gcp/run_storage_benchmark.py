@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from data_platform.config.dataset_identity import require_approved_dataset
 from data_platform.config.spark_profiles import (
     OPTIMIZED_SPARK_PROFILE,
     parse_benchmark_run_id,
@@ -29,18 +30,15 @@ from ops.gcp.submit_source_to_bronze import (
     CloudRuntime,
     DEFAULT_ARCHIVE,
     REPOSITORY_ROOT,
+    apply_dataset_bucket,
     load_cloud_runtime,
 )
 
 
 JOB_SCRIPT = REPOSITORY_ROOT / "ops/gcp/storage_benchmark_job.py"
+PLAN_SCHEMA = 2
 SAFE_BENCHMARK_ID = re.compile(r"^[a-z][a-z0-9-]{2,62}[a-z0-9]$")
 SPARK_BENCHMARK_ID = re.compile(r"^ab-[0-9]{14}$")
-RUN_STAGE = {
-    "dp2-silver": "silver",
-    "dp2-gold": "gold",
-    "dp3-features": "feat",
-}
 STAGE_LAYER = {
     "dp2-silver": "silver",
     "dp2-gold": "gold",
@@ -58,67 +56,50 @@ def benchmark_root(runtime: CloudRuntime, benchmark_id: str) -> str:
 
 
 def _validate_plan(plan: Mapping[str, Any]) -> None:
-    required = {
-        "benchmark_id",
-        "dataset_version",
-        "git_sha",
-        "source_spark_git_sha",
-        "source_run_ids",
-        "spark_benchmark_id",
-        "benchmark_root",
-        "tables",
-    }
+    """Refuse a plan that is not a schema-2 plan bound to a verified 5GB campaign."""
+
+    required = {"schema_version", "benchmark_id", "dataset_version", "git_sha", "source_spark_git_sha",
+                "source_campaign", "source_run_ids", "spark_benchmark_id", "benchmark_root", "tables"}
     if not required.issubset(plan):
         raise ValueError(f"storage plan is missing: {sorted(required - set(plan))}")
+    if plan["schema_version"] != PLAN_SCHEMA:
+        raise ValueError(f"storage plan schema {plan['schema_version']!r} is not {PLAN_SCHEMA}")
+    require_approved_dataset(str(plan["dataset_version"]))
     validate_git_sha(str(plan["git_sha"]))
     validate_git_sha(str(plan["source_spark_git_sha"]))
-    source_run_ids = plan["source_run_ids"]
-    if not isinstance(source_run_ids, list) or not source_run_ids:
-        raise ValueError("source_run_ids must be a non-empty list")
-    spark_benchmark_id = str(plan["spark_benchmark_id"])
-    if not SPARK_BENCHMARK_ID.fullmatch(spark_benchmark_id):
+    campaign = plan["source_campaign"]
+    if (campaign.get("benchmark_id") != plan["spark_benchmark_id"]
+            or campaign.get("spark_profile") != "optimized"
+            or campaign.get("source_spark_git_sha") != plan["source_spark_git_sha"]
+            or campaign.get("dataset_version") != plan["dataset_version"]):
+        raise ValueError("plan source campaign identity is inconsistent")
+    if not SPARK_BENCHMARK_ID.fullmatch(str(plan["spark_benchmark_id"])):
         raise ValueError("plan has an invalid Spark benchmark ID")
-    run_by_stage: dict[str, str] = {}
-    for value in source_run_ids:
-        run_id = str(value)
-        parsed = parse_benchmark_run_id(run_id)
-        if (
-            parsed["benchmark_id"] != spark_benchmark_id
-            or parsed["spark_profile"] != "optimized"
-        ):
-            raise ValueError("source run IDs do not share the verified Spark benchmark")
-        if parsed["stage"] in run_by_stage:
-            raise ValueError(f"duplicate optimized source stage: {parsed['stage']}")
-        run_by_stage[parsed["stage"]] = run_id
-    if not isinstance(plan["tables"], list):
-        raise ValueError("tables must be a list")
-    selected = [table for table in plan["tables"] if table.get("selected")]
+    run_ids = dict(campaign.get("run_ids") or {})
+    for run_id in run_ids.values():
+        parsed = parse_benchmark_run_id(str(run_id))
+        if parsed["benchmark_id"] != plan["spark_benchmark_id"] or parsed["spark_profile"] != "optimized":
+            raise ValueError("source run IDs do not belong to the optimized campaign profile")
+    selected = [table for table in plan["tables"] if table.get("selected")] if isinstance(plan["tables"], list) else []
     if not selected:
-        raise ValueError("plan contains no evidence-selected table")
+        raise ValueError("plan contains no selected table")
+    root = urlsplit(str(plan["benchmark_root"]))
     for table in selected:
-        source_uri = str(table.get("uri", ""))
         stage = str(table.get("stage", ""))
-        table_name = str(table.get("table", ""))
-        run_id = run_by_stage.get(RUN_STAGE.get(stage, ""))
-        root = urlsplit(str(plan["benchmark_root"]))
-        expected_uri = (
-            f"gs://{root.netloc}/lakehouse/runs/{run_id}/"
-            f"{STAGE_LAYER.get(stage)}/{table_name}"
-        )
-        if run_id is None or source_uri != expected_uri:
-            raise ValueError("selected table is outside exact approved optimized lineage")
-        action = (table.get("optimization") or {}).get("action")
-        compacted_uri = table.get("compacted_uri")
-        if action == "ZORDER" and compacted_uri is None:
-            raise ValueError("ZORDER tables require an isolated compaction ablation arm")
-        if action != "ZORDER" and compacted_uri is not None:
-            raise ValueError("compacted_uri is reserved for ZORDER ablation")
+        run_id = run_ids.get(stage)
+        expected_uri = f"gs://{root.netloc}/lakehouse/runs/{run_id}/{STAGE_LAYER.get(stage)}/{table.get('table')}"
+        if run_id is None or str(table.get("uri", "")) != expected_uri:
+            raise ValueError("selected table is outside the verified campaign lineage")
+        if (table.get("optimization") or {}).get("action") != "ZORDER" or not table.get("compacted_uri"):
+            raise ValueError("every table needs the three-arm compaction/Z-order ablation")
+        if not (table.get("workload_parameters") or {}).get("merchant_id"):
+            raise ValueError("table lacks data-derived workload parameters")
         validate_benchmark_paths(
-            source_uri=source_uri,
+            source_uri=str(table["uri"]),
             benchmark_root=str(plan["benchmark_root"]),
             baseline_uri=str(table.get("baseline_uri", "")),
             optimized_uri=str(table.get("optimized_uri", "")),
-            compacted_uri=str(compacted_uri) if compacted_uri is not None else None,
+            compacted_uri=str(table["compacted_uri"]),
         )
 
 
@@ -303,10 +284,11 @@ def main(
         raise ValueError("storage plan must be a JSON object")
     _validate_plan(plan)
     _assert_tool_git_state(str(plan["git_sha"]), git_runner)
-    runtime = load_cloud_runtime(_load_outputs(args.terraform_output_json, runner))
+    runtime = apply_dataset_bucket(
+        load_cloud_runtime(_load_outputs(args.terraform_output_json, runner)), str(plan["dataset_version"]))
     root = benchmark_root(runtime, str(plan["benchmark_id"]))
     if plan["benchmark_root"] != root:
-        raise ValueError("plan benchmark root does not match Terraform data bucket")
+        raise ValueError("plan benchmark root does not match the dataset's data bucket")
     jars = dependency_jar_paths()
     archive = DEFAULT_ARCHIVE
     if args.execute:
@@ -337,9 +319,9 @@ def main(
         print(f"TABLE: {table['stage']}.{table['table']}")
         print(f"  INPUT: {table['uri']}@v{table['delta_version']}")
         print(f"  BASELINE: {table['baseline_uri']}")
-        if table.get("compacted_uri"):
-            print(f"  COMPACTED: {table['compacted_uri']}")
+        print(f"  COMPACTED: {table['compacted_uri']}")
         print(f"  OPTIMIZED: {table['optimized_uri']}")
+        print(f"  WORKLOAD: {json.dumps(table['workload_parameters'], sort_keys=True)}")
         print(
             "  CURRENT_LAYOUT: "
             f"files={table['file_count']},bytes={table['total_bytes']},"
@@ -347,10 +329,7 @@ def main(
         )
         print(f"  PARTITION_DECISION: {json.dumps(table['partition_decision'], sort_keys=True)}")
         print(f"  OPTIMIZATION: {json.dumps(table['optimization'], sort_keys=True)}")
-        print(
-            "  ESTIMATED_REWRITE: "
-            f"files={table['file_count']},bytes={table['estimated_rewrite_bytes']}"
-        )
+        print(f"  ESTIMATED_REWRITE_BYTES: {json.dumps(table['estimated_rewrite_bytes'], sort_keys=True)}")
     print("COMMAND:")
     print(shlex.join(command))
     if args.execute:
