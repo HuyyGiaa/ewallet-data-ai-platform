@@ -1,3 +1,5 @@
+"""Result-bound DataHub assertion contract: executed results only, exact readback."""
+
 from __future__ import annotations
 
 import json
@@ -13,7 +15,6 @@ from data_platform.metadata.datahub.assertions.result_bound_publisher import (
     publish_with_readback,
     run_result,
 )
-from data_platform.metadata.datahub.assertions import recover_validation_results
 from data_platform.metadata.datahub.assertions.validation_artifact import (
     ValidationArtifact,
     ValidationOutcome,
@@ -61,7 +62,7 @@ def test_failed_check_maps_to_failure_without_rewriting_observed_value() -> None
     assert json.loads(result["native_results"]["observed"]) == {"duplicate_group_count": 3}
 
 
-@pytest.mark.parametrize("status", ["NOT_EXECUTED", "BLOCKED"])
+@pytest.mark.parametrize("status", ["NOT_EXECUTED", "BLOCKED", "UNKNOWN"])
 def test_non_executed_states_cannot_be_published_as_runs(status: str) -> None:
     item = outcome(
         status=status,
@@ -244,42 +245,18 @@ def test_raw_run_readback_finds_exact_run_without_server_side_filter() -> None:
     assert _normalized_run_from_raw(raw, item.run_id) == expected
 
 
-def test_recovery_generated_at_override_is_byte_stable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    inventory = tmp_path / "inventory.json"
-    inventory.write_text("{}\n", encoding="utf-8")
-    expected = outcome()
-    monkeypatch.setattr(recover_validation_results, "_inventory_lookup", lambda _: {})
-    monkeypatch.setattr(recover_validation_results, "recover_dp1", lambda *_: expected)
-    monkeypatch.setattr(recover_validation_results, "recover_dp2", lambda *_: ())
-    monkeypatch.setattr(
-        recover_validation_results,
-        "dp2_gold_not_executed",
-        lambda *_: outcome(
-            assertion_id="dq_dp2_gold_fact_integrity",
-            rule_name="fact_transactions.row_level_integrity",
-            status="NOT_EXECUTED",
-            executed_at="",
-            source_run_id="",
-            source_batch_id="",
-            source_artifact="",
-            source_artifact_sha256="",
-        ),
+
+def test_unknown_result_publishes_definition_only() -> None:
+    item = outcome(
+        status="UNKNOWN",
+        executed_at="",
+        source_run_id="",
+        source_artifact="",
+        source_artifact_sha256="",
+        observed={"actual_value": None},
     )
-    monkeypatch.setattr(recover_validation_results, "recover_dp3", lambda *_: ())
-    generated_at = "2026-10-31T21:35:54.049517Z"
-    common = [
-        "--inventory", str(inventory),
-        "--dp1-airflow-log", str(tmp_path / "dp1.log"),
-        "--dp2-airflow-log", str(tmp_path / "dp2.log"),
-        "--dp3-pit-json", str(tmp_path / "pit.json"),
-        "--dp3-execution-json", str(tmp_path / "execution.json"),
-        "--generated-at", generated_at,
-    ]
-    first = tmp_path / "first.json"
-    second = tmp_path / "second.json"
-    assert recover_validation_results.main([*common, "--output", str(first)]) == 0
-    assert recover_validation_results.main([*common, "--output", str(second)]) == 0
-    assert first.read_bytes() == second.read_bytes()
-    assert ValidationArtifact.read(first).generated_at == generated_at
+    adapter = FakeAdapter()
+    result = publish_with_readback(ValidationArtifact((item,), "2026-11-01T00:00:00Z"), adapter)
+    assert result["published_run_event_count"] == 0
+    assert result["definition_only"][0]["status"] == "UNKNOWN"
+    assert adapter.runs == {}

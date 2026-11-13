@@ -1,0 +1,719 @@
+{
+  "campaign": {
+    "benchmark_id": "ab-20261110225456",
+    "campaign_manifest_sha256": "820994eff2bf80a1cf68513987baa0d597b267c58921f4360d77a9ddcde6197c",
+    "dataset_version": "rehearsal-5gb-v1",
+    "git_sha": "aae22b08eee20fa055c4aefc8d23c14cc3ae5f8c",
+    "source_manifest_sha256": "ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80",
+    "spark_profile": "optimized"
+  },
+  "mode": "PUBLISH_WITH_READBACK",
+  "published": 141,
+  "verified": [
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/accounts,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/accounts,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/devices,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/devices,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/login_events,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/login_events,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchant_history,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchant_history,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchants,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchants,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/transactions,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/transactions,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/users,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/users,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_account_behavior,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_account_behavior,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_device_behavior,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_device_behavior,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_merchant_behavior,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_merchant_behavior,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_user_behavior,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_user_behavior,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_account,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_account,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_date,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_date,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_device,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_device,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_user,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_user,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_balance_snapshot,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_balance_snapshot,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_login_events,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_login_events,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_transactions,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_transactions,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/feat_user_90d,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/feat_user_90d,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/obt_transaction_enriched,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/obt_transaction_enriched,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/opt_merchant_performance,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/opt_merchant_performance,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/accounts,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/accounts,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/devices,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/devices,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/login_events,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/login_events,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchant_history,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchant_history,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchants,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchants,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/transactions,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/transactions,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/users,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/users,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/accounts,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/accounts,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/devices,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/devices,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/login_events,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/login_events,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchant_history,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchant_history,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchants,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/merchants,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/transactions_v1,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/transactions_v1,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/transactions_v2,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/transactions_v2,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/users,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/users,PROD)"
+    },
+    {
+      "aspect": "dataFlowInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataFlow:(airflow,dp1_source_to_bronze,ewallet-gcp)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp1_source_to_bronze,ewallet-gcp),bronze.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp1_source_to_bronze,ewallet-gcp),bronze.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp1_source_to_bronze,ewallet-gcp),bronze.semantic_validation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp1_source_to_bronze,ewallet-gcp),bronze.semantic_validation)"
+    },
+    {
+      "aspect": "dataFlowInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),silver.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),silver.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),silver.semantic_validation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),silver.semantic_validation)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),gold.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),gold.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),gold.semantic_validation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp2_bronze_to_curated,ewallet-gcp),gold.semantic_validation)"
+    },
+    {
+      "aspect": "dataFlowInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataFlow:(airflow,dp3_historical_features,ewallet-gcp)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp3_historical_features,ewallet-gcp),features.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp3_historical_features,ewallet-gcp),features.submit_transformation)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp3_historical_features,ewallet-gcp),features.semantic_validation)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dp3_historical_features,ewallet-gcp),features.semantic_validation)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/accounts,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/devices,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/login_events,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchant_history,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/merchants,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/transactions,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-bronze-r261110225456/bronze/users,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_account_behavior,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_device_behavior,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_merchant_behavior,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-feat-r261110225459/gold/feat_user_behavior,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_account,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_date,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_device,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_merchant_scd2,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/dim_user,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_balance_snapshot,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_login_events,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/fact_transactions,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/feat_user_90d,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/obt_transaction_enriched,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-gold-r261110225458/gold/opt_merchant_performance,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/accounts,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/balance_snapshots,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/devices,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/fraud_labels,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/login_events,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchant_history,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/merchants,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/transactions,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:gcs,gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/lakehouse/runs/ab-20261110225456-optimized-silver-r261110225457/silver/users,PROD)"
+    }
+  ]
+}

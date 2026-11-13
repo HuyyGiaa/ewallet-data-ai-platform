@@ -1,29 +1,33 @@
-"""Idempotent publisher with mandatory DataHub aspect readback.
+"""Generic plan-to-aspect translation and idempotent publication with readback.
 
-Publication is never implicit: callers must pass ``--publish`` and a GMS URL.
-The pure publish contract is tested with an in-memory adapter; SDK imports are
-deferred so ordinary CI does not require a running DataHub environment.
+Shared library, no command line. ``aspect_records`` turns a lineage plan (jobs with
+DataFlow/DataJob URNs, inputs and outputs, plus dataset edges) into DataHub
+aspects; ``publish_with_readback`` writes each one and requires an exact readback.
+Two plans use it: the Feast materialization publisher
+(``feast_materialization.py``, which also uses ``DataHubSdkAdapter``) and the
+frozen historical 100GB plan in ``cloud_lineage.py`` that the datahub-publisher
+image build exercises. The EDAI-1 5GB batch campaign is published by
+``batch_lineage.py`` through ``verified_cloud_publisher.py`` instead, because it
+also carries dataset properties and schemas.
+
+The SDK is imported only when ``DataHubSdkAdapter`` is constructed.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-from pathlib import Path
 from typing import Protocol
-
-try:
-    from .cloud_lineage import build_plan
-except ImportError:  # Support the documented direct-file CLI as well as ``-m``.
-    from cloud_lineage import build_plan
 
 
 class AspectAdapter(Protocol):
+    """The two operations the publisher needs from DataHub."""
+
     def put(self, urn: str, aspect: str, payload: dict[str, object]) -> None: ...
     def get(self, urn: str, aspect: str) -> dict[str, object] | None: ...
 
 
 def aspect_records(plan: dict[str, object]) -> list[tuple[str, str, dict[str, object]]]:
+    """Return the DataFlow, DataJob and upstream-lineage aspects of one plan."""
+
     records: list[tuple[str, str, dict[str, object]]] = []
     seen_flows: set[str] = set()
     for job in plan["jobs"]:
@@ -62,6 +66,8 @@ def publish_with_readback(
     plan: dict[str, object],
     adapter: AspectAdapter,
 ) -> dict[str, object]:
+    """Write every aspect of ``plan`` and fail on the first readback mismatch."""
+
     records = aspect_records(plan)
     verified = []
     for urn, aspect, payload in records:
@@ -163,30 +169,3 @@ class DataHubSdkAdapter:
             "inputDatasets": sorted(value.inputDatasets or []),
             "outputDatasets": sorted(value.outputDatasets or []),
         }
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--gms-url")
-    parser.add_argument("--publish", action="store_true")
-    args = parser.parse_args(argv)
-    plan = build_plan()
-    if not args.publish:
-        payload = {"mode": "DRY_RUN", "records": [
-            {"urn": urn, "aspect": aspect, "payload": value}
-            for urn, aspect, value in aspect_records(plan)
-        ]}
-    else:
-        if not args.gms_url:
-            parser.error("--gms-url is required with --publish")
-        import os
-        adapter = DataHubSdkAdapter(args.gms_url, os.getenv("DATAHUB_GMS_TOKEN"))
-        payload = {"mode": "PUBLISH_WITH_READBACK", **publish_with_readback(plan, adapter)}
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

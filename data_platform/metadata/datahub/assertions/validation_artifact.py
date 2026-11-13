@@ -1,4 +1,10 @@
-"""Canonical, transport-independent results for executed data-quality rules."""
+"""Canonical, transport-independent results for executed data-quality rules.
+
+``PASS`` and ``FAIL`` are executed results and must carry run and evidence
+provenance. ``NOT_EXECUTED`` (the check never ran), ``BLOCKED`` (it could not run)
+and ``UNKNOWN`` (it ran but its report holds no usable result) are never
+published as an assertion run.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +15,16 @@ from pathlib import Path
 from typing import Any, Literal
 
 
-ResultStatus = Literal["PASS", "FAIL", "NOT_EXECUTED", "BLOCKED"]
+ResultStatus = Literal["PASS", "FAIL", "NOT_EXECUTED", "BLOCKED", "UNKNOWN"]
+EXECUTED_STATUSES = frozenset({"PASS", "FAIL"})
+UNPUBLISHABLE_STATUSES = frozenset({"NOT_EXECUTED", "BLOCKED", "UNKNOWN"})
 SCHEMA_VERSION = "datahub-quality-validation-v1"
 
 
 @dataclass(frozen=True)
 class ValidationOutcome:
+    """One rule result bound to the dataset it checks and to its evidence."""
+
     assertion_id: str
     pipeline: str
     dataset_urn: str
@@ -32,13 +42,13 @@ class ValidationOutcome:
     source_artifact_sha256: str
 
     def __post_init__(self) -> None:
-        if self.status not in {"PASS", "FAIL", "NOT_EXECUTED", "BLOCKED"}:
+        if self.status not in EXECUTED_STATUSES | UNPUBLISHABLE_STATUSES:
             raise ValueError(f"unsupported validation status: {self.status}")
         if not self.assertion_id or not self.rule_name:
             raise ValueError("assertion_id and rule_name are required")
         if not self.dataset_urn.startswith("urn:li:dataset:"):
             raise ValueError(f"invalid dataset URN: {self.dataset_urn}")
-        if self.status in {"PASS", "FAIL"}:
+        if self.status in EXECUTED_STATUSES:
             required = (
                 self.executed_at,
                 self.source_run_id,
@@ -67,6 +77,8 @@ class ValidationOutcome:
 
 @dataclass(frozen=True)
 class ValidationArtifact:
+    """A versioned, credential-free set of outcomes, written as sorted JSON."""
+
     outcomes: tuple[ValidationOutcome, ...]
     generated_at: str
     schema_version: str = SCHEMA_VERSION

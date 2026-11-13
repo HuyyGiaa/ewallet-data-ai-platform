@@ -10,7 +10,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from .validation_artifact import ValidationArtifact, ValidationOutcome
+from .validation_artifact import (
+    EXECUTED_STATUSES,
+    UNPUBLISHABLE_STATUSES,
+    ValidationArtifact,
+    ValidationOutcome,
+)
 
 
 ASSERTION_TYPE = "E-Wallet Executed Data Quality"
@@ -42,7 +47,7 @@ def definition(outcome: ValidationOutcome) -> dict[str, Any]:
 
 
 def run_result(outcome: ValidationOutcome) -> dict[str, Any]:
-    if outcome.status not in {"PASS", "FAIL"}:
+    if outcome.status not in EXECUTED_STATUSES:
         raise ValueError(f"{outcome.assertion_id} has no executed result to publish")
     return {
         "assertion_urn": outcome.assertion_urn,
@@ -107,7 +112,7 @@ def publish_with_readback(
         definition_response = adapter.put_definition(outcome)
         observed_definition, raw_definition = adapter.get_definition(outcome)
         _require_match(expected_definition, observed_definition, "assertion definition")
-        if outcome.status in {"NOT_EXECUTED", "BLOCKED"}:
+        if outcome.status in UNPUBLISHABLE_STATUSES:
             raw_run_history = adapter.get_run_history_raw(outcome)
             run_history_values = raw_run_history.get("value", raw_run_history).get("values", [])
             if run_history_values:
@@ -288,12 +293,12 @@ def main(argv: list[str] | None = None) -> int:
             "runs": [
                 run_result(item)
                 for item in artifact.outcomes
-                if item.status in {"PASS", "FAIL"}
+                if item.status in EXECUTED_STATUSES
             ],
             "not_published": [
                 {"assertion_id": item.assertion_id, "status": item.status}
                 for item in artifact.outcomes
-                if item.status in {"NOT_EXECUTED", "BLOCKED"}
+                if item.status in UNPUBLISHABLE_STATUSES
             ],
         }
     else:
