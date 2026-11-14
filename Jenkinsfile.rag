@@ -1,4 +1,4 @@
-// CI/CD for the RAG Data Pipeline (rag_fraud_policy Airflow DAG).
+// CI/CD for the RAG Data Pipeline (rag_fraud_policy_ingestion Airflow DAG).
 // test → build the locked task runtime → (approved) deploy and trigger.
 // Secrets come only from Jenkins credentials; nothing is stored in source.
 pipeline {
@@ -63,14 +63,14 @@ pipeline {
           cat "$EVIDENCE_DIR/runtime-import.txt"'''
       }
     }
-    stage('Trigger rag_fraud_policy') {
+    stage('Trigger rag_fraud_policy_ingestion') {
       when { expression { return params.DEPLOY_APPROVED } }
       steps {
         withCredentials([usernamePassword(credentialsId: 'airflow-api', usernameVariable: 'AF_USER', passwordVariable: 'AF_PASSWORD')]) {
           sh '''test -n "$AIRFLOW_API_URL"
             TOKEN=$(curl -fsS -X POST "$AIRFLOW_API_URL/auth/token" -H 'Content-Type: application/json' \
               -d "{\\"username\\": \\"$AF_USER\\", \\"password\\": \\"$AF_PASSWORD\\"}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
-            curl -fsS -X POST "$AIRFLOW_API_URL/api/v2/dags/rag_fraud_policy/dagRuns" \
+            curl -fsS -X POST "$AIRFLOW_API_URL/api/v2/dags/rag_fraud_policy_ingestion/dagRuns" \
               -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
               -d "{\\"logical_date\\": null, \\"conf\\": {\\"run_label\\": \\"jenkins-${BUILD_NUMBER}\\"}}" \
               > "$EVIDENCE_DIR/dag-run.json"

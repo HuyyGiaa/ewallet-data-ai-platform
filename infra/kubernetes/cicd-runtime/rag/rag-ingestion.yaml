@@ -93,7 +93,7 @@ spec:
               env:
                 - {name: EWALLET_RAG_FEAST_REGISTRY, value: /work/feast/registry.db}
                 - {name: EWALLET_RAG_FEAST_PROJECT, value: ewallet_rag_cd}
-                - {name: EWALLET_REDIS_CONNECTION_STRING, value: "rag-cd-redis.ewallet-cicd.svc.cluster.local:6379,db=0"}
+                - {name: EWALLET_REDIS_CONNECTION_STRING, value: "rag-cd-redis.ewallet-cicd.svc.cluster.local:6379,db=2"}
                 - {name: EWALLET_RAG_PUBLICATION_BASE, value: /work/feast}
                 - {name: EWALLET_RAG_EMBED_THREADS, value: "2"}
               securityContext:

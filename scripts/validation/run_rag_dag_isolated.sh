@@ -6,8 +6,10 @@
 # optional third argument is "publish" and DATAHUB_GMS_URL is set, which
 # publishes to and reads back from that DataHub.
 # RAG_ISOLATED_ONLINE_STORE=redis instead uses the operator's private env file
-# (EWALLET_RAG_ENV_FILE, default ~/.config/ewallet-rag/runtime.env): the real
-# Feast Online Redis, RAG registry and GCS publication base.
+# (EWALLET_RAG_ENV_FILE, default ~/.config/ewallet-rag/runtime.local.env written by
+# scripts/llm_agent/rag_runtime_run.sh prepare): a real Feast Online Redis with an
+# explicit, claimed database. Run directories go to EWALLET_RAG_EVIDENCE_ROOT
+# (default ~/ewallet-evidence/rag).
 # The live Airflow metadata DB/UI is never used, so this is not the canonical
 # Airflow run even with real backends.
 set -euo pipefail
@@ -19,7 +21,9 @@ DATAHUB_MODE="${3:-plan_only}"
 ONLINE_STORE="${RAG_ISOLATED_ONLINE_STORE:-sqlite}"
 DAG_ID="rag_fraud_policy_ingestion"
 RAG_PY="${ROOT_DIR}/infra/docker/rag-ingestion/.venv/bin/python"
-OPERATOR_ENV_FILE="${EWALLET_RAG_ENV_FILE:-${HOME}/.config/ewallet-rag/runtime.env}"
+OPERATOR_ENV_FILE="${EWALLET_RAG_ENV_FILE:-${HOME}/.config/ewallet-rag/runtime.local.env}"
+# Run directories stay outside the checkout unless the caller chooses otherwise.
+EVIDENCE_ROOT="${EWALLET_RAG_EVIDENCE_ROOT:-${HOME}/ewallet-evidence/rag}"
 [[ "${ONLINE_STORE}" == sqlite || "${ONLINE_STORE}" == redis ]] || { echo "ERROR: RAG_ISOLATED_ONLINE_STORE must be sqlite or redis" >&2; exit 2; }
 [[ "${DATAHUB_MODE}" == plan_only || -n "${DATAHUB_GMS_URL:-}" ]] || { echo "ERROR: publish needs DATAHUB_GMS_URL" >&2; exit 2; }
 ISOLATED_HOME="$(mktemp -d "${TMPDIR:-/tmp}/rag-dag-test.XXXXXX")"
@@ -48,7 +52,7 @@ run_airflow() {
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="sqlite:///${ISOLATED_HOME}/isolated.db" \
     AIRFLOW__LOGGING__BASE_LOG_FOLDER="${ISOLATED_HOME}/logs" \
     ${PUBLICATION_BASE:+EWALLET_RAG_PUBLICATION_BASE="${PUBLICATION_BASE}"} \
-    EWALLET_RAG_EMBED_THREADS=2 \
+    EWALLET_RAG_EMBED_THREADS=2 EWALLET_RAG_EVIDENCE_ROOT="${EVIDENCE_ROOT}" \
     DATAHUB_GMS_URL="${DATAHUB_GMS_URL:-}" EWALLET_RAG_ENV_FILE="${RUN_ENV_FILE}" \
     "${AIRFLOW_BIN}" "$@"
 }
@@ -64,7 +68,7 @@ set -e
 
 # Preserve the real Airflow task-state readback before the throwaway metadata
 # database is removed. Runtime values and credentials are never written here.
-AIRFLOW_EVIDENCE="${ROOT_DIR}/docs/evidence/llm_agent/rag_${RUN_LABEL}/airflow"
+AIRFLOW_EVIDENCE="${EVIDENCE_ROOT}/rag_${RUN_LABEL}/airflow"
 mkdir -p "${AIRFLOW_EVIDENCE}"
 cp "${TEST_LOG}" "${AIRFLOW_EVIDENCE}/dags-test.log"
 

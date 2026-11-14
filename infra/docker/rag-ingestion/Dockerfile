@@ -1,4 +1,4 @@
-# RAG ingestion task runtime (rag_fraud_policy DAG stages, ops.llm_agent.rag_ingest).
+# RAG ingestion task runtime (rag_fraud_policy_ingestion DAG stages, ops.llm_agent.rag_ingest).
 # Build context: repository root. Dependencies come only from the reviewed
 # uv.lock beside this file (--locked never re-resolves; uv checks every hash).
 # The embedding model is fetched at build time at the manifest's immutable

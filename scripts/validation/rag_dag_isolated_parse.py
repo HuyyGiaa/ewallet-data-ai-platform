@@ -1,6 +1,7 @@
-"""Isolated, read-only DagBag parse of rag_fraud_policy; run via validate_rag_dag_import.sh."""
+"""Isolated, read-only DagBag parse of rag_fraud_policy_ingestion; run via validate_rag_dag_import.sh."""
 import copy, json, os, sys, tempfile
 dag_file, report_path = sys.argv[1], sys.argv[2]
+DAG_ID = "rag_fraud_policy_ingestion"
 home = os.environ["AIRFLOW_HOME"]
 if not os.path.basename(home).startswith("rag-dag-parse.") or not home.startswith(tempfile.gettempdir()):
     sys.exit("refusing a non-isolated AIRFLOW_HOME")
@@ -12,7 +13,7 @@ report = {"airflow_version": airflow.__version__, "python": sys.version.split()[
 bag = DagBag(dag_folder=dag_file, safe_mode=False)
 report["import_errors"] = {k: v.splitlines()[-1] for k, v in bag.import_errors.items()}
 report["dag_ids"] = sorted(bag.dag_ids)
-dag = bag.dags.get("rag_fraud_policy")
+dag = bag.dags.get(DAG_ID)
 if dag is not None:
     report["tasks"] = {t.task_id: sorted(t.downstream_task_ids) for t in dag.tasks}
     report["operators"] = sorted({type(t).__name__ for t in dag.tasks})
@@ -44,4 +45,4 @@ if dag is not None:
 root = os.path.dirname(os.path.abspath(__file__)).rsplit("/scripts/", 1)[0]
 with open(report_path, "w", encoding="utf-8") as stream:
     stream.write(json.dumps(report, indent=1, sort_keys=True).replace(root, "<repo>") + "\n")
-sys.exit(1 if report["import_errors"] or "rag_fraud_policy" not in report["dag_ids"] else 0)
+sys.exit(1 if report["import_errors"] or DAG_ID not in report["dag_ids"] else 0)

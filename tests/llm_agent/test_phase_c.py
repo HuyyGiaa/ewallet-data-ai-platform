@@ -152,8 +152,8 @@ class PhaseCRagTest(unittest.TestCase):
         self.assertTrue(all(item["citations"] for item in result["results"]))
 
     def test_airflow_dag_orchestrates_every_ingestion_stage(self):
-        source = (ROOT / "data_platform/orchestration/airflow/dags/rag_fraud_policy.py").read_text()
-        self.assertIn('dag_id="rag_fraud_policy"', source)
+        source = (ROOT / "data_platform/orchestration/airflow/dags/rag_fraud_policy_ingestion.py").read_text()
+        self.assertIn('dag_id="rag_fraud_policy_ingestion"', source)
         self.assertIn('schedule=None', source)
         self.assertIn('max_active_runs=1', source)
         stages = [line.split('"')[3] for line in source.splitlines() if line.strip().startswith('("') and "timedelta" in line]

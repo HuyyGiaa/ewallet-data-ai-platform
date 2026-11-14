@@ -17,7 +17,7 @@ from typing import Any, Mapping, Protocol, Sequence
 
 from data_platform.metadata.datahub.lineage.verified_cloud_publisher import flow_urn, job_urn
 
-DAG_ID = "rag_fraud_policy"
+DAG_ID = "rag_fraud_policy_ingestion"
 ENV = "PROD"
 ASSERTION_TYPE = "E-Wallet RAG Data Contract"
 FEAST_FIELDS = (
@@ -33,6 +33,8 @@ TASK_IO = {
     "generate_embeddings": (True, False, False),
     "publish_feast_features": (False, True, False),
     "validate_online_readback": (False, False, True),
+    # Publishes metadata only; it reads and writes no dataset.
+    "publish_datahub_lineage": (False, False, False),
 }
 
 
@@ -111,7 +113,7 @@ def lineage_records(*, documents: Mapping[str, Any], embeddings: Mapping[str, An
         (source, "datasetProperties", {
             "name": f"fraud-policy corpus {documents['corpus_revision']}",
             "qualifiedName": documents["source_location"],
-            "description": "Versioned fraud-policy documents ingested by the rag_fraud_policy DAG",
+            "description": "Versioned fraud-policy documents ingested by the rag_fraud_policy_ingestion DAG",
             "customProperties": {
                 "corpus_revision": documents["corpus_revision"],
                 "document_count": str(documents["document_count"]),
@@ -200,6 +202,59 @@ def publish_with_readback(records: Sequence[tuple[str, str, dict[str, Any]]], ad
     return verified
 
 
+# What the DataHub UI shows comes from the search and graph indices, which the
+# MAE consumer fills asynchronously from the aspects written above. A GMS
+# readback proves the write; these queries prove the UI can find and draw it.
+_SEARCH = """query rag($type: EntityType!, $query: String!) {
+  search(input: {type: $type, query: $query, start: 0, count: 50}) { searchResults { entity { urn } } }
+}"""
+_UPSTREAM = """query rag($urn: String!) {
+  searchAcrossLineage(input: {urn: $urn, direction: UPSTREAM, query: "*", start: 0, count: 100}) {
+    searchResults { entity { urn } }
+  }
+}"""
+
+
+def visibility_checks(*, feast_dataset: str, corpus_dataset: str) -> list[tuple[str, str, dict[str, str], str]]:
+    """(check id, GraphQL query, variables, URN that must appear in the result)."""
+    flow = flow_urn(DAG_ID)
+    publish_job = job_urn(DAG_ID, "publish_feast_features")
+    return [
+        ("feast_dataset_searchable", _SEARCH, {"type": "DATASET", "query": "fraud_policy_chunks"}, feast_dataset),
+        ("corpus_dataset_searchable", _SEARCH, {"type": "DATASET", "query": "fraud-policy"}, corpus_dataset),
+        ("dataflow_searchable", _SEARCH, {"type": "DATA_FLOW", "query": DAG_ID}, flow),
+        ("lineage_corpus_upstream_of_feast", _UPSTREAM, {"urn": feast_dataset}, corpus_dataset),
+        ("lineage_publish_job_upstream_of_feast", _UPSTREAM, {"urn": feast_dataset}, publish_job),
+    ]
+
+
+def verify_index_visibility(run_query, *, feast_dataset: str, corpus_dataset: str, attempts: int = 30,
+                            delay_seconds: float = 3.0) -> dict[str, Any]:
+    """Poll the search/lineage index until every expected URN is found, or give up.
+
+    ``run_query(query, variables)`` returns the GraphQL ``data`` object.
+    """
+    pending = {check: (query, variables, expected)
+               for check, query, variables, expected in visibility_checks(
+                   feast_dataset=feast_dataset, corpus_dataset=corpus_dataset)}
+    found: dict[str, int] = {}
+    for attempt in range(1, attempts + 1):
+        for check, (query, variables, expected) in list(pending.items()):
+            data = run_query(query, variables) or {}
+            results = next(iter(data.values()), None) or {}
+            urns = {item["entity"]["urn"] for item in results.get("searchResults", [])}
+            if expected in urns:
+                found[check] = attempt
+                del pending[check]
+        if not pending or attempt == attempts:
+            break
+        time.sleep(delay_seconds)
+    return {"status": "VISIBLE" if not pending else "NOT_VISIBLE",
+            "checks": {check: ("FOUND" if check in found else "MISSING") for check, *_ in
+                       visibility_checks(feast_dataset=feast_dataset, corpus_dataset=corpus_dataset)},
+            "attempts": attempt}
+
+
 class RagDataHubAdapter:
     """The existing lineage adapter plus custom assertion aspects."""
 
@@ -231,6 +286,9 @@ class RagDataHubAdapter:
                 result=AssertionResultClass(type=payload["result"], nativeResults={"observed": payload["observed"]}),
             )
         self._lineage.emitter.emit_mcp(MetadataChangeProposalWrapper(entityUrn=urn, aspect=value))
+
+    def graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        return self._lineage.graph.execute_graphql(query, variables=variables)
 
     def get(self, urn: str, aspect: str) -> dict[str, Any] | None:
         if aspect not in ("assertionInfo", "assertionRunEvent"):

@@ -66,6 +66,8 @@ def rag_task_environment(repository_root: Path) -> dict[str, str]:
         # Private KEY=VALUE file with Redis/Feast/DataHub settings (ops.llm_agent.rag_ingest),
         # so they can change without restarting the shared scheduler.
         "EWALLET_RAG_ENV_FILE": os.environ.get("EWALLET_RAG_ENV_FILE", DEFAULT_ENV_FILE),
+        # Run directories; empty means the repository's docs/evidence/llm_agent (ops.llm_agent.rag_ingest).
+        "EWALLET_RAG_EVIDENCE_ROOT": os.environ.get("EWALLET_RAG_EVIDENCE_ROOT", ""),
         "RAG_AIRFLOW_RUN_ID": "{{ run_id }}",
         **{env: f"{{{{ params.{name} }}}}" for name, env in RAG_PARAM_ENV.items()},
     }

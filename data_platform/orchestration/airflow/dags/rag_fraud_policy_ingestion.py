@@ -18,7 +18,7 @@ import pendulum
 from airflow.sdk import DAG, Param
 from airflow.providers.standard.operators.bash import BashOperator
 
-from data_platform.orchestration.airflow.rag_ingestion_params import (
+from data_platform.orchestration.airflow.rag_params import (
     RAG_PARAM_SCHEMAS,
     rag_stage_command,
     rag_task_environment,

@@ -401,11 +401,26 @@ class FeastPublicationContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing configuration"):
             fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
                               environment={"EWALLET_RAG_FEAST_REGISTRY": "gs://b/registry.db"})
+        registry = {"EWALLET_RAG_FEAST_REGISTRY": "gs://b/registry.db"}
+        # No database (Redis would use production DB 0), or DB 0 for verification: refused before any write.
+        for connection in ("redis:6379,password=s3cret", "redis:6379,password=s3cret,db=0"):
+            with self.subTest(connection=connection), self.assertRaisesRegex(ValueError, "database"):
+                fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
+                                  environment={**registry, "EWALLET_REDIS_CONNECTION_STRING": connection,
+                                               "EWALLET_RAG_FEAST_PROJECT": "ewallet_rag_verify"})
+        with self.assertRaisesRegex(ValueError, "own Feast project"):
+            fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
+                              environment={**registry, "EWALLET_REDIS_CONNECTION_STRING": "redis:6379,db=3"})
         target = fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
-                                   environment={"EWALLET_RAG_FEAST_REGISTRY": "gs://b/registry.db",
-                                                "EWALLET_REDIS_CONNECTION_STRING": "redis:6379,password=s3cret"})
+                                   environment={**registry,
+                                                "EWALLET_REDIS_CONNECTION_STRING": "redis:6379,password=s3cret,db=3",
+                                                "EWALLET_RAG_FEAST_PROJECT": "ewallet_rag_verify"})
         self.assertEqual(target.source_path, "gs://b/rag/v1/chunks.parquet")
-        self.assertEqual(target.project, fp.DEFAULT_RAG_PROJECT)
+        self.assertEqual(target.project, "ewallet_rag_verify")
+        production = fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
+                                       environment={**registry, "EWALLET_RAG_ONLINE_TARGET": "production",
+                                                    "EWALLET_REDIS_CONNECTION_STRING": "redis:6379,db=0"})
+        self.assertEqual(production.project, fp.DEFAULT_RAG_PROJECT)
         self.assertNotIn("s3cret", json.dumps(target.describe()))
         self.assertEqual(target.describe()["profile"], "canonical")
         self.assertEqual(fp.repo_config(target).online_store.type, "redis")
@@ -504,7 +519,7 @@ class GovernanceTests(unittest.TestCase):
         feast = governance.feast_urn("ewallet_fraud_online", "f1")
         lineage = {(u, a): p for u, a, p in records}
         self.assertEqual(lineage[(feast, "upstreamLineage")], {"upstreams": [{"dataset": source, "type": "TRANSFORMED"}]})
-        publish_job = "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy,ewallet-gcp),publish_feast_features)"
+        publish_job = "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),publish_feast_features)"
         self.assertEqual(lineage[(publish_job, "dataJobInputOutput")]["outputDatasets"], [feast])
         self.assertEqual(lineage[(feast, "datasetProperties")]["customProperties"]["embedding_dimensions"], "384")
         self.assertEqual(sum(a == "assertionInfo" for _, a, _ in records), 5)

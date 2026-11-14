@@ -13,7 +13,7 @@ python3 -m compileall -q \
   ops/llm_agent/rag_pipeline.py \
   ops/llm_agent/run_rag_evaluation.py \
   ops/llm_agent/verify_rag_artifacts.py \
-  data_platform/orchestration/airflow/dags/rag_fraud_policy.py
+  data_platform/orchestration/airflow/dags/rag_fraud_policy_ingestion.py
 
 UV_EXECUTABLE="${UV_BIN:-uv}"
 command -v "$UV_EXECUTABLE" >/dev/null

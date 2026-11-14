@@ -62,7 +62,7 @@ class PathScopeTests(unittest.TestCase):
         for path in (
             "Jenkinsfile.rag",
             "infra/docker/rag-ingestion/pyproject.toml",
-            "data_platform/orchestration/airflow/dags/rag_fraud_policy.py",
+            "data_platform/orchestration/airflow/dags/rag_fraud_policy_ingestion.py",
             "ops/llm_agent/rag_ingest.py",
         ):
             with self.subTest(path=path):

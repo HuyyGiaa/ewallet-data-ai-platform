@@ -8,10 +8,11 @@ the canonical chunk ids; Feast/Redis similarity search is not used or claimed
 (``feast_contract``).
 
 Profiles:
-- ``redis``: canonical. The existing Feast Online Redis
-  (``EWALLET_REDIS_CONNECTION_STRING``) with a RAG-owned registry
-  (``EWALLET_RAG_FEAST_REGISTRY``, project ``EWALLET_RAG_FEAST_PROJECT``,
-  default ``ewallet_rag``). The MLOps-published online registry of the
+- ``redis``: canonical. The Feast Online Redis
+  (``EWALLET_REDIS_CONNECTION_STRING``, which must select its database) with a
+  RAG-owned registry (``EWALLET_RAG_FEAST_REGISTRY``, project
+  ``EWALLET_RAG_FEAST_PROJECT``). ``online_target`` decides which database and
+  project a run may use and claims the database before anything is written. The MLOps-published online registry of the
   historical fraud features is never written; feature-rag-mcp opens the same
   RAG registry (``tools.service``) to read the rows the DAG published.
 - ``sqlite``: explicit local-dev profile; registry and online DB live under
@@ -67,12 +68,16 @@ def resolve_target(*, online_store: str, publication_base: str, feature_index_re
     publication_root = f"{publication_base.rstrip('/')}/{feature_index_revision}"
     if online_store == "sqlite":
         return FeastTarget("sqlite", LOCAL_PROJECT, f"{publication_root}/registry.db", publication_root)
+    from ai_platform.llm_agent.rag import online_target
+
     missing = [name for name in ("EWALLET_RAG_FEAST_REGISTRY", "EWALLET_REDIS_CONNECTION_STRING")
                if not environment.get(name, "").strip()]
     if missing:
         raise ValueError(f"redis profile is missing configuration: {missing}")
-    return FeastTarget("redis", environment.get("EWALLET_RAG_FEAST_PROJECT", "").strip() or DEFAULT_RAG_PROJECT,
-                       environment["EWALLET_RAG_FEAST_REGISTRY"], publication_root,
+    project = environment.get("EWALLET_RAG_FEAST_PROJECT", "").strip() or DEFAULT_RAG_PROJECT
+    # Explicit database, mode-appropriate database and project; raises before any write.
+    online_target.resolve(environment["EWALLET_REDIS_CONNECTION_STRING"], project=project, environment=environment)
+    return FeastTarget("redis", project, environment["EWALLET_RAG_FEAST_REGISTRY"], publication_root,
                        environment["EWALLET_REDIS_CONNECTION_STRING"])
 
 

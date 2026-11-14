@@ -1,8 +1,9 @@
-"""Stage runner for the ``rag_fraud_policy`` Airflow DAG.
+"""Stage runner for the ``rag_fraud_policy_ingestion`` Airflow DAG.
 
 Each DAG task runs one subcommand in the uv-locked RAG runtime
 (``infra/docker/rag-ingestion``) and exchanges JSON artifacts through one run
-directory ``docs/evidence/llm_agent/rag_<run_id>/``:
+directory ``<evidence root>/rag_<run_id>/`` (``$EWALLET_RAG_EVIDENCE_ROOT``, default
+``docs/evidence/llm_agent``):
 
   discover  → documents.json   stage the versioned corpus, verify checksums
   chunk     → chunks.json      parse/clean, deterministic chunk ids
@@ -34,6 +35,7 @@ from typing import Any, Mapping
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_PREFIX = "docs/evidence/llm_agent/rag_"
+EVIDENCE_ROOT_VAR = "EWALLET_RAG_EVIDENCE_ROOT"
 LOCKFILE = REPOSITORY_ROOT / "infra/docker/rag-ingestion/uv.lock"
 RUNTIME_PACKAGES = (
     "feast", "gcsfs", "onnxruntime", "tokenizers", "huggingface-hub",
@@ -48,6 +50,7 @@ ENV_FILE_KEYS = frozenset({
     "EWALLET_RAG_FEAST_REGISTRY", "EWALLET_RAG_FEAST_PROJECT", "EWALLET_REDIS_CONNECTION_STRING",
     "EWALLET_RAG_PUBLICATION_BASE", "EWALLET_RAG_MODEL_CACHE", "EWALLET_RAG_EMBED_THREADS",
     "DATAHUB_GMS_URL", "DATAHUB_GMS_TOKEN", "HF_HOME", "GOOGLE_APPLICATION_CREDENTIALS",
+    "EWALLET_RAG_ONLINE_TARGET",
 })
 
 
@@ -100,10 +103,24 @@ def derive_run_id(*, run_label: str = "", airflow_run_id: str = "") -> str:
     return cleaned
 
 
+def evidence_root(environment: Mapping[str, str] = os.environ) -> Path:
+    """Where run directories live: ``$EWALLET_RAG_EVIDENCE_ROOT``, else the repository's evidence folder.
+
+    Local and canonical runs set it outside the checkout (the launchers default
+    to ``~/ewallet-evidence/rag``), so repeated runs never dirty the repository;
+    selected evidence is copied into ``docs/`` deliberately.
+    """
+    configured = environment.get(EVIDENCE_ROOT_VAR, "").strip()
+    return Path(configured).expanduser() if configured else REPOSITORY_ROOT / Path(EVIDENCE_PREFIX).parent
+
+
 def run_dir(run_id: str, *, root: Path | None = None) -> Path:
+    """``<evidence root>/rag_<run_id>``; ``root`` is a repository root (tests)."""
     if not run_id or len(run_id) > 80 or not all(c.isalnum() or c in "_-" for c in run_id) or run_id[0] in "_-":
         raise ValueError(f"invalid run id: {run_id!r}")
-    return (root or REPOSITORY_ROOT) / f"{EVIDENCE_PREFIX}{run_id}"
+    if root is not None:
+        return root / f"{EVIDENCE_PREFIX}{run_id}"
+    return evidence_root() / f"{Path(EVIDENCE_PREFIX).name}{run_id}"
 
 
 def write_once(path: Path, payload: Mapping[str, Any]) -> None:
@@ -280,6 +297,23 @@ def _target(args: argparse.Namespace, manifest: Any) -> Any:
                           feature_index_revision=manifest.feature_index_revision, environment=os.environ)
 
 
+def _online_ownership(target: Any, manifest: Any, directory: Path, *, claim: bool) -> dict[str, Any]:
+    """Claim (publish) or re-check (validate) the Redis database; sqlite has nothing to own."""
+    if target.online_store != "redis":
+        return {"mode": "local-dev", "claim_status": "NOT_APPLICABLE_SQLITE"}
+    from ai_platform.llm_agent.rag import online_target
+
+    resolved = online_target.resolve(target.redis_connection, project=target.project, environment=os.environ)
+    client = online_target.redis_client(resolved.endpoint)
+    identity = {"registry": target.registry, "corpus_revision": manifest.corpus_revision,
+                "feature_index_revision": manifest.feature_index_revision,
+                "manifest_sha256": read(directory, "documents.json")["manifest_sha256"]}
+    check = online_target.ensure_ownership if claim else online_target.verify_ownership
+    result = check(resolved, client, **identity)
+    log("publish" if claim else "validate", "online target", **result)
+    return result
+
+
 def publish(args: argparse.Namespace, directory: Path) -> dict[str, Any]:
     from feast import FeatureStore
 
@@ -291,6 +325,7 @@ def publish(args: argparse.Namespace, directory: Path) -> dict[str, Any]:
     manifest, embedded, _ = _embedded_chunks(directory)
     rows = feast_publication_rows(embedded)
     target = _target(args, manifest)
+    ownership = _online_ownership(target, manifest, directory, claim=True)
     frame = publication_frame(rows, dimensions=manifest.embedding_dimensions)
     offline_status = write_offline_source(frame, target)
     log("publish", "offline source", status=offline_status, path=target.source_path, rows=len(frame))
@@ -300,7 +335,7 @@ def publish(args: argparse.Namespace, directory: Path) -> dict[str, Any]:
             "corpus_revision": manifest.corpus_revision, "row_count": len(rows),
             "publication_identity": publication_identity(rows), "offline_status": offline_status,
             "release_sha": _git_sha(), "manifest_sha256": read(directory, "documents.json")["manifest_sha256"],
-            "feast": target.describe(), "materialization": window,
+            "feast": target.describe(), "online_target": ownership, "materialization": window,
             "feast_vector_search": "NOT_USED (online store is read by chunk_id; similarity is computed in process)"}
 
 
@@ -319,6 +354,7 @@ def validate(args: argparse.Namespace, directory: Path) -> dict[str, Any]:
     target = _target(args, manifest)
     if target.describe() != publication["feast"]:
         raise ValueError("validation target differs from the published Feast target")
+    ownership = _online_ownership(target, manifest, directory, claim=False)
     store = FeatureStore(config=repo_config(target))
     index = TrustedChunkIndex.from_manifest(directory / "source/manifest.json")
     embedder = _embedder(manifest)
@@ -353,7 +389,7 @@ def validate(args: argparse.Namespace, directory: Path) -> dict[str, Any]:
     report = {
         "stage": "validate", "feature_index_revision": manifest.feature_index_revision,
         "release_sha": publication.get("release_sha", _git_sha()),
-        "readback_status": "MATCH", "online_row_count": len(index.chunks),
+        "readback_status": "MATCH", "online_row_count": len(index.chunks), "online_target": ownership,
         "retrieval_backend": retriever.backend_id, "top_k": top_k,
         "recall_at_k": sum(r["hit_expected"] for r in results) / count,
         "mean_reciprocal_rank": sum(r["reciprocal_rank"] for r in results) / count,
@@ -398,12 +434,20 @@ def datahub(args: argparse.Namespace, directory: Path) -> dict[str, Any]:
     url = os.environ.get("DATAHUB_GMS_URL", "").strip()
     if not url:
         raise ValueError("DATAHUB_GMS_URL is not configured; set it or trigger with datahub_mode=plan_only")
-    verified = governance.publish_with_readback(
-        records, governance.RagDataHubAdapter(url, os.environ.get("DATAHUB_GMS_TOKEN") or None))
+    adapter = governance.RagDataHubAdapter(url, os.environ.get("DATAHUB_GMS_TOKEN") or None)
+    verified = governance.publish_with_readback(records, adapter)
     log("datahub", "published with readback", gms=url, aspects=len(verified))
     if not all(c.passed for c in checks):
         raise ValueError("a RAG quality assertion failed (published to DataHub as FAILURE)")
-    return {**summary, "status": "PUBLISHED_AND_READ_BACK", "gms_url": url, "verified": verified}
+    corpus_dataset = governance.corpus_urn(documents["source_location"], documents["corpus_revision"])
+    visibility = governance.verify_index_visibility(adapter.graphql, feast_dataset=feast_dataset,
+                                                    corpus_dataset=corpus_dataset)
+    log("datahub", "search and lineage index", **visibility)
+    if visibility["status"] != "VISIBLE":
+        raise ValueError(f"DataHub stored the metadata but its search/lineage index does not show it: "
+                         f"{visibility['checks']}; check OpenSearch health and disk (read-only indices)")
+    return {**summary, "status": "PUBLISHED_AND_READ_BACK", "gms_url": url, "verified": verified,
+            "index_visibility": visibility}
 
 
 STAGES = {"discover": ("documents.json", discover), "chunk": ("chunks.json", chunk),
@@ -427,8 +471,7 @@ def main(argv: list[str] | None = None) -> int:
     output, function = STAGES[args.stage]
     if (directory / output).exists():
         raise FileExistsError(f"{output} already exists for run {args.run_id}; use a new run id")
-    log(args.stage, "start", run_dir=str(directory.relative_to(REPOSITORY_ROOT)),
-        env_file_keys=load_env_file())
+    log(args.stage, "start", run_dir=str(directory), env_file_keys=load_env_file())
     payload = function(args, directory)
     write_once(directory / output, {**payload, "run_id": args.run_id,
                                     "completed_at": datetime.now(timezone.utc).isoformat()})

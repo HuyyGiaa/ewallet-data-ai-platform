@@ -62,8 +62,9 @@ class PipelineDagTest(unittest.TestCase):
         self.assertNotIn("edai1_data_pipeline_campaign", self.bag.dags)
         self.assertFalse((DAG_FOLDER / "edai1_data_pipeline_campaign.py").exists())
         self.assertTrue((ROOT / "archive/legacy-orchestration/dags/edai1_data_pipeline_campaign.py").exists())
-        for other in ("feast_incremental_materialization", "rag_fraud_policy", "rag_fraud_policy_ingestion"):
+        for other in ("feast_incremental_materialization", "rag_fraud_policy_ingestion"):
             self.assertIn(other, self.bag.dags)
+        self.assertNotIn("rag_fraud_policy", self.bag.dags)
 
     def test_every_dag_is_manual_and_serial(self):
         for dag_id in EXPECTED_ORDER:

@@ -61,7 +61,7 @@ class FoundationTest(unittest.TestCase):
             detect([
                 "ai_platform/llm_agent/rag/pipeline.py",
                 "data/llm_agent/rag/fraud-policy-v1/manifest.json",
-                "data_platform/orchestration/airflow/dags/rag_fraud_policy.py",
+                "data_platform/orchestration/airflow/dags/rag_fraud_policy_ingestion.py",
             ]),
             ["rag-pipeline"],
         )

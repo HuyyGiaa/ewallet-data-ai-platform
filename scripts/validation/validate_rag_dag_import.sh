@@ -19,4 +19,4 @@ env -i HOME="${ISOLATED_HOME}" PATH=/usr/bin:/bin PYTHONPATH="${ROOT_DIR}" PYTHO
   AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="sqlite:///${ISOLATED_HOME}/isolated.db" \
   AIRFLOW__LOGGING__BASE_LOG_FOLDER="${ISOLATED_HOME}/logs" \
   "${AIRFLOW_PYTHON}" scripts/validation/rag_dag_isolated_parse.py \
-  "${ROOT_DIR}/data_platform/orchestration/airflow/dags/rag_fraud_policy.py" "${REPORT}" >&2
+  "${ROOT_DIR}/data_platform/orchestration/airflow/dags/rag_fraud_policy_ingestion.py" "${REPORT}" >&2

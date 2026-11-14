@@ -51,7 +51,7 @@ from ops.llm_agent.policy_lint import baseline_violations, flow_violations
 ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "infra/helm/llm-agent-platform"
 MANIFEST = ROOT / "data/llm_agent/rag/fraud-policy-v1/manifest.json"
-DAG = ROOT / "data_platform/orchestration/airflow/dags/rag_fraud_policy.py"
+DAG = ROOT / "data_platform/orchestration/airflow/dags/rag_fraud_policy_ingestion.py"
 NAMESPACE = "ewallet-agents"
 HELM = shutil.which("helm")
 

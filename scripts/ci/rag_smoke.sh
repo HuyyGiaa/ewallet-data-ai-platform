@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run every rag_fraud_policy stage once against an isolated Feast/Redis target
+# Run every rag_fraud_policy_ingestion stage once against an isolated Feast/Redis target
 # and print the stage artifacts the CD verifier checks. The run directory and
 # publication root live on an emptyDir; production Redis DB0/DB1 is never named.
 set -euo pipefail
