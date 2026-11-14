@@ -199,6 +199,56 @@ routes:
   backends:
   - host: {{ printf "%s.%s.svc.cluster.local:8080" $agent $ns }}
 {{- end }}
+{{- $sb := $g.sandboxRoutes | default dict }}
+{{- if $sb.agents }}
+{{- if not (and $sb.namespace (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" $sb.namespace) (ne $sb.namespace $ns)) }}
+{{- fail "a2aGateway.sandboxRoutes.namespace must be a dedicated namespace (not the agents namespace)" }}
+{{- end }}
+{{- if not (regexMatch "^[A-Za-z0-9:._-]{1,64}$" ($sb.userId | default "")) }}
+{{- fail "a2aGateway.sandboxRoutes.userId must be a bounded service principal" }}
+{{- end }}
+{{- range $agent := $sb.agents }}
+{{- if not (hasKey $.Values.agents.specialists $agent) }}
+{{- fail (printf "a2aGateway.sandboxRoutes.agents: %s is not a declared Specialist" $agent) }}
+{{- end }}
+# SandboxAgent Specialist (Substrate actor) behind the kagent controller. Exact
+# per-agent prefix only; kagent picks the session actor from the message contextId.
+# The Gateway, not the client, sets X-User-Id (kagent attributes the session to it).
+- name: sandbox-{{ $agent }}
+  matches:
+  - path:
+      pathPrefix: /api/a2a/{{ $sb.namespace }}/{{ $agent }}/
+  policies:
+    a2a: {}
+    timeout:
+      requestTimeout: {{ $g.requestTimeout }}
+    localRateLimit:
+    - maxTokens: {{ $g.rateLimit.capacity }}
+      tokensPerFill: {{ $g.rateLimit.refill }}
+      fillInterval: {{ $g.rateLimit.interval }}
+      type: requests
+    requestHeaderModifier:
+      remove:
+      - authorization
+      - x-ewallet-actor
+      - x-ewallet-caller
+      - x-kagent-host
+      - x-user-id
+    transformations:
+      request:
+        set:
+          x-user-id: {{ printf "%q" $sb.userId | squote }}
+    authorization:
+      rules:
+      {{- if $meshCallerConfigured }}
+      - 'true'
+      {{- else }}
+      - 'false'
+      {{- end }}
+  backends:
+  - host: {{ $g.kagentA2A }}
+{{- end }}
+{{- end }}
 # Preserve the controller A2A entrypoint for external/controller-originated
 # requests; Agent-tool delegation uses only the exact Specialist routes above.
 - name: kagent-a2a

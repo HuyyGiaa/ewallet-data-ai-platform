@@ -551,6 +551,8 @@ agents:
       # profile, needs the BYO drift-specialist): drift-only and combined
       # workflows routed through the A2A Gateway.
       workflows: [fraud]
+      # Specialists delegated as SandboxAgents (must equal a2aGateway.sandboxRoutes.agents).
+      sandboxSpecialists: []
   # Bounded OTLP audit records (ids, status, codes; no prompts or business
   # data) from the BYO agents to the shared collector -> Loki. Off by default.
   byoTelemetry:
@@ -660,6 +662,13 @@ a2aGateway:
   # Worker ServiceAccounts allowed to call agents over A2A (runtime readback).
   callerServiceAccounts:
     fraud-coordinator: ""
+  # SandboxAgent Specialists (Substrate actors) reached through the kagent controller:
+  # one exact /api/a2a/<namespace>/<agent>/ route each. Empty renders nothing.
+  # userId is the principal the Gateway sets as X-User-Id (never taken from the client).
+  sandboxRoutes:
+    namespace: ""
+    agents: []
+    userId: service:fraud-coordinator
   # The proxy is the only workload allowed to reach Specialist A2A Services.
   # Direct Coordinator -> Specialist remains denied by default-deny.
   networkFlows:

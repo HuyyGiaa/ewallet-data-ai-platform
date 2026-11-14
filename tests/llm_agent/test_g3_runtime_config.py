@@ -451,7 +451,7 @@ class G3ChartTests(unittest.TestCase):
         self.assertIn("SPIFFE principal", bad.stderr)
 
     def test_sandbox_mode_still_requires_snapshots(self):
-        out = render("--set", "agents.mode=sandbox")
+        out = render("--set", "agents.mode=sandbox", "--set", "agents.autoscaling.workerPoolScaleSelector=spec.scaleSelector")
         self.assertNotEqual(out.returncode, 0)
         self.assertIn("snapshotsLocation", out.stderr)
 

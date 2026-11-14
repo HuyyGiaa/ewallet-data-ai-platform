@@ -40,7 +40,7 @@ from ai_platform.llm_agent.agent_metrics import (
     record_prompt_screen,
 )
 from ai_platform.llm_agent.mcp_failover import FailoverPolicy, is_recoverable, policy_from_env, with_failover
-from ai_platform.llm_agent.byo_runtime import AppResources, audit, configure_telemetry, controller_task_store, flush_agent_metrics, listen_port
+from ai_platform.llm_agent.byo_runtime import AppResources, audit, configure_telemetry, controller_task_store, flush_agent_metrics, listen_port, shutdown_grace_seconds
 from ai_platform.llm_agent.nl_intake import (
     IntakeFailure,
     OpenAIToolPlanner,
@@ -607,7 +607,8 @@ def main() -> None:
 
     import uvicorn
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-    uvicorn.run(app, host="0.0.0.0", port=listen_port(os.environ), access_log=True)
+    uvicorn.run(app, host="0.0.0.0", port=listen_port(os.environ), access_log=True,
+                timeout_graceful_shutdown=shutdown_grace_seconds(os.environ))
 
 
 if __name__ == "__main__":

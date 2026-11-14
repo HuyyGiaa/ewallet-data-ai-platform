@@ -1,0 +1,8 @@
+[
+  {"op": "test", "path": "/spec/versions/0/name", "value": "v1alpha1"},
+  {"op": "test", "path": "/spec/versions/0/subresources/scale/specReplicasPath", "value": ".spec.replicas"},
+  {"op": "add", "path": "/spec/versions/0/schema/openAPIV3Schema/properties/spec/properties/scaleSelector",
+   "value": {"type": "string", "maxLength": 253,
+             "description": "Label selector string of this pool's worker pods (ate.dev/worker-pool=<name>), exposed as the /scale selector for the HPA that KEDA creates. Local addition; not part of Substrate 0.0.9."}},
+  {"op": "add", "path": "/spec/versions/0/subresources/scale/labelSelectorPath", "value": ".spec.scaleSelector"}
+]

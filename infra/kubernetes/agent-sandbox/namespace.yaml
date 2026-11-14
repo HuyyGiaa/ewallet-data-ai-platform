@@ -29,7 +29,8 @@ metadata:
   labels: {kagent.dev/worker-pool: business-agents}
 spec:
   ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc
-  replicas: 1
+  # Two warm workers serve every session of both business Specialists (AGS-04).
+  replicas: 2
   sandboxClass: gvisor
   template:
     resources:

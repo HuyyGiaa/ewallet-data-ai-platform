@@ -129,6 +129,11 @@ exporters:
   prometheus:
     endpoint: 0.0.0.0:{{ $o.prometheusPort }}
     namespace: ewallet
+    {{- with $o.metricExpiration }}
+    # A terminated pod's last gauge value (for example ewallet_agent_inflight_tasks) stops
+    # counting after this; the exporter default is 5m, which overstates KEDA load.
+    metric_expiration: {{ . }}
+    {{- end }}
     resource_to_telemetry_conversion:
       enabled: true
   debug:

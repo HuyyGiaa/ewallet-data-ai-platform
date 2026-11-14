@@ -72,6 +72,10 @@ metadata:
     kagent.dev/worker-pool: {{ $name }}
 spec:
   replicas: {{ $a.workerPool.replicas }}
+  {{- if and $a.autoscaling.enabled (eq ($a.autoscaling.workerPoolScaleSelector | default "") "spec.scaleSelector") }}
+  # Read by the patched /scale subresource (labelSelectorPath .spec.scaleSelector).
+  scaleSelector: {{ printf "ate.dev/worker-pool=%s" $name | quote }}
+  {{- end }}
   ateomImage: {{ $a.workerPool.ateomImage | quote }}
   sandboxClass: {{ $a.workerPool.sandboxClass | quote }}
   template:
@@ -240,6 +244,18 @@ spec:
         # workflows (workflow_intake.py, programmatic_coordinator.py).
         - name: EWALLET_COORDINATOR_WORKFLOWS
           value: "fraud,drift"
+        {{- end }}
+        {{- $sandboxSpecialists := index $byo "sandboxSpecialists" | default list }}
+        {{- if and $isCoordinator $sandboxSpecialists }}
+        {{- $routes := $.Values.a2aGateway.sandboxRoutes | default dict }}
+        {{- if not (and $.Values.a2aGateway.enabled (eq (join "," (sortAlpha $sandboxSpecialists)) (join "," (sortAlpha ($routes.agents | default list))))) }}
+        {{- fail "agents.coordinator.byo.sandboxSpecialists must equal a2aGateway.sandboxRoutes.agents" }}
+        {{- end }}
+        # Specialists delegated as SandboxAgents through the Gateway's sandbox routes.
+        - name: EWALLET_SANDBOX_SPECIALISTS
+          value: {{ join "," (sortAlpha $sandboxSpecialists) | quote }}
+        - name: EWALLET_SANDBOX_NAMESPACE
+          value: {{ $routes.namespace | quote }}
         {{- end }}
         {{- with dig "byo" "mcpMaxAttempts" "" $spec }}
         # Unset keeps the client default; 1 turns retry off on the same image.

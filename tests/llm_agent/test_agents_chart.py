@@ -494,7 +494,8 @@ class BYOFeatureRagSpecialistManifestTests(unittest.TestCase):
 
 
 KEDA_SCHEMA = json.loads((ROOT / "infra/helm/keda/scaledobject-schema-2.21.0.json").read_text())
-SCALED = {"agents": {"autoscaling": {"enabled": True}}}
+# WorkerPool scaling renders only for a cluster with the reviewed selector CRD patch.
+SCALED = {"agents": {"autoscaling": {"enabled": True, "workerPoolScaleSelector": "spec.scaleSelector"}}}
 AGENT_SCALED = {"agents": {"mode": "agent", "autoscaling": {"enabled": True}}}
 
 
@@ -564,6 +565,18 @@ class AgentAutoscalingTests(unittest.TestCase):
                 self.assertGreaterEqual(item["spec"]["minReplicaCount"], 1)
                 self.assertEqual(item["spec"]["fallback"]["replicas"], item["spec"]["minReplicaCount"])
 
+    def test_workerpool_scaling_needs_the_selector_patch(self):
+        # Substrate 0.0.9's /scale has no labelSelectorPath; the KEDA-created HPA needs a
+        # selector for every metric type, so an unpatched CRD would never scale.
+        unpatched = {"agents": {"autoscaling": {"enabled": True}}}
+        result = render(ON, unpatched, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("selector", result.stderr)
+        pools = by_kind(render(ON, SCALED), "WorkerPool")
+        for name, pool in pools.items():
+            with self.subTest(name):
+                self.assertEqual(pool["spec"]["scaleSelector"], f"ate.dev/worker-pool={name}")
+
     def test_target_supports_scale_and_no_selector_based_trigger_is_used(self):
         self.assertTrue(SCHEMAS["WorkerPool"]["scale"])
         for item in by_kind(render(ON, SCALED), "ScaledObject").values():
@@ -572,9 +585,9 @@ class AgentAutoscalingTests(unittest.TestCase):
             self.assertIn("cron", types)
 
     def test_prometheus_trigger_needs_a_read_back_query(self):
-        missing = {"agents": {"autoscaling": {"enabled": True, "prometheus": {"enabled": True}}}}
+        missing = {"agents": {"autoscaling": {"enabled": True, "workerPoolScaleSelector": "spec.scaleSelector", "prometheus": {"enabled": True}}}}
         self.assertNotEqual(render(ON, missing, check=False).returncode, 0)
-        query = {"agents": {"autoscaling": {"enabled": True, "prometheus": {
+        query = {"agents": {"autoscaling": {"enabled": True, "workerPoolScaleSelector": "spec.scaleSelector", "prometheus": {
             "enabled": True, "serverAddress": "http://prometheus.monitoring:9090",
             "queryTemplate": 'sum(rate(a2a_requests_total{agent="%s"}[2m]))'}}}}
         trigger = by_kind(render(ON, query), "ScaledObject")["drift-specialist"]["spec"]["triggers"][1]

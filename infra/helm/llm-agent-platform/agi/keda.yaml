@@ -1,0 +1,22 @@
+# KEDA for the three BYO agents of the AGI profile (rubric rows 19, 25). Layer after
+# agi/agents.yaml and g3/keda.yaml, on a release that already has the chart HPAs (g3 sets
+# agents.autoscaling.enabled), so transferHpa adopts each HPA without a gap.
+# Not applied by any pipeline: it is part of the approval-gated llm-agent upgrade
+# (AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md). Rollback: delete the ScaledObjects first,
+# then upgrade without this file and g3/keda.yaml (C-B runbook P4).
+agents:
+  autoscaling:
+    enabled: true
+    engine: keda
+    keda:
+      transferHpa: true
+      # Every agent is BYO here and exports the in-flight gauge (agent_metrics.py).
+      triggers:
+        fraud-coordinator: {type: inflight, inflightPerReplica: "2"}
+        feature-rag-specialist: {type: inflight, inflightPerReplica: "2"}
+        drift-specialist: {type: inflight, inflightPerReplica: "2"}
+  byoTelemetry:
+    metrics:
+      enabled: true
+otelCollector:
+  metricExpiration: 60s

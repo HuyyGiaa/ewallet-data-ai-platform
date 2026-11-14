@@ -10,6 +10,13 @@
 {{- if and $s.prometheus.enabled (not (and $s.prometheus.serverAddress $s.prometheus.queryTemplate)) }}
 {{- fail "agents.autoscaling.prometheus needs serverAddress and a read-back queryTemplate" }}
 {{- end }}
+{{- /* Substrate 0.0.9's WorkerPool /scale has no labelSelectorPath, and the HPA that KEDA
+creates refuses a target without a selector for every metric type ("selector is
+required"). Scaling a WorkerPool is valid only on a cluster whose WorkerPool CRD carries
+the reviewed selector patch (infra/kubernetes/substrate-scale/), so it must be declared. */}}
+{{- if not (eq ($s.workerPoolScaleSelector | default "") "spec.scaleSelector") }}
+{{- fail "agents.autoscaling in sandbox mode needs workerPoolScaleSelector: spec.scaleSelector (the patched WorkerPool CRD, infra/kubernetes/substrate-scale/); Substrate 0.0.9's /scale has no selector" }}
+{{- end }}
 {{- range $name := $names }}
 ---
 # SandboxAgent has no scale subresource. Scale the supported Substrate
@@ -90,6 +97,10 @@ spec:
   pollingInterval: {{ $s.keda.pollingIntervalSeconds }}
   cooldownPeriod: {{ $s.keda.cooldownSeconds }}
   {{- $trigger := index ($s.keda.triggers | default dict) $name | default dict }}
+  {{- $agentSpec := ternary $a.coordinator (index $a.specialists $name | default dict) (eq $name $a.coordinator.name) }}
+  {{- if and (eq (index $trigger "type" | default "") "inflight") (not (dig "byo" "enabled" false $agentSpec)) }}
+  {{- fail (printf "agent %s: an explicit inflight trigger needs the BYO runtime (only BYO agents export ewallet_agent_inflight_tasks)" $name) }}
+  {{- end }}
   {{- /* KEDA refuses fallback on CPU-only objects; metrics-server needs no Prometheus. */}}
   {{- if ne (index $trigger "type" | default "inflight") "cpu" }}
   fallback:

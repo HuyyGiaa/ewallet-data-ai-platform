@@ -81,6 +81,19 @@ class AppResources:
     token_hook: ControllerTokenHook | None
 
 
+def shutdown_grace_seconds(environment: Mapping[str, str]) -> int:
+    """Seconds uvicorn waits for in-flight A2A tasks after SIGTERM (scale-in, rollout).
+
+    kagent 0.10.3's BYO deployment schema has no terminationGracePeriodSeconds, so the
+    pod keeps Kubernetes' default 30 s; the drain must finish before the kubelet's SIGKILL.
+    """
+
+    value = int(environment.get("EWALLET_SHUTDOWN_GRACE_SECONDS", "25"))
+    if not 1 <= value <= 28:
+        raise ValueError("EWALLET_SHUTDOWN_GRACE_SECONDS must be between 1 and 28 (default grace 30 s)")
+    return value
+
+
 def listen_port(environment: Mapping[str, str]) -> int:
     """Return the agent's listen port from ``EWALLET_AGENT_PORT``, 8080 by default.
 

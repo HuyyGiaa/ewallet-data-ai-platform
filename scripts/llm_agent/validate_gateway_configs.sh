@@ -34,6 +34,10 @@ render mcp-ambient-backend-token mcp-gateway-config --set namespace.ambient=true
 render a2a-deny-all a2a-gateway-config --set a2aGateway.enabled=true
 render a2a-callers a2a-gateway-config --set a2aGateway.enabled=true \
   --set a2aGateway.callerServiceAccounts.fraud-coordinator=worker-coordinator
+render a2a-sandbox a2a-gateway-config --set a2aGateway.enabled=true \
+  --set a2aGateway.callerServiceAccounts.fraud-coordinator=fraud-coordinator \
+  --set a2aGateway.sandboxRoutes.namespace=ewallet-sandbox \
+  --set 'a2aGateway.sandboxRoutes.agents={drift-specialist,feature-rag-specialist}'
 printf 'gateways:\n  default:\n    port: 8080\n    bogusField: 1\n' > "$work/negative-control.yaml"
 mkdir -p "$work/otel"
 for variant in debug traces; do

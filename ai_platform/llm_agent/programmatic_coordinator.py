@@ -63,6 +63,7 @@ MAX_SYNTHESIS_CHARS = 512
 MAX_A2A_TIMEOUT_SECONDS = 600.0
 WORKFLOW_CONTRACT_VERSION = "g3-orchestration/v2"
 _SPECIALISTS = frozenset({"feature-rag-specialist", "drift-specialist"})
+_NAMESPACE = re.compile(r"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$")
 _TRACER = trace.get_tracer(__name__)
 _LITERAL_PLACEHOLDER = re.compile(r"(?:<transaction_id>|\{transaction_id\}|TODO|REPLACE_ME)", re.I)
 
@@ -146,10 +147,21 @@ class JsonHttpTransport:
 
 @dataclass(frozen=True)
 class GatewayPolicy:
-    """Validate the immutable Gateway address and exact Specialist allowlist."""
+    """Validate the immutable Gateway address and exact Specialist allowlist.
+
+    Deployment Specialists are reached through the Gateway's exact ``x-kagent-host``
+    routes. Specialists named in ``sandbox_specialists`` run as kagent SandboxAgents
+    (Substrate actors) and are reached through the Gateway's per-agent controller route
+    ``/api/a2a/<sandbox_namespace>/<agent>/``. kagent selects the session actor by the
+    message ``contextId``, which is the member ``request_id``, so a retried request
+    resumes the same actor. The caller's ``X-User-Id`` is not sent from here: the
+    Gateway sets it on that route, so a client cannot choose the principal.
+    """
 
     endpoint: str = APPROVED_A2A_GATEWAY
     timeout_seconds: float = 30.0
+    sandbox_specialists: frozenset[str] = frozenset()
+    sandbox_namespace: str = ""
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.endpoint)
@@ -166,19 +178,45 @@ class GatewayPolicy:
             raise ValueError("A2A endpoint must be the approved in-cluster Gateway")
         if not 0.1 <= self.timeout_seconds <= MAX_A2A_TIMEOUT_SECONDS:
             raise ValueError("A2A timeout must be between 0.1 and 600 seconds")
+        object.__setattr__(self, "sandbox_specialists", frozenset(self.sandbox_specialists))
+        if not self.sandbox_specialists <= _SPECIALISTS:
+            raise ValueError("sandbox_specialists must be approved Specialists")
+        if self.sandbox_specialists and (
+            not _NAMESPACE.fullmatch(self.sandbox_namespace) or self.sandbox_namespace == "ewallet-agents"
+        ):
+            raise ValueError("sandbox Specialists need a dedicated sandbox namespace")
 
     def call_for(self, request: SpecialistRequest) -> GatewayCall:
         if request.target_agent not in _SPECIALISTS:
             raise CoordinatorFailure("unsupported_capability", "target is not an approved Specialist")
+        payload = a2a_message_send(request)
+        if request.target_agent in self.sandbox_specialists:
+            message = payload["params"]["message"]  # type: ignore[index]
+            message["contextId"] = request.request_id
+            return GatewayCall(
+                url=f"{self.endpoint}api/a2a/{self.sandbox_namespace}/{request.target_agent}/",
+                headers={"content-type": "application/json"},
+                payload=payload,
+                timeout_seconds=self.timeout_seconds,
+            )
         return GatewayCall(
             url=self.endpoint,
             headers={
                 "content-type": "application/json",
                 "x-kagent-host": f"{request.target_agent}.ewallet-agents",
             },
-            payload=a2a_message_send(request),
+            payload=payload,
             timeout_seconds=self.timeout_seconds,
         )
+
+    @classmethod
+    def from_env(cls, environment: Mapping[str, str], *, timeout_seconds: float) -> "GatewayPolicy":
+        """``EWALLET_SANDBOX_SPECIALISTS`` (comma list) and ``EWALLET_SANDBOX_NAMESPACE``."""
+
+        names = frozenset(item.strip() for item in environment.get("EWALLET_SANDBOX_SPECIALISTS", "").split(",")
+                          if item.strip())
+        return cls(timeout_seconds=timeout_seconds, sandbox_specialists=names,
+                   sandbox_namespace=environment.get("EWALLET_SANDBOX_NAMESPACE", "").strip() if names else "")
 
 
 def _terminal_evidence(response: Mapping[str, object], request: SpecialistRequest) -> SpecialistEvidence:
