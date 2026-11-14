@@ -1,0 +1,57 @@
+{
+  "online_store": "redis",
+  "online_target": {
+    "claim_status": "CLAIMED",
+    "mode": "verification",
+    "project": "ewallet_rag_hybrid_20261114t144825",
+    "redis_database": 3,
+    "target_fingerprint": "sha256:39e369983efe9be6ae436804a4e6c24c639b71240e848c3a6dca924cc2af5a0a"
+  },
+  "project": "ewallet_rag_hybrid_20261114t144825",
+  "redis": {
+    "database": 3,
+    "dbsize": 5,
+    "owner_campaign": "ewallet_rag_hybrid_20261114t144825",
+    "owner_store": "rag-verification"
+  },
+  "requested": 4,
+  "returned": 4,
+  "rows": [
+    {
+      "chunk_id": "policy-account-takeover:0000",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-account-takeover",
+      "embedding_dimensions": 384,
+      "embedding_l2_norm": 1.0,
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+      "text_preview": "# Account takeover review policy This demonstration policy r"
+    },
+    {
+      "chunk_id": "policy-account-takeover:0001",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-account-takeover",
+      "embedding_dimensions": 384,
+      "embedding_l2_norm": 1.0,
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+      "text_preview": "the source policy identifier and the exact policy revision. "
+    },
+    {
+      "chunk_id": "policy-payment-anomaly:0000",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-payment-anomaly",
+      "embedding_dimensions": 384,
+      "embedding_l2_norm": 1.0,
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md",
+      "text_preview": "# Payment anomaly review policy This demonstration policy re"
+    },
+    {
+      "chunk_id": "policy-payment-anomaly:0001",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-payment-anomaly",
+      "embedding_dimensions": 384,
+      "embedding_l2_norm": 1.0,
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md",
+      "text_preview": "must not invent missing facts. Empty retrieval, low similari"
+    }
+  ]
+}

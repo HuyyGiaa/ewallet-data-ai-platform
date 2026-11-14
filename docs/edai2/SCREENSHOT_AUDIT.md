@@ -53,8 +53,8 @@ as historical output, not screenshots.
 | Row | Deliverable needs | Qualifying images (class) | Verdict |
 |---:|---|---|---|
 | 8 | Registry UI with agents | agents/01–05 (NATIVE_UI) | **QUALIFIES** |
-| 9 | Airflow RAG run success + DataHub lineage | — (Jenkins RAG CD and UI-chat citations are not the literal deliverable) | **MISSING** |
-| 10 | DataHub lineage/governance for RAG | — | **MISSING** |
+| 9 | Airflow RAG run success + DataHub lineage | rag `RAG-01` Airflow DagRun 6/6 success and `RAG-05` DataHub lineage (NATIVE_UI); `RAG-03`, `RAG-04a/b`, `RAG-07a/b`, `RAG-08`, `RAG-09` (REAL_TERMINAL). Owner captures of campaign `hybrid-20261114t151101`, inventoried with SHA-256 in [rag/screenshots](../evidence/edai2/rag/screenshots/README.md), not in the totals above | **QUALIFIES** |
+| 10 | DataHub lineage/governance for RAG | rag `RAG-05` lineage and `RAG-06` five custom assertions (NATIVE_UI). Same inventory | **QUALIFIES** |
 | 11 | Airflow materialization run | feature-store `batch-04` Airflow DagRun 8/8 success and `batch-05` DataHub lineage (NATIVE_UI); `batch-01`–`03`, `06`, `07` (REAL_TERMINAL). Owner captures, inventoried with SHA-256 in [feature-store/screenshots](../evidence/edai2/feature-store/screenshots/README.md), not in the totals above | **QUALIFIES** |
 | 12 | Streaming push jobs succeeded + data | feature-store `stream-01`–`03` Flink Dashboard (NATIVE_UI); `stream-04`–`08` GCS Parquet, offset manifest, Redis keys, consistency report, Jobs Complete (REAL_TERMINAL). Same inventory | **QUALIFIES** |
 | 13 | KFP successful run | mlops/01–03 (NATIVE_UI); 02/03 KFP (HISTORICAL_UI) | **QUALIFIES** |
@@ -186,3 +186,10 @@ These are renders of the report file Locust wrote in the run, not of recorded te
 ## Addendum: owner benchmark campaign (2026-11-10)
 
 The owner's single-run campaign adds 35 genuine captures, embedded in [BENCHMARK_RESULTS.md](llm/BENCHMARK_RESULTS.md): 25 `REAL_TERMINAL`, 9 `NATIVE_UI` (Grafana) and 1 showing both side by side. All are byte-identical to the originals and decode as PNG; hashes and limitations are in [`screenshot_provenance.json`](../evidence/edai2/llm/owner_single_run_20261109/screenshot_provenance.json). They are not included in the totals above. Rows 5 and 6 now qualify on them; per-claim status is in the [evidence matrix](../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md).
+
+## Addendum: owner RAG Hybrid campaign (2026-11-14)
+
+10 owner-captured screenshots of campaign `hybrid-20261114t151101`, copied unchanged into [`docs/evidence/edai2/rag/screenshots/`](../evidence/edai2/rag/screenshots/README.md) (byte-identical to `~/Pictures/Screenshots/`; see its `SHA256SUMS`) and embedded in [RAG_PIPELINE.md](rag/RAG_PIPELINE.md).
+- **Classes:** NATIVE_UI (`RAG-01` Airflow 3, `RAG-05` and `RAG-06` DataHub) and REAL_TERMINAL (`RAG-03`, `RAG-04a/b`, `RAG-07a/b`, `RAG-08`, `RAG-09`).
+- **Rows:** 9 and 10 now qualify. There is deliberately no `RAG-02`: `RAG-01` already shows the Graph view and all six task states.
+- **Caveats:** in `RAG-03` the echoed `jq` command is partly overwritten by the terminal (the output matches `feast_registry.json`); `RAG-08` shows only the state after the run. They are not included in the totals above.

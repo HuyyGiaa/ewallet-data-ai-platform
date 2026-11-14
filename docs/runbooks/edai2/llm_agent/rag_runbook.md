@@ -169,15 +169,19 @@ The owner captures the screenshots by hand and saves the originals in
 views work for a local run, which is useful for rehearsal. With the gke target,
 run every `show` command in the shell of §5.1 (`RAG_TARGET=gke` exported).
 
+The submitted set is from the Hybrid campaign `hybrid-20261114t151101`. It is
+in [`docs/evidence/edai2/rag/screenshots/`](../../../evidence/edai2/rag/screenshots/README.md):
+10 files, with RAG-04 and RAG-07 each split over two images and no separate
+RAG-02.
+
 | File | Where | Must be visible |
 |---|---|---|
-| `RAG-01_airflow_dag_success.png` | http://127.0.0.1:8095 → `rag_fraud_policy_ingestion` → the run `manual__rag-<label>` → Grid | 6 green tasks, run ID, state success |
-| `RAG-02_airflow_pipeline_graph.png` | Same run → Graph | `discover_documents` → `parse_and_chunk` → `generate_embeddings` → `publish_feast_features` → `validate_online_readback` → `publish_datahub_lineage` |
+| `RAG-01_airflow_dag_success.png` | http://127.0.0.1:8095 → `rag_fraud_policy_ingestion` → the run `manual__rag-<label>` → Graph, with the run's task list | The six tasks in order from `discover_documents` to `publish_datahub_lineage`, all green; run ID; state Success |
 | `RAG-03_feast_publication.png` | Terminal: `show feast <label>` | `fraud_policy_chunks` with its fields and `embedding Array(Float32)`; entity `rag_chunk`; 4 offline rows; `publication_identity_matches_run: true` |
-| `RAG-04_redis_online_readback.png` | Terminal: `show online <label>` | 4/4 rows with `embedding_dimensions` 384; `redis.database` (3 locally, the chosen database on GKE); `owner_campaign` = the run's project |
+| `RAG-04a_redis_online_readback.png`, `RAG-04b_…` | Terminal: `show online <label>` (the output spans two captures) | 4/4 rows with `embedding_dimensions` 384; `redis.database` (3 locally, the chosen database on GKE); `owner_campaign` = the run's project |
 | `RAG-05_datahub_lineage.png` | http://localhost:9002 → search the run's project (`ewallet_rag_verify` locally) → dataset `<project>.fraud_policy_chunks/fraud-policy-feast-v1` → Lineage | Corpus `fraud-policy/fraud-policy-v1-20261030` → task `publish_feast_features` (flow `rag_fraud_policy_ingestion`) → the Feast dataset |
 | `RAG-06_datahub_quality_assertions.png` | Same dataset → Quality tab | 5 assertions, all with a successful latest run |
-| `RAG-07_end_to_end_validation.png` | Terminal: `show summary <label>` | 6 task states, `MATCH`, recall 1.0, `PUBLISHED_AND_READ_BACK`, `VISIBLE` |
+| `RAG-07a_end_to_end_execution.png`, `RAG-07b_end_to_end_validation.png` | Terminal: `show summary <label>` (two captures) | 6 task states, `MATCH`, recall 1.0, `PUBLISHED_AND_READ_BACK`, `VISIBLE` |
 
 The local DataHub also holds older RAG metadata: the DataFlow
 `rag_fraud_policy` and Feast datasets of the projects `ewallet_rag`,
@@ -250,8 +254,9 @@ file without printing it. It sets the following values:
 `--replace` keeps the previous file as `runtime.env.bak-<timestamp>` (mode 600).
 Without it, an existing file is left untouched. Never `cat` the settings file.
 
-The settings file from 2026-11-02 selects DB 1 and has no DataHub URL.
-Preflight fails on it until `configure` has run.
+A settings file older than the Hybrid runner (for example the one from
+2026-11-02, which selected DB 1 and had no DataHub URL) fails preflight until
+`configure` has rewritten it.
 
 ### 5.3 Start and preflight
 
@@ -293,7 +298,7 @@ In both cases, choose another empty database and a new project with
 # [CLOUD, TARGET-WRITE] Redis DB <db>, GCS registry and Parquet under <project>, local DataHub
 LABEL=hybrid-$(date -u +%Y%m%dt%H%M%S)
 scripts/llm_agent/rag_runtime_run.sh trigger "$LABEL"
-# [CLOUD, READ-ONLY] terminal views for RAG-03, RAG-04, RAG-07
+# [CLOUD, READ-ONLY] terminal views for RAG-03, RAG-04a/b, RAG-07a/b
 scripts/llm_agent/rag_runtime_run.sh show feast "$LABEL"
 scripts/llm_agent/rag_runtime_run.sh show online "$LABEL"
 scripts/llm_agent/rag_runtime_run.sh show summary "$LABEL"
@@ -326,7 +331,7 @@ The expected artifacts are those of §3, with Hybrid values:
 
 ### 5.5 Hybrid screenshots
 
-Capture RAG-01 to RAG-07 (§4) from this run, then these two:
+Capture RAG-01 and RAG-03 to RAG-07b (§4) from this run, then these two:
 
 | File | Where | Must be visible |
 |---|---|---|
@@ -338,7 +343,7 @@ Capture RAG-01 to RAG-07 (§4) from this run, then these two:
 The RAG MCP server on GKE reads project `ewallet_rag` in DB 0, using the
 registry snapshot from the ConfigMap `feast-registry-rag`. A Hybrid
 verification run does not change either. The deployed agent path is shown by
-the 2026-11-02 evidence (RAG_PIPELINE.md §11.2).
+the 2026-11-02 evidence (RAG_PIPELINE.md §11.3).
 
 Publishing a new revision for the agents is a separate production change that
 needs explicit owner approval. It means `EWALLET_RAG_ONLINE_TARGET=production`,

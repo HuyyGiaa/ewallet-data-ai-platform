@@ -1,0 +1,32 @@
+{
+  "completed_at": "2026-11-14T15:11:31.568981+00:00",
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "feast": {
+    "offline_source": "gs://ewallet-data-ai-platform-hg26-data/features/rag/ewallet_rag_hybrid_20261114t144825/fraud-policy-feast-v1/chunks.parquet",
+    "online_store": "redis",
+    "profile": "canonical",
+    "project": "ewallet_rag_hybrid_20261114t144825",
+    "registry": "gs://ewallet-data-ai-platform-hg26-data/features/registries/rag/ewallet_rag_hybrid_20261114t144825/registry.db"
+  },
+  "feast_vector_search": "NOT_USED (online store is read by chunk_id; similarity is computed in process)",
+  "feature_index_revision": "fraud-policy-feast-v1",
+  "manifest_sha256": "e5a282c6c2864e8ea6de67adcdfd4b18fc4624bdfb06fc8339528ae5d22a24b9",
+  "materialization": {
+    "feature_view": "fraud_policy_chunks",
+    "materialize_end": "2026-11-14T15:11:28.188464+00:00",
+    "materialize_start": "2026-10-29T23:59:59+00:00"
+  },
+  "offline_status": "WRITTEN",
+  "online_target": {
+    "claim_status": "CLAIMED",
+    "mode": "verification",
+    "project": "ewallet_rag_hybrid_20261114t144825",
+    "redis_database": 3,
+    "target_fingerprint": "sha256:39e369983efe9be6ae436804a4e6c24c639b71240e848c3a6dca924cc2af5a0a"
+  },
+  "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+  "release_sha": "9153a06af5e89edbb3a60b5c2fd95d73eb3d6c0a",
+  "row_count": 4,
+  "run_id": "hybrid-20261114t151101",
+  "stage": "publish"
+}
