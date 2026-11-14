@@ -1,0 +1,37 @@
+Name:                                            keda-hpa-business-agents
+Namespace:                                       bprime
+Labels:                                          app.kubernetes.io/managed-by=keda-operator
+                                                 app.kubernetes.io/name=keda-hpa-business-agents
+                                                 app.kubernetes.io/part-of=business-agents
+                                                 app.kubernetes.io/version=2.21.0
+                                                 scaledobject.keda.sh/name=business-agents
+Annotations:                                     <none>
+CreationTimestamp:                               Sun, 15 Nov 2026 05:04:30 +0700
+Reference:                                       WorkerPool/business-agents
+Metrics:                                         ( current / target )
+  "s0-metric-api-value" (target average value):  <unknown> / 1
+Min replicas:                                    1
+Max replicas:                                    3
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods     Value: 4    Period: 15 seconds
+      - Type: Percent  Value: 100  Period: 15 seconds
+  Scale Down:
+    Stabilization Window: 30 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 15 seconds
+WorkerPool pods:    1 current / 0 desired
+Conditions:
+  Type           Status  Reason             Message
+  ----           ------  ------             -------
+  AbleToScale    True    SucceededGetScale  the HPA controller was able to get the target's current scale
+  ScalingActive  False   InvalidSelector    the HPA target's scale is missing a selector
+Events:
+  Type     Reason                        Age                From                       Message
+  ----     ------                        ----               ----                       -------
+  Warning  SelectorRequired              1s (x8 over 106s)  horizontal-pod-autoscaler  selector is required
+  Warning  FailedComputeMetricsReplicas  1s (x8 over 106s)  horizontal-pod-autoscaler  selector is required

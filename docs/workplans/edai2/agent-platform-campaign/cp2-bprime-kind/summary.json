@@ -1,0 +1,14 @@
+{
+ "problem_reproduced": true,
+ "patched_selector": "ate.dev/worker-pool=business-agents",
+ "scale_out_to": 3,
+ "controller_kept_hpa_decision": true,
+ "scale_in_to": 1,
+ "rollback_hpa_remaining": 0,
+ "limits": [
+  "only atecontroller runs: no ate-api, atelet, Valkey or gVisor; actors not exercised",
+  "worker pods use the pause image",
+  "metric: script-controlled metrics-api endpoint"
+ ],
+ "verdict": "CONTROL_LOOP_VALIDATED"
+}

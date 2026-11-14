@@ -1,0 +1,27 @@
+{
+  "campaign": "edai2-agent-platform-completion",
+  "branch": "feature/edai2-agent-platform-integration",
+  "design": "docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md",
+  "runbook": "docs/runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md",
+  "status_words": ["SOURCE_IMPLEMENTED", "LOCAL_TESTED", "GKE_TESTED", "EVIDENCE_CAPTURED", "RUBRIC_COMPLETE", "APPROVAL_PENDING", "BLOCKED"],
+  "checkpoints": [
+    {"id": "CP0", "scope": "S1 sandbox delegation, S2 A2A sandbox routes, S6 KEDA overlay and graceful shutdown, S7 collector metric expiration, S8 tooling",
+     "status": "LOCAL_TESTED", "where": "local",
+     "evidence": ["tests/llm_agent/test_agent_platform_completion.py", "scripts/llm_agent/validate_gateway_configs.sh (a2a-sandbox valid under agentgateway v1.7.0)"]},
+    {"id": "CP1", "scope": "S3 shared WorkerPool fleet, S4 WorkerPool ScaledObject guard, S5 B' CRD selector patch package",
+     "status": "LOCAL_TESTED", "where": "local",
+     "evidence": ["infra/kubernetes/agent-sandbox/fleet.yaml.tmpl", "infra/kubernetes/substrate-scale/", "five baseline profiles byte-identical to HEAD 21ec5d2b"]},
+    {"id": "CP2", "scope": "B' control loop on kind (Substrate 0.0.9 atecontroller, KEDA 2.21.0)",
+     "status": "LOCAL_TESTED", "verdict": "CONTROL_LOOP_VALIDATED", "where": "kind-edai-cluster (reused; only what the run installed was removed)",
+     "evidence": ["cp2-bprime-kind/summary.json", "cp2-bprime-kind/hpa-unpatched.txt", "cp2-bprime-kind/scale-patched.json", "cp2-bprime-kind/replicas.jsonl"],
+     "limits": ["atecontroller only: no ate-api, atelet, Valkey or gVisor; actors not exercised", "pause-image workers", "script-controlled metrics-api value"]},
+    {"id": "CP3", "scope": "images from one commit, scanned and pushed", "status": "PENDING"},
+    {"id": "CP4", "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)", "status": "PENDING"},
+    {"id": "CP5", "scope": "B' on GKE: CRD patch and KEDA watchNamespace", "status": "APPROVAL_PENDING", "approval": "P3"},
+    {"id": "CP6", "scope": "MCP failover isolated experiment (ewallet-mcp-exp); production overlays need P1", "status": "PENDING"},
+    {"id": "CP7", "scope": "AGI rollout and KEDA on agents (llm-agent upgrade)", "status": "APPROVAL_PENDING", "approval": "P2"},
+    {"id": "CP8", "scope": "Coordinator sandbox route and AGI-09..11 through sandbox Specialists", "status": "APPROVAL_PENDING", "approval": "P1, P2, P4"},
+    {"id": "CP9", "scope": "rollback drill or promotion decision", "status": "APPROVAL_PENDING", "approval": "owner"},
+    {"id": "CP10", "scope": "cleanup and verified GKE sleep", "status": "PENDING"}
+  ]
+}

@@ -1,0 +1,1 @@
+{"kind":"Scale","apiVersion":"autoscaling/v1","metadata":{"name":"business-agents","namespace":"bprime","uid":"08e9c3c2-d9c0-4818-b145-acb95e677735","resourceVersion":"2094210","creationTimestamp":"2026-11-14T22:04:29Z"},"spec":{"replicas":1},"status":{"replicas":1}}

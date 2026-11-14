@@ -1,0 +1,40 @@
+Name:                                            keda-hpa-business-agents
+Namespace:                                       bprime
+Labels:                                          app.kubernetes.io/managed-by=keda-operator
+                                                 app.kubernetes.io/name=keda-hpa-business-agents
+                                                 app.kubernetes.io/part-of=business-agents
+                                                 app.kubernetes.io/version=2.21.0
+                                                 scaledobject.keda.sh/name=business-agents
+Annotations:                                     <none>
+CreationTimestamp:                               Sun, 15 Nov 2026 05:04:30 +0700
+Reference:                                       WorkerPool/business-agents
+Metrics:                                         ( current / target )
+  "s0-metric-api-value" (target average value):  3 / 1
+Min replicas:                                    1
+Max replicas:                                    3
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods     Value: 4    Period: 15 seconds
+      - Type: Percent  Value: 100  Period: 15 seconds
+  Scale Down:
+    Stabilization Window: 30 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods  Value: 1  Period: 15 seconds
+WorkerPool pods:    1 current / 3 desired
+Conditions:
+  Type            Status  Reason              Message
+  ----            ------  ------              -------
+  AbleToScale     True    SucceededRescale    the HPA controller was able to update the target scale to 3
+  ScalingActive   True    ValidMetricFound    the HPA was able to successfully calculate a replica count from external metric s0-metric-api-value(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: business-agents,},MatchExpressions:[]LabelSelectorRequirement{},})
+  ScalingLimited  False   DesiredWithinRange  the desired count is within the acceptable range
+  ScaledToZero    False   NotScaledToZero     the HPA controller did not scale the workload to zero
+Events:
+  Type     Reason                        Age                 From                       Message
+  ----     ------                        ----                ----                       -------
+  Warning  SelectorRequired              17s (x8 over 2m2s)  horizontal-pod-autoscaler  selector is required
+  Warning  FailedComputeMetricsReplicas  17s (x8 over 2m2s)  horizontal-pod-autoscaler  selector is required
+  Normal   SuccessfulRescale             2s                  horizontal-pod-autoscaler  New size: 3; reason: external metric s0-metric-api-value(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: business-agents,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
