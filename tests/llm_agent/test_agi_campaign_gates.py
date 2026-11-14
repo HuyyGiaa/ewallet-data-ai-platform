@@ -1,0 +1,347 @@
+"""Agent integration: fail-closed gates of scripts/llm_agent/agi_campaign.sh.
+
+Every external command (helm, kubectl, gcloud, the RAG runner and the Python
+probe runtime) is a fake that records its arguments, so the tests prove which
+commands run and which never run. No cluster, registry or bucket is touched.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import textwrap
+import unittest
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / "scripts/llm_agent/agi_campaign.sh"
+DIFF = ROOT / "scripts/llm_agent/helm_object_diff.py"
+CAMPAIGN = "agi-20261115T000000Z"
+CTX = "gke_test_ctx"
+IMAGE = "asia-southeast1-docker.pkg.dev/p/r/{}@sha256:" + "b" * 64
+MANIFEST = b'{"lineage": {"snapshot_id": "feast-r5gb-20261111-214544"}}'
+
+
+def doc(kind: str, namespace: str, name: str, **spec) -> dict:
+    return {"apiVersion": "v1", "kind": kind, "metadata": {"name": name, "namespace": namespace}, "spec": spec}
+
+
+MCP_LIVE = [doc("Deployment", "ewallet-mcp", "feature-rag-mcp", image="old"),
+            doc("Deployment", "ewallet-mcp", "drift-mcp", image="old"),
+            doc("Service", "ewallet-mcp", "drift-mcp", port=8080)]
+MCP_ON = [doc("Deployment", "ewallet-mcp", "feature-rag-mcp", image="new"),
+          doc("Deployment", "ewallet-mcp", "drift-mcp", image="new"),
+          doc("Service", "ewallet-mcp", "drift-mcp", port=8080)]
+AGENTS_LIVE = [doc("Agent", "ewallet-agents", name, version="1.0.0")
+               for name in ("fraud-coordinator", "feature-rag-specialist", "drift-specialist")]
+AGENTS_ON = [doc("Agent", "ewallet-agents", name, version="1.1.0")
+             for name in ("fraud-coordinator", "feature-rag-specialist", "drift-specialist")] + [
+    doc("Role", "ewallet-agents", "ewallet-global-llm-reader"),
+    doc("RoleBinding", "ewallet-agents", "ewallet-global-llm-reader"),
+    doc("NetworkPolicy", "ewallet-agents", "allow-byo-modelconfig-to-kube-apiserver")]
+
+FAKE_HELM = r'''#!/usr/bin/env bash
+echo "helm $*" >> "$FAKE_LOG"
+args=(); while (($#)); do case "$1" in --kube-context|-n) shift 2 ;; *) args+=("$1"); shift ;; esac; done
+set -- "${args[@]}"
+case "$1" in
+  status) echo '{"info": {"status": "deployed"}, "version": 7}' ;;
+  get) [[ "$2" == values ]] && echo "a: 1" || cat "$FAKE_DIR/$3-live.yaml" ;;
+  template)
+    [[ -n "${FAKE_TEMPLATE_FAIL:-}" ]] && { echo "template error" >&2; exit 1; }
+    if [[ "$*" == *agi/* ]]; then cat "$FAKE_DIR/$2-on.yaml"; else cat "$FAKE_DIR/$2-live.yaml"; fi ;;
+  upgrade)
+    if [[ "$*" == *--dry-run=server* ]]; then exit "${FAKE_DRYRUN_RC:-0}"; fi
+    echo "REAL-UPGRADE $2" >> "$FAKE_LOG" ;;
+  history) echo "REVISION 8 deployed" ;;
+  rollback) echo "REAL-ROLLBACK $2 $3" >> "$FAKE_LOG" ;;
+  *) exit 3 ;;
+esac
+'''
+FAKE_KUBECTL = r'''#!/usr/bin/env bash
+echo "kubectl $*" >> "$FAKE_LOG"
+case "$*" in
+  "config current-context") echo "$FAKE_CTX" ;;
+  *"get deploy -o json"*) echo '{"items": [{"metadata": {"name": "x"}, "spec": {"replicas": 1}, "status": {"availableReplicas": 1}}]}' ;;
+  *"get agents.kagent.dev drift-specialist"*) printf Declarative ;;
+  *"get networkpolicy -o name"*) echo networkpolicy.networking.k8s.io/drift-specialist-to-mcp-gateway ;;
+  *"get secret"*"-o name"*) echo secret/x ;;
+  *"get secret"*token*) printf %s "$(printf 't%.0s' {1..40})" | base64 ;;
+  *"get svc kubernetes"*) [[ -n "${FAKE_SVC_FAIL:-}" ]] && exit 1; echo 10.0.0.1 ;;
+  *endpointslices*) echo 10.0.0.2 ;;
+  *) echo "unexpected kubectl $*" >&2; exit 3 ;;
+esac
+'''
+FAKE_GCLOUD = r'''#!/usr/bin/env bash
+echo "gcloud $*" >> "$FAKE_LOG"
+case "$2" in
+  cat) [[ "$3" == *export_manifest.json ]] && cat "$FAKE_DIR/manifest.json" || echo registry ;;
+  ls) echo "2275 registry.db" ;;
+esac
+'''
+FAKE_RAG = r'''#!/usr/bin/env bash
+echo "rag $*" >> "$FAKE_LOG"
+case "$1" in
+  dbs) printf ' db      keys  owner\n  0    173382  -\n  3         5  ewallet_rag_hybrid_20261114t144825 in use\n' ;;
+  digest) echo "db=$2 keys=5 sha256=${FAKE_DB3_DIGEST:-aaaa}" ;;
+esac
+'''
+FAKE_PY = r'''#!/usr/bin/env bash
+# Stand-in for the uv runtime running scripts/llm_agent/agi_probe.py.
+echo "probe $*" >> "$FAKE_LOG"
+if [[ "$*" == *" mcp "* && "$*" != *"--tool feature_lookup"* ]]; then
+  [[ -n "${EWALLET_MCP_SERVICE_TOKEN:-}" && -n "${AGI_CONTROL_TOKEN:-}" ]] || { echo "tokens missing from env" >&2; exit 9; }
+fi
+shift   # the agi_probe.py path
+evidence=""; while (($#)); do [[ "$1" == --evidence || "$1" == --out ]] && evidence=$2; shift; done
+[[ -n "$evidence" ]] && echo '{"structured_content": {"result": {"historical_features": {"f": 1}}}}' > "$evidence"
+key=$(basename "${evidence:-none}")
+rc=$(python3 -c 'import json,os,sys;print(json.loads(os.environ.get("FAKE_PROBE_RC","{}")).get(sys.argv[1],0))' "$key")
+exit "$rc"
+'''
+
+
+@unittest.skipUnless(shutil.which("bash") and shutil.which("git"), "bash and git required")
+class CampaignGateTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="agi-gates-"))
+        self.bin = self.tmp / "bin"
+        self.bin.mkdir()
+        for name, body in (("helm", FAKE_HELM), ("kubectl", FAKE_KUBECTL), ("gcloud", FAKE_GCLOUD),
+                           ("rag", FAKE_RAG), ("probe-python", FAKE_PY)):
+            path = self.bin / name
+            path.write_text(body)
+            path.chmod(0o755)
+        self.fake = self.tmp / "fake"
+        self.fake.mkdir()
+        (self.fake / "manifest.json").write_bytes(MANIFEST)
+        self.write("llm-agent-mcp", MCP_LIVE, MCP_ON)
+        self.write("llm-agent", AGENTS_LIVE, AGENTS_ON)
+        self.git = self.tmp / "checkout"
+        self.git.mkdir()
+        subprocess.run(["git", "init", "-q", str(self.git)], check=True)
+        (self.git / "file").write_text("x")
+        env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid", "PATH": os.environ["PATH"]}
+        subprocess.run(["git", "-C", str(self.git), "add", "file"], check=True, env=env)
+        subprocess.run(["git", "-C", str(self.git), "commit", "-qm", "x"], check=True, env=env)
+        self.sha = subprocess.run(["git", "-C", str(self.git), "rev-parse", "HEAD"], check=True,
+                                  capture_output=True, text=True).stdout.strip()
+        self.ev = self.tmp / "evidence"
+        describe = self.tmp / "describe.json"
+        describe.write_text(json.dumps({"environment": {
+            "EWALLET_DRIFT_ALLOW_SYNTHETIC": "false", "EWALLET_DRIFT_BASELINES_SHA256": "d" * 64,
+            "EWALLET_DRIFT_WINDOW_MANIFEST_SHA256": "e" * 64,
+            "EWALLET_DRIFT_DATASET_REVISION": "feast-r5gb-20261111-214544"}}))
+        self.campaign = {
+            "CAMPAIGN": CAMPAIGN, "EV": str(self.ev), "CTX": CTX, "SHA": self.sha,
+            "SNAPSHOT_MANIFEST_SHA256": hashlib.sha256(MANIFEST).hexdigest(),
+            "MCP_IMAGE": IMAGE.format("mcp-tools"), "DRIFT_DESCRIBE": str(describe), "FRAUD_DB": "0", "RAG_DB": "3",
+            "COORDINATOR_IMAGE": IMAGE.format("c"), "FEATURE_RAG_IMAGE": IMAGE.format("r"),
+            "DRIFT_IMAGE": IMAGE.format("d"), "APISERVER_CIDRS": "10.0.0.1/32,10.0.0.2/32",
+            "BASELINE": "bl-r5gb-202604.account_tx_count_1h",
+        }
+        self.log = self.tmp / "calls.log"
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def write(self, release, live, on):
+        (self.fake / f"{release}-live.yaml").write_text(yaml.safe_dump_all(live))
+        (self.fake / f"{release}-on.yaml").write_text(yaml.safe_dump_all(on))
+
+    def run_script(self, *args, campaign=None, **env):
+        config = self.tmp / "campaign.env"
+        config.write_text("".join(f"{key}={value}\n" for key, value in (campaign or self.campaign).items()))
+        variables = {**os.environ, "AGI_ENV": str(config), "AGI_PRIVATE": str(self.tmp / "private"),
+                     "AGI_GIT_DIR": str(self.git), "HELM": str(self.bin / "helm"), "KUBECTL": str(self.bin / "kubectl"),
+                     "GCLOUD": str(self.bin / "gcloud"), "AGI_RAG_RUNNER": str(self.bin / "rag"),
+                     "AGI_AGENT_PY": str(self.bin / "probe-python"), "PYTHON": sys.executable,
+                     "FAKE_LOG": str(self.log), "FAKE_DIR": str(self.fake), "FAKE_CTX": CTX, **env}
+        return subprocess.run(["bash", str(SCRIPT), *args], capture_output=True, text=True, env=variables, timeout=120)
+
+    def calls(self) -> str:
+        return self.log.read_text() if self.log.exists() else ""
+
+    def preflight(self, **env):
+        result = self.run_script("preflight", **env)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.preflight_calls = self.calls()
+        self.log.unlink()   # later assertions see only the commands of the step under test
+        return result
+
+    # ---------------------------------------------------------------- Stage 0
+
+    def test_passing_preflight_writes_the_marker_and_never_mutates(self):
+        self.preflight()
+        marker = (self.ev / "stage0/PREFLIGHT_PASS").read_text()
+        self.assertIn(f"sha={self.sha}", marker)
+        self.assertIn("LLM_AGENT_REVISION=7", marker)
+        self.assertIn("LLM_AGENT_MCP_REVISION=7", marker)
+        self.assertNotIn("REAL-", self.preflight_calls)
+        self.assertNotIn("upgrade", self.preflight_calls)
+        self.assertNotRegex(self.preflight_calls, r"kubectl .*(apply|create|delete|patch|scale|rollout restart)")
+
+    def test_failed_preflight_check_blocks_the_marker_even_through_tee(self):
+        (self.fake / "manifest.json").write_bytes(b"another snapshot")
+        result = self.run_script("preflight")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.ev / "stage0/PREFLIGHT_PASS").exists())
+        self.assertIn("FAIL P0.9 drift snapshot manifest digest", (self.ev / "campaign.log").read_text())
+
+    def test_a_failing_command_inside_a_check_fails_it_even_when_the_last_command_succeeds(self):
+        # apiserver_addresses: the Service query fails, the endpoint query succeeds and the file is non-empty.
+        result = self.run_script("preflight", FAKE_SVC_FAIL="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("FAIL P0.13 API server addresses", (self.ev / "campaign.log").read_text())
+
+    def test_dirty_or_other_commit_fails_preflight(self):
+        (self.git / "file").write_text("changed")
+        self.assertNotEqual(self.run_script("preflight").returncode, 0)
+        self.assertFalse((self.ev / "stage0/PREFLIGHT_PASS").exists())
+
+    # ---------------------------------------------------------------- gates
+
+    def test_gate_requires_a_passed_preflight(self):
+        result = self.run_script("gate", "mcp")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Stage 0 has not passed", result.stderr)
+        self.assertNotIn("upgrade", self.calls())
+
+    def test_gate_passes_with_exact_identities_and_server_dry_run(self):
+        self.preflight()
+        for which in ("mcp", "agents"):
+            with self.subTest(which):
+                result = self.run_script("gate", which)
+                self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls().count("--dry-run=server"), 2)
+        self.assertNotIn("REAL-UPGRADE", self.calls())
+
+    def test_unexpected_identity_fails_even_with_the_right_count(self):
+        self.preflight()
+        # Same count (2 changed) but the Service changed instead of drift-mcp.
+        on = [MCP_ON[0], MCP_LIVE[1], doc("Service", "ewallet-mcp", "drift-mcp", port=9090)]
+        self.write("llm-agent-mcp", MCP_LIVE, on)
+        result = self.run_script("gate", "mcp")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("--dry-run=server", self.calls())
+
+    def test_missing_expected_change_fails(self):
+        self.preflight()
+        self.write("llm-agent", AGENTS_LIVE, AGENTS_ON[:2] + [AGENTS_LIVE[2]] + AGENTS_ON[3:])
+        self.assertNotEqual(self.run_script("gate", "agents").returncode, 0)
+        self.assertNotIn("--dry-run=server", self.calls())
+
+    def test_template_failure_stops_before_dry_run_and_upgrade(self):
+        self.preflight()
+        result = self.run_script("upgrade", "mcp", AGI_APPROVAL=f"A1:{CAMPAIGN}", FAKE_TEMPLATE_FAIL="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("--dry-run=server", self.calls())
+        self.assertNotIn("REAL-UPGRADE", self.calls())
+
+    def test_server_dry_run_failure_blocks_the_upgrade(self):
+        self.preflight()
+        result = self.run_script("upgrade", "mcp", AGI_APPROVAL=f"A1:{CAMPAIGN}", FAKE_DRYRUN_RC="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--dry-run=server", self.calls())
+        self.assertNotIn("REAL-UPGRADE", self.calls())
+
+    def test_missing_input_fails_before_rendering(self):
+        self.preflight()
+        campaign = {key: value for key, value in self.campaign.items() if key != "MCP_IMAGE"}
+        result = self.run_script("gate", "mcp", campaign=campaign)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("helm --kube-context gke_test_ctx template llm-agent-mcp", self.calls())
+
+    def test_upgrade_needs_the_campaign_approval_and_the_mcp_release_first(self):
+        self.preflight()
+        for approval in ("", "A1:agi-20250101T000000Z", f"A2:{CAMPAIGN}"):
+            with self.subTest(approval=approval):
+                result = self.run_script("upgrade", "mcp", AGI_APPROVAL=approval)
+                self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("REAL-UPGRADE", self.calls())
+        self.assertNotIn("template", self.calls(), "approval is checked before any render")
+        agents_first = self.run_script("upgrade", "agents", AGI_APPROVAL=f"A1:{CAMPAIGN}")
+        self.assertIn("upgrade the MCP release first", agents_first.stderr)
+        self.assertEqual(self.run_script("upgrade", "mcp", AGI_APPROVAL=f"A1:{CAMPAIGN}").returncode, 0)
+        self.assertEqual(self.run_script("upgrade", "agents", AGI_APPROVAL=f"A1:{CAMPAIGN}").returncode, 0)
+        self.assertEqual(self.calls().count("REAL-UPGRADE"), 2)
+
+    def test_live_release_changed_since_preflight_blocks_the_gate(self):
+        self.preflight()
+        self.write("llm-agent-mcp", MCP_LIVE + [doc("ConfigMap", "ewallet-mcp", "new")], MCP_ON)
+        self.assertNotEqual(self.run_script("gate", "mcp").returncode, 0)
+
+    # ---------------------------------------------------------------- AGI-08, data state, rollback
+
+    def test_negative_probes_run_all_and_fail_on_any_unproven_denial(self):
+        self.preflight()
+        self.assertEqual(self.run_script("negative").returncode, 0)
+        self.assertNotIn("REAL-", self.calls())
+        self.assertNotIn("t" * 40, self.calls(), "tokens never appear in a command line")
+        self.log.unlink()
+        shutil.rmtree(self.ev / "stage2")
+        (self.ev / "stage2").mkdir()
+        result = self.run_script("negative", FAKE_PROBE_RC=json.dumps({"AGI-08-mcp-wrong-server-credential.json": 1}))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls().count("--expect"), 3, "the remaining probes still ran")
+        self.assertIn("FAIL AGI-08 feature-rag credential refused by drift-mcp", (self.ev / "campaign.log").read_text())
+
+    def test_data_state_detects_a_changed_db3_digest(self):
+        self.preflight()
+        self.assertEqual(self.run_script("data-state", "before").returncode, 0)
+        self.assertEqual(self.run_script("data-state", "after").returncode, 0)
+        changed = self.run_script("data-state", "after", FAKE_DB3_DIGEST="bbbb")
+        self.assertNotEqual(changed.returncode, 0)
+        self.assertIn("DB 3 content changed", changed.stderr)
+
+    def test_rollback_needs_a2_and_targets_the_preflight_revision(self):
+        self.preflight()
+        self.assertNotEqual(self.run_script("rollback", "mcp", AGI_APPROVAL=f"A1:{CAMPAIGN}").returncode, 0)
+        self.assertNotIn("REAL-ROLLBACK", self.calls())
+        result = self.run_script("rollback", "mcp", AGI_APPROVAL=f"A2:{CAMPAIGN}")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("REAL-ROLLBACK llm-agent-mcp 7", self.calls())
+
+
+class HelmObjectDiffTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="agi-diff-"))
+        (self.tmp / "live.yaml").write_text(yaml.safe_dump_all(MCP_LIVE))
+        (self.tmp / "new.yaml").write_text(yaml.safe_dump_all(MCP_ON))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def diff(self, *args):
+        return subprocess.run([sys.executable, str(DIFF), str(self.tmp / "live.yaml"), str(self.tmp / "new.yaml"), *args],
+                              capture_output=True, text=True)
+
+    def test_exact_identities_pass_and_anything_else_fails(self):
+        exact = ("--expect-identities", "--expect-changed", "Deployment/ewallet-mcp/feature-rag-mcp",
+                 "--expect-changed", "Deployment/ewallet-mcp/drift-mcp")
+        self.assertEqual(self.diff(*exact).returncode, 0)
+        self.assertIn("RESULT: PASS", self.diff(*exact).stdout)
+        wrong = ("--expect-identities", "--expect-changed", "Deployment/ewallet-mcp/feature-rag-mcp",
+                 "--expect-changed", "Service/ewallet-mcp/drift-mcp")
+        result = self.diff(*wrong)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unexpected changed: Deployment/ewallet-mcp/drift-mcp", result.stderr)
+        self.assertIn("expected changed but not changed: Service/ewallet-mcp/drift-mcp", result.stderr)
+        self.assertEqual(self.diff("--expect-identities").returncode, 1)
+        self.assertEqual(self.diff("--expect-objects", "2").returncode, 0, "count-only mode keeps its old meaning")
+
+    def test_unreadable_manifest_is_an_error(self):
+        (self.tmp / "new.yaml").write_text("kind: [unclosed")
+        self.assertEqual(self.diff("--expect-objects", "0").returncode, 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

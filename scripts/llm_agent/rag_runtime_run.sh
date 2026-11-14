@@ -11,6 +11,7 @@
 #   rag_runtime_run.sh stop [--with-datahub]  [LOCAL]      stops what start/prepare/forward started; volumes are kept
 # gke target only:
 #   rag_runtime_run.sh dbs                    [CLOUD, READ-ONLY]  size and owner of Redis DB 0-15
+#   rag_runtime_run.sh digest DB              [CLOUD, READ-ONLY]  SHA-256 over sorted keys + DUMP of DB 1-15 (<=10000 keys)
 #   rag_runtime_run.sh configure DB PROJECT [--replace]
 #                                             [CLOUD read, LOCAL write]  writes the gke settings file (mode 600)
 #   rag_runtime_run.sh forward                [CLOUD, READ-ONLY]  holds the Redis port-forward until Ctrl-C
@@ -360,6 +361,32 @@ for db in range(16):
 EOF
 }
 
+digest() {
+  # Content fingerprint of one small verification database, compared before and after a campaign.
+  # DUMP only reads; DB 0 (production, 170k+ keys) is refused: it is checked by bounded readback instead.
+  local db=$1
+  [[ "${TARGET}" == gke ]] || die "digest is for RAG_TARGET=gke"
+  [[ -n "${RAG_KUBE_CONTEXT:-}" ]] || die "RAG_TARGET=gke needs RAG_KUBE_CONTEXT"
+  [[ "${db}" =~ ^([1-9]|1[0-5])$ ]] || die "digest needs a database in 1-15"
+  local password; password=$(redis_secret_password) || die "could not read Secret ${GKE_NAMESPACE}/redis"
+  start_forward || die "no port-forward"
+  RAG_REDIS_PASSWORD="${password}" py - "${GKE_FORWARD_PORT}" "${db}" <<'EOF'
+import hashlib, os, sys
+import redis
+password = os.environ.pop("RAG_REDIS_PASSWORD")
+port, db = int(sys.argv[1]), int(sys.argv[2])
+client = redis.Redis(host="127.0.0.1", port=port, db=db, password=password, socket_timeout=10)
+if client.dbsize() > 10000:
+    sys.exit(f"DB {db} holds more than 10000 keys; refusing a full digest")
+keys = sorted(client.scan_iter(count=1000))
+digest = hashlib.sha256()
+for key in keys:
+    value = client.dump(key)
+    digest.update(len(key).to_bytes(4, "big") + key + len(value or b"").to_bytes(4, "big") + (value or b""))
+print(f"db={db} keys={len(keys)} sha256={digest.hexdigest()}")
+EOF
+}
+
 prepare() {
   cd "${ROOT}"
   "${UV}" sync --locked --no-dev --project infra/docker/rag-ingestion
@@ -517,9 +544,10 @@ main() {
     show) show "${2:-}" "${3:-}" ;;
     stop) cd "${ROOT}" && stop "${2:-}" ;;
     dbs) dbs ;;
+    digest) digest "${2:-}" ;;
     configure) configure "${2:-}" "${3:-}" "${4:-}" ;;
     forward) forward ;;
-    *) sed -n '2,26p' "$0"; exit 2 ;;
+    *) sed -n '2,27p' "$0"; exit 2 ;;
   esac
 }
 
