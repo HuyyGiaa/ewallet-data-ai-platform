@@ -117,6 +117,23 @@ def resolve(connection_string: str, *, project: str, environment: Mapping[str, s
     return RagOnlineTarget(mode, endpoint, project)
 
 
+def check_storage_paths(target: RagOnlineTarget, *, registry: str, publication_base: str) -> None:
+    """Shared GCS paths of a verification run must be its own.
+
+    The bucket also holds the production registry and Parquet of ``ewallet_rag``
+    (``features/registries/rag/fraud-policy-feast-v1/registry.db`` and
+    ``features/rag/``), so a verification registry or publication base on
+    ``gs://`` must contain the project as a path segment. Local paths are private
+    to their machine or Pod and are not restricted.
+    """
+    if target.mode != "verification":
+        return
+    for name, value in (("registry", registry), ("publication base", publication_base)):
+        if value.startswith("gs://") and f"/{target.project}/" not in value.rstrip("/") + "/":
+            raise RagTargetError(f"the verification {name} on GCS must contain the path segment "
+                                 f"/{target.project}/ so it cannot overwrite production or another run")
+
+
 def redis_client(endpoint: RedisEndpoint, *, timeout_seconds: float = 10.0) -> Any:
     import redis
 
@@ -133,6 +150,31 @@ def owner_record(target: RagOnlineTarget, client: Any, *, registry: str, corpus_
         campaign_id=target.project, dataset_version=corpus_revision, registry_uri=registry,
         online_store_id=ONLINE_STORE_ID, fingerprint=fingerprint, source_run_id=feature_index_revision,
         snapshot_id=manifest_sha256)
+
+
+def preview_ownership(target: RagOnlineTarget, client: Any, *, registry: str, corpus_revision: str,
+                      feature_index_revision: str, manifest_sha256: str) -> dict[str, Any]:
+    """Read-only forecast of what :func:`ensure_ownership` would return; writes nothing.
+
+    ``CLAIMABLE_EMPTY`` and ``OWNED_MATCH`` would succeed. ``CONFLICT`` lists the
+    marker fields that differ (a changed ``target_fingerprint`` means another
+    port, database or a restarted Redis server). ``NONEMPTY_UNOWNED`` means keys
+    of another workload without a marker.
+    """
+    if target.mode == "production":
+        return {**target.describe(), "ownership": "NOT_CLAIMED_PRODUCTION"}
+    expected = owner_record(target, client, registry=registry, corpus_revision=corpus_revision,
+                            feature_index_revision=feature_index_revision, manifest_sha256=manifest_sha256)
+    current = redis_isolation.read_owner(client)
+    size = int(client.dbsize())
+    if current is None:
+        status = "CLAIMABLE_EMPTY" if size == 0 else "NONEMPTY_UNOWNED"
+        return {**target.describe(), "ownership": status, "dbsize": size}
+    if current == expected:
+        return {**target.describe(), "ownership": "OWNED_MATCH", "dbsize": size}
+    differing = sorted(key for key in set(expected) | set(current) if current.get(key) != expected.get(key))
+    return {**target.describe(), "ownership": "CONFLICT", "dbsize": size,
+            "owner_campaign": current.get("campaign_id"), "differing_fields": differing}
 
 
 def ensure_ownership(target: RagOnlineTarget, client: Any, *, registry: str, corpus_revision: str,

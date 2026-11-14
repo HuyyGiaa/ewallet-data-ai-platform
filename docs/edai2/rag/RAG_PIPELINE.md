@@ -298,9 +298,23 @@ There are two targets:
   127.0.0.1:16381 (DB 3, `noeviction`), with the Feast registry and offline
   Parquet under `~/ewallet-evidence/rag/feast`. This is the real Feast Redis
   integration, not the SQLite profile.
-- **`gke`** uses the cluster's Feast Online Redis through a port-forward and GCS
-  paths. It requires an awake cluster and an explicitly chosen empty database;
-  the runner never wakes the cluster.
+- **`gke`** is the **Hybrid** integration target. Airflow, the embedding model
+  and DataHub stay on the laptop. The Feast registry and offline Parquet are on
+  GCS under the run's project, and the Feast Online Store is the GKE Redis
+  `feature-store/redis`, reached through a port-forward owned by the runner.
+  `dbs` lists the databases and their owners. `configure DB PROJECT` writes the
+  settings from the Redis Secret without printing the password. Preflight
+  checks the following before anything is written:
+  - the cluster and the Redis are ready;
+  - the port-forward is a single one owned by the runner;
+  - the target is a verification database in 2–15 with a dedicated project;
+  - the GCS paths are dedicated to the project;
+  - the database is free or already owned by this exact publication;
+  - the eviction policy is `noeviction`;
+  - the ADC permissions on the bucket are sufficient.
+
+  It requires a cluster the owner has woken; the runner never wakes it
+  ([runbook §5](../../runbooks/edai2/llm_agent/rag_runbook.md#5-hybrid-target-gke-feast-online-redis-and-gcs-cloud)).
 
 Jenkins builds the RAG ingestion image and smoke-tests it against an ephemeral
 Redis in the CD namespace (explicit DB 2), before switching the CronJob to the
@@ -387,8 +401,17 @@ added here once captured:
   The local target proves the Feast and Redis integration but not the GKE
   Redis.
 - **Shared Redis on GKE.** Verification runs share the instance with
-  production, separated by database and the ownership marker. Each GKE run
-  needs a free database in 2–15.
+  production, separated by database and the ownership marker. Each Hybrid run
+  needs a free database in 2–15. The marker includes the Redis server
+  `run_id`, so after a sleep and wake the next run needs a new database and
+  project.
+- **Agents read production only.** The RAG MCP server reads project
+  `ewallet_rag` in DB 0. A Hybrid verification run proves ingestion into the
+  GKE Online Store, not a new revision served to the agents. Promoting one is
+  a separate production change.
+- **Hybrid not yet executed from this version.** The gke path was checked
+  with tests, a preflight against the sleeping cluster and a GCS permission
+  test. The last cloud run is from 2026-11-02 (§11.2).
 - **Historical metadata.** The local DataHub still holds the DataFlow
   `rag_fraud_policy` and Feast datasets of earlier projects (`ewallet_rag`,
   `ewallet_rag_campaign`, `ewallet_rag_local`). They were kept. A screenshot

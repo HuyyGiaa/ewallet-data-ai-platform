@@ -76,7 +76,10 @@ def resolve_target(*, online_store: str, publication_base: str, feature_index_re
         raise ValueError(f"redis profile is missing configuration: {missing}")
     project = environment.get("EWALLET_RAG_FEAST_PROJECT", "").strip() or DEFAULT_RAG_PROJECT
     # Explicit database, mode-appropriate database and project; raises before any write.
-    online_target.resolve(environment["EWALLET_REDIS_CONNECTION_STRING"], project=project, environment=environment)
+    resolved = online_target.resolve(environment["EWALLET_REDIS_CONNECTION_STRING"], project=project,
+                                     environment=environment)
+    online_target.check_storage_paths(resolved, registry=environment["EWALLET_RAG_FEAST_REGISTRY"],
+                                      publication_base=publication_base)
     return FeastTarget("redis", project, environment["EWALLET_RAG_FEAST_REGISTRY"], publication_root,
                        environment["EWALLET_REDIS_CONNECTION_STRING"])
 

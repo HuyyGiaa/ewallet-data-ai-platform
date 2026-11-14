@@ -23,6 +23,9 @@ class FakeRedis:
     def get(self, key):
         return self.keys.get(key)
 
+    def dbsize(self):
+        return len(self.keys)
+
     def eval(self, _script, _numkeys, key, value):
         current = self.keys.get(key)
         if current is not None:
@@ -115,6 +118,44 @@ class OwnershipTests(unittest.TestCase):
         result = ot.ensure_ownership(target(db=0, project="ewallet_rag", mode="production"), client, **IDENTITY)
         self.assertEqual(result["claim_status"], "NOT_CLAIMED_PRODUCTION")
         self.assertEqual(set(client.keys), {"production"})
+
+
+class PreviewTests(unittest.TestCase):
+    """The preflight forecast agrees with the claim and never writes."""
+
+    def test_preview_matches_the_claim_outcome_without_writing(self):
+        client = FakeRedis()
+        self.assertEqual(ot.preview_ownership(target(), client, **IDENTITY)["ownership"], "CLAIMABLE_EMPTY")
+        self.assertEqual(client.keys, {})
+        ot.ensure_ownership(target(), client, **IDENTITY)
+        self.assertEqual(ot.preview_ownership(target(), client, **IDENTITY)["ownership"], "OWNED_MATCH")
+        before = dict(client.keys)
+        client.run_id = "run-b"  # restarted Redis (e.g. after a cluster sleep and wake)
+        restarted = ot.preview_ownership(target(), client, **IDENTITY)
+        self.assertEqual((restarted["ownership"], restarted["differing_fields"]), ("CONFLICT", ["target_fingerprint"]))
+        other_registry = ot.preview_ownership(target(), FakeRedis(before), **{**IDENTITY, "registry": "/other.db"})
+        self.assertEqual(other_registry["differing_fields"], ["registry_uri"])
+        self.assertEqual(client.keys, before)
+
+    def test_unowned_keys_are_reported_as_another_workload(self):
+        busy = FakeRedis({"feature-row": b"x"})
+        self.assertEqual(ot.preview_ownership(target(), busy, **IDENTITY)["ownership"], "NONEMPTY_UNOWNED")
+        self.assertEqual(set(busy.keys), {"feature-row"})
+
+
+class StoragePathTests(unittest.TestCase):
+    def test_gcs_paths_of_a_verification_run_carry_its_project(self):
+        verify = target()
+        ot.check_storage_paths(verify, registry="gs://b/features/registries/rag/ewallet_rag_verify/registry.db",
+                               publication_base="gs://b/features/rag/ewallet_rag_verify")
+        production_paths = ("gs://b/features/registries/rag/fraud-policy-feast-v1/registry.db", "gs://b/features/rag")
+        for registry, base in ((production_paths[0], "gs://b/features/rag/ewallet_rag_verify"),
+                               ("gs://b/features/registries/rag/ewallet_rag_verify/registry.db", production_paths[1])):
+            with self.subTest(registry=registry, base=base), self.assertRaisesRegex(ot.RagTargetError, "segment"):
+                ot.check_storage_paths(verify, registry=registry, publication_base=base)
+        ot.check_storage_paths(verify, registry="/home/u/feast/registry.db", publication_base="/work/feast")
+        ot.check_storage_paths(target(db=0, project="ewallet_rag", mode="production"),
+                               registry=production_paths[0], publication_base=production_paths[1])
 
 
 if __name__ == "__main__":

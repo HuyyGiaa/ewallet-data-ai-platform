@@ -411,11 +411,23 @@ class FeastPublicationContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "own Feast project"):
             fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
                               environment={**registry, "EWALLET_REDIS_CONNECTION_STRING": "redis:6379,db=3"})
-        target = fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
-                                   environment={**registry,
-                                                "EWALLET_REDIS_CONNECTION_STRING": "redis:6379,password=s3cret,db=3",
-                                                "EWALLET_RAG_FEAST_PROJECT": "ewallet_rag_verify"})
-        self.assertEqual(target.source_path, "gs://b/rag/v1/chunks.parquet")
+        verify = {"EWALLET_REDIS_CONNECTION_STRING": "redis:6379,password=s3cret,db=3",
+                  "EWALLET_RAG_FEAST_PROJECT": "ewallet_rag_verify"}
+        # Shared GCS paths of a verification run must carry the project segment (no production overwrite).
+        for base, reg in (("gs://b/rag", "gs://b/ewallet_rag_verify/registry.db"),
+                          ("gs://b/rag/ewallet_rag_verify", "gs://b/registry.db"),
+                          ("gs://b/rag/ewallet_rag_verify_x", "gs://b/ewallet_rag_verify/registry.db")):
+            with self.subTest(base=base, registry=reg), self.assertRaisesRegex(ValueError, "path segment"):
+                fp.resolve_target(online_store="redis", publication_base=base, feature_index_revision="v1",
+                                  environment={**verify, "EWALLET_RAG_FEAST_REGISTRY": reg})
+        target = fp.resolve_target(online_store="redis", publication_base="gs://b/rag/ewallet_rag_verify",
+                                   feature_index_revision="v1",
+                                   environment={**verify,
+                                                "EWALLET_RAG_FEAST_REGISTRY": "gs://b/r/ewallet_rag_verify/registry.db"})
+        self.assertEqual(target.source_path, "gs://b/rag/ewallet_rag_verify/v1/chunks.parquet")
+        # Local paths (laptop, CD Pod volume) are private and need no segment.
+        fp.resolve_target(online_store="redis", publication_base="/work/feast", feature_index_revision="v1",
+                          environment={**verify, "EWALLET_RAG_FEAST_REGISTRY": "/work/feast/registry.db"})
         self.assertEqual(target.project, "ewallet_rag_verify")
         production = fp.resolve_target(online_store="redis", publication_base="gs://b/rag", feature_index_revision="v1",
                                        environment={**registry, "EWALLET_RAG_ONLINE_TARGET": "production",
