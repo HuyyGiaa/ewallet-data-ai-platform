@@ -3,9 +3,10 @@
 Dataset `rehearsal-5gb-v1`, campaign `ab-20261110225456`, profile `optimized`,
 bucket `ewallet-data-ai-platform-hg26-rehearsal-5gb-data`. These are raw,
 lightweight copies. Large files (Parquet, history) and every `*.log` (ignored
-by git) stay in the owner's `~/ewallet-evidence/fs-20261112/`. No screenshot here was generated. Rows 11
-and 12 stay open until the owner run in
-[OWNER_START_HERE](../../../../edai2/mlops/references/mlops_serving_runbook.md#owner_start_here--rows-11-and-12-rerun-rehearsal-5gb-v1).
+by git) stay in the owner's `~/ewallet-evidence/fs-20261112/`. No screenshot here was generated.
+The cloud runs that followed are in [`../fs-cloud-20261112/`](../fs-cloud-20261112/README.md)
+and [`../fs12-cloud-20261114/`](../fs12-cloud-20261114/README.md); the system is
+described in [FEATURE_STORE.md](../../../../edai2/mlops/FEATURE_STORE.md).
 
 ## Phase A — immutable Feast snapshot (`phase-a-export/`)
 
@@ -67,4 +68,4 @@ DB 10. The code was commit `2f3a90ff` (`GIT_SHA`).
 
 Digests built from `2f3a90ff` and pushed to `ewallet-platform`. The dry run
 used `feast-online@sha256:af496703…`. The owner run resolves the digests
-for its own `APPROVED_SHA` (OWNER_START_HERE, Step 1).
+for its own source commit ([runbook](../../../../runbooks/edai2/FEATURE_STORE_RUNBOOK.md)).

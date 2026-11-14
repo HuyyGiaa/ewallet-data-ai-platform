@@ -55,8 +55,8 @@ as historical output, not screenshots.
 | 8 | Registry UI with agents | agents/01–05 (NATIVE_UI) | **QUALIFIES** |
 | 9 | Airflow RAG run success + DataHub lineage | — (Jenkins RAG CD and UI-chat citations are not the literal deliverable) | **MISSING** |
 | 10 | DataHub lineage/governance for RAG | — | **MISSING** |
-| 11 | Airflow materialization run | Only K8s Job workloads (12c, HISTORICAL_UI) and a parity JSON view (12d); not Airflow | **MISSING** (literal) |
-| 12 | Streaming push jobs succeeded + data | — | **MISSING** |
+| 11 | Airflow materialization run | feature-store `batch-04` Airflow DagRun 8/8 success and `batch-05` DataHub lineage (NATIVE_UI); `batch-01`–`03`, `06`, `07` (REAL_TERMINAL). Owner captures, inventoried with SHA-256 in [feature-store/screenshots](../evidence/edai2/feature-store/screenshots/README.md), not in the totals above | **QUALIFIES** |
+| 12 | Streaming push jobs succeeded + data | feature-store `stream-01`–`03` Flink Dashboard (NATIVE_UI); `stream-04`–`08` GCS Parquet, offset manifest, Redis keys, consistency report, Jobs Complete (REAL_TERMINAL). Same inventory | **QUALIFIES** |
 | 13 | KFP successful run | mlops/01–03 (NATIVE_UI); 02/03 KFP (HISTORICAL_UI) | **QUALIFIES** |
 | 14 | Model + data versioned in MLflow | mlops/04–08 (NATIVE_UI) | **QUALIFIES** (the alias gap is functional, not a screenshot gap) |
 | 15 | KServe pod + successful call | N15 live terminal: Ready predictor, V2 metadata, prediction 200 + correlated log; historical UI retained | **QUALIFIES**; parity not inferred |

@@ -26,6 +26,7 @@ runbook. They are not part of the current 5GB workflow.
 
 | Component | Runbook | Executes | Prerequisites and runtime | Notes |
 |---|---|---|---|---|
+| Feature Store | [Feature Store runbook](edai2/FEATURE_STORE_RUNBOOK.md) | Feast snapshot check, IAM probe, Airflow incremental materialization with DataHub lineage, streaming Offline/Online campaign and consistency report, cleanup and sleep | GKE via DNS endpoint, digest-pinned images, conditional bucket IAM, empty Redis DBs; every command labelled by safety class | Verified on GKE 2026-11-12 and 2026-11-14 |
 | Feast/PIT boundary | [Cloud Feast training snapshot](../edai2/mlops/references/cloud_feast_training_snapshot.md) | Registry readback, PIT validation, bounded snapshot workflow | Immutable registry/data manifests and explicit cloud gate | Bounded, approval-gated procedure |
 | ML training snapshot | [ML2 operator runbook](../ml/ml2_training_snapshot_operator_runbook.md) | Source-controlled snapshot/training boundary | Feast gates, exact Git/data identity | Bounded, approval-gated procedure |
 | MLflow/F9 | [Canonical F9 and MLflow](../edai2/mlops/references/f9_mlflow_canonical.md) | Four-model experiment and tracking | Complete snapshot, MLflow, image identity | Bounded, approval-gated procedure |

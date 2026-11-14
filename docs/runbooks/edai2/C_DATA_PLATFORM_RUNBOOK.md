@@ -8,14 +8,14 @@ Every section marks commands **READ-ONLY** or **MUTATING**. Run nothing marked M
 matching experiment in [section 7](#7-cloud-approval-package) is approved. A step's result counts
 as evidence only when it ran against the real component named in that step.
 
-> **Rows 11–12 Step 2 update (2026-11-11):** Sections 2 and 3 below preserve the
-> earlier C1/C2 campaign record; their seven-task, accepted-event-only commands
-> are superseded and must not be executed for new evidence. Use the single
-> current [Feature Store evidence procedure](../../edai2/mlops/references/mlops_serving_runbook.md#3-feature-store-evidence-run-rows-11-and-12),
-> which covers the eight-task DataHub stage, approved Redis target/capacity
-> checks, immutable Offline Parquet writer, genuine Feast historical query and
-> FS11/FS12 evidence IDs. In particular, do not create/delete Redis Secrets or
-> flush DB 1 from this historical procedure.
+> **Superseded (Feature Store).** Sections 2 and 3 below preserve the earlier
+> C1/C2 campaign record; their seven-task, accepted-event-only commands must not
+> be executed for new evidence. Use the [Feature Store runbook](FEATURE_STORE_RUNBOOK.md),
+> which covers the eight-task DAG with DataHub, the Redis target and capacity
+> checks, the create-only Offline Parquet writer and the genuine Feast historical
+> query. Do not create or delete Redis Secrets or flush DB 1 from this
+> historical procedure. Section 3.1 (local rehearsal) is still the way to run
+> the streaming stack locally.
 
 ## 1. Shared setup
 

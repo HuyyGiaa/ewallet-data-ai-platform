@@ -104,7 +104,7 @@ logic, and runtime claims are tied to preserved reports and evidence.
 | Docker image (5GB verifier) | **396.9 → 44.2 MB** content (−88.87 %) | 95.8 % from the slim base, 4.2 % from multi-stage packaging; same 45-check fingerprint; [Docker report](docs/edai1/docker/DOCKER_OPTIMIZATION.md) |
 | Delta partition pruning (5GB) | **7 of 151 files, 3.0–3.3× faster** | Compaction was a no-op and Z-order was not adopted (no I/O reduction); isolated Dataproc clones; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
 | PostgreSQL index (5GB) | **174.073 → 0.108 ms** median | Covering B-tree on 3.8 M real Gold rows, +17 % WAL; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
-| Feast Offline/Online parity | **155/155 comparisons** | 31 features, zero mismatches; [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
+| Feature Store consistency (5GB) | **0 mismatches** | Airflow incremental window read back from Redis (155 comparisons); streaming Offline↔Online on GKE (203 comparisons, 26/26 point-in-time); [Feature Store](docs/edai2/mlops/FEATURE_STORE.md) |
 | Kubeflow training | **Successful six-stage pipeline** | Run `dc29f5cc-cc9e-49ae-b861-eacddd6269b5`; [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
 | KServe inference | **HTTP 200 fraud predictions** | Baked model version 1 in a digest-pinned image; [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
 | PIT leakage validation | **310/310, zero mismatches** | 10 cases × 31 features, labels excluded; [PIT report](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
@@ -227,10 +227,11 @@ and inference inputs:
 - **KServe** runs the selected model inside an immutable predictor image. The
   Fraud API assembles online features and calls the private V2 inference path.
 
-The verified campaign includes two Feast materialization windows, 155 parity
-comparisons with zero mismatches, one successful Kubeflow run, MLflow model
-registration, a ready KServe InferenceService, and successful fraud prediction
-responses. The complete run identities and evidence are in the
+The Feature Store's batch and streaming paths are verified on GKE with the
+5GB dataset; see the [Feature Store](docs/edai2/mlops/FEATURE_STORE.md) report.
+The training and serving campaign includes one successful Kubeflow run, MLflow
+model registration, a ready KServe InferenceService, and successful fraud
+prediction responses. The complete run identities and evidence are in the
 [ML pipeline report](docs/edai2/mlops/ML_PIPELINE_SERVING.md).
 
 ---
@@ -385,7 +386,8 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 |---|---|
 | Overview | [EDAI-2 index](docs/edai2/README.md) |
 | LLM serving, gateway, ModelConfig, benchmarks | [LLM Inference Platform](docs/edai2/llm/LLM_PLATFORM.md), [LLM Benchmark Results](docs/edai2/llm/BENCHMARK_RESULTS.md) |
-| Feature store, training, registry, serving | [ML Pipeline and Serving](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
+| Feature store | [Feature Store](docs/edai2/mlops/FEATURE_STORE.md), [runbook](docs/runbooks/edai2/FEATURE_STORE_RUNBOOK.md) |
+| Training, registry, serving | [ML Pipeline and Serving](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
 | Agents, MCP tools, registry, gateways | [Agents and Gateways](docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md) |
 | RAG | [RAG Knowledge Pipeline](docs/edai2/rag/RAG_PIPELINE.md) |
 | Testing | [Testing and Continuous Verification](docs/edai2/testing/TESTING.md) |

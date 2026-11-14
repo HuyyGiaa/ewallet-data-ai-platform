@@ -41,79 +41,27 @@ Training never reads from the online store, and serving never recomputes histori
 
 ## 3. Feature store
 
-### 3.1 Offline store and feature definitions
+The Feature Store has its own document: [FEATURE_STORE.md](FEATURE_STORE.md).
+The procedure is in the [Feature Store runbook](../../runbooks/edai2/FEATURE_STORE_RUNBOOK.md).
+In brief:
 
-The offline store is an immutable Parquet projection of the four Gold feature tables produced by DP3. Four FeatureViews expose **31 historical model features**:
-
-| Entity | Features |
-|---|---:|
-| User | 9 |
-| Account | 10 |
-| Device | 5 |
-| Merchant | 7 |
-
-Every row keeps its UTC microsecond `event_timestamp`. Entity frames for training contain only join keys and timestamps. Labels are attached only after point-in-time retrieval, so they can never leak into a feature.
-
-| Contract | Value |
-|---|---|
-| Source dataset | `canonical-100gb-v1` |
-| Feature run | `ab-20261025134342-optimized-feat-r261026025955` |
-| Training snapshot | `training-20261031-151638-ml2`, manifest SHA-256 `bb311b82…` |
-| Snapshot rows | 37,048: train 25,870, validation 5,613, test 5,565, split chronologically |
-
-Source: [`ai_platform/features/feast/`](../../../ai_platform/features/feast). The FeatureViews are in `feature_repo/`; point-in-time validation is in `validation/`.
-
-### 3.2 Online store and materialization
-
-The online repository uses a registry stored in GCS and a Redis online store. Its credentials come from a Kubernetes Secret.
-
-The operator [`online_operator.py`](../../../ai_platform/features/feast/online_operator.py) exposes four separate, fail-closed commands:
-
-- `apply`;
-- bounded `materialize`;
-- `materialize-incremental`;
-- `parity`.
-
-Each command runs as a Kubernetes Job ([`scripts/mlops/feast_online_job.sh`](../../../scripts/mlops/feast_online_job.sh)) and records the registry generation before and after it mutates anything.
-
-**Execution:**
-
-1. An initial materialization loaded the window `[22:00, 23:00)` UTC for all four FeatureViews.
-2. `materialize-incremental` then loaded `[23:00, 00:00)`, from 16:57:41 to 17:09:01 UTC. It advanced the registry generation from `1793465841581107` to `1793466541482990`.
-3. A parity job compared online values with the offline snapshot for 5 entities per FeatureView: **155 comparisons over 31 features, 0 mismatches**. A deliberately unknown entity was also checked to return all-null features.
-
-![Feast jobs in the GKE console](../../evidence/cloud/mlops-campaign-20261031/screenshots/12c_feast_materialization_jobs.png)
-
-*Google Cloud console, Kubernetes Engine → Workloads, namespace `ml-platform`. The Feast Jobs `feast-apply`, `feast-mat`, `feast-inc` (incremental) and `feast-parity` all completed (OK). The serving Deployments `fraud-api` and `mlflow` run alongside them.*
-
-![Feast parity result](../../evidence/cloud/mlops-campaign-20261031/screenshots/12d_feast_online_parity_result.png)
-
-*The parity job's result (`command: parity`): 155 comparisons, 31 historical features, `mismatch_count: 0`, source commit `a1e7df56…`.*
-
-### 3.3 Rows 11 and 12 on the 5 GB rehearsal (2026-11-12, runtime verified, owner screenshots pending)
-
-This work runs on `rehearsal-5gb-v1`, from the DP3 output of campaign `ab-20261110225456` (profile `optimized`). Raw files are in [`fs-cloud-20261112/`](../../evidence/edai2/feature-store/fs-cloud-20261112/README.md) (GKE/GCS run) and [`fs-20261112/`](../../evidence/edai2/feature-store/fs-20261112/README.md) (export, retrieval, local Row 12). The owner procedure is [OWNER_START_HERE](references/mlops_serving_runbook.md#owner_start_here--rows-11-and-12-rerun-rehearsal-5gb-v1).
-
-| Step | Where it ran | Result |
-|---|---|---|
-| Export the four DP3 Gold tables to an immutable Feast snapshot | laptop → GCS | `feast-r5gb-20261111-214544`: 63,238,144 rows, 31 features, Delta version 0, UTC microsecond `event_timestamp`, `created` excluded; manifest SHA-256 `3aa7e2f2…2bca`; independent re-count PASS |
-| Genuine `FeatureStore.get_historical_features()` on that snapshot | laptop, reading GCS | PASS: 20 rows, 155 comparisons, 0 mismatches, 0 tied rows ([`snapshot_retrieval.py`](../../../ai_platform/features/feast/validation/snapshot_retrieval.py)) |
-| Row 11 dry-run DagRun `manual__fs11-dry-20261112T065621Z` | isolated Airflow 3.3.1 (own home and DB, port 8094) | `success`, 8/8 tasks; manifest digest checked, Job manifests rendered, DataHub records rendered, not published |
-| Row 12 local run `verify-fs12-local-20261112062709` | real Redpanda, Flink, writers, Feast and Redis in Docker | PASS: 24 entities, 189 direct comparisons, 0 mismatches, offline PIT 24/24, report digest VALID |
-| Row 12 replay of the same topics | same stack | PASS again; Offline Parquet files unchanged, 24 Redis keys unchanged, 16 history repeats dropped |
-| **Row 11 execute DagRun `manual__fs11-20261112T084109Z`** | isolated Airflow 3.3.1 → Feast operator Jobs on GKE → Redis DB 2 → DataHub | `success` 8/8. `NEW_WINDOW` `[2026-05-31 18:00, 23:00)` after a base load of `[12:00, 18:00)`. All four views advanced to 23:00. Registry generation `1794472043803171 → 1794473045394725`. Redis readback: 155 comparisons, 0 mismatches. DataHub lineage published and read back (`PASS`, 7 aspects `MATCH`) |
-| **Row 12 GKE campaign `verify-fs12-20261112084123`** | Redpanda → Flink job `156d3b7e…` → Offline Parquet on GCS and Feast Online on Redis DB 8 | 26 entities, 203 features compared, 0 mismatches; offline `PIT_VALUES_VERIFIED` 26/26; direct comparison PASS; report digest VALID (`check-report` PASS) |
-
-Two fixes came from these runs:
-
-- Feast `get_online_features` reports whole seconds, so the direct comparison now reads the exact stored timestamp through the provider.
-- The GCS Delta reader now retries a broken response body.
-
-Rows 11 and 12 also each get their own Redis Secret and database range, separate from DB 0 (production) and DB 1 (`canonical-verify`).
-
-**Access used.** GKE was reached through its IAM-authenticated DNS endpoint, so the authorized networks were not changed. The Jobs' identity `ewallet-training` received three bucket bindings, each conditioned on a prefix and expiring 2026-11-27. A Workload Identity probe proved that reads work and that writes outside the verification prefixes are refused. The cluster was woken to 5 nodes for about 55 minutes and put back to sleep at 0.
-
-**Still open.** Replay was not run on GKE because the cloud runner has no replay command; it was proven locally. Rows 11 and 12 count only after the owner captures the screenshots ([OWNER_START_HERE](references/mlops_serving_runbook.md#owner_start_here--rows-11-and-12-rerun-rehearsal-5gb-v1), Step 6).
+- **Offline.** An immutable Parquet snapshot of the four DP3 Gold feature
+  tables of the 5 GB dataset (`rehearsal-5gb-v1`). It holds 63,238,144 rows
+  and 31 features in four FeatureViews (user 9, account 10, device 5,
+  merchant 7), each row with a UTC microsecond `event_timestamp`. Training
+  examples are joined to it point-in-time; labels are attached only after
+  retrieval.
+- **Online.** Redis, written through Feast. Each run claims its own database,
+  isolated from production.
+- **Batch.** The Airflow DAG `feast_incremental_materialization` loads one
+  bounded window at a time through Kubernetes Jobs. It reads the result back
+  from Redis and publishes the lineage to DataHub. On GKE: 8/8 tasks,
+  `NEW_WINDOW` 18:00 → 23:00 UTC, 155 Online comparisons, 0 mismatches.
+- **Streaming.** Flink computes the same 31 features from Redpanda. Separate
+  writer Jobs persist every update to Offline Parquet and to Feast Online, and a
+  validator compares both stores with a recomputation from the source events.
+  On GKE: 26 entities, 203 comparisons, 0 mismatches, 26/26 point-in-time
+  values verified.
 
 ## 4. Training pipeline (Kubeflow Pipelines)
 
@@ -263,6 +211,5 @@ UI evidence for row 15. The N13 transcript is supporting evidence only.
 
 ## 7. Limitations
 
-- **Orchestration.** The independent `feast_incremental_materialization` Airflow DAG now validates the snapshot, determines one bounded window, runs/joins the Kubernetes operator, verifies Redis readback, records provenance and publishes verified DataHub lineage in eight ordered tasks. This is source-implemented and locally tested; no Step 2 cloud DagRun or live DataHub publication was performed. See the [owner runbook](references/mlops_serving_runbook.md#32-row-11--incremental-materialization-and-datahub).
-- **Streaming features.** Flink emits complete FeatureView updates. Independent, stable Kafka consumer groups now write create-only Parquet rows to a campaign/run-scoped Feast Offline path and push the same updates to Feast Online; the validator performs genuine `get_historical_features` retrieval, independently derives the authoritative latest eligible Parquet row, and fails closed when identical values make Feast's selected source-row identity ambiguous. This implementation has local test coverage but has not been run against the deployed GCS/Redis targets. The offline writer is a separate Job, not part of the Flink Job Graph. See the [owner runbook](references/mlops_serving_runbook.md#33-row-12--streaming-offline-and-online-integration).
+- **Feature Store.** See [FEATURE_STORE.md §11](FEATURE_STORE.md#11-limitations-and-future-improvements).
 - **Model promotion.** The registry assigns the `candidate` alias automatically. A `latest` or `production` alias is not assigned automatically, because production promotion is designed as a reviewed step.

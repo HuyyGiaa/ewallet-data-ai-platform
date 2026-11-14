@@ -1,0 +1,192 @@
+{
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "metadata": {
+        "annotations": {
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1\",\"kind\":\"Job\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/part-of\":\"ewallet-block-a\",\"ewallet.block-a/namespace\":\"verify-fs12-20261114063323\"},\"name\":\"block-a-validate\",\"namespace\":\"ml-platform\"},\"spec\":{\"activeDeadlineSeconds\":1800,\"backoffLimit\":0,\"template\":{\"metadata\":{\"labels\":{\"app.kubernetes.io/component\":\"block-a-validate\",\"app.kubernetes.io/name\":\"feast-online-operator\",\"app.kubernetes.io/part-of\":\"ewallet-block-a\",\"ewallet.block-a/namespace\":\"verify-fs12-20261114063323\"}},\"spec\":{\"containers\":[{\"args\":[\"sh\",\"-c\",\"python -m data_platform.streaming.verification.cli publish --bootstrap-servers block-a-redpanda.ml-platform.svc.cluster.local:29092 --namespace verify-fs12-20261114063323 --profile baseline --manifest /tmp/manifest.json --create-topics-only \\u0026\\u0026 python -m data_platform.streaming.verification.cli validate --bootstrap-servers block-a-redpanda.ml-platform.svc.cluster.local:29092 --namespace verify-fs12-20261114063323 --manifest /tmp/manifest.json --history-root gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261114063323 --offline-feature-root gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261114063323/runs/verify-fs12-20261114063323/offline --campaign-id verify-fs12-20261114063323 --run-id verify-fs12-20261114063323 --feast-repo ai_platform/features/feast/online_repo --report /tmp/report.json \\u003e/tmp/validator-summary.json; status=$?; cat /tmp/validator-summary.json \\u003e\\u00262; if [ -f /tmp/report.json ]; then printf 'EWALLET_CONSISTENCY_REPORT='; tr -d '\\n' \\u003c/tmp/report.json; printf '\\n'; fi; exit $status\"],\"env\":[{\"name\":\"EWALLET_FEAST_REGISTRY\",\"value\":\"gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261114063323/registry.db\"},{\"name\":\"EWALLET_FEAST_OFFLINE_DATA_ROOT\",\"value\":\"gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261114063323/runs/verify-fs12-20261114063323/offline\"},{\"name\":\"EWALLET_OFFLINE_FEATURE_ROOT\",\"value\":\"gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features\"},{\"name\":\"EWALLET_HISTORY_ROOT\",\"value\":\"gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261114063323\"},{\"name\":\"EWALLET_GIT_SHA\",\"value\":\"6e3a81b1e847439226fba9d5778988ed6be5995b\"},{\"name\":\"EWALLET_ONLINE_STORE_ID\",\"value\":\"rehearsal-stream\"},{\"name\":\"EWALLET_EXECUTION_POLICY\",\"value\":\"verification\"},{\"name\":\"EWALLET_REDIS_CAMPAIGN_ID\",\"value\":\"verify-fs12-20261114063323\"},{\"name\":\"EWALLET_DATASET_VERSION\",\"value\":\"rehearsal-5gb-v1\"},{\"name\":\"EWALLET_FEATURE_RUN_ID\",\"value\":\"ab-20261110225456-optimized-feat-r261110225459\"},{\"name\":\"EWALLET_SNAPSHOT_ID\",\"value\":\"feast-r5gb-20261111-214544\"},{\"name\":\"EWALLET_REDIS_SECRET_NAME\",\"value\":\"feast-online-redis-stream\"},{\"name\":\"EWALLET_ESTIMATED_REDIS_BYTES\",\"value\":\"10000000\"},{\"name\":\"HOME\",\"value\":\"/tmp\"},{\"name\":\"EWALLET_REDIS_CONNECTION_STRING\",\"valueFrom\":{\"secretKeyRef\":{\"key\":\"connection_string\",\"name\":\"feast-online-redis-stream\"}}}],\"image\":\"asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:3d227ba938fc4236d1ce1538db0b9fd5d2359b84ab44ecd274d0cd906aa52603\",\"name\":\"step\",\"resources\":{\"limits\":{\"cpu\":\"1\",\"memory\":\"1536Mi\"},\"requests\":{\"cpu\":\"250m\",\"memory\":\"768Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]}}}],\"nodeSelector\":{\"iam.gke.io/gke-metadata-server-enabled\":\"true\"},\"restartPolicy\":\"Never\",\"securityContext\":{\"runAsNonRoot\":true,\"runAsUser\":65532,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"serviceAccountName\":\"training\"}},\"ttlSecondsAfterFinished\":86400}}\n"
+        },
+        "creationTimestamp": "2026-11-14T07:15:59Z",
+        "generation": 1,
+        "labels": {
+            "app.kubernetes.io/part-of": "ewallet-block-a",
+            "ewallet.block-a/namespace": "verify-fs12-20261114063323"
+        },
+        "name": "block-a-validate",
+        "namespace": "ml-platform",
+        "resourceVersion": "1794640606360063016",
+        "uid": "e22ab9e1-186e-4fae-aad3-a8c48447e61c"
+    },
+    "spec": {
+        "activeDeadlineSeconds": 1800,
+        "backoffLimit": 0,
+        "completionMode": "NonIndexed",
+        "completions": 1,
+        "manualSelector": false,
+        "parallelism": 1,
+        "podReplacementPolicy": "TerminatingOrFailed",
+        "selector": {
+            "matchLabels": {
+                "batch.kubernetes.io/controller-uid": "e22ab9e1-186e-4fae-aad3-a8c48447e61c"
+            }
+        },
+        "suspend": false,
+        "template": {
+            "metadata": {
+                "labels": {
+                    "app.kubernetes.io/component": "block-a-validate",
+                    "app.kubernetes.io/name": "feast-online-operator",
+                    "app.kubernetes.io/part-of": "ewallet-block-a",
+                    "batch.kubernetes.io/controller-uid": "e22ab9e1-186e-4fae-aad3-a8c48447e61c",
+                    "batch.kubernetes.io/job-name": "block-a-validate",
+                    "controller-uid": "e22ab9e1-186e-4fae-aad3-a8c48447e61c",
+                    "ewallet.block-a/namespace": "verify-fs12-20261114063323",
+                    "job-name": "block-a-validate"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "args": [
+                            "sh",
+                            "-c",
+                            "python -m data_platform.streaming.verification.cli publish --bootstrap-servers block-a-redpanda.ml-platform.svc.cluster.local:29092 --namespace verify-fs12-20261114063323 --profile baseline --manifest /tmp/manifest.json --create-topics-only \u0026\u0026 python -m data_platform.streaming.verification.cli validate --bootstrap-servers block-a-redpanda.ml-platform.svc.cluster.local:29092 --namespace verify-fs12-20261114063323 --manifest /tmp/manifest.json --history-root gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261114063323 --offline-feature-root gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261114063323/runs/verify-fs12-20261114063323/offline --campaign-id verify-fs12-20261114063323 --run-id verify-fs12-20261114063323 --feast-repo ai_platform/features/feast/online_repo --report /tmp/report.json \u003e/tmp/validator-summary.json; status=$?; cat /tmp/validator-summary.json \u003e\u00262; if [ -f /tmp/report.json ]; then printf 'EWALLET_CONSISTENCY_REPORT='; tr -d '\n' \u003c/tmp/report.json; printf '\n'; fi; exit $status"
+                        ],
+                        "env": [
+                            {
+                                "name": "EWALLET_FEAST_REGISTRY",
+                                "value": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261114063323/registry.db"
+                            },
+                            {
+                                "name": "EWALLET_FEAST_OFFLINE_DATA_ROOT",
+                                "value": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261114063323/runs/verify-fs12-20261114063323/offline"
+                            },
+                            {
+                                "name": "EWALLET_OFFLINE_FEATURE_ROOT",
+                                "value": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features"
+                            },
+                            {
+                                "name": "EWALLET_HISTORY_ROOT",
+                                "value": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261114063323"
+                            },
+                            {
+                                "name": "EWALLET_GIT_SHA",
+                                "value": "6e3a81b1e847439226fba9d5778988ed6be5995b"
+                            },
+                            {
+                                "name": "EWALLET_ONLINE_STORE_ID",
+                                "value": "rehearsal-stream"
+                            },
+                            {
+                                "name": "EWALLET_EXECUTION_POLICY",
+                                "value": "verification"
+                            },
+                            {
+                                "name": "EWALLET_REDIS_CAMPAIGN_ID",
+                                "value": "verify-fs12-20261114063323"
+                            },
+                            {
+                                "name": "EWALLET_DATASET_VERSION",
+                                "value": "rehearsal-5gb-v1"
+                            },
+                            {
+                                "name": "EWALLET_FEATURE_RUN_ID",
+                                "value": "ab-20261110225456-optimized-feat-r261110225459"
+                            },
+                            {
+                                "name": "EWALLET_SNAPSHOT_ID",
+                                "value": "feast-r5gb-20261111-214544"
+                            },
+                            {
+                                "name": "EWALLET_REDIS_SECRET_NAME",
+                                "value": "feast-online-redis-stream"
+                            },
+                            {
+                                "name": "EWALLET_ESTIMATED_REDIS_BYTES",
+                                "value": "10000000"
+                            },
+                            {
+                                "name": "HOME",
+                                "value": "/tmp"
+                            },
+                            {
+                                "name": "EWALLET_REDIS_CONNECTION_STRING",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "connection_string",
+                                        "name": "feast-online-redis-stream"
+                                    }
+                                }
+                            }
+                        ],
+                        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:3d227ba938fc4236d1ce1538db0b9fd5d2359b84ab44ecd274d0cd906aa52603",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "step",
+                        "resources": {
+                            "limits": {
+                                "cpu": "1",
+                                "memory": "1536Mi"
+                            },
+                            "requests": {
+                                "cpu": "250m",
+                                "memory": "768Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            }
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "nodeSelector": {
+                    "iam.gke.io/gke-metadata-server-enabled": "true"
+                },
+                "restartPolicy": "Never",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "runAsNonRoot": true,
+                    "runAsUser": 65532,
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "serviceAccount": "training",
+                "serviceAccountName": "training",
+                "terminationGracePeriodSeconds": 30
+            }
+        },
+        "ttlSecondsAfterFinished": 86400
+    },
+    "status": {
+        "completionTime": "2026-11-14T07:16:46Z",
+        "conditions": [
+            {
+                "lastProbeTime": "2026-11-14T07:16:46Z",
+                "lastTransitionTime": "2026-11-14T07:16:46Z",
+                "message": "Reached expected number of succeeded pods",
+                "reason": "CompletionsReached",
+                "status": "True",
+                "type": "SuccessCriteriaMet"
+            },
+            {
+                "lastProbeTime": "2026-11-14T07:16:46Z",
+                "lastTransitionTime": "2026-11-14T07:16:46Z",
+                "message": "Reached expected number of succeeded pods",
+                "reason": "CompletionsReached",
+                "status": "True",
+                "type": "Complete"
+            }
+        ],
+        "ready": 0,
+        "startTime": "2026-11-14T07:15:59Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+    }
+}
