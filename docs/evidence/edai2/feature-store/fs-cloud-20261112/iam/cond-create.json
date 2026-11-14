@@ -1,0 +1,5 @@
+{
+ "title": "fs-verify-create-20261112",
+ "description": "Create-only streaming Parquet and history and IAM probe prefixes until 2026-11-27",
+ "expression": "(request.time < timestamp(\"2026-11-27T00:00:00Z\")) && (resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-rehearsal-5gb-data/objects/streaming-features/campaigns/verify-fs12-\") || resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-rehearsal-5gb-data/objects/streaming-history/verify-fs12-\") || resource.name.startsWith(\"projects/_/buckets/ewallet-data-ai-platform-hg26-rehearsal-5gb-data/objects/features/_iam-probe/\"))"
+}

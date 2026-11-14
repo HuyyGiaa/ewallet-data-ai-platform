@@ -1,0 +1,103 @@
+{
+  "ambiguous_entities": 0,
+  "as_of": "2026-05-20T12:00:00.500000+00:00",
+  "comparisons": 155,
+  "dataset_version": "rehearsal-5gb-v1",
+  "historical_features": 31,
+  "manifest_sha256": "3aa7e2f2b017d7375eaa506974562929c0983077edfa3825a2babb9a81ed2bca",
+  "method": "Feast FeatureStore.get_historical_features (dask, bounded scan) vs the latest Parquet row <= as_of per entity",
+  "mismatch_count": 0,
+  "rows_retrieved": 20,
+  "sample_window_start": "2026-05-20T06:00:00.500000+00:00",
+  "schema_version": "feast-snapshot-retrieval-v1",
+  "snapshot_id": "feast-r5gb-20261111-214544",
+  "snapshot_root": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544",
+  "source_feature_run_id": "ab-20261110225456-optimized-feat-r261110225459",
+  "status": "PASS",
+  "views": [
+    {
+      "ambiguous_entities": [],
+      "entities": [
+        "4167deb3-efbc-4681-a4f1-a0cbbca27a5a",
+        "a7adf477-5788-4a4c-bfe4-222dd9800532",
+        "ed965d3b-387e-4f00-b532-92b06c7d68e3",
+        "0e03e0b1-bc1f-4616-9ce7-2b80268a005c",
+        "db207212-a2c8-4a2b-b03d-2bcb2798913e"
+      ],
+      "entity_key": "user_id",
+      "features_per_entity": 9,
+      "mismatches": [],
+      "selected_event_timestamps": [
+        "2026-05-20T09:02:33.922152+00:00",
+        "2026-05-20T08:55:21.542924+00:00",
+        "2026-05-20T07:01:20.898190+00:00",
+        "2026-05-20T09:07:32.562267+00:00",
+        "2026-05-20T09:43:29.961968+00:00"
+      ],
+      "view": "user_behavior"
+    },
+    {
+      "ambiguous_entities": [],
+      "entities": [
+        "848590cc-6c27-4b4c-8fa6-4ec737a4a1d7",
+        "ea1eaa40-3462-40a9-a48c-c8ac21925274",
+        "12e42f8a-81c7-489a-a69e-914f7aa2d682",
+        "82eb4a3b-b571-4e46-9552-dc4bbe439e0e",
+        "0ead0b5a-4bb1-4bc4-b056-43d531f19f71"
+      ],
+      "entity_key": "account_id",
+      "features_per_entity": 10,
+      "mismatches": [],
+      "selected_event_timestamps": [
+        "2026-05-20T09:14:28.999493+00:00",
+        "2026-05-20T08:27:51.667357+00:00",
+        "2026-05-20T07:22:41.164508+00:00",
+        "2026-05-20T09:32:08.637237+00:00",
+        "2026-05-20T08:19:57.595686+00:00"
+      ],
+      "view": "account_behavior"
+    },
+    {
+      "ambiguous_entities": [],
+      "entities": [
+        "d49d0e79-7c69-49f1-8b30-738e53d62bc0",
+        "e39b78c9-b6f2-4b07-b840-9483577f3aaa",
+        "76c09343-d11b-4f94-a49e-c7657d977d01",
+        "752722c3-375a-41b7-af02-c9309633334a",
+        "5309635d-2c45-4470-aaf5-f6d66a1af559"
+      ],
+      "entity_key": "device_id",
+      "features_per_entity": 5,
+      "mismatches": [],
+      "selected_event_timestamps": [
+        "2026-05-20T09:25:03.807588+00:00",
+        "2026-05-20T08:29:06.660761+00:00",
+        "2026-05-20T08:15:53.686688+00:00",
+        "2026-05-20T07:28:11.595675+00:00",
+        "2026-05-20T07:48:24.276541+00:00"
+      ],
+      "view": "device_behavior"
+    },
+    {
+      "ambiguous_entities": [],
+      "entities": [
+        "fec11f3b-f9ea-4c1e-a2ea-62201fa4374f",
+        "c9a454db-76e9-427e-baca-7888003f2609",
+        "f0fb08c1-e4ec-4b88-af6b-40e2ea668ab4",
+        "92a6d579-4c75-4245-87cc-dfcc35905327",
+        "e5faf82e-91c2-4bb5-9cf0-4500fc2a367b"
+      ],
+      "entity_key": "merchant_id",
+      "features_per_entity": 7,
+      "mismatches": [],
+      "selected_event_timestamps": [
+        "2026-05-20T07:44:54.331693+00:00",
+        "2026-05-20T08:45:58.443852+00:00",
+        "2026-05-20T11:11:30.019680+00:00",
+        "2026-05-20T07:54:33.721063+00:00",
+        "2026-05-20T09:53:26.872531+00:00"
+      ],
+      "view": "merchant_behavior"
+    }
+  ]
+}

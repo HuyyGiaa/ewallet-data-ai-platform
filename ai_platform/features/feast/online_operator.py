@@ -167,7 +167,7 @@ def _authorized_target(connection_string: str) -> tuple[str, object, dict[str, o
         os.environ["EWALLET_REDIS_SECRET_NAME"] != binding["redis_secret"]
         or host != binding["redis_host"]
         or port != binding["redis_port"]
-        or database != binding["redis_db"]
+        or database not in binding["redis_dbs"]
         or os.environ["EWALLET_DATASET_VERSION"] not in binding["dataset_versions"]
     ):
         raise RedisIsolationError("Online Store target differs from the approved binding")

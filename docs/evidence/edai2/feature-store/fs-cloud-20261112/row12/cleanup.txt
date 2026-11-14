@@ -1,0 +1,12 @@
+job.batch "block-a-feast" deleted from ml-platform namespace
+job.batch "block-a-history" deleted from ml-platform namespace
+job.batch "block-a-offline" deleted from ml-platform namespace
+job.batch "block-a-publish" deleted from ml-platform namespace
+job.batch "block-a-topics" deleted from ml-platform namespace
+job.batch "block-a-validate" deleted from ml-platform namespace
+deployment.apps "block-a-flink-jobmanager" deleted from ml-platform namespace
+deployment.apps "block-a-flink-taskmanager" deleted from ml-platform namespace
+deployment.apps "block-a-redpanda" deleted from ml-platform namespace
+service "block-a-flink-jobmanager" deleted from ml-platform namespace
+service "block-a-redpanda" deleted from ml-platform namespace
+configmap "block-a-flink" deleted from ml-platform namespace

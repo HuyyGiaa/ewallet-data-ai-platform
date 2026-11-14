@@ -1,0 +1,62 @@
+{
+  "aspect_results": [
+    {
+      "aspect": "dataFlowInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataFlow:(airflow,feast_incremental_materialization,ewallet-gcp)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,feast_incremental_materialization,ewallet-gcp),materialize_window)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,feast_incremental_materialization,ewallet-gcp),materialize_window)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/account_behavior,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/device_behavior,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/merchant_behavior,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/user_behavior,PROD)"
+    }
+  ],
+  "dag_run_id": "manual__fs11-20261112T084109Z",
+  "dataset_version": "rehearsal-5gb-v1",
+  "online_store_id": "rehearsal-online",
+  "published_urns": [
+    "urn:li:dataFlow:(airflow,feast_incremental_materialization,ewallet-gcp)",
+    "urn:li:dataJob:(urn:li:dataFlow:(airflow,feast_incremental_materialization,ewallet-gcp),materialize_window)",
+    "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/account_behavior,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/device_behavior,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/merchant_behavior,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:feast,feast://rehearsal-online/rehearsal-5gb-v1/fs11-r5gb-20261112/user_behavior,PROD)"
+  ],
+  "recorded_at": "2026-11-12T08:55:29.732756+00:00",
+  "run_fingerprint": "07ca28e92882104a1e7fe9e3f736941dd3f801bc94ee808038cf0e3de317c3bd",
+  "run_id": "manual__fs11-20261112T084109Z",
+  "semantic_readback": {
+    "mismatches": 0,
+    "verified": 7
+  },
+  "snapshot_id": "feast-r5gb-20261111-214544",
+  "stage": "datahub",
+  "status": "PASS",
+  "verification_status": "PASS",
+  "window_id": "ff31f721d1f8"
+}

@@ -1,0 +1,3 @@
+used_memory:52814592
+maxmemory:805306368
+maxmemory_policy:noeviction

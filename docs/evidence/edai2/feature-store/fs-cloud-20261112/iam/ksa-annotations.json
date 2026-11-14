@@ -1,0 +1,1 @@
+{"iam.gke.io/gcp-service-account":"ewallet-training@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com","kubectl.kubernetes.io/last-applied-configuration":"{\"apiVersion\":\"v1\",\"automountServiceAccountToken\":true,\"kind\":\"ServiceAccount\",\"metadata\":{\"annotations\":{},\"name\":\"training\",\"namespace\":\"ml-platform\"}}\n"}

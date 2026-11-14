@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import base64
 import hashlib
 import json
 import subprocess
@@ -233,7 +234,7 @@ case "$*" in
     esac
     ;;
   *"rollout status"*) exit "${FAKE_ROLLOUT_STATUS:-0}" ;;
-  *"get secret"*"data.connection_string"*) printf '%s' 'cmVkaXMuZmVhdHVyZS1zdG9yZS5zdmMuY2x1c3Rlci5sb2NhbDo2Mzc5LGRiPTE=' ;;
+  *"get secret"*"data.connection_string"*) printf '%s' "${FAKE_REDIS_CONNECTION_B64:-cmVkaXMuZmVhdHVyZS1zdG9yZS5zdmMuY2x1c3Rlci5sb2NhbDo2Mzc5LGRiPTE=}" ;;
   *"get secret"*"metadata.resourceVersion"*) printf '%s' 'resource-version-1' ;;
   *"INFO memory"*) printf 'used_memory:1000\\r\\nmaxmemory:1000000\\r\\nmaxmemory_policy:noeviction\\r\\n' ;;
   *"INFO server"*) printf 'run_id:server-run-1\\r\\n' ;;
@@ -445,6 +446,74 @@ esac
                 "app.kubernetes.io/part-of=ewallet-block-a,ewallet.block-a/namespace=verify-campaign-1",
                 calls,
             )
+
+    def rehearsal_stream_environment(self, root: Path, namespace: str, database: int):
+        environment, log = self.fake_kubectl(root, namespace)
+        bucket = "ewallet-data-ai-platform-hg26-rehearsal-5gb-data"
+        connection = f"redis.feature-store.svc.cluster.local:6379,password=x,db={database}"
+        environment.update({
+            "DATASET_VERSION": "rehearsal-5gb-v1",
+            "ONLINE_STORE_ID": "rehearsal-stream",
+            "FEAST_REDIS_SECRET": "feast-online-redis-stream",
+            "OFFLINE_FEATURE_ROOT": f"gs://{bucket}/streaming-features",
+            "FEAST_OFFLINE_DATA_ROOT": (
+                f"gs://{bucket}/streaming-features/campaigns/{namespace}/runs/{namespace}/offline"
+            ),
+            "HISTORY_ROOT": f"gs://{bucket}/streaming-history/{namespace}",
+            "ONLINE_REGISTRY_URI": (
+                f"gs://{bucket}/features/registries/rehearsal-5gb-v1/online/{namespace}/registry.db"
+            ),
+            "FAKE_REDIS_CONNECTION_B64": base64.b64encode(connection.encode()).decode(),
+            "FAKE_EXPECTED_CAMPAIGN": namespace,
+        })
+        return environment, log
+
+    def test_streaming_store_claims_its_own_authenticated_database(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            namespace = "verify-stream-db"
+            environment, log = self.rehearsal_stream_environment(Path(temporary), namespace, 9)
+            result = subprocess.run(
+                ["bash", "scripts/streaming/block_a_cloud.sh", "preflight", namespace,
+                 "--execute", "--approve-redis-claim"],
+                cwd=ROOT, env=environment, capture_output=True, text=True,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("redis_db=9", result.stdout)
+            calls = log.read_text(encoding="utf-8")
+            self.assertIn('REDISCLI_AUTH="$REDIS_PASSWORD"', calls)
+            self.assertIn(" 9 EVAL ", calls)
+            self.assertNotIn("password=x", calls)
+            owner = json.loads((Path(temporary) / "redis-owner").read_text(encoding="utf-8"))
+            expected = "sha256:" + hashlib.sha256(
+                b"redis.feature-store.svc.cluster.local:6379/9:server-run-1").hexdigest()
+            self.assertEqual(owner["target_fingerprint"], expected)
+
+    def test_streaming_store_refuses_databases_outside_its_range(self):
+        for database in (0, 1, 7):
+            with self.subTest(database=database), tempfile.TemporaryDirectory() as temporary:
+                namespace = "verify-stream-db"
+                environment, log = self.rehearsal_stream_environment(
+                    Path(temporary), namespace, database)
+                result = subprocess.run(
+                    ["bash", "scripts/streaming/block_a_cloud.sh", "preflight", namespace,
+                     "--execute", "--approve-redis-claim"],
+                    cwd=ROOT, env=environment, capture_output=True, text=True,
+                )
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("outside the rehearsal-stream binding", result.stderr)
+                self.assertNotIn(" EVAL ", log.read_text(encoding="utf-8"))
+
+    def test_streaming_store_requires_its_own_secret(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            namespace = "verify-stream-db"
+            environment, log = self.rehearsal_stream_environment(Path(temporary), namespace, 9)
+            environment["FEAST_REDIS_SECRET"] = "feast-online-redis-verify"
+            result = subprocess.run(
+                ["bash", "scripts/streaming/block_a_cloud.sh", "render", namespace],
+                cwd=ROOT, env=environment, capture_output=True, text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("feast-online-redis-stream", result.stderr)
 
     def test_redis_claim_requires_explicit_authorization(self):
         with tempfile.TemporaryDirectory() as temporary:

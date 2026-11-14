@@ -45,11 +45,23 @@ case "${ONLINE_STORE_ID}" in
     [[ "${REDIS_SECRET}" == feast-online-redis ]] \
       || die "canonical-online must use feast-online-redis"
     ;;
-  canonical-verify|rehearsal-online)
+  canonical-verify)
     [[ "${EXECUTION_POLICY}" == verification ]] \
       || die "production execution policy cannot use a verification Online Store"
     [[ "${REDIS_SECRET}" == feast-online-redis-verify ]] \
-      || die "${ONLINE_STORE_ID} must use feast-online-redis-verify"
+      || die "canonical-verify must use feast-online-redis-verify"
+    ;;
+  rehearsal-online)
+    [[ "${EXECUTION_POLICY}" == verification ]] \
+      || die "production execution policy cannot use a verification Online Store"
+    [[ "${REDIS_SECRET}" == feast-online-redis-rehearsal ]] \
+      || die "rehearsal-online must use feast-online-redis-rehearsal"
+    ;;
+  rehearsal-stream)
+    [[ "${EXECUTION_POLICY}" == verification ]] \
+      || die "production execution policy cannot use a verification Online Store"
+    [[ "${REDIS_SECRET}" == feast-online-redis-stream ]] \
+      || die "rehearsal-stream must use feast-online-redis-stream"
     ;;
   *) die "unsupported ONLINE_STORE_ID: ${ONLINE_STORE_ID}" ;;
 esac
@@ -150,7 +162,9 @@ if ((!EXECUTE)); then
   exit 0
 fi
 
-printf '%s\n' "${manifest}" | kubectl --context "${KUBE_CONTEXT}" apply -f -
+# kubectl's "job.batch/... created" goes to stderr: stdout carries only the
+# operator's JSON evidence line, so `| tee <file>.json` stays valid JSON.
+printf '%s\n' "${manifest}" | kubectl --context "${KUBE_CONTEXT}" apply -f - >&2
 # Poll succeeded/failed counts: newer Kubernetes reports both
 # SuccessCriteriaMet and Complete, which breaks a jsonpath condition wait.
 deadline=$((SECONDS + 3700))

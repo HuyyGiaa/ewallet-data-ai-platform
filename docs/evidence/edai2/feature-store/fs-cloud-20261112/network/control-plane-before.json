@@ -1,0 +1,51 @@
+{
+  "masterAuthorizedNetworksConfig": {
+    "cidrBlocks": [
+      {
+        "cidrBlock": "113.188.119.38/32"
+      },
+      {
+        "cidrBlock": "113.188.185.247/32"
+      },
+      {
+        "cidrBlock": "27.71.88.208/32"
+      }
+    ],
+    "enabled": true,
+    "gcpPublicCidrsAccessEnabled": true
+  },
+  "controlPlaneEndpointsConfig": {
+    "dnsEndpointConfig": {
+      "allowExternalTraffic": true,
+      "enableK8sCertsViaDns": false,
+      "enableK8sTokensViaDns": false,
+      "endpoint": "gke-50e37b8a555b45cca6b8ce3b3086aadaf2bc-198818809719.asia-southeast1-b.gke.goog"
+    },
+    "ipEndpointsConfig": {
+      "authorizedNetworksConfig": {
+        "cidrBlocks": [
+          {
+            "cidrBlock": "113.188.119.38/32"
+          },
+          {
+            "cidrBlock": "113.188.185.247/32"
+          },
+          {
+            "cidrBlock": "27.71.88.208/32"
+          }
+        ],
+        "enabled": true,
+        "gcpPublicCidrsAccessEnabled": true
+      },
+      "enablePublicEndpoint": true,
+      "enabled": true,
+      "privateEndpoint": "10.20.0.8",
+      "publicEndpoint": "34.143.148.210"
+    }
+  },
+  "privateClusterConfig": {
+    "privateEndpoint": "10.20.0.8",
+    "publicEndpoint": "34.143.148.210"
+  },
+  "endpoint": "34.143.148.210"
+}

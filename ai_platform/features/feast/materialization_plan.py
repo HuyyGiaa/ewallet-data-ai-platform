@@ -43,12 +43,21 @@ _REDIS_MINIMUM_FREE_RATIO = 0.10
 EXECUTION_POLICIES = frozenset({"production", "verification"})
 
 
+# Verification stores share the Redis server with production DB 0 but never DB 0.
+# A verification store accepts any database of its own range: the campaign claim
+# still requires an empty database or this exact campaign's owner marker, so a
+# rerun takes the next empty database instead of flushing a used one. Each store
+# has its own Secret and a disjoint range: DB 1 stays with canonical-verify (and
+# the RAG DB 1 canary), so a rehearsal never edits or claims that Secret or DB.
+REHEARSAL_ONLINE_DBS = frozenset(range(2, 8))
+REHEARSAL_STREAM_DBS = frozenset(range(8, 16))
+
 ONLINE_STORE_BINDINGS = {
     "canonical-online": {
         "redis_secret": "feast-online-redis",
         "redis_host": "redis.feature-store.svc.cluster.local",
         "redis_port": 6379,
-        "redis_db": 0,
+        "redis_dbs": frozenset({0}),
         "dataset_versions": frozenset({CANONICAL_100GB}),
         "requires_campaign_ownership": False,
     },
@@ -56,19 +65,49 @@ ONLINE_STORE_BINDINGS = {
         "redis_secret": "feast-online-redis-verify",
         "redis_host": "redis.feature-store.svc.cluster.local",
         "redis_port": 6379,
-        "redis_db": 1,
+        "redis_dbs": frozenset({1}),
         "dataset_versions": frozenset({CANONICAL_100GB}),
         "requires_campaign_ownership": True,
     },
+    # Row 11: Offline snapshot -> Redis materialization.
     "rehearsal-online": {
-        "redis_secret": "feast-online-redis-verify",
+        "redis_secret": "feast-online-redis-rehearsal",
         "redis_host": "redis.feature-store.svc.cluster.local",
         "redis_port": 6379,
-        "redis_db": 1,
+        "redis_dbs": REHEARSAL_ONLINE_DBS,
+        "dataset_versions": frozenset({REHEARSAL_5GB}),
+        "requires_campaign_ownership": True,
+    },
+    # Row 12: streaming Online writer, a separate campaign with its own registry.
+    "rehearsal-stream": {
+        "redis_secret": "feast-online-redis-stream",
+        "redis_host": "redis.feature-store.svc.cluster.local",
+        "redis_port": 6379,
+        "redis_dbs": REHEARSAL_STREAM_DBS,
         "dataset_versions": frozenset({REHEARSAL_5GB}),
         "requires_campaign_ownership": True,
     },
 }
+
+
+def binding_allows_database(online_store_id: str, database: int) -> bool:
+    """True when ``database`` belongs to the store's approved Redis range."""
+
+    return database in ONLINE_STORE_BINDINGS[online_store_id]["redis_dbs"]
+
+
+def main_binding(argv: Sequence[str] | None = None) -> int:
+    """Print ``secret dbs`` for one store, for shell runners (single source of truth)."""
+
+    import sys
+
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) != 1 or args[0] not in ONLINE_STORE_BINDINGS:
+        print(f"usage: binding <{'|'.join(sorted(ONLINE_STORE_BINDINGS))}>", file=sys.stderr)
+        return 2
+    binding = ONLINE_STORE_BINDINGS[args[0]]
+    print(binding["redis_secret"], ",".join(str(db) for db in sorted(binding["redis_dbs"])))
+    return 0
 
 
 class WindowState(str, Enum):
@@ -280,7 +319,7 @@ def verify_online_store(
         raise WindowError("resolved Online Store logical identity differs from the request")
     if evidence.get("secret_name") != request.redis_secret:
         raise WindowError("resolved Online Store secret differs from the approved binding")
-    if int(evidence.get("db", -1)) != int(binding["redis_db"]):
+    if int(evidence.get("db", -1)) not in binding["redis_dbs"]:
         raise WindowError("resolved Redis database differs from the approved binding")
     if (
         evidence.get("host") != binding["redis_host"]
@@ -623,3 +662,7 @@ __all__ = [
     "verify_completion",
     "verify_readback",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main_binding())

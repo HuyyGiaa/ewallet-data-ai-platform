@@ -12,7 +12,7 @@ import argparse
 import json
 import os
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pyarrow.dataset as ds
@@ -90,6 +90,27 @@ def _delta_storage_options(config: RuntimeConfig) -> dict[str, str]:
     if config.storage.scheme == "s3a":
         return deltalake_storage_options(config)
     return dict(config.storage.options)
+
+
+GCS_READ_RETRY_LIMIT = timedelta(minutes=5)
+
+
+def _delta_read_filesystem(source: str) -> fs.FileSystem | None:
+    """Return a retrying reader for a gs:// Delta table, or None for delta-rs' own.
+
+    delta-rs streams Parquet bodies through object_store, which does not retry a
+    response body that breaks mid-stream ("error decoding response body"), so one
+    network blip aborts a multi-GB export. Arrow's GCS filesystem retries these
+    reads. The fragments are still exactly the active snapshot's ``add`` files,
+    because ``DeltaTable.to_pyarrow_dataset`` builds them from the Delta log.
+    """
+
+    if not source.startswith("gs://"):
+        return None
+    return fs.SubTreeFileSystem(
+        source.removeprefix("gs://").rstrip("/"),
+        fs.GcsFileSystem(retry_time_limit=GCS_READ_RETRY_LIMIT),
+    )
 
 
 def _filesystem_path(uri: str) -> tuple[fs.FileSystem, str]:
@@ -196,7 +217,9 @@ def export_gold_snapshots(
         source = gold_source_uri(runtime_config, table_name)
         target = join_data_root(root, table_name)
         delta_table = DeltaTable(source, storage_options=storage_options)
-        source_snapshot = delta_table.to_pyarrow_dataset()
+        source_snapshot = delta_table.to_pyarrow_dataset(
+            filesystem=_delta_read_filesystem(source)
+        )
         dropped_audit_columns = feast_export_columns(
             table_name, source_snapshot.schema.names, expected_columns
         )

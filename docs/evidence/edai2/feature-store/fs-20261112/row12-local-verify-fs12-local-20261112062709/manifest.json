@@ -1,0 +1,48 @@
+{
+  "expected": {
+    "closing": [
+      "bc25d7fb-16e6-5df4-9464-587a8df43b16"
+    ],
+    "duplicates": [
+      "3ac722ae-aad0-57ce-be72-d27fc69349cd",
+      "21f4d0ec-955b-5a04-ae33-29b2dc44c9fe"
+    ],
+    "invalid_event_ids": [
+      "ca749c18-f318-58ff-8015-045ef976a923"
+    ],
+    "late_accepted": [
+      "526eb50c-8b0d-533f-9114-a41613c93007"
+    ],
+    "on_time": [
+      "e8a24ab0-1e44-58e8-a019-7d279fd58a65",
+      "6a60e1fe-cae3-554e-8b60-b11b7fdcfedb",
+      "3ac722ae-aad0-57ce-be72-d27fc69349cd",
+      "091130dc-c93d-58df-8c31-db310ea21230",
+      "21f4d0ec-955b-5a04-ae33-29b2dc44c9fe",
+      "6fea3f15-dd1d-5ce2-9006-f79538de43e3",
+      "f3f6b373-0537-5ad4-8eb0-99f6e7bfb733",
+      "19a3df8f-2a0e-5e2e-9275-4de5d638a29a",
+      "9c8ccc67-3e49-581a-b4f9-2297c887e547",
+      "9e7c9d54-baed-53e9-a641-4cb7ccbf150b",
+      "50b69576-9f48-5eac-afed-ab0e83cb7917",
+      "5215f0a0-4f0a-5269-bc22-c85a49941e22",
+      "9d3a510d-ee51-5800-9e4b-5987098a7411"
+    ],
+    "too_late": [
+      "fb5e5b08-0349-5bad-b979-b96569f589af"
+    ]
+  },
+  "namespace": "verify-fs12-local-20261112062709",
+  "payload_sha256": "d0c3bd91949905256bd376f27075af09980e07aba874b36b38463deff52a658f",
+  "phases": {
+    "closing": 1,
+    "late_accepted": 1,
+    "normal": 13,
+    "out_of_order": 1,
+    "replayed_and_invalid": 2,
+    "too_late": 1
+  },
+  "published_records": 19,
+  "schema_version": "block-a-verification-manifest-v1",
+  "seed": 46053038356017
+}

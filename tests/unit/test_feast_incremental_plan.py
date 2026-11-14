@@ -152,7 +152,7 @@ class RequestContractTest(unittest.TestCase):
             dataset_version="rehearsal-5gb-v1",
             online_store_id="rehearsal-online",
             execution_policy="verification",
-            redis_secret="feast-online-redis-verify",
+            redis_secret="feast-online-redis-rehearsal",
         )
         self.assertEqual("rehearsal-5gb-v1", rehearsal.dataset_version)
 
@@ -240,6 +240,44 @@ class RedisIsolationTest(unittest.TestCase):
         ):
             with self.subTest(evidence=evidence), self.assertRaisesRegex(WindowError, "ownership|isolation"):
                 verify_online_store(plan, evidence)
+
+    def rehearsal_evidence(self, database):
+        plan = request(
+            bucket="ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+            dataset_version="rehearsal-5gb-v1",
+            online_store_id="rehearsal-online",
+            execution_policy="verification",
+            redis_secret="feast-online-redis-rehearsal",
+        )
+        target = f"redis.feature-store.svc.cluster.local:6379/{database}:redis-server-run-1"
+        fingerprint = "sha256:" + hashlib.sha256(target.encode()).hexdigest()
+        evidence = self.evidence(plan, db=database, target_fingerprint=fingerprint)
+        evidence["ownership"] = {**evidence["ownership"], "target_fingerprint": fingerprint}
+        return plan, evidence
+
+    def test_rehearsal_online_accepts_only_its_database_range(self):
+        for database in (2, 3, 7):
+            with self.subTest(database=database):
+                self.assertEqual("PASS", verify_online_store(*self.rehearsal_evidence(database))["status"])
+        # DB 1 belongs to canonical-verify (and the RAG canary); 8+ to rehearsal-stream.
+        for database in (0, 1, 8, 15):
+            with self.subTest(database=database), self.assertRaisesRegex(WindowError, "database"):
+                verify_online_store(*self.rehearsal_evidence(database))
+
+    def test_streaming_store_has_its_own_secret_and_disjoint_range(self):
+        from ai_platform.features.feast.materialization_plan import ONLINE_STORE_BINDINGS
+
+        online = ONLINE_STORE_BINDINGS["rehearsal-online"]
+        stream = ONLINE_STORE_BINDINGS["rehearsal-stream"]
+        self.assertEqual("feast-online-redis-stream", stream["redis_secret"])
+        self.assertEqual("feast-online-redis-rehearsal", online["redis_secret"])
+        self.assertFalse(online["redis_dbs"] & stream["redis_dbs"])
+        verify = ONLINE_STORE_BINDINGS["canonical-verify"]
+        self.assertFalse(online["redis_dbs"] & verify["redis_dbs"])
+        self.assertNotEqual(online["redis_secret"], verify["redis_secret"])
+        for binding in ONLINE_STORE_BINDINGS.values():
+            if binding["requires_campaign_ownership"]:
+                self.assertNotIn(0, binding["redis_dbs"])
 
     def test_capacity_failure_is_rejected(self):
         with self.assertRaisesRegex(WindowError, "headroom"):

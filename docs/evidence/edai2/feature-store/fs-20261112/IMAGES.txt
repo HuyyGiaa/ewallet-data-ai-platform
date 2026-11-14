@@ -1,0 +1,4 @@
+# Built from clean commit 2f3a90ffb1a77efac551f011941985ab5b6202a9 (label org.opencontainers.image.revision), pushed 2026-11-12.
+FEATURE_IMAGE=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/feast-online@sha256:af4967035ab379d916ed3b0d29bb8cdb25f00baff2c0a80b8dd87231ed95a0d6
+SINKS_IMAGE=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:055f849f0e219c24f22fad436af02f49a11775ab7fdb2c5e825ff37d27e6a306
+FLINK_IMAGE=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:de0ab848b5b6f85f15ca607cefcda3694f80d911bb9538147428e62ab1109588

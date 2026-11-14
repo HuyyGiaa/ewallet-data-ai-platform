@@ -1,0 +1,511 @@
+# Bounded Block A stack for the owner-approved row 12 run. Nothing here is deployed
+# by default: scripts/streaming/block_a_cloud.sh renders it and applies it only with
+# --execute. It is a single-broker, single-TaskManager verification stack, not a
+# production deployment, and its storage is ephemeral on purpose.
+#
+# It lives in ml-platform so the sinks reuse the existing Workload Identity service
+# account and the labelled path through the Redis NetworkPolicy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: block-a-redpanda
+  namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: verify-fs12-20261112084123}
+spec:
+  clusterIP: None
+  selector: {app.kubernetes.io/name: block-a-redpanda}
+  ports:
+    - {name: kafka, port: 29092, targetPort: 29092}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: block-a-redpanda
+  namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: verify-fs12-20261112084123}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: block-a-redpanda}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: block-a-redpanda
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      containers:
+        - name: redpanda
+          image: docker.redpanda.com/redpandadata/redpanda@sha256:3387a7ac6b2307129032562bf957653de13373a2748f82de7ab588a39d50b88d
+          args:
+            - redpanda
+            - start
+            - --overprovisioned
+            - --smp=1
+            - --memory=1G
+            - --reserve-memory=0M
+            - --node-id=0
+            - --check=false
+            - --kafka-addr=INTERNAL://0.0.0.0:29092
+            - --advertise-kafka-addr=INTERNAL://block-a-redpanda.ml-platform.svc.cluster.local:29092
+          ports:
+            - {containerPort: 29092}
+          readinessProbe:
+            tcpSocket: {port: 29092}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 500m, memory: 1536Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/redpanda/data}
+      volumes:
+        - name: data
+          emptyDir: {sizeLimit: 2Gi}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: block-a-flink
+  namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: verify-fs12-20261112084123}
+data:
+  FLINK_PROPERTIES: |
+    jobmanager.rpc.address: block-a-flink-jobmanager
+    jobmanager.memory.process.size: 1024m
+    taskmanager.memory.process.size: 2560m
+    taskmanager.numberOfTaskSlots: 4
+    parallelism.default: 1
+    state.checkpoints.dir: file:///flink-data/checkpoints
+    python.executable: /opt/venv/bin/python
+    python.client.executable: /opt/venv/bin/python
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: block-a-flink-jobmanager
+  namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: verify-fs12-20261112084123}
+spec:
+  selector: {app.kubernetes.io/name: block-a-flink-jobmanager}
+  ports:
+    - {name: rpc, port: 6123}
+    - {name: blob, port: 6124}
+    - {name: rest, port: 8081}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: block-a-flink-jobmanager
+  namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: verify-fs12-20261112084123}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: block-a-flink-jobmanager}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: block-a-flink-jobmanager
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      containers:
+        - name: jobmanager
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:97d4f07fcb8d46151c973166352c5ac895ba6654b7faeb188c323e09c3ab3bc8
+          args: ["jobmanager"]
+          envFrom:
+            - configMapRef: {name: block-a-flink}
+          ports:
+            - {containerPort: 8081}
+          readinessProbe:
+            httpGet: {path: /overview, port: 8081}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 250m, memory: 1280Mi}
+            limits: {cpu: "1", memory: 1280Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: block-a-flink-taskmanager
+  namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-block-a, ewallet.block-a/namespace: verify-fs12-20261112084123}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: block-a-flink-taskmanager}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: block-a-flink-taskmanager
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      containers:
+        - name: taskmanager
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:97d4f07fcb8d46151c973166352c5ac895ba6654b7faeb188c323e09c3ab3bc8
+          args: ["taskmanager"]
+          envFrom:
+            - configMapRef: {name: block-a-flink}
+          resources:
+            requests: {cpu: 500m, memory: 3Gi}
+            limits: {cpu: "2", memory: 3Gi}
+          volumeMounts:
+            - {name: flink-data, mountPath: /flink-data}
+      volumes:
+        - name: flink-data
+          emptyDir: {sizeLimit: 1Gi}
+---
+# One Block A sink or validator step as a Job. The feast-online-operator name label
+# is what the Redis NetworkPolicy admits; the component label tells the steps apart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: block-a-topics
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-block-a
+    ewallet.block-a/namespace: verify-fs12-20261112084123
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-online-operator
+        app.kubernetes.io/component: block-a-topics
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: step
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:34a7835fc2fcc57c5c45740ca0390dcf1d41b8b3d7c93741961490b372b6f878
+          args: ["python", "-m", "data_platform.streaming.verification.cli", "publish", "--bootstrap-servers", "block-a-redpanda.ml-platform.svc.cluster.local:29092", "--namespace", "verify-fs12-20261112084123", "--profile", "baseline", "--manifest", "/tmp/manifest.json", "--create-topics", "--create-topics-only"]
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261112084123/registry.db"}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261112084123/runs/verify-fs12-20261112084123/offline"}
+            - {name: EWALLET_OFFLINE_FEATURE_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features"}
+            - {name: EWALLET_HISTORY_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123"}
+            - {name: EWALLET_GIT_SHA, value: "e913224f04d7e21251b6b6b8278662a6dd473814"}
+            - {name: EWALLET_ONLINE_STORE_ID, value: "rehearsal-stream"}
+            - {name: EWALLET_EXECUTION_POLICY, value: "verification"}
+            - {name: EWALLET_REDIS_CAMPAIGN_ID, value: "verify-fs12-20261112084123"}
+            - {name: EWALLET_DATASET_VERSION, value: "rehearsal-5gb-v1"}
+            - {name: EWALLET_FEATURE_RUN_ID, value: "ab-20261110225456-optimized-feat-r261110225459"}
+            - {name: EWALLET_SNAPSHOT_ID, value: "feast-r5gb-20261111-214544"}
+            - {name: EWALLET_REDIS_SECRET_NAME, value: "feast-online-redis-stream"}
+            - {name: EWALLET_ESTIMATED_REDIS_BYTES, value: "10000000"}
+            - {name: HOME, value: /tmp}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: feast-online-redis-stream, key: connection_string}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+# One Block A sink or validator step as a Job. The feast-online-operator name label
+# is what the Redis NetworkPolicy admits; the component label tells the steps apart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: block-a-history
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-block-a
+    ewallet.block-a/namespace: verify-fs12-20261112084123
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-online-operator
+        app.kubernetes.io/component: block-a-history
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: step
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:34a7835fc2fcc57c5c45740ca0390dcf1d41b8b3d7c93741961490b372b6f878
+          args: ["python", "-m", "data_platform.streaming.sinks.historical_service", "--bootstrap-servers", "block-a-redpanda.ml-platform.svc.cluster.local:29092", "--namespace", "verify-fs12-20261112084123", "--run-id", "verify-fs12-20261112084123", "--history-root", "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123", "--batch-size", "5", "--flush-interval-seconds", "5", "--max-idle-seconds", "240"]
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261112084123/registry.db"}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261112084123/runs/verify-fs12-20261112084123/offline"}
+            - {name: EWALLET_OFFLINE_FEATURE_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features"}
+            - {name: EWALLET_HISTORY_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123"}
+            - {name: EWALLET_GIT_SHA, value: "e913224f04d7e21251b6b6b8278662a6dd473814"}
+            - {name: EWALLET_ONLINE_STORE_ID, value: "rehearsal-stream"}
+            - {name: EWALLET_EXECUTION_POLICY, value: "verification"}
+            - {name: EWALLET_REDIS_CAMPAIGN_ID, value: "verify-fs12-20261112084123"}
+            - {name: EWALLET_DATASET_VERSION, value: "rehearsal-5gb-v1"}
+            - {name: EWALLET_FEATURE_RUN_ID, value: "ab-20261110225456-optimized-feat-r261110225459"}
+            - {name: EWALLET_SNAPSHOT_ID, value: "feast-r5gb-20261111-214544"}
+            - {name: EWALLET_REDIS_SECRET_NAME, value: "feast-online-redis-stream"}
+            - {name: EWALLET_ESTIMATED_REDIS_BYTES, value: "10000000"}
+            - {name: HOME, value: /tmp}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: feast-online-redis-stream, key: connection_string}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+# One Block A sink or validator step as a Job. The feast-online-operator name label
+# is what the Redis NetworkPolicy admits; the component label tells the steps apart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: block-a-offline
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-block-a
+    ewallet.block-a/namespace: verify-fs12-20261112084123
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-online-operator
+        app.kubernetes.io/component: block-a-offline
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: step
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:34a7835fc2fcc57c5c45740ca0390dcf1d41b8b3d7c93741961490b372b6f878
+          args: ["python", "-m", "data_platform.streaming.sinks.offline_features", "--bootstrap-servers", "block-a-redpanda.ml-platform.svc.cluster.local:29092", "--namespace", "verify-fs12-20261112084123", "--campaign-id", "verify-fs12-20261112084123", "--run-id", "verify-fs12-20261112084123", "--offline-root", "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features", "--max-idle-seconds", "240"]
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261112084123/registry.db"}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261112084123/runs/verify-fs12-20261112084123/offline"}
+            - {name: EWALLET_OFFLINE_FEATURE_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features"}
+            - {name: EWALLET_HISTORY_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123"}
+            - {name: EWALLET_GIT_SHA, value: "e913224f04d7e21251b6b6b8278662a6dd473814"}
+            - {name: EWALLET_ONLINE_STORE_ID, value: "rehearsal-stream"}
+            - {name: EWALLET_EXECUTION_POLICY, value: "verification"}
+            - {name: EWALLET_REDIS_CAMPAIGN_ID, value: "verify-fs12-20261112084123"}
+            - {name: EWALLET_DATASET_VERSION, value: "rehearsal-5gb-v1"}
+            - {name: EWALLET_FEATURE_RUN_ID, value: "ab-20261110225456-optimized-feat-r261110225459"}
+            - {name: EWALLET_SNAPSHOT_ID, value: "feast-r5gb-20261111-214544"}
+            - {name: EWALLET_REDIS_SECRET_NAME, value: "feast-online-redis-stream"}
+            - {name: EWALLET_ESTIMATED_REDIS_BYTES, value: "10000000"}
+            - {name: HOME, value: /tmp}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: feast-online-redis-stream, key: connection_string}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+# One Block A sink or validator step as a Job. The feast-online-operator name label
+# is what the Redis NetworkPolicy admits; the component label tells the steps apart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: block-a-feast
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-block-a
+    ewallet.block-a/namespace: verify-fs12-20261112084123
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-online-operator
+        app.kubernetes.io/component: block-a-feast
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: step
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:34a7835fc2fcc57c5c45740ca0390dcf1d41b8b3d7c93741961490b372b6f878
+          args: ["python", "-m", "data_platform.streaming.feast.service", "--bootstrap-servers", "block-a-redpanda.ml-platform.svc.cluster.local:29092", "--namespace", "verify-fs12-20261112084123", "--feast-repo", "ai_platform/features/feast/online_repo", "--max-idle-seconds", "240"]
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261112084123/registry.db"}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261112084123/runs/verify-fs12-20261112084123/offline"}
+            - {name: EWALLET_OFFLINE_FEATURE_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features"}
+            - {name: EWALLET_HISTORY_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123"}
+            - {name: EWALLET_GIT_SHA, value: "e913224f04d7e21251b6b6b8278662a6dd473814"}
+            - {name: EWALLET_ONLINE_STORE_ID, value: "rehearsal-stream"}
+            - {name: EWALLET_EXECUTION_POLICY, value: "verification"}
+            - {name: EWALLET_REDIS_CAMPAIGN_ID, value: "verify-fs12-20261112084123"}
+            - {name: EWALLET_DATASET_VERSION, value: "rehearsal-5gb-v1"}
+            - {name: EWALLET_FEATURE_RUN_ID, value: "ab-20261110225456-optimized-feat-r261110225459"}
+            - {name: EWALLET_SNAPSHOT_ID, value: "feast-r5gb-20261111-214544"}
+            - {name: EWALLET_REDIS_SECRET_NAME, value: "feast-online-redis-stream"}
+            - {name: EWALLET_ESTIMATED_REDIS_BYTES, value: "10000000"}
+            - {name: HOME, value: /tmp}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: feast-online-redis-stream, key: connection_string}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+# One Block A sink or validator step as a Job. The feast-online-operator name label
+# is what the Redis NetworkPolicy admits; the component label tells the steps apart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: block-a-publish
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-block-a
+    ewallet.block-a/namespace: verify-fs12-20261112084123
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-online-operator
+        app.kubernetes.io/component: block-a-publish
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: step
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:34a7835fc2fcc57c5c45740ca0390dcf1d41b8b3d7c93741961490b372b6f878
+          args: ["python", "-m", "data_platform.streaming.verification.cli", "publish", "--bootstrap-servers", "block-a-redpanda.ml-platform.svc.cluster.local:29092", "--namespace", "verify-fs12-20261112084123", "--profile", "baseline", "--manifest", "/tmp/manifest.json", "--phase-delay-seconds", "15"]
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261112084123/registry.db"}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261112084123/runs/verify-fs12-20261112084123/offline"}
+            - {name: EWALLET_OFFLINE_FEATURE_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features"}
+            - {name: EWALLET_HISTORY_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123"}
+            - {name: EWALLET_GIT_SHA, value: "e913224f04d7e21251b6b6b8278662a6dd473814"}
+            - {name: EWALLET_ONLINE_STORE_ID, value: "rehearsal-stream"}
+            - {name: EWALLET_EXECUTION_POLICY, value: "verification"}
+            - {name: EWALLET_REDIS_CAMPAIGN_ID, value: "verify-fs12-20261112084123"}
+            - {name: EWALLET_DATASET_VERSION, value: "rehearsal-5gb-v1"}
+            - {name: EWALLET_FEATURE_RUN_ID, value: "ab-20261110225456-optimized-feat-r261110225459"}
+            - {name: EWALLET_SNAPSHOT_ID, value: "feast-r5gb-20261111-214544"}
+            - {name: EWALLET_REDIS_SECRET_NAME, value: "feast-online-redis-stream"}
+            - {name: EWALLET_ESTIMATED_REDIS_BYTES, value: "10000000"}
+            - {name: HOME, value: /tmp}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: feast-online-redis-stream, key: connection_string}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+# One Block A sink or validator step as a Job. The feast-online-operator name label
+# is what the Redis NetworkPolicy admits; the component label tells the steps apart.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: block-a-validate
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ewallet-block-a
+    ewallet.block-a/namespace: verify-fs12-20261112084123
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: feast-online-operator
+        app.kubernetes.io/component: block-a-validate
+        app.kubernetes.io/part-of: ewallet-block-a
+        ewallet.block-a/namespace: verify-fs12-20261112084123
+    spec:
+      serviceAccountName: training
+      restartPolicy: Never
+      nodeSelector:
+        iam.gke.io/gke-metadata-server-enabled: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: step
+          image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:34a7835fc2fcc57c5c45740ca0390dcf1d41b8b3d7c93741961490b372b6f878
+          args: ["sh", "-c", "python -m data_platform.streaming.verification.cli publish --bootstrap-servers block-a-redpanda.ml-platform.svc.cluster.local:29092 --namespace verify-fs12-20261112084123 --profile baseline --manifest /tmp/manifest.json --create-topics-only && python -m data_platform.streaming.verification.cli validate --bootstrap-servers block-a-redpanda.ml-platform.svc.cluster.local:29092 --namespace verify-fs12-20261112084123 --manifest /tmp/manifest.json --history-root gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123 --offline-feature-root gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261112084123/runs/verify-fs12-20261112084123/offline --campaign-id verify-fs12-20261112084123 --run-id verify-fs12-20261112084123 --feast-repo ai_platform/features/feast/online_repo --report /tmp/report.json >/tmp/validator-summary.json; status=$?; cat /tmp/validator-summary.json >&2; if [ -f /tmp/report.json ]; then printf 'EWALLET_CONSISTENCY_REPORT='; tr -d '\n' </tmp/report.json; printf '\n'; fi; exit $status"]
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-fs12-20261112084123/registry.db"}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-fs12-20261112084123/runs/verify-fs12-20261112084123/offline"}
+            - {name: EWALLET_OFFLINE_FEATURE_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features"}
+            - {name: EWALLET_HISTORY_ROOT, value: "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-fs12-20261112084123"}
+            - {name: EWALLET_GIT_SHA, value: "e913224f04d7e21251b6b6b8278662a6dd473814"}
+            - {name: EWALLET_ONLINE_STORE_ID, value: "rehearsal-stream"}
+            - {name: EWALLET_EXECUTION_POLICY, value: "verification"}
+            - {name: EWALLET_REDIS_CAMPAIGN_ID, value: "verify-fs12-20261112084123"}
+            - {name: EWALLET_DATASET_VERSION, value: "rehearsal-5gb-v1"}
+            - {name: EWALLET_FEATURE_RUN_ID, value: "ab-20261110225456-optimized-feat-r261110225459"}
+            - {name: EWALLET_SNAPSHOT_ID, value: "feast-r5gb-20261111-214544"}
+            - {name: EWALLET_REDIS_SECRET_NAME, value: "feast-online-redis-stream"}
+            - {name: EWALLET_ESTIMATED_REDIS_BYTES, value: "10000000"}
+            - {name: HOME, value: /tmp}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: feast-online-redis-stream, key: connection_string}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
