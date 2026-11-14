@@ -10,7 +10,9 @@ All three images are pinned by digest and were built from that commit:
 The snapshot export, the historical retrieval and the local Row 12 run are in
 [`../fs-20261112/`](../fs-20261112/README.md). Large logs (`*.log`, ignored by
 git) stay in `~/ewallet-evidence/fs-cloud-20261112/`. No screenshot was
-generated.
+generated. The streaming check was repeated on 2026-11-14 with the
+images built from `6e3a81b1`; see [`../fs12-cloud-20261114/`](../fs12-cloud-20261114/README.md).
+Both runs are described in [FEATURE_STORE.md](../../../../edai2/mlops/FEATURE_STORE.md).
 
 ## Access (`network/`, `iam/`)
 
@@ -32,8 +34,13 @@ generated.
 
   All writable prefixes were empty before the change.
 - **Workload Identity.** KSA `ml-platform/training` → GSA `ewallet-training`
-  (`ksa-annotations.json`). The probe Job (`probe.py`, `job.yaml`) ran as that
-  identity. `probe-result.json` shows PASS on 7/7 checks:
+  (`ksa-annotations.json`). The probe Job (`job.yaml`) ran as that identity.
+  The probe itself is now the reusable module
+  [`iam_probe.py`](../../../../../ai_platform/features/feast/validation/iam_probe.py),
+  run with [`feature_store_iam_probe.sh`](../../../../../scripts/mlops/feature_store_iam_probe.sh).
+  The exact script that ran is kept in Git history
+  (`git show 6e3a81b1:docs/evidence/edai2/feature-store/fs-cloud-20261112/iam/probe.py`).
+  `probe-result.json` shows PASS on 7/7 checks:
   - the snapshot manifest read with the pinned SHA, and its prefix listed;
   - a create in the probe prefix succeeded, and a second create was refused (412);
   - writes to `lakehouse/` and `features/offline/` and a list of `lakehouse/` were refused (403).
