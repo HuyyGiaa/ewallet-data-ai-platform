@@ -57,7 +57,7 @@ def feast_view(run: Path) -> dict[str, Any]:
         "ttl_days": view.ttl.days if view.ttl else None, "source": view.batch_source.path,
         "fields": [{"name": field.name, "dtype": str(field.dtype)} for field in view.schema],
     } for view in store.list_feature_views()]
-    entities = [{"name": entity.name, "join_keys": list(entity.join_keys)} for entity in store.list_entities()]
+    entities = [{"name": entity.name, "join_key": entity.join_key} for entity in store.list_entities()]
     frame = pd.read_parquet(target.source_path)
     rows = frame.drop(columns=["embedding"]).to_dict("records")
     identity = publication_identity(rows)

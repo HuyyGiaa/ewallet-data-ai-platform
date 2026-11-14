@@ -46,6 +46,8 @@ FAILED=0
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 af() { "${AIRFLOW}" airflow "$@" 2>/dev/null; }
+# The Airflow CLI prints warnings on stdout before its JSON; keep the JSON line only.
+af_json() { af "$@" -o json | grep -E '^\[' | tail -1; }
 env_value() { sed -n "s/^$1=//p" "${EWALLET_RAG_ENV_FILE}" 2>/dev/null | tail -1; }
 check() { if eval "$2" >/dev/null 2>&1; then echo "PASS  $1"; else echo "FAIL  $1"; FAILED=1; fi; }
 run_dir() { echo "${EWALLET_RAG_EVIDENCE_ROOT}/rag_$1"; }
@@ -193,8 +195,8 @@ collect() {
   test -f "${dir}/airflow/run_id.txt" || die "no run_id.txt in ${dir}/airflow (was the run triggered here?)"
   run_id=$(<"${dir}/airflow/run_id.txt")
   git -C "${ROOT}" rev-parse HEAD > "${dir}/airflow/git_sha.txt"
-  af dags list-runs "${DAG_ID}" -o json > "${dir}/airflow/dag_runs.json" || true
-  af tasks states-for-dag-run "${DAG_ID}" "${run_id}" -o json > "${dir}/airflow/task_states.json" || true
+  af_json dags list-runs "${DAG_ID}" > "${dir}/airflow/dag_runs.json" || true
+  af_json tasks states-for-dag-run "${DAG_ID}" "${run_id}" > "${dir}/airflow/task_states.json" || true
   for task in "${TASKS[@]}"; do
     find "${RAG_AIRFLOW_HOME}/logs/dag_id=${DAG_ID}/run_id=${run_id}/task_id=${task}" -name '*.log' \
       -exec sh -c 'for f; do echo "### $f"; cat "$f"; done' _ {} + > "${dir}/airflow/${task}.log" 2>/dev/null || true
@@ -237,8 +239,9 @@ trigger() {
     --conf "{\"online_store\": \"redis\", \"datahub_mode\": \"publish\", \"run_label\": \"${label}\"}" >/dev/null
   mkdir -p "${dir}/airflow" && echo "${run_id}" > "${dir}/airflow/run_id.txt"
   for _ in $(seq 1 90); do   # bounded: 30 minutes
-    state=$(af dags list-runs "${DAG_ID}" -o json | "${RAG_PY}" -c \
-      "import json,sys;print(next((r['state'] for r in json.load(sys.stdin) if r['run_id']=='${run_id}'),'unknown'))")
+    state=$(af_json dags list-runs "${DAG_ID}" | "${RAG_PY}" -c \
+      "import json,sys;print(next((r['state'] for r in json.load(sys.stdin) if r['run_id']=='${run_id}'),'unknown'))" \
+      2>/dev/null || echo unknown)
     echo "$(date -u +%FT%TZ) ${run_id} ${state}"
     [[ "${state}" == success || "${state}" == failed ]] && break
     sleep 20
