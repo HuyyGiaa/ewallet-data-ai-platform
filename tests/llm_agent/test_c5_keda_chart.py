@@ -191,4 +191,8 @@ class AgentTriggerTest(unittest.TestCase):
         from ai_platform.llm_agent.agent_metrics import AGENTS
 
         users = {name for name, item in self.objects.items() if item["spec"]["triggers"][0]["type"] == "prometheus"}
-        self.assertEqual(set(AGENTS), users)
+        # The BYO drift-specialist (agent-integration profile, disabled by default)
+        # also exports the gauge; the KEDA profile still scales the default
+        # Declarative drift-specialist on CPU. KEDA rollout is out of that scope.
+        self.assertEqual(set(AGENTS) - users, {"drift-specialist"})
+        self.assertLessEqual(users, set(AGENTS))

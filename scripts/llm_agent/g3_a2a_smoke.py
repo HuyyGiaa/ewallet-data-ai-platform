@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-from ai_platform.llm_agent.business_request import business_request_from_a2a
+from ai_platform.llm_agent.business_request import typed_request_from_a2a
 
 
 TERMINAL_STATES = frozenset({"completed", "failed", "canceled", "rejected", "unknown"})
@@ -40,13 +40,16 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=650.0)
     parser.add_argument("--poll-timeout", type=float, default=180.0)
     parser.add_argument("--poll-interval", type=float, default=2.0)
+    parser.add_argument("--kagent-host", default="",
+                        help="x-kagent-host route header (A2A Gateway Specialist routes, e.g. negative probes)")
     args = parser.parse_args()
 
     payload = json.loads(args.request.read_text(encoding="utf-8"))
     if payload.get("jsonrpc") != "2.0" or payload.get("method") != "message/send":
         parser.error("request must be an A2A JSON-RPC 2.0 message/send payload")
     try:
-        business_request_from_a2a(payload)
+        # Fraud, drift or combined typed request (business_request.py contracts).
+        typed_request_from_a2a(payload)
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -54,7 +57,8 @@ def main() -> int:
         request = Request(
             args.endpoint,
             data=json.dumps(message, separators=(",", ":")).encode(),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json",
+                     **({"x-kagent-host": args.kagent_host} if args.kagent_host else {})},
             method="POST",
         )
         try:

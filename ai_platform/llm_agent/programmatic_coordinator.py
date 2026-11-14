@@ -1,32 +1,50 @@
-"""Fail-closed core for a bounded kagent BYO Coordinator feasibility probe.
+"""Fail-closed core of the kagent BYO Coordinator.
 
-The module deliberately does not expose an HTTP server.  A future kagent BYO
-executor can adapt its A2A request/event types to this core while the existing
-controller remains the only UI entrypoint.  Outbound delegation is restricted
-to the approved A2A Gateway and the two existing Specialists.
+The module deliberately does not expose an HTTP server; ``byo_coordinator``
+adapts A2A request/event types to it. Outbound delegation is restricted to the
+approved A2A Gateway and the two existing Specialists.
+
+Three typed inputs are routed deterministically:
+
+- ``G3BusinessRequest`` -> ``feature-rag-specialist`` (unchanged
+  ``g3-orchestration/v1`` result);
+- ``G3DriftRequest`` -> ``drift-specialist``;
+- ``G3WorkflowRequest`` (combined) -> both Specialists concurrently.
+
+Drift and combined workflows return ``g3-orchestration/v2``: each Specialist's
+validated evidence under its own name, plus explicit ``unavailable`` entries
+for a Specialist that failed. A missing result is never reconstructed.
 """
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+import contextvars
 from dataclasses import asdict, dataclass
 import hashlib
 import json
 import re
 from threading import Event
 import time
-from typing import Callable, Mapping, Protocol
+from typing import Callable, Mapping, Protocol, Union
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from opentelemetry import trace
+
 from ai_platform.llm_agent.business_request import (
     G3BusinessRequest,
+    G3DriftRequest,
+    G3WorkflowRequest,
+    SpecialistRequest,
     a2a_message_send,
-    business_request_from_a2a,
+    typed_request_from_a2a,
 )
 from ai_platform.llm_agent.contracts import Citation
+from ai_platform.llm_agent.drift_evidence import DriftFinding
 from ai_platform.llm_agent.idempotency import (
     Claim,
     ClaimStatus,
@@ -43,7 +61,9 @@ MAX_SPECIALIST_RESPONSE_BYTES = 16_384
 MAX_A2A_RESPONSE_BYTES = 32_768
 MAX_SYNTHESIS_CHARS = 512
 MAX_A2A_TIMEOUT_SECONDS = 600.0
+WORKFLOW_CONTRACT_VERSION = "g3-orchestration/v2"
 _SPECIALISTS = frozenset({"feature-rag-specialist", "drift-specialist"})
+_TRACER = trace.get_tracer(__name__)
 _LITERAL_PLACEHOLDER = re.compile(r"(?:<transaction_id>|\{transaction_id\}|TODO|REPLACE_ME)", re.I)
 
 
@@ -96,7 +116,7 @@ class A2ATransport(Protocol):
 
 
 class ResponseSynthesizer(Protocol):
-    def __call__(self, request: G3BusinessRequest, evidence: SpecialistEvidence) -> str: ...
+    def __call__(self, request: object, evidence: object) -> str: ...
 
 
 class JsonHttpTransport:
@@ -147,7 +167,7 @@ class GatewayPolicy:
         if not 0.1 <= self.timeout_seconds <= MAX_A2A_TIMEOUT_SECONDS:
             raise ValueError("A2A timeout must be between 0.1 and 600 seconds")
 
-    def call_for(self, request: G3BusinessRequest) -> GatewayCall:
+    def call_for(self, request: SpecialistRequest) -> GatewayCall:
         if request.target_agent not in _SPECIALISTS:
             raise CoordinatorFailure("unsupported_capability", "target is not an approved Specialist")
         return GatewayCall(
@@ -161,7 +181,7 @@ class GatewayPolicy:
         )
 
 
-def _terminal_evidence(response: Mapping[str, object], request: G3BusinessRequest) -> SpecialistEvidence:
+def _terminal_evidence(response: Mapping[str, object], request: SpecialistRequest) -> SpecialistEvidence:
     """Extract one completed A2A task artifact and reject every ambiguous state."""
 
     try:
@@ -198,6 +218,8 @@ def _terminal_evidence(response: Mapping[str, object], request: G3BusinessReques
     if evidence.request_id != request.request_id:
         raise CoordinatorFailure("invalid_specialist_evidence", "Specialist request_id mismatch")
 
+    if isinstance(request, G3DriftRequest):
+        return _validated_drift_evidence(evidence, request)
     requested = set(request.requested_tools)
     if not set(evidence.features) <= set(request.feature_names):
         raise CoordinatorFailure("invalid_specialist_evidence", "Specialist returned unrequested features")
@@ -208,6 +230,67 @@ def _terminal_evidence(response: Mapping[str, object], request: G3BusinessReques
     if evidence.drift and "drift_detection" not in requested:
         raise CoordinatorFailure("invalid_specialist_evidence", "Specialist returned unsolicited drift")
     return evidence
+
+
+def _validated_drift_evidence(evidence: SpecialistEvidence, request: G3DriftRequest) -> SpecialistEvidence:
+    """A drift Specialist returns only drift findings for exactly the requested inputs."""
+
+    if evidence.features or evidence.fraud_score is not None or evidence.citations:
+        raise CoordinatorFailure("invalid_specialist_evidence", "Drift Specialist returned non-drift evidence")
+    if evidence.status == "unavailable":
+        if evidence.drift or not evidence.unavailable:
+            raise CoordinatorFailure("invalid_specialist_evidence", "Unavailable drift evidence must explain itself")
+        return evidence
+    if evidence.status != "ok" or len(evidence.drift) != 1 or evidence.unavailable:
+        raise CoordinatorFailure("invalid_specialist_evidence", "Drift evidence must contain exactly one finding")
+    item = evidence.drift[0]
+    if not isinstance(item, Mapping):
+        raise CoordinatorFailure("invalid_specialist_evidence", "Drift finding must be an object")
+    finding = {key: value for key, value in item.items() if key != "tool_versions"}
+    try:
+        validated = DriftFinding.model_validate(finding)
+    except ValidationError as exc:
+        raise CoordinatorFailure("invalid_specialist_evidence", "Drift finding failed validation") from exc
+    if not validated.matches(request):
+        raise CoordinatorFailure("invalid_specialist_evidence", "Drift finding answers another request")
+    return evidence
+
+
+@dataclass(frozen=True)
+class _MemberOutcome:
+    request: SpecialistRequest
+    evidence: SpecialistEvidence | None
+    failure: CoordinatorFailure | None
+    duration_ms: int
+
+
+def _member_section(outcome: _MemberOutcome) -> dict[str, object]:
+    """One Specialist's validated contribution, labelled with its own name."""
+
+    request = outcome.request
+    if outcome.evidence is None:
+        assert outcome.failure is not None
+        return {"agent": request.target_agent, "request_id": request.request_id, "status": "failed",
+                "error": {"code": outcome.failure.code, "message": str(outcome.failure)[:256]},
+                "duration_ms": outcome.duration_ms}
+    evidence = outcome.evidence
+    section: dict[str, object] = {
+        "agent": request.target_agent,
+        "request_id": request.request_id,
+        "status": evidence.status,
+        "specialist_revision": evidence.prompt_revision,
+        "unavailable": evidence.unavailable,
+        "duration_ms": outcome.duration_ms,
+    }
+    if isinstance(request, G3DriftRequest):
+        section["drift"] = evidence.drift
+    else:
+        section.update({
+            "features": evidence.features,
+            "fraud_score": evidence.fraud_score,
+            "citations": [asdict(Citation(**item)) for item in evidence.citations],
+        })
+    return section
 
 
 class ProgrammaticCoordinator:
@@ -309,38 +392,21 @@ class ProgrammaticCoordinator:
         except IdempotencyStateError as exc:
             raise CoordinatorFailure("idempotency_state_invalid", str(exc)) from exc
 
-    def handle(
+    def _run_idempotently(
         self,
-        inbound_a2a: object,
         *,
         scope: IdempotencyScope,
-        session_id: str,
-        cancelled: Event | None = None,
+        authority_id: str,
+        request_id: str,
+        fingerprint: str,
+        cancelled: Event | None,
+        execute: Callable[[], dict[str, object]],
     ) -> dict[str, object]:
-        if not session_id or len(session_id) > 128:
-            raise CoordinatorFailure("invalid_session", "session_id must contain 1..128 characters")
-        try:
-            request = business_request_from_a2a(inbound_a2a)
-        except (ValueError, ValidationError) as exc:
-            raise CoordinatorFailure("invalid_business_request", str(exc)) from exc
-        if _LITERAL_PLACEHOLDER.search(request.transaction.transaction_id):
-            raise CoordinatorFailure("invalid_business_request", "literal transaction placeholder is forbidden")
-
-        fingerprint = hashlib.sha256(request.to_compact_json().encode()).hexdigest()
-        # The validated business subject separates identical request IDs for
-        # different wallet users.  It is an idempotency dimension, not an
-        # authentication authority; the trusted caller remains ``scope``.
-        authority_id = hashlib.sha256(
-            b"ewallet-business-subject-v1\0"
-            + str(request.transaction.user_id).encode("utf-8")
-            + b"\0"
-            + request.request_id.encode("utf-8")
-        ).hexdigest()
         owner_token = uuid4().hex
         ownership = self._claim_or_wait(
             scope,
             authority_id,
-            request.request_id,
+            request_id,
             fingerprint,
             owner_token,
             cancelled,
@@ -373,33 +439,7 @@ class ProgrammaticCoordinator:
         except IdempotencyStateError as exc:
             raise CoordinatorFailure("idempotency_state_invalid", str(exc)) from exc
 
-        response = self._transport(self._gateway.call_for(request))
-        if cancelled and cancelled.is_set():
-            raise CoordinatorFailure("cancelled", "request was cancelled during delegation")
-        evidence = _terminal_evidence(response, request)
-        decision_support = self._synthesizer(request, evidence).strip()
-        if not decision_support or len(decision_support) > MAX_SYNTHESIS_CHARS:
-            raise CoordinatorFailure("invalid_synthesis", "response synthesis is empty or too large")
-        if "<tool_call>" in decision_support or "REQUEST_JSON=" in decision_support:
-            raise CoordinatorFailure("invalid_synthesis", "response synthesis contains executable-looking text")
-        evidence_json = json.dumps(evidence.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
-        for numeric_claim in re.findall(r"(?<![A-Za-z])[+-]?(?:\d+(?:\.\d+)?|\.\d+)%?", decision_support):
-            if numeric_claim.rstrip("%") not in evidence_json:
-                raise CoordinatorFailure("invalid_synthesis", "response synthesis introduced a new numeric claim")
-
-        # Business values are copied from validated evidence, never reconstructed by the LLM.
-        result: dict[str, object] = {
-            "status": evidence.status,
-            "request_id": request.request_id,
-            "decision_support": decision_support,
-            "features": evidence.features,
-            "fraud_score": evidence.fraud_score,
-            "drift": evidence.drift,
-            "citations": [asdict(Citation(**item)) for item in evidence.citations],
-            "unavailable": evidence.unavailable,
-            "contract_version": "g3-orchestration/v1",
-            "coordinator_revision": "programmatic-coordinator/prototype-v1",
-        }
+        result = execute()
         result_json = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         try:
             self._idempotency.complete(
@@ -417,6 +457,180 @@ class ProgrammaticCoordinator:
         except IdempotencyStateError as exc:
             raise CoordinatorFailure("idempotency_state_invalid", str(exc)) from exc
         return result
+
+    def _synthesize(self, request: object, evidence: object, evidence_json: str) -> str:
+        decision_support = self._synthesizer(request, evidence).strip()
+        if not decision_support or len(decision_support) > MAX_SYNTHESIS_CHARS:
+            raise CoordinatorFailure("invalid_synthesis", "response synthesis is empty or too large")
+        if "<tool_call>" in decision_support or "REQUEST_JSON=" in decision_support:
+            raise CoordinatorFailure("invalid_synthesis", "response synthesis contains executable-looking text")
+        for numeric_claim in re.findall(r"(?<![A-Za-z])[+-]?(?:\d+(?:\.\d+)?|\.\d+)%?", decision_support):
+            if numeric_claim.rstrip("%") not in evidence_json:
+                raise CoordinatorFailure("invalid_synthesis", "response synthesis introduced a new numeric claim")
+        return decision_support
+
+    def handle(
+        self,
+        inbound_a2a: object,
+        *,
+        scope: IdempotencyScope,
+        session_id: str,
+        cancelled: Event | None = None,
+    ) -> dict[str, object]:
+        if not session_id or len(session_id) > 128:
+            raise CoordinatorFailure("invalid_session", "session_id must contain 1..128 characters")
+        try:
+            request = typed_request_from_a2a(inbound_a2a)
+        except (ValueError, ValidationError) as exc:
+            raise CoordinatorFailure("invalid_business_request", str(exc)) from exc
+        if isinstance(request, G3BusinessRequest):
+            return self._handle_fraud(request, scope=scope, cancelled=cancelled)
+        return self._handle_workflow(request, scope=scope, cancelled=cancelled)
+
+    def _handle_fraud(
+        self,
+        request: G3BusinessRequest,
+        *,
+        scope: IdempotencyScope,
+        cancelled: Event | None,
+    ) -> dict[str, object]:
+        """The unchanged G3 fraud investigation path (``g3-orchestration/v1``)."""
+
+        if _LITERAL_PLACEHOLDER.search(request.transaction.transaction_id):
+            raise CoordinatorFailure("invalid_business_request", "literal transaction placeholder is forbidden")
+
+        fingerprint = hashlib.sha256(request.to_compact_json().encode()).hexdigest()
+        # The validated business subject separates identical request IDs for
+        # different wallet users.  It is an idempotency dimension, not an
+        # authentication authority; the trusted caller remains ``scope``.
+        authority_id = hashlib.sha256(
+            b"ewallet-business-subject-v1\0"
+            + str(request.transaction.user_id).encode("utf-8")
+            + b"\0"
+            + request.request_id.encode("utf-8")
+        ).hexdigest()
+
+        def execute() -> dict[str, object]:
+            with _TRACER.start_as_current_span("g3.coordinator.delegate") as span:
+                _delegation_attributes(span, request)
+                response = self._transport(self._gateway.call_for(request))
+                if cancelled and cancelled.is_set():
+                    raise CoordinatorFailure("cancelled", "request was cancelled during delegation")
+                evidence = _terminal_evidence(response, request)
+                span.set_attribute("ewallet.status", evidence.status)
+            evidence_json = json.dumps(evidence.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+            decision_support = self._synthesize(request, evidence, evidence_json)
+            # Business values are copied from validated evidence, never reconstructed by the LLM.
+            return {
+                "status": evidence.status,
+                "request_id": request.request_id,
+                "decision_support": decision_support,
+                "features": evidence.features,
+                "fraud_score": evidence.fraud_score,
+                "drift": evidence.drift,
+                "citations": [asdict(Citation(**item)) for item in evidence.citations],
+                "unavailable": evidence.unavailable,
+                "contract_version": "g3-orchestration/v1",
+                "coordinator_revision": "programmatic-coordinator/prototype-v1",
+            }
+
+        return self._run_idempotently(scope=scope, authority_id=authority_id, request_id=request.request_id,
+                                      fingerprint=fingerprint, cancelled=cancelled, execute=execute)
+
+    def _delegate(self, request: SpecialistRequest, cancelled: Event | None) -> _MemberOutcome:
+        started = time.monotonic()
+        with _TRACER.start_as_current_span("g3.coordinator.delegate") as span:
+            _delegation_attributes(span, request)
+            try:
+                response = self._transport(self._gateway.call_for(request))
+                if cancelled and cancelled.is_set():
+                    raise CoordinatorFailure("cancelled", "request was cancelled during delegation")
+                evidence = _terminal_evidence(response, request)
+            except CoordinatorFailure as exc:
+                span.set_attribute("ewallet.status", exc.code)
+                return _MemberOutcome(request, None, exc, int((time.monotonic() - started) * 1000))
+            span.set_attribute("ewallet.status", evidence.status)
+            return _MemberOutcome(request, evidence, None, int((time.monotonic() - started) * 1000))
+
+    def _handle_workflow(
+        self,
+        request: Union[G3DriftRequest, G3WorkflowRequest],
+        *,
+        scope: IdempotencyScope,
+        cancelled: Event | None,
+    ) -> dict[str, object]:
+        """Drift-only or combined workflow; Specialists run concurrently through the A2A Gateway."""
+
+        members: tuple[SpecialistRequest, ...]
+        if isinstance(request, G3WorkflowRequest):
+            members, workflow = request.members, "combined"
+            if _LITERAL_PLACEHOLDER.search(request.fraud.transaction.transaction_id):
+                raise CoordinatorFailure("invalid_business_request", "literal transaction placeholder is forbidden")
+            subject = str(request.fraud.transaction.user_id)
+        else:
+            members, workflow = (request,), "drift"
+            subject = f"drift:{request.baseline_id}:{request.feature_name}"
+        fingerprint = hashlib.sha256(request.to_compact_json().encode()).hexdigest()
+        authority_id = hashlib.sha256(
+            b"ewallet-business-subject-v1\0" + subject.encode("utf-8") + b"\0" + request.request_id.encode("utf-8")
+        ).hexdigest()
+
+        def execute() -> dict[str, object]:
+            # Each worker runs in a copy of this context, so trace context reaches the A2A call.
+            with ThreadPoolExecutor(max_workers=len(members), thread_name_prefix="g3-delegate") as pool:
+                futures = [pool.submit(contextvars.copy_context().run, self._delegate, member, cancelled)
+                           for member in members]
+                outcomes = [future.result() for future in futures]
+            if cancelled and cancelled.is_set():
+                raise CoordinatorFailure("cancelled", "request was cancelled during delegation")
+            failures = [outcome for outcome in outcomes if outcome.failure is not None]
+            if len(failures) == len(outcomes):
+                first = failures[0].failure
+                assert first is not None
+                if len(failures) == 1:
+                    raise first
+                raise CoordinatorFailure("specialists_unavailable", "No Specialist returned validated evidence")
+            specialists = {outcome.request.target_agent: _member_section(outcome) for outcome in outcomes}
+            unavailable: list[dict[str, object]] = []
+            for outcome in outcomes:
+                agent = outcome.request.target_agent
+                if outcome.failure is not None:
+                    unavailable.append({"agent": agent, "code": outcome.failure.code,
+                                        "message": str(outcome.failure)[:256]})
+                elif outcome.evidence is not None:
+                    unavailable.extend({"agent": agent, "detail": item} for item in outcome.evidence.unavailable)
+            statuses = [section["status"] for section in specialists.values()]
+            status = (
+                "complete" if all(item == "ok" for item in statuses)
+                else "unavailable" if all(item in {"unavailable", "failed"} for item in statuses)
+                else "partial"
+            )
+            evidence_json = json.dumps(specialists, sort_keys=True, separators=(",", ":"), default=str)
+            decision_support = self._synthesize(request, specialists, evidence_json)
+            return {
+                "status": status,
+                "request_id": request.request_id,
+                "workflow": workflow,
+                "decision_support": decision_support,
+                "specialists": specialists,
+                "unavailable": unavailable,
+                "contract_version": WORKFLOW_CONTRACT_VERSION,
+                "coordinator_revision": "programmatic-coordinator/workflow-v1",
+            }
+
+        return self._run_idempotently(scope=scope, authority_id=authority_id, request_id=request.request_id,
+                                      fingerprint=fingerprint, cancelled=cancelled, execute=execute)
+
+
+def _delegation_attributes(span: trace.Span, request: SpecialistRequest) -> None:
+    """Non-sensitive correlation attributes for one Coordinator -> Specialist hop."""
+
+    span.set_attribute("g3.request_id", request.request_id)
+    span.set_attribute("ewallet.agent", "fraud-coordinator")
+    span.set_attribute("ewallet.specialist", request.target_agent)
+    span.set_attribute("ewallet.gateway", "a2a-gateway")
+    span.set_attribute("ewallet.capability", request.capabilities[0])
+    span.set_attribute("ewallet.requested_tools", list(request.requested_tools))
 
 
 def encode_specialist_task(request_id: str, evidence: Mapping[str, object]) -> dict[str, object]:

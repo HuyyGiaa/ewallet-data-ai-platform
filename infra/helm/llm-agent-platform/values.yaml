@@ -476,6 +476,12 @@ agents:
       version: "1.0.0"
       promptVersion: v2
       rubricRows: "19,20,21"
+      # Agent-integration profile (agi/agents.yaml): deterministic BYO Drift
+      # Specialist (byo_drift_specialist.py), no LLM. Off keeps the Declarative
+      # agent on the global ModelConfig, which is also the rollback profile.
+      byo:
+        enabled: false
+        image: ""
       a2aSkill:
         enabled: true
         id: feature-risk-analysis
@@ -541,6 +547,10 @@ agents:
       # conversation. Needs the routes in modelExperiments. Overlays: c7/.
       abExperiment:
         enabled: false
+      # [fraud] (recorded production) or [fraud, drift] (agent-integration
+      # profile, needs the BYO drift-specialist): drift-only and combined
+      # workflows routed through the A2A Gateway.
+      workflows: [fraud]
   # Bounded OTLP audit records (ids, status, codes; no prompts or business
   # data) from the BYO agents to the shared collector -> Loki. Off by default.
   byoTelemetry:
@@ -831,6 +841,9 @@ mcpServices:
       # Feast Online Redis credential (Secret name/key) and immutable registry
       # snapshots mounted from ConfigMaps; empty keeps the production default.
       redisSecret: {}
+      # Optional independent RAG Feast Online credential (Secret name/key); empty
+      # reuses redisSecret's connection for the RAG project (legacy profile).
+      ragRedisSecret: {}
       registrySnapshots: []
       env:
         EWALLET_FEAST_REPO_PATH: ""

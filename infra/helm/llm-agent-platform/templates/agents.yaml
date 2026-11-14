@@ -102,8 +102,14 @@ spec:
   description: {{ $spec.displayName | quote }}
   version: {{ $spec.version | quote }}
   {{- if $byoEnabled }}
-  {{- if and (not $isCoordinator) (ne $name "feature-rag-specialist") }}
+  {{- /* BYO modules: the Coordinator image CMD, or one deterministic Specialist module.
+         drift-specialist BYO is the agent-integration profile (agi/); it never calls an LLM. */}}
+  {{- $byoModules := dict "feature-rag-specialist" "ai_platform.llm_agent.byo_feature_rag_specialist" "drift-specialist" "ai_platform.llm_agent.byo_drift_specialist" }}
+  {{- if and (not $isCoordinator) (not (hasKey $byoModules $name)) }}
   {{- fail (printf "agent %s: BYO runtime is not approved" $name) }}
+  {{- end }}
+  {{- if and (eq $name "drift-specialist") (index (index $byo "naturalLanguageIntake" | default dict) "enabled") }}
+  {{- fail "drift-specialist BYO is deterministic: naturalLanguageIntake is not supported" }}
   {{- end }}
   {{- $byoImage := index $byo "image" | default "" }}
   {{- if not (regexMatch "^[a-z0-9.-]+-docker\\.pkg\\.dev/[a-z0-9-]+/[a-z0-9_-]+/[a-z0-9._-]+@sha256:[0-9a-f]{64}$" $byoImage) }}
@@ -119,7 +125,7 @@ spec:
       {{- end }}
       serviceAccountName: {{ $name }}
       {{- if not $isCoordinator }}
-      args: ["ai_platform.llm_agent.byo_feature_rag_specialist"]
+      args: [{{ index $byoModules $name | quote }}]
       {{- end }}
       labels:
         ewallet.io/agent: {{ $name }}
@@ -222,6 +228,19 @@ spec:
               name: {{ $.Values.modelConfig.apiKeySecret.name }}
               key: {{ $.Values.modelConfig.apiKeySecret.key }}
         {{- end }}
+        {{- $workflows := index $byo "workflows" | default (list "fraud") }}
+        {{- if and $isCoordinator (not (has (join "," $workflows) (list "fraud" "fraud,drift"))) }}
+        {{- fail "agents.coordinator.byo.workflows must be [fraud] or [fraud, drift]" }}
+        {{- end }}
+        {{- if and $isCoordinator (has "drift" $workflows) }}
+        {{- if not (dig "specialists" "drift-specialist" "byo" "enabled" false $.Values.agents) }}
+        {{- fail "coordinator drift workflows need the deterministic BYO drift-specialist (agents.specialists.drift-specialist.byo.enabled)" }}
+        {{- end }}
+        # Agent integration: typed and natural-language drift and combined
+        # workflows (workflow_intake.py, programmatic_coordinator.py).
+        - name: EWALLET_COORDINATOR_WORKFLOWS
+          value: "fraud,drift"
+        {{- end }}
         {{- with dig "byo" "mcpMaxAttempts" "" $spec }}
         # Unset keeps the client default; 1 turns retry off on the same image.
         - name: EWALLET_MCP_MAX_ATTEMPTS
@@ -249,7 +268,7 @@ spec:
           value: {{ $.Values.idempotencyRedis.coordinator.duplicatePollSeconds | quote }}
         {{- end }}
         {{- if not $isCoordinator }}
-        {{- $server := "feature-rag-mcp" }}
+        {{- $server := ternary "drift-mcp" "feature-rag-mcp" (eq $name "drift-specialist") }}
         {{- $auth := index ($spec.authHeaderSecrets | default dict) $server | default dict }}
         {{- $authName := ternary $auth.name (printf "mcp-token-%s-%s-%s" $name $server $credentialRelease) (eq $credentialRelease "legacy") }}
         {{- $authKey := $auth.key | default "token" }}

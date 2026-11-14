@@ -1,0 +1,44 @@
+# Agent integration (AGI) profile for the existing `llm-agent-mcp` release
+# (namespace ewallet-mcp). Layer it on that release's current values after the
+# Stage 1 approval of AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md. Everything named
+# here must exist first (created in Stage 1, never by Helm):
+#
+#   Secrets   feast-online-redis-agi-fraud  connection_string with an explicit ,db=<N>
+#             feast-online-redis-agi-rag    connection_string with ,db=3 (RAG Hybrid project)
+#   ConfigMaps feast-registry-rag-agi       registry.db of the RAG Hybrid project (sha256 checked)
+#             drift-baselines-agi           baselines.json   (ops/llm_agent/drift_artifacts.py)
+#             drift-window-agi              window-manifest.json + <view>.csv.gz
+#
+# The empty values below are deliberate: the chart refuses an empty env value,
+# so the owner must pass the read-back digests and databases with --set.
+# Lists replace the release's lists: registrySnapshots restates the Fraud
+# registry snapshot, which Stage 0 compares with `helm get values llm-agent-mcp`.
+mcpServices:
+  identity:
+    configRevision: ""          # agi-<campaign id>
+  services:
+    feature-rag-mcp:
+      redisSecret: {name: feast-online-redis-agi-fraud, key: connection_string}
+      ragRedisSecret: {name: feast-online-redis-agi-rag, key: connection_string}
+      registrySnapshots:
+        - {name: fraud-registry, configMap: feast-registry-fraud-online, mountPath: /feast/fraud}
+        - {name: rag-registry, configMap: feast-registry-rag-agi, mountPath: /feast/rag}
+      env:
+        # Two independent, explicitly pinned targets; DB 0 can never be reached by fallback.
+        EWALLET_FEATURE_TARGET_PROFILE: isolated
+        EWALLET_FRAUD_ONLINE_DB: ""            # must equal the db= of feast-online-redis-agi-fraud
+        EWALLET_RAG_ONLINE_DB: ""              # 3 for the RAG Hybrid campaign
+        EWALLET_RAG_FEAST_PROJECT: ewallet_rag_hybrid_20261114t144825
+        EWALLET_RAG_FEAST_REGISTRY: /feast/rag/registry.db
+    drift-mcp:
+      registrySnapshots:
+        - {name: drift-baselines, configMap: drift-baselines-agi, mountPath: /drift/baselines}
+        - {name: drift-window, configMap: drift-window-agi, mountPath: /drift/window}
+      env:
+        EWALLET_DRIFT_SOURCE: artifact
+        EWALLET_DRIFT_BASELINES_PATH: /drift/baselines/baselines.json
+        EWALLET_DRIFT_BASELINES_SHA256: ""     # from drift_artifacts.py describe
+        EWALLET_DRIFT_WINDOW_MANIFEST: /drift/window/window-manifest.json
+        EWALLET_DRIFT_WINDOW_MANIFEST_SHA256: ""
+        EWALLET_DRIFT_DATASET_REVISION: ""     # lineage.snapshot_id of the source snapshot
+        EWALLET_DRIFT_ALLOW_SYNTHETIC: "false"

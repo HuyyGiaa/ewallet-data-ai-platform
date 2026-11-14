@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from ai_platform.inference.schemas import FraudPredictionRequest
 from ai_platform.llm_agent.agent_ab import AgentExperiment, ExperimentPlanner
 from ai_platform.llm_agent.business_request import G3BusinessRequest
+from ai_platform.llm_agent.business_request import is_typed_wire_text as _is_typed_wire_text
 from ai_platform.llm_agent.model_config import (
     APPROVED_LLM_BASE_URL,
     APPROVED_LLM_HOST,
@@ -161,6 +162,20 @@ class ToolSelection:
 
 
 @dataclass(frozen=True)
+class MultiSelection:
+    """All tool calls of one LLM response, plus the response's audit metadata."""
+
+    selections: tuple[ToolSelection, ...]
+    response_id: str
+    finish_reason: str
+    prompt_tokens: int
+    completion_tokens: int
+    variant: str = ""
+    served_model: str = ""
+    backend: str = ""
+
+
+@dataclass(frozen=True)
 class IntakeResult:
     request: G3BusinessRequest
     selection: ToolSelection
@@ -169,7 +184,7 @@ class IntakeResult:
 def is_typed_wire_text(text: str) -> bool:
     """The established two-line protocol keeps its exact deterministic path."""
 
-    return text.startswith("CALL_AGENT=")
+    return _is_typed_wire_text(text)
 
 
 def _environment_key() -> str:
@@ -190,8 +205,15 @@ class OpenAIToolPlanner:
         temperature: float = 0,
         max_tokens: int = 384,
         variant: str = "",
+        tools: tuple[Mapping[str, object], ...] = (TOOL_SCHEMA,),
+        max_tool_calls: int = 1,
     ) -> None:
         _validate_base_url(base_url)
+        names = [str(tool["function"]["name"]) for tool in tools]  # type: ignore[index]
+        if not names or len(set(names)) != len(names):
+            raise ValueError("planner tools must be non-empty and unique")
+        if not 1 <= max_tool_calls <= len(names):
+            raise ValueError("max_tool_calls must be between 1 and the number of tools")
         if not 1.0 <= timeout_seconds <= MAX_LLM_TIMEOUT_SECONDS:
             raise ValueError("LLM timeout must be between 1 and 200 seconds")
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", model):
@@ -204,6 +226,9 @@ class OpenAIToolPlanner:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self.variant = variant
+        self._tools = tuple(tools)
+        self._tool_names = frozenset(names)
+        self._max_tool_calls = max_tool_calls
 
     def available(self) -> bool:
         return bool(self._key_reader().strip())
@@ -219,14 +244,14 @@ class OpenAIToolPlanner:
             "max_tokens": self._max_tokens,
             "stream": False,
             "tool_choice": "auto",
-            "tools": [TOOL_SCHEMA],
+            "tools": list(self._tools),
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": text},
             ],
         }
 
-    async def select(self, text: str) -> ToolSelection:
+    async def _complete(self, text: str) -> tuple[dict, dict, list, dict, httpx.Response]:
         key = self._key_reader().strip()
         if not key:
             raise IntakeFailure("llm_credential_unavailable", "Coordinator LLM credential is unavailable")
@@ -253,20 +278,17 @@ class OpenAIToolPlanner:
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise IntakeFailure("llm_invalid_response", "LLM response is not a chat completion") from exc
         calls = message.get("tool_calls") or []
-        if not calls:
-            raise IntakeFailure(
-                "unsupported_request",
-                "Yêu cầu không phải là một điều tra gian lận cho một giao dịch cụ thể; không có công cụ nào được chọn",
-            )
-        if len(calls) != 1:
-            raise IntakeFailure("multiple_tool_calls", "LLM selected more than one tool")
+        return payload, choice, calls, usage, response
+
+    def _selection(self, call: object, payload: dict, choice: dict, usage: dict,
+                   response: httpx.Response) -> ToolSelection:
         try:
-            function = calls[0]["function"]
+            function = call["function"]  # type: ignore[index]
             name = function["name"]
             raw_arguments = function["arguments"]
         except (KeyError, TypeError) as exc:
             raise IntakeFailure("llm_invalid_response", "LLM tool call is malformed") from exc
-        if name != TOOL_NAME:
+        if name not in self._tool_names:
             raise IntakeFailure("unauthorized_tool", "LLM selected a tool that the Coordinator does not grant")
         try:
             arguments = json.loads(raw_arguments) if isinstance(raw_arguments, str) else raw_arguments
@@ -286,8 +308,43 @@ class OpenAIToolPlanner:
             backend=response.headers.get("x-ewallet-backend", "")[:64],
         )
 
+    async def select(self, text: str) -> ToolSelection:
+        payload, choice, calls, usage, response = await self._complete(text)
+        if not calls:
+            raise IntakeFailure(
+                "unsupported_request",
+                "Yêu cầu không phải là một điều tra gian lận cho một giao dịch cụ thể; không có công cụ nào được chọn",
+            )
+        if len(calls) != 1:
+            raise IntakeFailure("multiple_tool_calls", "LLM selected more than one tool")
+        return self._selection(calls[0], payload, choice, usage, response)
 
-def planner_from_env() -> OpenAIToolPlanner | ExperimentPlanner | None:
+    async def select_many(self, text: str) -> MultiSelection:
+        """One LLM call; at most ``max_tool_calls`` selections, each tool at most once."""
+
+        payload, choice, calls, usage, response = await self._complete(text)
+        if len(calls) > self._max_tool_calls:
+            raise IntakeFailure("multiple_tool_calls", "LLM selected more tools than the Coordinator allows")
+        selections = tuple(self._selection(call, payload, choice, usage, response) for call in calls)
+        if len({item.name for item in selections}) != len(selections):
+            raise IntakeFailure("multiple_tool_calls", "LLM selected the same tool more than once")
+        return MultiSelection(
+            selections=selections,
+            response_id=str(payload.get("id", ""))[:128],
+            finish_reason=str(choice.get("finish_reason", ""))[:32],
+            prompt_tokens=int(usage.get("prompt_tokens") or 0),
+            completion_tokens=int(usage.get("completion_tokens") or 0),
+            variant=self.variant,
+            served_model=str(payload.get("model", ""))[:128],
+            backend=response.headers.get("x-ewallet-backend", "")[:64],
+        )
+
+
+def planner_from_env(
+    *,
+    tools: tuple[Mapping[str, object], ...] = (TOOL_SCHEMA,),
+    max_tool_calls: int = 1,
+) -> OpenAIToolPlanner | ExperimentPlanner | None:
     """Natural-language intake is opt-in and bound to the approved LLM route.
 
     ``EWALLET_AGENT_AB_CONFIG`` replaces the single model with two configured
@@ -318,11 +375,14 @@ def planner_from_env() -> OpenAIToolPlanner | ExperimentPlanner | None:
                     temperature=variant.temperature,
                     max_tokens=variant.max_tokens,
                     variant=variant.name,
+                    tools=tools,
+                    max_tool_calls=max_tool_calls,
                 )
                 for variant in experiment.variants
             },
         )
-    return OpenAIToolPlanner(base_url=base_url, model=model, timeout_seconds=timeout_seconds)
+    return OpenAIToolPlanner(base_url=base_url, model=model, timeout_seconds=timeout_seconds,
+                             tools=tools, max_tool_calls=max_tool_calls)
 
 
 def model_config_from_env() -> ResolvedModelConfig | None:

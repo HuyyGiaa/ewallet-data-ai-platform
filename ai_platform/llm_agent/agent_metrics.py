@@ -40,7 +40,7 @@ Agent = Literal["fraud-coordinator", "feature-rag-specialist"]
 Mode = Literal["typed", "natural-language"]
 Outcome = Literal["completed", "rejected", "failed", "cancelled"]
 
-AGENTS = frozenset({"fraud-coordinator", "feature-rag-specialist"})
+AGENTS = frozenset({"fraud-coordinator", "feature-rag-specialist", "drift-specialist"})
 MODES = frozenset({"typed", "natural-language"})
 OUTCOMES = frozenset({"completed", "rejected", "failed", "cancelled"})
 

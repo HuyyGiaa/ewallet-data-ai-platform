@@ -1,9 +1,10 @@
 """drift_detection: explainable comparison of a current window with a versioned baseline.
 
-No drift policy is approved in source yet, so nothing here invents one: the
-method, bins, smoothing, minimum sample size and thresholds all come from the
-versioned baseline. Without thresholds the result is ``unclassified``. The
-production baseline registry and window sampler are explicitly unavailable.
+Nothing here invents a drift policy: the method, bins, smoothing, minimum sample
+size and thresholds all come from the versioned baseline. Without thresholds the
+result is ``unclassified``. The artifact-backed baseline registry and window
+sampler live in :mod:`ai_platform.llm_agent.tools.drift_sources`; without them
+the service wires the explicitly unavailable stores below.
 """
 
 from __future__ import annotations
@@ -88,6 +89,10 @@ class DriftBaseline:
     reference_end: datetime
     dataset_revision: str
     thresholds: tuple[float, float] | None = None
+    # Provenance of the reference distribution (artifact-backed baselines).
+    source_uri: str | None = None
+    source_sha256: str | None = None
+    reference_count: int | None = None
 
     def __post_init__(self) -> None:
         if self.method != "psi":
@@ -131,6 +136,9 @@ class WindowSample:
     end: datetime
     values: tuple[float, ...]
     dataset_revision: str
+    # Observations in the window without a value (DP3 leaves some features null by design).
+    excluded_null_count: int = 0
+    source_sha256: str | None = None
 
 
 class BaselineStore(Protocol):
@@ -237,6 +245,17 @@ class DriftDetectionTool:
             ),
             "live_metrics_verified": False,
         }
+        if baseline.source_sha256 is not None or baseline.reference_count is not None:
+            result["baseline_source"] = {
+                "uri": baseline.source_uri,
+                "sha256": baseline.source_sha256,
+                "reference_count": baseline.reference_count,
+            }
+        if sample.source_sha256 is not None or sample.excluded_null_count:
+            result["current_source"] = {
+                "sha256": sample.source_sha256,
+                "excluded_null_count": sample.excluded_null_count,
+            }
         if len(sample.values) < baseline.min_current_count:
             return ToolOutcome(result={**result, "drift_status": "insufficient_data", "psi": None, "bins": []})
         psi, bins = population_stability_index(baseline, sample.values)

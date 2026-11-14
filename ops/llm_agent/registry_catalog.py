@@ -12,6 +12,7 @@ registry entry, the SandboxAgent and the prompt ConfigMap cannot drift:
 
 usage:
   python -m ops.llm_agent.registry_catalog render [--git-sha SHA] > catalog.yaml
+  python -m ops.llm_agent.registry_catalog render --values-overlay infra/helm/llm-agent-platform/agi/agents.yaml
   python -m ops.llm_agent.registry_catalog publish --registry http://127.0.0.1:12121 \
       --confirm-live-write http://127.0.0.1:12121 [--evidence out.json]
   python -m ops.llm_agent.registry_catalog publish --registry URL --dry-run
@@ -47,6 +48,18 @@ ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "infra/helm/llm-agent-platform"
 API_VERSION = "ar.dev/v1alpha1"
 KIND_PATHS = {"Agent": "agents", "Prompt": "prompts", "MCPServer": "mcpservers"}
+
+
+def merge_values(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> dict[str, Any]:
+    """Helm-style deep merge: maps merge, everything else (lists included) is replaced."""
+
+    merged = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
+            merged[key] = merge_values(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _agents(values: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -93,12 +106,15 @@ def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
     for name in sorted(agents):
         spec = agents[name]
         servers = sorted(spec.get("tools", {}))
+        byo = spec.get("byo") or {}
+        labels = {"ewallet.io/rubric-rows": spec["rubricRows"].replace(",", "."),
+                  "ewallet.io/git-sha": git_sha[:40],
+                  "ewallet.io/runtime": "kagent-byo" if byo.get("enabled") else "kagent-sandboxagent"}
+        if "drift" in (byo.get("workflows") or []):
+            labels["ewallet.io/workflows"] = ".".join(byo["workflows"])
         documents.append({
             "apiVersion": API_VERSION, "kind": "Agent",
-            "metadata": {"name": name, "tag": spec["version"],
-                         "labels": {"ewallet.io/rubric-rows": spec["rubricRows"].replace(",", "."),
-                                    "ewallet.io/git-sha": git_sha[:40],
-                                    "ewallet.io/runtime": "kagent-sandboxagent"}},
+            "metadata": {"name": name, "tag": spec["version"], "labels": labels},
             "spec": {
                 "title": spec["displayName"],
                 "description": f"{spec['displayName']}: kagent 0.10.3 SandboxAgent deployed by llm-agent-platform",
@@ -204,10 +220,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--all-prompt-versions", action="store_true",
                         help="publish every version pinned in prompts/manifest.json, not only the deployed one")
+    parser.add_argument("--values-overlay", type=Path, action="append", default=[],
+                        help="chart values file layered on values.yaml, as Helm would (e.g. agi/agents.yaml)")
     args = parser.parse_args(argv)
     git_sha = args.git_sha or subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
                                              text=True, check=True).stdout.strip()
-    values = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["agents"]
+    chart_values = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))
+    for overlay in args.values_overlay:
+        chart_values = merge_values(chart_values, yaml.safe_load(overlay.read_text(encoding="utf-8")) or {})
+    values = chart_values["agents"]
     documents = build_catalog(values, CHART / "prompts", git_sha, all_prompt_versions=args.all_prompt_versions)
     if args.command == "render":
         yaml.safe_dump_all(documents, sys.stdout, sort_keys=False)

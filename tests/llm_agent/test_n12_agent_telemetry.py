@@ -143,7 +143,8 @@ class AgentCounterTests(unittest.TestCase):
         self.assertEqual(before, after)
 
     def test_labels_are_bounded(self):
-        for args in (("drift-specialist", "typed", "completed"), ("fraud-coordinator", "x", "completed"),
+        # drift-specialist joined the bounded set with its BYO runtime (agent integration).
+        for args in (("payments-agent", "typed", "completed"), ("fraud-coordinator", "x", "completed"),
                      ("fraud-coordinator", "typed", "error")):
             with self.subTest(args=args), self.assertRaises(ValueError):
                 record_invocation(*args)

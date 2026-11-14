@@ -180,7 +180,8 @@ def _register_tool_route(app: FastAPI, executor: ToolExecutor, handler: ToolHand
 def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator: Authenticator,
                     grants: ToolGrants, http_settings: HttpSecuritySettings | None = None,
                     logger: logging.Logger | None = None,
-                    telemetry: ToolTelemetry | None = None) -> FastAPI:
+                    telemetry: ToolTelemetry | None = None,
+                    configuration: Mapping[str, object] | None = None) -> FastAPI:
     # No unauthenticated schema endpoints: /docs, /redoc and /openapi.json are off.
     app = FastAPI(title=f"E-Wallet {service_name}", version=SERVER_VERSION,
                   docs_url=None, redoc_url=None, openapi_url=None)
@@ -233,10 +234,14 @@ def create_tool_app(*, service_name: str, executor: ToolExecutor, authenticator:
         # Authenticated, and limited to the caller's granted tools.
         principal = verified_principal(request.state)
         report = await executor.readiness()
-        return JSONResponse({"service": service_name, "tools": {
+        body: dict[str, object] = {"service": service_name, "tools": {
             name: {"status": item["status"], "code": item.get("code")}
             for name, item in report.items() if grants.lists(principal, name)
-        }})
+        }}
+        if configuration is not None:
+            # Non-secret data-target identity (profile, databases, projects, revisions).
+            body["configuration"] = dict(configuration)
+        return JSONResponse(body)
 
     @app.post("/mcp")
     async def mcp(request: Request) -> Response:
@@ -338,7 +343,8 @@ def _executor(handlers: tuple[ToolHandler, ...], environment: Mapping[str, str])
     )
 
 
-def _production_app(service_name: str, handlers: tuple[ToolHandler, ...], environment: Mapping[str, str]) -> FastAPI:
+def _production_app(service_name: str, handlers: tuple[ToolHandler, ...], environment: Mapping[str, str],
+                    configuration: Mapping[str, object] | None = None) -> FastAPI:
     grants = ToolGrants.from_env(environment)
     logger = audit_logger()
     return create_tool_app(
@@ -350,7 +356,58 @@ def _production_app(service_name: str, handlers: tuple[ToolHandler, ...], enviro
         grants=grants,
         http_settings=HttpSecuritySettings.from_env(environment),
         logger=logger,
+        configuration=configuration,
     )
+
+
+FEATURE_TARGET_PROFILES = ("legacy", "isolated")
+
+
+def feature_targets(values: Mapping[str, str]) -> dict[str, object]:
+    """Validate the Fraud and RAG Feast targets before any store is opened.
+
+    ``legacy`` (default) is the recorded production wiring: the RAG project reuses
+    the Fraud Redis connection unless ``EWALLET_RAG_REDIS_CONNECTION_STRING`` is set.
+    ``isolated`` (integration profile) requires two independently configured
+    connections, each with an explicit database that must equal its pinned value,
+    explicit registries, and a dedicated RAG verification project in DB 2-15, so a
+    missing or wrong setting can never fall back to production DB 0. The returned
+    description is non-secret (no host, password or connection string).
+    """
+
+    profile = values.get("EWALLET_FEATURE_TARGET_PROFILE", "legacy").strip() or "legacy"
+    if profile not in FEATURE_TARGET_PROFILES:
+        raise ConfigurationError()
+    if profile == "legacy":
+        return {"profile": "legacy",
+                "rag_connection": "dedicated" if values.get("EWALLET_RAG_REDIS_CONNECTION_STRING", "").strip()
+                else "shared-with-fraud"}
+    from ai_platform.llm_agent.rag.online_target import RagTargetError, parse_connection, resolve
+
+    required = ("EWALLET_REDIS_CONNECTION_STRING", "EWALLET_FEAST_REGISTRY", "EWALLET_FRAUD_ONLINE_DB",
+                "EWALLET_RAG_REDIS_CONNECTION_STRING", "EWALLET_RAG_FEAST_REGISTRY",
+                "EWALLET_RAG_FEAST_PROJECT", "EWALLET_RAG_ONLINE_DB")
+    if any(not values.get(name, "").strip() for name in required):
+        raise ConfigurationError()
+    try:
+        fraud = parse_connection(values["EWALLET_REDIS_CONNECTION_STRING"])
+        rag = resolve(values["EWALLET_RAG_REDIS_CONNECTION_STRING"],
+                      project=values["EWALLET_RAG_FEAST_PROJECT"].strip(),
+                      environment={"EWALLET_RAG_ONLINE_TARGET": "verification"})
+        fraud_pin = int(values["EWALLET_FRAUD_ONLINE_DB"])
+        rag_pin = int(values["EWALLET_RAG_ONLINE_DB"])
+    except (RagTargetError, ValueError) as exc:
+        raise ConfigurationError() from exc
+    if fraud.database != fraud_pin or rag.endpoint.database != rag_pin:
+        raise ConfigurationError()
+    return {
+        "profile": "isolated",
+        "fraud": {"redis_database": fraud.database,
+                  "access": "read-only" + (" (production store)" if fraud.database == 0 else ""),
+                  "registry": values["EWALLET_FEAST_REGISTRY"].strip()},
+        "rag": {"redis_database": rag.endpoint.database, "project": rag.project,
+                "registry": values["EWALLET_RAG_FEAST_REGISTRY"].strip(), "access": "read-only"},
+    }
 
 
 def create_feature_rag_app(environment: Mapping[str, str] | None = None) -> FastAPI:
@@ -373,6 +430,7 @@ def create_feature_rag_app(environment: Mapping[str, str] | None = None) -> Fast
     from ai_platform.llm_agent.tools.knowledge_search import KnowledgeSearchTool, UnavailableKnowledgeRetriever
 
     values = os.environ if environment is None else environment
+    targets = feature_targets(values)
     settings = InferenceSettings.from_env(values)
     store = FeatureStore(repo_path=str(settings.feast_repo_path))
     configure_feast_redis_timeouts(store, timeout_seconds=settings.feast_timeout_seconds)
@@ -395,22 +453,40 @@ def create_feature_rag_app(environment: Mapping[str, str] | None = None) -> Fast
         KnowledgeSearchTool(_knowledge_retriever(index, rag_store, settings.feast_timeout_seconds, values)),
         ChunkLookupTool(index, FeastChunkRowSource(rag_store, timeout_seconds=settings.feast_timeout_seconds)),
     )
-    return _production_app("feature-rag-mcp", handlers, values)
+    configuration = {
+        "feature_targets": targets,
+        "model": {"name": settings.model_name, "version": settings.model_version},
+        "rag": {"retriever": values.get("EWALLET_RAG_RETRIEVER", "unavailable"),
+                "embedder": values.get("EWALLET_RAG_EMBEDDER", "endpoint"),
+                "corpus_revision": index.manifest.corpus_revision,
+                "embedding_model_revision": index.manifest.embedding_model_revision},
+    }
+    return _production_app("feature-rag-mcp", handlers, values, configuration)
 
 
 def _rag_feature_store(store, values: Mapping[str, str], *, timeout_seconds: float):
-    """Return the separate RAG Feast project when its registry is configured."""
+    """Return the separate RAG Feast project when its registry is configured.
+
+    ``EWALLET_RAG_REDIS_CONNECTION_STRING`` gives the RAG project its own Redis
+    connection (and database); without it the legacy profile reuses the Fraud
+    store's connection, as the recorded production deployment does.
+    """
 
     if not values.get("EWALLET_RAG_FEAST_REGISTRY", "").strip():
+        if values.get("EWALLET_RAG_REDIS_CONNECTION_STRING", "").strip():
+            # A dedicated RAG connection without its registry would be ignored silently.
+            raise ConfigurationError()
         return store
     from feast import FeatureStore
 
     from ai_platform.inference.config import configure_feast_redis_timeouts
     from ai_platform.llm_agent.rag.feast_publication import FeastTarget, repo_config
 
-    redis = getattr(store.config.online_store, "connection_string", None)
-    if getattr(store.config.online_store, "type", None) != "redis" or not redis:
-        raise ConfigurationError()
+    redis = values.get("EWALLET_RAG_REDIS_CONNECTION_STRING", "").strip() or None
+    if redis is None:
+        redis = getattr(store.config.online_store, "connection_string", None)
+        if getattr(store.config.online_store, "type", None) != "redis" or not redis:
+            raise ConfigurationError()
     target = FeastTarget(
         "redis",
         values.get("EWALLET_RAG_FEAST_PROJECT", "").strip() or "ewallet_rag",
@@ -464,14 +540,26 @@ def _knowledge_retriever(index, store, timeout_seconds: float, values: Mapping[s
 
 
 def create_drift_app(environment: Mapping[str, str] | None = None) -> FastAPI:
-    """Production wiring: no approved baseline registry or window source yet."""
+    """Drift wiring: artifact-backed baselines and window when configured, else fail closed.
 
-    from ai_platform.llm_agent.tools.drift import (
-        DriftDetectionTool,
-        UnavailableBaselineStore,
-        UnavailableWindowSampler,
-    )
+    ``EWALLET_DRIFT_SOURCE=artifact`` selects the checksum-pinned baseline registry
+    and Parquet window (see :mod:`ai_platform.llm_agent.tools.drift_sources`); the
+    default ``unavailable`` keeps the recorded deployment's explicit unavailability.
+    """
+
+    from ai_platform.llm_agent.tools.drift import DriftDetectionTool
+    from ai_platform.llm_agent.tools.drift_sources import drift_backends_from_env
 
     values = os.environ if environment is None else environment
-    handlers = (DriftDetectionTool(UnavailableBaselineStore(), UnavailableWindowSampler()),)
-    return _production_app("drift-mcp", handlers, values)
+    baselines, sampler = drift_backends_from_env(values)
+    handlers = (DriftDetectionTool(baselines, sampler),)
+    source = values.get("EWALLET_DRIFT_SOURCE", "unavailable").strip() or "unavailable"
+    configuration: dict[str, object] = {"drift_source": source}
+    if source == "artifact":
+        configuration.update({
+            "dataset_revision": values["EWALLET_DRIFT_DATASET_REVISION"].strip(),
+            "baselines_sha256": values["EWALLET_DRIFT_BASELINES_SHA256"].strip(),
+            "window_manifest_sha256": values["EWALLET_DRIFT_WINDOW_MANIFEST_SHA256"].strip(),
+            "synthetic_allowed": values.get("EWALLET_DRIFT_ALLOW_SYNTHETIC", "false").strip().lower() == "true",
+        })
+    return _production_app("drift-mcp", handlers, values, configuration)

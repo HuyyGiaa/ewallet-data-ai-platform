@@ -8,7 +8,7 @@ structured tool result and emits one Coordinator-compatible terminal artifact.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 import hashlib
 import json
@@ -17,10 +17,7 @@ import math
 from numbers import Integral, Real
 import os
 import re
-from typing import Protocol
-from urllib.parse import urlparse
 
-import httpx2
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.events import EventQueue
@@ -30,11 +27,9 @@ from a2a.types import AgentCapabilities, AgentCard, AgentSkill, Part, TaskState,
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from kagent.core.a2a import KAgentRequestContextBuilder
-from mcp.client.session import ClientSession
-from mcp.client.streamable_http import streamable_http_client
 from opentelemetry import propagate, trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import ValidationError
 
 from ai_platform.llm_agent.business_request import G3BusinessRequest, business_request_from_a2a
 from ai_platform.llm_agent.agent_metrics import (
@@ -53,6 +48,15 @@ from ai_platform.llm_agent.nl_intake import (
     plan as plan_intake,
     planner_from_env,
     render_summary,
+)
+from ai_platform.llm_agent.byo_mcp import (
+    MCPEnvelope,
+    MCPSession,
+    SessionFactory,
+    TokenReader,
+    environment_token as _environment_token,
+    official_session as _official_session,
+    validate_gateway_route,
 )
 from ai_platform.llm_agent.contracts import Citation, VersionContext
 from ai_platform.llm_agent.programmatic_coordinator import SpecialistEvidence
@@ -80,61 +84,11 @@ class FeatureRagFailure(ValueError):
         self.code = code
 
 
-class MCPEnvelope(BaseModel):
-    """Exact shared tool response carried by MCP structuredContent."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    request_id: str = Field(min_length=1, max_length=128)
-    tool_name: str
-    status: str
-    result: dict[str, object]
-    versions: dict[str, str]
-    citations: list[dict[str, object]] = Field(default_factory=list, max_length=8)
-    fallback_used: bool = False
-
-
-class MCPSession(Protocol):
-    """The part of an MCP client session that the Specialist uses."""
-
-    async def initialize(self): ...
-    async def list_tools(self): ...
-    async def call_tool(self, name: str, arguments: dict[str, object]): ...
-
-
-SessionFactory = Callable[[str, Mapping[str, str], float], object]
-TokenReader = Callable[[], str]
-
-
-@asynccontextmanager
-async def _official_session(
-    endpoint: str,
-    headers: Mapping[str, str],
-    timeout: float,
-) -> AsyncIterator[MCPSession]:
-    async with httpx2.AsyncClient(headers=dict(headers), timeout=timeout) as client:
-        async with streamable_http_client(endpoint, http_client=client) as (read, write):
-            async with ClientSession(read, write) as session:
-                yield session
-
-
-def _environment_token() -> str:
-    return os.getenv("EWALLET_MCP_SERVICE_TOKEN", "").strip()
-
-
 def _validate_endpoint(value: str) -> None:
-    parsed = urlparse(value)
-    if (
-        parsed.scheme != "http"
-        or parsed.hostname != "mcp-gateway.ewallet-agents.svc"
-        or parsed.port != 8080
-        or parsed.path != "/feature-rag/mcp"
-        or parsed.query
-        or parsed.fragment
-        or parsed.username
-        or parsed.password
-    ):
-        raise ValueError("MCP endpoint must be the approved Feature-RAG Gateway route")
+    try:
+        validate_gateway_route(value, "/feature-rag/mcp")
+    except ValueError as exc:
+        raise ValueError("MCP endpoint must be the approved Feature-RAG Gateway route") from exc
 
 
 def _tool_arguments(request: G3BusinessRequest, tool: str) -> dict[str, object]:

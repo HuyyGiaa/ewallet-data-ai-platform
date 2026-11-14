@@ -62,6 +62,16 @@ def trace_ids(traceparent: str) -> tuple[str, str]:
     return "", ""
 
 
+# Non-sensitive name of the backend operation behind each tool (span attribute).
+BACKEND_OPERATIONS = {
+    "feature_lookup": "feast.get_online_features",
+    "fraud_scoring": "feast.get_online_features+kserve.v2.infer",
+    "knowledge_search": "feast.get_online_features+exact_cosine",
+    "chunk_lookup": "feast.get_online_features",
+    "drift_detection": "drift.psi(baseline_artifact,window_csv)",
+}
+
+
 class ToolTelemetry(Protocol):
     def record_tool_call(
         self, *, tool: str, outcome: str, duration_seconds: float, traceparent: str
@@ -179,7 +189,12 @@ class OpenTelemetryToolTelemetry(JsonTelemetry):
             f"mcp.tool {tool}",
             context=propagate.extract({"traceparent": traceparent}),
             start_time=ended_ns - int(duration_seconds * 1_000_000_000),
-            attributes={"mcp.tool.name": tool, "mcp.outcome": outcome},
+            attributes={
+                "mcp.tool.name": tool,
+                "mcp.outcome": outcome,
+                "ewallet.service": self.service,
+                "ewallet.backend.operation": BACKEND_OPERATIONS.get(tool, "unknown"),
+            },
         )
         span.set_status(Status(StatusCode.ERROR if outcome == "error" else StatusCode.OK))
         span.end(end_time=ended_ns)

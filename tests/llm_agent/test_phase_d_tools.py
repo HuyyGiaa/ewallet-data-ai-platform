@@ -273,7 +273,7 @@ class ExecutorTests(unittest.TestCase):
             patch("ai_platform.inference.kserve.KServeV2Client", return_value=predictor) as client,
             patch("ai_platform.llm_agent.tools.service._rag_feature_store", return_value=store),
             patch("ai_platform.llm_agent.tools.service._knowledge_retriever", return_value=retriever),
-            patch("ai_platform.llm_agent.tools.service._production_app", side_effect=lambda _, handlers, __: handlers),
+            patch("ai_platform.llm_agent.tools.service._production_app", side_effect=lambda _, handlers, __, *configuration: handlers),
         ):
             handlers = create_feature_rag_app(environment)
 

@@ -150,6 +150,8 @@ class ToolExecutor:
         self._logger.info(json.dumps({
             "event": "tool_call_completed",
             "request_id": context.request_id,
+            # Correlates this audit record with the distributed trace.
+            "trace_id": context.traceparent.split("-")[1],
             "actor_id": context.actor_id,
             "tool_name": tool_name,
             "status": response.status,

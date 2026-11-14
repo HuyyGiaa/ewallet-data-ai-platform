@@ -128,6 +128,13 @@ spec:
               valueFrom:
                 secretKeyRef: {name: {{ .name }}, key: {{ .key }}}
             {{- end }}
+            {{- with $service.ragRedisSecret }}
+            # Independent RAG Feast Online connection (feature_targets in
+            # tools/service.py); without it the legacy profile reuses the Fraud one.
+            - name: EWALLET_RAG_REDIS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef: {name: {{ .name }}, key: {{ .key }}}
+            {{- end }}
             {{- if $auth.name }}
             # Service-scoped trusted token table. Credential values are supplied
             # only by Kubernetes Secret and never rendered into a ConfigMap.

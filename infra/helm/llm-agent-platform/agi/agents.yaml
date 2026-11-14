@@ -1,0 +1,39 @@
+# Agent integration (AGI) profile for the existing `llm-agent` release.
+# Not applied by any pipeline. The owner layers it on the release's current
+# values after approval (docs/runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md,
+# Stage 1):
+#
+#   helm template llm-agent infra/helm/llm-agent-platform -n default \
+#     -f <helm get values llm-agent> -f agi/agents.yaml \
+#     --set agents.coordinator.byo.image=<digest ref> \
+#     --set agents.specialists.feature-rag-specialist.byo.image=<digest ref> \
+#     --set agents.specialists.drift-specialist.byo.image=<digest ref> \
+#     --set 'modelConfig.byoResolver.apiServer.cidrs={<ClusterIP>/32,<endpoint>/32}'
+#
+# It renders nothing on its own: every image must be a digest-pinned private
+# Artifact Registry reference and the API-server CIDRs must be read back first,
+# otherwise the chart refuses to render. Rollback = the previous Helm revision.
+modelConfig:
+  # BYO agents with natural-language intake read ewallet-global-llm at startup
+  # (model_config.py). The Declarative profile keeps spec.declarative.modelConfig.
+  byoResolver:
+    enabled: true
+
+agents:
+  coordinator:
+    version: "1.1.0"
+    byo:
+      enabled: true
+      # Drift-only and combined workflows (workflow_intake.py); one LLM call per question.
+      workflows: [fraud, drift]
+  specialists:
+    feature-rag-specialist:
+      byo:
+        enabled: true
+    drift-specialist:
+      version: "1.1.0"
+      # Deterministic BYO Drift Specialist: typed g3-drift-request/v1 only, no LLM,
+      # drift_detection through mcp-gateway /drift/mcp with its existing
+      # mcp-token-drift-specialist-drift-mcp credential.
+      byo:
+        enabled: true

@@ -63,6 +63,12 @@ from ai_platform.llm_agent.programmatic_coordinator import (
 )
 from ai_platform.llm_agent.idempotency import IdempotencyScope
 from ai_platform.llm_agent.redis_idempotency import idempotency_store_from_env
+from ai_platform.llm_agent.workflow_intake import (
+    WORKFLOW_TOOLS,
+    WorkflowIntakeResult,
+    plan_workflow,
+    render_workflow_summary,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -79,9 +85,21 @@ _INTAKE_REJECTIONS = frozenset({
     "invalid_prompt", "missing_transaction_identifiers", "unsupported_request",
     "ambiguous_identifier", "missing_or_ambiguous_field", "ungrounded_argument",
     "invalid_tool_arguments", "unauthorized_tool", "multiple_tool_calls",
-    "nl_intake_disabled",
+    "nl_intake_disabled", "incomplete_tool_selection",
 })
 _UNSET = object()
+WORKFLOWS_ENV = "EWALLET_COORDINATOR_WORKFLOWS"
+_WORKFLOW_SETS = {"fraud": frozenset({"fraud"}), "fraud,drift": frozenset({"fraud", "drift"})}
+
+
+def workflows_from_env() -> frozenset[str]:
+    """``fraud`` (default, recorded production) or ``fraud,drift`` (integration profile)."""
+
+    raw = ",".join(sorted(item.strip() for item in os.getenv(WORKFLOWS_ENV, "fraud").split(",") if item.strip()))
+    normalized = {"drift,fraud": "fraud,drift"}.get(raw, raw)
+    if normalized not in _WORKFLOW_SETS:
+        raise RuntimeError(f"{WORKFLOWS_ENV} must be fraud or fraud,drift")
+    return _WORKFLOW_SETS[normalized]
 
 
 def _required_environment(name: str) -> str:
@@ -161,16 +179,24 @@ class CoordinatorExecutor(AgentExecutor):
         timeout_seconds: float = DEFAULT_TASK_TIMEOUT_SECONDS,
         idempotency_scope: IdempotencyScope | None = None,
         planner: OpenAIToolPlanner | None | object = _UNSET,
+        workflows: frozenset[str] | None = None,
     ) -> None:
         if not 0.1 <= timeout_seconds <= MAX_TASK_TIMEOUT_SECONDS:
             raise ValueError("timeout_seconds must be between 0.1 and 600")
+        self._workflows = workflows_from_env() if workflows is None else workflows
+        if not self._workflows or not self._workflows <= {"fraud", "drift"} or "fraud" not in self._workflows:
+            raise ValueError("workflows must be {fraud} or {fraud, drift}")
+        self._multi_capability = "drift" in self._workflows
         self._timeout_seconds = timeout_seconds
         if coordinator_factory is not None and idempotency_scope is None:
             raise ValueError("idempotency_scope is required with a custom Coordinator factory")
         self._scope = idempotency_scope
         self._coordinator_factory = coordinator_factory
         self._coordinator = coordinator_factory() if coordinator_factory is not None else None
-        self._planner = planner_from_env() if planner is _UNSET else planner
+        if planner is _UNSET:
+            planner = (planner_from_env(tools=WORKFLOW_TOOLS, max_tool_calls=2)
+                       if self._multi_capability else planner_from_env())
+        self._planner = planner
         self._cancellations: dict[str, Event] = {}
         self._intake_tasks: dict[str, asyncio.Task] = {}
         self._lock = Lock()
@@ -236,7 +262,8 @@ class CoordinatorExecutor(AgentExecutor):
         )
         planner = self._planner.for_context(context.context_id or "")
         started = time.perf_counter()
-        task = asyncio.create_task(plan_intake(
+        planning = plan_workflow if self._multi_capability else plan_intake
+        task = asyncio.create_task(planning(
             text,
             planner=planner,
             context_id=context.context_id or "",
@@ -262,10 +289,13 @@ class CoordinatorExecutor(AgentExecutor):
                 selection.variant, ab_outcome(None), latency_seconds=time.perf_counter() - started,
                 prompt_tokens=selection.prompt_tokens, completion_tokens=selection.completion_tokens,
             )
+        target = getattr(intake.request, "target_agent", "feature-rag-specialist,drift-specialist")
+        sources = getattr(intake, "sources", {"fraud-evidence": "llm"})
         audit(
             "coordinator.llm_tool_selected",
             request_id=intake.request.request_id, task_id=context.task_id, mode="natural-language",
-            tool=intake.selection.name, target_agent=intake.request.target_agent,
+            tool=intake.selection.name, target_agent=target,
+            capabilities=",".join(f"{name}:{source}" for name, source in sorted(sources.items())),
             prompt_tokens=intake.selection.prompt_tokens, completion_tokens=intake.selection.completion_tokens,
             **({"ab_variant": selection.variant, "served_model": selection.served_model,
                 "llm_backend": selection.backend} if selection.variant else {}),
@@ -274,7 +304,7 @@ class CoordinatorExecutor(AgentExecutor):
             TaskState.working,
             message=_agent_message(
                 f"LLM đã chọn công cụ `{intake.selection.name}`; đang ủy quyền cho "
-                f"{intake.request.target_agent} qua A2A Gateway (request_id {intake.request.request_id})…"
+                f"{target} qua A2A Gateway (request_id {intake.request.request_id})…"
             ),
         )
         return intake
@@ -298,6 +328,8 @@ class CoordinatorExecutor(AgentExecutor):
         with self._tracer.start_as_current_span("g3.coordinator.execute") as span:
             span.set_attribute("g3.request_id", message_id)
             span.set_attribute("g3.intake_mode", mode)
+            span.set_attribute("ewallet.agent", APP_NAME)
+            span.set_attribute("ewallet.coordinator.workflows", sorted(self._workflows))
             span.set_attribute("a2a.task_id", task_id)
             span.set_attribute("a2a.context_id", context_id)
             audit("coordinator.task_started", task_id=task_id, context_id=context_id, mode=mode)
@@ -325,7 +357,11 @@ class CoordinatorExecutor(AgentExecutor):
                 if cancellation.is_set():
                     terminal = "cancelled"
                     return
-                result["coordinator_revision"] = "programmatic-coordinator/byo-v1"
+                result["coordinator_revision"] = (
+                    "programmatic-coordinator/byo-v1" if result.get("contract_version") == "g3-orchestration/v1"
+                    else "programmatic-coordinator/byo-workflow-v1"
+                )
+                span.set_attribute("ewallet.result.status", str(result.get("status")))
                 if intake is not None and intake.selection.variant:
                     result["agent_experiment"] = {
                         "variant": intake.selection.variant,
@@ -333,8 +369,10 @@ class CoordinatorExecutor(AgentExecutor):
                         "llm_backend": intake.selection.backend,
                     }
                 if intake is not None:
+                    answer = (render_workflow_summary(result, intake) if isinstance(intake, WorkflowIntakeResult)
+                              else render_summary(result, intake.request, intake.selection))
                     await updater.add_artifact(
-                        [Part(root=TextPart(text=render_summary(result, intake.request, intake.selection)))],
+                        [Part(root=TextPart(text=answer))],
                         artifact_id=f"answer-{task_id}",
                         name="analyst-answer",
                         last_chunk=True,
@@ -343,7 +381,8 @@ class CoordinatorExecutor(AgentExecutor):
                 await updater.add_artifact(
                     [Part(root=TextPart(text=artifact))],
                     artifact_id=f"result-{task_id}",
-                    name="validated-fraud-investigation",
+                    name=("validated-fraud-investigation" if result.get("contract_version") == "g3-orchestration/v1"
+                          else f"validated-{result.get('workflow', 'workflow')}-investigation"),
                     last_chunk=True,
                 )
                 await updater.complete()
@@ -452,7 +491,19 @@ def agent_card() -> AgentCard:
             inputModes=["text"],
             outputModes=["text"],
             tags=["fraud", "investigation"],
-        )],
+        )] + ([AgentSkill(
+            id="investigate-with-drift",
+            name="Drift analysis and combined investigation",
+            description=(
+                "PSI drift of one monitored feature (drift-specialist) against an explicit baseline revision and "
+                "window <ISO-8601> to <ISO-8601>, alone or combined with a transaction investigation "
+                "(feature-rag-specialist). Typed CALL_AGENT=drift-specialist or CALL_WORKFLOW=combined requests "
+                "are also accepted."
+            ),
+            inputModes=["text"],
+            outputModes=["text"],
+            tags=["fraud", "drift", "orchestration"],
+        )] if "drift" in workflows_from_env() else []),
     )
 
 
