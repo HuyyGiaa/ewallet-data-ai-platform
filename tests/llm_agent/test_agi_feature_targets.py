@@ -8,11 +8,17 @@ connection given to the RAG project.
 from __future__ import annotations
 
 import importlib.util
+import json
 import unittest
 from unittest import mock
 
 from ai_platform.inference.errors import ConfigurationError
-from ai_platform.llm_agent.tools.service import create_feature_rag_app, feature_targets, _rag_feature_store
+from ai_platform.llm_agent.tools.service import (
+    ACCESS_GUARANTEE,
+    _rag_feature_store,
+    create_feature_rag_app,
+    feature_targets,
+)
 
 FEAST = importlib.util.find_spec("feast") is not None
 FRAUD = "redis.feature-store.svc:6379,password=fraud-secret,db=2"
@@ -31,21 +37,36 @@ ISOLATED = {
 
 class FeatureTargetTests(unittest.TestCase):
     def test_legacy_profile_is_the_default_and_reports_the_shared_connection(self):
-        self.assertEqual(feature_targets({}), {"profile": "legacy", "rag_connection": "shared-with-fraud"})
+        self.assertEqual(feature_targets({}), {"profile": "legacy", "rag_connection": "shared-with-fraud",
+                                               "access": ACCESS_GUARANTEE})
         self.assertEqual(feature_targets({"EWALLET_RAG_REDIS_CONNECTION_STRING": RAG})["rag_connection"], "dedicated")
 
     def test_isolated_profile_reports_targets_without_secrets(self):
         description = feature_targets(ISOLATED)
         self.assertEqual(description["fraud"]["redis_database"], 2)
         self.assertEqual(description["rag"], {"redis_database": 3, "project": "ewallet_rag_hybrid_20261114t144825",
-                                              "registry": "/feast/rag/registry.db", "access": "read-only"})
+                                              "registry": "/feast/rag/registry.db", "store": "verification"})
         self.assertNotIn("secret", repr(description))
         self.assertNotIn("feature-store.svc", repr(description))
 
-    def test_explicit_production_fraud_read_is_labelled(self):
-        description = feature_targets({**ISOLATED, "EWALLET_REDIS_CONNECTION_STRING": FRAUD.replace("db=2", "db=0"),
-                                       "EWALLET_FRAUD_ONLINE_DB": "0"})
-        self.assertEqual(description["fraud"]["access"], "read-only (production store)")
+    def test_production_fraud_store_needs_an_explicit_opt_in(self):
+        production = {**ISOLATED, "EWALLET_REDIS_CONNECTION_STRING": FRAUD.replace("db=2", "db=0"),
+                      "EWALLET_FRAUD_ONLINE_DB": "0"}
+        for flag in (None, "false", "yes"):
+            with self.subTest(flag=flag), self.assertRaises(ConfigurationError):
+                feature_targets({**production, **({"EWALLET_FRAUD_ALLOW_PRODUCTION_DB": flag} if flag else {})})
+        description = feature_targets({**production, "EWALLET_FRAUD_ALLOW_PRODUCTION_DB": "true"})
+        self.assertEqual((description["fraud"]["redis_database"], description["fraud"]["store"]), (0, "production"))
+
+    def test_access_claim_is_application_level_only(self):
+        for values in ({}, ISOLATED):
+            with self.subTest(profile=values.get("EWALLET_FEATURE_TARGET_PROFILE", "legacy")):
+                description = feature_targets(values)
+                self.assertEqual(description["access"]["enforced_by"], "application")
+                self.assertIn("not restricted", description["access"]["redis_credential"])
+                text = json.dumps(description).lower()
+                self.assertNotIn("acl-enforced", text)
+                self.assertNotIn('"read-only"', text)
 
     def test_isolated_profile_never_falls_back(self):
         cases = {
@@ -58,6 +79,10 @@ class FeatureTargetTests(unittest.TestCase):
             "rag db differs from pin": {"EWALLET_RAG_ONLINE_DB": "5"},
             "rag registry missing": {"EWALLET_RAG_FEAST_REGISTRY": ""},
             "pin not a number": {"EWALLET_RAG_ONLINE_DB": "three"},
+            "fraud pin missing": {"EWALLET_FRAUD_ONLINE_DB": ""},
+            "rag pin missing": {"EWALLET_RAG_ONLINE_DB": ""},
+            "fraud and rag on the same database": {"EWALLET_REDIS_CONNECTION_STRING": FRAUD.replace("db=2", "db=3"),
+                                                   "EWALLET_FRAUD_ONLINE_DB": "3"},
             "unknown profile": {"EWALLET_FEATURE_TARGET_PROFILE": "shared"},
         }
         for label, change in cases.items():

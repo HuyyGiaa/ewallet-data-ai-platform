@@ -4,7 +4,10 @@ redis-secret      derive a Feast Online connection Secret that names its Redis
                   database explicitly (``,db=N``) from an existing Secret in the
                   same namespace. The value flows kubectl -> this process ->
                   kubectl and is never printed or written to disk. DB 0 needs
-                  ``--allow-db0-read`` (the MCP server only reads).
+                  ``--allow-db0-read``. Selecting a database does not reduce the
+                  credential's privileges: the derived Secret has the same Redis
+                  rights as its source (requirepass, no ACLs). Only the MCP
+                  server's read-only code path keeps access read-only.
 drift-configmaps  publish the drift baseline registry and window extract
                   (ops/llm_agent/drift_artifacts.py) as two immutable
                   ConfigMaps after loading them with the drift server's own
@@ -150,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             if not NAME.fullmatch(args.name) or not args.name.startswith("feast-online-redis-agi-"):
                 parser.error("--name must be feast-online-redis-agi-<role>")
             if args.db == 0 and not args.allow_db0_read:
-                parser.error("DB 0 is production; pass --allow-db0-read for the read-only Fraud target")
+                parser.error("DB 0 is production; pass --allow-db0-read (the MCP server reads it; the credential is not read-only)")
             if not args.approve_sensitive_copy:
                 parser.error("redis-secret creates a second credential copy: pass --approve-sensitive-copy")
             source = json.loads(_kubectl(args.context, "-n", args.namespace, "get", "secret", args.source, "-o", "json"))

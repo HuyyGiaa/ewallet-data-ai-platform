@@ -27,6 +27,7 @@ MCP = ("-n", "ewallet-mcp", "-f", "values-gke-cpu.yaml", "-f", "g3/g3.yaml", "-f
 AGI_MCP_SETS = ("--set", "mcpServices.identity.configRevision=agi-20261115T000000Z",
                 "--set-string", "mcpServices.services.feature-rag-mcp.env.EWALLET_FRAUD_ONLINE_DB=0",
                 "--set-string", "mcpServices.services.feature-rag-mcp.env.EWALLET_RAG_ONLINE_DB=3",
+                "--set-string", "mcpServices.services.feature-rag-mcp.env.EWALLET_FRAUD_ALLOW_PRODUCTION_DB=true",
                 "--set", "mcpServices.services.drift-mcp.env.EWALLET_DRIFT_BASELINES_SHA256=" + "d" * 64,
                 "--set", "mcpServices.services.drift-mcp.env.EWALLET_DRIFT_WINDOW_MANIFEST_SHA256=" + "e" * 64,
                 "--set", "mcpServices.services.drift-mcp.env.EWALLET_DRIFT_DATASET_REVISION=feast-r5gb-20261111-214544")

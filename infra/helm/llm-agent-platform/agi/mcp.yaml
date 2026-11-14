@@ -10,7 +10,10 @@
 #             drift-window-agi              window-manifest.json + <view>.csv.gz
 #
 # The empty values below are deliberate: the chart refuses an empty env value,
-# so the owner must pass the read-back digests and databases with --set.
+# so the owner must pass the read-back digests and databases with --set
+# (scripts/llm_agent/agi_campaign.sh gate mcp does this from the campaign file).
+# Access is read-only at the application level only: the derived Secrets carry
+# the same Redis credential as feast-online-redis (requirepass, no ACLs).
 # Lists replace the release's lists: registrySnapshots restates the Fraud
 # registry snapshot, which Stage 0 compares with `helm get values llm-agent-mcp`.
 mcpServices:
@@ -27,6 +30,7 @@ mcpServices:
         # Two independent, explicitly pinned targets; DB 0 can never be reached by fallback.
         EWALLET_FEATURE_TARGET_PROFILE: isolated
         EWALLET_FRAUD_ONLINE_DB: ""            # must equal the db= of feast-online-redis-agi-fraud
+        EWALLET_FRAUD_ALLOW_PRODUCTION_DB: ""  # "true" only when EWALLET_FRAUD_ONLINE_DB is 0, else "false"
         EWALLET_RAG_ONLINE_DB: ""              # 3 for the RAG Hybrid campaign
         EWALLET_RAG_FEAST_PROJECT: ewallet_rag_hybrid_20261114t144825
         EWALLET_RAG_FEAST_REGISTRY: /feast/rag/registry.db

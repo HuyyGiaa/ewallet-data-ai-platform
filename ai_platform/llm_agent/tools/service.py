@@ -361,6 +361,12 @@ def _production_app(service_name: str, handlers: tuple[ToolHandler, ...], enviro
 
 
 FEATURE_TARGET_PROFILES = ("legacy", "isolated")
+# What the deployment can actually prove about Redis access (see feature_targets).
+ACCESS_GUARANTEE = {
+    "enforced_by": "application",
+    "operations": "Feast online reads only (get_online_features)",
+    "redis_credential": "not restricted: the Feature Store Redis uses requirepass without ACLs",
+}
 
 
 def feature_targets(values: Mapping[str, str]) -> dict[str, object]:
@@ -371,8 +377,15 @@ def feature_targets(values: Mapping[str, str]) -> dict[str, object]:
     ``isolated`` (integration profile) requires two independently configured
     connections, each with an explicit database that must equal its pinned value,
     explicit registries, and a dedicated RAG verification project in DB 2-15, so a
-    missing or wrong setting can never fall back to production DB 0. The returned
-    description is non-secret (no host, password or connection string).
+    missing or wrong setting can never fall back to production DB 0. Reading the
+    production Fraud store (DB 0) additionally needs
+    ``EWALLET_FRAUD_ALLOW_PRODUCTION_DB=true``.
+
+    Access guarantee: this server only issues Feast online reads, so access is
+    read-only *at the application level*. The Feature Store Redis authenticates one
+    default user with ``requirepass`` and has no ACLs, so the credential itself is
+    not restricted to reads. The description says exactly that. It is non-secret
+    (no host, password or connection string).
     """
 
     profile = values.get("EWALLET_FEATURE_TARGET_PROFILE", "legacy").strip() or "legacy"
@@ -381,7 +394,8 @@ def feature_targets(values: Mapping[str, str]) -> dict[str, object]:
     if profile == "legacy":
         return {"profile": "legacy",
                 "rag_connection": "dedicated" if values.get("EWALLET_RAG_REDIS_CONNECTION_STRING", "").strip()
-                else "shared-with-fraud"}
+                else "shared-with-fraud",
+                "access": ACCESS_GUARANTEE}
     from ai_platform.llm_agent.rag.online_target import RagTargetError, parse_connection, resolve
 
     required = ("EWALLET_REDIS_CONNECTION_STRING", "EWALLET_FEAST_REGISTRY", "EWALLET_FRAUD_ONLINE_DB",
@@ -400,13 +414,19 @@ def feature_targets(values: Mapping[str, str]) -> dict[str, object]:
         raise ConfigurationError() from exc
     if fraud.database != fraud_pin or rag.endpoint.database != rag_pin:
         raise ConfigurationError()
+    if fraud.database == rag.endpoint.database:
+        raise ConfigurationError()   # the two targets must stay separate databases
+    allow_production = values.get("EWALLET_FRAUD_ALLOW_PRODUCTION_DB", "false").strip().lower()
+    if allow_production not in ("true", "false") or (fraud.database == 0 and allow_production != "true"):
+        raise ConfigurationError()
     return {
         "profile": "isolated",
         "fraud": {"redis_database": fraud.database,
-                  "access": "read-only" + (" (production store)" if fraud.database == 0 else ""),
+                  "store": "production" if fraud.database == 0 else "verification",
                   "registry": values["EWALLET_FEAST_REGISTRY"].strip()},
-        "rag": {"redis_database": rag.endpoint.database, "project": rag.project,
-                "registry": values["EWALLET_RAG_FEAST_REGISTRY"].strip(), "access": "read-only"},
+        "rag": {"redis_database": rag.endpoint.database, "project": rag.project, "store": "verification",
+                "registry": values["EWALLET_RAG_FEAST_REGISTRY"].strip()},
+        "access": ACCESS_GUARANTEE,
     }
 
 

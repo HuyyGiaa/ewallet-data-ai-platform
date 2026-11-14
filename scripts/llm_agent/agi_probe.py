@@ -5,11 +5,23 @@ request  build one canonical typed A2A request for the Coordinator:
          combined (g3-workflow-request/v1). Every business value is supplied by
          the operator; nothing is defaulted except the fraud feature projection.
 mcp      call one MCP tool through the MCP Gateway with the official SDK and
-         check an expectation: ``ok`` (tool succeeded), ``denied`` (the
-         principal may not call it), ``rejected`` (invalid or unknown business
-         input) or ``unavailable`` (a backend or data source is missing).
-         The service token comes from EWALLET_MCP_SERVICE_TOKEN and is never
-         printed or written.
+         check an expectation: ``ok``, ``rejected`` (invalid or unknown business
+         input) or ``unavailable`` (backend or data source missing) are in-band
+         tool statuses. Two negative security expectations need proof that the
+         intended policy caused the rejection:
+           ``denied``           the server's hidden-tool error (JSON-RPC -32602
+                                "Unknown tool") for a tool absent from the tested
+                                principal's tools/list, while a control principal
+                                (--control-token-env) lists it on the same endpoint;
+           ``unauthenticated``  HTTP 401 at initialize, while the same credential is
+                                valid on its own server (--tested-valid-endpoint) and a
+                                control principal lists the tool.
+         Any other failure (invalid arguments, backend, protocol, HTTP 5xx,
+         transport, timeout) is FAIL. Tokens come from the environment and are
+         never printed or written.
+a2a-route  send one typed request to the A2A Gateway with an undeclared
+         x-kagent-host; PASS only for HTTP 404 while a declared control host
+         (default drift-specialist.ewallet-agents) answers 200.
 
 usage:
   python3 scripts/llm_agent/agi_probe.py request drift --request-id agi-...-drift \\
@@ -86,33 +98,172 @@ def build(args: argparse.Namespace):
                              drift=drift_request(member_request_id(args.request_id, "drift"), args))
 
 
-async def call_tool(endpoint: str, token: str, tool: str, arguments: dict, timeout: float,
-                    transport: object | None = None) -> dict:
+# The MCP server's tools/call contract for a tool outside the caller's grants (or unknown): the
+# same JSON-RPC error, so tools cannot be enumerated (ai_platform/llm_agent/tools/service.py).
+HIDDEN_TOOL_ERROR = (-32602, "Unknown tool")
+IN_BAND = frozenset({"ok", "rejected", "unavailable", "timeout", "error"})
+
+
+def _http_outcome(status: int) -> str:
+    return {401: "unauthenticated", 403: "forbidden"}.get(status, "server_error" if status >= 500 else "protocol_error")
+
+
+def _leaves(error: BaseException) -> list[BaseException]:
+    if isinstance(error, BaseExceptionGroup):
+        return [leaf for sub in error.exceptions for leaf in _leaves(sub)]
+    return [error]
+
+
+async def observe(endpoint: str, token: str, tool: str, arguments: dict | None, timeout: float,
+                  transport: object | None = None) -> dict:
+    """Run initialize, tools/list and (unless ``arguments`` is None) tools/call; classify what happened.
+
+    Outcomes: in-band tool statuses (ok, rejected, unavailable, timeout, error); ``listed`` when no
+    call was made; ``hidden_tool`` for the exact HIDDEN_TOOL_ERROR; ``unauthenticated`` (HTTP 401) and
+    ``forbidden`` (HTTP 403) from the server's authentication layer; ``protocol_error`` for any other
+    JSON-RPC or HTTP 4xx error; ``server_error`` for HTTP 5xx; ``transport_error`` when no HTTP exchange
+    completed; ``client_timeout`` when the probe deadline expired.
+    """
+
     import httpx2
     from mcp.client.session import ClientSession
     from mcp.client.streamable_http import streamable_http_client
-    try:
-        from mcp.shared.exceptions import MCPError as McpError
-    except ImportError:  # older SDK naming
-        from mcp.shared.exceptions import McpError
+    from mcp.shared.exceptions import MCPError
 
-    async with httpx2.AsyncClient(headers={"X-Ewallet-MCP-Service-Token": token}, timeout=timeout,
-                                  transport=transport) as client:
-        async with streamable_http_client(endpoint, http_client=client) as (read, write):
-            async with ClientSession(read, write) as session:
-                initialized = await session.initialize()
-                tools = sorted(item.name for item in (await session.list_tools()).tools)
-                started = time.monotonic()
-                try:
-                    result = await session.call_tool(tool, arguments)
-                except McpError as exc:
-                    return {"server": initialized.server_info.name, "tools": tools, "tool": tool,
-                            "outcome": "denied", "jsonrpc_error": str(exc)[:200]}
-                status = (result.structured_content or {}).get("status")
-                outcome = "ok" if not result.is_error and status == "ok" else status or "error"
-                return {"server": initialized.server_info.name, "tools": tools, "tool": tool,
-                        "latency_ms": round((time.monotonic() - started) * 1000, 3),
-                        "outcome": outcome, "structured_content": result.structured_content}
+    statuses: list[int] = []
+
+    async def on_response(response) -> None:
+        statuses.append(response.status_code)
+
+    report: dict = {"tool": tool, "tools": None, "stage": "connect", "http_statuses": statuses}
+
+    def finish(outcome: str, **extra) -> dict:
+        report.update(outcome=outcome, **extra)
+        return report
+
+    try:
+        async with asyncio.timeout(timeout):
+            async with httpx2.AsyncClient(headers={"X-Ewallet-MCP-Service-Token": token}, timeout=timeout,
+                                          transport=transport, event_hooks={"response": [on_response]}) as client:
+                async with streamable_http_client(endpoint, http_client=client) as (read, write):
+                    async with ClientSession(read, write) as session:
+                        report["stage"] = "initialize"
+                        initialized = await session.initialize()
+                        report["server"] = initialized.server_info.name
+                        report["stage"] = "list"
+                        report["tools"] = sorted(item.name for item in (await session.list_tools()).tools)
+                        if arguments is None:
+                            return finish("listed")
+                        report["stage"] = "call"
+                        started = time.monotonic()
+                        try:
+                            result = await session.call_tool(tool, arguments)
+                        except MCPError as exc:
+                            code, message = exc.error.code, exc.error.message
+                            if statuses and statuses[-1] >= 400:   # the SDK wraps HTTP errors as MCPError
+                                return finish(_http_outcome(statuses[-1]), http_status=statuses[-1],
+                                              jsonrpc_error={"code": code, "message": message[:200]})
+                            hidden = (code, message) == HIDDEN_TOOL_ERROR
+                            return finish("hidden_tool" if hidden else "protocol_error",
+                                          jsonrpc_error={"code": code, "message": message[:200]})
+                        content = result.structured_content or {}
+                        status = content.get("status")
+                        if status not in IN_BAND or (status == "ok") == bool(result.is_error):
+                            return finish("protocol_error", detail="tool result is not a shared ToolCallResponse")
+                        error = (content.get("result") or {}).get("error") if status != "ok" else None
+                        return finish(status, latency_ms=round((time.monotonic() - started) * 1000, 3),
+                                      tool_error_code=(error or {}).get("code"), structured_content=content)
+    except TimeoutError:
+        return finish("client_timeout")
+    except Exception as exc:  # noqa: BLE001 - classified below, never re-raised as success
+        leaves = _leaves(exc)
+        last = statuses[-1] if statuses else None
+        if last is not None and last >= 400:
+            return finish(_http_outcome(last), http_status=last)
+        if any(isinstance(leaf, MCPError) for leaf in leaves):
+            error = next(leaf for leaf in leaves if isinstance(leaf, MCPError)).error
+            return finish("protocol_error", jsonrpc_error={"code": error.code, "message": error.message[:200]})
+        return finish("transport_error", error_type=sorted({type(leaf).__name__ for leaf in leaves}))
+
+
+async def call_tool(endpoint: str, token: str, tool: str, arguments: dict, timeout: float,
+                    transport: object | None = None) -> dict:
+    """Compatibility wrapper: one classified tool call."""
+
+    return await observe(endpoint, token, tool, arguments, timeout, transport)
+
+
+async def verdict(args: argparse.Namespace, token: str, arguments: dict, transport: object | None = None,
+                  valid_transport: object | None = None) -> dict:
+    """Observe the call and decide PASS only when the expected mechanism is proven responsible."""
+
+    report = await observe(args.endpoint, token, args.tool, arguments, args.timeout, transport)
+    report.update({"endpoint": args.endpoint, "expect": args.expect})
+    reasons: list[str] = []
+    if args.expect in IN_BAND:
+        if report["outcome"] != args.expect:
+            reasons.append(f"observed {report['outcome']}, expected {args.expect}")
+    else:
+        # A negative expectation needs a control principal that can see the tool on the same endpoint:
+        # otherwise an unknown tool, a broken route or a down server would look like a denial.
+        control_token = os.environ.get(args.control_token_env or "", "").strip()
+        if not control_token:
+            reasons.append("negative expectations need --control-token-env naming a principal granted the tool")
+        else:
+            control = await observe(args.endpoint, control_token, args.tool, None, args.timeout, transport)
+            report["control"] = {key: control.get(key) for key in ("outcome", "tools", "http_statuses")}
+            if control["outcome"] != "listed" or args.tool not in (control["tools"] or []):
+                reasons.append("the control principal does not see the tool on this endpoint")
+        if args.expect == "denied":
+            if report["outcome"] != "hidden_tool":
+                reasons.append(f"observed {report['outcome']}, expected the hidden-tool authorization error")
+            elif args.tool in (report["tools"] or []):
+                reasons.append("the tested principal lists the tool, so 'Unknown tool' is not an authorization denial")
+        elif args.expect == "unauthenticated":
+            if report["outcome"] != "unauthenticated" or report["stage"] != "initialize":
+                reasons.append(f"observed {report['outcome']} at {report['stage']}, expected HTTP 401 at initialize")
+            if not args.tested_valid_endpoint:
+                reasons.append("unauthenticated needs --tested-valid-endpoint where the tested credential is valid")
+            else:
+                home = await observe(args.tested_valid_endpoint, token, args.tool, None, args.timeout, valid_transport)
+                report["tested_credential_home"] = {"endpoint": args.tested_valid_endpoint, "outcome": home["outcome"]}
+                if home["outcome"] != "listed":
+                    reasons.append("the tested credential is not valid on its own server, so 401 proves nothing")
+    report["verdict"] = "FAIL" if reasons else "PASS"
+    report["reasons"] = reasons
+    return report
+
+
+def a2a_route(args: argparse.Namespace, opener=None) -> dict:
+    """POST one typed A2A request with x-kagent-host; ``no-route`` needs 404 and a routed control host."""
+
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+
+    opener = opener or urlopen
+    body = args.request.read_bytes()
+
+    def send(host: str) -> dict:
+        request = Request(args.endpoint, data=body, method="POST",
+                          headers={"Content-Type": "application/json", "x-kagent-host": host})
+        try:
+            with opener(request, timeout=args.timeout) as response:
+                return {"host": host, "http_status": response.status, "body": response.read(4096).decode(errors="replace")}
+        except HTTPError as exc:
+            return {"host": host, "http_status": exc.code, "body": exc.read(4096).decode(errors="replace")}
+        except (URLError, TimeoutError, OSError) as exc:
+            return {"host": host, "http_status": None, "error_type": type(exc).__name__}
+
+    tested, control = send(args.kagent_host), send(args.control_kagent_host)
+    reasons = []
+    if tested["http_status"] != 404:
+        reasons.append(f"undeclared host returned {tested['http_status']}, expected 404 (no route)")
+    if '"jsonrpc"' in tested.get("body", "") and '"result"' in tested.get("body", ""):
+        reasons.append("undeclared host produced an agent result")
+    if control["http_status"] != 200:
+        reasons.append(f"control host returned {control['http_status']}: the gateway or its route is not working")
+    return {"endpoint": args.endpoint, "tested": tested, "control": {k: v for k, v in control.items() if k != "body"},
+            "expect": args.expect, "verdict": "FAIL" if reasons else "PASS", "reasons": reasons}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -132,10 +283,23 @@ def main(argv: list[str] | None = None) -> int:
     mcp.add_argument("--endpoint", type=_local, required=True)
     mcp.add_argument("--tool", required=True)
     mcp.add_argument("--arguments-json", required=True)
-    mcp.add_argument("--expect", choices=["ok", "denied", "rejected", "unavailable"], required=True)
+    mcp.add_argument("--expect", choices=["ok", "rejected", "unavailable", "denied", "unauthenticated"], required=True)
+    mcp.add_argument("--control-token-env", help="env var with the token of a principal granted --tool (negative expectations)")
+    mcp.add_argument("--tested-valid-endpoint", type=_local,
+                     help="endpoint where the tested credential is valid (required for --expect unauthenticated)")
     mcp.add_argument("--evidence", type=Path, required=True)
     mcp.add_argument("--timeout", type=float, default=30.0)
+    route = commands.add_parser("a2a-route")
+    route.add_argument("--endpoint", type=_local, required=True)
+    route.add_argument("--kagent-host", required=True)
+    route.add_argument("--control-kagent-host", default="drift-specialist.ewallet-agents")
+    route.add_argument("--request", type=Path, required=True)
+    route.add_argument("--expect", choices=["no-route"], required=True)
+    route.add_argument("--evidence", type=Path, required=True)
+    route.add_argument("--timeout", type=float, default=120.0)
     args = parser.parse_args(argv)
+    if getattr(args, "evidence", None) is not None and args.evidence.exists():
+        parser.error(f"{args.evidence} exists; evidence files are create-only")
 
     if args.command == "request":
         if args.kind in ("fraud", "combined") and args.transaction is None:
@@ -153,17 +317,16 @@ def main(argv: list[str] | None = None) -> int:
         print(typed.to_wire_text())
         return 0
 
-    token = os.environ.get("EWALLET_MCP_SERVICE_TOKEN", "").strip()
-    if not token:
-        parser.error("EWALLET_MCP_SERVICE_TOKEN is required and is never printed")
-    arguments = json.loads(args.arguments_json)
-    if not isinstance(arguments, dict):
-        parser.error("--arguments-json must decode to an object")
-    report = asyncio.run(call_tool(args.endpoint, token, args.tool, arguments, args.timeout))
-    report.update({"endpoint": args.endpoint, "expect": args.expect,
-                   "verdict": "PASS" if report["outcome"] == args.expect else "FAIL"})
-    if args.evidence.exists():
-        parser.error(f"{args.evidence} exists; evidence files are create-only")
+    if args.command == "a2a-route":
+        report = a2a_route(args)
+    else:
+        token = os.environ.get("EWALLET_MCP_SERVICE_TOKEN", "").strip()
+        if not token:
+            parser.error("EWALLET_MCP_SERVICE_TOKEN is required and is never printed")
+        arguments = json.loads(args.arguments_json)
+        if not isinstance(arguments, dict):
+            parser.error("--arguments-json must decode to an object")
+        report = asyncio.run(verdict(args, token, arguments))
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
     args.evidence.write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
     print(json.dumps({key: value for key, value in report.items() if key != "structured_content"}, indent=2))
