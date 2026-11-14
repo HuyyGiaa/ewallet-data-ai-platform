@@ -1,0 +1,231 @@
+{
+  "completed_at": "2026-11-14T08:32:32.964005+00:00",
+  "feast_dataset": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_verify.fraud_policy_chunks/fraud-policy-feast-v1,PROD)",
+  "gms_url": "http://127.0.0.1:18080",
+  "index_visibility": {
+    "attempts": 1,
+    "checks": {
+      "corpus_dataset_searchable": "FOUND",
+      "dataflow_searchable": "FOUND",
+      "feast_dataset_searchable": "FOUND",
+      "lineage_corpus_upstream_of_feast": "FOUND",
+      "lineage_publish_job_upstream_of_feast": "FOUND"
+    },
+    "status": "VISIBLE"
+  },
+  "quality_checks": [
+    {
+      "assertion_id": "source_checksums_match_manifest",
+      "observed": {
+        "checksum_mismatches": 0,
+        "document_count": 2
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "chunk_id_unique_and_deterministic",
+      "observed": {
+        "chunk_count": 4,
+        "deterministic": true,
+        "unique": 4
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "embedding_dimension_finite_nonzero",
+      "observed": {
+        "dimensions": 384,
+        "invalid_vectors": 0,
+        "vector_count": 4
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "online_rows_match_offline_publication",
+      "observed": {
+        "offline_rows": 4,
+        "online_rows": 4,
+        "readback_status": "MATCH"
+      },
+      "passed": true
+    },
+    {
+      "assertion_id": "retrieval_returns_cited_source",
+      "observed": {
+        "citation_errors": 0,
+        "empty_retrieval_rate": 0.0,
+        "recall_at_k": 1.0
+      },
+      "passed": true
+    }
+  ],
+  "record_count": 27,
+  "release_sha": "1e6a88a20e80cc7843e4cdadcb0f9c7fa873b397",
+  "run_id": "local-e2e-20261114t083158",
+  "stage": "datahub",
+  "status": "PUBLISHED_AND_READ_BACK",
+  "verified": [
+    {
+      "aspect": "datasetProperties",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+    },
+    {
+      "aspect": "datasetProperties",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_verify.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+    },
+    {
+      "aspect": "schemaMetadata",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_verify.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+    },
+    {
+      "aspect": "upstreamLineage",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_verify.fraud_policy_chunks/fraud-policy-feast-v1,PROD)"
+    },
+    {
+      "aspect": "dataFlowInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),discover_documents)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),discover_documents)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),parse_and_chunk)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),parse_and_chunk)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),generate_embeddings)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),generate_embeddings)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),publish_feast_features)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),publish_feast_features)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),validate_online_readback)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),validate_online_readback)"
+    },
+    {
+      "aspect": "dataJobInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),publish_datahub_lineage)"
+    },
+    {
+      "aspect": "dataJobInputOutput",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp),publish_datahub_lineage)"
+    },
+    {
+      "aspect": "assertionInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:de6b1b9468514846aea2bb48bdf93b82"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "attempts": "3",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:de6b1b9468514846aea2bb48bdf93b82"
+    },
+    {
+      "aspect": "assertionInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:f0cb111df993f9e29d605c8b951c3003"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "attempts": "4",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:f0cb111df993f9e29d605c8b951c3003"
+    },
+    {
+      "aspect": "assertionInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:5d9ee869e4612fa1a9b51f1e6e984096"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "attempts": "4",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:5d9ee869e4612fa1a9b51f1e6e984096"
+    },
+    {
+      "aspect": "assertionInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:094791c8cee4517e4a91eda1c68759b7"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "attempts": "4",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:094791c8cee4517e4a91eda1c68759b7"
+    },
+    {
+      "aspect": "assertionInfo",
+      "attempts": "1",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:43549aeed9d41f4ec41138d8f1f1bceb"
+    },
+    {
+      "aspect": "assertionRunEvent",
+      "attempts": "4",
+      "readback": "MATCH",
+      "urn": "urn:li:assertion:43549aeed9d41f4ec41138d8f1f1bceb"
+    }
+  ]
+}

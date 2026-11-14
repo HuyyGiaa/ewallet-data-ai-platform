@@ -1,0 +1,66 @@
+=== RAG END-TO-END RUN SUMMARY ===
+{
+  "run": "rag_local-e2e-20261114t083158",
+  "airflow": {
+    "run_id": "manual__rag-local-e2e-20261114t083158",
+    "task_states": {
+      "discover_documents": "success",
+      "parse_and_chunk": "success",
+      "generate_embeddings": "success",
+      "publish_feast_features": "success",
+      "validate_online_readback": "success",
+      "publish_datahub_lineage": "success"
+    }
+  },
+  "documents": {
+    "count": 2,
+    "checksum_mismatches": 0
+  },
+  "chunks": {
+    "count": 4,
+    "deterministic": true
+  },
+  "embeddings": {
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "dimensions": 384,
+    "invalid": 0
+  },
+  "publication": {
+    "rows": 4,
+    "identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+    "feast": {
+      "offline_source": "/home/huyy-giaa/ewallet-evidence/rag/feast/ewallet_rag_verify/publication/fraud-policy-feast-v1/chunks.parquet",
+      "online_store": "redis",
+      "profile": "canonical",
+      "project": "ewallet_rag_verify",
+      "registry": "/home/huyy-giaa/ewallet-evidence/rag/feast/ewallet_rag_verify/registry.db"
+    },
+    "online_target": {
+      "claim_status": "OWNED",
+      "mode": "verification",
+      "project": "ewallet_rag_verify",
+      "redis_database": 3,
+      "target_fingerprint": "sha256:b3a48b262a125f0b0a81db002e7b89db64a794d50f94bee47d4f41f4e268c631"
+    }
+  },
+  "validation": {
+    "readback_status": "MATCH",
+    "online_row_count": 4,
+    "recall_at_k": 1.0,
+    "mean_reciprocal_rank": 1.0,
+    "citation_errors": 0
+  },
+  "datahub": {
+    "status": "PUBLISHED_AND_READ_BACK",
+    "aspects_read_back": 27,
+    "assertions": {
+      "source_checksums_match_manifest": true,
+      "chunk_id_unique_and_deterministic": true,
+      "embedding_dimension_finite_nonzero": true,
+      "online_rows_match_offline_publication": true,
+      "retrieval_returns_cited_source": true
+    },
+    "index_visibility": "VISIBLE"
+  }
+}

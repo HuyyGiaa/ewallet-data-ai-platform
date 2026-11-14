@@ -1,0 +1,96 @@
+{
+  "citation_errors": 0,
+  "completed_at": "2026-11-14T08:32:15.942626+00:00",
+  "empty_retrieval_rate": 0.0,
+  "feature_index_revision": "fraud-policy-feast-v1",
+  "mean_reciprocal_rank": 1.0,
+  "online_row_count": 4,
+  "online_target": {
+    "mode": "verification",
+    "owner": "MATCH",
+    "project": "ewallet_rag_verify",
+    "redis_database": 3,
+    "target_fingerprint": "sha256:b3a48b262a125f0b0a81db002e7b89db64a794d50f94bee47d4f41f4e268c631"
+  },
+  "readback_status": "MATCH",
+  "recall_at_k": 1.0,
+  "release_sha": "1e6a88a20e80cc7843e4cdadcb0f9c7fa873b397",
+  "results": [
+    {
+      "citation_error": null,
+      "citations": [
+        {
+          "chunk_id": "policy-account-takeover:0000",
+          "corpus_revision": "fraud-policy-v1-20261030",
+          "document_id": "policy-account-takeover",
+          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+          "feature_index_revision": "fraud-policy-feast-v1",
+          "quote": "# Account takeover review policy This demonstration policy requires step-up review when a transaction follows a new-device login, a rapid credential reset, or an impossible-travel signal. Analysts must review the account history, device binding, recent failed login count, and the",
+          "rank": 1,
+          "score": 0.6633774209521979,
+          "source_checksum": "c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+          "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md"
+        },
+        {
+          "chunk_id": "policy-account-takeover:0001",
+          "corpus_revision": "fraud-policy-v1-20261030",
+          "document_id": "policy-account-takeover",
+          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+          "feature_index_revision": "fraud-policy-feast-v1",
+          "quote": "the source policy identifier and the exact policy revision. If required features are missing, stale, or inconsistent, the decision must fail closed to manual review. Services must not log raw credentials, payment account numbers, secrets, or hidden model reasoning. Any",
+          "rank": 2,
+          "score": 0.33356781545408515,
+          "source_checksum": "c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+          "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md"
+        }
+      ],
+      "expected_document_ids": [
+        "policy-account-takeover"
+      ],
+      "hit_expected": true,
+      "query": "When must an account takeover alert fail closed to manual review?",
+      "query_id": "account-takeover-step-up",
+      "reciprocal_rank": 1.0
+    },
+    {
+      "citation_error": null,
+      "citations": [
+        {
+          "chunk_id": "policy-payment-anomaly:0000",
+          "corpus_revision": "fraud-policy-v1-20261030",
+          "document_id": "policy-payment-anomaly",
+          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+          "feature_index_revision": "fraud-policy-feast-v1",
+          "quote": "# Payment anomaly review policy This demonstration policy requires enhanced review for unusual payment amount, velocity, merchant, device, or geography patterns. The evidence bundle must separate historical Feast features, request-time attributes, derived features, registered model output, and policy knowledge. Retrieval",
+          "rank": 1,
+          "score": 0.5502640169870309,
+          "source_checksum": "b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+          "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md"
+        },
+        {
+          "chunk_id": "policy-account-takeover:0001",
+          "corpus_revision": "fraud-policy-v1-20261030",
+          "document_id": "policy-account-takeover",
+          "embedding_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+          "feature_index_revision": "fraud-policy-feast-v1",
+          "quote": "the source policy identifier and the exact policy revision. If required features are missing, stale, or inconsistent, the decision must fail closed to manual review. Services must not log raw credentials, payment account numbers, secrets, or hidden model reasoning. Any",
+          "rank": 2,
+          "score": 0.45837937124883604,
+          "source_checksum": "c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+          "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md"
+        }
+      ],
+      "expected_document_ids": [
+        "policy-payment-anomaly"
+      ],
+      "hit_expected": true,
+      "query": "Which revisions and source fields must a payment anomaly citation preserve?",
+      "query_id": "payment-citation-fields",
+      "reciprocal_rank": 1.0
+    }
+  ],
+  "retrieval_backend": "feast-online-redis+exact-cosine",
+  "run_id": "local-e2e-20261114t083158",
+  "stage": "validate",
+  "top_k": 2
+}

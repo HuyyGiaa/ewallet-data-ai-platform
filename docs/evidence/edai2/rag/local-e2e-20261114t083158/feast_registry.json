@@ -1,0 +1,71 @@
+{
+  "embedding_dimensions": [
+    384
+  ],
+  "entities": [
+    {
+      "join_key": "chunk_id",
+      "name": "rag_chunk"
+    }
+  ],
+  "feature_views": [
+    {
+      "entities": [
+        "rag_chunk"
+      ],
+      "fields": [
+        {
+          "dtype": "String",
+          "name": "chunk_id"
+        },
+        {
+          "dtype": "String",
+          "name": "embedding_model_revision"
+        },
+        {
+          "dtype": "String",
+          "name": "feature_index_revision"
+        },
+        {
+          "dtype": "String",
+          "name": "document_id"
+        },
+        {
+          "dtype": "String",
+          "name": "chunk_text"
+        },
+        {
+          "dtype": "String",
+          "name": "source_uri"
+        },
+        {
+          "dtype": "String",
+          "name": "source_checksum"
+        },
+        {
+          "dtype": "String",
+          "name": "corpus_revision"
+        },
+        {
+          "dtype": "Array(Float32)",
+          "name": "embedding"
+        }
+      ],
+      "name": "fraud_policy_chunks",
+      "online": true,
+      "source": "/home/huyy-giaa/ewallet-evidence/rag/feast/ewallet_rag_verify/publication/fraud-policy-feast-v1/chunks.parquet",
+      "ttl_days": 3650
+    }
+  ],
+  "materialization": {
+    "feature_view": "fraud_policy_chunks",
+    "materialize_end": "2026-11-14T08:32:11.976019+00:00",
+    "materialize_start": "2026-10-29T23:59:59+00:00"
+  },
+  "offline_rows": 4,
+  "offline_source": "/home/huyy-giaa/ewallet-evidence/rag/feast/ewallet_rag_verify/publication/fraud-policy-feast-v1/chunks.parquet",
+  "project": "ewallet_rag_verify",
+  "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+  "publication_identity_matches_run": true,
+  "registry": "/home/huyy-giaa/ewallet-evidence/rag/feast/ewallet_rag_verify/registry.db"
+}

@@ -1,0 +1,32 @@
+{
+  "completed_at": "2026-11-14T08:32:12.015511+00:00",
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "feast": {
+    "offline_source": "/home/huyy-giaa/ewallet-evidence/rag/feast/ewallet_rag_verify/publication/fraud-policy-feast-v1/chunks.parquet",
+    "online_store": "redis",
+    "profile": "canonical",
+    "project": "ewallet_rag_verify",
+    "registry": "/home/huyy-giaa/ewallet-evidence/rag/feast/ewallet_rag_verify/registry.db"
+  },
+  "feast_vector_search": "NOT_USED (online store is read by chunk_id; similarity is computed in process)",
+  "feature_index_revision": "fraud-policy-feast-v1",
+  "manifest_sha256": "e5a282c6c2864e8ea6de67adcdfd4b18fc4624bdfb06fc8339528ae5d22a24b9",
+  "materialization": {
+    "feature_view": "fraud_policy_chunks",
+    "materialize_end": "2026-11-14T08:32:11.976019+00:00",
+    "materialize_start": "2026-10-29T23:59:59+00:00"
+  },
+  "offline_status": "REUSED",
+  "online_target": {
+    "claim_status": "OWNED",
+    "mode": "verification",
+    "project": "ewallet_rag_verify",
+    "redis_database": 3,
+    "target_fingerprint": "sha256:b3a48b262a125f0b0a81db002e7b89db64a794d50f94bee47d4f41f4e268c631"
+  },
+  "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+  "release_sha": "1e6a88a20e80cc7843e4cdadcb0f9c7fa873b397",
+  "row_count": 4,
+  "run_id": "local-e2e-20261114t083158",
+  "stage": "publish"
+}

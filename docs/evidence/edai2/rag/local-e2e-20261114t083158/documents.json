@@ -1,0 +1,45 @@
+{
+  "checksum_mismatches": 0,
+  "completed_at": "2026-11-14T08:32:06.255908+00:00",
+  "corpus_id": "ewallet-fraud-policy",
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "document_count": 2,
+  "documents": [
+    {
+      "bytes": 802,
+      "document_id": "policy-account-takeover",
+      "event_timestamp": "2026-10-30T00:00:00+00:00",
+      "sha256": "c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+      "words": 116
+    },
+    {
+      "bytes": 838,
+      "document_id": "policy-payment-anomaly",
+      "event_timestamp": "2026-10-30T00:00:00+00:00",
+      "sha256": "b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md",
+      "words": 108
+    }
+  ],
+  "manifest_sha256": "e5a282c6c2864e8ea6de67adcdfd4b18fc4624bdfb06fc8339528ae5d22a24b9",
+  "run_id": "local-e2e-20261114t083158",
+  "runtime": {
+    "executable": "/home/huyy-giaa/Develop/ewallet-data-ai-platform/infra/docker/rag-ingestion/.venv/bin/python",
+    "git_sha": "1e6a88a20e80cc7843e4cdadcb0f9c7fa873b397",
+    "packages": {
+      "acryl-datahub": "1.7.0.5",
+      "feast": "0.66.0",
+      "gcsfs": "2025.12.0",
+      "huggingface-hub": "2.4.0",
+      "onnxruntime": "1.23.2",
+      "pandas": "2.3.3",
+      "pyarrow": "25.0.1",
+      "tokenizers": "0.23.3"
+    },
+    "python": "3.10.22",
+    "uv_lock_sha256": "20c00145ff1f8cb33b73a05a32a01899c42d3537ca48108c6f56cf96485d26d7"
+  },
+  "source_location": "data/llm_agent/rag/fraud-policy-v1",
+  "stage": "discover"
+}

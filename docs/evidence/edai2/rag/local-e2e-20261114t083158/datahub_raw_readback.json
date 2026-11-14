@@ -1,0 +1,33 @@
+{
+  "urn:li:dataset:(urn:li:dataPlatform:feast,ewallet_rag_verify.fraud_policy_chunks/fraud-policy-feast-v1,PROD)#upstreamLineage": {
+    "version": 0,
+    "aspect": {
+      "com.linkedin.dataset.UpstreamLineage": {
+        "upstreams": [
+          {
+            "type": "TRANSFORMED",
+            "auditStamp": {
+              "actor": "urn:li:corpuser:unknown",
+              "time": 0
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:file,fraud-policy/fraud-policy-v1-20261030,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  "urn:li:dataFlow:(airflow,rag_fraud_policy_ingestion,ewallet-gcp)#dataFlowInfo": {
+    "version": 0,
+    "aspect": {
+      "com.linkedin.datajob.DataFlowInfo": {
+        "name": "rag_fraud_policy_ingestion",
+        "env": "PROD",
+        "customProperties": {
+          "airflow_run_id": "local-e2e-20261114t083158",
+          "orchestrator": "airflow",
+          "source_git_sha": "1e6a88a20e80cc7843e4cdadcb0f9c7fa873b397"
+        }
+      }
+    }
+  }
+}

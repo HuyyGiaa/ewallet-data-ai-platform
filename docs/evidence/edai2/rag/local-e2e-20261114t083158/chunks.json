@@ -1,0 +1,57 @@
+{
+  "chunk_count": 4,
+  "chunk_overlap_words": 16,
+  "chunk_size_words": 80,
+  "chunks": [
+    {
+      "chunk_id": "policy-account-takeover:0000",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-account-takeover",
+      "event_timestamp": "2026-10-30T00:00:00+00:00",
+      "ordinal": 0,
+      "source_checksum": "c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+      "text": "# Account takeover review policy This demonstration policy requires step-up review when a transaction follows a new-device login, a rapid credential reset, or an impossible-travel signal. Analysts must review the account history, device binding, recent failed login count, and the freshness of the underlying features before deciding. A model score alone must not close an account-takeover case. Evidence presented to an analyst must include the source policy identifier and the exact policy revision. If required features are missing, stale, or",
+      "words": 80
+    },
+    {
+      "chunk_id": "policy-account-takeover:0001",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-account-takeover",
+      "event_timestamp": "2026-10-30T00:00:00+00:00",
+      "ordinal": 1,
+      "source_checksum": "c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md",
+      "text": "the source policy identifier and the exact policy revision. If required features are missing, stale, or inconsistent, the decision must fail closed to manual review. Services must not log raw credentials, payment account numbers, secrets, or hidden model reasoning. Any override requires an authenticated reviewer, a reason code, and an auditable timestamp.",
+      "words": 52
+    },
+    {
+      "chunk_id": "policy-payment-anomaly:0000",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-payment-anomaly",
+      "event_timestamp": "2026-10-30T00:00:00+00:00",
+      "ordinal": 0,
+      "source_checksum": "b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md",
+      "text": "# Payment anomaly review policy This demonstration policy requires enhanced review for unusual payment amount, velocity, merchant, device, or geography patterns. The evidence bundle must separate historical Feast features, request-time attributes, derived features, registered model output, and policy knowledge. Retrieval citations must identify the document, chunk, checksum, corpus revision, embedding revision, and feature index revision. An automated agent may collect and summarize evidence but must not invent missing facts. Empty retrieval, low similarity, stale features, serving errors, or policy conflicts",
+      "words": 80
+    },
+    {
+      "chunk_id": "policy-payment-anomaly:0001",
+      "corpus_revision": "fraud-policy-v1-20261030",
+      "document_id": "policy-payment-anomaly",
+      "event_timestamp": "2026-10-30T00:00:00+00:00",
+      "ordinal": 1,
+      "source_checksum": "b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb",
+      "source_uri": "repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md",
+      "text": "must not invent missing facts. Empty retrieval, low similarity, stale features, serving errors, or policy conflicts must be visible to the coordinator and may require human review. Production promotion requires correlated traces, security-policy checks, rollback readiness, and runtime readback rather than source configuration alone.",
+      "words": 44
+    }
+  ],
+  "completed_at": "2026-11-14T08:32:07.350656+00:00",
+  "corpus_revision": "fraud-policy-v1-20261030",
+  "deterministic": true,
+  "release_sha": "1e6a88a20e80cc7843e4cdadcb0f9c7fa873b397",
+  "run_id": "local-e2e-20261114t083158",
+  "stage": "chunk"
+}
