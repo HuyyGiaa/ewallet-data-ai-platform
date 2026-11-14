@@ -108,12 +108,34 @@ unavailable stubs stay wired.
 ### 3.5 Feature-RAG MCP targets (`tools/service.py`)
 
 `EWALLET_FEATURE_TARGET_PROFILE=legacy` (default) is the recorded wiring.
-`isolated` requires two Secrets (`EWALLET_REDIS_CONNECTION_STRING`,
-`EWALLET_RAG_REDIS_CONNECTION_STRING`) with explicit databases equal to
-`EWALLET_FRAUD_ONLINE_DB` and `EWALLET_RAG_ONLINE_DB`, explicit registries, and a
-RAG verification project `ewallet_rag_<suffix>` in DB 2–15. `/v1/capabilities`
-reports the non-secret target identity (databases, projects, registries, model,
-corpus and embedding revisions). The MCP server only reads.
+`isolated` requires:
+
+- two Secrets (`EWALLET_REDIS_CONNECTION_STRING`, `EWALLET_RAG_REDIS_CONNECTION_STRING`)
+  with explicit databases equal to `EWALLET_FRAUD_ONLINE_DB` and `EWALLET_RAG_ONLINE_DB`;
+- **different** databases for the two targets;
+- explicit registries;
+- a RAG verification project `ewallet_rag_<suffix>` in DB 2–15;
+- for the production Fraud store (DB 0), the explicit opt-in
+  `EWALLET_FRAUD_ALLOW_PRODUCTION_DB=true`.
+
+`/v1/capabilities` reports the non-secret target identity: databases, `store`
+(production or verification), projects, registries, model, corpus and
+embedding revisions, and the **access guarantee**:
+
+| Layer | Guarantee |
+|---|---|
+| Application | The MCP server issues only Feast online reads (`get_online_features`). |
+| Redis credential | **Not restricted.** The Feature Store Redis (`infra/kubernetes/feast-online/redis.yaml`) authenticates one default user with `requirepass` and has no ACLs. The AGI Secrets derived by `ops/llm_agent/agi_inputs.py` select a database but keep the same privileges. |
+
+A Redis-level read-only user (ACL `+@read` on the Feast key pattern) would need
+a change to the production Redis and is out of scope. The campaign instead
+verifies afterwards that nothing changed (runbook Stage 5):
+
+- DB 0–15 key counts and ownership markers;
+- a `DUMP` digest of DB 3, via `rag_runtime_run.sh digest 3`;
+- a bounded readback of the reference transaction's DB 0 features.
+
+DB 0 (about 173k keys) is not digested in full.
 
 ### 3.6 Gateways and identities
 
@@ -126,7 +148,29 @@ corpus and embedding revisions). The MCP server only reads.
 The BYO Drift Specialist uses the existing `drift-specialist` ServiceAccount and
 `mcp-token-drift-specialist-drift-mcp` Secret; no grant, route or policy was widened.
 
-### 3.7 Observability
+Two server-side MCP mechanisms are tested negatively in AGI-08, each with a
+control that proves the denial came from that mechanism:
+
+- **Per-server credentials.** The token table is per MCP server, so another
+  server's credential gets HTTP 401 at `initialize`.
+- **Per-tool grants.** An authenticated principal calling a tool outside its
+  grant gets JSON-RPC `-32602 "Unknown tool"`, the same error as for an unknown
+  tool, so tools cannot be enumerated.
+
+`scripts/llm_agent/agi_probe.py` classifies every other failure as FAIL
+(invalid arguments, backend, protocol, HTTP 5xx, transport, timeout).
+
+### 3.7 Deployment gates (`scripts/llm_agent/agi_campaign.sh`)
+
+| Stage | Command | Mutates |
+|---|---|---|
+| 0 | `preflight` (15 checks, each in a fresh `set -euo pipefail` process) → `stage0/PREFLIGHT_PASS`; `data-state before` | no |
+| 1 | `gate mcp\|agents`: render → `helm_object_diff.py --expect-identities` (exact changed/added/removed identities) → `helm upgrade --dry-run=server` | no |
+| 1 (A1) | `upgrade mcp\|agents`: requires `PREFLIGHT_PASS` for the same campaign, commit and context, `AGI_APPROVAL=A1:<campaign>`, an unchanged live release and the MCP release first; re-runs the gate, then `helm upgrade --atomic` | yes |
+| 2 | `negative` (AGI-08) | no |
+| 5 | `data-state after`; `rollback` (A2: `AGI_APPROVAL=A2:<campaign>`, back to the Stage 0 revision, then a 0-object diff against the Stage 0 manifest) | rollback only |
+
+### 3.8 Observability
 
 | Span / record | Attributes |
 |---|---|
@@ -165,7 +209,9 @@ Local tests use a deterministic **synthetic** fixture
 | `ai_platform/llm_agent/observability.py`, `tools/runtime.py`, `agent_metrics.py`, `byo_runtime.py` | backend operation attribute, `trace_id` in MCP audit, drift agent label, audit field | AGI-12, AGI-14 | 24–27 |
 | `infra/helm/llm-agent-platform/templates/agents.yaml`, `mcp-services.yaml`, `values.yaml` | BYO drift allowed; workflows value; `ragRedisSecret`; defaults render byte-identical | AGI-01, AGI-02 | 7, 22, 25 |
 | `infra/helm/llm-agent-platform/agi/agents.yaml`, `agi/mcp.yaml` | disabled-by-default integration overlays | Stage 1 diffs | 7, 22–25 |
-| `ops/llm_agent/agi_inputs.py`, `scripts/llm_agent/agi_probe.py`, `g3_a2a_smoke.py`, `build_g3_byo_drift_specialist.sh`, `ops/llm_agent/registry_catalog.py` | evidence and Stage 1 helpers | AGI-03–AGI-08, AGI-13 | 8, 16, 23, 24, 26 |
+| `scripts/llm_agent/agi_campaign.sh`, `helm_object_diff.py` (`--expect-identities`), `rag_runtime_run.sh digest` | fail-closed gates, exact object identities, data-state check | Stage 0, 1, 5 | — (deployment safety) |
+| `ops/llm_agent/agi_inputs.py`, `scripts/llm_agent/agi_probe.py`, `g3_a2a_smoke.py`, `build_g3_byo_drift_specialist.sh` | Stage 1 inputs and evidence probes | AGI-03–AGI-08 | 16, 23, 24 |
+| `ops/llm_agent/registry_catalog.py` | runtime-accurate descriptions (BYO, Declarative, SandboxAgent), MCP refs per BYO module, values overlays | AGI-13 | 8, 21, 26 |
 
 ## 6. Local verification
 
@@ -181,8 +227,10 @@ implementation commit are in the final report of this task.
 | `test_agi_workflow_intake.py` | BYO | router, grounding, typed requests, rendering | LLM responses (`httpx.MockTransport`) |
 | `test_agi_drift_specialist.py` | BYO | A2A server (a2a-sdk), request parsing, evidence conversion | MCP session returning real tool results |
 | `test_agi_end_to_end.py` | BYO | Coordinator → real Drift/Feature-RAG A2A apps → official MCP client → real `drift-mcp` → artifacts | gateways replaced by routing on `x-kagent-host` and the `/drift/mcp` route; Feature-RAG backend session; synthetic data |
-| `test_agi_tools.py` | BYO | `agi_probe mcp` against real `drift-mcp`; `agi_inputs` derivation | — |
-| `test_agi_chart.py` | tooling | Helm renders of the AGI overlays and guards; registry overlay | — |
+| `test_agi_tools.py` | BYO | `agi_probe` classification against real `drift-mcp` (authorized, hidden tool, 401, rejected, unavailable) and A2A route verdicts; `agi_inputs` derivation | protocol, HTTP 500, timeout and transport failures injected around the real server |
+| `test_agi_chart.py` | tooling | Helm renders of the AGI overlays and guards; registry catalog per profile and schema | — |
+| `test_agi_campaign_gates.py` | tooling | `agi_campaign.sh` and `helm_object_diff.py` end to end | `helm`, `kubectl`, `gcloud`, RAG runner and probe runtime are recording fakes |
+| `test_agi_runbook.py` | tooling | runbook blocks parse; scripts, modules and flags exist; mutations only in approved blocks; rubric wording | — |
 
 None of these is GKE evidence.
 
@@ -198,3 +246,42 @@ None of these is GKE evidence.
   `drift_detection`.
 - The deployed KEDA profile still scales `drift-specialist` on CPU.
 - Native Agent Registry discovery is not used; the registry remains a catalog.
+- Redis access is read-only at the application level only (§3.5).
+- Laptop port-forwards bypass the Istio Ambient L4 caller check, so AGI-08 tests
+  gateway routes and server credentials and grants, not the SPIFFE caller policies.
+
+## 8. Evidence-to-rubric matrix
+
+Rows are those of the EDAI-2 rubric. The status column of
+[RUBRIC_EVIDENCE_INDEX.md](../RUBRIC_EVIDENCE_INDEX.md) is unchanged until the
+owner's evidence exists: rows already COMPLETE stay COMPLETE, and no row becomes
+COMPLETE from this campaign alone.
+
+| AGI | Primary | Secondary | Proves | Does not prove | Independent evidence still needed |
+|---|---|---|---|---|---|
+| 01 | 7 | 3–5 (route only) | One ModelConfig, resolved by the BYO LLM agents; drift BYO has no LLM | Benchmark (6), inference platform setup | No, for row 7 |
+| 02 | 22 | 16 | Separate pinned Fraud/RAG targets; drift artifact identity; the real access guarantee | Redis-level read-only; pipelines (11–12) | No |
+| 03 | 16 | 23 | FastAPI/Pydantic validation and health through the gateway | Rolling update and automatic fallback (18) | Row 18: yes |
+| 04 | 22 | 16 | Online features read by ID | Multi-replica, Sandbox (16's other proofs) | Row 16: Sandbox (20) |
+| 05 | 22 | — | KServe V2 prediction with model identity | — | — |
+| 06 | 22 | 9–10 (consumption) | RAG tool reads the published Hybrid index | Retrieval quality | — |
+| 07 | 18 (Helm-deployed MCP tool) | 19 | PSI from versioned artifacts via MCP | Automatic fallback (18), autoscaling (19), Sandbox (20) | Rows 18–20: yes |
+| 08 | 23, 24 | — | Server credentials, tool grants and A2A routes deny as designed | Ambient SPIFFE caller policy (port-forward bypass) | Policy objects (AGENTS §7) |
+| 09 | 22 | 25 (UI chat) | Fraud workflow through both gateways in kagent UI | Multi-replica/autoscaling (19, 25) | Rows 19, 25: yes |
+| 10 | 25 | 19 | Coordinator delegates to the drift agent | KEDA autoscaling (19), Sandbox (20) | Rows 19, 20: yes |
+| 11 | 25 | 24 | Coordinator orchestrates both agents in one request | Coordinator scale-out (25) | Row 25 scale test: yes |
+| 12 | 49 | 50 (tokens on one span) | One correlated trace across agents, gateways and MCP | Metric dashboards (50–51, already COMPLETE) | No |
+| 13 | 8, 21, 26 | — | Catalog matches the deployed runtime (after an approved publish) | Registry discovery | Publish approval |
+| 14 | 51 | 47 | Invocation and tool-call counts, running digests | Substrate WorkerPool (27), autoscaling (19, 25) | Row 27: yes |
+
+Requirements that stay separate from this campaign:
+
+| Row | Requirement still needing separate evidence |
+|---|---|
+| 18 | MCP automatic fallback and rollout behavior |
+| 19 | Specialist autoscaling (KEDA) |
+| 20 | Business agent in Sandbox |
+| 22 | Deliverables inherited from rows 16–21 (multi-replica, Sandbox, autoscaling) |
+| 25 | Coordinator autoscaling and a demonstrated scale-out |
+| 27 | Substrate WorkerPool and warm-worker optimization |
+| 34–35 | CI/CD deployment evidence beyond manual build and deploy |
