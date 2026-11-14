@@ -461,14 +461,17 @@ trigger() {
     --conf "{\"online_store\": \"redis\", \"datahub_mode\": \"publish\", \"run_label\": \"${label}\"}" >/dev/null
   mkdir -p "${dir}/airflow" && echo "${run_id}" > "${dir}/airflow/run_id.txt"
   for _ in $(seq 1 90); do   # bounded: 30 minutes
-    # The tasks reach the GKE Redis through this invocation's forward; reopen it if kubectl dropped it.
-    start_forward || echo "WARNING: port-forward unavailable; the Redis tasks will fail closed" >&2
     state=$(af_json dags list-runs "${DAG_ID}" | "${RAG_PY}" -c \
       "import json,sys;print(next((r['state'] for r in json.load(sys.stdin) if r['run_id']=='${run_id}'),'unknown'))" \
       2>/dev/null || echo unknown)
     echo "$(date -u +%FT%TZ) ${run_id} ${state}"
     [[ "${state}" == success || "${state}" == failed ]] && break
-    sleep 20
+    # The tasks reach the GKE Redis through this invocation's forward: check it every 5 s and reopen it
+    # if kubectl dropped it (a task that hit the gap fails closed and is retried by Airflow).
+    for _ in 1 2 3 4; do
+      sleep 5
+      start_forward || echo "WARNING: port-forward unavailable; the Redis tasks will fail closed" >&2
+    done
   done
   collect "${label}"
   [[ "${state}" == success ]]
