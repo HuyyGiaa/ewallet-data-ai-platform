@@ -1,0 +1,8 @@
+NAMESPACE      NAME                              DESIRED   REPLICAS   AGE
+kagent-pilot   workerpool.ate.dev/kagent-pilot   1         1          12d
+
+NAMESPACE      NAME                                                         CLASS
+kagent-pilot   actortemplate.ate.dev/pilot-sandbox-agent-6f000f880e9fe909   gvisor
+
+NAMESPACE      NAME                                          READY   ACCEPTED
+kagent-pilot   sandboxagent.kagent.dev/pilot-sandbox-agent   True    True

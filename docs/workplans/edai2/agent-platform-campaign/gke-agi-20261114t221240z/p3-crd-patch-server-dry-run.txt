@@ -1,0 +1,1 @@
+{"labelSelectorPath":".spec.scaleSelector","specReplicasPath":".spec.replicas","statusReplicasPath":".status.replicas"}

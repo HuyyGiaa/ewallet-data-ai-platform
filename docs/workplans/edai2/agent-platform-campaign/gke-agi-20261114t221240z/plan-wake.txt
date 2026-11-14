@@ -1,0 +1,7 @@
+{
+  "nodes": 4,
+  "cpu_m": 8901,
+  "mem_mi": 22692,
+  "largest_pod_cpu_m": 2000,
+  "node_hourly_usd": 0.6613
+}

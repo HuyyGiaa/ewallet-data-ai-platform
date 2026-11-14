@@ -1,0 +1,26 @@
+{
+ "git_sha": "7d695365d32c3d64ec5bc96b9f18f93d42fcc0f4",
+ "images": {
+  "g3-byo-coordinator": {
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:0cc25968b8e3ddbb63492dcd2df9243d9d9ac7c52229973504b5a61d2e164e9a",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:7d695365d32c3d64ec5bc96b9f18f93d42fcc0f4"
+  },
+  "g3-byo-drift-specialist": {
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist@sha256:75185dbddbcc48cbea6f25a02f11138ff61f0bf07cd78d35e97e9923a18184c6",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist:7d695365d32c3d64ec5bc96b9f18f93d42fcc0f4"
+  },
+  "g3-byo-feature-rag-specialist": {
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:b8079aab796f32cc9b34656b986c115057d9f0e897c659f3c7cab6baba9f53ba",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:7d695365d32c3d64ec5bc96b9f18f93d42fcc0f4"
+  },
+  "mcp-tools": {
+   "components": [
+    "drift-mcp",
+    "feature-rag-mcp"
+   ],
+   "digest_ref": null,
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools:7d695365d32c3d64ec5bc96b9f18f93d42fcc0f4",
+   "target": "mcp-server"
+  }
+ }
+}

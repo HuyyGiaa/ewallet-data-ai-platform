@@ -3,25 +3,139 @@
   "branch": "feature/edai2-agent-platform-integration",
   "design": "docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md",
   "runbook": "docs/runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md",
-  "status_words": ["SOURCE_IMPLEMENTED", "LOCAL_TESTED", "GKE_TESTED", "EVIDENCE_CAPTURED", "RUBRIC_COMPLETE", "APPROVAL_PENDING", "BLOCKED"],
+  "status_words": [
+    "SOURCE_IMPLEMENTED",
+    "LOCAL_TESTED",
+    "GKE_TESTED",
+    "EVIDENCE_CAPTURED",
+    "RUBRIC_COMPLETE",
+    "APPROVAL_PENDING",
+    "BLOCKED"
+  ],
   "checkpoints": [
-    {"id": "CP0", "scope": "S1 sandbox delegation, S2 A2A sandbox routes, S6 KEDA overlay and graceful shutdown, S7 collector metric expiration, S8 tooling",
-     "status": "LOCAL_TESTED", "where": "local",
-     "evidence": ["tests/llm_agent/test_agent_platform_completion.py", "scripts/llm_agent/validate_gateway_configs.sh (a2a-sandbox valid under agentgateway v1.7.0)"]},
-    {"id": "CP1", "scope": "S3 shared WorkerPool fleet, S4 WorkerPool ScaledObject guard, S5 B' CRD selector patch package",
-     "status": "LOCAL_TESTED", "where": "local",
-     "evidence": ["infra/kubernetes/agent-sandbox/fleet.yaml.tmpl", "infra/kubernetes/substrate-scale/", "five baseline profiles byte-identical to HEAD 21ec5d2b"]},
-    {"id": "CP2", "scope": "B' control loop on kind (Substrate 0.0.9 atecontroller, KEDA 2.21.0)",
-     "status": "LOCAL_TESTED", "verdict": "CONTROL_LOOP_VALIDATED", "where": "kind-edai-cluster (reused; only what the run installed was removed)",
-     "evidence": ["cp2-bprime-kind/summary.json", "cp2-bprime-kind/hpa-unpatched.txt", "cp2-bprime-kind/scale-patched.json", "cp2-bprime-kind/replicas.jsonl"],
-     "limits": ["atecontroller only: no ate-api, atelet, Valkey or gVisor; actors not exercised", "pause-image workers", "script-controlled metrics-api value"]},
-    {"id": "CP3", "scope": "images from one commit, scanned and pushed", "status": "PENDING"},
-    {"id": "CP4", "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)", "status": "PENDING"},
-    {"id": "CP5", "scope": "B' on GKE: CRD patch and KEDA watchNamespace", "status": "APPROVAL_PENDING", "approval": "P3"},
-    {"id": "CP6", "scope": "MCP failover isolated experiment (ewallet-mcp-exp); production overlays need P1", "status": "PENDING"},
-    {"id": "CP7", "scope": "AGI rollout and KEDA on agents (llm-agent upgrade)", "status": "APPROVAL_PENDING", "approval": "P2"},
-    {"id": "CP8", "scope": "Coordinator sandbox route and AGI-09..11 through sandbox Specialists", "status": "APPROVAL_PENDING", "approval": "P1, P2, P4"},
-    {"id": "CP9", "scope": "rollback drill or promotion decision", "status": "APPROVAL_PENDING", "approval": "owner"},
-    {"id": "CP10", "scope": "cleanup and verified GKE sleep", "status": "PENDING"}
-  ]
+    {
+      "id": "CP0",
+      "scope": "S1 sandbox delegation, S2 A2A sandbox routes, S6 KEDA overlay and graceful shutdown, S7 collector metric expiration, S8 tooling",
+      "status": "LOCAL_TESTED",
+      "where": "local",
+      "evidence": [
+        "tests/llm_agent/test_agent_platform_completion.py",
+        "scripts/llm_agent/validate_gateway_configs.sh (a2a-sandbox valid under agentgateway v1.7.0)"
+      ]
+    },
+    {
+      "id": "CP1",
+      "scope": "S3 shared WorkerPool fleet, S4 WorkerPool ScaledObject guard, S5 B' CRD selector patch package",
+      "status": "LOCAL_TESTED",
+      "where": "local",
+      "evidence": [
+        "infra/kubernetes/agent-sandbox/fleet.yaml.tmpl",
+        "infra/kubernetes/substrate-scale/",
+        "five baseline profiles byte-identical to HEAD 21ec5d2b"
+      ]
+    },
+    {
+      "id": "CP2",
+      "scope": "B' control loop on kind (Substrate 0.0.9 atecontroller, KEDA 2.21.0)",
+      "status": "LOCAL_TESTED",
+      "verdict": "CONTROL_LOOP_VALIDATED",
+      "where": "kind-edai-cluster (reused; only what the run installed was removed)",
+      "evidence": [
+        "cp2-bprime-kind/summary.json",
+        "cp2-bprime-kind/hpa-unpatched.txt",
+        "cp2-bprime-kind/scale-patched.json",
+        "cp2-bprime-kind/replicas.jsonl"
+      ],
+      "limits": [
+        "atecontroller only: no ate-api, atelet, Valkey or gVisor; actors not exercised",
+        "pause-image workers",
+        "script-controlled metrics-api value"
+      ]
+    },
+    {
+      "id": "CP3",
+      "scope": "images from one commit, scanned and pushed",
+      "status": "PARTIAL",
+      "result": "3 BYO images PASS Trivy gate and pushed; mcp-tools BLOCKED: feast 0.66.0 CVE-2026-18948 CRITICAL, fixed in 0.67.0 (dependency upgrade needs owner decision)",
+      "evidence": [
+        "gke-agi-20261114t221240z/image-digests.json",
+        "gke-agi-20261114t221240z/scan-summary.json"
+      ]
+    },
+    {
+      "id": "CP4",
+      "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)",
+      "status": "APPROVAL_PENDING",
+      "blocker": "live kagent WATCH_NAMESPACES=ewallet-agents,kagent-pilot: SandboxAgents in ewallet-sandbox are not reconciled; adding it is a kagent upgrade (owner)",
+      "evidence": [
+        "gke-agi-20261114t221240z/kagent-watch-namespaces.txt"
+      ]
+    },
+    {
+      "id": "CP5",
+      "scope": "B' on GKE: CRD patch and KEDA watchNamespace",
+      "status": "APPROVAL_PENDING",
+      "approval": "P3",
+      "result": "read-only: GKE CRD backup taken; server-side dry-run of the patch accepted (no change applied)",
+      "evidence": [
+        "gke-agi-20261114t221240z/p3-crd-patch-server-dry-run.txt",
+        "gke-agi-20261114t221240z/workerpool-scale-subresource.json",
+        "gke-agi-20261114t221240z/keda-watch.txt"
+      ]
+    },
+    {
+      "id": "CP6",
+      "scope": "MCP failover isolated experiment (ewallet-mcp-exp); production overlays need P1",
+      "status": "BLOCKED",
+      "blocker": "capacity (decision type E): experiment pods need a node without ewallet.io/g3-llm; on the 4-node wake 3 nodes carry it and the 4th was at 97% CPU; the optimized arm also needs 2 such hosts. Both arms timed out at rollout and removed ewallet-mcp-exp; production ewallet-mcp unchanged. Rerun needs a 5th node (owner) or a wake profile with 2 non-LLM nodes",
+      "evidence": [
+        "gke-agi-20261114t221240z/AGR-02-baseline-apply.log",
+        "gke-agi-20261114t221240z/AGR-02-production-unchanged.txt",
+        "gke-agi-20261114t221240z/node-labels.txt",
+        "gke-agi-20261114t221240z/node-cpu-allocated.txt"
+      ]
+    },
+    {
+      "id": "CP7",
+      "scope": "AGI rollout and KEDA on agents (llm-agent upgrade)",
+      "status": "APPROVAL_PENDING",
+      "approval": "P2"
+    },
+    {
+      "id": "CP8",
+      "scope": "Coordinator sandbox route and AGI-09..11 through sandbox Specialists",
+      "status": "APPROVAL_PENDING",
+      "approval": "P1, P2, P4"
+    },
+    {
+      "id": "CP9",
+      "scope": "rollback drill or promotion decision",
+      "status": "APPROVAL_PENDING",
+      "approval": "owner"
+    },
+    {
+      "id": "CP10",
+      "scope": "cleanup and verified GKE sleep",
+      "status": "SLEEP_VERIFIED",
+      "evidence": [
+        "gke-agi-20261114t221240z/plan-sleep.txt",
+        "gke-agi-20261114t221240z/verify.txt",
+        "gke-agi-20261114t221240z/cost.txt",
+        "gke-agi-20261114t221240z/timeline.txt"
+      ]
+    }
+  ],
+  "gke_campaign": {
+    "id": "agi-20261114t221240z",
+    "source_commit": "7d695365d32c3d64ec5bc96b9f18f93d42fcc0f4",
+    "awake": "2026-11-14T22:16:54Z..2026-11-14T22:38:20Z (4 nodes, ~21 min, ~0.24 USD)",
+    "sleep": "SLEEP_VERIFIED (verify --expect sleep: no failures; 0 nodes; 0.107 USD/h)",
+    "sleep_note": "sleep needed --scale-pdb-guarded: scales the five PDB-guarded Deployments back to the 0 replicas recorded by the owner-approved 2026-11-06 sleep manifest that wake-full had restored",
+    "live_facts": {
+      "kagent_watch_namespaces": "ewallet-agents,kagent-pilot",
+      "keda_watch_namespace": "ewallet-agents,ml-platform",
+      "workerpool_scale_subresource": "no labelSelectorPath (B' needed on GKE too)",
+      "g3_llm_nodes": "3 of 4; the 4th at 97% CPU requested"
+    }
+  }
 }

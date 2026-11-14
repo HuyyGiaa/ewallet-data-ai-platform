@@ -1,0 +1,9 @@
+namespace	kind	name	owner_label	image_digest	limits	lifetime	cleanup
+ewallet-mcp-exp	Namespace	ewallet-mcp-exp	ewallet.io/experiment=true	-	-	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down
+ewallet-mcp-exp	ResourceQuota	mcp-exp-budget	ewallet.io/experiment=true	-	req 500m/1Gi, lim 2/2Gi (namespace)	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down
+ewallet-mcp-exp	NetworkPolicy	default-deny, allow-same-namespace, allow-dns	ewallet.io/experiment=true	-	-	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down
+ewallet-mcp-exp	Secret	mcp-exp-auth (per-run random token)	ewallet.io/experiment=true	-	-	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down
+ewallet-mcp-exp	ConfigMap	mcp-exp-probe	ewallet.io/experiment=true	-	-	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down
+ewallet-mcp-exp	Deployment	mcp-exp-drift (1 or 2 replicas)	ewallet.io/experiment=true	sha256:3209d01e514669af01a967ce37a3e909db5cd682bc066b267aaf82399761411f	req 100m/256Mi, lim 500m/512Mi per pod	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down
+ewallet-mcp-exp	Service	mcp-exp-drift	ewallet.io/experiment=true	-	-	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down
+ewallet-mcp-exp	Job	mcp-exp-probe	ewallet.io/experiment=true	sha256:0cc25968b8e3ddbb63492dcd2df9243d9d9ac7c52229973504b5a61d2e164e9a	req 50m/128Mi, lim 300m/256Mi	one run (<=15 min); the run deletes the namespace	scripts/experiments/mcp_experiment.sh <arm> down

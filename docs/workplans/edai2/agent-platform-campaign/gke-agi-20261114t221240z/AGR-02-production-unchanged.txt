@@ -1,0 +1,2 @@
+baseline: production ewallet-mcp pods and Deployment generations identical before/after
+optimized: production ewallet-mcp pods and Deployment generations identical before/after

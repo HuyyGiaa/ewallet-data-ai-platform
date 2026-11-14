@@ -1,0 +1,12 @@
+{
+  "verdict": "SAFE_AFTER_REVERSIBLE_PREPARATION",
+  "pdb_blockers": [
+    "ewallet-agents/drift-mcp",
+    "ewallet-agents/drift-specialist",
+    "ewallet-agents/feature-rag-specialist",
+    "ewallet-agents/fraud-coordinator",
+    "ewallet-mcp/drift-mcp"
+  ],
+  "active_work": [],
+  "identity_problems": []
+}
