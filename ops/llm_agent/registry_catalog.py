@@ -48,6 +48,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "infra/helm/llm-agent-platform"
 API_VERSION = "ar.dev/v1alpha1"
 KIND_PATHS = {"Agent": "agents", "Prompt": "prompts", "MCPServer": "mcpservers"}
+BYO_MCP_SERVERS = {"feature-rag-specialist": ("feature-rag-mcp",), "drift-specialist": ("drift-mcp",)}
 
 
 def merge_values(base: Mapping[str, Any], overlay: Mapping[str, Any]) -> dict[str, Any]:
@@ -81,8 +82,24 @@ def _prompt_document(name: str, version: str, display_name: str, entry: Mapping[
     }
 
 
+def agent_runtime(values: Mapping[str, Any], spec: Mapping[str, Any], model_config: str) -> tuple[str, str]:
+    """The runtime the chart deploys for one agent (templates/agents.yaml), as label and text.
+
+    BYO wins over the agent mode (the chart renders ``type: BYO``); otherwise
+    ``agents.mode`` selects a Substrate ``SandboxAgent`` or a kagent ``Agent``. The
+    text states configuration only; it does not claim verified sandbox execution.
+    """
+
+    if (spec.get("byo") or {}).get("enabled"):
+        return "kagent-byo", "kagent 0.10.3 BYO Agent (own A2A server image)"
+    if values.get("mode", "sandbox") == "sandbox":
+        return ("kagent-sandboxagent",
+                f"kagent 0.10.3 Declarative SandboxAgent (agents.mode=sandbox, ModelConfig {model_config})")
+    return "kagent-declarative", f"kagent 0.10.3 Declarative Agent (ModelConfig {model_config})"
+
+
 def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
-                  all_prompt_versions: bool = False) -> list[dict[str, Any]]:
+                  all_prompt_versions: bool = False, model_config: str = "ewallet-global-llm") -> list[dict[str, Any]]:
     """Catalog documents; ``all_prompt_versions`` also publishes every pinned older/newer prompt."""
 
     manifest = json.loads((prompts_dir / "manifest.json").read_text(encoding="utf-8"))["prompts"]
@@ -107,9 +124,13 @@ def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
         spec = agents[name]
         servers = sorted(spec.get("tools", {}))
         byo = spec.get("byo") or {}
+        if byo.get("enabled"):
+            # A BYO runtime calls only the MCP route its module is bound to (byo_*.py).
+            servers = [server for server in servers if server in BYO_MCP_SERVERS.get(name, ())]
+        runtime, runtime_text = agent_runtime(values, spec, model_config)
         labels = {"ewallet.io/rubric-rows": spec["rubricRows"].replace(",", "."),
                   "ewallet.io/git-sha": git_sha[:40],
-                  "ewallet.io/runtime": "kagent-byo" if byo.get("enabled") else "kagent-sandboxagent"}
+                  "ewallet.io/runtime": runtime}
         if "drift" in (byo.get("workflows") or []):
             labels["ewallet.io/workflows"] = ".".join(byo["workflows"])
         documents.append({
@@ -117,7 +138,7 @@ def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
             "metadata": {"name": name, "tag": spec["version"], "labels": labels},
             "spec": {
                 "title": spec["displayName"],
-                "description": f"{spec['displayName']}: kagent 0.10.3 SandboxAgent deployed by llm-agent-platform",
+                "description": f"{spec['displayName']}: {runtime_text}, deployed by llm-agent-platform",
                 "source": {"protocol": "A2A"},
                 # agentregistry 0.4.0 rejects instructions without a harness
                 # (found by the local registry smoke); kagent runs these agents.
@@ -229,7 +250,8 @@ def main(argv: list[str] | None = None) -> int:
     for overlay in args.values_overlay:
         chart_values = merge_values(chart_values, yaml.safe_load(overlay.read_text(encoding="utf-8")) or {})
     values = chart_values["agents"]
-    documents = build_catalog(values, CHART / "prompts", git_sha, all_prompt_versions=args.all_prompt_versions)
+    documents = build_catalog(values, CHART / "prompts", git_sha, all_prompt_versions=args.all_prompt_versions,
+                              model_config=chart_values["modelConfig"]["name"])
     if args.command == "render":
         yaml.safe_dump_all(documents, sys.stdout, sort_keys=False)
         return 0

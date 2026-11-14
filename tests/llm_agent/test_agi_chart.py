@@ -162,17 +162,67 @@ class McpProfileTests(unittest.TestCase):
 
 
 class RegistryOverlayTests(unittest.TestCase):
-    def test_agi_overlay_publishes_new_versions_and_runtime_labels(self):
+    def catalog(self, *overlays):
         import subprocess
         import sys
 
-        out = subprocess.run([sys.executable, "-m", "ops.llm_agent.registry_catalog", "render", "--git-sha", "c" * 40,
-                              "--values-overlay", str(CHART / "agi/agents.yaml")], cwd=ROOT,
-                             capture_output=True, text=True, check=True).stdout
-        agents = {doc["metadata"]["name"]: doc["metadata"] for doc in yaml.safe_load_all(out) if doc["kind"] == "Agent"}
-        self.assertEqual((agents["drift-specialist"]["tag"], agents["fraud-coordinator"]["tag"]), ("1.1.0", "1.1.0"))
-        self.assertEqual(agents["drift-specialist"]["labels"]["ewallet.io/runtime"], "kagent-byo")
-        self.assertEqual(agents["fraud-coordinator"]["labels"]["ewallet.io/workflows"], "fraud.drift")
+        command = [sys.executable, "-m", "ops.llm_agent.registry_catalog", "render", "--git-sha", "c" * 40]
+        for overlay in overlays:
+            command += ["--values-overlay", str(overlay)]
+        out = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=True).stdout
+        return [doc for doc in yaml.safe_load_all(out) if doc]
+
+    def agents(self, *overlays):
+        return {doc["metadata"]["name"]: doc for doc in self.catalog(*overlays) if doc["kind"] == "Agent"}
+
+    def test_catalog_describes_the_runtime_each_profile_deploys(self):
+        import tempfile
+
+        g3, agi = CHART / "g3/g3.yaml", CHART / "agi/agents.yaml"
+        with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as production:
+            # Recorded production: BYO Coordinator and Feature-RAG, Declarative Drift (also the rollback profile).
+            yaml.safe_dump({"agents": {"coordinator": {"byo": {"enabled": True}},
+                                       "specialists": {"feature-rag-specialist": {"byo": {"enabled": True}}}}}, production)
+        try:
+            cases = {
+                "AGI": ((g3, agi), {"fraud-coordinator": ("kagent-byo", "1.1.0"),
+                                    "feature-rag-specialist": ("kagent-byo", "1.0.0"),
+                                    "drift-specialist": ("kagent-byo", "1.1.0")}),
+                "production / rollback": ((g3, Path(production.name)), {
+                    "fraud-coordinator": ("kagent-byo", "1.0.0"), "feature-rag-specialist": ("kagent-byo", "1.0.0"),
+                    "drift-specialist": ("kagent-declarative", "1.0.0")}),
+                "chart defaults (agents.mode=sandbox)": ((), {name: ("kagent-sandboxagent", "1.0.0") for name in
+                                                             ("fraud-coordinator", "feature-rag-specialist", "drift-specialist")}),
+            }
+            for label, (overlays, expected) in cases.items():
+                with self.subTest(label):
+                    agents = self.agents(*overlays)
+                    for name, (runtime, version) in expected.items():
+                        metadata, description = agents[name]["metadata"], agents[name]["spec"]["description"]
+                        self.assertEqual((metadata["labels"]["ewallet.io/runtime"], metadata["tag"]), (runtime, version))
+                        if runtime != "kagent-sandboxagent":
+                            self.assertNotIn("Sandbox", description)
+                        self.assertIn({"kagent-byo": "BYO", "kagent-declarative": "Declarative Agent",
+                                       "kagent-sandboxagent": "SandboxAgent"}[runtime], description)
+        finally:
+            Path(production.name).unlink()
+
+    def test_byo_agents_reference_only_the_mcp_server_they_call(self):
+        agents = self.agents(CHART / "g3/g3.yaml", CHART / "agi/agents.yaml")
+        servers = {name: [item["name"] for item in doc["spec"]["mcpServers"]] for name, doc in agents.items()}
+        self.assertEqual(servers, {"drift-specialist": ["drift-mcp"], "feature-rag-specialist": ["feature-rag-mcp"],
+                                   "fraud-coordinator": []})
+        self.assertEqual(agents["fraud-coordinator"]["metadata"]["labels"]["ewallet.io/workflows"], "fraud.drift")
+
+    def test_agi_catalog_matches_the_registry_schema(self):
+        import json
+
+        from ops.llm_agent.registry_catalog import schema_errors
+
+        schemas = json.loads((ROOT / "infra/helm/agentregistry/openapi-subset-v0.4.0.json").read_text())["schemas"]
+        for doc in self.catalog(CHART / "g3/g3.yaml", CHART / "agi/agents.yaml"):
+            with self.subTest(kind=doc["kind"], name=doc["metadata"]["name"]):
+                self.assertEqual(schema_errors(doc, schemas[doc["kind"]], schemas), [])
 
     def test_overlay_merge_replaces_lists_and_merges_maps(self):
         from ops.llm_agent.registry_catalog import merge_values
