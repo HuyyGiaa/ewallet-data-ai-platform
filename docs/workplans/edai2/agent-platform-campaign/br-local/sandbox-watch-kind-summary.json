@@ -1,0 +1,135 @@
+{
+ "verdict": "PACKAGES_VALIDATED",
+ "steps": [
+  {
+   "target": "keda",
+   "step": "preflight",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "diff",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "dry-run",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "upgrade-without-approval",
+   "expected": "fail",
+   "observed": "fail",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "upgrade-with-other-package-approval",
+   "expected": "fail",
+   "observed": "fail",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "upgrade",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "verify",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "rollback-without-approval",
+   "expected": "fail",
+   "observed": "fail",
+   "ok": true
+  },
+  {
+   "target": "keda",
+   "step": "rollback",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "preflight",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "diff",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "dry-run",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "upgrade-without-approval",
+   "expected": "fail",
+   "observed": "fail",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "upgrade-with-other-package-approval",
+   "expected": "fail",
+   "observed": "fail",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "upgrade",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "verify",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "rollback-without-approval",
+   "expected": "fail",
+   "observed": "fail",
+   "ok": true
+  },
+  {
+   "target": "kagent",
+   "step": "rollback",
+   "expected": "pass",
+   "observed": "pass",
+   "ok": true
+  }
+ ],
+ "limits": [
+  "kind: no ate-api, LLM or real agents; the kagent controller starts with the new watch scope",
+  "values: repo kagent-values.yaml + pilot runtime overlay, not the live values"
+ ]
+}

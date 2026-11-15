@@ -1,0 +1,27 @@
+{
+ "added": [
+  [
+   "RoleBinding",
+   "ewallet-sandbox",
+   "keda-operator"
+  ]
+ ],
+ "changed": [
+  [
+   "Deployment",
+   "keda",
+   "keda-admission-webhooks"
+  ],
+  [
+   "Deployment",
+   "keda",
+   "keda-operator"
+  ],
+  [
+   "Deployment",
+   "keda",
+   "keda-operator-metrics-apiserver"
+  ]
+ ]
+}
+CANDIDATE PASS

@@ -6,6 +6,7 @@
   "status_words": [
     "SOURCE_IMPLEMENTED",
     "LOCAL_TESTED",
+    "KIND_TESTED",
     "GKE_TESTED",
     "EVIDENCE_CAPTURED",
     "RUBRIC_COMPLETE",
@@ -55,18 +56,17 @@
     {
       "id": "CP3",
       "scope": "images from one commit, scanned and pushed",
-      "status": "PARTIAL",
-      "result": "3 BYO images PASS Trivy gate and pushed; mcp-tools BLOCKED: feast 0.66.0 CVE-2026-18948 CRITICAL, fixed in 0.67.0 (dependency upgrade needs owner decision)",
+      "status": "COMPLETE",
+      "result": "superseded by BR-02: four images from one commit pass the Trivy gate; see images.json",
       "evidence": [
-        "gke-agi-20261114t221240z/image-digests.json",
-        "gke-agi-20261114t221240z/scan-summary.json"
+        "images.json"
       ]
     },
     {
       "id": "CP4",
       "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)",
       "status": "APPROVAL_PENDING",
-      "blocker": "live kagent WATCH_NAMESPACES=ewallet-agents,kagent-pilot: SandboxAgents in ewallet-sandbox are not reconciled; adding it is a kagent upgrade (owner)",
+      "blocker": "PKG-K (kagent watch scope) prepared and KIND_TESTED; GKE needs the owner's PKG-K approval",
       "evidence": [
         "gke-agi-20261114t221240z/kagent-watch-namespaces.txt"
       ]
@@ -87,7 +87,7 @@
       "id": "CP6",
       "scope": "MCP failover isolated experiment (ewallet-mcp-exp); production overlays need P1",
       "status": "BLOCKED",
-      "blocker": "capacity (decision type E): experiment pods need a node without ewallet.io/g3-llm; on the 4-node wake 3 nodes carry it and the 4th was at 97% CPU; the optimized arm also needs 2 such hosts. Both arms timed out at rollout and removed ewallet-mcp-exp; production ewallet-mcp unchanged. Rerun needs a 5th node (owner) or a wake profile with 2 non-LLM nodes",
+      "blocker": "capacity: PKG-C (5-node wake) needs owner approval; mcp_experiment.sh now refuses with CAPACITY_INSUFFICIENT before creating anything",
       "evidence": [
         "gke-agi-20261114t221240z/AGR-02-baseline-apply.log",
         "gke-agi-20261114t221240z/AGR-02-production-unchanged.txt",
@@ -137,5 +137,90 @@
       "workerpool_scale_subresource": "no labelSelectorPath (B' needed on GKE too)",
       "g3_llm_nodes": "3 of 4; the 4th at 97% CPU requested"
     }
+  },
+  "blocker_resolution": {
+    "campaign": "BR-00..BR-10, 2026-11-15",
+    "start_head": "0a1fbb51",
+    "image_commit": "8223d257481dc87e61b128a66bbe58466e13505e",
+    "items": [
+      {
+        "id": "B1",
+        "blocker": "feast 0.66.0 CVE-2026-18948 blocks mcp-tools",
+        "status": "COMPLETE",
+        "resolution": "llm-agent-tooling feast[redis]==0.67.0 (lock moves feast only); cross-version check 0.66 writer -> 0.67 reader PASS",
+        "tests": [
+          "scripts/llm_agent/feast_cross_version_check.sh",
+          "Feast-dependent MCP/RAG suites",
+          "tests/unit/test_uv_dependency_contract.py"
+        ],
+        "runtime": "image published; not deployed (PKG-P1)"
+      },
+      {
+        "id": "B2",
+        "blocker": "kagent does not watch ewallet-sandbox",
+        "status": "KIND_TESTED",
+        "resolution": "PKG-K: kagent-sandbox-watch-overlay.yaml + sandbox_watch.sh; identity vs live 29/29; diff +6 RBAC, WATCH_NAMESPACES",
+        "tests": [
+          "sandbox_watch_kind.sh PACKAGES_VALIDATED",
+          "tests/llm_agent/test_agent_platform_packages.py",
+          "tests/unit/test_kagent_bounded_pilot.py"
+        ],
+        "runtime": "APPROVAL_PENDING (PKG-K)"
+      },
+      {
+        "id": "B3",
+        "blocker": "MCP experiment cannot schedule on 4 nodes",
+        "status": "LOCAL_TESTED",
+        "resolution": "ops/experiments/mcp_capacity.py preflight in mcp_experiment.sh; 5-node wake plan (PKG-C)",
+        "tests": [
+          "tests/experiments/test_mcp_capacity.py",
+          "tests/experiments/test_mcp_experiment.py"
+        ],
+        "runtime": "APPROVAL_PENDING (PKG-C); scheduling on 5 nodes not yet proven at runtime"
+      },
+      {
+        "id": "B4",
+        "blocker": "KEDA does not watch ewallet-sandbox",
+        "status": "KIND_TESTED",
+        "resolution": "PKG-W: infra/helm/keda/values-sandbox-watch.yaml + sandbox_watch.sh; identity vs live; diff +1 RoleBinding, WATCH_NAMESPACE x3",
+        "tests": [
+          "sandbox_watch_kind.sh PACKAGES_VALIDATED"
+        ],
+        "runtime": "APPROVAL_PENDING (PKG-W, only with PKG-P3)"
+      },
+      {
+        "id": "B5",
+        "blocker": "P1-P4 prerequisites and approval boundaries",
+        "status": "LOCAL_TESTED",
+        "resolution": "agi_campaign.sh AGI_PACKAGE p1-mcp/s1-mcp/s1-agents/p2-agents/p4-agents with exact identities and own tokens; IMAGE_SHA; fleet Secret names aligned with g3_mcp_credentials",
+        "tests": [
+          "tests/llm_agent/test_agi_campaign_gates.py",
+          "tests/llm_agent/test_agent_platform_completion.py"
+        ],
+        "runtime": "APPROVAL_PENDING (each package)"
+      },
+      {
+        "id": "B6",
+        "blocker": "guarded sleep used without its approval",
+        "status": "LOCAL_TESTED",
+        "resolution": "cloud_lab.py: --scale-pdb-guarded needs --manifest, --campaign, CLOUD_LAB_GUARDED_SLEEP_APPROVAL and manifest/--also-approve coverage; SLEEP_BLOCKED otherwise",
+        "tests": [
+          "tests/ops/test_cloud_lab_guarded_sleep.py",
+          "tests/ops/test_cloud_lab.py"
+        ],
+        "runtime": "not run on GKE (by design)"
+      },
+      {
+        "id": "B7",
+        "blocker": "master runbook predates the GKE findings",
+        "status": "LOCAL_TESTED",
+        "resolution": "runbook rewritten around PKG-0..P4, PKG-C, A+S vs B', fresh-terminal setup; consistency test",
+        "tests": [
+          "tests/llm_agent/test_master_runbook.py"
+        ],
+        "runtime": "owner execution"
+      }
+    ],
+    "cloud": "GKE not woken in BR (asleep, 0 nodes); read-only Helm reads only (helm get values/manifest/status for kagent and keda)"
   }
 }

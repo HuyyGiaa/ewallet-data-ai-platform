@@ -1,0 +1,11 @@
+{
+ "checked": {
+  "fraud_features": 31,
+  "fraud_views": 4,
+  "rag_fields": 8
+ },
+ "failures": [],
+ "reader_feast": "0.67.0",
+ "verdict": "PASS",
+ "writer_feast": "0.66.0"
+}
