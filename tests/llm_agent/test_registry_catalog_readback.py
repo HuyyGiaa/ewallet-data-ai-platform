@@ -1,0 +1,41 @@
+"""registry_catalog readback: GET-only comparison of the registry with the deployed catalog (AGI-13)."""
+
+from __future__ import annotations
+
+import json
+
+from ops.llm_agent.registry_catalog import readback
+
+DOC = {"kind": "Agent", "metadata": {"name": "fraud-coordinator", "tag": "1.1.0",
+                                     "labels": {"ewallet.io/runtime": "kagent-byo", "ewallet.io/git-sha": "new"}},
+       "spec": {"title": "Coordinator", "description": "BYO"}}
+
+
+def opener_for(stored, status=200):
+    calls = []
+
+    def opener(request):
+        calls.append((request.get_method(), request.full_url))
+        return status, json.dumps(stored).encode()
+    return opener, calls
+
+
+def test_a_matching_entry_passes_and_only_reads():
+    stored = {"item": {"metadata": {"tag": "1.1.0", "labels": {"ewallet.io/runtime": "kagent-byo", "ewallet.io/git-sha": "old"}},
+                       "spec": {"title": "Coordinator", "description": "BYO"}}}
+    opener, calls = opener_for(stored)
+    report = readback([DOC], "http://127.0.0.1:18121", opener=opener)
+    assert report["verdict"] == "PASS" and report["entries"][0]["published_git_sha"] == "old"
+    assert calls == [("GET", "http://127.0.0.1:18121/v0/agents/fraud-coordinator/1.1.0")]
+
+
+def test_a_missing_or_stale_entry_fails_with_the_difference():
+    opener, _ = opener_for({"title": "Not Found"}, status=404)
+    missing = readback([DOC], "http://127.0.0.1:18121", opener=opener)["entries"][0]
+    assert (missing["registered"], missing["matches"]) == (False, False)
+    stale = {"metadata": {"tag": "1.1.0", "labels": {"ewallet.io/runtime": "kagent-sandboxagent"}},
+             "spec": {"title": "Coordinator", "description": "SandboxAgent"}}
+    opener, _ = opener_for(stale)
+    entry = readback([DOC], "http://127.0.0.1:18121", opener=opener)["entries"][0]
+    assert entry["registered"] and not entry["matches"]
+    assert any("ewallet.io/runtime" in item for item in entry["differences"]) and "spec.description differs" in entry["differences"]

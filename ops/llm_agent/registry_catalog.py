@@ -38,6 +38,7 @@ import subprocess
 import sys
 from typing import Any, Callable, Mapping
 from urllib.parse import urlparse
+import urllib.error
 import urllib.request
 
 import yaml
@@ -228,9 +229,60 @@ def publish(documents: list[dict[str, Any]], registry: str, *, dry_run: bool, op
     return report
 
 
+# Labels that record when an entry was published, not what it describes: a newer commit than the
+# publication is not drift by itself, so readback reports them without failing.
+PUBLICATION_LABELS = frozenset({"ewallet.io/git-sha"})
+
+
+def _open_status(request: urllib.request.Request) -> tuple[int, bytes]:
+    """Like _open, but an HTTP error status (404: not registered) is a result, not an exception."""
+
+    try:
+        return _open(request)
+    except urllib.error.HTTPError as error:
+        return error.code, error.read() or b""
+
+
+def readback(documents: list[dict[str, Any]], registry: str, *, opener: Opener = _open_status) -> dict[str, Any]:
+    """Read every catalog entry from the registry (GET only) and compare it with the catalog.
+
+    ``registered`` means the registry holds the entry at this tag; ``matches`` means its spec and
+    labels equal what the chart deploys (publication labels excepted). Neither says the runtime is
+    deployed or reachable: AGI-13 checks that separately against the cluster.
+    """
+
+    base = _local_only(registry)
+    entries = []
+    for document in documents:
+        name, tag = document["metadata"]["name"], document["metadata"]["tag"]
+        status, raw = opener(urllib.request.Request(f"{base}/v0/{KIND_PATHS[document['kind']]}/{name}/{tag}"))
+        try:
+            stored = json.loads(raw or b"{}")
+        except ValueError:
+            stored = {}
+        stored = stored.get("item", stored) if isinstance(stored, dict) else {}
+        differences = []
+        if status == 200:
+            want_labels = document["metadata"].get("labels") or {}
+            have_labels = (stored.get("metadata") or {}).get("labels") or {}
+            for key in sorted(set(want_labels) | set(have_labels)):
+                if key not in PUBLICATION_LABELS and want_labels.get(key) != have_labels.get(key):
+                    differences.append(f"label {key}: registry {have_labels.get(key)!r}, catalog {want_labels.get(key)!r}")
+            want_spec, have_spec = document.get("spec") or {}, stored.get("spec") or {}
+            for key in sorted(want_spec):
+                if want_spec[key] != have_spec.get(key):
+                    differences.append(f"spec.{key} differs")
+        entries.append({"kind": document["kind"], "name": name, "tag": tag, "status": status,
+                        "registered": status == 200, "matches": status == 200 and not differences,
+                        "published_git_sha": ((stored.get("metadata") or {}).get("labels") or {}).get("ewallet.io/git-sha"),
+                        "differences": differences})
+    verdict = "PASS" if entries and all(item["matches"] for item in entries) else "FAIL"
+    return {"verdict": verdict, "registry": base, "entries": entries}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["render", "publish"])
+    parser.add_argument("command", choices=["render", "publish", "readback"])
     parser.add_argument("--git-sha", default="")
     parser.add_argument("--registry")
     parser.add_argument("--restore-from-git", action="store_true",
@@ -256,7 +308,15 @@ def main(argv: list[str] | None = None) -> int:
         yaml.safe_dump_all(documents, sys.stdout, sort_keys=False)
         return 0
     if not args.registry:
-        parser.error("publish requires an explicit --registry")
+        parser.error(f"{args.command} requires an explicit --registry")
+    if args.command == "readback":
+        report = readback(documents, args.registry)
+        report["git_sha"] = git_sha
+        text = json.dumps(report, indent=1, sort_keys=True)
+        if args.evidence:
+            args.evidence.write_text(text + "\n", encoding="utf-8")
+        print(text)
+        return 0 if report["verdict"] == "PASS" else 1
     if not args.dry_run and args.confirm_live_write != args.registry:
         parser.error("a live publish requires --confirm-live-write equal to --registry")
     gates: dict[str, Any] = {}
