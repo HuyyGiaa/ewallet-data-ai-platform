@@ -149,7 +149,10 @@ written as `$EV`. Its SHA-256 manifest is `$EV/SHA256SUMS.txt`, mirrored in
    - At concurrency 8 that lost 58–60 % of the tasks.
    - `f6ea89b5`, not deployed, makes the Coordinator wait and repeat instead.
    - Adding capacity needs more workers, either a larger fixed pool or B′. Scaling the Coordinator does not help.
-6. **Scope boundaries:**
+6. **Cloud-lab sleep with KEDA.** The guarded sleep cannot hold the KEDA-scaled agents at 0, so the campaign sleep
+   ended `SLEEP_BLOCKED` and the cluster was left awake at 4 nodes. The procedure that needs approval is in the
+   [replay, section 12](OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md#12-final-check-cleanup-and-sleep-replay-12).
+7. **Scope boundaries:**
    - The WorkerPool is fixed at 2 workers. Sharing is proven; WorkerPool autoscaling (B′)
      is not.
    - Neither kagent nor Substrate is HA.

@@ -1,0 +1,18 @@
+REFUSED: SLEEP_BLOCKED: PDBs still protect pods after scaling: ['ewallet-agents/drift-specialist', 'ewallet-agents/feature-rag-specialist', 'ewallet-agents/fraud-coordinator']; not resized
+{
+  "guarded_preparation": {
+    "ewallet-agents/drift-mcp": "ewallet-agents/drift-mcp",
+    "ewallet-agents/drift-specialist": "ewallet-agents/drift-specialist",
+    "ewallet-agents/feature-rag-specialist": "ewallet-agents/feature-rag-specialist",
+    "ewallet-agents/fraud-coordinator": "ewallet-agents/fraud-coordinator",
+    "ewallet-mcp/drift-mcp": "ewallet-mcp/drift-mcp",
+    "ewallet-mcp/feature-rag-mcp": "ewallet-mcp/feature-rag-mcp"
+  },
+  "campaign": "agi-20261115T145608Z"
+}
+EXECUTE: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deploy drift-mcp --replicas=0
+EXECUTE: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deploy drift-specialist --replicas=0
+EXECUTE: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deploy feature-rag-specialist --replicas=0
+EXECUTE: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deploy fraud-coordinator --replicas=0
+EXECUTE: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deploy drift-mcp --replicas=0
+EXECUTE: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deploy feature-rag-mcp --replicas=0

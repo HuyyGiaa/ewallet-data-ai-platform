@@ -1,0 +1,26 @@
+{
+  "verdict": "SAFE_AFTER_REVERSIBLE_PREPARATION",
+  "pdb_blockers": [
+    "ewallet-agents/drift-mcp",
+    "ewallet-agents/drift-specialist",
+    "ewallet-agents/feature-rag-specialist",
+    "ewallet-agents/fraud-coordinator",
+    "ewallet-mcp/drift-mcp",
+    "ewallet-mcp/feature-rag-mcp"
+  ],
+  "active_work": [],
+  "identity_problems": [],
+  "guarded_preparation": {
+    "needs_owner_approval": "CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign>",
+    "covered_by_manifest": [
+      "ewallet-agents/drift-mcp",
+      "ewallet-agents/drift-specialist",
+      "ewallet-agents/feature-rag-specialist",
+      "ewallet-agents/fraud-coordinator",
+      "ewallet-mcp/drift-mcp"
+    ],
+    "not_covered": [
+      "ewallet-mcp/feature-rag-mcp"
+    ]
+  }
+}

@@ -39,6 +39,16 @@ CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:agi-20261115
 python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$M"
 ```
 
+**Result 2026-11-16 ~22:10Z: `SLEEP_BLOCKED`.**
+
+- KEDA restored the guarded agent Deployments to 2 after `cloud_lab` scaled them to 0, so the PDBs still protected
+  pods and the tool did not resize.
+- Nothing was bypassed. The MCP Deployments that the sleep had scaled to 0 were restored (2 in `ewallet-mcp`, 1 for
+  `ewallet-agents/drift-mcp`), and a Sandbox drift E2E passed afterwards.
+- The pool went back from the PKG-C 5 nodes to 4, and the temporary `/32` was removed.
+- **The cluster is AWAKE at 4 nodes.** To sleep it, the owner approves pausing the 3 ScaledObjects
+  (replay section 12), then runs the guarded sleep.
+
 A later sleep needs the owner's own approval for that campaign id (replay section 12). The manifest records the MCP
 Deployments at 1 replica, so after a wake run `kubectl -n ewallet-mcp scale deploy/feature-rag-mcp deploy/drift-mcp
 --replicas=2`; that is the replica count Helm declares.

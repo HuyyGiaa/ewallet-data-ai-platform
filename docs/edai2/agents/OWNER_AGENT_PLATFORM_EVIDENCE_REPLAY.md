@@ -458,6 +458,26 @@ python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$M"   # no failur
 
 - `--also-approve ewallet-mcp/feature-rag-mcp` is the PDB that PKG-P1 added after the
   manifest was recorded. `plan-sleep` lists it under `not_covered`.
+
+**Sleep blocker found on 2026-11-16 (campaign sleep: `SLEEP_BLOCKED`):**
+
+- The guarded sleep scales the PDB-guarded agent Deployments to 0.
+- Since P2, their KEDA ScaledObjects (`minReplicaCount 2`) put them straight back, so the PDBs still protect pods.
+  `cloud_lab` then refuses to resize, which is correct.
+- The way through is to pause the 3 ScaledObjects first. That changes Helm-managed objects, so it is a **separate
+  owner approval**, and it is untested on this cluster:
+
+```bash
+kubectl --context "$CTX" -n ewallet-agents annotate scaledobject fraud-coordinator feature-rag-specialist drift-specialist \
+  autoscaling.keda.sh/paused-replicas=0 --overwrite     # KEDA holds them at 0 and stops scaling
+# ... guarded sleep as above, then verify --expect sleep ...
+# after the next wake:
+kubectl --context "$CTX" -n ewallet-agents annotate scaledobject fraud-coordinator feature-rag-specialist drift-specialist \
+  autoscaling.keda.sh/paused-replicas-
+```
+
+The durable fix is for `cloud_lab sleep --scale-pdb-guarded` to pause the ScaledObjects that target a guarded
+Deployment, and for `wake-full` to unpause them. That is not implemented yet.
 - Remove any `/32` you added in section 0.
 - Metrics, logs and traces live in in-cluster Prometheus, Loki and Tempo. They do not
   survive a sleep, so generate fresh data after each wake (section 11).

@@ -19,3 +19,7 @@ Not authorized: PKG-P3 CRD patch, PKG-W, residue deletion, public ingress, wide 
 2026-11-15T21:09:15Z AGI-13 read-only registry verification: scale ewallet-prompts/prompt-registry-db and prompt-registry-agentregistry 0->1 (same as cloud_lab experiment.edge profile); no registry write; sleep returns them to 0
 2026-11-15T21:12:29Z AGR-02 client-retry variant: optimized arm, EXP_FAILURE_MODE=force, EXP_RATE=10, isolated ewallet-mcp-exp (same EXP_APPROVED scope)
 2026-11-15T21:33:29Z helper validation: agent_replay.sh keda/workers/failover (same bounded AGR-06 / AGS-04b / AGR-02 experiments, EXP_APPROVED scope)
+2026-11-15T22:02:39Z GUARDED SLEEP executed with owner-approved CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:agi-20261115T145608Z --also-approve ewallet-mcp/feature-rag-mcp (approved earlier this campaign)
+2026-11-15T22:08:28Z SLEEP_BLOCKED (KEDA minReplicaCount re-scaled agents; PDBs still protect). Restoring pre-sleep replicas: ewallet-mcp feature-rag-mcp/drift-mcp 2 (Helm-declared), ewallet-agents/drift-mcp 1
+2026-11-15T22:09:47Z PKG-C revert: cpu-pool 5->4 (5th node was only for AGR-02; sleep blocked)
+2026-11-15T22:12:44Z authorized-network restore: removing temporary 14.179.86.222/32 (approved add, remove at cleanup)

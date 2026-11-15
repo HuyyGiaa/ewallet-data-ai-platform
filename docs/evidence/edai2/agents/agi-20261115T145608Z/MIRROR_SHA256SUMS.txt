@@ -4,8 +4,9 @@
 5937cbdbd7c99dd42c8d0c3b1699d12f863e02093d525b113baf769206738842  ./ags/AGS-04/AGS-04-summary.json
 7dcfc4132cf4168fb5ed5be231facc8d10e700569183896adfa0e857a7fcabe1  ./ags/AGS-04b/AGS-04b-sharing-excluding-golden.txt
 1c5ae721ef82d3b7fe78ceaef57ec5fdfe056926ffca5abfae296f878f7c74f7  ./ags/AGS-04b/AGS-04b-summary.json
-b85f49fd901d65bbc02f2fedc0f7ab5c4a0cc46e6fbe634d66e40e15024ff28d  ./approvals.txt
-5b2422a0fcf93979e07f24d19d1594a318c10041517377f66c008b31af641883  ./blockers.txt
+4190a4dc9e0a22627bf4be5e6febed2c193a24d629f8558fa197f46b10321cc0  ./approvals.txt
+283be5ae801b1c46a1e719cf1d99ed9798259e7ce8c0050d588c3e52537fe114  ./blockers.txt
+11985198d77de3e46517587e7068451b6dda5e0897cc3abc1d293eed67190ef5  ./final-regression/after-sleep-blocked.txt
 a2bd75192e1ea0ff18434effb58965fe152cc86d886bdf775c3ede88d77575fb  ./final-regression/e2e-combined-2.txt
 4e8ca601e86cd4d75be755b942c6d473c6653ad6094170359b07dca0357feb39  ./final-regression/e2e-drift-2.txt
 0060ecd665751f9b118aa00e1661f3b12bde6a649239148a2d8307021be5cd33  ./final-regression/e2e-fraud-2.txt
@@ -21,6 +22,9 @@ fe80c99767163977acda46abb4ae94e7a1a3fe23b685757175251750433594a7  ./final-regres
 495ec9050cb1d8eaf843a39ee69fd7e487bca8d67a781c52729be82f6fef8b56  ./g4/actor-lifecycle-g4-par-1.txt
 66e16ab8ef6bccafaa896a6b1f294af392cdbfc36ece21909e2d54fa6a369283  ./g4/G4-budget-chain.txt
 894d58f541b0f7bd0e4a2530780d3367b3e9e532c54542d505d96520d559515f  ./g4/G4-measurements.txt
+fd396cc68abb904087abc156c8034779deb9157c38874a0e97dd778af6f913b8  ./README.md
+e3dd174d285612e68cf4b14b54684bfb87364f4d245849219f25c06edf442168  ./sleep/plan-sleep.txt
+06795a1e388a035887879de04b9f1be6eada073ef2d84a08db4260fbf1ea8669  ./sleep/sleep.txt
 5a8ce336acf131497dc691ecfb87f78ffead4ed05f0a64029e2c6ed1665da5a7  ./stage3/NL-intake-inpod.txt
 1b660869b37afd753199caed55fb203242eb15179476fd4706bbc47b6ccd9d91  ./stage4/AGI-13-publish-dry-run.json
 5a182a58bffc2189cdd5b12f851a7c9d45fea2b5698e301d2024f857a0130597  ./stage4/AGI-13-readback.json
