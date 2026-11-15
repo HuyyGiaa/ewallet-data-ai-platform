@@ -1,0 +1,16 @@
+# PKG-T (kagent): the patched controller build of the same release (session turns; see
+# infra/kubernetes/kagent-pilot/patches/) and kagent's ate-api per-RPC deadline.
+#
+# controller.env is a list, so a values overlay replaces it: the SSL_CERT_FILE entry from
+# kagent-runtime-overlay.yaml is restated unchanged. scripts/llm_agent/runtime_fix_diff.py proves
+# that the only changes are the controller image and the added SUBSTRATE_CALL_TIMEOUT.
+controller:
+  image:
+    registry: asia-southeast1-docker.pkg.dev
+    repository: ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller
+    tag: 0.10.3-ewallet.177af5ca@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a
+  env:
+    - name: SSL_CERT_FILE
+      value: /etc/substrate-ca/ca.crt
+    - name: SUBSTRATE_CALL_TIMEOUT
+      value: 90s

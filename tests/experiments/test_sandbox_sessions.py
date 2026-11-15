@@ -116,3 +116,19 @@ def test_unsettled_suspend_stops_that_context_without_sending_into_the_race():
                  timeout=5, root=ROOT, emit=lines.append, make_post=make_post, settle=lambda actor: (False, "Suspending", 60.0))
     rows = [json.loads(line[9:]) for line in lines]
     assert len(sent) == 1 and rows[-1]["state"] == "not_sent" and rows[-1]["status_before_send"] == "Suspending"
+
+
+def test_rpc_error_message_is_kept_on_the_row():
+    lines = []
+
+    def make_post(url, headers):
+        def post(message, timeout):
+            return {"jsonrpc": "2.0", "id": message["id"],
+                    "error": {"code": -32603, "message": "substrate worker pool has no free workers"}}
+        return post
+
+    sessions.run("http://127.0.0.1:1", "ewallet-sandbox", "r1", agents=["drift-specialist"], contexts=1, messages=1,
+                 timeout=5, root=ROOT, emit=lines.append, make_post=make_post)
+    (row,) = [json.loads(line[9:]) for line in lines]
+    assert row["state"] == "rpc_error"
+    assert row["rpc_error_message"] == "substrate worker pool has no free workers"

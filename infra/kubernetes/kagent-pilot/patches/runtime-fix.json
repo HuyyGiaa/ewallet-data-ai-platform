@@ -1,0 +1,90 @@
+{
+  "purpose": "Runtime-stability patches on the pinned kagent and Substrate releases (resume-rca/RCA.md section 8). Each image is the official release image with only its binary replaced by one built from the pinned tag plus the patch below. Security: the release images fail the repository's Trivy gate (CRITICAL/HIGH fixable) on the Go stdlib and golang.org/x/net (+ grpc and x/text for Substrate); the rebuild uses the patched Go toolchain and the minimal module bumps in security_bumps (resolved by go get, pinned by the go.mod/go.sum hashes).",
+  "kagent": {
+    "version": "0.10.3",
+    "tag_commit": "8878c39ac64421cb665c8e62ecc6411dd12f2fc2",
+    "source": "https://codeload.github.com/kagent-dev/kagent/tar.gz/refs/tags/v0.10.3",
+    "source_sha256": "258cd2ffd24221a6c00dab916d07639f164b96400ccbdfb6db2257ea1e655e5f",
+    "patch": "kagent-0.10.3-session-turns.patch",
+    "patch_sha256": "177af5ca98cae3bf86ee297ee4558de005af25f12f4bf42914c2b3b04c2504c9",
+    "images": {
+      "kagent-controller": {
+        "base": "ghcr.io/kagent-dev/kagent/controller@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76",
+        "binary_path": "/app",
+        "package": "./core/cmd/controller",
+        "module_dir": "go",
+        "go_image": "golang:1.27.3@sha256:e519d3b0a5b285e5aa53ab9eef02bc6bbb9cb04608389b743a136a9ce75f0d1e",
+        "env": {
+          "CGO_ENABLED": "0",
+          "GOOS": "linux",
+          "GOARCH": "amd64",
+          "GOAMD64": "v2",
+          "GOFLAGS": "-mod=mod -buildvcs=false"
+        },
+        "ldflags_from_base": "-X github.com/kagent-dev/kagent/go/core/internal/version.Version=0.10.3 -X github.com/kagent-dev/kagent/go/core/internal/version.GitCommit=8878c39 -X github.com/kagent-dev/kagent/go/core/internal/version.BuildDate=2026-10-02 -X github.com/kagent-dev/kagent/go/core/internal/controller/translator/agent.PythonADKImageDigest=sha256:9a41ef053b264630ae078d2d2c7c72a85d5d77e6b2ce392169006f84055dacfb -X github.com/kagent-dev/kagent/go/core/internal/controller/translator/agent.PythonADKFullImageDigest=sha256:56091a1be9bffa5653ed9795fb70a4c8ef82d0a981e55d3562fcfd84386e926d -X github.com/kagent-dev/kagent/go/core/internal/controller/translator/agent.GoADKImageDigest=sha256:5ee9592cb7d959538d0f0fe36acf31ba3a06de084f84048b1459c3bdfafcda1f -X github.com/kagent-dev/kagent/go/core/internal/controller/translator/agent.GoADKFullImageDigest=sha256:ad8f3497eb34906d183a48dffadbd941801093cd961d215ee62ecb8161012f13 -X github.com/kagent-dev/kagent/go/core/pkg/sandboxbackend/substrate.AcpSandboxOpenClawImageDigest=sha256:fd4443325d5eb3c792e09b67674f103484887c196fbb2ded0c044d1ddfbed348 -X github.com/kagent-dev/kagent/go/core/pkg/sandboxbackend/substrate.AcpSandboxHermesImageDigest=sha256:e107358cc9f3a04d84d4a765f583a79f7a965554fb3905f40a38b076214fa42f",
+        "release_go": "go1.27.1"
+      }
+    },
+    "security_bumps": {
+      "module_dir": "go",
+      "go_get": [
+        "golang.org/x/net@v0.62.0"
+      ],
+      "vendor": false,
+      "go_mod_sha256": "3c863b3d92e62ab75ea1df089bdd74c24db6fd6a321f5b82961a0347ce2b186a",
+      "go_sum_sha256": "d5feb596d7a1d2f46b660e1d8fce2a206777908842131e20699d6f14428fc187"
+    }
+  },
+  "substrate": {
+    "version": "0.0.9",
+    "tag_commit": "136dbb16c9c36841009d58128e83ca49c552e0f3",
+    "source": "https://codeload.github.com/kagent-dev/substrate/tar.gz/refs/tags/v0.0.9",
+    "source_sha256": "e4337e88a7848c59ca2de2b696a2a8a97ecec97eca0531f221ef2f958321dc65",
+    "patch": "substrate-0.0.9-resume-recovery.patch",
+    "patch_sha256": "c1bcc7682d9f792f0ab84371236ccc5a9140b24d19e9679fa649c265f0d1bc46",
+    "images": {
+      "substrate-ateapi": {
+        "base": "ghcr.io/kagent-dev/substrate/ateapi@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85",
+        "binary_path": "/ko-app/ateapi",
+        "package": "./cmd/ateapi",
+        "module_dir": ".",
+        "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
+        "env": {
+          "CGO_ENABLED": "0",
+          "GOOS": "linux",
+          "GOARCH": "amd64",
+          "GOAMD64": "v1",
+          "GOFLAGS": "-mod=vendor -trimpath -buildvcs=false"
+        },
+        "ldflags_from_base": "-X github.com/agent-substrate/substrate/internal/version.Commit=136dbb16c9c36841009d58128e83ca49c552e0f3 -X github.com/agent-substrate/substrate/internal/version.BuildDate=2026-07-10T15:29:41Z",
+        "release_go": "go1.26.3"
+      },
+      "substrate-ateom-gvisor": {
+        "base": "ghcr.io/kagent-dev/substrate/ateom-gvisor@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc",
+        "binary_path": "/ko-app/ateom-gvisor",
+        "package": "./cmd/ateom-gvisor",
+        "module_dir": ".",
+        "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
+        "env": {
+          "CGO_ENABLED": "0",
+          "GOOS": "linux",
+          "GOARCH": "amd64",
+          "GOAMD64": "v1",
+          "GOFLAGS": "-mod=vendor -trimpath -buildvcs=false"
+        },
+        "ldflags_from_base": "-X github.com/agent-substrate/substrate/internal/version.Commit=136dbb16c9c36841009d58128e83ca49c552e0f3 -X github.com/agent-substrate/substrate/internal/version.BuildDate=2026-07-10T15:29:41Z",
+        "release_go": "go1.26.3"
+      }
+    },
+    "security_bumps": {
+      "module_dir": ".",
+      "go_get": [
+        "golang.org/x/net@v0.62.0",
+        "google.golang.org/grpc@v1.83.2"
+      ],
+      "vendor": true,
+      "go_mod_sha256": "ccea8c06159c41b4ac58529343065298f2bed48a18a54561c799a7747f836f50",
+      "go_sum_sha256": "eff6e4ccaae294672762cab4abf98c54b406418bb5c03174d85b3f726e3d8f86"
+    }
+  }
+}

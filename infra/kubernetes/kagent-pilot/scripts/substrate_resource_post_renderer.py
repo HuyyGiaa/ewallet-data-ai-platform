@@ -2,10 +2,17 @@
 """Bound resources, pin images and keep Valkey addressable after pod moves.
 
 Substrate 0.0.9 has no values knob for any of these.
+
+``--ateapi-image=<registry>/<repo>@sha256:<digest>`` (helm --post-renderer-args, runtime-fix
+package only) replaces the ate-api-server container image with the patched build of the same
+release (infra/kubernetes/kagent-pilot/patches/runtime-fix.json). The chart has one registry and
+tag for every component, so this is the only way to change ate-api alone. Without the argument
+the output is unchanged.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 
 import yaml
@@ -163,6 +170,38 @@ def keep_ca_bundle_stable(document: dict) -> None:
         data["ca.crt"] = "\n" + data["ca.crt"].lstrip("\n")
 
 
+ATEAPI_DEPLOYMENT = "ate-api-server-deployment"
+ATEAPI_CONTAINER = "ate-api-server"
+PATCHED_IMAGE = re.compile(r"^[a-z0-9-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-ateapi(:[A-Za-z0-9._+-]+)?@sha256:[0-9a-f]{64}$")
+
+
+def parse_args(argv: list[str]) -> str | None:
+    image = None
+    for arg in argv:
+        if not arg.startswith("--ateapi-image="):
+            raise ValueError(f"unknown argument {arg!r}")
+        image = arg.split("=", 1)[1]
+        if not PATCHED_IMAGE.match(image):
+            raise ValueError("--ateapi-image must be an Artifact Registry substrate-ateapi digest reference")
+    return image
+
+
+def override_ateapi(documents: list[dict], image: str) -> None:
+    """Point exactly the ate-api-server container at the patched image; fail closed otherwise."""
+    hits = 0
+    for document in documents:
+        if document.get("kind") != "Deployment" or document.get("metadata", {}).get("name") != ATEAPI_DEPLOYMENT:
+            continue
+        for container in document["spec"]["template"]["spec"].get("containers", []):
+            if container.get("name") == ATEAPI_CONTAINER:
+                if not container.get("image", "").startswith("ghcr.io/kagent-dev/substrate/ateapi:v0.0.9@"):
+                    raise ValueError("ate-api-server image is not the pinned v0.0.9 release; review the override")
+                container["image"] = image
+                hits += 1
+    if hits != 1:
+        raise ValueError(f"expected one {ATEAPI_DEPLOYMENT}/{ATEAPI_CONTAINER} container, found {hits}")
+
+
 def pod_spec(document: dict) -> dict | None:
     kind = document.get("kind")
     spec = document.get("spec", {})
@@ -171,7 +210,8 @@ def pod_spec(document: dict) -> dict | None:
     return None
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    ateapi_image = parse_args(sys.argv[1:] if argv is None else argv)
     documents = [doc for doc in yaml.safe_load_all(sys.stdin) if doc]
     for document in documents:
         patch_valkey(document)
@@ -190,6 +230,8 @@ def main() -> int:
                 container.setdefault(
                     "resources", LARGER_CONTAINERS.get(container.get("name"), DEFAULT_RESOURCES)
                 )
+    if ateapi_image:
+        override_ateapi(documents, ateapi_image)
     yaml.safe_dump_all(documents, sys.stdout, sort_keys=False, explicit_start=True)
     return 0
 

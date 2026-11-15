@@ -85,9 +85,22 @@ def sandbox_url(base: str, namespace: str, agent: str) -> str:
     return f"{base.rstrip('/')}/api/a2a-sandboxes/{namespace}/{agent}/"
 
 
+def recording(post: Post) -> tuple[Post, dict]:
+    """Wrap post so the last JSON-RPC error message survives (run_task keeps only the state)."""
+    last: dict = {}
+
+    def wrapped(payload, timeout):
+        reply = post(payload, timeout)
+        error = reply.get("error") if isinstance(reply, dict) else None
+        last["error"] = str(error.get("message"))[:400] if isinstance(error, dict) else None
+        return reply
+    return wrapped, last
+
+
 def agent_sessions(post: Post, template: str, agent: str, run_id: str, *, contexts: int, messages: int,
                    timeout: float, emit: Emit, lock: threading.Lock, namespace: str = "ewallet-sandbox",
                    settle: Callable[[str], tuple[bool, str | None, float]] | None = None) -> None:
+    post, last = recording(post)
     for c in range(contexts):
         context = f"{run_id}-{agent}-c{c}-{uuid.uuid4().hex[:6]}"
         actor = session_actor_id(namespace, agent, context)
@@ -103,8 +116,11 @@ def agent_sessions(post: Post, template: str, agent: str, run_id: str, *, contex
                     with lock:
                         emit("LOAD_ROW " + json.dumps(row, sort_keys=True))
                     break
+            last["error"] = None
             row = run_task(post, template, f"{context}-m{m}", timeout=timeout, poll_timeout=timeout, poll_interval=2,
                            context_id=context)
+            if row.get("state") == "rpc_error":
+                row["rpc_error_message"] = last.get("error")
             row.update({"agent": agent, "context": context, "actor": actor, "phase": "new" if m == 0 else "resume", **extra})
             with lock:
                 emit("LOAD_ROW " + json.dumps(row, sort_keys=True))

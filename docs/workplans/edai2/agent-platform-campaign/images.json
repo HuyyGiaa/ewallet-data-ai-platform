@@ -55,6 +55,51 @@
   }
  },
  "reason": "0054baab changed ai_platform (SandboxAgent path /api/a2a-sandboxes); images rebuilt from one commit",
+ "runtime_fix": {
+  "build": "ARTIFACT_REGISTRY=... python3 scripts/llm_agent/build_runtime_fix_images.py --out <dir>; scripts/llm_agent/scan_and_push.sh <dir>/image-digests.json",
+  "built_from_repo_sha": "950766748945379c81274e97d0686dc3866c7648",
+  "deployed": false,
+  "gate": "Trivy 0.75.0 CRITICAL/HIGH fixable + secrets: PASS 3/3 (the release images fail it: Go stdlib, x/net, grpc, x/text)",
+  "images": {
+   "kagent-controller": {
+    "base": "ghcr.io/kagent-dev/kagent/controller@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76",
+    "binary_sha256": "dcfcf5717028f9750bc7cd989c840b5f838281c4edcf0ee8742896fd1e9d049d",
+    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a",
+    "go_image": "golang:1.27.3@sha256:e519d3b0a5b285e5aa53ab9eef02bc6bbb9cb04608389b743a136a9ce75f0d1e",
+    "patch_sha256": "177af5ca98cae3bf86ee297ee4558de005af25f12f4bf42914c2b3b04c2504c9",
+    "security_bumps": [
+     "golang.org/x/net@v0.62.0"
+    ],
+    "upstream": "kagent v0.10.3 (8878c39ac64421cb665c8e62ecc6411dd12f2fc2)"
+   },
+   "substrate-ateapi": {
+    "base": "ghcr.io/kagent-dev/substrate/ateapi@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85",
+    "binary_sha256": "4a84a83ea5206dd6a6fc017e895cfd9697472d7961dd1a3e52e7ca371a4c22b2",
+    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi@sha256:2bc07e600a5498f32cfb326bbc08f38c264a98873de393fa652fa5cea905e44a",
+    "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
+    "patch_sha256": "c1bcc7682d9f792f0ab84371236ccc5a9140b24d19e9679fa649c265f0d1bc46",
+    "security_bumps": [
+     "golang.org/x/net@v0.62.0",
+     "google.golang.org/grpc@v1.83.2"
+    ],
+    "upstream": "substrate v0.0.9 (136dbb16c9c36841009d58128e83ca49c552e0f3)"
+   },
+   "substrate-ateom-gvisor": {
+    "base": "ghcr.io/kagent-dev/substrate/ateom-gvisor@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc",
+    "binary_sha256": "19300d3c6b894d7e7839720a04a54166c973ce021220f820cd9d87b88dc48ce1",
+    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor@sha256:98c1d8192079b0b8f8ec7c0cb8e6473b8cd250630bb6029667e974a2f4bd3c50",
+    "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
+    "patch_sha256": "c1bcc7682d9f792f0ab84371236ccc5a9140b24d19e9679fa649c265f0d1bc46",
+    "security_bumps": [
+     "golang.org/x/net@v0.62.0",
+     "google.golang.org/grpc@v1.83.2"
+    ],
+    "upstream": "substrate v0.0.9 (136dbb16c9c36841009d58128e83ca49c552e0f3)"
+   }
+  },
+  "spec": "infra/kubernetes/kagent-pilot/patches/runtime-fix.json",
+  "tests": "32 Go packages passed in the build (kagent a2a/sandboxbackend/httpserver -short -race; substrate ateapi/atelet/internal -race; ateom as root)"
+ },
  "superseded": {
   "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:9a26a3de9ad9ef9733e5d5e1ccc7ff7489232519ef0bcfbd69193d40da0d3123": "8223d257 (pre /api/a2a-sandboxes fix)",
   "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist@sha256:164e6c9cea0dde85896147a6369b82889b1441573d2b8e3bfa6f3f9808460c09": "8223d257 (pre /api/a2a-sandboxes fix)",

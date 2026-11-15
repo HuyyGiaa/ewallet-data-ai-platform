@@ -1,0 +1,921 @@
+diff --git a/cmd/ateapi/internal/controlapi/functional_recovery_test.go b/cmd/ateapi/internal/controlapi/functional_recovery_test.go
+new file mode 100644
+index 0000000..531c694
+--- /dev/null
++++ b/cmd/ateapi/internal/controlapi/functional_recovery_test.go
+@@ -0,0 +1,224 @@
++// ewallet patch: failure-injection tests for resume cancellation and rollback. They run the real
++// ActorWorkflow over gRPC against the package's envtest + miniredis + fake atelet harness.
++
++package controlapi
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"testing"
++	"time"
++
++	"github.com/agent-substrate/substrate/internal/ateerrors"
++	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++	"k8s.io/apimachinery/pkg/util/wait"
++)
++
++func recoverySetup(t *testing.T, base string, workers ...string) (*testContext, string, func()) {
++	t.Helper()
++	ns := namespaceForTest(base)
++	tc := setupTest(t, ns)
++	createTemplate(t, tc, ns)
++	for _, w := range workers {
++		createWorkerPod(t, tc, ns, w, "node1", "pool1")
++	}
++	name := "id1"
++	if _, err := tc.client.CreateActor(context.Background(), &ateapipb.CreateActorRequest{Actor: &ateapipb.Actor{
++		Metadata:               &ateapipb.ResourceMetadata{Atespace: testAtespace, Name: name},
++		ActorTemplateNamespace: ns,
++		ActorTemplateName:      "tmpl1",
++	}}); err != nil {
++		t.Fatalf("CreateActor: %v", err)
++	}
++	return tc, ns, tc.cleanup
++}
++
++func resume(ctx context.Context, tc *testContext, name string) error {
++	_, err := tc.client.ResumeActor(ctx, &ateapipb.ResumeActorRequest{Actor: &ateapipb.ObjectRef{Atespace: testAtespace, Name: name}})
++	return err
++}
++
++func waitActorStatus(t *testing.T, tc *testContext, name string, want ateapipb.Actor_Status, within time.Duration) *ateapipb.Actor {
++	t.Helper()
++	var last *ateapipb.Actor
++	err := wait.PollUntilContextTimeout(context.Background(), 50*time.Millisecond, within, true, func(ctx context.Context) (bool, error) {
++		a, err := tc.persistence.GetActor(ctx, testAtespace, name)
++		if err != nil {
++			return false, nil
++		}
++		last = a
++		return a.GetStatus() == want, nil
++	})
++	if err != nil {
++		t.Fatalf("actor %s: want %v within %v, last %v", name, want, within, last.GetStatus())
++	}
++	return last
++}
++
++// workerAssignee returns the actor a worker is assigned to ("" when free).
++func workerAssignee(t *testing.T, tc *testContext, ns, pod string) string {
++	t.Helper()
++	w, err := tc.persistence.GetWorker(context.Background(), ns, "pool1", pod)
++	if err != nil {
++		t.Fatalf("GetWorker %s: %v", pod, err)
++	}
++	return w.GetAssignment().GetActor().GetName()
++}
++
++// F2/F3 regression: the caller's RPC deadline expires during a slow restore. Upstream cancelled
++// the workflow mid-restore and left the actor RESUMING on a claimed worker forever. The patched
++// workflow keeps running, so the actor ends RUNNING on its worker and nothing is stranded.
++func TestResumeActor_CallerDeadlineDoesNotStrandActor(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-rec-deadline", "worker-1")
++	defer cleanup()
++	tc.fakeAtelet.RestoreDelay = 1500 * time.Millisecond
++
++	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
++	defer cancel()
++	if err := resume(ctx, tc, "id1"); status.Code(err) != codes.DeadlineExceeded {
++		t.Fatalf("caller should see its own deadline, got %v", err)
++	}
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 5*time.Second)
++	if a.GetAteomPodName() != "worker-1" || workerAssignee(t, tc, ns, "worker-1") != "id1" {
++		t.Fatalf("RUNNING actor must own its worker: actor on %q, worker assigned to %q", a.GetAteomPodName(), workerAssignee(t, tc, ns, "worker-1"))
++	}
++}
++
++// A restore that fails after the caller gave up is still rolled back: SUSPENDED, worker free.
++func TestResumeActor_CallerDeadlineThenRestoreFailureRollsBack(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-rec-deadline-fail", "worker-1")
++	defer cleanup()
++	tc.fakeAtelet.RestoreDelay = 1 * time.Second
++	tc.fakeAtelet.FailRestore = fmt.Errorf("readyz cancelled")
++
++	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
++	defer cancel()
++	_ = resume(ctx, tc, "id1")
++	// RESUMING while the restore runs, then rolled back.
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RESUMING, 2*time.Second)
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 5*time.Second)
++	if a.GetAteomPodName() != "" || a.GetWorkerPoolName() != "" {
++		t.Fatalf("rolled-back actor keeps worker fields: %+v", a)
++	}
++	if got := workerAssignee(t, tc, ns, "worker-1"); got != "" {
++		t.Fatalf("worker still assigned to %q after rollback", got)
++	}
++}
++
++// After a rollback the WorkerPool has capacity again: another actor resumes on the same worker,
++// and the rolled-back actor resumes later with its identity unchanged.
++func TestResumeActor_CapacityReturnsAfterFailedRestore(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-rec-capacity", "worker-1")
++	defer cleanup()
++	if _, err := tc.client.CreateActor(context.Background(), &ateapipb.CreateActorRequest{Actor: &ateapipb.Actor{
++		Metadata: &ateapipb.ResourceMetadata{Atespace: testAtespace, Name: "id2"}, ActorTemplateNamespace: ns, ActorTemplateName: "tmpl1",
++	}}); err != nil {
++		t.Fatalf("CreateActor id2: %v", err)
++	}
++	tc.fakeAtelet.FailRestore = fmt.Errorf("mock restore failure")
++	if err := resume(context.Background(), tc, "id1"); err == nil {
++		t.Fatal("expected the first restore to fail")
++	}
++	tc.fakeAtelet.FailRestore = nil
++	if err := resume(context.Background(), tc, "id2"); err != nil {
++		t.Fatalf("single worker must be free after rollback, got %v", err)
++	}
++	if got := workerAssignee(t, tc, ns, "worker-1"); got != "id2" {
++		t.Fatalf("worker assigned to %q, want id2", got)
++	}
++	if _, err := tc.client.SuspendActor(context.Background(), &ateapipb.SuspendActorRequest{Actor: &ateapipb.ObjectRef{Atespace: testAtespace, Name: "id2"}}); err != nil {
++		t.Fatalf("SuspendActor id2: %v", err)
++	}
++	if err := resume(context.Background(), tc, "id1"); err != nil {
++		t.Fatalf("rolled-back actor must resume: %v", err)
++	}
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, time.Second)
++	if a.GetMetadata().GetName() != "id1" {
++		t.Fatalf("identity changed: %s", a.GetMetadata().GetName())
++	}
++}
++
++// A concurrent request during an in-flight (caller-abandoned) restore gets Aborted rather than a
++// second workflow; once the first finishes, the retry sees RUNNING and succeeds.
++func TestResumeActor_ConcurrentRetryDuringDetachedRestore(t *testing.T) {
++	tc, _, cleanup := recoverySetup(t, "ns-rec-concurrent", "worker-1", "worker-2")
++	defer cleanup()
++	tc.fakeAtelet.RestoreDelay = 1 * time.Second
++	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
++	defer cancel()
++	_ = resume(ctx, tc, "id1")
++	err := resume(context.Background(), tc, "id1")
++	if status.Code(err) != codes.Aborted {
++		t.Fatalf("second resume during the detached workflow: want Aborted, got %v", err)
++	}
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 5*time.Second)
++	tc.fakeAtelet.RestoreDelay = 0
++	if err := resume(context.Background(), tc, "id1"); err != nil {
++		t.Fatalf("resume of a RUNNING actor: %v", err)
++	}
++	actors, _, err := tc.persistence.ListActors(context.Background(), testAtespace, 100, "")
++	if err != nil {
++		t.Fatalf("ListActors: %v", err)
++	}
++	running := 0
++	for _, a := range actors {
++		if a.GetStatus() == ateapipb.Actor_STATUS_RUNNING {
++			running++
++		}
++	}
++	if running != 1 {
++		t.Fatalf("want exactly one RUNNING actor, got %d", running)
++	}
++}
++
++// A crash-classified restore error keeps upstream semantics: CRASHED, no rollback.
++func TestResumeActor_CrashIsNotRolledBack(t *testing.T) {
++	tc, _, cleanup := recoverySetup(t, "ns-rec-crash", "worker-1")
++	defer cleanup()
++	tc.fakeAtelet.FailRestore = ateerrors.NewGRPCError(context.Background(), codes.DataLoss, ateerrors.ReasonTerminalFileSystemError,
++		ateerrors.ActorCrashedMetadata(), errors.New("disk gone"))
++	if err := resume(context.Background(), tc, "id1"); status.Code(err) != codes.DataLoss {
++		t.Fatalf("want DataLoss, got %v", err)
++	}
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_CRASHED, time.Second)
++}
++
++// After a failed restore the actor can be deleted (kagent's finalizer path), where upstream's
++// RESUMING actor made every suspend-before-delete fail.
++func TestDeleteActor_AfterFailedRestore(t *testing.T) {
++	tc, _, cleanup := recoverySetup(t, "ns-rec-delete", "worker-1")
++	defer cleanup()
++	tc.fakeAtelet.FailRestore = fmt.Errorf("mock restore failure")
++	_ = resume(context.Background(), tc, "id1")
++	if _, err := tc.client.DeleteActor(context.Background(), &ateapipb.DeleteActorRequest{Actor: &ateapipb.ObjectRef{Atespace: testAtespace, Name: "id1"}}); err != nil {
++		t.Fatalf("DeleteActor after rollback: %v", err)
++	}
++}
++
++// Rollback never touches an actor whose lock was lost to another workflow.
++func TestRollbackFailedResume_SkipsWhenLockLost(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-rec-locklost", "worker-1")
++	defer cleanup()
++	// Put the actor in the state a failed restore leaves (RESUMING on worker-1), then call the
++	// rollback with the lost-lock cause.
++	a, err := tc.persistence.GetActor(context.Background(), testAtespace, "id1")
++	if err != nil {
++		t.Fatal(err)
++	}
++	a.Status = ateapipb.Actor_STATUS_RESUMING
++	a.AteomPodNamespace, a.AteomPodName, a.WorkerPoolName = ns, "worker-1", "pool1"
++	if _, err := tc.persistence.UpdateActor(context.Background(), a, a.GetMetadata().GetVersion()); err != nil {
++		t.Fatal(err)
++	}
++	ctx, cancel := context.WithCancelCause(context.Background())
++	cancel(errLostActorLock)
++	rollbackFailedResume(ctx, tc.persistence, &ResumeInput{Atespace: testAtespace, ActorName: "id1"},
++		&ResumeState{PriorStatus: ateapipb.Actor_STATUS_SUSPENDED})
++	got, _ := tc.persistence.GetActor(context.Background(), testAtespace, "id1")
++	if got.GetStatus() != ateapipb.Actor_STATUS_RESUMING {
++		t.Fatalf("rollback must not run without the lock, got %v", got.GetStatus())
++	}
++}
+diff --git a/cmd/ateapi/internal/controlapi/functional_test.go b/cmd/ateapi/internal/controlapi/functional_test.go
+index f81f07f..6f77b8a 100644
+--- a/cmd/ateapi/internal/controlapi/functional_test.go
++++ b/cmd/ateapi/internal/controlapi/functional_test.go
+@@ -1464,13 +1464,14 @@ func TestResumeActor_Reentrancy(t *testing.T) {
+ 		t.Fatalf("expected ResumeActor to fail due to atelet error")
+ 	}
+ 
+-	// Verify actor state is RESUMING in Redis!
++	// ewallet patch: a failed restore rolls back to SUSPENDED and frees the worker (upstream
++	// left the actor RESUMING on a claimed worker until some caller retried).
+ 	actor, err := tc.persistence.GetActor(context.Background(), testAtespace, name)
+ 	if err != nil {
+ 		t.Fatalf("failed to get actor from store: %v", err)
+ 	}
+-	if actor.GetStatus() != ateapipb.Actor_STATUS_RESUMING {
+-		t.Errorf("expected status RESUMING, got %v", actor.GetStatus())
++	if actor.GetStatus() != ateapipb.Actor_STATUS_SUSPENDED || actor.GetAteomPodName() != "" {
++		t.Errorf("expected SUSPENDED with no worker after rollback, got %v on %q", actor.GetStatus(), actor.GetAteomPodName())
+ 	}
+ 
+ 	// STEP 2: Make Atelet SUCCEED!
+@@ -2364,15 +2365,28 @@ func TestResumeActor_DanglingWorker(t *testing.T) {
+ 		t.Fatalf("CreateActor failed: %v", err)
+ 	}
+ 
+-	// 2. Configure fake Atelet to FAIL on Restore!
+-	tc.fakeAtelet.FailRestore = fmt.Errorf("mock atelet failure")
+-
+-	// 3. Call ResumeActor -> Expect failure
+-	_, err = tc.client.ResumeActor(context.Background(), &ateapipb.ResumeActorRequest{
+-		Actor: &ateapipb.ObjectRef{Atespace: testAtespace, Name: name},
+-	})
+-	if err == nil {
+-		t.Fatalf("expected ResumeActor to fail due to atelet error")
++	// 2-3. ewallet patch: a failed restore now rolls back, so RESUMING-on-worker-a is reached the
++	// way an abandoned workflow leaves it (ate-api crashed mid-restore): actor RESUMING on
++	// worker-a, worker-a assigned to the actor.
++	stuck, err := tc.persistence.GetActor(context.Background(), testAtespace, name)
++	if err != nil {
++		t.Fatalf("GetActor: %v", err)
++	}
++	workerA, err := tc.persistence.GetWorker(context.Background(), ns, "pool1", "worker-a")
++	if err != nil {
++		t.Fatalf("GetWorker: %v", err)
++	}
++	workerA.Assignment = &ateapipb.Assignment{
++		ActorTemplate: &ateapipb.KubeNamespacedObjectRef{Namespace: ns, Name: "tmpl1"},
++		Actor:         &ateapipb.ObjectRef{Atespace: testAtespace, Name: name},
++	}
++	if err := tc.persistence.UpdateWorker(context.Background(), workerA, workerA.GetVersion()); err != nil {
++		t.Fatalf("UpdateWorker: %v", err)
++	}
++	stuck.Status = ateapipb.Actor_STATUS_RESUMING
++	stuck.AteomPodNamespace, stuck.AteomPodName, stuck.WorkerPoolName = ns, "worker-a", "pool1"
++	if _, err := tc.persistence.UpdateActor(context.Background(), stuck, stuck.GetMetadata().GetVersion()); err != nil {
++		t.Fatalf("UpdateActor: %v", err)
+ 	}
+ 
+ 	// Verify actor state is RESUMING with worker A assigned
+diff --git a/cmd/ateapi/internal/controlapi/workflow.go b/cmd/ateapi/internal/controlapi/workflow.go
+index 160be6c..4f18ec5 100644
+--- a/cmd/ateapi/internal/controlapi/workflow.go
++++ b/cmd/ateapi/internal/controlapi/workflow.go
+@@ -190,6 +190,9 @@ func (w *ActorWorkflow) ResumeActor(ctx context.Context, atespace, name string,
+ 	}
+ 
+ 	if err := RunWorkflow(ctx, input, state, steps); err != nil {
++		if state.RestoreFailed {
++			rollbackFailedResume(ctx, w.store, input, state)
++		}
+ 		return nil, err
+ 	}
+ 
+@@ -259,6 +262,12 @@ func (w *ActorWorkflow) PauseActor(ctx context.Context, atespace, name string) (
+ // context is cancelled with errLostActorLock as the cause, and in-flight steps
+ // will see ctx.Err() and unwind. The returned release function stops the
+ // heartbeat, waits for it to exit, then best-effort releases the lock.
++//
++// The workflow context is detached from the caller's cancellation (ewallet patch). A caller
++// that gives up — an RPC deadline, a disconnect — must not abandon a workflow halfway: a resume
++// cancelled after AssignWorker used to leave the actor RESUMING with its worker claimed and no
++// path that ever released it. A started workflow therefore runs to completion or failure
++// (and its own rollback), bounded by w.workflowDeadline and by lock loss, never by the caller.
+ func (w *ActorWorkflow) acquireActorLock(ctx context.Context, id string, lockTTL, heartbeatInterval time.Duration) (context.Context, func(), error) {
+ 	lockKey := "lock:actor:" + id
+ 	lockValue := uuid.New().String()
+@@ -271,7 +280,7 @@ func (w *ActorWorkflow) acquireActorLock(ctx context.Context, id string, lockTTL
+ 		return nil, nil, status.Error(grpcCodes.Aborted, "another operation is in progress for this actor")
+ 	}
+ 
+-	cancellableCtx, cancelCause := context.WithCancelCause(ctx)
++	cancellableCtx, cancelCause := context.WithCancelCause(context.WithoutCancel(ctx))
+ 	workflowCtx, cancelDeadline := context.WithTimeout(cancellableCtx, w.workflowDeadline)
+ 
+ 	heartbeatDone := make(chan struct{})
+diff --git a/cmd/ateapi/internal/controlapi/workflow_resume.go b/cmd/ateapi/internal/controlapi/workflow_resume.go
+index 992b275..7874c6b 100644
+--- a/cmd/ateapi/internal/controlapi/workflow_resume.go
++++ b/cmd/ateapi/internal/controlapi/workflow_resume.go
+@@ -49,6 +49,11 @@ type ResumeInput struct {
+ type ResumeState struct {
+ 	Actor         *ateapipb.Actor
+ 	ActorTemplate *atev1alpha1.ActorTemplate
++	// PriorStatus is the actor's status when this workflow loaded it.
++	PriorStatus ateapipb.Actor_Status
++	// RestoreFailed is set when the atelet Run/Restore call failed without crashing the actor:
++	// the actor is RESUMING on a claimed worker and the workflow rolls it back (ewallet patch).
++	RestoreFailed bool
+ }
+ 
+ type LoadActorForResumeStep struct {
+@@ -70,6 +75,7 @@ func (s *LoadActorForResumeStep) Execute(ctx context.Context, input *ResumeInput
+ 		return fmt.Errorf("while getting actor from DB: %w", err)
+ 	}
+ 	state.Actor = actor
++	state.PriorStatus = actor.GetStatus()
+ 
+ 	actorTemplate, err := s.actorTemplateLister.ActorTemplates(actor.GetActorTemplateNamespace()).Get(actor.GetActorTemplateName())
+ 	if err != nil {
+@@ -299,7 +305,7 @@ func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput,
+ 		}
+ 
+ 		_, err = client.Restore(ctx, req)
+-		return maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while restoring workload")
++		return restoreOutcome(state, maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while restoring workload"))
+ 	} else if state.ActorTemplate.Status.GoldenSnapshot != "" && !input.Boot {
+ 		slog.InfoContext(ctx, "Actor has no snapshot; ActorTemplate has golden snapshot; Restoring from golden snapshot")
+ 
+@@ -321,7 +327,7 @@ func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput,
+ 			Scope: toAteletSnapshotScope(state.ActorTemplate.Spec.SnapshotsConfig.OnCommit),
+ 		}
+ 		_, err = client.Restore(ctx, req)
+-		return maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from golden snapshot")
++		return restoreOutcome(state, maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from golden snapshot"))
+ 	} else {
+ 		slog.InfoContext(ctx, "Actor has no snapshot; ActorTemplate has no golden snapshot; Booting from ActorTemplate spec")
+ 
+@@ -343,7 +349,7 @@ func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput,
+ 			Spec:                   workloadSpec,
+ 		}
+ 		_, err = client.Run(ctx, req)
+-		return maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from spec")
++		return restoreOutcome(state, maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from spec"))
+ 	}
+ 	// Unreachable
+ }
+@@ -374,3 +380,74 @@ func (s *FinalizeRunningStep) Execute(ctx context.Context, input *ResumeInput, s
+ }
+ 
+ func (s *FinalizeRunningStep) RetryBackoff() *wait.Backoff { return nil }
++
++// restoreOutcome records whether a failed Run/Restore left the actor for rollback. A crash
++// (codes.DataLoss from maybeCrashActor) already moved the actor to CRASHED and is not rolled back.
++func restoreOutcome(state *ResumeState, err error) error {
++	if err != nil && status.Code(err) != codes.DataLoss {
++		state.RestoreFailed = true
++	}
++	return err
++}
++
++// resumeRollbackTimeout bounds the rollback writes; the workflow context may already be expired.
++const resumeRollbackTimeout = 15 * time.Second
++
++// rollbackFailedResume returns an actor whose Run/Restore failed to a resumable state and frees
++// its worker (ewallet patch). It runs after the atelet call has returned, while the workflow
++// still holds the actor lock (skipped if the lock was lost), so no other workflow can move the actor in between; the worker is
++// released only if it is still assigned to this actor (version-checked write), and the actor
++// only if it is still RESUMING. The snapshot pointers are untouched: the next ResumeActor restores
++// from the same snapshot (or golden). Prior PAUSED/PAUSING actors keep node-local state that this
++// rollback cannot reason about, so they are left as they are.
++func rollbackFailedResume(ctx context.Context, st store.Interface, input *ResumeInput, state *ResumeState) {
++	switch state.PriorStatus {
++	case ateapipb.Actor_STATUS_PAUSED, ateapipb.Actor_STATUS_PAUSING:
++		return
++	}
++	if errors.Is(context.Cause(ctx), errLostActorLock) {
++		// Another workflow may own the actor now; leave it to that owner.
++		slog.WarnContext(ctx, "Resume rollback skipped: actor lock lost", slog.String("actor", input.ActorName))
++		return
++	}
++	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), resumeRollbackTimeout)
++	defer cancel()
++	log := slog.With(slog.String("atespace", input.Atespace), slog.String("actor", input.ActorName))
++
++	actor, err := st.GetActor(rctx, input.Atespace, input.ActorName)
++	if err != nil {
++		log.ErrorContext(rctx, "Resume rollback: cannot load actor", slog.Any("err", err))
++		return
++	}
++	if actor.GetStatus() != ateapipb.Actor_STATUS_RESUMING {
++		return
++	}
++	if pod := actor.GetAteomPodName(); pod != "" {
++		worker, err := st.GetWorker(rctx, actor.GetAteomPodNamespace(), actor.GetWorkerPoolName(), pod)
++		switch {
++		case errors.Is(err, store.ErrNotFound):
++		case err != nil:
++			log.ErrorContext(rctx, "Resume rollback: cannot load worker; actor stays RESUMING", slog.Any("err", err))
++			return
++		default:
++			if a := worker.GetAssignment(); a != nil && a.GetActor().GetAtespace() == input.Atespace && a.GetActor().GetName() == input.ActorName {
++				worker.Assignment = nil
++				if err := st.UpdateWorker(rctx, worker, worker.GetVersion()); err != nil {
++					log.ErrorContext(rctx, "Resume rollback: cannot release worker; actor stays RESUMING", slog.Any("err", err))
++					return
++				}
++			}
++		}
++	}
++	actor.Status = ateapipb.Actor_STATUS_SUSPENDED
++	actor.AteomPodNamespace = ""
++	actor.AteomPodName = ""
++	actor.AteomPodIp = ""
++	actor.AteomPodUid = ""
++	actor.WorkerPoolName = ""
++	if _, err := st.UpdateActor(rctx, actor, actor.GetMetadata().GetVersion()); err != nil {
++		log.ErrorContext(rctx, "Resume rollback: worker released but actor update failed", slog.Any("err", err))
++		return
++	}
++	log.InfoContext(rctx, "Resume rolled back after a failed restore; actor SUSPENDED and worker released")
++}
+diff --git a/cmd/ateom-gvisor/main.go b/cmd/ateom-gvisor/main.go
+index 84fc2b3..0f7ac78 100644
+--- a/cmd/ateom-gvisor/main.go
++++ b/cmd/ateom-gvisor/main.go
+@@ -164,6 +164,10 @@ type AteomService struct {
+ 
+ 	interiorNetNS netns.NsHandle
+ 	actorLogger   *actorlog.ActorLogger
++
++	// active is the sandbox of the last successful activation, until a checkpoint cleans it up
++	// (ewallet patch, see sandbox_teardown.go). Guarded by lock.
++	active *activeSandbox
+ }
+ 
+ var _ ateompb.AteomServer = (*AteomService)(nil)
+@@ -180,6 +184,7 @@ func NewService(interiorNetNS netns.NsHandle, actorLogger *actorlog.ActorLogger)
+ func (s *AteomService) RunWorkload(ctx context.Context, req *ateompb.RunWorkloadRequest) (resp *ateompb.RunWorkloadResponse, retErr error) {
+ 	s.lock.Lock()
+ 	defer s.lock.Unlock()
++	s.clearStaleActive(ctx)
+ 
+ 	s.actorLogger.EmitLifecycleLog("Actor starting", req.GetAtespace(), req.GetActorId(), req.GetActorTemplateNamespace(), req.GetActorTemplateName())
+ 
+@@ -202,11 +207,14 @@ func (s *AteomService) RunWorkload(ctx context.Context, req *ateompb.RunWorkload
+ 		atespace: req.GetAtespace(),
+ 		actorID:  req.GetActorId(),
+ 	}
++	activation := newTrackedActivation(rcmd)
++	defer s.finishActivation(ctx, activation, &retErr)
+ 
+ 	// Create and start pause container
+ 	if err := rcmd.cmdCreate(ctx, os.Stdout, "pause", nil); err != nil {
+ 		return nil, fmt.Errorf("while creating pause container: %w", err)
+ 	}
++	activation.created("pause")
+ 	if err := rcmd.cmdStart(ctx, os.Stdout, "pause"); err != nil {
+ 		return nil, fmt.Errorf("while starting pause container: %w", err)
+ 	}
+@@ -222,6 +230,7 @@ func (s *AteomService) RunWorkload(ctx context.Context, req *ateompb.RunWorkload
+ 		if err := rcmd.cmdCreate(ctx, pw, ac.GetName(), nil); err != nil {
+ 			return nil, fmt.Errorf("while creating %q application container: %w", ac.GetName(), err)
+ 		}
++		activation.created(ac.GetName())
+ 		if err := rcmd.cmdStart(ctx, pw, ac.GetName()); err != nil {
+ 			return nil, fmt.Errorf("while starting %q application container: %w", ac.GetName(), err)
+ 		}
+@@ -292,6 +301,10 @@ func (s *AteomService) CheckpointWorkload(ctx context.Context, req *ateompb.Chec
+ 			"atespace", req.GetAtespace(),
+ 			"err", err)
+ 	}
++	// A completed checkpoint stops the sandbox, so it is no longer this worker's active one.
++	if s.active != nil && s.active.runsc.atespace == req.GetAtespace() && s.active.runsc.actorID == req.GetActorId() {
++		s.active = nil
++	}
+ 
+ 	s.cleanupActorNetworkOrExit(ctx, "Failed to clean up actor network after checkpoint")
+ 
+@@ -353,6 +366,7 @@ func (r *runsc) cleanupContainersAfterCheckpoint(ctx context.Context, containers
+ func (s *AteomService) RestoreWorkload(ctx context.Context, req *ateompb.RestoreWorkloadRequest) (resp *ateompb.RestoreWorkloadResponse, retErr error) {
+ 	s.lock.Lock()
+ 	defer s.lock.Unlock()
++	s.clearStaleActive(ctx)
+ 
+ 	s.actorLogger.EmitLifecycleLog("Actor restoring", req.GetAtespace(), req.GetActorId(), req.GetActorTemplateNamespace(), req.GetActorTemplateName())
+ 
+@@ -376,6 +390,8 @@ func (s *AteomService) RestoreWorkload(ctx context.Context, req *ateompb.Restore
+ 		atespace: req.GetAtespace(),
+ 		actorID:  req.GetActorId(),
+ 	}
++	activation := newTrackedActivation(rcmd)
++	defer s.finishActivation(ctx, activation, &retErr)
+ 
+ 	checkpointDir := ateompath.RestoreStateDir(req.GetAtespace(), req.GetActorId())
+ 
+@@ -385,6 +401,7 @@ func (s *AteomService) RestoreWorkload(ctx context.Context, req *ateompb.Restore
+ 		if err := rcmd.cmdCreate(ctx, os.Stdout, "pause", []string{"--fs-restore-image-path", checkpointDir}); err != nil {
+ 			return nil, fmt.Errorf("while creating pause container: %w", err)
+ 		}
++		activation.created("pause")
+ 		if err := rcmd.cmdStart(ctx, os.Stdout, "pause"); err != nil {
+ 			return nil, fmt.Errorf("while starting pause container: %w", err)
+ 		}
+@@ -393,6 +410,7 @@ func (s *AteomService) RestoreWorkload(ctx context.Context, req *ateompb.Restore
+ 		if err := rcmd.cmdCreate(ctx, os.Stdout, "pause", nil); err != nil {
+ 			return nil, fmt.Errorf("while creating pause container: %w", err)
+ 		}
++		activation.created("pause")
+ 		if err := rcmd.cmdRestore(ctx, os.Stdout, "pause", checkpointDir); err != nil {
+ 			return nil, fmt.Errorf("while starting pause container: %w", err)
+ 		}
+@@ -413,6 +431,7 @@ func (s *AteomService) RestoreWorkload(ctx context.Context, req *ateompb.Restore
+ 			if err := rcmd.cmdCreate(ctx, pw, ac.GetName(), nil); err != nil {
+ 				return nil, fmt.Errorf("while creating %q application container: %w", ac.GetName(), err)
+ 			}
++			activation.created(ac.GetName())
+ 			if err := rcmd.cmdStart(ctx, pw, ac.GetName()); err != nil {
+ 				return nil, fmt.Errorf("while starting %q application container: %w", ac.GetName(), err)
+ 			}
+@@ -420,6 +439,7 @@ func (s *AteomService) RestoreWorkload(ctx context.Context, req *ateompb.Restore
+ 			if err := rcmd.cmdCreate(ctx, pw, ac.GetName(), nil); err != nil {
+ 				return nil, fmt.Errorf("while creating %q application container: %w", ac.GetName(), err)
+ 			}
++			activation.created(ac.GetName())
+ 			if err := rcmd.cmdRestore(ctx, pw, ac.GetName(), checkpointDir); err != nil {
+ 				return nil, fmt.Errorf("while starting %q application container: %w", ac.GetName(), err)
+ 			}
+diff --git a/cmd/ateom-gvisor/sandbox_teardown.go b/cmd/ateom-gvisor/sandbox_teardown.go
+new file mode 100644
+index 0000000..2d272bc
+--- /dev/null
++++ b/cmd/ateom-gvisor/sandbox_teardown.go
+@@ -0,0 +1,161 @@
++//go:build linux
++
++// ewallet patch: a failed or cancelled activation must not leave a sandbox behind.
++//
++// Upstream v0.0.9 RunWorkload/RestoreWorkload return on the first error (including a cancelled
++// readyz wait) after cleaning up only the actor network. Containers already created by
++// `runsc create`/`start`/`restore` keep running: on GKE the application inside a restore that
++// ate-api had abandoned finished booting seven seconds later. The worker then holds a sandbox no
++// controller knows about, and a retried restore of the same actor would start a second one
++// (atelet resets the actor's runsc state directory before calling ateom).
++//
++// The worker runs one actor at a time, so the invariants here are simple:
++//   - activation tears down every container it created when it does not succeed;
++//   - a successful activation is recorded as the worker's active sandbox, and cleared by a
++//     successful checkpoint cleanup;
++//   - before a new activation, a still-recorded active sandbox is torn down first.
++//
++// Every teardown runs on a context detached from the (possibly cancelled) request and bounded
++// by sandboxTeardownTimeout.
++
++package main
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"log/slog"
++	"os"
++	"os/exec"
++	"strings"
++	"syscall"
++	"time"
++
++	"github.com/agent-substrate/substrate/internal/ateompath"
++)
++
++const sandboxTeardownTimeout = 30 * time.Second
++
++// activeSandbox is what ateom needs to tear a sandbox down later.
++type activeSandbox struct {
++	runsc      runsc
++	containers []string // creation order; "pause" first
++	pids       []int    // host PIDs from `runsc state`, used when the state directory is gone
++}
++
++// trackedActivation collects the containers an activation creates.
++type trackedActivation struct {
++	sandbox activeSandbox
++}
++
++func newTrackedActivation(r *runsc) *trackedActivation {
++	return &trackedActivation{sandbox: activeSandbox{runsc: *r}}
++}
++
++func (t *trackedActivation) created(name string) {
++	t.sandbox.containers = append(t.sandbox.containers, name)
++}
++
++// teardown force-deletes the created containers, newest first, then kills any recorded sandbox
++// PID that is still a runsc process. Errors are joined; nothing is retried beyond the bound.
++func (a *activeSandbox) teardown(parent context.Context, reason string) error {
++	if a == nil || len(a.containers) == 0 && len(a.pids) == 0 {
++		return nil
++	}
++	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), sandboxTeardownTimeout)
++	defer cancel()
++	log := slog.With(slog.String("atespace", a.runsc.atespace), slog.String("actor", a.runsc.actorID), slog.String("reason", reason))
++	var errs error
++	if _, err := os.Stat(ateompath.RunSCStateDir(a.runsc.atespace, a.runsc.actorID)); err == nil {
++		for i := len(a.containers) - 1; i >= 0; i-- {
++			if err := a.runsc.cmdDelete(ctx, a.containers[i]); err != nil {
++				errs = errors.Join(errs, fmt.Errorf("delete %q: %w", a.containers[i], err))
++			}
++		}
++	}
++	for _, pid := range a.pids {
++		if err := killRunscPID(pid); err != nil {
++			errs = errors.Join(errs, err)
++		}
++	}
++	if errs != nil {
++		log.WarnContext(ctx, "Sandbox teardown incomplete", slog.Any("err", errs))
++	} else {
++		log.InfoContext(ctx, "Sandbox torn down", slog.Int("containers", len(a.containers)))
++	}
++	return errs
++}
++
++// recordPIDs reads the host PID of each created container so a later teardown still works after
++// atelet has removed the runsc state directory. Best effort: a missing PID only weakens that
++// fallback.
++func (a *activeSandbox) recordPIDs(ctx context.Context) {
++	for _, name := range a.containers {
++		if pid, err := a.runsc.statePID(ctx, name); err == nil && pid > 0 {
++			a.pids = append(a.pids, pid)
++		}
++	}
++}
++
++func (r *runsc) statePID(ctx context.Context, containerName string) (int, error) {
++	reapLock.RLock()
++	defer reapLock.RUnlock()
++	out, err := exec.CommandContext(ctx, r.path, "-root", ateompath.RunSCStateDir(r.atespace, r.actorID), "state", containerName).Output()
++	if err != nil {
++		return 0, err
++	}
++	var st struct {
++		Pid int `json:"pid"`
++	}
++	if err := json.Unmarshal(out, &st); err != nil {
++		return 0, err
++	}
++	return st.Pid, nil
++}
++
++// killRunscPID sends SIGKILL to pid only if it is still a runsc process, so a recycled PID of an
++// unrelated process is never signalled.
++func killRunscPID(pid int) error {
++	cmdline, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
++	if err != nil {
++		return nil // already gone
++	}
++	if !strings.Contains(strings.ReplaceAll(string(cmdline), "\x00", " "), "runsc") {
++		return nil
++	}
++	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
++		return fmt.Errorf("kill sandbox pid %d: %w", pid, err)
++	}
++	return nil
++}
++
++// finishActivation applies the activation invariants. Called with s.lock held, as the last
++// deferred step of RunWorkload/RestoreWorkload.
++//   - failure: tear down what was created;
++//   - success, but the caller is gone (ctx done): the caller will treat the activation as failed
++//     and roll the actor back, so a running sandbox here would be unowned. Tear it down and
++//     report failure instead of a success nobody receives.
++//   - success: remember the sandbox as the worker's active one.
++func (s *AteomService) finishActivation(ctx context.Context, t *trackedActivation, retErr *error) {
++	if *retErr == nil && ctx.Err() != nil {
++		*retErr = fmt.Errorf("activation finished after its caller gave up: %w", context.Cause(ctx))
++	}
++	if *retErr != nil {
++		_ = t.sandbox.teardown(ctx, "activation failed")
++		return
++	}
++	t.sandbox.recordPIDs(context.WithoutCancel(ctx))
++	s.active = &t.sandbox
++}
++
++// clearStaleActive tears down a sandbox left recorded by an earlier activation that was never
++// checkpointed (for example, a successful restore whose checkpoint later failed). Called with
++// s.lock held at the start of an activation.
++func (s *AteomService) clearStaleActive(ctx context.Context) {
++	if s.active == nil {
++		return
++	}
++	_ = s.active.teardown(ctx, "stale sandbox before a new activation")
++	s.active = nil
++}
+diff --git a/cmd/ateom-gvisor/sandbox_teardown_test.go b/cmd/ateom-gvisor/sandbox_teardown_test.go
+new file mode 100644
+index 0000000..f7b5713
+--- /dev/null
++++ b/cmd/ateom-gvisor/sandbox_teardown_test.go
+@@ -0,0 +1,190 @@
++//go:build linux
++
++// ewallet patch tests. They need write access to ateompath.BasePath (run as root in a throwaway
++// container) and use a fake runsc that records its arguments.
++
++package main
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"strings"
++	"syscall"
++	"testing"
++	"time"
++
++	"github.com/agent-substrate/substrate/internal/ateompath"
++)
++
++type fakeRunsc struct {
++	path, log string
++	pid       int
++}
++
++// newFakeRunsc writes a runsc stand-in: every call is appended to log; `state` prints the PID of a
++// long-running process whose argv[0] contains "runsc", standing in for the gVisor sandbox.
++func newFakeRunsc(t *testing.T, atespace, actor string) (*fakeRunsc, *exec.Cmd) {
++	t.Helper()
++	if os.Geteuid() != 0 {
++		t.Skip("needs root to write " + ateompath.BasePath)
++	}
++	dir := t.TempDir()
++	sandbox := exec.Command("bash", "-c", "exec -a runsc-sandbox sleep 300")
++	if err := sandbox.Start(); err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { _ = sandbox.Process.Kill(); _, _ = sandbox.Process.Wait() })
++	f := &fakeRunsc{path: filepath.Join(dir, "runsc"), log: filepath.Join(dir, "calls"), pid: sandbox.Process.Pid}
++	script := fmt.Sprintf("#!/bin/bash\necho \"$*\" >> %s\nfor a in \"$@\"; do [ \"$a\" = state ] && echo '{\"pid\": %d}'; done\nexit 0\n", f.log, f.pid)
++	if err := os.WriteFile(f.path, []byte(script), 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.MkdirAll(ateompath.RunSCStateDir(atespace, actor), 0o755); err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { _ = os.RemoveAll(filepath.Dir(ateompath.RunSCStateDir(atespace, actor))) })
++	return f, sandbox
++}
++
++func (f *fakeRunsc) calls(t *testing.T) []string {
++	t.Helper()
++	b, err := os.ReadFile(f.log)
++	if errors.Is(err, os.ErrNotExist) {
++		return nil
++	}
++	if err != nil {
++		t.Fatal(err)
++	}
++	var out []string
++	for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
++		out = append(out, l)
++	}
++	return out
++}
++
++func deletes(calls []string) []string {
++	var out []string
++	for _, c := range calls {
++		if i := strings.Index(c, "delete -force "); i >= 0 {
++			out = append(out, c[i+len("delete -force "):])
++		}
++	}
++	return out
++}
++
++func alive(pid int) bool {
++	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
++	if err != nil {
++		return false
++	}
++	// A killed but unreaped child is a zombie (state Z): no longer running.
++	fields := strings.Fields(string(b))
++	return len(fields) > 2 && fields[2] != "Z"
++}
++
++func TestFailedActivationTearsDownCreatedContainers(t *testing.T) {
++	f, _ := newFakeRunsc(t, "as", "a1")
++	s := &AteomService{}
++	act := newTrackedActivation(&runsc{path: f.path, atespace: "as", actorID: "a1"})
++	act.created("pause")
++	act.created("kagent")
++	err := errors.New("while waiting for container readyz: context canceled")
++	s.finishActivation(context.Background(), act, &err)
++	if got := deletes(f.calls(t)); strings.Join(got, ",") != "kagent,pause" {
++		t.Fatalf("want app then pause force-deleted, got %v", got)
++	}
++	if s.active != nil {
++		t.Fatal("a failed activation must not become the active sandbox")
++	}
++}
++
++func TestSuccessAfterCallerGaveUpIsTornDown(t *testing.T) {
++	f, _ := newFakeRunsc(t, "as", "a2")
++	s := &AteomService{}
++	act := newTrackedActivation(&runsc{path: f.path, atespace: "as", actorID: "a2"})
++	act.created("pause")
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++	var err error
++	s.finishActivation(ctx, act, &err)
++	if err == nil || !strings.Contains(err.Error(), "after its caller gave up") {
++		t.Fatalf("want failure reported, got %v", err)
++	}
++	if got := deletes(f.calls(t)); strings.Join(got, ",") != "pause" {
++		t.Fatalf("want pause force-deleted, got %v", got)
++	}
++}
++
++func TestSuccessfulActivationIsRecordedAndStaleOneClearedFirst(t *testing.T) {
++	f, sandbox := newFakeRunsc(t, "as", "a3")
++	s := &AteomService{}
++	act := newTrackedActivation(&runsc{path: f.path, atespace: "as", actorID: "a3"})
++	act.created("pause")
++	act.created("kagent")
++	var err error
++	s.finishActivation(context.Background(), act, &err)
++	if err != nil || s.active == nil || len(s.active.pids) != 2 || s.active.pids[0] != f.pid {
++		t.Fatalf("want active sandbox with recorded pids, got err=%v active=%+v", err, s.active)
++	}
++	// atelet resets the actor's runsc state directory before a retried restore of the same
++	// actor: teardown must then fall back to the recorded PID.
++	if err := os.RemoveAll(ateompath.RunSCStateDir("as", "a3")); err != nil {
++		t.Fatal(err)
++	}
++	s.clearStaleActive(context.Background())
++	if s.active != nil {
++		t.Fatal("stale sandbox still recorded")
++	}
++	go func() { _, _ = sandbox.Process.Wait() }()
++	deadline := time.Now().Add(3 * time.Second)
++	for alive(f.pid) && time.Now().Before(deadline) {
++		time.Sleep(20 * time.Millisecond)
++	}
++	if alive(f.pid) {
++		t.Fatal("stale sandbox process still running")
++	}
++}
++
++func TestKillRunscPIDLeavesOtherProcessesAlone(t *testing.T) {
++	other := exec.Command("sleep", "300")
++	if err := other.Start(); err != nil {
++		t.Fatal(err)
++	}
++	defer func() { _ = other.Process.Kill(); _, _ = other.Process.Wait() }()
++	if err := killRunscPID(other.Process.Pid); err != nil {
++		t.Fatal(err)
++	}
++	if err := other.Process.Signal(syscall.Signal(0)); err != nil {
++		t.Fatalf("a non-runsc process was signalled: %v", err)
++	}
++	if err := killRunscPID(1 << 30); err != nil {
++		t.Fatalf("a missing pid is not an error: %v", err)
++	}
++}
++
++func TestTeardownIsBoundedOnAHungRunsc(t *testing.T) {
++	if os.Geteuid() != 0 {
++		t.Skip("needs root")
++	}
++	dir := t.TempDir()
++	hung := filepath.Join(dir, "runsc")
++	if err := os.WriteFile(hung, []byte("#!/bin/bash\nexec sleep 300\n"), 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.MkdirAll(ateompath.RunSCStateDir("as", "a5"), 0o755); err != nil {
++		t.Fatal(err)
++	}
++	defer os.RemoveAll(filepath.Dir(ateompath.RunSCStateDir("as", "a5")))
++	a := &activeSandbox{runsc: runsc{path: hung, atespace: "as", actorID: "a5"}, containers: []string{"pause"}}
++	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
++	defer cancel()
++	start := time.Now()
++	_ = a.teardown(ctx, "test")
++	if took := time.Since(start); took > sandboxTeardownTimeout+5*time.Second {
++		t.Fatalf("teardown not bounded: %v", took)
++	}
++}
