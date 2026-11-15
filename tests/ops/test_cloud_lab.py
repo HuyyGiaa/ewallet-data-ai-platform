@@ -109,6 +109,8 @@ class Recorder:
         text = " ".join(command)
         if "get pdb" in text:
             return json.dumps({"items": self.pdbs})
+        if "get deploy -A" in text:
+            return json.dumps({"items": getattr(self, "deployments", [])})
         if "get jobs" in text:
             return json.dumps({"items": self.jobs})
         if "workflows.argoproj.io" in text:
@@ -142,9 +144,13 @@ def test_sleep_refuses_active_work():
         lab.cmd_sleep(lab.Lab(False, "k", runner), args(scale_pdb_guarded=True))
 
 
-def test_sleep_dry_run_mutates_nothing():
+def test_sleep_dry_run_mutates_nothing(tmp_path):
+    (tmp_path / "pdb-after-scale.txt").write_text("NS N EXP CUR ALLOWED\na b 0 0 0\n")
     runner = Recorder(pdbs=[pdb("a", "b")])
-    lab.cmd_sleep(lab.Lab(False, "k", runner), args(scale_pdb_guarded=True))
+    runner.deployments = [{"metadata": {"namespace": "a", "name": "b"},
+                           "spec": {"template": {"metadata": {"labels": {"app": "b"}}}}}]
+    runner.pdbs[0]["spec"]["selector"] = {"matchLabels": {"app": "b"}}
+    lab.cmd_sleep(lab.Lab(False, "k", runner), args(scale_pdb_guarded=True, manifest=tmp_path, campaign="c-1"))
     assert not runner.resized()
     assert not [c for c in runner.calls if "scale" in c]
 

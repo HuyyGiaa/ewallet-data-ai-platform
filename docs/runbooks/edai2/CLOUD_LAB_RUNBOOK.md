@@ -81,6 +81,39 @@ pods. System namespaces are left alone. `wake-full` later restores everything.
 7. `release_state.py drift` reports zero drift on `llm-agent` and `llm-agent-mcp`.
 8. KFP, MLflow, Jenkins and the Prompt Registry open and list their old records.
 
+## Sleep
+
+```bash
+M=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z
+python3 ops/gcp/cloud_lab.py plan-sleep --manifest $M          # read-only
+CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev
+python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest $M
+```
+
+- `SAFE_TO_SLEEP`: the plain `sleep` resizes `cpu-pool` to zero.
+- `UNSAFE_TO_SLEEP` (active Jobs, Argo workflows, Dataproc batches, wrong pool or
+  autoscaling): do not sleep. Finish or stop that work first.
+- `SAFE_AFTER_REVERSIBLE_PREPARATION`: `minAvailable` PDBs still protect pods. The plain
+  `sleep` refuses with `SLEEP_BLOCKED`. Scaling those Deployments to zero first is a
+  **separate owner approval**. `wake-full` restores them from the manifest.
+  `plan-sleep --manifest` lists the blockers the approved manifest covers
+  (`pdb-after-scale.txt`) and any it does not. With the owner's approval for this
+  campaign:
+
+  ```bash
+  CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign> \
+    python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev \
+    --scale-pdb-guarded --manifest $M --campaign <campaign>
+  ```
+
+  The tool resolves each PDB to the single Deployment its selector selects. It refuses
+  if any blocker is outside the approved manifest. It scales only those Deployments,
+  re-reads the PDBs, and resizes only when none still protects a pod.
+
+Without the guarded approval, report `SLEEP_BLOCKED` with the `plan-sleep` output and
+leave the cluster awake for the owner. Never report `SLEEP_VERIFIED` unless
+`verify --expect sleep` passes.
+
 ## Known limitations
 
 - **Valkey does not re-form (observed 2026-11-07).** `nodes.conf` stores pod

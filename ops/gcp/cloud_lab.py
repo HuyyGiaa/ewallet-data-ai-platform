@@ -6,6 +6,13 @@ commands are ``status``, ``plan-sleep``, ``plan-wake``, ``verify`` and
 only with ``--execute``, ``--confirm-cluster ewallet-dev`` and
 ``CLOUD_LAB_APPROVED=yes``. Nothing here deletes a resource, starts a GPU, or
 wakes the cluster implicitly.
+
+``sleep --scale-pdb-guarded`` (scaling PDB-guarded Deployments to zero before the
+resize) is a separate owner approval: it also needs ``--manifest``, ``--campaign``
+and ``CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign>``, and it scales only
+Deployments that the approved sleep manifest recorded as PDB-guarded and scaled to
+zero (``pdb-after-scale.txt``), plus PDBs the owner names with ``--also-approve``. A PDB
+blocker alone never authorizes a mutation.
 """
 
 from __future__ import annotations
@@ -14,6 +21,7 @@ import argparse
 import json
 import math
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -33,6 +41,9 @@ G3_LABEL = "ewallet.io/g3-llm"
 G3_NODE_TARGET = 3
 PACKING_LIMIT = 0.85
 PROFILES_PATH = Path(__file__).with_name("cloud_lab_profiles.json")
+GUARDED_APPROVAL_ENV = "CLOUD_LAB_GUARDED_SLEEP_APPROVAL"
+CAMPAIGN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{2,62}$")
+PDB_KEY = re.compile(r"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?/[a-z0-9]([-.a-z0-9]{0,251}[a-z0-9])?$")
 
 SYSTEM_NAMESPACES = ("kube-system", "gmp-system", "gke-managed-cim", "istio-system", "cert-manager")
 # Controllers stop first so they cannot recreate the workloads they own.
@@ -349,6 +360,66 @@ class Lab:
                 for i in items}
 
 
+def approved_guarded_pdbs(manifest: Path) -> set[str]:
+    """Return the PDBs the approved sleep manifest scaled to zero (``ns/name``).
+
+    ``pdb-after-scale.txt`` is the ``kubectl get pdb`` readback taken after the owner
+    approved scaling: columns NS, NAME, EXPECTED, CURRENT, ALLOWED. A budget whose
+    expected pods were 0 there is one the approved sleep emptied.
+    """
+    path = manifest / "pdb-after-scale.txt"
+    if not path.is_file():
+        raise GateError(f"{path} is missing: no approved PDB-guarded sleep record")
+    approved = set()
+    for line in path.read_text().splitlines()[1:]:
+        parts = line.split()
+        if len(parts) >= 3 and parts[2] == "0" and parts[0] not in SYSTEM_NAMESPACES:
+            approved.add(f"{parts[0]}/{parts[1]}")
+    if not approved:
+        raise GateError(f"{path} records no PDB-guarded Deployment scaled to zero")
+    return approved
+
+
+def guarded_targets(pdbs: list[dict[str, Any]], deployments: list[dict[str, Any]], blockers: list[str]) -> dict[str, str]:
+    """Resolve each blocking PDB to the one Deployment its selector selects.
+
+    Raises GateError when a selector is not plain matchLabels or does not select exactly
+    one Deployment in its namespace, so nothing is scaled by name guessing.
+    """
+    targets = {}
+    by_key = {f"{p['metadata']['namespace']}/{p['metadata']['name']}": p for p in pdbs}
+    for key in blockers:
+        pdb = by_key[key]
+        selector = pdb.get("spec", {}).get("selector") or {}
+        labels = selector.get("matchLabels") or {}
+        if not labels or selector.get("matchExpressions"):
+            raise GateError(f"PDB {key} has no plain matchLabels selector")
+        namespace = pdb["metadata"]["namespace"]
+        matches = [d["metadata"]["name"] for d in deployments if d["metadata"]["namespace"] == namespace
+                   and labels.items() <= ((d.get("spec", {}).get("template", {}).get("metadata", {}).get("labels")) or {}).items()]
+        if len(matches) != 1:
+            raise GateError(f"PDB {key} selects {len(matches)} Deployments {matches}; expected exactly one")
+        targets[key] = f"{namespace}/{matches[0]}"
+    return targets
+
+
+def require_guarded_approval(args: argparse.Namespace) -> set[str]:
+    """Check the owner's separate approval for PDB-guarded preparation."""
+    campaign = getattr(args, "campaign", None) or ""
+    manifest = getattr(args, "manifest", None)
+    if not CAMPAIGN_ID.match(campaign):
+        raise GateError("--scale-pdb-guarded needs --campaign <id> (letters, digits, dashes)")
+    if manifest is None:
+        raise GateError("--scale-pdb-guarded needs --manifest <approved sleep manifest>")
+    if args.execute and os.environ.get(GUARDED_APPROVAL_ENV) != f"{CLUSTER}:{campaign}":
+        raise GateError(f"--scale-pdb-guarded needs the owner's {GUARDED_APPROVAL_ENV}={CLUSTER}:{campaign}")
+    extra = set(getattr(args, "also_approve", None) or [])
+    bad = sorted(key for key in extra if not PDB_KEY.match(key) or key.split("/")[0] in SYSTEM_NAMESPACES)
+    if bad:
+        raise GateError(f"--also-approve takes namespace/name of a non-system PDB: {bad}")
+    return approved_guarded_pdbs(manifest) | extra
+
+
 def require_approval(args: argparse.Namespace) -> None:
     """Refuse execute mode without both explicit approval signals."""
     if args.execute and (args.confirm_cluster != CLUSTER or os.environ.get("CLOUD_LAB_APPROVED") != "yes"):
@@ -375,30 +446,64 @@ def cmd_status(lab: Lab, _: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_plan_sleep(lab: Lab, _: argparse.Namespace) -> int:
-    """Evaluate every sleep gate and print the verdict."""
+def cmd_plan_sleep(lab: Lab, args: argparse.Namespace) -> int:
+    """Evaluate every sleep gate and print the verdict (read-only).
+
+    With ``--manifest`` it also shows which PDB blockers the approved sleep manifest
+    covers, i.e. what a separately approved ``--scale-pdb-guarded`` sleep would scale.
+    """
     pdbs = json.loads(lab.kubectl("get", "pdb", "-A", "-o", "json"))["items"]
     blockers, active, identity = evaluate_pdbs(pdbs), lab.active_work(), lab.identity_problems()
-    print(json.dumps({"verdict": classify_sleep(blockers, active, identity), "pdb_blockers": blockers,
-                      "active_work": active, "identity_problems": identity}, indent=2))
+    report: dict[str, Any] = {"verdict": classify_sleep(blockers, active, identity), "pdb_blockers": blockers,
+                              "active_work": active, "identity_problems": identity}
+    manifest = getattr(args, "manifest", None)
+    if blockers and manifest is not None:
+        approved = approved_guarded_pdbs(manifest)
+        report["guarded_preparation"] = {
+            "needs_owner_approval": f"{GUARDED_APPROVAL_ENV}={CLUSTER}:<campaign>",
+            "covered_by_manifest": sorted(set(blockers) & approved),
+            "not_covered": sorted(set(blockers) - approved)}
+    print(json.dumps(report, indent=2))
     return 0
 
 
 def cmd_sleep(lab: Lab, args: argparse.Namespace) -> int:
-    """Resize to zero after the gates pass; PDB-guarded scaling needs a flag."""
+    """Resize to zero after the gates pass; PDB-guarded scaling is a separate approval."""
     require_approval(args)
     pdbs = json.loads(lab.kubectl("get", "pdb", "-A", "-o", "json"))["items"]
     blockers, active, identity = evaluate_pdbs(pdbs), lab.active_work(), lab.identity_problems()
     if active or identity:
         raise GateError(f"UNSAFE_TO_SLEEP: {active + identity}")
     if blockers and not args.scale_pdb_guarded:
-        raise GateError(f"PDBs would be bypassed: {blockers}; rerun with owner approval and --scale-pdb-guarded")
-    for pdb in pdbs:
-        key = f"{pdb['metadata']['namespace']}/{pdb['metadata']['name']}"
-        if key in blockers:
-            lab.k_mutate("-n", pdb["metadata"]["namespace"], "scale", "deploy", pdb["metadata"]["name"], "--replicas=0")
+        raise GateError(f"SLEEP_BLOCKED: PDBs would be bypassed: {blockers}; PDB-guarded preparation needs "
+                        f"separate owner approval ({GUARDED_APPROVAL_ENV}) and --scale-pdb-guarded")
+    if blockers:
+        approved = require_guarded_approval(args)
+        unexpected = sorted(set(blockers) - approved)
+        if unexpected:
+            raise GateError(f"SLEEP_BLOCKED: PDB blockers not in the approved manifest: {unexpected}")
+        deployments = json.loads(lab.kubectl("get", "deploy", "-A", "-o", "json"))["items"]
+        targets = guarded_targets(pdbs, deployments, blockers)
+        print(json.dumps({"guarded_preparation": targets, "campaign": args.campaign}, indent=2))
+        for target in sorted(set(targets.values())):
+            namespace, name = target.split("/", 1)
+            lab.k_mutate("-n", namespace, "scale", "deploy", name, "--replicas=0")
+        if lab.execute:
+            wait_for_pdbs_released(lab, set(blockers), getattr(args, "timeout", 300))
     lab.mutate(resize_command(0))
     return 0
+
+
+def wait_for_pdbs_released(lab: Lab, keys: set[str], timeout: int, clock=time.monotonic, sleep=time.sleep) -> None:
+    """Re-read the budgets until none of ``keys`` still blocks; never resize on a guess."""
+    deadline = clock() + timeout
+    while True:
+        remaining = set(evaluate_pdbs(json.loads(lab.kubectl("get", "pdb", "-A", "-o", "json"))["items"])) & keys
+        if not remaining:
+            return
+        if clock() >= deadline:
+            raise GateError(f"SLEEP_BLOCKED: PDBs still protect pods after scaling: {sorted(remaining)}; not resized")
+        sleep(5)
 
 
 def wake_targets(args: argparse.Namespace, mode: str) -> list[str] | None:
@@ -500,9 +605,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--kubeconfig", default=str(Path.home() / ".cache/ewallet-cloud-lab/kubeconfig"))
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("status")
-    sub.add_parser("plan-sleep")
+    plan_sleep = sub.add_parser("plan-sleep")
+    plan_sleep.add_argument("--manifest", type=Path, help="approved sleep manifest, to show guarded coverage")
     sleep = sub.add_parser("sleep")
-    sleep.add_argument("--scale-pdb-guarded", action="store_true")
+    sleep.add_argument("--scale-pdb-guarded", action="store_true",
+                       help=f"separate owner approval: needs --manifest, --campaign and {GUARDED_APPROVAL_ENV}")
+    sleep.add_argument("--manifest", type=Path, help="approved sleep manifest (with pdb-after-scale.txt)")
+    sleep.add_argument("--campaign", help="campaign id named in the guarded-sleep approval")
+    sleep.add_argument("--timeout", type=int, default=300, help="seconds to wait for scaled PDBs to release")
+    sleep.add_argument("--also-approve", action="append", metavar="NS/NAME",
+                       help="a PDB added since the manifest (e.g. by PKG-P1) that the owner's guarded approval names")
     plan = sub.add_parser("plan-wake")
     plan.add_argument("--mode", choices=["minimal", "experiment", "full"], required=True)
     plan.add_argument("--profile")
