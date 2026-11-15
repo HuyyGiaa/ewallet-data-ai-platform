@@ -5,44 +5,44 @@
   "mcp-tools": "ARTIFACT_REGISTRY=... scripts/llm_agent/build_changed_images.sh <changed> <sha> <out>",
   "sbom": "trivy 0.75.0 cyclonedx: 178 components, feast 0.67.0 (kept with the evidence, not committed)"
  },
- "git_sha": "8223d257481dc87e61b128a66bbe58466e13505e",
+ "git_sha": "f25836414b688ef4354cc7014a67336283e040e7",
  "images": {
   "g3-byo-coordinator": {
-   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:9a26a3de9ad9ef9733e5d5e1ccc7ff7489232519ef0bcfbd69193d40da0d3123",
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:279093d943d61a052d5de726f16a64ddb7da8a64b5b5b22db10deacdbc9209b3",
    "scan": {
     "critical_high_fixable": [],
     "gate": "PASS",
     "scanner": "trivy 0.75.0",
     "secrets": 0
    },
-   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:8223d257481dc87e61b128a66bbe58466e13505e"
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:f25836414b688ef4354cc7014a67336283e040e7"
   },
   "g3-byo-drift-specialist": {
-   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist@sha256:164e6c9cea0dde85896147a6369b82889b1441573d2b8e3bfa6f3f9808460c09",
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist@sha256:e45a4c8be36a34ebcb8d014a78e167eb1e5a7c35b993b1f6ad96170b2a3d3d6f",
    "scan": {
     "critical_high_fixable": [],
     "gate": "PASS",
     "scanner": "trivy 0.75.0",
     "secrets": 0
    },
-   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist:8223d257481dc87e61b128a66bbe58466e13505e"
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist:f25836414b688ef4354cc7014a67336283e040e7"
   },
   "g3-byo-feature-rag-specialist": {
-   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6",
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:23918d7a510a938b93d01493b74c1d8cf67909408238538132742b467306ec6b",
    "scan": {
     "critical_high_fixable": [],
     "gate": "PASS",
     "scanner": "trivy 0.75.0",
     "secrets": 0
    },
-   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:8223d257481dc87e61b128a66bbe58466e13505e"
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist:f25836414b688ef4354cc7014a67336283e040e7"
   },
   "mcp-tools": {
    "components": [
     "drift-mcp",
     "feature-rag-mcp"
    ],
-   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:c10792e2214ceca724c87bb9106a36d9f2a18224bd65c46cd4e7b99b47f1a13a",
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:a85afacb69864b8d66cf63268d9f6197889b0ee40b954b441b02db4e2e4b7697",
    "feast": "0.67.0",
    "scan": {
     "critical_high_fixable": [],
@@ -50,11 +50,16 @@
     "scanner": "trivy 0.75.0",
     "secrets": 0
    },
-   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools:8223d257481dc87e61b128a66bbe58466e13505e",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools:f25836414b688ef4354cc7014a67336283e040e7",
    "target": "mcp-server"
   }
  },
+ "reason": "0054baab changed ai_platform (SandboxAgent path /api/a2a-sandboxes); images rebuilt from one commit",
  "superseded": {
+  "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:9a26a3de9ad9ef9733e5d5e1ccc7ff7489232519ef0bcfbd69193d40da0d3123": "8223d257 (pre /api/a2a-sandboxes fix)",
+  "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist@sha256:164e6c9cea0dde85896147a6369b82889b1441573d2b8e3bfa6f3f9808460c09": "8223d257 (pre /api/a2a-sandboxes fix)",
+  "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6": "8223d257 (pre /api/a2a-sandboxes fix)",
+  "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:c10792e2214ceca724c87bb9106a36d9f2a18224bd65c46cd4e7b99b47f1a13a": "8223d257 (pre /api/a2a-sandboxes fix)",
   "mcp-tools (7d695365)": "not pushed: feast 0.66.0 CVE-2026-18948 failed the gate",
   "mcp-tools@sha256:735ae40b90a137526c28fee0d6f933ec27d1ed26e94d7b56322d974ce1087f7b": "fd555334, first gate-passing build"
  }

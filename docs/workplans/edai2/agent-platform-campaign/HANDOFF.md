@@ -208,3 +208,23 @@ kubectl -n ewallet-sandbox get actortemplate -o jsonpath='{range .items[*]}{.met
 kubectl -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o custom-columns=POD:.metadata.name,SA:.spec.serviceAccountName,IMAGE:.spec.containers[0].image   # AGS-02
 python3 -m ops.experiments.substrate_fleet summarize "$EV/ags/AGS-04-status.jsonl"     # AGS-04_actor_worker_assignment.png
 ```
+
+## Resume root cause (2026-11-15, no cloud action; `resume-rca/RCA.md`)
+
+- **Root cause (`ROOT_CAUSE_CONFIRMED`):** kagent 0.10.3 suspends a session actor
+  asynchronously after each turn. `EnsureSessionActor` skips `ResumeActor` for a SUSPENDING
+  actor. A follow-up sent within that window therefore waits 120 s and fails with
+  `not reachable via atenet-router`.
+  - GKE timeline: turn 2 was sent at 07:15:03, the actor was Suspended at 07:15:04, and it
+    was never Resuming.
+  - Reproduced deterministically on unmodified v0.10.3.
+- **Fix in this repository (`FIX_IMPLEMENTED`, `UNIT_TESTED`):** `sandbox_sessions.py` waits,
+  bounded, until the session's actor is `Suspended` before each follow-up. `--no-settle`
+  reproduces the failure.
+  - The production Coordinator sends one message per member context, so it is not affected.
+- **Upstream patch (proposed):** `resume-rca/kagent-0.10.3-resume-during-suspend.patch`. All
+  56 package tests pass. Not deployed: that needs a kagent image and upgrade approval.
+- **Images:** rebuilt from `f2583641` for the `/api/a2a-sandboxes` fix. Trivy PASS 4/4,
+  pushed, not deployed (`images.json`).
+- **Next:** the GKE A/B run (runbook section 2.3b). It needs the owner's approval for an
+  `agent-sandbox` wake on 3 nodes.

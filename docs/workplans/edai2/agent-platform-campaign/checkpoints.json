@@ -374,5 +374,33 @@
       "cost_usd": "~0.50",
       "sleep": "SLEEP_VERIFIED (plain sleep)"
     }
+  },
+  "resume_rca": {
+    "verdicts": [
+      "ROOT_CAUSE_CONFIRMED",
+      "FIX_IMPLEMENTED",
+      "UNIT_TESTED",
+      "GKE_APPROVAL_PENDING"
+    ],
+    "root_cause": "kagent 0.10.3: async scheduleSuspendSession + EnsureSessionActor skips ResumeActor for SUSPENDING -> follow-up inside the suspend window is never resumed (120 s timeout)",
+    "evidence": [
+      "resume-rca/RCA.md",
+      "resume-rca/upstream-test/run-unpatched.txt",
+      "gke-agi-20261115T064905Z/ags/AGS-04-status.jsonl"
+    ],
+    "fix": "ops/experiments/sandbox_sessions.py waits for Suspended before each follow-up (bounded); --no-settle reproduces",
+    "upstream_patch": {
+      "file": "resume-rca/kagent-0.10.3-resume-during-suspend.patch",
+      "status": "proposed; 56/56 package tests pass; not deployed (needs kagent image + upgrade approval)"
+    },
+    "not_tested": [
+      "kind (full Substrate+gVisor runtime exceeds laptop budget)",
+      "GKE (approval pending: runbook 2.3b)"
+    ],
+    "images": {
+      "git_sha": "f25836414b688ef4354cc7014a67336283e040e7",
+      "gate": "4/4 Trivy PASS, pushed",
+      "deployed": false
+    }
   }
 }
