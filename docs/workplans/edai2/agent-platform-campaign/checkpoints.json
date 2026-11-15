@@ -66,7 +66,7 @@
       "id": "CP4",
       "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)",
       "status": "APPROVAL_PENDING",
-      "blocker": "PKG-K (kagent watch scope) prepared and KIND_TESTED; GKE needs the owner's PKG-K approval",
+      "blocker": "PKG-K approved, but the return to sleep after wake-full needs the guarded-sleep approval (pkg_stage)",
       "evidence": [
         "gke-agi-20261114t221240z/kagent-watch-namespaces.txt"
       ]
@@ -222,5 +222,19 @@
       }
     ],
     "cloud": "GKE not woken in BR (asleep, 0 nodes); read-only Helm reads only (helm get values/manifest/status for kagent and keda)"
+  },
+  "pkgk_stage": {
+    "approval": "owner 2026-11-15: PKG-K + Sandbox S0 on a four-node wake-full; guarded sleep NOT granted",
+    "source_fix": "63eb11b4 sandbox_watch.sh upgrade runs its own server-side dry-run (tests/llm_agent/test_sandbox_watch_script.py)",
+    "verdict": "WAKE_NOT_STARTED",
+    "reason": "wake-full restores 5 PDB-guarded Deployments (ewallet-agents/drift-mcp, drift-specialist, feature-rag-specialist, fraud-coordinator; ewallet-mcp/drift-mcp); plain sleep then refuses (SLEEP_BLOCKED) and the only safe return is guarded sleep, whose approval CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign> was not granted (owner section 4)",
+    "cloud": "asleep, 0 nodes, 0.107 USD/h; read-only checks only",
+    "options": [
+      "grant CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign> for the five manifest-covered PDBs",
+      "or approve wake-experiment --profile agent-sandbox (2 nodes planned; leaves the five at 0; plain sleep)"
+    ],
+    "evidence": [
+      "pkgk-preflight-20261115/"
+    ]
   }
 }

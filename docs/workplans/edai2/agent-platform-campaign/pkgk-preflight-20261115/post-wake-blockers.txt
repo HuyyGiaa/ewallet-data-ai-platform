@@ -1,0 +1,6 @@
+PDB (minAvailable)               expectedPods now   wake-full restores replicas   blocks sleep after wake
+ewallet-agents/drift-mcp                   0        1   YES
+ewallet-agents/drift-specialist            0        2   YES
+ewallet-agents/feature-rag-specialist      0        2   YES
+ewallet-agents/fraud-coordinator           0        2   YES
+ewallet-mcp/drift-mcp                      0        1   YES
