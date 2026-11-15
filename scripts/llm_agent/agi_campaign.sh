@@ -327,7 +327,9 @@ expected_identities() {
                   --expect-added PodDisruptionBudget/ewallet-mcp/feature-rag-mcp ;;
     agi:agents) printf '%s\n' "${agi_agents[@]}" ;;
     p2-agents:agents) printf '%s\n' "${agi_agents[@]}" \
-                  --expect-changed ConfigMap/ewallet-agents/otel-collector-config --expect-changed Deployment/ewallet-agents/otel-collector
+                  --expect-changed ConfigMap/ewallet-agents/otel-collector-config --expect-changed Deployment/ewallet-agents/otel-collector \
+                  --expect-annotation-only Deployment/ewallet-agents/prometheus=checksum/observability-config \
+                  --expect-annotation-only Deployment/ewallet-agents/grafana=checksum/observability-config
       for agent in ${KEDA_AGENTS}; do
         printf '%s\n' --expect-added "ScaledObject/ewallet-agents/${agent}" --expect-removed "HorizontalPodAutoscaler/ewallet-agents/${agent}"
       done ;;

@@ -8,7 +8,11 @@ usage: helm -n default get manifest llm-agent > live.yaml
        helm template llm-agent infra/helm/llm-agent-platform -n default -f values.yaml [-f overlay.yaml] > new.yaml
        python3 scripts/llm_agent/helm_object_diff.py live.yaml new.yaml [--expect-objects N]
            [--expect-changed Kind/namespace/name ...] [--expect-added ...] [--expect-removed ...]
-           [--expect-identities]
+           [--expect-annotation-only Kind/namespace/name=<pod-template annotation> ...] [--expect-identities]
+
+``--expect-annotation-only`` names an object that must change, and only in that pod-template
+annotation (for example a config checksum that rolls a Deployment when a shared ConfigMap
+changes). It counts as an expected change; any other difference fails.
 
 ``--expect-identities`` makes the three ``--expect-*`` lists exact: an object that
 differs without being listed, or a listed object that does not differ, fails
@@ -51,6 +55,30 @@ def compare(live: dict[Key, dict], new: dict[Key, dict]) -> dict[str, list[Key]]
     }
 
 
+def annotation_only(value: str) -> tuple[Key, str]:
+    """``Kind/namespace/name=annotation``."""
+
+    target, sep, annotation = value.partition("=")
+    if not sep or not annotation:
+        raise argparse.ArgumentTypeError(f"expected Kind/namespace/name=annotation: {value!r}")
+    return identity(target), annotation
+
+
+def differs_only_in_annotation(before: dict, after: dict, annotation: str) -> bool:
+    """True when the two objects differ, and only in spec.template.metadata.annotations[annotation]."""
+
+    import copy
+
+    def strip(obj: dict) -> dict:
+        obj = copy.deepcopy(obj)
+        annotations = ((obj.get("spec") or {}).get("template") or {}).get("metadata", {}).get("annotations")
+        if isinstance(annotations, dict):
+            annotations.pop(annotation, None)
+        return obj
+
+    return before != after and strip(before) == strip(after)
+
+
 def identity_errors(diff: dict[str, list[Key]], expected: dict[str, list[Key]]) -> list[str]:
     """Every unexpected or missing identity, per category; empty means an exact match."""
 
@@ -69,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--expect-objects", type=int, help="fail unless exactly this many objects differ")
     for label in ("changed", "added", "removed"):
         p.add_argument(f"--expect-{label}", type=identity, action="append", default=[], metavar="KIND/NS/NAME")
+    p.add_argument("--expect-annotation-only", type=annotation_only, action="append", default=[],
+                   metavar="KIND/NS/NAME=ANNOTATION")
     p.add_argument("--expect-identities", action="store_true",
                    help="the --expect-changed/added/removed lists must match exactly")
     a = p.parse_args(argv)
@@ -96,8 +126,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nexpected {a.expect_objects} differing objects, found {total}", file=sys.stderr)
         failed = True
     if a.expect_identities:
-        errors = identity_errors(diff, {"changed": a.expect_changed, "added": a.expect_added,
-                                        "removed": a.expect_removed})
+        errors = []
+        annotation_changed = []
+        for key, annotation in a.expect_annotation_only:
+            if key in live and key in new and differs_only_in_annotation(live[key], new[key], annotation):
+                annotation_changed.append(key)
+            else:
+                errors.append(f"expected only annotation {annotation} to change: {'/'.join(key)}")
+        errors += identity_errors(diff, {"changed": a.expect_changed + annotation_changed, "added": a.expect_added,
+                                         "removed": a.expect_removed})
         for error in errors:
             print(error, file=sys.stderr)
         failed = failed or bool(errors)
