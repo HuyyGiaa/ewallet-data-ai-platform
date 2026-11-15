@@ -308,6 +308,78 @@ kubectl --context "$CTX" -n ate-system logs deploy/atenet-router --all-container
   `kubectl-ate get actors --atespace ewallet-sandbox`. Deleting them needs a separate
   approval.
 
+### 2.3c PKG-T runtime stability (owner approval: `agent-sandbox` wake, at most 3 nodes)
+
+What it deploys (root causes and design: `resume-rca/RCA.md` section 8):
+
+- **PKG-T-SUBSTRATE.** The ate-api image is replaced by the patched v0.0.9 build.
+  Workflows are detached from the caller, and a failed restore rolls back.
+- **PKG-T-KAGENT.** The kagent controller image is replaced by the patched v0.10.3 build
+  (session turns), and `SUBSTRATE_CALL_TIMEOUT=90s` is set.
+- **Campaign WorkerPool.** `namespace.yaml` uses the patched ateom (failed activations tear
+  down their sandbox). `kagent-pilot` keeps the release ateom.
+
+Images, patches and pins:
+
+- Images come from `scripts/llm_agent/build_runtime_fix_images.py` and
+  `scripts/llm_agent/scan_and_push.sh`, as recorded in
+  `docs/workplans/edai2/agent-platform-campaign/images.json` (`runtime_fix`).
+- Patches, hashes and the build recipe are in
+  `infra/kubernetes/kagent-pilot/patches/runtime-fix.json`.
+- The digests are in `infra/kubernetes/kagent-pilot/patches/runtime-fix-images.env`.
+
+```bash
+# G0: wake (section 2.3a step 1) and record the baseline (read-only)
+export KUBE_CONTEXT=$CTX
+for t in substrate kagent; do scripts/llm_agent/runtime_fix.sh $t dry-run "$PRIVATE"; done   # identity, exact diff, server dry-run
+helm --kube-context "$CTX" history kagent -n kagent --max 3 > "$EV/pkg/T-helm-before.txt"
+helm --kube-context "$CTX" history substrate -n ate-system --max 3 >> "$EV/pkg/T-helm-before.txt"
+# G1: ate-api first (backward compatible with the release kagent), then kagent
+RUNTIME_FIX_APPROVAL=PKG-T-SUBSTRATE:$CTX scripts/llm_agent/runtime_fix.sh substrate upgrade "$PRIVATE"
+RUNTIME_FIX_APPROVAL=PKG-T-KAGENT:$CTX scripts/llm_agent/runtime_fix.sh kagent upgrade "$PRIVATE"
+cp "$PRIVATE"/runtime-fix-*/package.log "$EV/pkg/"; for t in substrate kagent; do scripts/llm_agent/runtime_fix.sh $t cleanup "$PRIVATE"; done
+#     S0 as in AGS-01 (namespace.yaml now carries the patched ateom), then wait for both golden snapshots
+kubectl --context "$CTX" apply -f infra/kubernetes/agent-sandbox/namespace.yaml
+python3 -m ops.experiments.substrate_fleet record --url http://127.0.0.1:18383 --namespace ewallet-sandbox \
+  --out "$EV/ags/T-status.jsonl" --interval 1 --duration 3600 &
+D="python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383"
+# G2 single session, paced: >= 3 genuine Suspended -> Resuming -> Running cycles on one actor
+$D --run-id "$CAMPAIGN-g2" --agents drift-specialist --contexts 1 --messages 4 > "$EV/ags/T-G2.txt"
+# G3 rapid multi-turn, unpaced: arrivals while RUNNING / SUSPENDING / SUSPENDED, then a burst
+$D --run-id "$CAMPAIGN-g3" --no-settle --contexts 2 --messages 5 --burst 2 > "$EV/ags/T-G3.txt"
+# G4 concurrent first-turn restores of both Specialists on the shared pool, three rounds
+$D --run-id "$CAMPAIGN-g4" --no-settle --contexts 3 --messages 1 > "$EV/ags/T-G4.txt"
+# G5 forced failure: the caller gives up during the first restore; nothing is restarted
+$D --run-id "$CAMPAIGN-g5" --agents drift-specialist --context-id "$CAMPAIGN-g5-cancel" --contexts 1 --messages 1 --timeout 5 > "$EV/ags/T-G5a.txt"
+#     ... wait until the actor is Suspended and its worker free (T-status.jsonl), then the same context:
+$D --run-id "$CAMPAIGN-g5" --agents drift-specialist --context-id "$CAMPAIGN-g5-cancel" --contexts 1 --messages 2 --no-settle > "$EV/ags/T-G5b.txt"
+# G6 bounded concurrency: both agents, 3 contexts x 3 unpaced messages each
+$D --run-id "$CAMPAIGN-g6" --no-settle --contexts 3 --messages 3 > "$EV/ags/T-G6.txt"
+# G7 controller restart: one turn, delete the controller pod during its suspend, then the same context
+python3 -m ops.experiments.runtime_stability_report --rows "$EV"/ags/T-G*.txt --status "$EV/ags/T-status.jsonl" > "$EV/ags/T-report.json"
+```
+
+- **PASS-1:** G2 and G3 serve every turn without `rpc_error`, with one actor per context.
+  G3 records arrivals in at least two distinct states.
+- **PASS-2:** in every G4 round both restores succeed, and no actor stays `Resuming` past the
+  call timeout.
+- **PASS-3:** in G5 the actor ends `Suspended` with its worker free, no pod restarts, and the
+  follow-up is served on the same actor ID.
+- **PASS-4:** the worker placement and resource use are measured. The WorkerPool uses only
+  fields of the installed CRD.
+- **PASS-5:** the `uv` commands in the RCA collect and run.
+
+Under S0, turns end `failed` with `mcp_transport_error`. That is lifecycle evidence, not
+business success.
+
+Rollback, if a step fails (each records its own pre-upgrade revision and image):
+
+- `RUNTIME_FIX_APPROVAL=PKG-T-KAGENT-ROLLBACK:$CTX scripts/llm_agent/runtime_fix.sh kagent rollback "$PRIVATE"`
+- the same with `substrate` and `PKG-T-SUBSTRATE-ROLLBACK`.
+
+`substrate_pull_auth.sh` renders without `--ateapi-image`. After PKG-T, its identity preflight
+therefore fails closed until it passes the same post-renderer argument.
+
 ### 2.4 PKG-P1 and PKG-P2
 
 ```bash

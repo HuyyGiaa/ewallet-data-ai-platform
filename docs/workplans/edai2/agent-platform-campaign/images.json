@@ -74,10 +74,10 @@
    },
    "substrate-ateapi": {
     "base": "ghcr.io/kagent-dev/substrate/ateapi@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85",
-    "binary_sha256": "4a84a83ea5206dd6a6fc017e895cfd9697472d7961dd1a3e52e7ca371a4c22b2",
-    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi@sha256:2bc07e600a5498f32cfb326bbc08f38c264a98873de393fa652fa5cea905e44a",
+    "binary_sha256": "c5bc12daa8437944494bafed3ec30b84a0c951767e848fa3748acaf28a8b6284",
+    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841",
     "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
-    "patch_sha256": "c1bcc7682d9f792f0ab84371236ccc5a9140b24d19e9679fa649c265f0d1bc46",
+    "patch_sha256": "0291af52e52d818b552c3f453354523d916f506476bc6eeb86d48290993ef838",
     "security_bumps": [
      "golang.org/x/net@v0.62.0",
      "google.golang.org/grpc@v1.83.2"
@@ -86,10 +86,10 @@
    },
    "substrate-ateom-gvisor": {
     "base": "ghcr.io/kagent-dev/substrate/ateom-gvisor@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc",
-    "binary_sha256": "19300d3c6b894d7e7839720a04a54166c973ce021220f820cd9d87b88dc48ce1",
-    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor@sha256:98c1d8192079b0b8f8ec7c0cb8e6473b8cd250630bb6029667e974a2f4bd3c50",
+    "binary_sha256": "1593470c373193d5ab9475ad059261d2fea6cbf36bbdad5f8ca8323ccf15ab21",
+    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor@sha256:c1ddc0446b8ca1c017353c5a5a8336d4c8071d74d3f7472b351a4fd7f7aa7558",
     "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
-    "patch_sha256": "c1bcc7682d9f792f0ab84371236ccc5a9140b24d19e9679fa649c265f0d1bc46",
+    "patch_sha256": "0291af52e52d818b552c3f453354523d916f506476bc6eeb86d48290993ef838",
     "security_bumps": [
      "golang.org/x/net@v0.62.0",
      "google.golang.org/grpc@v1.83.2"
@@ -98,7 +98,11 @@
    }
   },
   "spec": "infra/kubernetes/kagent-pilot/patches/runtime-fix.json",
-  "tests": "32 Go packages passed in the build (kagent a2a/sandboxbackend/httpserver -short -race; substrate ateapi/atelet/internal -race; ateom as root)"
+  "superseded": [
+   "substrate-ateapi@sha256:2bc07e600a5498f32cfb326bbc08f38c264a98873de393fa652fa5cea905e44a",
+   "substrate-ateom-gvisor@sha256:98c1d8192079b0b8f8ec7c0cb8e6473b8cd250630bb6029667e974a2f4bd3c50 (patch c1bcc768: rollback only after the atelet call; superseded by 0291af52, which also covers dial and spec failures)"
+  ],
+  "tests": "kagent: 8 packages (-short -race); substrate: 24 packages (-race; ateom as root); all in the build, after the security bumps"
  },
  "superseded": {
   "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:9a26a3de9ad9ef9733e5d5e1ccc7ff7489232519ef0bcfbd69193d40da0d3123": "8223d257 (pre /api/a2a-sandboxes fix)",

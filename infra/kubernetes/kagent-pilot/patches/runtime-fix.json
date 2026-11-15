@@ -41,7 +41,7 @@
     "source": "https://codeload.github.com/kagent-dev/substrate/tar.gz/refs/tags/v0.0.9",
     "source_sha256": "e4337e88a7848c59ca2de2b696a2a8a97ecec97eca0531f221ef2f958321dc65",
     "patch": "substrate-0.0.9-resume-recovery.patch",
-    "patch_sha256": "c1bcc7682d9f792f0ab84371236ccc5a9140b24d19e9679fa649c265f0d1bc46",
+    "patch_sha256": "0291af52e52d818b552c3f453354523d916f506476bc6eeb86d48290993ef838",
     "images": {
       "substrate-ateapi": {
         "base": "ghcr.io/kagent-dev/substrate/ateapi@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85",

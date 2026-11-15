@@ -31,7 +31,7 @@ spec:
   # Patched v0.0.9 ateom (failed or cancelled activations tear their sandbox down; see
   # infra/kubernetes/kagent-pilot/patches/). Only this campaign pool uses it; kagent-pilot keeps
   # the release image.
-  ateomImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.c1bcc768@sha256:98c1d8192079b0b8f8ec7c0cb8e6473b8cd250630bb6029667e974a2f4bd3c50
+  ateomImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52@sha256:c1ddc0446b8ca1c017353c5a5a8336d4c8071d74d3f7472b351a4fd7f7aa7558
   # Two warm workers serve every session of both business Specialists (AGS-04).
   replicas: 2
   sandboxClass: gvisor

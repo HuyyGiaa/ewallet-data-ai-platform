@@ -110,7 +110,7 @@ def build(args: argparse.Namespace) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="runtime-fix-", dir=out))
     result = {"git_sha": git_sha, "spec_sha256": sha256(PATCHES / "runtime-fix.json"), "images": {}}
-    for name in ("kagent", "substrate"):
+    for name in args.only or ("kagent", "substrate"):
         component = spec[name]
         src = fetch_source(component, work, name)
         security_bumps(component, src, out, name)
@@ -156,6 +156,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", required=True)
     parser.add_argument("--skip-tests", action="store_true", help="only for re-builds of an already tested patch")
+    parser.add_argument("--only", nargs="+", choices=("kagent", "substrate"),
+                        help="rebuild only these components (an unchanged one keeps its pushed digest)")
     build(parser.parse_args())
     return 0
 

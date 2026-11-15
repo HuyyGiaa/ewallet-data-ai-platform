@@ -13,8 +13,10 @@ Resume pacing (kagent 0.10.3 defect, reproduced in docs/workplans/edai2/agent-pl
 resume-rca/): kagent suspends a session actor asynchronously after each turn, and EnsureSessionActor
 treats a SUSPENDING actor as needing no resume, so a follow-up sent during that window waits for
 RUNNING until it times out (120 s, "not reachable via atenet-router"). Before each follow-up the
-driver therefore waits, bounded, until /api/substrate/status reports the session's actor Suspended;
-``--no-settle`` sends immediately and reproduces the failure.
+driver therefore waits, bounded, until /api/substrate/status reports the session's actor Suspended.
+``--no-settle`` sends immediately (recording the actor status at send): against unmodified kagent it
+reproduces the failure; against the PKG-T session-turn patch it must pass. ``--burst N`` adds N
+concurrent messages on one context.
 
     python -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id <id>
 """
@@ -97,38 +99,58 @@ def recording(post: Post) -> tuple[Post, dict]:
     return wrapped, last
 
 
+def one_turn(post: Post, template: str, task_id: str, context: str, timeout: float) -> dict:
+    post, last = recording(post)
+    row = run_task(post, template, task_id, timeout=timeout, poll_timeout=timeout, poll_interval=2, context_id=context)
+    if row.get("state") == "rpc_error":
+        row["rpc_error_message"] = last.get("error")
+    return row
+
+
 def agent_sessions(post: Post, template: str, agent: str, run_id: str, *, contexts: int, messages: int,
                    timeout: float, emit: Emit, lock: threading.Lock, namespace: str = "ewallet-sandbox",
-                   settle: Callable[[str], tuple[bool, str | None, float]] | None = None) -> None:
-    post, last = recording(post)
+                   settle: Callable[[str], tuple[bool, str | None, float]] | None = None,
+                   observe: Callable[[str], str | None] | None = None, context_id: str | None = None,
+                   burst: int = 0) -> None:
+    def emit_row(row: dict) -> None:
+        with lock:
+            emit("LOAD_ROW " + json.dumps(row, sort_keys=True))
+
     for c in range(contexts):
-        context = f"{run_id}-{agent}-c{c}-{uuid.uuid4().hex[:6]}"
+        context = context_id or f"{run_id}-{agent}-c{c}-{uuid.uuid4().hex[:6]}"
         actor = session_actor_id(namespace, agent, context)
+        base = {"agent": agent, "context": context, "actor": actor}
+        stopped = False
         for m in range(messages):
             extra: dict[str, object] = {}
             if m > 0 and settle is not None:
                 settled, status, waited = settle(actor)
                 extra = {"settled_before_send": settled, "status_before_send": status, "settle_s": round(waited, 2)}
                 if not settled:
-                    row = {"id": f"{context}-m{m}", "state": "not_sent", "ok": False,
-                           "error": "previous suspend did not settle; follow-up not sent (would hit the kagent race)"}
-                    row.update({"agent": agent, "context": context, "actor": actor, "phase": "resume", **extra})
-                    with lock:
-                        emit("LOAD_ROW " + json.dumps(row, sort_keys=True))
+                    emit_row({"id": f"{context}-m{m}", "state": "not_sent", "ok": False, "phase": "resume", **base, **extra,
+                              "error": "previous suspend did not settle; follow-up not sent (would hit the kagent race)"})
+                    stopped = True
                     break
-            last["error"] = None
-            row = run_task(post, template, f"{context}-m{m}", timeout=timeout, poll_timeout=timeout, poll_interval=2,
-                           context_id=context)
-            if row.get("state") == "rpc_error":
-                row["rpc_error_message"] = last.get("error")
-            row.update({"agent": agent, "context": context, "actor": actor, "phase": "new" if m == 0 else "resume", **extra})
-            with lock:
-                emit("LOAD_ROW " + json.dumps(row, sort_keys=True))
+            elif m > 0 and observe is not None:
+                extra = {"status_at_send": observe(actor)}  # one read, no waiting: the server must cope
+            row = one_turn(post, template, f"{context}-m{m}", context, timeout)
+            emit_row({**row, **base, "phase": "new" if m == 0 else "resume", **extra})
+        if burst and not stopped:
+            # Concurrent requests on one contextId: the runtime must serialize them on one actor.
+            status = observe(actor) if observe is not None else None
+            threads = [threading.Thread(target=lambda b=b: emit_row({
+                **one_turn(post, template, f"{context}-b{b}", context, timeout), **base, "phase": "burst",
+                "status_at_send": status})) for b in range(burst)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
 
 
 def run(base: str, namespace: str, run_id: str, *, agents: Sequence[str], contexts: int, messages: int, timeout: float,
         root: Path, emit: Emit, make_post: Callable[[str, Mapping[str, str]], Post] = http_post,
-        settle: Callable[[str], tuple[bool, str | None, float]] | None = None) -> None:
+        settle: Callable[[str], tuple[bool, str | None, float]] | None = None,
+        observe: Callable[[str], str | None] | None = None, context_id: str | None = None, burst: int = 0) -> None:
     lock = threading.Lock()
     threads = []
     for agent in agents:
@@ -136,11 +158,22 @@ def run(base: str, namespace: str, run_id: str, *, agents: Sequence[str], contex
         template = (root / FIXTURES[agent]).read_text(encoding="utf-8")
         threads.append(threading.Thread(target=agent_sessions, args=(post, template, agent, run_id),
                                         kwargs={"contexts": contexts, "messages": messages, "timeout": timeout,
-                                                "emit": emit, "lock": lock, "namespace": namespace, "settle": settle}))
+                                                "emit": emit, "lock": lock, "namespace": namespace, "settle": settle,
+                                                "observe": observe, "context_id": context_id, "burst": burst}))
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
+
+
+def status_reader(fetch: Callable[[], Mapping[str, object]]) -> Callable[[str], str | None]:
+    def read(actor_id: str) -> str | None:
+        try:
+            data = fetch().get("data", {})
+        except Exception:  # noqa: BLE001 - observation only
+            return "unreadable"
+        return next((a.get("status") for a in data.get("actors", []) if a.get("actorId") == actor_id), "absent")
+    return read
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -153,23 +186,32 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--messages", type=int, default=2)
     parser.add_argument("--timeout", type=float, default=180)
     parser.add_argument("--settle-limit", type=float, default=60, help="max seconds to wait for the previous suspend")
-    parser.add_argument("--no-settle", action="store_true", help="send follow-ups at once (reproduces the kagent race)")
+    parser.add_argument("--no-settle", action="store_true",
+                        help="send follow-ups at once, recording the actor status at send (the runtime must cope)")
+    parser.add_argument("--context-id", help="reuse one known contextId (one agent, one context)")
+    parser.add_argument("--burst", type=int, default=0, help="then send N concurrent messages on the same context (0-4)")
     args = parser.parse_args(argv)
     if not args.url.startswith("http://127.0.0.1:"):
         parser.error("local port-forwards only: http://127.0.0.1:<port>")
     if not (1 <= args.contexts <= 10 and 1 <= args.messages <= 5):
         parser.error("bounded: 1-10 contexts and 1-5 messages per agent")
+    if not 0 <= args.burst <= 4:
+        parser.error("bounded: --burst 0-4")
     agents = [name for name in args.agents.split(",") if name]
     unknown = set(agents) - set(FIXTURES)
     if unknown:
         parser.error(f"unknown agents {sorted(unknown)}")
-    settle = None
-    if not args.no_settle:
-        fetch = status_fetch(args.url, args.namespace)
+    if args.context_id and (len(agents) != 1 or args.contexts != 1):
+        parser.error("--context-id needs exactly one agent and --contexts 1")
+    fetch = status_fetch(args.url, args.namespace)
+    settle = observe = None
+    if args.no_settle:
+        observe = status_reader(fetch)
+    else:
         settle = lambda actor: wait_settled(fetch, actor, limit=args.settle_limit)  # noqa: E731
     run(args.url, args.namespace, args.run_id, agents=agents, contexts=args.contexts, messages=args.messages,
         timeout=args.timeout, root=Path(__file__).resolve().parents[2], emit=lambda line: print(line, flush=True),
-        settle=settle)
+        settle=settle, observe=observe, context_id=args.context_id, burst=args.burst)
     return 0
 
 

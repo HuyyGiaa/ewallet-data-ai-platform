@@ -1,9 +1,9 @@
 diff --git a/cmd/ateapi/internal/controlapi/functional_recovery_test.go b/cmd/ateapi/internal/controlapi/functional_recovery_test.go
 new file mode 100644
-index 0000000..531c694
+index 0000000..7e80a8b
 --- /dev/null
 +++ b/cmd/ateapi/internal/controlapi/functional_recovery_test.go
-@@ -0,0 +1,224 @@
+@@ -0,0 +1,246 @@
 +// ewallet patch: failure-injection tests for resume cancellation and rollback. They run the real
 +// ActorWorkflow over gRPC against the package's envtest + miniredis + fake atelet harness.
 +
@@ -180,6 +180,28 @@ index 0000000..531c694
 +	}
 +}
 +
++// A failure before the atelet call (here: no atelet on the worker's node, so the dial fails)
++// happens after the worker was assigned and is rolled back too.
++func TestResumeActor_DialFailureRollsBack(t *testing.T) {
++	ns := namespaceForTest("ns-rec-dial")
++	tc := setupTest(t, ns)
++	defer tc.cleanup()
++	createTemplate(t, tc, ns)
++	createWorkerPod(t, tc, ns, "worker-far", "node-without-atelet", "pool1")
++	if _, err := tc.client.CreateActor(context.Background(), &ateapipb.CreateActorRequest{Actor: &ateapipb.Actor{
++		Metadata: &ateapipb.ResourceMetadata{Atespace: testAtespace, Name: "id1"}, ActorTemplateNamespace: ns, ActorTemplateName: "tmpl1",
++	}}); err != nil {
++		t.Fatalf("CreateActor: %v", err)
++	}
++	if err := resume(context.Background(), tc, "id1"); err == nil {
++		t.Fatal("expected the dial to fail")
++	}
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 2*time.Second)
++	if a.GetAteomPodName() != "" || workerAssignee(t, tc, ns, "worker-far") != "" {
++		t.Fatalf("dial failure left the worker claimed: actor on %q", a.GetAteomPodName())
++	}
++}
++
 +// A crash-classified restore error keeps upstream semantics: CRASHED, no rollback.
 +func TestResumeActor_CrashIsNotRolledBack(t *testing.T) {
 +	tc, _, cleanup := recoverySetup(t, "ns-rec-crash", "worker-1")
@@ -325,7 +347,7 @@ index 160be6c..4f18ec5 100644
  
  	heartbeatDone := make(chan struct{})
 diff --git a/cmd/ateapi/internal/controlapi/workflow_resume.go b/cmd/ateapi/internal/controlapi/workflow_resume.go
-index 992b275..7874c6b 100644
+index 992b275..48d5f12 100644
 --- a/cmd/ateapi/internal/controlapi/workflow_resume.go
 +++ b/cmd/ateapi/internal/controlapi/workflow_resume.go
 @@ -49,6 +49,11 @@ type ResumeInput struct {
@@ -334,8 +356,8 @@ index 992b275..7874c6b 100644
  	ActorTemplate *atev1alpha1.ActorTemplate
 +	// PriorStatus is the actor's status when this workflow loaded it.
 +	PriorStatus ateapipb.Actor_Status
-+	// RestoreFailed is set when the atelet Run/Restore call failed without crashing the actor:
-+	// the actor is RESUMING on a claimed worker and the workflow rolls it back (ewallet patch).
++	// RestoreFailed is set when CallAteletRestore failed without crashing the actor: the actor
++	// is RESUMING on a claimed worker and the workflow rolls it back (ewallet patch).
 +	RestoreFailed bool
  }
  
@@ -348,46 +370,27 @@ index 992b275..7874c6b 100644
  
  	actorTemplate, err := s.actorTemplateLister.ActorTemplates(actor.GetActorTemplateNamespace()).Get(actor.GetActorTemplateName())
  	if err != nil {
-@@ -299,7 +305,7 @@ func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput,
- 		}
- 
- 		_, err = client.Restore(ctx, req)
--		return maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while restoring workload")
-+		return restoreOutcome(state, maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while restoring workload"))
- 	} else if state.ActorTemplate.Status.GoldenSnapshot != "" && !input.Boot {
- 		slog.InfoContext(ctx, "Actor has no snapshot; ActorTemplate has golden snapshot; Restoring from golden snapshot")
- 
-@@ -321,7 +327,7 @@ func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput,
- 			Scope: toAteletSnapshotScope(state.ActorTemplate.Spec.SnapshotsConfig.OnCommit),
- 		}
- 		_, err = client.Restore(ctx, req)
--		return maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from golden snapshot")
-+		return restoreOutcome(state, maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from golden snapshot"))
- 	} else {
- 		slog.InfoContext(ctx, "Actor has no snapshot; ActorTemplate has no golden snapshot; Booting from ActorTemplate spec")
- 
-@@ -343,7 +349,7 @@ func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput,
- 			Spec:                   workloadSpec,
- 		}
- 		_, err = client.Run(ctx, req)
--		return maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from spec")
-+		return restoreOutcome(state, maybeCrashActor(ctx, s.store, input.Atespace, input.ActorName, err, "while creating workload from spec"))
- 	}
- 	// Unreachable
+@@ -254,7 +260,15 @@ func (s *CallAteletRestoreStep) Name() string { return "CallAteletRestore" }
+ func (s *CallAteletRestoreStep) IsComplete(ctx context.Context, input *ResumeInput, state *ResumeState) (bool, error) {
+ 	return state.Actor.GetStatus() == ateapipb.Actor_STATUS_RUNNING, nil
  }
-@@ -374,3 +380,74 @@ func (s *FinalizeRunningStep) Execute(ctx context.Context, input *ResumeInput, s
+-func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput, state *ResumeState) error {
++func (s *CallAteletRestoreStep) Execute(ctx context.Context, input *ResumeInput, state *ResumeState) (retErr error) {
++	// ewallet patch: this step runs after AssignWorker, so any failure here (dial, workload
++	// spec, Run/Restore) leaves the actor RESUMING on a claimed worker; mark it for rollback.
++	// A crash (codes.DataLoss from maybeCrashActor) already moved the actor to CRASHED.
++	defer func() {
++		if retErr != nil && status.Code(retErr) != codes.DataLoss {
++			state.RestoreFailed = true
++		}
++	}()
+ 	ateletConn, err := s.dialer.DialForWorker(state.Actor.GetAteomPodNamespace(), state.Actor.GetAteomPodName())
+ 	if err != nil {
+ 		return err
+@@ -374,3 +388,65 @@ func (s *FinalizeRunningStep) Execute(ctx context.Context, input *ResumeInput, s
  }
  
  func (s *FinalizeRunningStep) RetryBackoff() *wait.Backoff { return nil }
-+
-+// restoreOutcome records whether a failed Run/Restore left the actor for rollback. A crash
-+// (codes.DataLoss from maybeCrashActor) already moved the actor to CRASHED and is not rolled back.
-+func restoreOutcome(state *ResumeState, err error) error {
-+	if err != nil && status.Code(err) != codes.DataLoss {
-+		state.RestoreFailed = true
-+	}
-+	return err
-+}
 +
 +// resumeRollbackTimeout bounds the rollback writes; the workflow context may already be expired.
 +const resumeRollbackTimeout = 15 * time.Second

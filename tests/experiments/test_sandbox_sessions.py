@@ -132,3 +132,27 @@ def test_rpc_error_message_is_kept_on_the_row():
     (row,) = [json.loads(line[9:]) for line in lines]
     assert row["state"] == "rpc_error"
     assert row["rpc_error_message"] == "substrate worker pool has no free workers"
+
+
+def test_unpaced_follow_ups_record_the_status_at_send_and_bursts_share_the_context():
+    lines, seen = [], []
+
+    def make_post(url, headers):
+        def post(message, timeout):
+            seen.append(message["params"]["message"]["contextId"])
+            return {"result": {"id": message["id"], "status": {"state": "failed"}}}
+        return post
+
+    sessions.run("http://127.0.0.1:1", "ewallet-sandbox", "r1", agents=["drift-specialist"], contexts=1, messages=3,
+                 timeout=5, root=ROOT, emit=lines.append, make_post=make_post, observe=lambda actor: "Suspending",
+                 context_id="fixed-ctx", burst=2)
+    rows = [json.loads(line[9:]) for line in lines]
+    assert [r["phase"] for r in rows] == ["new", "resume", "resume", "burst", "burst"]
+    assert all(r.get("status_at_send") == "Suspending" for r in rows[1:])
+    assert set(seen) == {"fixed-ctx"} and len({r["actor"] for r in rows}) == 1
+
+
+@pytest.mark.parametrize("args", [["--burst", "5"], ["--context-id", "x"], ["--context-id", "x", "--agents", "drift-specialist", "--contexts", "2"]])
+def test_new_flags_are_bounded(args):
+    with pytest.raises(SystemExit):
+        sessions.main(["--url", "http://127.0.0.1:1", "--run-id", "r", *args])
