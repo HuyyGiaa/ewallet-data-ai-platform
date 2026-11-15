@@ -33,7 +33,7 @@ class SandboxDelegationTests(unittest.TestCase):
         policy = GatewayPolicy(sandbox_specialists=frozenset({"drift-specialist"}), sandbox_namespace="ewallet-sandbox")
         request = drift_request("wf-1.drift")
         call = policy.call_for(request)
-        self.assertEqual(call.url, "http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a/ewallet-sandbox/drift-specialist/")
+        self.assertEqual(call.url, "http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/")
         self.assertNotIn("x-kagent-host", call.headers)
         self.assertNotIn("x-user-id", {key.lower() for key in call.headers}, "the Gateway, not the client, sets X-User-Id")
         message = call.payload["params"]["message"]
@@ -138,7 +138,7 @@ class ChartTests(unittest.TestCase):
         routes = {route["name"]: route for route in config["routes"]}
         for agent in ("drift-specialist", "feature-rag-specialist"):
             route = routes[f"sandbox-{agent}"]
-            self.assertEqual(route["matches"][0]["path"]["pathPrefix"], f"/api/a2a/ewallet-sandbox/{agent}/")
+            self.assertEqual(route["matches"][0]["path"]["pathPrefix"], f"/api/a2a-sandboxes/ewallet-sandbox/{agent}/")
             self.assertIn("x-user-id", route["policies"]["requestHeaderModifier"]["remove"])
             self.assertEqual(route["policies"]["transformations"]["request"]["set"]["x-user-id"], '"service:fraud-coordinator"')
             self.assertEqual(route["policies"]["authorization"]["rules"], ["true"])

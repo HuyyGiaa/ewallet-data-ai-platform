@@ -217,7 +217,7 @@ routes:
 - name: sandbox-{{ $agent }}
   matches:
   - path:
-      pathPrefix: /api/a2a/{{ $sb.namespace }}/{{ $agent }}/
+      pathPrefix: /api/a2a-sandboxes/{{ $sb.namespace }}/{{ $agent }}/
   policies:
     a2a: {}
     timeout:

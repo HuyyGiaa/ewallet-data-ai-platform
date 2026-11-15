@@ -63,7 +63,7 @@
 | Reusable BYO implementations | The same three images and modules; no new runtime. `infra/kubernetes/agent-sandbox/arm-optimized.yaml.tmpl` and `scripts/experiments/render_sandbox.py` already render a BYO SandboxAgent. |
 | Do MCP and A2A connectivity survive? | MCP: same gateway route (`/feature-rag/mcp`, `/drift/mcp`) via `sandbox.network.allowedDomains`. Unproven: the ztunnel path for gVisor actors (open question S1), and admitting `cluster.local/ns/ewallet-sandbox/sa/default` ([`s1-access.yaml`](../../../infra/kubernetes/agent-sandbox/s1-access.yaml)). A2A: **broken without changes** (F14). |
 | ServiceAccounts, identities, Secrets | One identity per sandbox namespace (`default`, no token). Each Specialist needs its own MCP credential subject, a new entry in the MCP servers' token tables. The token lives in actor memory and therefore in golden and session snapshots. |
-| Can the Coordinator delegate to Sandbox-backed Specialists? | Only after source changes (section 6). A Coordinator→Specialist call must go to the A2A Gateway path `/api/a2a/ewallet-sandbox/<agent>/`, served by a new `kagent-a2a-sandbox` route. It must carry `contextId` (the member `request_id`) and `X-User-Id` (a fixed service user). The kagent controller then selects the session actor. |
+| Can the Coordinator delegate to Sandbox-backed Specialists? | Only after source changes (section 6). A Coordinator→Specialist call must go to the A2A Gateway path `/api/a2a-sandboxes/ewallet-sandbox/<agent>/`, served by a new `kagent-a2a-sandbox` route. It must carry `contextId` (the member `request_id`) and `X-User-Id` (a fixed service user). The kagent controller then selects the session actor. |
 | Does any change break AGI? | No, if the Sandbox route is a third topology switch (`agents.specialistRuntime: deployment` by default). AGI's BYO-Deployment profile is the fallback and the rollback. |
 
 Unresolved, runtime-only questions (from the [Sandbox README](../../../infra/kubernetes/agent-sandbox/README.md), not answerable from source):
@@ -195,7 +195,7 @@ Coordinator's sandbox route. The final report must say exactly that.
 ```text
 kagent UI → kagent controller → fraud-coordinator (BYO Deployment, ewallet-agents; KEDA in-flight, 2–3)
    fraud-coordinator → agentgateway → vLLM                                   (ModelConfig resolver)
-   fraud-coordinator → A2A Gateway /api/a2a/ewallet-sandbox/<agent>/ (contextId, X-User-Id) → kagent controller
+   fraud-coordinator → A2A Gateway /api/a2a-sandboxes/ewallet-sandbox/<agent>/ (contextId, X-User-Id) → kagent controller
         → atenet-router → session actor of feature-rag-specialist | drift-specialist (SandboxAgents, BYO, gVisor)
              on WorkerPool business-agents (ewallet-sandbox; KEDA 1–3 workers via the patched /scale)
         actor → MCP Gateway → feature-rag-mcp | drift-mcp (2 replicas each, client failover)
@@ -213,8 +213,8 @@ values switch.
 
 | # | Change | Files | Severity |
 |---|---|---|---|
-| S1 | Coordinator delegation to a configured runtime per Specialist. For `sandbox`: path `/api/a2a/<ns>/<agent>/`, `contextId` = member `request_id`, header `X-User-Id: <service user>`. `GatewayPolicy` keeps an exact allowlist of hosts, paths and namespaces | `programmatic_coordinator.py`, `byo_coordinator.py` (env), tests | P0 |
-| S2 | A2A Gateway route `kagent-a2a-sandbox` (path prefix `/api/a2a/ewallet-sandbox/`), admitted for the Coordinator only | `templates/policy-gateways.yaml`, values, tests | P0 |
+| S1 | Coordinator delegation to a configured runtime per Specialist. For `sandbox`: path `/api/a2a-sandboxes/<ns>/<agent>/`, `contextId` = member `request_id`, header `X-User-Id: <service user>`. `GatewayPolicy` keeps an exact allowlist of hosts, paths and namespaces | `programmatic_coordinator.py`, `byo_coordinator.py` (env), tests | P0 |
+| S2 | A2A Gateway route `kagent-a2a-sandbox` (path prefix `/api/a2a-sandboxes/ewallet-sandbox/`), admitted for the Coordinator only | `templates/policy-gateways.yaml`, values, tests | P0 |
 | S3 | Sandbox fleet chart: one shared WorkerPool and two BYO SandboxAgents rendered from the Specialists' existing values (`cmd`, port 80, env, dedicated MCP Secrets), plus NetworkPolicies; a separate release; replaces the one-pool-per-agent `agents.mode=sandbox` branch | new template or a dedicated `agi/sandbox.yaml`, `templates/agents.yaml` guard | P0 |
 | S4 | ScaledObject for the shared WorkerPool (trigger: Specialists' in-flight sum, or the router rate) **only with** `scaleSelector` set; a chart guard refuses WorkerPool scaling without it | `templates/autoscaling.yaml`, tests | P0 |
 | S5 | B′ CRD patch as a reviewed, idempotent JSON patch with a check-and-revert script (`kubectl get crd workerpools.ate.dev -o json` comparison) | `infra/kubernetes/substrate-scale/` (new), test | P0 (B′ only) |
@@ -288,3 +288,11 @@ B′, AGI-09–11 are repeated with the sandbox route (suffix `-sbx`).
    window, and its rollback.
 6. Approve the load budget for AGR-06, AGS-04 and AGS-07 on the shared vLLM.
 7. Approve the wake profile and node count for the campaign.
+
+## Erratum (2026-11-15, runtime)
+
+This audit originally gave the SandboxAgent A2A path as `/api/a2a/<ns>/<agent>/`. kagent
+0.10.3 registers SandboxAgents under `/api/a2a-sandboxes/<ns>/<name>`, with handler key
+`sandboxes/<ns>/<name>` (`go/core/internal/a2a/a2a_handler_mux.go` and `httpserver/server.go`).
+The old path returned `404 Agent ewallet-sandbox/<agent> not found` on GKE. The paths
+above, the Coordinator and the A2A Gateway routes now use `/api/a2a-sandboxes/`.

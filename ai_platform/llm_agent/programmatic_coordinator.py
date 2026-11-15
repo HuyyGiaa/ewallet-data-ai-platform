@@ -152,7 +152,8 @@ class GatewayPolicy:
     Deployment Specialists are reached through the Gateway's exact ``x-kagent-host``
     routes. Specialists named in ``sandbox_specialists`` run as kagent SandboxAgents
     (Substrate actors) and are reached through the Gateway's per-agent controller route
-    ``/api/a2a/<sandbox_namespace>/<agent>/``. kagent selects the session actor by the
+    ``/api/a2a-sandboxes/<sandbox_namespace>/<agent>/`` (kagent 0.10.3 serves SandboxAgents there,
+    not under ``/api/a2a/``). kagent selects the session actor by the
     message ``contextId``, which is the member ``request_id``, so a retried request
     resumes the same actor. The caller's ``X-User-Id`` is not sent from here: the
     Gateway sets it on that route, so a client cannot choose the principal.
@@ -194,7 +195,7 @@ class GatewayPolicy:
             message = payload["params"]["message"]  # type: ignore[index]
             message["contextId"] = request.request_id
             return GatewayCall(
-                url=f"{self.endpoint}api/a2a/{self.sandbox_namespace}/{request.target_agent}/",
+                url=f"{self.endpoint}api/a2a-sandboxes/{self.sandbox_namespace}/{request.target_agent}/",
                 headers={"content-type": "application/json"},
                 payload=payload,
                 timeout_seconds=self.timeout_seconds,
