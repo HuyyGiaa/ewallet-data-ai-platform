@@ -22,6 +22,9 @@
 #   p2-agents  llm-agent      AGI agents overlay + g3/keda.yaml + agi/keda.yaml (KEDA adopts the HPAs);
 #                             its rollback deletes the three ScaledObjects first, then rolls back
 #   p4-agents  llm-agent      Coordinator sandbox routes (a2aGateway.sandboxRoutes, sandboxSpecialists)
+#   img-mcp    llm-agent-mcp  image roll: the live values with MCP_IMAGE and its identity, nothing else
+#   img-agents llm-agent      image roll: the live values with the three BYO agent images, nothing else
+#                             (both after P2; a plain rollback restores the previous images)
 # Every command exits non-zero on the first failed check; a failed check never reaches a mutating command.
 # Checks and render arguments run in a fresh bash process (__check, __args): bash ignores `set -e` inside a
 # function called from an if/||/&& context, which would let a failing step report PASS.
@@ -44,7 +47,7 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
-PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents "
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents "
 SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
 KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
 # What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
@@ -75,8 +78,8 @@ hl() { "${HELM}" --kube-context "${CTX}" "$@"; }
 package_release() {   # the release a package changes; agi changes both, one per call
   case "${PACKAGE}" in
     agi) echo "$1" ;;
-    p1-mcp|s1-mcp) echo mcp ;;
-    s1-agents|p2-agents|p4-agents) echo agents ;;
+    p1-mcp|s1-mcp|img-mcp) echo mcp ;;
+    s1-agents|p2-agents|p4-agents|img-agents) echo agents ;;
   esac
 }
 
@@ -134,9 +137,9 @@ bad = [d["metadata"]["name"] for d in items
 print("unavailable:", bad)
 sys.exit(1 if bad or not items else 0)'
 }
-drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 runs after P2 made it BYO
+drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 and image rolls run after P2 made it BYO
   local want=Declarative
-  [[ "${PACKAGE}" == p4-agents ]] && want=BYO
+  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* ]] && want=BYO
   [[ "$(kc -n ewallet-agents get agents.kagent.dev drift-specialist -o jsonpath='{.spec.type}')" == "${want}" ]]
 }
 redis_databases() {
@@ -264,6 +267,24 @@ overlay_args() {   # prints one argument per line for this package's render of t
       printf '%s\n' -f "${PRIVATE}/llm-agent-mcp-values.yaml" -f "${CHART}/agi/mcp-sandbox-grants.yaml" \
         --set "mcpCredentialLifecycle.serverSet=${SANDBOX_SERVER_SET}"
       echo __END__ ;;
+    img-mcp:mcp)
+      need MCP_IMAGE
+      local image_rev
+      image_rev=$(image_sha) || exit 1
+      digest_ref "${MCP_IMAGE}" || die "MCP_IMAGE must be a digest-pinned Artifact Registry reference"
+      printf '%s\n' -f "${PRIVATE}/llm-agent-mcp-values.yaml" --set "mcpServices.image=${MCP_IMAGE}" \
+        --set "mcpServices.identity.imageDigest=${MCP_IMAGE#*@}" --set "mcpServices.identity.gitSha=${image_rev}"
+      echo __END__ ;;
+    img-agents:agents)
+      need COORDINATOR_IMAGE FEATURE_RAG_IMAGE DRIFT_IMAGE
+      local image; for image in "${COORDINATOR_IMAGE}" "${FEATURE_RAG_IMAGE}" "${DRIFT_IMAGE}"; do
+        digest_ref "${image}" || die "agent images must be digest-pinned Artifact Registry references"
+      done
+      printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" \
+        --set "agents.coordinator.byo.image=${COORDINATOR_IMAGE}" \
+        --set "agents.specialists.feature-rag-specialist.byo.image=${FEATURE_RAG_IMAGE}" \
+        --set "agents.specialists.drift-specialist.byo.image=${DRIFT_IMAGE}"
+      echo __END__ ;;
     s1-agents:agents)
       (cd "${ROOT}" && "${PYTHON}" -m ops.llm_agent.agi_packages append-flow sandbox-mcp-gateway \
         --values "${PRIVATE}/llm-agent-values.yaml" --out "${PRIVATE}/s1-agents-flows.yaml" > /dev/null) \
@@ -322,10 +343,12 @@ expected_identities() {
     --expect-added NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver)
   local agent
   case "${PACKAGE}:$1" in
-    agi:mcp|s1-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
+    agi:mcp|s1-mcp:mcp|img-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
     p1-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp \
                   --expect-added PodDisruptionBudget/ewallet-mcp/feature-rag-mcp ;;
     agi:agents) printf '%s\n' "${agi_agents[@]}" ;;
+    img-agents:agents) printf '%s\n' --expect-changed Agent/ewallet-agents/fraud-coordinator \
+                  --expect-changed Agent/ewallet-agents/feature-rag-specialist --expect-changed Agent/ewallet-agents/drift-specialist ;;
     p2-agents:agents) printf '%s\n' "${agi_agents[@]}" \
                   --expect-changed ConfigMap/ewallet-agents/otel-collector-config --expect-changed Deployment/ewallet-agents/otel-collector \
                   --expect-annotation-only Deployment/ewallet-agents/prometheus=checksum/observability-config \
@@ -355,6 +378,9 @@ gate() {   # read-only: fails before any mutating command can run
     --expect-identities "${identities[@]}" > "${EV}/stage1/${name}-diff.txt"
   hl upgrade "${name}" "${CHART}" -n "${namespace}" "${args[@]}" --dry-run=server > "${PRIVATE}/${name}-dry-run.txt"
   sha256sum "${PRIVATE}/${name}-on.yaml" | cut -d' ' -f1 > "${EV}/stage1/${name}-render-sha256.txt"
+  # <release>-diff.txt is the latest gate; the per-package copies keep every package's reviewed diff.
+  cp "${EV}/stage1/${name}-diff.txt" "${EV}/stage1/${name}-${PACKAGE}-diff.txt"
+  cp "${EV}/stage1/${name}-render-sha256.txt" "${EV}/stage1/${name}-${PACKAGE}-render-sha256.txt"
   log "GATE PASS ${name}: exact identities and server-side dry-run"
 }
 
@@ -493,6 +519,7 @@ main() {
     rollback) load; rollback "${2:?mcp|agents}" ;;
     __check) load; [[ "${CHECKS}" == *" ${2:-} "* ]] || die "unknown check ${2:-}"; "${@:2}" ;;
     __args) load; overlay_args "${2:?mcp|agents}" ;;
+    __identities) load; expected_identities "${2:?mcp|agents}" ;;   # read-only: the gate's expected changes
     *) sed -n '2,15p' "$0"; exit 2 ;;
   esac
 }

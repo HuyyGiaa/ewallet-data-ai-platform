@@ -407,6 +407,45 @@ class CampaignGateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("REAL-UPGRADE llm-agent", self.calls())
 
+    def test_image_rolls_render_the_live_values_and_the_images_only(self):
+        self.preflight(AGI_PACKAGE="img-agents", FAKE_DRIFT_TYPE="BYO")
+        cases = {
+            ("img-mcp", "mcp"): ("llm-agent-mcp-values.yaml", ["mcpServices.image=", "mcpServices.identity.imageDigest=",
+                                                                "mcpServices.identity.gitSha="]),
+            ("img-agents", "agents"): ("llm-agent-values.yaml", ["agents.coordinator.byo.image=",
+                                                                  "agents.specialists.feature-rag-specialist.byo.image=",
+                                                                  "agents.specialists.drift-specialist.byo.image="]),
+        }
+        for (package, which), (values, sets) in cases.items():
+            with self.subTest(package):
+                result, args = self.args_for(package, which)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(args[-1], "__END__")
+                files = [args[i + 1] for i, arg in enumerate(args) if arg == "-f"]
+                self.assertEqual([Path(item).name for item in files], [values], "no overlay beyond the live values")
+                assigned = sorted(args[i + 1].split("=")[0] + "=" for i, arg in enumerate(args) if arg == "--set")
+                self.assertEqual(assigned, sorted(sets))
+        self.assertNotEqual(self.run_script("__args", "agents", AGI_PACKAGE="img-mcp").returncode, 0,
+                            "img-mcp does not change the agents release")
+
+    def test_image_rolls_expect_only_the_image_bearing_objects(self):
+        cases = {
+            ("img-mcp", "mcp"): ["Deployment/ewallet-mcp/drift-mcp", "Deployment/ewallet-mcp/feature-rag-mcp"],
+            ("img-agents", "agents"): ["Agent/ewallet-agents/drift-specialist", "Agent/ewallet-agents/feature-rag-specialist",
+                                       "Agent/ewallet-agents/fraud-coordinator"],
+        }
+        for (package, which), objects in cases.items():
+            with self.subTest(package):
+                result = self.run_script("__identities", which, AGI_PACKAGE=package)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                args = result.stdout.split()
+                self.assertEqual(sorted(args[i + 1] for i, arg in enumerate(args) if arg == "--expect-changed"), objects)
+                self.assertFalse([arg for arg in args if arg in ("--expect-added", "--expect-removed")])
+
+    def test_image_roll_preflight_expects_the_byo_drift_specialist(self):
+        self.assertNotEqual(self.run_script("preflight", AGI_PACKAGE="img-agents").returncode, 0)
+        self.assertEqual(self.run_script("preflight", AGI_PACKAGE="img-agents", FAKE_DRIFT_TYPE="BYO").returncode, 0)
+
     def test_p4_preflight_expects_the_byo_drift_specialist(self):
         result = self.run_script("preflight", AGI_PACKAGE="p4-agents")
         self.assertNotEqual(result.returncode, 0, "drift-specialist is still Declarative")

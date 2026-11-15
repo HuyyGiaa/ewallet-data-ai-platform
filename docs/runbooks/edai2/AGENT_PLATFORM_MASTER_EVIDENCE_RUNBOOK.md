@@ -464,6 +464,31 @@ AGI_APPROVAL=P4-AGENTS:$CAMPAIGN AGI_PACKAGE=p4-agents scripts/llm_agent/agi_cam
 Then repeat AGI-09–11 in kagent UI. Record them as AGI-09-sbx to AGI-11-sbx, with the
 sandbox actor IDs from `/api/substrate/status`.
 
+### 2.7 Image roll after P2 (`img-mcp`, `img-agents`)
+
+Use these when a code fix changes an image input after the packages are live. Example: the
+AGR-06 fix in `ai_platform/llm_agent/gateway_backoff.py`.
+
+1. Rebuild all four images from the fix commit.
+2. Set `SHA`, `IMAGE_SHA` and the four image references in the campaign env.
+3. Roll MCP first, then the agents:
+
+```bash
+AGI_PACKAGE=img-mcp scripts/llm_agent/agi_campaign.sh preflight            # expects the BYO drift-specialist
+AGI_PACKAGE=img-mcp scripts/llm_agent/agi_campaign.sh gate mcp              # only the 2 MCP Deployments change
+AGI_APPROVAL=IMG-MCP:$CAMPAIGN AGI_PACKAGE=img-mcp scripts/llm_agent/agi_campaign.sh upgrade mcp
+AGI_PACKAGE=img-agents scripts/llm_agent/agi_campaign.sh preflight
+AGI_PACKAGE=img-agents scripts/llm_agent/agi_campaign.sh gate agents        # only the 3 Agents change
+AGI_APPROVAL=IMG-AGENTS:$CAMPAIGN AGI_PACKAGE=img-agents scripts/llm_agent/agi_campaign.sh upgrade agents
+```
+
+- The render is the live values plus the image references, and nothing else, so no
+  package's configuration changes.
+- `<release>-<package>-diff.txt` keeps each package's reviewed diff. `<release>-diff.txt`
+  is the latest gate.
+- **Rollback:** `IMG-AGENTS-ROLLBACK`, then `IMG-MCP-ROLLBACK`. A plain Helm rollback to
+  the preflight revision restores the previous images.
+
 ## 3. PKG-C: MCP experiment capacity
 
 The MCP experiment pods must avoid `ewallet.io/g3-llm` nodes, which are reserved for vLLM
