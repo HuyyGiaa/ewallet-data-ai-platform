@@ -59,14 +59,16 @@ def rate_limited_delay(
     """Return the wait after refused attempt number ``attempt`` (one-based).
 
     Exponential from ``base_seconds``, capped at ``max_seconds``, with equal jitter (between
-    half and all of the step). A server ``Retry-After`` replaces the step, still capped.
+    half and all of the step). A server ``Retry-After`` is a floor under the step, still capped:
+    agentgateway sends ``retryAfterSeconds: 0`` whenever its bucket refills within the second,
+    and taking that literally sent every refused caller straight back into the empty bucket.
     """
 
     if attempt < 1:
         raise ValueError("attempt is one-based")
     if base_seconds < 0 or max_seconds < base_seconds:
         raise ValueError("backoff delays are invalid")
+    step = min(base_seconds * 2 ** (attempt - 1), max_seconds) * (0.5 + 0.5 * rand())
     if retry_after is not None:
-        return min(max(retry_after, 0.0), max_seconds)
-    step = min(base_seconds * 2 ** (attempt - 1), max_seconds)
-    return step * (0.5 + 0.5 * rand())
+        step = max(step, retry_after)
+    return min(step, max_seconds)

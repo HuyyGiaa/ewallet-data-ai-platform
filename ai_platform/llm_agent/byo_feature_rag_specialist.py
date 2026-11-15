@@ -55,6 +55,7 @@ from ai_platform.llm_agent.byo_mcp import (
     SessionFactory,
     TokenReader,
     environment_token as _environment_token,
+    gateway_shed,
     official_session as _official_session,
     validate_gateway_route,
 )
@@ -194,6 +195,14 @@ def _validated_citations(envelope: MCPEnvelope, request: G3BusinessRequest) -> l
     return [dict(item) for item in envelope.citations]
 
 
+def _own_failure(error: BaseException) -> "FeatureRagFailure | None":
+    """Return the single FeatureRagFailure the session body raised, if the SDK only wrapped it."""
+
+    while isinstance(error, BaseExceptionGroup) and len(error.exceptions) == 1:
+        error = error.exceptions[0]
+    return error if isinstance(error, FeatureRagFailure) else None
+
+
 class FeatureRagMCPClient:
     """Bounded official MCP client for the one approved Specialist route."""
 
@@ -261,6 +270,7 @@ class FeatureRagMCPClient:
                     citations: list[dict[str, object]] = []
                     for tool in request.requested_tools:
                         response = await session.call_tool(tool, _tool_arguments(request, tool))
+                        gateway_shed(response)
                         if response.is_error:
                             raise FeatureRagFailure("mcp_tool_failed", "MCP tool returned an error")
                         envelope = _parse_envelope(
@@ -279,6 +289,11 @@ class FeatureRagMCPClient:
         except FeatureRagFailure:
             raise
         except Exception as exc:
+            # The SDK's task groups wrap what the session body raised: keep this Specialist's own verdict
+            # (mcp_tool_failed, invalid result) instead of reporting it as a transport failure.
+            own = _own_failure(exc)
+            if own is not None:
+                raise own from exc
             raise FeatureRagFailure("mcp_transport_error", "MCP Gateway session failed") from exc
 
         return SpecialistEvidence(

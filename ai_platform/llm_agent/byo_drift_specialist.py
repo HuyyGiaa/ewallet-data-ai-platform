@@ -48,6 +48,7 @@ from ai_platform.llm_agent.byo_mcp import (
     SessionFactory,
     TokenReader,
     environment_token,
+    gateway_shed,
     official_session,
     validate_gateway_route,
 )
@@ -196,6 +197,7 @@ class DriftMCPClient:
                     if {item.name for item in discovered.tools} != APPROVED_TOOLS:
                         raise DriftSpecialistFailure("mcp_tool_missing", "MCP tool inventory is not the approved allowlist")
                     response = await session.call_tool("drift_detection", request.tool_arguments())
+                    gateway_shed(response)
             except DriftSpecialistFailure:
                 raise
             except TimeoutError as exc:

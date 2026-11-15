@@ -8,9 +8,11 @@ Secret and W3C trace propagation. Each Specialist validates the shared
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable, Mapping
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 import os
+import re
 from typing import Protocol
 from urllib.parse import urlparse
 
@@ -19,12 +21,23 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.exceptions import MCPError
 
-from ai_platform.llm_agent.gateway_backoff import retry_after_seconds
-from ai_platform.llm_agent.mcp_failover import GatewayStatusError
+from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, rate_limited_delay, retry_after_seconds
+from ai_platform.llm_agent.mcp_failover import READ_ONLY_TOOLS, GatewayStatusError
 from pydantic import BaseModel, ConfigDict, Field
 
 MCP_GATEWAY_HOST = "mcp-gateway.ewallet-agents.svc"
 MCP_GATEWAY_PORT = 8080
+
+# agentgateway's MCP rate limit answers inside the protocol as well as with HTTP 429 (observed on GKE,
+# AGR-06): initialize/list get JSON-RPC error -32003 "rate limit exceeded" with data.retryAfterSeconds in
+# an HTTP 200; tools/call gets a CallToolResult with isError and exactly this text. In both the gateway
+# answered and no MCP server ran anything.
+GATEWAY_RATE_LIMIT_CODE = -32003
+_GATEWAY_SHED_TEXT = re.compile(r"rate limit exceeded \(retry after (\d+)s; limit \d+, remaining \d+\)")
+# Repeats of one shed request inside its session; a repeat reaches only the gateway's token bucket.
+SHED_ATTEMPTS = 6
+SHED_BASE_DELAY_SECONDS = 0.25
+SHED_MAX_DELAY_SECONDS = 2.0
 
 
 class MCPEnvelope(BaseModel):
@@ -72,15 +85,118 @@ async def official_session(
         try:
             async with streamable_http_client(endpoint, http_client=client) as (read, write):
                 async with ClientSession(read, write) as session:
-                    yield session
+                    yield SheddingAwareSession(session, failed)
         except Exception as error:
+            shed = _gateway_rate_limit_error(error)
+            if shed is not None:
+                raise GatewayStatusError(429, shed) from error
             if failed and _sdk_status_error(error):
                 raise GatewayStatusError(*failed[0]) from error
             raise
 
 
+class SheddingAwareSession:
+    """An MCP session that repeats a request the MCP Gateway shed, without reopening the session.
+
+    Only the shed request is sent again: the gateway answered it and no server ran it. Reopening the
+    whole session for one refusal (initialize, notification, list, every tool, DELETE) spent about
+    eight gateway tokens per retry and kept the bucket empty (GKE AGR-06). Only read-only tools are
+    repeated. The caller's overall deadline still bounds every wait.
+    """
+
+    def __init__(self, session: ClientSession, failed: list[tuple[int, float | None]],
+                 sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None:
+        self._session, self._failed, self._sleep = session, failed, sleep
+        self.shed_repeats = 0
+
+    async def initialize(self):
+        return await self._repeat(self._session.initialize)
+
+    async def list_tools(self):
+        return await self._repeat(self._session.list_tools)
+
+    async def call_tool(self, name: str, arguments: dict[str, object]):
+        if name not in READ_ONLY_TOOLS:
+            return await self._session.call_tool(name, arguments)
+        return await self._repeat(lambda: self._session.call_tool(name, arguments), tool=True)
+
+    async def _repeat(self, send: Callable[[], Awaitable[object]], *, tool: bool = False):
+        for attempt in range(1, SHED_ATTEMPTS + 1):
+            before = len(self._failed)
+            try:
+                result = await send()
+            except MCPError as error:
+                retry_after = _request_shed(error, self._failed[before:])
+                if retry_after is None or attempt == SHED_ATTEMPTS:
+                    raise
+            else:
+                retry_after = _tool_shed(result) if tool else None
+                if retry_after is None:
+                    return result
+                if attempt == SHED_ATTEMPTS:
+                    raise GatewayStatusError(RATE_LIMITED, retry_after)
+            self.shed_repeats += 1
+            await self._sleep(rate_limited_delay(attempt, base_seconds=SHED_BASE_DELAY_SECONDS,
+                                                 max_seconds=SHED_MAX_DELAY_SECONDS, retry_after=retry_after))
+        raise AssertionError("the loop always returns or raises")
+
+
+def _request_shed(error: MCPError, statuses: list[tuple[int, float | None]]) -> float | None:
+    """Retry-After of a shed request: the in-protocol -32003, or an HTTP 429 seen for this request."""
+
+    in_protocol = _gateway_rate_limit_error(error)
+    if in_protocol is not None:
+        return in_protocol
+    for status, retry_after in statuses:
+        if status == RATE_LIMITED:
+            return retry_after if retry_after is not None else 0.0
+    return None
+
+
+def _tool_shed(result: object) -> float | None:
+    try:
+        gateway_shed(result)
+    except GatewayStatusError as shed:
+        return shed.retry_after
+    return None
+
+
+def gateway_shed(result: object) -> None:
+    """Raise GatewayStatusError(429) when a tools/call result is the MCP Gateway's rate limit.
+
+    Called before a Specialist treats ``isError`` as the tool's own failure: the gateway answered,
+    the tool never ran, so the call may be repeated like any other shed request.
+    """
+
+    if not getattr(result, "is_error", False) or getattr(result, "structured_content", None) is not None:
+        return
+    texts = [getattr(item, "text", "") for item in getattr(result, "content", None) or []]
+    if len(texts) == 1:
+        match = _GATEWAY_SHED_TEXT.fullmatch(texts[0].strip())
+        if match:
+            raise GatewayStatusError(429, float(match.group(1)))
+
+
+def _gateway_rate_limit_error(error: BaseException) -> float | None:
+    """Return Retry-After seconds when ``error`` holds the gateway's JSON-RPC rate-limit error."""
+
+    for item in _walk(error):
+        if isinstance(item, MCPError) and item.error.code == GATEWAY_RATE_LIMIT_CODE \
+                and item.error.message.startswith("rate limit exceeded"):
+            data = item.error.data if isinstance(item.error.data, dict) else {}
+            seconds = data.get("retryAfterSeconds", 0)
+            return float(seconds) if isinstance(seconds, (int, float)) and 0 <= seconds <= 60 else 0.0
+    return None
+
+
 def _sdk_status_error(error: BaseException) -> bool:
     """Whether the SDK's stand-in for a non-2xx HTTP answer is anywhere in ``error``."""
+
+    return any(isinstance(item, MCPError) for item in _walk(error))
+
+
+def _walk(error: BaseException):
+    """Yield ``error``, the members of exception groups and linked causes, once each."""
 
     pending, seen = [error], set()
     while pending:
@@ -88,14 +204,12 @@ def _sdk_status_error(error: BaseException) -> bool:
         if id(item) in seen:
             continue
         seen.add(id(item))
-        if isinstance(item, MCPError):
-            return True
+        yield item
         if isinstance(item, BaseExceptionGroup):
             pending.extend(item.exceptions)
         for linked in (item.__cause__, item.__context__):
             if linked is not None:
                 pending.append(linked)
-    return False
 
 
 def environment_token() -> str:

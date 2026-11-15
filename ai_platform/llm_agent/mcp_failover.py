@@ -74,15 +74,16 @@ class FailoverPolicy:
         max_delay_seconds: Longest single wait after a 5xx or a lost connection.
         rate_limited_max_delay_seconds: Longest single wait after a 429; these waits are
             jittered and honour Retry-After.
-        rate_limited_max_attempts: Total attempts while the gateway sheds with 429, when
-            retry is on at all (``max_attempts`` > 1). A shed request reached no server.
+        rate_limited_max_attempts: Total session attempts after a 429 that survived the
+            session's own repeats of the shed request (byo_mcp.SheddingAwareSession), when retry
+            is on at all (``max_attempts`` > 1).
     """
 
     max_attempts: int = 3
     base_delay_seconds: float = 0.25
     max_delay_seconds: float = 1.0
     rate_limited_max_delay_seconds: float = 2.0
-    rate_limited_max_attempts: int = 6
+    rate_limited_max_attempts: int = 3
 
     def __post_init__(self) -> None:
         if not 1 <= self.max_attempts <= 5:
