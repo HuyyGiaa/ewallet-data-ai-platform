@@ -400,26 +400,31 @@ kubectl --context "$CTX" auth can-i --list --as=system:serviceaccount:ewallet-sa
 
 ### AGS-04 — Many sessions of both agents on two workers `[EXPERIMENT]`
 
+kagent 0.10.3 serves SandboxAgents under `/api/a2a-sandboxes/<ns>/<name>`. The
+`/api/a2a/` path returns 404 for them.
+
 ```bash
 python3 -m ops.experiments.substrate_fleet record --url http://127.0.0.1:18383 --namespace ewallet-sandbox \
   --out "$EV/ags/AGS-04-status.jsonl" --interval 2 --duration 600 &
-for agent in feature-rag-specialist drift-specialist; do
-  fixture=configs/experiments/fixtures/agent-load-request.json
-  [ "$agent" = drift-specialist ] && fixture=configs/experiments/fixtures/agent-load-drift-request.json
-  python3 -m ops.experiments.sandbox_client --url "http://127.0.0.1:18383/api/a2a/ewallet-sandbox/$agent/" \
-    --fixture "$fixture" --run-id "$CAMPAIGN-$agent" --tasks 6 > "$EV/ags/AGS-04-$agent.log" &
-done
+python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$CAMPAIGN" \
+  --contexts 4 --messages 2 > "$EV/ags/AGS-04-sessions.log"            # both agents in parallel
 wait
 python3 -m ops.experiments.substrate_fleet summarize "$EV/ags/AGS-04-status.jsonl" | tee "$EV/ags/AGS-04-summary.json"
+kubectl --context "$CTX" -n ewallet-sandbox get actortemplate -o 'jsonpath={range .items[*]}{.status.goldenActorID}{"\n"}{end}' \
+  > "$EV/ags/golden-ids.txt"   # exclude these when you count sharing: golden actors are not sessions
 ```
 
 - **PASS only if:**
-  - the verdict is `SHARED_WORKERS_OBSERVED`, meaning one worker pod hosted actors of
-    both agents;
-  - every actor ran in `business-agents`;
-  - all 12 sessions reached a terminal state.
-- Without PKG-S1 the tasks end in a recorded tool denial. That proves assignment and
-  reuse, not tool results; say so.
+  - the verdict is `SHARED_WORKERS_OBSERVED`;
+  - with the golden actor IDs excluded, each worker hosted session actors of both agents;
+  - every actor ran in `business-agents`.
+- **2026-11-15 result (`agi-20261115T064905Z`):**
+  - 14 session actors on 2 workers; each worker hosted 3 distinct session actors of
+    both agents, at most 1 at a time.
+  - The `new` tasks ended `failed` with `mcp_transport_error`: the MCP Gateway is held at
+    0 by the profile, and S1 is not deployed.
+  - Every `resume` failed after 120 s with `session actor … not reachable via
+    atenet-router`, so resumption is **not** demonstrated yet.
 - **Screenshot:** `AGS-04_actor_worker_assignment.png`. **Row:** 27.
 
 ### AGS-05 — Cold against warm start, from the AGS-04 `LOAD_ROW` phases

@@ -1,0 +1,15 @@
+{
+  "nodes": 0,
+  "pvc_gib": 73,
+  "gcs_gib": 3442.3,
+  "estimate_usd_per_hour": {
+    "nodes": 0.0,
+    "node_external_ips": 0.0,
+    "node_boot_disks": 0.0,
+    "pvc_disks": 0.011,
+    "gcs": 0.0943,
+    "artifact_registry": 0.0019,
+    "total_excluding_cluster_fee": 0.1072,
+    "cluster_fee_before_free_tier": 0.1
+  }
+}

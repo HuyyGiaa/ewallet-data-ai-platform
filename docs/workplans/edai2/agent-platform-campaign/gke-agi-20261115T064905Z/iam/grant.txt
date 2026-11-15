@@ -1,0 +1,2 @@
+Updated IAM policy for repository [ewallet-platform].
+PKG-R-IAM grant PASS: other bindings unchanged

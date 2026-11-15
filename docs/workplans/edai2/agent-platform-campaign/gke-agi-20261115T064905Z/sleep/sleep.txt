@@ -1,0 +1,2 @@
+EXECUTE: gcloud container clusters resize ewallet-dev --project ewallet-data-ai-platform-hg26 --location asia-southeast1-b --node-pool cpu-pool --num-nodes=0 --quiet
+sleep exit=0

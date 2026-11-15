@@ -1,0 +1,9 @@
+namespace	kind	name	owner_label	image_digest	limits	lifetime	cleanup
+-	Namespace	ewallet-sandbox	ewallet.io/experiment=true (namespace)	-	-	persistent	kept (holds PKG-K RBAC)
+ewallet-sandbox	ServiceAccount	default	ewallet.io/experiment=true (namespace)	-	-	this campaign	kept (holds PKG-K RBAC)
+ewallet-sandbox	WorkerPool	business-agents	ewallet.io/experiment=true (namespace)	ateom-gvisor v0.0.9 pinned	2 workers x req {'cpu': '500m', 'memory': '1Gi'} lim {'cpu': '1500m', 'memory': '2Gi'}	this campaign	kubectl -n ewallet-sandbox delete workerpool business-agents
+ewallet-sandbox	ServiceAccount	sandbox-feature-rag	ewallet.io/experiment=true, ewallet.io/campaign=agi-20261115T064905Z	-	-	this campaign	kubectl delete -f fleet.yaml
+ewallet-sandbox	ServiceAccount	sandbox-drift	ewallet.io/experiment=true, ewallet.io/campaign=agi-20261115T064905Z	-	-	this campaign	kubectl delete -f fleet.yaml
+ewallet-sandbox	SandboxAgent	feature-rag-specialist	ewallet.io/experiment=true, ewallet.io/campaign=agi-20261115T064905Z	sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6	req {'cpu': '100m', 'memory': '256Mi'} lim {'cpu': '500m', 'memory': '512Mi'}	this campaign	kubectl delete -f fleet.yaml
+ewallet-sandbox	SandboxAgent	drift-specialist	ewallet.io/experiment=true, ewallet.io/campaign=agi-20261115T064905Z	sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6	req {'cpu': '100m', 'memory': '256Mi'} lim {'cpu': '500m', 'memory': '512Mi'}	this campaign	kubectl delete -f fleet.yaml
+ewallet-sandbox	Secret	mcp-token-sandbox-feature-rag-feature-rag-mcp-s0, mcp-token-sandbox-drift-drift-mcp-s0	ewallet.io/campaign=agi-20261115T064905Z	-	random placeholder (no MCP server trusts it)	this campaign	kubectl -n ewallet-sandbox delete secret -l ewallet.io/campaign=agi-20261115T064905Z

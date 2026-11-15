@@ -1,0 +1,2 @@
+state: failed
+message: {"code":"mcp_transport_error","message":"MCP Gateway session failed","specialist_revision":"drift-specialist/byo-v1","status":"error"}

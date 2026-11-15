@@ -1,0 +1,6 @@
+EXECUTE: kubectl --kubeconfig ~/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ml-platform scale deployment fraud-api --replicas=0
+EXECUTE: gcloud container clusters resize ewallet-dev --project ewallet-data-ai-platform-hg26 --location asia-southeast1-b --node-pool cpu-pool --num-nodes=3 --quiet
+EXECUTE: kubectl --kubeconfig ~/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label node/gke-ewallet-dev-cpu-pool-58daed59-7jp6 ewallet.io/g3-llm=true --overwrite
+EXECUTE: kubectl --kubeconfig ~/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label node/gke-ewallet-dev-cpu-pool-58daed59-p4p5 ewallet.io/g3-llm=true --overwrite
+EXECUTE: kubectl --kubeconfig ~/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label node/gke-ewallet-dev-cpu-pool-58daed59-vf9k ewallet.io/g3-llm=true --overwrite
+exit=0

@@ -1,0 +1,1 @@
+PKG-R-IAM present: roles/artifactregistry.reader for principal://iam.googleapis.com/projects/198818809719/locations/global/workloadIdentityPools/ewallet-data-ai-platform-hg26.svc.id.goog/subject/ns/ate-system/sa/atelet on ewallet-platform

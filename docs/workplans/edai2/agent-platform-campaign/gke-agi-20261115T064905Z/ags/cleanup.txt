@@ -1,0 +1,8 @@
+serviceaccount "sandbox-feature-rag" deleted from ewallet-sandbox namespace
+serviceaccount "sandbox-drift" deleted from ewallet-sandbox namespace
+sandboxagent.kagent.dev "feature-rag-specialist" deleted from ewallet-sandbox namespace
+sandboxagent.kagent.dev "drift-specialist" deleted from ewallet-sandbox namespace
+sandboxagents+templates left: 0
+secret "mcp-token-sandbox-drift-drift-mcp-s0" deleted from ewallet-sandbox namespace
+secret "mcp-token-sandbox-feature-rag-feature-rag-mcp-s0" deleted from ewallet-sandbox namespace
+workerpool.ate.dev "business-agents" deleted from ewallet-sandbox namespace

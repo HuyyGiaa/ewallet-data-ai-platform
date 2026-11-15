@@ -1,0 +1,2 @@
+business-agents-deployment-d8466f4b5-fsfxk 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-p4p5
+business-agents-deployment-d8466f4b5-hsnv2 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-p4p5

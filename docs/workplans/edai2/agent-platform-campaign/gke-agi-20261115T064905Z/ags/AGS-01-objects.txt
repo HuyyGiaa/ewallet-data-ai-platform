@@ -1,0 +1,10 @@
+NAME                                 DESIRED   REPLICAS   AGE
+workerpool.ate.dev/business-agents   2         2          9m
+
+NAME                                             READY   ACCEPTED
+sandboxagent.kagent.dev/drift-specialist         True    True
+sandboxagent.kagent.dev/feature-rag-specialist   True    True
+
+NAME                                                            CLASS
+actortemplate.ate.dev/drift-specialist-401c441e274e8282         gvisor
+actortemplate.ate.dev/feature-rag-specialist-1a5eced93b036890   gvisor

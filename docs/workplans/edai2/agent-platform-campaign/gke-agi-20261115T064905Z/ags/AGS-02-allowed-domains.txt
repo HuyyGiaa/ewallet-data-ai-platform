@@ -1,0 +1,2 @@
+drift-specialist allowedDomains=["mcp-gateway.ewallet-agents.svc","mcp-gateway.ewallet-agents.svc.cluster.local","kagent-controller.kagent","otel-collector.ewallet-agents.svc.cluster.local"]
+feature-rag-specialist allowedDomains=["mcp-gateway.ewallet-agents.svc","mcp-gateway.ewallet-agents.svc.cluster.local","kagent-controller.kagent","otel-collector.ewallet-agents.svc.cluster.local"]

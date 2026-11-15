@@ -3,7 +3,33 @@
   "campaign": "agi-20261115T054518Z",
   "atespace": "ate-golden",
   "actors": [
-    {"id": "2255d97b-5d88-4905-88f0-5e4fe3eb9294", "template_namespace": "ewallet-sandbox", "template": "feature-rag-specialist-d26fd1d56ae4610e"},
-    {"id": "bc026273-b99f-4f45-b752-d8ca51214290", "template_namespace": "ewallet-sandbox", "template": "drift-specialist-c19e7ad633a54bfd"}
-  ]
+    {
+      "id": "2255d97b-5d88-4905-88f0-5e4fe3eb9294",
+      "template_namespace": "ewallet-sandbox",
+      "template": "feature-rag-specialist-d26fd1d56ae4610e"
+    },
+    {
+      "id": "bc026273-b99f-4f45-b752-d8ca51214290",
+      "template_namespace": "ewallet-sandbox",
+      "template": "drift-specialist-c19e7ad633a54bfd"
+    },
+    {
+      "id": "e6933bf2-3e47-4a1d-ba21-6b49ed6b7cb6",
+      "template_namespace": "ewallet-sandbox",
+      "template": "feature-rag-specialist-1a5eced93b036890",
+      "campaign": "agi-20261115T064905Z",
+      "note": "has a golden snapshot (in-cluster RustFS); placeholder credentials only"
+    }
+  ],
+  "session_actors_not_in_scope": {
+    "atespace": "ewallet-sandbox",
+    "campaign": "agi-20261115T064905Z",
+    "ids": [
+      "asr-50a70b7106227032703af136",
+      "asr-7c8331d0ccba4ebfa3fd3326",
+      "asr-7ff7308a610c6ca260eee136",
+      "asr-f120bea4bb9d1de063818865"
+    ],
+    "why": "kagent removed 11 of 15 session actors when the SandboxAgents were deleted; these 4 (feature-rag, Suspended, no pod) remained. substrate_golden_residue.sh covers ate-golden only."
+  }
 }

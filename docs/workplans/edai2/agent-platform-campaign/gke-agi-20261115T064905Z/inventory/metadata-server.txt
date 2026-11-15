@@ -1,0 +1,3 @@
+gke-metadata-server-5jfj5 Running gke-ewallet-dev-cpu-pool-58daed59-p4p5
+gke-metadata-server-9sv97 Running gke-ewallet-dev-cpu-pool-58daed59-7jp6
+gke-metadata-server-rpzx7 Running gke-ewallet-dev-cpu-pool-58daed59-vf9k

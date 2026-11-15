@@ -1,0 +1,118 @@
+# Agent fleet: both business Specialists as BYO SandboxAgents on the ONE shared warm
+# WorkerPool `business-agents` (namespace.yaml). kagent 0.10.3 gives every SandboxAgent
+# an ActorTemplate with workerSelector kagent.dev/worker-pool=business-agents, and one
+# actor per A2A session (contextId) that is suspended after each response, so sessions
+# of both agents take turns on the same warm workers.
+# Rendered by scripts/experiments/render_sandbox.py fleet, which fills the image digest
+# and the campaign. Secret values are never in Git (README.md, "MCP token").
+# Typed path only: no LLM credential, no natural-language intake.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-feature-rag
+  namespace: ewallet-sandbox
+  labels: {ewallet.io/experiment: "true", ewallet.io/campaign: agi-20261115T064905Z}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-drift
+  namespace: ewallet-sandbox
+  labels: {ewallet.io/experiment: "true", ewallet.io/campaign: agi-20261115T064905Z}
+automountServiceAccountToken: false
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: feature-rag-specialist
+  namespace: ewallet-sandbox
+  labels: {ewallet.io/experiment: "true", ewallet.io/campaign: agi-20261115T064905Z, ewallet.io/agent: feature-rag-specialist}
+spec:
+  description: Fraud Investigation / Evidence specialist (sandbox, shared WorkerPool)
+  version: 1.1.0
+  type: BYO
+  byo:
+    deployment:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6
+      imagePullPolicy: IfNotPresent
+      cmd: /opt/venv/bin/python
+      args: [-m, ai_platform.llm_agent.byo_feature_rag_specialist]
+      serviceAccountName: sandbox-feature-rag
+      env:
+        - {name: EWALLET_AGENT_PORT, value: "80"}
+        - {name: PYTHONPATH, value: /workspace}
+        - {name: PATH, value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin}
+        - {name: PYTHONUNBUFFERED, value: "1"}
+        - {name: EWALLET_NL_INTAKE_ENABLED, value: "false"}
+        - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+        - {name: OTEL_TRACING_ENABLED, value: "true"}
+        - {name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
+        - {name: OTEL_EXPORTER_OTLP_TRACES_INSECURE, value: "true"}
+        - {name: EWALLET_OTEL_METRICS_ENABLED, value: "true"}
+        - {name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
+        - name: EWALLET_MCP_SERVICE_TOKEN
+          valueFrom: {secretKeyRef: {name: mcp-token-sandbox-feature-rag-feature-rag-mcp-s0, key: token}}
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: 500m, memory: 512Mi}
+      podSecurityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+  substrate:
+    workerPoolRef: {apiGroup: ate.dev, kind: WorkerPool, name: business-agents}
+    snapshotsConfig:
+      location: gs://ate-snapshots/ewallet-sandbox/agi-20261115T064905Z/feature-rag-specialist/
+  sandbox:
+    network:
+      allowedDomains:
+        - mcp-gateway.ewallet-agents.svc
+        - mcp-gateway.ewallet-agents.svc.cluster.local
+        - kagent-controller.kagent
+        - otel-collector.ewallet-agents.svc.cluster.local
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: drift-specialist
+  namespace: ewallet-sandbox
+  labels: {ewallet.io/experiment: "true", ewallet.io/campaign: agi-20261115T064905Z, ewallet.io/agent: drift-specialist}
+spec:
+  description: Feature drift specialist (sandbox, shared WorkerPool)
+  version: 1.1.0
+  type: BYO
+  byo:
+    deployment:
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6
+      imagePullPolicy: IfNotPresent
+      cmd: /opt/venv/bin/python
+      args: [-m, ai_platform.llm_agent.byo_drift_specialist]
+      serviceAccountName: sandbox-drift
+      env:
+        - {name: EWALLET_AGENT_PORT, value: "80"}
+        - {name: PYTHONPATH, value: /workspace}
+        - {name: PATH, value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin}
+        - {name: PYTHONUNBUFFERED, value: "1"}
+        - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+        - {name: OTEL_TRACING_ENABLED, value: "true"}
+        - {name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
+        - {name: OTEL_EXPORTER_OTLP_TRACES_INSECURE, value: "true"}
+        - {name: EWALLET_OTEL_METRICS_ENABLED, value: "true"}
+        - {name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
+        - name: EWALLET_MCP_SERVICE_TOKEN
+          valueFrom: {secretKeyRef: {name: mcp-token-sandbox-drift-drift-mcp-s0, key: token}}
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: 500m, memory: 512Mi}
+      podSecurityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+  substrate:
+    workerPoolRef: {apiGroup: ate.dev, kind: WorkerPool, name: business-agents}
+    snapshotsConfig:
+      location: gs://ate-snapshots/ewallet-sandbox/agi-20261115T064905Z/drift-specialist/
+  sandbox:
+    network:
+      allowedDomains:
+        - mcp-gateway.ewallet-agents.svc
+        - mcp-gateway.ewallet-agents.svc.cluster.local
+        - kagent-controller.kagent
+        - otel-collector.ewallet-agents.svc.cluster.local

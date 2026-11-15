@@ -1,0 +1,51 @@
+{
+  "actors": [
+    {
+      "actorTemplateName": "drift-specialist-c19e7ad633a54bfd",
+      "actorTemplateNamespace": "ewallet-sandbox",
+      "ateomPodUid": "aef7fa16-e622-464c-a799-99d7b1182138",
+      "metadata": {
+        "atespace": "ate-golden",
+        "createTime": "2026-11-15T05:57:55.066170061Z",
+        "name": "bc026273-b99f-4f45-b752-d8ca51214290",
+        "uid": "731d5976-3ea2-42de-ad4f-fdf250c4ca30",
+        "updateTime": "2026-11-15T06:16:25.766053216Z",
+        "version": "20"
+      },
+      "status": "STATUS_SUSPENDED"
+    },
+    {
+      "actorTemplateName": "feature-rag-specialist-d26fd1d56ae4610e",
+      "actorTemplateNamespace": "ewallet-sandbox",
+      "ateomPodUid": "4dd37cb2-e23a-42f2-95b3-488fe0ec2f9b",
+      "metadata": {
+        "atespace": "ate-golden",
+        "createTime": "2026-11-15T05:57:46.170014181Z",
+        "name": "2255d97b-5d88-4905-88f0-5e4fe3eb9294",
+        "uid": "5e91485d-9836-4af9-aa0e-6b36d30f66ce",
+        "updateTime": "2026-11-15T06:16:25.771012148Z",
+        "version": "20"
+      },
+      "status": "STATUS_SUSPENDED"
+    },
+    {
+      "actorTemplateName": "pilot-sandbox-agent-6f000f880e9fe909",
+      "actorTemplateNamespace": "kagent-pilot",
+      "ateomPodUid": "89aa3f70-94d3-4a3c-bc72-c0c804a87b6c",
+      "latestSnapshotInfo": {
+        "external": {
+          "snapshotUriPrefix": "gs://ate-snapshots/kagent/pilot-sandbox-agent/ac51ec9a-9527-4eac-a3b6-bbbd31790bf1/2026-11-02T12:39:14Z-K5NNDDFTD2BZM776GLPOSATR6U"
+        }
+      },
+      "metadata": {
+        "atespace": "ate-golden",
+        "createTime": "2026-11-02T12:38:54.570066853Z",
+        "name": "ac51ec9a-9527-4eac-a3b6-bbbd31790bf1",
+        "uid": "ac2b2d08-73a0-48b3-b813-67eef750eeac",
+        "updateTime": "2026-11-02T12:39:14.821199473Z",
+        "version": "5"
+      },
+      "status": "STATUS_SUSPENDED"
+    }
+  ]
+}

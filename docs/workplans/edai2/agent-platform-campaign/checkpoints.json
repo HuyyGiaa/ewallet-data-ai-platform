@@ -65,8 +65,8 @@
     {
       "id": "CP4",
       "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)",
-      "status": "BLOCKED",
-      "blocker": "PKG-K deployed; S0 blocked by the atelet Artifact Registry pull (PKG-R: Substrate value + one IAM read grant)",
+      "status": "GKE_TESTED (S0)",
+      "blocker": "resume of suspended session actors fails via atenet-router; business tools need PKG-S1",
       "evidence": [
         "gke-agi-20261114t221240z/kagent-watch-namespaces.txt"
       ]
@@ -316,6 +316,63 @@
       "tool": "scripts/llm_agent/substrate_golden_residue.sh (list read-only; delete via ate-api DeleteActor)",
       "client": "kubectl-ate v0.0.9 built offline by scripts/llm_agent/build_kubectl_ate.sh (sha256 f65ab2f7...)",
       "status": "APPROVAL_PENDING (GOLDEN-RESIDUE:<context>); list needs a running ate-api (next wake)"
+    }
+  },
+  "pkg_r_stage": {
+    "campaign": "agi-20261115T064905Z",
+    "approval": "owner 2026-11-15: PKG-R-IAM, PKG-R, agent-sandbox wake (max 3 nodes), S0; residue read-only",
+    "iam": {
+      "status": "GKE_TESTED, kept",
+      "binding": "roles/artifactregistry.reader on ewallet-platform for WI principal ns/ate-system/sa/atelet",
+      "others_unchanged": true,
+      "evidence": [
+        "gke-agi-20261115T064905Z/iam/"
+      ]
+    },
+    "pkg_r": {
+      "status": "GKE_TESTED, kept",
+      "helm_revision": "2 -> 3",
+      "identity_before": "PASS (lookup render)",
+      "diff": "atelet args[0] only",
+      "server_dry_run": "PASS",
+      "identity_after": "live == reviewed candidate",
+      "atelet": "3/3 rolled out, 0 restarts, no authenticator error",
+      "pilot": "pilot SandboxAgent and ActorTemplate Ready after the change",
+      "evidence": [
+        "gke-agi-20261115T064905Z/pkg/"
+      ]
+    },
+    "private_pull": {
+      "status": "PASS",
+      "detail": "both business ActorTemplates Ready with golden snapshots (07:08Z); 0 pull/DENIED/Unauthenticated errors; 32 transient Unavailable dial errors 07:00-07:04 while atelets/workers restarted"
+    },
+    "s0": {
+      "AGS-01": "GKE_TESTED: 2 SandboxAgents Accepted+Ready, 2 templates Ready with golden snapshots on WorkerPool business-agents, 2 warm gVisor workers Ready",
+      "AGS-02": "PARTIAL: gvisor class, default SA without token and discovery-only RBAC, allowedDomains set; no NetworkPolicy in ewallet-sandbox and no egress probe run, so network isolation is not verified",
+      "AGS-04": "SHARED_WORKERS_OBSERVED for session actors (golden excluded): 14 session actors, 2 workers, each worker hosted 3 distinct session actors of both agents, at most 1 at a time; suspension observed; resumption NOT demonstrated: every resume failed after 120 s, 'session actor not reachable via atenet-router: context deadline exceeded'",
+      "business_tools": "not executed: tasks failed with mcp_transport_error (MCP Gateway held at 0 by the profile; S1 not deployed)",
+      "evidence": [
+        "gke-agi-20261115T064905Z/ags/"
+      ]
+    },
+    "defect_fixed": "SandboxAgent A2A path is /api/a2a-sandboxes/<ns>/<name> in kagent 0.10.3; /api/a2a/ returned 404. Coordinator, A2A Gateway sandbox routes, runbook and tests fixed; ai_platform changed, so images must be rebuilt (PKG-0) before P1/P2/P4",
+    "residue": {
+      "ate-golden (ewallet-sandbox templates)": 3,
+      "ewallet-sandbox session actors": 4,
+      "deletion": "not authorized; listed in golden-residue.json",
+      "evidence": [
+        "gke-agi-20261115T064905Z/residue/"
+      ]
+    },
+    "cloud": {
+      "nodes": {
+        "initial": 0,
+        "peak": 3,
+        "final": 0
+      },
+      "awake": "06:51:18Z..07:47:20Z",
+      "cost_usd": "~0.50",
+      "sleep": "SLEEP_VERIFIED (plain sleep)"
     }
   }
 }

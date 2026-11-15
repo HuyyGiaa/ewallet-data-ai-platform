@@ -1,0 +1,2 @@
+message 0: 21.3s state=failed error=null
+message 1: 120.5s state=None error={"code": -32603, "message": "failed to send HTTP request: Post \"http://drift-specialist.ewallet-sandbox:8080\": substrate session actor \"asr-ewallet-sandbox-drift-specialist-resume-probe-c2b991b5\" not reachable via atenet-router: context deadline exceeded", "data": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo", "domain": "a2a-protocol.org", "metadata": {"timestamp": "2026-11-15T07:37:54

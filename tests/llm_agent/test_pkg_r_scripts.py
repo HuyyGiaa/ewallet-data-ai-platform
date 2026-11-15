@@ -320,7 +320,7 @@ class GoldenResidueTests(Fakes):
         self.actors()
         result = self.run_script(RESIDUE, "list", str(self.REVIEWED))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.count("DELETABLE"), 2)
+        self.assertEqual(result.stdout.count("DELETABLE"), len(json.loads(self.REVIEWED.read_text())["actors"]))
         self.assertNotIn("delete actor", self.calls())
 
     def test_delete_needs_approval_and_removes_only_reviewed_actors(self):

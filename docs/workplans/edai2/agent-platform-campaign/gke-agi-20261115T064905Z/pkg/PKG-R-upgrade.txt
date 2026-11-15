@@ -1,0 +1,7 @@
+2026-11-15T06:56:00Z identity: ServiceAccount ate-system/atelet, no hostNetwork, no GSA binding, pool ewallet-data-ai-platform-hg26.svc.id.goog, cpu-pool GKE_METADATA
+2026-11-15T06:56:06Z preflight PASS: ate-system/substrate revision 2, identity PASS (lookup render)
+2026-11-15T06:56:17Z runtime: PKG-R-IAM binding present; gke-metadata-server Running on every atelet node
+2026-11-15T06:56:20Z diff PASS: {"added":[],"changed":[["DaemonSet","ate-system","atelet"]],"paths":["spec.template.spec.containers[0].args[0]"]}CANDIDATEPASS
+2026-11-15T06:57:13Z dry-run PASS (server-side)
+2026-11-15T06:57:13Z upgrade: upgrade substrate <private>/pkg-r/substrate/chart/substrate-0.0.9.tgz -n ate-system --reuse-values -f ~/Develop/ewallet-data-ai-platform/infra/kubernetes/kagent-pilot/values/substrate-ar-pull-overlay.yaml (from revision 2)
+2026-11-15T06:58:54Z verify PASS: args[0] --gcp-auth-for-image-pulls=true; atelet rolled out, restarts: atelet-2b5s6=0 atelet-zdgz7=0 atelet-zg2t4=0 

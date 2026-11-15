@@ -1,0 +1,4 @@
+NAME                                     STATUS   ROLES    AGE     VERSION               G3-LLM   GKE-METADATA-SERVER-ENABLED
+gke-ewallet-dev-cpu-pool-58daed59-7jp6   Ready    <none>   3m18s   v1.36.4-gke.2377000   true     true
+gke-ewallet-dev-cpu-pool-58daed59-p4p5   Ready    <none>   3m20s   v1.36.4-gke.2377000   true     true
+gke-ewallet-dev-cpu-pool-58daed59-vf9k   Ready    <none>   3m23s   v1.36.4-gke.2377000   true     true

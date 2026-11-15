@@ -1,0 +1,1 @@
+roles/artifactregistry.writer serviceAccount:ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com

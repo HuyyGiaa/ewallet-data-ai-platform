@@ -1,0 +1,2 @@
+roles/artifactregistry.reader principal://iam.googleapis.com/projects/198818809719/locations/global/workloadIdentityPools/ewallet-data-ai-platform-hg26.svc.id.goog/subject/ns/ate-system/sa/atelet
+roles/artifactregistry.writer serviceAccount:ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com

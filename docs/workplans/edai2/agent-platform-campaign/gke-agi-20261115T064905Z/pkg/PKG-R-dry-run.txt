@@ -1,0 +1,4 @@
+2026-11-15T06:54:54Z identity: ServiceAccount ate-system/atelet, no hostNetwork, no GSA binding, pool ewallet-data-ai-platform-hg26.svc.id.goog, cpu-pool GKE_METADATA
+2026-11-15T06:54:59Z preflight PASS: ate-system/substrate revision 2, identity PASS (lookup render)
+2026-11-15T06:55:01Z diff PASS: {"added":[],"changed":[["DaemonSet","ate-system","atelet"]],"paths":["spec.template.spec.containers[0].args[0]"]}CANDIDATEPASS
+2026-11-15T06:55:53Z dry-run PASS (server-side)

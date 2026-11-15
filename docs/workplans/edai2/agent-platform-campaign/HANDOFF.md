@@ -162,3 +162,49 @@ Approvals needed, one at a time:
 2. `PKG_R_APPROVAL=PKG-R:<context>`.
 3. The `agent-sandbox` wake on 3 nodes.
 4. Optionally `RESIDUE_APPROVAL=GOLDEN-RESIDUE:<context>`.
+
+## Stage PKG-R and Sandbox S0 (`agi-20261115T064905Z`, evidence in `gke-agi-20261115T064905Z/`)
+
+- **PKG-R-IAM: kept.** One `roles/artifactregistry.reader` binding on `ewallet-platform`
+  for `ns/ate-system/sa/atelet`. The only other binding (Cloud Build writer) is unchanged.
+- **PKG-R: `substrate` 2 → 3, kept.**
+  - Identity PASS (lookup render); diff atelet `args[0]` only; server-side dry-run PASS.
+  - After the upgrade, the live release equals the reviewed candidate.
+  - 3/3 atelets rolled out with 0 restarts. A failed token request at start-up would
+    have been fatal, so this shows Workload Identity works. The pilot is still Ready.
+- **Private actor image pulls: PASS.** Both ActorTemplates reached Ready with golden
+  snapshots at 07:08Z. There were 0 pull, DENIED or Unauthenticated errors. The 32
+  transient `Unavailable` dial errors (07:00–07:04) came while atelets and workers
+  restarted.
+- **AGS-01:** both SandboxAgents `Accepted` and `Ready`, both templates Ready on
+  `business-agents`, 2 warm gVisor workers.
+- **AGS-02:** partial. gVisor; `default` SA with no token and discovery-only RBAC;
+  `allowedDomains` set. There is no NetworkPolicy in `ewallet-sandbox` and no egress probe
+  was run, so network isolation is not verified.
+- **AGS-04: `SHARED_WORKERS_OBSERVED`, golden actors excluded.**
+  - 14 session actors on 2 workers. Each worker hosted 3 distinct session actors of both
+    agents, at most 1 at a time.
+  - Suspension was observed.
+  - **Resumption failed:** `session actor … not reachable via atenet-router: context deadline
+    exceeded` after 120 s, on every resume.
+  - Business tool calls failed with `mcp_transport_error`: the MCP Gateway is held at 0
+    by the profile, and S1 is not deployed.
+- **Defect found and fixed:** kagent serves SandboxAgents at
+  `/api/a2a-sandboxes/<ns>/<name>`, and `/api/a2a/` returned 404. The Coordinator, the
+  Gateway routes, the runbook and the tests are fixed.
+  - `ai_platform` changed, so **the four images must be rebuilt (PKG-0) before P1, P2
+    or P4**.
+- **Residue (not deleted, `golden-residue.json`):** 3 golden actors in `ate-golden`
+  (2 old, 1 new) and 4 session actors in `ewallet-sandbox`. All Suspended, none with a pod.
+- **Cloud:** 0 → 3 → 0 nodes, about $0.50; plain sleep, `SLEEP_VERIFIED`.
+
+### Owner screenshot views (rerun with the same sequence, runbook section 2.3a)
+
+```bash
+scripts/llm_agent/substrate_pull_iam.sh plan                                          # IAM binding
+kubectl -n ate-system get ds atelet -o jsonpath='{.spec.template.spec.containers[0].args[0]}'; kubectl -n ate-system get pods -l app=atelet
+kubectl -n ewallet-sandbox get workerpool,sandboxagent,actortemplate -o wide            # AGS-01_shared_workerpool.png
+kubectl -n ewallet-sandbox get actortemplate -o jsonpath='{range .items[*]}{.metadata.name} {.status.phase} {.status.goldenSnapshot}{"\n"}{end}'
+kubectl -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o custom-columns=POD:.metadata.name,SA:.spec.serviceAccountName,IMAGE:.spec.containers[0].image   # AGS-02
+python3 -m ops.experiments.substrate_fleet summarize "$EV/ags/AGS-04-status.jsonl"     # AGS-04_actor_worker_assignment.png
+```

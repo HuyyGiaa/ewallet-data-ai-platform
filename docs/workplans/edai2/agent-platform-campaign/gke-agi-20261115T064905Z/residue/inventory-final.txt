@@ -1,0 +1,7 @@
+ate-golden bc026273-b99f-4f45-b752-d8ca51214290 STATUS_SUSPENDED pod=False snapshot=False drift-specialist-c19e7ad633a54bfd (2026-11-15 S0 residue)
+ate-golden e6933bf2-3e47-4a1d-ba21-6b49ed6b7cb6 STATUS_SUSPENDED pod=False snapshot=True feature-rag-specialist-1a5eced93b036890 (this campaign)
+ate-golden 2255d97b-5d88-4905-88f0-5e4fe3eb9294 STATUS_SUSPENDED pod=False snapshot=False feature-rag-specialist-d26fd1d56ae4610e (2026-11-15 S0 residue)
+ewallet-sandbox asr-50a70b7106227032703af136 STATUS_SUSPENDED pod=False snapshot=True feature-rag-specialist-1a5eced93b036890 (this campaign)
+ewallet-sandbox asr-7c8331d0ccba4ebfa3fd3326 STATUS_SUSPENDED pod=False snapshot=True feature-rag-specialist-1a5eced93b036890 (this campaign)
+ewallet-sandbox asr-7ff7308a610c6ca260eee136 STATUS_SUSPENDED pod=False snapshot=False feature-rag-specialist-1a5eced93b036890 (this campaign)
+ewallet-sandbox asr-f120bea4bb9d1de063818865 STATUS_SUSPENDED pod=False snapshot=True feature-rag-specialist-1a5eced93b036890 (this campaign)

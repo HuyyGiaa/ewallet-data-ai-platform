@@ -1,0 +1,15 @@
+golden actors excluded: ['e6933bf2-3e47-4a1d-ba21-6b49ed6b7cb6', 'eedc59e0-2c23-4d02-abba-1c75a4802ea6']
+session actors observed: 14
+business-agents-deployment-d8466f4b5-fsfxk {'feature-rag-specialist': 2, 'drift-specialist': 1} -> distinct session actors on this worker: 3
+business-agents-deployment-d8466f4b5-hsnv2 {'drift-specialist': 2, 'feature-rag-specialist': 1} -> distinct session actors on this worker: 3
+workers that hosted session actors of BOTH agents: ['business-agents-deployment-d8466f4b5-hsnv2', 'business-agents-deployment-d8466f4b5-fsfxk']
+status transitions seen per actor (sample): {'asr-4dd4': ['Suspended'], 'asr-57fd': ['Suspended'], 'asr-6375': ['Suspended'], 'asr-c5b9': ['Suspended'], 'asr-cc85': ['Suspended'], 'asr-cccd': ['Suspended']}
+max actors on a worker at the same instant: 1
+workers in pool: ['business-agents-deployment-d8466f4b5-fsfxk', 'business-agents-deployment-d8466f4b5-hsnv2']
+task featu resume rpc_error 120528 
+task drift resume rpc_error 120582 
+task featu resume rpc_error 120527 
+task drift resume rpc_error 120602 
+task featu resume rpc_error 120526 
+task drift resume rpc_error 120500 
+task featu new rpc_error 30617 
