@@ -68,12 +68,22 @@ def plan(text: str, llm: LLM):
 
 
 class RoutingTests(unittest.TestCase):
-    def test_offers_both_tools_in_one_llm_call(self):
-        llm = LLM(completion((DRIFT_TOOL_NAME, DRIFT_ARGUMENTS)))
-        plan(DRIFT_TEXT, llm)
-        body = json.loads(llm.requests[0].content)
-        self.assertEqual([tool["function"]["name"] for tool in body["tools"]], [TOOL_NAME, DRIFT_TOOL_NAME])
-        self.assertEqual(len(llm.requests), 1)
+    def test_offers_only_the_tools_the_question_scopes_in_one_llm_call(self):
+        # The deterministic screen fixes the scope; the LLM extracts arguments (GKE: the CPU model, offered
+        # both tools for a fraud-only question, picked drift 3/3).
+        cases = {
+            "fraud": (PROMPT, completion((TOOL_NAME, CAPTURED_ARGUMENTS)), [TOOL_NAME]),
+            "drift": (DRIFT_TEXT, completion((DRIFT_TOOL_NAME, DRIFT_ARGUMENTS)), [DRIFT_TOOL_NAME]),
+            "combined": (COMBINED_TEXT, completion((TOOL_NAME, CAPTURED_ARGUMENTS), (DRIFT_TOOL_NAME, DRIFT_ARGUMENTS)),
+                         [TOOL_NAME, DRIFT_TOOL_NAME]),
+        }
+        for label, (text, body, offered) in cases.items():
+            llm = LLM(body)
+            with self.subTest(label):
+                plan(text, llm)
+                sent = json.loads(llm.requests[0].content)
+                self.assertEqual([tool["function"]["name"] for tool in sent["tools"]], offered)
+                self.assertEqual(len(llm.requests), 1)
 
     def test_fraud_question_builds_the_unchanged_fraud_request(self):
         result = plan(PROMPT, LLM(completion((TOOL_NAME, CAPTURED_ARGUMENTS))))
@@ -138,10 +148,14 @@ class RejectionTests(unittest.TestCase):
                 plan(DRIFT_TEXT, LLM(completion((DRIFT_TOOL_NAME, dict(DRIFT_ARGUMENTS, **{field: value})))))
             self.assertEqual(caught.exception.code, "ungrounded_argument")
 
-    def test_drift_selection_without_a_drift_question_is_ungrounded(self):
+    def test_drift_selection_without_a_drift_question_is_refused(self):
+        # Drift is not offered for a fraud-only question; a model that calls it anyway still fails closed.
         with self.assertRaises(IntakeFailure) as caught:
             plan(PROMPT, LLM(completion((TOOL_NAME, CAPTURED_ARGUMENTS), (DRIFT_TOOL_NAME, DRIFT_ARGUMENTS))))
-        self.assertEqual(caught.exception.code, "ungrounded_argument")
+        self.assertEqual(caught.exception.code, "multiple_tool_calls")
+        with self.assertRaises(IntakeFailure) as caught:  # what the GKE CPU model returned
+            plan(PROMPT, LLM(completion((DRIFT_TOOL_NAME, {"feature_name": "payment"}))))
+        self.assertEqual(caught.exception.code, "unauthorized_tool")
 
     def test_unbounded_or_unknown_tool_calls_fail_closed(self):
         cases = {

@@ -11,7 +11,7 @@ unchanged deterministic Coordinator path; no business value comes from the LLM.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 import hashlib
@@ -237,21 +237,32 @@ class OpenAIToolPlanner:
         """Without an experiment every conversation uses this planner."""
         return self
 
-    def _body(self, text: str) -> dict[str, object]:
+    def _offered(self, tools: Collection[str] | None) -> tuple[Mapping[str, object], ...]:
+        """The granted tools, or the subset ``tools`` of them that this request may use."""
+
+        if tools is None:
+            return self._tools
+        names = frozenset(tools)
+        if not names or not names <= self._tool_names:
+            raise ValueError("offered tools must be a non-empty subset of the granted tools")
+        return tuple(tool for tool in self._tools if tool["function"]["name"] in names)  # type: ignore[index]
+
+    def _body(self, text: str, tools: tuple[Mapping[str, object], ...] | None = None) -> dict[str, object]:
         return {
             "model": self._model,
             "temperature": self._temperature,
             "max_tokens": self._max_tokens,
             "stream": False,
             "tool_choice": "auto",
-            "tools": list(self._tools),
+            "tools": list(self._tools if tools is None else tools),
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": text},
             ],
         }
 
-    async def _complete(self, text: str) -> tuple[dict, dict, list, dict, httpx.Response]:
+    async def _complete(self, text: str, tools: tuple[Mapping[str, object], ...] | None = None,
+                        ) -> tuple[dict, dict, list, dict, httpx.Response]:
         key = self._key_reader().strip()
         if not key:
             raise IntakeFailure("llm_credential_unavailable", "Coordinator LLM credential is unavailable")
@@ -261,7 +272,7 @@ class OpenAIToolPlanner:
             async with httpx.AsyncClient(
                 timeout=self._timeout, follow_redirects=False, transport=self._transport,
             ) as client:
-                response = await client.post(self._url, headers=headers, json=self._body(text))
+                response = await client.post(self._url, headers=headers, json=self._body(text, tools))
         except httpx.TimeoutException as exc:
             raise IntakeFailure("llm_timeout", "LLM tool selection exceeded its deadline") from exc
         except httpx.HTTPError as exc:
@@ -319,13 +330,22 @@ class OpenAIToolPlanner:
             raise IntakeFailure("multiple_tool_calls", "LLM selected more than one tool")
         return self._selection(calls[0], payload, choice, usage, response)
 
-    async def select_many(self, text: str) -> MultiSelection:
-        """One LLM call; at most ``max_tool_calls`` selections, each tool at most once."""
+    async def select_many(self, text: str, tools: Collection[str] | None = None) -> MultiSelection:
+        """One LLM call; at most ``max_tool_calls`` selections, each tool at most once.
 
-        payload, choice, calls, usage, response = await self._complete(text)
-        if len(calls) > self._max_tool_calls:
+        ``tools`` narrows the offer to the tools this request's deterministic screen allows: the LLM
+        then extracts arguments for a scope it no longer chooses. On GKE the CPU model, offered both
+        workflow tools for a fraud-only question, selected drift 3/3 and was (correctly) rejected.
+        """
+
+        offered = self._offered(tools)
+        offered_names = frozenset(tool["function"]["name"] for tool in offered)  # type: ignore[index]
+        payload, choice, calls, usage, response = await self._complete(text, offered)
+        if len(calls) > min(self._max_tool_calls, len(offered)):
             raise IntakeFailure("multiple_tool_calls", "LLM selected more tools than the Coordinator allows")
         selections = tuple(self._selection(call, payload, choice, usage, response) for call in calls)
+        if any(item.name not in offered_names for item in selections):
+            raise IntakeFailure("unauthorized_tool", "LLM selected a tool that this request does not offer")
         if len({item.name for item in selections}) != len(selections):
             raise IntakeFailure("multiple_tool_calls", "LLM selected the same tool more than once")
         return MultiSelection(

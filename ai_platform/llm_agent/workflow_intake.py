@@ -233,7 +233,10 @@ async def plan_workflow(
     with tracer.start_as_current_span("g3.coordinator.nl_intake.llm_tool_selection") as span:
         span.set_attribute("gen_ai.operation.name", "chat")
         span.set_attribute("gen_ai.request.model", planner._model)
-        response = await planner.select_many(text)
+        # The deterministic screen above fixes the scope; the LLM only extracts the arguments.
+        offered = ({TOOL_NAME} if has_transaction else set()) | ({DRIFT_TOOL_NAME} if wants_drift else set())
+        span.set_attribute("ewallet.intake.offered_tools", sorted(offered))
+        response = await planner.select_many(text, tools=offered)
         span.set_attribute("gen_ai.tool.name", [item.name for item in response.selections])
         span.set_attribute("gen_ai.response.id", response.response_id)
         span.set_attribute("gen_ai.response.finish_reasons", [response.finish_reason])
