@@ -56,7 +56,8 @@ case "$1" in
   get) [[ "$2" == values ]] && echo "a: 1" || cat "$FAKE_DIR/$3-live.yaml" ;;
   template)
     [[ -n "${FAKE_TEMPLATE_FAIL:-}" ]] && { echo "template error" >&2; exit 1; }
-    if [[ "$*" == *agi/* ]]; then cat "$FAKE_DIR/$2-on.yaml"; else cat "$FAKE_DIR/$2-live.yaml"; fi ;;
+    if [[ "$*" == *agi/* || ( -n "${FAKE_ON_MATCH:-}" && "$*" == *"${FAKE_ON_MATCH}"* ) ]]; then
+      cat "$FAKE_DIR/$2-on.yaml"; else cat "$FAKE_DIR/$2-live.yaml"; fi ;;
   upgrade)
     if [[ "$*" == *--dry-run=server* ]]; then exit "${FAKE_DRYRUN_RC:-0}"; fi
     echo "REAL-UPGRADE $2" >> "$FAKE_LOG" ;;
@@ -70,7 +71,9 @@ echo "kubectl $*" >> "$FAKE_LOG"
 case "$*" in
   "config current-context") echo "$FAKE_CTX" ;;
   *"get deploy -o json"*) echo '{"items": [{"metadata": {"name": "x"}, "spec": {"replicas": 1}, "status": {"availableReplicas": 1}}]}' ;;
-  *"get agents.kagent.dev drift-specialist"*) printf Declarative ;;
+  *"get agents.kagent.dev drift-specialist"*) printf %s "${FAKE_DRIFT_TYPE:-Declarative}" ;;
+  *"delete scaledobject"*) echo "scaledobject deleted" ;;
+  *"get hpa"*) [[ -n "${FAKE_HPA_MISSING:-}" ]] && exit 1; printf 2 ;;
   *"get networkpolicy -o name"*) echo networkpolicy.networking.k8s.io/drift-specialist-to-mcp-gateway ;;
   *"get secret"*"-o name"*) echo secret/x ;;
   *"get secret"*token*) printf %s "$(printf 't%.0s' {1..40})" | base64 ;;
@@ -309,6 +312,121 @@ class CampaignGateTests(unittest.TestCase):
         result = self.run_script("rollback", "mcp", AGI_APPROVAL=f"A2:{CAMPAIGN}")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("REAL-ROLLBACK llm-agent-mcp 7", self.calls())
+
+    def commit(self, path, text):
+        env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid", "PATH": os.environ["PATH"]}
+        target = self.git / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+        subprocess.run(["git", "-C", str(self.git), "add", path], check=True, env=env)
+        subprocess.run(["git", "-C", str(self.git), "commit", "-qm", path], check=True, env=env)
+        return subprocess.run(["git", "-C", str(self.git), "rev-parse", "HEAD"], check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def test_image_sha_may_precede_sha_only_across_non_image_changes(self):
+        image = self.sha
+        docs_only = self.commit("docs/handoff.md", "digests")
+        campaign = {**self.campaign, "SHA": docs_only, "IMAGE_SHA": image}
+        self.assertEqual(self.run_script("preflight", campaign=campaign).returncode, 0)
+        result = self.run_script("__args", "mcp", campaign=campaign)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"mcpServices.identity.gitSha={image}", result.stdout.splitlines())
+        changed = self.commit("ai_platform/llm_agent/x.py", "changed")
+        result = self.run_script("__args", "mcp", campaign={**campaign, "SHA": changed})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("image inputs changed", result.stderr)
+        self.assertNotIn("__END__", result.stdout)
+        result = self.run_script("__args", "mcp", campaign={**campaign, "SHA": image, "IMAGE_SHA": changed})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("is not an ancestor", result.stderr)
+
+    # ---------------------------------------------------------------- agent-platform packages
+
+    def args_for(self, package, which, **env):
+        result = self.run_script("__args", which, AGI_PACKAGE=package, **env)
+        return result, result.stdout.splitlines()
+
+    def test_packages_render_their_own_overlays(self):
+        self.preflight()
+        cases = {
+            ("p1-mcp", "mcp"): ["agi/mcp.yaml", "agi/mcp-reliability.yaml"],
+            ("p2-agents", "agents"): ["agi/agents.yaml", "g3/keda.yaml", "agi/keda.yaml"],
+            ("p4-agents", "agents"): ["a2aGateway.sandboxRoutes.namespace=ewallet-sandbox",
+                                      "agents.coordinator.byo.sandboxSpecialists={drift-specialist,feature-rag-specialist}"],
+        }
+        for (package, which), wanted in cases.items():
+            with self.subTest(package):
+                result, args = self.args_for(package, which)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(args[-1], "__END__")
+                for item in wanted:
+                    self.assertTrue(any(arg.endswith(item) for arg in args), (item, args))
+        result, args = self.args_for("s1-mcp", "mcp", SANDBOX_SERVER_SET="sbx1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("mcpCredentialLifecycle.serverSet=sbx1", args)
+        self.assertNotEqual(self.args_for("s1-mcp", "mcp")[0].returncode, 0, "the server set is required")
+
+    def test_s1_agents_appends_the_sandbox_flow_to_the_live_flows(self):
+        self.preflight()
+        live = self.tmp / "private" / "llm-agent-values.yaml"
+        live.write_text(yaml.safe_dump({"crossNamespace": {"flows": [{"name": "existing", "direction": "egress"}]}}))
+        result, args = self.args_for("s1-agents", "agents")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        overlay = yaml.safe_load((self.tmp / "private" / "s1-agents-flows.yaml").read_text())
+        self.assertEqual([flow["name"] for flow in overlay["crossNamespace"]["flows"]],
+                         ["existing", "sandbox-workers-to-mcp-gateway"])
+
+    def test_a_package_refuses_the_other_release_and_unknown_packages(self):
+        self.preflight()
+        result = self.run_script("gate", "agents", AGI_PACKAGE="p1-mcp")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("changes the mcp release", result.stderr)
+        result = self.run_script("gate", "mcp", AGI_PACKAGE="p9-everything")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("AGI_PACKAGE must be one of", result.stderr)
+
+    def test_p4_gate_checks_its_exact_identities_and_needs_its_own_approval(self):
+        on = [doc("Agent", "ewallet-agents", "fraud-coordinator", version="sbx")] + AGENTS_LIVE[1:] + [
+            doc("ConfigMap", "ewallet-agents", "a2a-gateway-config", routes="sbx"),
+            doc("Deployment", "ewallet-agents", "a2a-gateway", checksum="new")]
+        live = AGENTS_LIVE + [doc("ConfigMap", "ewallet-agents", "a2a-gateway-config", routes="old"),
+                              doc("Deployment", "ewallet-agents", "a2a-gateway", checksum="old")]
+        self.write("llm-agent", live, on)
+        env = {"AGI_PACKAGE": "p4-agents", "FAKE_ON_MATCH": "sandboxRoutes", "FAKE_DRIFT_TYPE": "BYO"}
+        self.preflight(**env)
+        result = self.run_script("gate", "agents", **env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for token in (f"A1:{CAMPAIGN}", f"P2-AGENTS:{CAMPAIGN}"):
+            with self.subTest(token):
+                refused = self.run_script("upgrade", "agents", AGI_APPROVAL=token, **env)
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn(f"AGI_APPROVAL=P4-AGENTS:{CAMPAIGN}", refused.stderr)
+        self.assertNotIn("REAL-UPGRADE", self.calls())
+        result = self.run_script("upgrade", "agents", AGI_APPROVAL=f"P4-AGENTS:{CAMPAIGN}", **env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("REAL-UPGRADE llm-agent", self.calls())
+
+    def test_p4_preflight_expects_the_byo_drift_specialist(self):
+        result = self.run_script("preflight", AGI_PACKAGE="p4-agents")
+        self.assertNotEqual(result.returncode, 0, "drift-specialist is still Declarative")
+        self.assertEqual(self.run_script("preflight", AGI_PACKAGE="p4-agents", FAKE_DRIFT_TYPE="BYO").returncode, 0)
+
+    def test_p2_rollback_deletes_the_scaledobjects_first_and_needs_the_hpas_back(self):
+        env = {"AGI_PACKAGE": "p2-agents"}
+        self.preflight(**env)
+        self.assertNotEqual(self.run_script("rollback", "agents", AGI_APPROVAL=f"A2:{CAMPAIGN}", **env).returncode, 0)
+        result = self.run_script("rollback", "agents", AGI_APPROVAL=f"P2-AGENTS-ROLLBACK:{CAMPAIGN}", **env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.calls()
+        deletes = [calls.index(f"delete scaledobject {agent}") for agent in
+                   ("fraud-coordinator", "feature-rag-specialist", "drift-specialist")]
+        self.assertLess(max(deletes), calls.index("REAL-ROLLBACK llm-agent 7"))
+        self.assertIn("get hpa drift-specialist", calls)
+        missing = self.run_script("rollback", "agents", AGI_APPROVAL=f"P2-AGENTS-ROLLBACK:{CAMPAIGN}",
+                                  FAKE_HPA_MISSING="1", **env)
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn("HPA ewallet-agents/fraud-coordinator is missing", missing.stderr)
 
 
 class HelmObjectDiffTests(unittest.TestCase):

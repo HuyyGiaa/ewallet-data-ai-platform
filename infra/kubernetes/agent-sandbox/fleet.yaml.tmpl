@@ -52,7 +52,7 @@ spec:
         - {name: EWALLET_OTEL_METRICS_ENABLED, value: "true"}
         - {name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
         - name: EWALLET_MCP_SERVICE_TOKEN
-          valueFrom: {secretKeyRef: {name: sandbox-feature-rag-mcp-token, key: value}}
+          valueFrom: {secretKeyRef: {name: mcp-token-sandbox-feature-rag-feature-rag-mcp-__CREDENTIAL_RELEASE__, key: token}}
       resources:
         requests: {cpu: 100m, memory: 256Mi}
         limits: {cpu: 500m, memory: 512Mi}
@@ -99,7 +99,7 @@ spec:
         - {name: EWALLET_OTEL_METRICS_ENABLED, value: "true"}
         - {name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
         - name: EWALLET_MCP_SERVICE_TOKEN
-          valueFrom: {secretKeyRef: {name: sandbox-drift-mcp-token, key: value}}
+          valueFrom: {secretKeyRef: {name: mcp-token-sandbox-drift-drift-mcp-__CREDENTIAL_RELEASE__, key: token}}
       resources:
         requests: {cpu: 100m, memory: 256Mi}
         limits: {cpu: 500m, memory: 512Mi}

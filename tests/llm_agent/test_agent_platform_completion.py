@@ -191,7 +191,7 @@ class FleetAndCrdPatchTests(unittest.TestCase):
 
     def test_fleet_shares_one_pool_with_scoped_credentials(self):
         import yaml
-        text = self.renderer.render("fleet", "r/x@sha256:" + "c" * 64, "agi-20261115t050000z")
+        text = self.renderer.render("fleet", "r/x@sha256:" + "c" * 64, "agi-20261115T050000Z", "sbx1")
         docs = [doc for doc in yaml.safe_load_all(text) if doc]
         agents = {doc["metadata"]["name"]: doc for doc in docs if doc["kind"] == "SandboxAgent"}
         self.assertEqual(set(agents), {"feature-rag-specialist", "drift-specialist"})
@@ -201,21 +201,29 @@ class FleetAndCrdPatchTests(unittest.TestCase):
                 spec = agent["spec"]
                 self.assertEqual(spec["substrate"]["workerPoolRef"]["name"], "business-agents")
                 self.assertEqual(spec["substrate"]["snapshotsConfig"]["location"],
-                                 f"gs://ate-snapshots/ewallet-sandbox/agi-20261115t050000z/{name}/")
+                                 f"gs://ate-snapshots/ewallet-sandbox/agi-20261115T050000Z/{name}/")
                 env = {item["name"]: item for item in spec["byo"]["deployment"]["env"]}
                 self.assertEqual(env["EWALLET_AGENT_PORT"]["value"], "80")
                 self.assertNotIn("EWALLET_LLM_API_KEY", env)
                 self.assertNotIn("agentgateway.ewallet-agents.svc.cluster.local", spec["sandbox"]["network"]["allowedDomains"])
-                secrets.add(env["EWALLET_MCP_SERVICE_TOKEN"]["valueFrom"]["secretKeyRef"]["name"])
-        self.assertEqual(len(secrets), 2, "each Specialist has its own MCP credential")
+                ref = env["EWALLET_MCP_SERVICE_TOKEN"]["valueFrom"]["secretKeyRef"]
+                self.assertEqual(ref["key"], "token")
+                secrets.add(ref["name"])
+        # The names g3_mcp_credentials gives client Secrets: mcp-token-<subject>-<server>-<release>.
+        from ops.llm_agent.g3_mcp_credentials import token_secret_name
+        self.assertEqual(secrets, {token_secret_name("sandbox-feature-rag", "feature-rag-mcp", "sbx1"),
+                                   token_secret_name("sandbox-drift", "drift-mcp", "sbx1")})
         pool = yaml.safe_load_all((ROOT / "infra/kubernetes/agent-sandbox/namespace.yaml").read_text())
         pools = [doc for doc in pool if doc and doc["kind"] == "WorkerPool"]
         self.assertEqual((pools[0]["metadata"]["name"], pools[0]["spec"]["replicas"]), ("business-agents", 2))
-        for bad in ("agi-20261115T050000Z", "prod"):
+        for bad in ("agi-20261115t050000z", "prod"):
             with self.subTest(bad), self.assertRaises(ValueError):
-                self.renderer.render("fleet", "r/x@sha256:" + "c" * 64, bad)
+                self.renderer.render("fleet", "r/x@sha256:" + "c" * 64, bad, "sbx1")
         with self.assertRaises(ValueError):
-            self.renderer.render("fleet", "r/x:latest", "agi-20261115t050000z")
+            self.renderer.render("fleet", "r/x:latest", "agi-20261115T050000Z", "sbx1")
+        for bad in ("", "Sbx", "x" * 25):
+            with self.subTest(credential_release=bad), self.assertRaises(ValueError):
+                self.renderer.render("fleet", "r/x@sha256:" + "c" * 64, "agi-20261115T050000Z", bad)
 
     def test_crd_patch_applies_to_the_pinned_upstream_crd(self):
         import yaml

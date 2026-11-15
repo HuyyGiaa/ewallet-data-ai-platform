@@ -11,6 +11,17 @@
 # Configuration: AGI_ENV names a non-secret campaign file (see the runbook, section 0) that defines
 # CAMPAIGN, EV, CTX, SHA and, per stage, image digests, pins and API-server CIDRs. Approvals are given per
 # campaign: AGI_APPROVAL=A1:<campaign> for upgrades, AGI_APPROVAL=A2:<campaign> for rollbacks.
+#
+# AGI_PACKAGE selects one agent-platform package per preflight/gate/upgrade/rollback (default agi, the
+# AGI overlays alone). Each has its own release, overlay, exact expected identities and approval
+# (AGI_APPROVAL=<PACKAGE>:<campaign>, rollback <PACKAGE>-ROLLBACK:<campaign>); run preflight again
+# before each package, so its live snapshot already contains the packages applied before it:
+#   p1-mcp     llm-agent-mcp  AGI MCP overlay + agi/mcp-reliability.yaml (2 replicas, PDBs, spread)
+#   s1-mcp     llm-agent-mcp  agi/mcp-sandbox-grants.yaml + mcpCredentialLifecycle.serverSet=SANDBOX_SERVER_SET
+#   s1-agents  llm-agent      the live crossNamespace.flows + the sandbox-workers-to-mcp-gateway ingress flow
+#   p2-agents  llm-agent      AGI agents overlay + g3/keda.yaml + agi/keda.yaml (KEDA adopts the HPAs);
+#                             its rollback deletes the three ScaledObjects first, then rolls back
+#   p4-agents  llm-agent      Coordinator sandbox routes (a2aGateway.sandboxRoutes, sandboxSpecialists)
 # Every command exits non-zero on the first failed check; a failed check never reaches a mutating command.
 # Checks and render arguments run in a fresh bash process (__check, __args): bash ignores `set -e` inside a
 # function called from an if/||/&& context, which would let a failing step report PASS.
@@ -33,6 +44,12 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents "
+SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
+KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
+# What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
+# none of these differ, so the identity the pods report is the source they were built from.
+IMAGE_INPUTS=(ai_platform data/llm_agent ops/llm_agent infra/docker/llm-agent-tooling infra/docker/g3-byo-coordinator)
 need() { local name; for name in "$@"; do [[ -n "${!name:-}" ]] || die "${name} is not set (campaign file ${AGI_ENV:-unset})"; done; }
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "${EV}/campaign.log"; }
 
@@ -41,6 +58,8 @@ load() {
   # shellcheck disable=SC1090
   source "${AGI_ENV}"
   need CAMPAIGN EV CTX SHA
+  PACKAGE="${AGI_PACKAGE:-agi}"
+  [[ " ${PACKAGES} " == *" ${PACKAGE} "* ]] || die "AGI_PACKAGE must be one of:${PACKAGES}"
   SNAPSHOT_MANIFEST_SHA256="${SNAPSHOT_MANIFEST_SHA256:-${DEFAULT_SNAPSHOT_MANIFEST_SHA256}}"
   [[ "${CAMPAIGN}" =~ ^agi-[0-9]{8}T[0-9]{6}Z$ ]] || die "CAMPAIGN must look like agi-YYYYMMDDTHHMMSSZ"
   [[ "${SHA}" =~ ^[0-9a-f]{40}$ ]] || die "SHA must be a full commit SHA"
@@ -53,7 +72,16 @@ kc() { "${KUBECTL}" --context "${CTX}" "$@"; }
 revision_key() { echo "${1//-/_}_REVISION" | tr 'a-z' 'A-Z'; }
 hl() { "${HELM}" --kube-context "${CTX}" "$@"; }
 
+package_release() {   # the release a package changes; agi changes both, one per call
+  case "${PACKAGE}" in
+    agi) echo "$1" ;;
+    p1-mcp|s1-mcp) echo mcp ;;
+    s1-agents|p2-agents|p4-agents) echo agents ;;
+  esac
+}
+
 release() {   # release -> "name namespace"
+  [[ "$(package_release "$1")" == "$1" ]] || die "package ${PACKAGE} changes the $(package_release "$1") release, not $1"
   case "$1" in
     mcp) echo "llm-agent-mcp ewallet-mcp" ;;
     agents) echo "llm-agent default" ;;
@@ -106,7 +134,11 @@ bad = [d["metadata"]["name"] for d in items
 print("unavailable:", bad)
 sys.exit(1 if bad or not items else 0)'
 }
-drift_is_declarative() { [[ "$(kc -n ewallet-agents get agents.kagent.dev drift-specialist -o jsonpath='{.spec.type}')" == "Declarative" ]]; }
+drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 runs after P2 made it BYO
+  local want=Declarative
+  [[ "${PACKAGE}" == p4-agents ]] && want=BYO
+  [[ "$(kc -n ewallet-agents get agents.kagent.dev drift-specialist -o jsonpath='{.spec.type}')" == "${want}" ]]
+}
 redis_databases() {
   RAG_TARGET=gke RAG_KUBE_CONTEXT="${CTX}" "${RAG_RUNNER}" dbs > "${EV}/stage0/redis-dbs-before.txt"
   grep -Eq "^ +3 +5 +${RAG_PROJECT} " "${EV}/stage0/redis-dbs-before.txt"
@@ -205,54 +237,104 @@ render_args() {   # render_args <mcp|agents> <array name>: complete argument lis
   mapfile -t "$2" < <(sed '$d' "${file}")
 }
 
+image_sha() {   # the commit the images were built from: SHA, or an ancestor with identical image inputs
+  local image=${IMAGE_SHA:-${SHA}}
+  [[ "${image}" =~ ^[0-9a-f]{40}$ ]] || die "IMAGE_SHA must be a full commit SHA"
+  if [[ "${image}" != "${SHA}" ]]; then
+    git -C "${GIT_DIR_CHECKED}" merge-base --is-ancestor "${image}" "${SHA}" || die "IMAGE_SHA ${image} is not an ancestor of ${SHA}"
+    git -C "${GIT_DIR_CHECKED}" diff --quiet "${image}" "${SHA}" -- "${IMAGE_INPUTS[@]}" \
+      || die "image inputs changed between IMAGE_SHA ${image} and ${SHA}; rebuild the images from ${SHA}"
+  fi
+  echo "${image}"
+}
+
 digest_ref() { [[ "$1" =~ ^[a-z0-9.-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/[a-z0-9._-]+@sha256:[0-9a-f]{64}$ ]]; }
 
-overlay_args() {   # prints one argument per line for the release's AGI render
-  case "$1" in
-    mcp)
-      need MCP_IMAGE DRIFT_DESCRIBE FRAUD_DB RAG_DB
-      digest_ref "${MCP_IMAGE}" || die "MCP_IMAGE must be a digest-pinned Artifact Registry reference"
-      [[ "${FRAUD_DB}" =~ ^([0-9]|1[0-5])$ && "${RAG_DB}" =~ ^([2-9]|1[0-5])$ ]] || die "FRAUD_DB 0-15 and RAG_DB 2-15 required"
-      local pins
-      pins=$("${PYTHON}" -c '
+overlay_args() {   # prints one argument per line for this package's render of the release
+  case "${PACKAGE}:$1" in
+    agi:mcp|p1-mcp:mcp) agi_mcp_args
+      [[ "${PACKAGE}" == p1-mcp ]] && printf '%s\n' -f "${CHART}/agi/mcp-reliability.yaml"
+      echo __END__ ;;
+    agi:agents|p2-agents:agents) agi_agent_args
+      [[ "${PACKAGE}" == p2-agents ]] && printf '%s\n' -f "${CHART}/g3/keda.yaml" -f "${CHART}/agi/keda.yaml"
+      echo __END__ ;;
+    s1-mcp:mcp)
+      need SANDBOX_SERVER_SET
+      [[ "${SANDBOX_SERVER_SET}" =~ ^[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?$ ]] || die "SANDBOX_SERVER_SET must be a credential server-set name"
+      printf '%s\n' -f "${PRIVATE}/llm-agent-mcp-values.yaml" -f "${CHART}/agi/mcp-sandbox-grants.yaml" \
+        --set "mcpCredentialLifecycle.serverSet=${SANDBOX_SERVER_SET}"
+      echo __END__ ;;
+    s1-agents:agents)
+      (cd "${ROOT}" && "${PYTHON}" -m ops.llm_agent.agi_packages append-flow sandbox-mcp-gateway \
+        --values "${PRIVATE}/llm-agent-values.yaml" --out "${PRIVATE}/s1-agents-flows.yaml" > /dev/null) \
+        || die "cannot append the sandbox flow to the live crossNamespace.flows"
+      printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" -f "${PRIVATE}/s1-agents-flows.yaml"
+      echo __END__ ;;
+    p4-agents:agents)
+      printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" --set a2aGateway.sandboxRoutes.namespace=ewallet-sandbox \
+        --set "a2aGateway.sandboxRoutes.agents=${SANDBOX_SPECIALISTS}" \
+        --set "agents.coordinator.byo.sandboxSpecialists=${SANDBOX_SPECIALISTS}"
+      echo __END__ ;;
+    *) die "package ${PACKAGE} does not change release $1" ;;
+  esac
+}
+
+agi_mcp_args() {
+  need MCP_IMAGE DRIFT_DESCRIBE FRAUD_DB RAG_DB
+  local image_rev
+  image_rev=$(image_sha) || exit 1   # a failure inside $(...) must not let __END__ through
+  digest_ref "${MCP_IMAGE}" || die "MCP_IMAGE must be a digest-pinned Artifact Registry reference"
+  [[ "${FRAUD_DB}" =~ ^([0-9]|1[0-5])$ && "${RAG_DB}" =~ ^([2-9]|1[0-5])$ ]] || die "FRAUD_DB 0-15 and RAG_DB 2-15 required"
+  local pins
+  pins=$("${PYTHON}" -c '
 import json, sys
 env = json.load(open(sys.argv[1]))["environment"]
 assert env["EWALLET_DRIFT_ALLOW_SYNTHETIC"] == "false", "synthetic drift artifacts"
 for key in ("EWALLET_DRIFT_BASELINES_SHA256", "EWALLET_DRIFT_WINDOW_MANIFEST_SHA256", "EWALLET_DRIFT_DATASET_REVISION"):
     print(f"mcpServices.services.drift-mcp.env.{key}={env[key]}")' "${DRIFT_DESCRIBE}")
-      printf '%s\n' -f "${PRIVATE}/llm-agent-mcp-values.yaml" -f "${CHART}/agi/mcp.yaml" \
-        --set "mcpServices.image=${MCP_IMAGE}" --set "mcpServices.identity.imageDigest=${MCP_IMAGE#*@}" \
-        --set "mcpServices.identity.gitSha=${SHA}" --set "mcpServices.identity.configRevision=${CAMPAIGN}" \
-        --set-string "mcpServices.services.feature-rag-mcp.env.EWALLET_FRAUD_ONLINE_DB=${FRAUD_DB}" \
-        --set-string "mcpServices.services.feature-rag-mcp.env.EWALLET_RAG_ONLINE_DB=${RAG_DB}"
-      printf '%s\n' --set-string "mcpServices.services.feature-rag-mcp.env.EWALLET_FRAUD_ALLOW_PRODUCTION_DB=$([[ "${FRAUD_DB}" == 0 ]] && echo true || echo false)"
-      local pin; while read -r pin; do printf '%s\n' --set "${pin}"; done <<< "${pins}"
-      echo __END__
-      ;;
-    agents)
-      need COORDINATOR_IMAGE FEATURE_RAG_IMAGE DRIFT_IMAGE APISERVER_CIDRS
-      local image; for image in "${COORDINATOR_IMAGE}" "${FEATURE_RAG_IMAGE}" "${DRIFT_IMAGE}"; do
-        digest_ref "${image}" || die "agent images must be digest-pinned Artifact Registry references"
-      done
-      [[ "${APISERVER_CIDRS}" =~ ^[0-9./]+(,[0-9./]+)*$ ]] || die "APISERVER_CIDRS must be a comma list of /32 CIDRs"
-      printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" -f "${CHART}/agi/agents.yaml" \
-        --set "agents.coordinator.byo.image=${COORDINATOR_IMAGE}" \
-        --set "agents.specialists.feature-rag-specialist.byo.image=${FEATURE_RAG_IMAGE}" \
-        --set "agents.specialists.drift-specialist.byo.image=${DRIFT_IMAGE}" \
-        --set "modelConfig.byoResolver.apiServer.cidrs={${APISERVER_CIDRS}}"
-      echo __END__
-      ;;
-  esac
+  printf '%s\n' -f "${PRIVATE}/llm-agent-mcp-values.yaml" -f "${CHART}/agi/mcp.yaml" \
+    --set "mcpServices.image=${MCP_IMAGE}" --set "mcpServices.identity.imageDigest=${MCP_IMAGE#*@}" \
+    --set "mcpServices.identity.gitSha=${image_rev}" --set "mcpServices.identity.configRevision=${CAMPAIGN}" \
+    --set-string "mcpServices.services.feature-rag-mcp.env.EWALLET_FRAUD_ONLINE_DB=${FRAUD_DB}" \
+    --set-string "mcpServices.services.feature-rag-mcp.env.EWALLET_RAG_ONLINE_DB=${RAG_DB}"
+  printf '%s\n' --set-string "mcpServices.services.feature-rag-mcp.env.EWALLET_FRAUD_ALLOW_PRODUCTION_DB=$([[ "${FRAUD_DB}" == 0 ]] && echo true || echo false)"
+  local pin; while read -r pin; do printf '%s\n' --set "${pin}"; done <<< "${pins}"
+}
+
+agi_agent_args() {
+  need COORDINATOR_IMAGE FEATURE_RAG_IMAGE DRIFT_IMAGE APISERVER_CIDRS
+  local image; for image in "${COORDINATOR_IMAGE}" "${FEATURE_RAG_IMAGE}" "${DRIFT_IMAGE}"; do
+    digest_ref "${image}" || die "agent images must be digest-pinned Artifact Registry references"
+  done
+  [[ "${APISERVER_CIDRS}" =~ ^[0-9./]+(,[0-9./]+)*$ ]] || die "APISERVER_CIDRS must be a comma list of /32 CIDRs"
+  printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" -f "${CHART}/agi/agents.yaml" \
+    --set "agents.coordinator.byo.image=${COORDINATOR_IMAGE}" \
+    --set "agents.specialists.feature-rag-specialist.byo.image=${FEATURE_RAG_IMAGE}" \
+    --set "agents.specialists.drift-specialist.byo.image=${DRIFT_IMAGE}" \
+    --set "modelConfig.byoResolver.apiServer.cidrs={${APISERVER_CIDRS}}"
 }
 
 expected_identities() {
-  case "$1" in
-    mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
-    agents) printf '%s\n' --expect-changed Agent/ewallet-agents/fraud-coordinator \
-              --expect-changed Agent/ewallet-agents/feature-rag-specialist --expect-changed Agent/ewallet-agents/drift-specialist \
-              --expect-added Role/ewallet-agents/ewallet-global-llm-reader \
-              --expect-added RoleBinding/ewallet-agents/ewallet-global-llm-reader \
-              --expect-added NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver ;;
+  local agi_agents=(--expect-changed Agent/ewallet-agents/fraud-coordinator
+    --expect-changed Agent/ewallet-agents/feature-rag-specialist --expect-changed Agent/ewallet-agents/drift-specialist
+    --expect-added Role/ewallet-agents/ewallet-global-llm-reader
+    --expect-added RoleBinding/ewallet-agents/ewallet-global-llm-reader
+    --expect-added NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver)
+  local agent
+  case "${PACKAGE}:$1" in
+    agi:mcp|s1-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
+    p1-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp \
+                  --expect-added PodDisruptionBudget/ewallet-mcp/feature-rag-mcp ;;
+    agi:agents) printf '%s\n' "${agi_agents[@]}" ;;
+    p2-agents:agents) printf '%s\n' "${agi_agents[@]}" \
+                  --expect-changed ConfigMap/ewallet-agents/otel-collector-config --expect-changed Deployment/ewallet-agents/otel-collector
+      for agent in ${KEDA_AGENTS}; do
+        printf '%s\n' --expect-added "ScaledObject/ewallet-agents/${agent}" --expect-removed "HorizontalPodAutoscaler/ewallet-agents/${agent}"
+      done ;;
+    s1-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-sandbox-workers-to-mcp-gateway \
+                  --expect-added NetworkPolicy/ewallet-agents/allow-sandbox-workers-to-mcp-gateway-ingress ;;
+    p4-agents:agents) printf '%s\n' --expect-changed Agent/ewallet-agents/fraud-coordinator \
+                  --expect-changed ConfigMap/ewallet-agents/a2a-gateway-config --expect-changed Deployment/ewallet-agents/a2a-gateway ;;
   esac
 }
 
@@ -274,21 +356,29 @@ gate() {   # read-only: fails before any mutating command can run
   log "GATE PASS ${name}: exact identities and server-side dry-run"
 }
 
-require_approval() {
-  [[ "${AGI_APPROVAL:-}" == "$1:${CAMPAIGN}" ]] || die "approval $1 for ${CAMPAIGN} is required (AGI_APPROVAL=$1:${CAMPAIGN})"
+require_approval() {   # require_approval <A1|A2>: the agi package keeps A1/A2; others name themselves
+  local token=$1
+  if [[ "${PACKAGE}" != agi ]]; then
+    token=$(echo "${PACKAGE}" | tr 'a-z' 'A-Z')
+    [[ "$1" == A2 ]] && token="${token}-ROLLBACK"
+  fi
+  [[ "${AGI_APPROVAL:-}" == "${token}:${CAMPAIGN}" ]] || die "approval ${token} for ${CAMPAIGN} is required (AGI_APPROVAL=${token}:${CAMPAIGN})"
 }
 
 upgrade() {
   local which=$1 name namespace
   read -r name namespace <<< "$(release "${which}")"
   require_approval A1
-  [[ "${which}" == mcp || -f "${EV}/stage1/llm-agent-mcp.UPGRADED" ]] || die "upgrade the MCP release first"
+  if [[ "${PACKAGE}" == agi || "${PACKAGE}" == p2-agents ]]; then
+    [[ "${which}" == mcp || -f "${EV}/stage1/llm-agent-mcp.UPGRADED" ]] || die "upgrade the MCP release first"
+  fi
   gate "${which}"
   local -a args; render_args "${which}" args
   log "MUTATION helm upgrade ${name} (${namespace})"
-  hl upgrade "${name}" "${CHART}" -n "${namespace}" "${args[@]}" --atomic --timeout 10m > "${EV}/stage1/${name}-upgrade.txt"
-  hl -n "${namespace}" history "${name}" --max 2 > "${EV}/stage1/${name}-history-after.txt"
+  hl upgrade "${name}" "${CHART}" -n "${namespace}" "${args[@]}" --atomic --timeout 10m > "${EV}/stage1/${name}-${PACKAGE}-upgrade.txt"
+  hl -n "${namespace}" history "${name}" --max 2 > "${EV}/stage1/${name}-${PACKAGE}-history-after.txt"
   date -u +%FT%TZ > "${EV}/stage1/${name}.UPGRADED"
+  date -u +%FT%TZ > "${EV}/stage1/${name}.${PACKAGE}.UPGRADED"
   log "UPGRADED ${name}"
 }
 
@@ -366,11 +456,27 @@ rollback() {
   key=$(revision_key "${name}")
   revision=$(grep -E "^${key}=" "${EV}/stage0/PREFLIGHT_PASS" | cut -d= -f2)
   [[ "${revision}" =~ ^[0-9]+$ ]] || die "no Stage 0 revision recorded for ${name}"
+  if [[ "${PACKAGE}" == p2-agents ]]; then
+    # A plain rollback deletes the ScaledObjects, which cascades to the HPAs KEDA adopted and leaves
+    # no autoscaler. Delete the three ScaledObjects first; KEDA then releases the HPAs and the
+    # rollback restores the chart's own HPAs.
+    local agent
+    for agent in ${KEDA_AGENTS}; do
+      log "MUTATION delete ScaledObject ewallet-agents/${agent} before the rollback"
+      kc -n ewallet-agents delete scaledobject "${agent}" --wait=true --timeout=120s > /dev/null
+    done
+  fi
   log "MUTATION helm rollback ${name} to ${revision}"
   hl -n "${namespace}" rollback "${name}" "${revision}" --wait --timeout 10m > "${EV}/stage5/${name}-rollback.txt"
   hl -n "${namespace}" get manifest "${name}" > "${PRIVATE}/${name}-after-rollback.yaml"
   "${PYTHON}" "${ROOT}/scripts/llm_agent/helm_object_diff.py" "${PRIVATE}/${name}-live.yaml" "${PRIVATE}/${name}-after-rollback.yaml" \
     --expect-objects 0 --expect-identities > "${EV}/stage5/${name}-rollback-diff.txt"
+  if [[ "${PACKAGE}" == p2-agents ]]; then
+    for agent in ${KEDA_AGENTS}; do
+      kc -n ewallet-agents get hpa "${agent}" -o jsonpath='{.spec.minReplicas}' > /dev/null \
+        || die "HPA ewallet-agents/${agent} is missing after the rollback"
+    done
+  fi
   log "ROLLED BACK ${name}: manifest equals the Stage 0 manifest"
 }
 

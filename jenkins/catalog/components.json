@@ -86,10 +86,10 @@
   "components": {
     "ci-platform": {
       "maturity": "active",
-      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci", "infra/kubernetes/cicd-runtime/namespaces.yaml", "infra/kubernetes/jenkins", "ops/experiments", "scripts/experiments", "configs/experiments", "tests/experiments", "tests/ops/test_cloud_lab.py", "ops/gcp/cloud_lab.py", "ops/gcp/cloud_lab_profiles.json", "ops/gcp/r2_terraform.py", "tests/ops/test_r2_terraform.py"],
+      "source_paths": ["jenkins/catalog", "scripts/ci", "tests/ci", "infra/kubernetes/cicd-runtime/namespaces.yaml", "infra/kubernetes/jenkins", "ops/experiments", "scripts/experiments", "configs/experiments", "tests/experiments", "tests/ops/test_cloud_lab.py", "tests/ops/test_cloud_lab_guarded_sleep.py", "ops/gcp/cloud_lab.py", "ops/gcp/cloud_lab_profiles.json", "ops/gcp/r2_terraform.py", "tests/ops/test_r2_terraform.py"],
       "dependencies": [],
       "python_projects": ["infra/docker/llm-agent-tooling"],
-      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --group test python -m pytest -q tests/ci tests/experiments tests/ops/test_cloud_lab.py tests/ops/test_r2_terraform.py tests/unit/test_uv_dependency_contract.py"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --group test python -m pytest -q tests/ci tests/experiments tests/ops/test_cloud_lab.py tests/ops/test_cloud_lab_guarded_sleep.py tests/ops/test_r2_terraform.py tests/unit/test_uv_dependency_contract.py"],
       "build_artifact": null,
       "deployment_target": null,
       "deploy_handler": null
@@ -234,7 +234,7 @@
       ],
       "dependencies": ["rag-pipeline", "llm-serving", "fraud-api"],
       "python_projects": ["infra/docker/llm-agent-tooling"],
-      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --extra feast python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security tests.llm_agent.test_mcp_production_authenticator tests.llm_agent.test_agents_chart tests.llm_agent.test_phase_d_chart tests.llm_agent.test_registry_catalog tests.llm_agent.test_helm_release_rehome tests.llm_agent.test_agi_contracts tests.llm_agent.test_agi_drift_sources tests.llm_agent.test_agi_feature_targets tests.llm_agent.test_agi_coordinator_workflows tests.llm_agent.test_agi_chart tests.llm_agent.test_agi_campaign_gates tests.llm_agent.test_agi_runbook tests.llm_agent.test_agent_platform_completion"],
+      "commands": ["uv run --locked --project infra/docker/llm-agent-tooling --extra feast python -m unittest tests.llm_agent.test_phase_d_tools tests.llm_agent.test_phase_d_security tests.llm_agent.test_mcp_production_authenticator tests.llm_agent.test_agents_chart tests.llm_agent.test_phase_d_chart tests.llm_agent.test_registry_catalog tests.llm_agent.test_helm_release_rehome tests.llm_agent.test_agi_contracts tests.llm_agent.test_agi_drift_sources tests.llm_agent.test_agi_feature_targets tests.llm_agent.test_agi_coordinator_workflows tests.llm_agent.test_agi_chart tests.llm_agent.test_agi_campaign_gates tests.llm_agent.test_agi_runbook tests.llm_agent.test_agent_platform_completion tests.llm_agent.test_agent_platform_packages tests.unit.test_kagent_bounded_pilot"],
       "build_artifact": "infra/docker/llm-agent-tooling/Dockerfile",
       "deployment_target": "infra/kubernetes/cicd-runtime/mcp",
       "deploy_handler": "scripts/ci/deploy/mcp_agents.sh",

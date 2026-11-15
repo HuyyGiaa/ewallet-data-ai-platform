@@ -1,0 +1,15 @@
+# PKG-P1 (llm-agent-mcp, namespace ewallet-mcp): two MCP replicas per server, spread over
+# nodes, each with a PodDisruptionBudget (minAvailable 1) and the chart's RollingUpdate
+# (maxUnavailable 0). Layer after agi/mcp.yaml through
+#   scripts/llm_agent/agi_campaign.sh gate|upgrade mcp   with AGI_PACKAGE=p1-mcp-reliability
+# Only the corrected mcp-tools image (Feast 0.67.0) may be used with it.
+#
+# g3.yaml opts feature-rag-mcp out of its PDB "until it is scaled"; this is that scale-up.
+# After this package both MCP PDBs block a plain cloud_lab sleep: the guarded-sleep approval
+# must name ewallet-mcp/feature-rag-mcp as well (cloud_lab sleep --also-approve).
+mcpServices:
+  replicas: 2
+  topologySpread: true
+  services:
+    feature-rag-mcp:
+      pdb: {enabled: true}

@@ -1,0 +1,13 @@
+# PKG-S1, MCP side (llm-agent-mcp, namespace ewallet-mcp): the two sandbox Specialists'
+# credential subjects and their tool grants, identical to the Deployment Specialists' grants.
+# Maps merge, so the existing subjects stay. The credential tables themselves come from
+# ops/llm_agent/g3_mcp_credentials.py (a transition server set that keeps every active
+# credential), selected by mcpCredentialLifecycle.serverSet, which the package sets.
+mcpServices:
+  services:
+    feature-rag-mcp:
+      toolGrants:
+        sandbox-feature-rag: [feature_lookup, fraud_scoring, knowledge_search]
+    drift-mcp:
+      toolGrants:
+        sandbox-drift: [drift_detection]
