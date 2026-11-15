@@ -12,7 +12,9 @@
 #   down  Removes the namespace after a lost run.
 #
 # Env: KUBE_CONTEXT, MCP_IMAGE and PROBE_IMAGE (digest references; the same in both arms),
-#   EXP_DURATION (120 s), EXP_RATE (2 calls/s), EXP_FAILURE_AFTER (40 s).
+#   EXP_DURATION (120 s), EXP_RATE (2 calls/s), EXP_FAILURE_AFTER (40 s),
+#   EXP_FAILURE_MODE (graceful: delete the pod; force: --grace-period=0 --force, which drops live
+#   connections and leaves a stale endpoint for a moment, so the client's own retry is exercised).
 #
 # This script never deletes anything outside ewallet-mcp-exp. Production ewallet-mcp pods
 # and their revisions are read before and after, and a difference fails the run.
@@ -28,6 +30,8 @@ export PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}"
 NS=ewallet-mcp-exp PROD_NS=ewallet-mcp
 EXPECTED_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
 duration=${EXP_DURATION:-120} rate=${EXP_RATE:-2} failure_after=${EXP_FAILURE_AFTER:-40}
+failure_mode=${EXP_FAILURE_MODE:-graceful}
+case "$failure_mode" in graceful|force) ;; *) die "EXP_FAILURE_MODE must be graceful or force";; esac
 [ "$duration" -ge 1 ] && [ "$duration" -le 600 ] || die "EXP_DURATION must be 1-600"
 [ "$failure_after" -lt "$duration" ] || die "EXP_FAILURE_AFTER must fall inside the run"
 load_hash=$("$python" "$root/scripts/experiments/render_mcp.py" "$arm" --duration "$duration" --rate "$rate" --print-hash)
@@ -131,7 +135,11 @@ sleep "$failure_after"
 victim=$(k get pods -l app.kubernetes.io/name=mcp-exp-drift -o 'jsonpath={.items[0].metadata.name}')
 [ -n "$victim" ] || die "no pod to delete"
 failure_at=$(date +%s)
-k delete pod "$victim" --wait=false >> "$logs/failure.log"
+if [ "$failure_mode" = force ]; then
+  k delete pod "$victim" --grace-period=0 --force --wait=false >> "$logs/failure.log" 2>&1
+else
+  k delete pod "$victim" --wait=false >> "$logs/failure.log"
+fi
 if ! kw wait --for=condition=complete job/mcp-exp-probe --timeout="$((duration + 120))s" >> "$logs/apply.log" 2>&1; then
   deviations+=(--deviation "$arm run $run: probe Job did not complete")
 fi
@@ -143,11 +151,13 @@ sampler=""
 pod_image() {
   k get "$1" -o 'jsonpath={.spec.template.spec.containers[0].image}'
 }
-"$python" - "$dir/controls.json" "$load_hash" "$(pod_image deployment/mcp-exp-drift)" "$(pod_image job/mcp-exp-probe)" <<'P'
+failure_action=delete-one-pod
+[ "$failure_mode" = force ] && failure_action=force-delete-one-pod
+"$python" - "$dir/controls.json" "$load_hash" "$(pod_image deployment/mcp-exp-drift)" "$(pod_image job/mcp-exp-probe)" "$failure_action" <<'P'
 import json, sys
-path, load, server, probe = sys.argv[1:5]
+path, load, server, probe, action = sys.argv[1:6]
 controls = {"load_profile_sha256": load, "image_digest": server.rsplit("@", 1)[-1] + "," + probe.rsplit("@", 1)[-1],
-            "failure_action": "delete-one-pod", "tool_set": "tools/list"}
+            "failure_action": action, "tool_set": "tools/list"}
 with open(path, "w", encoding="utf-8") as stream:
     json.dump(controls, stream, indent=2, sort_keys=True)
 P
