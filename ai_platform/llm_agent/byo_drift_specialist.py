@@ -53,6 +53,7 @@ from ai_platform.llm_agent.byo_mcp import (
     validate_gateway_route,
 )
 from ai_platform.llm_agent.byo_runtime import (
+    flush_before_response,
     AppResources,
     audit,
     configure_telemetry,
@@ -273,6 +274,14 @@ class DriftSpecialistExecutor(AgentExecutor):
         }
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        try:
+            await self._execute(context, event_queue)
+        finally:
+            # After the execute span has ended, so every span of this turn is exported before kagent
+            # suspends a SandboxAgent actor (no-op unless KAGENT_PRE_RESPONSE_TRACE_FLUSH=true).
+            flush_before_response()
+
+    async def _execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         if not context.task_id or not context.context_id:
             raise ValueError("A2A SDK must assign task_id and context_id before execution")
         updater = TaskUpdater(event_queue, context.task_id, context.context_id)

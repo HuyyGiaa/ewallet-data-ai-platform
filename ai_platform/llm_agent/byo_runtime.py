@@ -225,6 +225,28 @@ def flush_agent_metrics(timeout_millis: int = 5_000) -> None:
             LOGGER.warning("agent metrics flush failed", exc_info=True)
 
 
+def flush_before_response(environment: Mapping[str, str] | None = None, timeout_millis: int = 2_000) -> bool:
+    """Export buffered spans and metric points now when kagent asks for it (SandboxAgent actors).
+
+    kagent sets ``KAGENT_PRE_RESPONSE_TRACE_FLUSH=true`` on SandboxAgent actors and suspends an actor
+    about 0.6 s after its answer (GKE, campaign agi-20261115T145608Z). The BatchSpanProcessor exports
+    every 5 s, so a session actor's spans stayed in the suspended snapshot and never reached Tempo,
+    while its outgoing MCP calls carried the trace context (AGI-12). Returns whether it flushed.
+    """
+
+    environment = os.environ if environment is None else environment
+    if environment.get("KAGENT_PRE_RESPONSE_TRACE_FLUSH", "false").strip().lower() != "true":
+        return False
+    provider = trace.get_tracer_provider()
+    if isinstance(provider, TracerProvider):
+        try:
+            provider.force_flush(timeout_millis=timeout_millis)
+        except Exception:
+            LOGGER.warning("pre-response trace flush failed", exc_info=True)
+    flush_agent_metrics(timeout_millis=timeout_millis)
+    return True
+
+
 def audit(event: str, **fields: object) -> None:
     """Emit one structured, allowlisted audit record correlated with the active span."""
 

@@ -40,7 +40,16 @@ from ai_platform.llm_agent.agent_metrics import (
     record_prompt_screen,
 )
 from ai_platform.llm_agent.mcp_failover import FailoverPolicy, is_recoverable, policy_from_env, with_failover
-from ai_platform.llm_agent.byo_runtime import AppResources, audit, configure_telemetry, controller_task_store, flush_agent_metrics, listen_port, shutdown_grace_seconds
+from ai_platform.llm_agent.byo_runtime import (
+    AppResources,
+    audit,
+    configure_telemetry,
+    controller_task_store,
+    flush_agent_metrics,
+    flush_before_response,
+    listen_port,
+    shutdown_grace_seconds,
+)
 from ai_platform.llm_agent.nl_intake import (
     IntakeFailure,
     OpenAIToolPlanner,
@@ -424,6 +433,14 @@ class FeatureRagSpecialistExecutor(AgentExecutor):
         }
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        try:
+            await self._execute(context, event_queue)
+        finally:
+            # After the execute span has ended, so every span of this turn is exported before kagent
+            # suspends a SandboxAgent actor (no-op unless KAGENT_PRE_RESPONSE_TRACE_FLUSH=true).
+            flush_before_response()
+
+    async def _execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         if not context.task_id or not context.context_id:
             raise ValueError("A2A SDK must assign task_id and context_id before execution")
         updater = TaskUpdater(event_queue, context.task_id, context.context_id)
