@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # EXP-C5-MCP: one measured run of MCP failover, fully isolated from production.
-# usage: mcp_experiment.sh <baseline|optimized> <plan|run|down> <evidence-dir>
+# usage: mcp_experiment.sh <baseline|optimized> <plan|capacity|run|down> <evidence-dir>
 #
-#   plan  Local only: renders the arm and prints the load profile.
-#   run   Needs EXP_APPROVED=yes. Creates namespace ewallet-mcp-exp, runs the probe, deletes
+#   plan      Local only: renders the arm and prints the load profile.
+#   capacity  Read-only: can this arm's pods schedule right now (ops/experiments/mcp_capacity.py)?
+#             The optimized arm needs two Ready nodes without ewallet.io/g3-llm with room for
+#             one replica each; a four-node wake leaves one such node.
+#   run   Needs EXP_APPROVED=yes. Runs the capacity check first and stops with
+#         CAPACITY_INSUFFICIENT before creating anything. Then creates ewallet-mcp-exp, runs the probe, deletes
 #         one pod of that namespace mid-run, then removes the namespace.
 #   down  Removes the namespace after a lost run.
 #
@@ -15,8 +19,8 @@
 set -euo pipefail
 arm=${1:-} action=${2:-} evidence=${3:-}
 die() { echo "mcp_experiment: $*" >&2; exit 1; }
-case "$arm" in baseline|optimized) ;; *) die "usage: mcp_experiment.sh <baseline|optimized> <plan|run|down> <evidence-dir>";; esac
-case "$action" in plan|run|down) ;; *) die "unknown action $action";; esac
+case "$arm" in baseline|optimized) ;; *) die "usage: mcp_experiment.sh <baseline|optimized> <plan|capacity|run|down> <evidence-dir>";; esac
+case "$action" in plan|capacity|run|down) ;; *) die "unknown action $action";; esac
 [ -n "$evidence" ] || die "evidence directory required"
 root=$(cd "$(dirname "$0")/../.." && pwd)
 python=${EXP_PYTHON:-python3}
@@ -51,11 +55,27 @@ remove_namespace() {
   kubectl --context "$KUBE_CONTEXT" delete namespace "$NS" --wait=true --timeout=5m
 }
 if [ "$action" = down ]; then remove_namespace; echo "namespace removed"; exit 0; fi
+capacity_check() {   # capacity_check <report-path>
+  local rendered
+  rendered=$(mktemp)
+  render > "$rendered" || { rm -f "$rendered"; die "render failed"; }
+  local status=0
+  "$python" -m ops.experiments.mcp_capacity --rendered "$rendered" --context "$KUBE_CONTEXT" --out "$1" > /dev/null || status=$?
+  rm -f "$rendered"
+  case "$status" in
+    0) echo "capacity: SCHEDULABLE ($1)" ;;
+    3) die "CAPACITY_INSUFFICIENT for the $arm arm: $("$python" -c 'import json,sys; print("; ".join(json.load(open(sys.argv[1]))["reasons"]))' "$1") (report $1); nothing was created" ;;
+    *) die "capacity check failed (exit $status)" ;;
+  esac
+}
+if [ "$action" = capacity ]; then mkdir -p "$evidence"; capacity_check "$evidence/capacity-$arm.json"; exit 0; fi
 
 [ "${EXP_APPROVED:-}" = yes ] || die "set EXP_APPROVED=yes after owner approval"
 rendered=$(render) || die "render failed"
 existing=$(kc get namespace "$NS" --ignore-not-found -o name) || die "cannot read namespaces"
 [ -z "$existing" ] || die "$NS already exists; run down first"
+mkdir -p "$evidence"
+capacity_check "$evidence/capacity-$arm-$(date -u +%Y%m%dT%H%M%SZ).json"
 production_state() {
   kc -n "$PROD_NS" get pods -o 'jsonpath={range .items[*]}{.metadata.uid}{" "}{.status.containerStatuses[0].restartCount}{"\n"}{end}' | sort
   kc -n "$PROD_NS" get deployments -o 'jsonpath={range .items[*]}{.metadata.name}{" "}{.metadata.generation}{"\n"}{end}' | sort

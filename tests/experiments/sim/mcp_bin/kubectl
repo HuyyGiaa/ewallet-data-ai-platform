@@ -41,6 +41,20 @@ elif " logs " in text:
         print("LOAD_ROW " + json.dumps({"id": f"c{index}", "ok": ok, "state": "completed" if ok else "failed",
                                         "started": now - 20 + index, "finished": now - 19 + index,
                                         "e2e_ms": 900.0 + index}))
+elif "-o json" in text and ("get nodes" in text or "get pods -A" in text):
+    # Capacity preflight reads. Default: two eligible (non-LLM) nodes with room. SIM_CAPACITY=
+    # observed-2026-11-14 is the refused four-node wake: three LLM nodes, the fourth nearly full.
+    observed = os.environ.get("SIM_CAPACITY") == "observed-2026-11-14"
+    nodes = ([("a", True, 3754), ("b", True, 3916), ("c", True, 1734), ("d", False, 3828)] if observed
+             else [("a", True, 3000), ("d", False, 1500), ("e", False, 1500)])
+    if "get nodes" in text:
+        print(json.dumps({"items": [{"metadata": {"name": n, "labels": {"ewallet.io/g3-llm": "true"} if llm else {}},
+                                     "spec": {}, "status": {"allocatable": {"cpu": "3920m", "memory": "13273Mi"},
+                                                            "conditions": [{"type": "Ready", "status": "True"}]}}
+                                    for n, llm, _ in nodes]}))
+    else:
+        print(json.dumps({"items": [{"spec": {"nodeName": n, "containers": [{"resources": {"requests": {"cpu": f"{used}m", "memory": "4Gi"}}}]},
+                                     "status": {"phase": "Running"}} for n, _, used in nodes]}))
 elif "readyReplicas" in text:
     print("1", end="")
 elif "get pods" in text and "wide" in text or "get nodes" in text:

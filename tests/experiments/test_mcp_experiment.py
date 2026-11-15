@@ -246,3 +246,17 @@ def test_real_drift_server_accepts_the_drivers_token_and_probe() -> None:
         process.wait(timeout=10)
     assert good["ok"] is True, good
     assert bad["ok"] is False and bad["retries"] == 0
+
+
+def test_insufficient_capacity_stops_before_anything_is_created(tmp_path) -> None:
+    result, _, state = session(tmp_path, SIM_CAPACITY="observed-2026-11-14")
+    assert result.returncode != 0
+    assert "CAPACITY_INSUFFICIENT" in result.stderr and "nothing was created" in result.stderr
+    assert not any(" apply " in line or "create secret" in line for line in calls(state))
+
+
+def test_capacity_action_is_read_only(tmp_path) -> None:
+    result, _, state = session(tmp_path, action="capacity")
+    assert result.returncode == 0, result.stderr
+    assert "SCHEDULABLE" in result.stdout
+    assert all(" get " in line for line in calls(state) if line.startswith("kubectl"))
