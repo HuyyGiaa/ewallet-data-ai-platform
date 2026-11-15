@@ -52,6 +52,12 @@ class KagentDiffTests(unittest.TestCase):
     def test_reviewed_change_passes(self):
         self.assertEqual(rfd.candidate("kagent", kagent_base(), self.cand(), self.image, "90s"), [])
 
+    def test_image_only_step_after_the_env_is_live_passes(self):
+        live = self.cand()
+        ctr = live[("Deployment", "kagent", "kagent-controller")]["spec"]["template"]["spec"]["containers"][0]
+        ctr["image"] = "x/kagent-controller:old@sha256:" + "d" * 64
+        self.assertEqual(rfd.candidate("kagent", live, self.cand(), self.image, "90s"), [])
+
     def test_other_object_changes_fail(self):
         c = self.cand()
         c[("ConfigMap", "kagent", "kagent-controller")]["data"]["WATCH_NAMESPACES"] = "a"
@@ -99,9 +105,49 @@ class SubstrateOverrideTests(unittest.TestCase):
             code, err = self.render(self.docs(), f"--ateapi-image={bad}")
             self.assertNotEqual(code, 0, bad)
 
+    def test_atelet_memory_is_set_only_on_atelet(self):
+        docs = self.docs()
+        code, out = self.render(docs, "--atelet-memory=512Mi:1536Mi")
+        self.assertEqual(code, 0)
+        res = out[1]["spec"]["template"]["spec"]["containers"][0]["resources"]
+        self.assertEqual((res["requests"]["memory"], res["limits"]["memory"]), ("512Mi", "1536Mi"))
+        for bad in ("--atelet-memory=2Gi:3Gi", "--atelet-memory=2048Mi:1024Mi", "--atelet-memory=512Mi"):
+            self.assertNotEqual(self.render(self.docs(), bad)[0], 0, bad)
+
     def test_override_fails_closed_without_the_deployment(self):
         code, _ = self.render(self.docs()[1:], f"--ateapi-image={self.image}")
         self.assertNotEqual(code, 0)
+
+
+class SubstrateDiffTests(unittest.TestCase):
+    image = f"{AR}/substrate-ateapi:0.0.9-ewallet.0291af52@{DIGEST}"
+    api = ("Deployment", "ate-system", "ate-api-server-deployment")
+    atelet = ("DaemonSet", "ate-system", "atelet")
+
+    def objs(self, image, memory):
+        api = deployment("ate-system", "ate-api-server-deployment", "ate-api-server", image)
+        ds = {"kind": "DaemonSet", "metadata": {"name": "atelet", "namespace": "ate-system"}, "spec": {"template": {"spec": {
+            "containers": [{"name": "atelet", "image": "x", "resources": {"requests": {"memory": memory[0], "cpu": "100m"},
+                                                                          "limits": {"memory": memory[1], "cpu": "500m"}}}]}}}}
+        return {self.api: api, self.atelet: ds}
+
+    def test_full_step_and_incremental_step_pass(self):
+        release = self.objs("ghcr.io/kagent-dev/substrate/ateapi:v0.0.9@sha256:" + "c" * 64, ("128Mi", "512Mi"))
+        half = self.objs(self.image, ("128Mi", "512Mi"))
+        done = self.objs(self.image, ("512Mi", "1536Mi"))
+        self.assertEqual(rfd.candidate("substrate", release, done, self.image, None, "512Mi:1536Mi"), [])
+        self.assertEqual(rfd.candidate("substrate", half, done, self.image, None, "512Mi:1536Mi"), [])
+
+    def test_wrong_memory_or_extra_field_fails(self):
+        half = self.objs(self.image, ("128Mi", "512Mi"))
+        self.assertTrue(rfd.candidate("substrate", half, self.objs(self.image, ("512Mi", "1024Mi")), self.image, None, "512Mi:1536Mi"))
+        cand = self.objs(self.image, ("512Mi", "1536Mi"))
+        cand[self.atelet]["spec"]["template"]["spec"]["containers"][0]["resources"]["limits"]["cpu"] = "2"
+        self.assertTrue(rfd.candidate("substrate", half, cand, self.image, None, "512Mi:1536Mi"))
+
+    def test_no_change_fails(self):
+        done = self.objs(self.image, ("512Mi", "1536Mi"))
+        self.assertTrue(rfd.candidate("substrate", done, copy.deepcopy(done), self.image, None, "512Mi:1536Mi"))
 
 
 class BuildSpecTests(unittest.TestCase):

@@ -63,10 +63,10 @@
   "images": {
    "kagent-controller": {
     "base": "ghcr.io/kagent-dev/kagent/controller@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76",
-    "binary_sha256": "dcfcf5717028f9750bc7cd989c840b5f838281c4edcf0ee8742896fd1e9d049d",
-    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a",
+    "binary_sha256": "021f148ec6d13735848f6d7cf6ba9324253bb979a81f2a83864e59cdd053a40f",
+    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:6d5c9de094c193d8bb4b895c7894c524191310c1018a18e1484b6879f5cd64a1",
     "go_image": "golang:1.27.3@sha256:e519d3b0a5b285e5aa53ab9eef02bc6bbb9cb04608389b743a136a9ce75f0d1e",
-    "patch_sha256": "177af5ca98cae3bf86ee297ee4558de005af25f12f4bf42914c2b3b04c2504c9",
+    "patch_sha256": "ea032b19150de3e255a37240e54f5ab1030f031044332a387ab7da51bee0cfc1",
     "security_bumps": [
      "golang.org/x/net@v0.62.0"
     ],
@@ -100,7 +100,8 @@
   "spec": "infra/kubernetes/kagent-pilot/patches/runtime-fix.json",
   "superseded": [
    "substrate-ateapi@sha256:2bc07e600a5498f32cfb326bbc08f38c264a98873de393fa652fa5cea905e44a",
-   "substrate-ateom-gvisor@sha256:98c1d8192079b0b8f8ec7c0cb8e6473b8cd250630bb6029667e974a2f4bd3c50 (patch c1bcc768: rollback only after the atelet call; superseded by 0291af52, which also covers dial and spec failures)"
+   "substrate-ateom-gvisor@sha256:98c1d8192079b0b8f8ec7c0cb8e6473b8cd250630bb6029667e974a2f4bd3c50 (patch c1bcc768: rollback only after the atelet call; superseded by 0291af52, which also covers dial and spec failures)",
+   "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a (patch 177af5ca: no capacity wait; superseded by ea032b19)"
   ],
   "tests": "kagent: 8 packages (-short -race); substrate: 24 packages (-race; ateom as root); all in the build, after the security bumps"
  },

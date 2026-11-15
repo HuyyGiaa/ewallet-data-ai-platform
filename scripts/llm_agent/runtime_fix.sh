@@ -3,7 +3,8 @@
 #   kagent     release kagent/kagent: controller image -> patched 0.10.3 build, plus
 #              SUBSTRATE_CALL_TIMEOUT (values overlay kagent-runtime-fix-overlay.yaml)
 #   substrate  release ate-system/substrate: ate-api-server image -> patched 0.0.9 build
-#              (substrate post-renderer --ateapi-image; the chart has one tag for all components)
+#              (substrate post-renderer --ateapi-image; the chart has one tag for all components),
+#              and atelet memory (--atelet-memory; the in-memory pull cache OOM-killed it at 512Mi)
 # Each target is its own approval. Images come from build_runtime_fix_images.py + scan_and_push.sh;
 # their digests are pinned in infra/kubernetes/kagent-pilot/patches/runtime-fix-images.env.
 #
@@ -52,20 +53,28 @@ if [[ $target == kagent ]]; then
   candidate_renderer=("${renderer[@]}")
   values_args=(-f "$overlay")
   lookup=()
-  grep -q "$image" "$overlay" || die "the overlay does not pin $image"
+  pinned=$(python3 -c 'import sys,yaml; i=yaml.safe_load(open(sys.argv[1]))["controller"]["image"]; print(i["registry"] + "/" + i["repository"] + ":" + i["tag"])' "$overlay")
+  [[ "$pinned" == "$image" ]] || die "the overlay pins $pinned, not $image"
 else
   package=PKG-T-SUBSTRATE release=substrate namespace=ate-system deployment=ate-api-server-deployment container=ate-api-server
   chart_ref=$SUBSTRATE_CHART chart_version=$SUBSTRATE_VERSION chart_digest=$SUBSTRATE_CHART_DIGEST
   image=$SUBSTRATE_ATEAPI_IMAGE
   renderer=(--post-renderer "$root/infra/kubernetes/kagent-pilot/scripts/substrate_resource_post_renderer.py")
-  candidate_renderer=("${renderer[@]}" --post-renderer-args "--ateapi-image=$image")
+  candidate_renderer=("${renderer[@]}" --post-renderer-args "--ateapi-image=$image" --post-renderer-args "--atelet-memory=$SUBSTRATE_ATELET_MEMORY")
   values_args=()
   lookup=(--dry-run=server)   # generated CA/TLS/session pools are read back, not regenerated
+  # A later PKG-T step finds earlier parts live: the baseline renders with whatever is live, so
+  # identity still proves "chart + values + renderer == live" and the diff shows only the rest.
+  live_ateapi=$(K -n ate-system get deployment ate-api-server-deployment -o 'jsonpath={.spec.template.spec.containers[?(@.name=="ate-api-server")].image}' 2>/dev/null || true)
+  live_mem=$(K -n ate-system get daemonset atelet -o 'jsonpath={.spec.template.spec.containers[?(@.name=="atelet")].resources.requests.memory}:{.spec.template.spec.containers[?(@.name=="atelet")].resources.limits.memory}' 2>/dev/null || true)
+  [[ "$live_ateapi" == "$image" ]] && renderer+=(--post-renderer-args "--ateapi-image=$image")
+  [[ "$live_mem" == "$SUBSTRATE_ATELET_MEMORY" ]] && renderer+=(--post-renderer-args "--atelet-memory=$SUBSTRATE_ATELET_MEMORY")
 fi
 [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]] || die "patched image is not digest-pinned: $image"
 
 if [[ "$action" == cleanup ]]; then
-  rm -f "$work"/render-*.yaml "$work"/manifest-*.yaml "$work"/values-live.yaml "$work"/dry-run.yaml
+  rm -f "$work"/render-baseline.yaml "$work"/render-candidate.yaml "$work"/manifest-*.yaml "$work"/values-live.yaml "$work"/dry-run.yaml
+  # render-original.yaml stays until the package is retired: rollback compares against it
   log "cleanup: private renders, manifests and values removed"
   exit 0
 fi
@@ -78,12 +87,19 @@ fetch_chart() {
   chart=$work/chart/$release-$chart_version.tgz
 }
 
-running_image_ids() {
+running_image_ids() {   # Running pods of the Deployment that are not being deleted (a rollout keeps the old one briefly)
   local selector
   selector=$(K -n "$namespace" get deployment "$deployment" -o json \
     | python3 -c 'import json,sys; print(",".join(f"{k}={v}" for k, v in sorted(json.load(sys.stdin)["spec"]["selector"]["matchLabels"].items())))')
-  K -n "$namespace" get pods -l "$selector" --field-selector=status.phase=Running \
-    -o "jsonpath={range .items[*]}{.metadata.name} {range .status.containerStatuses[?(@.name==\"$container\")]}{.imageID} {.restartCount} {.ready}{end}{\"\\n\"}{end}"
+  K -n "$namespace" get pods -l "$selector" --field-selector=status.phase=Running -o json | python3 -c '
+import json, sys
+name = sys.argv[1]
+for pod in json.load(sys.stdin)["items"]:
+    if pod["metadata"].get("deletionTimestamp"):
+        continue
+    for c in pod["status"].get("containerStatuses", []):
+        if c["name"] == name:
+            print(pod["metadata"]["name"], c.get("imageID", ""), c.get("restartCount", 0), str(c.get("ready", False)).lower())' "$container"
 }
 
 preflight() {
@@ -111,7 +127,7 @@ candidate() {
     diff_tool candidate kagent "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$image" "$KAGENT_SUBSTRATE_CALL_TIMEOUT" > "$work/diff.txt" 2>&1 \
       || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
   else
-    diff_tool candidate substrate "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$image" > "$work/diff.txt" 2>&1 \
+    diff_tool candidate substrate "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$image" "$SUBSTRATE_ATELET_MEMORY" > "$work/diff.txt" 2>&1 \
       || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
   fi
   log "diff PASS: $(tr -d '\n ' < "$work/diff.txt" | cut -c1-300)"
@@ -150,6 +166,11 @@ case "$action" in
     cp "$work/revision-live" "$work/revision-before-upgrade"
     cp "$work/image-live" "$work/image-before-upgrade"
     cp "$work/pods-live.txt" "$work/pods-before-upgrade.txt"
+    # The release state before the first PKG-T step: rollback returns there, not to a partial step.
+    if [[ ! -s "$work/revision-original" ]]; then
+      cp "$work/revision-live" "$work/revision-original"; cp "$work/render-baseline.yaml" "$work/render-original.yaml"
+      cp "$work/pods-live.txt" "$work/pods-original.txt"
+    fi
     log "upgrade: $(upgrade_args) (from revision $(cat "$work/revision-before-upgrade"), image $(cat "$work/image-before-upgrade"))"
     # shellcheck disable=SC2046
     H $(upgrade_args) "${candidate_renderer[@]}" --atomic --wait --timeout 10m > "$work/upgrade.txt" 2>&1 \
@@ -158,15 +179,15 @@ case "$action" in
   verify) verify "${image##*@}" ;;
   rollback)
     approval "$package-ROLLBACK:$KUBE_CONTEXT"
-    [[ -s "$work/revision-before-upgrade" && -s "$work/render-baseline.yaml" && -s "$work/pods-before-upgrade.txt" ]] \
-      || die "no recorded pre-upgrade revision, baseline or image in $work"
-    before=$(cat "$work/revision-before-upgrade")
-    before_digest=$(awk 'NR==1{print $2}' "$work/pods-before-upgrade.txt"); before_digest=${before_digest##*@}
+    [[ -s "$work/revision-original" && -s "$work/render-original.yaml" && -s "$work/pods-original.txt" ]] \
+      || die "no recorded original revision, baseline or image in $work"
+    before=$(cat "$work/revision-original")
+    before_digest=$(awk 'NR==1{print $2}' "$work/pods-original.txt"); before_digest=${before_digest##*@}
     H rollback "$release" "$before" -n "$namespace" --wait --timeout 10m > "$work/rollback.txt" 2>&1 \
       || { tail -3 "$work/rollback.txt" >&2; die "helm rollback failed"; }
     verify "$before_digest"
     H get manifest "$release" -n "$namespace" > "$work/manifest-after-rollback.yaml"
-    diff_tool identity "$work/manifest-after-rollback.yaml" "$work/render-baseline.yaml" > "$work/identity-after-rollback.txt" 2>&1 \
+    diff_tool identity "$work/manifest-after-rollback.yaml" "$work/render-original.yaml" > "$work/identity-after-rollback.txt" 2>&1 \
       || { cat "$work/identity-after-rollback.txt" >&2; die "rolled-back release differs from the pre-upgrade manifest"; }
     log "rollback PASS: revision $before restored, manifest identical to the pre-upgrade release" ;;
 esac

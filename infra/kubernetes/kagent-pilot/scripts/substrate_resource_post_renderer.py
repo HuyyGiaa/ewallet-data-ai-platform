@@ -6,12 +6,19 @@ Substrate 0.0.9 has no values knob for any of these.
 ``--ateapi-image=<registry>/<repo>@sha256:<digest>`` (helm --post-renderer-args, runtime-fix
 package only) replaces the ate-api-server container image with the patched build of the same
 release (infra/kubernetes/kagent-pilot/patches/runtime-fix.json). The chart has one registry and
-tag for every component, so this is the only way to change ate-api alone. Without the argument
-the output is unchanged.
+tag for every component, so this is the only way to change ate-api alone.
+
+``--atelet-memory=<request>:<limit>`` (runtime-fix package only) sets atelet's memory. atelet's
+pull cache holds each cached image's flattened tarball in memory (images under 100 MiB
+compressed), and io.ReadAll needs about twice that while filling it: the 203 MiB business-agent
+filesystem OOM-killed atelet at the 512Mi default above on a fresh node.
+
+Without arguments the output is unchanged.
 """
 
 from __future__ import annotations
 
+import copy
 import re
 import sys
 
@@ -175,15 +182,39 @@ ATEAPI_CONTAINER = "ate-api-server"
 PATCHED_IMAGE = re.compile(r"^[a-z0-9-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-ateapi(:[A-Za-z0-9._+-]+)?@sha256:[0-9a-f]{64}$")
 
 
-def parse_args(argv: list[str]) -> str | None:
-    image = None
+MEMORY = re.compile(r"^[1-9][0-9]{2,4}Mi$")
+
+
+def parse_args(argv: list[str]) -> tuple[str | None, tuple[str, str] | None]:
+    image = memory = None
     for arg in argv:
-        if not arg.startswith("--ateapi-image="):
+        if arg.startswith("--ateapi-image="):
+            image = arg.split("=", 1)[1]
+            if not PATCHED_IMAGE.match(image):
+                raise ValueError("--ateapi-image must be an Artifact Registry substrate-ateapi digest reference")
+        elif arg.startswith("--atelet-memory="):
+            request, _, limit = arg.split("=", 1)[1].partition(":")
+            if not (MEMORY.match(request) and MEMORY.match(limit)) or int(request[:-2]) > int(limit[:-2]):
+                raise ValueError("--atelet-memory must be <request>Mi:<limit>Mi with request <= limit")
+            memory = (request, limit)
+        else:
             raise ValueError(f"unknown argument {arg!r}")
-        image = arg.split("=", 1)[1]
-        if not PATCHED_IMAGE.match(image):
-            raise ValueError("--ateapi-image must be an Artifact Registry substrate-ateapi digest reference")
-    return image
+    return image, memory
+
+
+def set_atelet_memory(documents: list[dict], memory: tuple[str, str]) -> None:
+    hits = 0
+    for document in documents:
+        if document.get("kind") != "DaemonSet" or document.get("metadata", {}).get("name") != "atelet":
+            continue
+        for container in document["spec"]["template"]["spec"].get("containers", []):
+            if container.get("name") == "atelet":
+                resources = copy.deepcopy(container["resources"])  # never mutate the shared defaults
+                resources["requests"]["memory"], resources["limits"]["memory"] = memory
+                container["resources"] = resources
+                hits += 1
+    if hits != 1:
+        raise ValueError(f"expected one atelet container, found {hits}")
 
 
 def override_ateapi(documents: list[dict], image: str) -> None:
@@ -211,7 +242,7 @@ def pod_spec(document: dict) -> dict | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ateapi_image = parse_args(sys.argv[1:] if argv is None else argv)
+    ateapi_image, atelet_memory = parse_args(sys.argv[1:] if argv is None else argv)
     documents = [doc for doc in yaml.safe_load_all(sys.stdin) if doc]
     for document in documents:
         patch_valkey(document)
@@ -232,6 +263,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
     if ateapi_image:
         override_ateapi(documents, ateapi_image)
+    if atelet_memory:
+        set_atelet_memory(documents, atelet_memory)
     yaml.safe_dump_all(documents, sys.stdout, sort_keys=False, explicit_start=True)
     return 0
 

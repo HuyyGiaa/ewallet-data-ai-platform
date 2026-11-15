@@ -2,11 +2,12 @@
 
     python scripts/llm_agent/runtime_fix_diff.py identity <live-manifest> <baseline-render>
     python scripts/llm_agent/runtime_fix_diff.py candidate kagent <baseline> <candidate> <image> <call-timeout>
-    python scripts/llm_agent/runtime_fix_diff.py candidate substrate <baseline> <candidate> <image>
+    python scripts/llm_agent/runtime_fix_diff.py candidate substrate <baseline> <candidate> <image> [<req>:<limit>]
 
 kagent: only Deployment kagent/kagent-controller may change, and in it only the controller
 container's image (to <image>) and one added env var SUBSTRATE_CALL_TIMEOUT=<call-timeout>.
-substrate: only Deployment ate-system/ate-api-server-deployment, only the ate-api-server image.
+substrate: only Deployment ate-system/ate-api-server-deployment (the ate-api-server image) and,
+with <atelet-memory>, DaemonSet ate-system/atelet (only the atelet memory request and limit).
 Kept outside ops/llm_agent (an image input). Problems name objects and paths, never values.
 """
 
@@ -34,33 +35,66 @@ def container(obj: Mapping, name: str) -> tuple[int, dict]:
     raise KeyError(name)
 
 
-def candidate(target: str, base: Mapping[Key, dict], cand: Mapping[Key, dict], image: str, timeout: str | None) -> list[str]:
+ATELET: Key = ("DaemonSet", "ate-system", "atelet")
+
+
+def atelet_problems(base: Mapping, cand: Mapping, memory: str) -> list[str]:
+    index, after = container(cand, "atelet")
+    prefix = f"spec.template.spec.containers[{index}].resources"
+    want = {f"{prefix}.requests.memory", f"{prefix}.limits.memory"}
+    got = changed_paths(base, cand)
+    problems = [] if got == want else [f"{ATELET} changed paths {sorted(got)} != {sorted(want)}"]
+    request, _, limit = memory.partition(":")
+    if (after["resources"]["requests"]["memory"], after["resources"]["limits"]["memory"]) != (request, limit):
+        problems.append("atelet memory is not the reviewed value")
+    return problems
+
+
+def candidate(target: str, base: Mapping[Key, dict], cand: Mapping[Key, dict], image: str, timeout: str | None,
+              atelet_memory: str | None = None) -> list[str]:
+    """The candidate holds the reviewed end state; only the reviewed objects and paths differ.
+
+    For substrate a step may find part of PKG-T already live (baseline rendered with it), so the
+    changed set is a non-empty subset of the reviewed objects and the end state is checked in full.
+    """
     key, name = TARGETS[target]
+    allowed = {key} | ({ATELET} if target == "substrate" and atelet_memory else set())
     problems = []
     if set(cand) != set(base):
         problems.append(f"objects added {sorted(set(cand) - set(base))} removed {sorted(set(base) - set(cand))}")
-    changed = sorted(k for k in set(base) & set(cand) if base[k] != cand[k])
-    if changed != [key]:
-        return problems + [f"changed {changed} != expected {[key]}"]
+    changed = {k for k in set(base) & set(cand) if base[k] != cand[k]}
+    if not changed or not changed <= allowed or (target == "kagent" and changed != {key}):
+        return problems + [f"changed {sorted(changed)} not within {sorted(allowed)}"]
+    if ATELET in allowed:
+        if ATELET in changed:
+            problems += atelet_problems(base[ATELET], cand[ATELET], atelet_memory)
+        else:
+            _, after = container(cand[ATELET], "atelet")
+            request, _, limit = atelet_memory.partition(":")
+            if (after["resources"]["requests"]["memory"], after["resources"]["limits"]["memory"]) != (request, limit):
+                problems.append("atelet memory is not the reviewed value")
     try:
         index, after = container(cand[key], name)
         _, before = container(base[key], name)
     except KeyError:
         return problems + [f"{key} has no container {name}"]
+    if after.get("image") != image:
+        problems.append(f"{key}/{name} image is not the expected patched digest")
+    if key not in changed:
+        return problems
     prefix = f"spec.template.spec.containers[{index}]"
     want = {f"{prefix}.image"}
-    if target == "kagent":
+    if target == "kagent" and "SUBSTRATE_CALL_TIMEOUT" not in {e.get("name") for e in before.get("env", [])}:
         want |= {f"{prefix}.env[SUBSTRATE_CALL_TIMEOUT].name", f"{prefix}.env[SUBSTRATE_CALL_TIMEOUT].value"}
     got = changed_paths(base[key], cand[key])
     if got != want:
         problems.append(f"{key} changed paths {sorted(got)} != {sorted(want)}")
-    if after.get("image") != image:
-        problems.append(f"{key}/{name} image is not the expected patched digest")
     if target == "kagent":
         env = {e.get("name"): e.get("value") for e in after.get("env", [])}
         if env.get("SUBSTRATE_CALL_TIMEOUT") != timeout:
             problems.append("SUBSTRATE_CALL_TIMEOUT is not the reviewed value")
-        if [e for e in after.get("env", []) if e.get("name") != "SUBSTRATE_CALL_TIMEOUT"] != before.get("env", []):
+        if [e for e in after.get("env", []) if e.get("name") != "SUBSTRATE_CALL_TIMEOUT"] != \
+                [e for e in before.get("env", []) if e.get("name") != "SUBSTRATE_CALL_TIMEOUT"]:
             problems.append("other controller env entries changed")
     return problems
 
@@ -70,13 +104,16 @@ def main(argv: list[str]) -> int:
         problems, label = identity(load(open(argv[1]).read()), load(open(argv[2]).read())), "IDENTITY"
     elif len(argv) in (5, 6) and argv[0] == "candidate" and argv[1] in TARGETS:
         target = argv[1]
-        if (target == "kagent") != (len(argv) == 6):
+        if target == "kagent" and len(argv) != 6:
             print(__doc__, file=sys.stderr)
             return 2
         base, cand = load(open(argv[2]).read()), load(open(argv[3]).read())
-        problems, label = candidate(target, base, cand, argv[4], argv[5] if target == "kagent" else None), "CANDIDATE"
+        extra = argv[5] if len(argv) == 6 else None
+        problems = (candidate(target, base, cand, argv[4], extra) if target == "kagent"
+                    else candidate(target, base, cand, argv[4], None, extra))
+        label = "CANDIDATE"
         if not problems:
-            print(json.dumps({"target": target, "changed": [list(TARGETS[target][0])]}))
+            print(json.dumps({"target": target, "changed": sorted(list(k) for k in set(base) & set(cand) if base[k] != cand[k])}))
     else:
         print(__doc__, file=sys.stderr)
         return 2
