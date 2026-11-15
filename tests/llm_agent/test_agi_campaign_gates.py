@@ -377,6 +377,21 @@ class CampaignGateTests(unittest.TestCase):
         self.assertEqual([flow["name"] for flow in overlay["crossNamespace"]["flows"]],
                          ["existing", "sandbox-workers-to-mcp-gateway"])
 
+    def test_t1_agents_appends_the_sandbox_otlp_flow_to_the_live_flows(self):
+        self.preflight(AGI_PACKAGE="t1-agents", FAKE_DRIFT_TYPE="BYO")
+        live = self.tmp / "private" / "llm-agent-values.yaml"
+        live.write_text(yaml.safe_dump({"crossNamespace": {"flows": [{"name": "sandbox-workers-to-mcp-gateway"}]}}))
+        result, args = self.args_for("t1-agents", "agents")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        overlay = yaml.safe_load((self.tmp / "private" / "t1-agents-flows.yaml").read_text())
+        flows = overlay["crossNamespace"]["flows"]
+        self.assertEqual([flow["name"] for flow in flows], ["sandbox-workers-to-mcp-gateway", "sandbox-workers-to-otel-collector"])
+        self.assertEqual((flows[1]["local"], flows[1]["port"], flows[1]["peer"]["serviceAccount"]), ("otel-collector", 4317, "default"))
+        identities = self.run_script("__identities", "agents", AGI_PACKAGE="t1-agents").stdout.split()
+        self.assertEqual(sorted(identities[i + 1] for i, arg in enumerate(identities) if arg == "--expect-added"),
+                         ["AuthorizationPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector",
+                          "NetworkPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector-ingress"])
+
     def test_a_package_refuses_the_other_release_and_unknown_packages(self):
         self.preflight()
         result = self.run_script("gate", "agents", AGI_PACKAGE="p1-mcp")

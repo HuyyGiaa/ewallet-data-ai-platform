@@ -34,6 +34,16 @@ FLOWS: dict[str, dict[str, Any]] = {
         "peer": {"namespace": "ewallet-sandbox", "podLabels": {"ate.dev/worker-pool": "business-agents"},
                  "ambient": True, "serviceAccount": "default"},
     },
+    # PKG-T1: the same workers export OTLP to the shared collector, so the Sandbox Specialist's own
+    # spans join the business trace (AGI-12). Port 4317 only; the collector's other ports stay closed.
+    "sandbox-otel-collector": {
+        "name": "sandbox-workers-to-otel-collector",
+        "direction": "ingress",
+        "local": "otel-collector",
+        "port": 4317,
+        "peer": {"namespace": "ewallet-sandbox", "podLabels": {"ate.dev/worker-pool": "business-agents"},
+                 "ambient": True, "serviceAccount": "default"},
+    },
 }
 
 

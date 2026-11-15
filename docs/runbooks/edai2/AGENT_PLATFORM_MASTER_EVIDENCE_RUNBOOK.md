@@ -464,6 +464,22 @@ AGI_APPROVAL=P4-AGENTS:$CAMPAIGN AGI_PACKAGE=p4-agents scripts/llm_agent/agi_cam
 Then repeat AGI-09–11 in kagent UI. Record them as AGI-09-sbx to AGI-11-sbx, with the
 sandbox actor IDs from `/api/substrate/status`.
 
+### 2.6b PKG-T1: Sandbox OTLP export (owner-approved 2026-11-15)
+
+The mesh denied OTLP from `cluster.local/ns/ewallet-sandbox/sa/default`, so the Sandbox
+Specialists' own spans were missing from the business trace (AGI-12). This package appends
+one flow to the live `crossNamespace.flows`: the business-agents workers may reach
+`otel-collector` on port 4317, and nothing else.
+
+```bash
+AGI_PACKAGE=t1-agents scripts/llm_agent/agi_campaign.sh preflight
+AGI_PACKAGE=t1-agents scripts/llm_agent/agi_campaign.sh gate agents   # adds exactly 1 AuthorizationPolicy and 1 NetworkPolicy
+AGI_APPROVAL=T1-AGENTS:$CAMPAIGN AGI_PACKAGE=t1-agents scripts/llm_agent/agi_campaign.sh upgrade agents
+```
+
+- **Risk:** a compromised actor could write fake telemetry. It cannot read any.
+- **Rollback:** `T1-AGENTS-ROLLBACK`.
+
 ### 2.7 Image roll after P2 (`img-mcp`, `img-agents`)
 
 Use these when a code fix changes an image input after the packages are live. Example: the
