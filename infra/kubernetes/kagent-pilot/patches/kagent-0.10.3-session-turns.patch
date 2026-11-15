@@ -1,0 +1,1292 @@
+diff --git a/go/core/internal/a2a/substrate_sandbox_transport.go b/go/core/internal/a2a/substrate_sandbox_transport.go
+index 8d9ed64..572edd2 100644
+--- a/go/core/internal/a2a/substrate_sandbox_transport.go
++++ b/go/core/internal/a2a/substrate_sandbox_transport.go
+@@ -9,8 +9,6 @@ import (
+ 	"io"
+ 	"net/http"
+ 	"strings"
+-	"sync"
+-	"time"
+ 
+ 	"github.com/kagent-dev/kagent/go/api/database"
+ 	"github.com/kagent-dev/kagent/go/api/v1alpha2"
+@@ -79,32 +77,38 @@ func (t *substrateSandboxSessionRoundTripper) RoundTrip(req *http.Request) (*htt
+ 			"failed to ensure session row; continuing without it", "sessionID", sessionID)
+ 	}
+ 
+-	res, err := t.actorBackend.EnsureSessionActor(req.Context(), t.sandboxAgent, sessionID)
++	// The whole turn — ensure, proxy, response, post-turn suspend — owns the session actor, so
++	// a follow-up on the same contextId waits for it instead of racing its suspend (ewallet
++	// patch; see pkg/sandboxbackend/substrate/session_turns.go).
++	turn, err := t.actorBackend.BeginSessionTurn(req.Context(), t.sandboxAgent, sessionID)
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	res, err := turn.Ensure(req.Context())
++	if err != nil {
++		turn.End()
++		return nil, err
++	}
+ 
+ 	// Proxy the A2A request through atenet-router to the session actor. The router
+ 	// selects the actor by HTTP Host; actor ID comes from EnsureSessionActor above.
+ 	actorRT, err := newSubstrateAgentRoundTripper(t.routerURL, res.Handle.Atespace, res.Handle.ID, t.base)
+ 	if err != nil {
++		turn.End()
+ 		return nil, err
+ 	}
+ 
+ 	resp, err := actorRT.RoundTrip(req)
+ 	if err != nil {
+-		t.scheduleSuspendSession(sessionID)
++		turn.End()
+ 		return nil, err
+ 	}
+ 
+-	// Suspend the actor after the client finishes reading the (streaming) response
+-	// so the worker can serve other sessions until this chat is resumed.
+-	resp.Body = &suspendSessionActorOnClose{
+-		ReadCloser: resp.Body,
+-		suspend: func() {
+-			t.scheduleSuspendSession(sessionID)
+-		},
+-	}
++	// The turn ends when the client finishes reading the (streaming) response; if nobody ever
++	// closes the body, the end of the request context ends it, so a turn cannot hold its
++	// session forever.
++	resp.Body = &endTurnOnClose{ReadCloser: resp.Body, end: turn.End}
++	context.AfterFunc(req.Context(), turn.End)
+ 	return resp, nil
+ }
+ 
+@@ -132,26 +136,15 @@ func (t *substrateSandboxSessionRoundTripper) ensureSessionRow(ctx context.Conte
+ 	return nil
+ }
+ 
+-func (t *substrateSandboxSessionRoundTripper) scheduleSuspendSession(sessionID string) {
+-	if t == nil || t.actorBackend == nil || t.sandboxAgent == nil {
+-		return
+-	}
+-	go func() {
+-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+-		defer cancel()
+-		_ = t.actorBackend.SuspendSessionActor(ctx, t.sandboxAgent, sessionID)
+-	}()
+-}
+-
+-type suspendSessionActorOnClose struct {
++// endTurnOnClose ends the session turn once, when the response body is closed.
++type endTurnOnClose struct {
+ 	io.ReadCloser
+-	once    sync.Once
+-	suspend func()
++	end func()
+ }
+ 
+-func (b *suspendSessionActorOnClose) Close() error {
++func (b *endTurnOnClose) Close() error {
+ 	err := b.ReadCloser.Close()
+-	b.once.Do(b.suspend)
++	b.end() // SessionTurn.End is idempotent
+ 	return err
+ }
+ 
+diff --git a/go/core/internal/a2a/substrate_sandbox_transport_test.go b/go/core/internal/a2a/substrate_sandbox_transport_test.go
+index 6edd7ad..c605eba 100644
+--- a/go/core/internal/a2a/substrate_sandbox_transport_test.go
++++ b/go/core/internal/a2a/substrate_sandbox_transport_test.go
+@@ -14,15 +14,15 @@ import (
+ 	"github.com/kagent-dev/kagent/go/core/internal/dbtest"
+ )
+ 
+-func TestSuspendSessionActorOnClose(t *testing.T) {
++func TestEndTurnOnClose(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	var suspended atomic.Bool
+ 	body := &trackingReadCloser{data: []byte("ok")}
+ 
+-	wrapped := &suspendSessionActorOnClose{
++	wrapped := &endTurnOnClose{
+ 		ReadCloser: body,
+-		suspend: func() {
++		end: func() {
+ 			suspended.Store(true)
+ 		},
+ 	}
+@@ -31,13 +31,13 @@ func TestSuspendSessionActorOnClose(t *testing.T) {
+ 		t.Fatalf("ReadAll: %v", err)
+ 	}
+ 	if suspended.Load() {
+-		t.Fatal("suspend should not run before Close")
++		t.Fatal("the turn should not end before Close")
+ 	}
+ 	if err := wrapped.Close(); err != nil {
+ 		t.Fatalf("Close: %v", err)
+ 	}
+ 	if !suspended.Load() {
+-		t.Fatal("expected suspend after Close")
++		t.Fatal("expected the turn to end after Close")
+ 	}
+ 	if body.closed != 1 {
+ 		t.Fatalf("expected underlying body closed once, got %d", body.closed)
+@@ -148,12 +148,12 @@ func TestExtractA2AContextID(t *testing.T) {
+ 	}
+ }
+ 
+-func TestSuspendSessionActorOnClosePreservesBody(t *testing.T) {
++func TestEndTurnOnClosePreservesBody(t *testing.T) {
+ 	t.Parallel()
+ 
+-	rc := &suspendSessionActorOnClose{
++	rc := &endTurnOnClose{
+ 		ReadCloser: io.NopCloser(strings.NewReader("payload")),
+-		suspend:    func() {},
++		end:        func() {},
+ 	}
+ 	got, err := io.ReadAll(rc)
+ 	if err != nil {
+diff --git a/go/core/internal/a2a/substrate_session_turns_test.go b/go/core/internal/a2a/substrate_session_turns_test.go
+new file mode 100644
+index 0000000..812abd7
+--- /dev/null
++++ b/go/core/internal/a2a/substrate_session_turns_test.go
+@@ -0,0 +1,583 @@
++package a2a
++
++// ewallet patch: deterministic tests of session-turn coordination through the real
++// substrateSandboxSessionRoundTripper and the real SandboxAgentActorBackend. The fake ate-api
++// models the v0.0.9 workflow contract (blocking Resume/Suspend, per-actor lock -> Aborted, the
++// workflow keeps running when the caller's deadline expires, failed resumes roll back), and the
++// fake atenet-router records every A2A turn it serves and whether the actor stayed RUNNING
++// throughout.
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
++	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	"github.com/kagent-dev/kagent/go/api/v1alpha2"
++	"github.com/kagent-dev/kagent/go/core/pkg/sandboxbackend/substrate"
++	"google.golang.org/grpc"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/apimachinery/pkg/runtime"
++	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
++	"sigs.k8s.io/controller-runtime/pkg/client/fake"
++)
++
++type fakeActor struct {
++	status ateapipb.Actor_Status
++	locked bool
++}
++
++// workflowAPI is a fake ate-api ControlClient with v0.0.9 (+ ewallet rollback) semantics.
++type workflowAPI struct {
++	ateapipb.ControlClient
++	mu         sync.Mutex
++	actors     map[string]*fakeActor
++	resumeFor  time.Duration
++	suspendFor time.Duration
++
++	resumeFail  atomic.Int32 // next N resumes fail (rolled back to SUSPENDED)
++	suspendFail atomic.Int32 // next N suspends fail with Unavailable (actor stays RUNNING)
++	abortNext   atomic.Int32 // next N mutating calls return Aborted without effect
++	resumes     atomic.Int32
++	suspends    atomic.Int32
++	creates     atomic.Int32
++}
++
++func newWorkflowAPI(resumeFor, suspendFor time.Duration) *workflowAPI {
++	return &workflowAPI{actors: map[string]*fakeActor{}, resumeFor: resumeFor, suspendFor: suspendFor}
++}
++
++func (w *workflowAPI) statusOf(id string) ateapipb.Actor_Status {
++	w.mu.Lock()
++	defer w.mu.Unlock()
++	if a := w.actors[id]; a != nil {
++		return a.status
++	}
++	return ateapipb.Actor_STATUS_UNSPECIFIED
++}
++
++func (w *workflowAPI) GetActor(_ context.Context, in *ateapipb.GetActorRequest, _ ...grpc.CallOption) (*ateapipb.Actor, error) {
++	w.mu.Lock()
++	defer w.mu.Unlock()
++	a := w.actors[in.GetActor().GetName()]
++	if a == nil {
++		return nil, status.Error(codes.NotFound, "not found")
++	}
++	return &ateapipb.Actor{Metadata: &ateapipb.ResourceMetadata{Name: in.GetActor().GetName(), Atespace: in.GetActor().GetAtespace()}, Status: a.status}, nil
++}
++
++func (w *workflowAPI) CreateAtespace(context.Context, *ateapipb.CreateAtespaceRequest, ...grpc.CallOption) (*ateapipb.Atespace, error) {
++	return nil, status.Error(codes.AlreadyExists, "exists")
++}
++
++func (w *workflowAPI) CreateActor(_ context.Context, in *ateapipb.CreateActorRequest, _ ...grpc.CallOption) (*ateapipb.Actor, error) {
++	w.mu.Lock()
++	defer w.mu.Unlock()
++	id := in.GetActor().GetMetadata().GetName()
++	if w.actors[id] != nil {
++		return nil, status.Error(codes.AlreadyExists, "duplicate actor")
++	}
++	w.creates.Add(1)
++	w.actors[id] = &fakeActor{status: ateapipb.Actor_STATUS_SUSPENDED}
++	return &ateapipb.Actor{Metadata: in.GetActor().GetMetadata(), Status: ateapipb.Actor_STATUS_SUSPENDED}, nil
++}
++
++// workflow runs op under the actor lock in the background, like ate-api's detached workflow;
++// the caller returns at its own deadline while the workflow continues.
++func (w *workflowAPI) workflow(ctx context.Context, id string, start func(a *fakeActor) (done bool, err error), finish func(a *fakeActor), d time.Duration) error {
++	if w.abortNext.Load() > 0 {
++		w.abortNext.Add(-1)
++		return status.Error(codes.Aborted, "another operation is in progress for this actor")
++	}
++	w.mu.Lock()
++	a := w.actors[id]
++	switch {
++	case a == nil:
++		w.mu.Unlock()
++		return status.Error(codes.NotFound, "not found")
++	case a.locked:
++		w.mu.Unlock()
++		return status.Error(codes.Aborted, "another operation is in progress for this actor")
++	}
++	if done, err := start(a); done || err != nil {
++		w.mu.Unlock()
++		return err
++	}
++	a.locked = true
++	w.mu.Unlock()
++	result := make(chan struct{})
++	go func() {
++		time.Sleep(d)
++		w.mu.Lock()
++		finish(a)
++		a.locked = false
++		w.mu.Unlock()
++		close(result)
++	}()
++	select {
++	case <-result:
++		return nil
++	case <-ctx.Done():
++		return status.FromContextError(ctx.Err()).Err()
++	}
++}
++
++func (w *workflowAPI) ResumeActor(ctx context.Context, in *ateapipb.ResumeActorRequest, _ ...grpc.CallOption) (*ateapipb.ResumeActorResponse, error) {
++	id := in.GetActor().GetName()
++	var failed bool
++	err := w.workflow(ctx, id, func(a *fakeActor) (bool, error) {
++		if a.status == ateapipb.Actor_STATUS_RUNNING {
++			return true, nil
++		}
++		w.resumes.Add(1)
++		a.status = ateapipb.Actor_STATUS_RESUMING
++		return false, nil
++	}, func(a *fakeActor) {
++		if w.resumeFail.Load() > 0 {
++			w.resumeFail.Add(-1)
++			failed = true
++			a.status = ateapipb.Actor_STATUS_SUSPENDED // ewallet rollback
++			return
++		}
++		a.status = ateapipb.Actor_STATUS_RUNNING
++	}, w.resumeFor)
++	if err == nil && failed {
++		err = status.Error(codes.Unknown, "while restoring workload: readyz cancelled")
++	}
++	if err != nil {
++		return nil, err
++	}
++	return &ateapipb.ResumeActorResponse{Actor: &ateapipb.Actor{Status: ateapipb.Actor_STATUS_RUNNING}}, nil
++}
++
++func (w *workflowAPI) SuspendActor(ctx context.Context, in *ateapipb.SuspendActorRequest, _ ...grpc.CallOption) (*ateapipb.SuspendActorResponse, error) {
++	id := in.GetActor().GetName()
++	if w.suspendFail.Load() > 0 {
++		w.suspendFail.Add(-1)
++		return nil, status.Error(codes.Unavailable, "atelet unavailable")
++	}
++	err := w.workflow(ctx, id, func(a *fakeActor) (bool, error) {
++		switch a.status {
++		case ateapipb.Actor_STATUS_SUSPENDED:
++			return true, nil
++		case ateapipb.Actor_STATUS_RUNNING, ateapipb.Actor_STATUS_SUSPENDING:
++			w.suspends.Add(1)
++			a.status = ateapipb.Actor_STATUS_SUSPENDING
++			return false, nil
++		}
++		return true, status.Error(codes.InvalidArgument, "cannot checkpoint a "+a.status.String()+" actor")
++	}, func(a *fakeActor) { a.status = ateapipb.Actor_STATUS_SUSPENDED }, w.suspendFor)
++	if err != nil {
++		return nil, err
++	}
++	return &ateapipb.SuspendActorResponse{}, nil
++}
++
++// fakeRouter serves /health and A2A turns, recording violations: a turn served while the actor
++// was not RUNNING, or an actor that stopped RUNNING during a turn.
++type fakeRouter struct {
++	api        *workflowAPI
++	turnFor    atomic.Int64 // time.Duration
++	served     atomic.Int32
++	violations atomic.Int32
++	active     sync.Map // actorID -> *atomic.Int32 (concurrent turns per actor)
++	maxPerActr atomic.Int32
++	running    atomic.Int32
++	maxTotal   atomic.Int32
++}
++
++func storeMax(m *atomic.Int32, v int32) {
++	for {
++		cur := m.Load()
++		if v <= cur || m.CompareAndSwap(cur, v) {
++			return
++		}
++	}
++}
++
++func (r *fakeRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
++	actorID, _, _ := strings.Cut(req.Host, ".")
++	if req.URL.Path == "/health" {
++		if r.api.statusOf(actorID) == ateapipb.Actor_STATUS_RUNNING {
++			w.WriteHeader(http.StatusOK)
++		} else {
++			w.WriteHeader(http.StatusBadGateway)
++		}
++		return
++	}
++	_, _ = io.Copy(io.Discard, req.Body)
++	v, _ := r.active.LoadOrStore(actorID, &atomic.Int32{})
++	n := v.(*atomic.Int32).Add(1)
++	defer v.(*atomic.Int32).Add(-1)
++	storeMax(&r.maxPerActr, n)
++	storeMax(&r.maxTotal, r.running.Add(1))
++	defer r.running.Add(-1)
++	if r.api.statusOf(actorID) != ateapipb.Actor_STATUS_RUNNING {
++		r.violations.Add(1)
++	}
++	select {
++	case <-time.After(time.Duration(r.turnFor.Load())):
++	case <-req.Context().Done():
++		return
++	}
++	if r.api.statusOf(actorID) != ateapipb.Actor_STATUS_RUNNING {
++		r.violations.Add(1)
++	}
++	r.served.Add(1)
++	w.Header().Set("Content-Type", "application/json")
++	_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":"1","result":{"kind":"task","status":{"state":"completed"}}}`))
++}
++
++type turnHarness struct {
++	t       *testing.T
++	api     *workflowAPI
++	router  *fakeRouter
++	backend *substrate.SandboxAgentActorBackend
++	sa      *v1alpha2.SandboxAgent
++	rt      http.RoundTripper
++}
++
++func newTurnHarness(t *testing.T, resumeFor, suspendFor, turnFor time.Duration) *turnHarness {
++	t.Helper()
++	scheme := runtime.NewScheme()
++	utilruntime.Must(atev1alpha1.AddToScheme(scheme))
++	tmpl := &atev1alpha1.ActorTemplate{ObjectMeta: metav1.ObjectMeta{
++		Name: "drift-specialist-401c441e274e8282", Namespace: "ewallet-sandbox",
++		Labels: map[string]string{substrate.SandboxAgentLabelKey: "drift-specialist"},
++	}, Status: atev1alpha1.ActorTemplateStatus{Phase: atev1alpha1.PhaseReady}}
++	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tmpl).Build()
++	api := newWorkflowAPI(resumeFor, suspendFor)
++	router := &fakeRouter{api: api}
++	router.turnFor.Store(int64(turnFor))
++	srv := httptest.NewServer(router)
++	t.Cleanup(srv.Close)
++	sa := &v1alpha2.SandboxAgent{ObjectMeta: metav1.ObjectMeta{Name: "drift-specialist", Namespace: "ewallet-sandbox"}}
++	backend := substrate.NewSandboxAgentActorBackend(&substrate.Client{ControlClient: api}, kube, srv.URL)
++	rt, err := newSubstrateSandboxSessionRoundTripper(srv.URL, sa, backend, http.DefaultTransport, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return &turnHarness{t: t, api: api, router: router, backend: backend, sa: sa, rt: rt}
++}
++
++func (h *turnHarness) actor(session string) string {
++	return substrate.SandboxAgentSessionActorID(h.sa, session)
++}
++
++// send runs one A2A turn through the real transport and reads and closes the body, as the A2A
++// client does.
++func (h *turnHarness) send(ctx context.Context, session string) error {
++	body := fmt.Sprintf(`{"jsonrpc":"2.0","id":"1","method":"message/send","params":{"message":{"kind":"message","role":"user","messageId":"m","contextId":%q,"parts":[]}}}`, session)
++	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://kagent.invalid/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/", bytes.NewBufferString(body))
++	if err != nil {
++		return err
++	}
++	req.Header.Set("Content-Type", "application/json")
++	resp, err := h.rt.RoundTrip(req)
++	if err != nil {
++		return err
++	}
++	defer resp.Body.Close()
++	b, err := io.ReadAll(resp.Body)
++	if err != nil {
++		return err
++	}
++	if !strings.Contains(string(b), `"completed"`) {
++		return fmt.Errorf("unexpected reply %s", b)
++	}
++	return nil
++}
++
++func (h *turnHarness) waitStatus(id string, want ateapipb.Actor_Status, within time.Duration) {
++	h.t.Helper()
++	deadline := time.Now().Add(within)
++	for h.api.statusOf(id) != want {
++		if time.Now().After(deadline) {
++			h.t.Fatalf("actor %s: want %v within %v, have %v", id, want, within, h.api.statusOf(id))
++		}
++		time.Sleep(5 * time.Millisecond)
++	}
++}
++
++// settled waits for every session to be released and the actor to be SUSPENDED.
++func (h *turnHarness) settled(ids ...string) {
++	h.t.Helper()
++	for _, id := range ids {
++		h.waitStatus(id, ateapipb.Actor_STATUS_SUSPENDED, 5*time.Second)
++	}
++	deadline := time.Now().Add(5 * time.Second)
++	for h.backend.ActiveSessionTurns() != 0 {
++		if time.Now().After(deadline) {
++			h.t.Fatalf("session entries leaked: %d", h.backend.ActiveSessionTurns())
++		}
++		time.Sleep(5 * time.Millisecond)
++	}
++	if v := h.router.violations.Load(); v != 0 {
++		h.t.Fatalf("%d turns ran while the actor was not RUNNING", v)
++	}
++	if m := h.router.maxPerActr.Load(); m > 1 {
++		h.t.Fatalf("%d turns of one session overlapped", m)
++	}
++}
++
++func ctxFor(t *testing.T, d time.Duration) context.Context {
++	ctx, cancel := context.WithTimeout(context.Background(), d)
++	t.Cleanup(cancel)
++	return ctx
++}
++
++const quick = 5 * time.Second
++
++// 1. A follow-up arriving while the previous turn is still RUNNING waits for it and is then
++// served on the same RUNNING actor (handoff: no Suspend/Resume in between).
++func TestTurnFollowUpDuringRunning(t *testing.T) {
++	h := newTurnHarness(t, 50*time.Millisecond, 50*time.Millisecond, 300*time.Millisecond)
++	errs := make(chan error, 2)
++	go func() { errs <- h.send(ctxFor(t, quick), "c1") }()
++	h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_RUNNING, time.Second)
++	time.Sleep(50 * time.Millisecond) // turn 1 is being served
++	go func() { errs <- h.send(ctxFor(t, quick), "c1") }()
++	for i := 0; i < 2; i++ {
++		if err := <-errs; err != nil {
++			t.Fatal(err)
++		}
++	}
++	h.settled(h.actor("c1"))
++	if r, s := h.api.resumes.Load(), h.api.suspends.Load(); r != 1 || s != 1 {
++		t.Fatalf("handoff expected: resumes=%d suspends=%d, want 1/1", r, s)
++	}
++}
++
++// 2. The GKE race: a follow-up while the previous turn's suspend is in flight (SUSPENDING) waits
++// for the suspend and then resumes the same actor.
++func TestTurnFollowUpDuringSuspending(t *testing.T) {
++	h := newTurnHarness(t, 50*time.Millisecond, 400*time.Millisecond, 20*time.Millisecond)
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatal(err)
++	}
++	h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_SUSPENDING, time.Second)
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatalf("follow-up during SUSPENDING: %v", err)
++	}
++	h.settled(h.actor("c1"))
++	if r := h.api.resumes.Load(); r != 2 {
++		t.Fatalf("resumes=%d, want 2", r)
++	}
++}
++
++// 3. A follow-up after the suspend completed resumes the actor.
++func TestTurnFollowUpAfterSuspended(t *testing.T) {
++	h := newTurnHarness(t, 50*time.Millisecond, 50*time.Millisecond, 20*time.Millisecond)
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatal(err)
++	}
++	h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_SUSPENDED, time.Second)
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatal(err)
++	}
++	h.settled(h.actor("c1"))
++	if r, c := h.api.resumes.Load(), h.api.creates.Load(); r != 2 || c != 1 {
++		t.Fatalf("resumes=%d creates=%d, want 2/1 (same actor)", r, c)
++	}
++}
++
++// 4. Concurrent requests sharing a context are serialized; all succeed on one actor.
++func TestTurnConcurrentSameContext(t *testing.T) {
++	h := newTurnHarness(t, 50*time.Millisecond, 50*time.Millisecond, 80*time.Millisecond)
++	var wg sync.WaitGroup
++	errs := make(chan error, 5)
++	for i := 0; i < 5; i++ {
++		wg.Add(1)
++		go func() { defer wg.Done(); errs <- h.send(ctxFor(t, quick), "c1") }()
++	}
++	wg.Wait()
++	close(errs)
++	for err := range errs {
++		if err != nil {
++			t.Fatal(err)
++		}
++	}
++	h.settled(h.actor("c1"))
++	if c := h.api.creates.Load(); c != 1 {
++		t.Fatalf("creates=%d, want one actor for the context", c)
++	}
++	if h.router.served.Load() != 5 {
++		t.Fatalf("served=%d", h.router.served.Load())
++	}
++}
++
++// 5. Independent contexts are not serialized against each other.
++func TestTurnIndependentContextsRunConcurrently(t *testing.T) {
++	h := newTurnHarness(t, 50*time.Millisecond, 50*time.Millisecond, 300*time.Millisecond)
++	var wg sync.WaitGroup
++	for _, s := range []string{"c1", "c2", "c3"} {
++		wg.Add(1)
++		go func(s string) {
++			defer wg.Done()
++			if err := h.send(ctxFor(t, quick), s); err != nil {
++				t.Error(err)
++			}
++		}(s)
++	}
++	wg.Wait()
++	h.settled(h.actor("c1"), h.actor("c2"), h.actor("c3"))
++	if m := h.router.maxTotal.Load(); m < 2 {
++		t.Fatalf("independent sessions did not overlap (max concurrent turns %d)", m)
++	}
++}
++
++// 6. A request cancelled while waiting for the previous turn fails fast and leaves nothing behind.
++func TestTurnCancelWhileWaiting(t *testing.T) {
++	h := newTurnHarness(t, 20*time.Millisecond, 20*time.Millisecond, 500*time.Millisecond)
++	first := make(chan error, 1)
++	go func() { first <- h.send(ctxFor(t, quick), "c1") }()
++	h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_RUNNING, time.Second)
++	start := time.Now()
++	err := h.send(ctxFor(t, 100*time.Millisecond), "c1")
++	if err == nil || !errors.Is(err, context.DeadlineExceeded) {
++		t.Fatalf("want the waiter's deadline, got %v", err)
++	}
++	if time.Since(start) > 400*time.Millisecond {
++		t.Fatalf("cancelled waiter returned late: %v", time.Since(start))
++	}
++	if err := <-first; err != nil {
++		t.Fatalf("first turn disturbed: %v", err)
++	}
++	h.settled(h.actor("c1"))
++}
++
++// 7. A client that disconnects mid-turn ends the turn (request context), and the session works
++// again afterwards.
++func TestTurnCancelDuringExecution(t *testing.T) {
++	h := newTurnHarness(t, 20*time.Millisecond, 20*time.Millisecond, 2*time.Second)
++	ctx, cancel := context.WithCancel(context.Background())
++	done := make(chan error, 1)
++	go func() { done <- h.send(ctx, "c1") }()
++	h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_RUNNING, time.Second)
++	time.Sleep(50 * time.Millisecond)
++	cancel()
++	if err := <-done; err == nil {
++		t.Fatal("expected the cancelled turn to fail")
++	}
++	h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_SUSPENDED, quick)
++	h.router.turnFor.Store(int64(20 * time.Millisecond))
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatalf("session after disconnect: %v", err)
++	}
++	h.settled(h.actor("c1"))
++}
++
++// 8a. A failed post-turn suspend is logged; the next turn finds the actor RUNNING and is served.
++func TestTurnSuspendFailure(t *testing.T) {
++	h := newTurnHarness(t, 20*time.Millisecond, 20*time.Millisecond, 20*time.Millisecond)
++	h.api.suspendFail.Store(1)
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatal(err)
++	}
++	time.Sleep(100 * time.Millisecond)
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatalf("turn after a failed suspend: %v", err)
++	}
++	h.settled(h.actor("c1"))
++}
++
++// 8b. Aborted (another workflow holds the actor) is retried until the suspend goes through.
++func TestTurnSuspendAbortedIsRetried(t *testing.T) {
++	h := newTurnHarness(t, 20*time.Millisecond, 20*time.Millisecond, 20*time.Millisecond)
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatal(err)
++	}
++	h.settled(h.actor("c1"))
++	h.api.abortNext.Store(0)
++	// next turn: its suspend is aborted twice first
++	go func() {
++		h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_RUNNING, time.Second)
++		h.api.abortNext.Store(2)
++	}()
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatal(err)
++	}
++	h.settled(h.actor("c1"))
++}
++
++// 9. A failed resume fails the request, releases the session, and the next request succeeds.
++func TestTurnResumeFailure(t *testing.T) {
++	h := newTurnHarness(t, 50*time.Millisecond, 20*time.Millisecond, 20*time.Millisecond)
++	h.api.resumeFail.Store(1)
++	if err := h.send(ctxFor(t, quick), "c1"); err == nil {
++		t.Fatal("expected the first turn to fail")
++	}
++	h.settled(h.actor("c1"))
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatalf("retry after a failed resume: %v", err)
++	}
++	h.settled(h.actor("c1"))
++}
++
++// 9b. The resume outlives the caller's deadline (concurrent restores, F2): the request fails, the
++// detached workflow finishes RUNNING, and the failed turn suspends it, so no worker is stranded.
++func TestTurnResumeOutlivesCallerDeadline(t *testing.T) {
++	h := newTurnHarness(t, 600*time.Millisecond, 20*time.Millisecond, 20*time.Millisecond)
++	if err := h.send(ctxFor(t, 150*time.Millisecond), "c1"); err == nil {
++		t.Fatal("expected the caller's deadline")
++	}
++	h.settled(h.actor("c1"))
++	if s := h.api.suspends.Load(); s != 1 {
++		t.Fatalf("suspends=%d: the late RUNNING actor must be suspended", s)
++	}
++}
++
++// 10. Ten rapid unpaced turns on one context: all served, one actor, never overlapping.
++func TestTurnRepeatedRapidCycles(t *testing.T) {
++	h := newTurnHarness(t, 30*time.Millisecond, 60*time.Millisecond, 10*time.Millisecond)
++	for i := 0; i < 10; i++ {
++		if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++			t.Fatalf("turn %d: %v", i, err)
++		}
++	}
++	h.settled(h.actor("c1"))
++	if c := h.api.creates.Load(); c != 1 {
++		t.Fatalf("creates=%d", c)
++	}
++	if r := h.api.resumes.Load(); r < 2 {
++		t.Fatalf("resumes=%d: expected genuine suspend/resume cycles", r)
++	}
++}
++
++// 11/12. Stress for the race detector: many goroutines over a few contexts, random spacing.
++func TestTurnStress(t *testing.T) {
++	h := newTurnHarness(t, 5*time.Millisecond, 5*time.Millisecond, 3*time.Millisecond)
++	var wg sync.WaitGroup
++	var failures atomic.Int32
++	for g := 0; g < 24; g++ {
++		wg.Add(1)
++		go func(g int) {
++			defer wg.Done()
++			for i := 0; i < 5; i++ {
++				if err := h.send(ctxFor(t, 20*time.Second), fmt.Sprintf("c%d", g%3)); err != nil {
++					if !errors.Is(err, substrate.ErrSessionBusy) {
++						t.Errorf("unexpected failure: %v", err)
++					}
++					failures.Add(1)
++				}
++				time.Sleep(time.Duration((g*7+i*3)%5) * time.Millisecond)
++			}
++		}(g)
++	}
++	wg.Wait()
++	// ErrSessionBusy (queue bound per session) is the only acceptable failure.
++	t.Logf("%d of 120 requests rejected as busy", failures.Load())
++	h.settled(h.actor("c0"), h.actor("c1"), h.actor("c2"))
++}
+diff --git a/go/core/pkg/sandboxbackend/substrate/agent_actor.go b/go/core/pkg/sandboxbackend/substrate/agent_actor.go
+index 6cfa518..23e3b40 100644
+--- a/go/core/pkg/sandboxbackend/substrate/agent_actor.go
++++ b/go/core/pkg/sandboxbackend/substrate/agent_actor.go
+@@ -5,6 +5,7 @@ import (
+ 	"crypto/sha256"
+ 	"fmt"
+ 	"strings"
++	"sync"
+ 
+ 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+ 	"github.com/kagent-dev/kagent/go/api/v1alpha2"
+@@ -19,6 +20,8 @@ type SandboxAgentActorBackend struct {
+ 	client          *Client
+ 	kube            client.Client
+ 	atenetRouterURL string
++	turnsOnce       sync.Once
++	turns           *sessionCoordinator // per-session turn ownership (session_turns.go); use sessionTurns()
+ }
+ 
+ // NewSandboxAgentActorBackend returns a backend that ensures SandboxAgent actors on ate-api.
+@@ -82,15 +85,8 @@ func (b *SandboxAgentActorBackend) EnsureSessionActor(ctx context.Context, sa *v
+ 		}
+ 	}
+ 
+-	switch actor.GetStatus() {
+-	case ateapipb.Actor_STATUS_SUSPENDED, ateapipb.Actor_STATUS_UNSPECIFIED,
+-		ateapipb.Actor_STATUS_PAUSED, ateapipb.Actor_STATUS_PAUSING:
+-		// PAUSED/PAUSING keep a node-local snapshot; ResumeActor brings them back
+-		// the same as a suspended actor. RUNNING/RESUMING actors need nothing.
+-		_, err = b.client.ResumeActor(ctx, atespace, actorID)
+-		if err != nil {
+-			return sandboxbackend.EnsureResult{}, wrapResumeActorError(actorID, err)
+-		}
++	if err := b.bringUp(ctx, atespace, actorID, actor.GetStatus()); err != nil {
++		return sandboxbackend.EnsureResult{}, err
+ 	}
+ 
+ 	if err := waitForActorReachableViaAtenet(ctx, b.client, nil, b.atenetRouterURL, atespace, actorID); err != nil {
+@@ -104,6 +100,44 @@ func (b *SandboxAgentActorBackend) EnsureSessionActor(ctx context.Context, sa *v
+ 	}, nil
+ }
+ 
++// bringUp drives the actor to RUNNING (ewallet patch). Upstream treated RESUMING and SUSPENDING
++// as "needs nothing" and waited for RUNNING, which never came when the suspend was still in
++// flight. Callers normally hold the session's turn, so these states come only from another
++// process or from an ate-api workflow still finishing after its caller gave up:
++//   - SUSPENDING: complete (or join) the suspend first, then resume;
++//   - RESUMING, SUSPENDED, UNSPECIFIED, PAUSED, PAUSING: ResumeActor (ate-api's resume workflow
++//     is re-entrant, so an abandoned RESUMING is finished on the worker it already holds);
++//   - Aborted (another workflow holds the actor): wait for it to settle, then decide again.
++//
++// Other states (CRASHED) are left to the reachability wait, as upstream. Bounded by ctx.
++func (b *SandboxAgentActorBackend) bringUp(ctx context.Context, atespace, actorID string, st ateapipb.Actor_Status) error {
++	for {
++		var err error
++		switch st {
++		case ateapipb.Actor_STATUS_RUNNING:
++			return nil
++		case ateapipb.Actor_STATUS_SUSPENDING:
++			if err = b.client.SuspendActor(ctx, atespace, actorID); err == nil {
++				st = ateapipb.Actor_STATUS_SUSPENDED
++				continue
++			}
++		case ateapipb.Actor_STATUS_SUSPENDED, ateapipb.Actor_STATUS_UNSPECIFIED, ateapipb.Actor_STATUS_RESUMING,
++			ateapipb.Actor_STATUS_PAUSED, ateapipb.Actor_STATUS_PAUSING:
++			if _, err = b.client.ResumeActor(ctx, atespace, actorID); err == nil {
++				return nil
++			}
++		default:
++			return nil
++		}
++		if status.Code(err) != codes.Aborted {
++			return wrapResumeActorError(actorID, err)
++		}
++		if st, err = b.settleActor(ctx, atespace, actorID); err != nil {
++			return wrapResumeActorError(actorID, err)
++		}
++	}
++}
++
+ // SuspendSessionActor checkpoints and frees the worker for a chat session actor.
+ func (b *SandboxAgentActorBackend) SuspendSessionActor(ctx context.Context, sa *v1alpha2.SandboxAgent, sessionID string) error {
+ 	if sa == nil {
+@@ -145,7 +179,10 @@ func (b *SandboxAgentActorBackend) DeleteSandboxAgentSessionActor(ctx context.Co
+ 	if sa == nil {
+ 		return true, nil
+ 	}
+-	return b.DeleteSandboxAgentActor(ctx, sa.Namespace, SandboxAgentSessionActorID(sa, sessionID))
++	// Never delete underneath an active turn of the same session (ewallet patch).
++	return b.withSessionTurn(ctx, sa, sessionID, func() (bool, error) {
++		return b.DeleteSandboxAgentActor(ctx, sa.Namespace, SandboxAgentSessionActorID(sa, sessionID))
++	})
+ }
+ 
+ // sessionActorRef returns the session's stable actor id plus the agent's CURRENT template name.
+diff --git a/go/core/pkg/sandboxbackend/substrate/session_turns.go b/go/core/pkg/sandboxbackend/substrate/session_turns.go
+new file mode 100644
+index 0000000..ad4557d
+--- /dev/null
++++ b/go/core/pkg/sandboxbackend/substrate/session_turns.go
+@@ -0,0 +1,334 @@
++package substrate
++
++// Per-session turn coordination for SandboxAgent session actors (ewallet patch on v0.10.3).
++//
++// Upstream, every A2A request ran EnsureSessionActor on its own and scheduled the post-turn
++// SuspendActor in a detached goroutine when the response body closed. Nothing ordered the turns
++// of one session: a follow-up that arrived while the previous turn's suspend was in flight saw
++// SUSPENDING, skipped ResumeActor and timed out after two minutes; a follow-up during a RUNNING
++// turn could be suspended underneath by the previous turn's goroutine.
++//
++// A SessionTurn owns its session actor's lifecycle from before EnsureSessionActor until the
++// post-turn suspend has finished (or the actor is handed to the next queued turn). The key is the
++// actor (atespace/actorID): that is the resource every lifecycle call mutates, and kagent derives
++// it from namespace, agent and session id only, so all callers of one session share it.
++//
++//   - Turns of one session never overlap (FIFO order among waiters is not promised); different
++//     sessions never wait for each other.
++//   - When a turn ends and another is already waiting, the RUNNING actor is handed over without a
++//     Suspend/Resume pair. Otherwise the turn suspends the actor before releasing it, so the next
++//     turn always starts from a settled state. If every waiter of a handed-over actor gives up,
++//     the last one to leave suspends the actor, so a handoff never strands a worker either.
++//   - A turn whose EnsureSessionActor failed releases only after the actor has left RESUMING or
++//     SUSPENDING (ate-api finishes or rolls back a workflow even after the caller gave up), and
++//     suspends it if it ended up RUNNING, so a failed turn never strands a worker.
++//
++// Every wait is bounded: acquiring waits at most for the caller's context and sessionTurnWaitLimit,
++// at most maxSessionWaiters requests queue per session, the post-turn suspend and the failure
++// settle have their own limits, and an idle session's entry is dropped from the map.
++//
++// The coordination is in-process. It assumes one kagent controller replica serves A2A traffic
++// (the chart default); ate-api's own per-actor workflow lock still serializes lifecycle calls
++// across processes, and a restarted controller finds in-flight states via settleActor.
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"strings"
++	"sync"
++	"time"
++
++	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	"github.com/kagent-dev/kagent/go/api/v1alpha2"
++	"github.com/kagent-dev/kagent/go/core/pkg/sandboxbackend"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
++)
++
++var (
++	// sessionTurnWaitLimit bounds how long a request waits for the previous turn of its session.
++	sessionTurnWaitLimit = 10 * time.Minute
++	// maxSessionWaiters bounds the queue of one session; further requests fail fast.
++	maxSessionWaiters = 8
++	// postTurnSuspendLimit bounds the suspend (with retries) after a turn.
++	postTurnSuspendLimit = 2 * time.Minute
++	// settleLimit bounds waiting for an in-flight ate-api workflow to finish. It must exceed
++	// ate-api's --actor-workflow-deadline (5 min in v0.0.9).
++	settleLimit = 6 * time.Minute
++	// settlePoll is the GetActor polling interval while settling.
++	settlePoll = 500 * time.Millisecond
++)
++
++// ErrSessionBusy is returned when a session already has maxSessionWaiters queued requests.
++var ErrSessionBusy = errors.New("substrate session has too many concurrent requests; retry later")
++
++type sessionSlot struct {
++	token   chan struct{} // capacity 1: holding the token owns the actor's lifecycle
++	waiters int           // requests blocked in acquire
++	refs    int           // holder + waiters; the slot is dropped at zero
++	handoff bool          // the actor was left RUNNING for a waiter
++}
++
++type sessionCoordinator struct {
++	mu    sync.Mutex
++	slots map[string]*sessionSlot
++	// reclaim suspends the actor of a handed-over slot whose waiters all gave up; it owns the
++	// slot's token and must release it.
++	reclaim func(key string, slot *sessionSlot)
++}
++
++func newSessionCoordinator(reclaim func(key string, slot *sessionSlot)) *sessionCoordinator {
++	return &sessionCoordinator{slots: map[string]*sessionSlot{}, reclaim: reclaim}
++}
++
++func (c *sessionCoordinator) acquire(ctx context.Context, key string) (*sessionSlot, error) {
++	c.mu.Lock()
++	slot := c.slots[key]
++	if slot == nil {
++		slot = &sessionSlot{token: make(chan struct{}, 1)}
++		slot.token <- struct{}{}
++		c.slots[key] = slot
++	}
++	if slot.refs > maxSessionWaiters {
++		c.mu.Unlock()
++		return nil, ErrSessionBusy
++	}
++	slot.refs++
++	slot.waiters++
++	c.mu.Unlock()
++
++	wait, cancel := context.WithTimeout(ctx, sessionTurnWaitLimit)
++	defer cancel()
++	select {
++	case <-slot.token:
++		c.mu.Lock()
++		slot.waiters--
++		slot.handoff = false
++		c.mu.Unlock()
++		return slot, nil
++	case <-wait.Done():
++		err := fmt.Errorf("waiting for the previous turn of this session: %w", wait.Err())
++		c.mu.Lock()
++		defer c.mu.Unlock()
++		slot.waiters--
++		if slot.handoff && slot.waiters == 0 && c.reclaim != nil {
++			select {
++			case <-slot.token: // nobody took over the RUNNING actor: suspend it, keeping our ref
++				slot.handoff = false
++				go c.reclaim(key, slot)
++				return nil, err
++			default:
++			}
++		}
++		c.dropLocked(key, slot)
++		return nil, err
++	}
++}
++
++// handOffIfWaiting marks the slot as handed over when another request is queued.
++func (c *sessionCoordinator) handOffIfWaiting(slot *sessionSlot) bool {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	if slot.waiters > 0 {
++		slot.handoff = true
++		return true
++	}
++	return false
++}
++
++func (c *sessionCoordinator) release(key string, slot *sessionSlot) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	if slot.handoff && slot.waiters == 0 && c.reclaim != nil {
++		// The waiter we handed the actor to gave up before we released: suspend it instead,
++		// keeping the token and our ref until the reclaim releases them.
++		slot.handoff = false
++		go c.reclaim(key, slot)
++		return
++	}
++	slot.token <- struct{}{}
++	c.dropLocked(key, slot)
++}
++
++func (c *sessionCoordinator) dropLocked(key string, slot *sessionSlot) {
++	slot.refs--
++	if slot.refs == 0 && c.slots[key] == slot {
++		delete(c.slots, key)
++	}
++}
++
++func (c *sessionCoordinator) size() int {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	return len(c.slots)
++}
++
++// sessionTurns returns the backend's coordinator, creating it on first use (the zero-value
++// backend is used by tests and must work too).
++func (b *SandboxAgentActorBackend) sessionTurns() *sessionCoordinator {
++	b.turnsOnce.Do(func() { b.turns = newSessionCoordinator(b.reclaimHandedOff) })
++	return b.turns
++}
++
++// SessionTurn is one A2A request's ownership of its session actor.
++type SessionTurn struct {
++	b         *SandboxAgentActorBackend
++	sa        *v1alpha2.SandboxAgent
++	sessionID string
++	key       string
++	slot      *sessionSlot
++	ensured   bool
++	once      sync.Once
++	done      chan struct{}
++}
++
++// BeginSessionTurn waits (bounded) until no other turn of the session is active and returns the
++// turn. The caller must call End exactly once; extra calls are ignored.
++func (b *SandboxAgentActorBackend) BeginSessionTurn(ctx context.Context, sa *v1alpha2.SandboxAgent, sessionID string) (*SessionTurn, error) {
++	if sa == nil {
++		return nil, fmt.Errorf("SandboxAgent is required")
++	}
++	if b == nil {
++		return nil, fmt.Errorf("substrate session coordination is not initialised")
++	}
++	key := sa.Namespace + "/" + SandboxAgentSessionActorID(sa, sessionID)
++	slot, err := b.sessionTurns().acquire(ctx, key)
++	if err != nil {
++		return nil, err
++	}
++	return &SessionTurn{b: b, sa: sa, sessionID: sessionID, key: key, slot: slot, done: make(chan struct{})}, nil
++}
++
++// Ensure runs EnsureSessionActor inside the turn.
++func (t *SessionTurn) Ensure(ctx context.Context) (sandboxbackend.EnsureResult, error) {
++	res, err := t.b.EnsureSessionActor(ctx, t.sa, t.sessionID)
++	t.ensured = err == nil
++	return res, err
++}
++
++// End finishes the turn in the background: the actor is handed to a queued turn, or suspended
++// (after a failed Ensure: first settled) before the session is released. It never blocks the
++// caller.
++func (t *SessionTurn) End() {
++	t.once.Do(func() { go t.finish() })
++}
++
++// Done is closed when the turn has fully released its session (for tests and shutdown).
++func (t *SessionTurn) Done() <-chan struct{} { return t.done }
++
++func (t *SessionTurn) finish() {
++	defer close(t.done)
++	defer t.b.sessionTurns().release(t.key, t.slot)
++	log := ctrllog.Log.WithName("substrate-session-turn").WithValues("actor", t.key)
++	atespace := t.sa.Namespace
++	actorID := SandboxAgentSessionActorID(t.sa, t.sessionID)
++
++	if !t.ensured {
++		ctx, cancel := context.WithTimeout(context.Background(), settleLimit)
++		defer cancel()
++		st, err := t.b.settleActor(ctx, atespace, actorID)
++		if err != nil {
++			log.Error(err, "failed turn: actor did not settle; releasing the session")
++			return
++		}
++		if st != ateapipb.Actor_STATUS_RUNNING {
++			return
++		}
++	}
++	if t.b.sessionTurns().handOffIfWaiting(t.slot) {
++		return // the next turn takes over the RUNNING actor: no Suspend/Resume pair
++	}
++	t.b.suspendAfterTurn(atespace, actorID)
++}
++
++func (b *SandboxAgentActorBackend) suspendAfterTurn(atespace, actorID string) {
++	ctx, cancel := context.WithTimeout(context.Background(), postTurnSuspendLimit)
++	defer cancel()
++	if err := b.suspendWithRetry(ctx, atespace, actorID); err != nil {
++		ctrllog.Log.WithName("substrate-session-turn").Error(err, "post-turn suspend failed; the next turn of this session resumes from the actor's current state",
++			"actor", atespace+"/"+actorID)
++	}
++}
++
++// reclaimHandedOff suspends an actor left RUNNING for waiters that all gave up.
++func (b *SandboxAgentActorBackend) reclaimHandedOff(key string, slot *sessionSlot) {
++	defer b.sessionTurns().release(key, slot)
++	atespace, actorID, ok := strings.Cut(key, "/")
++	if !ok {
++		return
++	}
++	b.suspendAfterTurn(atespace, actorID)
++}
++
++// withSessionTurn runs fn while owning the session, without the post-turn suspend (session delete).
++func (b *SandboxAgentActorBackend) withSessionTurn(ctx context.Context, sa *v1alpha2.SandboxAgent, sessionID string, fn func() (bool, error)) (bool, error) {
++	key := sa.Namespace + "/" + SandboxAgentSessionActorID(sa, sessionID)
++	slot, err := b.sessionTurns().acquire(ctx, key)
++	if err != nil {
++		return false, err
++	}
++	defer b.sessionTurns().release(key, slot)
++	return fn()
++}
++
++// settleActor waits until the actor is in neither RESUMING nor SUSPENDING and returns its status.
++// NotFound settles as UNSPECIFIED.
++func (b *SandboxAgentActorBackend) settleActor(ctx context.Context, atespace, actorID string) (ateapipb.Actor_Status, error) {
++	ticker := time.NewTicker(settlePoll)
++	defer ticker.Stop()
++	for {
++		actor, err := b.client.GetActor(ctx, atespace, actorID)
++		switch {
++		case status.Code(err) == codes.NotFound:
++			return ateapipb.Actor_STATUS_UNSPECIFIED, nil
++		case err == nil:
++			switch st := actor.GetStatus(); st {
++			case ateapipb.Actor_STATUS_RESUMING, ateapipb.Actor_STATUS_SUSPENDING:
++			default:
++				return st, nil
++			}
++		}
++		select {
++		case <-ctx.Done():
++			return ateapipb.Actor_STATUS_UNSPECIFIED, fmt.Errorf("actor %q did not settle: %w", actorID, ctx.Err())
++		case <-ticker.C:
++		}
++	}
++}
++
++// suspendWithRetry suspends a RUNNING actor. Aborted (another workflow holds the actor) is retried
++// until ctx ends; other states need nothing.
++func (b *SandboxAgentActorBackend) suspendWithRetry(ctx context.Context, atespace, actorID string) error {
++	backoff := 250 * time.Millisecond
++	for {
++		st, err := b.settleActor(ctx, atespace, actorID)
++		if err != nil {
++			return err
++		}
++		if st != ateapipb.Actor_STATUS_RUNNING {
++			return nil
++		}
++		err = b.client.SuspendActor(ctx, atespace, actorID)
++		if err == nil || status.Code(err) == codes.NotFound {
++			return nil
++		}
++		if status.Code(err) != codes.Aborted {
++			return fmt.Errorf("substrate SuspendActor %q: %w", actorID, err)
++		}
++		select {
++		case <-ctx.Done():
++			return fmt.Errorf("substrate SuspendActor %q: %w", actorID, ctx.Err())
++		case <-time.After(backoff):
++		}
++		if backoff < 2*time.Second {
++			backoff *= 2
++		}
++	}
++}
++
++// ActiveSessionTurns reports how many sessions currently have a turn active or queued.
++func (b *SandboxAgentActorBackend) ActiveSessionTurns() int {
++	return b.sessionTurns().size()
++}
+diff --git a/go/core/pkg/sandboxbackend/substrate/session_turns_test.go b/go/core/pkg/sandboxbackend/substrate/session_turns_test.go
+new file mode 100644
+index 0000000..b2b0030
+--- /dev/null
++++ b/go/core/pkg/sandboxbackend/substrate/session_turns_test.go
+@@ -0,0 +1,112 @@
++package substrate
++
++// ewallet patch: coordinator unit tests (no ate-api).
++
++import (
++	"context"
++	"errors"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++func TestCoordinatorSerializesOneKeyAndDropsIdleEntries(t *testing.T) {
++	c := newSessionCoordinator(nil)
++	a, err := c.acquire(context.Background(), "ns/x")
++	if err != nil {
++		t.Fatal(err)
++	}
++	got := make(chan struct{})
++	go func() {
++		s, err := c.acquire(context.Background(), "ns/x")
++		if err == nil {
++			close(got)
++			c.release("ns/x", s)
++		}
++	}()
++	select {
++	case <-got:
++		t.Fatal("second holder entered while the first held the session")
++	case <-time.After(50 * time.Millisecond):
++	}
++	other, err := c.acquire(context.Background(), "ns/y")
++	if err != nil {
++		t.Fatalf("an unrelated session must not wait: %v", err)
++	}
++	c.release("ns/y", other)
++	c.release("ns/x", a)
++	<-got
++	deadline := time.Now().Add(time.Second)
++	for c.size() != 0 && time.Now().Before(deadline) {
++		time.Sleep(time.Millisecond)
++	}
++	if c.size() != 0 {
++		t.Fatalf("idle entries kept: %d", c.size())
++	}
++}
++
++func TestCoordinatorQueueIsBounded(t *testing.T) {
++	c := newSessionCoordinator(nil)
++	holder, _ := c.acquire(context.Background(), "k")
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++	for i := 0; i < maxSessionWaiters; i++ {
++		go func() { _, _ = c.acquire(ctx, "k") }()
++	}
++	deadline := time.Now().Add(time.Second)
++	for {
++		c.mu.Lock()
++		w := c.slots["k"].waiters
++		c.mu.Unlock()
++		if w == maxSessionWaiters || time.Now().After(deadline) {
++			break
++		}
++		time.Sleep(time.Millisecond)
++	}
++	if _, err := c.acquire(context.Background(), "k"); !errors.Is(err, ErrSessionBusy) {
++		t.Fatalf("want ErrSessionBusy, got %v", err)
++	}
++	cancel()
++	c.release("k", holder)
++}
++
++// A waiter that gives up after the holder decided to hand the RUNNING actor over must not
++// strand it: release (or the leaving waiter) reclaims it, exactly once.
++func TestCoordinatorReclaimsAbandonedHandoff(t *testing.T) {
++	for _, order := range []string{"release-after-waiter-left", "waiter-leaves-after-release-attempt"} {
++		t.Run(order, func(t *testing.T) {
++			var reclaimed atomic.Int32
++			var c *sessionCoordinator
++			c = newSessionCoordinator(func(key string, slot *sessionSlot) {
++				reclaimed.Add(1)
++				c.release(key, slot)
++			})
++			holder, _ := c.acquire(context.Background(), "k")
++			ctx, cancel := context.WithCancel(context.Background())
++			left := make(chan struct{})
++			go func() { _, _ = c.acquire(ctx, "k"); close(left) }()
++			for {
++				c.mu.Lock()
++				w := c.slots["k"].waiters
++				c.mu.Unlock()
++				if w == 1 {
++					break
++				}
++				time.Sleep(time.Millisecond)
++			}
++			if !c.handOffIfWaiting(holder) {
++				t.Fatal("expected a handoff")
++			}
++			cancel()
++			<-left
++			c.release("k", holder)
++			deadline := time.Now().Add(time.Second)
++			for (reclaimed.Load() == 0 || c.size() != 0) && time.Now().Before(deadline) {
++				time.Sleep(time.Millisecond)
++			}
++			if reclaimed.Load() != 1 || c.size() != 0 {
++				t.Fatalf("reclaimed=%d entries=%d", reclaimed.Load(), c.size())
++			}
++		})
++	}
++}
