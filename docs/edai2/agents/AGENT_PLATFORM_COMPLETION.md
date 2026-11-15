@@ -1,49 +1,155 @@
-# Agent platform completion (Batch C-B)
+# Agent Platform on GKE: final integration results
 
-This page records what Batch C-B built for CI/CD, KEDA, MCP failover and Sandbox, and what remains unproven. All of it is local. **No rubric row changes status from this work**, because none of it has run on the cluster.
+This page reports the final GKE integration of the EDAI-2 Agent Platform: campaign
+`agi-20261115T145608Z`, cluster `ewallet-dev`, 2026-11-15, branch
+`feature/edai2-agent-platform-integration`.
 
-To run it, use the [runbook](../../runbooks/edai2/llm_agent/C_AGENT_PLATFORM_RUNBOOK.md).
+- Every result below was measured on the cluster unless it is marked otherwise.
+- The owner reruns the demonstrations for screenshots with the
+  [owner evidence replay](OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md).
+- Component design is in [AGENTS_REGISTRY_GATEWAYS.md](AGENTS_REGISTRY_GATEWAYS.md) and
+  the contracts are in [AGENT_INTEGRATION_CONTRACTS.md](AGENT_INTEGRATION_CONTRACTS.md).
 
-## Jenkins CD (rows 34–36)
+**Verdict:**
 
-`scripts/ci/bounded_cd.py` adds one release flow for MCP servers, agents and streaming. It applies the release to `ewallet-cicd`, reads the digest back, runs a smoke Job and parks the workload at zero replicas. A failed run restores the previous state.
+| Level | Result |
+|---|---|
+| `AGENT_PLATFORM_CORE_GKE_PASS` | Achieved, and held in the final regression. |
+| `AGENT_PLATFORM_RELIABILITY_GKE_PASS` | Achieved for MCP failover and for KEDA before P4. After P4, Sandbox capacity under load is PARTIAL (§3, §5). |
+| `AGENT_PLATFORM_RUBRIC` | `PARTIAL`: Registry entries stale, Sandbox spans not exported, NL combined rejected. See [§5](#5-limitations-and-pending-approvals). |
 
-The CD stops at `ewallet-cicd` by design, because Jenkins has no rights in production namespaces. Production goes through a [Helm promotion path](../cicd/PRODUCTION_ROLLOUT_RBAC.md) that proves a release changes only images. Rows 34–36 ask for CI/CD of these components, and this verifies a release candidate; it doesn't roll one out to production.
+## 1. Architecture
 
-The streaming release gate checks that event time is applied after the source, so an image without C-A's watermark fix fails CD. See [the integration order](../platform/C_INTEGRATION_ORDER.md).
+```
+kagent UI / A2A client
+  └─ A2A Gateway (agentgateway, route kagent-a2a) ─ kagent controller ─ fraud-coordinator (BYO, KEDA 2..3)
+       ├─ LLM Gateway (agentgateway :3000) ─ vLLM CPU "ewallet-fraud-llm"   (NL intake only; ModelConfig ewallet-global-llm)
+       └─ A2A Gateway route sandbox-<agent> ─ kagent controller ─ Substrate actor (gVisor) on WorkerPool business-agents
+            feature-rag-specialist / drift-specialist (SandboxAgent; Deployment copies stay as fallback, KEDA 2..3)
+              └─ ateom egress proxy (169.254.17.1:3128, cluster Services only) ─ MCP Gateway (identity sandbox default)
+                   ├─ feature-rag-mcp (2 replicas, PDB) ─ Feast online (DB 0 / RAG DB 3), KServe fraud-detector, RAG index
+                   └─ drift-mcp (2 replicas, PDB) ─ pinned versioned baseline/window artifacts
+```
 
-Each `release/<component>` branch now ships only that component. Without this, the new deployable components would have been included in a RAG release.
+| Component | Implementation |
+|---|---|
+| Coordinator | [`byo_coordinator.py`](../../../ai_platform/llm_agent/byo_coordinator.py), [`programmatic_coordinator.py`](../../../ai_platform/llm_agent/programmatic_coordinator.py), NL intake [`workflow_intake.py`](../../../ai_platform/llm_agent/workflow_intake.py) / [`nl_intake.py`](../../../ai_platform/llm_agent/nl_intake.py) |
+| Feature-RAG / Drift Specialists | [`byo_feature_rag_specialist.py`](../../../ai_platform/llm_agent/byo_feature_rag_specialist.py), [`byo_drift_specialist.py`](../../../ai_platform/llm_agent/byo_drift_specialist.py), MCP client [`byo_mcp.py`](../../../ai_platform/llm_agent/byo_mcp.py) |
+| MCP servers | [`tools/service.py`](../../../ai_platform/llm_agent/tools/service.py), chart release `llm-agent-mcp` |
+| Gateways, KEDA, policies | chart [`infra/helm/llm-agent-platform`](../../../infra/helm/llm-agent-platform) (`agi/`, `g3/keda.yaml`, `templates/policy-gateways.yaml`, `templates/cross-namespace.yaml`) |
+| Sandbox fleet | [`infra/kubernetes/agent-sandbox`](../../../infra/kubernetes/agent-sandbox) (SandboxAgents, WorkerPool `business-agents`); egress proxy [`substrate-0.0.9-sandbox-egress-proxy.patch`](../../../infra/kubernetes/kagent-pilot/patches/substrate-0.0.9-sandbox-egress-proxy.patch) |
+| Agent Registry | [`ops/llm_agent/registry_catalog.py`](../../../ops/llm_agent/registry_catalog.py) (render / publish / readback) |
+| Campaign gates | [`scripts/llm_agent/agi_campaign.sh`](../../../scripts/llm_agent/agi_campaign.sh), [`helm_object_diff.py`](../../../scripts/llm_agent/helm_object_diff.py) |
 
-## KEDA (rows 19, 22, 25)
+## 2. Implementation changes made during the campaign
 
-The chart has `agents.autoscaling.engine`, with `hpa` as the default. With `keda`, a ScaledObject adopts the existing HPA, so one Deployment never has two autoscalers and autoscaling has no gap. Scaling follows `ewallet_agent_inflight_tasks`, because agent work waits on the LLM and uses little CPU.
+Each change was gated: an exact Helm object diff, a server-side dry-run, a digest-pinned
+image rebuilt from the commit, and a recorded approval. Every image rebuild went through
+Trivy before push.
 
-KEDA needs one new network flow to Prometheus. Only the operator pod joins the mesh, which gives it the identity the rule admits.
+| Commit | Change | Why (GKE observation) |
+|---|---|---|
+| `2f7d5a2b` | MCP image copies `redis_isolation.py`; an import-closure test for every image | feature-rag-mcp crashed at start-up (`ImportError`) |
+| `f84c3202` | credential plan reads `toolGrants` | Sandbox subjects had no MCP credentials |
+| `af390922` | ateom egress proxy (Substrate patch) | ambient mesh does not capture forwarded actor traffic: it black-holed or arrived without identity |
+| `c672ba09` | gate accepts checksum-only pod-template rolls (`--expect-annotation-only`) | P2 config change rolled Prometheus and Grafana |
+| `0b8f945d`, `a5406c5b`, `132b6bfc` | agents back off on gateway 429. The MCP failover reads the status through the real MCP SDK (httpx2, which hides the status). Only the shed request is repeated, in session. agentgateway's in-protocol rate limit (`-32003`, the `tools/call` isError text) is recognised | AGR-06: 95, then 91, then 92 of 100 tasks lost to the gateway rate limits |
+| `40027507` | the LLM is offered only the tools the deterministic screen allows | CPU model picked drift for a fraud question 3/3 |
+| `c7a6f294`, `fd2c49c9` | `img-*` image-roll packages, per-package gate diffs; `t1-agents` Sandbox OTLP flow | image fixes after P2; Sandbox OTLP denied |
+| `74dfa134`, `891fd9c6`, `bc30736e` | MCP experiment: NodeLocal DNSCache egress, token without newline, opt-in force failure | AGR-02 harness never ran on GKE before |
+| `b2cc5459` | `registry_catalog readback` (GET only) | AGI-13 |
+| `bb7a2a09` | flush spans before a SandboxAgent actor is suspended | AGI-12. **Committed, not deployed** |
+| `f6ea89b5` | Coordinator waits for a free Sandbox worker (`sandbox_capacity_exhausted`, 2–10 s backoff inside the delegation timeout) | final regression: Sandbox pool full under concurrency 8. **Committed, not deployed** |
 
-The pinned chart and our rendered ScaledObject were tested locally against a stub Prometheus: scale-out, the cap, outage fallback, recovery and rollback all worked. A plain Helm rollback reports success but leaves no HPA, so the runbook has an explicit rollback and a preflight check for it. The real gauge and mesh path remain unproven.
+## 3. Results on GKE
 
-## MCP failover (row 18)
+The raw evidence is in `~/ewallet-evidence/agents/integration/agi-20261115T145608Z/`,
+written as `$EV`. Its SHA-256 manifest is `$EV/SHA256SUMS.txt`, mirrored in
+[`docs/evidence/edai2/agents/agi-20261115T145608Z/`](../../evidence/edai2/agents/agi-20261115T145608Z/).
 
-agentgateway v1.7.0 does not retry MCP backends, so failover is in the client. `with_failover` repeats a call only when every tool in it is read-only and the failure could heal on another replica: a lost connection, or a 502, 503 or 504. A rejected credential, a tool error and an unknown exception are not retried, within one overall deadline. A test fails until each new tool is classified, so an unaudited tool can't become retryable.
+| Checkpoint | Verdict | Measured result (evidence) |
+|---|---|---|
+| P1 MCP multi-replica (AGR-01, AGR-03) | GKE_PASS | 2/2 replicas per server on distinct nodes; PDB allows 1; 170/170 typed calls during a rolling update (`agr/`) |
+| S1 Sandbox → MCP | GKE_PASS | MCP servers log `actor_id sandbox-feature-rag` / `sandbox-drift`; cross-credential negatives denied (`stage2/S1-neg-*`) |
+| P2 KEDA (AGR-04, AGR-05) | GKE_PASS | 3 ScaledObjects Ready; KEDA owns the HPAs; `ewallet_agent_inflight_tasks` one series per pod (`agr/agr04-*`, `agr05-*`) |
+| AGR-06 autoscaling | GKE_PASS | run-05: 100/100, 2.24 tasks/s, p50 2.29 s, p95 10.39 s. KEDA 2→3 at 19:08:26Z, 3→2 at 19:15:12Z. Scale-out pods completed 32 and 53 tasks. Failed pre-fix runs 01–04 kept (`agr/AGR-06/AGR-06-RESULT.txt`) |
+| AGR-07 workflows after scaling | GKE_PASS | fraud, drift and combined E2E on the scaled Coordinator |
+| AGR-02 MCP failover | GKE_PASS | run-04 (force failure, 10 calls/s): optimized 1188/1188 with 1 client retry; baseline 1129/1189, 12 s outage; production unchanged. Harness defects in runs 01–02 kept (`agr/AGR-02/AGR-02-RESULT.txt`) |
+| G4 deadlines | TIMEOUT_VALIDATED_NO_CHANGE | cold actor 24.1 s, turn 0.7 s, `ResumeActor` 37–44 ms; all inside kagent 180 s and Coordinator 480 s (`g4/`) |
+| P4 E2E Feature-RAG | GKE_PASS | typed and NL: probability 0.0639895560144887, features and citations equal the direct backend probes (`stage3/`) |
+| P4 E2E Drift | GKE_PASS | typed and NL: PSI 0.0004795543627041439 equal to the direct probe, with dataset revisions (`stage3/`) |
+| P4 E2E combined | GKE_PASS (typed) | both Sandboxes in parallel, `status complete`. NL combined is rejected `ungrounded_argument` (§5) |
+| Negative E2E | GKE_PASS | out-of-scope request rejected before any tool; undeclared Sandbox path 404; unknown entities → truthful `missing_feature`, no score invented (`stage3/neg/`) |
+| AGI-01, 02, 03, 08, 14 | GKE_PASS | ModelConfig uid/generation resolved by both LLM agents; isolated Feast targets; invalid input rejected; 3 negatives with controls; images equal campaign digests, 0 restarts (`stage2/`, `stage4/`) |
+| AGI-12 tracing | PARTIAL | one trace of 233–249 spans across the A2A Gateway, Coordinator, LLM Gateway, vLLM, Sandbox route, MCP Gateway, MCP, Feast and KServe; `gen_ai.*` tokens. No Sandbox Specialist spans (§5) |
+| MCP tool metrics | GKE_PASS | `ewallet_ewallet_mcp_tool_calls_total` (collector `namespace: ewallet` prefix) in Prometheus and on dashboard "E-Wallet Agent & MCP" (`stage4/AGI-14-mcp-tool-metrics.txt`) |
+| AGI-13 Registry | PARTIAL | prompts and MCP servers registered and equal to the deployed catalog; agent entries stale (§5) (`stage4/AGI-13-*`) |
+| AGS-01, 02, 03 | GKE_PASS (AGS-02 egress negative only unit-tested) | gVisor ActorTemplates, SA without token, discovery-only RBAC, mesh principal `ewallet-sandbox/sa/default` |
+| AGS-04 shared workers | GKE_PASS | sequential run 12/12 `SHARED_WORKERS_OBSERVED` with golden actors excluded; the parallel run 24/24 completed but `NOT_OBSERVED` is kept (`ags/`) |
+| AGS-05 cold vs warm | measured | new 24.5 / 26.5 s, resume 23.3 / 25.6 s (n = 6, drift / feature-rag) |
+| AGS-06 utilization | measured | `ags/AGS-04/AGS-06-top.txt` |
+| Security / external routing | GKE_PASS (review) | default-deny; A2A Gateway port 8083 admits only `sa/fraud-coordinator`; no Gateway, Ingress or LoadBalancer exposes the platform (`stage4/security-review-authz.txt`) |
+| Final regression (`final-regression/`) | GKE_PASS (bounded) | status clean; 5/5 E2E (typed fraud, drift, combined; NL fraud, drift) through the Sandbox routes with no fallback; 3/3 negatives; registry readback reproduced |
+| KEDA after P4 under load (`final-regression/keda/`) | PARTIAL | the Coordinator still scales 2→3→2 (21:33:54Z / 21:48:40Z) and the scale-out pod served tasks. Only 42/100 and 40/100 tasks completed: delegations now go to the fixed 2-worker Sandbox pool, which refuses overflow with `substrate worker pool has no free workers` (reproduced: 2 of 6 concurrent; `final-regression/sbx-concurrency/`). The accepted AGR-06 100/100 ran before P4 against the Deployment Specialists |
+| B′ WorkerPool autoscaling | NOT_TESTED | needs a separate CRD approval; out of scope |
 
-Two spread replicas remove the single point of failure, and `mcp-gateway` also goes to two replicas. The experiment runs in its own namespace, so no production pod is deleted.
+## 4. Test method
 
-## Sandbox (rows 16, 20, 22)
+- **Business E2E:** the Coordinator was called through the A2A Gateway (`kagent-a2a` route,
+  the path the kagent UI uses), with typed requests and natural-language prompts. Each
+  result was checked hop by hop:
+  - the Coordinator log;
+  - the A2A Gateway route;
+  - the MCP server's `actor_id`, which is the Sandbox credential subject;
+  - zero tasks on the Deployment Specialists;
+  - values compared with direct MCP probes of the same backends.
 
-`infra/kubernetes/agent-sandbox/` runs the Feature-RAG specialist as a `SandboxAgent` beside an identical BYO `Agent`, in a dedicated namespace and worker pool. The manifests follow rules read from the kagent v0.10.3 source: an explicit command, port 80 and explicit paths. `EXP-C5-SANDBOX` has a driver and a local simulation, and the real agent boots locally with the candidate's command.
+  These are the `agent_replay.sh e2e` checks.
+- **Autoscaling:** the AGR-06 load Job (`agent_load.py`, concurrency 8, 100 tasks) ran
+  inside the cluster, with replica samplers and HPA events. Real work on the new pods was
+  shown by task counts per pod.
+- **Failover:** an isolated copy of drift-mcp ran in `ewallet-mcp-exp`. The probe used the
+  campaign's real client failover, and one pod was killed mid-run. Production
+  `ewallet-mcp` was compared before and after.
+- **Local tests:** run with the locked environments, for example
+  `uv run --frozen --project infra/docker/g3-byo-coordinator --group test`. Neither
+  environment collects every test: the A2A SDK, Feast and numpy are missing from one or
+  the other. The pre-existing failures (RAG ingestion; the sandbox-experiment timeouts,
+  which reproduce on the pre-campaign commit) are unchanged.
 
-**No BYO agent has booted in gVisor yet**, so the work is staged as S0 boot, S1 tools and S2 compare. The README lists four questions only the cluster can answer, starting with whether a non-root process can bind port 80.
+## 5. Limitations and pending approvals
 
-## Rubric position
-
-| Row | Implemented | Local validated | Cloud verified | Evidence complete |
-|---|---|---|---|---|
-| 18 MCP fallback | Yes | Yes | No | No |
-| 19 Agent KEDA | Yes | Yes | No | No |
-| 20 Agent in Sandbox | Manifests and driver | Simulation and local boot | No (pilot only) | No |
-| 22 Second agent | Partly | Yes | Partly | No |
-| 25 Coordinator autoscale | Yes | Yes | No | No |
-| 34 CI/CD MCP and data agent | Yes | Yes | No | No |
-| 35 CI/CD Coordinator | Yes | Yes | No | No |
-| 36 CI/CD streaming | Yes | Yes | No | No |
-| 6 Benchmark and optimize | Rerun prepared | Yes | Historical only | Historical only |
+1. **Agent Registry is stale for agents (AGI-13).**
+   - The registry holds the 3 agents only at `1.0.0`, runtime `kagent-sandboxagent`, from
+     2026-11-03.
+   - The deployed agents are BYO `fraud-coordinator 1.1.0`, `feature-rag-specialist 1.0.0`
+     and `drift-specialist 1.1.0`.
+   - The corrective `registry_catalog publish` passed a server-side dry-run for all 8
+     documents. The live write needs owner approval.
+2. **Sandbox Specialist spans are missing from traces (AGI-12).**
+   - Context does propagate: the actors' MCP calls are in the Coordinator's trace. After
+     `t1-agents`, ztunnel shows their OTLP export allowed.
+   - The actors buffer spans in a 5 s `BatchSpanProcessor`, and kagent suspends them about
+     0.6 s after the answer. kagent sets `KAGENT_PRE_RESPONSE_TRACE_FLUSH=true` for this
+     case; the BYO runtime ignored it.
+   - `bb7a2a09` fixes it and is unit-tested. Deploying it needs an approved image roll
+     (`img-mcp` / `img-agents`), and the trace must then be re-checked.
+   - The root cause is consistent with every observation, but it is unverified until the
+     fix runs on GKE.
+3. **Natural-language combined prompts are rejected** with `ungrounded_argument`. The 0.6B
+   CPU model returns drift arguments that differ from the labelled text. The strict guard
+   stays by owner decision. Typed combined passes.
+4. **Not exercised:**
+   - drain under load during scale-in (scale-in happened with 0 tasks in flight);
+   - the Sandbox egress-deny clause on GKE (the image is distroless).
+5. **Throughput** is capped by the MCP Gateway `localRateLimit` (20 req/s, about 2.2–2.5
+   tasks/s). KEDA adds concurrency headroom, not throughput past that limit.
+   - After P4 the stricter limit is the **fixed 2-worker Sandbox pool**. kagent refuses delegations beyond its free
+     workers (HTTP 200 with JSON-RPC -32603), and the deployed Coordinator fails them as `invalid_a2a_response`.
+   - At concurrency 8 that lost 58–60 % of the tasks.
+   - `f6ea89b5`, not deployed, makes the Coordinator wait and repeat instead.
+   - Adding capacity needs more workers, either a larger fixed pool or B′. Scaling the Coordinator does not help.
+6. **Scope boundaries:**
+   - The WorkerPool is fixed at 2 workers. Sharing is proven; WorkerPool autoscaling (B′)
+     is not.
+   - Neither kagent nor Substrate is HA.

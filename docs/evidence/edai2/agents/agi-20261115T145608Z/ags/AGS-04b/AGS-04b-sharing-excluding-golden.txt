@@ -1,0 +1,4 @@
+golden excluded: 4 | pools: {'business-agents'}
+business-agents-deployment-55b8b4858c-nns95 {'feature-rag-specialist': 4, 'drift-specialist': 2}
+business-agents-deployment-55b8b4858c-v8rzm {'feature-rag-specialist': 4, 'drift-specialist': 2}
+verdict: SHARED_WORKERS_OBSERVED

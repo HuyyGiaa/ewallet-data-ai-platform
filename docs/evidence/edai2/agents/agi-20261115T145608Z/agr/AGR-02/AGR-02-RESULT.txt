@@ -1,0 +1,12 @@
+AGR-02 — isolated MCP failover (scripts/experiments/mcp_experiment.sh, namespace ewallet-mcp-exp, PKG-C 5 nodes)
+Server image = campaign MCP image, probe image = campaign Coordinator image (real mcp_failover client).
+Arms: baseline 1 replica, EXP_MCP attempts 1; optimized 2 replicas, attempts 3. Production ewallet-mcp before == after in every run.
+
+run-01 (both arms) INVALID HARNESS: 240/240 ConnectTimeout; DNS dropped (NodeLocal DNSCache not allowed) -> fixed 74dfa134
+run-02 (both arms) INVALID HARNESS: 228 LocalProtocolError; token Secret had a trailing newline -> fixed 891fd9c6
+run-03 graceful delete, 2 calls/s:  baseline 229/240 (95.4 %, recovery 11.0 s) | optimized 240/240, retries 0
+        (graceful delete removes the endpoint first: Service-level failover, client retry not exercised)
+run-04 force delete (--grace-period=0), 10 calls/s:
+        baseline 1129/1189 (94.95 %, recovery 12.0 s) | optimized 1188/1188 (100 %), 1 call retried by the client
+        (1 retry, call e2e 474 ms), p50 4.7 ms, p95 6.4 ms
+PASS condition (runbook): optimized 0 failed calls with retries > 0; baseline shows failures; production unchanged -> PASS (run-04)

@@ -1,0 +1,11 @@
+
+==================== 21:55:52Z  FAILOVER baseline: ewallet-mcp-exp only; one pod force-deleted at 40 s (watch: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp-exp get pods -w) ====================
+run 01 complete: /home/huyy-giaa/ewallet-evidence/agents/integration/agi-20261115T145608Z/final-regression/failover/baseline/raw/run-01
+{'requests': 1188, 'succeeded': 1128, 'availability_percent': 94.94949494949495, 'recovery_seconds': 11.411024808883667} client_retries: 0
+production ewallet-mcp unchanged
+
+==================== 21:58:32Z  FAILOVER optimized: ewallet-mcp-exp only; one pod force-deleted at 40 s (watch: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp-exp get pods -w) ====================
+run 01 complete: /home/huyy-giaa/ewallet-evidence/agents/integration/agi-20261115T145608Z/final-regression/failover/optimized/raw/run-01
+{'requests': 1188, 'succeeded': 1188, 'availability_percent': 100.0, 'recovery_seconds': 0.0} client_retries: 0
+production ewallet-mcp unchanged
+DONE

@@ -1,0 +1,90 @@
+{
+ "entries": [
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "drift-specialist-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v2"
+  },
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "feature-rag-specialist-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "fraud-coordinator-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "differences": [],
+   "kind": "MCPServer",
+   "matches": true,
+   "name": "drift-mcp",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "differences": [],
+   "kind": "MCPServer",
+   "matches": true,
+   "name": "feature-rag-mcp",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "differences": [],
+   "kind": "Agent",
+   "matches": false,
+   "name": "drift-specialist",
+   "published_git_sha": null,
+   "registered": false,
+   "status": 404,
+   "tag": "1.1.0"
+  },
+  {
+   "differences": [
+    "label ewallet.io/runtime: registry 'kagent-sandboxagent', catalog 'kagent-byo'",
+    "spec.description differs"
+   ],
+   "kind": "Agent",
+   "matches": false,
+   "name": "feature-rag-specialist",
+   "published_git_sha": "49025d78acde08796331e831b833648f6fe486ab",
+   "registered": true,
+   "status": 200,
+   "tag": "1.0.0"
+  },
+  {
+   "differences": [],
+   "kind": "Agent",
+   "matches": false,
+   "name": "fraud-coordinator",
+   "published_git_sha": null,
+   "registered": false,
+   "status": 404,
+   "tag": "1.1.0"
+  }
+ ],
+ "git_sha": "891fd9c677a8d0bb509fe683720bfbed7e9926e5",
+ "registry": "http://127.0.0.1:18121",
+ "verdict": "FAIL"
+}

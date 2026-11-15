@@ -1,0 +1,10 @@
+
+==================== 21:53:02Z  SHARED WORKERS: sequential sessions of both Sandbox agents on the 2-worker pool (~6 min) ====================
+feature-rag-specialist: 4 ok session turns so far
+drift-specialist: 8 ok session turns so far
+feature-rag-specialist: 12 ok session turns so far
+
+==================== 21:55:52Z  Actor -> worker assignment, golden snapshot actors excluded (screenshot AGENT_11_SHARED_WORKERS) ====================
+business-agents-deployment-55b8b4858c-nns95 {'feature-rag-specialist': 4, 'drift-specialist': 2}
+business-agents-deployment-55b8b4858c-v8rzm {'feature-rag-specialist': 4, 'drift-specialist': 2}
+verdict: SHARED_WORKERS_OBSERVED

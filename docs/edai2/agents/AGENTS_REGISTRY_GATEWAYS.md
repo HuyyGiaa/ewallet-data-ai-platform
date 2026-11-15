@@ -1,5 +1,9 @@
 # Fraud Investigation Agents, MCP Tools, Agent Registry and Gateways
 
+> **Status 2026-11-15:** the final GKE integration results are in [AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md).
+> They cover the Sandbox Specialists behind the A2A Gateway, the ateom egress proxy, KEDA, MCP failover and the
+> registry readback. Sections 5 and 8 below describe the design; where they differ, the results page holds the measured state.
+
 This report describes the agent layer of the platform:
 
 - the agents that answer an analyst's fraud question;

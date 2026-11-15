@@ -1,0 +1,29 @@
+== sum by (agent, mode, outcome) (increase(ewallet_agent_invocations_total[3h]))
+  {'agent': 'drift-specialist', 'mode': 'natural-language', 'outcome': 'cancelled'} 0.0
+  {'agent': 'drift-specialist', 'mode': 'natural-language', 'outcome': 'completed'} 0.0
+  {'agent': 'drift-specialist', 'mode': 'natural-language', 'outcome': 'failed'} 0.0
+  {'agent': 'drift-specialist', 'mode': 'natural-language', 'outcome': 'rejected'} 0.0
+  {'agent': 'drift-specialist', 'mode': 'typed', 'outcome': 'cancelled'} 0.0
+  {'agent': 'drift-specialist', 'mode': 'typed', 'outcome': 'completed'} 1.0
+  {'agent': 'drift-specialist', 'mode': 'typed', 'outcome': 'failed'} 0.0
+  {'agent': 'drift-specialist', 'mode': 'typed', 'outcome': 'rejected'} 0.0
+  {'agent': 'feature-rag-specialist', 'mode': 'natural-language', 'outcome': 'cancelled'} 0.0
+  {'agent': 'feature-rag-specialist', 'mode': 'natural-language', 'outcome': 'completed'} 0.0
+  {'agent': 'feature-rag-specialist', 'mode': 'natural-language', 'outcome': 'failed'} 0.0
+  {'agent': 'feature-rag-specialist', 'mode': 'natural-language', 'outcome': 'rejected'} 0.0
+  {'agent': 'feature-rag-specialist', 'mode': 'typed', 'outcome': 'cancelled'} 0.0
+  {'agent': 'feature-rag-specialist', 'mode': 'typed', 'outcome': 'completed'} 226.3
+  {'agent': 'feature-rag-specialist', 'mode': 'typed', 'outcome': 'failed'} 333.5
+  {'agent': 'feature-rag-specialist', 'mode': 'typed', 'outcome': 'rejected'} 0.0
+  {'agent': 'fraud-coordinator', 'mode': 'natural-language', 'outcome': 'cancelled'} 0.0
+  {'agent': 'fraud-coordinator', 'mode': 'natural-language', 'outcome': 'completed'} 3.1
+  {'agent': 'fraud-coordinator', 'mode': 'natural-language', 'outcome': 'failed'} 0.0
+  {'agent': 'fraud-coordinator', 'mode': 'natural-language', 'outcome': 'rejected'} 4.0
+  {'agent': 'fraud-coordinator', 'mode': 'typed', 'outcome': 'cancelled'} 0.0
+  {'agent': 'fraud-coordinator', 'mode': 'typed', 'outcome': 'completed'} 233.0
+  {'agent': 'fraud-coordinator', 'mode': 'typed', 'outcome': 'failed'} 283.8
+  {'agent': 'fraud-coordinator', 'mode': 'typed', 'outcome': 'rejected'} 0.0
+== sum by (tool, outcome) (increase(ewallet_mcp_tool_calls_total[3h]))
+{'agent': 'drift-specialist'} 0.0
+{'agent': 'feature-rag-specialist'} 49.7
+{'agent': 'fraud-coordinator'} 0.0

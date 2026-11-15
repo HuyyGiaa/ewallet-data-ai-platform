@@ -1,0 +1,19 @@
+G4 measurements on GKE after P4 (2026-11-15T19:22Z-19:45Z), typed requests via A2A Gateway kagent-a2a route
+(Coordinator -> A2A Gateway sandbox-<agent> -> kagent controller -> Substrate actor (gVisor) -> MCP Gateway -> MCP -> backend)
+
+end-to-end (g3_a2a_smoke elapsed):
+  E2E-FRAUD 29.54 s | E2E-DRIFT 24.01 s | E2E-COMBINED (2 sandboxes in parallel) 28.77 s
+  sequential fraud 24.32 s, 23.50 s | concurrent fraud x2 23.72 s, 25.29 s (2-worker pool, both served)
+kagent controller /api/a2a-sandboxes/...: 29.16 s (first), 23.17 s, 24.87 s
+actor lifecycle (actor-lifecycle-g4-par-1.txt, ate-api + atenet-router):
+  CreateActor 19:44:19.978 -> first ResumeActor 19:44:44.060 = 24.08 s cold actor boot (each request = new actor,
+  actor name asr-ewallet-sandbox-<agent>-<request>)
+  ResumeActor RPC 37-44 ms (STATUS_RUNNING); business turn 44.06 -> 44.77 = 0.71 s; SuspendActor 19:44:45.345
+  MCP tools (feature-rag-mcp tool_call_completed): feature_lookup 22 ms, fraud_scoring 98 ms, knowledge_search 19 ms
+natural-language intake (Coordinator -> LLM Gateway -> vLLM CPU): 19.3-68.4 s per LLM call (in-pod and E2E-NL runs)
+
+against the effective budgets (G4-budget-chain.txt):
+  sandbox turn 24-30 s  < kagent A2A client 180 s; ResumeActor 37-44 ms << 90 s; MCP tools < 0.1 s << 25 s / 20 s
+  NL worst observed 68.4 s (LLM) + 30 s (sandbox) ~ 98 s << Coordinator 480 s < A2A Gateway 660 s
+  first failing boundary: none observed. Worst-case 90 s restore + 120 s turn vs kagent 180 s remains theoretical.
+Verdict: TIMEOUT_VALIDATED_NO_CHANGE

@@ -1,5 +1,48 @@
 # Agent platform completion: campaign handoff
 
+## Final integration `agi-20261115T145608Z` (2026-11-15/16): read this first
+
+Results: [AGENT_PLATFORM_COMPLETION.md](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md). Owner replay:
+[OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md](../../../edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md), helper
+`scripts/llm_agent/agent_replay.sh`. Raw evidence: `~/ewallet-evidence/agents/integration/agi-20261115T145608Z/` with
+`SHA256SUMS.txt`, mirrored in `docs/evidence/edai2/agents/agi-20261115T145608Z/`.
+
+- **Deployed:** P1, S1, P2 and P4, then `t1-agents`. Images were rolled from `fd2c49c9` with `img-mcp` / `img-agents`.
+  Helm `llm-agent` rev 51 and `llm-agent-mcp` rev 17 at the final regression.
+- **Committed, not deployed:**
+  - `bb7a2a09`: Sandbox span flush.
+  - `f6ea89b5`: the Coordinator waits for a free Sandbox worker.
+  - Both need an `img-*` roll approval.
+  - `b2cc5459`: registry readback. It is a tool; nothing to deploy.
+- **Campaign env `SHA`:** it still names the deployed `891fd9c6` commit. Later commits touched
+  `ops/llm_agent`, a gate image input, so the next gated package needs an image rebuild from HEAD first.
+
+### Approvals the owner can give (none was used without approval)
+
+1. **Agent Registry write.** The corrective publish passed a server-side dry-run. Command in the replay, section 2.
+2. **Image roll for `bb7a2a09` and `f6ea89b5`.**
+   - Rebuild the 4 images from HEAD (the build scripts are in `$EV/stage1/build-images-g.sh`).
+   - Run `img-mcp`, then `img-agents`.
+   - Re-capture a Tempo trace; Sandbox Specialist spans should then appear.
+   - Rerun `agent_replay.sh keda`. It should complete all tasks, waiting for Sandbox workers instead of failing.
+3. **B′ WorkerPool autoscaling.** Separate CRD approval (PKG-P3); out of scope.
+
+### Sleep
+
+The guarded sleep was approved for this campaign (`$EV/approvals.txt`):
+
+```bash
+M=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z
+CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:agi-20261115T145608Z \
+  python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev \
+  --scale-pdb-guarded --manifest "$M" --campaign agi-20261115T145608Z --also-approve ewallet-mcp/feature-rag-mcp
+python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$M"
+```
+
+A later sleep needs the owner's own approval for that campaign id (replay section 12). The manifest records the MCP
+Deployments at 1 replica, so after a wake run `kubectl -n ewallet-mcp scale deploy/feature-rag-mcp deploy/drift-mcp
+--replicas=2`; that is the replica count Helm declares.
+
 - Machine-readable state: [`checkpoints.json`](checkpoints.json).
 - Images: [`images.json`](images.json).
 - Commands and pass rules: the

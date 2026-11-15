@@ -623,7 +623,7 @@ EOF
 
 Grafana queries:
 `sum by (agent, mode, outcome) (increase(ewallet_agent_invocations_total[1h]))` and
-`sum by (tool, outcome) (increase(ewallet_mcp_tool_calls_total[1h]))`.
+`sum by (tool, outcome) (increase(ewallet_ewallet_mcp_tool_calls_total[1h]))` (the collector `namespace: ewallet` prefixes the MCP instrument name, which already starts with `ewallet_`).
 
 - **PASS/FAIL:** the running images equal the campaign digests; the three agents
   have completed invocations; there are no unexpected restarts.

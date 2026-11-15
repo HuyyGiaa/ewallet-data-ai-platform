@@ -1,0 +1,26 @@
+AGR-06 — KEDA scales the BYO Agent Deployments on real typed traffic (campaign agi-20261115T145608Z)
+Load: ops/experiments/agent_load.py via scripts/experiments/agent_experiment.sh exp-c5-keda optimized, concurrency 8,
+100 typed tasks (configs/experiments/fixtures/agent-load-request.json: Coordinator -> A2A Gateway -> Deployment
+feature-rag-specialist -> MCP Gateway -> feature_lookup, fraud_scoring, knowledge_search). Same profile every run.
+
+History (failed runs kept; acceptance is on the post-fix runs):
+ run-01  pre-fix images                 5/100   gateways shed with 429, agents failed the task on it
+ run-02  0b8f945d (429 backoff)         9/100   A2A backoff worked (23 A2A 429 repeated, 1 coordinator failure);
+                                                MCP retries never ran: SDK hides the status, httpx2 != httpx
+ run-03  a5406c5b (status via httpx2)   8/100   agentgateway also sheds in-protocol (-32003; tools/call isError text);
+                                                whole-session retries spent ~8 tokens each (in-pod: 0/36 then 15/36)
+ run-04  132b6bfc (in-session repeat)  98/100   2 x fraud_scoring feature_timeout (backend, first burst after MCP
+                                                rollout), reported truthfully as mcp_tool_failed
+ run-05  132b6bfc, 3 replicas         100/100   2.24 tasks/s, e2e p50 2.29 s, p95 10.39 s, mean 3.48 s
+
+KEDA (replica samplers extra-fix3/*.jsonl, events run05-per-pod.txt):
+ run-04 t+37.8 s HPA desired 3 (coordinator metric 4.5/2, feature-rag 3.5/2); t+54.6 s ready 3/3
+ events 19:08:26Z New size 3 (external metric above target) for fraud-coordinator and feature-rag-specialist
+ run-05 served by 3 replicas; scale-out pods completed tasks: fraud-coordinator-…h2tmb 32, feature-rag-specialist-…vmk7z 53
+ 19:15:12Z New size 2 (below target): ~283 s after the last in-flight task (300 s stabilization window)
+
+PASS conditions (runbook AGR-06): desired and Ready reach 3 — PASS; the new pod completes tasks — PASS;
+ the count returns to 2 — PASS; drains finish within 25 s — NOT EXERCISED: scale-in happened with 0 tasks in flight.
+Verdict: AGR-06 PASS (scale-out/in on real metric with request continuity), drain-under-load NOT_TESTED.
+Limit: throughput is bounded by the MCP Gateway localRateLimit (20 req/s ~ 2.2-2.5 tasks/s); added replicas raise
+ concurrency headroom, not throughput past the gateway limit.

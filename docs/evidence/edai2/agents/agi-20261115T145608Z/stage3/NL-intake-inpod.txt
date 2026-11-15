@@ -1,0 +1,8 @@
+Natural-language intake on GKE (Coordinator -> LLM Gateway agentgateway:3000 -> vLLM ewallet-fraud-llm, CPU)
+Deployed 132b6bfc, AGI-09 fraud prompt via A2A Gateway kagent-a2a route: 3/3 rejected ungrounded_argument
+  ("LLM chọn phân tích drift nhưng câu hỏi không yêu cầu drift"), 68.4 s / 24.5 s / 24.3 s
+In-pod planner (same planner_from_env, both tools offered): 3/3 selections = only analyze_feature_drift with
+  feature_name "payment", baseline_id = the account UUID (nonsense) -> guard correct, model tool choice wrong
+In-pod overlay fix 4 (offer only screened tools): fraud 3/3 G3BusinessRequest (llm) 66.0/44.4/45.2 s;
+  drift G3DriftRequest (llm) 36.5 s; combined 4/4 ungrounded_argument (LLM drift args != labels) 27.0/19.7/19.3/19.5 s
+Owner decision: keep strict rejection for LLM drift args that differ from the labels (NL combined = FAIL, reported).

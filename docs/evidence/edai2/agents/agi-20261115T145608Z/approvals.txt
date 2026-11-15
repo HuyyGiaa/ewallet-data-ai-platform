@@ -1,0 +1,21 @@
+2026-11-15T14:56:08Z owner directive MASTER_AGENT_PLATFORM_GKE_INTEGRATION.md: P1/S1/P2/P4 authorized subject to package tokens and gates.
+2026-11-15T14:56:08Z owner answer: guarded sleep approved for this campaign (CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:agi-20261115T145608Z, --also-approve ewallet-mcp/feature-rag-mcp).
+2026-11-15T14:56:08Z owner answer: up to 5 CPU nodes (PKG-C) approved.
+Not authorized: PKG-P3 CRD patch, PKG-W, residue deletion, public ingress, wide IAM/RBAC.
+2026-11-15T17:48:06Z OWNER-APPROVED (AskUserQuestion): add 14.179.86.222/32 to ewallet-dev masterAuthorizedNetworks, keep existing 3; Terraform drift; remove at cleanup/sleep.
+2026-11-15T17:49:28Z P2-AGENTS upgrade (directive G3 authorized), SHA=c672ba0971801f7a383e3e47e5928360749a7f6b
+2026-11-15T17:55:14Z EXP_APPROVED=yes for agent_experiment.sh exp-c5-keda optimized (AGR-06, directive G3 'bounded real typed traffic'; concurrency<=8, additive labelled agent-load policies, auto-cleanup)
+2026-11-15T18:04:45Z OWNER-APPROVED (AskUserQuestion): AGR-06 fix = client backoff on gateway 429 (MCP failover read-only + A2A delegation), rebuild BYO images, exact diff/digests then gated redeploy; rate limits unchanged. run-01 = FAIL evidence (95/100 failed: 429).
+2026-11-15T18:16:18Z IMG-MCP upgrade (owner-approved AGR-06 fix redeploy), IMAGE_SHA=0b8f945d0164d18e416ce0413237d017e06a0424 SHA=c7a6f2940a1b38d9afe05f6b3d093b006c6fb934
+2026-11-15T18:19:30Z IMG-AGENTS upgrade (owner-approved AGR-06 fix redeploy)
+2026-11-15T18:40:49Z IMG-MCP + IMG-AGENTS upgrade, AGR-06 fix 2 a5406c5b (owner-approved fix redeploy)
+2026-11-15T19:02:11Z IMG-MCP + IMG-AGENTS upgrade, AGR-06 fix 3 132b6bfc0f35dead1b778261fd0982d822c1da57 (owner-approved fix redeploy)
+2026-11-15T19:19:11Z P4-AGENTS upgrade (directive G5 authorized; after P2/S1 + AGR-06)
+2026-11-15T19:43:02Z OWNER-APPROVED (AskUserQuestion): fix 4 scoped LLM tool offer -> rebuild + img-mcp/img-agents deploy; combined NL drift args: keep strict rejection (NL combined = reported FAIL on CPU model)
+2026-11-15T20:03:13Z OWNER-APPROVED (AskUserQuestion): t1-agents = sandbox-workers-to-otel-collector flow (AuthorizationPolicy principal ewallet-sandbox/sa/default -> otel-collector:4317 + ingress NetworkPolicy), gated
+2026-11-15T20:09:10Z IMG-MCP + IMG-AGENTS (rebuild from fd2c49c9, gate rule) then T1-AGENTS (owner-approved)
+2026-11-15T20:20:25Z PKG-C (owner-approved 5 nodes): cpu-pool 4->5 via the same gcloud resize step cloud_lab uses; NOT wake-full, because on an awake cluster it re-applies the sleep manifest replicas (would scale ewallet-mcp MCP Deployments to 1, undoing P1). Revert: sleep at campaign end.
+2026-11-15T20:21:57Z EXP_APPROVED=yes AGR-02 mcp_experiment baseline+optimized (directive AGR row + PKG-C capacity)
+2026-11-15T21:09:15Z AGI-13 read-only registry verification: scale ewallet-prompts/prompt-registry-db and prompt-registry-agentregistry 0->1 (same as cloud_lab experiment.edge profile); no registry write; sleep returns them to 0
+2026-11-15T21:12:29Z AGR-02 client-retry variant: optimized arm, EXP_FAILURE_MODE=force, EXP_RATE=10, isolated ewallet-mcp-exp (same EXP_APPROVED scope)
+2026-11-15T21:33:29Z helper validation: agent_replay.sh keda/workers/failover (same bounded AGR-06 / AGS-04b / AGR-02 experiments, EXP_APPROVED scope)

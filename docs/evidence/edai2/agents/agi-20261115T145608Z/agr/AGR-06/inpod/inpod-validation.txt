@@ -1,0 +1,16 @@
+AGR-06 in-pod diagnosis and validation (feature-rag-specialist pod, real MCP Gateway, real feature-rag-mcp)
+Fixture: configs/experiments/fixtures/agent-load-request.json (feature_lookup, fraud_scoring, knowledge_search; read-only)
+Scripts: burst.py, burst2.py, burst3.py (this directory). No Deployment changed; code overlay only in the pod's /tmp.
+
+2026-11-15T18:48Z deployed a5406c5b, default policy, 12 concurrent:
+  7 mcp_transport_error <- MCPError -32003 ; 5 mcp_transport_error <- FeatureRagFailure mcp_tool_failed ; retries 5
+2026-11-15T18:49Z deployed a5406c5b, retry off, 12 concurrent: HTTP shapes observed
+  6 MCPError -32003 "rate limit exceeded" data={limit:20, remaining:0, retryAfterSeconds:0} (inside HTTP 200)
+  6 GatewayStatusError 429 (HTTP 429 text/plain on POST)
+  http: POST 200 json 12, POST 200 sse 12, POST 202 6, POST 429 6, GET 429 10, GET 405 2, DELETE 429 12
+2026-11-15T18:5xZ deployed a5406c5b, default policy, 3 rounds x 12: 0/36 ok
+  tools/call isError results: "rate limit exceeded (retry after 0s; limit 20, remaining 0)" (feature_lookup 5, knowledge_search 6, fraud_scoring 8)
+  feature-rag-mcp logs in the same window: only tool_call_completed status ok (the gateway answered the refused calls)
+overlay whole-session retry + shapes B/C (pre-132b6bfc draft), 3 x 12: 3/12, 6/12, 6/12 = 15/36 ok
+overlay 132b6bfc (in-session repeat of only the shed request), 3 x 12: 12/12, 12/12, 12/12 = 36/36 ok
+  shed tool calls absorbed: feature_lookup 63, fraud_scoring 38, knowledge_search 15

@@ -1,0 +1,22 @@
+G4 deadline chain — effective GKE values (read 2026-11-15T18:12Z..18:40Z; sources: effective-env-timeouts.txt,
+gateway-and-code-timeouts.txt, p4-render-timeouts.txt). Measurements follow in g4/measurements-*.txt after P4.
+
+Outer -> inner, Sandbox path (P4):
+  kagent UI stream                         KAGENT_STREAM_TIMEOUT_MS 1800000 (1800 s)
+  Coordinator task                          DEFAULT_TASK_TIMEOUT_SECONDS 480 (code), max 600
+  Coordinator member delegation (A2A call)  GatewayPolicy timeout = task timeout 480 s; A2A 429 repeats stay inside it
+  A2A Gateway route sandbox-<agent>         requestTimeout 660 s  (directive table said 150 s: stale; render = 660 s)
+  kagent controller A2A client              KAGENT_A2A_CLIENT_TIMEOUT 180 s   <-- tightest outer bound on Sandbox turn
+  kagent ResumeActor RPC                    SUBSTRATE_CALL_TIMEOUT 90 s
+  Feature-RAG business turn                 DEFAULT_TASK_TIMEOUT_SECONDS 120 (byo_feature_rag_specialist)
+  Drift business turn                       DEFAULT_TASK_TIMEOUT_SECONDS 60 (byo_drift_specialist)
+  MCP Gateway route                         requestTimeout 25 s
+  MCP server tool max                       EWALLET_TOOL_MAX_TIMEOUT_MS 20000 (20 s), body 10 s
+  LLM Gateway (coordinator NL intake)       180 s entry / 170 s route / 160 s backend; client EWALLET_LLM_TIMEOUT_SECONDS 190
+
+Consistency:
+  480 s (Coordinator) < 660 s (A2A Gateway)           OK: the Coordinator, not the gateway, ends a stuck delegation.
+  kagent 180 s vs restore 90 s + Feature-RAG 120 s = 210 s worst case: a slow restore plus a full-budget turn would
+    be cut by kagent at 180 s. Only a conflict if observed; measure restore + turn on P4 (warm, cold, concurrent).
+  MCP 25 s gateway > 20 s tool max                     OK.
+  LLM client 190 s > gateway 180 s                     OK: the gateway's own timeout answers first.

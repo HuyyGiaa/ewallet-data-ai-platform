@@ -1,0 +1,5 @@
+fraud-coordinator-dfb77d564-6jbg8 created=2026-11-15T20:13:54Z tasks_completed=7
+fraud-coordinator-dfb77d564-8vhpx created=2026-11-15T20:14:12Z tasks_completed=6
+fraud-coordinator-dfb77d564-d9bhn created=2026-11-15T21:33:54Z tasks_completed=2
+feature-rag-specialist-c5c877589-bgblw created=2026-11-15T20:14:12Z tasks_completed=0
+feature-rag-specialist-c5c877589-rhp6l created=2026-11-15T20:13:54Z tasks_completed=0

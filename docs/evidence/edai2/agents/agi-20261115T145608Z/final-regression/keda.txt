@@ -1,0 +1,40 @@
+
+==================== 21:33:29Z  BASELINE: expect 2/2 replicas, metric 0/2 (screenshot AGENT_08_KEDA_BASELINE) ====================
+NAME                                          SCALETARGETKIND      SCALETARGETNAME          MIN   MAX   READY   ACTIVE   FALLBACK   PAUSED   TRIGGERS     AUTHENTICATIONS   AGE
+scaledobject.keda.sh/drift-specialist         apps/v1.Deployment   drift-specialist         2     3     True    False    False      False    prometheus                     3h41m
+scaledobject.keda.sh/feature-rag-specialist   apps/v1.Deployment   feature-rag-specialist   2     3     True    False    False      False    prometheus                     3h41m
+scaledobject.keda.sh/fraud-coordinator        apps/v1.Deployment   fraud-coordinator        2     3     True    False    False      False    prometheus                     3h41m
+
+NAME                                                         REFERENCE                           TARGETS     MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/drift-specialist         Deployment/drift-specialist         0/2 (avg)   2         3         2          3h41m
+horizontalpodautoscaler.autoscaling/feature-rag-specialist   Deployment/feature-rag-specialist   0/2 (avg)   2         3         2          3h41m
+horizontalpodautoscaler.autoscaling/fraud-coordinator        Deployment/fraud-coordinator        0/2 (avg)   2         3         2          3h41m
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+fraud-coordinator        2/2     2            2           14d
+feature-rag-specialist   2/2     2            2           14d
+live timeline: tail -f /home/huyy-giaa/ewallet-evidence/agents/integration/agi-20261115T145608Z/final-regression/keda/timeline.txt   (or: watch -n2 kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents get hpa,pods)
+
+==================== 21:33:30Z  LOAD 1: 100 typed tasks, concurrency 8 (~45 s). SCALE_OUT expected within ~40 s: desired 3, then a new pod Ready (screenshot AGENT_09_KEDA_SCALEOUT now) ====================
+run 01 complete: /home/huyy-giaa/ewallet-evidence/agents/integration/agi-20261115T145608Z/final-regression/keda/agr06/optimized/raw/run-01
+
+==================== 21:38:53Z  LOAD 2 on 3 replicas: the scale-out pods must complete real tasks ====================
+
+==================== 21:40:53Z  Tasks per pod since LOAD 2 (the newest pod must have > 0) (screenshot AGENT_09b_KEDA_NEW_POD_WORK) ====================
+fraud-coordinator-dfb77d564-6jbg8 created=2026-11-15T20:13:54Z tasks_completed=7
+fraud-coordinator-dfb77d564-8vhpx created=2026-11-15T20:14:12Z tasks_completed=6
+fraud-coordinator-dfb77d564-d9bhn created=2026-11-15T21:33:54Z tasks_completed=2
+feature-rag-specialist-c5c877589-bgblw created=2026-11-15T20:14:12Z tasks_completed=0
+feature-rag-specialist-c5c877589-rhp6l created=2026-11-15T20:13:54Z tasks_completed=0
+
+==================== 21:40:57Z  SCALE_IN: ~5 min after load ends replicas return to 2 (screenshot AGENT_10_KEDA_SCALEIN when 2/2) ====================
+run 02 complete: /home/huyy-giaa/ewallet-evidence/agents/integration/agi-20261115T145608Z/final-regression/keda/agr06/optimized/raw/run-02
+NAME                     REFERENCE                           TARGETS     MINPODS   MAXPODS   REPLICAS   AGE
+drift-specialist         Deployment/drift-specialist         0/2 (avg)   2         3         2          3h59m
+feature-rag-specialist   Deployment/feature-rag-specialist   0/2 (avg)   2         3         2          3h59m
+fraud-coordinator        Deployment/fraud-coordinator        0/2 (avg)   2         3         2          3h59m
+TIME                   OBJECT              MESSAGE
+2026-11-15T21:33:54Z   fraud-coordinator   New size: 3; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: fraud-coordinator,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+2026-11-15T21:48:40Z   fraud-coordinator   New size: 2; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: fraud-coordinator,},MatchExpressions:[]LabelSelectorRequirement{},}) below target
+summary.json {'requests': 100, 'succeeded': 42, 'availability_percent': 42.0, 'peak_replicas': 3, 'e2e_ms': {'mean': 26367.078241847812, 'p50': 29029.492139816284, 'p95': 34195.71924209595}}
+summary.json {'requests': 100, 'succeeded': 40, 'availability_percent': 40.0, 'peak_replicas': 3, 'e2e_ms': {'mean': 23364.564561843872, 'p50': 25114.750623703003, 'p95': 33090.01803398132}}
+timeline: /home/huyy-giaa/ewallet-evidence/agents/integration/agi-20261115T145608Z/final-regression/keda/timeline.txt

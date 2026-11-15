@@ -1,0 +1,7 @@
+{'job': 'otel-collector', 'outcome': 'success', 'tool': 'feature_lookup'} 365.4
+{'job': 'otel-collector', 'outcome': 'success', 'tool': 'fraud_scoring'} 245.5
+{'job': 'otel-collector', 'outcome': 'success', 'tool': 'knowledge_search'} 229.1
+{'job': 'otel-collector', 'outcome': 'success', 'tool': 'drift_detection'} 17.6
+{'job': 'otel-collector', 'outcome': 'error', 'tool': 'feature_lookup'} 0.0
+{'job': 'otel-collector', 'outcome': 'error', 'tool': 'fraud_scoring'} 0.0
+{'job': 'otel-collector', 'outcome': 'error', 'tool': 'drift_detection'} 0.0

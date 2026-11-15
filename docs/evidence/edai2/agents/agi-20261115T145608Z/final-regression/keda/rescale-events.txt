@@ -1,0 +1,3 @@
+TIME                   OBJECT              MESSAGE
+2026-11-15T21:33:54Z   fraud-coordinator   New size: 3; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: fraud-coordinator,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+2026-11-15T21:48:40Z   fraud-coordinator   New size: 2; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: fraud-coordinator,},MatchExpressions:[]LabelSelectorRequirement{},}) below target

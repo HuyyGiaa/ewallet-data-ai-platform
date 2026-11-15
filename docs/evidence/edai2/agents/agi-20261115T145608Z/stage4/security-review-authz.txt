@@ -1,0 +1,21 @@
+# 2026-11-15T20:05:04Z AuthorizationPolicies guarding the gateways
+allow-drift-specialist-to-agentgateway | target agentgateway | action ALLOW | principals ['cluster.local/ns/ewallet-agents/sa/drift-specialist'] | ports ['4000']
+allow-drift-specialist-to-mcp-gateway | target mcp-gateway | action ALLOW | principals ['cluster.local/ns/ewallet-agents/sa/drift-specialist'] | ports ['8080']
+allow-feature-rag-specialist-to-agentgateway | target agentgateway | action ALLOW | principals ['cluster.local/ns/ewallet-agents/sa/feature-rag-specialist'] | ports ['4000']
+allow-feature-rag-specialist-to-mcp-gateway | target mcp-gateway | action ALLOW | principals ['cluster.local/ns/ewallet-agents/sa/feature-rag-specialist'] | ports ['8080']
+allow-fraud-coordinator-to-a2a-gateway | target a2a-gateway | action ALLOW | principals ['cluster.local/ns/ewallet-agents/sa/fraud-coordinator'] | ports ['8083']
+allow-fraud-coordinator-to-agentgateway | target agentgateway | action ALLOW | principals ['cluster.local/ns/ewallet-agents/sa/fraud-coordinator'] | ports ['4000']
+allow-kagent-controller-to-mcp-gateway | target mcp-gateway | action ALLOW | principals ['cluster.local/ns/kagent/sa/kagent-controller'] | ports ['8080']
+allow-prometheus-to-agentgateway | target agentgateway | action ALLOW | principals ['cluster.local/ns/ewallet-agents/sa/observability-prometheus'] | ports ['15020']
+allow-sandbox-workers-to-mcp-gateway | target mcp-gateway | action ALLOW | principals ['cluster.local/ns/ewallet-sandbox/sa/default'] | ports ['8080']
+default-deny | target {} | action ALLOW | principals [] | ports []
+# kagent namespace policies
+N     ACTION
+# external Gateways / HTTPRoutes
+error: the server doesn't have a resource type "gateways" in group "gateway.networking.k8s.io"
+# Services of type LoadBalancer/NodePort
+kube-system default-http-backend NodePort [80]
+# Istio networking Gateways / VirtualServices, Ingresses
+No resources found
+No resources found
+No resources found

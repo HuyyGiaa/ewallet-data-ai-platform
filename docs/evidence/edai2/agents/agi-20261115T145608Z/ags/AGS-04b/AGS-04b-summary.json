@@ -1,0 +1,28 @@
+{
+  "actor_pools": [
+    "business-agents"
+  ],
+  "agents_with_actors": [
+    "drift-specialist",
+    "feature-rag-specialist"
+  ],
+  "failed_polls": 0,
+  "missing_agents": [],
+  "pod_agents": {
+    "business-agents-deployment-55b8b4858c-nns95": [
+      "drift-specialist",
+      "feature-rag-specialist"
+    ],
+    "business-agents-deployment-55b8b4858c-v8rzm": [
+      "drift-specialist",
+      "feature-rag-specialist"
+    ]
+  },
+  "polls": 214,
+  "pool": "business-agents",
+  "shared_pods": [
+    "business-agents-deployment-55b8b4858c-nns95",
+    "business-agents-deployment-55b8b4858c-v8rzm"
+  ],
+  "verdict": "SHARED_WORKERS_OBSERVED"
+}
