@@ -22,6 +22,15 @@ except ModuleNotFoundError:  # pragma: no cover
     tomllib = None
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def tracked(name: str) -> list[Path]:
+    """Tracked files called ``name``: ignored trees (worktrees, venvs, caches) are not the project."""
+    listed = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z", "--", f"*{name}", name],
+                            check=True, capture_output=True, text=True).stdout
+    return [ROOT / rel for rel in listed.split("\0") if rel and Path(rel).name == name]
+
+
 PROJECTS = (
     "ai_platform/features/feast",
     "ai_platform/inference",
@@ -84,8 +93,7 @@ def pins(text: str) -> dict[str, str]:
 @unittest.skipIf(tomllib is None, "tomllib needs Python 3.11+")
 class UvDependencyContractTests(unittest.TestCase):
     def test_every_project_is_locked(self):
-        found = {str(p.parent.relative_to(ROOT)) for p in ROOT.rglob("pyproject.toml")
-                 if ".venv" not in p.parts and "node_modules" not in p.parts and p.parent != ROOT}
+        found = {str(p.parent.relative_to(ROOT)) for p in tracked("pyproject.toml") if p.parent != ROOT}
         self.assertTrue(found <= set(PROJECTS), sorted(found - set(PROJECTS)))
         for project in PROJECTS:
             with self.subTest(project):
@@ -113,7 +121,7 @@ class UvDependencyContractTests(unittest.TestCase):
                 self.assertEqual(set(pins(text)), set(direct))
 
     def test_images_install_only_from_the_lock(self):
-        dockerfiles = [p for p in ROOT.rglob("Dockerfile") if ".venv" not in p.parts]
+        dockerfiles = tracked("Dockerfile")
         self.assertTrue(dockerfiles)
         for dockerfile in dockerfiles:
             text = dockerfile.read_text(encoding="utf-8")
