@@ -1,0 +1,7 @@
+# PKG-W: KEDA 2.21.0 also watches ewallet-sandbox, for the B' WorkerPool ScaledObject
+# (PKG-P3). Apply with --reuse-values on the existing keda/keda release through
+# scripts/llm_agent/sandbox_watch.sh keda ...; values.yaml stays the installed baseline.
+# Effect (exact, checked by ops/llm_agent/sandbox_watch_diff.py): WATCH_NAMESPACE on the
+# operator, metrics API server and admission webhooks, and one namespaced RoleBinding of the
+# existing keda-operator ClusterRole in ewallet-sandbox. The three pods restart once.
+watchNamespace: ewallet-agents,ml-platform,ewallet-sandbox

@@ -445,6 +445,34 @@ spec: {replicas: 1}
             {"ewallet.io/g3-llm": "true"},
         )
 
+    def test_kagent_runtime_post_renderer_keeps_sandbox_env_sources_only_as_a_pair(self) -> None:
+        base = "\n---\n".join(
+            f"apiVersion: rbac.authorization.k8s.io/v1\nkind: {kind}\nmetadata: {{name: kagent-ate-api-env-sources, namespace: {ns}}}"
+            for ns in ("ewallet-agents", "kagent", "kagent-pilot") for kind in ("Role", "RoleBinding")
+        ) + """
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: kagent-postgresql, namespace: kagent}
+spec: {template: {spec: {containers: []}}}
+---
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata: {name: kagent-pilot, namespace: kagent}
+spec: {replicas: 1}
+"""
+        sandbox = lambda kind: f"\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: {kind}\nmetadata: {{name: kagent-ate-api-env-sources, namespace: ewallet-sandbox}}\n"
+        renderer = [str(PILOT / "scripts" / "kagent_runtime_post_renderer.py")]
+        result = subprocess.run(renderer, input=base + sandbox("Role") + sandbox("RoleBinding"),
+                                check=True, capture_output=True, text=True)
+        kept = {(d["kind"], d["metadata"]["namespace"]) for d in load_documents_from_text(result.stdout)
+                if d["metadata"]["name"] == "kagent-ate-api-env-sources"}
+        self.assertEqual(kept, {("Role", "kagent-pilot"), ("RoleBinding", "kagent-pilot"),
+                                ("Role", "ewallet-sandbox"), ("RoleBinding", "ewallet-sandbox")})
+        half = subprocess.run(renderer, input=base + sandbox("Role"), check=False, capture_output=True, text=True)
+        self.assertNotEqual(half.returncode, 0)
+        self.assertIn("must be a Role and RoleBinding pair", half.stderr)
+
     def test_kagent_runtime_post_renderer_fails_on_unexpected_rbac_shape(self) -> None:
         rendered = """
 apiVersion: rbac.authorization.k8s.io/v1

@@ -1,0 +1,22 @@
+# PKG-K: let the existing kagent release (kagent/kagent, chart 0.10.3) reconcile the
+# business-agent fleet in ewallet-sandbox. Apply with --reuse-values on top of the live
+# values and the pilot post-renderer (scripts/llm_agent/sandbox_watch.sh kagent ...).
+# Helm replaces lists, so both lists repeat every namespace that is live today.
+#
+# controller.watchNamespaces -> ConfigMap kagent-controller WATCH_NAMESPACES (cache scope).
+# rbac.namespaces            -> namespaced writer/getter Roles and RoleBindings for the
+#                               controller, plus ate-api env-source read access; the
+#                               post-renderer keeps env-source access only in kagent-pilot
+#                               and ewallet-sandbox, never in kagent or ewallet-agents.
+rbac:
+  namespaces:
+    - kagent
+    - ewallet-agents
+    - kagent-pilot
+    - ewallet-sandbox
+
+controller:
+  watchNamespaces:
+    - ewallet-agents
+    - kagent-pilot
+    - ewallet-sandbox

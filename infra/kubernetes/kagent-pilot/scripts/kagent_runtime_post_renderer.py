@@ -2,8 +2,10 @@
 """Keep the bounded Substrate pilot isolated from production Agent secrets.
 
 The upstream kagent chart creates ate-api env-source RBAC in every watched
-namespace when Substrate is enabled.  The pilot needs this access only in the
-dedicated ``kagent-pilot`` namespace.  The live kagent PostgreSQL deployment also
+namespace when Substrate is enabled.  Only the dedicated sandbox namespaces need
+it: ``kagent-pilot`` always, and ``ewallet-sandbox`` (the business-agent fleet)
+when the kagent sandbox-watch overlay adds it to ``rbac.namespaces``.  Production
+namespaces never keep it.  The live kagent PostgreSQL deployment also
 has an approved scheduling selector that was added by the original release
 post-renderer and is not represented by the upstream chart template.
 
@@ -19,6 +21,8 @@ import yaml
 
 
 PILOT_NAMESPACE = "kagent-pilot"
+# Isolated sandbox namespaces that may keep env-source RBAC, besides the pilot.
+OPTIONAL_SANDBOX_NAMESPACES = frozenset({"ewallet-sandbox"})
 ENV_SOURCE_RBAC_NAME = "kagent-ate-api-env-sources"
 POSTGRES_NAME = "kagent-postgresql"
 WORKER_POOL_NAME = "kagent-pilot"
@@ -36,7 +40,7 @@ def _identity(document: dict) -> tuple[str, str, str]:
 
 def transform(documents: list[dict]) -> list[dict]:
     output: list[dict] = []
-    retained_env_source_kinds: set[str] = set()
+    retained_env_source: set[tuple[str, str]] = set()
     removed_env_source_identities: set[tuple[str, str, str]] = set()
     postgres_seen = False
     worker_pool_seen = False
@@ -44,8 +48,8 @@ def transform(documents: list[dict]) -> list[dict]:
     for document in documents:
         kind, namespace, name = _identity(document)
         if name == ENV_SOURCE_RBAC_NAME and kind in {"Role", "RoleBinding"}:
-            if namespace == PILOT_NAMESPACE:
-                retained_env_source_kinds.add(kind)
+            if namespace == PILOT_NAMESPACE or namespace in OPTIONAL_SANDBOX_NAMESPACES:
+                retained_env_source.add((namespace, kind))
                 output.append(document)
             else:
                 removed_env_source_identities.add((kind, namespace, name))
@@ -78,10 +82,14 @@ def transform(documents: list[dict]) -> list[dict]:
 
         output.append(document)
 
-    if retained_env_source_kinds != {"Role", "RoleBinding"}:
+    if {kind for namespace, kind in retained_env_source if namespace == PILOT_NAMESPACE} != {"Role", "RoleBinding"}:
         raise ValueError(
             "expected exactly the pilot env-source Role and RoleBinding in namespace kagent-pilot"
         )
+    for namespace in OPTIONAL_SANDBOX_NAMESPACES:
+        kinds = {kind for found, kind in retained_env_source if found == namespace}
+        if kinds and kinds != {"Role", "RoleBinding"}:
+            raise ValueError(f"env-source RBAC in {namespace} must be a Role and RoleBinding pair, got {sorted(kinds)}")
     expected_removed = {
         ("Role", "ewallet-agents", ENV_SOURCE_RBAC_NAME),
         ("RoleBinding", "ewallet-agents", ENV_SOURCE_RBAC_NAME),
