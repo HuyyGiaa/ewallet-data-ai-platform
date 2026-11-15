@@ -10,7 +10,8 @@
 #                           manifest, ewallet-sandbox exists
 #   diff       [READ-ONLY]  preflight, then the overlay's exact object diff (sandbox_watch_diff)
 #   dry-run    [READ-ONLY]  diff, then helm upgrade --dry-run=server
-#   upgrade    [MUTATES]    WATCH_APPROVAL=<PKG-K|PKG-W>:<context>; diff, then helm upgrade --atomic
+#   upgrade    [MUTATES]    WATCH_APPROVAL=<PKG-K|PKG-W>:<context>; diff and a server-side dry-run in the
+#                           same execution, then helm upgrade --atomic; any failed gate stops before it
 #   verify     [READ-ONLY]  watch value, rollouts, RBAC in ewallet-sandbox, controller readback
 #   rollback   [MUTATES]    WATCH_APPROVAL=<PKG-K|PKG-W>-ROLLBACK:<context>; helm rollback to the
 #                           revision recorded by upgrade, then identity against that revision
@@ -91,6 +92,13 @@ candidate() {
 
 upgrade_args() { echo upgrade "$release" "$chart" -n "$namespace" --reuse-values -f "$overlay"; }
 
+server_dry_run() {   # the exact upgrade, validated by the API server; fails closed
+  # shellcheck disable=SC2046
+  H $(upgrade_args) "${renderer[@]}" --dry-run=server > "$work/dry-run.yaml" 2> "$work/dry-run.err" \
+    || { tail -5 "$work/dry-run.err" >&2; die "server-side dry-run failed; nothing was upgraded"; }
+  log "dry-run PASS (server-side)"
+}
+
 watch_value() {
   if [[ $target == kagent ]]; then
     K -n kagent get configmap kagent-controller -o 'jsonpath={.data.WATCH_NAMESPACES}'
@@ -149,14 +157,10 @@ case "$action" in
   preflight) preflight ;;
   diff) preflight; candidate ;;
   dry-run)
-    preflight; candidate
-    # shellcheck disable=SC2046
-    H $(upgrade_args) "${renderer[@]}" --dry-run=server > "$work/dry-run.yaml" 2> "$work/dry-run.err" \
-      || { tail -5 "$work/dry-run.err" >&2; die "server-side dry-run failed"; }
-    log "dry-run PASS (server-side)" ;;
+    preflight; candidate; server_dry_run ;;
   upgrade)
     approval "$package:$KUBE_CONTEXT"
-    preflight; candidate
+    preflight; candidate; server_dry_run
     cp "$work/revision-live" "$work/revision-before-upgrade"
     log "upgrade: $(upgrade_args) (from revision $(cat "$work/revision-before-upgrade"))"
     # shellcheck disable=SC2046
