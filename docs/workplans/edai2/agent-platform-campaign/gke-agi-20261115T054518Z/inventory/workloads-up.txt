@@ -1,0 +1,22 @@
+non-system workloads with replicas>0:
+  ate-system Deployment ate-api-server-deployment 1
+  ate-system Deployment ate-controller 1
+  ate-system Deployment atenet-router 1
+  ate-system Deployment dns 1
+  ate-system Deployment rustfs 1
+  ate-system StatefulSet valkey-cluster 6
+  ewallet-agents Deployment agentgateway 1
+  ewallet-agents Deployment vllm-primary 1
+  ewallet-llm-gpu Deployment agentgateway-staging 1
+  ewallet-llm-gpu Deployment llmd-envoy-b2 1
+  ewallet-llm-gpu Deployment llmd-envoy-o2 1
+  ewallet-llm-gpu Deployment llmd-epp 1
+  kagent Deployment kagent-controller 1
+  kagent Deployment kagent-postgresql 1
+  kagent Deployment kagent-ui 1
+  kagent-pilot Deployment kagent-pilot-deployment 1
+  kagent-pilot Deployment mock-openai 1
+  keda Deployment keda-admission-webhooks 1
+  keda Deployment keda-operator 1
+  keda Deployment keda-operator-metrics-apiserver 1
+  ml-platform Deployment feature-api 1

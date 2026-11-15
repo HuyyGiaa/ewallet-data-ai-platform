@@ -65,8 +65,8 @@
     {
       "id": "CP4",
       "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)",
-      "status": "APPROVAL_PENDING",
-      "blocker": "PKG-K approved, but the return to sleep after wake-full needs the guarded-sleep approval (pkgk_stage)",
+      "status": "BLOCKED",
+      "blocker": "PKG-K deployed; S0 blocked by the atelet Artifact Registry pull (PKG-R: Substrate value + one IAM read grant)",
       "evidence": [
         "gke-agi-20261114t221240z/kagent-watch-namespaces.txt"
       ]
@@ -224,9 +224,9 @@
     "cloud": "GKE not woken in BR (asleep, 0 nodes); read-only Helm reads only (helm get values/manifest/status for kagent and keda)"
   },
   "pkgk_stage": {
-    "approval": "owner 2026-11-15: PKG-K + Sandbox S0 on a four-node wake-full; guarded sleep NOT granted",
+    "approval": "owner 2026-11-15 (second): wake-experiment --profile agent-sandbox, max 3 nodes, PKG-K, Sandbox S0; no guarded sleep",
     "source_fix": "63eb11b4 sandbox_watch.sh upgrade runs its own server-side dry-run (tests/llm_agent/test_sandbox_watch_script.py)",
-    "verdict": "WAKE_NOT_STARTED",
+    "verdict": "PKG_K_DEPLOYED; S0_BLOCKED (image pull)",
     "reason": "wake-full restores 5 PDB-guarded Deployments (ewallet-agents/drift-mcp, drift-specialist, feature-rag-specialist, fraud-coordinator; ewallet-mcp/drift-mcp); plain sleep then refuses (SLEEP_BLOCKED) and the only safe return is guarded sleep, whose approval CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign> was not granted (owner section 4)",
     "cloud": "asleep, 0 nodes, 0.107 USD/h; read-only checks only",
     "options": [
@@ -235,6 +235,61 @@
     ],
     "evidence": [
       "pkgk-preflight-20261115/"
-    ]
+    ],
+    "run": {
+      "campaign": "agi-20261115T054518Z",
+      "awake": "2026-11-15T05:47:21Z..06:23:51Z (3 nodes, ~36 min, ~0.30 USD)",
+      "nodes": {
+        "initial": 0,
+        "peak": 3,
+        "final": 0
+      },
+      "sleep": "SLEEP_VERIFIED (plain sleep, SAFE_TO_SLEEP, no guarded flag)",
+      "held_at_zero_by_profile": 34,
+      "running_outside_profile": [
+        "ewallet-llm-gpu x4 (not in the 2026-11-06 manifest)",
+        "keda x3 (not in the manifest)",
+        "ml-platform/feature-api (KEDA ScaledObject minimum 1)"
+      ]
+    },
+    "pkg_k": {
+      "status": "GKE_TESTED",
+      "helm_revision": "5 -> 6",
+      "identity_before": "PASS",
+      "diff": "exact: +6 RBAC in ewallet-sandbox, WATCH_NAMESPACES, controller checksum",
+      "server_dry_run": "PASS (twice: dry-run action and inside upgrade)",
+      "identity_after": "live manifest == reviewed candidate",
+      "watch_namespaces": "ewallet-agents,kagent-pilot,ewallet-sandbox",
+      "kept": true,
+      "evidence": [
+        "gke-agi-20261115T054518Z/pkg/"
+      ]
+    },
+    "s0": {
+      "status": "BLOCKED",
+      "observed": [
+        "WorkerPool business-agents: 2 warm gVisor workers Ready on 2 nodes",
+        "both SandboxAgents Accepted=True (kagent reconciles ewallet-sandbox)",
+        "both ActorTemplates created (sandboxClass gvisor, workerSelector kagent.dev/worker-pool=business-agents)",
+        "Substrate assigned the two golden actors to the two workers (one each)"
+      ],
+      "blocker": "ActorTemplates stuck at ResumeGoldenActor: atelet pulls actor images itself and anonymously (--gcp-auth-for-image-pulls=false); Artifact Registry: DENIED Unauthenticated (downloadArtifacts)",
+      "fix_package": {
+        "id": "PKG-R",
+        "status": "SOURCE_IMPLEMENTED (overlay only; live identity gate still to build)",
+        "change": "substrate release: atelet.gcpAuthForImagePulls=true (infra/kubernetes/kagent-pilot/values/substrate-ar-pull-overlay.yaml)",
+        "iam": "roles/artifactregistry.reader on repository ewallet-platform for principal://.../subject/ns/ate-system/sa/atelet (Workload Identity)",
+        "offline_diff": "atelet args[0] only, plus CA/TLS/session pools that an offline render regenerates (lookup keeps them live)"
+      },
+      "residue": "two Suspended golden actor records in ate-api (no pod, no snapshot); left: deleting needs ate-api/Valkey access outside scope",
+      "evidence": [
+        "gke-agi-20261115T054518Z/ags/"
+      ]
+    },
+    "ags": {
+      "AGS-01": "PARTIAL: shared pool, 2 workers, 2 Accepted SandboxAgents, templates created; not Ready (no golden snapshot)",
+      "AGS-02": "GKE_TESTED (read-only): gvisor class, default SA without token and only discovery RBAC, allowedDomains set; egress denial not exercised",
+      "AGS-04": "BLOCKED: no golden snapshot, so no A2A session could create an actor"
+    }
   }
 }

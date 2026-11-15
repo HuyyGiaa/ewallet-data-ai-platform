@@ -1,0 +1,2 @@
+ewallet-data-ai-platform-hg26.svc.id.goog	ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
+ewallet-gke-nodes@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com	GKE_METADATA

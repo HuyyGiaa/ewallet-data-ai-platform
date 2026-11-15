@@ -1,0 +1,4 @@
+NAME                                     STATUS   ROLES    AGE   VERSION               G3-LLM
+gke-ewallet-dev-cpu-pool-58daed59-8j7w   Ready    <none>   47s   v1.36.4-gke.2377000   true
+gke-ewallet-dev-cpu-pool-58daed59-j3bg   Ready    <none>   49s   v1.36.4-gke.2377000   true
+gke-ewallet-dev-cpu-pool-58daed59-rvc2   Ready    <none>   48s   v1.36.4-gke.2377000   true

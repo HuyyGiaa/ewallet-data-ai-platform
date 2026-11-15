@@ -1,0 +1,14 @@
+LAST SEEN   TYPE     REASON              OBJECT                                            MESSAGE
+17m         Normal   SuccessfulCreate    replicaset/business-agents-deployment-d8466f4b5   Created pod: business-agents-deployment-d8466f4b5-lg4zs
+17m         Normal   ScalingReplicaSet   deployment/business-agents-deployment             Scaled up replica set business-agents-deployment-d8466f4b5 from 0 to 2
+17m         Normal   Scheduled           pod/business-agents-deployment-d8466f4b5-48mvp    Successfully assigned ewallet-sandbox/business-agents-deployment-d8466f4b5-48mvp to gke-ewallet-dev-cpu-pool-58daed59-8j7w
+17m         Normal   SuccessfulCreate    replicaset/business-agents-deployment-d8466f4b5   Created pod: business-agents-deployment-d8466f4b5-48mvp
+17m         Normal   Scheduled           pod/business-agents-deployment-d8466f4b5-lg4zs    Successfully assigned ewallet-sandbox/business-agents-deployment-d8466f4b5-lg4zs to gke-ewallet-dev-cpu-pool-58daed59-j3bg
+17m         Normal   Pulling             pod/business-agents-deployment-d8466f4b5-48mvp    Pulling image "ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc"
+17m         Normal   Pulling             pod/business-agents-deployment-d8466f4b5-lg4zs    Pulling image "ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc"
+17m         Normal   Created             pod/business-agents-deployment-d8466f4b5-48mvp    Container created
+17m         Normal   Created             pod/business-agents-deployment-d8466f4b5-lg4zs    Container created
+17m         Normal   Started             pod/business-agents-deployment-d8466f4b5-lg4zs    Container started
+17m         Normal   Pulled              pod/business-agents-deployment-d8466f4b5-lg4zs    Successfully pulled image "ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc" in 3.947s (3.947s including waiting). Image size: 13499406 bytes.
+17m         Normal   Started             pod/business-agents-deployment-d8466f4b5-48mvp    Container started
+17m         Normal   Pulled              pod/business-agents-deployment-d8466f4b5-48mvp    Successfully pulled image "ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc" in 3.609s (3.609s including waiting). Image size: 13499406 bytes.

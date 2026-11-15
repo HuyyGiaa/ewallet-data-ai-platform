@@ -1,0 +1,3 @@
+kagent-controller-58fc5667dc-d2svx 1/1 Running 4
+kagent-postgresql-58997cbd8-mtfkm 1/1 Running 0
+kagent-ui-7fc9467f99-2qrdf 1/1 Running 3

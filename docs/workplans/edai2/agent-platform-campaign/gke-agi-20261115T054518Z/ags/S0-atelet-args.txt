@@ -1,0 +1,1 @@
+--gcp-auth-for-image-pulls=false

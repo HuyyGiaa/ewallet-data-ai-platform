@@ -1,0 +1,6 @@
+role.rbac.authorization.k8s.io/kagent-ate-api-env-sources
+role.rbac.authorization.k8s.io/kagent-getter-role
+role.rbac.authorization.k8s.io/kagent-writer-role
+rolebinding.rbac.authorization.k8s.io/kagent-ate-api-env-sources
+rolebinding.rbac.authorization.k8s.io/kagent-getter-rolebinding
+rolebinding.rbac.authorization.k8s.io/kagent-writer-rolebinding

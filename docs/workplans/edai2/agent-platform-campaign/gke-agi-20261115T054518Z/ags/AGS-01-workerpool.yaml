@@ -1,0 +1,28 @@
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"ate.dev/v1alpha1","kind":"WorkerPool","metadata":{"annotations":{},"labels":{"kagent.dev/worker-pool":"business-agents"},"name":"business-agents","namespace":"ewallet-sandbox"},"spec":{"ateomImage":"ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc","replicas":2,"sandboxClass":"gvisor","template":{"resources":{"limits":{"cpu":"1500m","memory":"2Gi"},"requests":{"cpu":"500m","memory":"1Gi"}}}}}
+  creationTimestamp: "2026-11-15T05:53:20Z"
+  generation: 1
+  labels:
+    kagent.dev/worker-pool: business-agents
+  name: business-agents
+  namespace: ewallet-sandbox
+  resourceVersion: "1794722000960239022"
+  uid: c1441248-4238-415d-a734-332f75156c29
+spec:
+  ateomImage: ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc
+  replicas: 2
+  sandboxClass: gvisor
+  template:
+    resources:
+      limits:
+        cpu: 1500m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+status:
+  replicas: 2

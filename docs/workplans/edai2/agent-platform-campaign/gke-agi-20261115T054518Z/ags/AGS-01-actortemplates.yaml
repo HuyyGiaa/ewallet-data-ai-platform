@@ -1,0 +1,229 @@
+apiVersion: v1
+items:
+- apiVersion: ate.dev/v1alpha1
+  kind: ActorTemplate
+  metadata:
+    annotations:
+      kagent.dev/actor-template-hash: c19e7ad633a54bfd
+      kagent.dev/config-hash: f10a4757cff9b01e
+      kagent.dev/desired-generation: "1"
+    creationTimestamp: "2026-11-15T05:57:46Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: kagent
+      kagent.dev/sandbox-agent: drift-specialist
+    name: drift-specialist-c19e7ad633a54bfd
+    namespace: ewallet-sandbox
+    ownerReferences:
+    - apiVersion: kagent.dev/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: SandboxAgent
+      name: drift-specialist
+      uid: c6a41443-5108-499a-9587-91ae4cb7c8a7
+    resourceVersion: "1794722275098111018"
+    uid: 4e073490-fa47-4858-994b-6cfcedf147ec
+  spec:
+    containers:
+    - command:
+      - /opt/venv/bin/python
+      - -m
+      - ai_platform.llm_agent.byo_drift_specialist
+      env:
+      - name: KAGENT_NAME
+        value: drift-specialist
+      - name: KAGENT_NAMESPACE
+        value: ewallet-sandbox
+      - name: KAGENT_PRE_RESPONSE_TRACE_FLUSH
+        value: "true"
+      - name: KAGENT_CONFIG_JSON
+        valueFrom:
+          secretKeyRef:
+            key: config.json
+            name: drift-specialist
+      - name: KAGENT_AGENT_CARD_JSON
+        valueFrom:
+          secretKeyRef:
+            key: agent-card.json
+            name: drift-specialist
+      - name: KAGENT_SRT_SETTINGS_JSON
+        valueFrom:
+          secretKeyRef:
+            key: srt-settings.json
+            name: drift-specialist
+            optional: true
+      - name: EWALLET_AGENT_PORT
+        value: "80"
+      - name: PYTHONPATH
+        value: /workspace
+      - name: PATH
+        value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin
+      - name: PYTHONUNBUFFERED
+        value: "1"
+      - name: EWALLET_MCP_MAX_ATTEMPTS
+        value: "3"
+      - name: OTEL_TRACING_ENABLED
+        value: "true"
+      - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+        value: otel-collector.ewallet-agents.svc.cluster.local:4317
+      - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+        value: "true"
+      - name: EWALLET_OTEL_METRICS_ENABLED
+        value: "true"
+      - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+        value: otel-collector.ewallet-agents.svc.cluster.local:4317
+      - name: EWALLET_MCP_SERVICE_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: token
+            name: mcp-token-sandbox-drift-drift-mcp-s0
+      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+        value: grpc
+      - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+        value: "15000"
+      - name: OTEL_LOGGING_ENABLED
+        value: "false"
+      - name: KAGENT_URL
+        value: http://kagent-controller.kagent:8083
+      - name: KAGENT_SRT_SETTINGS_PATH
+        value: /config/srt-settings.json
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6
+      name: kagent
+      readyz:
+        httpGet:
+          path: /.well-known/agent-card.json
+          port: 80
+      volumeMounts:
+      - mountPath: /data
+        name: data
+    pauseImage: gcr.io/gke-release/pause@sha256:bcbd57ba5653580ec647b16d8163cdd1112df3609129b01f912a8032e48265da
+    sandboxClass: gvisor
+    snapshotsConfig:
+      location: gs://ate-snapshots/ewallet-sandbox/agi-20261115T054518Z/drift-specialist/
+      onCommit: Data
+      onPause: Full
+    volumes:
+    - durableDir: {}
+      name: data
+    workerSelector:
+      matchLabels:
+        kagent.dev/worker-pool: business-agents
+  status:
+    goldenActorID: bc026273-b99f-4f45-b752-d8ca51214290
+    phase: ResumeGoldenActor
+- apiVersion: ate.dev/v1alpha1
+  kind: ActorTemplate
+  metadata:
+    annotations:
+      kagent.dev/actor-template-hash: d26fd1d56ae4610e
+      kagent.dev/config-hash: 4e10df122602950f
+      kagent.dev/desired-generation: "1"
+    creationTimestamp: "2026-11-15T05:57:45Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: kagent
+      kagent.dev/sandbox-agent: feature-rag-specialist
+    name: feature-rag-specialist-d26fd1d56ae4610e
+    namespace: ewallet-sandbox
+    ownerReferences:
+    - apiVersion: kagent.dev/v1alpha2
+      blockOwnerDeletion: true
+      controller: true
+      kind: SandboxAgent
+      name: feature-rag-specialist
+      uid: 3ccf564a-f2d5-4d2c-b71f-47af70a3a909
+    resourceVersion: "1794722266201423009"
+    uid: 41d9b457-57b6-4582-a6b0-a0e16c9eb7b2
+  spec:
+    containers:
+    - command:
+      - /opt/venv/bin/python
+      - -m
+      - ai_platform.llm_agent.byo_feature_rag_specialist
+      env:
+      - name: KAGENT_NAME
+        value: feature-rag-specialist
+      - name: KAGENT_NAMESPACE
+        value: ewallet-sandbox
+      - name: KAGENT_PRE_RESPONSE_TRACE_FLUSH
+        value: "true"
+      - name: KAGENT_CONFIG_JSON
+        valueFrom:
+          secretKeyRef:
+            key: config.json
+            name: feature-rag-specialist
+      - name: KAGENT_AGENT_CARD_JSON
+        valueFrom:
+          secretKeyRef:
+            key: agent-card.json
+            name: feature-rag-specialist
+      - name: KAGENT_SRT_SETTINGS_JSON
+        valueFrom:
+          secretKeyRef:
+            key: srt-settings.json
+            name: feature-rag-specialist
+            optional: true
+      - name: EWALLET_AGENT_PORT
+        value: "80"
+      - name: PYTHONPATH
+        value: /workspace
+      - name: PATH
+        value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin
+      - name: PYTHONUNBUFFERED
+        value: "1"
+      - name: EWALLET_NL_INTAKE_ENABLED
+        value: "false"
+      - name: EWALLET_MCP_MAX_ATTEMPTS
+        value: "3"
+      - name: OTEL_TRACING_ENABLED
+        value: "true"
+      - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+        value: otel-collector.ewallet-agents.svc.cluster.local:4317
+      - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+        value: "true"
+      - name: EWALLET_OTEL_METRICS_ENABLED
+        value: "true"
+      - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+        value: otel-collector.ewallet-agents.svc.cluster.local:4317
+      - name: EWALLET_MCP_SERVICE_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: token
+            name: mcp-token-sandbox-feature-rag-feature-rag-mcp-s0
+      - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+        value: grpc
+      - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+        value: "15000"
+      - name: OTEL_LOGGING_ENABLED
+        value: "false"
+      - name: KAGENT_URL
+        value: http://kagent-controller.kagent:8083
+      - name: KAGENT_SRT_SETTINGS_PATH
+        value: /config/srt-settings.json
+      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:04f194607cd9c837b1d7947def7213f1beaf3b65031ce73c86cf671ec02ebef6
+      name: kagent
+      readyz:
+        httpGet:
+          path: /.well-known/agent-card.json
+          port: 80
+      volumeMounts:
+      - mountPath: /data
+        name: data
+    pauseImage: gcr.io/gke-release/pause@sha256:bcbd57ba5653580ec647b16d8163cdd1112df3609129b01f912a8032e48265da
+    sandboxClass: gvisor
+    snapshotsConfig:
+      location: gs://ate-snapshots/ewallet-sandbox/agi-20261115T054518Z/feature-rag-specialist/
+      onCommit: Data
+      onPause: Full
+    volumes:
+    - durableDir: {}
+      name: data
+    workerSelector:
+      matchLabels:
+        kagent.dev/worker-pool: business-agents
+  status:
+    goldenActorID: 2255d97b-5d88-4905-88f0-5e4fe3eb9294
+    phase: ResumeGoldenActor
+kind: List
+metadata:
+  resourceVersion: ""

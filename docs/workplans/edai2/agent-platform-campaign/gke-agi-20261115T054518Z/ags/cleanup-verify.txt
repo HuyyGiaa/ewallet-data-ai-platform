@@ -1,0 +1,15 @@
+sandboxagents: 0
+NAME                     AGE
+serviceaccount/default   23m
+
+NAME                                                        CREATED AT
+role.rbac.authorization.k8s.io/kagent-ate-api-env-sources   2026-11-15T05:55:57Z
+role.rbac.authorization.k8s.io/kagent-getter-role           2026-11-15T05:55:53Z
+role.rbac.authorization.k8s.io/kagent-writer-role           2026-11-15T05:55:55Z
+
+NAME                                                               ROLE                              AGE
+rolebinding.rbac.authorization.k8s.io/kagent-ate-api-env-sources   Role/kagent-ate-api-env-sources   20m
+rolebinding.rbac.authorization.k8s.io/kagent-getter-rolebinding    Role/kagent-getter-role           20m
+rolebinding.rbac.authorization.k8s.io/kagent-writer-rolebinding    Role/kagent-writer-role           20m
+campaign-labelled: 0
+substrate actors 2 workers 0 pools []

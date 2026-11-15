@@ -1,0 +1,1 @@
+enabled True ateApiError None pools [('kagent-pilot', 1)] templates [('pilot-sandbox-agent-6f000f880e9fe909', 'Ready')] actors 5 workers 8

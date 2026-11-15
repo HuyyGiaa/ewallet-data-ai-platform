@@ -1,0 +1,7 @@
+NAMESPACE        NAME                                    MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+ewallet-agents   drift-mcp                               1               N/A               0                     13d
+ewallet-agents   drift-specialist                        1               N/A               0                     12d
+ewallet-agents   feature-rag-specialist                  1               N/A               0                     12d
+ewallet-agents   fraud-coordinator                       1               N/A               0                     12d
+ewallet-mcp      drift-mcp                               1               N/A               0                     13d
+kube-system      filestore-lock-release-controller-pdb   N/A             1                 0                     23d

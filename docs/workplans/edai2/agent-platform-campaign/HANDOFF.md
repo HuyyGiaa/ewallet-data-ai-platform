@@ -71,3 +71,63 @@ Two real defects were found and fixed along the way:
 - **BR (2026-11-15).** The cluster was not woken. Only read-only Helm reads were made
   against the control plane (kagent and KEDA values, manifests and status) to build
   the exact diffs.
+
+## Stage PKG-K and Sandbox S0 (`agi-20261115T054518Z`, evidence in `gke-agi-20261115T054518Z/`)
+
+- **Wake:** `wake-experiment --profile agent-sandbox --nodes 3`. The cluster went 0 → 3 → 0
+  nodes and was awake from 05:47 to 06:23Z, about $0.30.
+  - The profile held 34 workloads outside it at 0 (listed in `wake/wake.txt`).
+  - The five PDB-guarded Deployments stayed at 0.
+  - Running outside the profile, because they are not in the 2026-11-06 manifest:
+    `ewallet-llm-gpu` ×4 and `keda` ×3. `ml-platform/feature-api` also ran, held at 1 by
+    its ScaledObject.
+- **PKG-K: `GKE_TESTED`, kept.**
+  - Revision 5 → 6.
+  - Identity PASS; exact diff (+6 RBAC, `WATCH_NAMESPACES`); server-side dry-run PASS.
+  - After the upgrade, the live manifest equals the reviewed candidate.
+  - The controller logs `["ewallet-agents","kagent-pilot","ewallet-sandbox"]`.
+  - The pilot SandboxAgent is still Ready.
+- **S0: `BLOCKED`.**
+  - Observed working:
+    - 2 warm gVisor workers, Ready, on 2 nodes;
+    - both SandboxAgents `Accepted`;
+    - both ActorTemplates created, with `sandboxClass gvisor` and the shared worker
+      selector;
+    - Substrate assigned one golden actor to each worker.
+  - The golden snapshots never formed. atelet pulls the actor image itself and
+    anonymously (`--gcp-auth-for-image-pulls=false`), so Artifact Registry answered
+    `DENIED: Unauthenticated request`. The pilot works only because its image is public.
+- **AGS-01:** PARTIAL.
+- **AGS-02:** observed read-only. Workers run `ateom-gvisor`; `ewallet-sandbox/default`
+  mounts no token and has discovery-only RBAC; `allowedDomains` are set. The egress
+  denial was not exercised.
+- **AGS-04:** BLOCKED. Without a golden snapshot, no session can create an actor.
+- **Cleanup:**
+  - Fleet, placeholder Secrets, ActorTemplates and the WorkerPool were removed.
+  - The namespace and the PKG-K RBAC were kept.
+  - Two Suspended golden-actor records remain in ate-api, with no pod and no snapshot.
+- **Sleep:** `SAFE_TO_SLEEP`, then a plain `sleep`: `SLEEP_VERIFIED`.
+
+### New owner decision: PKG-R (Artifact Registry pull for Substrate)
+
+1. `substrate` release (`ate-system`): `atelet.gcpAuthForImagePulls=true`
+   (`infra/kubernetes/kagent-pilot/values/substrate-ar-pull-overlay.yaml`). The atelet
+   DaemonSet rolls.
+2. IAM: `roles/artifactregistry.reader` on repository `ewallet-platform` for
+   `principal://iam.googleapis.com/projects/198818809719/locations/global/workloadIdentityPools/ewallet-data-ai-platform-hg26.svc.id.goog/subject/ns/ate-system/sa/atelet`.
+
+Offline, the overlay changes only atelet's `args[0]`. A live identity gate for the
+`substrate` release, in the style of `sandbox_watch.sh`, is still to be written before
+PKG-R runs.
+
+### Screenshot views for the owner's rerun (after PKG-R)
+
+```bash
+kubectl -n ewallet-sandbox get workerpool,sandboxagent,actortemplate -o wide            # AGS-01_shared_workerpool.png
+kubectl -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o wide
+kubectl -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents \
+  -o custom-columns=POD:.metadata.name,SA:.spec.serviceAccountName,IMAGE:.spec.containers[0].image   # AGS-02_sandbox_isolation.png
+kubectl auth can-i --list --as=system:serviceaccount:ewallet-sandbox:default -n ewallet-sandbox
+python3 -m ops.experiments.substrate_fleet summarize "$EV/ags/AGS-04-status.jsonl"     # AGS-04_actor_worker_assignment.png
+curl -s "http://127.0.0.1:18383/api/substrate/status?namespace=ewallet-sandbox" | python3 -m json.tool
+```

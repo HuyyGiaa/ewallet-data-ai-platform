@@ -1,0 +1,47 @@
+{
+ "added": [
+  [
+   "Role",
+   "ewallet-sandbox",
+   "kagent-ate-api-env-sources"
+  ],
+  [
+   "Role",
+   "ewallet-sandbox",
+   "kagent-getter-role"
+  ],
+  [
+   "Role",
+   "ewallet-sandbox",
+   "kagent-writer-role"
+  ],
+  [
+   "RoleBinding",
+   "ewallet-sandbox",
+   "kagent-ate-api-env-sources"
+  ],
+  [
+   "RoleBinding",
+   "ewallet-sandbox",
+   "kagent-getter-rolebinding"
+  ],
+  [
+   "RoleBinding",
+   "ewallet-sandbox",
+   "kagent-writer-rolebinding"
+  ]
+ ],
+ "changed": [
+  [
+   "ConfigMap",
+   "kagent",
+   "kagent-controller"
+  ],
+  [
+   "Deployment",
+   "kagent",
+   "kagent-controller"
+  ]
+ ]
+}
+CANDIDATE PASS

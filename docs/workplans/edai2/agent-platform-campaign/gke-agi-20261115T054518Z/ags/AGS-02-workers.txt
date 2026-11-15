@@ -1,0 +1,3 @@
+business-agents-deployment-d8466f4b5-48mvp node=gke-ewallet-dev-cpu-pool-58daed59-8j7w sa=default automount= image=ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc privileged=true
+business-agents-deployment-d8466f4b5-lg4zs node=gke-ewallet-dev-cpu-pool-58daed59-j3bg sa=default automount= image=ghcr.io/kagent-dev/substrate/ateom-gvisor:v0.0.9@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc privileged=true
+automountServiceAccountToken=false

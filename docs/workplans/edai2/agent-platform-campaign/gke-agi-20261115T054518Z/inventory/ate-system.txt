@@ -1,0 +1,14 @@
+ate-api-server-deployment-6558549c7c-plbt4 1/1 Running 1 7h15m
+ate-controller-6bcb5b4bf7-lv8jh 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-rvc2
+atelet-qhflr 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-8j7w
+atelet-swbf6 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
+atelet-xq2tj 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-rvc2
+atenet-router-85b65959f5-fhvfh 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-rvc2
+dns-669f5bf88b-h4d7c 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-rvc2
+rustfs-5587886f5c-s66zg 1/1 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
+valkey-cluster-0 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
+valkey-cluster-1 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
+valkey-cluster-2 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
+valkey-cluster-3 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
+valkey-cluster-4 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
+valkey-cluster-5 2/2 Running 0 gke-ewallet-dev-cpu-pool-58daed59-j3bg
