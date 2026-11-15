@@ -1,0 +1,8 @@
+# state transitions from substrate_fleet record (1 s samples), golden actors excluded
+08:57:24 A drift c0 asr-54ccd1cf380fd9292532b24c Resuming business-agents-deployment-d8466f4b5-tgtpp
+08:57:49 A drift c0 asr-54ccd1cf380fd9292532b24c Suspended 
+09:00:00 B drift c0 asr-b4e864513eedbf9fc1f13e17 Resuming business-agents-deployment-d8466f4b5-tgtpp
+09:00:00 B feature-rag c0 asr-0b5fef2defbf8006cbfcc868 Resuming business-agents-deployment-d8466f4b5-z8npc
+09:01:31 B drift c1 asr-1197b0b20265bea8f4650be9 Suspended 
+09:01:31 B feature-rag c1 asr-b649c73152270e36f6834d3a Suspended 
+09:09:15 B drift c0 asr-b4e864513eedbf9fc1f13e17 Suspended 

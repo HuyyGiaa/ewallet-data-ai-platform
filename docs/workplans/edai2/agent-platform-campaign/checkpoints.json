@@ -380,13 +380,14 @@
       "ROOT_CAUSE_CONFIRMED",
       "FIX_IMPLEMENTED",
       "UNIT_TESTED",
-      "GKE_APPROVAL_PENDING"
+      "RESUME_GKE_TESTED_PASS (client pacing workaround; kagent upstream race NOT fixed)"
     ],
     "root_cause": "kagent 0.10.3: async scheduleSuspendSession + EnsureSessionActor skips ResumeActor for SUSPENDING -> follow-up inside the suspend window is never resumed (120 s timeout)",
     "evidence": [
       "resume-rca/RCA.md",
       "resume-rca/upstream-test/run-unpatched.txt",
-      "gke-agi-20261115T064905Z/ags/AGS-04-status.jsonl"
+      "gke-agi-20261115T064905Z/ags/AGS-04-status.jsonl",
+      "gke-agi-20261115T084916Z/"
     ],
     "fix": "ops/experiments/sandbox_sessions.py waits for Suspended before each follow-up (bounded); --no-settle reproduces",
     "upstream_patch": {
@@ -394,13 +395,71 @@
       "status": "proposed; 56/56 package tests pass; not deployed (needs kagent image + upgrade approval)"
     },
     "not_tested": [
-      "kind (full Substrate+gVisor runtime exceeds laptop budget)",
-      "GKE (approval pending: runbook 2.3b)"
+      "kind (full Substrate+gVisor runtime exceeds laptop budget)"
     ],
     "images": {
       "git_sha": "f25836414b688ef4354cc7014a67336283e040e7",
       "gate": "4/4 Trivy PASS, pushed",
       "deployed": false
+    },
+    "gke_ab": {
+      "campaign": "agi-20261115T084916Z",
+      "date": "2026-11-15",
+      "profile": "agent-sandbox",
+      "nodes": 3,
+      "awake_utc": "08:51-09:27",
+      "sleep": "SLEEP_VERIFIED (verify --expect sleep: failures [], cpu-pool 0 VMs)",
+      "cost_usd_list_estimate": 0.4,
+      "experiment_a": {
+        "verdict": "RACE_REPRODUCED",
+        "actor": "asr-54ccd1cf380fd9292532b24c",
+        "resume": "rpc_error after 120.5 s, no Resuming after Suspended"
+      },
+      "experiment_b_concurrent": {
+        "verdict": "FAILED_NOT_RACE",
+        "classification": "snapshot restore failure -> worker assignment failure",
+        "cause": "two concurrent first-turn golden restores on one node cancelled at kagent --substrate-call-timeout (30 s); actors left STATUS_RESUMING holding both workers; later requests 'no free workers'",
+        "recovery": "restarted the two campaign worker pods; actors -> SUSPENDED; nothing deleted"
+      },
+      "experiment_b2_paced": {
+        "verdict": "PASS",
+        "actor": "asr-62efd060a1d79057ff6018c4",
+        "worker": "business-agents-deployment-d8466f4b5-qjxtl",
+        "messages": 4,
+        "resumes": 3,
+        "settled_before_send": [
+          true,
+          true,
+          true
+        ],
+        "restore_errors": 0,
+        "rpc_errors": 0,
+        "business_state": "failed/mcp_transport_error (S0, expected)"
+      },
+      "experiment_b3_sharing": {
+        "verdict": "SHARED_WORKER_OBSERVED",
+        "actor": "asr-eb6d0b7374ab36d200a56d79",
+        "worker": "business-agents-deployment-d8466f4b5-qjxtl"
+      },
+      "totals": {
+        "contexts": 7,
+        "messages_sent": 18,
+        "messages_not_sent": 2,
+        "diagnostic_messages": 1,
+        "follow_ups_sent": {
+          "unpaced_A": 1,
+          "paced_B_c1_no_free_workers": 6,
+          "paced_B2": 3,
+          "paced_B3": 1
+        },
+        "actual_session_resumes_restored": 4,
+        "note": "contexts: A 1, B 4, B2 1, B3 1 (+1 diagnostic)"
+      },
+      "remaining": [
+        "kagent 0.10.3 unpaced follow-up race (upstream patch proposed, not deployed)",
+        "30 s --substrate-call-timeout vs ~24-25 s single restore; concurrent restores exceed it (remediation needs owner decision)",
+        "residual session actors recorded read-only; deletion needs RESIDUE_APPROVAL"
+      ]
     }
   }
 }

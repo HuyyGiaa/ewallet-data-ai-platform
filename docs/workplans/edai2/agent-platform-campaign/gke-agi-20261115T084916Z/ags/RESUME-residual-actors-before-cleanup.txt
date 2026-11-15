@@ -1,0 +1,12 @@
+asr-1197b0b20265bea8f4650be9 drift-specialist-f149f3a6bb8f7323 STATUS_SUSPENDED 
+asr-54ccd1cf380fd9292532b24c drift-specialist-f149f3a6bb8f7323 STATUS_SUSPENDED 
+asr-62efd060a1d79057ff6018c4 drift-specialist-f149f3a6bb8f7323 STATUS_SUSPENDED 
+asr-b4e864513eedbf9fc1f13e17 drift-specialist-f149f3a6bb8f7323 STATUS_SUSPENDED 
+asr-f3b055da5c9ffffe2309a219 drift-specialist-f149f3a6bb8f7323 STATUS_SUSPENDED 
+asr-50a70b7106227032703af136 feature-rag-specialist-1a5eced93b036890 STATUS_SUSPENDED 
+asr-7c8331d0ccba4ebfa3fd3326 feature-rag-specialist-1a5eced93b036890 STATUS_SUSPENDED 
+asr-7ff7308a610c6ca260eee136 feature-rag-specialist-1a5eced93b036890 STATUS_SUSPENDED 
+asr-f120bea4bb9d1de063818865 feature-rag-specialist-1a5eced93b036890 STATUS_SUSPENDED 
+asr-0b5fef2defbf8006cbfcc868 feature-rag-specialist-943760afdbb84b6d STATUS_RESUMING business-agents-deployment-d8466f4b5-z8npc
+asr-b649c73152270e36f6834d3a feature-rag-specialist-943760afdbb84b6d STATUS_SUSPENDED 
+asr-eb6d0b7374ab36d200a56d79 feature-rag-specialist-943760afdbb84b6d STATUS_SUSPENDED 

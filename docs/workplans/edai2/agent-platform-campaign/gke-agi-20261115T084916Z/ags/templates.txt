@@ -1,0 +1,2 @@
+drift-specialist-f149f3a6bb8f7323 phase=Ready golden=gs://ate-snapshots/ewallet-sandbox/agi-20261115T084916Z/drift-specialist/6b12ef76-2bce-4e15-98e6-94884aa77f8d/2026-11-15T08:56:49Z-5SHXLQRKGXW2HNDBOMUOVI42CV goldenActor=6b12ef76-2bce-4e15-98e6-94884aa77f8d
+feature-rag-specialist-943760afdbb84b6d phase=Ready golden=gs://ate-snapshots/ewallet-sandbox/agi-20261115T084916Z/feature-rag-specialist/9b44787c-793d-4cf0-93fb-489955ca4fb4/2026-11-15T08:56:43Z-X4QUKCBWAZGDXWAQGY23HXVUNU goldenActor=9b44787c-793d-4cf0-93fb-489955ca4fb4

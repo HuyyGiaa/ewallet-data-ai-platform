@@ -1,0 +1,18 @@
+# state transitions from substrate_fleet record (1 s samples; short Running windows can fall between samples, see RESUME-B2-worker-rpcs.txt)
+09:12:59 B2 drift c0 asr-62efd060a1d79057ff6018c4 Resuming business-agents-deployment-d8466f4b5-qjxtl
+09:13:23 B2 drift c0 asr-62efd060a1d79057ff6018c4 Suspending business-agents-deployment-d8466f4b5-qjxtl
+09:13:25 B2 drift c0 asr-62efd060a1d79057ff6018c4 Resuming business-agents-deployment-d8466f4b5-qjxtl
+09:13:46 B2 drift c0 asr-62efd060a1d79057ff6018c4 Running business-agents-deployment-d8466f4b5-qjxtl
+09:13:47 B2 drift c0 asr-62efd060a1d79057ff6018c4 Suspended 
+09:13:49 B2 drift c0 asr-62efd060a1d79057ff6018c4 Resuming business-agents-deployment-d8466f4b5-qjxtl
+09:14:09 B2 drift c0 asr-62efd060a1d79057ff6018c4 Suspending business-agents-deployment-d8466f4b5-qjxtl
+09:14:11 B2 drift c0 asr-62efd060a1d79057ff6018c4 Suspended 
+09:14:12 B2 drift c0 asr-62efd060a1d79057ff6018c4 Resuming business-agents-deployment-d8466f4b5-qjxtl
+09:14:35 B2 drift c0 asr-62efd060a1d79057ff6018c4 Running business-agents-deployment-d8466f4b5-qjxtl
+09:14:37 B2 drift c0 asr-62efd060a1d79057ff6018c4 Suspended 
+09:15:20 B3 feature-rag c0 asr-eb6d0b7374ab36d200a56d79 Resuming business-agents-deployment-d8466f4b5-qjxtl
+09:15:40 B3 feature-rag c0 asr-eb6d0b7374ab36d200a56d79 Running business-agents-deployment-d8466f4b5-qjxtl
+09:15:42 B3 feature-rag c0 asr-eb6d0b7374ab36d200a56d79 Suspended 
+09:15:43 B3 feature-rag c0 asr-eb6d0b7374ab36d200a56d79 Resuming business-agents-deployment-d8466f4b5-qjxtl
+09:16:07 B3 feature-rag c0 asr-eb6d0b7374ab36d200a56d79 Suspending business-agents-deployment-d8466f4b5-qjxtl
+09:16:09 B3 feature-rag c0 asr-eb6d0b7374ab36d200a56d79 Suspended 

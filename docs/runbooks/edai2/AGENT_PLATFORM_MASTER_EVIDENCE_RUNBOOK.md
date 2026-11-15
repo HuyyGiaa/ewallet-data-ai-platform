@@ -267,8 +267,12 @@ python3 -m ops.experiments.substrate_fleet record --url http://127.0.0.1:18383 -
 python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$CAMPAIGN-a" --agents drift-specialist \
   --contexts 1 --messages 2 --no-settle > "$EV/ags/RESUME-A.txt"
 # B: paced, the fix. Expected: settled_before_send true, then the same actor goes Suspended -> Resuming -> Running.
-python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$CAMPAIGN-b" \
-  --contexts 2 --messages 4 > "$EV/ags/RESUME-B.txt"
+# One agent at a time: two concurrent first turns can exceed kagent's 30 s --substrate-call-timeout (see below).
+python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$CAMPAIGN-b2" --agents drift-specialist \
+  --contexts 1 --messages 4 > "$EV/ags/RESUME-B2.txt"
+# B3: sharing check, the other agent on the same free worker.
+python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$CAMPAIGN-b3" \
+  --agents feature-rag-specialist --contexts 1 --messages 2 > "$EV/ags/RESUME-B3-sharing.txt"
 wait
 kubectl --context "$CTX" -n kagent logs deploy/kagent-controller --since=30m > "$EV/ags/RESUME-kagent.txt"
 kubectl --context "$CTX" -n ate-system logs deploy/ate-api-server-deployment --since=30m > "$EV/ags/RESUME-ate-api.txt"
@@ -288,6 +292,16 @@ kubectl --context "$CTX" -n ate-system logs deploy/atenet-router --all-container
   Gateway. That proves the resume lifecycle, not business results, and the result must
   say so.
 - **FAIL:** a paced resume still times out. Then capture `RESUME-*.txt` and stop.
+- **Result, 2026-11-15 (`agi-20261115T084916Z`):** A reproduced the race. B2 passed:
+  3 resumes of one actor ID, all restores clean, no `rpc_error`. B3 showed one worker
+  serving both agents. Details are in `resume-rca/RCA.md` section 7.
+- **Actor stuck `RESUMING`, worker held, `no free workers`:**
+  - Cause: a first-turn restore was cancelled at kagent's 30 s `--substrate-call-timeout`.
+    Concurrent restores on one node make this likely.
+  - Recovery within the campaign: delete that actor's worker pod. The ReplicaSet
+    recreates it, Substrate marks the actor `SUSPENDED`, and the worker is free.
+  - Do not delete the actor. A SandboxAgent finalizer also loops on such an actor, and
+    the same pod restart unblocks it.
 - **Cleanup and sleep:** as in section 2.3a (fleet, Secrets, WorkerPool, `plan-sleep`,
   plain `sleep`, `verify`).
 - **Residual actors:** the new session actors are listed with
@@ -474,7 +488,7 @@ kubectl --context "$CTX" -n ewallet-sandbox get actortemplate -o 'jsonpath={rang
   - Every `resume` failed after 120 s with `session actor … not reachable via
     atenet-router`. The cause is the kagent race in `resume-rca/RCA.md`: the driver sent
     follow-ups during the asynchronous suspend. The driver now waits for `Suspended`
-    (section 2.3b). Resumption is still not demonstrated on GKE.
+    (section 2.3b). With that pacing, resumption was shown on GKE on 2026-11-15 (2.3b result).
 - **Screenshot:** `AGS-04_actor_worker_assignment.png`. **Row:** 27.
 
 ### AGS-05 — Cold against warm start, from the AGS-04 `LOAD_ROW` phases

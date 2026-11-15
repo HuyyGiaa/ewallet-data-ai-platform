@@ -1,0 +1,6 @@
+{
+  "verdict": "SAFE_TO_SLEEP",
+  "pdb_blockers": [],
+  "active_work": [],
+  "identity_problems": []
+}

@@ -1,0 +1,2 @@
+business-agents-deployment-d8466f4b5-tgtpp 1/1 Running
+business-agents-deployment-d8466f4b5-z8npc 1/1 Running

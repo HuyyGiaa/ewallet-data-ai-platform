@@ -1,0 +1,26 @@
+09:09:14
+pod "business-agents-deployment-d8466f4b5-tgtpp" deleted from ewallet-sandbox namespace
+09:09:25 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:09:33 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:09:41 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:09:49 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:09:58 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:10:06 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:10:14 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:10:23 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:10:31 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:10:39 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:10:48 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:10:56 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:11:04 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:11:13 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:11:21 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:11:29 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:11:37 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:11:45 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:11:54 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:12:02 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:12:10 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:12:18 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:12:27 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 
+09:12:35 asr-b4e86451=SUSPENDED asr-0b5fef2d=RESUMING | business-agents-deployment-d8466f4b5-qjxtl:1/1 business-agents-deployment-d8466f4b5-z8npc:1/1 

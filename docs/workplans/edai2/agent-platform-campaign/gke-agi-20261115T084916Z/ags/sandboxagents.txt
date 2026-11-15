@@ -1,0 +1,2 @@
+drift-specialist Accepted=True Ready=True
+feature-rag-specialist Accepted=True Ready=True

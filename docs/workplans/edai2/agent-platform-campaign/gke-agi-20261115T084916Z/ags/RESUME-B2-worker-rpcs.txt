@@ -1,0 +1,16 @@
+09:13:22.619 RestoreWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=19.247078559s
+09:13:22.892 specialist.task_started request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m0 task_id=546665ac-a13e-492c-8692-634aeec1b409 tool=drift_detection
+09:13:23.125 specialist.task_failed request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m0 task_id=546665ac-a13e-492c-8692-634aeec1b409 code=mcp_transport_error
+09:13:23.391 CheckpointWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=114.650714ms
+09:13:45.944 RestoreWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=17.963898242s
+09:13:46.268 specialist.task_started request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m1 task_id=f8707b31-9a32-4529-b7cf-d825a3749607 tool=drift_detection
+09:13:46.493 specialist.task_failed request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m1 task_id=f8707b31-9a32-4529-b7cf-d825a3749607 code=mcp_transport_error
+09:13:46.755 CheckpointWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=115.116363ms
+09:14:09.004 RestoreWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=18.039615531s
+09:14:09.270 specialist.task_started request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m2 task_id=9214598c-5e4d-44be-b4f1-918d160268fc tool=drift_detection
+09:14:09.490 specialist.task_failed request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m2 task_id=9214598c-5e4d-44be-b4f1-918d160268fc code=mcp_transport_error
+09:14:09.748 CheckpointWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=126.683144ms
+09:14:35.050 RestoreWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=19.101436812s
+09:14:35.332 specialist.task_started request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m3 task_id=ef2c2e46-63b7-454f-a434-9f751b6eeaa5 tool=drift_detection
+09:14:35.564 specialist.task_failed request_id=agi-20261115T084916Z-b2-drift-specialist-c0-1eed55-m3 task_id=ef2c2e46-63b7-454f-a434-9f751b6eeaa5 code=mcp_transport_error
+09:14:35.841 CheckpointWorkload ewallet-sandbox asr-62efd060a1d79057ff6018c4 err=None elapsed=126.399559ms

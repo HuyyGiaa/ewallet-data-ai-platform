@@ -226,5 +226,33 @@ python3 -m ops.experiments.substrate_fleet summarize "$EV/ags/AGS-04-status.json
   56 package tests pass. Not deployed: that needs a kagent image and upgrade approval.
 - **Images:** rebuilt from `f2583641` for the `/api/a2a-sandboxes` fix. Trivy PASS 4/4,
   pushed, not deployed (`images.json`).
-- **Next:** the GKE A/B run (runbook section 2.3b). It needs the owner's approval for an
-  `agent-sandbox` wake on 3 nodes.
+- **GKE A/B:** done on 2026-11-15; see the next section.
+
+## Resume A/B on GKE (`agi-20261115T084916Z`, evidence in `gke-agi-20261115T084916Z/`)
+
+- **Run:** `agent-sandbox` profile, 3 nodes, awake 08:51–09:27 UTC.
+- **Sleep:** normal sleep, `SLEEP_VERIFIED` (cpu-pool 0 VMs). Cost about $0.40 at list
+  price.
+- **A, `--no-settle`:** the race reproduced. The follow-up got `rpc_error` after 120.5 s,
+  and the actor stayed Suspended.
+- **B2, paced (drift, 1 × 4): `RESUME_GKE_TESTED_PASS`.**
+  - Actor `asr-62efd060a1d79057ff6018c4` resumed 3 times on the same ID.
+  - Every restore was clean and every message reached the agent; no `rpc_error`.
+  - This is a lifecycle result only: under S0 each task ended `failed`
+    (`mcp_transport_error`).
+- **B3:** the same worker then served feature-rag, so one worker served both agents
+  (sharing holds).
+- **B as first specified (both agents at once): failed, not the race.**
+  - Two concurrent first-turn restores on one node were cancelled at kagent's 30 s
+    `--substrate-call-timeout`. The actors were left `RESUMING`, both workers were held,
+    and every later request got `no free workers`.
+  - Recovery: the campaign worker pods were restarted; nothing was deleted.
+- **Not fixed upstream:** the unmodified kagent controller is still vulnerable to unpaced
+  multi-turn requests. Only the client-side pacing is verified.
+- **Open, each needing an owner decision:**
+  1. Raise `--substrate-call-timeout`, a shared kagent controller change. A single restore
+     takes about 24–25 s, leaving about 5 s of headroom.
+  2. Add worker anti-affinity to the WorkerPool.
+  3. Upgrade kagent with the proposed patch.
+  4. Delete the residual actors (`RESIDUE_APPROVAL`); they are recorded read-only.
+  - Details: `resume-rca/RCA.md` section 7.
