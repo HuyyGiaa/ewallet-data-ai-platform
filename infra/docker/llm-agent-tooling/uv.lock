@@ -412,7 +412,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = "==0.159.1" },
-    { name = "feast", extras = ["redis"], marker = "extra == 'feast'", specifier = "==0.66.0" },
+    { name = "feast", extras = ["redis"], marker = "extra == 'feast'", specifier = "==0.67.0" },
     { name = "huggingface-hub", marker = "extra == 'rag-query'", specifier = "==2.4.0" },
     { name = "numpy", specifier = "==2.2.6" },
     { name = "onnxruntime", marker = "extra == 'rag-query'", specifier = "==1.23.2" },
@@ -466,7 +466,7 @@ wheels = [
 
 [[package]]
 name = "feast"
-version = "0.66.0"
+version = "0.67.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -503,9 +503,9 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
     { name = "uvicorn-worker" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/f8/a66ed159b3422ece6bdad9d1ab97d24b58f2e50cc20ab21ff648cc340890/feast-0.66.0.tar.gz", hash = "sha256:4d059be34bc2f30e4dff976ce0d2a014fc364fe4d1354c3c44ccf74d78f24567", size = 8060750, upload-time = "2026-08-21T03:42:11.076Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/80/f71800e5669ebdb5329c011a0eeaebff828db92a759e18584e5af28e2ad8/feast-0.67.0.tar.gz", hash = "sha256:46f01aa649550e67b00fdf58f9f6dd3679925d908b9bfcac04e3050d49ff5523", size = 7976957, upload-time = "2026-10-13T13:57:48.113Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/ab/2f28782bcc54642089384fb549700daef921fef79a9f64f539c0c4e8d97b/feast-0.66.0-py3-none-any.whl", hash = "sha256:9fde72af9f0856043f4cdd867b8b77b4d67e37c0f123dd83f3805b90ac7b3978", size = 9430133, upload-time = "2026-08-21T03:42:08.305Z" },
+    { url = "https://files.pythonhosted.org/packages/45/bd/bf81bece6d0772d5801eb5e86d98f4cc0bb53a363674059187285b6ba2b5/feast-0.67.0-py3-none-any.whl", hash = "sha256:98667313ae7663f3312174590461e28081112f46d982710867d4b97e0b0f2c66", size = 9311292, upload-time = "2026-10-13T13:57:45.293Z" },
 ]
 
 [package.optional-dependencies]

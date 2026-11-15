@@ -48,7 +48,9 @@ MIRRORS = {
 }
 PROTECTED = {
     ("ai_platform/features/feast", "feast"): "0.66.0",
-    ("infra/docker/llm-agent-tooling", "feast"): "0.66.0",
+    # MCP runtime: CVE-2026-18948 (GHSA-gg2p-37pv-v7fq, unsafe dill UDF deserialization) is
+    # fixed in 0.67.0. It reads the registry that the 0.66.0 feature repo publishes.
+    ("infra/docker/llm-agent-tooling", "feast"): "0.67.0",
     ("ai_platform/ml/pipelines", "kfp"): "2.17.3",
     ("infra/docker/llm-agent-tooling", "mcp"): "2.3.0",
     ("ai_platform/ml/dvc-operator", "dvc"): "3.63.0",

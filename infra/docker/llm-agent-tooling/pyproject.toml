@@ -19,7 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 # Only feature-rag-mcp's production wiring imports Feast.
 feast = [
-  "feast[redis]==0.66.0",
+  "feast[redis]==0.67.0",
 ]
 # Query-time embeddings for knowledge_search (feast-online-exact, local-onnx):
 # the same pins as the rag-ingestion runtime, so queries and the published
