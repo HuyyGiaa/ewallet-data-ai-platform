@@ -66,7 +66,7 @@
       "id": "CP4",
       "scope": "sandbox S0: shared pool boot, golden snapshots, sessions and worker assignment (ewallet-sandbox)",
       "status": "APPROVAL_PENDING",
-      "blocker": "PKG-K approved, but the return to sleep after wake-full needs the guarded-sleep approval (pkg_stage)",
+      "blocker": "PKG-K approved, but the return to sleep after wake-full needs the guarded-sleep approval (pkgk_stage)",
       "evidence": [
         "gke-agi-20261114t221240z/kagent-watch-namespaces.txt"
       ]
