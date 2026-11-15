@@ -156,6 +156,8 @@ class BuildSpecTests(unittest.TestCase):
         for component in ("kagent", "substrate"):
             patch = PATCHES / spec[component]["patch"]
             self.assertEqual(hashlib.sha256(patch.read_bytes()).hexdigest(), spec[component]["patch_sha256"])
+            for extra in spec[component].get("extra_patches", []):
+                self.assertEqual(hashlib.sha256((PATCHES / extra["patch"]).read_bytes()).hexdigest(), extra["patch_sha256"])
             for image in spec[component]["images"].values():
                 self.assertRegex(image["base"], r"@sha256:[0-9a-f]{64}$")
                 self.assertRegex(image["go_image"], r"@sha256:[0-9a-f]{64}$")
@@ -170,6 +172,8 @@ class BuildSpecTests(unittest.TestCase):
                 "cmd/ateapi/internal/controlapi/workflow.go", "cmd/ateapi/internal/controlapi/workflow_resume.go",
                 "cmd/ateapi/internal/controlapi/functional_test.go", "cmd/ateapi/internal/controlapi/functional_recovery_test.go",
                 "cmd/ateom-gvisor/main.go", "cmd/ateom-gvisor/sandbox_teardown.go", "cmd/ateom-gvisor/sandbox_teardown_test.go"},
+            "substrate-0.0.9-sandbox-egress-proxy.patch": {
+                "cmd/ateom-gvisor/egress_proxy.go", "cmd/ateom-gvisor/egress_proxy_test.go", "cmd/ateom-gvisor/main.go"},
         }
         for name, files in allowed.items():
             touched = {line.split(" b/", 1)[1] for line in (PATCHES / name).read_text().splitlines() if line.startswith("diff --git ")}

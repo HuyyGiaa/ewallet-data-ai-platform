@@ -86,8 +86,9 @@
    },
    "substrate-ateom-gvisor": {
     "base": "ghcr.io/kagent-dev/substrate/ateom-gvisor@sha256:4aa5631a7e42e247660c12bef21d50c0a6a717fb717752748cc56a1b849a1fbc",
-    "binary_sha256": "1593470c373193d5ab9475ad059261d2fea6cbf36bbdad5f8ca8323ccf15ab21",
-    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor@sha256:c1ddc0446b8ca1c017353c5a5a8336d4c8071d74d3f7472b351a4fd7f7aa7558",
+    "binary_sha256": "8e334b61accead22272e8b7104be2a0c49d82b6f15f2c37ac94f29e140356cb4",
+    "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor@sha256:68a6f1a8dcbff6aa5456b5480c124a0c914faa632b7ee5d90cdbae5c21207de9",
+    "extra_patch": "substrate-0.0.9-sandbox-egress-proxy.patch",
     "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
     "patch_sha256": "0291af52e52d818b552c3f453354523d916f506476bc6eeb86d48290993ef838",
     "security_bumps": [
@@ -101,7 +102,8 @@
   "superseded": [
    "substrate-ateapi@sha256:2bc07e600a5498f32cfb326bbc08f38c264a98873de393fa652fa5cea905e44a",
    "substrate-ateom-gvisor@sha256:98c1d8192079b0b8f8ec7c0cb8e6473b8cd250630bb6029667e974a2f4bd3c50 (patch c1bcc768: rollback only after the atelet call; superseded by 0291af52, which also covers dial and spec failures)",
-   "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a (patch 177af5ca: no capacity wait; superseded by ea032b19)"
+   "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a (patch 177af5ca: no capacity wait; superseded by ea032b19)",
+   "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor@sha256:c1ddc0446b8ca1c017353c5a5a8336d4c8071d74d3f7472b351a4fd7f7aa7558 (no egress proxy; superseded for PKG-S1)"
   ],
   "tests": "kagent: 8 packages (-short -race); substrate: 24 packages (-race; ateom as root); all in the build, after the security bumps"
  },

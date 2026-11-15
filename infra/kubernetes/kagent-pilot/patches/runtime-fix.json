@@ -85,6 +85,16 @@
       "vendor": true,
       "go_mod_sha256": "ccea8c06159c41b4ac58529343065298f2bed48a18a54561c799a7747f836f50",
       "go_sum_sha256": "eff6e4ccaae294672762cab4abf98c54b406418bb5c03174d85b3f726e3d8f86"
-    }
+    },
+    "extra_patches": [
+      {
+        "patch": "substrate-0.0.9-sandbox-egress-proxy.patch",
+        "patch_sha256": "d8d1db43b0b1f7b76c6778164be61d5b4ee442a88d563c934dac4e3eb96d2dcb",
+        "purpose": "actor egress re-originated from the worker pod so Istio ambient attaches the worker identity (PKG-S1; agi-20261115T145608Z)",
+        "images": [
+          "substrate-ateom-gvisor"
+        ]
+      }
+    ]
   }
 }

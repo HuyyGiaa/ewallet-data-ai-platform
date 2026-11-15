@@ -46,6 +46,13 @@ spec:
         - {name: PYTHONUNBUFFERED, value: "1"}
         - {name: EWALLET_NL_INTAKE_ENABLED, value: "false"}
         - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+        # Egress through the worker's ateom proxy, re-originated from the pod so Istio ambient
+        # attaches the worker identity (substrate-0.0.9-sandbox-egress-proxy.patch). Direct actor
+        # egress carries no identity and is refused or dropped.
+        - {name: HTTP_PROXY, value: "http://169.254.17.1:3128"}
+        - {name: http_proxy, value: "http://169.254.17.1:3128"}
+        - {name: NO_PROXY, value: "localhost,127.0.0.1"}
+        - {name: no_proxy, value: "localhost,127.0.0.1"}
         - {name: OTEL_TRACING_ENABLED, value: "true"}
         - {name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
         - {name: OTEL_EXPORTER_OTLP_TRACES_INSECURE, value: "true"}
@@ -93,6 +100,13 @@ spec:
         - {name: PATH, value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin}
         - {name: PYTHONUNBUFFERED, value: "1"}
         - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+        # Egress through the worker's ateom proxy, re-originated from the pod so Istio ambient
+        # attaches the worker identity (substrate-0.0.9-sandbox-egress-proxy.patch). Direct actor
+        # egress carries no identity and is refused or dropped.
+        - {name: HTTP_PROXY, value: "http://169.254.17.1:3128"}
+        - {name: http_proxy, value: "http://169.254.17.1:3128"}
+        - {name: NO_PROXY, value: "localhost,127.0.0.1"}
+        - {name: no_proxy, value: "localhost,127.0.0.1"}
         - {name: OTEL_TRACING_ENABLED, value: "true"}
         - {name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, value: otel-collector.ewallet-agents.svc.cluster.local:4317}
         - {name: OTEL_EXPORTER_OTLP_TRACES_INSECURE, value: "true"}

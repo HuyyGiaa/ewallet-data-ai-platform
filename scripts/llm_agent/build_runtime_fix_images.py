@@ -62,6 +62,11 @@ def fetch_source(component: dict, work: Path, name: str) -> Path:
         archive.extractall(dest, filter="data")
     (src,) = list(dest.iterdir())
     run(["patch", "-p1", "--forward", "--batch", "-i", str(patch)], cwd=src)
+    for extra in component.get("extra_patches", []):   # applied in order, after the main patch
+        extra_path = PATCHES / extra["patch"]
+        if sha256(extra_path) != extra["patch_sha256"]:
+            raise SystemExit(f"{name}: {extra['patch']} sha256 mismatch")
+        run(["patch", "-p1", "--forward", "--batch", "-i", str(extra_path)], cwd=src)
     # Substrate's envtest helper finds the repository root with git.
     run(["git", "init", "-q"], cwd=src)
     return src
@@ -120,11 +125,15 @@ def build(args: argparse.Namespace) -> dict:
                 env = {"GOFLAGS": "-mod=mod" if name == "kagent" else "-mod=vendor", "GOTOOLCHAIN": "local"}
                 go_container(go_image, src, workdir, env, cmd, root=root)
         for image_name, image in component["images"].items():
+            if args.images and image_name not in args.images:
+                continue
             binary = f"/src/.out/{image_name}"
             go_container(image["go_image"], src, image["module_dir"], {**image["env"], "GOTOOLCHAIN": "local"},
                          f"go build -ldflags {json.dumps(ldflags(image, component['patch_sha256']))} -o {binary} {image['package']}")
             local = src / ".out" / image_name
-            tag = f"{registry}/{image_name}:{component['version']}-ewallet.{component['patch_sha256'][:8]}"
+            marks = [component["patch_sha256"][:8]] + [e["patch_sha256"][:8] for e in component.get("extra_patches", [])
+                                                         if image_name in e["images"]]
+            tag = f"{registry}/{image_name}:{component['version']}-ewallet.{'.'.join(marks)}"
             context = work / f"ctx-{image_name}"
             context.mkdir()
             (context / "binary").write_bytes(local.read_bytes())
@@ -156,6 +165,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", required=True)
     parser.add_argument("--skip-tests", action="store_true", help="only for re-builds of an already tested patch")
+    parser.add_argument("--images", nargs="+", help="build only these images of the selected components")
     parser.add_argument("--only", nargs="+", choices=("kagent", "substrate"),
                         help="rebuild only these components (an unchanged one keeps its pushed digest)")
     build(parser.parse_args())

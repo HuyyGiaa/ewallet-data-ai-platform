@@ -1,0 +1,427 @@
+diff --git a/cmd/ateom-gvisor/egress_proxy.go b/cmd/ateom-gvisor/egress_proxy.go
+new file mode 100644
+index 0000000..17b90d1
+--- /dev/null
++++ b/cmd/ateom-gvisor/egress_proxy.go
+@@ -0,0 +1,226 @@
++//go:build linux
++
++// ewallet patch: actor egress through the worker pod, so it carries the worker's mesh identity.
++//
++// An actor's packets leave its gVisor netns through the ateom veth and are masqueraded behind the
++// worker pod IP. Istio ambient captures what the pod itself originates; forwarded actor traffic is
++// not captured (on GKE it black-holed with the pod enrolled, and without enrollment it arrived as
++// identity-less plaintext that the MCP Gateway's AuthorizationPolicy rejected). This forward proxy
++// listens only on the host side of the actor veth (actorVethGateway, reachable from the actor and
++// nothing else), re-originates each allowed request from the pod, and so lets ztunnel attach the
++// worker pod's identity (cluster.local/ns/<namespace>/sa/<worker service account>). Destinations
++// keep enforcing their own AuthorizationPolicies against that identity.
++//
++// Only cluster Service names are accepted: <name>.<namespace>, <name>.<namespace>.svc or
++// <name>.<namespace>.svc.cluster.local, each with an optional port. Every accepted name is dialled
++// as the absolute FQDN <name>.<namespace>.svc.cluster.local. (trailing dot, so no search domains),
++// which only the cluster DNS answers: "evil.com" becomes evil.com.svc.cluster.local. and does not
++// resolve. IP literals (metadata server, pod IPs) are refused. Actors opt in with
++// HTTP_PROXY=http://169.254.17.1:3128 (and NO_PROXY for loopback).
++
++package main
++
++import (
++	"context"
++	"errors"
++	"io"
++	"log/slog"
++	"net"
++	"net/http"
++	"net/http/httputil"
++	"regexp"
++	"strings"
++	"sync"
++	"syscall"
++	"time"
++)
++
++const (
++	egressProxyPort       = "3128"
++	egressDialTimeout     = 10 * time.Second
++	egressTunnelIdleLimit = 15 * time.Minute
++)
++
++var dnsLabel = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
++
++// canonicalTarget maps an accepted cluster Service host[:port] to the absolute FQDN to dial and
++// reports whether it is accepted. defaultPort is used when the host carries none.
++func canonicalTarget(hostport, defaultPort string) (string, bool) {
++	host, port := strings.ToLower(hostport), defaultPort
++	if h, p, err := net.SplitHostPort(host); err == nil {
++		if p == "" {
++			return "", false
++		}
++		host, port = h, p
++	}
++	host = strings.TrimSuffix(host, ".")
++	if host == "" || net.ParseIP(host) != nil {
++		return "", false
++	}
++	labels := strings.Split(host, ".")
++	switch {
++	case len(labels) == 2:
++	case len(labels) == 3 && labels[2] == "svc":
++	case len(labels) == 5 && labels[2] == "svc" && labels[3] == "cluster" && labels[4] == "local":
++	default:
++		return "", false
++	}
++	if !dnsLabel.MatchString(labels[0]) || !dnsLabel.MatchString(labels[1]) {
++		return "", false
++	}
++	return net.JoinHostPort(labels[0]+"."+labels[1]+".svc.cluster.local.", port), true
++}
++
++// egressHostAllowed reports whether host[:port] names an in-cluster Service.
++func egressHostAllowed(hostport string) bool {
++	_, ok := canonicalTarget(hostport, "80")
++	return ok
++}
++
++type egressProxy struct {
++	allowed   func(string) bool
++	canonical bool // dial the canonical FQDN (production); tests use literal upstreams
++	dial      func(ctx context.Context, network, addr string) (net.Conn, error)
++	forward   *httputil.ReverseProxy
++	tunnelsWG sync.WaitGroup
++}
++
++func newEgressProxy(allowed func(string) bool) *egressProxy {
++	dialer := &net.Dialer{Timeout: egressDialTimeout}
++	transport := &http.Transport{
++		Proxy:                 nil, // never chain to another proxy
++		DialContext:           dialer.DialContext,
++		ResponseHeaderTimeout: 0, // streaming MCP responses may wait for the tool
++		IdleConnTimeout:       90 * time.Second,
++		MaxIdleConnsPerHost:   4,
++	}
++	p := &egressProxy{allowed: allowed, dial: dialer.DialContext, canonical: true}
++	p.forward = &httputil.ReverseProxy{
++		Rewrite: func(pr *httputil.ProxyRequest) {
++			pr.Out.URL = pr.In.URL
++			pr.Out.Host = pr.In.URL.Host // the Host header keeps the name the actor used
++			if target, ok := canonicalTarget(pr.In.URL.Host, "80"); ok && p.canonical {
++				u := *pr.In.URL
++				u.Host = target
++				pr.Out.URL = &u
++			}
++			pr.Out.Header.Del("Proxy-Authorization")
++			pr.Out.Header.Del("Proxy-Connection")
++		},
++		Transport:     transport,
++		FlushInterval: -1, // pass server-sent events through immediately
++		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
++			slog.WarnContext(r.Context(), "egress proxy upstream error", slog.String("host", r.URL.Host), slog.Any("err", err))
++			http.Error(w, "egress upstream unreachable", http.StatusBadGateway)
++		},
++	}
++	return p
++}
++
++func (p *egressProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
++	if r.Method == http.MethodConnect {
++		p.tunnel(w, r)
++		return
++	}
++	if !r.URL.IsAbs() || r.URL.Scheme != "http" || !p.allowed(r.URL.Host) {
++		slog.WarnContext(r.Context(), "egress proxy denied", slog.String("method", r.Method), slog.String("host", r.URL.Host))
++		http.Error(w, "egress destination not allowed", http.StatusForbidden)
++		return
++	}
++	p.forward.ServeHTTP(w, r)
++}
++
++func (p *egressProxy) tunnel(w http.ResponseWriter, r *http.Request) {
++	if !p.allowed(r.Host) {
++		slog.WarnContext(r.Context(), "egress proxy denied", slog.String("method", "CONNECT"), slog.String("host", r.Host))
++		http.Error(w, "egress destination not allowed", http.StatusForbidden)
++		return
++	}
++	target := r.Host
++	if canonical, ok := canonicalTarget(r.Host, "443"); ok && p.canonical {
++		target = canonical
++	}
++	upstream, err := p.dial(r.Context(), "tcp", target)
++	if err != nil {
++		http.Error(w, "egress upstream unreachable", http.StatusBadGateway)
++		return
++	}
++	hijacker, ok := w.(http.Hijacker)
++	if !ok {
++		upstream.Close()
++		http.Error(w, "tunnelling unsupported", http.StatusInternalServerError)
++		return
++	}
++	client, buffered, err := hijacker.Hijack()
++	if err != nil {
++		upstream.Close()
++		return
++	}
++	if _, err := client.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n")); err != nil {
++		client.Close()
++		upstream.Close()
++		return
++	}
++	p.tunnelsWG.Add(1)
++	go func() {
++		defer p.tunnelsWG.Done()
++		pipe(client, buffered, upstream)
++	}()
++}
++
++// pipe copies both ways until either side closes or the tunnel is idle past egressTunnelIdleLimit.
++func pipe(client net.Conn, buffered io.Reader, upstream net.Conn) {
++	defer client.Close()
++	defer upstream.Close()
++	done := make(chan struct{}, 2)
++	copyIdle := func(dst net.Conn, src io.Reader, srcConn net.Conn) {
++		buf := make([]byte, 32*1024)
++		for {
++			_ = srcConn.SetReadDeadline(time.Now().Add(egressTunnelIdleLimit))
++			n, err := src.Read(buf)
++			if n > 0 {
++				if _, werr := dst.Write(buf[:n]); werr != nil {
++					break
++				}
++			}
++			if err != nil {
++				break
++			}
++		}
++		done <- struct{}{}
++	}
++	go copyIdle(upstream, buffered, client)
++	go copyIdle(client, upstream, upstream)
++	<-done
++}
++
++// listenFreebind binds addr even before the address exists: the actor veth (and with it
++// actorVethGateway) is created per activation, while the proxy lives as long as ateom.
++func listenFreebind(ctx context.Context, addr string) (net.Listener, error) {
++	lc := net.ListenConfig{Control: func(_, _ string, c syscall.RawConn) error {
++		var serr error
++		if err := c.Control(func(fd uintptr) {
++			serr = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_FREEBIND, 1)
++		}); err != nil {
++			return err
++		}
++		return serr
++	}}
++	return lc.Listen(ctx, "tcp4", addr)
++}
++
++// startEgressProxy serves the proxy in the background on actorVethGateway:egressProxyPort.
++func startEgressProxy(ctx context.Context) error {
++	lis, err := listenFreebind(ctx, net.JoinHostPort(actorVethGateway, egressProxyPort))
++	if err != nil {
++		return err
++	}
++	server := &http.Server{Handler: newEgressProxy(egressHostAllowed), ReadHeaderTimeout: 10 * time.Second}
++	go func() {
++		if err := server.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
++			slog.ErrorContext(ctx, "egress proxy stopped", slog.Any("err", err))
++		}
++	}()
++	slog.InfoContext(ctx, "egress proxy listening", slog.String("addr", lis.Addr().String()))
++	return nil
++}
+diff --git a/cmd/ateom-gvisor/egress_proxy_test.go b/cmd/ateom-gvisor/egress_proxy_test.go
+new file mode 100644
+index 0000000..b3a94fc
+--- /dev/null
++++ b/cmd/ateom-gvisor/egress_proxy_test.go
+@@ -0,0 +1,173 @@
++//go:build linux
++
++package main
++
++import (
++	"bufio"
++	"io"
++	"net"
++	"net/http"
++	"net/http/httptest"
++	"net/url"
++	"strings"
++	"testing"
++	"time"
++)
++
++func TestCanonicalTarget(t *testing.T) {
++	for in, want := range map[string]string{
++		"kagent-controller.kagent:8083":                     "kagent-controller.kagent.svc.cluster.local.:8083",
++		"mcp-gateway.ewallet-agents.svc:8080":               "mcp-gateway.ewallet-agents.svc.cluster.local.:8080",
++		"mcp-gateway.ewallet-agents.svc.cluster.local:8080": "mcp-gateway.ewallet-agents.svc.cluster.local.:8080",
++		"otel-collector.ewallet-agents":                     "otel-collector.ewallet-agents.svc.cluster.local.:80",
++		"evil.com:443":                                      "evil.com.svc.cluster.local.:443",
++	} {
++		if got, ok := canonicalTarget(in, "80"); !ok || got != want {
++			t.Errorf("canonicalTarget(%q) = %q, %v; want %q", in, got, ok, want)
++		}
++	}
++}
++
++func TestEgressHostAllowed(t *testing.T) {
++	for host, want := range map[string]bool{
++		"kagent-controller.kagent:8083":                     true,
++		"mcp-gateway.ewallet-agents.svc:8080":               true,
++		"mcp-gateway.ewallet-agents.svc.cluster.local:8080": true,
++		"otel-collector.ewallet-agents.svc.cluster.local":   true,
++		"MCP-GATEWAY.ewallet-agents.svc:8080":               true,
++		"169.254.169.254:80":                                false,
++		"10.216.3.52:8080":                                  false,
++		"[::1]:80":                                          false,
++		"metadata.google.internal":                          false,
++		"a.b.c":                                             false,
++		"example.com:443":                                   true, // contained: dialled as example.com.svc.cluster.local.
++		"mcp-gateway.ewallet-agents.svc.evil.com":           false,
++		"mcp-gateway.svc":                                   true, // namespace "svc": still a cluster-local FQDN
++		"a.b.svc:":                                          false,
++		"":                                                  false,
++	} {
++		if got := egressHostAllowed(host); got != want {
++			t.Errorf("egressHostAllowed(%q) = %v, want %v", host, got, want)
++		}
++		if target, ok := canonicalTarget(host, "80"); ok && !strings.Contains(target, ".svc.cluster.local.:") {
++			t.Errorf("accepted %q escapes the cluster domain as %q", host, target)
++		}
++	}
++}
++
++// proxyFor returns a proxy that treats the test upstream as the only allowed host.
++func proxyFor(t *testing.T, upstream string) *httptest.Server {
++	t.Helper()
++	p := newEgressProxy(func(h string) bool { return h == upstream })
++	p.canonical = false
++	srv := httptest.NewServer(p)
++	t.Cleanup(srv.Close)
++	return srv
++}
++
++func TestForwardsAllowedRequestsAndStreams(t *testing.T) {
++	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if r.Header.Get("Proxy-Authorization") != "" {
++			t.Error("proxy credentials leaked upstream")
++		}
++		w.Header().Set("Content-Type", "text/event-stream")
++		io.WriteString(w, "data: one\n\n")
++		w.(http.Flusher).Flush()
++		time.Sleep(200 * time.Millisecond)
++		io.WriteString(w, "data: two\n\n")
++	}))
++	defer up.Close()
++	host := strings.TrimPrefix(up.URL, "http://")
++	proxy := proxyFor(t, host)
++	proxyURL, _ := url.Parse(proxy.URL)
++	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
++	req, _ := http.NewRequest(http.MethodPost, up.URL+"/feature-rag/mcp", strings.NewReader("{}"))
++	req.Header.Set("Proxy-Authorization", "Basic x")
++	resp, err := client.Do(req)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer resp.Body.Close()
++	reader := bufio.NewReader(resp.Body)
++	start := time.Now()
++	first, _ := reader.ReadString('\n')
++	if first != "data: one\n" || time.Since(start) > 150*time.Millisecond {
++		t.Fatalf("first event not streamed promptly: %q after %v", first, time.Since(start))
++	}
++	rest, _ := io.ReadAll(reader)
++	if !strings.Contains(string(rest), "data: two") {
++		t.Fatalf("second event missing: %q", rest)
++	}
++}
++
++func TestDeniesDisallowedHosts(t *testing.T) {
++	proxy := proxyFor(t, "only.allowed.svc:80")
++	proxyURL, _ := url.Parse(proxy.URL)
++	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
++	resp, err := client.Get("http://169.254.169.254/computeMetadata/v1/")
++	if err != nil {
++		t.Fatal(err)
++	}
++	resp.Body.Close()
++	if resp.StatusCode != http.StatusForbidden {
++		t.Fatalf("metadata server reachable through the proxy: %d", resp.StatusCode)
++	}
++	// Origin-form (not a proxy request) is refused too.
++	direct, err := http.Get(proxy.URL + "/anything")
++	if err != nil {
++		t.Fatal(err)
++	}
++	direct.Body.Close()
++	if direct.StatusCode != http.StatusForbidden {
++		t.Fatalf("origin-form request served: %d", direct.StatusCode)
++	}
++}
++
++func TestConnectTunnel(t *testing.T) {
++	echo, err := net.Listen("tcp", "127.0.0.1:0")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer echo.Close()
++	go func() {
++		c, err := echo.Accept()
++		if err == nil {
++			io.Copy(c, c)
++			c.Close()
++		}
++	}()
++	proxy := proxyFor(t, echo.Addr().String())
++	conn, err := net.Dial("tcp", strings.TrimPrefix(proxy.URL, "http://"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer conn.Close()
++	io.WriteString(conn, "CONNECT "+echo.Addr().String()+" HTTP/1.1\r\nHost: "+echo.Addr().String()+"\r\n\r\n")
++	br := bufio.NewReader(conn)
++	status, _ := br.ReadString('\n')
++	if !strings.Contains(status, "200") {
++		t.Fatalf("CONNECT refused: %q", status)
++	}
++	br.ReadString('\n') // blank line
++	io.WriteString(conn, "ping")
++	buf := make([]byte, 4)
++	if _, err := io.ReadFull(br, buf); err != nil || string(buf) != "ping" {
++		t.Fatalf("tunnel did not echo: %q %v", buf, err)
++	}
++	// A denied CONNECT gets 403 and no tunnel.
++	c2, _ := net.Dial("tcp", strings.TrimPrefix(proxy.URL, "http://"))
++	defer c2.Close()
++	io.WriteString(c2, "CONNECT 169.254.169.254:80 HTTP/1.1\r\nHost: 169.254.169.254:80\r\n\r\n")
++	s2, _ := bufio.NewReader(c2).ReadString('\n')
++	if !strings.Contains(s2, "403") {
++		t.Fatalf("denied CONNECT answered %q", s2)
++	}
++}
++
++func TestListenFreebindBindsAnAbsentAddress(t *testing.T) {
++	lis, err := listenFreebind(t.Context(), "169.254.17.1:0")
++	if err != nil {
++		t.Fatalf("IP_FREEBIND bind failed: %v", err)
++	}
++	lis.Close()
++}
+diff --git a/cmd/ateom-gvisor/main.go b/cmd/ateom-gvisor/main.go
+index 0f7ac78..a7c1297 100644
+--- a/cmd/ateom-gvisor/main.go
++++ b/cmd/ateom-gvisor/main.go
+@@ -146,6 +146,11 @@ func do(ctx context.Context) error {
+ 	ateompb.RegisterAteomServer(svr, ateomService)
+ 	reflection.Register(svr)
+ 
++	// ewallet patch: actor egress re-originated from the pod (egress_proxy.go).
++	if err := startEgressProxy(ctx); err != nil {
++		return fmt.Errorf("while starting the actor egress proxy: %w", err)
++	}
++
+ 	if err := svr.Serve(lis); err != nil {
+ 		slog.ErrorContext(ctx, "Failed to serve", slog.Any("err", err))
+ 		os.Exit(1)

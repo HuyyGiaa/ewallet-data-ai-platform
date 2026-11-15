@@ -28,10 +28,11 @@ metadata:
   namespace: ewallet-sandbox
   labels: {kagent.dev/worker-pool: business-agents}
 spec:
-  # Patched v0.0.9 ateom (failed or cancelled activations tear their sandbox down; see
+  # Patched v0.0.9 ateom: failed or cancelled activations tear their sandbox down, and actor
+  # egress is re-originated from the pod so ambient attaches the worker identity (see
   # infra/kubernetes/kagent-pilot/patches/). Only this campaign pool uses it; kagent-pilot keeps
   # the release image.
-  ateomImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52@sha256:c1ddc0446b8ca1c017353c5a5a8336d4c8071d74d3f7472b351a4fd7f7aa7558
+  ateomImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52.d8d1db43@sha256:68a6f1a8dcbff6aa5456b5480c124a0c914faa632b7ee5d90cdbae5c21207de9
   # Two warm workers serve every session of both business Specialists (AGS-04).
   replicas: 2
   sandboxClass: gvisor
