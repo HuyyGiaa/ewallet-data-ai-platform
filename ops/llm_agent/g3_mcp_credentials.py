@@ -187,6 +187,15 @@ def grants_from_values(values: Mapping) -> dict[tuple[str, str], tuple[str, ...]
             if tools:
                 out[(subject, server)] = tuple(tools)
     for server, service in ((values.get("mcpServices") or {}).get("services") or {}).items():
+        # The server's own grant table (EWALLET_MCP_TOOL_GRANTS): subjects that are not Agents in
+        # this release, such as the SandboxAgent subjects of PKG-S1, are granted only here. A
+        # subject granted both ways must be granted the same tools.
+        for subject, tools in ((service or {}).get("toolGrants") or {}).items():
+            if not tools:
+                continue
+            if (subject, server) in out and set(out[(subject, server)]) != set(tools):
+                raise ValueError(f"{subject} has conflicting grants on {server}")
+            out[(subject, server)] = tuple(tools)
         for subject in (service or {}).get("discoverySubjects") or []:
             if (subject, server) in out:
                 raise ValueError("a subject cannot be both discovery-only and business-granted")

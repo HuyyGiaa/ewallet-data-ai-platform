@@ -568,6 +568,33 @@ class CredentialTests(CredentialFixture, unittest.TestCase):
         self.assertTrue(all("r1" not in item.token for item in issued))
 
 
+class ToolGrantSubjectTests(unittest.TestCase):
+    """PKG-S1: subjects granted only in mcpServices.services.<server>.toolGrants get credentials."""
+
+    def test_tool_grant_subjects_are_credentialed(self):
+        values = {"agents": {"specialists": {"feature-rag-specialist": {"tools": {"feature-rag-mcp": ["feature_lookup"]}}}},
+                  "mcpServices": {"services": {
+                      "feature-rag-mcp": {"toolGrants": {"sandbox-feature-rag": ["feature_lookup", "knowledge_search"],
+                                                         "feature-rag-specialist": ["feature_lookup"]}},
+                      "drift-mcp": {"toolGrants": {"sandbox-drift": ["drift_detection"]}}}}}
+        grants = creds.grants_from_values(values)
+        self.assertEqual(grants[("sandbox-feature-rag", "feature-rag-mcp")], ("feature_lookup", "knowledge_search"))
+        self.assertEqual(grants[("sandbox-drift", "drift-mcp")], ("drift_detection",))
+        self.assertEqual(grants[("feature-rag-specialist", "feature-rag-mcp")], ("feature_lookup",))
+
+    def test_conflicting_grants_fail(self):
+        values = {"agents": {"specialists": {"feature-rag-specialist": {"tools": {"feature-rag-mcp": ["feature_lookup"]}}}},
+                  "mcpServices": {"services": {"feature-rag-mcp": {
+                      "toolGrants": {"feature-rag-specialist": ["fraud_scoring"]}}}}}
+        with self.assertRaises(ValueError):
+            creds.grants_from_values(values)
+
+    def test_the_s1_overlay_adds_exactly_the_two_sandbox_subjects(self):
+        overlay = yaml.safe_load((ROOT / "infra/helm/llm-agent-platform/agi/mcp-sandbox-grants.yaml").read_text())
+        grants = creds.grants_from_values(overlay)
+        self.assertEqual(sorted(grants), [("sandbox-drift", "drift-mcp"), ("sandbox-feature-rag", "feature-rag-mcp")])
+
+
 class MemorySecretStore:
     def __init__(self, previous):
         self.annotations = {}
