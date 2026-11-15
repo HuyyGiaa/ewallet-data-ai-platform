@@ -210,7 +210,8 @@ def test_real_drift_server_accepts_the_drivers_token_and_probe() -> None:
     import time
 
     template = yaml.safe_load_all((ROOT / "infra/kubernetes/experiments/mcp-exp.yaml.tmpl").read_text(encoding="utf-8")
-                                  .replace("__REPLICAS__", "1").replace("__JOB_DEADLINE__", "1"))
+                                  .replace("__REPLICAS__", "1").replace("__JOB_DEADLINE__", "1")
+                                  .replace("__DNS_PEERS__", ""))
     deployment = next(item for item in template if item["kind"] == "Deployment")
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     token = "t" * 64
@@ -260,3 +261,21 @@ def test_capacity_action_is_read_only(tmp_path) -> None:
     assert result.returncode == 0, result.stderr
     assert "SCHEDULABLE" in result.stdout
     assert all(" get " in line for line in calls(state) if line.startswith("kubectl"))
+
+
+def test_dns_egress_matches_the_production_peers() -> None:
+    """GKE answers DNS from NodeLocal DNSCache on the node: a kube-system-only rule dropped every lookup (AGR-02)."""
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from scripts.experiments.render_mcp import render
+
+    image = "asia-southeast1-docker.pkg.dev/p/r/i@sha256:" + "a" * 64
+    docs = [d for d in yaml.safe_load_all(render("baseline", image, image, "0" * 40, 120, "2")) if d]
+    egress = next(d for d in docs if d["metadata"]["name"] == "allow-dns")["spec"]["egress"]
+    production = yaml.safe_load((Path(__file__).resolve().parents[2]
+                                 / "infra/helm/llm-agent-platform/values-gke-cpu.yaml").read_text())
+    dns = production["networkPolicy"]["dns"]
+    peers = egress[0]["to"]
+    assert peers[0] == {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}},
+                        "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}}}
+    assert [p["ipBlock"]["cidr"] for p in peers[1:]] == [f"{dns['nodeLocalIP']}/32", f"{dns['serviceIP']}/32"]
