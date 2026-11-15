@@ -57,7 +57,7 @@ COPY ai_platform/llm_agent ai_platform/llm_agent
 COPY ai_platform/ml/__init__.py ai_platform/ml/__init__.py
 COPY ai_platform/ml/training/__init__.py ai_platform/ml/training/contract.py ai_platform/ml/training/derived.py ai_platform/ml/training/
 COPY ai_platform/features/__init__.py ai_platform/features/__init__.py
-COPY ai_platform/features/feast/__init__.py ai_platform/features/feast/schema.py ai_platform/features/feast/repository.py ai_platform/features/feast/
+COPY ai_platform/features/feast/__init__.py ai_platform/features/feast/schema.py ai_platform/features/feast/repository.py ai_platform/features/feast/redis_isolation.py ai_platform/features/feast/
 # Feast Online repo of the fraud features (EWALLET_FEAST_REPO_PATH); its
 # registry is an immutable snapshot mounted at runtime.
 COPY ai_platform/features/feast/online_repo ai_platform/features/feast/online_repo
