@@ -8,7 +8,7 @@ controller:
   image:
     registry: asia-southeast1-docker.pkg.dev
     repository: ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller
-    tag: 0.10.3-ewallet.177af5ca@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a
+    tag: 0.10.3-ewallet.ea032b19@sha256:6d5c9de094c193d8bb4b895c7894c524191310c1018a18e1484b6879f5cd64a1
   env:
     - name: SSL_CERT_FILE
       value: /etc/substrate-ca/ca.crt

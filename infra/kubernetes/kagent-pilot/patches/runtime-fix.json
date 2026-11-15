@@ -6,7 +6,7 @@
     "source": "https://codeload.github.com/kagent-dev/kagent/tar.gz/refs/tags/v0.10.3",
     "source_sha256": "258cd2ffd24221a6c00dab916d07639f164b96400ccbdfb6db2257ea1e655e5f",
     "patch": "kagent-0.10.3-session-turns.patch",
-    "patch_sha256": "177af5ca98cae3bf86ee297ee4558de005af25f12f4bf42914c2b3b04c2504c9",
+    "patch_sha256": "ea032b19150de3e255a37240e54f5ab1030f031044332a387ab7da51bee0cfc1",
     "images": {
       "kagent-controller": {
         "base": "ghcr.io/kagent-dev/kagent/controller@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76",

@@ -149,10 +149,10 @@ index 6edd7ad..c605eba 100644
  	if err != nil {
 diff --git a/go/core/internal/a2a/substrate_session_turns_test.go b/go/core/internal/a2a/substrate_session_turns_test.go
 new file mode 100644
-index 0000000..812abd7
+index 0000000..c7385a2
 --- /dev/null
 +++ b/go/core/internal/a2a/substrate_session_turns_test.go
-@@ -0,0 +1,583 @@
+@@ -0,0 +1,618 @@
 +package a2a
 +
 +// ewallet patch: deterministic tests of session-turn coordination through the real
@@ -208,6 +208,8 @@ index 0000000..812abd7
 +	resumes     atomic.Int32
 +	suspends    atomic.Int32
 +	creates     atomic.Int32
++	noWorker    atomic.Int32 // ResumeActor calls refused for capacity
++	workers     int          // worker capacity (0: unlimited); RESUMING/RUNNING/SUSPENDING occupy one
 +}
 +
 +func newWorkflowAPI(resumeFor, suspendFor time.Duration) *workflowAPI {
@@ -295,6 +297,21 @@ index 0000000..812abd7
 +	err := w.workflow(ctx, id, func(a *fakeActor) (bool, error) {
 +		if a.status == ateapipb.Actor_STATUS_RUNNING {
 +			return true, nil
++		}
++		if w.workers > 0 {
++			busy := 0
++			for other, o := range w.actors {
++				switch o.status {
++				case ateapipb.Actor_STATUS_RESUMING, ateapipb.Actor_STATUS_RUNNING, ateapipb.Actor_STATUS_SUSPENDING:
++					if other != id {
++						busy++
++					}
++				}
++			}
++			if busy >= w.workers {
++				w.noWorker.Add(1)
++				return true, status.Error(codes.FailedPrecondition, "no free workers available")
++			}
 +		}
 +		w.resumes.Add(1)
 +		a.status = ateapipb.Actor_STATUS_RESUMING
@@ -736,19 +753,38 @@ index 0000000..812abd7
 +	t.Logf("%d of 120 requests rejected as busy", failures.Load())
 +	h.settled(h.actor("c0"), h.actor("c1"), h.actor("c2"))
 +}
++
++// 13. A new session that finds the only worker still held by another session's post-turn
++// suspend waits for it (bounded) instead of failing with "no free workers".
++func TestTurnCapacityWaitForAReleasingWorker(t *testing.T) {
++	h := newTurnHarness(t, 50*time.Millisecond, 1500*time.Millisecond, 20*time.Millisecond)
++	h.api.workers = 1
++	if err := h.send(ctxFor(t, quick), "c1"); err != nil {
++		t.Fatal(err)
++	}
++	h.waitStatus(h.actor("c1"), ateapipb.Actor_STATUS_SUSPENDING, time.Second)
++	if err := h.send(ctxFor(t, quick), "c2"); err != nil {
++		t.Fatalf("new session while the worker is being released: %v", err)
++	}
++	if h.api.noWorker.Load() == 0 {
++		t.Fatal("the test did not exercise the capacity wait")
++	}
++	h.settled(h.actor("c1"), h.actor("c2"))
++}
 diff --git a/go/core/pkg/sandboxbackend/substrate/agent_actor.go b/go/core/pkg/sandboxbackend/substrate/agent_actor.go
-index 6cfa518..23e3b40 100644
+index 6cfa518..e647802 100644
 --- a/go/core/pkg/sandboxbackend/substrate/agent_actor.go
 +++ b/go/core/pkg/sandboxbackend/substrate/agent_actor.go
-@@ -5,6 +5,7 @@ import (
+@@ -5,6 +5,8 @@ import (
  	"crypto/sha256"
  	"fmt"
  	"strings"
 +	"sync"
++	"time"
  
  	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
  	"github.com/kagent-dev/kagent/go/api/v1alpha2"
-@@ -19,6 +20,8 @@ type SandboxAgentActorBackend struct {
+@@ -19,6 +21,8 @@ type SandboxAgentActorBackend struct {
  	client          *Client
  	kube            client.Client
  	atenetRouterURL string
@@ -757,7 +793,7 @@ index 6cfa518..23e3b40 100644
  }
  
  // NewSandboxAgentActorBackend returns a backend that ensures SandboxAgent actors on ate-api.
-@@ -82,15 +85,8 @@ func (b *SandboxAgentActorBackend) EnsureSessionActor(ctx context.Context, sa *v
+@@ -82,15 +86,8 @@ func (b *SandboxAgentActorBackend) EnsureSessionActor(ctx context.Context, sa *v
  		}
  	}
  
@@ -775,7 +811,7 @@ index 6cfa518..23e3b40 100644
  	}
  
  	if err := waitForActorReachableViaAtenet(ctx, b.client, nil, b.atenetRouterURL, atespace, actorID); err != nil {
-@@ -104,6 +100,44 @@ func (b *SandboxAgentActorBackend) EnsureSessionActor(ctx context.Context, sa *v
+@@ -104,6 +101,62 @@ func (b *SandboxAgentActorBackend) EnsureSessionActor(ctx context.Context, sa *v
  	}, nil
  }
  
@@ -786,10 +822,12 @@ index 6cfa518..23e3b40 100644
 +//   - SUSPENDING: complete (or join) the suspend first, then resume;
 +//   - RESUMING, SUSPENDED, UNSPECIFIED, PAUSED, PAUSING: ResumeActor (ate-api's resume workflow
 +//     is re-entrant, so an abandoned RESUMING is finished on the worker it already holds);
-+//   - Aborted (another workflow holds the actor): wait for it to settle, then decide again.
++//   - Aborted (another workflow holds the actor): wait for it to settle, then decide again;
++//   - no free workers: wait up to capacityWaitLimit for a worker to be released, then fail.
 +//
 +// Other states (CRASHED) are left to the reachability wait, as upstream. Bounded by ctx.
 +func (b *SandboxAgentActorBackend) bringUp(ctx context.Context, atespace, actorID string, st ateapipb.Actor_Status) error {
++	var capacityWaited time.Duration
 +	for {
 +		var err error
 +		switch st {
@@ -808,6 +846,22 @@ index 6cfa518..23e3b40 100644
 +		default:
 +			return nil
 +		}
++		if isNoFreeWorkersError(err) {
++			// Another session's post-turn suspend may be about to free a worker (it holds the
++			// worker until its checkpoint finishes). Wait for capacity, bounded by
++			// capacityWaitLimit per bring-up; genuine saturation still fails with ErrNoFreeWorkers.
++			if capacityWaited >= capacityWaitLimit {
++				return wrapResumeActorError(actorID, err)
++			}
++			pause := min(capacityPoll, capacityWaitLimit-capacityWaited)
++			select {
++			case <-ctx.Done():
++				return wrapResumeActorError(actorID, err)
++			case <-time.After(pause):
++			}
++			capacityWaited += pause
++			continue
++		}
 +		if status.Code(err) != codes.Aborted {
 +			return wrapResumeActorError(actorID, err)
 +		}
@@ -820,7 +874,7 @@ index 6cfa518..23e3b40 100644
  // SuspendSessionActor checkpoints and frees the worker for a chat session actor.
  func (b *SandboxAgentActorBackend) SuspendSessionActor(ctx context.Context, sa *v1alpha2.SandboxAgent, sessionID string) error {
  	if sa == nil {
-@@ -145,7 +179,10 @@ func (b *SandboxAgentActorBackend) DeleteSandboxAgentSessionActor(ctx context.Co
+@@ -145,7 +198,10 @@ func (b *SandboxAgentActorBackend) DeleteSandboxAgentSessionActor(ctx context.Co
  	if sa == nil {
  		return true, nil
  	}
@@ -834,10 +888,10 @@ index 6cfa518..23e3b40 100644
  // sessionActorRef returns the session's stable actor id plus the agent's CURRENT template name.
 diff --git a/go/core/pkg/sandboxbackend/substrate/session_turns.go b/go/core/pkg/sandboxbackend/substrate/session_turns.go
 new file mode 100644
-index 0000000..ad4557d
+index 0000000..ae587d4
 --- /dev/null
 +++ b/go/core/pkg/sandboxbackend/substrate/session_turns.go
-@@ -0,0 +1,334 @@
+@@ -0,0 +1,339 @@
 +package substrate
 +
 +// Per-session turn coordination for SandboxAgent session actors (ewallet patch on v0.10.3).
@@ -899,6 +953,11 @@ index 0000000..ad4557d
 +	settleLimit = 6 * time.Minute
 +	// settlePoll is the GetActor polling interval while settling.
 +	settlePoll = 500 * time.Millisecond
++	// capacityWaitLimit bounds waiting for a free worker in one bring-up. A post-turn suspend
++	// releases its worker within a few seconds (checkpoint + finalize); 20 s covers that window
++	// without buffering requests behind a genuinely saturated pool.
++	capacityWaitLimit = 20 * time.Second
++	capacityPoll      = time.Second
 +)
 +
 +// ErrSessionBusy is returned when a session already has maxSessionWaiters queued requests.
@@ -1174,10 +1233,10 @@ index 0000000..ad4557d
 +}
 diff --git a/go/core/pkg/sandboxbackend/substrate/session_turns_test.go b/go/core/pkg/sandboxbackend/substrate/session_turns_test.go
 new file mode 100644
-index 0000000..b2b0030
+index 0000000..32eac8a
 --- /dev/null
 +++ b/go/core/pkg/sandboxbackend/substrate/session_turns_test.go
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,147 @@
 +package substrate
 +
 +// ewallet patch: coordinator unit tests (no ate-api).
@@ -1188,6 +1247,11 @@ index 0000000..b2b0030
 +	"sync/atomic"
 +	"testing"
 +	"time"
++
++	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	"google.golang.org/grpc"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
 +)
 +
 +func TestCoordinatorSerializesOneKeyAndDropsIdleEntries(t *testing.T) {
@@ -1288,5 +1352,35 @@ index 0000000..b2b0030
 +				t.Fatalf("reclaimed=%d entries=%d", reclaimed.Load(), c.size())
 +			}
 +		})
++	}
++}
++
++type saturated struct {
++	ateapipb.ControlClient
++	calls atomic.Int32
++}
++
++func (s *saturated) ResumeActor(context.Context, *ateapipb.ResumeActorRequest, ...grpc.CallOption) (*ateapipb.ResumeActorResponse, error) {
++	s.calls.Add(1)
++	return nil, status.Error(codes.FailedPrecondition, "no free workers available")
++}
++
++// Genuine saturation still fails, with ErrNoFreeWorkers, once the capacity wait is exhausted.
++func TestBringUpCapacityWaitIsBounded(t *testing.T) {
++	limit, poll := capacityWaitLimit, capacityPoll
++	capacityWaitLimit, capacityPoll = 300*time.Millisecond, 50*time.Millisecond
++	defer func() { capacityWaitLimit, capacityPoll = limit, poll }()
++	fake := &saturated{}
++	b := &SandboxAgentActorBackend{client: &Client{ControlClient: fake}}
++	start := time.Now()
++	err := b.bringUp(context.Background(), "ns", "a", ateapipb.Actor_STATUS_SUSPENDED)
++	if !errors.Is(err, ErrNoFreeWorkers) {
++		t.Fatalf("want ErrNoFreeWorkers, got %v", err)
++	}
++	if took := time.Since(start); took < 300*time.Millisecond || took > 2*time.Second {
++		t.Fatalf("capacity wait not bounded as configured: %v", took)
++	}
++	if fake.calls.Load() < 3 {
++		t.Fatalf("expected retries while waiting, got %d calls", fake.calls.Load())
 +	}
 +}
