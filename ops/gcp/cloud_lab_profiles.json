@@ -85,6 +85,16 @@
       "feature-store/redis",
       "kagent/*",
       "ewallet-prompts/*"
+    ],
+    "agent-integration": [
+      "ate-system/*",
+      "ewallet-agents/*",
+      "ewallet-mcp/*",
+      "feature-store/redis",
+      "fraud-serving/fraud-detector-predictor",
+      "kagent/*",
+      "kserve/kserve-controller-manager",
+      "ml-platform/fraud-api"
     ]
   }
 }
