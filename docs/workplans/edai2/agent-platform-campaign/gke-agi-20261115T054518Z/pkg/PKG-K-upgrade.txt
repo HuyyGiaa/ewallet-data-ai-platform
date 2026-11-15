@@ -1,0 +1,7 @@
+2026-11-15T05:54:25Z kagent preflight PASS: kagent/kagent revision 5, identity PASS
+2026-11-15T05:54:25Z kagent diff PASS: {"added":[["Role","ewallet-sandbox","kagent-ate-api-env-sources"],["Role","ewallet-sandbox","kagent-getter-role"],["Role","ewallet-sandbox","kagent-writer-role"],["RoleBinding","ewallet-sandbox","kagent-ate-api-env-sources"],["RoleBinding","ewallet-sandbox","kagent-getter-rolebinding"],["RoleBinding","ewallet-sandbox","kagent-writer-rolebinding"]],"changed":[["ConfigMap","kagent","kagent-controlle
+2026-11-15T05:55:06Z kagent dry-run PASS (server-side)
+2026-11-15T05:55:06Z kagent upgrade: upgrade kagent /tmp/agi-agi-20261115T054518Z/pkg/kagent/chart/kagent-0.10.3.tgz -n kagent --reuse-values -f ~/Develop/ewallet-data-ai-platform/infra/kubernetes/kagent-pilot/values/kagent-sandbox-watch-overlay.yaml (from revision 5)
+2026-11-15T05:56:48Z kagent controller pod kagent-controller-6b98b7d4c5-gtkh5 watches: "namespaces":["ewallet-agents","kagent-pilot","ewallet-sandbox"]
+2026-11-15T05:56:50Z kagent SandboxAgents in ewallet-sandbox: none yet (AGS-01 checks reconciliation)
+2026-11-15T05:56:50Z kagent verify PASS: watch scope ewallet-agents,kagent-pilot,ewallet-sandbox; RBAC in ewallet-sandbox: rolebinding.rbac.authorization.k8s.io/kagent-ate-api-env-sources rolebinding.rbac.authorization.k8s.io/kagent-getter-rolebinding rolebinding.rbac.authorization.k8s.io/kagent-writer-rolebinding role.rbac.authorization.k8s.io/kagent-ate-api-env-sources role.rbac.authorization.k8s.io/kagent-getter-role role.rbac.authorization.k8s.io/kagent-writer-role 

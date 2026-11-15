@@ -1,0 +1,11 @@
+namespace/ewallet-mcp-exp created
+namespace/ewallet-mcp-exp unchanged
+resourcequota/mcp-exp-budget created
+networkpolicy.networking.k8s.io/default-deny created
+networkpolicy.networking.k8s.io/allow-same-namespace created
+networkpolicy.networking.k8s.io/allow-dns created
+configmap/mcp-exp-probe created
+deployment.apps/mcp-exp-drift created
+service/mcp-exp-drift created
+job.batch/mcp-exp-probe created
+Waiting for deployment "mcp-exp-drift" rollout to finish: 0 of 2 updated replicas are available...

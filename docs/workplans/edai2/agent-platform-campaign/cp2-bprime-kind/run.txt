@@ -1,0 +1,22 @@
+2026-11-14T22:03:55Z versions: kind v0.33.0, KEDA 2.21.0, Substrate 0.0.9
+2026-11-14T22:03:55Z reusing existing cluster kind-edai-cluster (nothing of KEDA or Substrate present)
+2026-11-14T22:03:59Z chart digests verified
+2026-11-14T22:04:28Z KEDA installed
+2026-11-14T22:04:29Z OK atecontroller available
+2026-11-14T22:04:29Z metric value=0
+2026-11-14T22:04:30Z OK metric endpoint
+2026-11-14T22:04:30Z OK worker Deployment created by atecontroller
+2026-11-14T22:05:15Z metric value=3
+2026-11-14T22:06:16Z unpatched: WorkerPool replicas=1, selector errors in HPA=3
+2026-11-14T22:06:16Z metric value=0
+customresourcedefinition.apiextensions.k8s.io/workerpools.ate.dev patched
+patched: labelSelectorPath=.spec.scaleSelector
+PASS /scale selector=ate.dev/worker-pool=business-agents matches 1 worker pod(s)
+2026-11-14T22:06:16Z metric value=3
+2026-11-14T22:06:32Z OK scale-out: WorkerPool and Deployment at 3
+2026-11-14T22:07:03Z atecontroller kept 3 replicas after a forced reconcile: true
+2026-11-14T22:07:03Z metric value=0
+2026-11-14T22:08:06Z OK scale-in: WorkerPool and Deployment at 1
+customresourcedefinition.apiextensions.k8s.io/workerpools.ate.dev replaced
+reverted: spec digest equals the backup
+2026-11-14T22:08:11Z OK WorkerPool still reconciles after the revert

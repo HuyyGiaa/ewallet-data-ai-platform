@@ -1,0 +1,15 @@
+2026-11-15T01:00:51Z keda preflight PASS: keda/keda revision 1, identity PASS
+2026-11-15T01:00:52Z keda preflight PASS: keda/keda revision 1, identity PASS
+2026-11-15T01:00:53Z keda diff PASS: {"added":[["RoleBinding","ewallet-sandbox","keda-operator"]],"changed":[["Deployment","keda","keda-admission-webhooks"],["Deployment","keda","keda-operator"],["Deployment","keda","keda-operator-metrics-apiserver"]]}CANDIDATEPASS
+2026-11-15T01:00:55Z keda preflight PASS: keda/keda revision 1, identity PASS
+2026-11-15T01:00:56Z keda diff PASS: {"added":[["RoleBinding","ewallet-sandbox","keda-operator"]],"changed":[["Deployment","keda","keda-admission-webhooks"],["Deployment","keda","keda-operator"],["Deployment","keda","keda-operator-metrics-apiserver"]]}CANDIDATEPASS
+2026-11-15T01:00:57Z keda dry-run PASS (server-side)
+2026-11-15T01:00:58Z keda preflight PASS: keda/keda revision 1, identity PASS
+2026-11-15T01:00:59Z keda diff PASS: {"added":[["RoleBinding","ewallet-sandbox","keda-operator"]],"changed":[["Deployment","keda","keda-admission-webhooks"],["Deployment","keda","keda-operator"],["Deployment","keda","keda-operator-metrics-apiserver"]]}CANDIDATEPASS
+2026-11-15T01:00:59Z keda upgrade: upgrade keda /tmp/tmp.2jIN5oC3uq/pkg/keda/chart/keda-2.21.0.tgz -n keda --reuse-values -f ~/Develop/ewallet-data-ai-platform/infra/helm/keda/values-sandbox-watch.yaml (from revision 1)
+2026-11-15T01:01:27Z keda ScaledObjects: none
+2026-11-15T01:01:27Z keda verify PASS: watch scope ewallet-agents,ml-platform,ewallet-sandbox; RBAC in ewallet-sandbox: rolebinding.rbac.authorization.k8s.io/keda-operator 
+2026-11-15T01:01:27Z keda ScaledObjects: none
+2026-11-15T01:01:27Z keda verify PASS: watch scope ewallet-agents,ml-platform,ewallet-sandbox; RBAC in ewallet-sandbox: rolebinding.rbac.authorization.k8s.io/keda-operator 
+2026-11-15T01:01:55Z keda verify PASS: watch scope ewallet-agents,ml-platform; RBAC in ewallet-sandbox: none
+2026-11-15T01:01:56Z keda rollback PASS: revision 1 restored, manifest identical to the pre-upgrade release

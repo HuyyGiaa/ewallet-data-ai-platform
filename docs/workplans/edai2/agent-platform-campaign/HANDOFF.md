@@ -131,3 +131,34 @@ kubectl auth can-i --list --as=system:serviceaccount:ewallet-sandbox:default -n 
 python3 -m ops.experiments.substrate_fleet summarize "$EV/ags/AGS-04-status.jsonl"     # AGS-04_actor_worker_assignment.png
 curl -s "http://127.0.0.1:18383/api/substrate/status?namespace=ewallet-sandbox" | python3 -m json.tool
 ```
+
+## PKG-R readiness (2026-11-15, no cloud mutation; evidence in `pkg-r-readiness-20261115/`: substrate-gates.txt, substrate-diff.json, iam-plan.txt)
+
+- **Authentication path, read from the live configuration and the pinned source:**
+  - atelet runs as `ate-system/atelet`, without `hostNetwork` and without a GSA annotation.
+  - The cluster pool is `ewallet-data-ai-platform-hg26.svc.id.goog` and `cpu-pool` uses
+    `GKE_METADATA`.
+  - The flag makes atelet call `googauth.DefaultTokenSource` once at start-up. That
+    resolves to the federated principal of the ServiceAccount, and a failure is fatal.
+- **PKG-R Helm** (`scripts/llm_agent/substrate_pull_auth.sh`), run read-only against release
+  `substrate` revision 2:
+  - The lookup-render identity check PASSES. CA, TLS and session pools are read back;
+    nothing is suppressed.
+  - The diff is DaemonSet `atelet` `args[0]` only.
+  - The server-side dry-run PASSES.
+- **PKG-R-IAM** (`scripts/llm_agent/substrate_pull_iam.sh`): grants
+  `roles/artifactregistry.reader` on repository `ewallet-platform` to the principal above.
+  Currently absent. It adds or removes exactly one pair and checks that every other
+  binding is unchanged.
+- **Residue** (`scripts/llm_agent/substrate_golden_residue.sh`, `golden-residue.json`): the
+  cause is Substrate 0.0.9 not deleting golden actors. `kubectl-ate` builds from the
+  pinned source (`scripts/llm_agent/build_kubectl_ate.sh`, sha256 `f65ab2f7…`). Listing
+  needs a running ate-api.
+- **Next campaign:** the sequence is in section 2.3a of the master runbook.
+
+Approvals needed, one at a time:
+
+1. `IAM_APPROVAL=PKG-R-IAM:ewallet-data-ai-platform-hg26`.
+2. `PKG_R_APPROVAL=PKG-R:<context>`.
+3. The `agent-sandbox` wake on 3 nodes.
+4. Optionally `RESIDUE_APPROVAL=GOLDEN-RESIDUE:<context>`.

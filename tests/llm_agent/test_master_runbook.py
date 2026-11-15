@@ -62,6 +62,19 @@ class MasterRunbookTests(unittest.TestCase):
         self.assertIn("It is not GKE evidence with\n  real actors", self.text)
         self.assertNotIn("--scale-pdb-guarded\n", self.text.split("## 6.")[0], "guarded sleep only in section 6")
 
+    def test_pkg_r_tokens_match_their_scripts(self):
+        auth = (ROOT / "scripts/llm_agent/substrate_pull_auth.sh").read_text()
+        iam = (ROOT / "scripts/llm_agent/substrate_pull_iam.sh").read_text()
+        residue = (ROOT / "scripts/llm_agent/substrate_golden_residue.sh").read_text()
+        for token in re.findall(r"PKG_R_APPROVAL=([A-Z-]+):\$CTX", self.text):
+            self.assertIn(f'approval "{token}:$KUBE_CONTEXT"', auth, token)
+        self.assertIn("IAM_APPROVAL=PKG-R-IAM:ewallet-data-ai-platform-hg26", self.text)
+        self.assertIn("token=PKG-R-IAM;", iam)
+        self.assertIn("RESIDUE_APPROVAL=GOLDEN-RESIDUE:$CTX", self.text)
+        self.assertIn('"GOLDEN-RESIDUE:$KUBE_CONTEXT"', residue)
+        self.assertIn("--profile agent-sandbox", self.text)
+        self.assertIn("--nodes 3", self.text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -89,7 +89,7 @@
       "status": "BLOCKED",
       "blocker": "capacity: PKG-C (5-node wake) needs owner approval; mcp_experiment.sh now refuses with CAPACITY_INSUFFICIENT before creating anything",
       "evidence": [
-        "gke-agi-20261114t221240z/AGR-02-baseline-apply.log",
+        "gke-agi-20261114t221240z/AGR-02-baseline-apply.txt",
         "gke-agi-20261114t221240z/AGR-02-production-unchanged.txt",
         "gke-agi-20261114t221240z/node-labels.txt",
         "gke-agi-20261114t221240z/node-cpu-allocated.txt"
@@ -275,11 +275,30 @@
       ],
       "blocker": "ActorTemplates stuck at ResumeGoldenActor: atelet pulls actor images itself and anonymously (--gcp-auth-for-image-pulls=false); Artifact Registry: DENIED Unauthenticated (downloadArtifacts)",
       "fix_package": {
-        "id": "PKG-R",
-        "status": "SOURCE_IMPLEMENTED (overlay only; live identity gate still to build)",
-        "change": "substrate release: atelet.gcpAuthForImagePulls=true (infra/kubernetes/kagent-pilot/values/substrate-ar-pull-overlay.yaml)",
-        "iam": "roles/artifactregistry.reader on repository ewallet-platform for principal://.../subject/ns/ate-system/sa/atelet (Workload Identity)",
-        "offline_diff": "atelet args[0] only, plus CA/TLS/session pools that an offline render regenerates (lookup keeps them live)"
+        "id": "PKG-R + PKG-R-IAM",
+        "status": "PKG_R_READY_FOR_OWNER_APPROVAL",
+        "helm": {
+          "script": "scripts/llm_agent/substrate_pull_auth.sh",
+          "release": "substrate (ate-system) revision 2",
+          "identity": "PASS against live (lookup render: CA, TLS and session pools read back, nothing suppressed)",
+          "diff": "DaemonSet ate-system/atelet spec.template.spec.containers[0].args[0] only (--gcp-auth-for-image-pulls=true)",
+          "server_dry_run": "PASS (read-only, 2026-11-15T06:44Z)",
+          "approval": "PKG_R_APPROVAL=PKG-R:<context>"
+        },
+        "iam": {
+          "script": "scripts/llm_agent/substrate_pull_iam.sh",
+          "role": "roles/artifactregistry.reader",
+          "resource": "projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/repositories/ewallet-platform",
+          "member": "principal://iam.googleapis.com/projects/198818809719/locations/global/workloadIdentityPools/ewallet-data-ai-platform-hg26.svc.id.goog/subject/ns/ate-system/sa/atelet",
+          "current": "absent; repository has one other binding (cloudbuild writer)",
+          "approval": "IAM_APPROVAL=PKG-R-IAM:ewallet-data-ai-platform-hg26"
+        },
+        "auth_design": [
+          "atelet ServiceAccount ate-system/atelet, no hostNetwork, no GSA annotation",
+          "cluster workload pool ewallet-data-ai-platform-hg26.svc.id.goog; cpu-pool GKE_METADATA",
+          "atelet ADC = googauth.DefaultTokenSource at start-up; failure is fatal (verify catches it)",
+          "gke-metadata-server DaemonSet present; checked per atelet node before upgrade"
+        ]
       },
       "residue": "two Suspended golden actor records in ate-api (no pod, no snapshot); left: deleting needs ate-api/Valkey access outside scope",
       "evidence": [
@@ -290,6 +309,13 @@
       "AGS-01": "PARTIAL: shared pool, 2 workers, 2 Accepted SandboxAgents, templates created; not Ready (no golden snapshot)",
       "AGS-02": "GKE_TESTED (read-only): gvisor class, default SA without token and only discovery RBAC, allowedDomains set; egress denial not exercised",
       "AGS-04": "BLOCKED: no golden snapshot, so no A2A session could create an actor"
+    },
+    "residue": {
+      "cause": "Substrate 0.0.9 ActorTemplateReconciler returns on deletion without deleting the golden actor (atespace ate-golden)",
+      "reviewed": "golden-residue.json (2 actors)",
+      "tool": "scripts/llm_agent/substrate_golden_residue.sh (list read-only; delete via ate-api DeleteActor)",
+      "client": "kubectl-ate v0.0.9 built offline by scripts/llm_agent/build_kubectl_ate.sh (sha256 f65ab2f7...)",
+      "status": "APPROVAL_PENDING (GOLDEN-RESIDUE:<context>); list needs a running ate-api (next wake)"
     }
   }
 }

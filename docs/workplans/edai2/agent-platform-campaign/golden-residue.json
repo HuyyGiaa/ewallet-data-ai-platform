@@ -1,0 +1,9 @@
+{
+  "why": "Substrate 0.0.9 ActorTemplateReconciler returns on deletion without deleting the golden actor; the 2026-11-15 S0 run deleted both ActorTemplates before any golden snapshot existed",
+  "campaign": "agi-20261115T054518Z",
+  "atespace": "ate-golden",
+  "actors": [
+    {"id": "2255d97b-5d88-4905-88f0-5e4fe3eb9294", "template_namespace": "ewallet-sandbox", "template": "feature-rag-specialist-d26fd1d56ae4610e"},
+    {"id": "bc026273-b99f-4f45-b752-d8ca51214290", "template_namespace": "ewallet-sandbox", "template": "drift-specialist-c19e7ad633a54bfd"}
+  ]
+}

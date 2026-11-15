@@ -42,8 +42,10 @@ campaign state is in
 
 ```text
 PKG-0  images (Feast 0.67.0 MCP image, three BYO images; one commit)        no cluster change
-  └─ PKG-K  kagent watches ewallet-sandbox                                   kagent/kagent
-       └─ AGS S0: namespace, WorkerPool, fleet, sessions                    [EXPERIMENT]
+  └─ PKG-K  kagent watches ewallet-sandbox (GKE_TESTED, kagent rev 6)       kagent/kagent
+       └─ PKG-R-IAM  repository read for ate-system/atelet                  IAM (repository only)
+            └─ PKG-R  atelet authenticates its own image pulls             substrate/ate-system
+                 └─ AGS S0: namespace, WorkerPool, fleet, sessions         [EXPERIMENT]
             └─ PKG-C  capacity for the MCP experiment (5 nodes)             cloud_lab wake --nodes 5
                  └─ AGR-02 isolated MCP failover                            [EXPERIMENT] ewallet-mcp-exp
                       └─ PKG-P1  MCP reliability + AGI MCP overlay          llm-agent-mcp
@@ -62,6 +64,9 @@ PKG-C is independent of the others; take it only for AGR-02.
 |---|---|---|---|---|---|
 | PKG-0 | Images in `asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform` | — | none (images only) | none | none (immutable digests) |
 | PKG-K | Release `kagent` (namespace `kagent`): ConfigMap `kagent-controller` `WATCH_NAMESPACES`, plus 3 Role/RoleBinding pairs in `ewallet-sandbox`. The controller restarts once. | Namespace `ewallet-sandbox` | `WATCH_APPROVAL=PKG-K:$CTX` | `sandbox_watch.sh kagent upgrade` | `WATCH_APPROVAL=PKG-K-ROLLBACK:$CTX sandbox_watch.sh kagent rollback` |
+| PKG-R-IAM | Repository `ewallet-platform` (`asia-southeast1`): `roles/artifactregistry.reader` for `principal://iam.googleapis.com/projects/198818809719/locations/global/workloadIdentityPools/ewallet-data-ai-platform-hg26.svc.id.goog/subject/ns/ate-system/sa/atelet`. No service account, no key, not project-wide. | — | `IAM_APPROVAL=PKG-R-IAM:ewallet-data-ai-platform-hg26` | `substrate_pull_iam.sh grant` | `IAM_APPROVAL=PKG-R-IAM-REVOKE:… substrate_pull_iam.sh revoke` (removes only that member) |
+| PKG-R | Release `substrate` (namespace `ate-system`): DaemonSet `atelet` `args[0]` `--gcp-auth-for-image-pulls=true`, nothing else; the 3 atelet pods restart once | PKG-R-IAM, PKG-K | `PKG_R_APPROVAL=PKG-R:$CTX` | `substrate_pull_auth.sh upgrade` | `PKG_R_APPROVAL=PKG-R-ROLLBACK:$CTX substrate_pull_auth.sh rollback` |
+| GOLDEN-RESIDUE | Two Suspended golden actors in atespace `ate-golden` (`golden-residue.json`), deleted through ate-api `DeleteActor` | — | `RESIDUE_APPROVAL=GOLDEN-RESIDUE:$CTX` | `substrate_golden_residue.sh delete` | none (they hold no pod or snapshot) |
 | PKG-C | Node pool `cpu-pool`: 4 → 5 nodes for the campaign window | — | owner approval of a 5-node `wake-full` | `cloud_lab.py wake-full --nodes 5` | sleep (section 6) |
 | PKG-P1 | Release `llm-agent-mcp` (namespace `ewallet-mcp`): AGI MCP overlay, corrected image, 2 replicas per server, PDB `feature-rag-mcp`, hostname spread, RollingUpdate `maxUnavailable 0` | PKG-0 | `AGI_APPROVAL=P1-MCP:$CAMPAIGN` | `AGI_PACKAGE=p1-mcp agi_campaign.sh upgrade mcp` | `AGI_APPROVAL=P1-MCP-ROLLBACK:$CAMPAIGN … rollback mcp` |
 | PKG-S1 | (a) A transition credential server set that adds subjects `sandbox-feature-rag` and `sandbox-drift`; (b) a copy of those two client Secrets into `ewallet-sandbox`; (c) `llm-agent-mcp` tool grants and `serverSet`; (d) `llm-agent` ingress flow `sandbox-workers-to-mcp-gateway`; (e) namespace `ewallet-sandbox` in ambient | PKG-P1, PKG-K | `AGI_APPROVAL=S1-MCP:$CAMPAIGN`, then `S1-AGENTS:$CAMPAIGN` | section 2.5 | section 2.5 |
@@ -75,6 +80,8 @@ PKG-C is independent of the others; take it only for AGR-02.
 | Package | Risk | Stop (FAIL) if |
 |---|---|---|
 | PKG-K | One kagent-controller restart. Agent CRs stay; UI sessions reconnect. | The identity check fails (the chart, live values and post-renderer do not reproduce the live manifest), the diff differs from the reviewed one, or the server-side dry-run fails. |
+| PKG-R | Every atelet restarts. Actors are suspended and then resumed, the pilot's included. atelet asks for a Google token at start-up and exits if it cannot get one, so a Workload Identity fault shows up at once. | The lookup-render identity check fails, the diff is more than atelet `args[0]`, the IAM binding is absent, a node has no Running `gke-metadata-server`, or atelet restarts or logs `Failed to create GCP registry authenticator`. Then roll back. |
+| PKG-R-IAM | One reader binding on one repository. | The policy after the change differs from the policy before by more than that one pair. |
 | PKG-W | The KEDA metrics API server restarts. HPAs keep their replica counts while external metrics are briefly unavailable. | The same three checks as PKG-K, or any ScaledObject is not Ready after the change. |
 | PKG-C | +$0.18/h while awake ($0.997/h for 5 nodes against $0.819/h for 4, excluding the cluster fee). | `mcp_experiment.sh … capacity` still says `CAPACITY_INSUFFICIENT`. Do not add a sixth node. |
 | PKG-P1 | MCP pods roll with one surge pod. +200m CPU, +512Mi. | The identity diff is not exactly 2 Deployments changed and 1 PDB added, or the image is not `images.json`'s `mcp-tools`. |
@@ -182,6 +189,63 @@ scripts/llm_agent/sandbox_watch.sh kagent verify "$PRIVATE/pkg" | tee "$EV/pkg/P
 
 PKG-W is the same with `keda`, `PKG-W` and `PKG-W-ROLLBACK`. Take it only with PKG-P3.
 
+### 2.3a Sandbox S0 with PKG-R (the next runtime campaign)
+
+The capacity baseline is the 2026-11-15 run: `agent-sandbox` on 3 nodes scheduled both warm
+workers. That profile keeps the five PDB-guarded Deployments at 0, so a plain sleep works.
+
+```bash
+# 1. Wake (owner-approved profile, at most 3 nodes)
+python3 ops/gcp/cloud_lab.py plan-wake --mode experiment --profile agent-sandbox --manifest "$M"
+CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-experiment --profile agent-sandbox --manifest "$M" \
+  --nodes 3 --execute --confirm-cluster ewallet-dev | tee "$EV/wake/wake.txt"
+# 2. Baseline health: nodes, PDB-guarded Deployments at 0, ate-system and kagent Running, Substrate API answering
+kubectl --context "$CTX" get nodes -L ewallet.io/g3-llm,iam.gke.io/gke-metadata-server-enabled
+kubectl --context "$CTX" get pods -n ate-system -o wide; kubectl --context "$CTX" get pods -n kagent
+kubectl --context "$CTX" -n kube-system get pods -l k8s-app=gke-metadata-server -o wide
+# 3. Repository-scoped IAM (PKG-R-IAM; may be granted before the wake, it needs no node)
+scripts/llm_agent/substrate_pull_iam.sh plan "$EV/pkg/iam"
+IAM_APPROVAL=PKG-R-IAM:ewallet-data-ai-platform-hg26 scripts/llm_agent/substrate_pull_iam.sh grant "$EV/pkg/iam"
+scripts/llm_agent/substrate_pull_iam.sh verify
+# 4.-5. PKG-R: identity (lookup render), exact diff, metadata server, server dry-run, upgrade, verify
+export KUBE_CONTEXT=$CTX
+scripts/llm_agent/substrate_pull_auth.sh dry-run "$PRIVATE/pkg-r"
+PKG_R_APPROVAL=PKG-R:$CTX scripts/llm_agent/substrate_pull_auth.sh upgrade "$PRIVATE/pkg-r"
+scripts/llm_agent/substrate_pull_auth.sh verify "$PRIVATE/pkg-r" | tee "$EV/pkg/PKG-R-verify.txt"
+cp "$PRIVATE/pkg-r/substrate/package.log" "$PRIVATE/pkg-r/substrate/diff.txt" "$EV/pkg/"   # paths only, no values
+scripts/llm_agent/substrate_pull_auth.sh cleanup "$PRIVATE/pkg-r"   # the renders hold the live TLS key
+# 6.-9. Redeploy the fleet, then check the private pulls and the golden snapshots (AGS-01)
+#    namespace.yaml (WorkerPool, 2 workers), placeholder Secrets and fleet.yaml exactly as in AGS-01 below;
+kubectl --context "$CTX" -n ewallet-sandbox get actortemplate -o \
+  'jsonpath={range .items[*]}{.metadata.name} phase={.status.phase} golden={.status.goldenSnapshot}{"\n"}{end}'
+kubectl --context "$CTX" -n ate-system logs deploy/ate-controller --since=15m | grep -c "pullCache.Fetch" || true   # 0 expected
+# 10. AGS-01, AGS-02 and AGS-04 (section 4); 11. raw evidence into $EV; 12. cleanup (section 6, plus the
+#     residue check below); 13. plan-sleep, plain sleep, verify --expect sleep
+```
+
+PKG-R stays installed after the campaign. Roll it back only if a step fails:
+`PKG_R_APPROVAL=PKG-R-ROLLBACK:$CTX scripts/llm_agent/substrate_pull_auth.sh rollback "$PRIVATE/pkg-r"`.
+Do not run `cleanup` before a rollback, because rollback compares against the saved baseline.
+
+**Residual golden actors.** Substrate 0.0.9's ActorTemplate controller returns on deletion
+without deleting the golden actor. Every deleted ActorTemplate therefore leaves one actor
+in atespace `ate-golden`. The two from 2026-11-15 are listed in
+`docs/workplans/edai2/agent-platform-campaign/golden-residue.json`.
+
+```bash
+scripts/llm_agent/build_kubectl_ate.sh ~/.local/ate          # from the pinned v0.0.9 source, offline modules
+export KUBECTL_ATE=~/.local/ate/kubectl-ate
+scripts/llm_agent/substrate_golden_residue.sh list docs/workplans/edai2/agent-platform-campaign/golden-residue.json "$EV/residue"   # read-only
+RESIDUE_APPROVAL=GOLDEN-RESIDUE:$CTX scripts/llm_agent/substrate_golden_residue.sh delete \
+  docs/workplans/edai2/agent-platform-campaign/golden-residue.json "$EV/residue"
+```
+
+`delete` removes only the listed IDs. It removes each one only if it is Suspended, has no
+pod, no snapshot and no snapshot in progress, and its ActorTemplate no longer exists. It
+goes through ate-api `DeleteActor`, never Valkey. These records are not evidence of worker
+sharing. After a campaign's own fleet is deleted, add that campaign's golden actors to a
+reviewed file in the same way.
+
 ### 2.4 PKG-P1 and PKG-P2
 
 ```bash
@@ -285,7 +349,7 @@ Port-forward the kagent controller once:
 `kubectl --context "$CTX" -n kagent port-forward svc/kagent-controller 18383:8083 > "$EV/ags/pf.log" 2>&1 &`.
 Close it by command line at the end.
 
-### AGS-01 — Two Specialists on one shared warm WorkerPool `[EXPERIMENT]`, needs PKG-K
+### AGS-01 — Two Specialists on one shared warm WorkerPool `[EXPERIMENT]`, needs PKG-K and PKG-R
 
 ```bash
 REL=${SANDBOX_CREDENTIAL_RELEASE:-s0}

@@ -1,0 +1,3 @@
+2026-11-15T05:53:27Z kagent preflight PASS: kagent/kagent revision 5, identity PASS
+2026-11-15T05:53:28Z kagent diff PASS: {"added":[["Role","ewallet-sandbox","kagent-ate-api-env-sources"],["Role","ewallet-sandbox","kagent-getter-role"],["Role","ewallet-sandbox","kagent-writer-role"],["RoleBinding","ewallet-sandbox","kagent-ate-api-env-sources"],["RoleBinding","ewallet-sandbox","kagent-getter-rolebinding"],["RoleBinding","ewallet-sandbox","kagent-writer-rolebinding"]],"changed":[["ConfigMap","kagent","kagent-controlle
+2026-11-15T05:54:09Z kagent dry-run PASS (server-side)

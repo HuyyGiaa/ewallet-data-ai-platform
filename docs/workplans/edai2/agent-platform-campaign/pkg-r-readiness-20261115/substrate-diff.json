@@ -1,0 +1,2 @@
+{"added": [], "changed": [["DaemonSet", "ate-system", "atelet"]], "paths": ["spec.template.spec.containers[0].args[0]"]}
+CANDIDATE PASS
