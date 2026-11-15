@@ -1,0 +1,59 @@
+package substrate
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+)
+
+// With the patch, the same race resumes the session actor exactly once and it becomes reachable.
+func TestPatchedFollowUpDuringAsyncSuspendResumes(t *testing.T) {
+	control := &scriptedControl{status: ateapipb.Actor_STATUS_RUNNING, suspendFor: 300 * time.Millisecond, resumeFor: 200 * time.Millisecond}
+	b, sa := reproBackend(t, control)
+	go func() { _ = b.SuspendSessionActor(context.Background(), sa, "ctx-1") }()
+	time.Sleep(50 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if _, err := b.EnsureSessionActor(ctx, sa, "ctx-1"); err != nil {
+		t.Fatalf("patched EnsureSessionActor: %v", err)
+	}
+	if control.resumes.Load() != 1 || control.get() != ateapipb.Actor_STATUS_RUNNING {
+		t.Fatalf("resumes=%d status=%v", control.resumes.Load(), control.get())
+	}
+}
+
+// Repeated suspend/resume cycles on one session each resume once.
+func TestPatchedRepeatedCycles(t *testing.T) {
+	control := &scriptedControl{status: ateapipb.Actor_STATUS_RUNNING, suspendFor: 200 * time.Millisecond, resumeFor: 100 * time.Millisecond}
+	b, sa := reproBackend(t, control)
+	for cycle := 1; cycle <= 3; cycle++ {
+		go func() { _ = b.SuspendSessionActor(context.Background(), sa, "ctx-1") }()
+		time.Sleep(30 * time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		if _, err := b.EnsureSessionActor(ctx, sa, "ctx-1"); err != nil {
+			cancel()
+			t.Fatalf("cycle %d: %v", cycle, err)
+		}
+		cancel()
+		if int(control.resumes.Load()) != cycle {
+			t.Fatalf("cycle %d: resumes=%d", cycle, control.resumes.Load())
+		}
+	}
+}
+
+// A suspend that never settles fails bounded, not forever.
+func TestPatchedStuckSuspendIsBounded(t *testing.T) {
+	control := &scriptedControl{status: ateapipb.Actor_STATUS_SUSPENDING}
+	b, sa := reproBackend(t, control)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	start := time.Now()
+	if _, err := b.EnsureSessionActor(ctx, sa, "ctx-1"); err == nil {
+		t.Fatal("expected a bounded error")
+	}
+	if time.Since(start) > 3*time.Second || control.resumes.Load() != 0 {
+		t.Fatalf("took %v, resumes=%d", time.Since(start), control.resumes.Load())
+	}
+}

@@ -1,0 +1,10 @@
+core/pkg/sandboxbackend/substrate/resume_race_helpers_test.go
+    substrate_sandbox_transport_test.go:77: failed to start postgres container: starting postgres container: run postgres: generic container: get provider: rootless Docker not found, failed to create Docker provider
+FAIL
+FAIL	github.com/kagent-dev/kagent/go/core/internal/a2a	0.027s
+FAIL
+--- PASS: TestPatchedFollowUpDuringAsyncSuspendResumes (1.12s)
+--- PASS: TestPatchedRepeatedCycles (2.35s)
+--- PASS: TestPatchedStuckSuspendIsBounded (1.00s)
+ok  	github.com/kagent-dev/kagent/go/core/pkg/sandboxbackend/substrate	4.481s
+exit=0

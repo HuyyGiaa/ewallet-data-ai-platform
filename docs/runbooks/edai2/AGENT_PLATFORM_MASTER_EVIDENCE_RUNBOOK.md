@@ -246,6 +246,54 @@ goes through ate-api `DeleteActor`, never Valkey. These records are not evidence
 sharing. After a campaign's own fleet is deleted, add that campaign's golden actors to a
 reviewed file in the same way.
 
+### 2.3b Session resume verification (owner approval: `agent-sandbox` wake, at most 3 nodes)
+
+Root cause: `docs/workplans/edai2/agent-platform-campaign/resume-rca/RCA.md`. kagent 0.10.3
+suspends a session actor asynchronously after each turn. A follow-up during that window is
+never resumed. The run below changes nothing shared. PKG-K, PKG-R and the IAM binding stay
+as deployed, and it needs no new image: the driver runs on the laptop.
+
+Footprint: 3 nodes, about 1 hour, about $0.50. Steps:
+
+1. Wake and check baseline health (section 2.3a, steps 1–2).
+2. Redeploy the fleet (AGS-01).
+3. Wait for both golden snapshots.
+4. Port-forward the controller, then run the A/B:
+
+```bash
+python3 -m ops.experiments.substrate_fleet record --url http://127.0.0.1:18383 --namespace ewallet-sandbox \
+  --out "$EV/ags/RESUME-status.jsonl" --interval 1 --duration 900 &
+# A: control, follow-ups sent at once. Expected: resume rows rpc_error after about 120 s; actor stays Suspended.
+python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$CAMPAIGN-a" --agents drift-specialist \
+  --contexts 1 --messages 2 --no-settle > "$EV/ags/RESUME-A.txt"
+# B: paced, the fix. Expected: settled_before_send true, then the same actor goes Suspended -> Resuming -> Running.
+python3 -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$CAMPAIGN-b" \
+  --contexts 2 --messages 4 > "$EV/ags/RESUME-B.txt"
+wait
+kubectl --context "$CTX" -n kagent logs deploy/kagent-controller --since=30m > "$EV/ags/RESUME-kagent.txt"
+kubectl --context "$CTX" -n ate-system logs deploy/ate-api-server-deployment --since=30m > "$EV/ags/RESUME-ate-api.txt"
+for p in $(kubectl --context "$CTX" -n ate-system get pods -l app=atelet -o name); do
+  kubectl --context "$CTX" -n ate-system logs "$p" --since=30m; done > "$EV/ags/RESUME-atelet.txt"
+kubectl --context "$CTX" -n ate-system logs deploy/atenet-router --all-containers --since=30m > "$EV/ags/RESUME-atenet.txt"
+```
+
+- **PASS (B) only if:**
+  - every `resume` row has `settled_before_send: true` and its task reached a terminal
+    A2A state, without `rpc_error`;
+  - in `RESUME-status.jsonl` the row's `actor` ID (unchanged from its `new` row) moves
+    Suspended → Resuming → Running at least 3 times over the 4 messages of a context;
+  - no second actor appears for the same context;
+  - AGS-04's sharing still holds, with golden actors excluded.
+- Under S0 the turns end `failed` with `mcp_transport_error`, because there is no MCP
+  Gateway. That proves the resume lifecycle, not business results, and the result must
+  say so.
+- **FAIL:** a paced resume still times out. Then capture `RESUME-*.txt` and stop.
+- **Cleanup and sleep:** as in section 2.3a (fleet, Secrets, WorkerPool, `plan-sleep`,
+  plain `sleep`, `verify`).
+- **Residual actors:** the new session actors are listed with
+  `kubectl-ate get actors --atespace ewallet-sandbox`. Deleting them needs a separate
+  approval.
+
 ### 2.4 PKG-P1 and PKG-P2
 
 ```bash
@@ -424,7 +472,9 @@ kubectl --context "$CTX" -n ewallet-sandbox get actortemplate -o 'jsonpath={rang
   - The `new` tasks ended `failed` with `mcp_transport_error`: the MCP Gateway is held at
     0 by the profile, and S1 is not deployed.
   - Every `resume` failed after 120 s with `session actor … not reachable via
-    atenet-router`, so resumption is **not** demonstrated yet.
+    atenet-router`. The cause is the kagent race in `resume-rca/RCA.md`: the driver sent
+    follow-ups during the asynchronous suspend. The driver now waits for `Suspended`
+    (section 2.3b). Resumption is still not demonstrated on GKE.
 - **Screenshot:** `AGS-04_actor_worker_assignment.png`. **Row:** 27.
 
 ### AGS-05 — Cold against warm start, from the AGS-04 `LOAD_ROW` phases

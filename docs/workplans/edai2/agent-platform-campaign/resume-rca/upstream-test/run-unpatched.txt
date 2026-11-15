@@ -1,0 +1,20 @@
+=== RUN   TestWaitForActorReachableViaAtenetRetriesUntilHealthy
+=== PAUSE TestWaitForActorReachableViaAtenetRetriesUntilHealthy
+=== RUN   TestWaitForActorReachableViaAtenetWaitsForRunningStatus
+=== PAUSE TestWaitForActorReachableViaAtenetWaitsForRunningStatus
+=== RUN   TestWaitForActorReachableViaAtenetTimesOut
+=== PAUSE TestWaitForActorReachableViaAtenetTimesOut
+=== RUN   TestReproFollowUpDuringAsyncSuspendIsNeverResumed
+    resume_race_repro_test.go:92: reproduced: substrate session actor "asr-ewallet-sandbox-drift-specialist-ctx-1" not reachable via atenet-router: actor status Suspended: context deadline exceeded (resumes=0, final=STATUS_SUSPENDED)
+--- PASS: TestReproFollowUpDuringAsyncSuspendIsNeverResumed (3.10s)
+=== RUN   TestReproFollowUpAfterSuspendCompletesResumes
+--- PASS: TestReproFollowUpAfterSuspendCompletesResumes (0.90s)
+=== CONT  TestWaitForActorReachableViaAtenetRetriesUntilHealthy
+=== CONT  TestWaitForActorReachableViaAtenetTimesOut
+=== CONT  TestWaitForActorReachableViaAtenetWaitsForRunningStatus
+--- PASS: TestWaitForActorReachableViaAtenetTimesOut (1.00s)
+--- PASS: TestWaitForActorReachableViaAtenetRetriesUntilHealthy (1.00s)
+--- PASS: TestWaitForActorReachableViaAtenetWaitsForRunningStatus (1.00s)
+PASS
+ok  	github.com/kagent-dev/kagent/go/core/pkg/sandboxbackend/substrate	5.019s
+exit=0

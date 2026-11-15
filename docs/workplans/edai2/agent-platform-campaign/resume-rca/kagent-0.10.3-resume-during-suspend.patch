@@ -1,0 +1,59 @@
+--- a/go/core/pkg/sandboxbackend/substrate/agent_actor.go
++++ b/go/core/pkg/sandboxbackend/substrate/agent_actor.go
+@@ -5,6 +5,7 @@
+ 	"crypto/sha256"
+ 	"fmt"
+ 	"strings"
++	"time"
+ 
+ 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+ 	"github.com/kagent-dev/kagent/go/api/v1alpha2"
+@@ -82,6 +83,15 @@
+ 		}
+ 	}
+ 
++	// The previous turn suspends its actor asynchronously (scheduleSuspendSession) once the
++	// client has read the response. A follow-up on the same session can arrive while that
++	// suspend is still SUSPENDING; treating it as "needs nothing" leaves the actor SUSPENDED
++	// and the reachability wait times out. Let the in-flight suspend settle, then resume.
++	actor, err = settleSuspendingActor(ctx, b.client, atespace, actorID, actor)
++	if err != nil {
++		return sandboxbackend.EnsureResult{}, err
++	}
++
+ 	switch actor.GetStatus() {
+ 	case ateapipb.Actor_STATUS_SUSPENDED, ateapipb.Actor_STATUS_UNSPECIFIED,
+ 		ateapipb.Actor_STATUS_PAUSED, ateapipb.Actor_STATUS_PAUSING:
+@@ -263,3 +273,32 @@
+ 	}
+ 	return raw
+ }
++
++const (
++	suspendSettleTimeout  = time.Minute
++	suspendSettleInterval = 250 * time.Millisecond
++)
++
++// settleSuspendingActor waits, bounded, while an actor is SUSPENDING and returns its settled state.
++func settleSuspendingActor(ctx context.Context, c *Client, atespace, actorID string, actor *ateapipb.Actor) (*ateapipb.Actor, error) {
++	if actor.GetStatus() != ateapipb.Actor_STATUS_SUSPENDING {
++		return actor, nil
++	}
++	settleCtx, cancel := context.WithTimeout(ctx, suspendSettleTimeout)
++	defer cancel()
++	ticker := time.NewTicker(suspendSettleInterval)
++	defer ticker.Stop()
++	for actor.GetStatus() == ateapipb.Actor_STATUS_SUSPENDING {
++		select {
++		case <-settleCtx.Done():
++			return nil, fmt.Errorf("substrate session actor %q still suspending: %w", actorID, settleCtx.Err())
++		case <-ticker.C:
++		}
++		next, err := c.GetActor(settleCtx, atespace, actorID)
++		if err != nil {
++			return nil, fmt.Errorf("substrate GetActor %q while suspending: %w", actorID, err)
++		}
++		actor = next
++	}
++	return actor, nil
++}

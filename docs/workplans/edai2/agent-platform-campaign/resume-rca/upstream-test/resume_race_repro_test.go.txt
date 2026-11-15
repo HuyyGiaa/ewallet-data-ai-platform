@@ -1,0 +1,111 @@
+package substrate
+
+// Reproduction of the 2026-11-15 GKE resume failure against the real EnsureSessionActor:
+// a follow-up message on the same session that arrives while the previous turn's asynchronous
+// SuspendSessionActor (substrate_sandbox_transport.go scheduleSuspendSession) is in flight.
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"github.com/kagent-dev/kagent/go/api/v1alpha2"
+	"google.golang.org/grpc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
+
+// scriptedControl models ate-api actor states: SuspendActor moves RUNNING -> SUSPENDING -> SUSPENDED
+// over suspendFor; ResumeActor moves SUSPENDED -> RESUMING -> RUNNING over resumeFor.
+type scriptedControl struct {
+	ateapipb.ControlClient
+	mu         sync.Mutex
+	status     ateapipb.Actor_Status
+	resumes    atomic.Int32
+	suspendFor time.Duration
+	resumeFor  time.Duration
+}
+
+func (s *scriptedControl) set(st ateapipb.Actor_Status) { s.mu.Lock(); s.status = st; s.mu.Unlock() }
+func (s *scriptedControl) get() ateapipb.Actor_Status    { s.mu.Lock(); defer s.mu.Unlock(); return s.status }
+
+func (s *scriptedControl) GetActor(_ context.Context, in *ateapipb.GetActorRequest, _ ...grpc.CallOption) (*ateapipb.Actor, error) {
+	return &ateapipb.Actor{Metadata: &ateapipb.ResourceMetadata{Name: in.GetActor().GetName()}, Status: s.get()}, nil
+}
+
+func (s *scriptedControl) SuspendActor(context.Context, *ateapipb.SuspendActorRequest, ...grpc.CallOption) (*ateapipb.SuspendActorResponse, error) {
+	s.set(ateapipb.Actor_STATUS_SUSPENDING)
+	time.AfterFunc(s.suspendFor, func() { s.set(ateapipb.Actor_STATUS_SUSPENDED) })
+	return &ateapipb.SuspendActorResponse{}, nil
+}
+
+func (s *scriptedControl) ResumeActor(context.Context, *ateapipb.ResumeActorRequest, ...grpc.CallOption) (*ateapipb.ResumeActorResponse, error) {
+	s.resumes.Add(1)
+	s.set(ateapipb.Actor_STATUS_RESUMING)
+	time.AfterFunc(s.resumeFor, func() { s.set(ateapipb.Actor_STATUS_RUNNING) })
+	return &ateapipb.ResumeActorResponse{Actor: &ateapipb.Actor{Status: ateapipb.Actor_STATUS_RESUMING}}, nil
+}
+
+func reproBackend(t *testing.T, control *scriptedControl) (*SandboxAgentActorBackend, *v1alpha2.SandboxAgent) {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	utilruntime.Must(atev1alpha1.AddToScheme(scheme))
+	tmpl := &atev1alpha1.ActorTemplate{ObjectMeta: metav1.ObjectMeta{
+		Name: "drift-specialist-401c441e274e8282", Namespace: "ewallet-sandbox",
+		Labels: map[string]string{SandboxAgentLabelKey: "drift-specialist"},
+	}, Status: atev1alpha1.ActorTemplateStatus{Phase: atev1alpha1.PhaseReady}}
+	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tmpl).Build()
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	t.Cleanup(router.Close)
+	sa := &v1alpha2.SandboxAgent{ObjectMeta: metav1.ObjectMeta{Name: "drift-specialist", Namespace: "ewallet-sandbox"}}
+	return NewSandboxAgentActorBackend(&Client{ControlClient: control}, kube, router.URL), sa
+}
+
+// Turn 1 has just returned: the actor is RUNNING and the transport schedules the suspend in a
+// goroutine. Turn 2 (same contextId) arrives 50 ms later, while the actor is SUSPENDING.
+func TestReproFollowUpDuringAsyncSuspendIsNeverResumed(t *testing.T) {
+	control := &scriptedControl{status: ateapipb.Actor_STATUS_RUNNING, suspendFor: 300 * time.Millisecond, resumeFor: 200 * time.Millisecond}
+	b, sa := reproBackend(t, control)
+	go func() { _ = b.SuspendSessionActor(context.Background(), sa, "ctx-1") }() // scheduleSuspendSession
+	time.Sleep(50 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second) // the real wait is 2 min
+	defer cancel()
+	_, err := b.EnsureSessionActor(ctx, sa, "ctx-1")
+	if err == nil || !strings.Contains(err.Error(), "not reachable via atenet-router") {
+		t.Fatalf("expected the GKE error, got %v", err)
+	}
+	if got := control.resumes.Load(); got != 0 {
+		t.Fatalf("ResumeActor calls = %d; the bug is that it is never called", got)
+	}
+	if control.get() != ateapipb.Actor_STATUS_SUSPENDED {
+		t.Fatalf("actor status = %v, want SUSPENDED (left suspended for the whole wait)", control.get())
+	}
+	t.Logf("reproduced: %v (resumes=%d, final=%v)", err, control.resumes.Load(), control.get())
+}
+
+// Control: when turn 2 arrives after the suspend completed, EnsureSessionActor resumes correctly.
+func TestReproFollowUpAfterSuspendCompletesResumes(t *testing.T) {
+	control := &scriptedControl{status: ateapipb.Actor_STATUS_RUNNING, suspendFor: 300 * time.Millisecond, resumeFor: 200 * time.Millisecond}
+	b, sa := reproBackend(t, control)
+	if err := b.SuspendSessionActor(context.Background(), sa, "ctx-1"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(400 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if _, err := b.EnsureSessionActor(ctx, sa, "ctx-1"); err != nil {
+		t.Fatalf("paced follow-up should resume: %v", err)
+	}
+	if control.resumes.Load() != 1 || control.get() != ateapipb.Actor_STATUS_RUNNING {
+		t.Fatalf("resumes=%d status=%v", control.resumes.Load(), control.get())
+	}
+}
