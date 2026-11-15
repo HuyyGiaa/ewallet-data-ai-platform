@@ -117,7 +117,8 @@ trap 'exit 130' INT TERM HUP
 awk '/^---$/ {exit} {print}' "$config" | kc apply -f - >> "$logs/apply.log"
 token=$(openssl rand -hex 32)
 tokens=$(printf '{"version":1,"credentials":[{"id":"mcp-exp","subject":"mcp-exp","token":"%s","status":"active"}]}' "$token")
-k create secret generic mcp-exp-auth --from-file=token=/dev/stdin <<<"$token" >/dev/null
+# printf, not a here-string: <<< appends a newline, which made the probe's header illegal (AGR-02 run-02).
+printf '%s' "$token" | k create secret generic mcp-exp-auth --from-file=token=/dev/stdin >/dev/null
 k patch secret mcp-exp-auth --type merge --patch-file=/dev/stdin >/dev/null <<<"{\"stringData\":{\"tokens\":$(printf '%s' "$tokens" | "$python" -c 'import json,sys;print(json.dumps(sys.stdin.read()))')}}"
 unset token tokens
 kc apply -f "$config" >> "$logs/apply.log"

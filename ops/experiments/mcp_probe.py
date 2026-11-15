@@ -98,7 +98,7 @@ def main() -> int:
     parser.add_argument("--duration", type=float, default=120)
     parser.add_argument("--rate", type=float, default=2)
     args = parser.parse_args()
-    made = asyncio.run(amain(args.url, os.environ["MCP_EXP_TOKEN"], os.environ, args.duration, args.rate))
+    made = asyncio.run(amain(args.url, os.environ["MCP_EXP_TOKEN"].strip(), os.environ, args.duration, args.rate))
     print(f"LOAD_DONE {made}", flush=True)
     return 0
 
