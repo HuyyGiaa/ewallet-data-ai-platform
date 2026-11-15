@@ -61,7 +61,10 @@ from ai_platform.llm_agent.programmatic_coordinator import (
     GatewayCall,
     GatewayPolicy,
     ProgrammaticCoordinator,
+    RateLimitBackoff,
+    RateLimitedFailure,
 )
+from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, retry_after_seconds
 from ai_platform.llm_agent.idempotency import IdempotencyScope
 from ai_platform.llm_agent.redis_idempotency import idempotency_store_from_env
 from ai_platform.llm_agent.workflow_intake import (
@@ -152,6 +155,10 @@ class TracedGatewayTransport:
             )
             response.raise_for_status()
             raw = response.content
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == RATE_LIMITED:
+                raise RateLimitedFailure(retry_after_seconds(exc.response.headers)) from exc
+            raise CoordinatorFailure("a2a_transport_error", "A2A Gateway request failed") from exc
         except (httpx.HTTPError, TimeoutError) as exc:
             raise CoordinatorFailure("a2a_transport_error", "A2A Gateway request failed") from exc
         if len(raw) > 32_768:
@@ -223,6 +230,7 @@ class CoordinatorExecutor(AgentExecutor):
             completed_ttl_ms=int(os.getenv("EWALLET_IDEMPOTENCY_COMPLETED_TTL_MS", "86400000")),
             duplicate_wait_seconds=float(os.getenv("EWALLET_IDEMPOTENCY_WAIT_SECONDS", "15")),
             duplicate_poll_seconds=float(os.getenv("EWALLET_IDEMPOTENCY_POLL_SECONDS", "0.1")),
+            rate_limit_backoff=RateLimitBackoff.from_env(os.environ),
         )
 
     def ready(self) -> None:

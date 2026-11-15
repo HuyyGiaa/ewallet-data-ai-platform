@@ -20,13 +20,14 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import contextvars
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import hashlib
 import json
 import re
 from threading import Event
 import time
 from typing import Callable, Mapping, Protocol, Union
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -44,6 +45,7 @@ from ai_platform.llm_agent.business_request import (
     typed_request_from_a2a,
 )
 from ai_platform.llm_agent.contracts import Citation
+from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, rate_limited_delay, retry_after_seconds
 from ai_platform.llm_agent.drift_evidence import DriftFinding
 from ai_platform.llm_agent.idempotency import (
     Claim,
@@ -74,6 +76,44 @@ class CoordinatorFailure(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+class RateLimitedFailure(CoordinatorFailure):
+    """The A2A Gateway's rate limit shed a delegation with HTTP 429 before forwarding it."""
+
+    def __init__(self, retry_after_seconds: float | None = None) -> None:
+        super().__init__("a2a_rate_limited", "A2A Gateway rate limit refused the delegation")
+        self.retry_after_seconds = retry_after_seconds
+
+
+@dataclass(frozen=True)
+class RateLimitBackoff:
+    """Bounded, jittered repeats of a delegation the A2A Gateway shed with 429.
+
+    A shed delegation never reached a Specialist, so sending it again repeats no work. Every
+    repeat stays inside the call's own timeout, and a repeat that would leave less than
+    ``min_attempt_seconds`` is not started. ``max_attempts`` 1 turns repeats off.
+    """
+
+    max_attempts: int = 4
+    base_delay_seconds: float = 0.25
+    max_delay_seconds: float = 2.0
+    min_attempt_seconds: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.max_attempts <= 6:
+            raise ValueError("max_attempts must be between 1 and 6")
+        if self.base_delay_seconds < 0 or self.max_delay_seconds < self.base_delay_seconds:
+            raise ValueError("backoff delays are invalid")
+        if self.min_attempt_seconds <= 0:
+            raise ValueError("min_attempt_seconds must be positive")
+
+    @classmethod
+    def from_env(cls, environment: Mapping[str, str]) -> "RateLimitBackoff":
+        """Read the attempt budget from ``EWALLET_A2A_RATE_LIMIT_MAX_ATTEMPTS`` (unset: default)."""
+
+        value = environment.get("EWALLET_A2A_RATE_LIMIT_MAX_ATTEMPTS", "").strip()
+        return cls() if not value else cls(max_attempts=int(value))
 
 
 class SpecialistEvidence(BaseModel):
@@ -132,6 +172,10 @@ class JsonHttpTransport:
         try:
             with self._opener(request, timeout=call.timeout_seconds) as response:
                 raw = response.read(MAX_A2A_RESPONSE_BYTES + 1)
+        except HTTPError as exc:
+            if exc.code == RATE_LIMITED:
+                raise RateLimitedFailure(retry_after_seconds(exc.headers)) from exc
+            raise CoordinatorFailure("a2a_transport_error", "A2A Gateway request failed") from exc
         except (OSError, TimeoutError) as exc:
             raise CoordinatorFailure("a2a_transport_error", "A2A Gateway request failed") from exc
         if len(raw) > MAX_A2A_RESPONSE_BYTES:
@@ -346,6 +390,8 @@ class ProgrammaticCoordinator:
         completed_ttl_ms: int = 86_400_000,
         duplicate_wait_seconds: float = 15.0,
         duplicate_poll_seconds: float = 0.1,
+        rate_limit_backoff: RateLimitBackoff | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         if not 1_000 <= lease_ms <= 600_000:
             raise ValueError("lease_ms must be between 1000 and 600000")
@@ -363,6 +409,8 @@ class ProgrammaticCoordinator:
         self._completed_ttl_ms = completed_ttl_ms
         self._duplicate_wait_seconds = duplicate_wait_seconds
         self._duplicate_poll_seconds = duplicate_poll_seconds
+        self._backoff = rate_limit_backoff or RateLimitBackoff()
+        self._sleep = sleep
 
     def ready(self) -> None:
         """Verify that this replica can reach the shared idempotency authority."""
@@ -552,7 +600,7 @@ class ProgrammaticCoordinator:
         def execute() -> dict[str, object]:
             with _TRACER.start_as_current_span("g3.coordinator.delegate") as span:
                 _delegation_attributes(span, request)
-                response = self._transport(self._gateway.call_for(request))
+                response = self._send(self._gateway.call_for(request), cancelled, span)
                 if cancelled and cancelled.is_set():
                     raise CoordinatorFailure("cancelled", "request was cancelled during delegation")
                 evidence = _terminal_evidence(response, request)
@@ -576,12 +624,37 @@ class ProgrammaticCoordinator:
         return self._run_idempotently(scope=scope, authority_id=authority_id, request_id=request.request_id,
                                       fingerprint=fingerprint, cancelled=cancelled, execute=execute)
 
+    def _send(self, call: GatewayCall, cancelled: Event | None, span: trace.Span) -> Mapping[str, object]:
+        """Send one delegation, waiting and repeating while the A2A Gateway sheds it (429)."""
+
+        deadline = time.monotonic() + call.timeout_seconds
+        for attempt in range(1, self._backoff.max_attempts + 1):
+            try:
+                return self._transport(call)
+            except RateLimitedFailure as exc:
+                if attempt == self._backoff.max_attempts:
+                    raise
+                wait = rate_limited_delay(attempt, base_seconds=self._backoff.base_delay_seconds,
+                                          max_seconds=self._backoff.max_delay_seconds,
+                                          retry_after=exc.retry_after_seconds)
+                remaining = deadline - time.monotonic() - wait
+                if remaining < self._backoff.min_attempt_seconds:
+                    raise
+                span.add_event("a2a.rate_limited", {"ewallet.attempt": attempt, "ewallet.wait_ms": int(wait * 1000)})
+                if cancelled is not None:
+                    if cancelled.wait(wait):
+                        raise CoordinatorFailure("cancelled", "request was cancelled during delegation") from exc
+                else:
+                    self._sleep(wait)
+                call = replace(call, timeout_seconds=remaining)
+        raise AssertionError("the loop always returns or raises")
+
     def _delegate(self, request: SpecialistRequest, cancelled: Event | None) -> _MemberOutcome:
         started = time.monotonic()
         with _TRACER.start_as_current_span("g3.coordinator.delegate") as span:
             _delegation_attributes(span, request)
             try:
-                response = self._transport(self._gateway.call_for(request))
+                response = self._send(self._gateway.call_for(request), cancelled, span)
                 if cancelled and cancelled.is_set():
                     raise CoordinatorFailure("cancelled", "request was cancelled during delegation")
                 evidence = _terminal_evidence(response, request)

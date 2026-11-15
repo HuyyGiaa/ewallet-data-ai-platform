@@ -9,9 +9,10 @@ such a call can reach the server twice, which is harmless because it changes not
 future tool with side effects stays outside the set and is never retried, whatever the
 failure.
 
-Only failures another replica could heal are retried: a lost connection, or a 502, 503 or
-504 from the gateway. Anything else is an answer, including a rejected credential, a tool
-error, an invalid result and a spent deadline. An unrecognized exception is not retried, so
+Only failures a later attempt could heal are retried: a lost connection, a 502, 503 or 504
+from the gateway, or a 429 with which the gateway's rate limit shed the request before
+forwarding it (gateway_backoff). Anything else is an answer, including a rejected credential, a
+tool error, an invalid result and a spent deadline. An unrecognized exception is not retried, so
 the default is the safe side. The caller's single overall deadline still bounds the run.
 """
 
@@ -24,6 +25,8 @@ from typing import Awaitable, Callable, Collection, Iterator, Mapping, TypeVar
 import anyio
 import httpx
 
+from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, rate_limited_delay, retry_after_seconds
+
 
 Result = TypeVar("Result")
 
@@ -32,7 +35,7 @@ READ_ONLY_TOOLS = frozenset(
 )
 
 
-RECOVERABLE_STATUS = frozenset({502, 503, 504})
+RECOVERABLE_STATUS = frozenset({RATE_LIMITED, 502, 503, 504})
 _LOST_CONNECTION = (
     httpx.TransportError,
     ConnectionError,
@@ -49,17 +52,22 @@ class FailoverPolicy:
     Attributes:
         max_attempts: Total attempts, including the first.
         base_delay_seconds: Wait before the second attempt; doubles after each attempt.
-        max_delay_seconds: Longest single wait.
+        max_delay_seconds: Longest single wait after a 5xx or a lost connection.
+        rate_limited_max_delay_seconds: Longest single wait after a 429; these waits are
+            jittered and honour Retry-After.
     """
 
     max_attempts: int = 3
     base_delay_seconds: float = 0.25
     max_delay_seconds: float = 1.0
+    rate_limited_max_delay_seconds: float = 2.0
 
     def __post_init__(self) -> None:
         if not 1 <= self.max_attempts <= 5:
             raise ValueError("max_attempts must be between 1 and 5")
         if self.base_delay_seconds < 0 or self.max_delay_seconds < self.base_delay_seconds:
+            raise ValueError("retry delays are invalid")
+        if self.rate_limited_max_delay_seconds < self.base_delay_seconds:
             raise ValueError("retry delays are invalid")
 
     def delay(self, attempt: int) -> float:
@@ -113,6 +121,17 @@ def is_recoverable(error: BaseException) -> bool:
     return bool(statuses) or any(isinstance(item, _LOST_CONNECTION) for item in chain)
 
 
+def retry_delay(error: BaseException, attempt: int, policy: FailoverPolicy) -> float:
+    """Return the wait before repeating after ``error``: jittered for a gateway 429."""
+
+    for item in _causes(error):
+        if isinstance(item, httpx.HTTPStatusError) and item.response.status_code == RATE_LIMITED:
+            return rate_limited_delay(attempt, base_seconds=policy.base_delay_seconds,
+                                      max_seconds=policy.rate_limited_max_delay_seconds,
+                                      retry_after=retry_after_seconds(item.response.headers))
+    return policy.delay(attempt)
+
+
 def may_repeat(tools: Collection[str]) -> bool:
     """Return whether a call using ``tools`` is safe to repeat."""
 
@@ -154,5 +173,5 @@ async def with_failover(
             if attempt == attempts or not is_transient(error):
                 raise
             on_retry(attempt)
-            await sleep(policy.delay(attempt))
+            await sleep(retry_delay(error, attempt, policy))
     raise AssertionError("the loop always returns or raises")

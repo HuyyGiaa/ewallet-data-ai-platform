@@ -17,6 +17,7 @@ from ai_platform.llm_agent.mcp_failover import (
     READ_ONLY_TOOLS,
     FailoverPolicy,
     is_recoverable,
+    retry_delay,
     may_repeat,
     with_failover,
 )
@@ -178,9 +179,10 @@ def test_bad_attempt_value_is_refused() -> None:
         raise AssertionError(f"{value} was accepted")
 
 
-def _status_error(status: int) -> httpx.HTTPStatusError:
+def _status_error(status: int, headers: dict[str, str] | None = None) -> httpx.HTTPStatusError:
     request = httpx.Request("POST", "http://mcp.test/mcp")
-    return httpx.HTTPStatusError("bad", request=request, response=httpx.Response(status, request=request))
+    return httpx.HTTPStatusError("bad", request=request,
+                                 response=httpx.Response(status, request=request, headers=headers))
 
 
 def _wrapped(cause: BaseException) -> Exception:
@@ -194,13 +196,15 @@ def _wrapped(cause: BaseException) -> Exception:
 @pytest.mark.parametrize("cause", [
     httpx.ConnectError("refused"), httpx.ReadError("reset"), httpx.RemoteProtocolError("closed"),
     ConnectionError("gone"), anyio.ClosedResourceError(), _status_error(502), _status_error(503), _status_error(504),
+    # The gateway's rate limit shed the request before forwarding it (AGR-06): waiting heals it.
+    _status_error(429),
 ], ids=lambda item: type(item).__name__)
 def test_lost_replica_is_recoverable(cause) -> None:
     assert is_recoverable(_wrapped(cause))
 
 
 @pytest.mark.parametrize("cause", [
-    _status_error(400), _status_error(401), _status_error(403), _status_error(404), _status_error(429),
+    _status_error(400), _status_error(401), _status_error(403), _status_error(404),
     _status_error(500), KeyError("field"), ValueError("bad result"), RuntimeError("unknown"),
 ], ids=lambda item: getattr(getattr(item, "response", None), "status_code", type(item).__name__))
 def test_a_real_answer_is_not_recoverable(cause) -> None:
@@ -275,3 +279,45 @@ def test_bad_listen_port_is_refused(value) -> None:
 
     with pytest.raises(ValueError):
         listen_port({"EWALLET_AGENT_PORT": value})
+
+
+def test_a_rate_limited_wait_is_jittered_and_bounded() -> None:
+    policy = FailoverPolicy()
+    waits = {retry_delay(_wrapped(_status_error(429)), attempt, policy) for attempt in (1, 2, 3) for _ in range(20)}
+    assert all(0 < wait <= policy.rate_limited_max_delay_seconds for wait in waits)
+    assert len(waits) > 3  # jittered, not one fixed step per attempt
+
+
+def test_a_rate_limited_wait_honours_retry_after_up_to_the_cap() -> None:
+    policy = FailoverPolicy()
+    assert retry_delay(_wrapped(_status_error(429, {"Retry-After": "1"})), 1, policy) == 1.0
+    assert retry_delay(_wrapped(_status_error(429, {"Retry-After": "30"})), 1, policy) == policy.rate_limited_max_delay_seconds
+
+
+def test_a_lost_replica_wait_is_unchanged() -> None:
+    policy = FailoverPolicy()
+    assert [retry_delay(_wrapped(_status_error(503)), attempt, policy) for attempt in (1, 2, 3)] == [0.25, 0.5, 1.0]
+
+
+def test_a_rate_limited_call_is_repeated_only_for_read_only_tools() -> None:
+    class Shed(Exception):
+        def __init__(self):
+            super().__init__("shed")
+            self.__cause__ = _status_error(429)
+
+    waits: list[float] = []
+
+    async def record(seconds):
+        waits.append(seconds)
+
+    def attempt(tools):
+        call = Calls(2, error=Shed)
+        try:
+            result = asyncio.run(with_failover(call, tools=tools, is_transient=is_recoverable, sleep=record))
+        except Shed:
+            result = "failed"
+        return result, call.count
+
+    assert attempt(("feature_lookup",)) == ("ok", 3)
+    assert len(waits) == 2
+    assert attempt(("feature_lookup", "unknown_writer")) == ("failed", 1)
