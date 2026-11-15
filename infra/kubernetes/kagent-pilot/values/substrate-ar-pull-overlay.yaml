@@ -1,0 +1,17 @@
+# PKG-R (proposed, owner approval required; not applied): let atelet authenticate image pulls
+# from Artifact Registry. Substrate 0.0.9's atelet pulls actor images itself (pull cache), not
+# through the kubelet, and without this flag it pulls anonymously: on 2026-11-15 both business
+# SandboxAgents stopped at ResumeGoldenActor with "DENIED: Unauthenticated request ...
+# artifactregistry.repositories.downloadArtifacts" for the private g3-byo-* images.
+#
+# With the flag atelet uses Google application default credentials, which under Workload
+# Identity (GKE_METADATA) is the principal of KSA ate-system/atelet. That principal also needs
+# read on the one repository (an IAM change, part of the same approval):
+#   gcloud artifacts repositories add-iam-policy-binding ewallet-platform \
+#     --project ewallet-data-ai-platform-hg26 --location asia-southeast1 --role roles/artifactregistry.reader \
+#     --member principal://iam.googleapis.com/projects/198818809719/locations/global/workloadIdentityPools/ewallet-data-ai-platform-hg26.svc.id.goog/subject/ns/ate-system/sa/atelet
+# Apply with --reuse-values on release substrate (ate-system), the pinned 0.0.9 chart and
+# infra/kubernetes/kagent-pilot/scripts/substrate_resource_post_renderer.py. Effect: one
+# atelet argument; the atelet DaemonSet rolls (actors on a worker are suspended and resumed).
+atelet:
+  gcpAuthForImagePulls: true
