@@ -17,6 +17,10 @@ from urllib.parse import urlparse
 import httpx2
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+from mcp.shared.exceptions import MCPError
+
+from ai_platform.llm_agent.gateway_backoff import retry_after_seconds
+from ai_platform.llm_agent.mcp_failover import GatewayStatusError
 from pydantic import BaseModel, ConfigDict, Field
 
 MCP_GATEWAY_HOST = "mcp-gateway.ewallet-agents.svc"
@@ -55,10 +59,43 @@ async def official_session(
     headers: Mapping[str, str],
     timeout: float,
 ) -> AsyncIterator[MCPSession]:
-    async with httpx2.AsyncClient(headers=dict(headers), timeout=timeout) as client:
-        async with streamable_http_client(endpoint, http_client=client) as (read, write):
-            async with ClientSession(read, write) as session:
-                yield session
+    # The SDK reports a non-2xx answer to a request as a status-less INTERNAL_ERROR; the first failed
+    # POST's status is kept so that mcp_failover can tell a shed (429) or lost replica (5xx) from a
+    # rejection. The listener GET and the closing DELETE never fail a call, so they are not recorded.
+    failed: list[tuple[int, float | None]] = []
+
+    async def record(response: httpx2.Response) -> None:
+        if response.status_code >= 400 and response.request.method == "POST":
+            failed.append((response.status_code, retry_after_seconds(response.headers)))
+
+    async with httpx2.AsyncClient(headers=dict(headers), timeout=timeout, event_hooks={"response": [record]}) as client:
+        try:
+            async with streamable_http_client(endpoint, http_client=client) as (read, write):
+                async with ClientSession(read, write) as session:
+                    yield session
+        except Exception as error:
+            if failed and _sdk_status_error(error):
+                raise GatewayStatusError(*failed[0]) from error
+            raise
+
+
+def _sdk_status_error(error: BaseException) -> bool:
+    """Whether the SDK's stand-in for a non-2xx HTTP answer is anywhere in ``error``."""
+
+    pending, seen = [error], set()
+    while pending:
+        item = pending.pop()
+        if id(item) in seen:
+            continue
+        seen.add(id(item))
+        if isinstance(item, MCPError):
+            return True
+        if isinstance(item, BaseExceptionGroup):
+            pending.extend(item.exceptions)
+        for linked in (item.__cause__, item.__context__):
+            if linked is not None:
+                pending.append(linked)
+    return False
 
 
 def environment_token() -> str:

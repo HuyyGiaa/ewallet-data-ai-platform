@@ -24,6 +24,7 @@ from typing import Awaitable, Callable, Collection, Iterator, Mapping, TypeVar
 
 import anyio
 import httpx
+import httpx2
 
 from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, rate_limited_delay, retry_after_seconds
 
@@ -36,13 +37,31 @@ READ_ONLY_TOOLS = frozenset(
 
 
 RECOVERABLE_STATUS = frozenset({RATE_LIMITED, 502, 503, 504})
+# The official MCP client (mcp 2.x, byo_mcp) sends through httpx2, whose exceptions are not httpx's:
+# matching httpx alone classified every real gateway 429/503 and lost connection as an answer (GKE AGR-06).
+_STATUS_ERRORS = (httpx.HTTPStatusError, httpx2.HTTPStatusError)
 _LOST_CONNECTION = (
     httpx.TransportError,
+    httpx2.TransportError,
     ConnectionError,
     anyio.BrokenResourceError,
     anyio.ClosedResourceError,
     anyio.EndOfStream,
 )
+
+
+class GatewayStatusError(Exception):
+    """An MCP request that the MCP Gateway answered with an HTTP error status.
+
+    The MCP SDK (2.x) reports every non-2xx answer to a request as a JSON-RPC INTERNAL_ERROR
+    without the status, so a 429, a 503 and a 401 looked alike. ``byo_mcp`` records the status
+    from the HTTP response and raises this from the SDK's error.
+    """
+
+    def __init__(self, status: int, retry_after: float | None = None) -> None:
+        super().__init__(f"MCP Gateway answered HTTP {status}")
+        self.status = status
+        self.retry_after = retry_after
 
 
 @dataclass(frozen=True)
@@ -55,12 +74,15 @@ class FailoverPolicy:
         max_delay_seconds: Longest single wait after a 5xx or a lost connection.
         rate_limited_max_delay_seconds: Longest single wait after a 429; these waits are
             jittered and honour Retry-After.
+        rate_limited_max_attempts: Total attempts while the gateway sheds with 429, when
+            retry is on at all (``max_attempts`` > 1). A shed request reached no server.
     """
 
     max_attempts: int = 3
     base_delay_seconds: float = 0.25
     max_delay_seconds: float = 1.0
     rate_limited_max_delay_seconds: float = 2.0
+    rate_limited_max_attempts: int = 6
 
     def __post_init__(self) -> None:
         if not 1 <= self.max_attempts <= 5:
@@ -69,6 +91,8 @@ class FailoverPolicy:
             raise ValueError("retry delays are invalid")
         if self.rate_limited_max_delay_seconds < self.base_delay_seconds:
             raise ValueError("retry delays are invalid")
+        if not 1 <= self.rate_limited_max_attempts <= 8:
+            raise ValueError("rate_limited_max_attempts must be between 1 and 8")
 
     def delay(self, attempt: int) -> float:
         """Return the wait after failed attempt number ``attempt`` (one-based)."""
@@ -115,20 +139,31 @@ def is_recoverable(error: BaseException) -> bool:
     """
 
     chain = list(_causes(error))
-    statuses = [item.response.status_code for item in chain if isinstance(item, httpx.HTTPStatusError)]
+    statuses = [item.response.status_code for item in chain if isinstance(item, _STATUS_ERRORS)]
+    statuses += [item.status for item in chain if isinstance(item, GatewayStatusError)]
     if any(status not in RECOVERABLE_STATUS for status in statuses):
         return False
     return bool(statuses) or any(isinstance(item, _LOST_CONNECTION) for item in chain)
 
 
+def _rate_limited(error: BaseException) -> tuple[bool, float | None]:
+    """Return whether the gateway shed this request with 429, and its Retry-After."""
+
+    for item in _causes(error):
+        if isinstance(item, GatewayStatusError) and item.status == RATE_LIMITED:
+            return True, item.retry_after
+        if isinstance(item, _STATUS_ERRORS) and item.response.status_code == RATE_LIMITED:
+            return True, retry_after_seconds(item.response.headers)
+    return False, None
+
+
 def retry_delay(error: BaseException, attempt: int, policy: FailoverPolicy) -> float:
     """Return the wait before repeating after ``error``: jittered for a gateway 429."""
 
-    for item in _causes(error):
-        if isinstance(item, httpx.HTTPStatusError) and item.response.status_code == RATE_LIMITED:
-            return rate_limited_delay(attempt, base_seconds=policy.base_delay_seconds,
-                                      max_seconds=policy.rate_limited_max_delay_seconds,
-                                      retry_after=retry_after_seconds(item.response.headers))
+    shed, retry_after = _rate_limited(error)
+    if shed:
+        return rate_limited_delay(attempt, base_seconds=policy.base_delay_seconds,
+                                  max_seconds=policy.rate_limited_max_delay_seconds, retry_after=retry_after)
     return policy.delay(attempt)
 
 
@@ -166,12 +201,16 @@ async def with_failover(
     """
 
     attempts = policy.max_attempts if may_repeat(tools) else 1
-    for attempt in range(1, attempts + 1):
+    attempt = 1
+    while True:
         try:
             return await call()
         except Exception as error:
-            if attempt == attempts or not is_transient(error):
+            budget = attempts
+            if attempts > 1 and _rate_limited(error)[0]:
+                budget = max(attempts, policy.rate_limited_max_attempts)
+            if attempt >= budget or not is_transient(error):
                 raise
             on_retry(attempt)
             await sleep(retry_delay(error, attempt, policy))
-    raise AssertionError("the loop always returns or raises")
+            attempt += 1
