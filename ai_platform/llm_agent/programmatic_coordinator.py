@@ -86,6 +86,28 @@ class RateLimitedFailure(CoordinatorFailure):
         self.retry_after_seconds = retry_after_seconds
 
 
+class SandboxCapacityFailure(RateLimitedFailure):
+    """kagent refused a Sandbox delegation because the shared WorkerPool has no free worker.
+
+    The refusal comes before any actor runs (JSON-RPC -32603 inside HTTP 200), so the delegation may be sent
+    again once a worker frees up. On GKE a fixed 2-worker pool refused 2 of 6 concurrent delegations
+    and 58 of 100 tasks at concurrency 8 (campaign agi-20261115T145608Z, final regression).
+    """
+
+    def __init__(self) -> None:
+        CoordinatorFailure.__init__(self, "sandbox_capacity_exhausted", "Sandbox WorkerPool has no free worker")
+        self.retry_after_seconds = None
+
+
+_POOL_EXHAUSTED = "substrate worker pool has no free workers"
+
+
+def _pool_exhausted(response: Mapping[str, object]) -> bool:
+    error = response.get("error") if isinstance(response, Mapping) else None
+    return (isinstance(error, Mapping) and error.get("code") == -32603
+            and _POOL_EXHAUSTED in str(error.get("message", "")))
+
+
 @dataclass(frozen=True)
 class RateLimitBackoff:
     """Bounded, jittered repeats of a delegation the A2A Gateway shed with 429.
@@ -99,6 +121,11 @@ class RateLimitBackoff:
     base_delay_seconds: float = 0.25
     max_delay_seconds: float = 2.0
     min_attempt_seconds: float = 1.0
+    # A worker frees when an actor finishes (a cold turn took ~24 s on GKE): wait longer, still inside
+    # the delegation timeout.
+    capacity_max_attempts: int = 12
+    capacity_base_delay_seconds: float = 2.0
+    capacity_max_delay_seconds: float = 10.0
 
     def __post_init__(self) -> None:
         if not 1 <= self.max_attempts <= 6:
@@ -628,26 +655,35 @@ class ProgrammaticCoordinator:
         """Send one delegation, waiting and repeating while the A2A Gateway sheds it (429)."""
 
         deadline = time.monotonic() + call.timeout_seconds
-        for attempt in range(1, self._backoff.max_attempts + 1):
+        attempt = 0
+        while True:
+            attempt += 1
             try:
-                return self._transport(call)
+                response = self._transport(call)
+                if _pool_exhausted(response):
+                    raise SandboxCapacityFailure()
+                return response
             except RateLimitedFailure as exc:
-                if attempt == self._backoff.max_attempts:
+                capacity = isinstance(exc, SandboxCapacityFailure)
+                budget = self._backoff.capacity_max_attempts if capacity else self._backoff.max_attempts
+                if attempt >= budget or self._backoff.max_attempts == 1:
                     raise
-                wait = rate_limited_delay(attempt, base_seconds=self._backoff.base_delay_seconds,
-                                          max_seconds=self._backoff.max_delay_seconds,
-                                          retry_after=exc.retry_after_seconds)
+                wait = rate_limited_delay(
+                    attempt,
+                    base_seconds=self._backoff.capacity_base_delay_seconds if capacity else self._backoff.base_delay_seconds,
+                    max_seconds=self._backoff.capacity_max_delay_seconds if capacity else self._backoff.max_delay_seconds,
+                    retry_after=exc.retry_after_seconds)
                 remaining = deadline - time.monotonic() - wait
                 if remaining < self._backoff.min_attempt_seconds:
                     raise
-                span.add_event("a2a.rate_limited", {"ewallet.attempt": attempt, "ewallet.wait_ms": int(wait * 1000)})
+                span.add_event("a2a.sandbox_capacity" if capacity else "a2a.rate_limited",
+                               {"ewallet.attempt": attempt, "ewallet.wait_ms": int(wait * 1000)})
                 if cancelled is not None:
                     if cancelled.wait(wait):
                         raise CoordinatorFailure("cancelled", "request was cancelled during delegation") from exc
                 else:
                     self._sleep(wait)
                 call = replace(call, timeout_seconds=remaining)
-        raise AssertionError("the loop always returns or raises")
 
     def _delegate(self, request: SpecialistRequest, cancelled: Event | None) -> _MemberOutcome:
         started = time.monotonic()

@@ -173,3 +173,46 @@ class DelayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+POOL_EXHAUSTED = {"jsonrpc": "2.0", "id": "x", "error": {"code": -32603, "message": (
+    "failed to send HTTP request: Post \"http://feature-rag-specialist.ewallet-sandbox:8080\": substrate worker pool "
+    "has no free workers; try again later or increase WorkerPool replicas")}}
+
+
+class SandboxCapacityTests(unittest.TestCase):
+    def test_a_full_worker_pool_is_waited_for_and_the_delegation_completes(self):
+        answers = [POOL_EXHAUSTED, POOL_EXHAUSTED]
+
+        def transport(call):
+            if answers:
+                return answers.pop(0)
+            request_id = call.payload["params"]["message"]["messageId"]
+            return encode_specialist_task(request_id, fraud_evidence(request_id))
+
+        waits = []
+        result = coordinator(transport, waits).handle(a2a_message_send(fraud_request("cap-1")), scope=SCOPE, session_id="s")
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(len(waits), 2)
+        self.assertTrue(all(1.0 <= wait <= 10.0 for wait in waits))
+
+    def test_capacity_waits_end_with_their_own_code(self):
+        waits = []
+        with self.assertRaises(CoordinatorFailure) as caught:
+            coordinator(lambda call: POOL_EXHAUSTED, waits)._send(CALL, None, _NoSpan())
+        self.assertEqual(caught.exception.code, "sandbox_capacity_exhausted")
+        self.assertEqual(len(waits) + 1, RateLimitBackoff().capacity_max_attempts)
+
+    def test_other_json_rpc_errors_are_not_repeated(self):
+        calls = []
+
+        def transport(call):
+            calls.append(call)
+            return {"jsonrpc": "2.0", "id": "x", "error": {"code": -32603, "message": "agent crashed"}}
+
+        response = coordinator(transport, [])._send(CALL, None, _NoSpan())
+        self.assertEqual((len(calls), response["error"]["message"]), (1, "agent crashed"))
+
+    def test_one_attempt_turns_capacity_waits_off_too(self):
+        with self.assertRaises(CoordinatorFailure):
+            coordinator(lambda call: POOL_EXHAUSTED, [], RateLimitBackoff(max_attempts=1))._send(CALL, None, _NoSpan())
