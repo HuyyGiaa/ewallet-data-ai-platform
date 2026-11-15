@@ -1,0 +1,13 @@
+2026-11-15T11:49:48Z kagent preflight PASS: kagent/kagent revision 6, image ghcr.io/kagent-dev/kagent/controller:0.10.3@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76, identity PASS
+2026-11-15T11:49:49Z kagent diff PASS: {"target":"kagent","changed":[["Deployment","kagent","kagent-controller"]]}CANDIDATEPASS
+2026-11-15T11:50:29Z kagent dry-run PASS (server-side)
+2026-11-15T11:54:12Z kagent preflight PASS: kagent/kagent revision 6, image ghcr.io/kagent-dev/kagent/controller:0.10.3@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76, identity PASS
+2026-11-15T11:54:13Z kagent diff PASS: {"target":"kagent","changed":[["Deployment","kagent","kagent-controller"]]}CANDIDATEPASS
+2026-11-15T11:54:53Z kagent dry-run PASS (server-side)
+2026-11-15T11:54:53Z kagent upgrade: upgrade kagent ~/.cache/ewallet-runtime-fix/private-rts-20261115T114235Z/runtime-fix-kagent/chart/kagent-0.10.3.tgz -n kagent --reuse-values -f ~/Develop/ewallet-data-ai-platform/infra/kubernetes/kagent-pilot/values/kagent-runtime-fix-overlay.yaml (from revision 6, image ghcr.io/kagent-dev/kagent/controller:0.10.3@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76)
+2026-11-15T11:56:58Z kagent verify PASS: kagent-controller-99fc4b9b8-whxhh asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a 0 true;
+2026-11-15T13:19:18Z kagent preflight PASS: kagent/kagent revision 7, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller:0.10.3-ewallet.177af5ca@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a, identity PASS
+2026-11-15T13:19:18Z kagent diff PASS: {"target":"kagent","changed":[["Deployment","kagent","kagent-controller"]]}CANDIDATEPASS
+2026-11-15T13:19:58Z kagent dry-run PASS (server-side)
+2026-11-15T13:19:58Z kagent upgrade: upgrade kagent ~/.cache/ewallet-runtime-fix/private-rts-20261115T114235Z/runtime-fix-kagent/chart/kagent-0.10.3.tgz -n kagent --reuse-values -f ~/Develop/ewallet-data-ai-platform/infra/kubernetes/kagent-pilot/values/kagent-runtime-fix-overlay.yaml (from revision 7, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller:0.10.3-ewallet.177af5ca@sha256:d88449a6fa794f77a6894e192b021ed0fcd63d6ef6faa8442c55c13647c9249a)
+2026-11-15T13:21:38Z kagent verify PASS: kagent-controller-c5fd4f4b6-k9vsp asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller@sha256:6d5c9de094c193d8bb4b895c7894c524191310c1018a18e1484b6879f5cd64a1 0 true;

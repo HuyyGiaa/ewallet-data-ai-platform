@@ -1,0 +1,1 @@
+LOAD_ROW {"actor": "asr-7d6f10e44f491be50289d57d", "agent": "drift-specialist", "context": "agi-20261115T114235Z-g5-cancel", "e2e_ms": 5002.643823623657, "error": "TimeoutError", "finished": 1794745258.9604633, "id": "agi-20261115T114235Z-g5-cancel-m0", "ok": false, "phase": "new", "started": 1794745253.9578195, "state": "transport_error"}

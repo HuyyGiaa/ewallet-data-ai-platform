@@ -1,0 +1,1 @@
+authorization: owner directive 'KAGENT & SUBSTRATE RUNTIME STABILITY REMEDIATION' section 10 (conditional rollout); conditions evidenced in package.log

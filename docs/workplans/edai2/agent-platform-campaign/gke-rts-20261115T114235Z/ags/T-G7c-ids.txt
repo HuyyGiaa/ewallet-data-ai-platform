@@ -1,0 +1,2 @@
+context agi-20261115T114235Z-g7-midturn actor asr-6abdb24075733e9174422c8f
+13:42:22 deleting pod/kagent-controller-c5fd4f4b6-ggs94 mid-turn

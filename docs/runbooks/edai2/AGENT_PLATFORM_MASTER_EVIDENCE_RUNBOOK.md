@@ -313,7 +313,12 @@ kubectl --context "$CTX" -n ate-system logs deploy/atenet-router --all-container
 What it deploys (root causes and design: `resume-rca/RCA.md` section 8):
 
 - **PKG-T-SUBSTRATE.** The ate-api image is replaced by the patched v0.0.9 build.
-  Workflows are detached from the caller, and a failed restore rolls back.
+  Workflows are detached from the caller, and a failed restore rolls back. atelet memory
+  becomes 512Mi:1536Mi (`SUBSTRATE_ATELET_MEMORY`): at 512Mi its in-memory pull cache
+  OOM-killed it on GKE.
+- **PKG-T-KAGENT also adds a capacity wait.** A new session waits up to 20 s for a worker
+  that a post-turn suspend is about to release, instead of failing at once with
+  `no free workers`.
 - **PKG-T-KAGENT.** The kagent controller image is replaced by the patched v0.10.3 build
   (session turns), and `SUBSTRATE_CALL_TIMEOUT=90s` is set.
 - **Campaign WorkerPool.** `namespace.yaml` uses the patched ateom (failed activations tear
@@ -376,6 +381,13 @@ Rollback, if a step fails (each records its own pre-upgrade revision and image):
 
 - `RUNTIME_FIX_APPROVAL=PKG-T-KAGENT-ROLLBACK:$CTX scripts/llm_agent/runtime_fix.sh kagent rollback "$PRIVATE"`
 - the same with `substrate` and `PKG-T-SUBSTRATE-ROLLBACK`.
+
+- **Incremental steps.** `runtime_fix.sh` renders its baseline with whatever part of PKG-T
+  is already live, so a later step shows only the remaining diff. Rollback always returns
+  to the revision recorded before the first step.
+- **Result, 2026-11-15 (`rts-20261115T114235Z`):** `RUNTIME_STABILITY_GKE_PASS`. Details
+  are in `resume-rca/RCA.md` section 8.
+- **Live after that run:** kagent revision 8 and Substrate revision 5.
 
 `substrate_pull_auth.sh` renders without `--ateapi-image`. After PKG-T, its identity preflight
 therefore fails closed until it passes the same post-renderer argument.

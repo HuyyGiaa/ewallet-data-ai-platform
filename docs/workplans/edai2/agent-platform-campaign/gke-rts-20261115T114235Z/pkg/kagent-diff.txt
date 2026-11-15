@@ -1,0 +1,2 @@
+{"target": "kagent", "changed": [["Deployment", "kagent", "kagent-controller"]]}
+CANDIDATE PASS

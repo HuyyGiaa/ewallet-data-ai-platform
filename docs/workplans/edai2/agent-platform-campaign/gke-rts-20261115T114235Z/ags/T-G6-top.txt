@@ -1,0 +1,88 @@
+## 13:36:41
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   243m    6%    9300Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   357m    9%    4434Mi   33%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1903m   48%   3171Mi   23%   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   4m    490Mi   
+atelet-qxvf7   1m    229Mi   
+## 13:37:00
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   225m   5%    9298Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   331m   8%    4433Mi   33%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   569m   14%   3195Mi   24%   
+business-agents-deployment-559f57958-4w6bl   7m    2Mi   
+business-agents-deployment-559f57958-b67vq   54m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   18m   444Mi   
+atelet-qxvf7   1m    229Mi   
+## 13:37:19
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   239m    6%    9304Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1260m   32%   4723Mi   35%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1605m   40%   3307Mi   24%   
+business-agents-deployment-559f57958-4w6bl   206m   8Mi   
+business-agents-deployment-559f57958-b67vq   228m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   72m   467Mi   
+atelet-qxvf7   87m   418Mi   
+## 13:37:38
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   239m    6%    9304Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1260m   32%   4723Mi   35%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1605m   40%   3307Mi   24%   
+business-agents-deployment-559f57958-4w6bl   206m   8Mi   
+business-agents-deployment-559f57958-b67vq   228m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   72m   467Mi   
+atelet-qxvf7   87m   418Mi   
+## 13:37:57
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   216m    5%    9297Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1154m   29%   4597Mi   34%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1209m   30%   3190Mi   24%   
+business-agents-deployment-559f57958-4w6bl   201m   11Mi   
+business-agents-deployment-559f57958-b67vq   196m   8Mi    
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   97m   482Mi   
+atelet-qxvf7   58m   421Mi   
+## 13:38:15
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   216m    5%    9297Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1154m   29%   4597Mi   34%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1209m   30%   3190Mi   24%   
+business-agents-deployment-559f57958-4w6bl   232m   8Mi   
+business-agents-deployment-559f57958-b67vq   225m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   74m   483Mi   
+atelet-qxvf7   62m   428Mi   
+## 13:38:34
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   238m    6%    9294Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1396m   35%   4744Mi   35%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1569m   40%   3335Mi   25%   
+business-agents-deployment-559f57958-4w6bl   232m   8Mi   
+business-agents-deployment-559f57958-b67vq   225m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   74m   483Mi   
+atelet-qxvf7   62m   428Mi   
+## 13:38:58
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   212m    5%    9290Mi   69%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1062m   27%   4622Mi   34%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1236m   31%   3237Mi   24%   
+business-agents-deployment-559f57958-4w6bl   211m   8Mi   
+business-agents-deployment-559f57958-b67vq   213m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   46m   486Mi   
+atelet-qxvf7   83m   441Mi   
+## 13:39:16
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   272m    6%    9303Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1467m   37%   4742Mi   35%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1617m   41%   3335Mi   25%   
+business-agents-deployment-559f57958-4w6bl   229m   8Mi   
+business-agents-deployment-559f57958-b67vq   206m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   80m   483Mi   
+atelet-qxvf7   82m   428Mi   
+## 13:39:35
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   272m    6%    9303Mi   70%   
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   1467m   37%   4742Mi   35%   
+gke-ewallet-dev-cpu-pool-58daed59-r642   1617m   41%   3335Mi   25%   
+business-agents-deployment-559f57958-4w6bl   229m   8Mi   
+business-agents-deployment-559f57958-b67vq   206m   8Mi   
+atelet-p59dx   1m    18Mi    
+atelet-qk7ck   80m   483Mi   
+atelet-qxvf7   82m   428Mi   

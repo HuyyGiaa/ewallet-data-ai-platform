@@ -1,0 +1,4 @@
+workerpool.ate.dev/business-agents patched
+{"resources":{"limits":{"cpu":"1500m","memory":"2Gi"},"requests":{"cpu":"500m","memory":"1Gi"}}}
+business-agents-deployment-559f57958-4w6bl 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-r642
+business-agents-deployment-559f57958-b67vq 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-5ds7

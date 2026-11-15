@@ -11,6 +11,10 @@ Verdicts:
   unmodified kagent controller is still vulnerable to unpaced multi-turn requests (section 7).
 - New, separate finding: concurrent first-turn restores can exceed kagent's 30 s
   `--substrate-call-timeout` and leave an actor stuck `RESUMING` (section 7.3).
+- **`RUNTIME_STABILITY_GKE_PASS`** (campaign `rts-20261115T114235Z`, section 8). The runtime is
+  fixed in our pinned builds of kagent v0.10.3 and Substrate v0.0.9 (patches in
+  `infra/kubernetes/kagent-pilot/patches/`). Upstream is unchanged. The client pacing (section
+  6) is no longer needed.
 
 ## 1. What fails
 
@@ -217,3 +221,190 @@ Remediation, not deployed (each needs an owner decision):
   - after cleanup: `ags/RESUME-residual-actors-after-cleanup.txt` (`ewallet-sandbox`)
     and `ags/RESUME-golden-after-cleanup.txt`.
   - Deletion needs `RESIDUE_APPROVAL`.
+
+## 8. Runtime fix (PKG-T) and GKE verification (`rts-20261115T114235Z`, 2026-11-15)
+
+Evidence: `../gke-rts-20261115T114235Z/`. Procedure: runbook section 2.3c.
+
+Four things are kept apart below:
+
+- **Upstream**: kagent v0.10.3 (tag `8878c39`) and Substrate v0.0.9 (`136dbb16`). Unchanged.
+- **Our modifications**: two patches, recorded with their SHA-256 in `runtime-fix.json`.
+- **The deployed runtime**: the PKG-T images and settings.
+- **The GKE observations**.
+
+### 8.1 Root causes
+
+| | Defect | Facts (source and GKE) | Layer fixed |
+|---|---|---|---|
+| F1 | Multi-turn race | kagent suspends in a detached goroutine after each turn. `EnsureSessionActor` treats SUSPENDING and RESUMING as "nothing to do". A follow-up waited 120 s for RUNNING (sections 2–5). | kagent transport and backend |
+| F2 | 30 s restore deadline | kagent `--substrate-call-timeout` defaults to 30 s and bounds the blocking `ResumeActor`. Two co-located restores took about 30 s. | kagent setting |
+| F3 | Stuck RESUMING, worker leaked | ate-api ran the resume workflow on the caller's context. When the caller gave up after `AssignWorker`, no rollback ran: the actor stayed RESUMING with its worker claimed (`workflow_resume.go`). ateom's failed `RestoreWorkload` cleaned up only the network, so the sandbox kept running (GKE: the app booted 7 s after the cancel). | ate-api and ateom |
+| F4 | Placement | The installed WorkerPool CRD (structural) has only `nodeAffinity`, `nodeSelector`, `priorityClassName`, `resources` and `tolerations` under `spec.template`. Pod anti-affinity and topology spread cannot be expressed. | measured, no constraint (8.5) |
+| F5 | `httpx`/`pydantic` missing | Both are declared and locked in `infra/docker/llm-agent-tooling`. The tests were run with the conda interpreter instead of `uv run --project …`. The `uv` contract test also scanned an ignored worktree's venvs. | test contract |
+| F6 | atelet OOM (found on GKE) | `memorypullcache` holds the flattened image (203 MiB for the business agents) in memory, and `io.ReadAll` needs about 2× that. The 512Mi limit from our own post-renderer OOM-killed atelet three times. Resumes failed with `Unavailable`/`EOF`. | Substrate config |
+| F7 | `no free workers` between sessions (found on GKE) | A post-turn suspend holds its worker for 1–2 s. With 2 workers and 2 busy agents, a new session failed immediately; upstream deliberately does not retry. | kagent |
+
+### 8.2 Fixes
+
+**kagent v0.10.3 patch** (`kagent-0.10.3-session-turns.patch`, sha256 `ea032b19…`):
+
+- `pkg/sandboxbackend/substrate/session_turns.go`: per-session turns, keyed by atespace and
+  actor ID.
+  - A turn owns its actor from before `EnsureSessionActor` until its post-turn suspend has
+    finished. If another turn is already waiting, the RUNNING actor is handed over instead.
+  - Turns of different sessions never wait for each other.
+  - The queue is bounded to 8 waiters and the wait to 10 min, also cut by the request
+    context.
+  - The suspend, with retries on `Aborted`, is bounded to 2 min. The settle after a failed
+    turn is bounded to 6 min, longer than ate-api's 5 min workflow deadline.
+  - Idle entries are deleted. If every waiter of a handed-over actor gives up, that actor is
+    suspended (reclaim).
+- `agent_actor.go`, `bringUp`:
+  - SUSPENDING → finish or join the suspend, then resume.
+  - RESUMING → `ResumeActor` again; ate-api's workflow is re-entrant.
+  - `Aborted` → settle.
+  - `no free workers` → wait up to 20 s for a worker (F7), then fail with `ErrNoFreeWorkers`.
+  - Session deletion takes the turn.
+- `internal/a2a/substrate_sandbox_transport.go`: every request runs inside a turn. The turn
+  ends when the response body is closed, or as a backstop when the request context ends.
+
+**Substrate v0.0.9 patch** (`substrate-0.0.9-resume-recovery.patch`, sha256 `0291af52…`):
+
+- ate-api `workflow.go`: the workflow context is detached from caller cancellation. It is
+  bounded by `--actor-workflow-deadline` (5 min) and by lock loss.
+- ate-api `workflow_resume.go`: any non-crash failure of the restore step (atelet dial,
+  workload spec, Run/Restore) rolls the actor back to SUSPENDED and frees its worker.
+  - The worker write is version-checked, and only a worker still assigned to this actor is
+    freed.
+  - The rollback is skipped if the lock was lost, and for PAUSED actors.
+  - Crashes keep the upstream semantics (CRASHED, no rollback).
+  - Two upstream tests that pinned the old RESUMING contract are updated.
+- ateom `sandbox_teardown.go`:
+  - A failed or cancelled activation force-deletes the containers it created.
+  - A success that its caller never receives is torn down.
+  - A stale recorded sandbox is removed before the next activation, with a PID fallback that
+    signals only processes whose command line is `runsc`.
+  - Every teardown is bounded to 30 s.
+
+**Configuration:**
+
+- `SUBSTRATE_CALL_TIMEOUT=90s`: kagent controller env, set through the chart's
+  `controller.env`.
+- atelet memory `512Mi:1536Mi`: Substrate post-renderer `--atelet-memory`, F6.
+- Campaign WorkerPool `ateomImage`: the patched ateom. `kagent-pilot` keeps the release image.
+
+### 8.3 Timeout hierarchy
+
+From outside in:
+
+| Layer | Bound |
+|---|---|
+| Coordinator member call | 480 s |
+| A2A Gateway sandbox route | 150 s |
+| kagent A2A client | none |
+| Turn wait | ≤ 10 min, cut by the request |
+| `ResumeActor` | **90 s** (was 30) |
+| Reachability wait | 120 s |
+| Specialist business turn | drift 60 s, feature-rag 120 s |
+| ate-api workflow (detached) | 300 s |
+
+Measured on GKE:
+
+- ateom restore alone: 16–18 s.
+- atelet restore total: 26.3–27.8 s with two concurrent restores on one node.
+- End to end: 28.6–29.5 s on one node, 20–24 s on separate nodes, 36.7 s worst on a
+  cold-cache first pull.
+
+Why 90 s:
+
+- It is about 3× the worst co-located restore and 2.4× the cold-cache case.
+- It stays below the reachability wait and the 150 s gateway.
+- A call that does run out no longer strands anything: the workflow finishes detached, and
+  the failed turn suspends the actor.
+
+Limitation: a 90 s resume plus a 120 s feature-rag business turn can exceed the gateway's
+150 s. That budget predates PKG-T and is outside this change.
+
+### 8.4 Local tests
+
+- **kagent patch:**
+  - 14 transport tests drive the real RoundTrip and backend against a blocking ate-api fake
+    with per-actor locks, client deadlines and failure injection. They cover follow-ups
+    during RUNNING, SUSPENDING and SUSPENDED, concurrent same-context requests, independent
+    sessions, cancellation while waiting and during execution, suspend and resume failure,
+    a resume outliving the caller's deadline, 10 rapid cycles, a 120-request stress run and
+    the capacity wait.
+  - Coordinator tests cover the queue bound, idle cleanup, both reclaim orderings and the
+    capacity bound.
+  - Everything runs under `-race`.
+  - Against unmodified v0.10.3, 9 of the 14 fail
+    (`gke-rts-…/build/upstream-kagent-0.10.3-turn-tests.txt`).
+- **Substrate patch:**
+  - 7 failure-injection tests run on the upstream envtest, miniredis and fake-atelet
+    harness: caller deadline mid-restore, deadline then failure, capacity returning, a
+    concurrent retry during a detached restore, a dial failure, delete after failure, and
+    crash semantics.
+  - Against unmodified v0.0.9, 6 fail, all with the GKE symptoms; the crash control passes
+    on both (`upstream-substrate-0.0.9-recovery-tests.txt`).
+  - 5 ateom teardown tests run as root with a fake `runsc`.
+- **Image build:** it runs the suites of every touched module: 8 kagent packages
+  (`-short -race`) and 24 Substrate packages (`-race`).
+- **Python:** `uv run --locked --project infra/docker/llm-agent-tooling --group test python
+  -m pytest -q tests/ci tests/experiments tests/ops/test_cloud_lab.py
+  tests/ops/test_cloud_lab_guarded_sleep.py tests/ops/test_r2_terraform.py
+  tests/unit/test_uv_dependency_contract.py` passes.
+  - Exception: one pre-existing, unrelated failure,
+    `test_vllm_bench_session.py::test_only_bench_objects_are_changed`, which fails on HEAD
+    too.
+  - `uv lock --check` passes for every project.
+
+### 8.5 GKE results
+
+The run used the `agent-sandbox` profile on 3 nodes: awake 11:43–13:52 UTC, sleep
+`SLEEP_VERIFIED`. During that window the laptop running the campaign lost power from about
+12:23 to 13:04 UTC; the cluster state survived.
+
+| Phase | Result | Evidence (`ags/`) |
+|---|---|---|
+| G2 single session, paced | First run: 2 of 3 resumes failed with atelet OOM (F6). After the fix: 4 turns, 3 genuine resumes on actor `asr-57cf1a04…`, no `rpc_error`, no atelet restart. | `T-G2-run1-atelet-oom.txt`, `T-G2.txt` |
+| G3 rapid unpaced | 16 follow-ups (14 arriving while the previous suspend was in flight) and 8 burst messages, all served; one actor per context. 2 of 4 new sessions failed with `no free workers` (F7, before the capacity fix). | `T-G3.txt` |
+| G4 concurrent first turns | 3 rounds × both Specialists on separate nodes: 6 of 6 served, ateom 16–18 s. | `T-G4*.txt` |
+| G4b co-located | Both workers pinned to one node (nodeAffinity, then removed): 6 of 6 served, end to end 28.6–29.5 s, atelet total 26.3–27.8 s. | `T-G4b*.txt` |
+| G5 forced cancel | Client gave up after 5 s of the first restore. The restore finished detached (17.5 s), kagent's failed turn suspended the actor, and the worker was free with no pod restarted. The same context was then served twice on the same actor. | `T-G5*.txt` |
+| G6 bounded load | 2 agents × 3 contexts × 3 unpaced: 18 of 18 served. ate-api refused `no free workers` twice and the capacity wait absorbed both. Peaks: node 1.9 of 3.92 CPU, atelet 490 Mi. | `T-G6*.txt` |
+| G7 controller restart | (a) Restart between turns: the next turns were served on the same actor. (b) Pod deleted mid-turn: the client got `RemoteDisconnected`. The restore finished 14 s later, and the terminating controller suspended the actor within its 30 s grace. | `T-G7*.txt` |
+
+Totals over the measured runs:
+
+- 67 turns; 65 had no `rpc_error`, and the 2 that did are the pre-fix F7 cases in G3.
+- 28 + 8 messages arrived while an actor was SUSPENDING.
+- No context had more than one actor, and no actor was left in a transitional state.
+- 5 workers served both agents (sharing).
+- Source: `T-report.json`.
+
+**Placement (F4).** Measured CPU requests were 87%, 97% and 53% per node. The pinned pod
+could not schedule on the 87% node (`Insufficient cpu`). Co-located workers met the restore
+budget, at about 4 s more ateom time. Hard anti-affinity is not expressible in the CRD and is
+not needed for correctness. Default scheduling stays.
+
+### 8.6 Limitations and rollback
+
+- **The pinned fork, not upstream, is fixed.** An unmodified kagent v0.10.3 or Substrate
+  v0.0.9 still has F1–F3.
+- **Single controller process.** Turn state is in memory and assumes one kagent controller
+  replica, the chart value `controller.replicas: 1`. A SIGKILL or crash during a turn whose
+  restore outlasts the 30 s grace leaves the actor RUNNING without an owner until that
+  session's next turn. A start-up reconciliation would close this; it is not implemented.
+- **ate-api crash.** If ate-api dies mid-workflow, an abandoned RESUMING actor remains. The
+  next turn's re-entrant `ResumeActor` recovers it.
+- **Unrebuilt images.** atelet, atecontroller and atenet still run the release images, which
+  fail the Trivy gate (Go stdlib and module CVEs). They were not rebuilt because their source
+  did not change.
+- **Log retention.** ate-api and kagent logs from before the restarts were not retained; the
+  sampler's 1 s `ListActors` load also rotates them. The per-cycle evidence is the driver
+  rows, the sampler and the worker and atelet logs.
+- **Rollback.** `runtime_fix.sh <kagent|substrate> rollback` returns to the recorded
+  original revisions: kagent 6 (image `b2572a59…`) and Substrate 3 (ate-api `3c50661b…`,
+  atelet 128Mi/512Mi). After rollback the identity gate compares against the original
+  render.

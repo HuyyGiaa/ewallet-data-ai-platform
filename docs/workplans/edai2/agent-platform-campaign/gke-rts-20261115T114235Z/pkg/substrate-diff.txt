@@ -1,0 +1,2 @@
+{"target": "substrate", "changed": [["DaemonSet", "ate-system", "atelet"]]}
+CANDIDATE PASS

@@ -1,0 +1,16 @@
+    functional_recovery_test.go:84: actor id1: want STATUS_RUNNING within 5s, last STATUS_RESUMING
+--- FAIL: TestResumeActor_CallerDeadlineDoesNotStrandActor (6.83s)
+    functional_recovery_test.go:102: actor id1: want STATUS_SUSPENDED within 5s, last STATUS_RESUMING
+--- FAIL: TestResumeActor_CallerDeadlineThenRestoreFailureRollsBack (5.63s)
+    functional_recovery_test.go:127: single worker must be free after rollback, got rpc error: code = FailedPrecondition desc = no free workers available
+--- FAIL: TestResumeActor_CapacityReturnsAfterFailedRestore (0.33s)
+    functional_recovery_test.go:155: second resume during the detached workflow: want Aborted, got <nil>
+--- FAIL: TestResumeActor_ConcurrentRetryDuringDetachedRestore (2.54s)
+    functional_recovery_test.go:193: actor id1: want STATUS_SUSPENDED within 2s, last STATUS_RESUMING
+--- FAIL: TestResumeActor_DialFailureRollsBack (2.43s)
+--- PASS: TestResumeActor_CrashIsNotRolledBack (0.43s)
+    functional_recovery_test.go:219: DeleteActor after rollback: rpc error: code = FailedPrecondition desc = Actor id1 is not suspended (status: STATUS_RESUMING)
+--- FAIL: TestDeleteActor_AfterFailedRestore (0.32s)
+FAIL
+FAIL	github.com/agent-substrate/substrate/cmd/ateapi/internal/controlapi	53.445s
+FAIL

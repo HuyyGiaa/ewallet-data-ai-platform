@@ -68,13 +68,17 @@ def summarize_status(paths: Iterable[str]) -> dict:
     stretch: dict[str, float] = {}
     start: dict[str, tuple[str, float]] = {}
     served: dict[str, set] = defaultdict(set)
-    samples = 0
+    samples = malformed = 0
     last_t = None
     for path in paths:
         for line in Path(path).read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
-            sample = json.loads(line)
+            try:
+                sample = json.loads(line)
+            except json.JSONDecodeError:  # a recorder killed mid-write (power loss) leaves a partial line
+                malformed += 1
+                continue
             samples += 1
             t = sample.get("t")
             last_t = t
@@ -95,6 +99,7 @@ def summarize_status(paths: Iterable[str]) -> dict:
     open_transitional = {a: s for a, (s, _) in start.items()}
     return {
         "samples": samples,
+        "malformed_lines": malformed,
         "longest_transitional_s": dict(sorted(((k, round(v, 1)) for k, v in stretch.items()), key=lambda kv: -kv[1])[:10]),
         "still_transitional_at_end": open_transitional,
         "workers_serving_both_agents": sorted(p for p, a in served.items() if len(a) > 1),

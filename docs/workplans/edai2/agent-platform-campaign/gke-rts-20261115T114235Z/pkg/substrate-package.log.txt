@@ -1,0 +1,17 @@
+2026-11-15T11:48:21Z substrate preflight PASS: ate-system/substrate revision 3, image ghcr.io/kagent-dev/substrate/ateapi:v0.0.9@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85, identity PASS
+2026-11-15T11:48:23Z substrate diff PASS: {"target":"substrate","changed":[["Deployment","ate-system","ate-api-server-deployment"]]}CANDIDATEPASS
+2026-11-15T11:49:21Z substrate dry-run PASS (server-side)
+2026-11-15T11:51:10Z substrate preflight PASS: ate-system/substrate revision 3, image ghcr.io/kagent-dev/substrate/ateapi:v0.0.9@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85, identity PASS
+2026-11-15T11:51:12Z substrate diff PASS: {"target":"substrate","changed":[["Deployment","ate-system","ate-api-server-deployment"]]}CANDIDATEPASS
+2026-11-15T11:52:06Z substrate dry-run PASS (server-side)
+2026-11-15T11:52:06Z substrate upgrade: upgrade substrate ~/.cache/ewallet-runtime-fix/private-rts-20261115T114235Z/runtime-fix-substrate/chart/substrate-0.0.9.tgz -n ate-system --reuse-values (from revision 3, image ghcr.io/kagent-dev/substrate/ateapi:v0.0.9@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85)
+2026-11-15T11:53:47Z substrate verify PASS: ate-api-server-deployment-749c44fcb8-6x7c4 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841 0 true;
+2026-11-15T11:57:02Z substrate verify PASS: ate-api-server-deployment-749c44fcb8-6x7c4 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841 0 true;
+2026-11-15T12:04:58Z substrate preflight PASS: ate-system/substrate revision 4, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841, identity PASS
+2026-11-15T12:05:00Z substrate diff PASS: {"target":"substrate","changed":[["DaemonSet","ate-system","atelet"]]}CANDIDATEPASS
+2026-11-15T12:05:58Z substrate dry-run PASS (server-side)
+2026-11-15T12:06:30Z substrate preflight PASS: ate-system/substrate revision 4, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841, identity PASS
+2026-11-15T12:06:32Z substrate diff PASS: {"target":"substrate","changed":[["DaemonSet","ate-system","atelet"]]}CANDIDATEPASS
+2026-11-15T12:07:26Z substrate dry-run PASS (server-side)
+2026-11-15T12:07:26Z substrate upgrade: upgrade substrate ~/.cache/ewallet-runtime-fix/private-rts-20261115T114235Z/runtime-fix-substrate/chart/substrate-0.0.9.tgz -n ate-system --reuse-values (from revision 4, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841)
+2026-11-15T12:08:59Z substrate verify PASS: ate-api-server-deployment-749c44fcb8-6x7c4 asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841 0 true;

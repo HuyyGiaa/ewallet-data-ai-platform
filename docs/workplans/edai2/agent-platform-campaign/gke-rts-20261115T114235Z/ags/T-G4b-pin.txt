@@ -1,0 +1,8 @@
+workerpool.ate.dev/business-agents patched
+business-agents-deployment-559f57958-d9mpp 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-r642
+business-agents-deployment-559f57958-jtjtg 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-5ds7
+business-agents-deployment-dd898678b-qg994 0/1 Pending <none>
+workerpool.ate.dev/business-agents patched
+business-agents-deployment-559f57958-jtjtg 0/1 Error gke-ewallet-dev-cpu-pool-58daed59-5ds7
+business-agents-deployment-65d6bcf5dd-jjkbz 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-r642
+business-agents-deployment-65d6bcf5dd-z85kv 1/1 Running gke-ewallet-dev-cpu-pool-58daed59-r642

@@ -1,0 +1,2 @@
+WorkerPool spec.template fields: ['nodeAffinity', 'nodeSelector', 'priorityClassName', 'resources', 'tolerations']
+preserve-unknown: None

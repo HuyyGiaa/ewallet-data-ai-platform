@@ -1,0 +1,17 @@
+--- FAIL: TestTurnFollowUpDuringRunning (0.47s)
+--- FAIL: TestTurnFollowUpDuringSuspending (5.08s)
+--- PASS: TestTurnFollowUpAfterSuspended (0.25s)
+--- FAIL: TestTurnConcurrentSameContext (5.00s)
+--- PASS: TestTurnIndependentContextsRunConcurrently (0.41s)
+--- FAIL: TestTurnCancelWhileWaiting (0.52s)
+--- PASS: TestTurnCancelDuringExecution (0.15s)
+--- PASS: TestTurnSuspendFailure (0.18s)
+--- FAIL: TestTurnSuspendAbortedIsRetried (5.11s)
+--- PASS: TestTurnResumeFailure (0.14s)
+--- FAIL: TestTurnResumeOutlivesCallerDeadline (5.16s)
+--- FAIL: TestTurnRepeatedRapidCycles (5.06s)
+--- FAIL: TestTurnStress (100.02s)
+--- FAIL: TestTurnCapacityWaitForAReleasingWorker (0.08s)
+FAIL
+FAIL	github.com/kagent-dev/kagent/go/core/internal/a2a	127.663s
+FAIL

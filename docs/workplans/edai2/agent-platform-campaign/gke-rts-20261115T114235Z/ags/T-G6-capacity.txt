@@ -1,0 +1,9 @@
+ate-api 'no free workers' refusals during G6: 2
+peak atelet-p59dx                     cpu 1m mem 18Mi
+peak atelet-qk7ck                     cpu 97m mem 490Mi
+peak atelet-qxvf7                     cpu 87m mem 441Mi
+peak nts-deployment-559f57958-4w6bl   cpu 232m mem 11Mi
+peak nts-deployment-559f57958-b67vq   cpu 228m mem 8Mi
+peak let-dev-cpu-pool-58daed59-0kwf   cpu 272m mem 9304Mi
+peak let-dev-cpu-pool-58daed59-5ds7   cpu 1467m mem 4744Mi
+peak let-dev-cpu-pool-58daed59-r642   cpu 1903m mem 3335Mi

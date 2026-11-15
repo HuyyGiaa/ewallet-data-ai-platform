@@ -1,0 +1,57 @@
+## nodes
+NAME                                     STATUS   ROLES    AGE   VERSION               INTERNAL-IP   EXTERNAL-IP     OS-IMAGE                             KERNEL
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   Ready    <none>   47s   v1.36.4-gke.2377000   10.20.0.51    34.177.97.207   Container-Optimized OS from Google   6.12.1
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   Ready    <none>   48s   v1.36.4-gke.2377000   10.20.0.50    34.87.154.144   Container-Optimized OS from Google   6.12.1
+gke-ewallet-dev-cpu-pool-58daed59-r642   Ready    <none>   42s   v1.36.4-gke.2377000   10.20.0.52    34.142.215.25   Container-Optimized OS from Google   6.12.1
+## allocatable
+N                                        CPU     MEM
+gke-ewallet-dev-cpu-pool-58daed59-0kwf   3920m   13591616Ki
+gke-ewallet-dev-cpu-pool-58daed59-5ds7   3920m   13591624Ki
+gke-ewallet-dev-cpu-pool-58daed59-r642   3920m   13591624Ki
+## helm
+NAME           	NAMESPACE      	REVISION	UPDATED                                	STATUS  	CHART                   	APP VERSION        
+cert-manager   	cert-manager   	1       	2026-10-31 23:45:47.759382847 +0700 +07	deployed	cert-manager-v1.16.2    	v1.16.2            
+ewallet-serving	ml-platform    	3       	2026-11-08 04:01:06.936550977 +0700 +07	deployed	ewallet-serving-0.1.0   	1                  
+istio-base     	istio-system   	13      	2026-11-01 19:46:07.372035097 +0700 +07	deployed	base-1.30.7             	1.30.7             
+istio-cni      	istio-system   	13      	2026-11-01 19:46:20.665479437 +0700 +07	deployed	cni-1.30.7              	1.30.7             
+istiod         	istio-system   	13      	2026-11-01 19:46:15.789551942 +0700 +07	deployed	istiod-1.30.7           	1.30.7             
+kagent         	kagent         	6       	2026-11-15 12:55:08.169002941 +0700 +07	deployed	kagent-0.10.3           	                   
+kagent-crds    	kagent         	1       	2026-11-02 00:21:10.308093322 +0700 +07	deployed	kagent-crds-0.10.3      	                   
+keda           	keda           	1       	2026-11-08 03:50:36.976993608 +0700 +07	deployed	keda-2.21.0             	2.21.0             
+kserve         	kserve         	1       	2026-10-31 23:46:51.279849443 +0700 +07	deployed	kserve-v0.16.0          	                   
+kserve-crd     	kserve         	1       	2026-10-31 23:46:41.35893481 +0700 +07 	deployed	kserve-crd-v0.16.0      	                   
+llm-agent      	default        	42      	2026-11-08 03:53:37.239598695 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1       
+llm-agent-mcp  	ewallet-mcp    	6       	2026-11-02 21:53:21.797838693 +0700 +07	deployed	llm-agent-platform-0.1.0	llm-agent-v1       
+llm-gpu-router 	ewallet-llm-gpu	2       	2026-11-08 21:03:55.371682704 +0700 +07	deployed	llm-gpu-router-0.1.0    	llm-d-router-v1.0.0
+prompt-registry	ewallet-prompts	1       	2026-11-03 15:17:38.539633472 +0700 +07	deployed	agentregistry-0.4.0     	v0.4.0             
+substrate      	ate-system     	3       	2026-11-15 13:57:17.208940858 +0700 +07	deployed	substrate-0.0.9         	v0.0.9             
+substrate-crds 	ate-system     	1       	2026-11-02 19:28:28.166609859 +0700 +07	deployed	substrate-crds-0.0.9    	v0.0.9             
+ztunnel        	istio-system   	13      	2026-11-01 19:46:25.93387463 +0700 +07 	deployed	ztunnel-1.30.7          	1.30.7             
+## images
+ghcr.io/kagent-dev/kagent/controller:0.10.3@sha256:b2572a59386b6bac1f5e652e135fdad54c0ee603d3f9ee60eb7c80bbaedf9b76
+K            N                           IMG
+Deployment   ate-api-server-deployment   ghcr.io/kagent-dev/substrate/ateapi:v0.0.9@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85
+Deployment   ate-controller              ghcr.io/kagent-dev/substrate/atecontroller:v0.0.9@sha256:dc29e79987fe4177b92c8b30a4fa4f36f3cf1a80937b03a7a8cd3411f98693e5
+Deployment   atenet-router               ghcr.io/kagent-dev/substrate/atenet:v0.0.9@sha256:15892218c70e736bca06bd9f1134425897f8b9c265428f932de5d6d779e9452a,cr.agentgateway.dev/agentgateway:v1.3.0-alph
+Deployment   dns                         coredns/coredns:1.11.1@sha256:1eeb4c7316bacb1d4c8ead65571cd92dd21e27359f0d4917f1a5822a73b75db1,ghcr.io/kagent-dev/substrate/atenet:v0.0.9@sha256:15892218c70e73
+Deployment   rustfs                      rustfs/rustfs:1.0.0-beta.3@sha256:378642b05b7dcb4849fb77ebe6aca4ced1c3f66e7e504247df95a5c9018d3358
+DaemonSet    atelet                      ghcr.io/kagent-dev/substrate/atelet:v0.0.9@sha256:ec3e842a1a0a060192710c34be83354d0b45e8d0e40342384d3b836413c3c8e1
+## crds
+N                          V          GEN
+workerpools.ate.dev        v1alpha1   1
+actortemplates.ate.dev     v1alpha1   1
+sandboxagents.kagent.dev   v1alpha2   1
+## workerpools
+NAMESPACE      NAME           DESIRED   REPLICAS   AGE
+kagent-pilot   kagent-pilot   1         1          12d
+## pdb
+NAMESPACE        NAME                                    MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+ewallet-agents   drift-mcp                               1               N/A               0                     13d
+ewallet-agents   drift-specialist                        1               N/A               0                     12d
+ewallet-agents   feature-rag-specialist                  1               N/A               0                     12d
+ewallet-agents   fraud-coordinator                       1               N/A               0                     12d
+ewallet-mcp      drift-mcp                               1               N/A               0                     13d
+kube-system      filestore-lock-release-controller-pdb   N/A             1                 0                     24d
+kagent: kagent-controller-6b98b7d4c5-pd8lv:1/1:Running kagent-postgresql-58997cbd8-6hzcv:1/1:Running kagent-ui-7fc9467f99-m8nnd:1/1:Running 
+ate-system: ate-api-server-deployment-6558549c7c-nkckf:1/1:Running ate-controller-6bcb5b4bf7-bsqk9:1/1:Running atelet-26pf6:1/1:Running atelet-hq7vt:1/1:Running atelet-x5m4r:1/1:Running atenet-router-85b65959f5-nhjz2:2/2:Running dns-669f5bf88b-4vvks:2/2:Running rustfs-5587886f5c-l2nvr:1/1:Running valkey-cluster-0:2/2:Running valkey-cluster-1:2/2:Running valkey-cluster-2:2/2:Running valkey-cluster-
+kagent-pilot: kagent-pilot-deployment-9b94d6787-6mc8z:1/1:Running mock-openai-5fd687968d-zqgrs:1/1:Running 

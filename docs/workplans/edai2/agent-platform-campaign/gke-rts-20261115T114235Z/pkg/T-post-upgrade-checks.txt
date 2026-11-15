@@ -1,0 +1,20 @@
+## controller env
+SSL_CERT_FILE=/etc/substrate-ca/ca.crt
+SUBSTRATE_CALL_TIMEOUT=90s
+## controller log
+{"level":"info","ts":"2026-11-15T11:56:02Z","logger":"setup","msg":"Starting KAgent Controller","version":"0.10.3","git_commit":"8878c39+ewallet.177af5ca","build_date":"2026-10-02","config":{"Metrics":{"Addr":"0","CertPath":"","CertName":"tls.crt","C
+{"level":"info","ts":"2026-11-15T11:56:03Z","msg":"Starting EventSource","controller":"agentharness-substrate","controllerGroup":"kagent.dev","controllerKind":"AgentHarness","source":"kind source: *v1alpha1.ActorTemplate"}
+{"level":"info","ts":"2026-11-15T11:56:03Z","msg":"Starting EventSource","controller":"agentharness-substrate","controllerGroup":"kagent.dev","controllerKind":"AgentHarness","source":"kind source: *v1alpha2.AgentHarness"}
+## pilot
+NAME                                          READY   ACCEPTED
+sandboxagent.kagent.dev/pilot-sandbox-agent   True    True
+
+NAME                              DESIRED   REPLICAS   AGE
+workerpool.ate.dev/kagent-pilot   1         1          12d
+
+NAME                                                         CLASS
+actortemplate.ate.dev/pilot-sandbox-agent-6f000f880e9fe909   gvisor
+## ate-api WorkerPool errors after start
+1
+0
+"Substrate":{"AteAPIEndpoint":"dns:///api.ate-system.svc:443","AteAPITokenFile":"/var/run/secrets/tokens/ate-api/token","AtenetRouterURL":"http://atenet-router.ate-system.svc:80","Insecure":false,"DialTimeout":10000000000,"CallTimeout":90000000000,"DefaultWorkerPoolNamespace":"kagent-pilot","DefaultWorkerPoolName":"kagent-pilot","PauseImage":"gcr.io/gke-release/pause@sha256:bcbd57ba5653580ec647b16d8163cdd1112df3609129b01f912a8032e48265da"}

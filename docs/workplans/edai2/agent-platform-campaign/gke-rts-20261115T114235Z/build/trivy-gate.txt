@@ -1,0 +1,3 @@
+substrate-ateapi.json CRITICAL/HIGH fixable + secrets: 0 image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52
+substrate-ateom-gvisor.json CRITICAL/HIGH fixable + secrets: 0 image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52
+kagent-controller.json CRITICAL/HIGH fixable + secrets: 0 image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller:0.10.3-ewallet.ea032b19

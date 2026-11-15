@@ -1,0 +1,8 @@
+REVISION	UPDATED                 	STATUS    	CHART        	APP VERSION	DESCRIPTION     
+4       	Mon Nov  2 19:32:46 2026	superseded	kagent-0.10.3	           	Rollback to 2   
+5       	Mon Nov  2 19:37:39 2026	superseded	kagent-0.10.3	           	Upgrade complete
+6       	Sun Nov 15 12:55:08 2026	deployed  	kagent-0.10.3	           	Upgrade complete
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION     
+1       	Mon Nov  2 19:28:51 2026	superseded	substrate-0.0.9	v0.0.9     	Install complete
+2       	Sun Nov  8 02:49:58 2026	superseded	substrate-0.0.9	v0.0.9     	Upgrade complete
+3       	Sun Nov 15 13:57:17 2026	deployed  	substrate-0.0.9	v0.0.9     	Upgrade complete

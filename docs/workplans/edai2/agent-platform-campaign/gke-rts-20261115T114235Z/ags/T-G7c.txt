@@ -1,0 +1,1 @@
+LOAD_ROW {"actor": "asr-6abdb24075733e9174422c8f", "agent": "drift-specialist", "context": "agi-20261115T114235Z-g7-midturn", "e2e_ms": 8226.794719696045, "error": "RemoteDisconnected", "finished": 1794750143.9466293, "id": "agi-20261115T114235Z-g7-midturn-m0", "ok": false, "phase": "new", "started": 1794750135.7198346, "state": "transport_error"}

@@ -1,0 +1,8 @@
+N              NODE                                     RS    REQ     LIM
+atelet-p59dx   gke-ewallet-dev-cpu-pool-58daed59-0kwf   0     512Mi   1536Mi
+atelet-qk7ck   gke-ewallet-dev-cpu-pool-58daed59-r642   0     512Mi   1536Mi
+atelet-qxvf7   gke-ewallet-dev-cpu-pool-58daed59-5ds7   0     512Mi   1536Mi
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION     
+3       	Sun Nov 15 13:57:17 2026	superseded	substrate-0.0.9	v0.0.9     	Upgrade complete
+4       	Sun Nov 15 18:52:09 2026	superseded	substrate-0.0.9	v0.0.9     	Upgrade complete
+5       	Sun Nov 15 19:07:30 2026	deployed  	substrate-0.0.9	v0.0.9     	Upgrade complete

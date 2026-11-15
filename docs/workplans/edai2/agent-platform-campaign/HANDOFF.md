@@ -256,3 +256,26 @@ python3 -m ops.experiments.substrate_fleet summarize "$EV/ags/AGS-04-status.json
   3. Upgrade kagent with the proposed patch.
   4. Delete the residual actors (`RESIDUE_APPROVAL`); they are recorded read-only.
   - Details: `resume-rca/RCA.md` section 7.
+
+## Runtime stability PKG-T (`rts-20261115T114235Z`, evidence in `gke-rts-20261115T114235Z/`)
+
+- **Verdict: `RUNTIME_STABILITY_GKE_PASS`.** The fix is in our pinned builds of kagent
+  v0.10.3 and Substrate v0.0.9; upstream is unchanged. See `resume-rca/RCA.md` section 8.
+- **Live (kept):**
+  - kagent revision 8: patched controller (session turns and capacity wait),
+    `SUBSTRATE_CALL_TIMEOUT=90s`.
+  - Substrate revision 5: patched ate-api (detached workflows and restore rollback), atelet
+    memory 512Mi:1536Mi.
+  - The campaign WorkerPool uses the patched ateom; `kagent-pilot` keeps the release image.
+  - Rollback: `runtime_fix.sh <target> rollback` returns kagent to revision 6 and Substrate
+    to revision 3.
+- **Found and fixed on GKE:**
+  - F6: atelet was OOM-killed by its in-memory pull cache.
+  - F7: `no free workers` while another session's suspend was releasing its worker.
+- **Remaining:**
+  - Single kagent replica.
+  - A controller crash mid-turn beyond the 30 s grace can leave a RUNNING actor until that
+    session's next turn.
+  - The atelet, atecontroller and atenet release images still fail the Trivy gate.
+  - The gateway's 150 s budget against a 90 s resume plus a 120 s business turn.
+- **Next session:** PKG-P1, S1, P2, P4 and B′, on this runtime.

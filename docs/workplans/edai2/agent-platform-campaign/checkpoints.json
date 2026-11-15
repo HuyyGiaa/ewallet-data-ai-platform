@@ -380,7 +380,8 @@
       "ROOT_CAUSE_CONFIRMED",
       "FIX_IMPLEMENTED",
       "UNIT_TESTED",
-      "RESUME_GKE_TESTED_PASS (client pacing workaround; kagent upstream race NOT fixed)"
+      "RESUME_GKE_TESTED_PASS (client pacing workaround; kagent upstream race NOT fixed)",
+      "superseded by runtime_stability (server-side fix; client pacing no longer required)"
     ],
     "root_cause": "kagent 0.10.3: async scheduleSuspendSession + EnsureSessionActor skips ResumeActor for SUSPENDING -> follow-up inside the suspend window is never resumed (120 s timeout)",
     "evidence": [
@@ -461,5 +462,50 @@
         "residual session actors recorded read-only; deletion needs RESIDUE_APPROVAL"
       ]
     }
+  },
+  "runtime_stability": {
+    "campaign": "rts-20261115T114235Z",
+    "date": "2026-11-15",
+    "verdict": "RUNTIME_STABILITY_GKE_PASS",
+    "pass": {
+      "PASS-1 multi-turn": "G3/G6/G5/G7: 36 messages arriving SUSPENDING/RUNNING served without pacing, one actor per context",
+      "PASS-2 concurrent restore": "G4 6/6 separate nodes, G4b 6/6 co-located (e2e 28.6-29.5 s vs 90 s budget)",
+      "PASS-3 failed restore recovers": "G5 caller cancel mid-restore -> actor SUSPENDED, worker free, no pod restart; rollback unit-tested (6/7 fail on upstream)",
+      "PASS-4 placement": "CRD has no anti-affinity/spread; co-location measured within budget; default scheduling kept",
+      "PASS-5 uv": "uv run --locked --project infra/docker/llm-agent-tooling --group test; contract test scoped to tracked files"
+    },
+    "new_defects_found_and_fixed": [
+      "F6 atelet OOM at 512Mi (pull cache) -> 512Mi:1536Mi",
+      "F7 no free workers between sessions -> bounded 20 s capacity wait"
+    ],
+    "deployed": {
+      "kagent": {
+        "revision": 8,
+        "image": "kagent-controller:0.10.3-ewallet.ea032b19@sha256:6d5c9de094c193d8bb4b895c7894c524191310c1018a18e1484b6879f5cd64a1",
+        "env": "SUBSTRATE_CALL_TIMEOUT=90s",
+        "rollback_to": "revision 6, ghcr.io/kagent-dev/kagent/controller@sha256:b2572a59..."
+      },
+      "substrate": {
+        "revision": 5,
+        "ateapi": "substrate-ateapi:0.0.9-ewallet.0291af52@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841",
+        "atelet_memory": "512Mi:1536Mi",
+        "rollback_to": "revision 3"
+      },
+      "campaign_workerpool_ateom": "substrate-ateom-gvisor:0.0.9-ewallet.0291af52@sha256:c1ddc0446b8ca1c017353c5a5a8336d4c8071d74d3f7472b351a4fd7f7aa7558"
+    },
+    "cloud": {
+      "awake_utc": "11:43-13:52",
+      "nodes": 3,
+      "sleep": "SLEEP_VERIFIED",
+      "cost_usd_list_estimate": 1.3,
+      "laptop_power_loss_utc": "12:23-13:04 (cluster state survived)"
+    },
+    "limitations": [
+      "upstream unchanged; pinned fork fixed",
+      "single kagent replica; crash mid-turn beyond 30 s grace leaves RUNNING actor until next turn",
+      "atelet/atecontroller/atenet release images still fail Trivy (not rebuilt)",
+      "pre-existing unrelated test failure test_vllm_bench_session::test_only_bench_objects_are_changed"
+    ],
+    "evidence": "gke-rts-20261115T114235Z/"
   }
 }

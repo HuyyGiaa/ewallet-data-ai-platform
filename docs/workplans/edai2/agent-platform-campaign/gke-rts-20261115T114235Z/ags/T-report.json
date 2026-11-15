@@ -1,0 +1,99 @@
+{
+ "rows": {
+  "arrival_status": {
+   "burst:Suspending": 8,
+   "resume:Suspended": 2,
+   "resume:Suspending": 28
+  },
+  "contexts": 25,
+  "contexts_with_more_than_one_actor": [],
+  "latency_s": {
+   "burst": {
+    "max": 20.1,
+    "n": 8,
+    "p50": 19.6,
+    "p90": 20.1
+   },
+   "new": {
+    "max": 38.7,
+    "n": 24,
+    "p50": 20.9,
+    "p90": 29.3
+   },
+   "resume": {
+    "max": 35.7,
+    "n": 33,
+    "p50": 19.4,
+    "p90": 20.7
+   }
+  },
+  "rpc_errors": {
+   "failed to send HTTP request: Post \"http://drift-specialist.ewallet-sandbox:8080\": substrate worker pool has no free workers; try again later or increase WorkerP": 1,
+   "failed to send HTTP request: Post \"http://feature-rag-specialist.ewallet-sandbox:8080\": substrate worker pool has no free workers; try again later or increase W": 1
+  },
+  "states_by_phase": {
+   "burst": {
+    "failed": 8
+   },
+   "new": {
+    "failed": 24,
+    "rpc_error": 2
+   },
+   "resume": {
+    "failed": 33
+   }
+  },
+  "terminal_without_rpc_error": 65,
+  "turns": 67
+ },
+ "status": {
+  "last_sample_t": 1794750473.036183,
+  "longest_transitional_s": {
+   "asr-3de239964b22829274cf5e90:Resuming": 24.7,
+   "asr-57cf1a044b9deaba85419577:Resuming": 36.7,
+   "asr-5bd9ec6f4cfc42532ff3ee52:Resuming": 26.3,
+   "asr-9fa2b8d531ea7bba41aca033:Resuming": 26.3,
+   "asr-b981301ad7660304a3e4afd3:Resuming": 21.2,
+   "asr-d19aed57ff2bfd00a63de10f:Resuming": 24.8,
+   "asr-d2f9ef5ffa61a0e16dc10c69:Resuming": 22.8,
+   "asr-dc11787b6ac8aaa35885f8e5:Resuming": 19.8,
+   "asr-ea69653603b59ca514e1757c:Resuming": 24.8,
+   "asr-fcbc1755a59b16fdebbb3597:Resuming": 24.7
+  },
+  "malformed_lines": 1,
+  "samples": 2544,
+  "still_transitional_at_end": {},
+  "worker_agents": {
+   "business-agents-deployment-559f57958-4w6bl": [
+    "drift-specialist",
+    "feature-rag-specialist"
+   ],
+   "business-agents-deployment-559f57958-b67vq": [
+    "drift-specialist"
+   ],
+   "business-agents-deployment-559f57958-d9mpp": [
+    "drift-specialist",
+    "feature-rag-specialist"
+   ],
+   "business-agents-deployment-559f57958-jtjtg": [
+    "drift-specialist",
+    "feature-rag-specialist"
+   ],
+   "business-agents-deployment-65d6bcf5dd-jjkbz": [
+    "drift-specialist",
+    "feature-rag-specialist"
+   ],
+   "business-agents-deployment-65d6bcf5dd-z85kv": [
+    "drift-specialist",
+    "feature-rag-specialist"
+   ]
+  },
+  "workers_serving_both_agents": [
+   "business-agents-deployment-559f57958-4w6bl",
+   "business-agents-deployment-559f57958-d9mpp",
+   "business-agents-deployment-559f57958-jtjtg",
+   "business-agents-deployment-65d6bcf5dd-jjkbz",
+   "business-agents-deployment-65d6bcf5dd-z85kv"
+  ]
+ }
+}
