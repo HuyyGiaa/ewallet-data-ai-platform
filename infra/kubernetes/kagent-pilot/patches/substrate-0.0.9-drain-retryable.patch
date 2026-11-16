@@ -1,0 +1,133 @@
+diff --git a/cmd/ateapi/internal/controlapi/lifecycle_drain_test.go b/cmd/ateapi/internal/controlapi/lifecycle_drain_test.go
+index 7cb0c85..799d0ab 100644
+--- a/cmd/ateapi/internal/controlapi/lifecycle_drain_test.go
++++ b/cmd/ateapi/internal/controlapi/lifecycle_drain_test.go
+@@ -23,11 +23,14 @@ package controlapi
+ import (
+ 	"context"
+ 	"errors"
++	"strings"
+ 	"testing"
+ 	"time"
+ 
+ 	"github.com/agent-substrate/substrate/cmd/ateapi/internal/store"
+ 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
+ 	corev1 "k8s.io/api/core/v1"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/util/wait"
+@@ -187,4 +190,63 @@ func TestDrain_KilledDrainReleasesTheActorOnFinalDelete(t *testing.T) {
+ 	}
+ }
+ 
++// A restore that its claimed worker refuses because ateom is draining ran nothing: it is reported
++// as a full pool (kagent: "no free workers"; the Coordinator waits and retries) and the actor is
++// rolled back, so the retry lands on a live worker (GKE R3, 2026-11-16).
++func TestDrain_RestoreRefusedByDrainingAteomIsReportedAsNoFreeWorkers(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-drain-refused", "worker-a")
++	defer cleanup()
++	tc.fakeAtelet.FailRestore = status.Error(codes.Unavailable, "ateom is draining: the worker pod is terminating")
++	err := resume(context.Background(), tc, "id1")
++	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(err.Error(), "no free workers") {
++		t.Fatalf("want FailedPrecondition no free workers, got %v", err)
++	}
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 2*time.Second)
++	if a.GetAteomPodName() != "" || workerAssignee(t, tc, ns, "worker-a") != "" {
++		t.Fatalf("rollback incomplete: actor on %q", a.GetAteomPodName())
++	}
++}
++
++// The claimed worker's pod starts terminating while the restore is still being prepared (the GKE
++// R3 case: atelet had not reached ateom yet). The failed restore is a full pool, not an error.
++func TestDrain_WorkerTerminatingDuringRestoreIsReportedAsNoFreeWorkers(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-drain-during", "worker-a")
++	defer cleanup()
++	tc.fakeAtelet.RestoreDelay = time.Second
++	tc.fakeAtelet.FailRestore = status.Error(codes.Unavailable, "connection error: ateom exited")
++	errCh := make(chan error, 1)
++	go func() { errCh <- resume(context.Background(), tc, "id1") }()
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RESUMING, 2*time.Second)
++	beginTermination(t, tc, ns, "worker-a")
++	err := <-errCh
++	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(err.Error(), "no free workers") {
++		t.Fatalf("want FailedPrecondition no free workers, got %v", err)
++	}
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 2*time.Second)
++
++	// The retry restores on a live worker.
++	createWorkerPod(t, tc, ns, "worker-b", "node1", "pool1")
++	tc.fakeAtelet.Lock.Lock()
++	tc.fakeAtelet.FailRestore, tc.fakeAtelet.RestoreDelay = nil, 0
++	tc.fakeAtelet.Lock.Unlock()
++	if err := resume(context.Background(), tc, "id1"); err != nil {
++		t.Fatalf("retry: %v", err)
++	}
++	if a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 2*time.Second); a.GetAteomPodName() != "worker-b" {
++		t.Fatalf("retry placed on %q, want worker-b", a.GetAteomPodName())
++	}
++	finishTermination(t, tc, ns, "worker-a")
++}
++
++// An ordinary restore failure on a live worker keeps its own error (not a capacity wait).
++func TestDrain_OrdinaryRestoreFailureKeepsItsError(t *testing.T) {
++	tc, _, cleanup := recoverySetup(t, "ns-drain-ordinary", "worker-a")
++	defer cleanup()
++	tc.fakeAtelet.FailRestore = status.Error(codes.Internal, "image pull failed")
++	err := resume(context.Background(), tc, "id1")
++	if err == nil || status.Code(err) == codes.FailedPrecondition || strings.Contains(err.Error(), "no free workers") {
++		t.Fatalf("an ordinary failure must not look like a full pool: %v", err)
++	}
++}
++
+ var _ = corev1.PodRunning
+diff --git a/cmd/ateapi/internal/controlapi/workflow.go b/cmd/ateapi/internal/controlapi/workflow.go
+index eecd4c8..f6f2bd6 100644
+--- a/cmd/ateapi/internal/controlapi/workflow.go
++++ b/cmd/ateapi/internal/controlapi/workflow.go
+@@ -19,6 +19,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"log/slog"
++	"strings"
+ 	"time"
+ 
+ 	"github.com/agent-substrate/substrate/cmd/ateapi/internal/store"
+@@ -192,6 +193,14 @@ func (w *ActorWorkflow) ResumeActor(ctx context.Context, atespace, name string,
+ 	if err := RunWorkflow(ctx, input, state, steps); err != nil {
+ 		if state.RestoreFailed {
+ 			rollbackFailedResume(ctx, w.store, input, state)
++			if withdrawn, pod := w.workerWithdrawn(state, err); withdrawn {
++				// ewallet patch (B′): the claimed worker left the pool (its pod is terminating or gone,
++				// or its ateom is draining) before the restore ran, so nothing executed. Report the
++				// pool as momentarily full: kagent maps this to "substrate worker pool has no free
++				// workers" and the Coordinator waits and sends the delegation again, which lands on a
++				// live worker. The actor was rolled back to SUSPENDED above.
++				return nil, status.Errorf(grpcCodes.FailedPrecondition, "no free workers available: worker %s left the pool before the restore (%v)", pod, err)
++			}
+ 		}
+ 		return nil, err
+ 	}
+@@ -199,6 +208,22 @@ func (w *ActorWorkflow) ResumeActor(ctx context.Context, atespace, name string,
+ 	return state.Actor, nil
+ }
+ 
++// workerWithdrawn reports whether a failed restore is explained by the claimed worker leaving the
++// pool: its pod is missing or terminating, or its ateom refused the activation while draining.
++func (w *ActorWorkflow) workerWithdrawn(state *ResumeState, err error) (bool, string) {
++	if state == nil || state.Actor == nil {
++		return false, ""
++	}
++	ns, pod := state.Actor.GetAteomPodNamespace(), state.Actor.GetAteomPodName()
++	if pod == "" {
++		return false, ""
++	}
++	if strings.Contains(err.Error(), "ateom is draining") {
++		return true, ns + "/" + pod
++	}
++	return w.dialer != nil && !w.dialer.WorkerUsable(ns, pod), ns + "/" + pod
++}
++
+ // SuspendActor executes the workflow to suspend a running actor. Idempotent.
+ func (w *ActorWorkflow) SuspendActor(ctx context.Context, atespace, name string) (*ateapipb.Actor, error) {
+ 	input := &SuspendInput{

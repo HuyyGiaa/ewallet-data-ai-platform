@@ -270,7 +270,16 @@ def assess_drain(timeline: list[Mapping[str, Any]], pod: str, uid: str) -> dict[
     return out
 
 
-def run_r3(cluster: Cluster, out: Path, busy_timeout: float, timeout: float) -> int:
+def busy_workers(snap: Mapping[str, Any], require_running: bool) -> list[str]:
+    """Workers holding an actor; with require_running only those whose actor is Running on them."""
+    live = {p["name"] for p in snap["pods"] if not p["deleting"]}
+    reg = snap.get("registry") or {}
+    if require_running:
+        return sorted({a["pod"] for a in reg.get("actors", []) if a.get("status") == "Running" and a.get("pod") in live})
+    return sorted(w["pod"] for w in reg.get("workers", []) if w["assigned"] and w["pod"] in live)
+
+
+def run_r3(cluster: Cluster, out: Path, busy_timeout: float, timeout: float, require_running: bool = False) -> int:
     approval("r3")
     timeline: list = []
     deadline = time.monotonic() + busy_timeout
@@ -278,14 +287,15 @@ def run_r3(cluster: Cluster, out: Path, busy_timeout: float, timeout: float) -> 
     while time.monotonic() < deadline and target is None:
         snap = record(cluster, out, "r3-wait-busy", timeline)
         live = {p["name"]: p for p in snap["pods"] if not p["deleting"]}
-        busy = [w["pod"] for w in (snap.get("registry") or {}).get("workers", []) if w["assigned"] and w["pod"] in live]
+        busy = busy_workers(snap, require_running)
         if busy:
-            target = live[sorted(busy)[0]]
+            target = live[busy[0]]
         else:
             time.sleep(0.5)
     if target is None:
         raise Refused("no worker became busy within the wait; nothing was deleted")
-    event(out, f"R3 delete busy worker {SANDBOX_NS}/{target['name']} uid={target['uid']} (graceful, scale-in path)")
+    event(out, f"R3 delete busy worker {SANDBOX_NS}/{target['name']} uid={target['uid']} (graceful, scale-in path; "
+               f"require_running={require_running})")
     cluster.kubectl("-n", SANDBOX_NS, "delete", "pod", target["name"], "--wait=false")
     ok = wait_until(cluster, out, "r3-drain", timeline,
                     lambda s: all(p["name"] != target["name"] for p in s["pods"]) and consistency(s).get("registry_readable")
@@ -301,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=["snapshot", "watch", "idle", "r1", "r2", "r3", "assert"])
     parser.add_argument("--busy-timeout", type=float, default=180)
+    parser.add_argument("--require-running", action="store_true", help="r3: target a worker whose actor is Running")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--label", default="snapshot")
     parser.add_argument("--seconds", type=float, default=60)
@@ -337,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "r2":
             return run_r2(cluster, args.out, args.pod, args.uid, args.max_outage, args.timeout)
         elif args.command == "r3":
-            return run_r3(cluster, args.out, args.busy_timeout, args.timeout)
+            return run_r3(cluster, args.out, args.busy_timeout, args.timeout, args.require_running)
     except Refused as error:
         print(f"REFUSED: {error}", file=sys.stderr)
         return 2

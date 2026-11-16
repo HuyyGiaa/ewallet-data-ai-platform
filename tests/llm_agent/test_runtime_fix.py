@@ -298,6 +298,8 @@ class BuildSpecTests(unittest.TestCase):
                 "cmd/ateapi/internal/controlapi/workflow_resume.go", "cmd/atecontroller/internal/controllers/workerpool_apply.go",
                 "cmd/atecontroller/internal/controllers/workerpool_apply_test.go", "cmd/atecontroller/internal/controllers/workerpool_drain_test.go",
                 "cmd/ateom-gvisor/drain.go", "cmd/ateom-gvisor/drain_test.go", "cmd/ateom-gvisor/main.go"},
+            "substrate-0.0.9-drain-retryable.patch": {
+                "cmd/ateapi/internal/controlapi/lifecycle_drain_test.go", "cmd/ateapi/internal/controlapi/workflow.go"},
             "substrate-0.0.9-worker-lifecycle-tests.patch": {
                 "cmd/ateapi/internal/controlapi/functional_test.go", "cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go",
                 "cmd/ateapi/internal/controlapi/syncer_reconcile_test.go"},

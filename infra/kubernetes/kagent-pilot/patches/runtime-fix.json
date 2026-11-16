@@ -134,6 +134,14 @@
           "substrate-ateom-gvisor",
           "substrate-atecontroller"
         ]
+      },
+      {
+        "patch": "substrate-0.0.9-drain-retryable.patch",
+        "patch_sha256": "7d22bbfc19e8285213caa689a8b2a0232080450cc53df0cc647051d9e14e32a7",
+        "purpose": "B\u2032 R3 fix: a restore that fails because its claimed worker left the pool (pod terminating or gone, or ateom draining) ran nothing; ateapi reports it as FailedPrecondition 'no free workers' after the rollback, so kagent returns pool-exhausted and the Coordinator waits and retries on a live worker (bprime R3, 2026-11-16)",
+        "images": [
+          "substrate-ateapi"
+        ]
       }
     ]
   }

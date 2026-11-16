@@ -161,3 +161,10 @@ def test_r3_needs_its_approval_and_a_busy_worker(monkeypatch, tmp_path):
     with pytest.raises(wl.Refused, match="no worker became busy"):
         wl.run_r3(cluster, tmp_path, 1, 1)
     assert cluster.mutations == []
+
+
+def test_busy_workers_can_require_a_running_actor():
+    s = snap([pod(A, "ua"), pod(B, "ub")], [(A, True), (B, True)],
+             actors=[{"id": "x", "status": "Resuming", "pod": A}, {"id": "y", "status": "Running", "pod": B}])
+    assert wl.busy_workers(s, False) == [A, B]
+    assert wl.busy_workers(s, True) == [B]
