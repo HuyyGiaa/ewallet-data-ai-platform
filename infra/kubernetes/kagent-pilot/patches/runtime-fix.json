@@ -94,6 +94,14 @@
         "images": [
           "substrate-ateom-gvisor"
         ]
+      },
+      {
+        "patch": "substrate-0.0.9-worker-reconcile.patch",
+        "patch_sha256": "d836b5a3d9344adadd44cb528565902b190f193e906dc355d57862f5bc92066d",
+        "purpose": "ateapi reconciles stored workers against the synced worker-pod informer (startup + ATE_WORKER_RECONCILE_INTERVAL, default 2m): records of pods that vanished or were replaced while ateapi was down are removed and their actors released; deleting pods are removed even without an IP (P2-A; p2-foundation-20261116T084657Z)",
+        "images": [
+          "substrate-ateapi"
+        ]
       }
     ]
   }
