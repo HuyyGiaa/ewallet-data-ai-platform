@@ -74,7 +74,11 @@ kubectl --context "$CTX" -n ewallet-mcp rollout status deploy/feature-rag-mcp &&
 - This wakes 4 nodes. That is enough for every scenario except REPLAY-04, which needs 5
   (PKG-C, section 4).
 - The CPU vLLM needs about 10 minutes before natural-language requests work.
-- KEDA brings the agents back to their minimum of 2 by itself.
+- KEDA brings the agents back to their minimum of 2 by itself. If the last sleep paused the ScaledObjects,
+  `wake-full` prints `keda_resumed` and unpauses them.
+- Check that none is left paused:
+  `kubectl --context "$CTX" -n ewallet-agents get scaledobject -o custom-columns=NAME:.metadata.name,PAUSED:.metadata.annotations.autoscaling\.keda\.sh/paused-replicas`
+  must show `<none>`.
 
 ```bash
 scripts/llm_agent/agent_replay.sh pf        # port-forwards: 18083 A2A GW, 18082 MCP GW, 18383 kagent API,
@@ -106,7 +110,17 @@ scripts/llm_agent/agent_replay.sh registry
 kubectl --context "$CTX" -n ewallet-agents get agents.kagent.dev -o custom-columns=NAME:.metadata.name,TYPE:.spec.type,VERSION:.spec.version
 ```
 
-**Expected on 2026-11-15 (true, not yet fixed):**
+**Expected after the 2026-11-16 publish:**
+
+- `agent_replay.sh registry` prints `verdict: PASS`, 8/8 `matches`.
+- The Agents list shows `drift-specialist 1.1.0` and `feature-rag-specialist 1.0.0` with label
+  `ewallet.io/runtime=kagent-sandboxagent-byo` and both image digests, plus `fraud-coordinator 1.1.0` `kagent-byo`.
+- The older `1.0.0` entries remain as history.
+
+The helper renders the catalog from the live Helm values and the live SandboxAgent image, so the comparison is against
+what runs.
+
+**History, 2026-11-15, before the publish:**
 
 - Prompts `fraud-coordinator-system v5`, `feature-rag-specialist-system v5` and
   `drift-specialist-system v2` match.
@@ -350,23 +364,25 @@ This is time-sensitive. Use three terminals and Grafana.
 | `LOAD 2 on 3 replicas` | the 3 pods serve; at +120 s the helper prints tasks per pod, the youngest pod > 0 | `AGENT_09d_KEDA_NEW_POD_WORK.png` |
 | `SCALE_IN` (~5 min after load) | HPA target `0/2`, after the 300 s window `REPLICAS 2`, the extra pod Terminating; events `New size: 2; reason: … below target` | `AGENT_10_KEDA_SCALEIN.png` |
 
-**Expected with the current deployment (measured in the final regression, 2026-11-15 21:33Z):**
+**Expected with the remediated deployment (measured 2026-11-16, `rem-20261116T050511Z`):**
 
-- KEDA scales **the Coordinator** 2 → 3 → 2, and the scale-out pod completes tasks.
-- `feature-rag-specialist` stays at 2. Since P4 the Feature-RAG work runs on the Sandbox actors, so the Deployment
-  copy is idle.
-- About 40 % of the tasks complete. The fixed 2-worker Sandbox pool refuses the overflow:
-  `substrate worker pool has no free workers`.
-- The fix, `f6ea89b5` (the Coordinator waits for a free worker), is committed but not deployed.
+- The helper runs one AGR-06 load: 100 typed tasks at concurrency 8. Each runs on a Sandbox actor, about 10 minutes
+  in total.
+- KEDA scales **the Coordinator** 2 → 3 within about a minute. The `NEW POD SERVES REAL TASKS` banner, at +240 s,
+  shows the youngest Coordinator pod with completed tasks.
+- **100/100 tasks complete.** The fixed 2-worker Sandbox pool admits a few actors at a time; the Coordinator waits for
+  a free worker instead of failing. The helper's last banner sums these waits (`sandbox_capacity_exhausted waits=…`).
+- Measured: p50 46.7 s, p95 158.8 s, 97 waits, 0.128 tasks/s.
+- About 5 minutes after the load, the replicas return to 2.
+- Known side effect: the idle fallback Deployment `feature-rag-specialist` may also show 3 replicas. Sandbox actors
+  report in-flight work under the same agent label; it runs 0 tasks.
 
 **PASS for the autoscaling claim when:**
 
 - desired and Ready reach 3;
-- the new pod completes tasks;
-- replicas return to 2.
-
-Report the task success rate as measured. Do not present it as 100 % unless `f6ea89b5` is deployed and the run shows it.
-The 100/100 result (`$EV/agr/AGR-06/AGR-06-RESULT.txt`) was measured before P4, with the Deployment Specialists.
+- the new Coordinator pod completes tasks;
+- replicas return to 2;
+- the load summary shows 100/100.
 
 The events print `New size: 3 … above target` and `New size: 2 … below target`.
 
@@ -427,13 +443,15 @@ In Grafana (time range *Last 30 minutes*):
   - the MCP Gateway `tools/call feature-rag_*`;
   - feature-rag-mcp `mcp.tool *`, `feast-online.get_features` and `kserve.infer`.
 
-**Disclose in the report:** the Sandbox Specialist's own spans are missing.
+**Sandbox spans:** since the 2026-11-16 fleet image, the trace also holds the Sandbox Feature-RAG Specialist's own
+spans. These are `g3.feature_rag_specialist.execute`, with children `MCP send initialize`, `tools/list` and
+`tools/call …`.
 
-- The actors buffer spans and are suspended before export.
-- The fix is in Git (`bb7a2a09`) but is **not deployed**, because it needs an approved
-  image roll.
-- The trace context still propagates through the Sandbox: the MCP spans sit in the
-  Coordinator's trace.
+- Verified trace: `a38538611be4ffd81b5ae2d2e4402742`.
+- Query them with
+  `{ resource.service.name = "feature-rag-specialist" && name = "g3.feature_rag_specialist.execute" }`.
+- **Disclose:** the kagent controller hop between the A2A Gateway and the actor has no span. The kagent release
+  exports to an empty OTLP endpoint, so the execute span's parent is not in Tempo.
 
 ## 12. Final check, cleanup and sleep (REPLAY-12)
 
@@ -459,7 +477,24 @@ python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$M"   # no failur
 - `--also-approve ewallet-mcp/feature-rag-mcp` is the PDB that PKG-P1 added after the
   manifest was recorded. `plan-sleep` lists it under `not_covered`.
 
-**Sleep blocker found on 2026-11-16 (campaign sleep: `SLEEP_BLOCKED`):**
+**KEDA-aware sleep (`cloud_lab` since `21994c03`):**
+
+- `plan-sleep --manifest "$M"` lists the ScaledObjects to pause under `guarded_preparation.keda_pause`.
+- The guarded sleep refuses them before any change, unless it gets `--pause-keda` and its own approval:
+
+```bash
+CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign> CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:<campaign> \
+  python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev --scale-pdb-guarded --pause-keda \
+  --manifest "$M" --campaign <campaign> --also-approve ewallet-mcp/feature-rag-mcp
+python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$M"
+```
+
+- It pauses with a cloud-lab marker, then scales.
+- If the preparation fails, it restores the pauses and the replicas.
+- `wake-full` unpauses only the ScaledObjects it paused.
+- `verify --expect awake` fails while one of them is still paused.
+
+**History, 2026-11-16 before this change (`SLEEP_BLOCKED`):**
 
 - The guarded sleep scales the PDB-guarded agent Deployments to 0.
 - Since P2, their KEDA ScaledObjects (`minReplicaCount 2`) put them straight back, so the PDBs still protect pods.

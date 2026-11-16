@@ -10,13 +10,20 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 - Component design is in [AGENTS_REGISTRY_GATEWAYS.md](AGENTS_REGISTRY_GATEWAYS.md) and
   the contracts are in [AGENT_INTEGRATION_CONTRACTS.md](AGENT_INTEGRATION_CONTRACTS.md).
 
-**Verdict:**
+**Verdict after the final remediation (`rem-20261116T050511Z`, 2026-11-16, [§6](#6-final-remediation-rem-20261116t050511z)):**
 
-| Level | Result |
+| Area | Verdict |
 |---|---|
-| `AGENT_PLATFORM_CORE_GKE_PASS` | Achieved, and held in the final regression. |
-| `AGENT_PLATFORM_RELIABILITY_GKE_PASS` | Achieved for MCP failover and for KEDA before P4. After P4, Sandbox capacity under load is PARTIAL (§3, §5). |
-| `AGENT_PLATFORM_RUBRIC` | `PARTIAL`: Registry entries stale, Sandbox spans not exported, NL combined rejected. See [§5](#5-limitations-and-pending-approvals). |
+| Core integration (`AGENT_PLATFORM_CORE_GKE_PASS`) | **Holds** (5/5 E2E through the Sandbox routes on the remediated images, 3/3 negatives) |
+| Post-P4 reliability / capacity | **GKE_PASS**: 100/100 at concurrency 8 (40/40 at 2 and 4). Throughput ceiling 0.125–0.128 tasks/s from the fixed 2-worker pool |
+| KEDA Coordinator scaling | **GKE_PASS**: 2→3 at 05:45:51Z, 3→2 at 06:03:08Z; the scale-out pod completed tasks |
+| MCP failover | **GKE_PASS** (2026-11-15 run-04; code unchanged since) |
+| Agent Registry (AGI-13) | **GKE_PASS**: readback 8/8 after the approved publish; no record removed |
+| Distributed tracing (AGI-12) | **GKE_PASS for Sandbox spans**: Sandbox Feature-RAG spans in the Coordinator's trace. One hop gap remains: the kagent controller exports no spans (empty endpoint) |
+| Security | **GKE_PASS** (unchanged policies; negatives pass) |
+| Agent Fleet (shared WorkerPool) | **GKE_PASS** (2026-11-15/16 runs; fleet image updated, sharing unchanged) |
+| Sleep / wake readiness | Reported in §6.4 |
+| Natural-language combined prompts | Rejected by design (strict guard, owner decision) |
 
 ## 1. Architecture
 
@@ -117,7 +124,9 @@ written as `$EV`. Its SHA-256 manifest is `$EV/SHA256SUMS.txt`, mirrored in
   the other. The pre-existing failures (RAG ingestion; the sandbox-experiment timeouts,
   which reproduce on the pre-campaign commit) are unchanged.
 
-## 5. Limitations and pending approvals
+## 5. Limitations and pending approvals (as of 2026-11-15)
+
+Items 1 and 2, and the capacity part of item 5, are resolved by the final remediation ([§6](#6-final-remediation-rem-20261116t050511z)).
 
 1. **Agent Registry is stale for agents (AGI-13).**
    - The registry holds the 3 agents only at `1.0.0`, runtime `kagent-sandboxagent`, from
@@ -156,3 +165,87 @@ written as `$EV`. Its SHA-256 manifest is `$EV/SHA256SUMS.txt`, mirrored in
    - The WorkerPool is fixed at 2 workers. Sharing is proven; WorkerPool autoscaling (B′)
      is not.
    - Neither kagent nor Substrate is HA.
+
+
+## 6. Final remediation (`rem-20261116T050511Z`)
+
+- **Evidence:** `~/ewallet-evidence/agents/remediation/rem-20261116T050511Z/`. Its manifest is `SHA256SUMS.txt`; the
+  mirror is [`docs/evidence/edai2/agents/rem-20261116T050511Z/`](../../evidence/edai2/agents/rem-20261116T050511Z/).
+- **Approvals:** owner-approved per item in `approvals.txt`. A6 (5th node) was not approved.
+- **Images:** the 3 BYO images, built from `21994c03` and passed by Trivy:
+
+  | Image | Digest |
+  |---|---|
+  | coordinator | `sha256:9775406101b83b03cdbbfcb550daf7e7ced61b0bde8ca1869a02e16daf06b69b` |
+  | feature-rag | `sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77` |
+  | drift | `sha256:75011f6ce496e192db997ddc931c82d8d91c4ce87f59414d75ca6eacc2e86931` |
+
+  The MCP image stays `fd2c49c9`, because nothing it imports changed.
+- **Rollout:**
+  - `llm-agent` rev 51 → **52** (`img-agents`; the gate diff was 3 Agents, images only).
+  - Sandbox fleet image `81b6bd17` → `29867794`. The fleet is not Helm-managed: it is 2 SandboxAgents, image only,
+    approved separately as A2b.
+  - Rollback targets: rev 51; fleet image `81b6bd17`.
+
+### 6.1 Sandbox capacity under load (P0)
+
+- **Problem:** after P4, 42/100 and 40/100 tasks completed at concurrency 8.
+- **Root cause:** kagent refuses a Sandbox delegation when the fixed 2-worker pool has no free worker. It answers
+  JSON-RPC `-32603` with `substrate worker pool has no free workers` inside HTTP 200, and the Coordinator failed it as
+  `invalid_a2a_response`.
+- **Change** (`f6ea89b5`, `21994c03`):
+  - `_send` recognises exactly that refusal and waits with jittered backoff (2–10 s, at most 12 attempts) inside the
+    delegation timeout. The wait can be cancelled.
+  - Every attempt is identical (same `messageId` and `contextId`), so kagent routes it to the same actor.
+  - Other `-32603` errors and malformed bodies are not repeated.
+  - Each wait is logged as `coordinator.delegation_wait`.
+- **Tests:** identical attempts; 8 concurrent delegations on a 2-slot pool; trace context on every attempt;
+  cancellation; deadline; budget exhaustion; non-retryable errors.
+- **GKE result** (`acceptance/load/`, AGR-06 methodology, all through the Sandbox routes):
+
+| Concurrency | Tasks | Completed | p50 / p95 e2e | Admission waits | Throughput |
+|---|---|---|---|---|---|
+| 2 | 40 | 40 | 15.7 s / 16.9 s | 0 | 0.125 tasks/s |
+| 4 | 40 | 40 | 30.2 s / 63.5 s | 11 (29.7 s total, max attempt 3) | 0.127 tasks/s |
+| **8** | **100** | **100** | 46.7 s / 158.8 s | 97 (353.3 s total, max attempt 7) | 0.128 tasks/s |
+
+- **No duplicate business execution:** all 100 request IDs of the concurrency-8 run show exactly one `feature_lookup`,
+  `fraud_scoring` and `knowledge_search` each on feature-rag-mcp (`c8-mcp-tool-calls.log`).
+- **KEDA:** Coordinator 2→3 at 05:45:51Z and 3→2 at 06:03:08Z. The scale-out pod `…8ls5c` completed 5 tasks during the
+  load.
+- **Limitations:**
+  1. **Throughput is capped by the pool.** It is about 0.125–0.128 tasks/s whatever the concurrency, so higher load
+     only adds waiting. More throughput needs more Sandbox workers, from a larger fixed pool or B′ (out of scope).
+     KEDA on the Coordinator adds admission concurrency, not capacity.
+  2. **Fallback Deployment scaled for Sandbox work.** Sandbox actors now export `ewallet_agent_inflight_tasks` with
+     `agent=feature-rag-specialist` (over 100 actor series, value 1 when frozen by the suspend). KEDA therefore also
+     scaled the idle fallback Deployment `feature-rag-specialist` 2→3 (05:46:21Z) and back (06:04:07Z); it ran 0
+     tasks. Fixing it needs a runtime label on the gauge and a filtered ScaledObject query: a new image and Helm
+     change, not done.
+
+### 6.2 Sandbox distributed tracing (P1)
+
+- **Problem:** the trace held no Sandbox Specialist spans.
+- **Root cause:** the actors buffer spans in a 5 s batch, and kagent suspends the actor about 0.6 s after the answer.
+- **Change:** `bb7a2a09` honours `KAGENT_PRE_RESPONSE_TRACE_FLUSH`. `execute()` force-flushes with a 2 s bound after
+  its span ended, on success and on error. Executor-level tests cover both Specialists.
+- **GKE result:** trace `a38538611be4ffd81b5ae2d2e4402742` (natural-language fraud, `acceptance/trace/`) has 245
+  spans: agentgateway 23, fraud-coordinator 174, **feature-rag-specialist 19**, feature-rag-mcp 29.
+  - The Sandbox spans include `g3.feature_rag_specialist.execute` (489 ms).
+  - Its children are `MCP send initialize`, `tools/list` and `tools/call feature_lookup / fraud_scoring /
+    knowledge_search`, all in one trace with the Coordinator and the MCP server spans.
+- **Remaining:** the parent of the execute span, the kagent controller hop, is not in Tempo. The controller logs
+  `traces export: … invalid target address ""`, which is an empty OTLP endpoint in the kagent release. Spans of the
+  actor's own HTTP server that end after the response are not flushed.
+
+### 6.3 Agent Registry (P1)
+
+- **Change:**
+  - The catalog marks P4 Specialists `kagent-sandboxagent-byo`, rendered from the live Helm values.
+  - It labels both the BYO Deployment image and the Sandbox fleet image.
+  - Readback treats the absent field agentregistry stores for an empty list as equal.
+- **GKE result:**
+  - Before: `drift-specialist 1.1.0` and `fraud-coordinator 1.1.0` missing; `feature-rag-specialist` stale.
+  - Publish: 8 documents, PASS.
+  - Readback after: **8/8 match**. Agents went from 3 to 5 records; prompts stayed 12 and MCP servers 2; nothing was
+    removed (`registry/`).

@@ -204,15 +204,22 @@ negative() {
 
 registry() {
   need_port 18121
-  banner "AGI-13 Agent Registry readback (GET only)"
-  mkdir -p "$REPLAY_DIR/registry"
+  banner "AGI-13 Agent Registry readback (GET only), against what the cluster runs"
+  local out="$REPLAY_DIR/registry" sandbox_image
+  mkdir -p "$out"
+  # The catalog is rendered from the live Helm values and the live SandboxAgent fleet image, not from files.
+  helm --kube-context "$CTX" -n default get values llm-agent -o yaml > "$out/llm-agent-live-values.yaml"
+  sandbox_image=$(k -n ewallet-sandbox get sandboxagent feature-rag-specialist -o json \
+    | grep -oE '[a-z0-9.-]+/[a-z0-9./-]+@sha256:[0-9a-f]{64}' | head -1)
+  echo "SandboxAgent fleet image: ${sandbox_image##*/}"
   (cd "$ROOT" && "${TOOL_PY[@]}" -m ops.llm_agent.registry_catalog readback --registry http://127.0.0.1:18121 \
      --values-overlay infra/helm/llm-agent-platform/g3/g3.yaml --values-overlay infra/helm/llm-agent-platform/agi/agents.yaml \
-     --evidence "$REPLAY_DIR/registry/readback.json") > /dev/null || true
-  python3 - "$REPLAY_DIR/registry/readback.json" <<'PY'
+     --values-overlay "$out/llm-agent-live-values.yaml" --sandbox-image "$sandbox_image" \
+     --evidence "$out/readback.json") > /dev/null || true
+  python3 - "$out/readback.json" <<'PY'
 import json, sys
 report = json.load(open(sys.argv[1]))
-print("verdict:", report["verdict"], "(FAIL = the registry does not hold exactly what is deployed)")
+print("verdict:", report["verdict"], "(PASS = the registry holds exactly what is deployed)")
 for e in report["entries"]:
     state = "matches" if e["matches"] else ("NOT REGISTERED" if not e["registered"] else "; ".join(e["differences"][:3]))
     print(f"  {e['kind']:9} {e['name']:32} {e['tag']:7} {state}")
