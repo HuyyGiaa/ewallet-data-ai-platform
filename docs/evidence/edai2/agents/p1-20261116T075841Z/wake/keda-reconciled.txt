@@ -1,0 +1,8 @@
+NAME                     READY   PAUSED
+drift-specialist         True    False
+feature-rag-specialist   True    False
+fraud-coordinator        True    False
+NAME                     REFERENCE                           TARGETS     MINPODS   MAXPODS   REPLICAS   AGE
+drift-specialist         Deployment/drift-specialist         0/2 (avg)   2         3         2          23s
+feature-rag-specialist   Deployment/feature-rag-specialist   0/2 (avg)   2         3         2          23s
+fraud-coordinator        Deployment/fraud-coordinator        0/2 (avg)   2         3         2          23s

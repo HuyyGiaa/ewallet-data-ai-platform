@@ -1,0 +1,59 @@
+== crd_patch.sh header
+#!/usr/bin/env bash
+# B' compatibility patch for the Substrate 0.0.9 WorkerPool CRD: adds spec.scaleSelector and
+# points /scale's labelSelectorPath at it, so the HPA that KEDA creates has a selector.
+# CLUSTER-SCOPED and Helm-managed (release substrate-crds): every mutating command needs
+#   CRD_PATCH_APPROVED=yes and --context, and a GKE context additionally needs the owner's
+#   separate approval for that cluster. A substrate-crds upgrade reverts the patch.
+#
+#   crd_patch.sh backup  CTX DIR   [READ-ONLY] save the live CRD and its spec digest
+#   crd_patch.sh diff    CTX       [READ-ONLY] show the patched spec against the live one
+#   crd_patch.sh dry-run CTX       [READ-ONLY] server-side dry run of the patch
+#   crd_patch.sh apply   CTX       [MUTATES]   apply the patch (refuses if already patched)
+#   crd_patch.sh verify  CTX POOL NS [READ-ONLY] /scale of one WorkerPool shows the selector
+#   crd_patch.sh revert  CTX DIR   [MUTATES]   restore the backed-up spec (refuses while a
+#                                              WorkerPool still uses spec.scaleSelector)
+== workerpool-selector.patch.json
+[
+  {"op": "test", "path": "/spec/versions/0/name", "value": "v1alpha1"},
+  {"op": "test", "path": "/spec/versions/0/subresources/scale/specReplicasPath", "value": ".spec.replicas"},
+  {"op": "add", "path": "/spec/versions/0/schema/openAPIV3Schema/properties/spec/properties/scaleSelector",
+   "value": {"type": "string", "maxLength": 253,
+             "description": "Label selector string of this pool's worker pods (ate.dev/worker-pool=<name>), exposed as the /scale selector for the HPA that KEDA creates. Local addition; not part of Substrate 0.0.9."}},
+  {"op": "add", "path": "/spec/versions/0/subresources/scale/labelSelectorPath", "value": ".spec.scaleSelector"}
+]
+
+== values-sandbox-watch.yaml
+# PKG-W: KEDA 2.21.0 also watches ewallet-sandbox, for the B' WorkerPool ScaledObject
+# (PKG-P3). Apply with --reuse-values on the existing keda/keda release through
+# scripts/llm_agent/sandbox_watch.sh keda ...; values.yaml stays the installed baseline.
+# Effect (exact, checked by ops/llm_agent/sandbox_watch_diff.py): WATCH_NAMESPACE on the
+# operator, metrics API server and admission webhooks, and one namespaced RoleBinding of the
+# existing keda-operator ClusterRole in ewallet-sandbox. The three pods restart once.
+watchNamespace: ewallet-agents,ml-platform,ewallet-sandbox
+== autoscaling.yaml WorkerPool refs
+6:{{- if eq $a.mode "sandbox" }}
+8:{{- fail "sandbox autoscaling needs 1 <= minReplicas <= businessHours.replicas <= maxReplicas" }}
+13:{{- /* Substrate 0.0.9's WorkerPool /scale has no labelSelectorPath, and the HPA that KEDA
+15:required"). Scaling a WorkerPool is valid only on a cluster whose WorkerPool CRD carries
+17:{{- if not (eq ($s.workerPoolScaleSelector | default "") "spec.scaleSelector") }}
+18:{{- fail "agents.autoscaling in sandbox mode needs workerPoolScaleSelector: spec.scaleSelector (the patched WorkerPool CRD, infra/kubernetes/substrate-scale/); Substrate 0.0.9's /scale has no selector" }}
+22:# SandboxAgent has no scale subresource. Scale the supported Substrate
+23:# WorkerPool target and keep a warm worker available for actor restoration.
+35:    kind: WorkerPool
+== WorkerPool spec (namespace.yaml)
+ateomImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52.d8d1db43@sha256:68a6f1a8dcbff6aa5456b5480c124a0c914faa632b7ee5d90cdbae5c21207de9
+replicas: 2
+sandboxClass: gvisor
+template:
+  resources:
+    limits:
+      cpu: 1500m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+crd_patch.sh
+upstream
+workerpool-selector.patch.json

@@ -1,0 +1,46 @@
+total objects: 208
+== feature-rag-specialist (22)
+   Agent/ewallet-agents/feature-rag-specialist
+   AuthorizationPolicy/ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist
+   AuthorizationPolicy/ewallet-agents/allow-feature-rag-specialist-to-agentgateway
+   AuthorizationPolicy/ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway
+   AuthorizationPolicy/ewallet-agents/allow-feature-rag-specialist-to-otel-collector
+   AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-feature-rag-specialist
+   ConfigMap/ewallet-agents/feature-rag-specialist-prompt-v5
+   NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist-egress
+   NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist-ingress
+   NetworkPolicy/ewallet-agents/allow-ambient-probes-feature-rag-specialist
+   NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver
+   NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-agentgateway-egress
+   NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-agentgateway-ingress
+   NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-kagent-controller-egress
+   NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway-egress
+   NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway-ingress
+   NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-otel-collector-egress
+   NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-otel-collector-ingress
+   NetworkPolicy/ewallet-agents/allow-kagent-controller-to-feature-rag-specialist-ingress
+   PodDisruptionBudget/ewallet-agents/feature-rag-specialist
+   ScaledObject/ewallet-agents/feature-rag-specialist
+   ServiceAccount/ewallet-agents/feature-rag-specialist
+== drift-specialist (21)
+   Agent/ewallet-agents/drift-specialist
+   AuthorizationPolicy/ewallet-agents/allow-a2a-gateway-to-drift-specialist
+   AuthorizationPolicy/ewallet-agents/allow-drift-specialist-to-agentgateway
+   AuthorizationPolicy/ewallet-agents/allow-drift-specialist-to-mcp-gateway
+   AuthorizationPolicy/ewallet-agents/allow-drift-specialist-to-otel-collector
+   AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-drift-specialist
+   ConfigMap/ewallet-agents/drift-specialist-prompt-v2
+   NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-drift-specialist-egress
+   NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-drift-specialist-ingress
+   NetworkPolicy/ewallet-agents/allow-ambient-probes-drift-specialist
+   NetworkPolicy/ewallet-agents/allow-drift-specialist-to-agentgateway-egress
+   NetworkPolicy/ewallet-agents/allow-drift-specialist-to-agentgateway-ingress
+   NetworkPolicy/ewallet-agents/allow-drift-specialist-to-kagent-controller-egress
+   NetworkPolicy/ewallet-agents/allow-drift-specialist-to-mcp-gateway-egress
+   NetworkPolicy/ewallet-agents/allow-drift-specialist-to-mcp-gateway-ingress
+   NetworkPolicy/ewallet-agents/allow-drift-specialist-to-otel-collector-egress
+   NetworkPolicy/ewallet-agents/allow-drift-specialist-to-otel-collector-ingress
+   NetworkPolicy/ewallet-agents/allow-kagent-controller-to-drift-specialist-ingress
+   PodDisruptionBudget/ewallet-agents/drift-specialist
+   ScaledObject/ewallet-agents/drift-specialist
+   ServiceAccount/ewallet-agents/drift-specialist

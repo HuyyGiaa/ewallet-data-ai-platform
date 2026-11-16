@@ -1,5 +1,149 @@
 # Agent platform completion: campaign handoff
 
+## Phase 1 `p1-20261116T075841Z` (2026-11-16): wake verification, controller tracing, B′ readiness
+
+Evidence: `~/ewallet-evidence/agents/phase1/p1-20261116T075841Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/p1-20261116T075841Z/`.
+
+- **Approvals** (`approvals.txt`): W1 (temporary /32 + `wake-full` + MCP back to 2), W2 (read-only + smoke), F1 (scale 3
+  GPU leftovers to 0), W3 (KEDA-aware sleep).
+- **Verdict:** `PHASE_1_STATUS = PARTIAL`. The wake works and the KEDA unpause is verified on GKE. Two wake-readiness
+  defects in the Substrate layer remain. They block a clean wake and are the main B′ risks; neither was fixed here.
+
+### P1-A baseline
+
+- **Git:** HEAD `af16927c` = origin, clean tree.
+- **Helm:**
+  - `llm-agent` rev 52: agents and gateways (Helm in namespace `default`).
+  - `llm-agent-mcp` rev 17.
+  - `kagent` rev 8 (chart 0.10.3, controller `0.10.3-ewallet.ea032b19`).
+- **Ownership** (from the renders and live labels):
+  - Agent CRs, ScaledObjects, PDBs, SAs and policies: Helm `llm-agent`.
+  - The Agent Deployments and Services: kagent controller, from the Agent CR.
+  - HPAs: KEDA.
+  - SandboxAgents and WorkerPool `business-agents`: applied directly (campaign label; no Helm owner).
+  - ActorTemplates, golden actors and worker Deployment: kagent and the Substrate controller.
+  - WorkerPool CRD: Helm `substrate-crds`.
+  - Authorized networks: Terraform. Every temporary change was reverted.
+
+### P1-B wake (real GKE)
+
+- **Wake:** `wake-full` exit 0, 4 nodes Ready.
+- **KEDA unpause:** `keda_resumed` listed all 3 ScaledObjects, and the pause annotations and markers were removed.
+  - The HPAs reappeared only about 80 s later: the keda-operator pod was still `ContainerCreating`, and while it was,
+    the ScaledObjects still showed `Paused=True`.
+  - After that: 3 HPAs, `Paused=False`, `Ready=True`.
+- **`verify --expect awake`:** fails only on `ewallet-mcp/{feature-rag,drift}-mcp replicas != 1`. The 2026-11-06
+  recovery manifest predates PKG-P1 (Helm declares 2); this is a **stale manifest**, not a platform fault.
+- **Defect 1 — node agent starved.**
+  - After the wake, node `mh90` sat at 99% CPU requested, and the `atelet` DaemonSet pod there stayed Pending
+    (Helm `substrate`, no `priorityClassName`).
+  - Both business-agents workers were on `mh90`, so every Sandbox restore failed ("Resume rolled back after a failed
+    restore"). The typed smoke was 0/3.
+  - Cause: 3 `ewallet-llm-gpu` Deployments left over from the P3 GPU campaign, outside the cloud_lab manifest, took
+    500m. They were scaled to 0 (F1, recorded drift).
+- **Defect 2 — stale worker registry.**
+  - The Substrate worker registry listed 4 workers for a 2-replica pool. `nns95` and `v8rzm`, from before the sleep,
+    remained beside the live `4zllc` and `qbvxc`.
+  - Actors assigned to a dead worker fail with `CallAteletRestore: worker pod not found`.
+  - The combined smoke was `partial` (Drift failed) 3 out of 3 times; Drift alone passed.
+  - Not repaired: no supported API removes a worker record.
+- **Smoke after F1:**
+  - Typed fraud: completed, prob 0.0639895560144887, Sandbox route, `actor_id sandbox-feature-rag`, 0 fallback.
+  - Typed drift: completed, PSI 0.0004795543627041439, `actor_id sandbox-drift`.
+  - Combined: `partial` (defect 2).
+  - Negatives: 3/3 PASS.
+- **Sleep:** KEDA-aware guarded sleep exit 0, `verify --expect sleep` with no failures, 0 nodes, temporary /32 removed.
+
+### P1-C kagent controller tracing: `CONFIGURATION_FIX_AVAILABLE`
+
+Full analysis: `tracing/DIAGNOSIS.txt`.
+
+- Git **is** applied: live values `otel.tracing.enabled=true`, and ConfigMap
+  `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='otel-collector.ewallet-agents.svc.cluster.local:4317'`.
+- The controller builds its exporter with `autoexport` from the standard OTEL env.
+- OTEL Go parses an env endpoint as a URL: `url.Parse("host:4317")` gives scheme = host and an empty host. That is
+  exactly the live log line `invalid target address ""` (seen again 2026-11-16 08:22Z).
+- **Fix 1:** set the endpoint to `http://otel-collector.ewallet-agents.svc.cluster.local:4317` (one ConfigMap key; the
+  controller restarts once).
+- **Fix 2, also required:** an otel-collector ingress flow for `cluster.local/ns/kagent/sa/kagent-controller` (none is
+  allowed today).
+- Both are owner-approved Phase 2 items. Not applied.
+
+### P1-D Specialist Deployments and B′ readiness
+
+- **Routing:** `GatewayPolicy.call_for` routes a Specialist named in `EWALLET_SANDBOX_SPECIALISTS` to
+  `/api/a2a-sandboxes/ewallet-sandbox/<agent>/`, always. There is **no automatic fallback** to the Deployment. The
+  Deployment Specialists are reachable only after a P4 rollback, so they are **manual rollback targets**, not HA.
+
+**Deletion matrix** (Helm `llm-agent` renders 22 objects for Feature-RAG and 21 for Drift: `ownership/specialist-objects.txt`):
+
+| Resource (per Specialist) | Owner | Phase 2 action |
+|---|---|---|
+| Agent CR `ewallet-agents/<agent>` (type BYO) → kagent Deployment + Service | Helm → kagent | REMOVE (values: drop the BYO specialist) |
+| ScaledObject `<agent>` + KEDA HPA | Helm / KEDA | REMOVE (keeps KEDA from scaling an idle Deployment) |
+| PDB `<agent>` | Helm | REMOVE (also removes a sleep blocker) |
+| ServiceAccount `<agent>` | Helm | REMOVE |
+| ConfigMap `<agent>-prompt-v*` | Helm | INVESTIGATE (the registry prompt stays; the Sandbox image embeds its own) |
+| AuthorizationPolicies: a2a-gateway→, kagent-controller→, →agentgateway, →mcp-gateway, →otel-collector | Helm | REMOVE |
+| NetworkPolicies (≈10 per agent) | Helm | REMOVE |
+| NetworkPolicy `allow-byo-modelconfig-to-kube-apiserver` | Helm (shared with the Coordinator) | MODIFY (drop the Specialist selector) |
+| A2A Gateway `x-kagent-host` routes `feature-rag-specialist` / `drift-specialist` | Helm (`a2a-gateway-config`) | MODIFY. The AGI-08 negative uses `drift-specialist.ewallet-agents` as its routed control and needs a new control |
+| MCP credentials `mcp-token-<agent>-<server>` (+ grants in `llm-agent-mcp`) | `llm-agent-mcp` credential lifecycle | MODIFY (keep the `sandbox-*` subjects; retire the Deployment subjects in a new server set) |
+| Registry Agent entries | registry | MODIFY (runtime `kagent-sandboxagent`; drop `byo-image-digest`) |
+| Grafana / KEDA queries `agent="<agent>"` | chart | MODIFY (the in-flight series then come only from actors; see the metric strategy) |
+| SandboxAgents, WorkerPool, Coordinator, gateways, MCP servers | — | KEEP |
+
+**B′ verdicts:**
+
+| Item | Finding |
+|---|---|
+| CRD compatibility | `workerpools.ate.dev` v1alpha1 has `/scale` (`spec.replicas`/`status.replicas`) but no `labelSelectorPath` and no `spec.scaleSelector`. The KEDA HPA needs PKG-P3 (`crd_patch.sh`), which is cluster-scoped, Helm `substrate-crds`, and reverted by any `substrate-crds` upgrade |
+| KEDA watch | KEDA 2.21.0 `WATCH_NAMESPACE=ewallet-agents,ml-platform`, so PKG-W (`values-sandbox-watch.yaml`) is required |
+| Target | `WorkerPool/ewallet-sandbox/business-agents`. The chart template `autoscaling.yaml` (sandbox mode) targets a per-agent WorkerPool in `ewallet-agents` and does **not** fit: a dedicated template or manifest for the shared pool is needed |
+| Metric | Substrate 0.0.9 exports only `rpc_server_call_duration_seconds` (`ate-api :9090`) and controller-runtime metrics, with no pending, assigned or free-worker gauge, and Prometheus does not scrape `ate-system`. Actor-side `ewallet_agent_inflight_tasks` freezes at 1 on suspend. Recommended: Coordinator metrics `ewallet_sandbox_delegations_inflight` (gauge) and `ewallet_sandbox_admission_waits_total` (counter of `sandbox_capacity_exhausted`), from the always-scraped Coordinator pods |
+| Ownership | The WorkerPool has no Helm owner. KEDA would own `spec.replicas` through `/scale`; nothing else writes it (direct `kubectl apply` of the fleet would reset replicas: exclude `replicas` from that manifest or let KEDA own it) |
+| Scale-in safety | **Not proven, and defect 2 shows it is unsafe today.** A removed worker pod stays registered, and later actors assigned to it fail. Also unverified: drain of busy workers, suspension of active actors, snapshot consistency |
+| cloud_lab gap | `keda_controllers()` only matches `scaleTargetRef.kind == Deployment`, and the WorkerPool has no PDB, so guarded sleep would neither find nor pause its ScaledObject |
+| Capacity / cost | A worker requests 500m/1Gi (limit 1500m/2Gi). After a full wake the 4 e2-standard-4 nodes are 83–99% CPU-requested, so a 3rd worker needs about 500m free and probably a 5th node (about +$0.165/h; 4 nodes ≈ $0.66/h) |
+
+**cloud_lab design for B′:**
+
+- Discover ScaledObjects of any kind whose target has `/scale` (WorkerPool included).
+- Record `spec.replicas`, pause at the baseline (`paused-replicas=<min>`), and refuse while actors are `Running`
+  (status API).
+- After the wake, unpause, then verify that the registry workers equal the live worker pods.
+
+Tests: a fake cluster with a WorkerPool ScaledObject; pause, then failure recovery, then selective unpause; plus a
+refusal while actors are active.
+
+### Phase 2 plan (smallest safe sequence; nothing executed)
+
+1. **Wake hygiene** (no B′ yet).
+   - `atelet` priorityClass `system-node-critical` (Helm `substrate` values, owner approval).
+   - Decide on the `ewallet-llm-gpu` leftovers (remove, or add them to the manifest).
+   - Refresh the recovery manifest (MCP at 2).
+   - Find a supported way to clear stale workers. Upstream Substrate fix, or a controlled resync: required before B′.
+2. **kagent tracing:** endpoint scheme fix plus the kagent-controller→otel flow (two gated packages).
+3. **Coordinator metrics:** the two Sandbox metrics. Image roll through `img-agents`.
+4. **Remove the Deployment Specialists:**
+   - Chart values change that drops the BYO Specialists.
+   - A new AGI-08 control route.
+   - Credential server-set rotation.
+   - Registry republish.
+   - Gate: exact diff (the matrix above), dry-run, P4 E2E.
+5. **B′:**
+   - PKG-W (KEDA watch), then PKG-P3 (CRD, cluster-scoped approval).
+   - Add `scaleSelector` to `business-agents`.
+   - A ScaledObject on the shared pool (min 2, max 3–4, Coordinator metrics).
+   - The cloud_lab WorkerPool support above.
+   - Validation on kind first, then GKE: 2→3→2 workers under the AGR-06 profile, actors placed on the new worker, no
+     stale registrations after scale-in, success 100/100.
+6. **Integrated acceptance**, then the owner replay.
+
+Rollback boundaries: one Helm revision per package, the CRD backup (`crd_patch.sh backup`), and KEDA values from before
+PKG-W.
+
 ## Final remediation `rem-20261116T050511Z` (2026-11-16): current state
 
 Results: [AGENT_PLATFORM_COMPLETION.md §6](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#6-final-remediation-rem-20261116t050511z).

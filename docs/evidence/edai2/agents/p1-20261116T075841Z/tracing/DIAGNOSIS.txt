@@ -1,0 +1,25 @@
+P1-C kagent controller tracing — verdict CONFIGURATION_FIX_AVAILABLE (2 changes; neither applied in Phase 1)
+
+Live (kagent release rev 8, chart kagent-0.10.3, controller image kagent-controller:0.10.3-ewallet.ea032b19):
+  helm values otel.tracing = {enabled: true, exporter.otlp: {endpoint: otel-collector.ewallet-agents.svc.cluster.local:4317,
+    protocol: grpc, insecure: true, timeout: 15000}}  -> Git kagent-values.yaml IS applied
+  ConfigMap kagent-controller: OTEL_TRACING_ENABLED=true, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT='otel-collector...:4317' (no scheme),
+    no OTEL_EXPORTER_OTLP_ENDPOINT (chart sets the unified key only when logging uses the same endpoint; logging is off)
+Source (kagent-0.10.3 go/core/internal/telemetry/tracing.go): InitTracerProvider -> autoexport.NewSpanExporter(ctx), i.e. the
+  standard OTEL env. OTEL Go otlpconfig/envconfig.go: envconfig.WithURL("TRACES_ENDPOINT", func(u *url.URL){ ... Endpoint = u.Host })
+  url.Parse("otel-collector.ewallet-agents.svc.cluster.local:4317") -> scheme "otel-collector.ewallet-agents.svc.cluster.local",
+  host "" -> gRPC dial target "" -> 'traces export: ... delegating_resolver: invalid target address "": missing address'
+  (controller log 2026-11-15 21:42-21:44Z, ~every 20 s while spans existed).
+Root cause: the endpoint value lacks a URL scheme (env endpoints are URLs for the OTEL Go SDK; Helm value nesting is correct).
+Second blocker found: otel-collector AuthorizationPolicies admit no cluster.local/ns/kagent/sa/kagent-controller principal
+  (allow-* list read 2026-11-15), so a fixed exporter would still be denied by ztunnel (and the ingress NetworkPolicy).
+Proposed (Phase 2, owner approval each):
+  (1) kagent release: otel.tracing.exporter.otlp.endpoint: http://otel-collector.ewallet-agents.svc.cluster.local:4317
+      (Git infra/kubernetes/kagent-platform/kagent-values.yaml + live --reuse-values upgrade via the existing runtime_fix/
+      sandbox_watch gate); rendered change = 1 ConfigMap key; controller pod restarts once (rollback: previous value, helm rollback 8).
+  (2) llm-agent crossNamespace flow kagent-controller-to-otel-collector (ingress, otel-collector:4317, peer ns kagent,
+      sa kagent-controller), like t1-agents; 1 AuthorizationPolicy + 1 NetworkPolicy; rollback: helm rollback.
+  Security: OTLP write-only to the collector; collector redaction (attributes/redact) applies; no prompt/tool payload capture
+  is enabled by these changes.
+  Verification: controller logs no 'traces export' error; Tempo search service.name=kagent-controller returns spans of the
+  sandbox A2A request; the Sandbox Specialist execute span's parent span is present in the same trace.

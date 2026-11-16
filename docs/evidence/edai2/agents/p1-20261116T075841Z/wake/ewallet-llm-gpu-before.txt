@@ -1,0 +1,5 @@
+NAME                   REPLICAS
+agentgateway-staging   1
+llmd-envoy-b2          1
+llmd-envoy-o2          1
+llmd-epp               1

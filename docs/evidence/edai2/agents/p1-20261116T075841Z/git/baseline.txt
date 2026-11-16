@@ -1,0 +1,11 @@
+feature/edai2-agent-platform-integration
+af16927cb1f0bfa8dd010e3a70b3b14a7170235e
+af16927cb1f0bfa8dd010e3a70b3b14a7170235e
+0
+0	0
+af16927c docs(agents): KEDA-aware sleep verified; remediation evidence mirror and handoff
+22f75a19 docs(agents): final remediation results; replay runbook and helper for the remediated runtime
+eee91a88 fix(registry): readback treats an absent field as the empty list agentregistry stored
+281b0493 fix(registry): label the SandboxAgent fleet image separately from the BYO Deployment image (AGI-13)
+21994c03 fix(agent-platform): remediation for Sandbox capacity audit, KEDA-aware guarded sleep, P4 registry catalog
+2ad3ac2a docs(agents): campaign sleep blocked by KEDA minReplicaCount; restore, owner procedure, evidence

@@ -1,0 +1,11 @@
+NAME                     PORTS        NAMES
+api                      443          grpc
+ate-controller           8080         metrics
+atenet-router            80,443       http,https
+dns                      53,53        dns,dns-tcp
+rustfs                   9000,9001    api,console
+valkey-cluster           6379         valkey
+valkey-cluster-service   6379,16379   valkey,bus
+ate-controller ports [8080, 8081] args [] annot {}
+ate-api-server-deployment ports [443, 9090] args [] annot {'prometheus.io/port': '9090', 'prometheus.io/scrape': 'true'}
+prometheus series named ate/substrate/actor: none

@@ -1,0 +1,5 @@
+2026-11-16T08:04:35Z OWNER-APPROVED (AskUserQuestion) for p1-20261116T075841Z: W1 temporary /32 (existing 3 CIDRs kept) + wake-full + MCP replicas to Helm-declared 2; W2 read-only investigation + smoke (typed fraud/drift/combined + 3 negatives); W3 KEDA-aware guarded sleep (tokens ewallet-dev:p1-20261116T075841Z, --also-approve ewallet-mcp/feature-rag-mcp) + remove /32
+2026-11-16T08:06:59Z W1: scaled ewallet-mcp MCP Deployments to Helm-declared 2
+2026-11-16T08:24:56Z OWNER-APPROVED F1: scale ewallet-llm-gpu/{agentgateway-staging,llmd-envoy-b2,llmd-envoy-o2} 1->0 (P3 GPU leftovers, outside cloud_lab manifest) to let atelet schedule on mh90
+2026-11-16T08:29:15Z W3 executing: KEDA-aware guarded sleep
+2026-11-16T08:33:10Z W3 cleanup: remove temporary /32

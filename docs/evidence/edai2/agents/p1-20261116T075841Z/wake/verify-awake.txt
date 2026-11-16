@@ -1,0 +1,7 @@
+{
+  "expect": "awake",
+  "failures": [
+    "ewallet-mcp/drift-mcp replicas != 1",
+    "ewallet-mcp/feature-rag-mcp replicas != 1"
+  ]
+}

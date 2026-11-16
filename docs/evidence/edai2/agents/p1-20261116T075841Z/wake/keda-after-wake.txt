@@ -1,0 +1,7 @@
+## ScaledObject annotations
+NAME                     PAUSED   MARKER   READY   ACTIVE   PAUSEDCOND
+drift-specialist         <none>   <none>   True    True     True
+feature-rag-specialist   <none>   <none>   True    True     True
+fraud-coordinator        <none>   <none>   True    False    True
+## HPA
+No resources found in ewallet-agents namespace.

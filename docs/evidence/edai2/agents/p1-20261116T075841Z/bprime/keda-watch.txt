@@ -1,0 +1,2 @@
+keda image keda:2.21.0
+WATCH_NAMESPACE ['ewallet-agents,ml-platform']

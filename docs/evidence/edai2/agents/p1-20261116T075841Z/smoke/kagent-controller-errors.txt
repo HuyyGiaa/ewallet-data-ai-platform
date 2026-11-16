@@ -1,0 +1,6 @@
+{"level":"info","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/","remote_addr":"10.216.3.18:47505","status":200,"duration":0.358413188}
+{"level":"info","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/","remote_addr":"10.216.3.18:47505","status":200,"duration":0.223032594}
+{"level":"info","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/","remote_addr":"10.216.3.18:58097","status":200,"duration":0.185363616}
+{"level":"info","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/","remote_addr":"10.216.3.18:47505","status":200,"duration":0.194292158}
+{"level":"info","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/","remote_addr":"10.216.3.18:47505","status":200,"duration":0.203682488}
+2026/11/16 08:22:12 traces export: exporter export timeout: rpc error: code = Unavailable desc = delegating_resolver: invalid target address "": missing address

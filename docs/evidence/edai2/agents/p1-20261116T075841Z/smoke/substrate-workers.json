@@ -1,0 +1,40 @@
+{
+ "workers": [
+  {
+   "workerNamespace": "ewallet-sandbox",
+   "workerPool": "business-agents",
+   "workerPod": "business-agents-deployment-55b8b4858c-4zllc",
+   "ip": "10.216.0.25",
+   "version": 7
+  },
+  {
+   "workerNamespace": "ewallet-sandbox",
+   "workerPool": "business-agents",
+   "workerPod": "business-agents-deployment-55b8b4858c-nns95",
+   "ip": "10.216.2.131",
+   "version": 379
+  },
+  {
+   "workerNamespace": "ewallet-sandbox",
+   "workerPool": "business-agents",
+   "workerPod": "business-agents-deployment-55b8b4858c-qbvxc",
+   "ip": "10.216.0.28",
+   "version": 5
+  },
+  {
+   "workerNamespace": "ewallet-sandbox",
+   "workerPool": "business-agents",
+   "workerPod": "business-agents-deployment-55b8b4858c-v8rzm",
+   "ip": "10.216.3.60",
+   "version": 351
+  }
+ ],
+ "workerPools": [
+  {
+   "namespace": "ewallet-sandbox",
+   "name": "business-agents",
+   "replicas": 2,
+   "ateomImage": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52.d8d1db43@sha256:68a6f1a8dcbff6aa5456b5480c124a0c914faa632b7ee5d90cdbae5c21207de9"
+  }
+ ]
+}

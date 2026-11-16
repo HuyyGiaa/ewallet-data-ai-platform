@@ -1,0 +1,8 @@
+1 2026-11-02T00:21:18 superseded Install complete
+2 2026-11-02T04:35:49 superseded Upgrade complete
+3 2026-11-02T19:30:39 failed Upgrade "kagent" failed: context canceled
+4 2026-11-02T19:32:46 superseded Rollback to 2
+5 2026-11-02T19:37:39 superseded Upgrade complete
+6 2026-11-15T12:55:08 superseded Upgrade complete
+7 2026-11-15T18:54:55 superseded Upgrade complete
+8 2026-11-15T20:20:00 deployed Upgrade complete

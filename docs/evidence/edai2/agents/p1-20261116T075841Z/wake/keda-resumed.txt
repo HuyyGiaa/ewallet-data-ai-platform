@@ -1,0 +1,5 @@
+  "keda_resumed": [
+    "ewallet-agents/drift-specialist",
+    "ewallet-agents/feature-rag-specialist",
+    "ewallet-agents/fraud-coordinator"
+  ]

@@ -1,0 +1,20 @@
+== core/internal/telemetry/tracing.go
+26:// the global tracer. The exporter type and endpoint are read from standard
+31:func InitTracerProvider(ctx context.Context, serviceVersion string) (func(context.Context) error, error) {
+32:	if !env.OtelTracingEnabled.Get() {
+52:	if ns := os.Getenv("KAGENT_NAMESPACE"); ns != "" {
+55:	if pod := os.Getenv("K8S_POD_NAME"); pod != "" {
+58:	if node := os.Getenv("K8S_NODE_NAME"); node != "" {
+== core/pkg/env/otel.go
+6:	OtelTracingEnabled = RegisterBoolVar(
+7:		"OTEL_TRACING_ENABLED",
+13:	OtelLoggingEnabled = RegisterBoolVar(
+14:		"OTEL_LOGGING_ENABLED",
+20:	OtelExporterOTLPEndpoint = RegisterStringVar(
+21:		"OTEL_EXPORTER_OTLP_ENDPOINT",
+27:	OtelExporterOTLPTracesEndpoint = RegisterStringVar(
+28:		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+30:		"OTLP exporter endpoint for traces. Takes precedence over OTEL_EXPORTER_OTLP_ENDPOINT for traces.",
+34:	OtelExporterOTLPLogsEndpoint = RegisterStringVar(
+35:		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+37:		"OTLP exporter endpoint for logs. Takes precedence over OTEL_EXPORTER_OTLP_ENDPOINT for logs.",
