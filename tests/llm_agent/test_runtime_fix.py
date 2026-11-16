@@ -165,6 +165,48 @@ class SubstrateOverrideTests(unittest.TestCase):
         for bad in ("--atelet-memory=2Gi:3Gi", "--atelet-memory=2048Mi:1024Mi", "--atelet-memory=512Mi"):
             self.assertNotEqual(self.render(self.docs(), bad)[0], 0, bad)
 
+    def test_atelet_placement_adds_the_non_preempting_class_and_the_not_ready_toleration(self):
+        _, plain = self.render(self.docs())
+        code, out = self.render(self.docs(), "--atelet-placement")
+        self.assertEqual(code, 0, out)
+        classes = [d for d in out if d["kind"] == "PriorityClass"]
+        self.assertEqual(len(classes), 1)
+        self.assertEqual((classes[0]["metadata"]["name"], classes[0]["value"], classes[0]["preemptionPolicy"],
+                          classes[0]["globalDefault"]), ("ewallet-substrate-node-agent", 100000, "Never", False))
+        spec = out[1]["spec"]["template"]["spec"]
+        self.assertEqual(spec["priorityClassName"], "ewallet-substrate-node-agent")
+        self.assertEqual(spec["tolerations"], [{"key": "node.kubernetes.io/not-ready", "operator": "Exists",
+                                                "effect": "NoSchedule"}])
+        self.assertEqual(out[0], plain[0], "ate-api-server is untouched")
+        base, cand = rfd.load(yaml.safe_dump_all(plain)), rfd.load(yaml.safe_dump_all(out))
+        self.assertEqual(rfd.atelet_placement(base, cand), [])
+
+    def test_atelet_placement_keeps_existing_tolerations_and_fails_closed(self):
+        docs = self.docs()
+        docs[1]["spec"]["template"]["spec"]["tolerations"] = [{"key": "x", "operator": "Exists"}]
+        code, out = self.render(docs, "--atelet-placement")
+        self.assertEqual(code, 0)
+        self.assertEqual([t["key"] for t in out[1]["spec"]["template"]["spec"]["tolerations"]], ["x", "node.kubernetes.io/not-ready"])
+        other = self.docs()
+        other[1]["spec"]["template"]["spec"]["priorityClassName"] = "someone-else"
+        self.assertNotEqual(self.render(other, "--atelet-placement")[0], 0)
+        self.assertNotEqual(self.render([self.docs()[0]], "--atelet-placement")[0], 0, "no atelet DaemonSet")
+
+    def test_atelet_placement_diff_rejects_anything_else(self):
+        _, plain = self.render(self.docs())
+        _, out = self.render(self.docs(), "--atelet-placement")
+        base = rfd.load(yaml.safe_dump_all(plain))
+        for mutate in (
+            lambda c: c[rfd.ATELET_CLASS_KEY].update(preemptionPolicy="PreemptLowerPriority"),
+            lambda c: c[rfd.ATELET_CLASS_KEY].update(globalDefault=True),
+            lambda c: c[rfd.ATELET]["spec"]["template"]["spec"]["containers"][0].update(image="x@sha256:" + "f" * 64),
+            lambda c: c[rfd.ATELET]["spec"]["template"]["spec"]["tolerations"].append({"operator": "Exists"}),
+            lambda c: c[("Deployment", "ate-system", "ate-api-server-deployment")]["spec"].update(replicas=3),
+        ):
+            cand = rfd.load(yaml.safe_dump_all(out))
+            mutate(cand)
+            self.assertTrue(rfd.atelet_placement(base, cand))
+
     def test_override_fails_closed_without_the_deployment(self):
         code, _ = self.render(self.docs()[1:], f"--ateapi-image={self.image}")
         self.assertNotEqual(code, 0)
@@ -240,6 +282,9 @@ class BuildSpecTests(unittest.TestCase):
             self.assertIn(gate, script)
         self.assertNotIn("kubectl set image", script)
         self.assertIn("package=P2C-KAGENT-OTEL", script)
+        self.assertIn("package=P2B-ATELET-PLACEMENT", script)
+        self.assertIn("is applied only while the node pool is empty", script)
+        self.assertIn("diff_tool candidate atelet-placement", script)
         self.assertIn("diff_tool candidate kagent-otel", script)
 
 

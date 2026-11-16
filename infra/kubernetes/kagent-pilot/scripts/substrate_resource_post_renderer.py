@@ -13,6 +13,14 @@ pull cache holds each cached image's flattened tarball in memory (images under 1
 compressed), and io.ReadAll needs about twice that while filling it: the 203 MiB business-agent
 filesystem OOM-killed atelet at the 512Mi default above on a fresh node.
 
+``--atelet-placement`` (P2-B) lets atelet reserve its node before a wake's pod backlog does. Without it
+the DaemonSet controller created the atelet pod only when the node turned Ready (atelet does not
+tolerate node.kubernetes.io/not-ready:NoSchedule), at the same moment as every pending priority-0 pod,
+and on two GKE wakes one node filled up first: atelet stayed Pending while a Sandbox worker ran there.
+It adds the PriorityClass ewallet-substrate-node-agent (value 100000, preemptionPolicy Never: it orders
+the scheduling queue and never evicts anything) and gives atelet that class plus the not-ready
+NoSchedule toleration, so its pod is bound at node registration and starts once the node is up.
+
 Without arguments the output is unchanged.
 """
 
@@ -185,9 +193,51 @@ PATCHED_IMAGE = re.compile(r"^[a-z0-9-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+
 MEMORY = re.compile(r"^[1-9][0-9]{2,4}Mi$")
 
 
-def parse_args(argv: list[str]) -> tuple[str | None, tuple[str, str] | None]:
+ATELET_PRIORITY_CLASS = "ewallet-substrate-node-agent"
+ATELET_NOT_READY_TOLERATION = {"key": "node.kubernetes.io/not-ready", "operator": "Exists", "effect": "NoSchedule"}
+
+
+def atelet_priority_class() -> dict:
+    return {
+        "apiVersion": "scheduling.k8s.io/v1",
+        "kind": "PriorityClass",
+        "metadata": {"name": ATELET_PRIORITY_CLASS},
+        "value": 100000,
+        "globalDefault": False,
+        "preemptionPolicy": "Never",
+        "description": "Substrate atelet node agent: scheduled ahead of priority-0 pods; never preempts (P2-B).",
+    }
+
+
+def set_atelet_placement(documents: list[dict]) -> None:
+    """Give the atelet DaemonSet the non-preempting class and the not-ready toleration; add the class."""
+    hits = 0
+    for document in documents:
+        if document.get("kind") != "DaemonSet" or document.get("metadata", {}).get("name") != "atelet":
+            continue
+        spec = document["spec"]["template"]["spec"]
+        if spec.get("priorityClassName") not in (None, ATELET_PRIORITY_CLASS):
+            raise ValueError("atelet already has another priorityClassName; review the placement change")
+        spec["priorityClassName"] = ATELET_PRIORITY_CLASS
+        tolerations = list(spec.get("tolerations") or [])
+        if ATELET_NOT_READY_TOLERATION not in tolerations:
+            tolerations.append(dict(ATELET_NOT_READY_TOLERATION))
+        spec["tolerations"] = tolerations
+        hits += 1
+    if hits != 1:
+        raise ValueError(f"expected one atelet DaemonSet, found {hits}")
+    if any(d.get("kind") == "PriorityClass" for d in documents):
+        raise ValueError("the chart already renders a PriorityClass; review the placement change")
+    documents.append(atelet_priority_class())
+
+
+def parse_args(argv: list[str]) -> tuple[str | None, tuple[str, str] | None, bool]:
     image = memory = None
+    placement = False
     for arg in argv:
+        if arg == "--atelet-placement":
+            placement = True
+            continue
         if arg.startswith("--ateapi-image="):
             image = arg.split("=", 1)[1]
             if not PATCHED_IMAGE.match(image):
@@ -199,7 +249,7 @@ def parse_args(argv: list[str]) -> tuple[str | None, tuple[str, str] | None]:
             memory = (request, limit)
         else:
             raise ValueError(f"unknown argument {arg!r}")
-    return image, memory
+    return image, memory, placement
 
 
 def set_atelet_memory(documents: list[dict], memory: tuple[str, str]) -> None:
@@ -242,7 +292,7 @@ def pod_spec(document: dict) -> dict | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ateapi_image, atelet_memory = parse_args(sys.argv[1:] if argv is None else argv)
+    ateapi_image, atelet_memory, atelet_placement = parse_args(sys.argv[1:] if argv is None else argv)
     documents = [doc for doc in yaml.safe_load_all(sys.stdin) if doc]
     for document in documents:
         patch_valkey(document)
@@ -265,6 +315,8 @@ def main(argv: list[str] | None = None) -> int:
         override_ateapi(documents, ateapi_image)
     if atelet_memory:
         set_atelet_memory(documents, atelet_memory)
+    if atelet_placement:
+        set_atelet_placement(documents)
     yaml.safe_dump_all(documents, sys.stdout, sort_keys=False, explicit_start=True)
     return 0
 

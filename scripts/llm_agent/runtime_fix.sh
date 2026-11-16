@@ -6,6 +6,11 @@
 #              (substrate post-renderer --ateapi-image; the chart has one tag for all components),
 #              and atelet memory (--atelet-memory; the in-memory pull cache OOM-killed it at 512Mi).
 #              A later patched build replaces an earlier one: the baseline renders the live patched image.
+#   atelet-placement release ate-system/substrate (P2-B): atelet gets the non-preempting PriorityClass
+#              ewallet-substrate-node-agent and the not-ready NoSchedule toleration (post-renderer
+#              --atelet-placement). Applied only while the node pool is empty (cluster asleep): a live
+#              DaemonSet rollout would stall on the very Pending atelet pod it fixes, and nothing runs to
+#              disturb. Verified at the next wake (atelet bound at node registration on every node).
 #   kagent-otel release kagent/kagent (P2-C): the controller's OTLP traces endpoint gets its http:// scheme
 #              (values overlay kagent-otel-endpoint-overlay.yaml); image and env unchanged. Apply only
 #              after the agents package tr-agents admitted kagent-controller -> otel-collector:4317.
@@ -30,7 +35,7 @@
 set -euo pipefail
 target=${1:-} action=${2:-} work=${3:-}
 die() { echo "runtime_fix: FAIL: $*" >&2; exit 1; }
-case "$target" in kagent|substrate|kagent-otel) ;; *) die "usage: runtime_fix.sh <kagent|substrate|kagent-otel> <action> <work-dir>";; esac
+case "$target" in kagent|substrate|kagent-otel|atelet-placement) ;; *) die "usage: runtime_fix.sh <kagent|substrate|kagent-otel|atelet-placement> <action> <work-dir>";; esac
 case "$action" in preflight|diff|dry-run|upgrade|verify|rollback|cleanup) ;; *) die "unknown action '$action'";; esac
 [[ -n "$work" ]] || die "work directory required"
 [[ -n "${KUBE_CONTEXT:-}" ]] || die "KUBE_CONTEXT is required"
@@ -86,10 +91,22 @@ else
   [[ "$live_mem" == "$SUBSTRATE_ATELET_MEMORY" ]] && renderer+=(--post-renderer-args "--atelet-memory=$SUBSTRATE_ATELET_MEMORY")
   # An earlier patched build is live (e.g. P2-A replaces the PKG-T build): the baseline renders it, so
   # identity still holds and the diff is exactly that image.
+  live_pc=$(K -n ate-system get daemonset atelet -o 'jsonpath={.spec.template.spec.priorityClassName}' 2>/dev/null || true)
+  if [[ "$live_pc" == ewallet-substrate-node-agent ]]; then   # P2-B is live: every render keeps it
+    renderer+=(--post-renderer-args "--atelet-placement"); candidate_renderer+=(--post-renderer-args "--atelet-placement")
+  fi
   if [[ "$live_ateapi" != "$image" && "$live_ateapi" =~ ^[a-z0-9.-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-ateapi:0\.0\.9-ewallet\.[0-9a-f.]+@sha256:[0-9a-f]{64}$ ]]; then
     renderer+=(--post-renderer-args "--ateapi-image=$live_ateapi")
   fi
+  if [[ $target == atelet-placement ]]; then
+    package=P2B-ATELET-PLACEMENT
+    [[ "$live_pc" != ewallet-substrate-node-agent ]] || [[ "$action" == verify || "$action" == rollback || "$action" == cleanup ]] \
+      || die "atelet placement is already live"
+    candidate_renderer=("${renderer[@]}" --post-renderer-args "--atelet-placement")
+    image=$live_ateapi   # unchanged: the placement step changes no image
+  fi
 fi
+asleep=0; [[ $target == atelet-placement ]] && asleep=1
 [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]] || die "patched image is not digest-pinned: $image"
 
 if [[ "$action" == cleanup ]]; then
@@ -128,7 +145,11 @@ preflight() {
   status=$(H status "$release" -n "$namespace" -o json) || die "release $namespace/$release not found"
   python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["info"]["status"]=="deployed", d["info"]["status"]; print(d["version"])' \
     <<< "$status" > "$work/revision-live" || die "release $release is not in status deployed"
-  K -n "$namespace" rollout status "deployment/$deployment" --timeout=120s > /dev/null || die "$deployment is not healthy before the change"
+  if (( asleep )); then
+    [[ -z "$(K get nodes -o name)" ]] || die "$target is applied only while the node pool is empty (cluster asleep)"
+  else
+    K -n "$namespace" rollout status "deployment/$deployment" --timeout=120s > /dev/null || die "$deployment is not healthy before the change"
+  fi
   K -n "$namespace" get deployment "$deployment" -o "jsonpath={.spec.template.spec.containers[?(@.name==\"$container\")].image}" > "$work/image-live"
   running_image_ids > "$work/pods-live.txt"
   H get values "$release" -n "$namespace" -o yaml > "$work/values-live.yaml"
@@ -143,7 +164,10 @@ preflight() {
 candidate() {
   H template "$release" "$chart" -n "$namespace" -f "$work/values-live.yaml" "${values_args[@]}" "${candidate_renderer[@]}" "${lookup[@]}" \
     > "$work/render-candidate.yaml" 2> "$work/render-candidate.err" || die "candidate render failed"
-  if [[ $target == kagent-otel ]]; then
+  if [[ $target == atelet-placement ]]; then
+    diff_tool candidate atelet-placement "$work/render-baseline.yaml" "$work/render-candidate.yaml" > "$work/diff.txt" 2>&1 \
+      || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
+  elif [[ $target == kagent-otel ]]; then
     diff_tool candidate kagent-otel "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$otel_endpoint" > "$work/diff.txt" 2>&1 \
       || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
   elif [[ $target == kagent ]]; then
@@ -177,6 +201,16 @@ verify() {
   log "verify PASS: $(tr '\n' ';' <<< "$pods")"
 }
 
+verify_placement() {   # asleep: the release holds the placement; the next wake proves the scheduling
+  [[ "$(K -n ate-system get daemonset atelet -o 'jsonpath={.spec.template.spec.priorityClassName}')" == ewallet-substrate-node-agent ]] \
+    || die "atelet has no ewallet-substrate-node-agent priorityClassName"
+  K -n ate-system get daemonset atelet -o 'jsonpath={.spec.template.spec.tolerations}' | grep -q '"node.kubernetes.io/not-ready"' \
+    || die "atelet has no not-ready toleration"
+  [[ "$(K get priorityclass ewallet-substrate-node-agent -o 'jsonpath={.preemptionPolicy}:{.value}')" == Never:100000 ]] \
+    || die "PriorityClass ewallet-substrate-node-agent is not Never:100000"
+  log "verify PASS: atelet placement live (PriorityClass Never:100000, not-ready toleration); scheduling is verified at the next wake"
+}
+
 approval() { [[ "${RUNTIME_FIX_APPROVAL:-}" == "$1" ]] || die "set RUNTIME_FIX_APPROVAL=$1 only under the owner's approval of this exact package"; }
 
 case "$action" in
@@ -195,20 +229,32 @@ case "$action" in
       cp "$work/pods-live.txt" "$work/pods-original.txt"
     fi
     log "upgrade: $(upgrade_args) (from revision $(cat "$work/revision-before-upgrade"), image $(cat "$work/image-before-upgrade"))"
-    # shellcheck disable=SC2046
-    H $(upgrade_args) "${candidate_renderer[@]}" --atomic --wait --timeout 10m > "$work/upgrade.txt" 2>&1 \
-      || { tail -3 "$work/upgrade.txt" >&2; die "helm upgrade failed (--atomic rolled it back)"; }
-    verify "${image##*@}" ;;
-  verify) verify "${image##*@}" ;;
+    if (( asleep )); then   # no node: --wait would wait for pods that cannot start; rollback is the package's
+      # shellcheck disable=SC2046
+      H $(upgrade_args) "${candidate_renderer[@]}" --timeout 10m > "$work/upgrade.txt" 2>&1 \
+        || { tail -3 "$work/upgrade.txt" >&2; die "helm upgrade failed; run rollback ($package-ROLLBACK)"; }
+      verify_placement
+    else
+      # shellcheck disable=SC2046
+      H $(upgrade_args) "${candidate_renderer[@]}" --atomic --wait --timeout 10m > "$work/upgrade.txt" 2>&1 \
+        || { tail -3 "$work/upgrade.txt" >&2; die "helm upgrade failed (--atomic rolled it back)"; }
+      verify "${image##*@}"
+    fi ;;
+  verify) if (( asleep )); then verify_placement; else verify "${image##*@}"; fi ;;
   rollback)
     approval "$package-ROLLBACK:$KUBE_CONTEXT"
-    [[ -s "$work/revision-original" && -s "$work/render-original.yaml" && -s "$work/pods-original.txt" ]] \
-      || die "no recorded original revision, baseline or image in $work"
+    [[ -s "$work/revision-original" && -s "$work/render-original.yaml" ]] || die "no recorded original revision or baseline in $work"
     before=$(cat "$work/revision-original")
-    before_digest=$(awk 'NR==1{print $2}' "$work/pods-original.txt"); before_digest=${before_digest##*@}
-    H rollback "$release" "$before" -n "$namespace" --wait --timeout 10m > "$work/rollback.txt" 2>&1 \
-      || { tail -3 "$work/rollback.txt" >&2; die "helm rollback failed"; }
-    verify "$before_digest"
+    if (( asleep )) && [[ -z "$(K get nodes -o name)" ]]; then
+      H rollback "$release" "$before" -n "$namespace" --timeout 10m > "$work/rollback.txt" 2>&1 \
+        || { tail -3 "$work/rollback.txt" >&2; die "helm rollback failed"; }
+    else
+      H rollback "$release" "$before" -n "$namespace" --wait --timeout 10m > "$work/rollback.txt" 2>&1 \
+        || { tail -3 "$work/rollback.txt" >&2; die "helm rollback failed"; }
+      if [[ -s "$work/pods-original.txt" ]]; then
+        before_digest=$(awk 'NR==1{print $2}' "$work/pods-original.txt"); verify "${before_digest##*@}"
+      fi
+    fi
     H get manifest "$release" -n "$namespace" > "$work/manifest-after-rollback.yaml"
     diff_tool identity "$work/manifest-after-rollback.yaml" "$work/render-original.yaml" > "$work/identity-after-rollback.txt" 2>&1 \
       || { cat "$work/identity-after-rollback.txt" >&2; die "rolled-back release differs from the pre-upgrade manifest"; }

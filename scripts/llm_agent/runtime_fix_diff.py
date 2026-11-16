@@ -4,6 +4,7 @@
     python scripts/llm_agent/runtime_fix_diff.py candidate kagent <baseline> <candidate> <image> <call-timeout>
     python scripts/llm_agent/runtime_fix_diff.py candidate substrate <baseline> <candidate> <image> [<req>:<limit>]
     python scripts/llm_agent/runtime_fix_diff.py candidate kagent-otel <baseline> <candidate> <endpoint>
+    python scripts/llm_agent/runtime_fix_diff.py candidate atelet-placement <baseline> <candidate>
 
 kagent: only Deployment kagent/kagent-controller may change, and in it only the controller
 container's image (to <image>) and one added env var SUBSTRATE_CALL_TIMEOUT=<call-timeout>.
@@ -11,6 +12,9 @@ substrate: only Deployment ate-system/ate-api-server-deployment (the ate-api-ser
 with <atelet-memory>, DaemonSet ate-system/atelet (only the atelet memory request and limit).
 kagent-otel (P2-C): only ConfigMap kagent/kagent-controller key OTEL_EXPORTER_OTLP_TRACES_ENDPOINT (to
 <endpoint>) and the controller Deployment's checksum/configmap annotation (the rollout trigger).
+atelet-placement (P2-B): only the added PriorityClass ewallet-substrate-node-agent (value 100000,
+preemptionPolicy Never, not the global default) and, in DaemonSet ate-system/atelet, its
+priorityClassName and the added not-ready NoSchedule toleration.
 Kept outside ops/llm_agent (an image input). Problems name objects and paths, never values.
 """
 
@@ -129,9 +133,48 @@ def kagent_otel(base: Mapping[Key, dict], cand: Mapping[Key, dict], endpoint: st
     return problems
 
 
+ATELET_CLASS = "ewallet-substrate-node-agent"
+ATELET_CLASS_KEY: Key = ("PriorityClass", "", ATELET_CLASS)
+NOT_READY = {"key": "node.kubernetes.io/not-ready", "operator": "Exists", "effect": "NoSchedule"}
+
+
+def atelet_placement(base: Mapping[Key, dict], cand: Mapping[Key, dict]) -> list[str]:
+    """P2-B: atelet's non-preempting class and not-ready toleration; nothing else."""
+    problems = []
+    added, removed = set(cand) - set(base), set(base) - set(cand)
+    if added != {ATELET_CLASS_KEY} or removed:
+        return [f"objects added {sorted(added)} removed {sorted(removed)}; want only {ATELET_CLASS_KEY}"]
+    pc = cand[ATELET_CLASS_KEY]
+    if (pc.get("value"), pc.get("preemptionPolicy"), bool(pc.get("globalDefault"))) != (100000, "Never", False):
+        problems.append("the PriorityClass must be value 100000, preemptionPolicy Never, not the global default")
+    changed = {k for k in set(base) & set(cand) if base[k] != cand[k]}
+    if changed != {ATELET}:
+        return problems + [f"changed {sorted(changed)} != [{ATELET}]"]
+    before, after = base[ATELET]["spec"]["template"]["spec"], cand[ATELET]["spec"]["template"]["spec"]
+    if after.get("priorityClassName") != ATELET_CLASS:
+        problems.append("atelet priorityClassName is not the reviewed class")
+    old_tol, new_tol = list(before.get("tolerations") or []), list(after.get("tolerations") or [])
+    if new_tol != old_tol + [NOT_READY]:
+        problems.append("atelet tolerations must be the existing ones plus exactly the not-ready NoSchedule toleration")
+    rest_before = {k: v for k, v in before.items() if k not in ("priorityClassName", "tolerations")}
+    rest_after = {k: v for k, v in after.items() if k not in ("priorityClassName", "tolerations")}
+    outside = {k: v for k, v in base[ATELET].items() if k != "spec"} != {k: v for k, v in cand[ATELET].items() if k != "spec"}
+    spec_rest = ({k: v for k, v in base[ATELET]["spec"].items() if k != "template"}
+                 != {k: v for k, v in cand[ATELET]["spec"].items() if k != "template"})
+    tmpl_meta = base[ATELET]["spec"]["template"].get("metadata") != cand[ATELET]["spec"]["template"].get("metadata")
+    if rest_before != rest_after or outside or spec_rest or tmpl_meta:
+        problems.append("atelet changed outside priorityClassName and tolerations")
+    return problems
+
+
 def main(argv: list[str]) -> int:
     if len(argv) == 3 and argv[0] == "identity":
         problems, label = identity(load(open(argv[1]).read()), load(open(argv[2]).read())), "IDENTITY"
+    elif len(argv) == 4 and argv[0] == "candidate" and argv[1] == "atelet-placement":
+        base, cand = load(open(argv[2]).read()), load(open(argv[3]).read())
+        problems, label = atelet_placement(base, cand), "CANDIDATE"
+        if not problems:
+            print(json.dumps({"target": "atelet-placement", "added": [list(ATELET_CLASS_KEY)], "changed": [list(ATELET)]}))
     elif len(argv) == 5 and argv[0] == "candidate" and argv[1] == "kagent-otel":
         base, cand = load(open(argv[2]).read()), load(open(argv[3]).read())
         problems, label = kagent_otel(base, cand, argv[4]), "CANDIDATE"
