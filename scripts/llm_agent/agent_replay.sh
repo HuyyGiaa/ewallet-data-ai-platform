@@ -166,9 +166,14 @@ PY
       | grep -oE '"actor_id": "[^"]+"|"tool_name": "[a-z_]+"|"status": "[a-z_]+"|"trace_id": "[0-9a-f]+"' | paste -sd' ' | cut -c1-400 || true
   done | grep -v '^$' || true
   echo "-- Deployment Specialists must show no task for this request (0 = no fallback)"
-  for pod in $(k -n ewallet-agents get pods -l 'ewallet.io/agent in (feature-rag-specialist,drift-specialist)' -o name); do
+  local legacy
+  legacy=$(k -n ewallet-agents get pods -l 'ewallet.io/agent in (feature-rag-specialist,drift-specialist)' -o name)
+  for pod in $legacy; do
     printf '%s %s\n' "$pod" "$(k -n ewallet-agents logs "$pod" --since-time="$since" 2>/dev/null | grep -c 'specialist.task_started' || true)"
   done
+  if [[ -z "$legacy" ]]; then   # after sp-cleanup there is nothing to fall back to
+    echo "none: legacy Specialist pods=0 deployments=$(k -n ewallet-agents get deployment feature-rag-specialist drift-specialist --ignore-not-found -o name | wc -l) (retired)"
+  fi
   echo "saved under $out/$id-*"
 }
 
