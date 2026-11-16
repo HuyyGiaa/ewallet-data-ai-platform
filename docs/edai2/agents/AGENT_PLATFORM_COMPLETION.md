@@ -19,7 +19,7 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | KEDA Coordinator scaling | **GKE_PASS**: 2→3 at 05:45:51Z, 3→2 at 06:03:08Z; the scale-out pod completed tasks (again under B′, §9) |
 | Shared WorkerPool autoscaling (B′) | **COMPLETE** (§9): KEDA 2→3→2 on Sandbox demand; the new worker ran 29 actors; 100/100 at 0.185 task/s (+45 %), p95 102.6 s; drain-safe scale-in (R3a/R3b); metric outage holds the pool |
 | MCP failover | **GKE_PASS** (2026-11-15 run-04; code unchanged since) |
-| Agent Registry (AGI-13) | **GKE_PASS**: readback 8/8 after the approved publish; no record removed |
+| Agent Registry (AGI-13) | **PARTIAL** since sp-cleanup (§10): Prompts and MCPServers match; the 2 Specialist Agent entries still carry the pre-cleanup BYO label/description until a separately approved republish; the Coordinator digest label predates the cleanup (stale since the P2 `img-coordinator` roll). No record removed |
 | Distributed tracing (AGI-12) | **GKE_PASS**: Sandbox spans in the Coordinator's trace; since Phase 2 (§7) the kagent controller hop too (21 spans in the combined trace) |
 | Security | **GKE_PASS** (unchanged policies; negatives pass) |
 | Agent Fleet (shared WorkerPool) | **GKE_PASS** (2026-11-15/16 runs; fleet image updated, sharing unchanged) |
@@ -27,6 +27,7 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | Substrate worker lifecycle (P2-A) | **COMPLETE** (§8): R1 and R2 passed on GKE; stale records removed at every ateapi start, before ateapi serves; no `worker pod not found` after the fix |
 | Coordinator Sandbox capacity metrics (P2-D) | **GKE_PASS** (§7.4): counter equals the logged capacity waits; gauge returns to 0 |
 | Natural-language combined prompts | Rejected by design (strict guard, owner decision) |
+| Legacy Specialist Deployment cleanup (`sp-cleanup`) | **GKE_PASS** (§10): 42 objects removed, 6 modified, 0 added (`llm-agent` rev 55); 5/5 E2E, 3/3 negatives, both KEDA healthy; registry republish and credential retirement await separate approval |
 
 ## 1. Architecture
 
@@ -35,7 +36,7 @@ kagent UI / A2A client
   └─ A2A Gateway (agentgateway, route kagent-a2a) ─ kagent controller ─ fraud-coordinator (BYO, KEDA 2..3)
        ├─ LLM Gateway (agentgateway :3000) ─ vLLM CPU "ewallet-fraud-llm"   (NL intake only; ModelConfig ewallet-global-llm)
        └─ A2A Gateway route sandbox-<agent> ─ kagent controller ─ Substrate actor (gVisor) on WorkerPool business-agents
-            feature-rag-specialist / drift-specialist (SandboxAgent; Deployment copies stay as fallback, KEDA 2..3)
+            feature-rag-specialist / drift-specialist (SandboxAgent only since sp-cleanup, §10; WorkerPool KEDA 2..3)
               └─ ateom egress proxy (169.254.17.1:3128, cluster Services only) ─ MCP Gateway (identity sandbox default)
                    ├─ feature-rag-mcp (2 replicas, PDB) ─ Feast online (DB 0 / RAG DB 3), KServe fraud-detector, RAG index
                    └─ drift-mcp (2 replicas, PDB) ─ pinned versioned baseline/window artifacts
@@ -245,7 +246,8 @@ Items 1 and 2, and the capacity part of item 5, are resolved by the final remedi
 
 - **Change:**
   - The catalog marks P4 Specialists `kagent-sandboxagent-byo`, rendered from the live Helm values.
-  - It labels both the BYO Deployment image and the Sandbox fleet image.
+  - It labels both the BYO Deployment image and the Sandbox fleet image (until sp-cleanup, §10: a Sandbox-only
+    Specialist has no BYO Deployment and no `byo-image-digest` label).
   - Readback treats the absent field agentregistry stores for an empty list as equal.
 - **GKE result:**
   - Before: `drift-specialist 1.1.0` and `fraud-coordinator 1.1.0` missing; `feature-rag-specialist` stale.
@@ -624,3 +626,62 @@ Every pushed digest was verified to contain the tested binary.
 - **Duplicate execution:** "no duplicate" holds for these runs (tasks, placements, ResumeActor calls). It is not a
   proof of exactly-once execution.
 
+
+## 10. Legacy Specialist Deployment cleanup (`sp-cleanup-20261116T200345Z`)
+
+Evidence: `~/ewallet-evidence/agents/sp-cleanup/sp-cleanup-20261116T200345Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/sp-cleanup-20261116T200345Z/`. Gate alias `agi-20261116T200345Z`.
+
+**Why:** after P4 the Coordinator delegates only through the A2A Gateway sandbox routes, so the BYO Specialist
+Deployments in `ewallet-agents` served no traffic. They still cost two pods each, a KEDA ScaledObject, a PDB that
+blocked sleep, and 32 mesh/network policies.
+
+**Mechanism (`f0f28506`):**
+- `agents.specialists.<name>.runtime` is `deployment` (default, renders the old release unchanged) or `sandbox`.
+- The overlay `agi/specialists-sandbox-only.yaml` sets `sandbox` for both Specialists. The chart then stops rendering
+  their Agent CR, ScaledObject, PDB, ServiceAccount, prompt ConfigMaps, policies, network flows and `x-kagent-host` route.
+- `.Values.agents.specialists` stays: tools, prompts and the BYO image (the SandboxAgent fleet uses the same image).
+- Gate package `sp-cleanup` in `agi_campaign.sh` expects exactly 42 removed and 6 changed identities.
+- The AGI-08 A2A negative now uses the sandbox route as its routed control.
+
+**Gate (live, before the upgrade):** preflight PASS on rev 54; live diff equal to the matrix (removed 42, changed 6,
+added 0).
+- Changed fields: Coordinator annotation `a2a-gateway-config-sha256`; a2a-gateway `checksum/config`.
+- A2A config: only the 2 `x-kagent-host` routes are dropped; `kagent-a2a` and both `sandbox-*` routes are identical.
+- Flows: 8 dropped, all to or from the retired Specialists.
+- NetworkPolicy and RoleBinding: SA `feature-rag-specialist` dropped.
+
+**Upgrade (rev 55, 20:39–20:44Z):** Helm removed the 42 objects. kagent garbage-collected each Agent's Deployment,
+Service, ServiceAccount and config Secret (`agent-card.json`, `config.json`, not a credential). Nothing was deleted by
+hand, and nothing reappeared 15 min later. KEDA logged one race at 20:43:51 (ScaledObject evaluated after its
+Deployment was gone), with no error after it.
+
+**Kept (35 fingerprinted objects):** WorkerPool, both SandboxAgents, both remaining ScaledObjects, Substrate, kagent,
+KEDA, MCP servers and gateways are unchanged. Only a2a-gateway and fraud-coordinator rolled, and their ReplicaSet
+templates differ only by the annotation above. The 21 `mcp-token-*` Secrets are not Helm-managed and remain.
+
+**Acceptance on GKE (after the upgrade):**
+
+| Check | Result |
+|---|---|
+| E2E | 5/5: typed fraud `ok` (prob 0.0639895560144887), drift `complete` (psi 0.00048), combined `complete`, NL fraud `ok`, NL drift `complete`. Every hop: Coordinator → A2A Gateway `sandbox-*` route → SandboxAgent actor on `business-agents` → MCP Gateway (`actor_id sandbox-*`) → backend |
+| No fallback | Legacy pods 0, Deployments 0; the retired hosts `drift-specialist.ewallet-agents` and `feature-rag-specialist.ewallet-agents` get 404 `route not found`, while their sandbox controls get 200 |
+| Negatives | 3/3: wrong-server credential 401, ungranted tool hidden, undeclared A2A host 404 (sandbox control 200) |
+| Tracing | 5 traces in Tempo (120–312 spans each) with agentgateway, kagent-controller, Coordinator, Specialist and MCP spans; no span names a retired host |
+| Placement | 27 `ResumeActor` calls on both shared workers during the E2E window |
+| KEDA | Coordinator and WorkerPool ScaledObjects Ready, `ValidMetricFound`, not paused; under the concurrency run the WorkerPool scaled 2→3 |
+| Concurrency | 6 concurrent requests (2 fraud, 2 drift, 2 combined): 6/6 completed (25–75 s) |
+| Persistence | 674 kagent sessions survived the sleep/wake; 15 new sessions since the cleanup, all on the SandboxAgents |
+| Registry (read-only) | PARTIAL, see the verdict table; no republish was approved |
+
+**Rollback:** `AGI_APPROVAL=SP-CLEANUP-ROLLBACK:agi-20261116T200345Z AGI_PACKAGE=sp-cleanup agi_campaign.sh rollback
+agents`. It runs `helm rollback llm-agent 54` and requires the manifest to equal the stage 0 manifest. kagent then
+recreates the Deployments and KEDA the two ScaledObjects.
+
+**Not done (separate approvals):**
+- Republish the registry metadata. The catalog already describes the Specialists as Sandbox-only.
+- Retire the legacy MCP credentials `mcp-token-{feature-rag,drift}-specialist-*` (9 Secrets plus their grants in
+  `llm-agent-mcp`). No workload mounts them now. The AGI-08 negatives still use them as test credentials, so a new
+  server set and new negative credentials are needed first.
+- Leftover references that match nothing: cloud_lab profile `minimal.one-agent` (never run) and a Loki regex in
+  `dashboards/logs-operations.json`.

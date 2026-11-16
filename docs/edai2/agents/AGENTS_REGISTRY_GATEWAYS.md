@@ -54,6 +54,11 @@ kagent UI ── (2) A2A message/stream ──▶ a2a-gateway (agentgateway; A2A
                                  Feast Redis          KServe fraud-detector     RAG store (Feast/Redis)
 ```
 
+> **Current runtime (2026-11-16, superseded diagram above).** Both Specialists run only as SandboxAgents on the shared
+> WorkerPool `ewallet-sandbox/business-agents`. The Coordinator reaches them through the A2A Gateway routes
+> `/api/a2a-sandboxes/ewallet-sandbox/<agent>/`. The BYO Specialist Deployments and their `x-kagent-host` routes were
+> removed by `sp-cleanup` (`llm-agent` rev 55). See [AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §10.
+
 A third agent, `drift-specialist`, is a Declarative kagent agent. Its configured
 route is `fraud-coordinator → a2a-gateway → drift-specialist → mcp-gateway →
 drift-mcp`, where `drift_detection` is the only tool allowed on the final hop.
@@ -220,7 +225,7 @@ The agents, MCP servers and system prompts are published to an [agentregistry](h
 
 *The deployed view.*
 
-The registry entries were generated when the agents were planned as kagent SandboxAgents. Their description still uses that wording, while the deployed agents are BYO and Declarative Deployments; see §9.
+The registry entries were generated when the agents were planned as kagent SandboxAgents. Their description still uses that wording, while the deployed agents are BYO and Declarative Deployments; see §9. *(Superseded, 2026-11-16: the Specialists now run as SandboxAgents only. The published entries still mention a BYO Deployment fallback until the next approved publication; see §9.)*
 
 ## 6. Agent conversations in the kagent UI
 
@@ -327,8 +332,8 @@ historical raw evidence, not a screenshot or a current cluster query.
   call through both gateways. The Feature-RAG trace in §6 does not prove this
   separate path.
 - **Sandboxing** *(superseded, 2026-11-16)*. The Feature-RAG and Drift Specialists now run as SandboxAgents on the
-  shared gVisor WorkerPool `ewallet-sandbox/business-agents`. The legacy Specialist Deployments are kept only as manual
-  rollback targets. See [AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §6–§9.
+  shared gVisor WorkerPool `ewallet-sandbox/business-agents`. The legacy Specialist Deployments were removed on
+  2026-11-16 (`sp-cleanup`, `llm-agent` rev 55); a Helm rollback to rev 54 restores them. See [AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §6–§9.
 - **Autoscaling** *(superseded, 2026-11-16)*. KEDA 2.21 scales two things:
   - the three BYO agents (ScaledObjects in `ewallet-agents`, 2–3 replicas on the in-flight gauge);
   - since B′, the shared WorkerPool (2–3 workers on `sum(ewallet_sandbox_delegations_inflight)`, through the WorkerPool
@@ -337,4 +342,4 @@ historical raw evidence, not a screenshot or a current cluster query.
   Worker pods drain on SIGTERM before scale-in. Both autoscalers were exercised on GKE under the 100-task load
   (COMPLETION §9).
 - **MCP replicas.** Each MCP server runs a single replica. RollingUpdate prevents downtime during upgrades, but there is no automatic fallback if the server fails.
-- **Registry wording.** The registry descriptions still refer to SandboxAgents. They should be updated at the next publication.
+- **Registry wording.** The published Specialist entries still describe a BYO Deployment fallback and carry a `byo-image-digest` label. The catalog (`registry_catalog.py`) now renders them as Sandbox-only; the republish needs owner approval.

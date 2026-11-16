@@ -1,5 +1,28 @@
 # Agent platform completion: campaign handoff
 
+## Legacy Specialist Deployment cleanup `sp-cleanup-20261116T200345Z` (2026-11-16/17)
+
+Evidence: `~/ewallet-evidence/agents/sp-cleanup/sp-cleanup-20261116T200345Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/sp-cleanup-20261116T200345Z/`. Results: `AGENT_PLATFORM_COMPLETION.md` §10.
+
+| Item | Value |
+|---|---|
+| `SPECIALIST_CLEANUP_STATUS` | **APPLIED, GKE_PASS**: `llm-agent` rev 55; 42 removed, 6 modified, 0 added (equal to the gated matrix); kagent garbage-collected both Deployments; nothing recreated |
+| `GKE_E2E_STATUS` | **PASS**: 5/5 workflows, 3/3 negatives, retired hosts 404, 6/6 concurrent |
+| `COORDINATOR_KEDA_STATUS` / `WORKERPOOL_KEDA_STATUS` | **PASS** / **PASS** (WorkerPool 2→3 under the concurrency run) |
+| `REGISTRY_STATUS` | **PARTIAL**: catalog updated in code; the live Specialist entries keep the old label/description until an approved republish; the Coordinator digest label is stale since P2 `img-coordinator` |
+| Credentials | 9 legacy `mcp-token-*-specialist-*` Secrets kept (unused by workloads, still valid; AGI-08 negatives use them). Retirement needs approval |
+| Rollback | `SP-CLEANUP-ROLLBACK` → `helm rollback llm-agent 54` |
+| Cluster | **AWAKE** (5 nodes, temporary /32) pending the owner's next decision; the final guarded sleep is pre-approved (Gate 1) |
+
+**Ready next (each needs its own approval):**
+- registry republish (Sandbox-only Specialist entries, current Coordinator digest);
+- legacy MCP credential retirement (new server set, new AGI-08 negative credentials);
+- the owner Evidence Replay.
+
+**Superseded below:** the B′ "Ready next" cleanup item, and the P1-D deletion matrix, which is now executed. The
+prompt ConfigMaps were removed (the Sandbox image embeds its prompt). The AGI-08 control is the sandbox route.
+
 ## B′ shared WorkerPool autoscaling `bprime-20261116T165353Z` (2026-11-16/17)
 
 Evidence: `~/ewallet-evidence/agents/bprime/bprime-20261116T165353Z/` (`SHA256SUMS.txt`), mirrored in

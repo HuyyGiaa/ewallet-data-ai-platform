@@ -1,0 +1,15 @@
+{
+  "endpoint": "http://127.0.0.1:18083/",
+  "tested": {
+    "host": "feature-rag-specialist.ewallet-agents",
+    "http_status": 404,
+    "body": "route not found"
+  },
+  "control": {
+    "path": "/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/",
+    "http_status": 200
+  },
+  "expect": "no-route",
+  "verdict": "PASS",
+  "reasons": []
+}

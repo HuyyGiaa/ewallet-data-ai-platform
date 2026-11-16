@@ -1,0 +1,40 @@
+== ('Agent', 'ewallet-agents', 'fraud-coordinator')
+  .spec.byo.deployment.annotations.ewallet.io/a2a-gateway-config-sha256
+    live: "6ccbc4f5431b6bcd3fb7a35d059f25d30026b0a770c530fc54e10217459be870"
+    new:  "3bdc40e5b1875d7bbb468a1b30a25aac54283009a1c9a0c7f7e940972dc70a04"
+== ('ConfigMap', 'ewallet-agents', 'a2a-gateway-config')
+  .data.config.yaml
+    live: <str 4585 chars>
+    new:  <str 3433 chars>
+== ('ConfigMap', 'ewallet-agents', 'llm-agent-network-flows')
+  .data.enforced.json
+    live: <str 2874 chars>
+    new:  <str 2010 chars>
+== ('Deployment', 'ewallet-agents', 'a2a-gateway')
+  .spec.template.metadata.annotations.checksum/config
+    live: "6ccbc4f5431b6bcd3fb7a35d059f25d30026b0a770c530fc54e10217459be870"
+    new:  "3bdc40e5b1875d7bbb468a1b30a25aac54283009a1c9a0c7f7e940972dc70a04"
+== ('NetworkPolicy', 'ewallet-agents', 'allow-byo-modelconfig-to-kube-apiserver')
+  .spec.podSelector.matchExpressions[0].values
+    live: ["feature-rag-specialist", "fraud-coordinator"]
+    new:  ["fraud-coordinator"]
+== ('RoleBinding', 'ewallet-agents', 'ewallet-global-llm-reader')
+  .subjects
+    live: [{"kind": "ServiceAccount", "name": "feature-rag-specialist", "namespace": "ewallet-agents"}, {"kind": "ServiceAccount", "name": "fraud-coordinator", "namespace": "ewallet-agents"}]
+    new:  [{"kind": "ServiceAccount", "name": "fraud-coordinator", "namespace": "ewallet-agents"}]
+A2A routes live: ['drift-specialist', 'feature-rag-specialist', 'kagent-a2a', 'sandbox-drift-specialist', 'sandbox-feature-rag-specialist']
+A2A routes new:  ['kagent-a2a', 'sandbox-drift-specialist', 'sandbox-feature-rag-specialist']
+  kagent-a2a: IDENTICAL
+  sandbox-drift-specialist: IDENTICAL
+  sandbox-feature-rag-specialist: IDENTICAL
+  rest of A2A config identical after dropping the 2 legacy routes: True
+flows dropped:
+   a2a-gateway -> drift-specialist
+   a2a-gateway -> feature-rag-specialist
+   drift-specialist -> agentgateway
+   drift-specialist -> mcp-gateway
+   drift-specialist -> otel-collector
+   feature-rag-specialist -> agentgateway
+   feature-rag-specialist -> mcp-gateway
+   feature-rag-specialist -> otel-collector
+flows added: 0

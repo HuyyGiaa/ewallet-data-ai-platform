@@ -1,0 +1,16 @@
+2026-11-16T20:56:33Z
+agent fraud-coordinator
+deploy legacy=0
+svc legacy=0
+secret legacy=0
+sa legacy=0
+cm legacy=0
+scaledobject legacy=0
+hpa legacy=0
+pdb legacy=0
+rs legacy=0
+policies legacy=0
+pods legacy=0
+mcp-token secrets=21
+keda errors since 20:44=0
+helm rev 55 deployed

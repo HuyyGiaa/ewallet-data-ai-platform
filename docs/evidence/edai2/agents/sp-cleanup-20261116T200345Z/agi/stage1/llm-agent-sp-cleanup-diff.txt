@@ -1,0 +1,139 @@
+added: 0
+removed: 42
+  Agent ewallet-agents/drift-specialist
+  Agent ewallet-agents/feature-rag-specialist
+  AuthorizationPolicy ewallet-agents/allow-a2a-gateway-to-drift-specialist
+  AuthorizationPolicy ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist
+  AuthorizationPolicy ewallet-agents/allow-drift-specialist-to-agentgateway
+  AuthorizationPolicy ewallet-agents/allow-drift-specialist-to-mcp-gateway
+  AuthorizationPolicy ewallet-agents/allow-drift-specialist-to-otel-collector
+  AuthorizationPolicy ewallet-agents/allow-feature-rag-specialist-to-agentgateway
+  AuthorizationPolicy ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway
+  AuthorizationPolicy ewallet-agents/allow-feature-rag-specialist-to-otel-collector
+  AuthorizationPolicy ewallet-agents/allow-kagent-controller-to-drift-specialist
+  AuthorizationPolicy ewallet-agents/allow-kagent-controller-to-feature-rag-specialist
+  ConfigMap ewallet-agents/drift-specialist-prompt-v2
+  ConfigMap ewallet-agents/feature-rag-specialist-prompt-v5
+  NetworkPolicy ewallet-agents/allow-a2a-gateway-to-drift-specialist-egress
+  NetworkPolicy ewallet-agents/allow-a2a-gateway-to-drift-specialist-ingress
+  NetworkPolicy ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist-egress
+  NetworkPolicy ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist-ingress
+  NetworkPolicy ewallet-agents/allow-ambient-probes-drift-specialist
+  NetworkPolicy ewallet-agents/allow-ambient-probes-feature-rag-specialist
+  NetworkPolicy ewallet-agents/allow-drift-specialist-to-agentgateway-egress
+  NetworkPolicy ewallet-agents/allow-drift-specialist-to-agentgateway-ingress
+  NetworkPolicy ewallet-agents/allow-drift-specialist-to-kagent-controller-egress
+  NetworkPolicy ewallet-agents/allow-drift-specialist-to-mcp-gateway-egress
+  NetworkPolicy ewallet-agents/allow-drift-specialist-to-mcp-gateway-ingress
+  NetworkPolicy ewallet-agents/allow-drift-specialist-to-otel-collector-egress
+  NetworkPolicy ewallet-agents/allow-drift-specialist-to-otel-collector-ingress
+  NetworkPolicy ewallet-agents/allow-feature-rag-specialist-to-agentgateway-egress
+  NetworkPolicy ewallet-agents/allow-feature-rag-specialist-to-agentgateway-ingress
+  NetworkPolicy ewallet-agents/allow-feature-rag-specialist-to-kagent-controller-egress
+  NetworkPolicy ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway-egress
+  NetworkPolicy ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway-ingress
+  NetworkPolicy ewallet-agents/allow-feature-rag-specialist-to-otel-collector-egress
+  NetworkPolicy ewallet-agents/allow-feature-rag-specialist-to-otel-collector-ingress
+  NetworkPolicy ewallet-agents/allow-kagent-controller-to-drift-specialist-ingress
+  NetworkPolicy ewallet-agents/allow-kagent-controller-to-feature-rag-specialist-ingress
+  PodDisruptionBudget ewallet-agents/drift-specialist
+  PodDisruptionBudget ewallet-agents/feature-rag-specialist
+  ScaledObject ewallet-agents/drift-specialist
+  ScaledObject ewallet-agents/feature-rag-specialist
+  ServiceAccount ewallet-agents/drift-specialist
+  ServiceAccount ewallet-agents/feature-rag-specialist
+changed: 6
+  Agent ewallet-agents/fraud-coordinator
+  ConfigMap ewallet-agents/a2a-gateway-config
+  ConfigMap ewallet-agents/llm-agent-network-flows
+  Deployment ewallet-agents/a2a-gateway
+  NetworkPolicy ewallet-agents/allow-byo-modelconfig-to-kube-apiserver
+  RoleBinding ewallet-agents/ewallet-global-llm-reader
+
+### CHANGED Agent ewallet-agents/fraud-coordinator
+--- 
++++ 
+@@ -19,3 +19,3 @@
+       annotations:
+-        ewallet.io/a2a-gateway-config-sha256: 6ccbc4f5431b6bcd3fb7a35d059f25d30026b0a770c530fc54e10217459be870
++        ewallet.io/a2a-gateway-config-sha256: 3bdc40e5b1875d7bbb468a1b30a25aac54283009a1c9a0c7f7e940972dc70a04
+         ewallet.io/coordinator-runtime: byo-v1
+
+### CHANGED ConfigMap ewallet-agents/a2a-gateway-config
+--- 
++++ 
+@@ -13,5 +13,8 @@
+     \ application route therefore\n# opens only when a mesh caller is configured,\
+-    \ and otherwise remains fail-closed.\n- name: drift-specialist\n  matches:\n \
+-    \ - headers:\n    - name: x-kagent-host\n      value:\n        exact: \"drift-specialist.ewallet-agents\"\
+-    \n  policies:\n    a2a: {}\n    timeout:\n      requestTimeout: 660s\n    localRateLimit:\n\
++    \ and otherwise remains fail-closed.\n# SandboxAgent Specialist (Substrate actor)\
++    \ behind the kagent controller. Exact\n# per-agent prefix only; kagent picks the\
++    \ session actor from the message contextId.\n# The Gateway, not the client, sets\
++    \ X-User-Id (kagent attributes the session to it).\n- name: sandbox-drift-specialist\n\
++    \  matches:\n  - path:\n      pathPrefix: /api/a2a-sandboxes/ewallet-sandbox/drift-specialist/\n\
++    \  policies:\n    a2a: {}\n    timeout:\n      requestTimeout: 660s\n    localRateLimit:\n\
+     \    - maxTokens: 10\n      tokensPerFill: 10\n      fillInterval: 1s\n      type:\
+@@ -19,21 +22,5 @@
+     \      - x-ewallet-actor\n      - x-ewallet-caller\n      - x-kagent-host\n  \
+-    \  authorization:\n      rules:\n      - 'true'\n  backends:\n  - host: drift-specialist.ewallet-agents.svc.cluster.local:8080\n\
+-    - name: feature-rag-specialist\n  matches:\n  - headers:\n    - name: x-kagent-host\n\
+-    \      value:\n        exact: \"feature-rag-specialist.ewallet-agents\"\n  policies:\n\
+-    \    a2a: {}\n    timeout:\n      requestTimeout: 660s\n    localRateLimit:\n\
+-    \    - maxTokens: 10\n      tokensPerFill: 10\n      fillInterval: 1s\n      type:\
+-    \ requests\n    requestHeaderModifier:\n      remove:\n      - authorization\n\
+-    \      - x-ewallet-actor\n      - x-ewallet-caller\n      - x-kagent-host\n  \
+-    \  authorization:\n      rules:\n      - 'true'\n  backends:\n  - host: feature-rag-specialist.ewallet-agents.svc.cluster.local:8080\n\
+-    # SandboxAgent Specialist (Substrate actor) behind the kagent controller. Exact\n\
+-    # per-agent prefix only; kagent picks the session actor from the message contextId.\n\
+-    # The Gateway, not the client, sets X-User-Id (kagent attributes the session to\
+-    \ it).\n- name: sandbox-drift-specialist\n  matches:\n  - path:\n      pathPrefix:\
+-    \ /api/a2a-sandboxes/ewallet-sandbox/drift-specialist/\n  policies:\n    a2a:\
+-    \ {}\n    timeout:\n      requestTimeout: 660s\n    localRateLimit:\n    - maxTokens:\
+-    \ 10\n      tokensPerFill: 10\n      fillInterval: 1s\n      type: requests\n\
+-    \    requestHeaderModifier:\n      remove:\n      - authorization\n      - x-ewallet-actor\n\
+-    \      - x-ewallet-caller\n      - x-kagent-host\n      - x-user-id\n    transformations:\n\
+-    \      request:\n        set:\n          x-user-id: '\"service:fraud-coordinator\"\
+-    '\n    authorization:\n      rules:\n      - 'true'\n  backends:\n  - host: kagent-controller.kagent.svc.cluster.local:8083\n\
++    \    - x-user-id\n    transformations:\n      request:\n        set:\n       \
++    \   x-user-id: '\"service:fraud-coordinator\"'\n    authorization:\n      rules:\n\
++    \      - 'true'\n  backends:\n  - host: kagent-controller.kagent.svc.cluster.local:8083\n\
+     # SandboxAgent Specialist (Substrate actor) behind the kagent controller. Exact\n\
+
+### CHANGED ConfigMap ewallet-agents/llm-agent-network-flows
+--- 
++++ 
+@@ -2,3 +2,3 @@
+ data:
+-  enforced.json: '[{"from":"agentgateway","name":"agentgateway-to-vllm","port":8000,"to":"vllm"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-agentgateway","port":4000,"to":"agentgateway"},{"from":"drift-specialist","name":"drift-specialist-to-agentgateway","port":4000,"to":"agentgateway"},{"from":"feature-rag-specialist","name":"feature-rag-specialist-to-agentgateway","port":4000,"to":"agentgateway"},{"from":"drift-specialist","name":"drift-specialist-to-mcp-gateway","port":8080,"to":"mcp-gateway"},{"from":"feature-rag-specialist","name":"feature-rag-specialist-to-mcp-gateway","port":8080,"to":"mcp-gateway"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-a2a-gateway","port":8083,"to":"a2a-gateway"},{"from":"a2a-gateway","name":"a2a-gateway-to-drift-specialist","port":8080,"to":"drift-specialist"},{"from":"a2a-gateway","name":"a2a-gateway-to-feature-rag-specialist","port":8080,"to":"feature-rag-specialist"},{"from":"agentgateway","name":"agentgateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"mcp-gateway","name":"mcp-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"a2a-gateway","name":"a2a-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"feature-rag-mcp","name":"feature-rag-mcp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"drift-mcp","name":"drift-mcp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"llmd-epp","name":"llmd-epp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"feature-rag-specialist","name":"feature-rag-specialist-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"drift-specialist","name":"drift-specialist-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"observability-prometheus","name":"prometheus-to-agentgateway","port":15020,"to":"agentgateway"},{"from":"observability-prometheus","name":"prometheus-to-vllm","port":8000,"to":"vllm"},{"from":"observability-prometheus","name":"prometheus-to-otel-collector","port":8889,"to":"otel-collector"},{"from":"otel-collector","name":"otel-collector-to-loki","port":3100,"to":"observability-loki"},{"from":"otel-collector","name":"otel-collector-to-tempo","port":4317,"to":"observability-tempo"},{"from":"observability-grafana","name":"grafana-to-prometheus","port":9090,"to":"observability-prometheus"},{"from":"observability-grafana","name":"grafana-to-loki","port":3100,"to":"observability-loki"},{"from":"observability-grafana","name":"grafana-to-tempo","port":3200,"to":"observability-tempo"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-coordinator-idempotency-redis","port":6379,"to":"coordinator-idempotency-redis"},{"from":"observability-alloy","name":"observability-alloy-to-loki","port":3100,"to":"observability-loki"}]'
++  enforced.json: '[{"from":"agentgateway","name":"agentgateway-to-vllm","port":8000,"to":"vllm"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-agentgateway","port":4000,"to":"agentgateway"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-a2a-gateway","port":8083,"to":"a2a-gateway"},{"from":"agentgateway","name":"agentgateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"mcp-gateway","name":"mcp-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"a2a-gateway","name":"a2a-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"feature-rag-mcp","name":"feature-rag-mcp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"drift-mcp","name":"drift-mcp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"llmd-epp","name":"llmd-epp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"observability-prometheus","name":"prometheus-to-agentgateway","port":15020,"to":"agentgateway"},{"from":"observability-prometheus","name":"prometheus-to-vllm","port":8000,"to":"vllm"},{"from":"observability-prometheus","name":"prometheus-to-otel-collector","port":8889,"to":"otel-collector"},{"from":"otel-collector","name":"otel-collector-to-loki","port":3100,"to":"observability-loki"},{"from":"otel-collector","name":"otel-collector-to-tempo","port":4317,"to":"observability-tempo"},{"from":"observability-grafana","name":"grafana-to-prometheus","port":9090,"to":"observability-prometheus"},{"from":"observability-grafana","name":"grafana-to-loki","port":3100,"to":"observability-loki"},{"from":"observability-grafana","name":"grafana-to-tempo","port":3200,"to":"observability-tempo"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-coordinator-idempotency-redis","port":6379,"to":"coordinator-idempotency-redis"},{"from":"observability-alloy","name":"observability-alloy-to-loki","port":3100,"to":"observability-loki"}]'
+   unresolved.json: '[{"gate":"Read back the WorkerPool/SandboxAgent pod identity,
+
+### CHANGED Deployment ewallet-agents/a2a-gateway
+--- 
++++ 
+@@ -23,3 +23,3 @@
+       annotations:
+-        checksum/config: 6ccbc4f5431b6bcd3fb7a35d059f25d30026b0a770c530fc54e10217459be870
++        checksum/config: 3bdc40e5b1875d7bbb468a1b30a25aac54283009a1c9a0c7f7e940972dc70a04
+       labels:
+
+### CHANGED NetworkPolicy ewallet-agents/allow-byo-modelconfig-to-kube-apiserver
+--- 
++++ 
+@@ -24,3 +24,2 @@
+       values:
+-      - feature-rag-specialist
+       - fraud-coordinator
+
+### CHANGED RoleBinding ewallet-agents/ewallet-global-llm-reader
+--- 
++++ 
+@@ -15,5 +15,2 @@
+ - kind: ServiceAccount
+-  name: feature-rag-specialist
+-  namespace: ewallet-agents
+-- kind: ServiceAccount
+   name: fraud-coordinator
+
+RESULT: PASS

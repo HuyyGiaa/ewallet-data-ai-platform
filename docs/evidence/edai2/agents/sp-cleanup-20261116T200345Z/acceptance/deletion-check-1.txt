@@ -1,0 +1,24 @@
+== agents
+fraud-coordinator   BYO         True   True
+== legacy objects (expect none)
+== pods with legacy label
+== replicasets
+none
+== networkpolicy/authorizationpolicy naming specialists
+none
+== hpa
+fraud-coordinator   Deployment/fraud-coordinator   0/2 (avg)   2     3     2     31m
+== deployments
+a2a-gateway           1/1   1     1     15d
+agentgateway          1/1   1     1     15d
+drift-mcp             1/1   1     1     15d
+fraud-coordinator     2/2   2     2     15d
+grafana               1/1   1     1     14d
+loki                  1/1   1     1     14d
+mcp-gateway           1/1   1     1     15d
+observability-alloy   1/1   1     1     12d
+otel-collector        1/1   1     1     14d
+prometheus            1/1   1     1     14d
+tempo                 1/1   1     1     14d
+vllm-fallback         0/0   0     0     15d
+vllm-primary          1/1   1     1     15d

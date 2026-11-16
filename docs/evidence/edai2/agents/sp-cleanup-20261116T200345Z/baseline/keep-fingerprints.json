@@ -1,0 +1,142 @@
+{
+ "ate-system/deployments/ate-api-server-deployment": {
+  "gen": 7,
+  "spec": "f0da3b10b6f591d4"
+ },
+ "ate-system/deployments/ate-controller": {
+  "gen": 2,
+  "spec": "7ffc96113f3c74e5"
+ },
+ "ate-system/deployments/atenet-router": {
+  "gen": 1,
+  "spec": "68b32f7836b77ea4"
+ },
+ "ate-system/deployments/dns": {
+  "gen": 1,
+  "spec": "324455a017f56a80"
+ },
+ "ate-system/deployments/rustfs": {
+  "gen": 1,
+  "spec": "cf3e275f3e47cdb8"
+ },
+ "ewallet-agents/deployments/a2a-gateway": {
+  "gen": 7,
+  "spec": "c5aecc02fc08a3b6"
+ },
+ "ewallet-agents/deployments/agentgateway": {
+  "gen": 2,
+  "spec": "06480982959c1d33"
+ },
+ "ewallet-agents/deployments/drift-mcp": {
+  "gen": 27,
+  "spec": "89f6ce8b2832dbbc"
+ },
+ "ewallet-agents/deployments/drift-specialist": {
+  "gen": 46,
+  "spec": "9c1d0abaf221894b"
+ },
+ "ewallet-agents/deployments/feature-rag-specialist": {
+  "gen": 183,
+  "spec": "f37101deea1b46b6"
+ },
+ "ewallet-agents/deployments/fraud-coordinator": {
+  "gen": 529,
+  "spec": "82e04c82506d3c0b"
+ },
+ "ewallet-agents/deployments/grafana": {
+  "gen": 12,
+  "spec": "b6c454c0c1c8e33f"
+ },
+ "ewallet-agents/deployments/loki": {
+  "gen": 3,
+  "spec": "64e997271f65481d"
+ },
+ "ewallet-agents/deployments/mcp-gateway": {
+  "gen": 7,
+  "spec": "c0f35a61038acb4c"
+ },
+ "ewallet-agents/deployments/observability-alloy": {
+  "gen": 3,
+  "spec": "8bce86968c9fb381"
+ },
+ "ewallet-agents/deployments/otel-collector": {
+  "gen": 5,
+  "spec": "4e08f1cb9a0cae76"
+ },
+ "ewallet-agents/deployments/prometheus": {
+  "gen": 8,
+  "spec": "07f73d5eaadf2f34"
+ },
+ "ewallet-agents/deployments/tempo": {
+  "gen": 3,
+  "spec": "29a2a9a44d5e495c"
+ },
+ "ewallet-agents/deployments/vllm-fallback": {
+  "gen": 1,
+  "spec": "289c3af571377c7f"
+ },
+ "ewallet-agents/deployments/vllm-primary": {
+  "gen": 1,
+  "spec": "1fa99527a2d35097"
+ },
+ "ewallet-agents/scaledobjects.keda.sh/drift-specialist": {
+  "gen": 2,
+  "spec": "cf40edb99419c707"
+ },
+ "ewallet-agents/scaledobjects.keda.sh/feature-rag-specialist": {
+  "gen": 2,
+  "spec": "76321d1be5a36b74"
+ },
+ "ewallet-agents/scaledobjects.keda.sh/fraud-coordinator": {
+  "gen": 2,
+  "spec": "2ef771dfcb67e611"
+ },
+ "ewallet-mcp/deployments/drift-mcp": {
+  "gen": 44,
+  "spec": "8c14a2b9776b11d5"
+ },
+ "ewallet-mcp/deployments/feature-rag-mcp": {
+  "gen": 40,
+  "spec": "23875d0c53882167"
+ },
+ "ewallet-sandbox/sandboxagents.kagent.dev/drift-specialist": {
+  "gen": 3,
+  "spec": "f0b60f1d212d6ed3"
+ },
+ "ewallet-sandbox/sandboxagents.kagent.dev/feature-rag-specialist": {
+  "gen": 3,
+  "spec": "42396df1a7e67a22"
+ },
+ "ewallet-sandbox/scaledobjects.keda.sh/business-agents-workerpool": {
+  "gen": 4,
+  "spec": "438413e22f35f65c"
+ },
+ "ewallet-sandbox/workerpools.ate.dev/business-agents": {
+  "gen": 6,
+  "spec": "f6537c265ef546fe"
+ },
+ "kagent/deployments/kagent-controller": {
+  "gen": 9,
+  "spec": "9b515bba84390144"
+ },
+ "kagent/deployments/kagent-postgresql": {
+  "gen": 1,
+  "spec": "b9c0c04f03970a1a"
+ },
+ "kagent/deployments/kagent-ui": {
+  "gen": 1,
+  "spec": "31c7bbb4b1ce8923"
+ },
+ "keda/deployments/keda-admission-webhooks": {
+  "gen": 2,
+  "spec": "07716e8dc47accff"
+ },
+ "keda/deployments/keda-operator": {
+  "gen": 2,
+  "spec": "baa3744faea01437"
+ },
+ "keda/deployments/keda-operator-metrics-apiserver": {
+  "gen": 2,
+  "spec": "34e2b293eb436853"
+ }
+}

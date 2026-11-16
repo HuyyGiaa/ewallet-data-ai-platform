@@ -1,0 +1,2 @@
+fraud-coordinator rev 299 -> 300 template diffs: ['.metadata.annotations.ewallet.io/a2a-gateway-config-sha256']
+a2a-gateway rev 5 -> 6 template diffs: ['.metadata.annotations.checksum/config']

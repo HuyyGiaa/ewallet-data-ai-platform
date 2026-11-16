@@ -1,0 +1,35 @@
+UNCHANGED              ate-system/deployments/ate-api-server-deployment
+UNCHANGED              ate-system/deployments/ate-controller
+UNCHANGED              ate-system/deployments/atenet-router
+UNCHANGED              ate-system/deployments/dns
+UNCHANGED              ate-system/deployments/rustfs
+CHANGED gen 7->8       ewallet-agents/deployments/a2a-gateway
+UNCHANGED              ewallet-agents/deployments/agentgateway
+UNCHANGED              ewallet-agents/deployments/drift-mcp
+REMOVED (expected)     ewallet-agents/deployments/drift-specialist
+REMOVED (expected)     ewallet-agents/deployments/feature-rag-specialist
+CHANGED gen 529->530   ewallet-agents/deployments/fraud-coordinator
+UNCHANGED              ewallet-agents/deployments/grafana
+UNCHANGED              ewallet-agents/deployments/loki
+UNCHANGED              ewallet-agents/deployments/mcp-gateway
+UNCHANGED              ewallet-agents/deployments/observability-alloy
+UNCHANGED              ewallet-agents/deployments/otel-collector
+UNCHANGED              ewallet-agents/deployments/prometheus
+UNCHANGED              ewallet-agents/deployments/tempo
+UNCHANGED              ewallet-agents/deployments/vllm-fallback
+UNCHANGED              ewallet-agents/deployments/vllm-primary
+REMOVED (expected)     ewallet-agents/scaledobjects.keda.sh/drift-specialist
+REMOVED (expected)     ewallet-agents/scaledobjects.keda.sh/feature-rag-specialist
+UNCHANGED              ewallet-agents/scaledobjects.keda.sh/fraud-coordinator
+UNCHANGED              ewallet-mcp/deployments/drift-mcp
+UNCHANGED              ewallet-mcp/deployments/feature-rag-mcp
+UNCHANGED              ewallet-sandbox/sandboxagents.kagent.dev/drift-specialist
+UNCHANGED              ewallet-sandbox/sandboxagents.kagent.dev/feature-rag-specialist
+UNCHANGED              ewallet-sandbox/scaledobjects.keda.sh/business-agents-workerpool
+UNCHANGED              ewallet-sandbox/workerpools.ate.dev/business-agents
+UNCHANGED              kagent/deployments/kagent-controller
+UNCHANGED              kagent/deployments/kagent-postgresql
+UNCHANGED              kagent/deployments/kagent-ui
+UNCHANGED              keda/deployments/keda-admission-webhooks
+UNCHANGED              keda/deployments/keda-operator
+UNCHANGED              keda/deployments/keda-operator-metrics-apiserver

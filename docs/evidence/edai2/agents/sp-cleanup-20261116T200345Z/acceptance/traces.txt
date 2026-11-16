@@ -1,0 +1,7 @@
+combined  9a026edce1c6ad85558dcae1d790f98f spans=225 services={'agentgateway': 32, 'kagent-controller': 21, 'fraud-coordinator': 92, 'drift-specialist': 18, 'drift-mcp': 14, 'feature-rag-specialist': 19, 'feature-rag-mcp': 29} legacy-host-spans=[]
+drift     9f458416bc2aff6fabbced55ce43f424 spans=126 services={'agentgateway': 15, 'kagent-controller': 14, 'fraud-coordinator': 65, 'drift-specialist': 18, 'drift-mcp': 14} legacy-host-spans=[]
+fraud     e1f36b4f2e901eaab4163ac447282ed1 spans=220 services={'agentgateway': 21, 'kagent-controller': 14, 'fraud-coordinator': 127, 'feature-rag-specialist': 27, 'feature-rag-mcp': 31} legacy-host-spans=[]
+nl-drift  7701e81112d643672508e3bd7a3d2b6d spans=222 services={'agentgateway': 19, 'kagent-controller': 17, 'fraud-coordinator': 154, 'drift-specialist': 18, 'drift-mcp': 14} legacy-host-spans=[]
+nl-fraud  d1e13b18d1ded51713bc843394f887ba spans=312 services={'agentgateway': 23, 'kagent-controller': 17, 'fraud-coordinator': 224, 'feature-rag-specialist': 19, 'feature-rag-mcp': 29} legacy-host-spans=[]
+specialist resource: {"service.name": "drift-specialist", "service.version": "1.1.0"}
+specialist resource: {"service.name": "feature-rag-specialist", "service.version": "1.0.0"}

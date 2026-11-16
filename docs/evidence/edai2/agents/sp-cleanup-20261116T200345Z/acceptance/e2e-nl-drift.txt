@@ -1,0 +1,27 @@
+
+==================== 20:49:29Z  E2E nl-drift  request_id replay-nl-drift-204929  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=51.996 s
+**Kết quả điều phối (Fraud Coordinator)**
+
+### Từ drift-specialist (phân tích drift)
+- Feature `account_behavior__account_tx_count_1h` so với baseline `bl-r5gb-202604.account_tx_count_1h`: PSI = 0.0004795543627041439, trạng thái `no_drift`, 19338 quan sát trong cửa sổ 2026-05-01T00:00:00Z → 2026-05-31T00:00:00Z
+  - Dữ liệu: reference `feast-r5gb-20261111-214544`, current `feast-r5gb-20261111-214544`; ngưỡng {"warning": 0.1, "drift": 0.25}
+
+Trạng thái: `complete` · request_id `nl-7a774efdf4da29a60155d744e417341f` · capability: drift (llm) · LLM 368+106 token · workflow-intake/v1/nl-intake/v1
+
+_Mọi giá trị được sao chép nguyên văn từ bằng chứng đã xác thực của từng Specialist (Feast, KServe, RAG, drift baseline/window); LLM chỉ chọn công cụ và trích xuất tham số._
+{"status": "complete", "workflow": "drift", "contract_version": "g3-orchestration/v2", "unavailable": []}
+  drift-specialist: status=ok fraud_probability=None psi=0.0004795543627041439
+
+==================== 20:50:21Z  HOPS for nl-drift (logs since 2026-11-16T20:49:29Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 20:50:07,978 - httpx - INFO - HTTP Request: POST http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1/chat/completions "HTTP/1.1 200 OK"
+2026-11-16 20:50:21,495 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 20:50:21,504 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=nl-7a774efdf4da29a60155d744e417341f task_id=e5bc6735-3ed2-4ed1-9c6a-85bc75ea844a mode=natural-language status=complete duration
+-- A2A Gateway routes
+      1 "route":"default/sandbox-drift-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-drift" "status": "ok" "tool_name": "drift_detection" "trace_id": "7701e81112d643672508e3bd7a3d2b6d"
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+none: legacy Specialist pods=0 deployments=0 (retired)
+saved under /home/huyy-giaa/ewallet-evidence/agents/sp-cleanup/sp-cleanup-20261116T200345Z/acceptance/replay/e2e/replay-nl-drift-204929-*

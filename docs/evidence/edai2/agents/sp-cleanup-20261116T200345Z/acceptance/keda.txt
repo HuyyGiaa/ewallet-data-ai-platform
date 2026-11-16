@@ -1,0 +1,6 @@
+ewallet-agents/fraud-coordinator Ready= True Active= False Fallback= False Paused= False min/max 2 3 annotations-paused= {}
+  hpa fraud-coordinator current 2 desired 2 metrics [{"external": {"current": {"averageValue": "0"}, "metric": {"name": "s0-prometheus", "selector": {"matchLabels": {"scaledobject.keda.sh/name": "fraud-coordinator"}}}}, "type": "External"}] [('AbleToScale', 'True', 'ScaleDownStabilized'), ('ScalingActive', 'True', 'ValidMetricFound'), ('ScalingLimited', 'True', 'TooFewReplicas')]
+ewallet-sandbox/business-agents-workerpool Ready= True Active= False Fallback= False Paused= False min/max 2 3 annotations-paused= {}
+  hpa business-agents-workerpool current 2 desired 2 metrics [{"external": {"current": {"averageValue": "0"}, "metric": {"name": "s0-prometheus", "selector": {"matchLabels": {"scaledobject.keda.sh/name": "business-agents-workerpool"}}}}, "type": "External"}] [('AbleToScale', 'True', 'ScaleDownStabilized'), ('ScalingActive', 'True', 'ValidMetricFound'), ('ScalingLimited', 'True', 'TooFewReplicas')]
+workerpool spec.replicas=2 status=2
+keda-operator errors last 15m: 6

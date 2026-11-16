@@ -1,0 +1,11 @@
+Gate 2 proposal (sp-cleanup-20261116T200345Z / agi-20261116T200345Z), SHA c8ac893f
+Preflight PASS 20:28:34Z (llm-agent rev 54, llm-agent-mcp rev 17). Gate PASS 20:31:21Z: exact identities + server dry-run.
+Live diff == matrix: removed 42, changed 6, added 0.
+Changed fields: Coordinator annotation a2a-gateway-config-sha256 only; a2a-gateway checksum only; A2A config drops 2 x-kagent-host
+routes, kagent-a2a + sandbox-* routes IDENTICAL; 8 flows dropped (all to/from the retired Specialists), 0 added; NetworkPolicy
+and RoleBinding drop SA feature-rag-specialist only.
+kagent GC (ownerRef Agent CR): Deployment, Service, ServiceAccount, Secret (agent-card.json, config.json; not credentials) x2.
+Not touched: 21 mcp-token-* Secrets (not Helm-managed, no ownerRef), MCP releases, ewallet-sandbox, ate-system, keda, kagent.
+Command: AGI_APPROVAL=SP-CLEANUP:agi-20261116T200345Z AGI_PACKAGE=sp-cleanup agi_campaign.sh upgrade agents (helm --atomic)
+Rollback: AGI_APPROVAL=SP-CLEANUP-ROLLBACK:agi-20261116T200345Z ... rollback agents -> helm rollback llm-agent 54, then diff
+against stage 0 must be 0 objects; kagent recreates the Deployments, KEDA the 2 ScaledObjects/HPAs.

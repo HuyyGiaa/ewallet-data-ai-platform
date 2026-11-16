@@ -1,0 +1,12 @@
+
+==================== 20:53:33Z  AGI-13 Agent Registry readback (GET only), against what the cluster runs ====================
+SandboxAgent fleet image: g3-byo-feature-rag-specialist@sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77
+verdict: FAIL (PASS = the registry holds exactly what is deployed)
+  Prompt    drift-specialist-system          v2      matches
+  Prompt    feature-rag-specialist-system    v5      matches
+  Prompt    fraud-coordinator-system         v5      matches
+  MCPServer drift-mcp                        v1      matches
+  MCPServer feature-rag-mcp                  v1      matches
+  Agent     drift-specialist                 1.1.0   label ewallet.io/byo-image-digest: registry 'sha256-75011f6ce496e192', catalog None; spec.description differs
+  Agent     feature-rag-specialist           1.0.0   label ewallet.io/byo-image-digest: registry 'sha256-29867794f67f103e', catalog None; spec.description differs
+  Agent     fraud-coordinator                1.1.0   label ewallet.io/byo-image-digest: registry 'sha256-9775406101b83b03', catalog 'sha256-94a13a8b168881e1'

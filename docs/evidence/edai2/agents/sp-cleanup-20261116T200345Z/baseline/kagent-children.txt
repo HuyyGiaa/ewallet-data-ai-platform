@@ -1,0 +1,8 @@
+Deployment/drift-specialist
+Service/drift-specialist
+Secret/drift-specialist
+ServiceAccount/drift-specialist
+Deployment/feature-rag-specialist
+Service/feature-rag-specialist
+Secret/feature-rag-specialist
+ServiceAccount/feature-rag-specialist

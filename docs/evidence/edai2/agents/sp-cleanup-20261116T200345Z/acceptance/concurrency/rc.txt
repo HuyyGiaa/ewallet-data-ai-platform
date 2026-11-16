@@ -1,0 +1,6 @@
+job1 fraud rc=0
+job2 drift rc=0
+job5 drift rc=0
+job4 fraud rc=0
+job3 combined rc=0
+job6 combined rc=0
