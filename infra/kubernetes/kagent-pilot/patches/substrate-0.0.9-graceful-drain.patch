@@ -1,0 +1,729 @@
+diff --git a/cmd/ateapi/internal/controlapi/dialer.go b/cmd/ateapi/internal/controlapi/dialer.go
+index 89e8e37..e678e03 100644
+--- a/cmd/ateapi/internal/controlapi/dialer.go
++++ b/cmd/ateapi/internal/controlapi/dialer.go
+@@ -44,6 +44,21 @@ func NewAteletDialer(workerIndexer cache.Indexer, ateletIndexer cache.Indexer) *
+ 	}
+ }
+ 
++// WorkerUsable reports whether a worker's pod exists in the informer cache and is not terminating
++// (ewallet patch, B′). A worker record can outlive its pod (deleted while ateapi was down) or point
++// at a draining pod (scale-in); neither may receive a new assignment.
++func (d *AteletDialer) WorkerUsable(workerPodNamespace, workerPodName string) bool {
++	if d == nil || d.workerIndexer == nil {
++		return true
++	}
++	matching, err := d.workerIndexer.ByIndex(byNamespaceAndName, workerPodNamespace+"/"+workerPodName)
++	if err != nil || len(matching) != 1 {
++		return false
++	}
++	pod, ok := matching[0].(*corev1.Pod)
++	return ok && pod.DeletionTimestamp == nil
++}
++
+ // DialForWorker returns a gRPC connection to the Atelet running on the same node as the specified worker pod.
+ // Returns ErrWorkerPodNotFound if the worker pod is not found in the informer cache.
+ func (d *AteletDialer) DialForWorker(workerPodNamespace, workerPodName string) (*grpc.ClientConn, error) {
+diff --git a/cmd/ateapi/internal/controlapi/functional_test.go b/cmd/ateapi/internal/controlapi/functional_test.go
+index 85a387f..8851253 100644
+--- a/cmd/ateapi/internal/controlapi/functional_test.go
++++ b/cmd/ateapi/internal/controlapi/functional_test.go
+@@ -651,7 +651,12 @@ func createWorkerPod(t *testing.T, tc *testContext, ns string, name string, node
+ 
+ func deleteWorkerPod(t *testing.T, tc *testContext, ns string, name string) {
+ 	t.Helper()
+-	err := tc.k8sClient.CoreV1().Pods(ns).Delete(context.Background(), name, metav1.DeleteOptions{})
++	// ewallet patch (B′): the pod is removed outright (grace 0), as the kubelet finally does. A
++	// graceful delete without a kubelet leaves the pod terminating forever, and since the drain
++	// patch a terminating worker that still holds an actor keeps its record until the pod is gone
++	// (lifecycle_drain_test.go covers the grace period itself).
++	zero := int64(0)
++	err := tc.k8sClient.CoreV1().Pods(ns).Delete(context.Background(), name, metav1.DeleteOptions{GracePeriodSeconds: &zero})
+ 	if err != nil {
+ 		t.Fatalf("failed to delete worker pod %s: %v", name, err)
+ 	}
+diff --git a/cmd/ateapi/internal/controlapi/lifecycle_drain_test.go b/cmd/ateapi/internal/controlapi/lifecycle_drain_test.go
+new file mode 100644
+index 0000000..7cb0c85
+--- /dev/null
++++ b/cmd/ateapi/internal/controlapi/lifecycle_drain_test.go
+@@ -0,0 +1,190 @@
++// Copyright 2026 Google LLC
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package controlapi
++
++// ewallet patch (B′ safe scale-in): a terminating worker drains.
++//
++// The pods here have a nodeName and no kubelet, so a default (graceful) delete leaves them in the
++// API with a deletionTimestamp, exactly the state of a worker pod during its grace period; a delete
++// with grace 0 then removes them (the kubelet's final delete).
++
++import (
++	"context"
++	"errors"
++	"testing"
++	"time"
++
++	"github.com/agent-substrate/substrate/cmd/ateapi/internal/store"
++	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	corev1 "k8s.io/api/core/v1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/apimachinery/pkg/util/wait"
++)
++
++func createActor(t *testing.T, tc *testContext, ns, name string) {
++	t.Helper()
++	if _, err := tc.client.CreateActor(context.Background(), &ateapipb.CreateActorRequest{Actor: &ateapipb.Actor{
++		Metadata: &ateapipb.ResourceMetadata{Atespace: testAtespace, Name: name}, ActorTemplateNamespace: ns, ActorTemplateName: "tmpl1",
++	}}); err != nil {
++		t.Fatalf("CreateActor %s: %v", name, err)
++	}
++}
++
++// beginTermination puts a worker pod into its grace period (deletionTimestamp set, pod kept).
++func beginTermination(t *testing.T, tc *testContext, ns, pod string) {
++	t.Helper()
++	ctx := context.Background()
++	if err := tc.k8sClient.CoreV1().Pods(ns).Delete(ctx, pod, metav1.DeleteOptions{}); err != nil {
++		t.Fatalf("delete %s: %v", pod, err)
++	}
++	if err := wait.PollUntilContextTimeout(ctx, 20*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
++		p, err := tc.k8sClient.CoreV1().Pods(ns).Get(ctx, pod, metav1.GetOptions{})
++		return err == nil && p.DeletionTimestamp != nil, nil
++	}); err != nil {
++		t.Fatalf("%s did not enter its grace period", pod)
++	}
++	// Let the informer deliver the update before asserting on syncer reactions.
++	if err := wait.PollUntilContextTimeout(ctx, 20*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
++		return !tc.service.actorWorkflow.dialer.WorkerUsable(ns, pod), nil
++	}); err != nil {
++		t.Fatalf("informer did not see %s terminating", pod)
++	}
++}
++
++// finishTermination is the kubelet's final delete after the drain (or after SIGKILL).
++func finishTermination(t *testing.T, tc *testContext, ns, pod string) {
++	t.Helper()
++	zero := int64(0)
++	if err := tc.k8sClient.CoreV1().Pods(ns).Delete(context.Background(), pod, metav1.DeleteOptions{GracePeriodSeconds: &zero}); err != nil {
++		t.Fatalf("final delete %s: %v", pod, err)
++	}
++}
++
++func suspend(t *testing.T, tc *testContext, name string) {
++	t.Helper()
++	if _, err := tc.client.SuspendActor(context.Background(), &ateapipb.SuspendActorRequest{Actor: &ateapipb.ObjectRef{Atespace: testAtespace, Name: name}}); err != nil {
++		t.Fatalf("SuspendActor %s: %v", name, err)
++	}
++}
++
++func recordGone(t *testing.T, tc *testContext, ns, pod string) {
++	t.Helper()
++	if err := wait.PollUntilContextTimeout(context.Background(), 20*time.Millisecond, 5*time.Second, true, func(c context.Context) (bool, error) {
++		_, err := tc.persistence.GetWorker(c, ns, "pool1", pod)
++		return errors.Is(err, store.ErrNotFound), nil
++	}); err != nil {
++		t.Fatalf("worker record %s/%s still present", ns, pod)
++	}
++}
++
++// A terminating worker that is idle is removed at once and never receives a new actor.
++func TestDrain_TerminatingIdleWorkerGetsNoNewAssignment(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-drain-idle", "worker-a", "worker-b")
++	defer cleanup()
++	ctx := context.Background()
++
++	beginTermination(t, tc, ns, "worker-a")
++	recordGone(t, tc, ns, "worker-a")
++
++	if err := resume(ctx, tc, "id1"); err != nil {
++		t.Fatalf("resume: %v", err)
++	}
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 2*time.Second)
++	if a.GetAteomPodName() != "worker-b" {
++		t.Fatalf("actor placed on %q, want the live worker-b", a.GetAteomPodName())
++	}
++	finishTermination(t, tc, ns, "worker-a")
++}
++
++// The core B′ property: a worker running an actor keeps it through its grace period. The actor is
++// not released (no second copy can start elsewhere), the worker takes no other actor, the actor
++// still suspends normally on it, and only then is the record removed.
++func TestDrain_BoundActorStaysOnItsTerminatingWorkerUntilSuspended(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-drain-busy", "worker-a")
++	defer cleanup()
++	ctx := context.Background()
++
++	if err := resume(ctx, tc, "id1"); err != nil {
++		t.Fatalf("resume id1: %v", err)
++	}
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 2*time.Second)
++	createWorkerPod(t, tc, ns, "worker-b", "node1", "pool1")
++
++	beginTermination(t, tc, ns, "worker-a")
++	time.Sleep(300 * time.Millisecond) // give the syncer every chance to (wrongly) release it
++
++	a, err := tc.persistence.GetActor(ctx, testAtespace, "id1")
++	if err != nil || a.GetStatus() != ateapipb.Actor_STATUS_RUNNING || a.GetAteomPodName() != "worker-a" {
++		t.Fatalf("draining worker lost its actor: %+v err=%v", a, err)
++	}
++	if got := workerAssignee(t, tc, ns, "worker-a"); got != "id1" {
++		t.Fatalf("draining worker claim = %q, want id1", got)
++	}
++
++	// Another actor never lands on the draining worker.
++	createActor(t, tc, ns, "id2")
++	if err := resume(ctx, tc, "id2"); err != nil {
++		t.Fatalf("resume id2: %v", err)
++	}
++	if b := waitActorStatus(t, tc, "id2", ateapipb.Actor_STATUS_RUNNING, 2*time.Second); b.GetAteomPodName() != "worker-b" {
++		t.Fatalf("id2 placed on %q, want worker-b", b.GetAteomPodName())
++	}
++
++	// The turn ends: the post-turn suspend checkpoints on the draining worker as usual.
++	suspend(t, tc, "id1")
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 2*time.Second)
++	if n := tc.syncer.reconcileStore(ctx); n != 1 {
++		t.Fatalf("reconcile removed %d records, want the drained worker-a", n)
++	}
++	recordGone(t, tc, ns, "worker-a")
++	finishTermination(t, tc, ns, "worker-a")
++	if got := workerAssignee(t, tc, ns, "worker-b"); got != "id2" {
++		t.Fatalf("worker-b claim changed to %q", got)
++	}
++}
++
++// If the drain outlives the grace period, the kubelet kills the pod; the final delete releases the
++// actor (its execution is gone with the pod) so the next turn restores it elsewhere.
++func TestDrain_KilledDrainReleasesTheActorOnFinalDelete(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-drain-kill", "worker-a")
++	defer cleanup()
++	ctx := context.Background()
++
++	if err := resume(ctx, tc, "id1"); err != nil {
++		t.Fatalf("resume: %v", err)
++	}
++	waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 2*time.Second)
++	beginTermination(t, tc, ns, "worker-a")
++	if a, _ := tc.persistence.GetActor(ctx, testAtespace, "id1"); a.GetStatus() != ateapipb.Actor_STATUS_RUNNING {
++		t.Fatalf("actor released during the grace period: %v", a.GetStatus())
++	}
++	finishTermination(t, tc, ns, "worker-a")
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 3*time.Second)
++	if a.GetAteomPodName() != "" {
++		t.Fatalf("actor still points at the killed pod: %q", a.GetAteomPodName())
++	}
++	recordGone(t, tc, ns, "worker-a")
++
++	// The next turn restores it on a live worker.
++	createWorkerPod(t, tc, ns, "worker-c", "node1", "pool1")
++	if err := resume(ctx, tc, "id1"); err != nil {
++		t.Fatalf("resume after kill: %v", err)
++	}
++	if a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 2*time.Second); a.GetAteomPodName() != "worker-c" {
++		t.Fatalf("actor restored on %q, want worker-c", a.GetAteomPodName())
++	}
++}
++
++var _ = corev1.PodRunning
+diff --git a/cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go b/cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go
+index 664a89f..44016ca 100644
+--- a/cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go
++++ b/cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go
+@@ -16,12 +16,12 @@ package controlapi
+ 
+ // ewallet patch (P2-A lifecycle acceptance): the window in which a worker record outlives its pod.
+ //
+-// Worker selection (AssignWorkerStep) reads the store-backed worker cache and does not consult the
+-// pod informer, so a stale record is eligible until the syncer removes it. These tests pin what the
+-// platform does inside that window and after it closes:
+-//   - a resume that picks the stale record fails at the atelet dial, before any atelet call, so no
+-//     sandbox work runs (nothing to duplicate); the actor returns to SUSPENDED with its snapshot
+-//     pointers intact and the record's claim is released;
++// Since the B′ drain patch, worker selection (AssignWorkerStep) skips records whose pod is missing
++// from the informer or terminating, so a stale record is never selected, even before the syncer
++// removes it. These tests pin that:
++//   - with only a stale record free, the resume reports no free worker (the Coordinator's capacity
++//     wait path) instead of failing at the atelet dial; no atelet call happens and the actor stays
++//     SUSPENDED; the stale record is never claimed;
+ //   - a reconcile pass removes the record, and the next resume runs on the live worker.
+ 
+ import (
+@@ -33,6 +33,8 @@ import (
+ 
+ 	"github.com/agent-substrate/substrate/cmd/ateapi/internal/store"
+ 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
+ 	"google.golang.org/protobuf/proto"
+ 	"k8s.io/apimachinery/pkg/util/wait"
+ )
+@@ -119,10 +121,10 @@ func TestLifecycle_StaleWorkerRecordFailsCleanlyUntilReconciled(t *testing.T) {
+ 	// Only the stale record is free: the selection inside the window is deterministic.
+ 	setAssignment(t, tc, ns, "worker-live", "someone-else")
+ 
+-	// 1. Inside the window: the stale record is selected and the resume fails at the dial.
++	// 1. Inside the window: the stale record is skipped; the resume reports no free worker.
+ 	err := resume(ctx, tc, "id1")
+-	if err == nil || !strings.Contains(err.Error(), ErrWorkerPodNotFound.Error()) {
+-		t.Fatalf("resume on the stale record: want %q, got %v", ErrWorkerPodNotFound, err)
++	if status.Code(err) != codes.FailedPrecondition || !strings.Contains(err.Error(), "no free workers") {
++		t.Fatalf("resume with only a stale record free: want FailedPrecondition no free workers, got %v", err)
+ 	}
+ 	if run, restore := atelet(tc); run || restore {
+ 		t.Fatalf("no atelet call may happen for a dead worker (run=%v restore=%v)", run, restore)
+@@ -161,10 +163,9 @@ func TestLifecycle_StaleWorkerRecordFailsCleanlyUntilReconciled(t *testing.T) {
+ 	}
+ }
+ 
+-// Without a reconcile, a free stale record keeps being offered: each attempt that picks it fails at
+-// the dial and rolls back the same way (bounded, observable, nothing executed). This is why ateapi
+-// reconciles at startup, before stale records can matter, and periodically after.
+-func TestLifecycle_StaleWorkerRecordIsRetriedSafelyNotSticky(t *testing.T) {
++// Without a reconcile, a free stale record is still never offered: every attempt reports no free
++// worker, nothing reaches the atelet, and the record is never claimed.
++func TestLifecycle_StaleWorkerRecordIsNeverSelected(t *testing.T) {
+ 	tc, ns, cleanup := recoverySetup(t, "ns-life-retry", "worker-live")
+ 	defer cleanup()
+ 	ctx := context.Background()
+@@ -172,8 +173,8 @@ func TestLifecycle_StaleWorkerRecordIsRetriedSafelyNotSticky(t *testing.T) {
+ 	setAssignment(t, tc, ns, "worker-live", "someone-else")
+ 
+ 	for i := 0; i < 3; i++ {
+-		if err := resume(ctx, tc, "id1"); err == nil || !strings.Contains(err.Error(), ErrWorkerPodNotFound.Error()) {
+-			t.Fatalf("attempt %d: want %q, got %v", i, ErrWorkerPodNotFound, err)
++		if err := resume(ctx, tc, "id1"); status.Code(err) != codes.FailedPrecondition {
++			t.Fatalf("attempt %d: want FailedPrecondition, got %v", i, err)
+ 		}
+ 		waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 2*time.Second)
+ 		if got := workerAssignee(t, tc, ns, "worker-gone"); got != "" {
+diff --git a/cmd/ateapi/internal/controlapi/syncer.go b/cmd/ateapi/internal/controlapi/syncer.go
+index 463f499..5c15b1c 100644
+--- a/cmd/ateapi/internal/controlapi/syncer.go
++++ b/cmd/ateapi/internal/controlapi/syncer.go
+@@ -175,6 +175,9 @@ func (s *WorkerPoolSyncer) reconcileStore(ctx context.Context) int {
+ 				reason = "pod was replaced (UID changed)"
+ 			case current.Labels[workerPodLabel] != w.GetWorkerPool():
+ 				reason = "pod no longer belongs to the worker pool"
++			case current.DeletionTimestamp != nil && w.GetAssignment() == nil:
++				// ewallet patch (B′): a drained worker of a terminating pod.
++				reason = "pod is terminating and the worker is idle"
+ 			default:
+ 				continue
+ 			}
+@@ -190,7 +193,7 @@ func (s *WorkerPoolSyncer) reconcileStore(ctx context.Context) int {
+ 			continue
+ 		}
+ 		removed++
+-		if current != nil {
++		if current != nil && current.DeletionTimestamp == nil {
+ 			// Register the current incarnation now rather than at the next informer resync.
+ 			s.syncWorkerToStore(ctx, current)
+ 		}
+@@ -205,6 +208,17 @@ func (s *WorkerPoolSyncer) syncWorkerToStore(ctx context.Context, pod *corev1.Po
+ 	// ewallet patch: a deleting pod is removed whatever its IP (the eligibility check used to
+ 	// return first, so a deleting pod without an IP was never removed).
+ 	if pod.DeletionTimestamp != nil {
++		// ewallet patch (B′): a terminating pod still running an actor drains. Its ateom finishes
++		// the turn and the post-turn checkpoint before it exits, so the actor stays bound here
++		// (releasing it now would let a resume start the same actor elsewhere while this one still
++		// runs). The worker gets no new assignment: AssignWorkerStep skips terminating pods. Once the
++		// actor is suspended (claim cleared) a later update, the reconcile pass or the final delete
++		// event removes the record; the delete event also releases an actor whose pod was killed.
++		if w, err := s.persistence.GetWorker(ctx, pod.Namespace, pod.Labels[workerPodLabel], pod.Name); err == nil && w.GetAssignment() != nil {
++			slog.InfoContext(ctx, "Syncer: worker draining (pod deleting, actor still bound)", slog.String("worker", pod.Namespace+"/"+pod.Name),
++				slog.String("actor", w.GetAssignment().GetActor().GetAtespace()+"/"+w.GetAssignment().GetActor().GetName()))
++			return
++		}
+ 		slog.InfoContext(ctx, "Syncer: removing worker from store (pod deleting)", slog.String("worker", pod.Namespace+"/"+pod.Name))
+ 		if err := s.releaseActorOnDeadWorker(ctx, pod.Namespace, pod.Labels[workerPodLabel], pod.Name); err != nil {
+ 			slog.ErrorContext(ctx, "Failed to release actor bound to soft-deleting worker", slog.Any("err", err))
+diff --git a/cmd/ateapi/internal/controlapi/workflow.go b/cmd/ateapi/internal/controlapi/workflow.go
+index 4f18ec5..eecd4c8 100644
+--- a/cmd/ateapi/internal/controlapi/workflow.go
++++ b/cmd/ateapi/internal/controlapi/workflow.go
+@@ -184,7 +184,7 @@ func (w *ActorWorkflow) ResumeActor(ctx context.Context, atespace, name string,
+ 
+ 	steps := []WorkflowStep[*ResumeInput, *ResumeState]{
+ 		&LoadActorForResumeStep{store: w.store, actorTemplateLister: w.actorTemplateLister},
+-		&AssignWorkerStep{store: w.store, workerCache: w.workerCache},
++		&AssignWorkerStep{store: w.store, workerCache: w.workerCache, usable: w.dialer.WorkerUsable},
+ 		&CallAteletRestoreStep{store: w.store, dialer: w.dialer, kubeClient: w.kubeClient, secretCache: w.secretCache, workerPoolLister: w.workerPoolLister, sandboxConfigLister: w.sandboxConfigLister},
+ 		&FinalizeRunningStep{store: w.store},
+ 	}
+diff --git a/cmd/ateapi/internal/controlapi/workflow_resume.go b/cmd/ateapi/internal/controlapi/workflow_resume.go
+index 48d5f12..87d92e8 100644
+--- a/cmd/ateapi/internal/controlapi/workflow_resume.go
++++ b/cmd/ateapi/internal/controlapi/workflow_resume.go
+@@ -114,6 +114,13 @@ func isWorkerEligibleForActor(worker *ateapipb.Worker, templateClass atev1alpha1
+ type AssignWorkerStep struct {
+ 	store       store.Interface
+ 	workerCache *workercache.Cache
++	// usable reports whether the worker's pod exists and is not terminating (ewallet patch, B′).
++	// nil means every cached worker is usable (the upstream behaviour).
++	usable func(namespace, pod string) bool
++}
++
++func (s *AssignWorkerStep) workerUsable(w *ateapipb.Worker) bool {
++	return s.usable == nil || s.usable(w.GetWorkerNamespace(), w.GetWorkerPod())
+ }
+ 
+ func (s *AssignWorkerStep) Name() string { return "AssignWorker" }
+@@ -145,7 +152,8 @@ func (s *AssignWorkerStep) Execute(ctx context.Context, input *ResumeInput, stat
+ 		if err != nil {
+ 			return fmt.Errorf("while checking worker eligibility: %w", err)
+ 		}
+-		if eligible {
++		// ewallet patch (B′): a claim on a missing or terminating pod is released, not reused.
++		if eligible && s.workerUsable(worker) {
+ 			assignedWorker = worker
+ 			break
+ 		}
+@@ -160,7 +168,7 @@ func (s *AssignWorkerStep) Execute(ctx context.Context, input *ResumeInput, stat
+ 
+ 	// If not, find a free one using randomized shuffling
+ 	if assignedWorker == nil {
+-		pickedWorker, err := s.findFreeWorker(workers, state.ActorTemplate.Spec.SandboxClass, state.ActorTemplate.Spec.WorkerSelector, state.Actor.GetWorkerSelector(), state.Actor.GetLatestSnapshotInfo().GetLocal().GetNodeVmsWithLocalSnapshots())
++		pickedWorker, err := s.findFreeWorker(s.usableOnly(workers), state.ActorTemplate.Spec.SandboxClass, state.ActorTemplate.Spec.WorkerSelector, state.Actor.GetWorkerSelector(), state.Actor.GetLatestSnapshotInfo().GetLocal().GetNodeVmsWithLocalSnapshots())
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -205,6 +213,20 @@ func (s *AssignWorkerStep) Execute(ctx context.Context, input *ResumeInput, stat
+ 	return nil
+ }
+ 
++// usableOnly drops workers whose pod is missing or terminating (ewallet patch, B′).
++func (s *AssignWorkerStep) usableOnly(workers []*ateapipb.Worker) []*ateapipb.Worker {
++	if s.usable == nil {
++		return workers
++	}
++	out := make([]*ateapipb.Worker, 0, len(workers))
++	for _, w := range workers {
++		if s.workerUsable(w) {
++			out = append(out, w)
++		}
++	}
++	return out
++}
++
+ func (s *AssignWorkerStep) RetryBackoff() *wait.Backoff {
+ 	return &wait.Backoff{
+ 		Steps:    5,
+diff --git a/cmd/atecontroller/internal/controllers/workerpool_apply.go b/cmd/atecontroller/internal/controllers/workerpool_apply.go
+index faa94f5..d0dbb10 100644
+--- a/cmd/atecontroller/internal/controllers/workerpool_apply.go
++++ b/cmd/atecontroller/internal/controllers/workerpool_apply.go
+@@ -27,6 +27,12 @@ import (
+ // buildDeploymentApplyConfig constructs the SSA apply configuration for the
+ // Deployment managed by a WorkerPool. Only fields owned by this controller
+ // are declared here.
++// workerTerminationGracePeriodSeconds bounds a worker pod's drain (ewallet patch, B′): on SIGTERM
++// ateom keeps the active actor running until its turn and post-turn checkpoint end
++// (cmd/ateom-gvisor/drain.go). kagent bounds a Substrate call at 90 s (SUBSTRATE_CALL_TIMEOUT);
++// 150 s also covers the checkpoint. The kubelet's SIGKILL ends a longer drain.
++const workerTerminationGracePeriodSeconds int64 = 150
++
+ func buildDeploymentApplyConfig(wp *atev1alpha1.WorkerPool) *appsv1ac.DeploymentApplyConfiguration {
+ 	containerAC := corev1ac.Container().
+ 		WithName("ateom").
+@@ -50,6 +56,7 @@ func buildDeploymentApplyConfig(wp *atev1alpha1.WorkerPool) *appsv1ac.Deployment
+ 			WithMountPath(ateompath.BasePath))
+ 
+ 	podSpecAC := corev1ac.PodSpec().
++		WithTerminationGracePeriodSeconds(workerTerminationGracePeriodSeconds).
+ 		WithSecurityContext(corev1ac.PodSecurityContext().
+ 			WithRunAsUser(0).
+ 			WithRunAsGroup(0)).
+diff --git a/cmd/atecontroller/internal/controllers/workerpool_apply_test.go b/cmd/atecontroller/internal/controllers/workerpool_apply_test.go
+index 1cdc972..3e026a4 100644
+--- a/cmd/atecontroller/internal/controllers/workerpool_apply_test.go
++++ b/cmd/atecontroller/internal/controllers/workerpool_apply_test.go
+@@ -276,6 +276,7 @@ func expectedDeploymentApplyConfig(mutatePodSpec func(*corev1ac.PodSpecApplyConf
+ 	wp := testWorkerPoolApplyConfig(nil)
+ 
+ 	podSpecAC := corev1ac.PodSpec().
++		WithTerminationGracePeriodSeconds(workerTerminationGracePeriodSeconds). // ewallet patch (B′)
+ 		WithSecurityContext(corev1ac.PodSecurityContext().
+ 			WithRunAsUser(0).
+ 			WithRunAsGroup(0)).
+diff --git a/cmd/atecontroller/internal/controllers/workerpool_drain_test.go b/cmd/atecontroller/internal/controllers/workerpool_drain_test.go
+new file mode 100644
+index 0000000..cc947b7
+--- /dev/null
++++ b/cmd/atecontroller/internal/controllers/workerpool_drain_test.go
+@@ -0,0 +1,34 @@
++// Copyright 2026 Google LLC
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package controllers
++
++import (
++	"testing"
++
++	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++)
++
++// ewallet patch (B′): worker pods get a grace period long enough for ateom's drain.
++func TestWorkerPodsGetTheDrainGracePeriod(t *testing.T) {
++	wp := &atev1alpha1.WorkerPool{
++		ObjectMeta: metav1.ObjectMeta{Name: "pool", Namespace: "ns"},
++		Spec:       atev1alpha1.WorkerPoolSpec{AteomImage: "img", SandboxClass: "gvisor"},
++	}
++	got := buildDeploymentApplyConfig(wp).Spec.Template.Spec.TerminationGracePeriodSeconds
++	if got == nil || *got != workerTerminationGracePeriodSeconds || workerTerminationGracePeriodSeconds < 120 {
++		t.Fatalf("terminationGracePeriodSeconds = %v, want %d (>= 120)", got, workerTerminationGracePeriodSeconds)
++	}
++}
+diff --git a/cmd/ateom-gvisor/drain.go b/cmd/ateom-gvisor/drain.go
+new file mode 100644
+index 0000000..a9a0491
+--- /dev/null
++++ b/cmd/ateom-gvisor/drain.go
+@@ -0,0 +1,79 @@
++// Copyright 2026 Google LLC
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package main
++
++// ewallet patch (B′ safe scale-in): graceful drain on SIGTERM.
++//
++// Upstream ateom installs no signal handler, so the Go runtime exits on the SIGTERM that the
++// kubelet sends when a worker pod is deleted (a scale-in, a rollout): the actor running a turn
++// was killed mid-turn. With this patch ateom stops accepting new activations (Run/Restore answer
++// Unavailable), keeps the active sandbox running until its turn ends and the post-turn
++// checkpoint clears it, then stops serving and exits. The pod's terminationGracePeriodSeconds
++// (atecontroller patch) bounds the wait; the kubelet's SIGKILL ends a drain that outlives it.
++
++import (
++	"context"
++	"log/slog"
++	"time"
++
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++)
++
++const drainPollInterval = 500 * time.Millisecond
++
++// errDraining is returned to activations that arrive while the worker pod is terminating.
++var errDraining = status.Error(codes.Unavailable, "ateom is draining: the worker pod is terminating")
++
++// beginDrain marks the service as draining. Activations started afterwards are refused.
++func (s *AteomService) beginDrain() {
++	s.lock.Lock()
++	defer s.lock.Unlock()
++	s.draining = true
++}
++
++// idle reports whether no sandbox is active (no actor running on this worker).
++func (s *AteomService) idle() bool {
++	s.lock.Lock()
++	defer s.lock.Unlock()
++	return s.active == nil
++}
++
++// waitIdle blocks until no sandbox is active or ctx ends; it reports whether the worker drained.
++func (s *AteomService) waitIdle(ctx context.Context, poll time.Duration) bool {
++	ticker := time.NewTicker(poll)
++	defer ticker.Stop()
++	for {
++		if s.idle() {
++			return true
++		}
++		select {
++		case <-ctx.Done():
++			return false
++		case <-ticker.C:
++		}
++	}
++}
++
++// drain runs once SIGTERM arrives: refuse new activations, wait for the active actor to be
++// checkpointed, then stop the server (stop returns only after in-flight RPCs finish).
++func (s *AteomService) drain(ctx context.Context, stop func()) {
++	s.beginDrain()
++	start := time.Now()
++	slog.InfoContext(ctx, "ateom draining: no new activations; waiting for the active actor to be checkpointed")
++	drained := s.waitIdle(ctx, drainPollInterval)
++	slog.InfoContext(ctx, "ateom drain finished", slog.Bool("idle", drained), slog.Duration("waited", time.Since(start)))
++	stop()
++}
+diff --git a/cmd/ateom-gvisor/drain_test.go b/cmd/ateom-gvisor/drain_test.go
+new file mode 100644
+index 0000000..93c07b1
+--- /dev/null
++++ b/cmd/ateom-gvisor/drain_test.go
+@@ -0,0 +1,81 @@
++// Copyright 2026 Google LLC
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package main
++
++import (
++	"context"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/agent-substrate/substrate/internal/proto/ateompb"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++)
++
++func TestDrain_RefusesNewActivations(t *testing.T) {
++	s := &AteomService{}
++	s.beginDrain()
++	if _, err := s.RunWorkload(context.Background(), &ateompb.RunWorkloadRequest{}); status.Code(err) != codes.Unavailable {
++		t.Fatalf("RunWorkload while draining: want Unavailable, got %v", err)
++	}
++	if _, err := s.RestoreWorkload(context.Background(), &ateompb.RestoreWorkloadRequest{}); status.Code(err) != codes.Unavailable {
++		t.Fatalf("RestoreWorkload while draining: want Unavailable, got %v", err)
++	}
++}
++
++func TestDrain_WaitsForTheActiveActorThenStops(t *testing.T) {
++	s := &AteomService{active: &activeSandbox{}}
++	var stopped atomic.Bool
++	done := make(chan struct{})
++	go func() {
++		s.drain(context.Background(), func() { stopped.Store(true) })
++		close(done)
++	}()
++	time.Sleep(3 * drainPollInterval)
++	if stopped.Load() {
++		t.Fatal("ateom stopped while an actor was still active")
++	}
++	// The post-turn checkpoint clears the active sandbox (CheckpointWorkload).
++	s.lock.Lock()
++	s.active = nil
++	s.lock.Unlock()
++	select {
++	case <-done:
++	case <-time.After(5 * drainPollInterval):
++		t.Fatal("ateom did not stop after the actor was checkpointed")
++	}
++	if !stopped.Load() {
++		t.Fatal("stop was not called")
++	}
++}
++
++func TestDrain_IdleWorkerStopsAtOnce(t *testing.T) {
++	s := &AteomService{}
++	start := time.Now()
++	s.drain(context.Background(), func() {})
++	if time.Since(start) > drainPollInterval {
++		t.Fatalf("idle drain took %v", time.Since(start))
++	}
++}
++
++func TestDrain_EndsWhenTheContextEnds(t *testing.T) {
++	s := &AteomService{active: &activeSandbox{}}
++	ctx, cancel := context.WithTimeout(context.Background(), 2*drainPollInterval)
++	defer cancel()
++	if s.waitIdle(ctx, 50*time.Millisecond) {
++		t.Fatal("waitIdle reported idle with an active sandbox")
++	}
++}
+diff --git a/cmd/ateom-gvisor/main.go b/cmd/ateom-gvisor/main.go
+index a7c1297..357b4f4 100644
+--- a/cmd/ateom-gvisor/main.go
++++ b/cmd/ateom-gvisor/main.go
+@@ -23,6 +23,7 @@ import (
+ 	"log/slog"
+ 	"net"
+ 	"os"
++	"os/signal"
+ 	"runtime"
+ 	"sort"
+ 	"sync"
+@@ -151,6 +152,14 @@ func do(ctx context.Context) error {
+ 		return fmt.Errorf("while starting the actor egress proxy: %w", err)
+ 	}
+ 
++	// ewallet patch (B′): drain on SIGTERM instead of exiting mid-turn (drain.go).
++	sigCh := make(chan os.Signal, 1)
++	signal.Notify(sigCh, unix.SIGTERM)
++	go func() {
++		<-sigCh
++		ateomService.drain(ctx, svr.GracefulStop)
++	}()
++
+ 	if err := svr.Serve(lis); err != nil {
+ 		slog.ErrorContext(ctx, "Failed to serve", slog.Any("err", err))
+ 		os.Exit(1)
+@@ -173,6 +182,9 @@ type AteomService struct {
+ 	// active is the sandbox of the last successful activation, until a checkpoint cleans it up
+ 	// (ewallet patch, see sandbox_teardown.go). Guarded by lock.
+ 	active *activeSandbox
++
++	// draining is set on SIGTERM (ewallet patch, see drain.go). Guarded by lock.
++	draining bool
+ }
+ 
+ var _ ateompb.AteomServer = (*AteomService)(nil)
+@@ -189,6 +201,9 @@ func NewService(interiorNetNS netns.NsHandle, actorLogger *actorlog.ActorLogger)
+ func (s *AteomService) RunWorkload(ctx context.Context, req *ateompb.RunWorkloadRequest) (resp *ateompb.RunWorkloadResponse, retErr error) {
+ 	s.lock.Lock()
+ 	defer s.lock.Unlock()
++	if s.draining {
++		return nil, errDraining
++	}
+ 	s.clearStaleActive(ctx)
+ 
+ 	s.actorLogger.EmitLifecycleLog("Actor starting", req.GetAtespace(), req.GetActorId(), req.GetActorTemplateNamespace(), req.GetActorTemplateName())
+@@ -371,6 +386,9 @@ func (r *runsc) cleanupContainersAfterCheckpoint(ctx context.Context, containers
+ func (s *AteomService) RestoreWorkload(ctx context.Context, req *ateompb.RestoreWorkloadRequest) (resp *ateompb.RestoreWorkloadResponse, retErr error) {
+ 	s.lock.Lock()
+ 	defer s.lock.Unlock()
++	if s.draining {
++		return nil, errDraining
++	}
+ 	s.clearStaleActive(ctx)
+ 
+ 	s.actorLogger.EmitLifecycleLog("Actor restoring", req.GetAtespace(), req.GetActorId(), req.GetActorTemplateNamespace(), req.GetActorTemplateName())

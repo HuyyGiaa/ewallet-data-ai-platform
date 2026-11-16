@@ -207,6 +207,27 @@ class SubstrateOverrideTests(unittest.TestCase):
             mutate(cand)
             self.assertTrue(rfd.atelet_placement(base, cand))
 
+    def controller_docs(self):
+        docs = self.docs()
+        docs.append(deployment("ate-system", "ate-controller", "ate-controller", "ghcr.io/kagent-dev/substrate/atecontroller:v0.0.9"))
+        return docs
+
+    def test_atecontroller_override_changes_only_its_container(self):
+        image = f"{AR}/substrate-atecontroller:0.0.9-ewallet.0291af52.aaaaaaaa@{DIGEST}"
+        _, plain = self.render(self.controller_docs())
+        code, out = self.render(self.controller_docs(), f"--atecontroller-image={image}")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out[2]["spec"]["template"]["spec"]["containers"][0]["image"], image)
+        self.assertEqual(out[:2], plain[:2])
+        base, cand = rfd.load(yaml.safe_dump_all(plain)), rfd.load(yaml.safe_dump_all(out))
+        ateapi = plain[0]["spec"]["template"]["spec"]["containers"][0]["image"]
+        # The ate-api image is unchanged here: the controller roll alone is a valid substrate step.
+        self.assertEqual(rfd.candidate("substrate", base, cand, ateapi, None, None, image), [])
+        self.assertTrue(rfd.candidate("substrate", base, cand, ateapi, None, None, image.replace("a" * 64, "c" * 64)))
+        self.assertTrue(rfd.candidate("substrate", base, cand, ateapi, None, None, None), "an unexpected controller change fails")
+        for bad in (f"{AR}/substrate-ateapi@{DIGEST}", "ghcr.io/x/atecontroller:v1", f"{AR}/substrate-atecontroller:tag"):
+            self.assertNotEqual(self.render(self.controller_docs(), f"--atecontroller-image={bad}")[0], 0, bad)
+
     def test_override_fails_closed_without_the_deployment(self):
         code, _ = self.render(self.docs()[1:], f"--ateapi-image={self.image}")
         self.assertNotEqual(code, 0)
@@ -270,6 +291,13 @@ class BuildSpecTests(unittest.TestCase):
             "substrate-0.0.9-worker-reconcile.patch": {
                 "cmd/ateapi/internal/controlapi/syncer.go", "cmd/ateapi/internal/controlapi/syncer_reconcile_test.go",
                 "cmd/ateapi/internal/controlapi/syncer_test.go", "cmd/ateapi/internal/controlapi/functional_test.go"},
+            "substrate-0.0.9-graceful-drain.patch": {
+                "cmd/ateapi/internal/controlapi/dialer.go", "cmd/ateapi/internal/controlapi/functional_test.go",
+                "cmd/ateapi/internal/controlapi/lifecycle_drain_test.go", "cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go",
+                "cmd/ateapi/internal/controlapi/syncer.go", "cmd/ateapi/internal/controlapi/workflow.go",
+                "cmd/ateapi/internal/controlapi/workflow_resume.go", "cmd/atecontroller/internal/controllers/workerpool_apply.go",
+                "cmd/atecontroller/internal/controllers/workerpool_apply_test.go", "cmd/atecontroller/internal/controllers/workerpool_drain_test.go",
+                "cmd/ateom-gvisor/drain.go", "cmd/ateom-gvisor/drain_test.go", "cmd/ateom-gvisor/main.go"},
             "substrate-0.0.9-worker-lifecycle-tests.patch": {
                 "cmd/ateapi/internal/controlapi/functional_test.go", "cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go",
                 "cmd/ateapi/internal/controlapi/syncer_reconcile_test.go"},

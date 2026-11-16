@@ -2,7 +2,7 @@
 
     python scripts/llm_agent/runtime_fix_diff.py identity <live-manifest> <baseline-render>
     python scripts/llm_agent/runtime_fix_diff.py candidate kagent <baseline> <candidate> <image> <call-timeout>
-    python scripts/llm_agent/runtime_fix_diff.py candidate substrate <baseline> <candidate> <image> [<req>:<limit>]
+    python scripts/llm_agent/runtime_fix_diff.py candidate substrate <baseline> <candidate> <image> [<req>:<limit> [<controller-image>]]
     python scripts/llm_agent/runtime_fix_diff.py candidate kagent-otel <baseline> <candidate> <endpoint>
     python scripts/llm_agent/runtime_fix_diff.py candidate atelet-placement <baseline> <candidate>
 
@@ -43,6 +43,7 @@ def container(obj: Mapping, name: str) -> tuple[int, dict]:
 
 
 ATELET: Key = ("DaemonSet", "ate-system", "atelet")
+ATECONTROLLER: Key = ("Deployment", "ate-system", "ate-controller")
 
 
 def atelet_problems(base: Mapping, cand: Mapping, memory: str) -> list[str]:
@@ -57,15 +58,28 @@ def atelet_problems(base: Mapping, cand: Mapping, memory: str) -> list[str]:
     return problems
 
 
+def controller_problems(base: Mapping, cand: Mapping, image: str) -> list[str]:
+    """B′: ate-controller may change only its container image, to the patched digest."""
+    index, after = container(cand, "ate-controller")
+    problems = []
+    got = changed_paths(base, cand)
+    if got - {f"spec.template.spec.containers[{index}].image"}:
+        problems.append(f"{ATECONTROLLER} changed paths {sorted(got)} beyond the image")
+    if after.get("image") != image:
+        problems.append(f"{ATECONTROLLER} image is not the expected patched digest")
+    return problems
+
+
 def candidate(target: str, base: Mapping[Key, dict], cand: Mapping[Key, dict], image: str, timeout: str | None,
-              atelet_memory: str | None = None) -> list[str]:
+              atelet_memory: str | None = None, controller_image: str | None = None) -> list[str]:
     """The candidate holds the reviewed end state; only the reviewed objects and paths differ.
 
     For substrate a step may find part of PKG-T already live (baseline rendered with it), so the
     changed set is a non-empty subset of the reviewed objects and the end state is checked in full.
     """
     key, name = TARGETS[target]
-    allowed = {key} | ({ATELET} if target == "substrate" and atelet_memory else set())
+    allowed = {key} | ({ATELET} if target == "substrate" and atelet_memory else set()) \
+        | ({ATECONTROLLER} if target == "substrate" and controller_image else set())
     problems = []
     if set(cand) != set(base):
         problems.append(f"objects added {sorted(set(cand) - set(base))} removed {sorted(set(base) - set(cand))}")
@@ -80,6 +94,8 @@ def candidate(target: str, base: Mapping[Key, dict], cand: Mapping[Key, dict], i
             request, _, limit = atelet_memory.partition(":")
             if (after["resources"]["requests"]["memory"], after["resources"]["limits"]["memory"]) != (request, limit):
                 problems.append("atelet memory is not the reviewed value")
+    if ATECONTROLLER in allowed:
+        problems += controller_problems(base[ATECONTROLLER], cand[ATECONTROLLER], controller_image)
     try:
         index, after = container(cand[key], name)
         _, before = container(base[key], name)
@@ -180,15 +196,16 @@ def main(argv: list[str]) -> int:
         problems, label = kagent_otel(base, cand, argv[4]), "CANDIDATE"
         if not problems:
             print(json.dumps({"target": "kagent-otel", "changed": sorted(list(k) for k in set(base) & set(cand) if base[k] != cand[k])}))
-    elif len(argv) in (5, 6) and argv[0] == "candidate" and argv[1] in TARGETS:
+    elif len(argv) in (5, 6, 7) and argv[0] == "candidate" and argv[1] in TARGETS:
         target = argv[1]
         if target == "kagent" and len(argv) != 6:
             print(__doc__, file=sys.stderr)
             return 2
         base, cand = load(open(argv[2]).read()), load(open(argv[3]).read())
         extra = argv[5] if len(argv) == 6 else None
+        controller = argv[6] if len(argv) == 7 and target == "substrate" else None
         problems = (candidate(target, base, cand, argv[4], extra) if target == "kagent"
-                    else candidate(target, base, cand, argv[4], None, extra))
+                    else candidate(target, base, cand, argv[4], None, extra, controller))
         label = "CANDIDATE"
         if not problems:
             print(json.dumps({"target": target, "changed": sorted(list(k) for k in set(base) & set(cand) if base[k] != cand[k])}))

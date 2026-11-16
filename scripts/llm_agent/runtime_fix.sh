@@ -91,6 +91,18 @@ else
   [[ "$live_mem" == "$SUBSTRATE_ATELET_MEMORY" ]] && renderer+=(--post-renderer-args "--atelet-memory=$SUBSTRATE_ATELET_MEMORY")
   # An earlier patched build is live (e.g. P2-A replaces the PKG-T build): the baseline renders it, so
   # identity still holds and the diff is exactly that image.
+  # B′: the patched ate-controller (worker drain grace period), pinned as SUBSTRATE_ATECONTROLLER_IMAGE.
+  controller=${SUBSTRATE_ATECONTROLLER_IMAGE:-}
+  live_ctrl=$(K -n ate-system get deployment ate-controller -o 'jsonpath={.spec.template.spec.containers[?(@.name=="ate-controller")].image}' 2>/dev/null || true)
+  if [[ "$live_ctrl" =~ ^[a-z0-9.-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-atecontroller(:[A-Za-z0-9._+-]+)?@sha256:[0-9a-f]{64}$ ]]; then
+    renderer+=(--post-renderer-args "--atecontroller-image=$live_ctrl")
+  fi
+  if [[ -n "$controller" ]]; then
+    [[ "$controller" =~ @sha256:[0-9a-f]{64}$ ]] || die "SUBSTRATE_ATECONTROLLER_IMAGE is not digest-pinned"
+    candidate_renderer+=(--post-renderer-args "--atecontroller-image=$controller")
+  elif [[ -n "$live_ctrl" && "$live_ctrl" != ghcr.io/kagent-dev/substrate/atecontroller:* ]]; then
+    candidate_renderer+=(--post-renderer-args "--atecontroller-image=$live_ctrl")
+  fi
   live_pc=$(K -n ate-system get daemonset atelet -o 'jsonpath={.spec.template.spec.priorityClassName}' 2>/dev/null || true)
   if [[ "$live_pc" == ewallet-substrate-node-agent ]]; then   # P2-B is live: every render keeps it
     renderer+=(--post-renderer-args "--atelet-placement"); candidate_renderer+=(--post-renderer-args "--atelet-placement")
@@ -174,7 +186,7 @@ candidate() {
     diff_tool candidate kagent "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$image" "$KAGENT_SUBSTRATE_CALL_TIMEOUT" > "$work/diff.txt" 2>&1 \
       || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
   else
-    diff_tool candidate substrate "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$image" "$SUBSTRATE_ATELET_MEMORY" > "$work/diff.txt" 2>&1 \
+    diff_tool candidate substrate "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$image" "$SUBSTRATE_ATELET_MEMORY" ${controller:+"$controller"} > "$work/diff.txt" 2>&1 \
       || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
   fi
   log "diff PASS: $(tr -d '\n ' < "$work/diff.txt" | cut -c1-300)"
@@ -198,6 +210,11 @@ verify() {
     [[ "$image_id" == *"@$want_digest" ]] || die "$pod runs $image_id, not $want_digest"
     [[ "$restarts" == 0 && "$ready" == true ]] || die "$pod restarts=$restarts ready=$ready"
   done <<< "$pods"
+  if [[ $target == substrate && -n "${controller:-}" ]]; then
+    K -n ate-system rollout status deployment/ate-controller --timeout=600s > /dev/null || die "ate-controller is not rolled out"
+    [[ "$(K -n ate-system get deployment ate-controller -o 'jsonpath={.spec.template.spec.containers[?(@.name=="ate-controller")].image}')" == "$controller" ]] \
+      || die "ate-controller does not run $controller"
+  fi
   log "verify PASS: $(tr '\n' ';' <<< "$pods")"
 }
 

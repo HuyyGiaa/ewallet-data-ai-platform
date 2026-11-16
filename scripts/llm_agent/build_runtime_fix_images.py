@@ -32,7 +32,7 @@ TESTS = {
     "kagent": [("go", "go build ./... && go vet ./core/internal/a2a/ ./core/pkg/sandboxbackend/... && "
                       "go test -race -count=1 -short ./core/internal/a2a/... ./core/pkg/sandboxbackend/... ./core/internal/httpserver/...", False)],
     "substrate": [
-        (".", "go build ./... && go vet ./cmd/... && go test -race -count=1 ./cmd/ateapi/... ./cmd/atelet/... ./internal/...", False),
+        (".", "go build ./... && go vet ./cmd/... && go test -race -count=1 ./cmd/ateapi/... ./cmd/atecontroller/... ./cmd/atelet/... ./internal/...", False),
         (".", "go test -race -count=1 ./cmd/ateom-gvisor/", True),  # needs root for /var/lib/ateom-gvisor
     ],
 }

@@ -21,6 +21,10 @@ It adds the PriorityClass ewallet-substrate-node-agent (value 100000, preemption
 the scheduling queue and never evicts anything) and gives atelet that class plus the not-ready
 NoSchedule toleration, so its pod is bound at node registration and starts once the node is up.
 
+``--atecontroller-image=<registry>/<repo>@sha256:<digest>`` (B′) replaces the ate-controller image
+with the patched build (worker pods get terminationGracePeriodSeconds for ateom's drain on SIGTERM;
+patches/substrate-0.0.9-graceful-drain.patch), the same way as --ateapi-image.
+
 Without arguments the output is unchanged.
 """
 
@@ -188,6 +192,9 @@ def keep_ca_bundle_stable(document: dict) -> None:
 ATEAPI_DEPLOYMENT = "ate-api-server-deployment"
 ATEAPI_CONTAINER = "ate-api-server"
 PATCHED_IMAGE = re.compile(r"^[a-z0-9-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-ateapi(:[A-Za-z0-9._+-]+)?@sha256:[0-9a-f]{64}$")
+ATECONTROLLER_DEPLOYMENT = "ate-controller"
+ATECONTROLLER_CONTAINER = "ate-controller"
+PATCHED_CONTROLLER_IMAGE = re.compile(r"^[a-z0-9-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-atecontroller(:[A-Za-z0-9._+-]+)?@sha256:[0-9a-f]{64}$")
 
 
 MEMORY = re.compile(r"^[1-9][0-9]{2,4}Mi$")
@@ -231,12 +238,17 @@ def set_atelet_placement(documents: list[dict]) -> None:
     documents.append(atelet_priority_class())
 
 
-def parse_args(argv: list[str]) -> tuple[str | None, tuple[str, str] | None, bool]:
-    image = memory = None
+def parse_args(argv: list[str]) -> tuple[str | None, tuple[str, str] | None, bool, str | None]:
+    image = memory = controller = None
     placement = False
     for arg in argv:
         if arg == "--atelet-placement":
             placement = True
+            continue
+        if arg.startswith("--atecontroller-image="):
+            controller = arg.split("=", 1)[1]
+            if not PATCHED_CONTROLLER_IMAGE.match(controller):
+                raise ValueError("--atecontroller-image must be an Artifact Registry substrate-atecontroller digest reference")
             continue
         if arg.startswith("--ateapi-image="):
             image = arg.split("=", 1)[1]
@@ -249,7 +261,7 @@ def parse_args(argv: list[str]) -> tuple[str | None, tuple[str, str] | None, boo
             memory = (request, limit)
         else:
             raise ValueError(f"unknown argument {arg!r}")
-    return image, memory, placement
+    return image, memory, placement, controller
 
 
 def set_atelet_memory(documents: list[dict], memory: tuple[str, str]) -> None:
@@ -283,6 +295,22 @@ def override_ateapi(documents: list[dict], image: str) -> None:
         raise ValueError(f"expected one {ATEAPI_DEPLOYMENT}/{ATEAPI_CONTAINER} container, found {hits}")
 
 
+def override_atecontroller(documents: list[dict], image: str) -> None:
+    """Point exactly the ate-controller container at the patched image; fail closed otherwise."""
+    hits = 0
+    for document in documents:
+        if document.get("kind") != "Deployment" or document.get("metadata", {}).get("name") != ATECONTROLLER_DEPLOYMENT:
+            continue
+        for container in document["spec"]["template"]["spec"].get("containers", []):
+            if container.get("name") == ATECONTROLLER_CONTAINER:
+                if not container.get("image", "").startswith("ghcr.io/kagent-dev/substrate/atecontroller:v0.0.9@"):
+                    raise ValueError("ate-controller image is not the pinned v0.0.9 release; review the override")
+                container["image"] = image
+                hits += 1
+    if hits != 1:
+        raise ValueError(f"expected one {ATECONTROLLER_DEPLOYMENT}/{ATECONTROLLER_CONTAINER} container, found {hits}")
+
+
 def pod_spec(document: dict) -> dict | None:
     kind = document.get("kind")
     spec = document.get("spec", {})
@@ -292,7 +320,7 @@ def pod_spec(document: dict) -> dict | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ateapi_image, atelet_memory, atelet_placement = parse_args(sys.argv[1:] if argv is None else argv)
+    ateapi_image, atelet_memory, atelet_placement, controller_image = parse_args(sys.argv[1:] if argv is None else argv)
     documents = [doc for doc in yaml.safe_load_all(sys.stdin) if doc]
     for document in documents:
         patch_valkey(document)
@@ -317,6 +345,8 @@ def main(argv: list[str] | None = None) -> int:
         set_atelet_memory(documents, atelet_memory)
     if atelet_placement:
         set_atelet_placement(documents)
+    if controller_image:
+        override_atecontroller(documents, controller_image)
     yaml.safe_dump_all(documents, sys.stdout, sort_keys=False, explicit_start=True)
     return 0
 

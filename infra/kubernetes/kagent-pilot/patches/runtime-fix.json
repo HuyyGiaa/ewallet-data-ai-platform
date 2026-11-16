@@ -74,6 +74,22 @@
         },
         "ldflags_from_base": "-X github.com/agent-substrate/substrate/internal/version.Commit=136dbb16c9c36841009d58128e83ca49c552e0f3 -X github.com/agent-substrate/substrate/internal/version.BuildDate=2026-07-10T15:29:41Z",
         "release_go": "go1.26.3"
+      },
+      "substrate-atecontroller": {
+        "base": "ghcr.io/kagent-dev/substrate/atecontroller@sha256:dc29e79987fe4177b92c8b30a4fa4f36f3cf1a80937b03a7a8cd3411f98693e5",
+        "binary_path": "/ko-app/atecontroller",
+        "package": "./cmd/atecontroller",
+        "module_dir": ".",
+        "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
+        "env": {
+          "CGO_ENABLED": "0",
+          "GOOS": "linux",
+          "GOARCH": "amd64",
+          "GOAMD64": "v1",
+          "GOFLAGS": "-mod=vendor -trimpath -buildvcs=false"
+        },
+        "ldflags_from_base": "-X github.com/agent-substrate/substrate/internal/version.Commit=136dbb16c9c36841009d58128e83ca49c552e0f3 -X github.com/agent-substrate/substrate/internal/version.BuildDate=2026-07-10T15:29:41Z",
+        "release_go": "go1.26.3"
       }
     },
     "security_bumps": {
@@ -108,6 +124,16 @@
         "patch_sha256": "ec631932c952f7e94268dd39afc3aeea46eeaef1b01d945ec63338a6a28e608f",
         "purpose": "test-only (no image changes): stale-worker selection window (fails at the dial before any atelet call, rollback, reconcile, resume on the live worker), pool change, store failure (P2-A final closure)",
         "images": []
+      },
+      {
+        "patch": "substrate-0.0.9-graceful-drain.patch",
+        "patch_sha256": "49125b1582d6114f283dbf744afd98d866bda9bd20576b5d4940817fd80f75e2",
+        "purpose": "B\u2032 safe scale-in: ateom drains on SIGTERM (no new activations, waits for the active actor's checkpoint); worker pods get terminationGracePeriodSeconds 150; ateapi never assigns to a missing or terminating worker pod and keeps an actor bound to its draining worker until the pod is gone (bprime)",
+        "images": [
+          "substrate-ateapi",
+          "substrate-ateom-gvisor",
+          "substrate-atecontroller"
+        ]
       }
     ]
   }
