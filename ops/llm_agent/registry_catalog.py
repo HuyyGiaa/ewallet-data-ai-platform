@@ -117,7 +117,8 @@ def agent_runtime(values: Mapping[str, Any], spec: Mapping[str, Any], model_conf
 
 
 def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
-                  all_prompt_versions: bool = False, model_config: str = "ewallet-global-llm") -> list[dict[str, Any]]:
+                  all_prompt_versions: bool = False, model_config: str = "ewallet-global-llm",
+                  sandbox_image: str = "") -> list[dict[str, Any]]:
     """Catalog documents; ``all_prompt_versions`` also publishes every pinned older/newer prompt."""
 
     manifest = json.loads((prompts_dir / "manifest.json").read_text(encoding="utf-8"))["prompts"]
@@ -151,8 +152,12 @@ def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
                   "ewallet.io/runtime": runtime}
         digest = re.search(r"@sha256:([0-9a-f]{64})$", str(byo.get("image") or ""))
         if digest:
-            # The deployed image identity (a label value stays short; the readback compares it).
-            labels["ewallet.io/image-digest"] = "sha256-" + digest.group(1)[:16]
+            # The BYO Deployment image (a label value stays short; the readback compares it).
+            labels["ewallet.io/byo-image-digest"] = "sha256-" + digest.group(1)[:16]
+        sandbox_digest = re.search(r"@sha256:([0-9a-f]{64})$", sandbox_image)
+        if runtime == "kagent-sandboxagent-byo" and sandbox_digest:
+            # The SandboxAgent fleet image (one image for both Specialists, not Helm-managed).
+            labels["ewallet.io/sandbox-image-digest"] = "sha256-" + sandbox_digest.group(1)[:16]
         if "drift" in (byo.get("workflows") or []):
             labels["ewallet.io/workflows"] = ".".join(byo["workflows"])
         documents.append({
@@ -314,6 +319,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--all-prompt-versions", action="store_true",
                         help="publish every version pinned in prompts/manifest.json, not only the deployed one")
+    parser.add_argument("--sandbox-image", default="",
+                        help="digest-pinned image of the SandboxAgent fleet (ewallet-sandbox), for its label")
     parser.add_argument("--values-overlay", type=Path, action="append", default=[],
                         help="chart values file layered on values.yaml, as Helm would (e.g. agi/agents.yaml)")
     args = parser.parse_args(argv)
@@ -324,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
         chart_values = merge_values(chart_values, yaml.safe_load(overlay.read_text(encoding="utf-8")) or {})
     values = chart_values["agents"]
     documents = build_catalog(values, CHART / "prompts", git_sha, all_prompt_versions=args.all_prompt_versions,
-                              model_config=chart_values["modelConfig"]["name"])
+                              model_config=chart_values["modelConfig"]["name"], sandbox_image=args.sandbox_image)
     if args.command == "render":
         yaml.safe_dump_all(documents, sys.stdout, sort_keys=False)
         return 0

@@ -53,9 +53,13 @@ def test_p4_specialists_are_catalogued_as_sandbox_agents_with_their_image():
     values = merge_values(values, {"agents": {
         "coordinator": {"byo": {"sandboxSpecialists": ["drift-specialist", "feature-rag-specialist"]}},
         "specialists": {"drift-specialist": {"byo": {"image": image}}}}})
-    agents = {d["metadata"]["name"]: d for d in build_catalog(values["agents"], CHART / "prompts", "0" * 40) if d["kind"] == "Agent"}
+    fleet = "asia-southeast1-docker.pkg.dev/p/r/fleet@sha256:" + "cd" * 32
+    agents = {d["metadata"]["name"]: d for d in build_catalog(values["agents"], CHART / "prompts", "0" * 40,
+                                                              sandbox_image=fleet) if d["kind"] == "Agent"}
     assert agents["drift-specialist"]["metadata"]["labels"]["ewallet.io/runtime"] == "kagent-sandboxagent-byo"
     assert agents["feature-rag-specialist"]["metadata"]["labels"]["ewallet.io/runtime"] == "kagent-sandboxagent-byo"
     assert agents["fraud-coordinator"]["metadata"]["labels"]["ewallet.io/runtime"] == "kagent-byo"
-    assert agents["drift-specialist"]["metadata"]["labels"]["ewallet.io/image-digest"] == "sha256-" + "ab" * 8
+    assert agents["drift-specialist"]["metadata"]["labels"]["ewallet.io/byo-image-digest"] == "sha256-" + "ab" * 8
+    assert agents["drift-specialist"]["metadata"]["labels"]["ewallet.io/sandbox-image-digest"] == "sha256-" + "cd" * 8
+    assert "ewallet.io/sandbox-image-digest" not in agents["fraud-coordinator"]["metadata"]["labels"]
     assert "SandboxAgent" in agents["drift-specialist"]["spec"]["description"]
