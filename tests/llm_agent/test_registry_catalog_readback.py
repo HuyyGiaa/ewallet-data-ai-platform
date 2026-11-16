@@ -63,3 +63,12 @@ def test_p4_specialists_are_catalogued_as_sandbox_agents_with_their_image():
     assert agents["drift-specialist"]["metadata"]["labels"]["ewallet.io/sandbox-image-digest"] == "sha256-" + "cd" * 8
     assert "ewallet.io/sandbox-image-digest" not in agents["fraud-coordinator"]["metadata"]["labels"]
     assert "SandboxAgent" in agents["drift-specialist"]["spec"]["description"]
+
+
+def test_an_empty_list_stored_as_absent_is_not_a_difference():
+    doc = {"kind": "Agent", "metadata": {"name": "fraud-coordinator", "tag": "1.1.0", "labels": {}},
+           "spec": {"title": "C", "mcpServers": []}}
+    opener, _ = opener_for({"item": {"metadata": {"tag": "1.1.0", "labels": {}}, "spec": {"title": "C"}}})
+    assert readback([doc], "http://127.0.0.1:18121", opener=opener)["verdict"] == "PASS"
+    opener, _ = opener_for({"item": {"metadata": {"tag": "1.1.0", "labels": {}}, "spec": {"title": "C", "mcpServers": [{"name": "x"}]}}})
+    assert readback([doc], "http://127.0.0.1:18121", opener=opener)["verdict"] == "FAIL"

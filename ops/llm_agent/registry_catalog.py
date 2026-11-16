@@ -296,7 +296,9 @@ def readback(documents: list[dict[str, Any]], registry: str, *, opener: Opener =
                     differences.append(f"label {key}: registry {have_labels.get(key)!r}, catalog {want_labels.get(key)!r}")
             want_spec, have_spec = document.get("spec") or {}, stored.get("spec") or {}
             for key in sorted(want_spec):
-                if want_spec[key] != have_spec.get(key):
+                want, have = want_spec[key], have_spec.get(key)
+                # agentregistry stores an empty list as an absent field (fraud-coordinator has no MCP server).
+                if want != have and not (want in ([], {}) and have in (None, [], {})):
                     differences.append(f"spec.{key} differs")
         entries.append({"kind": document["kind"], "name": name, "tag": tag, "status": status,
                         "registered": status == 200, "matches": status == 200 and not differences,
