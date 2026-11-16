@@ -480,6 +480,33 @@ AGI_APPROVAL=T1-AGENTS:$CAMPAIGN AGI_PACKAGE=t1-agents scripts/llm_agent/agi_cam
 - **Risk:** a compromised actor could write fake telemetry. It cannot read any.
 - **Rollback:** `T1-AGENTS-ROLLBACK`.
 
+### 2.6c P2-C: kagent controller tracing (Phase 2 foundation)
+
+The kagent controller hop was missing from the business trace for two reasons. Its OTLP endpoint
+had no URL scheme, and the mesh had no rule admitting `cluster.local/ns/kagent/sa/kagent-controller`
+to the collector. The fix ships as two packages, applied in this order:
+
+1. **Network.** Append one flow to the live `crossNamespace.flows`: the controller may reach
+   `otel-collector` on port 4317, and nothing else.
+2. **Controller.** Set the controller's endpoint to
+   `http://otel-collector.ewallet-agents.svc.cluster.local:4317`.
+
+```bash
+AGI_PACKAGE=tr-agents scripts/llm_agent/agi_campaign.sh preflight
+AGI_PACKAGE=tr-agents scripts/llm_agent/agi_campaign.sh gate agents   # adds exactly 1 AuthorizationPolicy and 1 NetworkPolicy
+AGI_APPROVAL=TR-AGENTS:$CAMPAIGN AGI_PACKAGE=tr-agents scripts/llm_agent/agi_campaign.sh upgrade agents
+# then the controller, only after the flow is live:
+KUBE_CONTEXT=$CTX scripts/llm_agent/runtime_fix.sh kagent-otel dry-run "$PRIVATE"   # 1 ConfigMap key + checksum annotation
+RUNTIME_FIX_APPROVAL=P2C-KAGENT-OTEL:$CTX KUBE_CONTEXT=$CTX scripts/llm_agent/runtime_fix.sh kagent-otel upgrade "$PRIVATE"
+```
+
+- **Risk:** the controller can write telemetry to the collector. It cannot read any.
+- **Rollback:**
+  - controller: `P2C-KAGENT-OTEL-ROLLBACK`;
+  - network: `TR-AGENTS-ROLLBACK`.
+
+  Roll back the controller first.
+
 ### 2.7 Image roll after P2 (`img-mcp`, `img-agents`)
 
 Use these when a code fix changes an image input after the packages are live. Example: the

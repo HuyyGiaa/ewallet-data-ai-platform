@@ -4,17 +4,22 @@
 #              SUBSTRATE_CALL_TIMEOUT (values overlay kagent-runtime-fix-overlay.yaml)
 #   substrate  release ate-system/substrate: ate-api-server image -> patched 0.0.9 build
 #              (substrate post-renderer --ateapi-image; the chart has one tag for all components),
-#              and atelet memory (--atelet-memory; the in-memory pull cache OOM-killed it at 512Mi)
+#              and atelet memory (--atelet-memory; the in-memory pull cache OOM-killed it at 512Mi).
+#              A later patched build replaces an earlier one: the baseline renders the live patched image.
+#   kagent-otel release kagent/kagent (P2-C): the controller's OTLP traces endpoint gets its http:// scheme
+#              (values overlay kagent-otel-endpoint-overlay.yaml); image and env unchanged. Apply only
+#              after the agents package tr-agents admitted kagent-controller -> otel-collector:4317.
 # Each target is its own approval. Images come from build_runtime_fix_images.py + scan_and_push.sh;
 # their digests are pinned in infra/kubernetes/kagent-pilot/patches/runtime-fix-images.env.
 #
-# usage: runtime_fix.sh <kagent|substrate> <action> <private-work-dir>
+# usage: runtime_fix.sh <kagent|substrate|kagent-otel> <action> <private-work-dir>
 #   preflight  [READ-ONLY]  pinned chart digest, release deployed, controller Ready, live values and
 #                           manifest saved (mode 600), identity: chart + live values + post-renderer
 #                           == live manifest; records the live revision and image digests
 #   diff       [READ-ONLY]  preflight, then the exact diff (runtime_fix_diff.py)
 #   dry-run    [READ-ONLY]  diff, then helm upgrade --dry-run=server
-#   upgrade    [MUTATES]    RUNTIME_FIX_APPROVAL=PKG-T-<KAGENT|SUBSTRATE>:<context>; diff and dry-run in
+#   upgrade    [MUTATES]    RUNTIME_FIX_APPROVAL=<package>:<context> (PKG-T-KAGENT, PKG-T-SUBSTRATE,
+#                           P2C-KAGENT-OTEL); diff and dry-run in
 #                           the same execution, then helm upgrade --atomic; verify
 #   verify     [READ-ONLY]  running pod's imageID is the patched digest, rolled out, no restarts
 #   rollback   [MUTATES]    RUNTIME_FIX_APPROVAL=PKG-T-<...>-ROLLBACK:<context>; helm rollback to the
@@ -25,7 +30,7 @@
 set -euo pipefail
 target=${1:-} action=${2:-} work=${3:-}
 die() { echo "runtime_fix: FAIL: $*" >&2; exit 1; }
-case "$target" in kagent|substrate) ;; *) die "usage: runtime_fix.sh <kagent|substrate> <action> <work-dir>";; esac
+case "$target" in kagent|substrate|kagent-otel) ;; *) die "usage: runtime_fix.sh <kagent|substrate|kagent-otel> <action> <work-dir>";; esac
 case "$action" in preflight|diff|dry-run|upgrade|verify|rollback|cleanup) ;; *) die "unknown action '$action'";; esac
 [[ -n "$work" ]] || die "work directory required"
 [[ -n "${KUBE_CONTEXT:-}" ]] || die "KUBE_CONTEXT is required"
@@ -55,6 +60,16 @@ if [[ $target == kagent ]]; then
   lookup=()
   pinned=$(python3 -c 'import sys,yaml; i=yaml.safe_load(open(sys.argv[1]))["controller"]["image"]; print(i["registry"] + "/" + i["repository"] + ":" + i["tag"])' "$overlay")
   [[ "$pinned" == "$image" ]] || die "the overlay pins $pinned, not $image"
+elif [[ $target == kagent-otel ]]; then
+  package=P2C-KAGENT-OTEL release=kagent namespace=kagent deployment=kagent-controller container=controller
+  chart_ref=$KAGENT_CHART chart_version=$KAGENT_VERSION chart_digest=$KAGENT_CHART_DIGEST
+  image=$KAGENT_CONTROLLER_IMAGE   # unchanged: verify proves the controller still runs the PKG-T build
+  overlay=$root/infra/kubernetes/kagent-pilot/values/kagent-otel-endpoint-overlay.yaml
+  renderer=(--post-renderer "$root/infra/kubernetes/kagent-pilot/scripts/kagent_runtime_post_renderer.py")
+  candidate_renderer=("${renderer[@]}")
+  values_args=(-f "$overlay")
+  lookup=()
+  otel_endpoint=$(python3 -c 'import sys,yaml; print(yaml.safe_load(open(sys.argv[1]))["otel"]["tracing"]["exporter"]["otlp"]["endpoint"])' "$overlay")
 else
   package=PKG-T-SUBSTRATE release=substrate namespace=ate-system deployment=ate-api-server-deployment container=ate-api-server
   chart_ref=$SUBSTRATE_CHART chart_version=$SUBSTRATE_VERSION chart_digest=$SUBSTRATE_CHART_DIGEST
@@ -69,6 +84,11 @@ else
   live_mem=$(K -n ate-system get daemonset atelet -o 'jsonpath={.spec.template.spec.containers[?(@.name=="atelet")].resources.requests.memory}:{.spec.template.spec.containers[?(@.name=="atelet")].resources.limits.memory}' 2>/dev/null || true)
   [[ "$live_ateapi" == "$image" ]] && renderer+=(--post-renderer-args "--ateapi-image=$image")
   [[ "$live_mem" == "$SUBSTRATE_ATELET_MEMORY" ]] && renderer+=(--post-renderer-args "--atelet-memory=$SUBSTRATE_ATELET_MEMORY")
+  # An earlier patched build is live (e.g. P2-A replaces the PKG-T build): the baseline renders it, so
+  # identity still holds and the diff is exactly that image.
+  if [[ "$live_ateapi" != "$image" && "$live_ateapi" =~ ^[a-z0-9.-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-ateapi:0\.0\.9-ewallet\.[0-9a-f.]+@sha256:[0-9a-f]{64}$ ]]; then
+    renderer+=(--post-renderer-args "--ateapi-image=$live_ateapi")
+  fi
 fi
 [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]] || die "patched image is not digest-pinned: $image"
 
@@ -123,7 +143,10 @@ preflight() {
 candidate() {
   H template "$release" "$chart" -n "$namespace" -f "$work/values-live.yaml" "${values_args[@]}" "${candidate_renderer[@]}" "${lookup[@]}" \
     > "$work/render-candidate.yaml" 2> "$work/render-candidate.err" || die "candidate render failed"
-  if [[ $target == kagent ]]; then
+  if [[ $target == kagent-otel ]]; then
+    diff_tool candidate kagent-otel "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$otel_endpoint" > "$work/diff.txt" 2>&1 \
+      || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
+  elif [[ $target == kagent ]]; then
     diff_tool candidate kagent "$work/render-baseline.yaml" "$work/render-candidate.yaml" "$image" "$KAGENT_SUBSTRATE_CALL_TIMEOUT" > "$work/diff.txt" 2>&1 \
       || { cat "$work/diff.txt" >&2; die "the diff is not the reviewed diff"; }
   else

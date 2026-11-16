@@ -3,11 +3,14 @@
     python scripts/llm_agent/runtime_fix_diff.py identity <live-manifest> <baseline-render>
     python scripts/llm_agent/runtime_fix_diff.py candidate kagent <baseline> <candidate> <image> <call-timeout>
     python scripts/llm_agent/runtime_fix_diff.py candidate substrate <baseline> <candidate> <image> [<req>:<limit>]
+    python scripts/llm_agent/runtime_fix_diff.py candidate kagent-otel <baseline> <candidate> <endpoint>
 
 kagent: only Deployment kagent/kagent-controller may change, and in it only the controller
 container's image (to <image>) and one added env var SUBSTRATE_CALL_TIMEOUT=<call-timeout>.
 substrate: only Deployment ate-system/ate-api-server-deployment (the ate-api-server image) and,
 with <atelet-memory>, DaemonSet ate-system/atelet (only the atelet memory request and limit).
+kagent-otel (P2-C): only ConfigMap kagent/kagent-controller key OTEL_EXPORTER_OTLP_TRACES_ENDPOINT (to
+<endpoint>) and the controller Deployment's checksum/configmap annotation (the rollout trigger).
 Kept outside ops/llm_agent (an image input). Problems name objects and paths, never values.
 """
 
@@ -99,9 +102,41 @@ def candidate(target: str, base: Mapping[Key, dict], cand: Mapping[Key, dict], i
     return problems
 
 
+KAGENT_CONFIGMAP: Key = ("ConfigMap", "kagent", "kagent-controller")
+KAGENT_DEPLOYMENT: Key = ("Deployment", "kagent", "kagent-controller")
+OTEL_KEY = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
+
+
+def kagent_otel(base: Mapping[Key, dict], cand: Mapping[Key, dict], endpoint: str) -> list[str]:
+    """P2-C: the controller's OTLP traces endpoint, nothing else (its image and env stay as they are)."""
+    problems = []
+    if not endpoint.startswith(("http://", "https://")):
+        problems.append("the endpoint has no URL scheme (OTEL Go would parse an empty host)")
+    if set(cand) != set(base):
+        problems.append(f"objects added {sorted(set(cand) - set(base))} removed {sorted(set(base) - set(cand))}")
+    changed = {k for k in set(base) & set(cand) if base[k] != cand[k]}
+    want = {KAGENT_CONFIGMAP, KAGENT_DEPLOYMENT}
+    if changed != want:
+        return problems + [f"changed {sorted(changed)} != {sorted(want)}"]
+    got = changed_paths(base[KAGENT_CONFIGMAP], cand[KAGENT_CONFIGMAP])
+    if got != {f"data.{OTEL_KEY}"}:
+        problems.append(f"{KAGENT_CONFIGMAP} changed paths {sorted(got)} != ['data.{OTEL_KEY}']")
+    if cand[KAGENT_CONFIGMAP].get("data", {}).get(OTEL_KEY) != endpoint:
+        problems.append(f"{OTEL_KEY} is not the reviewed endpoint")
+    got = changed_paths(base[KAGENT_DEPLOYMENT], cand[KAGENT_DEPLOYMENT])
+    if got != {"spec.template.metadata.annotations.checksum/configmap"}:
+        problems.append(f"{KAGENT_DEPLOYMENT} changed paths {sorted(got)} != the checksum/configmap annotation")
+    return problems
+
+
 def main(argv: list[str]) -> int:
     if len(argv) == 3 and argv[0] == "identity":
         problems, label = identity(load(open(argv[1]).read()), load(open(argv[2]).read())), "IDENTITY"
+    elif len(argv) == 5 and argv[0] == "candidate" and argv[1] == "kagent-otel":
+        base, cand = load(open(argv[2]).read()), load(open(argv[3]).read())
+        problems, label = kagent_otel(base, cand, argv[4]), "CANDIDATE"
+        if not problems:
+            print(json.dumps({"target": "kagent-otel", "changed": sorted(list(k) for k in set(base) & set(cand) if base[k] != cand[k])}))
     elif len(argv) in (5, 6) and argv[0] == "candidate" and argv[1] in TARGETS:
         target = argv[1]
         if target == "kagent" and len(argv) != 6:

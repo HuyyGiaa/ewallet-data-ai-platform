@@ -74,6 +74,57 @@ class KagentDiffTests(unittest.TestCase):
         self.assertTrue(rfd.candidate("kagent", kagent_base(), self.cand(), self.image, "120s"))
 
 
+class KagentOtelDiffTests(unittest.TestCase):
+    """P2-C: the controller's OTLP endpoint gets its URL scheme; nothing else changes."""
+
+    endpoint = "http://otel-collector.ewallet-agents.svc.cluster.local:4317"
+
+    def base(self):
+        b = kagent_base()
+        b[rfd.KAGENT_CONFIGMAP]["data"][rfd.OTEL_KEY] = "otel-collector.ewallet-agents.svc.cluster.local:4317"
+        b[rfd.KAGENT_DEPLOYMENT]["spec"]["template"]["metadata"] = {"annotations": {"checksum/configmap": "old"}}
+        return b
+
+    def cand(self, endpoint=None):
+        c = self.base()
+        c[rfd.KAGENT_CONFIGMAP]["data"][rfd.OTEL_KEY] = endpoint or self.endpoint
+        c[rfd.KAGENT_DEPLOYMENT]["spec"]["template"]["metadata"]["annotations"]["checksum/configmap"] = "new"
+        return c
+
+    def test_reviewed_change_passes(self):
+        self.assertEqual(rfd.kagent_otel(self.base(), self.cand(), self.endpoint), [])
+
+    def test_endpoint_without_scheme_fails(self):
+        bare = "otel-collector.ewallet-agents.svc.cluster.local:4318"
+        self.assertTrue(rfd.kagent_otel(self.base(), self.cand(bare), bare))
+
+    def test_other_changes_fail(self):
+        c = self.cand()
+        c[rfd.KAGENT_CONFIGMAP]["data"]["WATCH_NAMESPACES"] = "a"
+        self.assertTrue(rfd.kagent_otel(self.base(), c, self.endpoint))
+        c = self.cand()
+        c[rfd.KAGENT_DEPLOYMENT]["spec"]["template"]["spec"]["containers"][0]["image"] = "x@sha256:" + "e" * 64
+        self.assertTrue(rfd.kagent_otel(self.base(), c, self.endpoint))
+        c = self.cand()
+        c[("Service", "kagent", "x")] = {"kind": "Service"}
+        self.assertTrue(rfd.kagent_otel(self.base(), c, self.endpoint))
+
+    def test_no_rollout_trigger_or_wrong_value_fails(self):
+        c = self.cand()
+        c[rfd.KAGENT_DEPLOYMENT]["spec"]["template"]["metadata"]["annotations"]["checksum/configmap"] = "old"
+        self.assertTrue(rfd.kagent_otel(self.base(), c, self.endpoint))
+        self.assertTrue(rfd.kagent_otel(self.base(), self.cand(), self.endpoint.replace("4317", "4318")))
+
+    def test_overlay_matches_the_install_values(self):
+        def endpoint(path):
+            return yaml.safe_load((ROOT / path).read_text())["otel"]["tracing"]["exporter"]["otlp"]["endpoint"]
+        overlay = endpoint("infra/kubernetes/kagent-pilot/values/kagent-otel-endpoint-overlay.yaml")
+        self.assertEqual(overlay, self.endpoint)
+        self.assertEqual(endpoint("infra/kubernetes/kagent-platform/kagent-values.yaml"), overlay)
+        self.assertEqual(set(yaml.safe_load((ROOT / "infra/kubernetes/kagent-pilot/values/kagent-otel-endpoint-overlay.yaml")
+                                            .read_text())), {"otel"})
+
+
 class SubstrateOverrideTests(unittest.TestCase):
     image = f"{AR}/substrate-ateapi:0.0.9-ewallet.c1bcc768@{DIGEST}"
 
@@ -174,6 +225,9 @@ class BuildSpecTests(unittest.TestCase):
                 "cmd/ateom-gvisor/main.go", "cmd/ateom-gvisor/sandbox_teardown.go", "cmd/ateom-gvisor/sandbox_teardown_test.go"},
             "substrate-0.0.9-sandbox-egress-proxy.patch": {
                 "cmd/ateom-gvisor/egress_proxy.go", "cmd/ateom-gvisor/egress_proxy_test.go", "cmd/ateom-gvisor/main.go"},
+            "substrate-0.0.9-worker-reconcile.patch": {
+                "cmd/ateapi/internal/controlapi/syncer.go", "cmd/ateapi/internal/controlapi/syncer_reconcile_test.go",
+                "cmd/ateapi/internal/controlapi/syncer_test.go", "cmd/ateapi/internal/controlapi/functional_test.go"},
         }
         for name, files in allowed.items():
             touched = {line.split(" b/", 1)[1] for line in (PATCHES / name).read_text().splitlines() if line.startswith("diff --git ")}
@@ -185,6 +239,8 @@ class BuildSpecTests(unittest.TestCase):
                      "--atomic", "diff_tool identity", "runtime_fix_diff.py"):
             self.assertIn(gate, script)
         self.assertNotIn("kubectl set image", script)
+        self.assertIn("package=P2C-KAGENT-OTEL", script)
+        self.assertIn("diff_tool candidate kagent-otel", script)
 
 
 if __name__ == "__main__":

@@ -45,7 +45,9 @@ otel:
     enabled: true
     exporter:
       otlp:
-        endpoint: otel-collector.ewallet-agents.svc.cluster.local:4317
+        # P2-C: OTEL Go parses an env endpoint as a URL; without a scheme the host is empty
+        # ("invalid target address") and the controller exported no spans.
+        endpoint: http://otel-collector.ewallet-agents.svc.cluster.local:4317
         protocol: grpc
         timeout: 15000
         insecure: true

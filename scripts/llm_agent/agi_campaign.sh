@@ -23,6 +23,8 @@
 #                             its rollback deletes the three ScaledObjects first, then rolls back
 #   p4-agents  llm-agent      Coordinator sandbox routes (a2aGateway.sandboxRoutes, sandboxSpecialists)
 #   t1-agents  llm-agent      the live crossNamespace.flows + sandbox-workers-to-otel-collector (OTLP 4317 only)
+#   tr-agents  llm-agent      the live crossNamespace.flows + kagent-controller-to-otel-collector (OTLP 4317 only;
+#                             P2-C network step, before the kagent controller gets its OTLP endpoint)
 #   img-mcp    llm-agent-mcp  image roll: the live values with MCP_IMAGE and its identity, nothing else
 #   img-agents llm-agent      image roll: the live values with the three BYO agent images, nothing else
 #                             (both after P2; a plain rollback restores the previous images)
@@ -48,7 +50,7 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
-PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents t1-agents "
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents t1-agents tr-agents "
 SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
 KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
 # What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
@@ -80,7 +82,7 @@ package_release() {   # the release a package changes; agi changes both, one per
   case "${PACKAGE}" in
     agi) echo "$1" ;;
     p1-mcp|s1-mcp|img-mcp) echo mcp ;;
-    s1-agents|p2-agents|p4-agents|img-agents|t1-agents) echo agents ;;
+    s1-agents|p2-agents|p4-agents|img-agents|t1-agents|tr-agents) echo agents ;;
   esac
 }
 
@@ -140,7 +142,7 @@ sys.exit(1 if bad or not items else 0)'
 }
 drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 and image rolls run after P2 made it BYO
   local want=Declarative
-  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents ]] && want=BYO
+  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents ]] && want=BYO
   [[ "$(kc -n ewallet-agents get agents.kagent.dev drift-specialist -o jsonpath='{.spec.type}')" == "${want}" ]]
 }
 redis_databases() {
@@ -292,6 +294,12 @@ overlay_args() {   # prints one argument per line for this package's render of t
         || die "cannot append the sandbox OTLP flow to the live crossNamespace.flows"
       printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" -f "${PRIVATE}/t1-agents-flows.yaml"
       echo __END__ ;;
+    tr-agents:agents)
+      (cd "${ROOT}" && "${PYTHON}" -m ops.llm_agent.agi_packages append-flow kagent-controller-otel-collector \
+        --values "${PRIVATE}/llm-agent-values.yaml" --out "${PRIVATE}/tr-agents-flows.yaml" > /dev/null) \
+        || die "cannot append the kagent-controller OTLP flow to the live crossNamespace.flows"
+      printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" -f "${PRIVATE}/tr-agents-flows.yaml"
+      echo __END__ ;;
     s1-agents:agents)
       (cd "${ROOT}" && "${PYTHON}" -m ops.llm_agent.agi_packages append-flow sandbox-mcp-gateway \
         --values "${PRIVATE}/llm-agent-values.yaml" --out "${PRIVATE}/s1-agents-flows.yaml" > /dev/null) \
@@ -365,6 +373,8 @@ expected_identities() {
       done ;;
     t1-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector \
                   --expect-added NetworkPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector-ingress ;;
+    tr-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector \
+                  --expect-added NetworkPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector-ingress ;;
     s1-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-sandbox-workers-to-mcp-gateway \
                   --expect-added NetworkPolicy/ewallet-agents/allow-sandbox-workers-to-mcp-gateway-ingress ;;
     p4-agents:agents) printf '%s\n' --expect-changed Agent/ewallet-agents/fraud-coordinator \

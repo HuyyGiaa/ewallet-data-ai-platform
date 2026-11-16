@@ -44,6 +44,16 @@ FLOWS: dict[str, dict[str, Any]] = {
         "peer": {"namespace": "ewallet-sandbox", "podLabels": {"ate.dev/worker-pool": "business-agents"},
                  "ambient": True, "serviceAccount": "default"},
     },
+    # P2-C: the kagent controller exports its own spans (the controller hop of the business trace)
+    # to the shared collector. Port 4317 only, admitted for the controller's exact SPIFFE principal.
+    "kagent-controller-otel-collector": {
+        "name": "kagent-controller-to-otel-collector",
+        "direction": "ingress",
+        "local": "otel-collector",
+        "port": 4317,
+        "peer": {"namespace": "kagent", "ambient": True, "serviceAccount": "kagent-controller",
+                 "podLabels": {"app.kubernetes.io/name": "kagent", "app.kubernetes.io/component": "controller"}},
+    },
 }
 
 

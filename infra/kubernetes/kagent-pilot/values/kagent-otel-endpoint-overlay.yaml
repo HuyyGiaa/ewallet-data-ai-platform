@@ -1,0 +1,11 @@
+# P2-C (p2-foundation-20261116T084657Z): the kagent controller's OTLP traces endpoint with its URL
+# scheme. OTEL Go parses OTEL_EXPORTER_OTLP_TRACES_ENDPOINT as a URL; without a scheme the host is
+# empty ("invalid target address") and the controller hop of the business trace was never exported.
+# Applied with --reuse-values by scripts/llm_agent/runtime_fix.sh kagent-otel; runtime_fix_diff.py
+# proves the only changes are this ConfigMap key and the controller's checksum/configmap annotation.
+# Same value as infra/kubernetes/kagent-platform/kagent-values.yaml (fresh installs).
+otel:
+  tracing:
+    exporter:
+      otlp:
+        endpoint: http://otel-collector.ewallet-agents.svc.cluster.local:4317

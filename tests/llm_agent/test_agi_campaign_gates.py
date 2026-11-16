@@ -392,6 +392,22 @@ class CampaignGateTests(unittest.TestCase):
                          ["AuthorizationPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector",
                           "NetworkPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector-ingress"])
 
+    def test_tr_agents_appends_the_kagent_controller_otlp_flow_to_the_live_flows(self):
+        self.preflight(AGI_PACKAGE="tr-agents", FAKE_DRIFT_TYPE="BYO")
+        live = self.tmp / "private" / "llm-agent-values.yaml"
+        live.write_text(yaml.safe_dump({"crossNamespace": {"flows": [{"name": "sandbox-workers-to-otel-collector"}]}}))
+        result, args = self.args_for("tr-agents", "agents")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        overlay = yaml.safe_load((self.tmp / "private" / "tr-agents-flows.yaml").read_text())
+        flows = overlay["crossNamespace"]["flows"]
+        self.assertEqual([flow["name"] for flow in flows], ["sandbox-workers-to-otel-collector", "kagent-controller-to-otel-collector"])
+        self.assertEqual((flows[1]["direction"], flows[1]["local"], flows[1]["port"]), ("ingress", "otel-collector", 4317))
+        self.assertEqual((flows[1]["peer"]["namespace"], flows[1]["peer"]["serviceAccount"]), ("kagent", "kagent-controller"))
+        identities = self.run_script("__identities", "agents", AGI_PACKAGE="tr-agents").stdout.split()
+        self.assertEqual(sorted(identities[i + 1] for i, arg in enumerate(identities) if arg == "--expect-added"),
+                         ["AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector",
+                          "NetworkPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector-ingress"])
+
     def test_a_package_refuses_the_other_release_and_unknown_packages(self):
         self.preflight()
         result = self.run_script("gate", "agents", AGI_PACKAGE="p1-mcp")
