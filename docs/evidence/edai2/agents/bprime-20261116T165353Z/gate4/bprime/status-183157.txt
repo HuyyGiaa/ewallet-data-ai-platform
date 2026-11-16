@@ -1,0 +1,9 @@
+NAME                                              SCALETARGETKIND               SCALETARGETNAME   MIN   MAX   READY   ACTIVE   FALLBACK   PAUSED   TRIGGERS     AUTHENTICATIONS   AGE
+scaledobject.keda.sh/business-agents-workerpool   ate.dev/v1alpha1.WorkerPool   business-agents   2     3     True    False    False      False    prometheus                     3s
+
+NAME                                                             REFERENCE                    TARGETS             MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/business-agents-workerpool   WorkerPool/business-agents   <unknown>/1 (avg)   2         3         0          4s
+workerpool spec.replicas=2 status.replicas=2 scaleSelector=ate.dev/worker-pool=business-agents
+scale selector=ate.dev/worker-pool=business-agents
+business-agents-deployment-7c4b97b9f4-2pfpz   1/1   Running   0     3m52s   10.216.1.22   gke-ewallet-dev-cpu-pool-58daed59-xlw6   <none>   <none>
+business-agents-deployment-7c4b97b9f4-j76n9   1/1   Running   0     35m     10.216.3.20   gke-ewallet-dev-cpu-pool-58daed59-3p7t   <none>   <none>

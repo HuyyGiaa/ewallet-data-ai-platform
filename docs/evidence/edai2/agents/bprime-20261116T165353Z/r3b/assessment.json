@@ -1,0 +1,21 @@
+{
+  "test": "r3",
+  "target_pod": "business-agents-deployment-7c4b97b9f4-csxdh",
+  "target_uid": "5e47fd50-2360-47d5-9ec1-dc780bff7c19",
+  "observed_terminating_samples": 1,
+  "actor_kept_while_terminating_samples": 0,
+  "first_terminating": "2026-11-16T18:28:10Z.896",
+  "pod_gone_at": "2026-11-16T18:28:14Z.640",
+  "end_consistency": {
+    "registry_readable": true,
+    "stale_records": [],
+    "unregistered_ready_pods": [],
+    "actors_on_missing_pods": [],
+    "busy_workers": [
+      "business-agents-deployment-7c4b97b9f4-2pfpz",
+      "business-agents-deployment-7c4b97b9f4-j76n9"
+    ]
+  },
+  "registry_converged": true,
+  "verdict_inputs_ok": true
+}

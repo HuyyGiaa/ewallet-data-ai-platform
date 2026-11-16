@@ -326,7 +326,15 @@ historical raw evidence, not a screenshot or a current cluster query.
   a successful Coordinator delegation followed by a real `drift_detection`
   call through both gateways. The Feature-RAG trace in §6 does not prove this
   separate path.
-- **Sandboxing.** The three business agents run as ordinary Deployments; only the pilot agent runs inside the gVisor sandbox. Moving the business agents onto SandboxAgents, and demonstrating many agents on a small worker pool, are future work.
-- **Autoscaling.** Autoscaling uses the Kubernetes HPA on CPU. A KEDA ScaledObject template, with a fallback replica count, exists in the chart, but KEDA is not installed in the cluster. No load test has been run to observe a scale-out event.
+- **Sandboxing** *(superseded, 2026-11-16)*. The Feature-RAG and Drift Specialists now run as SandboxAgents on the
+  shared gVisor WorkerPool `ewallet-sandbox/business-agents`. The legacy Specialist Deployments are kept only as manual
+  rollback targets. See [AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §6–§9.
+- **Autoscaling** *(superseded, 2026-11-16)*. KEDA 2.21 scales two things:
+  - the three BYO agents (ScaledObjects in `ewallet-agents`, 2–3 replicas on the in-flight gauge);
+  - since B′, the shared WorkerPool (2–3 workers on `sum(ewallet_sandbox_delegations_inflight)`, through the WorkerPool
+    `/scale` subresource).
+
+  Worker pods drain on SIGTERM before scale-in. Both autoscalers were exercised on GKE under the 100-task load
+  (COMPLETION §9).
 - **MCP replicas.** Each MCP server runs a single replica. RollingUpdate prevents downtime during upgrades, but there is no automatic fallback if the server fails.
 - **Registry wording.** The registry descriptions still refer to SandboxAgents. They should be updated at the next publication.

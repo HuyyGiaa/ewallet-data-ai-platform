@@ -1,0 +1,3 @@
+2026-11-16T17:25:39Z keda preflight PASS: keda/keda revision 1, identity PASS
+2026-11-16T17:25:40Z keda diff PASS: {"added":[["RoleBinding","ewallet-sandbox","keda-operator"]],"changed":[["Deployment","keda","keda-admission-webhooks"],["Deployment","keda","keda-operator"],["Deployment","keda","keda-operator-metrics-apiserver"]]}CANDIDATEPASS
+2026-11-16T17:26:08Z keda dry-run PASS (server-side)

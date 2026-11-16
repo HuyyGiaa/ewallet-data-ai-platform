@@ -1,0 +1,8 @@
+{
+  "image_digest": "sha256:94a13a8b168881e10fedbad4b5e4816fd8c92c8f987800930827998eb5ba41a9,sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77",
+  "load_profile_sha256": "5212e1cff51bfaa0181fd283e60eede21fc727bb6c67a46d68313910a2accee0",
+  "max_replicas": "3",
+  "min_replicas": "2",
+  "node_type": "e2-standard-4",
+  "tool_set": "fixture:agent-load-request"
+}

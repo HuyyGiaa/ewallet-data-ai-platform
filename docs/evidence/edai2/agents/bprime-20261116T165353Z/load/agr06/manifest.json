@@ -1,0 +1,35 @@
+{
+  "arms": {
+    "baseline": "hpa-cpu",
+    "optimized": "keda-inflight"
+  },
+  "capture_problems": [],
+  "controls": [
+    "load_profile_sha256",
+    "image_digest",
+    "min_replicas",
+    "max_replicas",
+    "node_type"
+  ],
+  "deviations": [],
+  "disk_free_bytes": 18345852928,
+  "experiment_id": "EXP-C5-KEDA",
+  "finished_at": "2026-11-16T18:43:36.563387+00:00",
+  "hypothesis": "Scaling on tasks in flight adds a replica under load where CPU-based HPA does not, without more failed requests.",
+  "kube_context": "gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev",
+  "namespace": "ewallet-agents",
+  "nodes": "NAME                                     STATUS   ROLES    AGE   VERSION               INTERNAL-IP    EXTERNAL-IP     OS-IMAGE                             KERNEL-VERSION      CONTAINER-RUNTIME\ngke-ewallet-dev-cpu-pool-58daed59-0j7l   Ready    <none>   89m   v1.36.4-gke.2377000   10.20.15.220   34.21.230.229   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-3p7t   Ready    <none>   89m   v1.36.4-gke.2377000   10.20.15.203   34.142.215.25   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-xh09   Ready    <none>   89m   v1.36.4-gke.2377000   10.20.15.196   34.87.154.144   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-xlw6   Ready    <none>   89m   v1.36.4-gke.2377000   10.20.15.202   34.177.97.207   Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7\ngke-ewallet-dev-cpu-pool-58daed59-z48b   Ready    <none>   89m   v1.36.4-gke.2377000   10.20.15.195   34.21.231.20    Container-Optimized OS from Google   6.12.110+ (amd64)   containerd://2.2.7",
+  "pods": "NAME                                      READY   STATUS    RESTARTS      AGE    IP            NODE                                     NOMINATED NODE   READINESS GATES\na2a-gateway-67475594bc-jb4xt              1/1     Running   1 (87m ago)   136m   10.216.4.5    gke-ewallet-dev-cpu-pool-58daed59-0j7l   <none>           <none>\nagentgateway-59ccc6b6db-npms2             1/1     Running   1 (87m ago)   136m   10.216.4.8    gke-ewallet-dev-cpu-pool-58daed59-0j7l   <none>           <none>\ncoordinator-idempotency-redis-0           1/1     Running   0             136m   10.216.0.17   gke-ewallet-dev-cpu-pool-58daed59-z48b   <none>           <none>\ndrift-mcp-c845bfc5f-s88sk                 1/1     Running   2 (86m ago)   89m    10.216.1.6    gke-ewallet-dev-cpu-pool-58daed59-xlw6   <none>           <none>\ndrift-specialist-6f7948f895-8llbm         1/1     Running   0             89m    10.216.0.8    gke-ewallet-dev-cpu-pool-58daed59-z48b   <none>           <none>\ndrift-specialist-6f7948f895-r7hln         1/1     Running   0             89m    10.216.1.7    gke-ewallet-dev-cpu-pool-58daed59-xlw6   <none>           <none>\nfeature-rag-specialist-7c5f74d545-2btvm   1/1     Running   2 (86m ago)   89m    10.216.0.9    gke-ewallet-dev-cpu-pool-58daed59-z48b   <none>           <none>\nfeature-rag-specialist-7c5f74d545-dfsqz   1/1     Running   0             89m    10.216.1.8    gke-ewallet-dev-cpu-pool-58daed59-xlw6   <none>           <none>\nfraud-coordinator-76c5b84f9b-jfp5z        1/1     Running   2 (86m ago)   88m    10.216.0.10   gke-ewallet-dev-cpu-pool-58daed59-z48b   <none>           <none>\nfraud-coordinator-76c5b84f9b-l9xn8        1/1     Running   0             88m    10.216.1.9    gke-ewallet-dev-cpu-pool-58daed59-xlw6   <none>           <none>\ngrafana-77bf4f6985-pbh8q                  1/1     Running   0             136m   10.216.2.28   gke-ewallet-dev-cpu-pool-58daed59-xh09   <none>           <none>\nloki-5f7948b5f7-824rk                     1/1     Running   0             136m   10.216.2.29   gke-ewallet-dev-cpu-pool-58daed59-xh09   <none>           <none>\nmcp-gateway-69658c7f94-4qfh7              1/1     Running   1 (87m ago)   136m   10.216.4.6    gke-ewallet-dev-cpu-pool-58daed59-0j7l   <none>           <none>\nobservability-alloy-6d9859b56c-wfpxd      1/1     Running   0             136m   10.216.4.7    gke-ewallet-dev-cpu-pool-58daed59-0j7l   <none>           <none>\notel-collector-7dd78d64d4-spxjp           1/1     Running   1 (87m ago)   136m   10.216.2.31   gke-ewallet-dev-cpu-pool-58daed59-xh09   <none>           <none>\nprometheus-757945d497-x5gzx               1/1     Running   0             136m   10.216.2.30   gke-ewallet-dev-cpu-pool-58daed59-xh09   <none>           <none>\ntempo-c59569895-69dnn                     1/1     Running   0             136m   10.216.2.41   gke-ewallet-dev-cpu-pool-58daed59-xh09   <none>           <none>\nvllm-primary-588445cd8-g5xj2              1/1     Running   0             136m   10.216.4.10   gke-ewallet-dev-cpu-pool-58daed59-0j7l   <none>           <none>",
+  "schema_version": "ewallet-experiment-manifest-v1",
+  "settings": {
+    "concurrency": "8",
+    "duration": "900",
+    "load_profile_sha256": "5212e1cff51bfaa0181fd283e60eede21fc727bb6c67a46d68313910a2accee0",
+    "max_requests": "100"
+  },
+  "source_dirty": true,
+  "source_sha": "eafe9b2e77a318a74da589f8629a4c745a826827",
+  "started_at": "2026-11-16T18:33:13.913756+00:00",
+  "variable": "Autoscaler: CPU HPA versus KEDA on in-flight tasks",
+  "workload_fixture_sha256": null
+}

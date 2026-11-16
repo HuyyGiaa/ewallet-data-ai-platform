@@ -1,0 +1,255 @@
+{
+ "apiVersion": "v1",
+ "kind": "List",
+ "items": [
+  {
+   "apiVersion": "v1",
+   "kind": "ServiceAccount",
+   "metadata": {
+    "name": "agent-load",
+    "namespace": "ewallet-agents",
+    "labels": {
+     "ewallet.io/experiment-load": "true"
+    }
+   },
+   "automountServiceAccountToken": false
+  },
+  {
+   "apiVersion": "v1",
+   "kind": "ConfigMap",
+   "metadata": {
+    "name": "agent-load",
+    "namespace": "ewallet-agents",
+    "labels": {
+     "ewallet.io/experiment-load": "true"
+    }
+   },
+   "data": {
+    "agent_load.py": "\"\"\"Send a bounded stream of A2A tasks and print one JSON line per task.\n\nRuns inside a Job, so traffic goes through a Service and reaches every replica; a\nport-forward would pin all of it to one pod. Standard library only: the file is mounted\ninto an existing image. Every task is printed, including failures, and analysis happens\nelsewhere. A task counts as a success only when it reaches ``completed``.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport json\nimport threading\nimport time\nfrom concurrent.futures import ThreadPoolExecutor\nfrom pathlib import Path\nfrom typing import Any, Callable, Mapping\nfrom urllib.error import HTTPError, URLError\nfrom urllib.request import Request, urlopen\n\nTERMINAL_STATES = frozenset({\"completed\", \"failed\", \"canceled\", \"rejected\", \"unknown\"})\nPost = Callable[[Mapping[str, Any], float], Mapping[str, Any]]\n\n\ndef http_post(url: str, headers: Mapping[str, str] | None = None) -> Post:\n    \"\"\"Return a JSON-RPC sender bound to one URL, with optional extra headers.\"\"\"\n\n    def post(message: Mapping[str, Any], timeout: float) -> Mapping[str, Any]:\n        request = Request(url, data=json.dumps(message).encode(), method=\"POST\",\n                          headers={\"Content-Type\": \"application/json\", **(headers or {})})\n        with urlopen(request, timeout=timeout) as response:\n            return json.loads(response.read())\n\n    return post\n\n\ndef task_payload(template: str, task_id: str, context_id: str | None = None) -> dict[str, Any]:\n    \"\"\"Fill the fixture; a new ID per task keeps idempotency from replaying a result.\n\n    A sandbox agent routes by ``contextId``: each context gets its own actor, which is\n    suspended after a response and resumed by the next message in that context.\n    \"\"\"\n\n    payload = json.loads(template.replace(\"__TASK_ID__\", task_id))\n    if context_id:\n        payload[\"params\"][\"message\"][\"contextId\"] = context_id\n    return payload\n\n\ndef task_state(reply: Mapping[str, Any]) -> tuple[str, str | None]:\n    \"\"\"Return the task state and its ID from a JSON-RPC reply.\"\"\"\n\n    result = reply.get(\"result\")\n    if not isinstance(result, Mapping):\n        return \"rpc_error\", None\n    status = result.get(\"status\")\n    state = status.get(\"state\") if isinstance(status, Mapping) else None\n    return str(state or \"completed\" if result.get(\"kind\") == \"message\" else state or \"unknown\"), result.get(\"id\")\n\n\ndef run_task(post: Post, template: str, task_id: str, *, timeout: float, poll_timeout: float, poll_interval: float,\n             clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,\n             context_id: str | None = None) -> dict[str, Any]:\n    \"\"\"Run one task to a terminal state and describe it.\n\n    Never raises for a request failure: the failure is the measurement.\n    \"\"\"\n\n    started = clock()\n    row: dict[str, Any] = {\"id\": task_id, \"started\": started, \"state\": \"transport_error\", \"error\": None}\n    try:\n        state, remote_id = task_state(post(task_payload(template, task_id, context_id), timeout))\n        deadline = clock() + poll_timeout\n        while state not in TERMINAL_STATES and state != \"rpc_error\" and remote_id and clock() < deadline:\n            sleep(poll_interval)\n            state, _ = task_state(post({\"jsonrpc\": \"2.0\", \"id\": task_id, \"method\": \"tasks/get\",\n                                        \"params\": {\"id\": remote_id}}, timeout))\n        row[\"state\"] = state\n    except (HTTPError, URLError, OSError, ValueError) as error:\n        row[\"error\"] = type(error).__name__\n    row[\"finished\"] = clock()\n    row[\"e2e_ms\"] = 1000 * (row[\"finished\"] - started)\n    row[\"ok\"] = row[\"state\"] == \"completed\"\n    return row\n\n\ndef run_load(post: Post, template: str, *, run_id: str, concurrency: int, duration: float, max_requests: int,\n             timeout: float, poll_timeout: float, poll_interval: float, emit: Callable[[str], None] = print) -> int:\n    \"\"\"Keep ``concurrency`` tasks open until the duration or request cap ends; return tasks sent.\"\"\"\n\n    lock = threading.Lock()\n    deadline = time.monotonic() + duration\n    sent = 0\n\n    def worker() -> None:\n        nonlocal sent\n        while time.monotonic() < deadline:\n            with lock:\n                if sent >= max_requests:\n                    return\n                sent += 1\n                task_id = f\"{run_id}-{sent:04d}\"\n            row = run_task(post, template, task_id, timeout=timeout, poll_timeout=poll_timeout, poll_interval=poll_interval)\n            with lock:\n                emit(\"LOAD_ROW \" + json.dumps(row, sort_keys=True))\n\n    with ThreadPoolExecutor(max_workers=concurrency) as pool:\n        for _ in range(concurrency):\n            pool.submit(worker)\n    return sent\n\n\ndef main() -> int:\n    \"\"\"Run the load described by the arguments.\"\"\"\n\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"--url\", required=True)\n    parser.add_argument(\"--fixture\", type=Path, required=True)\n    parser.add_argument(\"--run-id\", required=True)\n    parser.add_argument(\"--concurrency\", type=int, default=4)\n    parser.add_argument(\"--duration\", type=float, default=300)\n    parser.add_argument(\"--max-requests\", type=int, default=40)\n    parser.add_argument(\"--timeout\", type=float, default=240)\n    parser.add_argument(\"--poll-timeout\", type=float, default=240)\n    parser.add_argument(\"--poll-interval\", type=float, default=2)\n    args = parser.parse_args()\n    sent = run_load(http_post(args.url), args.fixture.read_text(encoding=\"utf-8\"), run_id=args.run_id,\n                    concurrency=args.concurrency, duration=args.duration, max_requests=args.max_requests,\n                    timeout=args.timeout, poll_timeout=args.poll_timeout, poll_interval=args.poll_interval)\n    print(f\"LOAD_DONE {sent}\", flush=True)\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n",
+    "request.json": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"__TASK_ID__\",\n  \"method\": \"message/send\",\n  \"params\": {\n    \"message\": {\n      \"role\": \"user\",\n      \"messageId\": \"__TASK_ID__\",\n      \"parts\": [\n        {\n          \"kind\": \"text\",\n          \"text\": \"CALL_AGENT=feature-rag-specialist\\nREQUEST_JSON={\\\"capabilities\\\":[\\\"fraud-evidence\\\"],\\\"contract_version\\\":\\\"g3-business-request/v1\\\",\\\"feature_names\\\":[\\\"account_behavior__account_tx_count_1h\\\",\\\"account_behavior__account_tx_count_24h\\\",\\\"user_behavior__user_avg_amount_30d\\\",\\\"merchant_behavior__merchant_tx_count_24h\\\"],\\\"knowledge_query\\\":\\\"payment anomaly policy and step-up authentication requirements\\\",\\\"request_id\\\":\\\"__TASK_ID__\\\",\\\"requested_tools\\\":[\\\"feature_lookup\\\",\\\"fraud_scoring\\\",\\\"knowledge_search\\\"],\\\"target_agent\\\":\\\"feature-rag-specialist\\\",\\\"transaction\\\":{\\\"account_id\\\":\\\"2d48f147-f98c-4819-b183-f94ca049c175\\\",\\\"amount\\\":275465.53,\\\"channel\\\":\\\"app\\\",\\\"counterparty_account_id\\\":null,\\\"currency\\\":\\\"VND\\\",\\\"device_id\\\":\\\"e7765b81-c9f9-4147-aa00-46f34de1d7da\\\",\\\"event_timestamp\\\":\\\"2026-06-01T00:00:00Z\\\",\\\"merchant_id\\\":\\\"e3e4aced-6b0d-40af-be5c-eef9255204c9\\\",\\\"transaction_id\\\":\\\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\\\",\\\"type\\\":\\\"payment\\\",\\\"user_id\\\":\\\"55561d92-d042-401c-b02a-b03e3ed280f7\\\"}}\"\n        }\n      ]\n    }\n  }\n}\n"
+   }
+  },
+  {
+   "apiVersion": "security.istio.io/v1",
+   "kind": "AuthorizationPolicy",
+   "metadata": {
+    "name": "allow-agent-load-to-fraud-coordinator",
+    "namespace": "ewallet-agents",
+    "labels": {
+     "ewallet.io/experiment-load": "true"
+    }
+   },
+   "spec": {
+    "action": "ALLOW",
+    "selector": {
+     "matchLabels": {
+      "ewallet.io/agent": "fraud-coordinator"
+     }
+    },
+    "rules": [
+     {
+      "from": [
+       {
+        "source": {
+         "principals": [
+          "cluster.local/ns/ewallet-agents/sa/agent-load"
+         ]
+        }
+       }
+      ],
+      "to": [
+       {
+        "operation": {
+         "ports": [
+          "8080"
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "apiVersion": "networking.k8s.io/v1",
+   "kind": "NetworkPolicy",
+   "metadata": {
+    "name": "allow-agent-load-to-fraud-coordinator-ingress",
+    "namespace": "ewallet-agents",
+    "labels": {
+     "ewallet.io/experiment-load": "true"
+    }
+   },
+   "spec": {
+    "podSelector": {
+     "matchLabels": {
+      "ewallet.io/agent": "fraud-coordinator"
+     }
+    },
+    "policyTypes": [
+     "Ingress"
+    ],
+    "ingress": [
+     {
+      "from": [
+       {
+        "podSelector": {
+         "matchLabels": {
+          "ewallet.io/experiment-load": "true"
+         }
+        }
+       }
+      ],
+      "ports": [
+       {
+        "protocol": "TCP",
+        "port": 8080
+       },
+       {
+        "protocol": "TCP",
+        "port": 15008
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "apiVersion": "networking.k8s.io/v1",
+   "kind": "NetworkPolicy",
+   "metadata": {
+    "name": "allow-agent-load-egress",
+    "namespace": "ewallet-agents",
+    "labels": {
+     "ewallet.io/experiment-load": "true"
+    }
+   },
+   "spec": {
+    "podSelector": {
+     "matchLabels": {
+      "ewallet.io/experiment-load": "true"
+     }
+    },
+    "policyTypes": [
+     "Egress"
+    ],
+    "egress": [
+     {
+      "to": [
+       {
+        "podSelector": {
+         "matchLabels": {
+          "ewallet.io/agent": "fraud-coordinator"
+         }
+        }
+       }
+      ],
+      "ports": [
+       {
+        "protocol": "TCP",
+        "port": 8080
+       },
+       {
+        "protocol": "TCP",
+        "port": 15008
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "apiVersion": "batch/v1",
+   "kind": "Job",
+   "metadata": {
+    "name": "agent-load",
+    "namespace": "ewallet-agents",
+    "labels": {
+     "ewallet.io/experiment-load": "true"
+    }
+   },
+   "spec": {
+    "backoffLimit": 0,
+    "activeDeadlineSeconds": 1500,
+    "template": {
+     "metadata": {
+      "labels": {
+       "ewallet.io/experiment-load": "true"
+      }
+     },
+     "spec": {
+      "serviceAccountName": "agent-load",
+      "automountServiceAccountToken": false,
+      "restartPolicy": "Never",
+      "securityContext": {
+       "runAsNonRoot": true,
+       "runAsUser": 65532,
+       "seccompProfile": {
+        "type": "RuntimeDefault"
+       }
+      },
+      "containers": [
+       {
+        "name": "load",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:94a13a8b168881e10fedbad4b5e4816fd8c92c8f987800930827998eb5ba41a9",
+        "imagePullPolicy": "IfNotPresent",
+        "command": [
+         "python3",
+         "/load/agent_load.py"
+        ],
+        "args": [
+         "--url",
+         "http://fraud-coordinator.ewallet-agents.svc.cluster.local:8080/",
+         "--fixture",
+         "/load/request.json",
+         "--run-id",
+         "exp-c5-keda-optimized-01-1794853996",
+         "--concurrency",
+         "8",
+         "--duration",
+         "900",
+         "--max-requests",
+         "100"
+        ],
+        "resources": {
+         "requests": {
+          "cpu": "50m",
+          "memory": "64Mi"
+         },
+         "limits": {
+          "cpu": "200m",
+          "memory": "128Mi"
+         }
+        },
+        "securityContext": {
+         "allowPrivilegeEscalation": false,
+         "readOnlyRootFilesystem": true,
+         "capabilities": {
+          "drop": [
+           "ALL"
+          ]
+         }
+        },
+        "volumeMounts": [
+         {
+          "name": "load",
+          "mountPath": "/load",
+          "readOnly": true
+         }
+        ]
+       }
+      ],
+      "volumes": [
+       {
+        "name": "load",
+        "configMap": {
+         "name": "agent-load"
+        }
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

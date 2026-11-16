@@ -16,7 +16,8 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 |---|---|
 | Core integration (`AGENT_PLATFORM_CORE_GKE_PASS`) | **Holds** (5/5 E2E through the Sandbox routes on the remediated images, 3/3 negatives) |
 | Post-P4 reliability / capacity | **GKE_PASS**: 100/100 at concurrency 8 (40/40 at 2 and 4). Throughput ceiling 0.125–0.128 tasks/s from the fixed 2-worker pool |
-| KEDA Coordinator scaling | **GKE_PASS**: 2→3 at 05:45:51Z, 3→2 at 06:03:08Z; the scale-out pod completed tasks |
+| KEDA Coordinator scaling | **GKE_PASS**: 2→3 at 05:45:51Z, 3→2 at 06:03:08Z; the scale-out pod completed tasks (again under B′, §9) |
+| Shared WorkerPool autoscaling (B′) | **COMPLETE** (§9): KEDA 2→3→2 on Sandbox demand; the new worker ran 29 actors; 100/100 at 0.185 task/s (+45 %), p95 102.6 s; drain-safe scale-in (R3a/R3b); metric outage holds the pool |
 | MCP failover | **GKE_PASS** (2026-11-15 run-04; code unchanged since) |
 | Agent Registry (AGI-13) | **GKE_PASS**: readback 8/8 after the approved publish; no record removed |
 | Distributed tracing (AGI-12) | **GKE_PASS**: Sandbox spans in the Coordinator's trace; since Phase 2 (§7) the kagent controller hop too (21 spans in the combined trace) |
@@ -479,4 +480,147 @@ None was needed. No defect was found, and the runtime was not changed.
   execution (tested locally, not observed on GKE).
 - **Duplicate execution:** the "no duplicate execution" result is scoped to these runs and their logs (tasks, sends,
   placements and ResumeActor calls). It is not a proof of exactly-once execution.
+
+## 9. B′: shared WorkerPool autoscaling (`bprime-20261116T165353Z`)
+
+Evidence: `~/ewallet-evidence/agents/bprime/bprime-20261116T165353Z/`, mirrored in
+[`docs/evidence/edai2/agents/bprime-20261116T165353Z/`](../../evidence/edai2/agents/bprime-20261116T165353Z/)
+(`SHA256SUMS.txt`; raw ateapi/Coordinator logs and private renders stay local).
+
+- **Gates:** each one was approved separately (`approvals.txt`):
+  1. wake;
+  2. PKG-W;
+  3. PKG-P3;
+  4. WorkerPool and ScaledObject;
+  5. Substrate drain runtime, with R3 approved on its own;
+  plus the R3 fix.
+- **Starting HEAD:** `26eddacd`.
+
+### 9.1 Safe scale-in (B′-3): the defect and the fix
+
+**Audit of Substrate 0.0.9:**
+- ateom installs no signal handler, so the SIGTERM of a removed worker pod killed the actor mid-turn.
+- The syncer released the actor as soon as the pod was terminating.
+- Worker selection never looked at the pod.
+- Worker pods had the default 30 s grace period and no preStop hook.
+- kagent suspends the actor after every turn and serializes turns per session, so a worker is busy only for a turn and
+  its checkpoint.
+
+**`substrate-0.0.9-graceful-drain.patch` (`00311b08`):**
+- **ateom:** on SIGTERM it refuses new Run/Restore and waits until the active sandbox is checkpointed, then exits.
+- **ate-controller:** worker pods get `terminationGracePeriodSeconds: 150`.
+- **ateapi:**
+  - never assigns a worker whose pod is missing or terminating (this also closes the P2-A stale-record window);
+  - keeps an actor bound to its draining worker until the pod is gone;
+  - reconciles drained terminating workers away;
+  - releases a killed drain's actor on the final delete.
+
+**`substrate-0.0.9-drain-retryable.patch` (`eafe9b2e`), from R3 attempt 1:**
+- **What failed:** a worker removed just after ateapi claimed it, before atelet reached ateom, has an idle ateom, which
+  exits at once. The failed restore then surfaced as an ordinary error, and the combined result came back `partial`.
+- **Fix:** ateapi now reports such a failure as `FailedPrecondition "no free workers"`, which kagent and the Coordinator
+  retry on a live worker.
+
+**Tests:** 11 new Go tests. The full ateapi, atecontroller and ateom suites pass with `-race` and in the official build.
+
+| Component | Image | Release |
+|---|---|---|
+| ateapi | `0.0.9-ewallet.0291af52.d836b5a3.49125b15.7d22bbfc@sha256:0aeab81c…` | substrate rev 9 |
+| ate-controller | `0.0.9-ewallet.0291af52.49125b15@sha256:7475c1f5…` | substrate rev 9 |
+| ateom | `0.0.9-ewallet.0291af52.d8d1db43.49125b15@sha256:0dd6cbf6…` | WorkerPool `spec.ateomImage` |
+
+Every pushed digest was verified to contain the tested binary.
+
+**R3 on GKE (`R3-RESULT.txt`):**
+- **R3a:** the worker was deleted the moment its ateom began restoring an actor. ateom waited for the restore, the turn
+  and the checkpoint, then exited (`idle=true`). ateapi kept the actor bound and assigned nothing to the draining pod.
+  The combined request completed, with one placement per actor, and the pod was gone within about 33 s.
+- **R3b:** the worker was deleted right after it was claimed. The restore was reported as "no free workers", kagent
+  retried it on the replacement worker, and the request completed in 16 s. Nothing ran twice.
+
+### 9.2 KEDA and CRD integration, ownership (B′-1/2)
+
+- **PKG-W:** KEDA rev 2 also watches `ewallet-sandbox`, with a RoleBinding for `keda-operator`. Every existing
+  ScaledObject stayed Ready.
+- **PKG-P3:** `crd_patch.sh` added `spec.scaleSelector` and `/scale labelSelectorPath`. The backup spec sha is
+  `675b1a18…`. A `substrate-crds` upgrade reverts the patch; `crd_patch.sh` re-applies it.
+- **WorkerPool:** gained `scaleSelector: ate.dev/worker-pool=business-agents`, and `/scale` now reports that selector,
+  which matches the worker pods.
+- **ScaledObject `business-agents-workerpool`** (`workerpool-scaledobject.yaml`):
+  - min 2, max 3;
+  - trigger: `sum(ewallet_sandbox_delegations_inflight) or vector(0)`, `AverageValue` threshold 1 (one worker per
+    in-flight logical delegation);
+  - scale-up +1/30 s;
+  - scale-down after 300 s, then −1/60 s;
+  - fallback `currentReplicasIfHigher`.
+- **Ownership:** KEDA owns `spec.replicas`.
+  - `namespace.yaml` keeps `replicas` only for creation, and the live pool is changed only through `bprime.sh`.
+  - `cloud_lab` never records, restores or verifies WorkerPool-owned Deployments.
+  - Guarded sleep pauses the WorkerPool ScaledObject at its floor, and wake-full unpauses it.
+
+### 9.3 GKE acceptance
+
+**Scale-out 2→3, automatic, under the 100-task load:**
+
+| Event | Time |
+|---|---|
+| Demand above 2 | 18:33:40 |
+| Pool spec 3, third worker `86rn7` Ready | 18:33:59 (≈19 s) |
+
+- The new worker ran **29 actors**; the others ran 41 and 32.
+- There were 0 rollbacks and 0 `not found` errors.
+- The Coordinator KEDA scaled 2→3 at the same time (18:33:59), on its own, and back 3→2 at 18:47:16.
+
+**Load test, against the fixed 2-worker baseline** (same harness and workload, 100 typed tasks at concurrency 8):
+
+| Metric | 2 workers (baseline) | B′ (2→3) |
+|---|---|---|
+| Success | 100/100 | **100/100** |
+| Throughput | 0.128 task/s | **0.185 task/s (+45 %)** |
+| p50 / p95 | — / 158.8 s | **34.0 s / 102.6 s** |
+| Admission waits (counter) | — | 71 |
+| Peak workers / scale-out latency | 2 / — | 3 / 19 s (harness: 47 s to peak) |
+
+**Metric failure (E):**
+- **Method:** only the WorkerPool ScaledObject's `serverAddress` was pointed at a `.invalid` host, from 18:44:10 to
+  18:51:38. The shared Prometheus was not touched.
+- **KEDA:** health `Failing` (30 failures) and `Fallback=True`.
+- **Result:** the pool **stayed at 3 for 7 min**, past the point where it would otherwise have scaled in. The
+  Coordinator KEDA was unaffected; it scaled in normally at 18:47.
+
+**Scale-in 3→2 (B):**
+- **Timing:** after the restore, with continuous light traffic, the HPA chose 2 at 18:56:30.
+- **Removed worker:** `2pfpz`, 9 s after its last actor's checkpoint. Its ateom logged `drain finished idle=true`.
+- **Traffic:** all 8 requests sent across the window completed.
+- **Registry:** consistent afterwards.
+- **Busy workers:** a KEDA-chosen *busy* worker was not caught in this window; the busy case is R3a/R3b.
+
+**E2E (C), on the final runtime:**
+- Typed fraud `ok`, drift `complete`, combined `complete` with `unavailable: []`.
+- NL fraud `ok`, drift `complete`.
+- Negatives 3/3.
+- The combined trace `5211445e…` has `kagent-controller` (21 spans), Coordinator, both Specialists, `feature-rag-mcp`,
+  `drift-mcp` and agentgateway.
+- Backends ran for real: Feast features at `2026-05-31T23:59:56Z`, KServe `fraud-detector` v1 probability 0.064, and
+  the `knowledge_search` and `drift_detection` tools.
+
+**Sleep/wake (G):**
+- Guarded sleep paused 4 ScaledObjects, including the WorkerPool's at 2, and `verify --expect sleep` passed.
+- wake-full `keda_resumed` included the WorkerPool ScaledObject, and `verify --expect awake` passed (exact).
+- The ateapi startup reconcile removed 3 stale records 24 ms after its sync.
+- After the wake: 5/5 E2E and a consistent registry.
+- Final state: guarded sleep, 0 nodes, /32 removed, the original 3 CIDRs.
+
+### 9.4 Limits and observations
+
+- **Turns longer than the grace period:** a turn longer than 150 s is killed at SIGKILL. Its actor is then released
+  and restored on the next turn; this is tested locally, not observed on GKE.
+- **Drain log timing:** ateom's `beginDrain` takes the service lock, so the "draining" log appears only after an
+  in-flight Restore returns. ateapi's terminating-pod filter keeps new activations away from a draining pod meanwhile.
+- **Pod choice at scale-in:** the ReplicaSet does not pick the idle worker. Safety comes from the drain, not from pod
+  selection (no pod-deletion-cost, because ateapi has no pod-patch RBAC).
+- **Evidence gap:** ateapi logs every `ListActors` response in full, so frequent registry polling rotated its log once
+  and the Gate 5 E2E placement lines were lost. The run was repeated with a filtered log stream.
+- **Duplicate execution:** "no duplicate" holds for these runs (tasks, placements, ResumeActor calls). It is not a
+  proof of exactly-once execution.
 

@@ -1,0 +1,2 @@
+business-agents-deployment-7c4b97b9f4-4p846   ateom:0.0.9-ewallet.0291af52.d8d1db43.49125b15@sha256:0dd6cbf674509b21337891ca65db964ae65ee2bafcf5e69e78
+business-agents-deployment-7c4b97b9f4-5n7lf   ateom:0.0.9-ewallet.0291af52.d8d1db43.49125b15@sha256:0dd6cbf674509b21337891ca65db964ae65ee2bafcf5e69e78

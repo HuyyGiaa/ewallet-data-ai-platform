@@ -1,0 +1,23 @@
+
+==================== 17:56:54Z  E2E combined  request_id replay-combined-175654  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=12.971 s
+{"status": "partial", "workflow": "combined", "contract_version": "g3-orchestration/v2", "unavailable": [{"agent": "feature-rag-specialist", "code": "invalid_a2a_response", "message": "A2A response is incomplete"}]}
+  drift-specialist: status=ok fraud_probability=None psi=0.0004795543627041439
+  feature-rag-specialist: status=failed fraud_probability=None psi=None
+
+==================== 17:57:08Z  HOPS for combined (logs since 2026-11-16T17:56:54Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 17:56:58,310 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 17:57:08,072 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 17:57:08,079 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-combined-175654 task_id=35f323e2-77ec-4431-b590-3a7b9876ae2a mode=typed status=partial duration_ms=12658
+-- A2A Gateway routes
+      1 "route":"default/sandbox-drift-specialist"
+      1 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-drift" "status": "ok" "tool_name": "drift_detection" "trace_id": "4a750438ca02f43b99c65de5f9cb7090"
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+pod/drift-specialist-6f7948f895-8llbm 0
+pod/drift-specialist-6f7948f895-r7hln 0
+pod/feature-rag-specialist-7c5f74d545-2btvm 0
+pod/feature-rag-specialist-7c5f74d545-dfsqz 0
+saved under /home/huyy-giaa/ewallet-evidence/agents/bprime/bprime-20261116T165353Z/r3/replay/e2e/replay-combined-175654-*

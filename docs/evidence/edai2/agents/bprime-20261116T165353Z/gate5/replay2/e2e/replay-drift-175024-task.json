@@ -1,0 +1,40 @@
+{
+  "jsonrpc": "2.0",
+  "id": "replay-drift-175024",
+  "result": {
+    "kind": "task",
+    "id": "80761adc-330c-499a-b9f1-ab92c173b562",
+    "artifacts": [
+      {
+        "artifactId": "result-80761adc-330c-499a-b9f1-ab92c173b562",
+        "name": "validated-drift-investigation",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"contract_version\":\"g3-orchestration/v2\",\"coordinator_revision\":\"programmatic-coordinator/byo-workflow-v1\",\"decision_support\":\"Bằng chứng chuyên gia đã được xác thực; các giá trị nguồn được giữ nguyên bên dưới.\",\"request_id\":\"replay-drift-175024\",\"specialists\":{\"drift-specialist\":{\"agent\":\"drift-specialist\",\"drift\":[{\"baseline_id\":\"bl-r5gb-202604.account_tx_count_1h\",\"baseline_source\":{\"reference_count\":3695519,\"sha256\":\"4061359b93782a38ff22af635a45d131052980d23f477ac2b14d8ca9785e47da\",\"uri\":\"gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544\"},\"bins\":[{\"contribution\":3.105302489878738e-06,\"current_proportion\":0.9943634295170132,\"reference_proportion\":0.9926069924143266,\"upper_bound\":0.0},{\"contribution\":0.0004764490602142651,\"current_proportion\":0.005636570482986865,\"reference_proportion\":0.007393007585673352}],\"current_count\":19338,\"current_source\":{\"excluded_null_count\":0,\"sha256\":\"fbad1a8a2383b4c5ebb834977b7834694ba6e0c7b6e0882a2343046530ad2aa0\"},\"current_window\":{\"end\":\"2026-05-31T00:00:00Z\",\"start\":\"2026-05-01T00:00:00Z\"},\"dataset_revisions\":{\"current\":\"feast-r5gb-20261111-214544\",\"reference\":\"feast-r5gb-20261111-214544\"},\"drift_status\":\"no_drift\",\"feature_name\":\"account_behavior__account_tx_count_1h\",\"live_metrics_verified\":false,\"method\":\"psi\",\"min_current_count\":100,\"psi\":0.0004795543627041439,\"reference_window\":{\"end\":\"2026-05-01T00:00:00Z\",\"start\":\"2026-04-01T00:00:00Z\"},\"thresholds\":{\"drift\":0.25,\"warning\":0.1},\"tool_versions\":{\"config_revision\":\"agi-20261115T145608Z\",\"git_sha\":\"fd2c49c9c1078724346747e480425cda5e8ac39b\",\"image_digest\":\"sha256:0e291f6582c698e3d8bd6ee213d04ca92227f354b4d2021b0cefc1c708d8a5f0\"}}],\"duration_ms\":13346,\"request_id\":\"replay-drift-175024\",\"specialist_revision\":\"drift-specialist/byo-v1\",\"status\":\"ok\",\"unavailable\":[]}},\"status\":\"complete\",\"unavailable\":[],\"workflow\":\"drift\"}"
+          }
+        ]
+      }
+    ],
+    "contextId": "609b6b9a-8ad1-435e-bf76-4545e1a0d9a5",
+    "history": [
+      {
+        "kind": "message",
+        "messageId": "replay-drift-175024",
+        "contextId": "609b6b9a-8ad1-435e-bf76-4545e1a0d9a5",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "CALL_AGENT=drift-specialist\nREQUEST_JSON={\"baseline_id\":\"bl-r5gb-202604.account_tx_count_1h\",\"capabilities\":[\"drift\"],\"contract_version\":\"g3-drift-request/v1\",\"current_window\":{\"end\":\"2026-05-31T00:00:00Z\",\"start\":\"2026-05-01T00:00:00Z\"},\"feature_name\":\"account_behavior__account_tx_count_1h\",\"request_id\":\"replay-drift-175024\",\"requested_tools\":[\"drift_detection\"],\"target_agent\":\"drift-specialist\"}"
+          }
+        ],
+        "role": "user",
+        "taskId": "80761adc-330c-499a-b9f1-ab92c173b562"
+      }
+    ],
+    "status": {
+      "state": "completed",
+      "timestamp": "2026-11-16T17:50:38.369357Z"
+    }
+  }
+}

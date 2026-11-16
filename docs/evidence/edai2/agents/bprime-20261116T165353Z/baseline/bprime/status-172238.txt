@@ -1,0 +1,5 @@
+No resources found in ewallet-sandbox namespace.
+workerpool spec.replicas=2 status.replicas=2 scaleSelector=
+scale selector=
+business-agents-deployment-55b8b4858c-2s7bd   1/1   Running   0     65m   10.216.2.19   gke-ewallet-dev-cpu-pool-58daed59-xh09   <none>   <none>
+business-agents-deployment-55b8b4858c-cdclj   1/1   Running   0     65m   10.216.2.26   gke-ewallet-dev-cpu-pool-58daed59-xh09   <none>   <none>

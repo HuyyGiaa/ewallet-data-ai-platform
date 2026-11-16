@@ -1,0 +1,2 @@
+REFUSED: no worker became busy within the wait; nothing was deleted
+harness_rc=2

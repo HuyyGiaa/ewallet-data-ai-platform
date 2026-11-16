@@ -1,0 +1,22 @@
+2026-11-16T17:02:31Z OWNER-APPROVED (AskUserQuestion) Gate 1 for bprime-20261116T165353Z: temporary /32 (3 CIDRs kept), wake-full --nodes 5 with p2a-closure final-sleep manifest, read-only baseline + typed smoke; final guarded sleep + remove /32
+2026-11-16T17:02:44Z Gate 1: /32 added
+2026-11-16T17:30:53Z OWNER-APPROVED (AskUserQuestion) Gate 2 (PKG-W) and Gate 3 (PKG-P3) for bprime-20261116T165353Z. NOT APPROVED: Gate 4 (pool scaleSelector + ScaledObject + tests A-G), Gate 5 (push/runtime_fix/ateomImage/R3).
+2026-11-16T17:33:03Z Gate 2: PKG-W upgrade rc=0
+2026-11-16T17:33:24Z Gate 3: PKG-P3 crd_patch apply rc=0
+2026-11-16T17:35:20Z OWNER-APPROVED (AskUserQuestion) Gate 5 steps 1-2 for bprime-20261116T165353Z: push scanned images + verify digests, runtime_fix substrate (ateapi + ate-controller images), idle rolling update of workers (ate-controller grace + ateomImage), verify pool/registry/actor restoration/E2E. R3 needs its own approval later; Gate 4 not before Gate 5 acceptance. Keep GKE running.
+2026-11-16T17:36:46Z Gate 5.1: pushed 3 scanned images
+2026-11-16T17:40:47Z Gate 5.1: runtime_fix substrate upgrade (ateapi+ate-controller) rc=0
+2026-11-16T17:41:14Z Gate 5.2: WorkerPool ateomImage -> drain build (idle rolling update)
+2026-11-16T17:56:45Z OWNER-APPROVED (AskUserQuestion) R3 for bprime-20261116T165353Z: delete the busy worker gracefully during one typed combined request (token R3:bprime-20261116T165353Z); at most 1 retry if no busy worker is caught
+2026-11-16T18:17:14Z OWNER-APPROVED (AskUserQuestion) R3 fix deploy: push ateapi d836b5a3.49125b15.7d22bbfc + runtime_fix substrate rev 8->9 (ate-api-server image only); rerun R3a (Running actor) and R3b (claimed worker)
+2026-11-16T18:21:17Z R3 fix: runtime_fix substrate upgrade (ateapi 7d22bbfc) rc=0
+2026-11-16T18:29:48Z R3a PASS, R3b PASS (see R3-RESULT.txt); Gate 5 accepted
+2026-11-16T18:31:37Z OWNER-APPROVED (AskUserQuestion) Gate 4 for bprime-20261116T165353Z: pool scaleSelector + shared WorkerPool ScaledObject; 2->3->2 with real actors on the new worker; 5 workflows + 3 negatives + tracing; 100 tasks @8 vs 2-worker baseline; active-actor scale-in and drain; Coordinator KEDA no regression; guarded sleep/wake then 0 nodes and /32 removed. Metric-failure test ONLY by breaking the WorkerPool ScaledObject's own metric endpoint (shared Prometheus untouched).
+2026-11-16T18:31:57Z Gate 4: pool-apply (scaleSelector) + so-apply done
+2026-11-16T18:33:11Z Gate 4: load 100 tasks @8 started
+2026-11-16T18:44:10Z Gate 4 E: WorkerPool ScaledObject metric endpoint broken (own serverAddress -> .invalid); shared Prometheus untouched
+2026-11-16T18:51:38Z Gate 4 E: metric endpoint restored (manifest value)
+2026-11-16T19:03:07Z Gate 4 G: guarded sleep with both autoscalers
+2026-11-16T19:07:33Z Gate 4 G: wake-full --nodes 5 with /home/huyy-giaa/ewallet-evidence/agents/bprime/bprime-20261116T165353Z/sleep1/recovery-manifest
+2026-11-16T19:34:04Z final guarded sleep
+2026-11-16T19:38:38Z final: /32 removed rc=0; restored (3 original CIDRs)

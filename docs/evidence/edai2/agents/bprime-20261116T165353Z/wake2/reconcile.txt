@@ -1,0 +1,2 @@
+{"time":"2026-11-16T19:12:02.998472941Z","level":"INFO","msg":"Syncer: performing initial sync on startup"}
+{"time":"2026-11-16T19:12:03.022274526Z","level":"INFO","msg":"Syncer: reconcile removed stale workers","count":3}

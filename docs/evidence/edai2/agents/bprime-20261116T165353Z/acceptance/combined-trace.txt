@@ -1,0 +1,1 @@
+trace 5211445e5dd5e0890166f731dc754be7 {'agentgateway': 32, 'kagent-controller': 21, 'fraud-coordinator': 72, 'feature-rag-specialist': 19, 'feature-rag-mcp': 29, 'drift-specialist': 18, 'drift-mcp': 14}

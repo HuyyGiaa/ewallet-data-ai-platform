@@ -1,0 +1,3 @@
+2026-11-16T18:26:13.405Z trigger: business-agents-deployment-7c4b97b9f4-5n7lf started a sandbox restore; deleting it gracefully
+pod "business-agents-deployment-7c4b97b9f4-5n7lf" deleted from ewallet-sandbox namespace
+trigger_rc=0

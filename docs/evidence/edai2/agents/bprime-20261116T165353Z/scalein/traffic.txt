@@ -1,0 +1,9 @@
+18:52:29 #1 fraud rc=0 state=completed
+18:53:07 #2 drift rc=0 state=completed
+18:53:41 #3 fraud rc=0 state=completed
+18:54:15 #4 drift rc=0 state=completed
+18:54:53 #5 fraud rc=0 state=completed
+18:55:30 #6 drift rc=0 state=completed
+18:56:05 #7 fraud rc=0 state=completed
+18:56:39 #8 drift rc=0 state=completed
+pool back to 2 and drained

@@ -1,0 +1,2 @@
+2026-11-16T17:33:09Z keda ScaledObjects: ewallet-agents/drift-specialist=True ewallet-agents/feature-rag-specialist=True ewallet-agents/fraud-coordinator=True ml-platform/feature-api=True ml-platform/fraud-api=True 
+2026-11-16T17:33:09Z keda verify PASS: watch scope ewallet-agents,ml-platform,ewallet-sandbox; RBAC in ewallet-sandbox: rolebinding.rbac.authorization.k8s.io/keda-operator 

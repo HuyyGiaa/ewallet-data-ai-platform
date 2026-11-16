@@ -1,0 +1,7 @@
+request replay-combined-185826
+KServe fraud_score: {'fraud_prediction': None, 'fraud_probability': None, 'model_revision': None, 'feature_timestamp': None}
+Feast features: 0 keys e.g. []
+RAG citations: 0 []
+Drift: {}
+MCP tool calls: ['drift_detection', 'feature_lookup', 'fraud_scoring', 'knowledge_search']
+"fraud_score": {"feature_timestamp": "2026-05-31T23:59:56+00:00", "fraud_prediction": 0, "fraud_probability": 0.0639895560144887, "model_input_schema_sha256": "03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176", "model_name": "fraud-detector", "model_version": "1", "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9"}

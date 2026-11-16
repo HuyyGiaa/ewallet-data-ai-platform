@@ -1,0 +1,5 @@
+0j7l cpu (88%) memory (67%) 
+3p7t cpu (72%) memory (49%) 
+xh09 cpu (99%) memory (66%) 
+xlw6 cpu (44%) memory (26%) 
+z48b cpu (81%) memory (61%) 

@@ -1,5 +1,61 @@
 # Agent platform completion: campaign handoff
 
+## B′ shared WorkerPool autoscaling `bprime-20261116T165353Z` (2026-11-16/17)
+
+Evidence: `~/ewallet-evidence/agents/bprime/bprime-20261116T165353Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/bprime-20261116T165353Z/`. Results: `AGENT_PLATFORM_COMPLETION.md` §9.
+
+| Item | Value |
+|---|---|
+| `BPRIME_STATUS` | **COMPLETE**: all 14 definition-of-done items pass on GKE (§9) |
+| `GKE_E2E_STATUS` | **PASS**: 5/5 workflows + 3/3 negatives on the final runtime and again after the wake; real Feast, KServe, RAG and Drift backends; trace with `kagent-controller` spans |
+| `SCALE_OUT_STATUS` | **PASS**: automatic 2→3 in 19 s under the 100-task load; the new worker ran 29 actors; back to 2 automatically |
+| `ACTIVE_ACTOR_SCALE_IN_STATUS` | **PASS** after one fix. R3a: drain kept a restoring/running actor through checkpoint. R3b: a claimed worker's restore is retried on a live worker. R3 attempt 1 failed, root cause fixed (`eafe9b2e`) |
+| `COORDINATOR_KEDA_STATUS` | **PASS**: 2→3→2 under the same load; unaffected by the WorkerPool metric outage |
+| `SLEEP_WAKE_STATUS` | **PASS**: guarded sleep paused 4 ScaledObjects (WorkerPool at 2); wake-full unpaused them; exact `verify --expect awake`; post-wake E2E 5/5 |
+| Load | 100/100; 0.185 task/s (+45 % vs 0.128); p50 34.0 s; p95 102.6 s (vs 158.8 s); 71 admission waits |
+| Cluster | **ASLEEP**: 0 nodes, `verify --expect sleep` passed; ScaledObjects (incl. the WorkerPool's) paused by marker `bprime-20261116T165353Z`; /32 removed; authorized networks = the original 3 CIDRs |
+| Next wake | `cloud_lab wake-full --nodes 5 --manifest ~/ewallet-evidence/agents/bprime/bprime-20261116T165353Z/final-sleep/recovery-manifest` (its unpause includes the WorkerPool ScaledObject) |
+| Cost (estimate) | about 2.3 h awake × 5 nodes × ~$0.165 ≈ $1.9 (list price, not billing) |
+
+**Live state:**
+
+| Release / object | State |
+|---|---|
+| `keda` | rev 2 (watches `ewallet-sandbox`) |
+| `substrate` | rev 9: ateapi `0aeab81c` (drain + retryable), ate-controller `7475c1f5` (worker grace 150 s) |
+| `substrate-crds` CRD | patched: `scaleSelector`, `labelSelectorPath` |
+| WorkerPool `business-agents` | `scaleSelector`, `ateomImage` `0dd6cbf6` (drain on SIGTERM) |
+| ScaledObject | `business-agents-workerpool` |
+
+**Commits (rollback boundaries):**
+
+| Commit | Change |
+|---|---|
+| `00311b08` | drain patch and tooling |
+| `4e2d524c` | ScaledObject, ownership, `cloud_lab` |
+| `2ae35022` | pins, `ateom`-only patch, R3 harness |
+| `eafe9b2e` | retryable restore |
+| docs commit | documentation |
+
+**Rollbacks:**
+1. `bprime.sh so-rollback` (deletes the ScaledObject; the pool goes back to 2).
+2. `bprime.sh pool-rollback`.
+3. `runtime_fix.sh substrate rollback` (`PKG-T-SUBSTRATE-ROLLBACK`).
+4. `crd_patch.sh revert` (only once no pool uses `scaleSelector`).
+5. `sandbox_watch.sh keda rollback` (`PKG-W-ROLLBACK`).
+
+Roll back in that order.
+
+**Ready next:**
+- the legacy Specialist Deployment cleanup (deletion matrix in the Phase 1 section);
+- the owner Evidence Replay.
+
+**Watch next:**
+- turns longer than 150 s;
+- a `substrate-crds` upgrade reverting PKG-P3;
+- ateapi log volume when the registry is polled.
+
 ## P2-A final closure `p2a-closure-20261116T151631Z` (2026-11-16)
 
 Evidence: `~/ewallet-evidence/agents/p2a-closure/p2a-closure-20261116T151631Z/` (`SHA256SUMS.txt`), mirrored in

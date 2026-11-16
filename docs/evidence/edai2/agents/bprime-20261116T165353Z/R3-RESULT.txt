@@ -1,0 +1,20 @@
+R3 — active-actor scale-in safety on GKE (runtime: substrate rev 9, ateapi 7d22bbfc 0aeab81c, ate-controller 49125b15 7475c1f5,
+ateom d8d1db43.49125b15 0dd6cbf6, worker grace 150 s)
+
+Attempt 1 (rev 8, 17:56:55Z): FAIL — worker deleted right after the claim, before atelet reached ateom; restore failure surfaced
+as an ordinary error; combined partial. No duplicate, no stale record. Fixed by substrate-0.0.9-drain-retryable.patch (eafe9b2e),
+evidence in r3-failure/ROOT_CAUSE.txt.
+
+R3a (18:26:13Z): PASS — deleted the worker the moment its ateom began restoring a sandbox (runsc create 18:26:13.27, delete 18:26:13.40).
+  ateapi: "worker draining (pod deleting, actor still bound)" 18:26:14.16/.21; no other actor assigned to the pod.
+  ateom 5n7lf: RestoreWorkload completed 18:26:23.11 (drain waited for it: the restore held the ateom lock), actor ran, CheckpointWorkload
+  18:26:24.10, "ateom drain finished idle=true" 18:26:24.11, pod gone by 18:26:46 (< 150 s grace).
+  request replay-combined-182610: complete, unavailable []. 2 placements for 2 delegations; 0 rollback / not-found; replacement csxdh
+  registered 18:26:15.41; registry == live pods at the end.
+R3b (18:28:10Z): PASS — deleted the worker right after ateapi claimed it (actor RESUMING, before ateom): ateom idle -> stopped at once;
+  restore failed; rollback 18:28:12.32; ateapi returned FailedPrecondition "no free workers ... left the pool before the restore";
+  kagent's resume retry placed the actor on the replacement 2pfpz 18:28:13.37; request replay-combined-182809 complete (16.0 s),
+  unavailable []; record of csxdh removed 18:28:12.36-.94; 0 not-found.
+Not exercised: a turn longer than the 150 s grace (SIGKILL; covered by TestDrain_KilledDrainReleasesTheActorOnFinalDelete).
+Observation: ateom's beginDrain takes the service lock, so its "draining" log appears after an in-flight Restore returns; ateapi's
+terminating-pod filter prevents a queued activation from reaching a draining ateom.

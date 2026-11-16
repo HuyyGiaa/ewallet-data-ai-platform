@@ -1,0 +1,50 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  creationTimestamp: "2026-11-16T17:26:26Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    ewallet.io/bprime: shared-workerpool
+  name: business-agents-workerpool
+  namespace: ewallet-sandbox
+  uid: 00616c39-fa05-49f6-84c4-e689416e1cc4
+spec:
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          policies:
+          - periodSeconds: 60
+            type: Pods
+            value: 1
+          selectPolicy: Max
+          stabilizationWindowSeconds: 300
+        scaleUp:
+          policies:
+          - periodSeconds: 30
+            type: Pods
+            value: 1
+          selectPolicy: Max
+          stabilizationWindowSeconds: 0
+      name: business-agents-workerpool
+  cooldownPeriod: 300
+  fallback:
+    behavior: currentReplicasIfHigher
+    failureThreshold: 3
+    replicas: 2
+  maxReplicaCount: 3
+  minReplicaCount: 2
+  pollingInterval: 15
+  scaleTargetRef:
+    apiVersion: ate.dev/v1alpha1
+    kind: WorkerPool
+    name: business-agents
+  triggers:
+  - metadata:
+      query: sum(ewallet_sandbox_delegations_inflight) or vector(0)
+      serverAddress: http://prometheus.ewallet-agents.svc.cluster.local:9090
+      threshold: "1"
+    metricType: AverageValue
+    name: sandbox-delegations-inflight
+    type: prometheus

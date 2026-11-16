@@ -1,0 +1,1 @@
+{"kind":"Scale","apiVersion":"autoscaling/v1","metadata":{"name":"business-agents","namespace":"ewallet-sandbox","uid":"9227c491-cc2c-4011-89bc-06d5d911c58b","resourceVersion":"1794763043437151022","creationTimestamp":"2026-11-15T16:56:58Z"},"spec":{"replicas":2},"status":{"replicas":2}}

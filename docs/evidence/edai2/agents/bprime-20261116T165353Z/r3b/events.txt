@@ -1,0 +1,2 @@
+2026-11-16T18:28:10Z.076 R3 delete busy worker ewallet-sandbox/business-agents-deployment-7c4b97b9f4-csxdh uid=5e47fd50-2360-47d5-9ec1-dc780bff7c19 (graceful, scale-in path; require_running=False)
+2026-11-16T18:28:17Z.576 R3 drained-and-replaced=True

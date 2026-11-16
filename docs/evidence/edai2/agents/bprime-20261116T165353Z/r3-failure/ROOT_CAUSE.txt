@@ -1,0 +1,13 @@
+R3 attempt 1 (2026-11-16 17:56:55Z): FAIL — combined partial, feature-rag "invalid_a2a_response: A2A response is incomplete".
+Observed: ateapi picked 4p846 for actor asr-1a5ad95f at 17:56:55.624 (claim, RESUMING); the harness saw the claim and deleted
+the pod at 17:56:55.88. ateapi kept the actor bound ("worker draining (pod deleting, actor still bound)", 17:56:56.69 ..
+17:56:58.26) and assigned nothing else to the pod. ateom on 4p846 got SIGTERM at 17:56:56.70 with no active sandbox (atelet had
+not called RestoreWorkload yet; its last activity was a checkpoint at 17:50:38) and stopped at once (idle=true). The restore
+then failed, ateapi rolled the actor back ("Resume rolled back", 17:56:58.31) and returned the restore error; kagent returned
+an incomplete A2A response, so the Coordinator recorded the specialist as unavailable instead of waiting.
+No duplicate execution (the restore never ran), no stale record (removed 17:56:58.30), no actor left bound.
+Root cause: a restore that fails because its claimed worker left the pool before the restore ran was reported as an ordinary
+error. Fix (substrate-0.0.9-drain-retryable.patch, ateapi only): after the rollback, report it as FailedPrecondition
+"no free workers" (kagent -> pool exhausted -> Coordinator capacity wait and resend to a live worker). Regression tests:
+TestDrain_RestoreRefusedByDrainingAteomIsReportedAsNoFreeWorkers, TestDrain_WorkerTerminatingDuringRestoreIsReportedAsNoFreeWorkers,
+TestDrain_OrdinaryRestoreFailureKeepsItsError.

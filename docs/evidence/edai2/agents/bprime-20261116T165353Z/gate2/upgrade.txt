@@ -1,0 +1,6 @@
+2026-11-16T17:30:58Z keda preflight PASS: keda/keda revision 1, identity PASS
+2026-11-16T17:30:59Z keda diff PASS: {"added":[["RoleBinding","ewallet-sandbox","keda-operator"]],"changed":[["Deployment","keda","keda-admission-webhooks"],["Deployment","keda","keda-operator"],["Deployment","keda","keda-operator-metrics-apiserver"]]}CANDIDATEPASS
+2026-11-16T17:31:29Z keda dry-run PASS (server-side)
+2026-11-16T17:31:29Z keda upgrade: upgrade keda /home/huyy-giaa/.cache/ewallet-runtime-fix/private-bprime-20261116T165353Z/keda/chart/keda-2.21.0.tgz -n keda --reuse-values -f /home/huyy-giaa/Develop/ewallet-data-ai-platform/infra/helm/keda/values-sandbox-watch.yaml (from revision 1)
+2026-11-16T17:33:03Z keda ScaledObjects: ewallet-agents/drift-specialist=True ewallet-agents/feature-rag-specialist=True ewallet-agents/fraud-coordinator=True ml-platform/feature-api=True ml-platform/fraud-api=True 
+2026-11-16T17:33:03Z keda verify PASS: watch scope ewallet-agents,ml-platform,ewallet-sandbox; RBAC in ewallet-sandbox: rolebinding.rbac.authorization.k8s.io/keda-operator 

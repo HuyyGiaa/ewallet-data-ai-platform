@@ -1,0 +1,6 @@
+Q: sum(ewallet_sandbox_delegations_inflight) or vector(0)
+success [(None, '0')]
+Q: ewallet_sandbox_delegations_inflight
+success [('drift-specialist', '0'), ('feature-rag-specialist', '0'), ('drift-specialist', '0'), ('feature-rag-specialist', '0')]
+Q: sum(rate(ewallet_sandbox_admission_waits_total[2m]))
+success [(None, '0')]

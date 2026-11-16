@@ -1,0 +1,4 @@
+ M docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md
+ M docs/edai2/agents/AGENT_PLATFORM_COMPLETION.md
+ M docs/workplans/edai2/agent-platform-campaign/HANDOFF.md
+ M infra/kubernetes/kagent-pilot/patches/runtime-fix-images.env
