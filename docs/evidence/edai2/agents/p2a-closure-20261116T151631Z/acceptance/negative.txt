@@ -1,0 +1,6 @@
+
+==================== 16:14:42Z  AGI-08 negatives (each must observe its expected denial, with a passing control) ====================
+PASS feature-rag credential refused by drift-mcp (401)
+PASS drift principal does not see fraud_scoring (ungranted tool)
+PASS undeclared A2A host is not routed (404, control routed)
+evidence: /home/huyy-giaa/ewallet-evidence/agents/p2a-closure/p2a-closure-20261116T151631Z/acceptance/replay/negative/*.json

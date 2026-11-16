@@ -1,0 +1,1 @@
+ate-api-server-deployment-6dd7958cd7-nt6jf started=2026-11-16T16:06:28Z containerStarted=2026-11-16T16:06:34Z ready=2026-11-16T16:06:39Z

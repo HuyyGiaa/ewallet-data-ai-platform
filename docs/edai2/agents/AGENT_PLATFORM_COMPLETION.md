@@ -23,7 +23,7 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | Security | **GKE_PASS** (unchanged policies; negatives pass) |
 | Agent Fleet (shared WorkerPool) | **GKE_PASS** (2026-11-15/16 runs; fleet image updated, sharing unchanged) |
 | Sleep / wake readiness | **GKE_PASS** (Phase 2, §7): three guarded sleep/wake cycles; the last wake needed no manual step and passed 5/5 E2E |
-| Substrate worker lifecycle (P2-A) | **GKE_PASS** (§7.1): stale worker records removed at every ateapi start; no `worker pod not found` after the fix |
+| Substrate worker lifecycle (P2-A) | **COMPLETE** (§8): R1 and R2 passed on GKE; stale records removed at every ateapi start, before ateapi serves; no `worker pod not found` after the fix |
 | Coordinator Sandbox capacity metrics (P2-D) | **GKE_PASS** (§7.4): counter equals the logged capacity waits; gauge returns to 0 |
 | Natural-language combined prompts | Rejected by design (strict guard, owner decision) |
 
@@ -300,8 +300,8 @@ namespaces are unchanged.
   - After each later full sleep/wake it removed 3 stale records (the pods from before the sleep) and registered the
     new pods.
   - Not one `worker pod not found` was seen after the fix.
-- **Not run:** the controlled single-worker replacement tests R1/R2 (deleting a worker pod, or deleting one while
-  ateapi is down). The owner did not approve them. All-node replacement by sleep/wake was exercised three times.
+- **R1/R2:** the controlled single-worker replacement tests ran on 2026-11-16 in campaign
+  `p2a-closure-20261116T151631Z` and passed (§8).
 
 ### 7.2 P2-B: wake hygiene
 
@@ -363,4 +363,120 @@ namespaces are unchanged.
 - Negatives: 3/3.
 - `verify --expect awake`: no failures.
 - `kagent-controller` spans are in the trace.
+
+## 8. P2-A final closure (`p2a-closure-20261116T151631Z`)
+
+Evidence: `~/ewallet-evidence/agents/p2a-closure/p2a-closure-20261116T151631Z/`, mirrored in
+[`docs/evidence/edai2/agents/p2a-closure-20261116T151631Z/`](../../evidence/edai2/agents/p2a-closure-20261116T151631Z/)
+(`SHA256SUMS.txt`). Raw ateapi and Coordinator logs are kept private. The runtime is the one deployed in §7, with no
+change in this campaign:
+- ateapi `substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3@sha256:f51f7946…`;
+- Coordinator `94a13a8b`;
+- releases `substrate` rev 7, `kagent` rev 9, `llm-agent` rev 54.
+
+Each step was approved separately (`approvals.txt`): Gate B (wake), Gate C (R1) and Gate D (R2).
+
+### 8.1 Root cause and the existing fix
+
+The defect is described in §7.1: worker records outlived pods deleted while ateapi was down, and actors were sent to
+dead pods.
+
+Worker selection (`AssignWorkerStep`) reads the store-backed worker cache and does **not** consult the pod informer.
+A stale record is therefore *eligible* until the syncer removes it. The fix (`9f20ee96`) bounds that window:
+- an update event removes the record as soon as the pod is deleting;
+- a startup reconcile and a 2-minute pass catch deletions that ateapi missed.
+
+If a stale record is selected anyway, the resume fails at the atelet dial, before any atelet call. The PKG-T rollback
+then returns the actor to SUSPENDED and releases the claim. The request fails fast and visibly, and nothing runs.
+
+### 8.2 Local tests (`df7c2cc4`, test-only patch, no image change)
+
+- **New tests:**
+  - stale record selected → dial fails, no atelet call, actor SUSPENDED, claim released, not sticky over 3 retries;
+  - after one reconcile → the actor resumes on the live worker;
+  - pool change re-registers the worker;
+  - a failed store delete is retried by the next pass.
+- The full ateapi package passed with `-race` (×3) and in the official build.
+- That build reproduces the deployed ateapi binary byte for byte (`binary_sha256 3c1f43d1…`).
+- The R1/R2 harness is `ops/experiments/worker_lifecycle.py`. It records worker pods, ateapi and the registry (kagent
+  `/api/substrate/status`) every second and computes the assertions from that record. It has 7 unit tests.
+
+### 8.3 R1: replace one idle worker while ateapi is up — PASS
+
+- **Target:** `business-agents-deployment-55b8b4858c-72k82` (UID `28f33640…`). It was idle: no assignment and no
+  non-suspended actor.
+- **Mutation:** a graceful `kubectl delete pod`.
+- **Timeline:**
+
+  | Event | Time | After the delete |
+  |---|---|---|
+  | Delete issued | 15:58:33.84 | — |
+  | Record removed while the pod was still Terminating | 15:58:34.67 | +0.84 s |
+  | Pod gone | 15:58:35.79 | +1.95 s |
+  | Replacement `g4kjk` (UID `6480ca8e…`) registered | 15:58:38.73 | +4.9 s |
+- **Registry:** the harness saw no stale record in any sample, and the registry matched the live pods at the end.
+- **After R1:** fraud, drift and combined all completed (combined `complete`, `unavailable: []`).
+  - 4 delegations gave 4 placements, 2 of them on the replacement, including fraud.
+  - Each actor had 1 placement plus 2 no-op ResumeActor calls (~2 ms, RUNNING, same pod).
+  - Coordinator: 3 tasks, 4 Sandbox sends, 0 waits, 0 failures.
+  - 0 `worker pod not found`.
+
+### 8.4 R2: lose one idle worker while ateapi is down — PASS
+
+- **Method:** scale `ate-api-server-deployment` (Helm `substrate`, replicas 1) to 0, wait until no ateapi pod
+  exists, delete one idle worker gracefully, wait until it is gone, then scale back to 1.
+  - This is the sleep failure reduced to one pod.
+  - Deleting the ateapi pod instead would let the Deployment recreate it at once.
+  - Blocking API access would exercise the informer relist instead.
+- **Target:** `business-agents-deployment-55b8b4858c-xswmd` (UID `0dced329…`).
+- **Timeline:**
+
+  | Event | Time |
+  |---|---|
+  | Scaled to 0 | 16:06:19.34 |
+  | No ateapi pod; worker deleted | 16:06:23.29 |
+  | Worker gone while ateapi was down; scaled to 1 | 16:06:27.39 |
+  | New ateapi registered the replacement `9fgqh` (UID `e5433ac5…`, created during the outage) | 16:06:34.53 |
+  | Initial sync | 16:06:34.567 |
+  | **Stale `xswmd` removed** (`pod no longer exists`) | 16:06:34.577 |
+  | Pod Ready | 16:06:39 |
+  | First RPC | 16:06:46.78 |
+- **Stale-eligibility window: none.**
+  - The startup reconcile finished 12 s before the first request.
+  - The readiness probe (initial delay 5 s) keeps the Service from routing to ateapi before then.
+  - The same ordering held at the wake: reconcile 16 ms after the initial sync.
+- **Outage:** about 20 s without a serving ateapi.
+- **After R2:** fraud, drift and combined all completed.
+  - 4 placements, one of them on the R2 replacement.
+  - 3 tasks, 4 sends, 0 waits, 0 failures, and 0 `worker pod not found`.
+- **No manual action:** no Valkey or registry action, and ateapi was restored to its Helm value.
+
+### 8.5 Remediation
+
+None was needed. No defect was found, and the runtime was not changed.
+
+### 8.6 Final integrated acceptance (same runtime, after R1 and R2)
+
+- **Typed:** fraud `ok`, drift `complete`, combined `complete` with `unavailable: []`.
+- **NL:** fraud `ok`, drift `complete`.
+- **Negatives:** 3/3.
+- **Registry:** consistent (no stale record, no unregistered pod, no actor on a missing pod).
+- **Trace:** the combined trace has 21 `kagent-controller` spans; the service set is the same as in §7.
+- **KEDA:** HPAs at 2/2/2. The WorkerPool stayed at 2.
+- **`verify --expect awake`:** no failures.
+- **Sleep:** the final guarded sleep passed `verify --expect sleep`. The /32 was removed and the authorized networks
+  equal the original 3 CIDRs.
+
+### 8.7 What R1/R2 do not prove
+
+- **Actively executing actors:** both tests replaced **idle** workers. Replacing a worker while its actor is executing
+  is not covered.
+  - On a deleting pod, the syncer marks the bound actor SUSPENDED while the pod drains.
+  - A resume elsewhere during the grace period could overlap with the draining pod.
+  - This must be tested in B′ scale-in safety acceptance.
+- **Stale records while ateapi serves:** the only case left is a delete event that ateapi misses while it is running.
+  The informer relist and the 2-minute pass cover it. If such a record is selected, the request fails fast with no
+  execution (tested locally, not observed on GKE).
+- **Duplicate execution:** the "no duplicate execution" result is scoped to these runs and their logs (tasks, sends,
+  placements and ResumeActor calls). It is not a proof of exactly-once execution.
 

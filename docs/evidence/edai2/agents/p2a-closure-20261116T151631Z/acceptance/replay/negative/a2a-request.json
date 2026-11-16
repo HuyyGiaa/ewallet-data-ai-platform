@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": "replay-a2a-neg-161452",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "messageId": "replay-a2a-neg-161452",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "CALL_AGENT=drift-specialist\nREQUEST_JSON={\"baseline_id\":\"bl-r5gb-202604.account_tx_count_1h\",\"capabilities\":[\"drift\"],\"contract_version\":\"g3-drift-request/v1\",\"current_window\":{\"end\":\"2026-05-31T00:00:00Z\",\"start\":\"2026-05-01T00:00:00Z\"},\"feature_name\":\"account_behavior__account_tx_count_1h\",\"request_id\":\"replay-a2a-neg-161452\",\"requested_tools\":[\"drift_detection\"],\"target_agent\":\"drift-specialist\"}"
+        }
+      ]
+    }
+  }
+}

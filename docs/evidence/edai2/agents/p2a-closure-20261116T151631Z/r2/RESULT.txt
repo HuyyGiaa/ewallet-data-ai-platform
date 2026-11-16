@@ -1,0 +1,14 @@
+R2 — worker loss while ateapi is unavailable: PASS
+method: scale ate-system/ate-api-server-deployment 0 -> (no ateapi pod) -> graceful delete of one idle worker -> pod gone -> scale 1
+target ewallet-sandbox/business-agents-deployment-55b8b4858c-xswmd uid 0dced329-47af-4295-aed8-2bf333a90c86 (node sxtx), idle (no assignment, 0 non-suspended actors)
+16:06:19.34 ateapi scaled to 0
+16:06:23.29 no ateapi pod exists (harness observation); worker delete issued
+16:06:27.39 worker pod gone while ateapi down (R2-A proven); ateapi scaled to 1
+16:06:34.53 new ateapi (nt6jf) container: informer add registers replacement 9fgqh uid e5433ac5-11fc-4b0b-81eb-a43800233d8d (created while ateapi was down)
+16:06:34.567 initial sync; 16:06:34.577 'removing stale worker xswmd reason=pod no longer exists'; reconcile count=1 (+10 ms)
+16:06:39 ateapi pod Ready (Service endpoint, readiness initialDelay 5 s)
+16:06:46.78 first RPC served (12 s after the reconcile): no request could see the stale record -> eligibility window 0
+ateapi unavailable ~20 s (scale-down to Ready); harness recovered 16:06:51; registry == live pods; no actor on a missing pod
+smoke after: fraud/drift/combined completed (combined complete, unavailable []); 0 not-found
+placement: 4 delegations -> 4 picks (1 on 9fgqh = the R2 replacement, 3 on g4kjk); duplicates: 3 tasks, 4 sandbox POSTs, 0 waits, 0 failures
+no manual registry/Valkey action; ateapi restored to the Helm value (1)

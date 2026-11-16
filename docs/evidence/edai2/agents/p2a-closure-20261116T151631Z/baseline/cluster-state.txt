@@ -1,0 +1,20 @@
+gke-ewallet-dev-cpu-pool-58daed59-2qqj   Ready   <none>   19m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-jlxn   Ready   <none>   19m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-sxtx   Ready   <none>   19m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-v9wx   Ready   <none>   19m   v1.36.4-gke.2377000
+gke-ewallet-dev-cpu-pool-58daed59-vz1g   Ready   <none>   19m   v1.36.4-gke.2377000
+deployment.apps/ate-api-server-deployment   1/1   1     1     14d   ate-api-server               asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3@sha256:f51f794685090249f807f3c27e9e97a8f4f9365e073bb1ed40f404873d32e5b1                                       app=ate-api-server
+deployment.apps/ate-controller              1/1   1     1     14d   ate-controller               ghcr.io/kagent-dev/substrate/atecontroller:v0.0.9@sha256:dc29e79987fe4177b92c8b30a4fa4f36f3cf1a80937b03a7a8cd3411f98693e5                                                                                                                    app=ate-controller
+deployment.apps/atenet-router               1/1   1     1     14d   atenet-router,agentgateway   ghcr.io/kagent-dev/substrate/atenet:v0.0.9@sha256:15892218c70e736bca06bd9f1134425897f8b9c265428f932de5d6d779e9452a,cr.agentgateway.dev/agentgateway:v1.3.0-alpha.1@sha256:95e8d849c44ba31399daf504367ecfcfe2d3d3e59ffd96b1098234353afc3ef7   app=atenet-router
+deployment.apps/dns                         1/1   1     1     14d   coredns,dns-controller       coredns/coredns:1.11.1@sha256:1eeb4c7316bacb1d4c8ead65571cd92dd21e27359f0d4917f1a5822a73b75db1,ghcr.io/kagent-dev/substrate/atenet:v0.0.9@sha256:15892218c70e736bca06bd9f1134425897f8b9c265428f932de5d6d779e9452a                            app=dns
+deployment.apps/rustfs                      1/1   1     1     14d   rustfs                       rustfs/rustfs:1.0.0-beta.3@sha256:378642b05b7dcb4849fb77ebe6aca4ced1c3f66e7e504247df95a5c9018d3358                                                                                                                                           app=rustfs
+daemonset.apps/atelet   5     5     5     5     5     <none>   14d   atelet   ghcr.io/kagent-dev/substrate/atelet:v0.0.9@sha256:ec3e842a1a0a060192710c34be83354d0b45e8d0e40342384d3b836413c3c8e1   app=atelet
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3@sha256:f51f794685090249f807f3c27e9e97a8f4f9365e073bb1ed40f404873d32e5b1
+kagent-controller   1/1   1     1     14d
+2
+scaledobject.keda.sh/drift-specialist         apps/v1.Deployment   drift-specialist         2     3     True   False   False   False   prometheus         22h
+scaledobject.keda.sh/feature-rag-specialist   apps/v1.Deployment   feature-rag-specialist   2     3     True   False   False   False   prometheus         22h
+scaledobject.keda.sh/fraud-coordinator        apps/v1.Deployment   fraud-coordinator        2     3     True   False   False   False   prometheus         22h
+horizontalpodautoscaler.autoscaling/drift-specialist         Deployment/drift-specialist         0/2 (avg)   2     3     2     16m
+horizontalpodautoscaler.autoscaling/feature-rag-specialist   Deployment/feature-rag-specialist   0/2 (avg)   2     3     2     16m
+horizontalpodautoscaler.autoscaling/fraud-coordinator        Deployment/fraud-coordinator        0/2 (avg)   2     3     2     16m

@@ -1,5 +1,53 @@
 # Agent platform completion: campaign handoff
 
+## P2-A final closure `p2a-closure-20261116T151631Z` (2026-11-16)
+
+Evidence: `~/ewallet-evidence/agents/p2a-closure/p2a-closure-20261116T151631Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/p2a-closure-20261116T151631Z/`. Results: `AGENT_PLATFORM_COMPLETION.md` §8.
+
+| Item | Value |
+|---|---|
+| `P2_A_STATUS` | **COMPLETE**: R1 and R2 passed on GKE; acceptance criteria P2A-01..18 met (§8) |
+| `P2_FOUNDATION_STATUS` | **COMPLETE**: P2-A, P2-B, P2-C and P2-D all complete |
+| `BPRIME_FOUNDATION_READY` | **YES, to start the B′ campaign.** Worker lifecycle, atelet placement, wake hygiene, tracing and the demand metrics are verified. B′ itself is not built (see below) |
+| Runtime | Unchanged from Phase 2: `substrate` rev 7 (ateapi `d836b5a3`), `kagent` rev 9, `llm-agent` rev 54 |
+| Code | `df7c2cc4`: test-only Substrate patch (`images: []`) and the R1/R2 harness. No runtime change |
+| Cluster | **ASLEEP**: 0 nodes, `verify --expect sleep` passed. ScaledObjects paused by marker `p2a-closure-20261116T151631Z`. The temporary /32 was removed; authorized networks = the original 3 CIDRs |
+| Next wake | `cloud_lab wake-full --nodes 5 --manifest ~/ewallet-evidence/agents/p2a-closure/p2a-closure-20261116T151631Z/final-sleep/recovery-manifest` |
+| Approvals | Gate B (wake + guarded sleep), Gate C (R1), Gate D (R2), each separate (`approvals.txt`) |
+| Cost (estimate, not billing) | about 1 h awake × 5 nodes × ~$0.165 per node-hour ≈ $0.8 |
+
+**B′ handoff (preparation only; nothing deployed).** Target: `WorkerPool/ewallet-sandbox/business-agents`; first
+experiment 2 → 3 → 2.
+
+1. **KEDA watch:** KEDA 2.21 watches `ewallet-agents,ml-platform` only. Adding `ewallet-sandbox` is a KEDA Helm
+   change.
+2. **PKG-P3:** the WorkerPool CRD has `/scale` but no `labelSelectorPath`. Phase 1 assessed it as required for the
+   KEDA-generated HPA. It is a CRD change (`substrate-crds`) and needs its own approval.
+3. **ScaledObject:** a shared one for the WorkerPool, `minReplicaCount 2`.
+   - Trigger: `sum(ewallet_sandbox_delegations_inflight)`, with a short staleness window, because scaled-in
+     Coordinator pods leave series for up to 5 min.
+   - Saturation alarm: `rate(ewallet_sandbox_admission_waits_total[2m]) > 0`.
+4. **Ownership:** KEDA becomes the single owner of `WorkerPool.spec.replicas`. Nothing else may write it,
+   including `cloud_lab` restore and manual scaling.
+5. **Readiness:**
+   - workers register at pod IP, before Ready (Substrate 0.0.9 has no readiness gate);
+   - atelet is bound first on every node (P2-B);
+   - WorkerPool 0.0.9 has no podAffinity or topology spread.
+6. **Scale-in safety is the main open risk** (§8.7): a removed worker with an executing actor. B′ needs an
+   acceptance test with an active actor during scale-in, and a drain or graceful-suspend story first.
+7. **KEDA fallback:** decide the behaviour when Prometheus is unreachable (fallback replicas = 2).
+8. **`cloud_lab`:** it must keep pausing the WorkerPool ScaledObject at sleep, and must not restore WorkerPool
+   replicas against KEDA.
+9. **Acceptance:**
+   - automatic worker creation and removal;
+   - placement on the new workers;
+   - active-actor scale-in;
+   - latency and throughput versus the fixed pool;
+   - concurrent reliability.
+
+   R1/R2 do not cover these.
+
 ## Phase 2 foundation `p2-foundation-20261116T084657Z` (2026-11-16)
 
 Evidence: `~/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/` (`SHA256SUMS.txt`), mirrored in
@@ -7,7 +55,7 @@ Evidence: `~/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/` (`S
 
 | Item | Value |
 |---|---|
-| `P2_FOUNDATION_STATUS` | **PARTIAL**: everything passes except the single-worker controlled replacement tests (R1/R2), which were not approved |
+| `P2_FOUNDATION_STATUS` | **PARTIAL** at the end of that campaign. **COMPLETE** since the P2-A closure above |
 | `P2_A_STATUS` | **PARTIAL**: lifecycle is correct across 3 all-node replacements (sleep/wake) and the first post-fix start (17 stale records removed). R1/R2 not run |
 | `P2_B_STATUS` | **COMPLETE**: atelet bound at node registration on 2 consecutive wakes; wake 4 passed 5/5 E2E with no manual step; exact `verify --expect awake` passed |
 | `P2_C_STATUS` | **COMPLETE**: kagent-controller spans in the business trace |

@@ -1,0 +1,72 @@
+{
+ "jsonrpc": "2.0",
+ "id": "replay-nl-fraud-161135",
+ "result": {
+  "kind": "task",
+  "id": "fd8da718-c30c-41a3-b2f5-3fc82d727e1b",
+  "artifacts": [
+   {
+    "artifactId": "answer-fd8da718-c30c-41a3-b2f5-3fc82d727e1b",
+    "name": "analyst-answer",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "**Kết quả điều tra gian lận**\n\n- Giao dịch `dc58ff4e-b5f7-4486-b1f8-4c31383741a9`: payment, 275465.53 VND, kênh app, thời điểm 2026-06-01T00:00:00+00:00\n- Mô hình `fraud-detector` v1: fraud_probability = 0.0639895560144887, dự đoán = 0 (không gian lận); feature_timestamp 2026-05-31T23:59:56+00:00\n- Feature từ Feast online store:\n  - `account_behavior__account_tx_count_1h` = 0 (event_timestamp 2026-05-31T23:59:56+00:00)\n  - `account_behavior__account_tx_count_24h` = 0 (event_timestamp 2026-05-31T23:59:56+00:00)\n  - `merchant_behavior__merchant_tx_count_24h` = 6 (event_timestamp 2026-05-31T23:59:56+00:00)\n  - `user_behavior__user_avg_amount_30d` = 474960.33 (event_timestamp 2026-05-31T23:59:56+00:00)\n- Chính sách liên quan (trích dẫn từ RAG):\n  1. `policy-payment-anomaly` / `policy-payment-anomaly:0000` (score 0.49425804103295834, repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md)\n  2. `policy-account-takeover` / `policy-account-takeover:0000` (score 0.4664269647229036, repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md)\n  3. `policy-account-takeover` / `policy-account-takeover:0001` (score 0.4522020703117881, repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md)\n\nTrạng thái: `ok` · request_id `nl-da88b13fc7e91dc33811a2ed47e826cc` · LLM chọn công cụ `fraud-evidence` (695+264 token) · nl-intake/v1\n\n_Các giá trị được sao chép nguyên văn từ bằng chứng đã xác thực của Specialist (Feast, KServe, RAG); LLM chỉ dùng để chọn công cụ và trích xuất tham số từ câu hỏi._"
+     }
+    ]
+   },
+   {
+    "artifactId": "result-fd8da718-c30c-41a3-b2f5-3fc82d727e1b",
+    "name": "validated-fraud-investigation",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "{\"citations\":[{\"chunk_id\":\"policy-payment-anomaly:0000\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-payment-anomaly\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.49425804103295834,\"source_checksum\":\"sha256:b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md\"},{\"chunk_id\":\"policy-account-takeover:0000\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-account-takeover\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.4664269647229036,\"source_checksum\":\"sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md\"},{\"chunk_id\":\"policy-account-takeover:0001\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-account-takeover\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.4522020703117881,\"source_checksum\":\"sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md\"}],\"contract_version\":\"g3-orchestration/v1\",\"coordinator_revision\":\"programmatic-coordinator/byo-v1\",\"decision_support\":\"Bằng chứng chuyên gia đã được xác thực; các giá trị nguồn được giữ nguyên bên dưới.\",\"drift\":[],\"features\":{\"account_behavior__account_tx_count_1h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"account_behavior__account_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"merchant_behavior__merchant_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":6},\"user_behavior__user_avg_amount_30d\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":474960.33}},\"fraud_score\":{\"feature_timestamp\":\"2026-05-31T23:59:56+00:00\",\"fraud_prediction\":0,\"fraud_probability\":0.0639895560144887,\"model_input_schema_sha256\":\"03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176\",\"model_name\":\"fraud-detector\",\"model_version\":\"1\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\"},\"request_id\":\"nl-da88b13fc7e91dc33811a2ed47e826cc\",\"status\":\"ok\",\"unavailable\":[]}"
+     }
+    ]
+   }
+  ],
+  "contextId": "dc8c05de-43cf-4c05-aadb-f3627d6ea8ea",
+  "history": [
+   {
+    "kind": "message",
+    "messageId": "replay-nl-fraud-161135",
+    "contextId": "dc8c05de-43cf-4c05-aadb-f3627d6ea8ea",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "Hãy đánh giá rủi ro gian lận cho giao dịch payment dc58ff4e-b5f7-4486-b1f8-4c31383741a9 (user 55561d92-d042-401c-b02a-b03e3ed280f7, account 2d48f147-f98c-4819-b183-f94ca049c175, device e7765b81-c9f9-4147-aa00-46f34de1d7da, merchant e3e4aced-6b0d-40af-be5c-eef9255204c9, amount 275465.53 VND, channel app, event_timestamp 2026-06-01T00:00:00Z): lấy feature của user/account, gọi mô hình dự đoán gian lận, giải thích mức rủi ro và trích dẫn chính sách liên quan."
+     }
+    ],
+    "role": "user",
+    "taskId": "fd8da718-c30c-41a3-b2f5-3fc82d727e1b"
+   },
+   {
+    "kind": "message",
+    "messageId": "d7f141bf-2f4e-45f2-8a50-4eb326398242",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "Đang dùng LLM (agentgateway → vLLM) để chọn công cụ và trích xuất tham số giao dịch…"
+     }
+    ],
+    "role": "agent"
+   },
+   {
+    "kind": "message",
+    "messageId": "25ccda89-be0d-463f-93e4-5dccd1a18832",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "LLM đã chọn công cụ `fraud-evidence`; đang ủy quyền cho feature-rag-specialist qua A2A Gateway (request_id nl-da88b13fc7e91dc33811a2ed47e826cc)…"
+     }
+    ],
+    "role": "agent"
+   }
+  ],
+  "status": {
+   "state": "completed",
+   "timestamp": "2026-11-16T16:13:08.746046Z"
+  }
+ }
+}

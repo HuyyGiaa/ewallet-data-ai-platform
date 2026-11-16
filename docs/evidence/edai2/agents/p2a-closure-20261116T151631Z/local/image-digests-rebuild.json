@@ -1,0 +1,21 @@
+{
+ "git_sha": "6986ba0eb3eab17d8a11fd918005c7e4433a03f7",
+ "images": {
+  "substrate-ateapi": {
+   "base": "ghcr.io/kagent-dev/substrate/ateapi@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85",
+   "binary_sha256": "3c1f43d136e7d083943414e25bd8a7a1e5a8fa1de594279e2e89cacd16d989c5",
+   "digest_ref": null,
+   "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
+   "patch_sha256": "0291af52e52d818b552c3f453354523d916f506476bc6eeb86d48290993ef838",
+   "security_bumps": [
+    "golang.org/x/net@v0.62.0",
+    "google.golang.org/grpc@v1.83.2"
+   ],
+   "source_sha256": "e4337e88a7848c59ca2de2b696a2a8a97ecec97eca0531f221ef2f958321dc65",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3",
+   "tests": "passed",
+   "upstream": "substrate v0.0.9 (136dbb16c9c36841009d58128e83ca49c552e0f3)"
+  }
+ },
+ "spec_sha256": "fea0bb6acf4a944448a0ebdd2dc576f287456bf439dfeadec080406dbc5f667e"
+}

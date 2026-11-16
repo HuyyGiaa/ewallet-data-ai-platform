@@ -1,0 +1,7 @@
+2026-11-16T15:33:44Z OWNER-APPROVED (AskUserQuestion) Gate B for p2a-closure-20261116T151631Z: temporary /32 (3 CIDRs kept), wake-full --nodes 5 with phase2 final-sleep manifest, read-only baseline + typed smoke, final record-manifest + KEDA-aware guarded sleep (ewallet-dev:p2a-closure-20261116T151631Z, --also-approve ewallet-mcp/feature-rag-mcp) + remove /32. R1/R2 NOT approved yet.
+2026-11-16T15:33:58Z Gate B: temporary /32 added
+2026-11-16T15:34:08Z Gate B: wake-full --nodes 5 --manifest /home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/final-sleep/recovery-manifest
+2026-11-16T15:58:30Z OWNER-APPROVED (AskUserQuestion) R1 for p2a-closure-20261116T151631Z: graceful delete of ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82 uid 28f33640-462b-4e14-a872-d5a621d4ba4e via harness; timeout 10 min; then typed smoke
+2026-11-16T16:06:15Z OWNER-APPROVED (AskUserQuestion) R2 for p2a-closure-20261116T151631Z: scale ate-api-server-deployment 0, wait no ateapi pod, graceful delete ewallet-sandbox/business-agents-deployment-55b8b4858c-xswmd uid 0dced329-47af-4295-aed8-2bf333a90c86, wait gone, scale back 1; max outage 5 min; always restore; then measure/verify/smoke
+2026-11-16T16:16:17Z Gate B: final KEDA-aware guarded sleep
+2026-11-16T16:20:46Z Gate B: temporary /32 removed rc=0; authorized networks restored (3 original CIDRs)

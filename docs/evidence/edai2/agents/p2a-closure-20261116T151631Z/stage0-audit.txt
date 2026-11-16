@@ -1,0 +1,35 @@
+P2-A FINAL CLOSURE — STAGE 0 AUDIT (read-only), HEAD 6986ba0e (clean, = origin)
+
+Verified implementation (substrate-0.0.9-worker-reconcile.patch, sha d836b5a3; deployed ateapi binary 3c1f43d1):
+- syncer reconcileStore: after informer HasSynced; at startup and every ATE_WORKER_RECONCILE_INTERVAL (2m);
+  removes records whose pod is absent / has another UID / another pool; releaseActorOnDeadWorker first;
+  live workers untouched; failed delete not counted and retried next pass.
+- deleting pod (DeletionTimestamp) removed immediately on the update event, even without IP.
+
+Worker selection path (not changed by P2-A):
+- AssignWorkerStep picks from the store-backed workercache; it does NOT consult the pod informer.
+  => a stale record is ELIGIBLE until the syncer removes it ("stale and still eligible").
+- If picked: CallAteletRestore fails at DialForWorker (ErrWorkerPodNotFound) BEFORE any atelet Run/Restore
+  call; rollbackFailedResume (PKG-T patch) releases the worker claim and sets the actor SUSPENDED with
+  snapshot pointers intact. Effect: the request fails fast and visibly, nothing executes (no duplicate),
+  actor state is valid, a retry may pick a live worker (not sticky).
+- Pre-P2-A, stale records persisted forever => repeated failures (observed 2026-11-16).
+
+Windows where a stale record can exist:
+1. ateapi up, pod deleted: update/delete event removes it immediately (R1 measures this).
+2. ateapi down while pod deleted (R2): the record survives until ateapi restarts. main.go waits for informer
+   sync, then serves; the syncer reconciles in its own goroutine right after the same sync, so a short race
+   exists between "serving" and "startup reconcile done". GKE logs so far show the reconcile completing within
+   ~60 ms of the initial sync. R2 measures: first RPC time vs reconcile time, and any ErrWorkerPodNotFound.
+3. missed delete while ateapi up: covered by the informer relist (DeletedFinalStateUnknown) and the 2m pass.
+
+Test coverage after Stage 1 (all PASS, -race, full package x3, and in the official build):
+- reconcile: stale removed, live kept, UID change, pool change (new), idempotent, no removal before sync,
+  periodic pass, failed store delete retried (new), deleting pod without IP.
+- actor: release on dead worker, dial-failure rollback, restore-failure rollback, concurrent retry, lock loss.
+- selection window (new, functional/envtest): stale record selected -> dial fails, no atelet call, actor
+  SUSPENDED, claim released, not sticky over 3 retries; after reconcile -> resume RUNNING on the live worker.
+
+Required code changes: none (no defect found). Residual risk to observe in R2: the startup race (window 2).
+Not covered by R1/R2 (B′ scope): replacing a worker with an ACTIVELY executing actor (releaseActorOnDeadWorker
+marks it SUSPENDED while the pod drains; a resume elsewhere during the grace period could overlap).

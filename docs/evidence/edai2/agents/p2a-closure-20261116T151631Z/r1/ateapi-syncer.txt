@@ -1,0 +1,8 @@
+{"time":"2026-11-16T15:58:34.674881473Z","level":"INFO","msg":"Syncer: removing worker from store (pod deleting)","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82"}
+{"time":"2026-11-16T15:58:34.733545006Z","level":"INFO","msg":"Syncer: removing worker from store (pod deleting)","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82"}
+{"time":"2026-11-16T15:58:35.211821649Z","level":"INFO","msg":"Syncer: removing worker from store (pod deleting)","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82"}
+{"time":"2026-11-16T15:58:35.339951708Z","level":"INFO","msg":"Syncer: removing worker from store (pod deleting)","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82"}
+{"time":"2026-11-16T15:58:35.377685761Z","level":"INFO","msg":"Syncer: removing worker from store (pod deleting)","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82"}
+{"time":"2026-11-16T15:58:35.756530561Z","level":"INFO","msg":"Syncer: removing worker from store (pod deleting)","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82"}
+{"time":"2026-11-16T15:58:35.792565329Z","level":"INFO","msg":"Syncer: removing worker from store","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82"}
+{"time":"2026-11-16T15:58:38.73416414Z","level":"INFO","msg":"Syncer: creating worker in store","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-g4kjk"}

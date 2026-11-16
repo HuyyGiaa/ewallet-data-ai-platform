@@ -1,0 +1,33 @@
+{
+  "idle": [
+    "business-agents-deployment-55b8b4858c-g4kjk",
+    "business-agents-deployment-55b8b4858c-xswmd"
+  ],
+  "pods": [
+    {
+      "name": "business-agents-deployment-55b8b4858c-g4kjk",
+      "uid": "6480ca8e-c1f9-463f-b6e9-ca1320653dba",
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-2qqj",
+      "phase": "Running",
+      "ready": true,
+      "deleting": false,
+      "created": "2026-11-16T15:58:34Z"
+    },
+    {
+      "name": "business-agents-deployment-55b8b4858c-xswmd",
+      "uid": "0dced329-47af-4295-aed8-2bf333a90c86",
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-sxtx",
+      "phase": "Running",
+      "ready": true,
+      "deleting": false,
+      "created": "2026-11-16T13:11:21Z"
+    }
+  ],
+  "consistency": {
+    "registry_readable": true,
+    "stale_records": [],
+    "unregistered_ready_pods": [],
+    "actors_on_missing_pods": [],
+    "busy_workers": []
+  }
+}

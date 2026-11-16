@@ -1,0 +1,29 @@
+{
+  "test": "r2",
+  "target_pod": "business-agents-deployment-55b8b4858c-xswmd",
+  "target_uid": "0dced329-47af-4295-aed8-2bf333a90c86",
+  "target_existed_before": true,
+  "target_gone_at_end": true,
+  "replacement": [
+    {
+      "name": "business-agents-deployment-55b8b4858c-9fgqh",
+      "uid": "e5433ac5-11fc-4b0b-81eb-a43800233d8d",
+      "node": "gke-ewallet-dev-cpu-pool-58daed59-jlxn"
+    }
+  ],
+  "replacement_distinct_uid": true,
+  "end_consistency": {
+    "registry_readable": true,
+    "stale_records": [],
+    "unregistered_ready_pods": [],
+    "actors_on_missing_pods": [],
+    "busy_workers": []
+  },
+  "registry_converged": true,
+  "no_actor_on_missing_pod_at_end": true,
+  "stale_record_window": null,
+  "replacement_registered_at": "2026-11-16T16:06:48Z.181",
+  "ateapi_had_no_pod": true,
+  "target_deleted_while_ateapi_down": true,
+  "verdict_inputs_ok": true
+}

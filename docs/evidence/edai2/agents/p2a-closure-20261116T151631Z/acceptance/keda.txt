@@ -1,0 +1,7 @@
+scaledobject.keda.sh/drift-specialist 3 True True False
+scaledobject.keda.sh/feature-rag-specialist 3 True False False
+scaledobject.keda.sh/fraud-coordinator 3 True False False
+horizontalpodautoscaler.autoscaling/drift-specialist 2 3 2 37m
+horizontalpodautoscaler.autoscaling/feature-rag-specialist 2 3 2 37m
+horizontalpodautoscaler.autoscaling/fraud-coordinator 2 3 2 37m
+workerpool replicas=2

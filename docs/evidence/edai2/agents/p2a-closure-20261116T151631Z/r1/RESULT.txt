@@ -1,0 +1,10 @@
+R1 — controlled idle worker replacement (ateapi up): PASS
+target ewallet-sandbox/business-agents-deployment-55b8b4858c-72k82 uid 28f33640-462b-4e14-a872-d5a621d4ba4e (node jlxn), idle per registry (no assignment, 0 non-suspended actors)
+15:58:33.84 graceful delete (kubectl delete pod --wait=false)
+15:58:34.67 syncer removed the record (pod deleting)            +0.84 s  -> old worker ineligible while still Terminating
+15:58:35.79 pod gone (final delete event)                         +1.95 s
+15:58:38.73 replacement g4kjk uid 6480ca8e-c1f9-463f-b6e9-ca1320653dba registered (node 2qqj)  +4.9 s
+harness: recovered at 15:58:41 (8 s); no stale record observed in any sample; registry == live pods; no actor on a missing pod
+smoke after: fraud/drift/combined completed (combined complete, unavailable []); 0 worker-pod-not-found / found-0-atelet
+placement: 4 delegations -> 4 'Picked worker' (2 g4kjk incl. fraud, 2 xswmd); each actor 1 placement + 2 no-op ResumeActor (~2 ms, RUNNING, same pod)
+duplicates: 3 tasks for 3 requests, 4 sandbox POSTs for 4 delegations, 0 delegation waits, 0 task failures

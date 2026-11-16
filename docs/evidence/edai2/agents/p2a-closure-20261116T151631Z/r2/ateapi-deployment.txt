@@ -1,0 +1,6 @@
+helm substrate Helm
+replicas 1 strategy {'rollingUpdate': {'maxSurge': '25%', 'maxUnavailable': '25%'}, 'type': 'RollingUpdate'} ready 1
+readiness {"failureThreshold": 3, "httpGet": {"path": "/readyz", "port": 9090, "scheme": "HTTP"}, "initialDelaySeconds": 5, "periodSeconds": 2, "successThreshold": 1, "timeoutSeconds": 1}
+startup null
+liveness null
+terminationGrace 30

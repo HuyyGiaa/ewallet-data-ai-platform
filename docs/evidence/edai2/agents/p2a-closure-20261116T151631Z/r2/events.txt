@@ -1,0 +1,5 @@
+2026-11-16T16:06:19Z.337 R2 scale ate-system/ate-api-server-deployment to 0
+2026-11-16T16:06:23Z.289 R2 ateapi has no pod; delete worker pod ewallet-sandbox/business-agents-deployment-55b8b4858c-xswmd uid=0dced329-47af-4295-aed8-2bf333a90c86 (graceful)
+2026-11-16T16:06:27Z.385 R2 worker pod gone while ateapi down
+2026-11-16T16:06:27Z.385 R2 restore ate-system/ate-api-server-deployment to 1
+2026-11-16T16:06:51Z.775 R2 recovered=True
