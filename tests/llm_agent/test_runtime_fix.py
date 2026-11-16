@@ -270,10 +270,21 @@ class BuildSpecTests(unittest.TestCase):
             "substrate-0.0.9-worker-reconcile.patch": {
                 "cmd/ateapi/internal/controlapi/syncer.go", "cmd/ateapi/internal/controlapi/syncer_reconcile_test.go",
                 "cmd/ateapi/internal/controlapi/syncer_test.go", "cmd/ateapi/internal/controlapi/functional_test.go"},
+            "substrate-0.0.9-worker-lifecycle-tests.patch": {
+                "cmd/ateapi/internal/controlapi/functional_test.go", "cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go",
+                "cmd/ateapi/internal/controlapi/syncer_reconcile_test.go"},
         }
         for name, files in allowed.items():
             touched = {line.split(" b/", 1)[1] for line in (PATCHES / name).read_text().splitlines() if line.startswith("diff --git ")}
             self.assertEqual(touched, files, name)
+
+    def test_test_only_patches_change_no_image(self):
+        spec = json.loads((PATCHES / "runtime-fix.json").read_text())
+        for extra in spec["substrate"]["extra_patches"]:
+            touched = {line.split(" b/", 1)[1] for line in (PATCHES / extra["patch"]).read_text().splitlines()
+                       if line.startswith("diff --git ")}
+            if all(path.endswith("_test.go") for path in touched):
+                self.assertEqual(extra["images"], [], extra["patch"])
 
     def test_package_gates_exist(self):
         script = (ROOT / "scripts/llm_agent/runtime_fix.sh").read_text()

@@ -102,6 +102,12 @@
         "images": [
           "substrate-ateapi"
         ]
+      },
+      {
+        "patch": "substrate-0.0.9-worker-lifecycle-tests.patch",
+        "patch_sha256": "ec631932c952f7e94268dd39afc3aeea46eeaef1b01d945ec63338a6a28e608f",
+        "purpose": "test-only (no image changes): stale-worker selection window (fails at the dial before any atelet call, rollback, reconcile, resume on the live worker), pool change, store failure (P2-A final closure)",
+        "images": []
       }
     ]
   }

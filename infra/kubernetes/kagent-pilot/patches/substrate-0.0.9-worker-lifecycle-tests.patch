@@ -1,0 +1,294 @@
+diff --git a/cmd/ateapi/internal/controlapi/functional_test.go b/cmd/ateapi/internal/controlapi/functional_test.go
+index aeaff38..85a387f 100644
+--- a/cmd/ateapi/internal/controlapi/functional_test.go
++++ b/cmd/ateapi/internal/controlapi/functional_test.go
+@@ -251,6 +251,7 @@ type testContext struct {
+ 	actorTemplateLister listersv1alpha1.ActorTemplateLister
+ 	workerPoolLister    listersv1alpha1.WorkerPoolLister
+ 	sandboxConfigLister listersv1alpha1.SandboxConfigLister
++	syncer              *WorkerPoolSyncer // ewallet patch: lets lifecycle tests run a reconcile pass
+ }
+ 
+ // setupTest sets up a fully isolated test environment.
+@@ -385,6 +386,7 @@ func setupTest(t *testing.T, ns string) *testContext {
+ 		actorTemplateLister: actorTemplateLister,
+ 		workerPoolLister:    workerPoolLister,
+ 		sandboxConfigLister: sandboxConfigLister,
++		syncer:              syncer,
+ 	}
+ }
+ 
+diff --git a/cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go b/cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go
+new file mode 100644
+index 0000000..664a89f
+--- /dev/null
++++ b/cmd/ateapi/internal/controlapi/lifecycle_stale_worker_test.go
+@@ -0,0 +1,186 @@
++// Copyright 2026 Google LLC
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package controlapi
++
++// ewallet patch (P2-A lifecycle acceptance): the window in which a worker record outlives its pod.
++//
++// Worker selection (AssignWorkerStep) reads the store-backed worker cache and does not consult the
++// pod informer, so a stale record is eligible until the syncer removes it. These tests pin what the
++// platform does inside that window and after it closes:
++//   - a resume that picks the stale record fails at the atelet dial, before any atelet call, so no
++//     sandbox work runs (nothing to duplicate); the actor returns to SUSPENDED with its snapshot
++//     pointers intact and the record's claim is released;
++//   - a reconcile pass removes the record, and the next resume runs on the live worker.
++
++import (
++	"context"
++	"errors"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/agent-substrate/substrate/cmd/ateapi/internal/store"
++	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
++	"google.golang.org/protobuf/proto"
++	"k8s.io/apimachinery/pkg/util/wait"
++)
++
++const stalePodUID = "00000000-0000-4000-8000-0000000000aa"
++
++// injectStaleWorker stores a copy of a live worker's record under the name of a pod that does not
++// exist: the state left behind when a pod is removed while ateapi cannot observe the delete event.
++func injectStaleWorker(t *testing.T, tc *testContext, ns, livePod, stalePod string) {
++	t.Helper()
++	ctx := context.Background()
++	live, err := tc.persistence.GetWorker(ctx, ns, "pool1", livePod)
++	if err != nil {
++		t.Fatalf("GetWorker %s: %v", livePod, err)
++	}
++	stale := proto.Clone(live).(*ateapipb.Worker)
++	stale.WorkerPod, stale.WorkerPodUid, stale.Assignment, stale.Version = stalePod, stalePodUID, nil, 0
++	if err := tc.persistence.CreateWorker(ctx, stale); err != nil {
++		t.Fatalf("CreateWorker %s: %v", stalePod, err)
++	}
++	waitCached(t, tc, ns, stalePod, true)
++}
++
++func waitCached(t *testing.T, tc *testContext, ns, pod string, want bool) {
++	t.Helper()
++	if err := wait.PollUntilContextTimeout(context.Background(), 20*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
++		workers, err := tc.workerCache.Workers()
++		if err != nil {
++			return false, nil
++		}
++		found := false
++		for _, w := range workers {
++			found = found || (w.GetWorkerNamespace() == ns && w.GetWorkerPod() == pod)
++		}
++		return found == want, nil
++	}); err != nil {
++		t.Fatalf("worker cache: %s/%s present=%v not reached", ns, pod, want)
++	}
++}
++
++// setAssignment claims (actor != "") or frees a worker record directly, to steer selection.
++func setAssignment(t *testing.T, tc *testContext, ns, pod, actor string) {
++	t.Helper()
++	ctx := context.Background()
++	w, err := tc.persistence.GetWorker(ctx, ns, "pool1", pod)
++	if err != nil {
++		t.Fatalf("GetWorker %s: %v", pod, err)
++	}
++	w.Assignment = nil
++	if actor != "" {
++		w.Assignment = &ateapipb.Assignment{
++			ActorTemplate: &ateapipb.KubeNamespacedObjectRef{Namespace: ns, Name: "tmpl1"},
++			Actor:         &ateapipb.ObjectRef{Atespace: testAtespace, Name: actor},
++		}
++	}
++	if err := tc.persistence.UpdateWorker(ctx, w, w.Version); err != nil {
++		t.Fatalf("UpdateWorker %s: %v", pod, err)
++	}
++	if err := wait.PollUntilContextTimeout(ctx, 20*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
++		workers, _ := tc.workerCache.Workers()
++		for _, c := range workers {
++			if c.GetWorkerNamespace() == ns && c.GetWorkerPod() == pod {
++				return (c.GetAssignment() != nil) == (actor != ""), nil
++			}
++		}
++		return false, nil
++	}); err != nil {
++		t.Fatalf("worker cache did not see the assignment change on %s", pod)
++	}
++}
++
++func atelet(tc *testContext) (run, restore bool) {
++	tc.fakeAtelet.Lock.Lock()
++	defer tc.fakeAtelet.Lock.Unlock()
++	return tc.fakeAtelet.RunCalled, tc.fakeAtelet.RestoreCalled
++}
++
++func TestLifecycle_StaleWorkerRecordFailsCleanlyUntilReconciled(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-life-stale", "worker-live")
++	defer cleanup()
++	ctx := context.Background()
++
++	injectStaleWorker(t, tc, ns, "worker-live", "worker-gone")
++	// Only the stale record is free: the selection inside the window is deterministic.
++	setAssignment(t, tc, ns, "worker-live", "someone-else")
++
++	// 1. Inside the window: the stale record is selected and the resume fails at the dial.
++	err := resume(ctx, tc, "id1")
++	if err == nil || !strings.Contains(err.Error(), ErrWorkerPodNotFound.Error()) {
++		t.Fatalf("resume on the stale record: want %q, got %v", ErrWorkerPodNotFound, err)
++	}
++	if run, restore := atelet(tc); run || restore {
++		t.Fatalf("no atelet call may happen for a dead worker (run=%v restore=%v)", run, restore)
++	}
++	a := waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 2*time.Second)
++	if a.GetAteomPodName() != "" || a.GetAteomPodUid() != "" || a.GetWorkerPoolName() != "" {
++		t.Fatalf("actor still points at a worker after the failed resume: %+v", a)
++	}
++	if got := workerAssignee(t, tc, ns, "worker-gone"); got != "" {
++		t.Fatalf("the stale record kept the claim of %q", got)
++	}
++
++	// 2. Close the window: one reconcile pass removes the record (the live one is untouched).
++	if n := tc.syncer.reconcileStore(ctx); n != 1 {
++		t.Fatalf("reconcile removed %d records, want 1", n)
++	}
++	if _, err := tc.persistence.GetWorker(ctx, ns, "pool1", "worker-gone"); !errors.Is(err, store.ErrNotFound) {
++		t.Fatalf("stale record survived the reconcile: %v", err)
++	}
++	waitCached(t, tc, ns, "worker-gone", false)
++	if got := workerAssignee(t, tc, ns, "worker-live"); got != "someone-else" {
++		t.Fatalf("reconcile changed the live worker's claim to %q", got)
++	}
++
++	// 3. After the window: the same actor resumes on the live worker, once.
++	setAssignment(t, tc, ns, "worker-live", "")
++	if err := resume(ctx, tc, "id1"); err != nil {
++		t.Fatalf("resume after reconcile: %v", err)
++	}
++	a = waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_RUNNING, 2*time.Second)
++	if a.GetAteomPodName() != "worker-live" {
++		t.Fatalf("actor runs on %q, want worker-live", a.GetAteomPodName())
++	}
++	if got := workerAssignee(t, tc, ns, "worker-live"); got != "id1" {
++		t.Fatalf("live worker claim = %q, want id1", got)
++	}
++}
++
++// Without a reconcile, a free stale record keeps being offered: each attempt that picks it fails at
++// the dial and rolls back the same way (bounded, observable, nothing executed). This is why ateapi
++// reconciles at startup, before stale records can matter, and periodically after.
++func TestLifecycle_StaleWorkerRecordIsRetriedSafelyNotSticky(t *testing.T) {
++	tc, ns, cleanup := recoverySetup(t, "ns-life-retry", "worker-live")
++	defer cleanup()
++	ctx := context.Background()
++	injectStaleWorker(t, tc, ns, "worker-live", "worker-gone")
++	setAssignment(t, tc, ns, "worker-live", "someone-else")
++
++	for i := 0; i < 3; i++ {
++		if err := resume(ctx, tc, "id1"); err == nil || !strings.Contains(err.Error(), ErrWorkerPodNotFound.Error()) {
++			t.Fatalf("attempt %d: want %q, got %v", i, ErrWorkerPodNotFound, err)
++		}
++		waitActorStatus(t, tc, "id1", ateapipb.Actor_STATUS_SUSPENDED, 2*time.Second)
++		if got := workerAssignee(t, tc, ns, "worker-gone"); got != "" {
++			t.Fatalf("attempt %d left the stale record claimed by %q (sticky)", i, got)
++		}
++	}
++	if run, restore := atelet(tc); run || restore {
++		t.Fatalf("an atelet call happened for a dead worker (run=%v restore=%v)", run, restore)
++	}
++}
+diff --git a/cmd/ateapi/internal/controlapi/syncer_reconcile_test.go b/cmd/ateapi/internal/controlapi/syncer_reconcile_test.go
+index 63ddf19..a64d7bf 100644
+--- a/cmd/ateapi/internal/controlapi/syncer_reconcile_test.go
++++ b/cmd/ateapi/internal/controlapi/syncer_reconcile_test.go
+@@ -319,3 +319,77 @@ func TestWorkerReconcileInterval(t *testing.T) {
+ 		}
+ 	}
+ }
++
++// A record whose pod now carries another pool label belongs to the old pool: it is removed and
++// the pod is registered under its current pool.
++func TestSyncerReconcile_PoolChangeReRegisters(t *testing.T) {
++	t.Setenv("ATE_WORKER_RECONCILE_INTERVAL", "0")
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++
++	f := newRecFixture(t, recPod("moved", "00000000-0000-4000-8000-000000000201", "10.0.0.7"))
++	old := recStoreWorker("moved", "00000000-0000-4000-8000-000000000201", "10.0.0.7")
++	old.WorkerPool = "pool-old"
++	if err := f.persistence.CreateWorker(ctx, old); err != nil {
++		t.Fatalf("seed: %v", err)
++	}
++	f.start(ctx)
++	poll(t, ctx, "old-pool record removed", func(c context.Context) (bool, error) {
++		_, err := f.persistence.GetWorker(c, recNS, "pool-old", "moved")
++		return errors.Is(err, store.ErrNotFound), nil
++	})
++	poll(t, ctx, "registered under the current pool", func(c context.Context) (bool, error) {
++		_, err := f.persistence.GetWorker(c, recNS, recPool, "moved")
++		return err == nil, nil
++	})
++	if n := f.syncer.reconcileStore(ctx); n != 0 {
++		t.Errorf("second pass removed %d, want 0", n)
++	}
++}
++
++// failingDeletes makes DeleteWorker fail while fail is set; every other call passes through.
++type failingDeletes struct {
++	store.Interface
++	fail bool
++}
++
++func (f *failingDeletes) DeleteWorker(ctx context.Context, ns, pool, pod string) error {
++	if f.fail {
++		return errors.New("injected store failure")
++	}
++	return f.Interface.DeleteWorker(ctx, ns, pool, pod)
++}
++
++// A failed store delete is not counted, leaves the record for the next pass, and the next pass
++// removes it.
++func TestSyncerReconcile_StoreFailureIsRetriedNextPass(t *testing.T) {
++	t.Setenv("ATE_WORKER_RECONCILE_INTERVAL", "0")
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++
++	f := newRecFixture(t, recPod("live-3", "00000000-0000-4000-8000-000000000301", "10.0.0.8"))
++	if err := f.persistence.CreateWorker(ctx, recStoreWorker("gone-3", "00000000-0000-4000-8000-000000000302", "10.9.9.6")); err != nil {
++		t.Fatalf("seed: %v", err)
++	}
++	f.start(ctx)
++	poll(t, ctx, "startup pass removed the record", workerGone(ctx, f.persistence, "gone-3"))
++
++	if err := f.persistence.CreateWorker(ctx, recStoreWorker("gone-4", "00000000-0000-4000-8000-000000000303", "10.9.9.5")); err != nil {
++		t.Fatalf("seed: %v", err)
++	}
++	wrapped := &failingDeletes{Interface: f.persistence, fail: true}
++	f.syncer.persistence = wrapped
++	if n := f.syncer.reconcileStore(ctx); n != 0 {
++		t.Fatalf("a failed delete was counted: %d", n)
++	}
++	if _, err := f.persistence.GetWorker(ctx, recNS, recPool, "gone-4"); err != nil {
++		t.Fatalf("record lost although the delete failed: %v", err)
++	}
++	wrapped.fail = false
++	if n := f.syncer.reconcileStore(ctx); n != 1 {
++		t.Fatalf("next pass removed %d, want 1", n)
++	}
++	if _, err := f.persistence.GetWorker(ctx, recNS, "pool-rec", "live-3"); err != nil {
++		t.Fatalf("live worker removed: %v", err)
++	}
++}
