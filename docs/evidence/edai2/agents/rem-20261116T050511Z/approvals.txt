@@ -1,0 +1,12 @@
+2026-11-16T05:11:21Z OWNER-APPROVED (AskUserQuestion) for remediation rem-20261116T050511Z:
+  A1 temporary authorized network 14.179.86.222/32 (remove at end)
+  A2 img-agents roll of 3 BYO images from 21994c03 (coordinator, feature-rag, drift); MCP unchanged; rollback IMG-AGENTS-ROLLBACK
+  A3 bounded acceptance: 5 E2E, negatives, AGR-06 concurrency 2/4/8 x 100 tasks, trace check
+  A4 Agent Registry publish (8 docs, P4 catalog from live values) after the roll
+  A5 KEDA-aware guarded sleep (--pause-keda, CLOUD_LAB_GUARDED_SLEEP_APPROVAL + CLOUD_LAB_KEDA_PAUSE_APPROVAL = ewallet-dev:rem-20261116T050511Z, --also-approve ewallet-mcp/feature-rag-mcp)
+  A6 (5th node) NOT approved
+2026-11-16T05:13:44Z A2 executing: IMG-AGENTS upgrade (rollback target rev 51)
+2026-11-16T05:17:45Z OWNER-APPROVED A2b: apply Sandbox fleet image 81b6bd17 -> 29867794 (2 SandboxAgents, image only); rollback = re-apply with 81b6bd17
+2026-11-16T05:23:46Z A4 executing: registry publish (8 docs) from 281b0493, sandbox image sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77
+2026-11-16T06:08:58Z A5 executing: KEDA-aware guarded sleep, campaign rem-20261116T050511Z
+2026-11-16T06:12:58Z A1 cleanup: removing temporary 14.179.86.222/32

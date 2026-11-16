@@ -1,0 +1,89 @@
+{
+ "entries": [
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "drift-specialist-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v2"
+  },
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "feature-rag-specialist-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "fraud-coordinator-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "differences": [],
+   "kind": "MCPServer",
+   "matches": true,
+   "name": "drift-mcp",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "differences": [],
+   "kind": "MCPServer",
+   "matches": true,
+   "name": "feature-rag-mcp",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "differences": [],
+   "kind": "Agent",
+   "matches": true,
+   "name": "drift-specialist",
+   "published_git_sha": "281b0493b455b5afeaf1b9b9adbcf7433178653c",
+   "registered": true,
+   "status": 200,
+   "tag": "1.1.0"
+  },
+  {
+   "differences": [],
+   "kind": "Agent",
+   "matches": true,
+   "name": "feature-rag-specialist",
+   "published_git_sha": "281b0493b455b5afeaf1b9b9adbcf7433178653c",
+   "registered": true,
+   "status": 200,
+   "tag": "1.0.0"
+  },
+  {
+   "differences": [
+    "spec.mcpServers differs"
+   ],
+   "kind": "Agent",
+   "matches": false,
+   "name": "fraud-coordinator",
+   "published_git_sha": "281b0493b455b5afeaf1b9b9adbcf7433178653c",
+   "registered": true,
+   "status": 200,
+   "tag": "1.1.0"
+  }
+ ],
+ "git_sha": "281b0493b455b5afeaf1b9b9adbcf7433178653c",
+ "registry": "http://127.0.0.1:18121",
+ "verdict": "FAIL"
+}

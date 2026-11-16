@@ -22,7 +22,7 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | Distributed tracing (AGI-12) | **GKE_PASS for Sandbox spans**: Sandbox Feature-RAG spans in the Coordinator's trace. One hop gap remains: the kagent controller exports no spans (empty endpoint) |
 | Security | **GKE_PASS** (unchanged policies; negatives pass) |
 | Agent Fleet (shared WorkerPool) | **GKE_PASS** (2026-11-15/16 runs; fleet image updated, sharing unchanged) |
-| Sleep / wake readiness | Reported in §6.4 |
+| Sleep / wake readiness | **SLEEP_VERIFIED** with the KEDA-aware guarded sleep (§6.4); wake-full unpauses (unit-tested, not yet exercised on GKE) |
 | Natural-language combined prompts | Rejected by design (strict guard, owner decision) |
 
 ## 1. Architecture
@@ -249,3 +249,25 @@ Items 1 and 2, and the capacity part of item 5, are resolved by the final remedi
   - Publish: 8 documents, PASS.
   - Readback after: **8/8 match**. Agents went from 3 to 5 records; prompts stayed 12 and MCP servers 2; nothing was
     removed (`registry/`).
+
+### 6.4 KEDA-aware sleep (P1, operational cost)
+
+- **Problem:** the guarded sleep scaled the agents to 0, KEDA (`minReplicaCount 2`) restored them, and the PDBs blocked
+  the resize (`SLEEP_BLOCKED`, 2026-11-16 early).
+- **Change** (`21994c03`): `cloud_lab sleep --scale-pdb-guarded`:
+  - detects the ScaledObjects of guarded Deployments **before any mutation**;
+  - refuses unless it gets `--pause-keda` with its own approval (`CLOUD_LAB_KEDA_PAUSE_APPROVAL`);
+  - pauses them (`autoscaling.keda.sh/paused-replicas=0` plus the marker `ewallet.io/cloud-lab-paused-by`), scales,
+    and waits for the PDBs;
+  - restores the pauses and replicas when the preparation fails.
+
+  `wake-full` unpauses only marked ScaledObjects. `verify --expect awake` fails while a marked pause remains, and
+  `plan-sleep` lists what would be paused. Six unit tests cover refusal, approval, ordering, failure recovery,
+  selective unpause and "no KEDA installed".
+- **GKE result:**
+  - `plan-sleep`: `SAFE_AFTER_REVERSIBLE_PREPARATION`, no active work, `keda_pause` = the 3 agent ScaledObjects.
+  - The approved sleep paused the 3 ScaledObjects, scaled the guarded Deployments, and resized `cpu-pool` to 0.
+  - `verify --expect sleep`: no failures (`sleep/`).
+  - The temporary authorized network was removed afterwards.
+- **Remaining:** the unpause path of `wake-full` is unit-tested only. It runs at the owner's next wake (replay §1),
+  which must show `keda_resumed` with the 3 ScaledObjects.

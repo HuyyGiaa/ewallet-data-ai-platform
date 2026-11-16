@@ -1,0 +1,4 @@
+fraud-coordinator-5dd946c44c-hlszp created=2026-11-16T05:16:18Z tasks_completed=41
+fraud-coordinator-5dd946c44c-rkzwb created=2026-11-16T05:15:58Z tasks_completed=30
+feature-rag-specialist-968cdb5f-4v5n4 created=2026-11-16T05:24:33Z tasks_completed=0
+feature-rag-specialist-968cdb5f-hq5fr created=2026-11-16T05:16:18Z tasks_completed=0

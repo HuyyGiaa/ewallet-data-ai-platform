@@ -1,0 +1,42 @@
+diff -u -N /tmp/LIVE-1427444678/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.drift-specialist /tmp/MERGED-3308595778/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.drift-specialist
+--- /tmp/LIVE-1427444678/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.drift-specialist	2026-11-16 12:16:51.215337001 +0700
++++ /tmp/MERGED-3308595778/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.drift-specialist	2026-11-16 12:16:51.216337008 +0700
+@@ -7,7 +7,7 @@
+   creationTimestamp: "2026-11-15T16:57:01Z"
+   finalizers:
+   - kagent.dev/sandbox-agent-substrate-cleanup
+-  generation: 2
++  generation: 3
+   labels:
+     ewallet.io/agent: drift-specialist
+     ewallet.io/campaign: agi-20261115T145608Z
+@@ -57,7 +57,7 @@
+           secretKeyRef:
+             key: token
+             name: mcp-token-sandbox-drift-drift-mcp-sbx-20261115
+-      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:81b6bd17e08757636904aea6e8681005823e40091548db05b53fc75b66dd9ada
++      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77
+       imagePullPolicy: IfNotPresent
+       podSecurityContext:
+         runAsNonRoot: true
+diff -u -N /tmp/LIVE-1427444678/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.feature-rag-specialist /tmp/MERGED-3308595778/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.feature-rag-specialist
+--- /tmp/LIVE-1427444678/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.feature-rag-specialist	2026-11-16 12:16:51.038335677 +0700
++++ /tmp/MERGED-3308595778/kagent.dev.v1alpha2.SandboxAgent.ewallet-sandbox.feature-rag-specialist	2026-11-16 12:16:51.039335684 +0700
+@@ -7,7 +7,7 @@
+   creationTimestamp: "2026-11-15T16:57:00Z"
+   finalizers:
+   - kagent.dev/sandbox-agent-substrate-cleanup
+-  generation: 2
++  generation: 3
+   labels:
+     ewallet.io/agent: feature-rag-specialist
+     ewallet.io/campaign: agi-20261115T145608Z
+@@ -59,7 +59,7 @@
+           secretKeyRef:
+             key: token
+             name: mcp-token-sandbox-feature-rag-feature-rag-mcp-sbx-20261115
+-      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:81b6bd17e08757636904aea6e8681005823e40091548db05b53fc75b66dd9ada
++      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77
+       imagePullPolicy: IfNotPresent
+       podSecurityContext:
+         runAsNonRoot: true

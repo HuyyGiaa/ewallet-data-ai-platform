@@ -1,0 +1,19 @@
+
+==================== 05:18:13Z  E2E fraud  request_id replay-fraud-051813  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=23.82 s
+{"status": "ok", "contract_version": "g3-orchestration/v1", "fraud_score": {"feature_timestamp": "2026-05-31T23:59:56+00:00", "fraud_prediction": 0, "fraud_probability": 0.0639895560144887, "model_input_schema_sha256": "03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176", "model_name": "fraud-detector", "model_version": "1", "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9"}, "features": {"account_behavior__account_tx_count_1h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 0}, "account_behavior__account_tx_count_24h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 0}, "merchant_behavior__merchant_tx_count_24h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 6}, "user_behavior__user_avg_amount_30d": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 474960.33}}, "unavailable": []}
+
+==================== 05:18:37Z  HOPS for fraud (logs since 2026-11-16T05:18:13Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 05:18:37,062 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 05:18:37,072 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-fraud-051813 task_id=44ccb5c3-2f29-4f26-9e4c-5046acf6d79c mode=typed status=ok duration_ms=23537
+-- A2A Gateway routes
+      1 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "feature_lookup" "trace_id": "20139d2afc9619c099b1106145d667e1" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "fraud_scoring" "trace_id": "20139d2afc9619c099b1106145d667e1" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "knowledge_search" "trace_id": "20139d2afc9619c099b1106145d667e1"
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+pod/drift-specialist-6b95987c9f-4mmv4 0
+pod/drift-specialist-6b95987c9f-d4cpw 0
+pod/feature-rag-specialist-968cdb5f-hq5fr 0
+pod/feature-rag-specialist-968cdb5f-k7fpc 0
+saved under /home/huyy-giaa/ewallet-evidence/agents/remediation/rem-20261116T050511Z/acceptance/e2e/replay-fraud-051813-*

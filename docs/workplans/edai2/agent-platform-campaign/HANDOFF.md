@@ -1,5 +1,22 @@
 # Agent platform completion: campaign handoff
 
+## Final remediation `rem-20261116T050511Z` (2026-11-16): current state
+
+Results: [AGENT_PLATFORM_COMPLETION.md §6](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#6-final-remediation-rem-20261116t050511z).
+
+- **Deployed:**
+  - `llm-agent` rev 52, with 3 BYO images from `21994c03`.
+  - Sandbox fleet image `29867794`.
+  - Registry published; readback 8/8.
+  - MCP `llm-agent-mcp` rev 17, unchanged.
+- **GKE:** ASLEEP (`verify --expect sleep` passed). The agent ScaledObjects are **paused** with the cloud-lab marker,
+  and `wake-full` unpauses them. No temporary authorized network remains.
+- **Not done:**
+  - B′.
+  - Re-running MCP failover (A6 was not approved; that code is unchanged).
+  - kagent controller tracing endpoint (kagent release config).
+  - The runtime label for Sandbox in-flight metrics.
+
 ## Final integration `agi-20261115T145608Z` (2026-11-15/16): read this first
 
 Results: [AGENT_PLATFORM_COMPLETION.md](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md). Owner replay:

@@ -1,0 +1,5 @@
+TIME                   OBJECT                   MESSAGE
+2026-11-16T05:46:21Z   feature-rag-specialist   New size: 3; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: feature-rag-specialist,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+2026-11-16T06:04:07Z   feature-rag-specialist   New size: 2; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: feature-rag-specialist,},MatchExpressions:[]LabelSelectorRequirement{},}) below target
+2026-11-16T05:45:51Z   fraud-coordinator        New size: 3; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: fraud-coordinator,},MatchExpressions:[]LabelSelectorRequirement{},}) above target
+2026-11-16T06:03:08Z   fraud-coordinator        New size: 2; reason: external metric s0-prometheus(&LabelSelector{MatchLabels:map[string]string{scaledobject.keda.sh/name: fraud-coordinator,},MatchExpressions:[]LabelSelectorRequirement{},}) below target

@@ -1,0 +1,4 @@
+c=2 admission_waits=0 total_wait_s=0.0 max_attempt=0
+c=4 admission_waits=11 total_wait_s=29.7 max_attempt=3
+c=8 admission_waits=97 total_wait_s=353.3 max_attempt=7
+ALL_DONE

@@ -1,0 +1,35 @@
+added: 0
+removed: 0
+changed: 3
+  Agent ewallet-agents/drift-specialist
+  Agent ewallet-agents/feature-rag-specialist
+  Agent ewallet-agents/fraud-coordinator
+
+### CHANGED Agent ewallet-agents/drift-specialist
+--- 
++++ 
+@@ -49,3 +49,3 @@
+             name: mcp-token-drift-specialist-drift-mcp-r1-release1
+-      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist@sha256:d1bab921c1b788c9cb5db40f782e5e40ed37abb351689385d4963339ef16780c
++      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-drift-specialist@sha256:75011f6ce496e192db997ddc931c82d8d91c4ce87f59414d75ca6eacc2e86931
+       imagePullPolicy: IfNotPresent
+
+### CHANGED Agent ewallet-agents/feature-rag-specialist
+--- 
++++ 
+@@ -66,3 +66,3 @@
+             name: mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1
+-      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:e86b856b6747c0f3f37c2b0578dbbd5c4b18b0e175f5510e914190fef806f0ca
++      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77
+       imagePullPolicy: IfNotPresent
+
+### CHANGED Agent ewallet-agents/fraud-coordinator
+--- 
++++ 
+@@ -84,3 +84,3 @@
+         value: '0.1'
+-      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:527021ec56b12a67d7cea3629cb1c7e7dea0cff6d5f7c0421fa1c142c27f46f8
++      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:9775406101b83b03cdbbfcb550daf7e7ced61b0bde8ca1869a02e16daf06b69b
+       imagePullPolicy: IfNotPresent
+
+RESULT: PASS

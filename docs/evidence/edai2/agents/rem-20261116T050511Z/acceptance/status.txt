@@ -1,0 +1,76 @@
+
+==================== 05:18:07Z  REPLAY-01 cluster and platform state (Kubernetes readiness only, not business E2E) ====================
+NAME                                     STATUS   ROLES    AGE   VERSION               G3-LLM
+gke-ewallet-dev-cpu-pool-58daed59-56pd   Ready    <none>   14h   v1.36.4-gke.2377000   true
+gke-ewallet-dev-cpu-pool-58daed59-96v6   Ready    <none>   14h   v1.36.4-gke.2377000   true
+gke-ewallet-dev-cpu-pool-58daed59-gt91   Ready    <none>   14h   v1.36.4-gke.2377000   true
+gke-ewallet-dev-cpu-pool-58daed59-ps1b   Ready    <none>   14h   v1.36.4-gke.2377000   
+REVISION	UPDATED                 	STATUS  	CHART                   	APP VERSION 	DESCRIPTION     
+52      	Mon Nov 16 12:14:41 2026	deployed	llm-agent-platform-0.1.0	llm-agent-v1	Upgrade complete
+REVISION	UPDATED                 	STATUS  	CHART                   	APP VERSION 	DESCRIPTION     
+17      	Mon Nov 16 03:09:49 2026	deployed	llm-agent-platform-0.1.0	llm-agent-v1	Upgrade complete
+
+==================== 05:18:09Z  Agents (kagent), Deployments, KEDA ====================
+NAME                                      TYPE   RUNTIME   READY   ACCEPTED
+agent.kagent.dev/drift-specialist         BYO              True    True
+agent.kagent.dev/feature-rag-specialist   BYO              True    True
+agent.kagent.dev/fraud-coordinator        BYO              True    True
+
+NAME                                        PROVIDER   MODEL
+modelconfig.kagent.dev/ewallet-global-llm   OpenAI     ewallet-fraud-llm
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+fraud-coordinator        2/2     2            2           14d
+feature-rag-specialist   2/2     2            2           14d
+drift-specialist         2/2     2            2           14d
+a2a-gateway              1/1     1            1           14d
+mcp-gateway              1/1     1            1           14d
+agentgateway             1/1     1            1           14d
+NAME                                          SCALETARGETKIND      SCALETARGETNAME          MIN   MAX   READY   ACTIVE   FALLBACK   PAUSED   TRIGGERS     AUTHENTICATIONS   AGE
+scaledobject.keda.sh/drift-specialist         apps/v1.Deployment   drift-specialist         2     3     True    False    False      False    prometheus                     11h
+scaledobject.keda.sh/feature-rag-specialist   apps/v1.Deployment   feature-rag-specialist   2     3     True    False    False      False    prometheus                     11h
+scaledobject.keda.sh/fraud-coordinator        apps/v1.Deployment   fraud-coordinator        2     3     True    False    False      False    prometheus                     11h
+
+NAME                                                         REFERENCE                           TARGETS     MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/drift-specialist         Deployment/drift-specialist         0/2 (avg)   2         3         2          11h
+horizontalpodautoscaler.autoscaling/feature-rag-specialist   Deployment/feature-rag-specialist   0/2 (avg)   2         3         2          11h
+horizontalpodautoscaler.autoscaling/fraud-coordinator        Deployment/fraud-coordinator        0/2 (avg)   2         3         2          11h
+
+==================== 05:18:10Z  MCP servers (2 replicas, PDB, RollingUpdate) ====================
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                                                                                                                                            SELECTOR
+deployment.apps/drift-mcp         2/2     2            2           14d   mcp-server   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:0e291f6582c698e3d8bd6ee213d04ca92227f354b4d2021b0cefc1c708d8a5f0   app.kubernetes.io/name=drift-mcp
+deployment.apps/feature-rag-mcp   2/2     2            2           14d   mcp-server   asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:0e291f6582c698e3d8bd6ee213d04ca92227f354b4d2021b0cefc1c708d8a5f0   app.kubernetes.io/name=feature-rag-mcp
+
+NAME                                         MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/drift-mcp         1               N/A               1                     14d
+poddisruptionbudget.policy/feature-rag-mcp   1               N/A               1                     13h
+
+NAME                                   READY   STATUS    RESTARTS   AGE    IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/drift-mcp-7547956569-5gtx5         1/1     Running   0          7h9m   10.216.1.80   gke-ewallet-dev-cpu-pool-58daed59-96v6   <none>           <none>
+pod/drift-mcp-7547956569-sjbm4         1/1     Running   0          7h9m   10.216.3.96   gke-ewallet-dev-cpu-pool-58daed59-gt91   <none>           <none>
+pod/feature-rag-mcp-79ff47d796-8fcf4   1/1     Running   0          7h9m   10.216.0.33   gke-ewallet-dev-cpu-pool-58daed59-56pd   <none>           <none>
+pod/feature-rag-mcp-79ff47d796-q654t   1/1     Running   0          7h9m   10.216.1.79   gke-ewallet-dev-cpu-pool-58daed59-96v6   <none>           <none>
+NAME              REPLICAS   STRATEGY        MAXUNAVAILABLE
+feature-rag-mcp   2          RollingUpdate   0
+drift-mcp         2          RollingUpdate   0
+
+==================== 05:18:11Z  Sandbox fleet (SandboxAgents, shared WorkerPool, gVisor ActorTemplates) ====================
+NAME                                             READY   ACCEPTED
+sandboxagent.kagent.dev/drift-specialist         True    True
+sandboxagent.kagent.dev/feature-rag-specialist   True    True
+
+NAME                                 DESIRED   REPLICAS   AGE
+workerpool.ate.dev/business-agents   2         2          12h
+
+NAME                                                            CLASS
+actortemplate.ate.dev/drift-specialist-14381f1b23d9d2c0         gvisor
+actortemplate.ate.dev/drift-specialist-4c7e93f17382afb0         gvisor
+actortemplate.ate.dev/drift-specialist-d5360cf016655b7d         gvisor
+actortemplate.ate.dev/feature-rag-specialist-8ad7688fd26be9bb   gvisor
+actortemplate.ate.dev/feature-rag-specialist-cf4b25b566cd0a22   gvisor
+actortemplate.ate.dev/feature-rag-specialist-df8a7bb82b490b0f   gvisor
+NAME                                          READY   STATUS    RESTARTS   AGE   IP             NODE                                     NOMINATED NODE   READINESS GATES
+business-agents-deployment-55b8b4858c-nns95   1/1     Running   0          12h   10.216.2.131   gke-ewallet-dev-cpu-pool-58daed59-ps1b   <none>           <none>
+business-agents-deployment-55b8b4858c-v8rzm   1/1     Running   0          12h   10.216.3.60    gke-ewallet-dev-cpu-pool-58daed59-gt91   <none>           <none>
+
+==================== 05:18:12Z  Restarts in ewallet-agents / ewallet-mcp (expect 0) ====================
+done

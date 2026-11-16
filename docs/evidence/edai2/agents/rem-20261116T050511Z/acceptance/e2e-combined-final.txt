@@ -1,0 +1,24 @@
+
+==================== 06:07:57Z  E2E combined  request_id replay-combined-060757  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=16.353 s
+{"status": "complete", "workflow": "combined", "contract_version": "g3-orchestration/v2", "unavailable": []}
+  drift-specialist: status=ok fraud_probability=None psi=0.0004795543627041439
+  feature-rag-specialist: status=ok fraud_probability=0.0639895560144887 psi=None
+
+==================== 06:08:14Z  HOPS for combined (logs since 2026-11-16T06:07:57Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 06:08:13,131 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 06:08:14,172 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 06:08:14,179 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-combined-060757 task_id=0c29b447-39ba-4f00-a5db-997fa6f943af mode=typed status=complete duration_ms=16092
+-- A2A Gateway routes
+      1 "route":"default/sandbox-drift-specialist"
+      1 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-drift" "status": "ok" "tool_name": "drift_detection" "trace_id": "612b7ee280aeb758edc3a7939eba2a17"
+"actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "feature_lookup" "trace_id": "612b7ee280aeb758edc3a7939eba2a17" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "fraud_scoring" "trace_id": "612b7ee280aeb758edc3a7939eba2a17" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "knowledge_search" "trace_id": "612b7ee280aeb758edc3a7939eba2a17"
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+pod/drift-specialist-6b95987c9f-4mmv4 0
+pod/drift-specialist-6b95987c9f-d4cpw 0
+pod/feature-rag-specialist-968cdb5f-4v5n4 0
+pod/feature-rag-specialist-968cdb5f-hq5fr 0
+saved under /home/huyy-giaa/ewallet-evidence/agents/remediation/rem-20261116T050511Z/acceptance/e2e/replay-combined-060757-*

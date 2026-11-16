@@ -1,0 +1,24 @@
+{
+  "levels": {
+    "load": {
+      "availability_percent": 100.0,
+      "e2e_ms": {
+        "mean": 15804.552859067917,
+        "p50": 15655.259132385254,
+        "p95": 16924.12757873535
+      },
+      "peak_replicas": 2,
+      "recovery_seconds": null,
+      "requests": 40,
+      "requests_per_second": 0.12542708411462591,
+      "scale_in_seconds": null,
+      "scale_out_seconds": null,
+      "states": {
+        "completed": 40
+      },
+      "status": "MEASURED",
+      "succeeded": 40
+    }
+  },
+  "workload_sha256": "903e838534fb91a7df1f4034a540135424cdba45da827d9b5e92f1097ed63ca5"
+}
