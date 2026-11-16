@@ -135,3 +135,29 @@ def test_r2_order_and_ateapi_always_restored(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError):
         (tmp_path / "f").mkdir(); wl.run_r2(failing, tmp_path / "f", A, "ua", 60, 1)
     assert failing.mutations[-1] == f"-n {wl.ATE_NS} scale deployment {wl.ATEAPI} --replicas=1", "ateapi restored on failure"
+
+
+def test_r3_deletes_only_a_busy_worker_and_records_the_drain(monkeypatch, tmp_path):
+    monkeypatch.setenv("P2A_CAMPAIGN", CAMPAIGN)
+    monkeypatch.setenv("P2A_APPROVAL", f"R3:{CAMPAIGN}")
+    idle = idle_state()
+    busy = snap([pod(A, "ua"), pod(B, "ub")], [(A, False), (B, True)])
+    draining = snap([pod(A, "ua"), pod(B, "ub", deleting=True)], [(A, False), (B, True)])
+    end = snap([pod(A, "ua"), pod(C, "uc")], [(A, False), (C, False)])
+    cluster = FakeCluster([idle, busy, draining, end])
+    assert wl.run_r3(cluster, tmp_path, 5, 5) == 0
+    assert cluster.mutations == [f"-n {wl.SANDBOX_NS} delete pod {B} --wait=false"], "only the busy worker, gracefully"
+    r = json.loads((tmp_path / "assessment.json").read_text())
+    assert r["target_pod"] == B and r["actor_kept_while_terminating_samples"] == 1 and r["verdict_inputs_ok"]
+
+
+def test_r3_needs_its_approval_and_a_busy_worker(monkeypatch, tmp_path):
+    monkeypatch.setenv("P2A_CAMPAIGN", CAMPAIGN)
+    monkeypatch.setenv("P2A_APPROVAL", f"R2:{CAMPAIGN}")
+    with pytest.raises(wl.Refused):
+        wl.run_r3(FakeCluster([idle_state()]), tmp_path, 1, 1)
+    monkeypatch.setenv("P2A_APPROVAL", f"R3:{CAMPAIGN}")
+    cluster = FakeCluster([idle_state()])
+    with pytest.raises(wl.Refused, match="no worker became busy"):
+        wl.run_r3(cluster, tmp_path, 1, 1)
+    assert cluster.mutations == []

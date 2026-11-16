@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # B′: the shared Sandbox WorkerPool (ewallet-sandbox/business-agents) under KEDA.
 # Packages, each its own owner approval (BPRIME_APPROVAL=<TOKEN>:<context>):
+#   ateom        BPRIME-ATEOM        patch only spec.ateomImage (the drain build, ATEOM_IMAGE); rolls the workers
 #   pool         BPRIME-POOL         patch the live WorkerPool: spec.scaleSelector (needs PKG-P3) and
 #                                    spec.ateomImage (the drain build, ATEOM_IMAGE). Only these two
 #                                    fields; replicas is never written (KEDA owns it).
@@ -13,6 +14,8 @@
 #   pool-diff             [READ-ONLY] current vs intended pool fields, server-side dry run of the patch
 #   pool-apply            [MUTATES]   BPRIME-POOL; records the previous fields for pool-rollback
 #   pool-rollback         [MUTATES]   BPRIME-POOL-ROLLBACK; restores the recorded fields
+#   ateom-diff            [READ-ONLY] current vs intended ateomImage, server-side dry run
+#   ateom-apply           [MUTATES]   BPRIME-ATEOM; records the previous fields for pool-rollback
 #   so-diff               [READ-ONLY] server-side dry run of the ScaledObject
 #   so-apply              [MUTATES]   BPRIME-SO; refuses unless KEDA watches ewallet-sandbox and /scale has a selector
 #   so-rollback           [MUTATES]   BPRIME-SO-ROLLBACK; deletes the ScaledObject (KEDA removes its HPA), then
@@ -38,6 +41,17 @@ pool_patch() {
   [[ "${ATEOM_IMAGE:-}" =~ ^[a-z0-9.-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-ateom-gvisor(:[A-Za-z0-9._+-]+)?@sha256:[0-9a-f]{64}$ ]] \
     || die "ATEOM_IMAGE must be a digest-pinned substrate-ateom-gvisor reference"
   printf '{"spec":{"scaleSelector":"%s","ateomImage":"%s"}}' "$selector" "$ATEOM_IMAGE"
+}
+
+ateom_patch() {
+  [[ "${ATEOM_IMAGE:-}" =~ ^[a-z0-9.-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/substrate-ateom-gvisor(:[A-Za-z0-9._+-]+)?@sha256:[0-9a-f]{64}$ ]] \
+    || die "ATEOM_IMAGE must be a digest-pinned substrate-ateom-gvisor reference"
+  printf '{"spec":{"ateomImage":"%s"}}' "$ATEOM_IMAGE"
+}
+
+record_pool() {
+  [[ -s "$work/pool-before.json" ]] || K -n "$ns" get workerpool "$pool" -o json \
+    | python3 -c 'import json,sys; s=json.load(sys.stdin)["spec"]; print(json.dumps({"scaleSelector": s.get("scaleSelector"), "ateomImage": s["ateomImage"]}))' > "$work/pool-before.json"
 }
 
 scale_selector() {
@@ -80,6 +94,17 @@ case "$action" in
     K -n "$ns" patch workerpool "$pool" --type merge -p "$patch"
     K -n "$ns" rollout status "deployment/$pool-deployment" --timeout=900s
     log "pool-rollback PASS: $(cat "$work/pool-before.json")" ;;
+  ateom-diff)
+    echo "current ateomImage=$(field ateomImage) replicas=$(field replicas)"
+    K -n "$ns" patch workerpool "$pool" --type merge -p "$(ateom_patch)" --dry-run=server -o 'jsonpath=dry-run ateomImage={.spec.ateomImage} replicas={.spec.replicas}{"\n"}' ;;
+  ateom-apply)
+    approval BPRIME-ATEOM
+    patch=$(ateom_patch); record_pool
+    K -n "$ns" patch workerpool "$pool" --type merge -p "$patch" --dry-run=server > /dev/null
+    K -n "$ns" patch workerpool "$pool" --type merge -p "$patch"
+    [[ "$(field ateomImage)" == "$ATEOM_IMAGE" ]] || die "ateomImage not applied"
+    sleep 5; K -n "$ns" rollout status "deployment/$pool-deployment" --timeout=900s
+    log "ateom-apply PASS: ateomImage=$ATEOM_IMAGE (replicas untouched: $(field replicas))" ;;
   so-diff)
     K apply --server-side --field-manager=ewallet-bprime -f "$so_file" --dry-run=server -o yaml > "$work/so-dry-run.yaml"
     echo "server dry run PASS ($(grep -c '' "$work/so-dry-run.yaml") lines): $(python3 -c 'import sys,yaml; d=yaml.safe_load(open(sys.argv[1])); s=d["spec"]; print(s["scaleTargetRef"], s["minReplicaCount"], s["maxReplicaCount"], s["fallback"], s["triggers"][0]["metadata"]["query"])' "$work/so-dry-run.yaml")" ;;

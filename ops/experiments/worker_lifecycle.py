@@ -6,6 +6,7 @@ idle worker while ateapi is down). Observations and assertions are kept apart.
     python -m ops.experiments.worker_lifecycle idle --out <dir>                        [READ-ONLY]
     python -m ops.experiments.worker_lifecycle r1 --out <dir> --pod P --uid U          [MUTATES: P2A_APPROVAL=R1:<campaign>]
     python -m ops.experiments.worker_lifecycle r2 --out <dir> --pod P --uid U          [MUTATES: P2A_APPROVAL=R2:<campaign>]
+    python -m ops.experiments.worker_lifecycle r3 --out <dir> [--busy-timeout S]             [MUTATES: P2A_APPROVAL=R3:<campaign>]
     python -m ops.experiments.worker_lifecycle assert --out <dir> --test r1|r2 --pod P --uid U   [LOCAL]
 
 The registry is read through kagent's ``/api/substrate/status`` (ate-api ListWorkers/ListActors with
@@ -17,6 +18,10 @@ r2  scales ate-api-server-deployment to 0, waits until no ateapi pod exists (so 
     the delete), deletes the approved worker pod gracefully, waits until it is gone, then scales
     ateapi back to 1 and records the recovery. Any failure after the scale-down restores ateapi
     first. The outage is bounded by --max-outage.
+
+r3  (B′ active-actor scale-in) waits until a worker is busy (an actor assigned, while the caller runs a
+    business request), deletes exactly that pod gracefully (the ReplicaSet's scale-in path) and records
+    the drain until the pod is gone and a replacement is registered.
 
 Env: KUBE_CONTEXT, KAGENT_URL (default http://127.0.0.1:18383), P2A_CAMPAIGN.
 """
@@ -248,11 +253,54 @@ def run_r2(cluster: Cluster, out: Path, pod: str, uid: str, max_outage: float, t
     return 0 if ok else 1
 
 
+def assess_drain(timeline: list[Mapping[str, Any]], pod: str, uid: str) -> dict[str, Any]:
+    """R3: the busy worker kept its actor while terminating and left only after the drain."""
+    out: dict[str, Any] = {"test": "r3", "target_pod": pod, "target_uid": uid}
+    deleting = [s for s in timeline if any(p["name"] == pod and p["deleting"] for p in s["pods"])]
+    out["observed_terminating_samples"] = len(deleting)
+    held = [s for s in deleting if any(w["pod"] == pod and w["assigned"] for w in (s.get("registry") or {}).get("workers", []))]
+    out["actor_kept_while_terminating_samples"] = len(held)
+    out["first_terminating"] = deleting[0]["time"] if deleting else None
+    gone = [s["time"] for s in timeline if all(p["name"] != pod for p in s["pods"])]
+    out["pod_gone_at"] = gone[0] if gone else None
+    ends = consistency(timeline[-1])
+    out["end_consistency"] = ends
+    out["registry_converged"] = bool(ends.get("registry_readable")) and not ends["stale_records"] and not ends["unregistered_ready_pods"]
+    out["verdict_inputs_ok"] = bool(deleting) and bool(gone) and out["registry_converged"]
+    return out
+
+
+def run_r3(cluster: Cluster, out: Path, busy_timeout: float, timeout: float) -> int:
+    approval("r3")
+    timeline: list = []
+    deadline = time.monotonic() + busy_timeout
+    target = None
+    while time.monotonic() < deadline and target is None:
+        snap = record(cluster, out, "r3-wait-busy", timeline)
+        live = {p["name"]: p for p in snap["pods"] if not p["deleting"]}
+        busy = [w["pod"] for w in (snap.get("registry") or {}).get("workers", []) if w["assigned"] and w["pod"] in live]
+        if busy:
+            target = live[sorted(busy)[0]]
+        else:
+            time.sleep(0.5)
+    if target is None:
+        raise Refused("no worker became busy within the wait; nothing was deleted")
+    event(out, f"R3 delete busy worker {SANDBOX_NS}/{target['name']} uid={target['uid']} (graceful, scale-in path)")
+    cluster.kubectl("-n", SANDBOX_NS, "delete", "pod", target["name"], "--wait=false")
+    ok = wait_until(cluster, out, "r3-drain", timeline,
+                    lambda s: all(p["name"] != target["name"] for p in s["pods"]) and consistency(s).get("registry_readable")
+                    and not consistency(s)["stale_records"] and not consistency(s)["unregistered_ready_pods"], timeout, interval=0.5)
+    event(out, f"R3 drained-and-replaced={ok}")
+    (out / "assessment.json").write_text(json.dumps(assess_drain(timeline, target["name"], target["uid"]), indent=2))
+    return 0 if ok else 1
+
+
 # ----------------------------------------------------------------------------- cli
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["snapshot", "watch", "idle", "r1", "r2", "assert"])
+    parser.add_argument("command", choices=["snapshot", "watch", "idle", "r1", "r2", "r3", "assert"])
+    parser.add_argument("--busy-timeout", type=float, default=180)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--label", default="snapshot")
     parser.add_argument("--seconds", type=float, default=60)
@@ -288,6 +336,8 @@ def main(argv: list[str] | None = None) -> int:
             return run_r1(cluster, args.out, args.pod, args.uid, args.timeout)
         elif args.command == "r2":
             return run_r2(cluster, args.out, args.pod, args.uid, args.max_outage, args.timeout)
+        elif args.command == "r3":
+            return run_r3(cluster, args.out, args.busy_timeout, args.timeout)
     except Refused as error:
         print(f"REFUSED: {error}", file=sys.stderr)
         return 2
